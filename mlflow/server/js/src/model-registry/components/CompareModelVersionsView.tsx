@@ -8,8 +8,9 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { Link } from '../../common/utils/RoutingUtils';
-import _ from 'lodash';
-import { FormattedMessage, injectIntl, IntlShape } from 'react-intl';
+import { every, isEmpty, uniq } from 'lodash';
+import type { IntlShape } from 'react-intl';
+import { FormattedMessage, injectIntl } from 'react-intl';
 import { Switch, LegacyTabs, useDesignSystemTheme } from '@databricks/design-system';
 
 import { getParams, getRunInfo } from '../../experiment-tracking/reducers/Reducers';
@@ -46,7 +47,7 @@ function CompareTable(props: any) {
   const { theme } = useDesignSystemTheme();
   return (
     <table
-      className="compare-table table"
+      className="mlflow-compare-table table"
       css={{
         'th.main-table-header': {
           backgroundColor: theme.colors.white,
@@ -119,11 +120,11 @@ export class CompareModelVersionsViewImpl extends Component<
   };
 
   icons = {
-    plusIcon: <i className="far fa-plus-square-o" />,
-    minusIcon: <i className="far fa-minus-square-o" />,
-    downIcon: <i className="fas fa-caret-down" />,
-    rightIcon: <i className="fas fa-caret-right" />,
-    chartIcon: <i className="fas fa-line-chart padding-left-text" />,
+    plusIcon: <i className="fa fa-plus-square-o" />,
+    minusIcon: <i className="fa fa-minus-square-o" />,
+    downIcon: <i className="fa fa-caret-down" />,
+    rightIcon: <i className="fa fa-caret-right" />,
+    chartIcon: <i className="fa fa-line-chart padding-left-text" />,
   };
 
   onToggleClick = (active: any) => {
@@ -153,26 +154,28 @@ export class CompareModelVersionsViewImpl extends Component<
       />
     );
     const breadcrumbs = [
+      // eslint-disable-next-line react/jsx-key
       <Link to={ModelRegistryRoutes.modelListPageRoute}>
         <FormattedMessage
           defaultMessage="Registered Models"
           description="Text for registered model link in the title for model comparison page"
         />
       </Link>,
+      // eslint-disable-next-line react/jsx-key
       <Link to={ModelRegistryRoutes.getModelPageRoute(modelName)}>{modelName}</Link>,
     ];
 
     return (
       <div
         className="CompareModelVersionsView"
-        // @ts-expect-error TS(2322): Type '{ '.compare-table': { minWidth: number; }; '... Remove this comment to see the full error message
+        // @ts-expect-error TS(2322): Type '{ '.mlflow-compare-table': { minWidth: number; }; '... Remove this comment to see the full error message
         css={{
           ...styles.compareModelVersionsView,
           ...styles.wrapper(runInfos.length),
         }}
       >
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
-        <div className="responsive-table-container">
+        <div className="mlflow-responsive-table-container">
           <CompareTable>
             {this.renderTableHeader()}
             {this.renderModelVersionInfo()}
@@ -479,8 +482,8 @@ export class CompareModelVersionsViewImpl extends Component<
     // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
     const isActive = this.state[activeSection];
     const showSchemaSection = schemaActive && isActive;
-    const showListByIndex = !compareByColumnNameToggle && !_.isEmpty(listByIndex);
-    const showListByName = compareByColumnNameToggle && !_.isEmpty(listByName);
+    const showListByIndex = !compareByColumnNameToggle && !isEmpty(listByIndex);
+    const showListByName = compareByColumnNameToggle && !isEmpty(listByName);
     const listByIndexHeaderMap = (key: any, data: any) => (
       <>
         {sectionName} [{key}]
@@ -576,7 +579,7 @@ export class CompareModelVersionsViewImpl extends Component<
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       records.forEach((r: any) => (data[r.key][i] = r.value));
     });
-    if (_.isEmpty(keys) || _.isEmpty(list)) {
+    if (isEmpty(keys) || isEmpty(list)) {
       return (
         <tr className={`table-row ${show ? '' : 'hidden-row'}`}>
           <th scope="row" className="rowHeader block-content">
@@ -593,7 +596,7 @@ export class CompareModelVersionsViewImpl extends Component<
       );
     }
     // @ts-expect-error TS(2345): Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
-    const isAllNumeric = _.every(keys, (key) => !isNaN(key));
+    const isAllNumeric = every(keys, (key) => !isNaN(key));
     if (isAllNumeric) {
       keys.sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
     } else {
@@ -602,7 +605,7 @@ export class CompareModelVersionsViewImpl extends Component<
     let identical = true;
     const resultRows = keys.map((k) => {
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-      const isDifferent = data[k].length > 1 && _.uniq(data[k]).length > 1;
+      const isDifferent = data[k].length > 1 && uniq(data[k]).length > 1;
       identical = !isDifferent && identical;
       return (
         <tr key={k} className={`table-row ${(toggle && !isDifferent) || !show ? 'hidden-row' : ''}`}>
@@ -737,7 +740,7 @@ const DEFAULT_COLUMN_WIDTH = 200;
 
 const styles = {
   wrapper: (numRuns: any) => ({
-    '.compare-table': {
+    '.mlflow-compare-table': {
       // 1 extra unit for header column
       minWidth: (numRuns + 1) * DEFAULT_COLUMN_WIDTH,
     },

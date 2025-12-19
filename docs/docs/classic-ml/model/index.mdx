@@ -6,8 +6,6 @@ toc_max_heading_level: 2
 
 import TOCInline from "@theme/TOCInline";
 import { APILink } from "@site/src/components/APILink";
-import Link from "@docusaurus/Link";
-import useBaseUrl from "@docusaurus/useBaseUrl";
 import { Table } from "@site/src/components/Table";
 
 # MLflow Models
@@ -222,13 +220,13 @@ you can use the <APILink fn="mlflow.models.Model">mlflow.models.Model</APILink> 
 class has four key functions:
 
 - <APILink fn="mlflow.models.Model.add_flavor">add_flavor</APILink> to add a flavor to the model. Each flavor
-  has a string name and a dictionary of key-value attributes, where the values can be any object
-  that can be serialized to YAML.
+has a string name and a dictionary of key-value attributes, where the values can be any object
+that can be serialized to YAML.
 - <APILink fn="mlflow.models.Model.save">save</APILink> to save the model to a local directory.
 - <APILink fn="mlflow.models.Model.log">log</APILink> to log the model as an artifact in the
-  current run using MLflow Tracking.
+current run using MLflow Tracking.
 - <APILink fn="mlflow.models.Model.load">load</APILink> to load a model from a local directory or
-  from an artifact in a previous run.
+from an artifact in a previous run.
 
 ## Models From Code
 
@@ -335,7 +333,7 @@ framework was used to produce the model. This interoperability is very powerful 
 any Python model to be productionized in a variety of environments.
 
 In addition, the `python_function` model flavor defines a generic
-filesystem <Link to="/api_reference/python_api/mlflow.pyfunc.html#pyfunc-filesystem-format" target="_blank">model format</Link>
+filesystem <APILink fn="mlflow.pyfunc" hash="pyfunc-filesystem-format">model format</APILink>
 for Python models and provides utilities for saving and loading models
 to and from this format. The format is self-contained in the sense that it includes all the
 information necessary to load and use a model. Dependencies are stored either directly with the
@@ -545,16 +543,16 @@ The `h2o` model flavor enables logging and loading H2O models.
 
 The <APILink fn="mlflow.h2o">mlflow.h2o</APILink> module defines <APILink fn="mlflow.h2o.save_model">save_model()</APILink>
 and <APILink fn="mlflow.h2o.log_model">log_model()</APILink> methods in python,
-and <Link to={useBaseUrl("/api_reference/R-api.html#mlflow-save-model-h2o")} target="_blank">mlflow_save_model</Link>
-and <Link to={useBaseUrl("/api_reference/R-api.html#mlflow-log-model")} target="_blank">mlflow_log_model</Link> in R for saving H2O
+and <APILink fn="mlflow.r" hash="mlflow-save-model-crate">mlflow_save_model</APILink>
+and <APILink fn="mlflow.r" hash="mlflow-log-model">mlflow_log_model</APILink> in R for saving H2O
 models in MLflow Model format. These methods produce MLflow Models with the `python_function` flavor, allowing you to load them
 as generic Python functions for inference via <APILink fn="mlflow.pyfunc.load_model" />.
 This loaded PyFunc model can be scored with only DataFrame input. When you load
 MLflow Models with the `h2o` flavor using <APILink fn="mlflow.pyfunc.load_model" />,
-the [h2o.init()](http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init) method is
+the [h2o.init()](https://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init) method is
 called. Therefore, the correct version of `h2o(-py)` must be installed in the loader's
 environment. You can customize the arguments given to
-[h2o.init()](http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init) by modifying the
+[h2o.init()](https://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init) by modifying the
 `init` entry of the persisted H2O model's YAML configuration file: `model.h2o/h2o.yaml`.
 
 Finally, you can use the <APILink fn="mlflow.h2o.load_model" /> method to load MLflow Models with the
@@ -645,7 +643,6 @@ For more information, see <APILink fn="mlflow.spark">mlflow.spark</APILink>.
 ### TensorFlow (`tensorflow`)
 
 The full guide for the `tensorflow` integration [can be viewed here](/ml/deep-learning/tensorflow/).
-
 
 ### ONNX (`onnx`)
 
@@ -791,7 +788,7 @@ print(y_pred)
 
 ### CatBoost (`catboost`)
 
-The `catboost` model flavor enables logging of [CatBoost models](https://catboost.ai/docs/concepts/python-reference_catboost.html)
+The `catboost` model flavor enables logging of [CatBoost models](https://catboost.ai/docs/en/concepts/python-reference_catboost)
 in MLflow format via the <APILink fn="mlflow.catboost.save_model" /> and <APILink fn="mlflow.catboost.log_model" /> methods.
 These methods also add the `python_function` flavor to the MLflow Models that they produce, allowing the
 models to be interpreted as generic Python functions for inference via <APILink fn="mlflow.pyfunc.load_model" />.
@@ -1224,299 +1221,6 @@ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
 }'
 ```
 
-### Diviner (`diviner`)
-
-The `diviner` model flavor enables logging of [diviner models](https://databricks-diviner.readthedocs.io/en/latest/index.html)
-in MLflow format via the <APILink fn="mlflow.diviner.save_model" /> and <APILink fn="mlflow.diviner.log_model" /> methods.
-These methods also add the `python_function` flavor to the MLflow Models that they produce, allowing the model to be
-interpreted as generic Python functions for inference via <APILink fn="mlflow.pyfunc.load_model" />.
-This loaded PyFunc model can only be scored with a DataFrame input.
-You can also use the <APILink fn="mlflow.diviner.load_model" /> method to load MLflow Models with the `diviner`
-model flavor in native diviner formats.
-
-#### Diviner Types
-
-Diviner is a library that provides an orchestration framework for performing time series forecasting on groups of
-related series. Forecasting in `diviner` is accomplished through wrapping popular open source libraries such as
-[prophet](https://facebook.github.io/prophet/) and [pmdarima](http://alkaline-ml.com/pmdarima/). The `diviner`
-library offers a simplified set of APIs to simultaneously generate distinct time series forecasts for multiple data
-groupings using a single input DataFrame and a unified high-level API.
-
-#### Metrics and Parameters logging for Diviner
-
-Unlike other flavors that are supported in MLflow, Diviner has the concept of grouped models. As a collection of many
-(perhaps thousands) of individual forecasting models, the burden to the tracking server to log individual metrics
-and parameters for each of these models is significant. For this reason, metrics and parameters are exposed for
-retrieval from Diviner's APIs as `Pandas` `DataFrames`, rather than discrete primitive values.
-
-To illustrate, let us assume we are forecasting hourly electricity consumption from major cities around the world.
-A sample of our input data looks like this:
-
-<Table>
-  <thead>
-    <tr>
-      <th>country</th>
-      <th>city</th>
-      <th>datetime</th>
-      <th>watts</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>US</td>
-      <td>NewYork</td>
-      <td>2022-03-01 00:01:00</td>
-      <td>23568.9</td>
-    </tr>
-    <tr>
-      <td>US</td>
-      <td>NewYork</td>
-      <td>2022-03-01 00:02:00</td>
-      <td>22331.7</td>
-    </tr>
-    <tr>
-      <td>US</td>
-      <td>Boston</td>
-      <td>2022-03-01 00:01:00</td>
-      <td>14220.1</td>
-    </tr>
-    <tr>
-      <td>US</td>
-      <td>Boston</td>
-      <td>2022-03-01 00:02:00</td>
-      <td>14183.4</td>
-    </tr>
-    <tr>
-      <td>CA</td>
-      <td>Toronto</td>
-      <td>2022-03-01 00:01:00</td>
-      <td>18562.2</td>
-    </tr>
-    <tr>
-      <td>CA</td>
-      <td>Toronto</td>
-      <td>2022-03-01 00:02:00</td>
-      <td>17681.6</td>
-    </tr>
-    <tr>
-      <td>MX</td>
-      <td>MexicoCity</td>
-      <td>2022-03-01 00:01:00</td>
-      <td>19946.8</td>
-    </tr>
-    <tr>
-      <td>MX</td>
-      <td>MexicoCity</td>
-      <td>2022-03-01 00:02:00</td>
-      <td>19444.0</td>
-    </tr>
-  </tbody>
-</Table>
-
-If we were to `fit` a model on this data, supplying the grouping keys as:
-
-```python
-grouping_keys = ["country", "city"]
-```
-
-We will have a model generated for each of the grouping keys that have been supplied:
-
-```python
-[("US", "NewYork"), ("US", "Boston"), ("CA", "Toronto"), ("MX", "MexicoCity")]
-```
-
-With a model constructed for each of these, entering each of their metrics and parameters wouldn't be an issue for the
-MLflow tracking server. What would become a problem, however, is if we modeled each major city on the planet and ran
-this forecasting scenario every day. If we were to adhere to the conditions of the World Bank, that would mean just
-over 10,000 models as of 2022. After a mere few weeks of running this forecasting every day we would have a very large
-metrics table.
-
-To eliminate this issue for large-scale forecasting, the metrics and parameters for `diviner` are extracted as a
-grouping key indexed `Pandas DataFrame`, as shown below for example (float values truncated for visibility):
-
-<Table>
-  <thead>
-    <tr>
-      <th>grouping_key_columns</th>
-      <th>country</th>
-      <th>city</th>
-      <th>mse</th>
-      <th>rmse</th>
-      <th>mae</th>
-      <th>mape</th>
-      <th>mdape</th>
-      <th>smape</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>("country", "city")</td>
-      <td>CA</td>
-      <td>Toronto</td>
-      <td>8276851.6</td>
-      <td>2801.7</td>
-      <td>2417.7</td>
-      <td>0.16</td>
-      <td>0.16</td>
-      <td>0.159</td>
-    </tr>
-    <tr>
-      <td>("country", "city")</td>
-      <td>MX</td>
-      <td>MexicoCity</td>
-      <td>3548872.4</td>
-      <td>1833.8</td>
-      <td>1584.5</td>
-      <td>0.15</td>
-      <td>0.16</td>
-      <td>0.159</td>
-    </tr>
-    <tr>
-      <td>("country", "city")</td>
-      <td>US</td>
-      <td>NewYork</td>
-      <td>3167846.4</td>
-      <td>1732.4</td>
-      <td>1498.2</td>
-      <td>0.15</td>
-      <td>0.16</td>
-      <td>0.158</td>
-    </tr>
-    <tr>
-      <td>("country", "city")</td>
-      <td>US</td>
-      <td>Boston</td>
-      <td>14082666.4</td>
-      <td>3653.2</td>
-      <td>3156.2</td>
-      <td>0.15</td>
-      <td>0.16</td>
-      <td>0.159</td>
-    </tr>
-  </tbody>
-</Table>
-
-There are two recommended means of logging the metrics and parameters from a `diviner` model :
-
-- Writing the DataFrames to local storage and using <APILink fn="mlflow.log_artifacts" />
-
-```python
-import os
-import mlflow
-import tempfile
-
-with tempfile.TemporaryDirectory() as tmpdir:
-    params = model.extract_model_params()
-    metrics = model.cross_validate_and_score(
-        horizon="72 hours",
-        period="240 hours",
-        initial="480 hours",
-        parallel="threads",
-        rolling_window=0.1,
-        monthly=False,
-    )
-    params.to_csv(f"{tmpdir}/params.csv", index=False, header=True)
-    metrics.to_csv(f"{tmpdir}/metrics.csv", index=False, header=True)
-
-    mlflow.log_artifacts(tmpdir, artifact_path="data")
-```
-
-- Writing directly as a JSON artifact using <APILink fn="mlflow.log_dict" />
-
-:::note
-The parameters extract from `diviner` models _may require_ casting (or dropping of columns) if using the
-`pd.DataFrame.to_dict()` approach due to the inability of this method to serialize objects.
-:::
-
-```python
-import mlflow
-
-params = model.extract_model_params()
-metrics = model.cross_validate_and_score(
-    horizon="72 hours",
-    period="240 hours",
-    initial="480 hours",
-    parallel="threads",
-    rolling_window=0.1,
-    monthly=False,
-)
-params["t_scale"] = params["t_scale"].astype(str)
-params["start"] = params["start"].astype(str)
-params = params.drop("stan_backend", axis=1)
-
-mlflow.log_dict(params.to_dict(), "params.json")
-mlflow.log_dict(metrics.to_dict(), "metrics.json")
-```
-
-Logging of the model artifact is shown in the `pyfunc` example below.
-
-#### Diviner pyfunc usage
-
-The MLflow Diviner flavor includes an implementation of the `pyfunc` interface for Diviner models. To control
-prediction behavior, you can specify configuration arguments in the first row of a Pandas DataFrame input.
-
-As this configuration is dependent upon the underlying model type (i.e., the `diviner.GroupedProphet.forecast()`
-method has a different signature than does `diviner.GroupedPmdarima.predict()`), the Diviner pyfunc implementation
-attempts to coerce arguments to the types expected by the underlying model.
-
-:::note
-Diviner models support both "full group" and "partial group" forecasting. If a column named `"groups"` is present
-in the configuration `DataFrame` submitted to the `pyfunc` flavor, the grouping key values in the first row
-will be used to generate a subset of forecast predictions. This functionality removes the need to filter a subset
-from the full output of all groups forecasts if the results of only a few (or one) groups are needed.
-:::
-
-For a `GroupedPmdarima` model, an example configuration for the `pyfunc` `predict()` method is:
-
-```python
-import mlflow
-import pandas as pd
-from pmdarima.arima.auto import AutoARIMA
-from diviner import GroupedPmdarima
-
-with mlflow.start_run():
-    base_model = AutoARIMA(out_of_sample_size=96, maxiter=200)
-    model = GroupedPmdarima(model_template=base_model).fit(
-        df=df,
-        group_key_columns=["country", "city"],
-        y_col="watts",
-        datetime_col="datetime",
-        silence_warnings=True,
-    )
-
-    mlflow.diviner.save_model(diviner_model=model, path="/tmp/diviner_model")
-
-diviner_pyfunc = mlflow.pyfunc.load_model(model_uri="/tmp/diviner_model")
-
-predict_conf = pd.DataFrame(
-    {
-        "n_periods": 120,
-        "groups": [
-            ("US", "NewYork"),
-            ("CA", "Toronto"),
-            ("MX", "MexicoCity"),
-        ],  # NB: List of tuples required.
-        "predict_col": "wattage_forecast",
-        "alpha": 0.1,
-        "return_conf_int": True,
-        "on_error": "warn",
-    },
-    index=[0],
-)
-
-subset_forecasts = diviner_pyfunc.predict(predict_conf)
-```
-
-:::note
-There are several instances in which a configuration `DataFrame` submitted to the `pyfunc` `predict()` method
-will cause an `MlflowException` to be raised:
-
-- If neither `horizon` or `n_periods` are provided.
-- The value of `n_periods` or `horizon` is not an integer.
-- If the model is of type `GroupedProphet`, `frequency` as a string type must be provided.
-- If both `horizon` and `n_periods` are provided with different values.
-  :::
-
 ### Transformers (`transformers`)
 
 The full guide, including tutorials and detailed documentation for using the `transformers` integration [can be found here](/ml/deep-learning/transformers/).
@@ -1562,7 +1266,7 @@ REST endpoints.
 
 The following examples demonstrate how you can use the <APILink fn="mlflow.pyfunc">`mlflow.pyfunc`</APILink>
 module to create custom Python models. For additional information about model customization with MLflow's
-`python_function` utilities, see the <Link target="_blank" to="/api_reference/python_api/mlflow.pyfunc.html#pyfunc-create-custom">python_function custom models documentation</Link>.
+`python_function` utilities, see the <APILink fn="mlflow.pyfunc" hash="pyfunc-create-custom">python_function custom models documentation</APILink>.
 
 #### Example: Creating a model with type hints
 
@@ -1623,7 +1327,7 @@ pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
 assert pyfunc_model.predict(input_example) == ["Hello", "Hi"]
 ```
 
-#### Example: Creating a custom “add n” model
+#### Example: Creating a custom "add n" model
 
 This example defines a class for a custom model that adds a specified numeric value, `n`, to all
 columns of a Pandas DataFrame input. Then, it uses the <APILink fn="mlflow.pyfunc">`mlflow.pyfunc`</APILink>
@@ -1663,7 +1367,7 @@ assert model_output.equals(pd.DataFrame([range(5, 15)]))
 
 This example begins by training and saving a gradient boosted tree model using the XGBoost
 library. Next, it defines a wrapper class around the XGBoost model that conforms to MLflow's
-`python_function` <Link target="_blank" to="/api_reference/python_api/mlflow.pyfunc.html#pyfunc-inference-api">inference API</Link>.
+`python_function` <APILink fn="mlflow.pyfunc" hash="pyfunc-inference-api">inference API</APILink>.
 Then, it uses the wrapper class and the saved XGBoost model to construct an MLflow Model that performs inference using the gradient
 boosted tree. Finally, it loads the MLflow Model in `python_function` format and uses it to
 evaluate test data.
@@ -1802,7 +1506,6 @@ with mlflow.start_run() as run:
 
 To read about how to build custom integrations and to see examples of community-developed extended library support, check out the [Community Model Flavors](/ml/community-model-flavors) page.
 
-
 ## Validate Models before Deployment
 
 After logging your model with MLflow Tracking, it is highly recommended to validate the model locally before deploying it to production.
@@ -1811,7 +1514,7 @@ The <APILink fn="mlflow.models.predict" /> API provides a convenient way to test
 - Model dependencies validation: The API helps ensure that the dependencies logged with the model are correct and sufficient by executing the model with an input example in a virtual environment.
   For more details, refer to [Validating Environment for Prediction](/ml/model/dependencies/#validating-environment-for-prediction).
 - Input data validation: The API can be used to validate the input data interacts with the model as expected by simulating the same data processing during model serving.
-  Ensure that the input data is a valid example that aligns with the pyfunc model’s predict function requirements.
+  Ensure that the input data is a valid example that aligns with the pyfunc model's predict function requirements.
 - Extra environment variables validation: By specifying the `extra_envs` parameter, you can test whether additional environment variables are required for the model to run successfully.
   Note that all existing environment variables in `os.environ` are automatically passed into the virtual environment.
 
@@ -1836,6 +1539,16 @@ mlflow.models.predict(
     input_data=["a", "b", "c"],
     pip_requirements_override=["..."],
     extra_envs={"MY_ENV_VAR": "my_value"},
+)
+```
+
+If your model dependencies (see the model artifact's requirements.txt) include **pre-release packages** (e.g., mlflow==3.2.0rc0), set the environment variable `UV_PRERELEASE=allow` via the `extra_envs` field.
+
+```python
+mlflow.models.predict(
+    model_uri=model_info.model_uri,
+    input_data=["a", "b", "c"],
+    extra_envs={"UV_PRERELEASE": "allow"},
 )
 ```
 
@@ -2041,7 +1754,7 @@ pyfunc_udf = mlflow.pyfunc.spark_udf(
 ## Deployment to Custom Targets \{#deployment_plugin}
 
 In addition to the built-in deployment tools, MLflow provides a pluggable <APILink fn="mlflow.deployments" />
-and <Link to="/api_reference/cli.html#mlflow-deployments" target="_blank">mlflow deployments CLI</Link> for deploying models to custom targets and environments.
+and <APILink fn="mlflow.server.cli" hash="mlflow-deployments">mlflow deployments CLI</APILink> for deploying models to custom targets and environments.
 To deploy to a custom target, you must first install an appropriate third-party Python plugin. See the list of
 known community-maintained plugins [here](/ml/plugins).
 
@@ -2050,14 +1763,14 @@ known community-maintained plugins [here](/ml/plugins).
 The `mlflow deployments` CLI contains the following commands, which can also be invoked programmatically
 using the <APILink fn="mlflow.deployments">mlflow.deployments Python API</APILink>:
 
-- <Link to="/api_reference/cli.html#mlflow-deployments-create" target="_blank">Create</Link>: Deploy an MLflow model to a specified custom target
-- <Link to="/api_reference/cli.html#mlflow-deployments-delete" target="_blank">Delete</Link>: Delete a deployment
-- <Link to="/api_reference/cli.html#mlflow-deployments-update" target="_blank">Update</Link>: Update an existing deployment, for example to
-  deploy a new model version or change the deployment's configuration (e.g. increase replica count)
-- <Link to="/api_reference/cli.html#mlflow-deployments-list" target="_blank">List</Link>: List IDs of all deployments
-- <Link to="/api_reference/cli.html#mlflow-deployments-get" target="_blank">Get</Link>: Print a detailed description of a particular deployment
-- <Link to="/api_reference/cli.html#mlflow-deployments-run-local" target="_blank">Run Local</Link>: Deploy the model locally for testing
-- <Link to="/api_reference/cli.html#mlflow-deployments-help" target="_blank">Help</Link>: Show the help string for the specified target
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-create">Create</APILink>: Deploy an MLflow model to a specified custom target
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-delete">Delete</APILink>: Delete a deployment
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-update">Update</APILink>: Update an existing deployment, for example to
+deploy a new model version or change the deployment's configuration (e.g. increase replica count)
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-list">List</APILink>: List IDs of all deployments
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-get">Get</APILink>: Print a detailed description of a particular deployment
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-run-local">Run Local</APILink>: Deploy the model locally for testing
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-help">Help</APILink>: Show the help string for the specified target
 
 For more info, see:
 

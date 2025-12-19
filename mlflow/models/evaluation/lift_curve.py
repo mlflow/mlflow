@@ -33,7 +33,8 @@ def _cumulative_gain_curve(y_true, y_score, pos_label=None):
         ValueError: If `y_true` is not composed of 2 classes. The Cumulative
             Gain Chart is only relevant in binary classification.
     """
-    y_true, y_score = np.asarray(y_true), np.asarray(y_score)
+    y_true = np.asarray(y_true)
+    y_score = np.asarray(y_score)
 
     # ensure binary classification if pos_label is not specified
     classes = np.unique(y_true)

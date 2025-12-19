@@ -1,6 +1,8 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   Empty,
   Input,
+  Overflow,
   SearchIcon,
   Table,
   TableCell,
@@ -9,15 +11,18 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { MetricEntitiesByName, MetricEntity, RunInfoEntity } from '../../../types';
-import { sum, values } from 'lodash';
+import type { LoggedModelProto, MetricEntitiesByName, MetricEntity, RunInfoEntity } from '../../../types';
+import { compact, flatMap, groupBy, isEmpty, keyBy, mapValues, sum, values } from 'lodash';
 import { useMemo, useState } from 'react';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
+import { RunPageTabName } from '../../../constants';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import { isSystemMetricKey } from '../../../utils/MetricsUtils';
-import { Table as TableDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { ColumnDef, Table as TableDef } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
+import { isUndefined } from 'lodash';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 
 const { systemMetricsLabel, modelMetricsLabel } = defineMessages({
@@ -36,6 +41,10 @@ const metricKeyMatchesFilter =
   ({ key }: MetricEntity) =>
     key.toLowerCase().includes(filter.toLowerCase());
 
+interface MetricEntityWithLoggedModels extends MetricEntity {
+  loggedModels?: LoggedModelProto[];
+}
+
 const RunViewMetricsTableSection = ({
   metricsList,
   runInfo,
@@ -43,12 +52,18 @@ const RunViewMetricsTableSection = ({
   table,
 }: {
   runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
-  metricsList: MetricEntity[];
+  metricsList: MetricEntityWithLoggedModels[];
   header?: React.ReactNode;
-  table: TableDef<MetricEntity>;
+  table: TableDef<MetricEntityWithLoggedModels>;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const [{ column: keyColumn }] = table.getLeafHeaders();
+  const [{ column: keyColumn }, ...otherColumns] = table.getLeafHeaders();
+
+  const valueColumn = otherColumns.find((column) => column.id === 'value')?.column;
+
+  const anyRowHasModels = metricsList.some(({ loggedModels }) => !isEmpty(loggedModels));
+  const modelColumn = otherColumns.find((column) => column.id === 'models')?.column;
+
   return metricsList.length ? (
     <>
       {header && (
@@ -65,25 +80,58 @@ const RunViewMetricsTableSection = ({
           // Get metric key and value to display in table
           key,
           value,
+          loggedModels,
         }) => (
           <TableRow key={key}>
             <TableCell
               style={{
-                flexGrow: 0,
-                flexBasis: keyColumn.getSize(),
+                flex: keyColumn.getCanResize() ? keyColumn.getSize() / 100 : undefined,
               }}
             >
-              <Link to={Routes.getMetricPageRoute([runInfo.runUuid ?? ''], key, [runInfo.experimentId ?? ''])}>
+              <Link
+                to={Routes.getRunPageTabRoute(
+                  runInfo.experimentId ?? '',
+                  runInfo.runUuid ?? '',
+                  RunPageTabName.MODEL_METRIC_CHARTS,
+                )}
+              >
                 {key}
               </Link>
             </TableCell>
             <TableCell
               css={{
-                flexGrow: 1,
+                flex: valueColumn?.getCanResize() ? valueColumn.getSize() / 100 : undefined,
               }}
             >
               {value.toString()}
             </TableCell>
+            {anyRowHasModels && (
+              <TableCell
+                css={{
+                  flex: modelColumn?.getCanResize() ? modelColumn.getSize() / 100 : undefined,
+                }}
+              >
+                {!isEmpty(loggedModels) ? (
+                  <Overflow>
+                    {loggedModels?.map((model) => (
+                      <Link
+                        key={model.info?.model_id}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        to={Routes.getExperimentLoggedModelDetailsPage(
+                          model.info?.experiment_id ?? '',
+                          model.info?.model_id ?? '',
+                        )}
+                      >
+                        {model.info?.name}
+                      </Link>
+                    ))}
+                  </Overflow>
+                ) : (
+                  '-'
+                )}
+              </TableCell>
+            )}
           </TableRow>
         ),
       )}
@@ -97,20 +145,68 @@ const RunViewMetricsTableSection = ({
 export const RunViewMetricsTable = ({
   latestMetrics,
   runInfo,
+  loggedModels,
+  expandToParentContainer,
 }: {
   latestMetrics: MetricEntitiesByName;
   runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
+  loggedModels?: LoggedModelProto[];
+  expandToParentContainer?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { detailsPageTableStyles, detailsPageNoEntriesStyles, detailsPageNoResultsWrapperStyles } =
-    useExperimentTrackingDetailsPageLayoutStyles();
+  const { detailsPageTableStyles, detailsPageNoEntriesStyles } = useExperimentTrackingDetailsPageLayoutStyles();
   const intl = useIntl();
   const [filter, setFilter] = useState('');
 
-  const metricValues = useMemo(() => values(latestMetrics), [latestMetrics]);
+  /**
+   * Aggregate logged models by metric key.
+   * This is used to display the models associated with each metric in the table.
+   */
+  const loggedModelsByMetricKey = useMemo(() => {
+    if (!loggedModels) {
+      return {};
+    }
+    const metricsWithModels = compact(
+      flatMap(loggedModels, (model) => model.data?.metrics?.map(({ key }) => ({ key, model }))),
+    );
+    const groupedMetrics = groupBy(metricsWithModels, 'key');
+    return mapValues(groupedMetrics, (group) => group.map(({ model }) => model));
+  }, [loggedModels]);
 
-  const columns = useMemo(
+  /**
+   * Enrich the metric list with related logged models.
+   */
+  const metricValues = useMemo<MetricEntityWithLoggedModels[]>(() => {
+    const metricList = values(latestMetrics);
+
+    if (isEmpty(loggedModelsByMetricKey)) {
+      return metricList;
+    }
+    return metricList.map((metric) => ({
+      ...metric,
+      loggedModels: loggedModelsByMetricKey[metric.key] ?? [],
+    }));
+  }, [latestMetrics, loggedModelsByMetricKey]);
+
+  const anyRowHasModels = metricValues.some(({ loggedModels }) => !isEmpty(loggedModels));
+
+  const modelColumnDefs: ColumnDef<MetricEntityWithLoggedModels>[] = useMemo(
     () => [
+      {
+        id: 'models',
+        header: intl.formatMessage({
+          defaultMessage: 'Models',
+          description: 'Run page > Overview > Metrics table > Models column header',
+        }),
+        accessorKey: 'models',
+        enableResizing: true,
+      },
+    ],
+    [intl],
+  );
+
+  const columns = useMemo(() => {
+    const columnDefs: ColumnDef<MetricEntityWithLoggedModels>[] = [
       {
         id: 'key',
         accessorKey: 'key',
@@ -132,11 +228,16 @@ export const RunViewMetricsTable = ({
           />
         ),
         accessorKey: 'value',
-        enableResizing: false,
+        enableResizing: true,
       },
-    ],
-    [],
-  );
+    ];
+
+    if (anyRowHasModels) {
+      columnDefs.push(...modelColumnDefs);
+    }
+
+    return columnDefs;
+  }, [anyRowHasModels, modelColumnDefs]);
 
   // Break down metric lists into system and model segments. If no system (or model) metrics
   // are detected, return a single segment.
@@ -159,14 +260,17 @@ export const RunViewMetricsTable = ({
     ];
   }, [filter, metricValues, intl]);
 
-  const table = useReactTable<MetricEntity>({
-    data: metricValues,
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (row) => row.key,
-    enableColumnResizing: true,
-    columnResizeMode: 'onChange',
-    columns,
-  });
+  const table = useReactTable<MetricEntity>(
+    'mlflow/server/js/src/experiment-tracking/components/run-page/overview/RunViewMetricsTable.tsx',
+    {
+      data: metricValues,
+      getCoreRowModel: getCoreRowModel(),
+      getRowId: (row) => row.key,
+      enableColumnResizing: true,
+      columnResizeMode: 'onChange',
+      columns,
+    },
+  );
 
   const renderTableContent = () => {
     if (!metricValues.length) {
@@ -206,7 +310,7 @@ export const RunViewMetricsTable = ({
           scrollable
           empty={
             areAllResultsFiltered ? (
-              <div css={detailsPageNoResultsWrapperStyles}>
+              <div>
                 <Empty
                   description={
                     <FormattedMessage
@@ -230,8 +334,7 @@ export const RunViewMetricsTable = ({
                 setColumnSizing={table.setColumnSizing}
                 isResizing={header.column.getIsResizing()}
                 style={{
-                  flexGrow: header.column.getCanResize() ? 0 : 1,
-                  flexBasis: header.column.getCanResize() ? header.column.getSize() : undefined,
+                  flex: header.column.getCanResize() ? header.column.getSize() / 100 : undefined,
                 }}
               >
                 {flexRender(header.column.columnDef.header, header.getContext())}
@@ -252,7 +355,14 @@ export const RunViewMetricsTable = ({
     );
   };
   return (
-    <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div
+      css={{
+        flex: expandToParentContainer ? 1 : '0 0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
       <Typography.Title level={4} css={{ flexShrink: 0 }}>
         <FormattedMessage
           defaultMessage="Metrics ({length})"
@@ -267,7 +377,7 @@ export const RunViewMetricsTable = ({
           borderRadius: theme.general.borderRadiusBase,
           display: 'flex',
           flexDirection: 'column',
-          flex: 1,
+          flex: expandToParentContainer ? 1 : '0 0 auto',
           overflow: 'hidden',
         }}
       >

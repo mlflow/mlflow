@@ -16,16 +16,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
+# Use `bash` by default for all `run` steps in this workflow:
 # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
 defaults:
   run:
-    shell: bash --noprofile --norc -exo pipefail {0}
+    shell: bash
 
 env:
   MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   PYTHONUTF8: "1"
+  MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
 jobs:
   core:
@@ -33,6 +34,7 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 30
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup-python
@@ -41,19 +43,25 @@ jobs:
       - name: Install mlflow-tracing SDK
         run: |
           pip install pip setuptools --upgrade
-          pip install ./packages/tracing
+          pip install ./libs/tracing
 
       - name: Install test dependencies
         run: |
-          pip install pytest pytest-asyncio
+          pip install pytest pytest-asyncio pytest-timeout
 
-      # Disable tracing SDK tests until REST API is migrated to V3 trace schema
-      # - name: Run core tracing tests
-      #   # NB: OTLP exporter includes large dependencies, so we want to test it in a separate job
-      #   #     to avoid overlooking unnecessary dependencies in the core tracing package.
-      #   run: |
-      #     export PYTHONPATH=$(pwd)
-      #     pytest tests/tracing --ignore tests/tracing/utils/test_otlp.py --import-mode=importlib
+      - name: Run core tracing tests
+        # NB: OTLP exporter includes large dependencies, so we want to test it in a separate job
+        #     to avoid overlooking unnecessary dependencies in the core tracing package.
+        run: |
+          export PYTHONPATH=$(pwd)
+          pytest tests/tracing \
+            --ignore tests/tracing/utils/test_otlp.py \
+            --ignore tests/tracing/test_assessment.py \
+            --ignore tests/tracing/test_otel_logging.py \
+            --ignore tests/tracing/processor/test_otel_metrics.py \
+            --ignore tests/tracing/opentelemetry/test_integration.py \
+            --ignore tests/tracing/test_otel_loading.py \
+            --import-mode=importlib
 
   # TODO: Add a job to run autologging tests against integrated libraries (latest versions)
 

@@ -153,3 +153,72 @@ def test_truncate_responses_api_output():
     )
 
     assert _get_truncated_preview(input_str, role="assistant") == "a" * 47 + "..."
+
+
+@pytest.mark.parametrize(
+    "input_data",
+    [
+        {"messages": 123, "long_data": "a" * 50},
+        {"messages": []},
+        {"input": "string"},
+        {"output": 123},
+        {"choices": {"0": "value"}},
+        {"request": "string"},
+        {"choices": [{"message": "not a dict"}]},
+        {"choices": [{"message": {"role": "user"}}]},
+    ],
+)
+def test_truncate_invalid_messages(input_data):
+    input_str = json.dumps(input_data)
+    result = _get_truncated_preview(input_str, role="user")
+    if "long_data" in input_data:
+        assert len(result) == 50
+        assert result.startswith(input_str[:20])
+    else:
+        assert result == input_str
+
+
+@pytest.mark.parametrize(
+    ("request_data", "expected_content", "should_not_contain"),
+    [
+        (
+            {"request": {"input": [{"role": "user", "content": "Hello"}]}},
+            "Hello",
+            "request",
+        ),
+        (
+            {"request": {"tool_choice": None, "input": [{"role": "user", "content": "Weather?"}]}},
+            "Weather?",
+            '"tool_choice"',
+        ),
+        (
+            {"request": {"input": [{"role": "user", "content": "Hi"}]}},
+            "Hi",
+            '"request"',
+        ),
+    ],
+    ids=["short_structured_json", "agent_format_with_null_fields", "responses_agent_short"],
+)
+def test_truncate_structured_json_extracts_content(
+    request_data, expected_content, should_not_contain
+):
+    input_str = json.dumps(request_data)
+    result = _get_truncated_preview(input_str, role="user")
+    assert result == expected_content
+    assert should_not_contain not in result
+
+
+@pytest.mark.parametrize(
+    ("content_value", "expected_in_result"),
+    [
+        (None, '"content": null'),
+        ("", '"content": ""'),
+        (123, '"content": 123'),
+    ],
+    ids=["null_content", "empty_string_content", "numeric_content"],
+)
+def test_truncate_invalid_content_falls_back_to_json(content_value, expected_in_result):
+    request_data = {"input": [{"role": "user", "content": content_value}]}
+    input_str = json.dumps(request_data)
+    result = _get_truncated_preview(input_str, role="user")
+    assert expected_in_result in result or result.endswith("...")

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import type { ExperimentRunsChartsUIConfiguration } from '../../experiment-page/models/ExperimentPageUIState';
-import { ChartSectionConfig } from '../../../types';
-import {
+import type { ChartSectionConfig } from '../../../types';
+import type {
   RunsChartsBarCardConfig,
   RunsChartsCardConfig,
   RunsChartsMetricByDatasetEntry,
-  RunsChartType,
 } from '../../runs-charts/runs-charts.types';
+import { RunsChartType } from '../../runs-charts/runs-charts.types';
 import { isEmpty, uniq } from 'lodash';
-import { RunsChartsUIConfigurationSetter } from '../../runs-charts/hooks/useRunsChartsUIConfiguration';
+import type { RunsChartsUIConfigurationSetter } from '../../runs-charts/hooks/useRunsChartsUIConfiguration';
 
 type UpdateChartStateAction = { type: 'UPDATE'; stateSetter: RunsChartsUIConfigurationSetter };
 type InitializeChartStateAction = { type: 'INITIALIZE'; initialConfig?: LoggedModelsChartsUIConfiguration };

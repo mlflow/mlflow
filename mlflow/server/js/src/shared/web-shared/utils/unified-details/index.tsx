@@ -4,15 +4,15 @@ import { useRef } from 'react';
 import { FormattedMessage } from 'react-intl';
 import useResponsiveContainer from './useResponsiveContainer';
 
-export interface SecondarySectionProps {
+export interface AsideSectionProps {
   id: string;
   title?: ReactNode;
   content: ReactNode;
   isTitleLoading?: boolean;
 }
 
-export type MaybeSecondarySection = SecondarySectionProps | null;
-export type SecondarySections = Array<MaybeSecondarySection>;
+export type MaybeAsideSection = AsideSectionProps | null;
+export type AsideSections = Array<MaybeAsideSection>;
 
 const SIDEBAR_WIDTHS = {
   sm: 316,
@@ -23,18 +23,18 @@ const DEFAULT_MAX_WIDTH = 450;
 
 export const OverviewLayout = ({
   isLoading,
-  secondarySections,
+  asideSections,
   children,
   isTabLayout = true,
   sidebarSize = 'sm',
   verticalStackOrder,
 }: {
   isLoading?: boolean;
-  secondarySections: SecondarySections;
+  asideSections: AsideSections;
   children: ReactNode;
   isTabLayout?: boolean;
   sidebarSize?: 'sm' | 'lg';
-  verticalStackOrder?: 'primary-first' | 'secondary-first';
+  verticalStackOrder?: 'main-first' | 'aside-first';
 }) => {
   const { theme } = useDesignSystemTheme();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -42,7 +42,7 @@ export const OverviewLayout = ({
   const stackVertically = useResponsiveContainer(containerRef, { small: theme.responsive.breakpoints.lg }) === 'small';
 
   // Determine vertical stack order, i.e. should the main content be on top or bottom
-  const verticalDisplayPrimaryContentOnTop = verticalStackOrder === 'primary-first';
+  const verticalDisplayPrimaryContentOnTop = verticalStackOrder === 'main-first';
 
   const totalSidebarWidth = SIDEBAR_WIDTHS[sidebarSize];
   const innerSidebarWidth = totalSidebarWidth - VERTICAL_MARGIN_PX;
@@ -96,27 +96,27 @@ export const OverviewLayout = ({
           }}
         >
           {isLoading && <GenericSkeleton />}
-          {!isLoading && <SidebarWrapper secondarySections={secondarySections} />}
+          {!isLoading && <SidebarWrapper secondarySections={asideSections} />}
         </div>
       </div>
     </div>
   );
 };
 
-const SidebarWrapper = ({ secondarySections }: { secondarySections: SecondarySections }) => {
+const SidebarWrapper = ({ secondarySections }: { secondarySections: AsideSections }) => {
   return (
     <div>
       {secondarySections
         .filter((section) => section !== null)
         .filter((section) => section?.content !== null)
         .map(({ title, isTitleLoading, content, id }, index) => (
-          <SecondarySection title={title} isTitleLoading={isTitleLoading} content={content} key={id} index={index} />
+          <AsideSection title={title} isTitleLoading={isTitleLoading} content={content} key={id} index={index} />
         ))}
     </div>
   );
 };
 
-export const SecondarySectionTitle = ({ children }: { children: ReactNode }) => {
+export const AsideSectionTitle = ({ children }: { children: ReactNode }) => {
   const { theme } = useDesignSystemTheme();
   return (
     <Typography.Title
@@ -132,12 +132,12 @@ export const SecondarySectionTitle = ({ children }: { children: ReactNode }) => 
   );
 };
 
-const SecondarySection = ({
+const AsideSection = ({
   title,
   content,
   index,
   isTitleLoading = false,
-}: Omit<SecondarySectionProps, 'id'> & {
+}: Omit<AsideSectionProps, 'id'> & {
   index: number;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -152,7 +152,7 @@ const SecondarySection = ({
       }
     />
   ) : title ? (
-    <SecondarySectionTitle>{title}</SecondarySectionTitle>
+    <AsideSectionTitle>{title}</AsideSectionTitle>
   ) : null;
 
   const compactStyles = { padding: `${theme.spacing.md}px 0 ${theme.spacing.md}px 0` };
@@ -182,6 +182,7 @@ export const KeyValueProperty = ({
   const { theme } = useDesignSystemTheme();
   return (
     <div
+      data-testid={`key-value-${keyValue}`}
       css={{
         display: 'flex',
         alignItems: 'center',

@@ -1,9 +1,8 @@
+import argparse
 import logging
 import re
 from pathlib import Path
-from typing import Union
 
-import click
 from packaging.version import Version
 
 _logger = logging.getLogger(__name__)
@@ -14,15 +13,16 @@ _PYTHON_VERSION_FILES = [
 
 _PYPROJECT_TOML_FILES = [
     Path("pyproject.toml"),
-    Path("skinny/pyproject.toml"),
     Path("pyproject.release.toml"),
+    Path("libs/skinny/pyproject.toml"),
+    Path("libs/tracing/pyproject.toml"),
 ]
 
 _JAVA_VERSION_FILES = Path("mlflow", "java").rglob("*.java")
 
 _JAVA_POM_XML_FILES = Path("mlflow", "java").rglob("*.xml")
 
-_JS_VERSION_FILES = [
+_TS_VERSION_FILES = [
     Path(
         "mlflow",
         "server",
@@ -30,7 +30,8 @@ _JS_VERSION_FILES = [
         "src",
         "common",
         "constants.tsx",
-    )
+    ),
+    Path("docs", "src", "constants.ts"),
 ]
 
 _R_VERSION_FILES = [Path("mlflow", "R", "mlflow", "DESCRIPTION")]
@@ -56,7 +57,7 @@ def replace_dev_or_rc_suffix_with(version, repl):
     return base_version + repl if parsed.is_prerelease else version
 
 
-def replace_occurrences(files: list[Path], pattern: Union[str, re.Pattern], repl: str) -> None:
+def replace_occurrences(files: list[Path], pattern: str | re.Pattern, repl: str) -> None:
     if not isinstance(pattern, re.Pattern):
         pattern = re.compile(pattern)
     for f in files:
@@ -81,14 +82,20 @@ def replace_pyproject_toml(new_py_version: str, paths: list[Path]) -> None:
         pattern=re.compile(r'^version\s+=\s+".+"$', re.MULTILINE),
         repl=f'version = "{new_py_version}"',
     )
+    # Update mlflow-skinny and mlflow-tracing versions to match the new mlflow version.
     replace_occurrences(
         files=paths,
         pattern=re.compile(r"^\s*\"mlflow-skinny==.+\",$", re.MULTILINE),
         repl=f'  "mlflow-skinny=={new_py_version}",',
     )
+    replace_occurrences(
+        files=paths,
+        pattern=re.compile(r"^\s*\"mlflow-tracing==.+\",$", re.MULTILINE),
+        repl=f'  "mlflow-tracing=={new_py_version}",',
+    )
 
 
-def replace_js(old_version: str, new_py_version: str, paths: list[Path]) -> None:
+def replace_ts(old_version: str, new_py_version: str, paths: list[Path]) -> None:
     replace_occurrences(
         files=paths,
         pattern=re.escape(old_version),
@@ -116,9 +123,7 @@ def replace_java_pom_xml(old_version: str, new_py_version: str, paths: list[Path
     dev_suffix_replaced = get_java_new_py_version(new_py_version)
 
     mlflow_version_tag_pattern = r"<mlflow.version>"
-    mlflow_spark_pattern = (
-        r"<artifactId>mlflow-spark_\${scala\.compat\.version}</artifactId>\s+<version>"
-    )
+    mlflow_spark_pattern = r"<artifactId>mlflow-spark_2\.1[23]</artifactId>\s+<version>"
     mlflow_parent_pattern = r"<artifactId>mlflow-parent</artifactId>\s+<version>"
 
     # combine the three tags together to form the regex
@@ -161,17 +166,13 @@ def update_versions(new_py_version: str) -> None:
 
     replace_python(old_py_version, new_py_version, _PYTHON_VERSION_FILES)
     replace_pyproject_toml(new_py_version, _PYPROJECT_TOML_FILES)
-    replace_js(old_py_version, new_py_version, _JS_VERSION_FILES)
+    replace_ts(old_py_version, new_py_version, _TS_VERSION_FILES)
     replace_java(old_py_version, new_py_version, _JAVA_VERSION_FILES)
     replace_java_pom_xml(old_py_version, new_py_version, _JAVA_POM_XML_FILES)
     replace_r(old_py_version, new_py_version, _R_VERSION_FILES)
 
 
-def validate_new_version(
-    ctx: click.Context,
-    param: click.Parameter,
-    value: str,
-) -> str:
+def validate_new_version(value: str) -> str:
     new = Version(value)
     current = Version(get_current_py_version())
 
@@ -188,43 +189,27 @@ def validate_new_version(
     return value
 
 
-@click.group()
-def update_mlflow_versions():
-    pass
-
-
-@update_mlflow_versions.command(
-    help="""
-Update MLflow package versions BEFORE release.
-
-Usage:
-
-python dev/update_mlflow_versions.py pre-release --new-version 1.29.0
-"""
-)
-@click.option(
-    "--new-version", callback=validate_new_version, required=True, help="New version to release"
-)
 def pre_release(new_version: str):
+    """
+    Update MLflow package versions BEFORE release.
+
+    Usage:
+
+    python dev/update_mlflow_versions.py pre-release --new-version 1.29.0
+    """
+    validate_new_version(new_version)
     update_versions(new_py_version=new_version)
 
 
-@update_mlflow_versions.command(
-    help="""
-Update MLflow package versions AFTER release.
-
-Usage:
-
-python dev/update_mlflow_versions.py post-release --new-version 1.29.0
-"""
-)
-@click.option(
-    "--new-version",
-    callback=validate_new_version,
-    required=True,
-    help="New version that was released",
-)
 def post_release(new_version: str):
+    """
+    Update MLflow package versions AFTER release.
+
+    Usage:
+
+    python dev/update_mlflow_versions.py post-release --new-version 1.29.0
+    """
+    validate_new_version(new_version)
     current_version = Version(get_current_py_version())
     msg = (
         "It appears you ran this command on a release branch because the current version "
@@ -239,4 +224,26 @@ def post_release(new_version: str):
 
 
 if __name__ == "__main__":
-    update_mlflow_versions()
+    parser = argparse.ArgumentParser(description="Update MLflow package versions")
+    subparsers = parser.add_subparsers(dest="command", help="Command to run", required=True)
+
+    # pre-release subcommand
+    pre_parser = subparsers.add_parser(
+        "pre-release",
+        help="Update MLflow package versions BEFORE release",
+    )
+    pre_parser.add_argument("--new-version", required=True, help="New version to release")
+
+    # post-release subcommand
+    post_parser = subparsers.add_parser(
+        "post-release",
+        help="Update MLflow package versions AFTER release",
+    )
+    post_parser.add_argument("--new-version", required=True, help="New version that was released")
+
+    args = parser.parse_args()
+
+    if args.command == "pre-release":
+        pre_release(args.new_version)
+    elif args.command == "post-release":
+        post_release(args.new_version)

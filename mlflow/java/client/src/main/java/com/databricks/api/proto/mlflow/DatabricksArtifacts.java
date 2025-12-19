@@ -22765,8 +22765,8 @@ public final class DatabricksArtifacts {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\032databricks_artifacts.proto\022\006mlflow\032\025sc" +
-      "alapb/scalapb.proto\032\020databricks.proto\"\337\001" +
+      "\n\032databricks_artifacts.proto\022\006mlflow\032\020da" +
+      "tabricks.proto\032\025scalapb/scalapb.proto\"\337\001" +
       "\n\026ArtifactCredentialInfo\022\016\n\006run_id\030\001 \001(\t" +
       "\022\014\n\004path\030\002 \001(\t\022\022\n\nsigned_uri\030\003 \001(\t\022:\n\007he" +
       "aders\030\004 \003(\0132).mlflow.ArtifactCredentialI" +
@@ -22879,8 +22879,8 @@ public final class DatabricksArtifacts {
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
-          org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
           com.databricks.api.proto.databricks.Databricks.getDescriptor(),
+          org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
         });
     internal_static_mlflow_ArtifactCredentialInfo_descriptor =
       getDescriptor().getMessageTypes().get(0);
@@ -23022,8 +23022,8 @@ public final class DatabricksArtifacts {
     registry.add(org.mlflow.scalapb_interface.Scalapb.options);
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);
-    org.mlflow.scalapb_interface.Scalapb.getDescriptor();
     com.databricks.api.proto.databricks.Databricks.getDescriptor();
+    org.mlflow.scalapb_interface.Scalapb.getDescriptor();
   }
 
   // @@protoc_insertion_point(outer_class_scope)

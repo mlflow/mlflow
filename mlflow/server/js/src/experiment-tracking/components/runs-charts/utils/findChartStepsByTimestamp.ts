@@ -1,6 +1,6 @@
 import { type Dictionary, compact, first, isUndefined, last, max, min, minBy, orderBy, values } from 'lodash';
-import { MetricEntity, SampledMetricsByRunUuidState } from '../../../types';
-import { SampledMetricsByRun } from '../hooks/useSampledMetricHistory';
+import type { MetricEntity, SampledMetricsByRunUuidState } from '../../../types';
+import type { SampledMetricsByRun } from '../hooks/useSampledMetricHistory';
 
 /**
  * This function consumes chart timestamp range and returns

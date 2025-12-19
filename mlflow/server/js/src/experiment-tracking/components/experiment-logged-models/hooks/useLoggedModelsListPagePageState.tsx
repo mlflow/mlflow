@@ -2,12 +2,14 @@ import { first, isEmpty, isEqual } from 'lodash';
 import { useCallback, useReducer, useState } from 'react';
 import { RUNS_VISIBILITY_MODE } from '../../experiment-page/models/ExperimentPageUIState';
 import { isLoggedModelRowHidden } from './useExperimentLoggedModelListPageRowVisibility';
-import { LoggedModelMetricDataset } from '../../../types';
+import type { LoggedModelMetricDataset } from '../../../types';
 import { ExperimentLoggedModelListPageKnownColumns } from './useExperimentLoggedModelListPageTableColumns';
 import { useSafeDeferredValue } from '../../../../common/hooks/useSafeDeferredValue';
+import type { LoggedModelsTableGroupByMode } from '../ExperimentLoggedModelListPageTable.utils';
 
 type ActionType =
   | { type: 'SET_ORDER_BY'; orderByColumn: string; orderByAsc: boolean }
+  | { type: 'SET_GROUP_BY'; groupBy?: LoggedModelsTableGroupByMode }
   | { type: 'SET_COLUMN_VISIBILITY'; columnVisibility: Record<string, boolean> }
   | { type: 'TOGGLE_DATASET'; dataset: LoggedModelMetricDataset }
   | { type: 'CLEAR_DATASETS' }
@@ -24,6 +26,7 @@ export type LoggedModelsListPageState = {
   rowVisibilityMap?: Record<string, boolean>;
   selectedFilterDatasets?: LoggedModelMetricDataset[];
   searchQuery?: string;
+  groupBy?: LoggedModelsTableGroupByMode;
 };
 
 export const LoggedModelsListPageSortableColumns: string[] = [ExperimentLoggedModelListPageKnownColumns.CreationTime];
@@ -36,6 +39,9 @@ export const useLoggedModelsListPageState = () => {
     (state: LoggedModelsListPageState, action: ActionType): LoggedModelsListPageState => {
       if (action.type === 'SET_ORDER_BY') {
         return { ...state, orderByColumn: action.orderByColumn, orderByAsc: action.orderByAsc };
+      }
+      if (action.type === 'SET_GROUP_BY') {
+        return { ...state, groupBy: action.groupBy };
       }
       if (action.type === 'SET_COLUMN_VISIBILITY') {
         return { ...state, columnVisibility: action.columnVisibility };
@@ -100,6 +106,11 @@ export const useLoggedModelsListPageState = () => {
     [],
   );
 
+  const setGroupBy = useCallback(
+    (groupBy?: LoggedModelsTableGroupByMode) => dispatch({ type: 'SET_GROUP_BY', groupBy }),
+    [],
+  );
+
   const clearSelectedDatasets = useCallback(() => dispatch({ type: 'CLEAR_DATASETS' }), []);
 
   const deferredState = useSafeDeferredValue(state);
@@ -121,5 +132,6 @@ export const useLoggedModelsListPageState = () => {
     updateSearchQuery,
     toggleDataset,
     clearSelectedDatasets,
+    setGroupBy,
   };
 };

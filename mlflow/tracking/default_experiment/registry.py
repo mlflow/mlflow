@@ -1,6 +1,5 @@
 import logging
 import warnings
-from typing import Optional
 
 from mlflow.tracking import get_tracking_uri
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
@@ -56,7 +55,7 @@ for exp_provider in _EXPERIMENT_PROVIDERS:
 _default_experiment_provider_registry.register_entrypoints()
 
 
-def get_experiment_id() -> Optional[str]:
+def get_experiment_id() -> str | None:
     """Get an experiment ID for the current context.
 
     The experiment ID is fetched by querying providers, in the order that they were registered.

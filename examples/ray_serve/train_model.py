@@ -12,19 +12,19 @@ if __name__ == "__main__":
 
     # Load data
     iris_dataset = load_iris()
-    data, target, target_names = (
-        iris_dataset["data"],
-        iris_dataset["target"],
-        iris_dataset["target_names"],
-    )
+    data = iris_dataset["data"]
+    target = iris_dataset["target"]
+    target_names = iris_dataset["target_names"]
 
     # Instantiate model
     model = GradientBoostingClassifier()
 
     # Split training and validation data
     data, target = shuffle(data, target)
-    train_x, train_y = data[:100], target[:100]
-    val_x, val_y = data[100:], target[100:]
+    train_x = data[:100]
+    train_y = target[:100]
+    val_x = data[100:]
+    val_y = target[100:]
 
     # Train and evaluate model
     model.fit(train_x, train_y)

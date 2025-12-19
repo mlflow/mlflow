@@ -7,7 +7,7 @@ from collections import defaultdict
 from copy import deepcopy
 from functools import partial
 from json import JSONEncoder
-from typing import Any, Optional
+from typing import Any
 
 import pydantic
 from google.protobuf.descriptor import FieldDescriptor
@@ -17,7 +17,6 @@ from google.protobuf.struct_pb2 import NULL_VALUE, Value
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _PROTOBUF_INT64_FIELDS = [
     FieldDescriptor.TYPE_INT64,
@@ -70,11 +69,13 @@ def _mark_int64_fields(proto_message):
             # Skip all non-int64 fields.
             continue
 
-        json_dict[field.name] = (
-            [ftype(v) for v in value]
-            if field.label == FieldDescriptor.LABEL_REPEATED
-            else ftype(value)
-        )
+        # Use is_repeated property (preferred) with fallback to deprecated label
+        try:
+            is_repeated = field.is_repeated
+        except AttributeError:
+            is_repeated = field.label == FieldDescriptor.LABEL_REPEATED
+
+        json_dict[field.name] = [ftype(v) for v in value] if is_repeated else ftype(value)
     return json_dict
 
 
@@ -208,7 +209,7 @@ def set_pb_value(proto: Value, value: Any):
         for key, val in value.items():
             set_pb_value(proto.struct_value.fields[key], val)
     elif isinstance(value, list):
-        for idx, val in enumerate(value):
+        for val in value:
             pb = Value()
             set_pb_value(pb, val)
             proto.list_value.values.append(pb)
@@ -225,7 +226,7 @@ def set_pb_value(proto: Value, value: Any):
         raise ValueError(f"Unsupported value type: {type(value)}")
 
 
-def parse_pb_value(proto: Value) -> Optional[Any]:
+def parse_pb_value(proto: Value) -> Any | None:
     """
     DO NOT USE THIS FUNCTION. Preserved for backwards compatibility.
 
@@ -276,7 +277,7 @@ class NumpyEncoder(JSONEncoder):
         if isinstance(o, (pd.Timestamp, datetime.date, datetime.datetime, datetime.time)):
             return o.isoformat(), True
         if isinstance(o, pydantic.BaseModel):
-            return o.model_dump() if IS_PYDANTIC_V2_OR_NEWER else o.dict(), True
+            return o.model_dump(), True
         return o, False
 
     def default(self, o):
@@ -700,7 +701,7 @@ def get_jsonable_input(name, data):
         raise MlflowException(f"Incompatible input type:{type(data)} for input {name}.")
 
 
-def dump_input_data(data, inputs_key="inputs", params: Optional[dict[str, Any]] = None):
+def dump_input_data(data, inputs_key="inputs", params: dict[str, Any] | None = None):
     """
     Args:
         data: Input data.

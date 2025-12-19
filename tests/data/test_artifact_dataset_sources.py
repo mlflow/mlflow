@@ -82,11 +82,11 @@ def test_load_makes_expected_mlflow_artifacts_download_call(source_uri, source_t
     dataset_source = resolve_dataset_source(source_uri)
     assert dataset_source._get_source_type() == source_type
 
-    with mock.patch("mlflow.data.artifact_dataset_sources.download_artifacts") as download_imp_mock:
+    with mock.patch("mlflow.artifacts.download_artifacts") as download_imp_mock:
         dataset_source.load()
         download_imp_mock.assert_called_once_with(artifact_uri=source_uri, dst_path=None)
 
-    with mock.patch("mlflow.data.artifact_dataset_sources.download_artifacts") as download_imp_mock:
+    with mock.patch("mlflow.artifacts.download_artifacts") as download_imp_mock:
         dataset_source.load(dst_path=str(tmp_path))
         download_imp_mock.assert_called_once_with(artifact_uri=source_uri, dst_path=str(tmp_path))
 

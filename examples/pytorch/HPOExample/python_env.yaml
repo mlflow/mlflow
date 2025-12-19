@@ -1,0 +1,7 @@
+build_dependencies:
+  - pip
+dependencies:
+  - mlflow
+  - torch>=2.1
+  - torchvision>=0.15.1
+  - optuna>=3.0.0

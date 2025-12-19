@@ -4,13 +4,15 @@ sidebar_label: Add New Integration
 ---
 
 import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
 
 # Contributing to MLflow Tracing
 
 Welcome to the MLflow Tracing contribution guide! This step-by-step resource will assist you in implementing additional GenAI library integrations for tracing into MLflow.
 
 :::tip
-If you have any questions during the process, try the **“Ask AI”** feature in the bottom-right corner. It can provide both reference documentation and quick answers to common questions about MLflow.
+If you have any questions during the process, try the **"Ask AI"** feature in the bottom-right corner. It can provide both reference documentation and quick answers to common questions about MLflow.
 :::
 
 ## Step 1. Set up Your Environment
@@ -22,9 +24,8 @@ verify the environment is ready for tracing development by running the unit test
 
 First, get a solid understanding of what MLflow Tracing does and how it works. Check out these docs to get up to speed:
 
-- [Tracing Concepts](/genai/tracing/concepts/trace-instrumentation) - Understand what tracing is and the specific benefits for MLflow users.
-- [Tracing Schema Guide](/genai/tracing/data-model) - Details on trace data structure and the information stored.
-- [MLflow Tracing API Guide](/genai/tracing/app-instrumentation) - Practical guide to auto-instrumentation and APIs for manually creating traces.
+- [Tracing Concepts](/genai/concepts/trace) - Understand what tracing is and the specific benefits for MLflow users.
+- [MLflow Tracing API Guide](/genai/tracing/app-instrumentation/automatic) - Practical guide to auto-instrumentation and APIs for manually creating traces.
 
 📝 **Quick Quiz**: Before moving on to the next step, let's challenge your understanding with a few questions.
 If you are not sure about the answers, revisit the docs for a quick refresh.
@@ -33,7 +34,7 @@ If you are not sure about the answers, revisit the docs for a quick refresh.
     <details>
         <summary>Q. What is the difference between a Trace and a Span?</summary>
         <p>A. Trace is the main object holding multiple Spans, with each Span capturing different parts of an operation. A Trace has metadata (TraceInfo) and a list of Spans (TraceData).\
-        <em>Reference:</em> [Tracing Schema Guide](/genai/tracing/data-model)</p>
+        <em>Reference:</em> [Tracing Concepts](/genai/concepts/trace)</p>
     </details>
 
     <details>
@@ -43,15 +44,9 @@ If you are not sure about the answers, revisit the docs for a quick refresh.
     </details>
 
     <details>
-        <summary>Q. When would you use the MLflow Client for creating traces?</summary>
-        <p>A. The Client API is useful when you want fine-grained control over how you start and end a trace. For example, you can specify a parent span ID when starting a span.\
-        <em>Reference:</em> [MLflow Tracing API Guide](/genai/tracing/app-instrumentation/manual-tracing/low-level-api)</p>
-    </details>
-
-    <details>
         <summary>Q. How do you log input data to a span?</summary>
         <p>A. You can log input data with the `span.set_inputs()` method for a span object returned by the ``mlflow.start_span`` context manager or Client APIs.\
-        <em>Reference:</em> [Tracing Schema Guide](/genai/tracing/data-model)</p>
+        <em>Reference:</em> [Tracing Concepts](/genai/concepts/trace)</p>
     </details>
 
     <details>
@@ -90,11 +85,14 @@ Draft a design document for your integration plan, using the [design template](h
 
 - **Integration Method**: Describe whether you'll use callbacks, API hooks, or patching. If there are multiple methods, list them as options and explain your choice.
 - **Maintainability**: LLM frameworks evolve quickly, so avoid relying on internal methods as much as possible. Prefer public APIs such as callbacks.
-- **Standardization**: Ensure consistency with other MLflow integrations for usability and downstream tasks. For example, retrieval spans should follow the [Retriever Schema](/genai/tracing/data-model#retriever-spans) for UI compatibility.
+- **Standardization**: Ensure consistency with other MLflow integrations for usability and downstream tasks. For example, retrieval spans should follow the [Retriever Schema](/genai/concepts/span#retriever-spans) for UI compatibility.
 
 Include a brief overview of the library's core functionality and use cases to provide context for reviewers. Once the draft is ready, share your design with MLflow maintainers, and if time allows, create a proof of concept to highlight potential challenges early.
 
 ## Step 5. Begin Implementation
+
+<Tabs>
+  <TabItem value="python" label="Python" default>
 
 With the design approved, start implementation:
 
@@ -111,6 +109,35 @@ There are a few gotchas to watch out for when integrating with MLflow Tracing:
 - **Serialization**: MLflow serializes traces to JSON via the custom `TraceJsonEncoder` implementation, which supports common objects and Pydantic models. If your library uses custom objects, consider extending the serializer, as unsupported types are stringified and may lose useful detail.
 - **Timestamp Handling**: When using timestamps provided by the library, validate the unit and timezone. MLflow requires timestamps in _nanoseconds since the UNIX epoch_; incorrect timestamps will disrupt span duration.
   :::
+
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+The MLflow TypeScript tracing SDK lives under the [`libs/typescript`](https://github.com/mlflow/mlflow/tree/master/libs/typescript) npm workspace. When implementing a new integration:
+
+1. **Create a Workspace Package**: Scaffold `libs/typescript/integrations/<provider>` using the [OpenAI integration](https://github.com/mlflow/mlflow/tree/master/libs/typescript/integrations/openai) as a template, including `package.json`, `tsconfig.json`, and optional docs.
+2. **Expose Instrumentation Helpers**: Implement the tracing entry points in `src/`—for example, a `traced<Client>()` wrapper or `register()` function that wires the integration into `mlflow-tracing`.
+3. **Document and Test**: Add README snippets or inline docs plus unit/integration tests under `tests/` so reviewers can validate the new instrumentation.
+4. **Update Workspace Scripts**: Extend the root [`package.json`](https://github.com/mlflow/mlflow/blob/master/libs/typescript/package.json) `build:integrations` or `test:integrations` commands if the new package needs custom build or test steps.
+
+After coding, build and exercise the workspace locally to make sure artifacts in `dist/` are up to date:
+
+```bash
+cd libs/typescript
+npm install
+npm run build
+npm run test
+```
+
+:::warning attention
+
+- **Trace Shape**: Align span names, attributes, and metadata with the Python integrations so downstream UI components interpret traces correctly.
+- **Streaming & Async Workloads**: Buffer streaming responses or async iterators before logging outputs so they remain consumable by the caller.
+- **Serializable Payloads**: Convert complex SDK objects to JSON-serializable structures before handing them to the MLflow client.
+  :::
+
+</TabItem>
+</Tabs>
 
 ## Step 6. Test the Integration
 

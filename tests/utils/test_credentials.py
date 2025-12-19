@@ -10,9 +10,8 @@ from mlflow.utils.credentials import login, read_mlflow_creds
 
 
 def test_read_mlflow_creds_file(tmp_path, monkeypatch):
-    monkeypatch.delenvs(
-        (MLFLOW_TRACKING_USERNAME.name, MLFLOW_TRACKING_PASSWORD.name), raising=False
-    )
+    monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
 
     creds_file = tmp_path.joinpath("credentials")
     with mock.patch("mlflow.utils.credentials._get_credentials_path", return_value=str(creds_file)):

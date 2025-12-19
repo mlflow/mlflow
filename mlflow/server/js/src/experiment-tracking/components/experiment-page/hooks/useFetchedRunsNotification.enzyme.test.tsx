@@ -1,7 +1,8 @@
-import { NotificationInstance } from '@databricks/design-system';
+import { describe, jest, beforeEach, it, expect } from '@jest/globals';
+import type { NotificationInstance } from '@databricks/design-system';
 import { useEffect } from 'react';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
-import { RunEntity, RunInfoEntity } from '../../../types';
+import type { RunEntity, RunInfoEntity } from '../../../types';
 import { EXPERIMENT_PARENT_ID_TAG } from '../utils/experimentPage.common-utils';
 import { useFetchedRunsNotification } from './useFetchedRunsNotification';
 
@@ -38,7 +39,7 @@ describe('useFetchedRunsNotification', () => {
   it('displays proper notification for mixed runs', () => {
     createWrapper([...generateRuns(7, false), ...generateRuns(3, true)]);
 
-    expect(notificationInstance.info).toBeCalledWith(
+    expect(notificationInstance.info).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'Loaded 10 runs, including 3 child runs' }),
     );
   });
@@ -46,7 +47,7 @@ describe('useFetchedRunsNotification', () => {
   it('displays proper notification for mixed runs w/ correct pluralization', () => {
     createWrapper([...generateRuns(9, false), ...generateRuns(1, true)]);
 
-    expect(notificationInstance.info).toBeCalledWith(
+    expect(notificationInstance.info).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'Loaded 10 runs, including 1 child run' }),
     );
   });
@@ -54,7 +55,9 @@ describe('useFetchedRunsNotification', () => {
   it('displays proper notification for child-only runs', () => {
     createWrapper(generateRuns(10, true));
 
-    expect(notificationInstance.info).toBeCalledWith(expect.objectContaining({ message: 'Loaded 10 child runs' }));
+    expect(notificationInstance.info).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Loaded 10 child runs' }),
+    );
   });
 
   it('displays notification with runs properly counted while excluding existing runs', () => {
@@ -66,13 +69,13 @@ describe('useFetchedRunsNotification', () => {
     ];
     createWrapper(fetchedRuns, existingRunInfos);
 
-    expect(notificationInstance.info).toBeCalledWith(
+    expect(notificationInstance.info).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'Loaded 60 runs, including 20 child runs' }),
     );
   });
 
   it('does not display notification when no runs are fetched', () => {
     createWrapper([]);
-    expect(notificationInstance.info).not.toBeCalled();
+    expect(notificationInstance.info).not.toHaveBeenCalled();
   });
 });

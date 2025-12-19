@@ -1,6 +1,14 @@
 name: copilot-setup-steps
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   copilot-setup-steps:
@@ -11,10 +19,11 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          uv sync --only-group lint
       - name: pre-commit setup
         run: |
-          uv pip install --system -r requirements/lint-requirements.txt
-          dev/install-taplo.sh
-          dev/install-typos.sh
-          dev/install-conftest.sh
-          pre-commit install --install-hooks
+          uv run --only-group lint pre-commit install --install-hooks
+          uv run --only-group lint pre-commit run install-bin -a -v

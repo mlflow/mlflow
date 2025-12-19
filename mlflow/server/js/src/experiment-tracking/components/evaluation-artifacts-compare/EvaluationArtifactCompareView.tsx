@@ -7,21 +7,21 @@ import {
   DialogComboboxOptionListSelectItem,
   DialogComboboxTrigger,
   Empty,
-  InfoIcon,
+  InfoSmallIcon,
   Input,
   SearchIcon,
   LegacySkeleton,
   Spinner,
   ToggleButton,
-  LegacyTooltip,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { EvaluationDataReduxState } from '../../reducers/EvaluationDataReducer';
-import { ExperimentPageViewState } from '../experiment-page/models/ExperimentPageViewState';
-import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
+import type { ExperimentPageViewState } from '../experiment-page/models/ExperimentPageViewState';
+import type { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { EvaluationArtifactCompareTable } from './components/EvaluationArtifactCompareTable';
 import { useEvaluationArtifactColumns } from './hooks/useEvaluationArtifactColumns';
 import { useEvaluationArtifactTableData } from './hooks/useEvaluationArtifactTableData';
@@ -32,7 +32,7 @@ import { PreviewSidebar } from '../../../common/components/PreviewSidebar';
 import { useEvaluationArtifactViewState } from './hooks/useEvaluationArtifactViewState';
 import { useEvaluationArtifactWriteBack } from './hooks/useEvaluationArtifactWriteBack';
 import { PromptEngineeringContextProvider } from './contexts/PromptEngineeringContext';
-import { ReduxState, ThunkDispatch } from '../../../redux-types';
+import type { ReduxState, ThunkDispatch } from '../../../redux-types';
 import { getEvaluationTableArtifact } from '../../actions';
 import Utils from '../../../common/utils/Utils';
 import {
@@ -394,16 +394,19 @@ const EvaluationArtifactCompareViewImpl = ({
               </DialogComboboxOptionList>
             </DialogComboboxContent>
           </DialogCombobox>
-          <LegacyTooltip
-            title={
+          <Tooltip
+            componentId="mlflow.experiment-tracking.evaluation-artifact-compare.run-header"
+            content={
               <FormattedMessage
                 defaultMessage="Using the list of logged table artifacts, select at least one to start comparing results."
                 description="Experiment page > artifact compare view > table select dropdown tooltip"
               />
             }
           >
-            <InfoIcon />
-          </LegacyTooltip>
+            <span>
+              <InfoSmallIcon />
+            </span>
+          </Tooltip>
         </div>
         {isLoading ? (
           <LegacySkeleton />

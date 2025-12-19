@@ -1,0 +1,82 @@
+---
+sidebar_position: 4
+---
+
+import ImageBox from '@site/src/components/ImageBox';
+
+# Tracing with OpenTelemetry
+
+[OpenTelemetry](https://opentelemetry.io/) is a CNCF-backed project that provides vendor-neutral observability APIs and SDKs to collect telemetry data from your applications. MLflow Tracing is fully compatible with OpenTelemetry, making it free from vendor lock-in.
+
+## Using the MLflow Tracing SDK
+
+The MLflow Tracing SDK is built on top of the OpenTelemetry SDK. If you want to instrument your AI applications with minimal effort, use the [MLflow Tracing SDK](/genai/tracing/quickstart).
+
+```python
+import mlflow
+from openai import OpenAI
+
+mlflow.openai.autolog()
+
+client = OpenAI()
+response = client.responses.create(model="gpt-4o-mini", input="Hello, world!")
+```
+
+## Using Other OpenTelemetry Libraries
+
+You may want to trace LLMs or frameworks that are not [supported](/genai/tracing/integrations) by the MLflow Tracing SDK, or instrument applications written in languages other than Python and TypeScript/JavaScript.
+
+MLflow Server exposes an OTLP endpoint at `/v1/traces` ([OTLP](https://opentelemetry.io/docs/specs/otlp/)) that accepts traces from any OpenTelemetry instrumentation, allowing you to trace applications written in other languages such as Java, Go, Rust, etc. To export traces to MLflow, set `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` to the MLflow server endpoint and set the `x-mlflow-experiment-id` header to the MLflow experiment ID.
+
+```bash
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:5000/v1/traces
+export OTEL_EXPORTER_OTLP_TRACES_HEADERS=x-mlflow-experiment-id=123
+```
+
+For more details about the MLflow OpenTelemetry integration, see [Collect OpenTelemetry Traces into MLflow](/genai/tracing/opentelemetry/ingest).
+
+## Combining the OpenTelemetry SDK and the MLflow Tracing SDK
+
+Since the MLflow Tracing SDK is built on top of the OpenTelemetry SDK, you can combine them to get the best of both worlds. To use both SDKs in a single application, set the `MLFLOW_USE_DEFAULT_TRACER_PROVIDER` environment variable to `false`.
+
+The following example shows how to combine MLflow's OpenAI auto-tracing with OpenTelemetry's native FastAPI instrumentation.
+
+```python
+import os
+import mlflow
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request, Response
+from openai import OpenAI
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+# Use the OpenTelemetry tracer provider instead of MLflow's default tracer provider.
+os.environ["MLFLOW_USE_DEFAULT_TRACER_PROVIDER"] = "false"
+
+
+# Enable MLflow OpenAI auto-tracing at application startup.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    mlflow.set_tracking_uri("http://localhost:5000")
+    mlflow.set_experiment("FastAPI")
+    mlflow.openai.autolog()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+# Enable FastAPI auto-instrumentation, which creates an OpenTelemetry span for each endpoint call.
+FastAPIInstrumentor.instrument_app(app)
+
+
+@app.post("/rag/v1/answer")
+@mlflow.trace
+async def answer_question(query: Request) -> Response:
+    return ...
+```
+
+Spans generated from both SDKs will be merged into a single trace.
+
+<ImageBox
+  src="/images/llms/tracing/opentelemetry/mlflow-otel-combined.png"
+  alt="The MLflow UI showing the MLflow and OpenTelemetry combined spans"
+  width="100%"
+/>

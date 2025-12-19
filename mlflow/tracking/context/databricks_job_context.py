@@ -23,7 +23,7 @@ class DatabricksJobRunContext(RunContextProvider):
         job_type = databricks_utils.get_job_type()
         webapp_url = databricks_utils.get_webapp_url()
         workspace_url = databricks_utils.get_workspace_url()
-        workspace_url_fallback, workspace_id = databricks_utils.get_workspace_info_from_dbutils()
+        workspace_id = databricks_utils.get_workspace_id()
         tags = {
             MLFLOW_SOURCE_NAME: (
                 f"jobs/{job_id}/run/{job_run_id}"
@@ -42,8 +42,10 @@ class DatabricksJobRunContext(RunContextProvider):
             tags[MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url
         if workspace_url is not None:
             tags[MLFLOW_DATABRICKS_WORKSPACE_URL] = workspace_url
-        elif workspace_url_fallback is not None:
-            tags[MLFLOW_DATABRICKS_WORKSPACE_URL] = workspace_url_fallback
+        else:
+            workspace_url_fallback, _ = databricks_utils.get_workspace_info_from_dbutils()
+            if workspace_url_fallback is not None:
+                tags[MLFLOW_DATABRICKS_WORKSPACE_URL] = workspace_url_fallback
         if workspace_id is not None:
             tags[MLFLOW_DATABRICKS_WORKSPACE_ID] = workspace_id
         return tags

@@ -13,7 +13,7 @@ import { getUUID } from '../../common/utils/ActionUtils';
 import { getRegisteredModelApi, getModelVersionApi, getModelVersionArtifactApi, parseMlModelFile } from '../actions';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import { CompareModelVersionsView } from './CompareModelVersionsView';
-import _ from 'lodash';
+import { without } from 'lodash';
 import { PageContainer } from '../../common/components/PageContainer';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
@@ -55,7 +55,7 @@ export class CompareModelVersionsPageImpl extends Component<
 
   removeRunRequestId() {
     this.setState((prevState: any) => ({
-      requestIds: _.without(prevState.requestIds, this.runRequestId),
+      requestIds: without(prevState.requestIds, this.runRequestId),
     }));
   }
 
@@ -86,7 +86,7 @@ export class CompareModelVersionsPageImpl extends Component<
             // `getMlModelFileRequestId` from `requestIds` to unblock RequestStateWrapper
             // from rendering its content
             this.setState((prevState: any) => ({
-              requestIds: _.without(prevState.requestIds, this.getMlModelFileRequestId),
+              requestIds: without(prevState.requestIds, this.getMlModelFileRequestId),
             }));
           });
       }

@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.mlflow</groupId>
   <artifactId>mlflow-parent</artifactId>
-  <version>3.1.1-SNAPSHOT</version>
+  <version>3.8.1-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>MLflow Parent POM</name>
   <url>http://mlflow.org</url>
@@ -47,19 +47,9 @@
     <developerConnection>scm:git:ssh://github.com:mlflow/mlflow.git</developerConnection>
     <url>http://github.com/mlflow/mlflow/tree/master</url>
   </scm>
-  <distributionManagement>
-    <snapshotRepository>
-      <id>ossrh</id>
-      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-    </snapshotRepository>
-    <repository>
-      <id>ossrh</id>
-      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
-    </repository>
-  </distributionManagement>
 
   <properties>
-    <mlflow-version>3.1.1-SNAPSHOT</mlflow-version>
+    <mlflow-version>3.8.1-SNAPSHOT</mlflow-version>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <scala.version>2.11.12</scala.version>
@@ -75,7 +65,8 @@
 
   <modules>
     <module>client</module>
-    <module>spark</module>
+    <module>spark_2.12</module>
+    <module>spark_2.13</module>
   </modules>
 
   <dependencyManagement>
@@ -182,6 +173,19 @@
     </dependencies>
   </dependencyManagement>
   <build>
+    <plugins>
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.8.0</version>
+        <extensions>true</extensions>
+        <configuration>
+            <publishingServerId>central</publishingServerId>
+            <centralSnapshotsUrl>https://central.sonatype.com/repository/maven-snapshots/</centralSnapshotsUrl>
+            <autoPublish>true</autoPublish>
+        </configuration>
+      </plugin>
+    </plugins>
     <pluginManagement>
       <plugins>
         <plugin>
@@ -244,17 +248,6 @@
           </executions>
         </plugin>
         <plugin>
-          <groupId>org.sonatype.plugins</groupId>
-          <artifactId>nexus-staging-maven-plugin</artifactId>
-          <version>1.6.8</version>
-          <extensions>true</extensions>
-          <configuration>
-            <serverId>ossrh</serverId>
-            <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-            <autoReleaseAfterClose>true</autoReleaseAfterClose>
-          </configuration>
-        </plugin>
-        <plugin>
           <groupId>net.alchim31.maven</groupId>
           <artifactId>scala-maven-plugin</artifactId>
           <version>4.2.0</version>
@@ -266,12 +259,6 @@
         </plugin>
       </plugins>
     </pluginManagement>
-    <plugins>
-      <plugin>
-        <groupId>org.sonatype.plugins</groupId>
-        <artifactId>nexus-staging-maven-plugin</artifactId>
-      </plugin>
-    </plugins>
   </build>
   <profiles>
     <profile>

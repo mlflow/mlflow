@@ -1,11 +1,13 @@
 import logging
+import threading
 import urllib
-from typing import Any, Optional, Union
+import uuid
+from typing import Any
 
 import sqlalchemy
 from sqlalchemy.future import select
+from sqlalchemy.orm import Session
 
-import mlflow.store.db.utils
 from mlflow.entities.model_registry.model_version_stages import (
     ALL_STAGES,
     DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS,
@@ -14,6 +16,7 @@ from mlflow.entities.model_registry.model_version_stages import (
     get_canonical_stage,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
+from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import handle_resource_already_exist_error, has_prompt_tag
 from mlflow.protos.databricks_pb2 import (
@@ -23,6 +26,12 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.artifact.utils.models import _parse_model_uri
+from mlflow.store.db.utils import (
+    _all_tables_exist,
+    _get_managed_session_maker,
+    _initialize_tables,
+    create_sqlalchemy_engine_with_retry,
+)
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
@@ -37,19 +46,26 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModel,
     SqlRegisteredModelAlias,
     SqlRegisteredModelTag,
+    SqlWebhook,
+    SqlWebhookEvent,
 )
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
+    _REGISTERED_MODEL_ALIAS_LATEST,
     _validate_model_alias_name,
+    _validate_model_alias_name_reserved,
     _validate_model_name,
     _validate_model_renaming,
     _validate_model_version,
     _validate_model_version_tag,
     _validate_registered_model_tag,
     _validate_tag_name,
+    _validate_webhook_events,
+    _validate_webhook_name,
+    _validate_webhook_url,
 )
 
 _logger = logging.getLogger(__name__)
@@ -81,6 +97,20 @@ class SqlAlchemyStore(AbstractStore):
 
     CREATE_MODEL_VERSION_RETRIES = 3
 
+    # Class-level cache for SQLAlchemy engines to prevent connection pool leaks
+    # when multiple store instances are created with the same database URI.
+    _engine_map: dict[str, sqlalchemy.engine.Engine] = {}
+    _engine_map_lock = threading.Lock()
+
+    @classmethod
+    def _get_or_create_engine(cls, db_uri: str) -> sqlalchemy.engine.Engine:
+        """Get a cached engine or create a new one for the given database URI."""
+        if db_uri not in cls._engine_map:
+            with cls._engine_map_lock:
+                if db_uri not in cls._engine_map:
+                    cls._engine_map[db_uri] = create_sqlalchemy_engine_with_retry(db_uri)
+        return cls._engine_map[db_uri]
+
     def __init__(self, db_uri):
         """
         Create a database backed store.
@@ -97,15 +127,13 @@ class SqlAlchemyStore(AbstractStore):
         super().__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
-        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
-        if not mlflow.store.db.utils._all_tables_exist(self.engine):
-            mlflow.store.db.utils._initialize_tables(self.engine)
+        self.engine = self._get_or_create_engine(db_uri)
+        if not _all_tables_exist(self.engine):
+            _initialize_tables(self.engine)
         # Verify that all model registry tables exist.
         SqlAlchemyStore._verify_registry_tables_exist(self.engine)
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
-            SessionMaker, self.db_type
-        )
+        self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)
         # TODO: verify schema here once we add logic to initialize the registry tables if they
         # don't exist (schema verification will fail in tests otherwise)
         # mlflow.store.db.utils._verify_schema(self.engine)
@@ -123,6 +151,8 @@ class SqlAlchemyStore(AbstractStore):
         expected_tables = [
             SqlRegisteredModel.__tablename__,
             SqlModelVersion.__tablename__,
+            SqlWebhook.__tablename__,
+            SqlWebhookEvent.__tablename__,
         ]
         if any(table not in inspected_tables for table in expected_tables):
             # TODO: Replace the MlflowException with the following line once it's possible to run
@@ -199,7 +229,7 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
     @classmethod
-    def _get_registered_model(cls, session, name, eager=False):  # noqa: D417
+    def _get_registered_model(cls, session, name, eager=False):
         """
         Args:
             eager: If ``True``, eagerly loads the registered model's tags. If ``False``, these
@@ -524,8 +554,8 @@ class SqlAlchemyStore(AbstractStore):
         query: Any,
         tag_filters: dict[str, list[Any]],
         dialect: str,
-        main_db_model: Union[SqlModelVersion, SqlRegisteredModel],
-        tag_db_model: Union[SqlModelVersionTag, SqlRegisteredModelTag],
+        main_db_model: SqlModelVersion | SqlRegisteredModel,
+        tag_db_model: SqlModelVersionTag | SqlRegisteredModelTag,
     ):
         """
         Update query to exclude all prompt rows and return only normal model or model versions.
@@ -717,7 +747,7 @@ class SqlAlchemyStore(AbstractStore):
         run_link=None,
         description=None,
         local_model_path=None,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -742,7 +772,7 @@ class SqlAlchemyStore(AbstractStore):
 
         def next_version(sql_registered_model):
             if sql_registered_model.model_versions:
-                return max([mv.version for mv in sql_registered_model.model_versions]) + 1
+                return max(mv.version for mv in sql_registered_model.model_versions) + 1
             else:
                 return 1
 
@@ -769,6 +799,11 @@ class SqlAlchemyStore(AbstractStore):
                     f"Unable to fetch model from model URI source artifact location '{source}'."
                     f"Error: {e}"
                 ) from e
+
+        if not run_id and model_id:
+            model = MlflowClient().get_logged_model(model_id)
+            run_id = model.source_run_id
+
         with self.ManagedSessionMaker() as session:
             creation_time = get_current_time_millis()
             for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
@@ -839,7 +874,7 @@ class SqlAlchemyStore(AbstractStore):
         return versions[0]
 
     @classmethod
-    def _get_sql_model_version(cls, session, name, version, eager=False):  # noqa: D417
+    def _get_sql_model_version(cls, session, name, version, eager=False):
         """
         Args:
             eager: If ``True``, eagerly loads the model version's tags.
@@ -1226,6 +1261,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_model_name(name)
         _validate_model_alias_name(alias)
+        _validate_model_alias_name_reserved(alias)
         _validate_model_version(version)
         with self.ManagedSessionMaker() as session:
             # check if model version exists
@@ -1265,6 +1301,15 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_model_name(name)
         _validate_model_alias_name(alias)
+
+        if alias.lower() == _REGISTERED_MODEL_ALIAS_LATEST:
+            if versions := self.get_latest_versions(name):
+                return versions[0]
+            else:
+                raise MlflowException(
+                    f"Latest version not found for model {name}.", RESOURCE_DOES_NOT_EXIST
+                )
+
         with self.ManagedSessionMaker() as session:
             existing_alias = self._get_registered_model_alias(session, name, alias)
             if existing_alias is not None:
@@ -1284,3 +1329,188 @@ class SqlAlchemyStore(AbstractStore):
         Does not wait for the model version to become READY as a successful creation will
         immediately place the model version in a READY state.
         """
+
+    # Webhook CRUD operations
+    def create_webhook(
+        self,
+        name: str,
+        url: str,
+        events: list[WebhookEvent],
+        description: str | None = None,
+        secret: str | None = None,
+        status: WebhookStatus | None = None,
+    ) -> Webhook:
+        _validate_webhook_name(name)
+        _validate_webhook_url(url)
+        _validate_webhook_events(events)
+
+        with self.ManagedSessionMaker() as session:
+            webhook_id = str(uuid.uuid4())
+            creation_time = get_current_time_millis()
+            webhook = SqlWebhook(
+                webhook_id=webhook_id,
+                name=name,
+                url=url,
+                description=description,
+                secret=secret,
+                status=(status or WebhookStatus.ACTIVE).value,
+                creation_timestamp=creation_time,
+                last_updated_timestamp=creation_time,
+            )
+            session.add(webhook)
+            session.add_all(
+                SqlWebhookEvent(webhook_id=webhook_id, entity=e.entity.value, action=e.action.value)
+                for e in events
+            )
+            session.flush()
+            return webhook.to_mlflow_entity()
+
+    def get_webhook(self, webhook_id: str) -> Webhook:
+        with self.ManagedSessionMaker() as session:
+            webhook = self._get_webhook_by_id(session, webhook_id)
+            return webhook.to_mlflow_entity()
+
+    def list_webhooks(
+        self,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Webhook]:
+        max_results = max_results or 100
+        if max_results < 1 or max_results > 1000:
+            raise MlflowException(
+                "max_results must be between 1 and 1000.", INVALID_PARAMETER_VALUE
+            )
+
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        with self.ManagedSessionMaker() as session:
+            query = (
+                session.query(SqlWebhook)
+                .filter(SqlWebhook.deleted_timestamp.is_(None))
+                .order_by(SqlWebhook.creation_timestamp.desc())
+                .limit(max_results + 1)
+            )
+
+            if page_token:
+                query = query.offset(offset)
+
+            webhooks = query.all()
+
+            # Check if there's a next page
+            has_next_page = len(webhooks) > max_results
+            next_page_token = None
+            if has_next_page:
+                webhooks = webhooks[:max_results]
+                next_page_token = SearchUtils.create_page_token(offset + max_results)
+
+            return PagedList([w.to_mlflow_entity() for w in webhooks], next_page_token)
+
+    def list_webhooks_by_event(
+        self,
+        event: WebhookEvent,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Webhook]:
+        max_results = max_results or 100
+        if max_results < 1 or max_results > 1000:
+            raise MlflowException(
+                "max_results must be between 1 and 1000.", INVALID_PARAMETER_VALUE
+            )
+
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        with self.ManagedSessionMaker() as session:
+            # Query webhooks that have the specific event in their related webhook_events
+            query = (
+                session.query(SqlWebhook)
+                .join(SqlWebhookEvent)
+                .filter(SqlWebhook.deleted_timestamp.is_(None))
+                .filter(SqlWebhookEvent.entity == event.entity.value)
+                .filter(SqlWebhookEvent.action == event.action.value)
+                .order_by(SqlWebhook.creation_timestamp.desc())
+                .limit(max_results + 1)
+            )
+
+            if page_token:
+                query = query.offset(offset)
+
+            webhooks = query.all()
+
+            # Check if there's a next page
+            has_next_page = len(webhooks) > max_results
+            next_page_token = None
+            if has_next_page:
+                webhooks = webhooks[:max_results]
+                next_page_token = SearchUtils.create_page_token(offset + max_results)
+
+            return PagedList([w.to_mlflow_entity() for w in webhooks], next_page_token)
+
+    def update_webhook(
+        self,
+        webhook_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        url: str | None = None,
+        events: list[WebhookEvent] | None = None,
+        secret: str | None = None,
+        status: WebhookStatus | None = None,
+    ) -> Webhook:
+        with self.ManagedSessionMaker() as session:
+            webhook = self._get_webhook_by_id(session, webhook_id)
+
+            # Update fields if provided
+            if name is not None:
+                _validate_webhook_name(name)
+                webhook.name = name
+            if url is not None:
+                _validate_webhook_url(url)
+                webhook.url = url
+            if events is not None:
+                _validate_webhook_events(events)
+                # Delete existing webhook events
+                session.query(SqlWebhookEvent).filter(
+                    SqlWebhookEvent.webhook_id == webhook_id
+                ).delete()
+                # Create new webhook events
+                session.add_all(
+                    SqlWebhookEvent(
+                        webhook_id=webhook_id, entity=e.entity.value, action=e.action.value
+                    )
+                    for e in events
+                )
+            if description is not None:
+                webhook.description = description
+            if secret is not None:
+                webhook.secret = secret
+            if status is not None:
+                webhook.status = status.value
+
+            webhook.last_updated_timestamp = get_current_time_millis()
+
+            session.add(webhook)
+            session.flush()
+
+            return webhook.to_mlflow_entity()
+
+    def delete_webhook(self, webhook_id: str) -> None:
+        with self.ManagedSessionMaker() as session:
+            webhook = self._get_webhook_by_id(session, webhook_id)
+
+            # Soft delete by setting deleted_timestamp
+            webhook.deleted_timestamp = get_current_time_millis()
+            webhook.last_updated_timestamp = webhook.deleted_timestamp
+
+            session.add(webhook)
+            session.flush()
+
+    # Helper methods for webhooks
+    def _get_webhook_by_id(self, session: Session, webhook_id: str) -> SqlWebhook:
+        if webhook := (
+            session.query(SqlWebhook)
+            .filter(
+                SqlWebhook.webhook_id == webhook_id,
+                SqlWebhook.deleted_timestamp.is_(None),
+            )
+            .first()
+        ):
+            return webhook
+
+        raise MlflowException(f"Webhook with ID {webhook_id} not found.", RESOURCE_DOES_NOT_EXIST)

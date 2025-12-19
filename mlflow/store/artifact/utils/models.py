@@ -1,6 +1,6 @@
 import urllib.parse
 from pathlib import Path
-from typing import NamedTuple, Optional, Union
+from typing import NamedTuple
 
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
@@ -13,8 +13,12 @@ from mlflow.utils.uri import (
 _MODELS_URI_SUFFIX_LATEST = "latest"
 
 
-def is_using_databricks_registry(uri):
-    profile_uri = get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
+def is_using_databricks_registry(uri, registry_uri: str | None = None):
+    profile_uri = (
+        get_databricks_profile_uri_from_artifact_uri(uri)
+        or registry_uri
+        or mlflow.get_registry_uri()
+    )
     return is_databricks_uri(profile_uri)
 
 
@@ -45,11 +49,11 @@ def _get_latest_model_version(client, name, stage):
 
 
 class ParsedModelUri(NamedTuple):
-    model_id: Optional[str] = None
-    name: Optional[str] = None
-    version: Optional[str] = None
-    stage: Optional[str] = None
-    alias: Optional[str] = None
+    model_id: str | None = None
+    name: str | None = None
+    version: str | None = None
+    stage: str | None = None
+    alias: str | None = None
 
 
 def _parse_model_uri(uri, scheme: str = "models") -> ParsedModelUri:
@@ -107,7 +111,7 @@ def _parse_model_uri(uri, scheme: str = "models") -> ParsedModelUri:
         return ParsedModelUri(parts[0])
 
 
-def _parse_model_id_if_present(possible_model_uri: Union[str, Path]) -> Optional[str]:
+def _parse_model_id_if_present(possible_model_uri: str | Path) -> str | None:
     """
     Parses the model ID from the given string. If the string represents a UC model URI, we get the
     model version to extract the model ID. If the string is not a models:/ URI, returns None.

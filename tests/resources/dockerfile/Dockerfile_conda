@@ -1,5 +1,5 @@
 # Build an image that can serve mlflow models.
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-recommends wget curl nginx ca-certificates bzip2 build-essential cmake git-core
 
@@ -7,11 +7,14 @@ RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get insta
 RUN curl --fail -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh > miniconda.sh
 RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
 ENV PATH="/miniconda/bin:$PATH"
+# Remove default channels to avoid `CondaToSNonInteractiveError`.
+# See https://github.com/mlflow/mlflow/pull/16752 for more details.
+RUN conda config --system --remove channels defaults && conda config --system --add channels conda-forge
 
 
 # Setup Java
-RUN apt-get install -y --no-install-recommends openjdk-11-jdk maven
-ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+RUN apt-get install -y --no-install-recommends openjdk-17-jdk maven
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 
 WORKDIR /opt/mlflow
 

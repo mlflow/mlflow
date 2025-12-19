@@ -1,5 +1,3 @@
-from typing import Optional
-
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import Dataset as ProtoDataset
 
@@ -13,8 +11,8 @@ class Dataset(_MlflowObject):
         digest: str,
         source_type: str,
         source: str,
-        schema: Optional[str] = None,
-        profile: Optional[str] = None,
+        schema: str | None = None,
+        profile: str | None = None,
     ) -> None:
         self._name = name
         self._digest = digest

@@ -1,6 +1,6 @@
 import json
 from abc import abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.entities import Dataset as DatasetEntity
@@ -14,9 +14,7 @@ class Dataset:
     and targets for training and evaluation as well.
     """
 
-    def __init__(
-        self, source: DatasetSource, name: Optional[str] = None, digest: Optional[str] = None
-    ):
+    def __init__(self, source: DatasetSource, name: str | None = None, digest: str | None = None):
         """
         Base constructor for a dataset. All subclasses must call this constructor.
         """
@@ -64,6 +62,11 @@ class Dataset:
 
         return json.dumps(self.to_dict())
 
+    def _get_source_type(self) -> str:
+        """Returns the type of the dataset's underlying source."""
+
+        return self.source._get_source_type()
+
     @property
     def name(self) -> str:
         """
@@ -93,7 +96,7 @@ class Dataset:
 
     @property
     @abstractmethod
-    def profile(self) -> Optional[Any]:
+    def profile(self) -> Any | None:
         """
         Optional summary statistics for the dataset, such as the number of rows in a table, the
         mean / median / std of each table column, etc.
@@ -101,7 +104,7 @@ class Dataset:
 
     @property
     @abstractmethod
-    def schema(self) -> Optional[Any]:
+    def schema(self) -> Any | None:
         """
         Optional dataset schema, such as an instance of :py:class:`mlflow.types.Schema` representing
         the features and targets of the dataset.

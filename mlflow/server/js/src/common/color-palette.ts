@@ -25,7 +25,7 @@ export const RUNS_COLOR_PALETTE = [
 
   '#115026', // Green 700
   '#277c43', // Green 600
-  '#3caa60', // Green 500
+  '#3ba65e', // Green 500
   '#8ddda8', // Green 400
 
   '#9e102c', // Red 700
@@ -37,22 +37,4 @@ export const RUNS_COLOR_PALETTE = [
   '#2272b4', // Blue 600
   '#4299e0', // Blue 500
   '#8acaff', // Blue 400
-];
-
-export const RUNS_COLOR_PALETTE_NEXT = [
-  '#5387dd',
-  '#da4c4c',
-  '#479a5f',
-  '#7d54b2',
-  '#e87b9f',
-  '#e57439',
-  '#87cebf',
-  '#c565c7',
-  '#edb732',
-  '#5bc5db',
-  '#229487',
-  '#f0b899',
-  '#a0c75c',
-  '#a46750',
-  '#a1a9ad',
 ];

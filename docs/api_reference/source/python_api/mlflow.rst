@@ -53,6 +53,8 @@ guidance on how to use these tracing APIs, please refer to the `Tracing Fluent A
 .. autofunction:: mlflow.get_last_active_trace_id
 .. autofunction:: mlflow.add_trace
 .. autofunction:: mlflow.log_assessment
+.. autofunction:: mlflow.log_expectation
+.. autofunction:: mlflow.log_feedback
 .. autofunction:: mlflow.update_assessment
 .. autofunction:: mlflow.delete_assessment
 

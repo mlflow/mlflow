@@ -21,22 +21,22 @@ runs:
       run: |
         python_version="${{ inputs.python-version }}"
         if [ -z "$python_version" ]; then
-          python_version=$(cat requirements/python-version.txt)
+          python_version=$(cat .python-version)
         fi
-        if [[ "$python_version" == "3.9" ]]; then
-          if [ ${{ runner.os }} == "Windows" ]; then
-            python_version="3.9.13"
+        if [[ "$python_version" == "3.10" ]]; then
+          if [ ${{ runner.os }} == "Linux" ]; then
+            python_version="3.10.19"
           else
-            python_version="3.9.18"
-          fi
-        elif [[ "$python_version" == "3.10" ]]; then
-          if [ ${{ runner.os }} == "Windows" ]; then
             python_version="3.10.11"
+          fi
+        elif [[ "$python_version" == "3.11" ]]; then
+          if [ ${{ runner.os }} == "Windows" ]; then
+            python_version="3.11.9"
           else
-            python_version="3.10.16"
+            python_version="3.11.14"
           fi
         else
-          echo "Invalid python version: '$python_version'. Must be '3.9', or '3.10'."
+          echo "Invalid python version: '$python_version'. Must be '3.10', or '3.11'."
           exit 1
         fi
         echo "version=$python_version" >> $GITHUB_OUTPUT
@@ -44,8 +44,6 @@ runs:
       with:
         python-version: ${{ steps.get-python-version.outputs.version }}
     - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb # v6.1.0
-      with:
-        version: 0.7.8
     - run: |
         # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
         # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy

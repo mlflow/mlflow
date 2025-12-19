@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
@@ -27,13 +27,13 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
     Represents a HuggingFace dataset for use with MLflow Tracking.
     """
 
-    def __init__(  # noqa: D417
+    def __init__(
         self,
         ds: "datasets.Dataset",
         source: HuggingFaceDatasetSource,
-        targets: Optional[str] = None,
-        name: Optional[str] = None,
-        digest: Optional[str] = None,
+        targets: str | None = None,
+        name: str | None = None,
+        digest: str | None = None,
     ):
         """
         Args:
@@ -95,7 +95,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._ds
 
     @property
-    def targets(self) -> Optional[str]:
+    def targets(self) -> str | None:
         """
         The name of the Hugging Face dataset column containing targets (labels) for supervised
         learning.
@@ -115,7 +115,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._source
 
     @property
-    def profile(self) -> Optional[Any]:
+    def profile(self) -> Any | None:
         """
         Summary statistics for the Hugging Face dataset, including the number of rows,
         size, and size in bytes.
@@ -127,7 +127,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         }
 
     @cached_property
-    def schema(self) -> Optional[Schema]:
+    def schema(self) -> Schema | None:
         """
         The MLflow ColSpec schema of the Hugging Face dataset.
         """
@@ -177,15 +177,15 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 def from_huggingface(
     ds,
-    path: Optional[str] = None,
-    targets: Optional[str] = None,
-    data_dir: Optional[str] = None,
-    data_files: Optional[Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]] = None,
+    path: str | None = None,
+    targets: str | None = None,
+    data_dir: str | None = None,
+    data_files: str | Sequence[str] | Mapping[str, str | Sequence[str]] | None = None,
     revision=None,
-    name: Optional[str] = None,
-    digest: Optional[str] = None,
-    trust_remote_code: Optional[bool] = None,
-    source: Optional[Union[str, DatasetSource]] = None,
+    name: str | None = None,
+    digest: str | None = None,
+    trust_remote_code: bool | None = None,
+    source: str | DatasetSource | None = None,
 ) -> HuggingFaceDataset:
     """
     Create a `mlflow.data.huggingface_dataset.HuggingFaceDataset` from a Hugging Face dataset.

@@ -1,6 +1,6 @@
-const fs = require("fs");
-const path = require("path");
-const { execSync } = require("child_process");
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
 
 const repoRootCache = new Map();
 
@@ -14,16 +14,16 @@ const repoRootCache = new Map();
  */
 module.exports = {
   meta: {
-    type: "problem",
+    type: 'problem',
     docs: {
-      description: "Detect NotebookDownloadButton with invalid MLflow repository URLs",
-      category: "Possible Errors",
+      description: 'Detect NotebookDownloadButton with invalid MLflow repository URLs',
+      category: 'Possible Errors',
     },
     fixable: null,
     schema: [],
     messages: {
-      missingHref: "NotebookDownloadButton is missing href attribute",
-      emptyHref: "NotebookDownloadButton href is empty",
+      missingHref: 'NotebookDownloadButton is missing href attribute',
+      emptyHref: 'NotebookDownloadButton href is empty',
       invalidFormat:
         'NotebookDownloadButton href must start with "https://raw.githubusercontent.com/mlflow/mlflow/master/"',
       fileNotFound: 'NotebookDownloadButton href points to non-existent file: "{{path}}"',
@@ -45,20 +45,18 @@ module.exports = {
        */
       JSXOpeningElement(node) {
         if (
-          node.type !== "JSXOpeningElement" ||
-          node.name.type !== "JSXIdentifier" ||
-          node.name.name !== "NotebookDownloadButton"
+          node.type !== 'JSXOpeningElement' ||
+          node.name.type !== 'JSXIdentifier' ||
+          node.name.name !== 'NotebookDownloadButton'
         ) {
           return;
         }
-        const hrefAttr = node.attributes.find(
-          (attr) => attr.type === "JSXAttribute" && attr.name.name === "href"
-        );
+        const hrefAttr = node.attributes.find((attr) => attr.type === 'JSXAttribute' && attr.name.name === 'href');
 
         if (!hrefAttr) {
           context.report({
             node,
-            messageId: "missingHref",
+            messageId: 'missingHref',
           });
           return;
         }
@@ -68,7 +66,7 @@ module.exports = {
         if (!hrefValue) {
           context.report({
             node: hrefAttr,
-            messageId: "emptyHref",
+            messageId: 'emptyHref',
           });
           return;
         }
@@ -88,17 +86,17 @@ module.exports = {
 function getHrefValue(attr) {
   if (!attr.value) return null;
 
-  if (attr.value.type === "Literal") {
+  if (attr.value.type === 'Literal') {
     return attr.value.value;
   }
 
-  if (attr.value.type === "JSXExpressionContainer" && attr.value.expression.type === "Literal") {
+  if (attr.value.type === 'JSXExpressionContainer' && attr.value.expression.type === 'Literal') {
     return attr.value.expression.value;
   }
 
   if (
-    attr.value.type === "JSXExpressionContainer" &&
-    attr.value.expression.type === "TemplateLiteral" &&
+    attr.value.type === 'JSXExpressionContainer' &&
+    attr.value.expression.type === 'TemplateLiteral' &&
     attr.value.expression.expressions.length === 0
   ) {
     return attr.value.expression.quasis[0].value.raw;
@@ -120,12 +118,12 @@ function getHrefValue(attr) {
  * @param {string} href - The href value to validate
  */
 function validateMlflowUrl(context, hrefAttr, href) {
-  const expectedPrefix = "https://raw.githubusercontent.com/mlflow/mlflow/master/";
+  const expectedPrefix = 'https://raw.githubusercontent.com/mlflow/mlflow/master/';
 
   if (!href.startsWith(expectedPrefix)) {
     context.report({
       node: hrefAttr,
-      messageId: "invalidFormat",
+      messageId: 'invalidFormat',
     });
     return;
   }
@@ -138,7 +136,7 @@ function validateMlflowUrl(context, hrefAttr, href) {
     if (!fs.existsSync(fullPath)) {
       context.report({
         node: hrefAttr,
-        messageId: "fileNotFound",
+        messageId: 'fileNotFound',
         data: { path: filePath },
       });
     }
@@ -151,16 +149,16 @@ function validateMlflowUrl(context, hrefAttr, href) {
  * @returns {string|null} The repository root path or null if not found
  */
 function findRepoRoot() {
-  const cacheKey = "repoRoot";
+  const cacheKey = 'repoRoot';
 
   if (repoRootCache.has(cacheKey)) {
     return repoRootCache.get(cacheKey);
   }
 
   try {
-    const repoRoot = execSync("git rev-parse --show-toplevel", {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
+    const repoRoot = execSync('git rev-parse --show-toplevel', {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
 
     repoRootCache.set(cacheKey, repoRoot);

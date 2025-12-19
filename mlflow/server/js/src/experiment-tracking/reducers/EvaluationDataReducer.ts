@@ -1,8 +1,8 @@
 import { combineReducers } from 'redux';
 import { fulfilled, pending, rejected } from '../../common/utils/ActionUtils';
-import { EvaluationArtifactTable, PendingEvaluationArtifactTableEntry } from '../types';
+import type { EvaluationArtifactTable, PendingEvaluationArtifactTableEntry } from '../types';
 
-import { AsyncAction, AsyncFulfilledAction, AsyncPendingAction, AsyncRejectedAction } from '../../redux-types';
+import type { AsyncAction, AsyncFulfilledAction, AsyncPendingAction, AsyncRejectedAction } from '../../redux-types';
 import type {
   DiscardPendingEvaluationDataAction,
   EvaluateAddInputValues,

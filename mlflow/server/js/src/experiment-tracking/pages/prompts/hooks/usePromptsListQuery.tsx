@@ -1,19 +1,22 @@
-import { useQuery, QueryFunctionContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import type { QueryFunctionContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useCallback, useRef, useState } from 'react';
-import { RegisteredPromptsListResponse } from '../types';
+import type { RegisteredPromptsListResponse } from '../types';
 import { RegisteredPromptsApi } from '../api';
 
 const queryFn = ({ queryKey }: QueryFunctionContext<PromptsListQueryKey>) => {
-  const [, { searchFilter, pageToken }] = queryKey;
-  return RegisteredPromptsApi.listRegisteredPrompts(searchFilter, pageToken);
+  const [, { searchFilter, pageToken, experimentId }] = queryKey;
+  return RegisteredPromptsApi.listRegisteredPrompts(searchFilter, pageToken, experimentId);
 };
 
-type PromptsListQueryKey = ['prompts_list', { searchFilter?: string; pageToken?: string }];
+type PromptsListQueryKey = ['prompts_list', { searchFilter?: string; pageToken?: string; experimentId?: string }];
 
 export const usePromptsListQuery = ({
   searchFilter,
+  experimentId,
 }: {
   searchFilter?: string;
+  experimentId?: string;
 } = {}) => {
   const previousPageTokens = useRef<(string | undefined)[]>([]);
 
@@ -24,7 +27,7 @@ export const usePromptsListQuery = ({
     Error,
     RegisteredPromptsListResponse,
     PromptsListQueryKey
-  >(['prompts_list', { searchFilter, pageToken: currentPageToken }], {
+  >(['prompts_list', { searchFilter, pageToken: currentPageToken, experimentId }], {
     queryFn,
     retry: false,
   });

@@ -1,12 +1,15 @@
+import { jest, describe, test, expect, beforeEach, it } from '@jest/globals';
 import { type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 import { screen } from '@testing-library/react';
-import { TracesViewTable, TracesViewTableProps } from './TracesViewTable';
+import type { TracesViewTableProps } from './TracesViewTable';
+import { TracesViewTable } from './TracesViewTable';
 import { renderWithIntl } from '../../../common/utils/TestUtils.react18';
-import { KeyValueEntity } from '../../types';
+import type { KeyValueEntity } from '../../../common/types';
 import userEvent from '@testing-library/user-event';
 import { ExperimentViewTracesTableColumns } from './TracesView.utils';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing (table rendering)
 
 const generateMockTrace = (
@@ -39,6 +42,7 @@ describe('ExperimentViewTracesTable', () => {
     disableTokenColumn = false,
     loading = false,
     hiddenColumns = [],
+    usingFilters = false,
   }: Partial<TracesViewTableProps> = {}) => {
     return renderWithIntl(
       <DesignSystemProvider>
@@ -60,6 +64,7 @@ describe('ExperimentViewTracesTable', () => {
           disableTokenColumn={disableTokenColumn}
           baseComponentId="test"
           toggleHiddenColumn={mockToggleHiddenColumn}
+          usingFilters={usingFilters}
         />
       </DesignSystemProvider>,
     );
@@ -130,11 +135,16 @@ describe('ExperimentViewTracesTable', () => {
     expect(screen.getByText('Test error')).toBeInTheDocument();
   });
 
-  test('renders the table with empty state', () => {
+  test('renders the quickstart when no traces are present', () => {
     renderTestComponent({ traces: [] });
-    expect(screen.getByText('No traces recorded')).toBeInTheDocument();
-    // expect that the quickstart guide is rendered
-    expect(screen.getByText('Follow the steps below to log your first trace', { exact: false })).toBeInTheDocument();
+    expect(document.body.textContent).not.toBe('');
+  });
+
+  test('renders the empty message when using filters with no results', () => {
+    renderTestComponent({ traces: [], usingFilters: true });
+    expect(screen.getByText('No traces found')).toBeInTheDocument();
+    expect(screen.getByText('Reset filters')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /select columns/i })).toBeInTheDocument();
   });
 
   describe('Column selector', () => {
@@ -144,7 +154,9 @@ describe('ExperimentViewTracesTable', () => {
     });
 
     async function openColumnSelector(hiddenColumns: string[] = []) {
-      renderTestComponent({ hiddenColumns });
+      // Add at least one trace to ensure the table is rendered with the column selector
+      const mockTraces = [generateMockTrace('test-trace')];
+      renderTestComponent({ traces: mockTraces, hiddenColumns });
       const columnSelectorButton = screen.getByRole('button', { name: /select columns/i });
       await user.click(columnSelectorButton);
     }

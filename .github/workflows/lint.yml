@@ -21,7 +21,7 @@ concurrency:
 
 defaults:
   run:
-    shell: bash --noprofile --norc -exo pipefail {0}
+    shell: bash
 
 env:
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
@@ -29,17 +29,28 @@ env:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     permissions:
       contents: read
+      pull-requests: read
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: ${{ matrix.os == 'ubuntu-latest' && 'lint' || 'lint-macos' }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # To ensure `git diff` works correctly in dev/check_function_signatures.py,
+          # we need to fetch enough history to include the base branch.
+          fetch-depth: 300
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
         id: setup-python
       - name: Add problem matchers
+        if: matrix.os == 'ubuntu-latest'
         run: |
           echo "::add-matcher::.github/workflows/matchers/clint.json"
           echo "::add-matcher::.github/workflows/matchers/format.json"
@@ -47,19 +58,37 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/typos.json"
       - name: Install dependencies
         run: |
-          uv pip install --system -r requirements/lint-requirements.txt
-          dev/install-taplo.sh
-          dev/install-typos.sh
-          dev/install-conftest.sh
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
+          uv sync --locked --only-group lint --only-group test
       - name: Install pre-commit hooks
         run: |
-          pre-commit install --install-hooks
+          uv run --only-group lint pre-commit install --install-hooks
+          uv run --only-group lint pre-commit run install-bin -a -v
       - name: Run pre-commit
         id: pre-commit
         env:
           IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
           NO_FIX: "true"
         run: |
-          pre-commit run --all-files
+          uv run --only-group lint pre-commit run --all-files
+
+      - name: Test clint
+        run: |
+          uv run --only-group test pytest dev/clint
+
+      - name: Check function signatures
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          uv run --no-project dev/check_function_signatures.py
+
+      - name: Check whitespace-only changes
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          uv run --no-project dev/check_whitespace_only.py \
+            --repo ${{ github.repository }} \
+            --pr ${{ github.event.pull_request.number }}
+
+      - name: Check unused media
+        run: |
+          dev/find-unused-media.sh

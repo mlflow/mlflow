@@ -1,9 +1,10 @@
+import importlib
 import logging
 from collections import defaultdict
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import AggregationFunc, Scorer
 from mlflow.genai.scorers.builtin_scorers import (
     BuiltInScorer,
     MissingColumnsException,
@@ -19,6 +20,9 @@ except ImportError:
 _logger = logging.getLogger(__name__)
 
 
+IS_DBX_AGENTS_INSTALLED = importlib.util.find_spec("databricks.agents") is not None
+
+
 def validate_scorers(scorers: list[Any]) -> list[Scorer]:
     """
     Validate a list of specified scorers.
@@ -29,25 +33,31 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
     Returns:
         A list of valid scorers.
     """
-    from databricks.rag_eval.evaluation.metrics import Metric
-
-    if not isinstance(scorers, list) or len(scorers) == 0:
+    if not isinstance(scorers, list):
         raise MlflowException.invalid_parameter_value(
-            "The `scorers` argument must be a list of scorers with at least one scorer. "
-            "If you are unsure about which scorer to use, you can specify "
-            "`scorers=mlflow.genai.scorers.get_all_scorers()` to jump start with all "
-            "available built-in scorers."
+            "The `scorers` argument must be a list of scorers. If you are unsure about which "
+            "scorer to use, you can specify `scorers=mlflow.genai.scorers.get_all_scorers()` "
+            "to jump start with all available built-in scorers."
         )
 
-    valid_scorers, legacy_metrics = [], []
+    if len(scorers) == 0:
+        return []
+
+    valid_scorers = []
+    legacy_metrics = []
 
     for scorer in scorers:
         if isinstance(scorer, Scorer):
             valid_scorers.append(scorer)
-        elif isinstance(scorer, Metric):
-            legacy_metrics.append(scorer)
-            valid_scorers.append(scorer)
         else:
+            if IS_DBX_AGENTS_INSTALLED:
+                from databricks.rag_eval.evaluation.metrics import Metric
+
+                if isinstance(scorer, Metric):
+                    legacy_metrics.append(scorer)
+                    valid_scorers.append(scorer)
+                    continue
+
             # Show helpful error message for common mistakes
             if isinstance(scorer, list) and (scorer == get_all_scorers()):
                 # Common mistake 1: scorers=[get_all_scorers()]
@@ -91,14 +101,14 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
 def valid_data_for_builtin_scorers(
     data: "pd.DataFrame",
     builtin_scorers: list[BuiltInScorer],
-    predict_fn: Optional[Callable[..., Any]] = None,
+    predict_fn: Callable[..., Any] | None = None,
 ) -> None:
     """
     Validate that the required columns are present in the data for running the builtin scorers.
 
     Args:
         data: The data to validate. This must be a pandas DataFrame converted to
-            the legacy evaluation set schema via `_convert_to_legacy_eval_set`.
+            the legacy evaluation set schema via `_convert_to_eval_set`.
         builtin_scorers: The list of builtin scorers to validate the data for.
         predict_fn: The predict function to validate the data for.
     """
@@ -162,3 +172,32 @@ def valid_data_for_builtin_scorers(
             else:
                 msg += f"\n - `{col}` column is required by [{', '.join(scorers)}]."
         _logger.info(msg)
+
+
+def validate_aggregations(aggregations: list[str | AggregationFunc] | None) -> None:
+    """
+    Validate that aggregations are either valid string names or callable functions.
+
+    Args:
+        aggregations: List of aggregation functions to validate. Can be strings from
+                     the standard set or callable functions.
+    """
+    if not aggregations:
+        return
+
+    from mlflow.genai.scorers.aggregation import _AGGREGATE_FUNCTIONS
+
+    valid_aggregation_names = set(_AGGREGATE_FUNCTIONS.keys())
+
+    for agg in aggregations:
+        if isinstance(agg, str):
+            if agg not in valid_aggregation_names:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid aggregation '{agg}'. Valid aggregations are: "
+                    f"{sorted(valid_aggregation_names)}"
+                )
+        elif not callable(agg):
+            raise MlflowException.invalid_parameter_value(
+                f"Aggregation must be either a string from {sorted(valid_aggregation_names)} "
+                f"or a callable function, got {type(agg).__name__}"
+            )

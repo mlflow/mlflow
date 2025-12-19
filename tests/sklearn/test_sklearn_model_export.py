@@ -2,8 +2,8 @@ import json
 import os
 import pickle
 import tempfile
-from collections import namedtuple
 from pathlib import Path
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -57,7 +57,10 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--env-manager", "local"]
 )
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_data: Any
 
 
 @pytest.fixture(scope="module")
@@ -272,7 +275,7 @@ def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_lo
         ) as mock_create_mv,
         TempDir(chdr=True, remove_on_exit=True) as tmp,
     ):
-        with mlflow.start_run():
+        with mlflow.start_run() as run:
             conda_env = os.path.join(tmp.path(), "conda_env.yaml")
             _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
             model_info = mlflow.sklearn.log_model(
@@ -281,8 +284,9 @@ def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_lo
                 conda_env=conda_env,
                 registered_model_name="AdsModel1",
             )
+            source = model_info.artifact_path
             [(args, kwargs)] = mock_create_mv.call_args_list
-            assert args[1:] == ("AdsModel1", model_info.model_uri, None, [], None, None)
+            assert args[1:] == ("AdsModel1", source, run.info.run_id, [], None, None)
             assert kwargs["local_model_path"].startswith(tempfile.gettempdir())
 
 
@@ -695,7 +699,7 @@ flavors:
     loader_module: mlflow.sklearn
     model_path: model.pkl
     predict_fn: predict
-    python_version: 3.10.16
+    python_version: 3.11.14
   sklearn:
     code: null
     pickled_model: model.pkl
@@ -709,7 +713,7 @@ utc_time_created: '2023-07-04 07:19:43.561797'
     )
     tmp_path.joinpath("python_env.yaml").write_text(
         """
-python: 3.10.16
+python: 3.11.14
 build_dependencies:
    - pip==25.1.1
    - setuptools==80.4.0

@@ -1,12 +1,12 @@
-import _ from 'lodash';
+import { takeWhile, truncate } from 'lodash';
 // Import pako lazily to reduce bundle size
 const lazyPako = () => import('pako');
 
 export const truncateToFirstLineWithMaxLength = (str: string, maxLength: number): string => {
-  const truncated = _.truncate(str, {
+  const truncated = truncate(str, {
     length: maxLength,
   });
-  return _.takeWhile(truncated, (char) => char !== '\n').join('');
+  return takeWhile(truncated, (char) => char !== '\n').join('');
 };
 
 export const capitalizeFirstChar = (str: unknown) => {
@@ -217,3 +217,10 @@ export const textDecompressDeflate = async (compressedText: string) => {
 };
 
 export const isTextCompressedDeflate = (text: string) => text.startsWith(COMPRESSED_TEXT_DEFLATE_PREFIX);
+
+/**
+ * Sanitizes a string for use in a regular expression by escaping special characters.
+ */
+export const sanitizeStringForRegexp = (str: string) => {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};

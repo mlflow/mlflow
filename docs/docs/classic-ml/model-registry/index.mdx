@@ -28,7 +28,7 @@ Using the Model Registry offers the following benefits:
 - **🚀 Production-Ready Workflows**: Features like model aliases (e.g., @champion) and tags make it easier to manage deployment workflows, promoting models to experimental, staging, or production environments in a controlled and auditable way.
 - **🛡️ Governance and Compliance**: With structured metadata, tagging, and role-based access controls (when used with a backend like Databricks or a managed MLflow service), the Model Registry supports governance requirements critical for enterprise-grade ML operations.
 
-Whether you’re a solo data scientist or part of a large ML platform team, the Model Registry is a foundational component for scaling reliable and maintainable machine learning systems.
+Whether you're a solo data scientist or part of a large ML platform team, the Model Registry is a foundational component for scaling reliable and maintainable machine learning systems.
 
 ## Concepts
 
@@ -45,7 +45,7 @@ The Model Registry introduces a few concepts that describe and facilitate the fu
     <tr>
       <td>Model</td>
       <td>
-      An MLflow Model is created with one of the model flavor’s **`mlflow.<model_flavor>.log_model()`** methods, or **<APILink fn="mlflow.create_external_model"/>** API since MLflow 3.
+      An MLflow Model is created with one of the model flavor's **`mlflow.<model_flavor>.log_model()`** methods, or **<APILink fn="mlflow.create_external_model"/>** API since MLflow 3.
       Once logged, this model can then be registered with the Model Registry.
       </td>
     </tr>
@@ -153,9 +153,9 @@ You can register models, track versions, add tags and descriptions, and transiti
 
 To learn more about the OSS Model Registry, refer to the [tutorial on the model registry](./tutorial).
 
-### Model Resgitry in Databricks
+### Model Registry in Databricks
 
-Databricks extends MLflow’s capabilities by integrating the Model Registry with Unity Catalog, enabling centralized governance, fine-grained access control, and cross-workspace collaboration.
+Databricks extends MLflow's capabilities by integrating the Model Registry with Unity Catalog, enabling centralized governance, fine-grained access control, and cross-workspace collaboration.
 
 Key benefits of Unity Catalog integration include:
 

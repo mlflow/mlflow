@@ -1,3 +1,4 @@
+import { describe, it, expect } from '@jest/globals';
 import { mount } from 'enzyme';
 import React from 'react';
 import { Provider } from 'react-redux';
@@ -6,7 +7,7 @@ import { EXPERIMENT_RUNS_MOCK_STORE } from '../fixtures/experiment-runs.fixtures
 import { useExperiments } from './useExperiments';
 
 describe('useExperiments', () => {
-  const WrapComponent = (Component: React.ComponentType, store: any) => {
+  const WrapComponent = (Component: React.ComponentType<React.PropsWithChildren<unknown>>, store: any) => {
     return (
       <Provider store={createStore((s) => s as any, store)}>
         <Component />

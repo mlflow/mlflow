@@ -1,33 +1,51 @@
+import bisect
 import json
 from abc import ABCMeta, abstractmethod
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import (
+    Assessment,
     DatasetInput,
+    DatasetRecord,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
     LoggedModelParameter,
     LoggedModelStatus,
     LoggedModelTag,
-    TraceInfoV2,
+    ScorerVersion,
     ViewType,
 )
+from mlflow.entities.model_registry import PromptVersion
+from mlflow.entities.trace_metrics import (
+    MetricAggregation,
+    MetricDataPoint,
+    MetricViewType,
+)
+
+if TYPE_CHECKING:
+    from mlflow.entities import EvaluationDataset
 from mlflow.entities.metric import MetricWithRunId
-from mlflow.entities.trace import Trace
+from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_status import TraceStatus
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.store.tracking import (
+    MAX_RESULTS_GET_METRIC_HISTORY,
+    MAX_RESULTS_QUERY_TRACE_METRICS,
+    SEARCH_MAX_RESULTS_DEFAULT,
+    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+)
+from mlflow.store.tracking.gateway import GatewayStoreMixin
+from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils import mlflow_tags
-from mlflow.utils.annotations import developer_stable
+from mlflow.utils.annotations import developer_stable, requires_sql_backend
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
 from mlflow.utils.async_logging.run_operations import RunOperations
 
 
 @developer_stable
-class AbstractStore:
+class AbstractStore(GatewayStoreMixin):
     """
     Abstract class for Backend Storage.
     This class defines the API interface for front ends to connect with various types of backends.
@@ -242,74 +260,24 @@ class AbstractStore:
 
         """
 
-    # TODO: rename this to create_trace_info
-    def start_trace(
-        self,
-        experiment_id: str,
-        timestamp_ms: int,
-        request_metadata: dict[str, str],
-        tags: dict[str, str],
-    ) -> TraceInfoV2:
-        """
-        Start an initial TraceInfo object in the backend store.
-
-        Args:
-            experiment_id: String id of the experiment for this run.
-            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
-            request_metadata: Metadata of the trace.
-            tags: Tags of the trace.
-
-        Returns:
-            The created TraceInfo object.
-        """
-        raise NotImplementedError
-
-    # TODO: rename this to update_trace_info
-    # can we pass in execution_time_ms instead of timestamp_ms directly?
-    def end_trace(
-        self,
-        request_id: str,
-        timestamp_ms: int,
-        status: TraceStatus,
-        request_metadata: dict[str, str],
-        tags: dict[str, str],
-    ) -> TraceInfoV2:
-        """
-        Update the TraceInfo object in the backend store with the completed trace info.
-
-        Args:
-            request_id : Unique string identifier of the trace.
-            timestamp_ms: End time of the trace, in milliseconds. The execution time field
-                in the TraceInfo will be calculated by subtracting the start time from this.
-            status: Status of the trace.
-            request_metadata: Metadata of the trace. This will be merged with the existing
-                metadata logged during the start_trace call.
-            tags: Tags of the trace. This will be merged with the existing tags logged
-                during the start_trace or set_trace_tag calls.
-
-        Returns:
-            The updated TraceInfo object.
-        """
-        raise NotImplementedError
-
-    def start_trace_v3(self, trace: Trace) -> TraceInfo:
+    def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
         Create a trace using the V3 API format with a complete Trace object.
 
         Args:
-            trace: The Trace object to create, containing both info and data.
+            trace_info: The TraceInfo object to create in the backend.
 
         Returns:
-            The created TraceInfo object.
+            The returned TraceInfo object from the backend.
         """
         raise NotImplementedError
 
     def delete_traces(
         self,
         experiment_id: str,
-        max_timestamp_millis: Optional[int] = None,
-        max_traces: Optional[int] = None,
-        trace_ids: Optional[list[str]] = None,
+        max_timestamp_millis: int | None = None,
+        max_traces: int | None = None,
+        trace_ids: list[str] | None = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
@@ -351,9 +319,9 @@ class AbstractStore:
     def _delete_traces(
         self,
         experiment_id: str,
-        max_timestamp_millis: Optional[int] = None,
-        max_traces: Optional[int] = None,
-        trace_ids: Optional[list[str]] = None,
+        max_timestamp_millis: int | None = None,
+        max_traces: int | None = None,
+        trace_ids: list[str] | None = None,
     ) -> int:
         raise NotImplementedError
 
@@ -369,10 +337,41 @@ class AbstractStore:
         """
         raise NotImplementedError
 
+    def get_trace(self, trace_id: str, *, allow_partial: bool = False) -> Trace:
+        """
+        Get a trace with spans for given trace id.
+
+        Args:
+            trace_id: String id of the trace to fetch.
+            allow_partial: Whether to allow partial traces. If True, the trace will be returned
+                even if it is not fully exported yet. If False, MLflow retries and returns
+                the trace until all spans are exported or retries are exhausted. Default
+                to False.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.Trace``.
+        """
+        raise MlflowNotImplementedException()
+
+    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
+        """
+        Get a batch of complete traces with spans for given trace ids.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+            location: Location of the trace. For example, "catalog.schema" for UC schema.
+
+        Returns:
+            List of Trace objects.
+        """
+        # raise MlflowException so this can be captured by the handlers
+        # instead of default internal server error and retry
+        # TODO: ensure NotImplementedError can be translated to 501 error code in mlflow server
+        raise MlflowNotImplementedException()
+
     def get_online_trace_details(
         self,
         trace_id: str,
-        sql_warehouse_id: str,
         source_inference_table: str,
         source_databricks_request_id: str,
     ) -> str:
@@ -382,14 +381,14 @@ class AbstractStore:
 
     def search_traces(
         self,
-        experiment_ids: list[str],
-        filter_string: Optional[str] = None,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
-        model_id: Optional[str] = None,
-        sql_warehouse_id: Optional[str] = None,
-    ) -> tuple[list[TraceInfo], Optional[str]]:
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+        model_id: str | None = None,
+        locations: list[str] | None = None,
+    ) -> tuple[list[TraceInfo], str | None]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -401,8 +400,7 @@ class AbstractStore:
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
             model_id: If specified, return traces associated with the model ID.
-            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-                searching traces in inference tables.
+            locations: A list of locations to search over.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
@@ -413,6 +411,38 @@ class AbstractStore:
             not be meaningful in such cases.
         """
         raise NotImplementedError
+
+    def query_trace_metrics(
+        self,
+        experiment_ids: list[str],
+        view_type: MetricViewType,
+        metric_name: str,
+        aggregations: list[MetricAggregation],
+        dimensions: list[str] | None = None,
+        filters: list[str] | None = None,
+        time_interval_seconds: int | None = None,
+        start_time_ms: int | None = None,
+        end_time_ms: int | None = None,
+        max_results: int = MAX_RESULTS_QUERY_TRACE_METRICS,
+        page_token: str | None = None,
+    ) -> PagedList[list[MetricDataPoint]]:
+        """
+        Query trace metrics for the given experiment ids.
+
+        Args:
+            experiment_ids: List of experiment ids to query metrics for.
+            view_type: The view type to query metrics for.
+            metric_name: The metric name to query metrics for.
+            aggregations: The aggregations to apply to the metrics.
+            dimensions: The dimensions to group metrics by.
+            filters: The filters to apply to the traces.
+            time_interval_seconds: The time interval in seconds to group traces metrics by.
+            start_time_ms: The start time to query traces metrics for.
+            end_time_ms: The end time to query traces metrics for.
+            max_results: The maximum number of traces metrics to return. Default is 1000.
+            page_token: The page token to use for pagination.
+        """
+        raise MlflowNotImplementedException()
 
     def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
@@ -432,6 +462,109 @@ class AbstractStore:
         Args:
             trace_id: The ID of the trace.
             key: The string key of the tag.
+        """
+        raise NotImplementedError
+
+    def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
+        """
+        Retrieve an assessment from a given trace.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The assessment identifier that denotes a unique assessment entry
+                for a given trace.
+
+        Returns:
+            The Assessment object for the given trace and assessment ids.
+        """
+        raise NotImplementedError
+
+    def create_assessment(self, assessment: Assessment) -> Assessment:
+        """
+        Logs an Assessment for a given trace or a span within a trace.
+
+        Args:
+            assessment: An :py:class:`Assessment <mlflow.entities.Assessment>` object that
+                contains the key value mappings of assessment criteria comprised of either
+                expectations or user/system/scorer-provided feedback (label data) on the quality
+                of the trace response or for a span within a trace.
+
+        Returns:
+            The Assessment object for the logging operation.
+        """
+        raise NotImplementedError
+
+    def update_assessment(
+        self,
+        trace_id: str,
+        assessment_id: str,
+        name: str | None = None,
+        expectation: str | None = None,
+        feedback: str | None = None,
+        rationale: str | None = None,
+        metadata: dict[str, str] | None = None,
+    ) -> Assessment:
+        """
+        Updates the given Assessment's mutable values to overwrite updated values
+        for the given trace and Assessment data.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The ID of the assessment upon which overrides will be applied to
+                mutable attributes.
+            name: An Optional override to the name of the assessment.
+            expectation: An Optional override of the expectation for the assessment.
+            feedback: An Optional override to the feedback for a given assessment.
+            rationale: An Optional string defining the reasoning behind the override of
+                the assessment.
+            metadata: An Optional mapping of additional customizable metadata for the assessment.
+
+        Returns:
+            The Assessment object representing the updated state of an assessment for a given trace.
+        """
+        raise NotImplementedError
+
+    def delete_assessment(self, trace_id: str, assessment_id):
+        """
+        Delete an assessment for a given trace.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The ID of the assessment to be deleted.
+        """
+        raise NotImplementedError
+
+    def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
+        """
+        Log multiple span entities to the tracking store.
+
+        Args:
+            location: The location to log spans to. Can be either experiment ID or the
+                full UC table name.
+            spans: List of Span entities to log. All spans must belong to the same trace.
+            tracking_uri: The tracking URI to use. Default to None.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            MlflowException: If spans belong to different traces.
+        """
+        raise NotImplementedError
+
+    async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
+        """
+        Asynchronously log multiple span entities to the tracking store.
+
+        Args:
+            location: The location to log spans to.
+            spans: List of Span entities to log. All spans must belong to the same trace.
+
+        Returns:
+            List of logged Span entities.
+
+        Raises:
+            MlflowException: If spans belong to different traces.
         """
         raise NotImplementedError
 
@@ -482,6 +615,15 @@ class AbstractStore:
         Args:
             experiment_id: String id for the experiment.
             tag: :py:class:`mlflow.entities.ExperimentTag` instance to set.
+        """
+
+    def delete_experiment_tag(self, experiment_id, key):
+        """
+        Delete a tag from the specified experiment
+
+        Args:
+            experiment_id: String id for the experiment.
+            key: String name of the tag to be deleted.
         """
 
     def set_tag(self, run_id, tag):
@@ -557,6 +699,82 @@ class AbstractStore:
             )
             for metric in metrics_for_run
         ]
+
+    def get_metric_history_bulk_interval(
+        self, run_ids: list[str], metric_key: str, max_results: int, start_step: int, end_step: int
+    ) -> list[MetricWithRunId]:
+        """
+        Return a list of metric objects for a given metric across multiple runs,
+        sampled within a specified step range.
+
+        This method collects metric history from multiple runs, samples the steps
+        to limit the result size, and returns metrics for the sampled steps. The
+        sampling preserves min/max steps to maintain data boundaries.
+
+        Args:
+            run_ids: List of unique identifiers for runs.
+            metric_key: Metric name to retrieve across runs.
+            max_results: Maximum number of steps to sample from the step range.
+            start_step: Starting step of the range (inclusive). If None, starts from 0.
+            end_step: Ending step of the range (inclusive). If None, uses the maximum
+                step found across all runs.
+
+        Returns:
+            A list of `MetricWithRunId` objects containing metric data for the sampled
+            steps across all specified runs.
+        """
+
+        # get a list of all steps for all runs. this is necessary
+        # because we can't assume that every step was logged, so
+        # sampling needs to be done on the steps that actually exist
+        all_runs = [
+            [m.step for m in self.get_metric_history(run_id, metric_key)] for run_id in run_ids
+        ]
+
+        # save mins and maxes to be added back later
+        all_mins_and_maxes = {step for run in all_runs if run for step in [min(run), max(run)]}
+        all_steps = sorted({step for sublist in all_runs for step in sublist})
+
+        # init start and end step if not provided in args
+        if start_step is None and end_step is None:
+            start_step = 0
+            end_step = all_steps[-1] if all_steps else 0
+
+        # remove any steps outside of the range
+        all_mins_and_maxes = {step for step in all_mins_and_maxes if start_step <= step <= end_step}
+
+        # doing extra iterations here shouldn't badly affect performance,
+        # since the number of steps at this point should be relatively small
+        # (MAX_RESULTS_PER_RUN + len(all_mins_and_maxes))
+
+        start_idx = bisect.bisect_left(all_steps, start_step)
+        end_idx = bisect.bisect_right(all_steps, end_step)
+        if end_idx - start_idx <= max_results:
+            sampled_steps = set(all_steps[start_idx:end_idx])
+        else:
+            num_steps = end_idx - start_idx
+            interval = num_steps / max_results
+            sampled_steps = set()
+
+            for i in range(0, max_results):
+                idx = start_idx + int(i * interval)
+                if idx < end_idx:
+                    sampled_steps.add(all_steps[idx])
+
+            sampled_steps.add(all_steps[end_idx - 1])
+
+        steps = sorted(sampled_steps.union(all_mins_and_maxes))
+        metrics_with_run_ids = []
+        for run_id in run_ids:
+            metrics_with_run_ids.extend(
+                self.get_metric_history_bulk_interval_from_steps(
+                    run_id=run_id,
+                    metric_key=metric_key,
+                    steps=steps,
+                    max_results=MAX_RESULTS_GET_METRIC_HISTORY,
+                )
+            )
+        return metrics_with_run_ids
 
     def search_runs(
         self,
@@ -691,8 +909,8 @@ class AbstractStore:
     def log_inputs(
         self,
         run_id: str,
-        datasets: Optional[list[DatasetInput]] = None,
-        models: Optional[list[LoggedModelInput]] = None,
+        datasets: list[DatasetInput] | None = None,
+        models: list[LoggedModelInput] | None = None,
     ):
         """
         Log inputs, such as datasets, to the specified run.
@@ -728,11 +946,11 @@ class AbstractStore:
     def create_logged_model(
         self,
         experiment_id: str,
-        name: Optional[str] = None,
-        source_run_id: Optional[str] = None,
-        tags: Optional[list[LoggedModelTag]] = None,
-        params: Optional[list[LoggedModelParameter]] = None,
-        model_type: Optional[str] = None,
+        name: str | None = None,
+        source_run_id: str | None = None,
+        tags: list[LoggedModelTag] | None = None,
+        params: list[LoggedModelParameter] | None = None,
+        model_type: str | None = None,
     ) -> LoggedModel:
         """
         Create a new logged model.
@@ -753,11 +971,11 @@ class AbstractStore:
     def search_logged_models(
         self,
         experiment_ids: list[str],
-        filter_string: Optional[str] = None,
-        datasets: Optional[list[dict[str, Any]]] = None,
-        max_results: Optional[int] = None,
-        order_by: Optional[list[dict[str, Any]]] = None,
-        page_token: Optional[str] = None,
+        filter_string: str | None = None,
+        datasets: list[dict[str, Any]] | None = None,
+        max_results: int | None = None,
+        order_by: list[dict[str, Any]] | None = None,
+        page_token: str | None = None,
     ) -> PagedList[LoggedModel]:
         """
         Search for logged models that match the specified search criteria.
@@ -847,12 +1065,14 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_logged_model(self, model_id: str) -> LoggedModel:
+    def get_logged_model(self, model_id: str, allow_deleted: bool = False) -> LoggedModel:
         """
         Fetch the logged model with the specified ID.
 
         Args:
             model_id: ID of the model to fetch.
+            allow_deleted: If ``True``, allow fetching logged models in the deleted lifecycle
+                stage. Defaults to ``False``.
 
         Returns:
             The fetched model.
@@ -865,5 +1085,351 @@ class AbstractStore:
 
         Args:
             model_id: ID of the model to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def create_dataset(
+        self,
+        name: str,
+        tags: dict[str, str] | None = None,
+        experiment_ids: list[str] | None = None,
+    ) -> "EvaluationDataset":
+        """
+        Create a new evaluation dataset.
+
+        Args:
+            name: The name of the evaluation dataset.
+            tags: Optional tags to associate with the dataset.
+            experiment_ids: List of experiment IDs to associate with the dataset.
+
+        Returns:
+            The created evaluation dataset with populated metadata.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_dataset(self, dataset_id: str) -> "EvaluationDataset":
+        """
+        Get an evaluation dataset by ID.
+
+        Args:
+            dataset_id: The ID of the dataset to retrieve.
+
+        Returns:
+            The evaluation dataset object.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def delete_dataset(self, dataset_id: str) -> None:
+        """
+        Delete a dataset and all its records.
+
+        Args:
+            dataset_id: The ID of the dataset to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def search_datasets(
+        self,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
+        max_results: int = 1000,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList["EvaluationDataset"]:
+        """
+        Search for evaluation datasets.
+
+        Args:
+            experiment_ids: List of experiment IDs to filter by.
+            filter_string: Filter string for dataset names.
+            max_results: Maximum number of results to return.
+            order_by: Ordering criteria.
+            page_token: Token for retrieving the next page of results.
+
+        Returns:
+            A PagedList of evaluation datasets.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def upsert_dataset_records(
+        self,
+        dataset_id: str,
+        records: list[dict[str, Any]],
+    ) -> dict[str, int]:
+        """
+        Upsert records into an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            records: List of record dictionaries to upsert.
+
+        Returns:
+            Dictionary with 'inserted' and 'updated' counts.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
+        """
+        Set tags for an evaluation dataset.
+
+        This implements an upsert operation - existing tags are merged with new tags.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            tags: Dictionary of tags to update.
+
+        Raises:
+            MlflowException: If dataset not found or invalid parameters.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
+        """
+        Delete a tag from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            key: The tag key to delete.
+
+        Raises:
+            MlflowException: If dataset not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
+        """
+        Get experiment IDs associated with an evaluation dataset.
+
+        This method is used for lazy loading of experiment_ids in the EvaluationDataset entity.
+
+        Args:
+            dataset_id: The ID of the dataset.
+
+        Returns:
+            List of experiment IDs associated with the dataset.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def _load_dataset_records(
+        self,
+        dataset_id: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[DatasetRecord], str | None]:
+        """
+        Load dataset records with pagination support.
+
+        This method is used by handlers and for lazy loading of records in the
+        EvaluationDataset entity.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            max_results: Maximum number of records to return. If None, returns all records.
+            page_token: Token for pagination. If None, starts from the beginning.
+
+        Returns:
+            Tuple of (list of DatasetRecord objects, next_page_token).
+            next_page_token is None if there are no more records.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def add_dataset_to_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> "EvaluationDataset":
+        """
+        Add a dataset to additional experiments.
+
+        Args:
+            dataset_id: The ID of the dataset to update
+            experiment_ids: List of experiment IDs to associate with the dataset
+
+        Returns:
+            The updated EvaluationDataset
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def remove_dataset_from_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> "EvaluationDataset":
+        """
+        Remove a dataset from experiments.
+
+        Args:
+            dataset_id: The ID of the dataset to update
+            experiment_ids: List of experiment IDs to disassociate from the dataset
+
+        Returns:
+            The updated EvaluationDataset
+
+        Note:
+            This operation is idempotent - removing non-existent associations
+            will not raise an error.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @abstractmethod
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If more than 100 traces are provided.
+        """
+
+    def unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Unlink multiple traces from a run by removing entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to unlink from the run.
+            run_id: ID of the run to unlink traces from.
+
+        Raises:
+            MlflowException: If the operation is not supported or fails.
+        """
+        raise NotImplementedError(
+            f"Unlinking traces from runs is not implemented for {self.__class__.__name__}."
+        )
+
+    def link_prompts_to_trace(self, _trace_id: str, _prompt_versions: list[PromptVersion]) -> None:
+        """
+        Link multiple prompt versions to a trace by creating entity associations.
+
+        Args:
+            _trace_id: ID of the trace to link prompt versions to.
+            _prompt_versions: List of PromptVersion objects to link.
+
+        Raises:
+            NotImplementedError: If the operation is not supported by this store.
+        """
+        raise NotImplementedError(
+            f"Linking prompts to traces is not implemented for {self.__class__.__name__}."
+        )
+
+    def calculate_trace_filter_correlation(
+        self,
+        experiment_ids: list[str],
+        filter_string1: str,
+        filter_string2: str,
+        base_filter: str | None = None,
+    ) -> TraceFilterCorrelationResult:
+        """
+        Calculate correlation between two trace filter conditions using NPMI.
+
+        This method analyzes the correlation between traces matching two different
+        filter conditions using Normalized Pointwise Mutual Information (NPMI).
+
+        Args:
+            experiment_ids: List of experiment IDs to analyze traces from.
+            filter_string1: First filter condition (MLflow search filter syntax).
+            filter_string2: Second filter condition (MLflow search filter syntax).
+            base_filter: Optional base filter that both filter1 and filter2 are tested on top of
+                        (e.g. 'request_time > ... and request_time < ...' for time windows).
+
+        Returns:
+            TraceFilterCorrelationResult containing:
+            - npmi: Correlation score from -1 (never co-occur) to 1 (always co-occur),
+                   or NaN if undefined (when a filter has zero matches)
+            - filter1_count: Number of traces matching filter1
+            - filter2_count: Number of traces matching filter2
+            - joint_count: Number of traces matching both filters
+            - total_count: Total number of traces in the experiments
+
+        Raises:
+            MlflowException: If filters are invalid or experiments don't exist.
+        """
+        raise NotImplementedError(
+            f"The Correlations API is not implemented for {self.__class__.__name__}. "
+            "A SQL backend is required to use this feature."
+        )
+
+    def register_scorer(
+        self, experiment_id: str, name: str, serialized_scorer: str
+    ) -> ScorerVersion:
+        """
+        Register a scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            serialized_scorer: The serialized scorer string (JSON).
+
+        Returns:
+            mlflow.entities.ScorerVersion: The newly registered scorer version with scorer_id.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_scorers(self, experiment_id) -> list[ScorerVersion]:
+        """
+        List all scorers for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+
+        Returns:
+            List of mlflow.entities.scorer.ScorerVersion objects
+            (latest version for each scorer name).
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
+        """
+        Get a specific scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            version: The scorer version. If None, returns the scorer with maximum version.
+
+        Returns:
+            A ScorerVersion entity object.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_scorer_versions(self, experiment_id, name) -> list[ScorerVersion]:
+        """
+        List all versions of a specific scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+
+        Returns:
+            List of mlflow.entities.scorer.ScorerVersion objects for all versions of the scorer.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_scorer(self, experiment_id, name, version=None) -> None:
+        """
+        Delete all versions of a scorer for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            version: The scorer version. If None, delete all versions.
+
+        Raises:
+            MlflowException: If scorer is not found.
         """
         raise NotImplementedError(self.__class__.__name__)

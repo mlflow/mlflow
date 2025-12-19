@@ -36,7 +36,7 @@ export function OverflowMenu({ menu }: OverflowMenuProps) {
       {/* @ts-expect-error TS(2532): Object is possibly 'undefined'. */}
       {menu.map(({ id, itemName, onClick, href, ...otherProps }) => (
         // @ts-expect-error TS(2769): No overload matches this call.
-        <Menu.Item key={id} onClick={onClick} href={href} data-test-id={id} {...otherProps}>
+        <Menu.Item key={id} onClick={onClick} href={href} data-testid={id} {...otherProps}>
           {itemName}
         </Menu.Item>
       ))}
@@ -49,7 +49,7 @@ export function OverflowMenu({ menu }: OverflowMenuProps) {
       <Button
         componentId="codegen_mlflow_app_src_shared_building_blocks_pageheader.tsx_54"
         icon={<OverflowIcon />}
-        data-test-id="overflow-menu-trigger"
+        data-testid="overflow-menu-trigger"
         aria-label="Open header dropdown menu"
       />
     </Dropdown>

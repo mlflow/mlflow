@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 const webpack = require('webpack');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 const proxyTarget = process.env.MLFLOW_PROXY;
 const useProxyServer = !!proxyTarget && !process.env.MLFLOW_DEV_PROXY_MODE;
@@ -274,6 +275,14 @@ module.exports = function () {
 
         const moduleNameMapper = {
           ...jestConfig.moduleNameMapper,
+          // bugfix for ESM issue in remark, see: https://github.com/orgs/remarkjs/discussions/1247
+          'unist-util-visit-parents/do-not-use-color': '<rootDir>/node_modules/unist-util-visit-parents/lib/color.js',
+          'vfile/do-not-use-conditional-minpath': '<rootDir>/node_modules/vfile/lib/minpath.browser.js',
+          'vfile/do-not-use-conditional-minproc': '<rootDir>/node_modules/vfile/lib/minproc.browser.js',
+          'vfile/do-not-use-conditional-minurl': '<rootDir>/node_modules/vfile/lib/minurl.browser.js',
+          // other aliases
+          '@databricks/i18n': '<rootDir>/src/i18n/i18n',
+          '@databricks/web-shared/query-client': '<rootDir>/src/common/utils/reactQueryHooks',
           '@databricks/design-system/(.+)': '<rootDir>/node_modules/@databricks/design-system/dist/$1',
           '@databricks/web-shared/(.*)': '<rootDir>/src/shared/web-shared/$1',
           '@mlflow/mlflow/(.*)': '<rootDir>/$1',
@@ -305,6 +314,100 @@ module.exports = function () {
             'react/jsx-dev-runtime.js': require.resolve('react/jsx-dev-runtime'),
           },
         };
+
+        // Add separate entry for notebook renderer
+        webpackConfig.entry = {
+          main: webpackConfig.entry,
+          'ml-model-trace-renderer': path.resolve(
+            __dirname,
+            'src/shared/web-shared/model-trace-explorer/oss-notebook-renderer/index.ts',
+          ),
+          'telemetry-worker': path.resolve(__dirname, 'src/telemetry/worker/TelemetryLogger.worker.ts'),
+        };
+
+        // Configure output for multiple entries
+        webpackConfig.output = {
+          ...webpackConfig.output,
+          filename: (pathData) => {
+            if (pathData.chunk.name === 'telemetry-worker') {
+              // serve SharedWorker file at top-level, it seems to be more
+              // stable than if it's contained in `static/js/...`. previously
+              // i was running into issues with webpack path resolution
+              return 'TelemetryLogger.[name].[contenthash].worker.js';
+            }
+            return pathData.chunk.name === 'ml-model-trace-renderer'
+              ? 'lib/notebook-trace-renderer/js/[name].[contenthash].js'
+              : 'static/js/[name].[contenthash:8].js';
+          },
+          chunkFilename: (pathData) => {
+            if (pathData.chunk.name === 'telemetry-worker') {
+              return 'TelemetryLogger.[name].[contenthash].worker.chunk.js';
+            }
+            return pathData.chunk.name?.includes('ml-model-trace-renderer')
+              ? 'lib/notebook-trace-renderer/js/[name].[contenthash].chunk.js'
+              : 'static/js/[name].[contenthash:8].chunk.js';
+          },
+        };
+
+        // Configure CSS extraction for notebook renderer
+        if (env === 'production') {
+          const MiniCssExtractPlugin = webpackConfig.plugins.find(
+            (plugin) => plugin.constructor.name === 'MiniCssExtractPlugin',
+          );
+
+          if (MiniCssExtractPlugin) {
+            MiniCssExtractPlugin.options = {
+              ...MiniCssExtractPlugin.options,
+              filename: (pathData) => {
+                return pathData.chunk.name === 'ml-model-trace-renderer'
+                  ? 'lib/notebook-trace-renderer/css/[name].[contenthash].css'
+                  : 'static/css/[name].[contenthash:8].css';
+              },
+              chunkFilename: (pathData) => {
+                return pathData.chunk.name?.includes('ml-model-trace-renderer')
+                  ? 'lib/notebook-trace-renderer/css/[name].[contenthash].chunk.css'
+                  : 'static/css/[name].[contenthash:8].chunk.css';
+              },
+            };
+          }
+        }
+
+        // Configure main HtmlWebpackPlugin to exclude notebook renderer chunks
+        const mainHtmlPlugin = webpackConfig.plugins.find((plugin) => plugin.constructor.name === 'HtmlWebpackPlugin');
+        if (mainHtmlPlugin) {
+          mainHtmlPlugin.options.excludeChunks = ['ml-model-trace-renderer', 'telemetry-worker'];
+        }
+
+        // Add HTML template for notebook renderer
+        webpackConfig.plugins.push(
+          new HtmlWebpackPlugin({
+            template: path.resolve(
+              __dirname,
+              'src/shared/web-shared/model-trace-explorer/oss-notebook-renderer/index.html',
+            ),
+            filename: 'lib/notebook-trace-renderer/index.html',
+            chunks: ['ml-model-trace-renderer'],
+            inject: true,
+            publicPath: '/static-files/',
+            minify:
+              env === 'production'
+                ? {
+                    removeComments: true,
+                    collapseWhitespace: true,
+                    removeRedundantAttributes: true,
+                    useShortDoctype: true,
+                    removeEmptyAttributes: true,
+                    removeStyleLinkTypeAttributes: true,
+                    keepClosingSlash: true,
+                    minifyJS: true,
+                    minifyCSS: true,
+                    minifyURLs: true,
+                  }
+                : false,
+            base: '/',
+          }),
+        );
+
         console.log('Webpack config:', webpackConfig);
         return webpackConfig;
       },

@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   CursorPagination,
   DangerIcon,
@@ -13,7 +14,8 @@ import {
   TableRowAction,
   ColumnsIcon,
 } from '@databricks/design-system';
-import { SortingState, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
+import type { SortingState } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import React, { useMemo } from 'react';
 import { isNil, entries } from 'lodash';
 import Utils from '../../../common/utils/Utils';
@@ -36,7 +38,8 @@ import type { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
 import { TracesViewTableStatusCell } from './TracesViewTableStatusCell';
 import { TracesViewTableRequestPreviewCell, TracesViewTableResponsePreviewCell } from './TracesViewTablePreviewCell';
 import { TracesViewTableSourceCell } from './TracesViewTableSourceCell';
-import { TracesColumnDef, getColumnSizeClassName, getHeaderSizeClassName } from './TracesViewTable.utils';
+import type { TracesColumnDef } from './TracesViewTable.utils';
+import { getColumnSizeClassName, getHeaderSizeClassName } from './TracesViewTable.utils';
 import { TracesViewTableRow } from './TracesViewTableRow';
 import { TracesViewTableTimestampCell } from './TracesViewTableTimestampCell';
 import { TracesViewTableHeaderCheckbox } from './TracesViewTableHeaderCheckbox';
@@ -188,6 +191,8 @@ export const TracesViewTable = React.memo(
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
 
+    const showQuickStart = !loading && traces.length === 0 && !usingFilters && !error;
+
     const useStaticColumnsCells = isUnstableNestedComponentsMigrated();
 
     const allColumnsList = useMemo<ColumnListItem[]>(() => {
@@ -200,6 +205,10 @@ export const TracesViewTable = React.memo(
     }, [intl, disabledColumns]);
 
     const columns = useMemo<TracesColumnDef[]>(() => {
+      if (showQuickStart) {
+        return [];
+      }
+
       const columns: TracesColumnDef[] = [
         {
           id: TRACE_TABLE_CHECKBOX_COLUMN_ID,
@@ -382,22 +391,26 @@ export const TracesViewTable = React.memo(
       hiddenColumns,
       baseComponentId,
       useStaticColumnsCells,
+      showQuickStart,
     ]);
 
-    const table = useReactTable<ModelTraceInfoWithRunName>({
-      columns,
-      data: traces,
-      state: { sorting, rowSelection },
-      getCoreRowModel: getCoreRowModel(),
-      getRowId: (row, index) => row.request_id || index.toString(),
-      getSortedRowModel: getSortedRowModel(),
-      onSortingChange: setSorting,
-      onRowSelectionChange: setRowSelection,
-      enableColumnResizing: true,
-      enableRowSelection: true,
-      columnResizeMode: 'onChange',
-      meta: { baseComponentId, onTraceClicked, onTraceTagsEdit } satisfies TracesViewTableMeta,
-    });
+    const table = useReactTable<ModelTraceInfoWithRunName>(
+      'mlflow/server/js/src/experiment-tracking/components/traces/TracesViewTable.tsx',
+      {
+        columns,
+        data: showQuickStart ? [] : traces,
+        state: { sorting, rowSelection },
+        getCoreRowModel: getCoreRowModel(),
+        getRowId: (row, index) => row.request_id || index.toString(),
+        getSortedRowModel: getSortedRowModel(),
+        onSortingChange: setSorting,
+        onRowSelectionChange: setRowSelection,
+        enableColumnResizing: true,
+        enableRowSelection: true,
+        columnResizeMode: 'onChange',
+        meta: { baseComponentId, onTraceClicked, onTraceTagsEdit } satisfies TracesViewTableMeta,
+      },
+    );
 
     const getEmptyState = () => {
       if (error) {
@@ -443,21 +456,15 @@ export const TracesViewTable = React.memo(
           />
         );
       }
-      if (!loading && traces.length === 0) {
-        return (
-          <TracesViewTableNoTracesQuickstart
-            baseComponentId={baseComponentId}
-            experimentIds={experimentIds}
-            runUuid={runUuid}
-          />
-        );
-      }
       return null;
     };
 
     // to improve performance, we pass the column sizes as inline styles to the table
     const columnSizeInfo = table.getState().columnSizingInfo;
     const columnSizeVars = React.useMemo(() => {
+      if (showQuickStart) {
+        return {};
+      }
       const headers = table.getFlatHeaders();
       const colSizes: { [key: string]: number } = {};
       headers.forEach((header) => {
@@ -467,7 +474,11 @@ export const TracesViewTable = React.memo(
       return colSizes;
       // we need to recompute this whenever columns get resized or changed
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [columnSizeInfo, columns, table]);
+    }, [columnSizeInfo, columns, table, showQuickStart]);
+
+    if (showQuickStart) {
+      return <TracesViewTableNoTracesQuickstart baseComponentId={baseComponentId} runUuid={runUuid} />;
+    }
 
     return (
       <Table

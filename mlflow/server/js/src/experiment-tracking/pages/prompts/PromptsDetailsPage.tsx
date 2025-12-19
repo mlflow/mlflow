@@ -1,4 +1,5 @@
 import invariant from 'invariant';
+import { useDispatch } from 'react-redux';
 import { usePromptDetailsQuery } from './hooks/usePromptDetailsQuery';
 import { Link, useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import { ScrollablePageWrapper } from '../../../common/components/ScrollablePageWrapper';
@@ -13,7 +14,6 @@ import {
   SegmentedControlButton,
   SegmentedControlGroup,
   Spacer,
-  TableIcon,
   TableSkeleton,
   useDesignSystemTheme,
   ZoomMarqueeSelection,
@@ -25,7 +25,7 @@ import Routes from '../../routes';
 import { CreatePromptModalMode, useCreatePromptModal } from './hooks/useCreatePromptModal';
 import { useDeletePromptModal } from './hooks/useDeletePromptModal';
 import { PromptVersionsTable } from './components/PromptVersionsTable';
-import { useEditRegisteredModelAliasesModal } from '../../../model-registry/hooks/useEditRegisteredModelAliasesModal';
+import { useEditAliasesModal } from '../../../common/hooks/useEditAliasesModal';
 import { usePromptDetailsPageViewState } from './hooks/usePromptDetailsPageViewState';
 import { PromptContentPreview } from './components/PromptContentPreview';
 import { PromptContentCompare } from './components/PromptContentCompare';
@@ -36,6 +36,10 @@ import { first, isEmpty } from 'lodash';
 import { PromptsListTableTagsBox } from './components/PromptDetailsTagsBox';
 import { PromptNotFoundView } from './components/PromptNotFoundView';
 import { useUpdatePromptVersionMetadataModal } from './hooks/useUpdatePromptVersionMetadataModal';
+import { useEditModelConfigModal } from './hooks/useEditModelConfigModal';
+import type { ThunkDispatch } from '../../../redux-types';
+import { setModelVersionAliasesApi } from '../../../model-registry/actions';
+import { ExperimentPageTabName } from '../../constants';
 
 const getAliasesModalTitle = (version: string) => (
   <FormattedMessage
@@ -45,10 +49,12 @@ const getAliasesModalTitle = (version: string) => (
   />
 );
 
-const PromptsDetailsPage = () => {
+const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) => {
   const { promptName } = useParams<{ promptName: string }>();
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
+
+  const dispatch = useDispatch<ThunkDispatch>();
 
   invariant(promptName, 'Prompt name should be defined');
 
@@ -58,6 +64,7 @@ const PromptsDetailsPage = () => {
     mode: CreatePromptModalMode.CreatePromptVersion,
     registeredPrompt: promptDetailsData?.prompt,
     latestVersion: first(promptDetailsData?.versions),
+    experimentId,
     onSuccess: async ({ promptVersion }) => {
       await refetch();
       if (promptVersion) {
@@ -68,22 +75,24 @@ const PromptsDetailsPage = () => {
 
   const { DeletePromptModal, openModal: openDeleteModal } = useDeletePromptModal({
     registeredPrompt: promptDetailsData?.prompt,
-    onSuccess: () => navigate(Routes.promptsPageRoute),
+    onSuccess: () =>
+      navigate(
+        experimentId
+          ? Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Prompts)
+          : Routes.promptsPageRoute,
+      ),
   });
 
   const { EditPromptVersionMetadataModal, showEditPromptVersionMetadataModal } = useUpdatePromptVersionMetadataModal({
     onSuccess: refetch,
   });
 
-  const {
-    setCompareMode,
-    setPreviewMode,
-    setTableMode,
-    switchSides,
-    viewState,
-    setSelectedVersion,
-    setComparedVersion,
-  } = usePromptDetailsPageViewState(promptDetailsData);
+  const { EditModelConfigModal, openEditModelConfigModal } = useEditModelConfigModal({
+    onSuccess: refetch,
+  });
+
+  const { setCompareMode, setPreviewMode, switchSides, viewState, setSelectedVersion, setComparedVersion } =
+    usePromptDetailsPageViewState(promptDetailsData);
 
   const { mode } = viewState;
 
@@ -111,11 +120,20 @@ const PromptsDetailsPage = () => {
     return result;
   }, [promptDetailsData]);
 
-  const { EditAliasesModal, showEditAliasesModal } = useEditRegisteredModelAliasesModal({
-    model: promptDetailsData?.prompt || null,
+  const { EditAliasesModal, showEditAliasesModal } = useEditAliasesModal({
+    aliases: promptDetailsData?.prompt?.aliases ?? [],
     onSuccess: refetch,
-    modalTitle: getAliasesModalTitle,
-    modalDescription: (
+    getTitle: getAliasesModalTitle,
+    onSave: async (currentlyEditedVersion: string, existingAliases: string[], draftAliases: string[]) =>
+      dispatch(
+        setModelVersionAliasesApi(
+          promptDetailsData?.prompt?.name ?? '',
+          currentlyEditedVersion,
+          existingAliases,
+          draftAliases,
+        ),
+      ),
+    description: (
       <FormattedMessage
         // TODO: add a documentation link ("Learn more")
         defaultMessage="Aliases allow you to assign a mutable, named reference to a particular prompt version."
@@ -129,13 +147,13 @@ const PromptsDetailsPage = () => {
     return <PromptNotFoundView promptName={promptName} />;
   }
 
-  const breadcrumbs = (
+  const breadcrumbs = !experimentId ? (
     <Breadcrumb>
       <Breadcrumb.Item>
         <Link to={Routes.promptsPageRoute}>Prompts</Link>
       </Breadcrumb.Item>
     </Breadcrumb>
-  );
+  ) : undefined;
 
   if (isLoading) {
     return (
@@ -199,15 +217,6 @@ const PromptsDetailsPage = () => {
                   />
                 </div>
               </SegmentedControlButton>
-              <SegmentedControlButton value={PromptVersionsTableMode.TABLE} onClick={setTableMode}>
-                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-                  <TableIcon />{' '}
-                  <FormattedMessage
-                    defaultMessage="List"
-                    description="Label for the list mode on the registered prompt details page"
-                  />
-                </div>
-              </SegmentedControlButton>
               <SegmentedControlButton
                 disabled={Boolean(!promptDetailsData?.versions.length || promptDetailsData?.versions.length < 2)}
                 value={PromptVersionsTableMode.COMPARE}
@@ -248,15 +257,15 @@ const PromptsDetailsPage = () => {
                     await refetch().then(({ data }) => {
                       if (!isEmpty(data?.versions) && data?.versions[0].version) {
                         setSelectedVersion(data?.versions[0].version);
-                      } else {
-                        setTableMode();
                       }
+                      // If no versions left, table will show empty state
                     });
                   }}
                   aliasesByVersion={aliasesByVersion}
                   showEditAliasesModal={showEditAliasesModal}
                   registeredPrompt={promptDetailsData?.prompt}
                   showEditPromptVersionMetadataModal={showEditPromptVersionMetadataModal}
+                  showEditModelConfigModal={openEditModelConfigModal}
                 />
               )}
               {mode === PromptVersionsTableMode.COMPARE && (
@@ -279,6 +288,7 @@ const PromptsDetailsPage = () => {
       {CreatePromptModal}
       {DeletePromptModal}
       {EditPromptVersionMetadataModal}
+      {EditModelConfigModal}
     </ScrollablePageWrapper>
   );
 };

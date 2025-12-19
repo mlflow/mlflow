@@ -1,7 +1,5 @@
 """create latest metrics table
 
-Revision ID: 89d4b8295536
-Revises: 7ac759974ad8
 Create Date: 2019-08-20 11:53:28.178479
 
 """
@@ -161,8 +159,6 @@ def upgrade():
         ]
     )
     session.commit()
-
-    _logger.info("Migration complete!")
 
 
 def downgrade():

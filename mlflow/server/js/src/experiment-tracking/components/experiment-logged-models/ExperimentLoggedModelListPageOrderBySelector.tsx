@@ -11,7 +11,8 @@ import {
 } from '@databricks/design-system';
 import { useMemo, useState } from 'react';
 
-import { defineMessage, FormattedMessage, IntlShape, MessageDescriptor, useIntl } from 'react-intl';
+import type { IntlShape, MessageDescriptor } from 'react-intl';
+import { defineMessage, FormattedMessage, useIntl } from 'react-intl';
 import { ToggleIconButton } from '../../../common/components/ToggleIconButton';
 import {
   ExperimentLoggedModelListPageKnownColumns,

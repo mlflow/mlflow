@@ -1,22 +1,17 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from 'react-intl';
 import { BrowserRouter } from '../../../../../common/utils/RoutingUtils';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
 import { experimentRunsSelector } from '../../utils/experimentRuns.selector';
-import {
-  ExperimentViewRunsControlsFilters,
-  ExperimentViewRunsControlsFiltersProps,
-} from './ExperimentViewRunsControlsFilters';
+import type { ExperimentViewRunsControlsFiltersProps } from './ExperimentViewRunsControlsFilters';
+import { ExperimentViewRunsControlsFilters } from './ExperimentViewRunsControlsFilters';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
 import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
-
-jest.mock('./ExperimentViewRefreshButton', () => ({
-  ExperimentViewRefreshButton: () => <div />,
-}));
 
 jest.mock('../../../evaluation-artifacts-compare/EvaluationCreatePromptRunModal', () => ({
   EvaluationCreatePromptRunModal: () => <div />,

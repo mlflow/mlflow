@@ -1,7 +1,14 @@
 @import 'reset.css';
-@import 'antd-override.css';
-@import 'common/index.css';
+@import 'common/components/EditableNote.css';
 @import 'model-registry/index.css';
+
+a {
+  color: #2374bb;
+}
+a:hover,
+a:focus {
+  color: #005580;
+}
 
 body {
   margin: 0;

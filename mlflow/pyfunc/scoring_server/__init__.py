@@ -22,7 +22,7 @@ import shlex
 import sys
 import traceback
 from functools import wraps
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 from mlflow.environment_variables import (
     _MLFLOW_IS_IN_SERVING_ENVIRONMENT,
@@ -185,7 +185,7 @@ def _decode_json_input(json_input):
     )
 
 
-def _split_data_and_params_for_llm_input(json_input, param_schema: Optional[ParamSchema]):
+def _split_data_and_params_for_llm_input(json_input, param_schema: ParamSchema | None):
     data = {}
     params = {}
     schema_params = {param.name for param in param_schema.params} if param_schema else {}
@@ -319,8 +319,7 @@ def invocations(data, content_type, model, input_schema):
             mimetype="text/plain",
         )
 
-    unexpected_content_parameters = set(parameter_values.keys()).difference({"charset"})
-    if unexpected_content_parameters:
+    if unexpected_content_parameters := set(parameter_values.keys()).difference({"charset"}):
         return InvocationsResponse(
             response=(
                 f"Unrecognized content type parameters: "
@@ -403,7 +402,7 @@ def invocations(data, content_type, model, input_schema):
 
 class ParsedJsonInput(NamedTuple):
     data: Any
-    params: Optional[dict[str, Any]]
+    params: dict[str, Any] | None
     is_unified_llm_input: bool
 
 
@@ -577,10 +576,10 @@ def _serve(model_uri, port, host):
 
 def get_cmd(
     model_uri: str,
-    port: Optional[int] = None,
-    host: Optional[int] = None,
-    timeout: Optional[int] = None,
-    nworkers: Optional[int] = None,
+    port: int | None = None,
+    host: int | None = None,
+    timeout: int | None = None,
+    nworkers: int | None = None,
 ) -> tuple[str, dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()

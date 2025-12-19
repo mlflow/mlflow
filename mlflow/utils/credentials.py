@@ -2,7 +2,7 @@ import configparser
 import getpass
 import logging
 import os
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 from mlflow.environment_variables import (
     MLFLOW_TRACKING_AUTH,
@@ -21,15 +21,15 @@ _logger = logging.getLogger(__name__)
 
 
 class MlflowCreds(NamedTuple):
-    username: Optional[str]
-    password: Optional[str]
+    username: str | None
+    password: str | None
 
 
 def _get_credentials_path() -> str:
     return os.path.expanduser("~/.mlflow/credentials")
 
 
-def _read_mlflow_creds_from_file() -> tuple[Optional[str], Optional[str]]:
+def _read_mlflow_creds_from_file() -> tuple[str | None, str | None]:
     path = _get_credentials_path()
     if not os.path.exists(path):
         return None, None
@@ -45,7 +45,7 @@ def _read_mlflow_creds_from_file() -> tuple[Optional[str], Optional[str]]:
     return mlflow_cfg.get(username_key), mlflow_cfg.get(password_key)
 
 
-def _read_mlflow_creds_from_env() -> tuple[Optional[str], Optional[str]]:
+def _read_mlflow_creds_from_env() -> tuple[str | None, str | None]:
     return MLFLOW_TRACKING_USERNAME.get(), MLFLOW_TRACKING_PASSWORD.get()
 
 

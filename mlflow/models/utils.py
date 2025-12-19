@@ -13,7 +13,7 @@ import uuid
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import pandas as pd
@@ -21,6 +21,7 @@ import pydantic
 
 import mlflow
 from mlflow.entities import LoggedModel
+from mlflow.environment_variables import MLFLOW_DISABLE_SCHEMA_DETAILS
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
 from mlflow.models.model_config import _set_model_config
@@ -34,8 +35,6 @@ from mlflow.types.utils import (
     _is_none_or_nan,
     clean_tensor_type,
 )
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import create_tmp_dir, get_local_path_or_none
 from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
@@ -90,19 +89,9 @@ ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
 ]
 
-PyFuncLLMSingleInput = Union[
-    dict[str, Any],
-    bool,
-    bytes,
-    float,
-    int,
-    str,
-]
+PyFuncLLMSingleInput = dict[str, Any] | bool | bytes | float | int | str
 
-PyFuncLLMOutputChunk = Union[
-    dict[str, Any],
-    str,
-]
+PyFuncLLMOutputChunk = dict[str, Any] | str
 
 PyFuncInput = Union[
     pd.DataFrame,
@@ -119,11 +108,11 @@ PyFuncInput = Union[
     int,
     str,
 ]
-PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str]
+PyFuncOutput = pd.DataFrame | pd.Series | np.ndarray | list | str
 
 if HAS_PYSPARK:
-    PyFuncInput = Union[PyFuncInput, SparkDataFrame]
-    PyFuncOutput = Union[PyFuncOutput, SparkDataFrame]
+    PyFuncInput = PyFuncInput | SparkDataFrame
+    PyFuncOutput = PyFuncOutput | SparkDataFrame
 
 _logger = logging.getLogger(__name__)
 
@@ -163,7 +152,7 @@ def _handle_ndarray_nans(x: np.ndarray):
         return x
 
 
-def _handle_ndarray_input(input_array: Union[np.ndarray, dict[str, Any]]):
+def _handle_ndarray_input(input_array: np.ndarray | dict[str, Any]):
     if isinstance(input_array, dict):
         result = {}
         for name in input_array.keys():
@@ -307,9 +296,7 @@ class _Example:
         model_input = deepcopy(self._inference_data)
 
         if isinstance(model_input, pydantic.BaseModel):
-            model_input = (
-                model_input.model_dump() if IS_PYDANTIC_V2_OR_NEWER else model_input.dict()
-            )
+            model_input = model_input.model_dump()
 
         is_unified_llm_input = False
         if isinstance(model_input, dict):
@@ -468,8 +455,7 @@ def _split_input_data_and_params(input_example):
     return input_example, None
 
 
-@experimental(version="2.16.0")
-def convert_input_example_to_serving_input(input_example) -> Optional[str]:
+def convert_input_example_to_serving_input(input_example) -> str | None:
     """
     Helper function to convert a model's input example to a serving input example that
     can be used for model inference in the scoring server.
@@ -489,9 +475,9 @@ def convert_input_example_to_serving_input(input_example) -> Optional[str]:
     return example.json_serving_input
 
 
-def _save_example(  # noqa: D417
-    mlflow_model: Model, input_example: Optional[ModelInputExample], path: str
-) -> Optional[_Example]:
+def _save_example(
+    mlflow_model: Model, input_example: ModelInputExample | None, path: str
+) -> _Example | None:
     """
     Saves example to a file on the given path and updates passed Model with example metadata.
 
@@ -523,7 +509,7 @@ def _save_example(  # noqa: D417
 
 def _get_mlflow_model_input_example_dict(
     mlflow_model: Model, uri_or_path: str
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Args:
         mlflow_model: Model metadata.
@@ -550,7 +536,7 @@ def _get_mlflow_model_input_example_dict(
     )
 
 
-def _load_serving_input_example(mlflow_model: Model, path: str) -> Optional[str]:
+def _load_serving_input_example(mlflow_model: Model, path: str) -> str | None:
     """
     Load serving input example from a model directory. Returns None if there is no serving input
     example.
@@ -1137,7 +1123,7 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
     return new_pf_input
 
 
-def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optional[str] = None):
+def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: str | None = None):
     """
     Enforces the provided input matches the model's input schema,
 
@@ -1257,10 +1243,17 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optiona
         missing_cols = [c for c in input_names if c in missing_cols]
         extra_cols = [c for c in actual_cols if c in extra_cols]
         if missing_cols:
-            message = f"Model is missing inputs {missing_cols}."
-            if extra_cols:
-                message += f" Note that there were extra inputs: {extra_cols}"
+            # If the user has set MLFLOW_DISABLE_SCHEMA_DETAILS to true, we raise a generic error
+            if MLFLOW_DISABLE_SCHEMA_DETAILS.get():
+                message = "Input schema validation failed. Mismatched or missing input(s)."
+                if extra_cols:
+                    message += " Note that there were extra inputs provided."
+            else:
+                message = f"Model is missing inputs {missing_cols}."
+                if extra_cols:
+                    message += f" Note that there were extra inputs: {extra_cols}."
             raise MlflowException(message)
+
         if extra_cols:
             _logger.warning(
                 "Found extra inputs in the model input that are not defined in the model "
@@ -1295,7 +1288,7 @@ def _enforce_pyspark_dataframe_schema(
     original_pf_input: SparkDataFrame,
     pf_input_as_pandas,
     input_schema: Schema,
-    flavor: Optional[str] = None,
+    flavor: str | None = None,
 ):
     """
     Enforce that the input PySpark DataFrame conforms to the model's input schema.
@@ -1418,8 +1411,7 @@ def _enforce_object(data: dict[str, Any], obj: Object, required: bool = True):
         )
     properties = {prop.name: prop for prop in obj.properties}
     required_props = {k for k, prop in properties.items() if prop.required}
-    missing_props = required_props - set(data.keys())
-    if missing_props:
+    if missing_props := required_props - set(data.keys()):
         raise MlflowException(f"Missing required properties: {missing_props}")
     if invalid_props := data.keys() - properties.keys():
         raise MlflowException(
@@ -1450,7 +1442,7 @@ def _enforce_map(data: Any, map_type: Map, required: bool = True):
     return {k: _enforce_type(v, map_type.value_type, required=required) for k, v in data.items()}
 
 
-def _enforce_type(data: Any, data_type: Union[DataType, Array, Object, Map], required=True):
+def _enforce_type(data: Any, data_type: DataType | Array | Object | Map, required=True):
     if isinstance(data_type, DataType):
         return _enforce_datatype(data, data_type, required=required)
     if isinstance(data_type, Array):
@@ -1605,7 +1597,7 @@ def get_model_version_from_model_uri(model_uri):
     return client.get_model_version(name, version)
 
 
-def _enforce_params_schema(params: Optional[dict[str, Any]], schema: Optional[ParamSchema]):
+def _enforce_params_schema(params: dict[str, Any] | None, schema: ParamSchema | None):
     if schema is None:
         if params in [None, {}]:
             return params
@@ -1637,8 +1629,7 @@ def _enforce_params_schema(params: Optional[dict[str, Any]], schema: Optional[Pa
         params = {str(k): v for k, v in params.items()}
 
     allowed_keys = {param.name for param in schema.params}
-    ignored_keys = set(params) - allowed_keys
-    if ignored_keys:
+    if ignored_keys := set(params) - allowed_keys:
         _logger.warning(
             f"Unrecognized params {list(ignored_keys)} are ignored for inference. "
             f"Supported params are: {allowed_keys}. "
@@ -1689,8 +1680,7 @@ def convert_complex_types_pyspark_to_pandas(value, dataType):
         return [
             convert_complex_types_pyspark_to_pandas(elem, dataType.elementType) for elem in value
         ]
-    converter = type_mapping.get(type(dataType))
-    if converter:
+    if converter := type_mapping.get(type(dataType)):
         return converter(value)
     return value
 
@@ -1786,7 +1776,7 @@ def _convert_llm_ndarray_to_list(data):
     return data
 
 
-def _convert_llm_input_data(data: Any) -> Union[list[Any], dict[str, Any]]:
+def _convert_llm_input_data(data: Any) -> list[Any] | dict[str, Any]:
     """
     Convert input data to a format that can be passed to the model with GenAI flavors such as
     LangChain and LLamaIndex.
@@ -1881,7 +1871,7 @@ def _validate_and_get_model_code_path(model_code_path: str, temp_dir: str) -> st
 
 
 @contextmanager
-def _config_context(config: Optional[Union[str, dict[str, Any]]] = None):
+def _config_context(config: str | dict[str, Any] | None = None):
     # Check if config_path is None and set it to "" so when loading the model
     # the config_path is set to "" so the ModelConfig can correctly check if the
     # config is set or not
@@ -1942,7 +1932,7 @@ def _mock_dbutils(globals_dict):
 # This function addresses this by dynamically importing the `code path` module under a unique,
 # dynamically generated module name. This bypasses the caching mechanism, as each import is
 # considered a separate module by the Python interpreter.
-def _load_model_code_path(code_path: str, model_config: Optional[Union[str, dict[str, Any]]]):
+def _load_model_code_path(code_path: str, model_config: str | dict[str, Any] | None):
     with _config_context(model_config):
         try:
             new_module_name = f"code_model_{uuid.uuid4().hex}"
@@ -1986,8 +1976,7 @@ def _flatten_nested_params(
 
 # NB: this function should always be kept in sync with the serving
 # process in scoring_server invocations.
-@experimental(version="2.16.0")
-def validate_serving_input(model_uri: str, serving_input: Union[str, dict[str, Any]]):
+def validate_serving_input(model_uri: str, serving_input: str | dict[str, Any]):
     """
     Helper function to validate the model can be served and provided input is valid
     prior to serving the model.

@@ -4,10 +4,10 @@ repos:
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
-        files: \.mdx
+        files: \.(mdx|ya?ml|txt)$
       - id: end-of-file-fixer
-        files: \.(proto|txt|sh|rst)$
-        exclude: ^examples/
+        files: \.(txt|sh|rst)$
+        exclude: ^examples/|^mlflow/protos/opentelemetry/
       - id: check-vcs-permalinks
         files: \.py$
         require_serial: true
@@ -15,14 +15,23 @@ repos:
     rev: "v2.7.1"
     hooks:
       - id: prettier
-        files: '^(?!docs/|mlflow/server/js/).+\.(js|md|json|ya?ml)$'
-        args: ["--no-config", "--print-width", "100"]
+        files: '^(?!docs/|mlflow/server/js/|libs/typescript/).+\.(js|ts|md|json|ya?ml)$'
         require_serial: true
+
   - repo: local
     hooks:
+      - id: normalize-chars
+        name: normalize-chars
+        entry: uv run --only-group lint dev/normalize_chars.py
+        language: system
+        stages: [pre-commit]
+        types: [text]
+        exclude: '^mlflow/server/js/|^docs/api_reference/source/R-api\.rst$'
+        require_serial: true
+
       - id: ruff
         name: ruff
-        entry: python dev/ruff.py
+        entry: uv run --only-group lint dev/ruff.py
         language: system
         files: '\.(py|ipynb)$'
         stages: [pre-commit]
@@ -30,23 +39,22 @@ repos:
 
       - id: format
         name: format
-        entry: python dev/format.py
+        entry: uv run --only-group lint dev/format.py
         language: system
         files: '\.(py|ipynb)$'
         stages: [pre-commit]
         require_serial: true
 
-      - id: taplo
-        name: taplo
-        entry: dev/taplo.sh
+      - id: mypy
+        name: mypy
         language: system
-        files: '\.toml$'
-        stages: [pre-commit]
+        files: '^dev/clint/.*\.py$'
+        entry: uv run --only-group lint mypy
         require_serial: true
 
       - id: blacken-docs
         name: blacken-docs
-        entry: blacken-docs
+        entry: uv run --only-group lint blacken-docs
         language: system
         files: '\.(rst|md|mdx)$'
         stages: [pre-commit]
@@ -54,9 +62,25 @@ repos:
 
       - id: clint
         name: clint
-        entry: clint
+        entry: uv run --only-group lint clint
         language: system
         files: '\.(py|ipynb|rst|mdx?)$'
+        stages: [pre-commit]
+        require_serial: true
+
+      - id: install-bin
+        name: install-bin
+        entry: uv run --only-group lint bin/install.py
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+
+      - id: taplo
+        name: taplo
+        entry: bin/taplo format
+        language: system
+        files: '\.toml$'
         stages: [pre-commit]
         require_serial: true
 
@@ -74,45 +98,34 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
-      - id: generate-skinny-requirements
-        name: generate-skinny-requirements
-        entry: >
-          python dev/generate_requirements.py
-            --requirements-yaml-location requirements/skinny-requirements.yaml
-            --requirements-txt-output-location requirements/skinny-requirements.txt
-        files: "^requirements/skinny-requirements.yaml$"
+      - id: check-mlflow-ui
+        name: check-mlflow-ui
+        entry: |
+          bash -c '
+            if bin/rg "mlflow ui" --line-number --with-filename "$@"; then
+              echo
+              echo "Error - Use \"mlflow server\" instead of \"mlflow ui\""
+              exit 1
+            fi
+          ' --
         language: system
         stages: [pre-commit]
         require_serial: true
-        pass_filenames: false
-
-      - id: generate-core-requirements
-        name: generate-core-requirements
-        entry: >
-          python dev/generate_requirements.py
-            --requirements-yaml-location requirements/core-requirements.yaml
-            --requirements-txt-output-location requirements/core-requirements.txt
-        files: "^requirements/core-requirements.yaml$"
-        language: system
-        stages: [pre-commit]
-        require_serial: true
-        pass_filenames: false
-
-      - id: generate-gateway-requirements
-        name: generate-gateway-requirements
-        entry: >
-          python dev/generate_requirements.py
-            --requirements-yaml-location requirements/gateway-requirements.yaml
-            --requirements-txt-output-location requirements/gateway-requirements.txt
-        files: "^requirements/gateway-requirements.yaml$"
-        language: system
-        stages: [pre-commit]
-        require_serial: true
-        pass_filenames: false
+        types: [text]
+        exclude: |
+          (?x)^(
+            \.pre-commit-config\.yaml|
+            CHANGELOG\.md|
+            docs/api_reference/source/R-api\.rst|
+            examples/llms/RAG/.*\.(json|csv)|
+            mlflow/cli/__init__\.py|
+            mlflow/R/mlflow/.*|
+            tests/test_cli\.py
+          )$
 
       - id: pyproject
         name: pyproject
-        entry: python dev/pyproject.py
+        entry: uv run --only-group lint dev/pyproject.py
         language: system
         stages: [pre-commit]
         require_serial: true
@@ -120,7 +133,7 @@ repos:
 
       - id: mlver
         name: ml-package-versions-consistency
-        entry: "python dev/update_ml_package_versions.py --skip-yml"
+        entry: "uv run --only-group lint dev/update_ml_package_versions.py --skip-yml"
         files: '^(mlflow/ml-package-versions\.yml|mlflow/ml_package_versions\.py)$'
         language: system
         stages: [pre-commit]
@@ -135,9 +148,18 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
+      - id: buf
+        name: buf
+        entry: bin/buf format -d -w --exit-code --exclude-path mlflow/protos/opentelemetry mlflow/protos
+        files: '\.proto$'
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+
       - id: typos
         name: typos
-        entry: dev/typos.sh
+        entry: bin/typos --format brief --force-exclude --color never
         files: '\.(py$|mdx?$)'
         language: system
         stages: [pre-commit]
@@ -145,9 +167,42 @@ repos:
 
       - id: conftest
         name: conftest
-        entry: conftest test --policy .github/policy.rego
+        entry: bin/conftest test --namespace mlflow --policy .github/policy.rego
         files: '^\.github/(workflows|actions)/.*\.ya?ml$'
         exclude: '^\.github/workflows/copilot-setup-steps\.yml$'
         language: system
         stages: [pre-commit]
         require_serial: true
+
+      - id: regal
+        name: regal
+        entry: bin/regal lint
+        files: '\.rego$'
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+
+      - id: check-init-py
+        name: check-init-py
+        entry: uv run --only-group lint dev/check_init_py.py
+        language: system
+        files: '^(mlflow|tests)/.*\.py$'
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+
+      - id: uv-lock
+        name: uv-lock
+        entry: uv lock
+        language: system
+        files: '^pyproject\.toml$'
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+
+      - id: forbid-gif
+        name: forbid-gif
+        language: fail
+        entry: "Please use MP4 instead of GIF for docs animations"
+        files: ^docs/.*\.gif$
+        stages: [pre-commit]

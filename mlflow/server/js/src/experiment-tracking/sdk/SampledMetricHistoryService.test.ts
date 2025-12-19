@@ -1,6 +1,7 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { fetchEndpoint } from '../../common/utils/FetchUtils';
 import { createChartAxisRangeKey } from '../components/runs-charts/components/RunsCharts.common';
-import { SampledMetricsByRunUuidState } from '../types';
+import type { SampledMetricsByRunUuidState } from '../types';
 import { getSampledMetricHistoryBulkAction } from './SampledMetricHistoryService';
 
 jest.mock('../../common/utils/FetchUtils', () => ({
@@ -18,11 +19,12 @@ describe('getSampledMetricHistoryBulkAction service function', () => {
   });
   const runAction = (state: SampledMetricsByRunUuidState) => {
     const actionCreator = getSampledMetricHistoryBulkAction(['run_1', 'run_2'], 'metric_key', undefined, testRange);
+    // @ts-expect-error Argument of type 'Mock<UnknownFunction>' is not assignable to parameter of type 'ThunkDispatch<ReduxState, any>'
     actionCreator(testDispatch, () => ({ entities: { sampledMetricsByRunUuid: state } } as any));
   };
   it('should be able to retrieve sampled metric history for all runs', () => {
     runAction({});
-    expect(fetchEndpoint).toBeCalledWith({
+    expect(fetchEndpoint).toHaveBeenCalledWith({
       relativeUrl: expect.stringMatching(
         /get-history-bulk-interval\?run_ids=run_1&run_ids=run_2&metric_key=metric_key/,
       ),
@@ -33,7 +35,7 @@ describe('getSampledMetricHistoryBulkAction service function', () => {
     runAction({
       run_1: { metric_key: { [testRangeKey]: { metricsHistory: [], loading: false } } },
     });
-    expect(fetchEndpoint).toBeCalledWith({
+    expect(fetchEndpoint).toHaveBeenCalledWith({
       relativeUrl: expect.stringMatching(/get-history-bulk-interval\?run_ids=run_2&metric_key=metric_key/),
     });
   });
@@ -41,7 +43,7 @@ describe('getSampledMetricHistoryBulkAction service function', () => {
     runAction({
       run_2: { metric_key: { [testRangeKey]: { error: true, loading: false } } },
     });
-    expect(fetchEndpoint).toBeCalledWith({
+    expect(fetchEndpoint).toHaveBeenCalledWith({
       relativeUrl: expect.stringMatching(/get-history-bulk-interval\?run_ids=run_1&metric_key=metric_key/),
     });
   });

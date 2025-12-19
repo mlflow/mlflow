@@ -1,6 +1,6 @@
 import { CopyIcon, Typography } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
-import { ExperimentEntity } from '../../../../types';
+import type { ExperimentEntity } from '../../../../types';
 
 /**
  * Experiment page header part responsible for copying

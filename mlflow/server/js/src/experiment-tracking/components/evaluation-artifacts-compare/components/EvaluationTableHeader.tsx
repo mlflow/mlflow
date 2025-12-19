@@ -1,5 +1,5 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { PropsWithChildren, ReactNode } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 
 interface Props {
   className?: string;
@@ -29,6 +29,7 @@ export const EvaluationTableHeader = ({ children, className, groupHeaderContent 
           alignItems: 'center',
           padding: theme.spacing.sm,
           borderBottom: `1px solid ${theme.colors.borderDecorative}`,
+          boxSizing: 'border-box',
         }}
         className="header-group-cell"
       >

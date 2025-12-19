@@ -1,3 +1,4 @@
+import itertools
 from typing import Literal
 
 from langchain_core.messages import AIMessage, ToolCall
@@ -13,7 +14,7 @@ class FakeOpenAI(ChatOpenAI, extra="allow"):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self._responses = iter(
+        self._responses = itertools.cycle(
             [
                 AIMessage(
                     content="",
@@ -28,6 +29,9 @@ class FakeOpenAI(ChatOpenAI, extra="allow"):
         )
 
     def _generate(self, *args, **kwargs):
+        return ChatResult(generations=[ChatGeneration(message=next(self._responses))])
+
+    async def _agenerate(self, *args, **kwargs):
         return ChatResult(generations=[ChatGeneration(message=next(self._responses))])
 
 

@@ -15,11 +15,27 @@ import {
   useExperimentLoggedModelListPageTableContext,
 } from './ExperimentLoggedModelListPageTableContext';
 import { LoggedModelsListPageSortableColumns } from './hooks/useLoggedModelsListPagePageState';
-import { type ColDef, type ColGroupDef, ColumnApi, type SortChangedEvent } from '@ag-grid-community/core';
+import type { ColumnApi, IsFullWidthRowParams } from '@ag-grid-community/core';
+import { type ColDef, type ColGroupDef, type SortChangedEvent } from '@ag-grid-community/core';
 import { FormattedMessage } from 'react-intl';
 import { useRunsHighlightTableRow } from '../runs-charts/hooks/useRunsHighlightTableRow';
 import { ExperimentLoggedModelListPageTableEmpty } from './ExperimentLoggedModelListPageTableEmpty';
 import { LOGGED_MODEL_LIST_METRIC_COLUMN_PREFIX } from './hooks/useExperimentLoggedModelListPageTableColumns';
+import { first, groupBy, isEmpty, orderBy } from 'lodash';
+import type {
+  LoggedModelDataWithSourceRun,
+  LoggedModelsTableGroupByMode,
+  LoggedModelsTableRow,
+} from './ExperimentLoggedModelListPageTable.utils';
+import {
+  getLoggedModelsTableRowID,
+  LoggedModelsTableDataRow,
+  LoggedModelsTableGroupHeaderRowClass,
+  LoggedModelsTableGroupingEnabledClass,
+  LoggedModelsTableLoadMoreRowSymbol,
+  LoggedModelsTableSpecialRowID,
+  useLoggedModelTableDataRows,
+} from './ExperimentLoggedModelListPageTable.utils';
 
 const LOGGED_MODELS_GRID_ROW_HEIGHT = 36;
 
@@ -40,11 +56,8 @@ interface ExperimentLoggedModelListPageTableProps {
   disableLoadMore?: boolean;
   displayShowExampleButton?: boolean;
   isFilteringActive?: boolean;
+  groupModelsBy?: LoggedModelsTableGroupByMode | undefined;
 }
-
-const LoadMoreRowSymbol = Symbol('LoadMoreRow');
-
-const rowDataGetter = ({ data }: { data: LoggedModelProto }) => data?.info?.model_id ?? '';
 
 const ExperimentLoggedModelListPageTableImpl = ({
   loggedModels,
@@ -63,14 +76,18 @@ const ExperimentLoggedModelListPageTableImpl = ({
   disableLoadMore,
   displayShowExampleButton = true,
   isFilteringActive = true,
+  groupModelsBy,
 }: ExperimentLoggedModelListPageTableProps) => {
   const { theme } = useDesignSystemTheme();
 
   const styles = useExperimentAgGridTableStyles({ usingCustomHeaderComponent: false });
 
+  // Keep track of expanded groups in the table
+  const [expandedGroups, setExpandedGroups] = React.useState<string[]>([]);
+
   const columnApiRef = useRef<ColumnApi | null>(null);
 
-  const loggedModelsWithSourceRuns = useMemo(() => {
+  const loggedModelsWithSourceRuns = useMemo<LoggedModelDataWithSourceRun[] | undefined>(() => {
     if (!loggedModels || !relatedRunsData) {
       return loggedModels;
     }
@@ -80,17 +97,28 @@ const ExperimentLoggedModelListPageTableImpl = ({
     });
   }, [loggedModels, relatedRunsData]);
 
-  // We need to add "Load more" as a special row at the end
-  // of the result list
-  const loggedModelsListWithLoadMore = useMemo(() => {
+  // Expand or collapse the group based on its ID
+  const onGroupToggle = useCallback((groupId: string) => {
+    setExpandedGroups((prev) => (prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]));
+  }, []);
+
+  // Get all data rows in the table: logged models and groups if applicable
+  const loggedModelsDataRows = useLoggedModelTableDataRows({
+    loggedModelsWithSourceRuns,
+    groupModelsBy,
+    expandedGroups,
+  });
+
+  // Get all the table rows, including data rows and the "Load more" row if applicable
+  const loggedModelsTableRows = useMemo<LoggedModelsTableRow[] | undefined>(() => {
     if (isLoading) {
       return undefined;
     }
-    if (disableLoadMore || !loggedModelsWithSourceRuns || loggedModelsWithSourceRuns.length === 0) {
-      return loggedModelsWithSourceRuns;
+    if (disableLoadMore || !loggedModelsDataRows || loggedModelsDataRows.length === 0) {
+      return loggedModelsDataRows;
     }
-    return [...loggedModelsWithSourceRuns, LoadMoreRowSymbol];
-  }, [loggedModelsWithSourceRuns, isLoading, disableLoadMore]);
+    return [...loggedModelsDataRows, LoggedModelsTableLoadMoreRowSymbol];
+  }, [loggedModelsDataRows, isLoading, disableLoadMore]);
 
   const sortChangedHandler = useCallback(
     (event: SortChangedEvent) => {
@@ -141,7 +169,7 @@ const ExperimentLoggedModelListPageTableImpl = ({
     containerElement,
     undefined,
     true,
-    rowDataGetter,
+    getLoggedModelsTableRowID,
   );
 
   return (
@@ -149,6 +177,8 @@ const ExperimentLoggedModelListPageTableImpl = ({
       loadMoreResults={onLoadMore}
       moreResultsAvailable={moreResultsAvailable}
       isLoadingMore={isLoadingMore}
+      expandedGroups={expandedGroups}
+      onGroupToggle={onGroupToggle}
     >
       <div
         css={{
@@ -157,6 +187,9 @@ const ExperimentLoggedModelListPageTableImpl = ({
           ...styles,
           '.ag-cell': {
             alignItems: 'center',
+            [`&.${LoggedModelsTableGroupHeaderRowClass}`]: {
+              overflow: 'visible',
+            },
           },
           borderTop: `1px solid ${theme.colors.border}`,
           '.ag-header-cell.is-checkbox-header-cell': {
@@ -164,21 +197,27 @@ const ExperimentLoggedModelListPageTableImpl = ({
           },
           '&& .ag-root-wrapper': { border: 0 },
         }}
-        className={['ag-theme-balham', className].join(' ')}
+        className={[
+          'ag-theme-balham',
+          className,
+          // When using grouping, add a special class to the table
+          // to enable padding
+          groupModelsBy ? LoggedModelsTableGroupingEnabledClass : '',
+        ].join(' ')}
         ref={containerElement}
       >
         <MLFlowAgGrid
           columnDefs={columnDefs}
-          rowData={loggedModelsListWithLoadMore}
+          rowData={loggedModelsTableRows}
           rowHeight={LOGGED_MODELS_GRID_ROW_HEIGHT}
           rowSelection="multiple"
           suppressRowClickSelection
           suppressMovableColumns
-          getRowId={rowDataGetter}
+          getRowId={getLoggedModelsTableRowID}
           suppressLoadingOverlay
           suppressNoRowsOverlay
           suppressColumnMoveAnimation
-          isFullWidthRow={({ rowNode }) => rowNode.data === LoadMoreRowSymbol}
+          isFullWidthRow={isFullWidthRow}
           fullWidthCellRenderer={LoadMoreRow}
           onSortChanged={sortChangedHandler}
           onGridReady={({ columnApi }) => {
@@ -189,7 +228,6 @@ const ExperimentLoggedModelListPageTableImpl = ({
           onCellMouseOver={cellMouseOverHandler}
           onCellMouseOut={cellMouseOutHandler}
         />
-
         {isLoading && (
           <div
             css={{
@@ -258,3 +296,6 @@ const LoadMoreRow = () => {
 };
 
 export const ExperimentLoggedModelListPageTable = React.memo(ExperimentLoggedModelListPageTableImpl);
+
+const isFullWidthRow: ((params: IsFullWidthRowParams) => boolean) | undefined = ({ rowNode }) =>
+  rowNode.data === LoggedModelsTableLoadMoreRowSymbol;

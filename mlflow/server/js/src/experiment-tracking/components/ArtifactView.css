@@ -1,22 +1,22 @@
-div.artifact-view {
+div.mlflow-artifact-view {
   display: flex;
   overflow: hidden;
 }
 
-.artifact-left {
+.mlflow-artifact-left {
   min-width: 200px;
   max-width: 400px;
   flex: 1;
 }
 
-.artifact-left li {
+.mlflow-artifact-left li {
   white-space: nowrap;
 }
 
-.artifact-right {
+.mlflow-artifact-right {
   flex: 3;
   min-width: 400px;
-  max-width: calc(100% - 200px); /* 200px is the min-width of .artifact-left */
+  max-width: calc(100% - 200px); /* 200px is the min-width of .mlflow-artifact-left */
 
   overflow: hidden;
   display: flex;
@@ -24,39 +24,29 @@ div.artifact-view {
   height: 100%;
 }
 
-.artifact-info-left {
+.mlflow-artifact-info-left {
   flex: 1;
   max-width: 75%;
 }
-.artifact-info-right {
+.mlflow-artifact-info-right {
   margin-left: auto;
 }
 
-.artifact-info-path {
+.mlflow-artifact-info-path {
   display: flex;
   align-items: center;
 }
 
-.artifact-info-text {
+.mlflow-artifact-info-text {
   min-width: 0;
 }
 
-.artifact-info-link {
-  height: 40px;
-  padding-top: 5px;
-  font-size: 21px;
-}
-
-.artifact-info-size {
+.mlflow-artifact-info-size {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.view-button {
-  margin-top: 6px;
-}
-
-.loading-spinner {
+.mlflow-loading-spinner {
   height: 20px;
   opacity: 0;
   -webkit-animation: spin 3s linear infinite;
@@ -64,7 +54,7 @@ div.artifact-view {
   animation: spin 3s linear infinite;
 }
 
-.artifact-info-right .model-version-link {
+.mlflow-artifact-info-right .model-version-link {
   display: flex;
   align-items: baseline;
   max-width: 140px;
@@ -72,21 +62,21 @@ div.artifact-view {
   padding-left: 4px;
 }
 
-.artifact-info-right .model-version-link .model-name {
+.mlflow-artifact-info-right .model-version-link .model-name {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.artifact-info-right .model-version-info {
+.mlflow-artifact-info-right .model-version-info {
   font-size: 12px;
 }
 
-.artifact-info-right .model-version-info .model-version-link-section {
+.mlflow-artifact-info-right .model-version-info .model-version-link-section {
   display: flex;
   align-items: center;
 }
 
-.artifact-info-right .model-version-info .model-version-status-text {
+.mlflow-artifact-info-right .model-version-info .model-version-status-text {
   overflow: hidden;
   max-width: 160px;
   text-overflow: ellipsis;

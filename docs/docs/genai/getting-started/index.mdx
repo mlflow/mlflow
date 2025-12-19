@@ -3,170 +3,305 @@ description: "Build, evaluate, and deploy production-ready GenAI applications wi
 sidebar_position: 1
 ---
 
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import useBaseUrl from '@docusaurus/useBaseUrl';
+import { Code2, TestTube, Rocket, Eye, Database, Shield, Zap, PlayCircle, Target } from "lucide-react";
+
 # Getting Started with MLflow for GenAI
 
-## Build Production-Ready GenAI Applications with Confidence
+## The Complete Open Source LLMOps Platform for Production GenAI
 
-MLflow transforms how you develop, evaluate, and deploy GenAI applications. From prototype to production, get complete visibility into your AI systems while maintaining the flexibility to use any framework or model provider.
+MLflow transforms how software engineers build, evaluate, and deploy GenAI applications. Get complete observability, systematic evaluation, and deployment confidence—all while maintaining the flexibility to use any framework or model provider.
 
-<div style={{marginTop: '2rem', marginBottom: '2rem'}}>
+<div style={{margin: '2rem 0', textAlign: 'center'}}>
+  <video
+    src={useBaseUrl('/images/llms/tracing/tracing-top.mp4')}
+    controls
+    loop
+    autoPlay
+    muted
+    aria-label="MLflow Tracing UI showing detailed GenAI observability"
+    style={{maxWidth: '100%', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'}}
+  />
+</div>
 
-```mermaid
-graph TB
-    subgraph DEVELOP[🔧 Develop & Debug]
-        direction TB
-        TRACE[Trace Every Step]
-        PROMPT[Version Prompts]
-        EXPERIMENT[Track Experiments]
-    end
+## The GenAI Development Lifecycle
 
-    subgraph EVALUATE[🧪 Evaluate & Improve]
-        direction TB
-        METRICS[LLM Judge Metrics]
-        HUMAN[Human Feedback]
-        COMPARE[Compare Versions]
-    end
+MLflow provides a complete platform that supports every stage of GenAI application development. From initial prototyping to production monitoring, these integrated capabilities ensure you can build, test, and deploy with confidence.
 
-    subgraph DEPLOY[🚀 Deploy & Monitor]
-        direction TB
-        SERVE[Model Serving]
-        MONITOR[Production Monitoring]
-        ITERATE[Continuous Improvement]
-    end
+<ConceptOverview concepts={[
+  {
+    icon: Code2,
+    title: "Develop & Debug",
+    description: "Trace every LLM call, prompt interaction, and tool invocation. Debug complex AI workflows with complete visibility into execution paths, token usage, and decision points."
+  },
+  {
+    icon: TestTube,
+    title: "Evaluate & Improve",
+    description: "Systematically test with LLM judges, human feedback, and custom metrics. Compare versions objectively and catch regressions before they reach production."
+  },
+  {
+    icon: Rocket,
+    title: "Deploy & Monitor",
+    description: "Serve models with confidence using built-in deployment targets. Monitor production performance and iterate based on real-world usage patterns."
+  }
+]} />
 
-    DEVELOP -->|Insights| EVALUATE
-    EVALUATE --> |Validated| DEPLOY
-    DEPLOY -.->|Improvements| DEVELOP
-    EVALUATE --> |Fixes| DEVELOP
+## Why Open Source MLflow for GenAI?
 
-    style DEVELOP fill:#e8f4f8,stroke:#0288d1,stroke-width:4px
-    style EVALUATE fill:#f3e5f5,stroke:#7b1fa2,stroke-width:4px
-    style DEPLOY fill:#e8f5e9,stroke:#388e3c,stroke-width:4px
+As the original open source ML platform, MLflow brings battle-tested reliability and community-driven innovation to GenAI development. No vendor lock-in, no proprietary formats—just powerful tools that work with your stack.
+
+<FeatureHighlights features={[
+  {
+    icon: Eye,
+    title: "Production-Grade Observability",
+    description: "Automatically instrument 15+ frameworks including OpenAI, LangChain, and LlamaIndex. Get detailed traces showing token usage, latency, and execution paths for every request—no black boxes."
+  },
+  {
+    icon: Database,
+    title: "Intelligent Prompt Management",
+    description: "Version, compare, and deploy prompts with MLflow's prompt registry. Track performance across prompt variations and maintain audit trails for production systems."
+  },
+  {
+    icon: Shield,
+    title: "Automated Quality Assurance",
+    description: "Build confidence with LLM judges and automated evaluation. Run systematic tests on every change and track quality metrics over time to prevent regressions."
+  },
+  {
+    icon: Zap,
+    title: "Framework-Agnostic Integration",
+    description: "Use any LLM framework or provider without vendor lock-in. MLflow works with your existing tools while providing unified tracking, evaluation, and deployment."
+  }
+]} />
+
+## Start Building Production GenAI Applications
+
+MLflow transforms GenAI development from complex instrumentation to simple, one-line integrations. See how easy it is to add comprehensive observability, evaluation, and deployment to your AI applications. Visit the [Tracing guide](/genai/tracing) for more information.
+
+### Add Complete Observability in One Line
+
+Transform any GenAI application into a fully observable system:
+
+```python
+import mlflow
+
+# Enable automatic tracing for your framework
+mlflow.openai.autolog()  # For OpenAI
+mlflow.langchain.autolog()  # For LangChain
+mlflow.llama_index.autolog()  # For LlamaIndex
+mlflow.dspy.autolog()  # For DSPy
+
+# Your existing code now generates detailed traces
+from openai import OpenAI
+
+client = OpenAI()
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Explain quantum computing"}],
+)
+# ✅ Automatically traced: tokens, latency, cost, full request/response
 ```
 
-</div>
+No code changes required. Every LLM call, tool interaction, and prompt execution is automatically captured with detailed metrics.
 
-## Why MLflow for GenAI?
+### Manage and Optimize Prompts Systematically
 
-### 🔍 **Complete Observability**
-See exactly what's happening inside your AI applications. MLflow Tracing captures every LLM call, tool interaction, and decision point—turning black-box systems into transparent, debuggable workflows.
+Register prompts and automatically optimize them with data-driven techniques. See the [Prompt Registry](/genai/prompt-registry/create-and-edit-prompts) guide for comprehensive prompt management:
 
-### 📊 **Automated Quality Assurance**
-Stop guessing if your changes improve quality. MLflow's evaluation framework uses LLM judges and custom metrics to systematically test every iteration, ensuring consistent improvements.
+```python
+import mlflow
+import openai
+from mlflow.genai.optimize import GepaPromptOptimizer
+from mlflow.genai.scorers import Correctness
 
-### 🚀 **Framework Freedom**
-Use LangChain, LlamaIndex, OpenAI, or any of the 15+ supported frameworks. MLflow integrates seamlessly with your existing tools while providing a unified platform for tracking and deployment.
+# Register an initial prompt
+prompt = mlflow.genai.register_prompt(
+    name="math_tutor",
+    template="Answer this math question: {{question}}. Provide a clear explanation.",
+)
 
-### 💡 **Human-in-the-Loop Excellence**
-Bridge the gap between AI and domain expertise. Collect structured feedback from users and experts to continuously refine your applications based on real-world usage.
 
-## Start Building in Minutes
+# Define prediction function that includes prompt.format() call for your target prompt(s)
+def predict_fn(question: str) -> str:
+    prompt = mlflow.genai.load_prompt("prompts:/math_tutor@latest")
+    completion = openai.OpenAI().chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt.format(question=question)}],
+    )
+    return completion.choices[0].message.content
 
-Follow our quickstart guides to experience MLflow's power for GenAI development. Each guide takes less than 15 minutes and demonstrates core capabilities you'll use every day.
 
-### 📋 Prerequisites
+# Prepare training data with inputs and expectations
+train_data = [
+    {
+        "inputs": {"question": "What is 15 + 27?"},
+        "expectations": {"expected_response": "42"},
+    },
+    {
+        "inputs": {"question": "Calculate 8 × 9"},
+        "expectations": {"expected_response": "72"},
+    },
+    {
+        "inputs": {"question": "What is 100 - 37?"},
+        "expectations": {"expected_response": "63"},
+    },
+    # ... more examples
+]
 
-Before starting, ensure you have:
-- Python 3.9 or higher
-- MLflow 3+ installed (`pip install --upgrade mlflow`)
-- An MLflow tracking server (local or remote)
+# Automatically optimize the prompt using MLflow + GEPA
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=train_data,
+    prompt_uris=[prompt.uri],
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o-mini"),
+    scorers=[Correctness(model="openai:/gpt-4o-mini")],
+)
 
-:::tip New to MLflow?
-Start with our [Environment Setup Quickstart](/genai/getting-started/connect-environment) to get started in minutes!
-:::
+# The optimized prompt is automatically registered as a new version
+optimized_prompt = result.optimized_prompts[0]
+print(f"Optimized prompt registered as version {optimized_prompt.version}")
+print(f"Template: {optimized_prompt.template}")
+print(f"Score: {result.final_eval_score}")
+```
 
-### Connect Your Environment
+Transform manual prompt engineering into systematic, data-driven optimization with automatic performance tracking. Learn more in the [Optimize Prompts](/genai/prompt-registry/optimize-prompts) guide.
 
-Set up MLflow to work with your development environment, whether you're using a local setup, cloud platform, or managed service.
+### Prerequisites
 
-**What you'll learn:**
-- Configure MLflow tracking URI
-- Set up experiment tracking
-- Connect to model registries
+Ready to get started? You'll need:
 
-**[Learn how to connect your environment →](/genai/getting-started/connect-environment)**
+- Python 3.10+ installed
+- MLflow 3.5+ (`pip install --upgrade mlflow`)
+- API access to an LLM provider (OpenAI, Anthropic, etc.)
 
 ---
 
-### Collect App Instrumentation with Tracing
+## Essential Learning Path
 
-Add comprehensive observability to your GenAI application with just a few lines of code. Watch every prompt, retrieval, and tool call as it happens.
+Master these core capabilities to build robust GenAI applications with MLflow. Start with observability, then add systematic evaluation and deployment.
 
-**What you'll learn:**
-- Auto-instrumentation of popular frameworks (i.e., OpenAI, LangChain, and DSPy)
-- Capture custom traces
-- Debug complex AI workflows
+<TilesGrid>
+  <TileCard
+    icon={PlayCircle}
+    iconSize={48}
+    title="Environment Setup"
+    description="Configure MLflow tracking, connect to registries, and set up your development environment for GenAI workflows"
+    href="/genai/getting-started/connect-environment"
+    linkText="Start setup →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Eye}
+    iconSize={48}
+    title="Observability with Tracing"
+    description="Auto-instrument your GenAI application to capture every LLM call, prompt, and tool interaction for complete visibility"
+    href="/genai/tracing/quickstart"
+    linkText="Learn tracing →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={TestTube}
+    iconSize={48}
+    title="Systematic Evaluation"
+    description="Build confidence with LLM judges and automated testing to catch quality issues before production"
+    href="/genai/eval-monitor"
+    linkText="Start evaluating →"
+    containerHeight={64}
+  />
+</TilesGrid>
 
-**[Learn how to use Tracing in an IDE →](/genai/getting-started/tracing/tracing-ide)**
-
-**[Learn how to use Tracing in a Notebook →](/genai/getting-started/tracing/tracing-notebook)**
+These three foundations will give you the observability and quality confidence needed for production GenAI development. Each tutorial includes real code examples and best practices from production deployments.
 
 ---
 
-### Evaluate Application Quality
+## Advanced GenAI Capabilities
 
-Systematically test and improve your application using LLM judges and custom metrics. Move beyond manual testing to data-driven quality assurance.
+Once you've mastered the essentials, explore these advanced features to build sophisticated GenAI applications with enterprise-grade reliability.
 
-**What you'll learn:**
-- Create evaluation datasets
-- Use LLM judges for quality metrics
-- Compare model versions objectively
+<TilesGrid>
+  <TileCard
+    icon={Database}
+    iconSize={48}
+    title="Prompt Registry & Management"
+    description="Version prompts, A/B test variations, and maintain audit trails for production prompt management"
+    href="/genai/prompt-registry/prompt-engineering"
+    linkText="Manage prompts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Target}
+    iconSize={48}
+    title="Automated Prompt Optimization"
+    description="Automatically improve prompts using DSPy's MIPROv2 algorithm with data-driven optimization and performance tracking"
+    href="/genai/prompt-registry/optimize-prompts"
+    linkText="Optimize prompts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Rocket}
+    iconSize={48}
+    title="Model Deployment"
+    description="Deploy GenAI models to production with built-in serving, scaling, and monitoring capabilities"
+    href="/genai/serving"
+    linkText="Deploy models →"
+    containerHeight={64}
+  />
+</TilesGrid>
 
-**[Learn how to evaluate your application →](https://docs.databricks.com/aws/en/mlflow3/genai/getting-started/eval.html)**
+These capabilities enable you to build production-ready GenAI applications with systematic quality management and robust deployment infrastructure.
 
 ---
 
+## Framework-Specific Integration Guides
 
-## Real-World Impact
+MLflow provides deep integrations with popular GenAI frameworks. Choose your framework to get started with optimized instrumentation and best practices.
 
-<div style={{
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-  gap: '20px',
-  marginTop: '32px',
-  marginBottom: '32px'
-}}>
-  <div style={{
-    padding: '20px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '8px',
-    borderLeft: '4px solid #0066cc'
-  }}>
-    <h3 style={{marginTop: 0}}>🎯 Faster Debugging</h3>
-    <p>Reduce debugging time by 70% with complete visibility into every AI decision and interaction.</p>
-  </div>
+<TilesGrid>
+  <TileCard
+    image="/images/logos/langchain-logo.png"
+    iconSize={48}
+    title="LangChain Integration"
+    description="Auto-trace chains, agents, and tools with comprehensive LangChain instrumentation"
+    href="/genai/flavors/langchain"
+    linkText="Use LangChain →"
+    containerHeight={64}
+  />
+  <TileCard
+    image="/images/logos/llamaindex-logo.svg"
+    iconSize={48}
+    title="LlamaIndex Integration"
+    description="Instrument RAG pipelines and document processing workflows with LlamaIndex support"
+    href="/genai/flavors/llama-index"
+    linkText="Use LlamaIndex →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Code2}
+    iconSize={48}
+    title="DSPy Integration"
+    description="Build systematic prompt optimization workflows with DSPy modules and MLflow prompt registry"
+    href="/genai/flavors/dspy"
+    linkText="Use DSPy →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Code2}
+    iconSize={48}
+    title="Custom Framework Support"
+    description="Instrument any LLM framework or build custom integrations with MLflow's flexible APIs"
+    href="/genai/flavors/chat-model-intro"
+    linkText="Build custom →"
+    containerHeight={64}
+  />
+</TilesGrid>
 
-  <div style={{
-    padding: '20px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '8px',
-    borderLeft: '4px solid #28a745'
-  }}>
-    <h3 style={{marginTop: 0}}>📈 Quality Confidence</h3>
-    <p>Deploy with certainty using automated evaluation that catches regressions before production.</p>
-  </div>
+Each integration guide includes framework-specific examples, best practices, and optimization techniques for production deployments.
 
-  <div style={{
-    padding: '20px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '8px',
-    borderLeft: '4px solid #7b1fa2'
-  }}>
-    <h3 style={{marginTop: 0}}>🔄 Rapid Iteration</h3>
-    <p>Ship improvements 3x faster with integrated experiment tracking and version control.</p>
-  </div>
-</div>
+---
 
-## Continue Your Journey
+## Start Your GenAI Journey with MLflow
 
-### 📚 Core Concepts
-- [Understanding MLflow Tracing](/genai/tracing)
-- [Evaluation Best Practices](/genai/eval-monitor)
-- [Model Registry for GenAI](/genai/data-model/model-registry)
-- [Deployment Strategies](/genai/serving)
-
-### 🛠️ Framework Guides
-- [LangChain Integration](/genai/flavors/langchain)
-- [LlamaIndex Integration](/genai/flavors/llama-index)
-- [OpenAI Integration](/genai/flavors/openai)
-- [Custom Framework Support](/genai/flavors/chat-model-intro)
+Ready to build production-ready GenAI applications? Start with the Environment Setup guide above, then explore tracing for complete observability into your AI systems. Join thousands of engineers who trust MLflow's open source platform for their GenAI development.

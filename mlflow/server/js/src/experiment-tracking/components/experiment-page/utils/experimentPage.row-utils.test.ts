@@ -1,25 +1,31 @@
-import {
-  shouldEnableToggleIndividualRunsInGroups,
-  shouldUseRunRowsVisibilityMap,
-} from '../../../../common/utils/FeatureUtils';
+import { jest, describe, test, expect, beforeEach } from '@jest/globals';
+import { shouldUseRunRowsVisibilityMap } from '../../../../common/utils/FeatureUtils';
 import { fromPairs } from 'lodash';
 import Utils from '../../../../common/utils/Utils';
 import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { RunGroupingAggregateFunction, RunGroupingMode, RunRowVisibilityControl } from './experimentPage.row-types';
-import { SingleRunData, prepareRunsGridData } from './experimentPage.row-utils';
+import {
+  type SingleRunData,
+  prepareRunsGridData,
+  useExperimentRunRows,
+  extractRunRowParam,
+  extractRunRowParamFloat,
+  extractRunRowParamInteger,
+} from './experimentPage.row-utils';
+import { renderHook } from '@testing-library/react';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
     '../../../../common/utils/FeatureUtils',
   ),
   shouldUseRunRowsVisibilityMap: jest.fn(() => false),
-  shouldEnableToggleIndividualRunsInGroups: jest.fn(),
 }));
 
 const LOGGED_MODEL = { LOGGED_MODEL: true };
 
 // Do not test tag->logged model transformation
-Utils.getLoggedModelsFromTags = jest.fn().mockReturnValue([LOGGED_MODEL]);
+// @ts-expect-error Type '{ LOGGED_MODEL: boolean; }' is missing properties
+Utils.getLoggedModelsFromTags = jest.fn<typeof Utils.getLoggedModelsFromTags>().mockReturnValue([LOGGED_MODEL]);
 
 const MOCK_EXPERIMENTS = [
   {
@@ -105,9 +111,6 @@ const commonPrepareRunsGridDataParams = {
 };
 
 describe('ExperimentViewRuns row utils, nested and flat run hierarchies', () => {
-  beforeEach(() => {
-    jest.mocked(shouldEnableToggleIndividualRunsInGroups).mockImplementation(() => false);
-  });
   test('it creates proper row dataset for a flat run list', () => {
     const runsGridData = prepareRunsGridData(commonPrepareRunsGridDataParams);
 
@@ -430,122 +433,140 @@ describe('ExperimentViewRuns row utils, nested and flat run hierarchies', () => 
   });
 });
 
-describe.each([
-  {
-    individualRunsInGroupsFlagValue: false,
-  },
-  {
-    individualRunsInGroupsFlagValue: true,
-  },
-])(
-  'ExperimentViewRuns row utils, grouped run hierarchy - individual run toggling set to $individualRunsInGroupsFlagValue',
-  ({ individualRunsInGroupsFlagValue }) => {
+describe('ExperimentViewRuns row utils, grouped run hierarchy', () => {
+  describe.each([
+    ['when using runsVisibilityMap UI state', true],
+    ['when using legacy runsHidden UI state', false],
+  ])('Configurable runs visibility mode  %s', (_, useExplicitRunRowsVisibility) => {
     beforeEach(() => {
-      jest.mocked(shouldEnableToggleIndividualRunsInGroups).mockImplementation(() => individualRunsInGroupsFlagValue);
+      jest.mocked(shouldUseRunRowsVisibilityMap).mockImplementation(() => useExplicitRunRowsVisibility);
     });
 
-    describe.each([
-      ['when using runsVisibilityMap UI state', true],
-      ['when using legacy runsHidden UI state', false],
-    ])('Configurable runs visibility mode  %s', (_, useExplicitRunRowsVisibility) => {
-      beforeEach(() => {
-        jest.mocked(shouldUseRunRowsVisibilityMap).mockImplementation(() => useExplicitRunRowsVisibility);
-      });
+    const fiftyRuns: SingleRunData[] = new Array(50).fill(0).map((_, i) => ({
+      runInfo: { experimentId: '1', runUuid: `run1_${i}` } as any,
+      datasets: [],
+      metrics: [],
+      params: [],
+      tags: {},
+    }));
 
-      const fiftyRuns: SingleRunData[] = new Array(50).fill(0).map((_, i) => ({
-        runInfo: { experimentId: '1', runUuid: `run1_${i}` } as any,
+    const userSelectedRunsHidden = ['run1_4', 'run1_22'];
+
+    test.each([10, 20] as const)('it correctly marks first %d runs as visible regardless of the order', (amount) => {
+      let runsGridData = prepareRunsGridData({
+        ...commonPrepareRunsGridDataParams,
+        runsHiddenMode: RUNS_VISIBILITY_MODE[`FIRST_${amount}_RUNS`],
+        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.runUuid),
+        runData: fiftyRuns,
+        runsHidden: userSelectedRunsHidden,
+        runsVisibilityMap: fromPairs(userSelectedRunsHidden.map((runUuid) => [runUuid, false])),
+      });
+      expect(runsGridData.length).toBe(50);
+      expect(runsGridData.slice(0, amount).every((r) => r.hidden)).toBe(false);
+      expect(runsGridData.slice(amount).every((r) => r.hidden)).toBe(true);
+
+      const fiftyRunsReversed = [...fiftyRuns].reverse();
+
+      runsGridData = prepareRunsGridData({
+        ...commonPrepareRunsGridDataParams,
+        runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
+        runUuidsMatchingFilter: fiftyRunsReversed.map((r) => r.runInfo.runUuid),
+        runData: fiftyRunsReversed,
+        runsHidden: userSelectedRunsHidden,
+        runsVisibilityMap: fromPairs(userSelectedRunsHidden.map((runUuid) => [runUuid, false])),
+      });
+      expect(runsGridData.length).toBe(50);
+      expect(runsGridData.slice(0, amount).every((r) => r.hidden)).toBe(false);
+      expect(runsGridData.slice(amount).every((r) => r.hidden)).toBe(true);
+    });
+
+    test('it correctly marks specific runs as hidden', () => {
+      const runsGridData = prepareRunsGridData({
+        ...commonPrepareRunsGridDataParams,
+        runsHiddenMode: RUNS_VISIBILITY_MODE.CUSTOM,
+        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.runUuid),
+        runData: fiftyRuns,
+        runsHidden: userSelectedRunsHidden,
+        runsVisibilityMap: fromPairs(userSelectedRunsHidden.map((runUuid) => [runUuid, false])),
+      });
+      expect(runsGridData.length).toBe(50);
+
+      for (const resultingRow of runsGridData) {
+        if (userSelectedRunsHidden.includes(resultingRow.runUuid)) {
+          expect(resultingRow.hidden).toBe(true);
+        } else {
+          expect(resultingRow.hidden).toBe(false);
+        }
+      }
+    });
+
+    test('it correctly marks all runs as hidden', () => {
+      const runsGridData = prepareRunsGridData({
+        ...commonPrepareRunsGridDataParams,
+        runsHiddenMode: RUNS_VISIBILITY_MODE.HIDEALL,
+        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.runUuid),
+        runData: fiftyRuns,
+        runsHidden: userSelectedRunsHidden,
+        runsVisibilityMap: fromPairs(userSelectedRunsHidden.map((runUuid) => [runUuid, false])),
+      });
+      expect(runsGridData.length).toBe(50);
+
+      expect(runsGridData.every((r) => r.hidden)).toBe(true);
+    });
+
+    test('it correctly marks all runs as visible', () => {
+      const runsGridData = prepareRunsGridData({
+        ...commonPrepareRunsGridDataParams,
+        runsHiddenMode: RUNS_VISIBILITY_MODE.SHOWALL,
+        runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.runUuid),
+        runData: fiftyRuns,
+        runsHidden: userSelectedRunsHidden,
+        runsVisibilityMap: fromPairs(userSelectedRunsHidden.map((runUuid) => [runUuid, false])),
+      });
+      expect(runsGridData.length).toBe(50);
+
+      expect(runsGridData.every((r) => r.hidden)).toBe(false);
+    });
+  });
+
+  test('it hides finished runs when runsHiddenMode is HIDE_FINISHED_RUNS', () => {
+    const runsWithStatuses: SingleRunData[] = [
+      {
+        runInfo: { experimentId: '1', runUuid: 'run_active', status: 'RUNNING' } as any,
         datasets: [],
         metrics: [],
         params: [],
         tags: {},
-      }));
+      },
+      {
+        runInfo: { experimentId: '1', runUuid: 'run_finished', status: 'FINISHED' } as any,
+        datasets: [],
+        metrics: [],
+        params: [],
+        tags: {},
+      },
+      {
+        runInfo: { experimentId: '1', runUuid: 'run_failed', status: 'FAILED' } as any,
+        datasets: [],
+        metrics: [],
+        params: [],
+        tags: {},
+      },
+    ];
 
-      const userSelectedRunsHidden = ['run1_4', 'run1_22'];
-
-      test.each([10, 20] as const)('it correctly marks first %d runs as visible regardless of the order', (amount) => {
-        let runsGridData = prepareRunsGridData({
-          ...commonPrepareRunsGridDataParams,
-          runsHiddenMode: RUNS_VISIBILITY_MODE[`FIRST_${amount}_RUNS`],
-          runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.runUuid),
-          runData: fiftyRuns,
-          runsHidden: userSelectedRunsHidden,
-          runsVisibilityMap: fromPairs(userSelectedRunsHidden.map((runUuid) => [runUuid, false])),
-        });
-        expect(runsGridData.length).toBe(50);
-        expect(runsGridData.slice(0, amount).every((r) => r.hidden)).toBe(false);
-        expect(runsGridData.slice(amount).every((r) => r.hidden)).toBe(true);
-
-        const fiftyRunsReversed = [...fiftyRuns].reverse();
-
-        runsGridData = prepareRunsGridData({
-          ...commonPrepareRunsGridDataParams,
-          runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
-          runUuidsMatchingFilter: fiftyRunsReversed.map((r) => r.runInfo.runUuid),
-          runData: fiftyRunsReversed,
-          runsHidden: userSelectedRunsHidden,
-          runsVisibilityMap: fromPairs(userSelectedRunsHidden.map((runUuid) => [runUuid, false])),
-        });
-        expect(runsGridData.length).toBe(50);
-        expect(runsGridData.slice(0, amount).every((r) => r.hidden)).toBe(false);
-        expect(runsGridData.slice(amount).every((r) => r.hidden)).toBe(true);
-      });
-
-      test('it correctly marks specific runs as hidden', () => {
-        const runsGridData = prepareRunsGridData({
-          ...commonPrepareRunsGridDataParams,
-          runsHiddenMode: RUNS_VISIBILITY_MODE.CUSTOM,
-          runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.runUuid),
-          runData: fiftyRuns,
-          runsHidden: userSelectedRunsHidden,
-          runsVisibilityMap: fromPairs(userSelectedRunsHidden.map((runUuid) => [runUuid, false])),
-        });
-        expect(runsGridData.length).toBe(50);
-
-        for (const resultingRow of runsGridData) {
-          if (userSelectedRunsHidden.includes(resultingRow.runUuid)) {
-            expect(resultingRow.hidden).toBe(true);
-          } else {
-            expect(resultingRow.hidden).toBe(false);
-          }
-        }
-      });
-
-      test('it correctly marks all runs as hidden', () => {
-        const runsGridData = prepareRunsGridData({
-          ...commonPrepareRunsGridDataParams,
-          runsHiddenMode: RUNS_VISIBILITY_MODE.HIDEALL,
-          runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.runUuid),
-          runData: fiftyRuns,
-          runsHidden: userSelectedRunsHidden,
-          runsVisibilityMap: fromPairs(userSelectedRunsHidden.map((runUuid) => [runUuid, false])),
-        });
-        expect(runsGridData.length).toBe(50);
-
-        expect(runsGridData.every((r) => r.hidden)).toBe(true);
-      });
-
-      test('it correctly marks all runs as visible', () => {
-        const runsGridData = prepareRunsGridData({
-          ...commonPrepareRunsGridDataParams,
-          runsHiddenMode: RUNS_VISIBILITY_MODE.SHOWALL,
-          runUuidsMatchingFilter: fiftyRuns.map((r) => r.runInfo.runUuid),
-          runData: fiftyRuns,
-          runsHidden: userSelectedRunsHidden,
-          runsVisibilityMap: fromPairs(userSelectedRunsHidden.map((runUuid) => [runUuid, false])),
-        });
-        expect(runsGridData.length).toBe(50);
-
-        expect(runsGridData.every((r) => r.hidden)).toBe(false);
-      });
+    const runsGridData = prepareRunsGridData({
+      ...commonPrepareRunsGridDataParams,
+      runsHiddenMode: RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS,
+      runData: runsWithStatuses,
+      runUuidsMatchingFilter: runsWithStatuses.map((r) => r.runInfo.runUuid),
     });
-  },
-);
+
+    const visibleRunUuids = runsGridData.filter((r) => !r.hidden).map((r) => r.runUuid);
+    expect(visibleRunUuids).toEqual(['run_active']);
+  });
+});
 
 describe('ExperimentViewRuns row utils, grouped run hierarchy - selecting individual runs', () => {
-  beforeEach(() => {
-    jest.mocked(shouldEnableToggleIndividualRunsInGroups).mockImplementation(() => true);
-  });
-
   const createNRuns = (n = 30): SingleRunData[] =>
     new Array(n).fill(0).map((_, i) => ({
       runInfo: { experimentId: '1', runUuid: `run1_${i}` } as any,
@@ -713,4 +734,127 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy - selecting indivi
       expect(visibleUngroupedRows).toHaveLength(amount - groupRowsWithRuns.length);
     },
   );
+});
+
+describe('ExperimentViewRuns row utils, utility functions', () => {
+  const mockRunRow = {
+    runUuid: 'test-run',
+    params: [
+      { key: 'learning_rate', value: '0.01' },
+      { key: 'batch_size', value: '32' },
+      { key: 'model_type', value: 'cnn' },
+      { key: 'epochs', value: '100' },
+    ],
+  } as any;
+
+  describe('extractRunRowParam', () => {
+    test('it extracts existing parameter value', () => {
+      expect(extractRunRowParam(mockRunRow, 'learning_rate')).toBe('0.01');
+      expect(extractRunRowParam(mockRunRow, 'model_type')).toBe('cnn');
+    });
+
+    test('it returns fallback for non-existing parameter', () => {
+      expect(extractRunRowParam(mockRunRow, 'non_existing')).toBeUndefined();
+      expect(extractRunRowParam(mockRunRow, 'non_existing', undefined)).toBeUndefined();
+    });
+
+    test('it handles empty params array', () => {
+      const emptyParamsRow = { ...mockRunRow, params: [] };
+      expect(extractRunRowParam(emptyParamsRow, 'learning_rate')).toBeUndefined();
+      expect(extractRunRowParam(emptyParamsRow, 'learning_rate', undefined)).toBeUndefined();
+    });
+
+    test('it handles undefined params', () => {
+      const noParamsRow = { ...mockRunRow, params: undefined };
+      expect(extractRunRowParam(noParamsRow, 'learning_rate')).toBeUndefined();
+      expect(extractRunRowParam(noParamsRow, 'learning_rate', undefined)).toBeUndefined();
+    });
+  });
+
+  describe('extractRunRowParamFloat', () => {
+    test('it extracts and converts valid float parameter', () => {
+      expect(extractRunRowParamFloat(mockRunRow, 'learning_rate')).toBe(0.01);
+    });
+
+    test('it returns fallback for non-numeric parameter', () => {
+      expect(extractRunRowParamFloat(mockRunRow, 'model_type')).toBeUndefined();
+      expect(extractRunRowParamFloat(mockRunRow, 'model_type', undefined)).toBeUndefined();
+    });
+
+    test('it returns fallback for non-existing parameter', () => {
+      expect(extractRunRowParamFloat(mockRunRow, 'non_existing')).toBeUndefined();
+      expect(extractRunRowParamFloat(mockRunRow, 'non_existing', undefined)).toBeUndefined();
+    });
+
+    test('it handles integer values', () => {
+      expect(extractRunRowParamFloat(mockRunRow, 'batch_size')).toBe(32);
+      expect(extractRunRowParamFloat(mockRunRow, 'epochs')).toBe(100);
+    });
+  });
+
+  describe('extractRunRowParamInteger', () => {
+    test('it extracts and converts valid integer parameter', () => {
+      expect(extractRunRowParamInteger(mockRunRow, 'batch_size')).toBe(32);
+      expect(extractRunRowParamInteger(mockRunRow, 'epochs')).toBe(100);
+    });
+
+    test('it converts float to integer', () => {
+      expect(extractRunRowParamInteger(mockRunRow, 'learning_rate')).toBe(0);
+    });
+
+    test('it returns fallback for non-numeric parameter', () => {
+      expect(extractRunRowParamInteger(mockRunRow, 'model_type')).toBeUndefined();
+      expect(extractRunRowParamInteger(mockRunRow, 'model_type', undefined)).toBeUndefined();
+    });
+
+    test('it returns fallback for non-existing parameter', () => {
+      expect(extractRunRowParamInteger(mockRunRow, 'non_existing')).toBeUndefined();
+      expect(extractRunRowParamInteger(mockRunRow, 'non_existing', undefined)).toBeUndefined();
+    });
+  });
+});
+
+describe('ExperimentViewRuns row utils, useExperimentRunRows hook', () => {
+  test('it returns memoized run rows data', () => {
+    const { result, rerender } = renderHook(() => useExperimentRunRows(commonPrepareRunsGridDataParams));
+
+    const firstResult = result.current;
+    expect(firstResult).toHaveLength(MOCK_RUN_DATA.length);
+
+    // Rerender with same props should return same reference (memoized)
+    rerender();
+    expect(result.current).toBe(firstResult);
+  });
+
+  test('it recalculates when dependencies change', () => {
+    const { result, rerender } = renderHook(
+      ({ runsPinned }: { runsPinned: string[] }) =>
+        useExperimentRunRows({ ...commonPrepareRunsGridDataParams, runsPinned }),
+      { initialProps: { runsPinned: [] as string[] } },
+    );
+
+    const firstResult = result.current;
+    expect(firstResult.every((row) => !row.pinned)).toBe(true);
+
+    // Rerender with different runsPinned should recalculate
+    rerender({ runsPinned: ['run1_1'] as string[] });
+    const secondResult = result.current;
+
+    expect(secondResult).not.toBe(firstResult);
+    expect(secondResult.some((row) => row.pinned)).toBe(true);
+  });
+
+  test('it handles nested children correctly', () => {
+    const { result } = renderHook(() =>
+      useExperimentRunRows({
+        ...commonPrepareRunsGridDataParams,
+        nestChildren: true,
+        runsExpanded: { run1_1: true },
+      }),
+    );
+
+    expect(result.current).toHaveLength(5); // As tested in previous nested tests
+    expect(result.current[0].runDateAndNestInfo?.isParent).toBe(true);
+    expect(result.current[0].runDateAndNestInfo?.expanderOpen).toBe(true);
+  });
 });

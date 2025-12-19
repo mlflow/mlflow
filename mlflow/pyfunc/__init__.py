@@ -167,10 +167,10 @@ following parameters:
 
   ├── MLmodel
   ├── code
-  │   ├── sklearn_iris.py
+  │   ├── sklearn_iris.py
   │
   ├── data
-  │   └── model.pkl
+  │   └── model.pkl
   └── mlflow_env.yml
 
 ::
@@ -354,7 +354,6 @@ can simply log a predict method via the keyword argument ``python_model``.
     prediction = model.predict(x_new)
     print(prediction)
 
-
 Class-based Model
 #################
 If you're looking to serialize a more complex object, for instance a class that handles
@@ -415,7 +414,7 @@ import threading
 import uuid
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Iterator, Optional, Tuple, Union
+from typing import Any, Iterator, Tuple, Union
 from urllib.parse import urlparse
 
 import numpy as np
@@ -432,6 +431,8 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     _MLFLOW_TESTING,
+    MLFLOW_DISABLE_SCHEMA_DETAILS,
+    MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF,
     MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR,
     MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
 )
@@ -544,7 +545,7 @@ from mlflow.utils import (
 )
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils._spark_utils import modified_environ
-from mlflow.utils.annotations import deprecated, developer_stable, experimental
+from mlflow.utils.annotations import deprecated, developer_stable
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
     get_dbconnect_udf_sandbox_info,
@@ -584,7 +585,6 @@ from mlflow.utils.model_utils import (
     _validate_pyfunc_model_config,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
-from mlflow.utils.pydantic_utils import model_dump_compat
 from mlflow.utils.requirements_utils import (
     _parse_requirements,
     warn_dependency_requirement_mismatches,
@@ -628,7 +628,6 @@ class EnvType:
 
 
 PY_VERSION = "python_version"
-
 
 _logger = logging.getLogger(__name__)
 
@@ -732,12 +731,16 @@ def _validate_prediction_input(data: PyFuncInput, params, input_schema, params_s
         try:
             data = _enforce_schema(data, input_schema, flavor)
         except Exception as e:
-            # Include error in message for backwards compatibility
-            raise MlflowException.invalid_parameter_value(
-                f"Failed to enforce schema of data '{data}' "
-                f"with schema '{input_schema}'. "
-                f"Error: {e}",
-            )
+            if MLFLOW_DISABLE_SCHEMA_DETAILS.get():
+                message = "Failed to enforce model input schema. Please check your input data."
+            else:
+                # Include error in message for backwards compatibility
+                message = (
+                    f"Failed to enforce schema of data '{data}' "
+                    f"with schema '{input_schema}'. "
+                    f"Error: {e}"
+                )
+            raise MlflowException.invalid_parameter_value(message)
     params = _enforce_params_schema(params, params_schema)
     if HAS_PYSPARK and isinstance(data, SparkDataFrame):
         _logger.warning(
@@ -767,8 +770,8 @@ class PyFuncModel:
         model_meta: Model,
         model_impl: Any,
         predict_fn: str = "predict",
-        predict_stream_fn: Optional[str] = None,
-        model_id: Optional[str] = None,
+        predict_stream_fn: str | None = None,
+        model_id: str | None = None,
     ):
         if not hasattr(model_impl, predict_fn):
             raise MlflowException(f"Model implementation is missing required {predict_fn} method.")
@@ -799,7 +802,7 @@ class PyFuncModel:
         return self.__model_impl
 
     @property
-    def model_id(self) -> Optional[str]:
+    def model_id(self) -> str | None:
         """
         The model ID of the model.
 
@@ -819,7 +822,7 @@ class PyFuncModel:
             )
 
     @property
-    def input_example(self) -> Optional[Any]:
+    def input_example(self) -> Any | None:
         """
         The input example provided when the model was saved.
         """
@@ -829,7 +832,7 @@ class PyFuncModel:
     def input_example(self, value: Any) -> None:
         self._input_example = value
 
-    def predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
+    def predict(self, data: PyFuncInput, params: dict[str, Any] | None = None) -> PyFuncOutput:
         context = _try_get_prediction_context() or Context()
         with set_prediction_context(context):
             if schema := _get_dependencies_schema_from_model(self._model_meta):
@@ -839,7 +842,7 @@ class PyFuncModel:
                 context.update(model_id=self.model_id)
             return self._predict(data, params)
 
-    def _predict(self, data: PyFuncInput, params: Optional[dict[str, Any]] = None) -> PyFuncOutput:
+    def _predict(self, data: PyFuncInput, params: dict[str, Any] | None = None) -> PyFuncOutput:
         """
         Generates model predictions.
 
@@ -893,7 +896,7 @@ class PyFuncModel:
         return self._predict_fn(data)
 
     def predict_stream(
-        self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
+        self, data: PyFuncLLMSingleInput, params: dict[str, Any] | None = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
         context = _try_get_prediction_context() or Context()
 
@@ -913,7 +916,7 @@ class PyFuncModel:
         return _gen_with_context(data, params)
 
     def _predict_stream(
-        self, data: PyFuncLLMSingleInput, params: Optional[dict[str, Any]] = None
+        self, data: PyFuncLLMSingleInput, params: dict[str, Any] | None = None
     ) -> Iterator[PyFuncLLMOutputChunk]:
         """
         Generates streaming model predictions. Only LLM supports this method.
@@ -1048,7 +1051,6 @@ class PyFuncModel:
             info["flavor"] = self._model_meta.flavors[FLAVOR_NAME]["loader_module"]
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
-    @experimental(version="2.16.0")
     def get_raw_model(self):
         """
         Get the underlying raw model if the model wrapper implemented `get_raw_model` function.
@@ -1070,8 +1072,8 @@ def _get_pip_requirements_from_model_path(model_path: str):
 def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
-    dst_path: Optional[str] = None,
-    model_config: Optional[Union[str, Path, dict[str, Any]]] = None,
+    dst_path: str | None = None,
+    model_config: str | Path | dict[str, Any] | None = None,
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -1249,7 +1251,7 @@ class _ServedPyFuncModel(PyFuncModel):
 
 
 def _load_model_or_server(
-    model_uri: str, env_manager: str, model_config: Optional[dict[str, Any]] = None
+    model_uri: str, env_manager: str, model_config: dict[str, Any] | None = None
 ):
     """
     Load a model with env restoration. If a non-local ``env_manager`` is specified, prepare an
@@ -1711,7 +1713,7 @@ def _check_udf_return_type(data_type):
 
 
 def _convert_struct_values(
-    result: Union[pandas.DataFrame, dict[str, Any]],
+    result: pandas.DataFrame | dict[str, Any],
     result_type,
 ):
     """
@@ -1766,8 +1768,8 @@ def _convert_struct_values(
                     ]
                 )
             else:
-                if isinstance(field_type, pydantic.BaseModel):
-                    field_values = model_dump_compat(field_values)
+                if isinstance(field_values, pydantic.BaseModel):
+                    field_values = field_values.model_dump()
                 field_values = _convert_struct_values(field_values, field_type)
         elif isinstance(field_type, MapType):
             if is_pandas_df:
@@ -1912,7 +1914,7 @@ def _download_prebuilt_env_if_needed(prebuilt_env_uri):
     from mlflow.utils.file_utils import get_or_create_tmp_dir
 
     parsed_url = urlparse(prebuilt_env_uri)
-    if parsed_url.scheme == "" or parsed_url.scheme == "file":
+    if parsed_url.scheme in {"", "file"}:
         # local path
         return parsed_url.path
     if parsed_url.scheme == "dbfs":
@@ -2047,10 +2049,10 @@ def spark_udf(
     model_uri,
     result_type=None,
     env_manager=None,
-    params: Optional[dict[str, Any]] = None,
-    extra_env: Optional[dict[str, str]] = None,
-    prebuilt_env_uri: Optional[str] = None,
-    model_config: Optional[Union[str, Path, dict[str, Any]]] = None,
+    params: dict[str, Any] | None = None,
+    extra_env: dict[str, str] | None = None,
+    prebuilt_env_uri: str | None = None,
+    model_config: str | Path | dict[str, Any] | None = None,
 ):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -2392,7 +2394,7 @@ def spark_udf(
     dbconnect_artifact_cache = DBConnectArtifactCache.get_or_create(spark)
 
     if use_dbconnect_artifact:
-        # Upload model artifacts and python environment to NFS as DBConncet artifacts.
+        # Upload model artifacts and python environment to NFS as DBConnect artifacts.
         if env_manager in (_EnvManager.VIRTUALENV, _EnvManager.UV):
             if not dbconnect_artifact_cache.has_cache_key(env_cache_key):
                 if prebuilt_env_uri:
@@ -2520,7 +2522,7 @@ e.g., struct<a:int, b:array<int>>.
                 and len(result) > 0
                 and isinstance(result[0], pydantic.BaseModel)
             ):
-                result = pandas.DataFrame([model_dump_compat(r) for r in result])
+                result = pandas.DataFrame([r.model_dump() for r in result])
             else:
                 result = pandas.DataFrame(result)
             return _convert_struct_values(result, result_type)
@@ -2579,9 +2581,12 @@ e.g., struct<a:int, b:array<int>>.
 
     tracking_uri = mlflow.get_tracking_uri()
 
+    enforce_stdin_scoring_server = MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF.get()
+
     @pandas_udf(result_type)
     def udf(
-        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],  # noqa: UP006
+        # `pandas_udf` does not support modern type annotations
+        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],  # noqa: UP006,UP007
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
         from mlflow.pyfunc.scoring_server.client import (
@@ -2645,7 +2650,7 @@ e.g., struct<a:int, b:array<int>>.
                 else:
                     local_model_path_on_executor = None
 
-                if check_port_connectivity():
+                if not enforce_stdin_scoring_server and check_port_connectivity():
                     # launch scoring server
                     server_port = find_free_port()
                     host = "127.0.0.1"
@@ -2850,8 +2855,8 @@ def save_model(
     metadata=None,
     model_config=None,
     streamable=None,
-    resources: Optional[Union[str, list[Resource]]] = None,
-    auth_policy: Optional[AuthPolicy] = None,
+    resources: str | list[Resource] | None = None,
+    auth_policy: AuthPolicy | None = None,
     **kwargs,
 ):
     """
@@ -3167,15 +3172,14 @@ def save_model(
             )
     elif isinstance(python_model, ChatAgent):
         input_example = _save_model_chat_agent_helper(
-            python_model, mlflow_model, signature, input_example
+            python_model, mlflow_model, signature, input_example, artifacts, model_config
         )
     elif IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
         input_example = _save_model_responses_agent_helper(
-            python_model, mlflow_model, signature, input_example
+            python_model, mlflow_model, signature, input_example, artifacts, model_config
         )
     elif callable(python_model) or isinstance(python_model, PythonModel):
         model_for_signature_inference = None
-        predict_func = None
         if callable(python_model):
             # first argument is the model input
             type_hints = _extract_type_hints(python_model, input_arg_index=0)
@@ -3192,14 +3196,10 @@ def save_model(
                     color="yellow",
                 )
             model_for_signature_inference = _FunctionPythonModel(python_model)
-            predict_func = python_model
         elif isinstance(python_model, PythonModel):
             type_hints = python_model.predict_type_hints
             model_for_signature_inference = python_model
-            predict_func = python_model.predict
-        # Load context before calling predict to ensure necessary artifacts are available
         context = PythonModelContext(artifacts, model_config)
-        model_for_signature_inference.load_context(context)
         type_hint_from_example = _is_type_hint_from_example(type_hints.input)
         if type_hint_from_example:
             should_infer_signature_from_type_hints = False
@@ -3208,8 +3208,10 @@ def save_model(
                 not _signature_cannot_be_inferred_from_type_hint(type_hints.input)
             )
             if should_infer_signature_from_type_hints:
+                # context is only loaded when input_example exists
                 signature_from_type_hints = _infer_signature_from_type_hints(
-                    func=predict_func,
+                    python_model=python_model,
+                    context=context,
                     type_hints=type_hints,
                     input_example=input_example,
                 )
@@ -3220,9 +3222,10 @@ def save_model(
             if saved_example is not None:
                 _logger.info("Inferring model signature from input example")
                 try:
+                    model_for_signature_inference.load_context(context)
                     mlflow_model.signature = _infer_signature_from_input_example(
                         saved_example,
-                        _PythonModelPyfuncWrapper(model_for_signature_inference, None, None),
+                        _PythonModelPyfuncWrapper(model_for_signature_inference, context, None),
                     )
                 except Exception as e:
                     _logger.warning(
@@ -3384,15 +3387,15 @@ def log_model(
     metadata=None,
     model_config=None,
     streamable=None,
-    resources: Optional[Union[str, list[Resource]]] = None,
-    auth_policy: Optional[AuthPolicy] = None,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
+    resources: str | list[Resource] | None = None,
+    auth_policy: AuthPolicy | None = None,
+    prompts: list[str | Prompt] | None = None,
     name=None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -3458,7 +3461,6 @@ def log_model(
                         python_model=MyModel(),
                     )
 
-
                 loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
                 print(loaded_model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
 
@@ -3482,7 +3484,6 @@ def log_model(
                     model_info = mlflow.pyfunc.log_model(
                         name="model", python_model=predict, input_example=["a"]
                     )
-
 
                 loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
                 print(loaded_model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
@@ -3540,8 +3541,7 @@ def log_model(
             path via ``context.artifacts["my_file"]``.
 
             If ``None``, no artifacts are added to the model.
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
 
@@ -3596,6 +3596,7 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
+    flavor_name = _get_pyfunc_model_flavor_name(python_model)
     return Model.log(
         artifact_path=artifact_path,
         name=name,
@@ -3624,10 +3625,28 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        # only used for checking python model type
+        flavor_name=flavor_name,
     )
 
 
-def _save_model_with_loader_module_and_data_path(  # noqa: D417
+def _get_pyfunc_model_flavor_name(python_model: Any) -> str:
+    if python_model is None:
+        return "pyfunc"
+    if isinstance(python_model, str):
+        return "pyfunc.ModelFromCode"
+    if IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
+        return "pyfunc.ResponsesAgent"
+    if isinstance(python_model, ChatAgent):
+        return "pyfunc.ChatAgent"
+    if isinstance(python_model, ChatModel):
+        return "pyfunc.ChatModel"
+    if isinstance(python_model, PythonModel):
+        return "pyfunc.CustomPythonModel"
+    return "pyfunc"
+
+
+def _save_model_with_loader_module_and_data_path(
     path,
     loader_module,
     data_path=None,
@@ -3735,7 +3754,9 @@ def _save_model_with_loader_module_and_data_path(  # noqa: D417
     return mlflow_model
 
 
-def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_example):
+def _save_model_chat_agent_helper(
+    python_model, mlflow_model, signature, input_example, artifacts, model_config
+):
     """Helper method for save_model for ChatAgent models
 
     Returns: a dict input_example
@@ -3768,11 +3789,13 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
                 error_code=INTERNAL_ERROR,
             ) from e
         if isinstance(input_example, ChatAgentRequest):
-            input_example = input_example.model_dump_compat(exclude_none=True)
+            input_example = input_example.model_dump(exclude_none=True)
     else:
         input_example = CHAT_AGENT_INPUT_EXAMPLE
 
     _logger.info("Predicting on input example to validate output")
+    context = PythonModelContext(artifacts, model_config)
+    python_model.load_context(context)
     request = ChatAgentRequest(**input_example)
     output = python_model.predict(request.messages, request.context, request.custom_inputs)
     try:
@@ -3786,7 +3809,9 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
     return input_example
 
 
-def _save_model_responses_agent_helper(python_model, mlflow_model, signature, input_example):
+def _save_model_responses_agent_helper(
+    python_model, mlflow_model, signature, input_example, artifacts, model_config
+):
     """Helper method for save_model for ResponsesAgent models
 
     Returns: a dictionary input example
@@ -3828,10 +3853,12 @@ def _save_model_responses_agent_helper(python_model, mlflow_model, signature, in
                 error_code=INTERNAL_ERROR,
             ) from e
         if isinstance(input_example, ResponsesAgentRequest):
-            input_example = input_example.model_dump_compat(exclude_none=True)
+            input_example = input_example.model_dump(exclude_none=True)
     else:
         input_example = RESPONSES_AGENT_INPUT_EXAMPLE
     _logger.info("Predicting on input example to validate output")
+    context = PythonModelContext(artifacts, model_config)
+    python_model.load_context(context)
     request = ResponsesAgentRequest(**input_example)
     output = python_model.predict(request)
     try:

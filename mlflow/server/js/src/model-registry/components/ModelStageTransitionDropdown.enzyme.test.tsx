@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, test, expect, jest } from '@jest/globals';
 import React from 'react';
 import { shallow } from 'enzyme';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
@@ -38,7 +39,7 @@ describe('ModelStageTransitionDropdown', () => {
       currentStage: Stages.STAGING,
     };
     wrapper = mountWithIntl(<ModelStageTransitionDropdown {...props} />);
-    wrapper.find('.stage-transition-dropdown').first().simulate('click');
+    wrapper.find('.mlflow-stage-transition-dropdown').first().simulate('click');
     const menuHtml = mountWithIntl(wrapper.find(Dropdown).props().overlay).html();
 
     expect(menuHtml).not.toContain(Stages.STAGING);

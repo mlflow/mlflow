@@ -1,6 +1,6 @@
 import React from 'react';
-import { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
-import { Table } from '@tanstack/react-table';
+import type { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
+import type { Table } from '@tanstack/react-table';
 import { Checkbox } from '@databricks/design-system';
 
 type TracesViewTableCheckboxProps = {

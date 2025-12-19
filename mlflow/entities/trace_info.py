@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.json_format import MessageToDict
@@ -11,8 +11,9 @@ from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.protos.databricks_tracing_pb2 import TraceInfo as ProtoTraceInfoV4
 from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey
 
 
 @dataclass
@@ -46,10 +47,10 @@ class TraceInfo(_MlflowObject):
     trace_location: TraceLocation
     request_time: int
     state: TraceState
-    request_preview: Optional[str] = None
-    response_preview: Optional[str] = None
-    client_request_id: Optional[str] = None
-    execution_duration: Optional[int] = None
+    request_preview: str | None = None
+    response_preview: str | None = None
+    client_request_id: str | None = None
+    execution_duration: int | None = None
     trace_metadata: dict[str, str] = field(default_factory=dict)
     tags: dict[str, str] = field(default_factory=dict)
     assessments: list[Assessment] = field(default_factory=list)
@@ -60,6 +61,9 @@ class TraceInfo(_MlflowObject):
         if self.execution_duration is not None:
             res.pop("execution_duration", None)
             res["execution_duration_ms"] = self.execution_duration
+        # override trace_id to be the same as trace_info.trace_id since it's parsed
+        # when converting to proto if it's v4
+        res["trace_id"] = self.trace_id
         return res
 
     @classmethod
@@ -90,8 +94,13 @@ class TraceInfo(_MlflowObject):
 
         return cls(**d)
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoTraceInfoV3 | ProtoTraceInfoV4:
         from mlflow.entities.trace_info_v2 import _truncate_request_metadata, _truncate_tags
+
+        if self._is_v4():
+            from mlflow.utils.databricks_tracing_utils import trace_info_to_v4_proto
+
+            return trace_info_to_v4_proto(self)
 
         request_time = Timestamp()
         request_time.FromMilliseconds(self.request_time)
@@ -116,20 +125,32 @@ class TraceInfo(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto) -> "TraceInfo":
-        trace_metadata = dict(proto.trace_metadata)
-        # NB: MLflow automatically converts trace metadata and spans to V3 format, even if the
-        # trace was originally created in V2 format with an earlier version of MLflow. Accordingly,
-        # we also update the `TRACE_SCHEMA_VERSION_KEY` in the trace metadata to V3 for consistency
-        trace_metadata[TRACE_SCHEMA_VERSION_KEY] = str(TRACE_SCHEMA_VERSION)
+        if "request_id" in proto.DESCRIPTOR.fields_by_name:
+            from mlflow.entities.trace_info_v2 import TraceInfoV2
+
+            return TraceInfoV2.from_proto(proto).to_v3()
+
+        # import inside the function to avoid introducing top-level dependency on
+        # mlflow.tracing.utils in entities module
+        from mlflow.tracing.utils import construct_trace_id_v4
+
+        trace_location = TraceLocation.from_proto(proto.trace_location)
+        if trace_location.uc_schema:
+            trace_id = construct_trace_id_v4(
+                location=f"{trace_location.uc_schema.catalog_name}.{trace_location.uc_schema.schema_name}",
+                trace_id=proto.trace_id,
+            )
+        else:
+            trace_id = proto.trace_id
 
         return cls(
-            trace_id=proto.trace_id,
+            trace_id=trace_id,
             client_request_id=(
                 proto.client_request_id if proto.HasField("client_request_id") else None
             ),
-            trace_location=TraceLocation.from_proto(proto.trace_location),
-            request_preview=proto.request_preview,
-            response_preview=proto.response_preview,
+            trace_location=trace_location,
+            request_preview=proto.request_preview if proto.HasField("request_preview") else None,
+            response_preview=proto.response_preview if proto.HasField("response_preview") else None,
             request_time=proto.request_time.ToMilliseconds(),
             execution_duration=(
                 proto.execution_duration.ToMilliseconds()
@@ -137,7 +158,7 @@ class TraceInfo(_MlflowObject):
                 else None
             ),
             state=TraceState.from_proto(proto.state),
-            trace_metadata=trace_metadata,
+            trace_metadata=dict(proto.trace_metadata),
             tags=dict(proto.tags),
             assessments=[Assessment.from_proto(a) for a in proto.assessments],
         )
@@ -149,7 +170,7 @@ class TraceInfo(_MlflowObject):
         return self.trace_id
 
     @property
-    def experiment_id(self) -> Optional[str]:
+    def experiment_id(self) -> str | None:
         """
         An MLflow experiment ID associated with the trace, if the trace is stored
         in MLflow tracking server. Otherwise, None.
@@ -160,7 +181,7 @@ class TraceInfo(_MlflowObject):
         )
 
     @experiment_id.setter
-    def experiment_id(self, value: Optional[str]) -> None:
+    def experiment_id(self, value: str | None) -> None:
         self.trace_location.mlflow_experiment.experiment_id = value
 
     @property
@@ -177,11 +198,11 @@ class TraceInfo(_MlflowObject):
         self.request_time = value
 
     @property
-    def execution_time_ms(self) -> Optional[int]:
+    def execution_time_ms(self) -> int | None:
         return self.execution_duration
 
     @execution_time_ms.setter
-    def execution_time_ms(self, value: Optional[int]) -> None:
+    def execution_time_ms(self, value: int | None) -> None:
         self.execution_duration = value
 
     @property
@@ -194,7 +215,7 @@ class TraceInfo(_MlflowObject):
         self.state = value.to_state()
 
     @property
-    def token_usage(self) -> Optional[dict[str, int]]:
+    def token_usage(self) -> dict[str, int] | None:
         """
         Returns the aggregated token usage for the trace.
 
@@ -213,3 +234,6 @@ class TraceInfo(_MlflowObject):
         if usage_json := self.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE):
             return json.loads(usage_json)
         return None
+
+    def _is_v4(self) -> bool:
+        return self.trace_location.uc_schema is not None

@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { GenericSkeleton, Input, Modal } from '@databricks/design-system';
 import { useDispatch } from 'react-redux';
-import { ThunkDispatch } from '../../../../../redux-types';
+import type { ThunkDispatch } from '../../../../../redux-types';
 import { setExperimentTagApi } from '../../../../actions';
 import Routes from '../../../../routes';
 import { CopyButton } from '../../../../../shared/building_blocks/CopyButton';
-import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
-import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { getStringSHA256, textCompressDeflate } from '../../../../../common/utils/StringUtils';
 import Utils from '../../../../../common/utils/Utils';
 import {
@@ -130,7 +130,7 @@ export const ExperimentGetShareLinkModal = ({
       title={
         <FormattedMessage
           defaultMessage="Get shareable link"
-          description={'Title text for the experiment "Get link" modal'}
+          description='Title text for the experiment "Get link" modal'
         />
       }
       visible={visible}

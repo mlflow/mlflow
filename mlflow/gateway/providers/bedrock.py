@@ -2,7 +2,7 @@ import json
 import time
 from enum import Enum
 
-from mlflow.gateway.config import AmazonBedrockConfig, AWSIdAndKey, AWSRole, RouteConfig
+from mlflow.gateway.config import AmazonBedrockConfig, AWSIdAndKey, AWSRole, EndpointConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
 )
@@ -22,6 +22,7 @@ class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
         payload = super().chat_to_model(payload, config)
         # "model" keys are not supported in Bedrock"
         payload.pop("model", None)
+        payload["anthropic_version"] = "bedrock-2023-05-31"
         return payload
 
     @classmethod
@@ -35,6 +36,7 @@ class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
             payload.get("max_tokens_to_sample", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS),
             AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS,
         )
+        payload["anthropic_version"] = "bedrock-2023-05-31"
 
         # "model" keys are not supported in Bedrock"
         payload.pop("model", None)
@@ -171,7 +173,7 @@ class AmazonBedrockProvider(BaseProvider):
     NAME = "Amazon Bedrock"
     CONFIG_TYPE = AmazonBedrockConfig
 
-    def __init__(self, config: RouteConfig):
+    def __init__(self, config: EndpointConfig):
         super().__init__(config)
 
         if config.model.config is None or not isinstance(config.model.config, AmazonBedrockConfig):
@@ -199,13 +201,10 @@ class AmazonBedrockProvider(BaseProvider):
         session = boto3.Session(**self._construct_session_args())
 
         try:
-            self._client, self._client_created = (
-                session.client(
-                    service_name="bedrock-runtime",
-                    **self._construct_client_args(session),
-                ),
-                time.monotonic_ns(),
+            self._client = session.client(
+                service_name="bedrock-runtime", **self._construct_client_args(session)
             )
+            self._client_created = time.monotonic_ns()
             return self._client
         except botocore.exceptions.UnknownServiceError as e:
             raise AIGatewayConfigException(
@@ -243,6 +242,7 @@ class AmazonBedrockProvider(BaseProvider):
                 "aws_session_token": aws_config.aws_session_token,
             }
         else:
+            # TODO: handle session token authentication
             return {}
 
     @property

@@ -4,10 +4,6 @@ sidebar_label: AutoGen
 ---
 
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
 
 # Tracing AutoGen
 
@@ -15,7 +11,7 @@ import TabItem from "@theme/TabItem";
 
 [AutoGen AgentChat](https://microsoft.github.io/autogen/stable/index.html) is an open-source framework for building conversational single and multi-agent applications.
 
-[MLflow Tracing](../) provides automatic tracing capability for AutoGen AgentChat. By enabling auto tracing
+[MLflow Tracing](../../) provides automatic tracing capability for AutoGen AgentChat. By enabling auto tracing
 for AutoGen by calling the <APILink fn="mlflow.autogen.autolog" /> function, MLflow will capture nested traces and log them to the active MLflow Experiment upon agents execution.
 
 ```python
@@ -28,17 +24,17 @@ mlflow.autogen.autolog()
 
 Note that `mlflow.autogen.autolog()` should be called after importing AutoGen classes that are traced.
 Subclasses of `ChatCompletionClient` such as `OpenAIChatCompletionClient` or `AnthropicChatCompletionClient` and subclasses of `BaseChatAgent` such as `AssistantAgent` or `CodeExecutorAgent` should be imported before calling `mlflow.autogen.autolog()`.
-Also note that this integration is for AutoGen 0.4.9 or above. If you are using AutoGen 0.2, please use the [AG2 integration](./ag2) instead.
+Also note that this integration is for AutoGen 0.4.9 or above. If you are using AutoGen 0.2, please use the [AG2 integration](../ag2) instead.
 
 :::
 
 MLflow captures the following information about the AutoGen agents:
 
-* Messages passed to agents including images
-* Responses from agents
-* LLM and tool calls made by each agent
-* Latencies
-* Any exception if raised
+- Messages passed to agents including images
+- Responses from agents
+- LLM and tool calls made by each agent
+- Latencies
+- Any exception if raised
 
 ### Supported APIs
 

@@ -1,11 +1,10 @@
 import LocalStorageUtils from '../../../../common/utils/LocalStorageUtils';
 import Utils from '../../../../common/utils/Utils';
 
-import { ExperimentPageUIState, createExperimentPageUIState } from '../models/ExperimentPageUIState';
-import {
-  ExperimentPageSearchFacetsState,
-  createExperimentPageSearchFacetsState,
-} from '../models/ExperimentPageSearchFacetsState';
+import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
+import { createExperimentPageUIState } from '../models/ExperimentPageUIState';
+import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
+import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 
 /**
  * Loads current view state (UI state, view state) in the local storage.

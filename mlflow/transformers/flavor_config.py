@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, INVALID_PARAMETER_VALUE
@@ -125,8 +125,8 @@ def _get_component_config(
     component: Any,
     key: str,
     save_pretrained: bool = True,
-    default_repo: Optional[str] = None,
-    commit_sha: Optional[str] = None,
+    default_repo: str | None = None,
+    commit_sha: str | None = None,
 ):
     conf = {FlavorKey.COMPONENT_TYPE.format(key): _get_instance_type(component)}
 

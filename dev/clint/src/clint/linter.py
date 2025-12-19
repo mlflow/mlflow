@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import ast
 import fnmatch
 import json
@@ -8,7 +6,9 @@ import textwrap
 import tokenize
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator, Union
+from typing import Any, Iterator, TypeAlias
+
+from typing_extensions import Self
 
 from clint import rules
 from clint.builtin import BUILTIN_MODULES
@@ -16,6 +16,7 @@ from clint.comments import Noqa, iter_comments
 from clint.config import Config
 from clint.index import SymbolIndex
 from clint.resolver import Resolver
+from clint.utils import get_ignored_rules_for_file
 
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
@@ -42,34 +43,72 @@ def ignore_map(code: str) -> dict[str, set[int]]:
     return mapping
 
 
-def _is_set_active_model(node: ast.AST) -> bool:
-    """
-    Is this node a call to `set_active_model`?
-    """
-    if isinstance(node, ast.Name):
-        return "set_active_model" == node.id
+HasLocation: TypeAlias = (
+    ast.expr | ast.stmt | ast.alias | ast.arg | ast.keyword | ast.excepthandler | ast.pattern
+)
 
-    elif isinstance(node, ast.Attribute):
-        return "set_active_model" == node.attr
 
-    return False
+@dataclass
+class Position:
+    """Represents a position in source code with line and column."""
+
+    line: int
+    column: int
+
+    def __add__(self, other: "Position") -> "Position":
+        return Position(self.line + other.line, self.column + other.column)
+
+
+class Range:
+    """Represents a range in source code with start and end positions."""
+
+    def __init__(self, start: Position, end: Position | None = None):
+        self.start = start
+        self.end = end if end is not None else start
+
+    def __str__(self) -> str:
+        return f"{self.start.line}:{self.start.column}"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Range):
+            return False
+        return self.start == other.start
+
+    @classmethod
+    def from_node(cls, node: HasLocation) -> Self:
+        start = Position(node.lineno - 1, node.col_offset)
+        end = None
+        if node.end_lineno is not None and node.end_col_offset is not None:
+            end = Position(node.end_lineno - 1, node.end_col_offset)
+        return cls(start, end)
+
+    @classmethod
+    def from_noqa(cls, noqa: Noqa) -> Self:
+        start = Position(noqa.start.line - 1, noqa.start.column)
+        end = Position(noqa.end.line - 1, noqa.end.column)
+        return cls(start, end)
+
+    def shift(self, offset: Position) -> "Range":
+        """Shift this range by the given position offset."""
+        new_start = self.start + offset
+        new_end = self.end + offset
+        return Range(new_start, new_end)
 
 
 @dataclass
 class Violation:
     rule: rules.Rule
     path: Path
-    loc: Location
+    range: Range
     cell: int | None = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         # Use the same format as ruff
         cell_loc = f"cell {self.cell}:" if self.cell is not None else ""
         return (
-            # Since `Location` is 0-indexed, lineno and col_offset are incremented by 1
-            f"{self.path}:{cell_loc}{self.loc + Location(1, 1)}: "
-            f"{self.rule.id}: {self.rule.message} "
-            f"See dev/clint/README.md for instructions on ignoring this rule ({self.rule.name})."
+            # Since `Range` is 0-indexed, lineno and col_offset are incremented by 1
+            f"{self.path}:{cell_loc}{self.range.shift(Position(1, 1))}: "
+            f"{self.rule.id}: {self.rule.message}"
         )
 
     def json(self) -> dict[str, str | int | None]:
@@ -77,10 +116,10 @@ class Violation:
             "type": "error",
             "module": None,
             "obj": None,
-            "line": self.loc.lineno,
-            "column": self.loc.col_offset,
-            "endLine": self.loc.lineno,
-            "endColumn": self.loc.col_offset,
+            "line": self.range.start.line,
+            "column": self.range.start.column,
+            "endLine": self.range.end.line,
+            "endColumn": self.range.end.column,
             "path": str(self.path),
             "symbol": self.rule.name,
             "message": self.rule.message,
@@ -89,29 +128,9 @@ class Violation:
 
 
 @dataclass
-class Location:
-    lineno: int
-    col_offset: int
-
-    def __str__(self):
-        return f"{self.lineno}:{self.col_offset}"
-
-    @classmethod
-    def from_node(cls, node: ast.AST) -> "Location":
-        return cls(node.lineno - 1, node.col_offset)
-
-    @classmethod
-    def from_noqa(cls, noqa: Noqa) -> "Location":
-        return cls(noqa.lineno - 1, noqa.col_offset)
-
-    def __add__(self, other: Location) -> Location:
-        return Location(self.lineno + other.lineno, self.col_offset + other.col_offset)
-
-
-@dataclass
 class CodeBlock:
     code: str
-    loc: Location
+    range: Range
 
 
 def _get_indent(s: str) -> int:
@@ -129,13 +148,13 @@ def _get_header_indent(s: str) -> int | None:
 
 
 def _iter_code_blocks(s: str) -> Iterator[CodeBlock]:
-    code_block_loc: Location | None = None
+    code_block_range: Range | None = None
     header_indent: int | None = None
     code_lines: list[str] = []
     line_iter = enumerate(s.splitlines())
     while t := next(line_iter, None):
         idx, line = t
-        if code_block_loc:
+        if code_block_range:
             indent = _get_indent(line)
             # If we encounter a non-blank line with an indent less than the code block header
             # we are done parsing the code block. Here's an example:
@@ -145,11 +164,11 @@ def _iter_code_blocks(s: str) -> Iterator[CodeBlock]:
             #     print("hello")     # indent > header_indent
             #                        # blank
             # <non-blank>            # non-blank and indent <= header_indent
-            if line.strip() and indent <= header_indent:
+            if line.strip() and (header_indent is not None) and indent <= header_indent:
                 code = textwrap.dedent("\n".join(code_lines))
-                yield CodeBlock(code=code, loc=code_block_loc)
+                yield CodeBlock(code=code, range=code_block_range)
 
-                code_block_loc = None
+                code_block_range = None
                 code_lines.clear()
                 # It's possible that another code block follows the current one
                 header_indent = _get_header_indent(line)
@@ -171,16 +190,17 @@ def _iter_code_blocks(s: str) -> Iterator[CodeBlock]:
                     # We are at the first line of the code block
                     code_lines.append(line)
                     break
-                idx, line = next(line_iter, (None, None))
+                if next_line := next(line_iter, None):
+                    idx, line = next_line
 
-            code_block_loc = Location(idx, _get_indent(line))
+            code_block_range = Range(Position(idx, _get_indent(line)))
         else:
             header_indent = _get_header_indent(line)
 
     # The docstring ends with a code block
-    if code_lines:
+    if code_lines and code_block_range:
         code = textwrap.dedent("\n".join(code_lines))
-        yield CodeBlock(code=code, loc=code_block_loc)
+        yield CodeBlock(code=code, range=code_block_range)
 
 
 _MD_OPENING_FENCE_REGEX = re.compile(r"^(`{3,})\s*python\s*$")
@@ -190,18 +210,18 @@ def _iter_md_code_blocks(s: str) -> Iterator[CodeBlock]:
     """
     Iterates over code blocks in a Markdown string.
     """
-    code_block_loc: Location | None = None
+    code_block_range: Range | None = None
     code_lines: list[str] = []
     closing_fence: str | None = None
     line_iter = enumerate(s.splitlines())
     while t := next(line_iter, None):
         idx, line = t
-        if code_block_loc:
+        if code_block_range:
             if line.strip() == closing_fence:
                 code = textwrap.dedent("\n".join(code_lines))
-                yield CodeBlock(code=code, loc=code_block_loc)
+                yield CodeBlock(code=code, range=code_block_range)
 
-                code_block_loc = None
+                code_block_range = None
                 code_lines.clear()
                 closing_fence = None
                 continue
@@ -210,12 +230,12 @@ def _iter_md_code_blocks(s: str) -> Iterator[CodeBlock]:
 
         elif m := _MD_OPENING_FENCE_REGEX.match(line.lstrip()):
             closing_fence = m.group(1)
-            code_block_loc = Location(idx + 1, _get_indent(line))
+            code_block_range = Range(Position(idx + 1, _get_indent(line)))
 
     # Code block at EOF
-    if code_lines:
+    if code_lines and code_block_range:
         code = textwrap.dedent("\n".join(code_lines))
-        yield CodeBlock(code=code, loc=code_block_loc)
+        yield CodeBlock(code=code, range=code_block_range)
 
 
 def _parse_docstring_args(docstring: str) -> list[str]:
@@ -244,11 +264,19 @@ def _parse_docstring_args(docstring: str) -> list[str]:
 
 
 class ExampleVisitor(ast.NodeVisitor):
-    def __init__(self, linter: Linter, index: SymbolIndex) -> None:
+    def __init__(self, linter: "Linter", index: SymbolIndex) -> None:
         self.linter = linter
         self.index = index
+        self.has_log_model = False
 
     def visit_Call(self, node: ast.Call) -> None:
+        if names := self.linter.resolver.resolve(node.func):
+            match names:
+                case ["mlflow", *_, "log_model"]:
+                    self.has_log_model = True
+                case ["mlflow", "get_artifact_uri"] if self.has_log_model and len(node.args) == 1:
+                    self.linter._check(Range.from_node(node), rules.GetArtifactUri())
+
         if (
             (resolved := self.linter.resolver.resolve(node.func))
             and resolved[0] == "mlflow"
@@ -270,12 +298,12 @@ class ExampleVisitor(ast.NodeVisitor):
                     call_args = {kw.arg for kw in node.keywords if kw.arg}
                     if diff := call_args - sig_args:
                         self.linter._check(
-                            Location.from_node(node),
+                            Range.from_node(node),
                             rules.UnknownMlflowArguments(function_name, diff),
                         )
             else:
                 self.linter._check(
-                    Location.from_node(node), rules.UnknownMlflowFunction(function_name)
+                    Range.from_node(node), rules.UnknownMlflowFunction(function_name)
                 )
         self.generic_visit(node)
 
@@ -292,17 +320,17 @@ class TypeAnnotationVisitor(ast.NodeVisitor):
 
     def visit_Name(self, node: ast.Name) -> None:
         if rules.IncorrectTypeAnnotation.check(node):
-            self.linter._check(Location.from_node(node), rules.IncorrectTypeAnnotation(node.id))
+            self.linter._check(Range.from_node(node), rules.IncorrectTypeAnnotation(node.id))
 
         if self._is_bare_generic_type(node):
-            self.linter._check(Location.from_node(node), rules.UnparameterizedGenericType(node.id))
+            self.linter._check(Range.from_node(node), rules.UnparameterizedGenericType(node.id))
 
         self.generic_visit(node)
 
-    def visit_Attribute(self, node):
+    def visit_Attribute(self, node: ast.Attribute) -> None:
         if self._is_bare_generic_type(node):
             self.linter._check(
-                Location.from_node(node), rules.UnparameterizedGenericType(ast.unparse(node))
+                Range.from_node(node), rules.UnparameterizedGenericType(ast.unparse(node))
             )
 
         self.generic_visit(node)
@@ -329,8 +357,8 @@ class Linter(ast.NodeVisitor):
         ignore: dict[str, set[int]],
         index: SymbolIndex,
         cell: int | None = None,
-        offset: Location | None = None,
-    ):
+        offset: Position | None = None,
+    ) -> None:
         """
         Lints a Python file.
 
@@ -339,10 +367,10 @@ class Linter(ast.NodeVisitor):
             config: Linter configuration declared within the pyproject.toml file.
             ignore: Mapping of rule name to line numbers to ignore.
             cell: Index of the cell being linted in a Jupyter notebook.
-            offset: Offset to apply to the line and column numbers of the violations.
+            offset: Position offset to apply to the line and column numbers of the violations.
             index: Symbol index for resolving function signatures.
         """
-        self.stack: list[ast.AST] = []
+        self.stack: list[ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef] = []
         self.path = path
         self.config = config
         self.ignore = ignore
@@ -351,19 +379,28 @@ class Linter(ast.NodeVisitor):
         self.in_TYPE_CHECKING = False
         self.is_mlflow_init_py = path == Path("mlflow", "__init__.py")
         self.imported_modules: set[str] = set()
-        self.lazy_modules: dict[str, Location] = {}
-        self.offset = offset or Location(0, 0)
+        self.lazy_modules: dict[str, Range] = {}
+        self.offset = offset or Position(0, 0)
         self.resolver = Resolver()
         self.index = index
+        self.ignored_rules = get_ignored_rules_for_file(path, config.per_file_ignores)
+        self.prev_stmt: ast.stmt | None = None
 
-    def _check(self, loc: Location, rule: rules.Rule) -> None:
-        if (lines := self.ignore.get(rule.name)) and loc.lineno in lines:
+    def _check(self, range: Range, rule: rules.Rule) -> None:
+        # Skip rules that are not selected in the config
+        if rule.name not in self.config.select:
+            return
+        # Check line-level ignores
+        if (lines := self.ignore.get(rule.name)) and range.start.line in lines:
+            return
+        # Check per-file ignores
+        if rule.name in self.ignored_rules:
             return
         self.violations.append(
             Violation(
                 rule,
                 self.path,
-                loc + self.offset,
+                range.shift(self.offset),
                 self.cell,
             )
         )
@@ -379,29 +416,33 @@ class Linter(ast.NodeVisitor):
             return node.body[0].value
         return None
 
-    def _no_rst(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        if (n := self._docstring(node)) and (PARAM_REGEX.search(n.s) or RETURN_REGEX.search(n.s)):
-            self._check(Location.from_node(n), rules.NoRst())
+    def _no_rst(self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> None:
+        if (
+            (n := self._docstring(node))
+            and isinstance(n.value, str)
+            and (PARAM_REGEX.search(n.value) or RETURN_REGEX.search(n.value))
+        ):
+            self._check(Range.from_node(n), rules.NoRst())
 
     def _is_in_function(self) -> bool:
-        return self.stack and isinstance(self.stack[-1], (ast.FunctionDef, ast.AsyncFunctionDef))
+        if self.stack:
+            return isinstance(self.stack[-1], (ast.FunctionDef, ast.AsyncFunctionDef))
+        return False
 
     def _is_in_class(self) -> bool:
-        return self.stack and isinstance(self.stack[-1], ast.ClassDef)
+        if self.stack:
+            return isinstance(self.stack[-1], ast.ClassDef)
+        return False
 
     def _is_at_top_level(self) -> bool:
         return not self.stack
 
     def _parse_func_args(self, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
-        args: list[str] = []
-        for arg in func.args.posonlyargs:
-            args.append(arg.arg)
+        args: list[str] = [arg.arg for arg in func.args.posonlyargs]
 
-        for arg in func.args.args:
-            args.append(arg.arg)
+        args.extend(arg.arg for arg in func.args.args)
 
-        for arg in func.args.kwonlyargs:
-            args.append(arg.arg)
+        args.extend(arg.arg for arg in func.args.kwonlyargs)
 
         if func.args.vararg:
             args.append(func.args.vararg.arg)
@@ -428,18 +469,40 @@ class Linter(ast.NodeVisitor):
             return
 
         if node.name.startswith("test") and not node.name.startswith("test_"):
-            self._check(Location.from_node(node), rules.TestNameTypo())
+            self._check(Range.from_node(node), rules.TestNameTypo())
 
     def _mlflow_class_name(self, node: ast.ClassDef) -> None:
         if "MLflow" in node.name or "MLFlow" in node.name:
-            self._check(Location.from_node(node), rules.MlflowClassName())
+            self._check(Range.from_node(node), rules.MlflowClassName())
+
+    def _no_class_based_tests(self, node: ast.ClassDef) -> None:
+        if rule := rules.NoClassBasedTests.check(node, self.path.name):
+            self._check(Range.from_node(node), rule)
+
+    def _redundant_test_docstring(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+    ) -> None:
+        if rule := rules.RedundantTestDocstring.check(node, self.path.name):
+            self._check(Range.from_node(node), rule)
+
+    def visit(self, node: ast.AST) -> None:
+        super().visit(node)
+        if isinstance(node, ast.stmt):
+            self.prev_stmt = node
+
+    def visit_Module(self, node: ast.Module) -> None:
+        if rule := rules.RedundantTestDocstring.check_module(node, self.path.name):
+            self._check(Range(Position(0, 0)), rule)
+        self.generic_visit(node)
 
     def _is_in_test(self) -> bool:
-        return (
-            self.path.name.startswith("test_")
-            and self.stack
-            and self.stack[-1].name.startswith("test_")
-        )
+        if not self.path.name.startswith("test_"):
+            return False
+
+        if not self.stack:
+            return False
+
+        return self.stack[-1].name.startswith("test_")
 
     @classmethod
     def visit_example(
@@ -448,14 +511,14 @@ class Linter(ast.NodeVisitor):
         try:
             tree = ast.parse(example.code)
         except SyntaxError:
-            return [Violation(rules.ExampleSyntaxError(), path, example.loc)]
+            return [Violation(rules.ExampleSyntaxError(), path, example.range)]
 
         linter = cls(
             path=path,
             config=config,
             ignore=ignore_map(example.code),
             index=index,
-            offset=example.loc,
+            offset=example.range.start,
         )
         linter.visit(tree)
         linter.visit_comments(example.code)
@@ -464,17 +527,20 @@ class Linter(ast.NodeVisitor):
             v.visit(tree)
         return [v for v in linter.violations if v.rule.name in config.example_rules]
 
-    def visit_decorator(self, node: ast.expr) -> None:
-        if rules.InvalidExperimentalDecorator.check(node, self.resolver):
-            self._check(Location.from_node(node), rules.InvalidExperimentalDecorator())
+    def visit_decorators(self, decorator_list: list[ast.expr]) -> None:
+        for decorator in decorator_list:
+            if rules.InvalidExperimentalDecorator.check(decorator, self.resolver):
+                self._check(Range.from_node(decorator), rules.InvalidExperimentalDecorator())
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
         self._no_rst(node)
         self._syntax_error_example(node)
         self._mlflow_class_name(node)
-        for deco in node.decorator_list:
-            self.visit_decorator(deco)
+        self._no_class_based_tests(node)
+        self._redundant_test_docstring(node)
+        self.visit_decorators(node.decorator_list)
+        self._markdown_link(node)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
@@ -484,9 +550,10 @@ class Linter(ast.NodeVisitor):
     ) -> None:
         if node.name.startswith("_"):
             return
-        if docstring_node := self._docstring(node):
+        if (docstring_node := self._docstring(node)) and isinstance(docstring_node.value, str):
             for code_block in _iter_code_blocks(docstring_node.value):
-                code_block.loc.lineno += docstring_node.lineno - 1
+                # Adjust code block location to account for docstring position
+                code_block.range = code_block.range.shift(Position(docstring_node.lineno - 1, 0))
                 self.violations.extend(
                     Linter.visit_example(self.path, self.config, code_block, self.index)
                 )
@@ -495,41 +562,51 @@ class Linter(ast.NodeVisitor):
         # TODO: Remove this guard clause to enforce the docstring param checks for all functions
         if node.name.startswith("_"):
             return
-        if docstring_node := self._docstring(node):
+        if (docstring_node := self._docstring(node)) and isinstance(docstring_node.value, str):
             if (doc_args := _parse_docstring_args(docstring_node.value)) and (
                 func_args := self._parse_func_args(node)
             ):
                 func_args_set = set(func_args)
                 doc_args_set = set(doc_args)
                 if diff := func_args_set - doc_args_set:
-                    self._check(Location.from_node(node), rules.MissingDocstringParam(diff))
+                    self._check(Range.from_node(node), rules.MissingDocstringParam(diff))
 
                 if diff := doc_args_set - func_args_set:
-                    self._check(Location.from_node(node), rules.ExtraneousDocstringParam(diff))
+                    self._check(Range.from_node(node), rules.ExtraneousDocstringParam(diff))
 
                 if func_args_set == doc_args_set and func_args != doc_args:
                     params = [a for a, b in zip(func_args, doc_args) if a != b]
-                    self._check(Location.from_node(node), rules.DocstringParamOrder(params))
+                    self._check(Range.from_node(node), rules.DocstringParamOrder(params))
 
     def _invalid_abstract_method(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         if rules.InvalidAbstractMethod.check(node, self.resolver):
-            self._check(Location.from_node(node), rules.InvalidAbstractMethod())
+            self._check(Range.from_node(node), rules.InvalidAbstractMethod())
 
-    def visit_Name(self, node) -> None:
+    def visit_Name(self, node: ast.Name) -> None:
         self.generic_visit(node)
 
-    def _markdown_link(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        if docstring := self._docstring(node):
-            if MARKDOWN_LINK_RE.search(docstring.s):
-                self._check(docstring, rules.MarkdownLink())
+    def _markdown_link(self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> None:
+        if (docstring := self._docstring(node)) and isinstance(docstring.value, str):
+            if MARKDOWN_LINK_RE.search(docstring.value):
+                self._check(Range.from_node(docstring), rules.MarkdownLink())
 
     def _pytest_mark_repeat(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         # Only check in test files
         if not self.path.name.startswith("test_"):
             return
 
-        if rules.PytestMarkRepeat.check(node, self.resolver):
-            self._check(Location.from_node(node), rules.PytestMarkRepeat())
+        if deco := rules.PytestMarkRepeat.check(node.decorator_list, self.resolver):
+            self._check(Range.from_node(deco), rules.PytestMarkRepeat())
+
+    def _mock_patch_as_decorator(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        # Only check in test files
+        if not self.path.name.startswith("test_"):
+            return
+
+        # Check all decorators, not just the first one
+        for deco in node.decorator_list:
+            if rules.MockPatchAsDecorator.check([deco], self.resolver):
+                self._check(Range.from_node(deco), rules.MockPatchAsDecorator())
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
@@ -538,6 +615,8 @@ class Linter(ast.NodeVisitor):
         self._markdown_link(node)
         self._invalid_abstract_method(node)
         self._pytest_mark_repeat(node)
+        self._mock_patch_as_decorator(node)
+        self._redundant_test_docstring(node)
 
         for arg in node.args.args + node.args.kwonlyargs + node.args.posonlyargs:
             if arg.annotation:
@@ -548,8 +627,8 @@ class Linter(ast.NodeVisitor):
 
         self.stack.append(node)
         self._no_rst(node)
-        for deco in node.decorator_list:
-            self.visit_decorator(deco)
+        self.visit_decorators(node.decorator_list)
+        self._check_walrus_operator(node)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
@@ -561,10 +640,12 @@ class Linter(ast.NodeVisitor):
         self._markdown_link(node)
         self._invalid_abstract_method(node)
         self._pytest_mark_repeat(node)
+        self._mock_patch_as_decorator(node)
+        self._redundant_test_docstring(node)
         self.stack.append(node)
         self._no_rst(node)
-        for deco in node.decorator_list:
-            self.visit_decorator(deco)
+        self.visit_decorators(node.decorator_list)
+        self._check_walrus_operator(node)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
@@ -574,14 +655,14 @@ class Linter(ast.NodeVisitor):
         for alias in node.names:
             root_module = alias.name.split(".", 1)[0]
             if self._is_in_function() and root_module in BUILTIN_MODULES:
-                self._check(Location.from_node(node), rules.LazyBuiltinImport())
+                self._check(Range.from_node(node), rules.LazyBuiltinImport())
 
             if (
                 alias.name.split(".", 1)[0] == "typing_extensions"
                 and alias.name not in self.config.typing_extensions_allowlist
             ):
                 self._check(
-                    Location.from_node(node),
+                    Range.from_node(node),
                     rules.TypingExtensions(
                         full_name=alias.name,
                         allowlist=self.config.typing_extensions_allowlist,
@@ -598,7 +679,7 @@ class Linter(ast.NodeVisitor):
 
         root_module = node.module and node.module.split(".", 1)[0]
         if self._is_in_function() and root_module in BUILTIN_MODULES:
-            self._check(Location.from_node(node), rules.LazyBuiltinImport())
+            self._check(Range.from_node(node), rules.LazyBuiltinImport())
 
         if self.in_TYPE_CHECKING and self.is_mlflow_init_py:
             for alias in node.names:
@@ -609,41 +690,53 @@ class Linter(ast.NodeVisitor):
                 full_name = f"{node.module}.{alias.name}"
                 if full_name not in self.config.typing_extensions_allowlist:
                     self._check(
-                        Location.from_node(node),
+                        Range.from_node(node),
                         rules.TypingExtensions(
                             full_name=full_name,
                             allowlist=self.config.typing_extensions_allowlist,
                         ),
                     )
 
-        if self._is_at_top_level() and not self.in_TYPE_CHECKING:
+        if node.module and self._is_at_top_level() and not self.in_TYPE_CHECKING:
             self._check_forbidden_top_level_import(node, node.module)
 
-        if self.path.parts[0] != "tests" and not self.is_mlflow_init_py:
+        if not self.is_mlflow_init_py:
             for alias in node.names:
                 if alias.name.split(".")[-1] == "set_active_model":
                     self._check_forbidden_set_active_model_usage(node)
 
+        # Check for forbidden make_judge import in builtin_scorers.py
+        if self.path.name == "builtin_scorers.py" and node.module:
+            for alias in node.names:
+                if alias.name == "make_judge" and (
+                    node.module == "mlflow.genai.judges.make_judge"
+                    or node.module.endswith(".make_judge")
+                ):
+                    self._check(
+                        Range.from_node(node),
+                        rules.ForbiddenMakeJudgeInBuiltinScorers(),
+                    )
+
         self.generic_visit(node)
 
     def _check_forbidden_top_level_import(
-        self, node: Union[ast.Import, ast.ImportFrom], module: str
+        self, node: ast.Import | ast.ImportFrom, module: str
     ) -> None:
         for file_pat, libs in self.config.forbidden_top_level_imports.items():
             if fnmatch.fnmatch(str(self.path), file_pat) and any(
                 module.startswith(lib) for lib in libs
             ):
                 self._check(
-                    Location.from_node(node),
+                    Range.from_node(node),
                     rules.ForbiddenTopLevelImport(module=module),
                 )
 
     def _check_forbidden_set_active_model_usage(
         self,
-        node: Union[ast.Import, ast.ImportFrom],
+        node: ast.Import | ast.ImportFrom,
     ) -> None:
         self._check(
-            Location.from_node(node),
+            Range.from_node(node),
             rules.ForbiddenSetActiveModelUsage(),
         )
 
@@ -659,47 +752,80 @@ class Linter(ast.NodeVisitor):
                 and isinstance(last_arg.value, str)
                 and last_arg.value.startswith("mlflow.")
             ):
-                self.lazy_modules[last_arg.value] = Location.from_node(node)
+                self.lazy_modules[last_arg.value] = Range.from_node(node)
 
         if rules.LogModelArtifactPath.check(node, self.index):
-            self._check(Location.from_node(node), rules.LogModelArtifactPath())
+            self._check(Range.from_node(node), rules.LogModelArtifactPath())
 
         if rules.UseSysExecutable.check(node, self.resolver):
-            self._check(Location.from_node(node), rules.UseSysExecutable())
+            self._check(Range.from_node(node), rules.UseSysExecutable())
 
-        if self.path.parts[0] != "tests" and rules.ForbiddenSetActiveModelUsage.check(
-            node, self.resolver
-        ):
-            self._check(Location.from_node(node), rules.ForbiddenSetActiveModelUsage())
+        if rules.ForbiddenSetActiveModelUsage.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.ForbiddenSetActiveModelUsage())
 
-        if self.path.parts[0] != "tests" and rules.UnnamedThread.check(node, self.resolver):
-            self._check(Location.from_node(node), rules.UnnamedThread())
+        if rules.ForbiddenMakeJudgeInBuiltinScorers.check(node, self.resolver, self.path):
+            self._check(Range.from_node(node), rules.ForbiddenMakeJudgeInBuiltinScorers())
 
-        if self.path.parts[0] not in (
-            "tests",
-            "examples",
-        ) and rules.ThreadPoolExecutorWithoutThreadNamePrefix.check(node, self.resolver):
-            self._check(Location.from_node(node), rules.ThreadPoolExecutorWithoutThreadNamePrefix())
+        if expr := rules.ForbiddenDeprecationWarning.check(node, self.resolver):
+            self._check(Range.from_node(expr), rules.ForbiddenDeprecationWarning())
+
+        if rules.UnnamedThread.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.UnnamedThread())
+
+        if rules.ThreadPoolExecutorWithoutThreadNamePrefix.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.ThreadPoolExecutorWithoutThreadNamePrefix())
+
+        if rules.IsinstanceUnionSyntax.check(node):
+            self._check(Range.from_node(node), rules.IsinstanceUnionSyntax())
+
+        if rules.SubprocessCheckCall.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.SubprocessCheckCall())
+
+        if self._is_in_test() and rules.OsChdirInTest.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.OsChdirInTest())
+
+        if self._is_in_test() and rules.TempDirInTest.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.TempDirInTest())
+
+        if self._is_in_test() and rules.MockPatchDictEnviron.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.MockPatchDictEnviron())
+
+        if self._is_in_test() and rules.OsEnvironDeleteInTest.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.OsEnvironDeleteInTest())
 
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         if rules.ImplicitOptional.check(node):
-            self._check(Location.from_node(node), rules.ImplicitOptional())
+            self._check(Range.from_node(node.annotation), rules.ImplicitOptional())
 
         if node.annotation:
             self.visit_type_annotation(node.annotation)
 
         self.generic_visit(node)
 
-    def visit_Assign(self, node: ast.Assign):
+    def visit_Assign(self, node: ast.Assign) -> None:
         if self._is_in_test() and rules.OsEnvironSetInTest.check(node, self.resolver):
-            self._check(Location.from_node(node), rules.OsEnvironSetInTest())
+            self._check(Range.from_node(node), rules.OsEnvironSetInTest())
+
+        if rules.MultiAssign.check(node):
+            self._check(Range.from_node(node), rules.MultiAssign())
+
         self.generic_visit(node)
 
-    def visit_Delete(self, node: ast.Delete):
+    def visit_Delete(self, node: ast.Delete) -> None:
         if self._is_in_test() and rules.OsEnvironDeleteInTest.check(node, self.resolver):
-            self._check(Location.from_node(node), rules.OsEnvironDeleteInTest())
+            self._check(Range.from_node(node), rules.OsEnvironDeleteInTest())
+        self.generic_visit(node)
+
+    def visit_Compare(self, node: ast.Compare) -> None:
+        if rules.MajorVersionCheck.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.MajorVersionCheck())
+        self.generic_visit(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        if self.prev_stmt and rules.AssignBeforeAppend.check(node, self.prev_stmt):
+            self._check(Range.from_node(node), rules.AssignBeforeAppend())
         self.generic_visit(node)
 
     def visit_type_annotation(self, node: ast.expr) -> None:
@@ -715,20 +841,36 @@ class Linter(ast.NodeVisitor):
         self.generic_visit(node)
         self.in_TYPE_CHECKING = False
 
+    def _check_walrus_operator(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        visitor = rules.WalrusOperatorVisitor()
+        visitor.visit(node)
+        for stmt in visitor.violations:
+            self._check(Range.from_node(stmt), rules.UseWalrusOperator())
+
+    def visit_With(self, node: ast.With) -> None:
+        # Only check in test files
+        if self.path.name.startswith("test_") and rules.NestedMockPatch.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.NestedMockPatch())
+        self.generic_visit(node)
+
     def post_visit(self) -> None:
         if self.is_mlflow_init_py and (diff := self.lazy_modules.keys() - self.imported_modules):
             for mod in diff:
-                if loc := self.lazy_modules.get(mod):
-                    self._check(loc, rules.LazyModule())
+                if range := self.lazy_modules.get(mod):
+                    self._check(range, rules.LazyModule())
 
     def visit_comments(self, src: str) -> None:
         for comment in iter_comments(src):
-            if noqa := Noqa.parse_token(comment):
+            if noqa := Noqa.from_token(comment):
                 self.visit_noqa(noqa)
 
     def visit_noqa(self, noqa: Noqa) -> None:
         if rule := rules.DoNotDisable.check(noqa.rules):
-            self._check(Location.from_noqa(noqa), rule)
+            self._check(Range.from_noqa(noqa), rule)
+
+    def visit_file_content(self, src: str) -> None:
+        if rules.NoShebang.check(src):
+            self._check(Range(Position(0, 0)), rules.NoShebang())
 
 
 def _has_trace_ui_content(output: dict[str, Any]) -> bool:
@@ -763,7 +905,7 @@ def _lint_cell(
                     Violation(
                         rules.ForbiddenTraceUIInNotebook(),
                         path,
-                        Location(0, 0),
+                        Range(Position(0, 0)),
                         cell=cell_index,
                     )
                 )
@@ -779,7 +921,7 @@ def _lint_cell(
         # Ignore non-python cells such as `!pip install ...`
         return violations
 
-    linter = Linter(path=path, config=config, ignore=ignore_map(src), index=index, cell=index)
+    linter = Linter(path=path, config=config, ignore=ignore_map(src), index=index, cell=cell_index)
     linter.visit(tree)
     linter.visit_comments(src)
     violations.extend(linter.violations)
@@ -789,15 +931,26 @@ def _lint_cell(
             Violation(
                 rules.EmptyNotebookCell(),
                 path,
-                Location(0, 0),
-                cell=index,
+                Range(Position(0, 0)),
+                cell=cell_index,
             )
         )
     return violations
 
 
-def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]:
-    code = path.read_text()
+def _has_h1_header(cells: list[dict[str, Any]]) -> bool:
+    return any(
+        line.strip().startswith("# ")
+        for cell in cells
+        if cell.get("cell_type") == "markdown"
+        for line in cell.get("source", [])
+    )
+
+
+def lint_file(path: Path, code: str, config: Config, index_path: Path) -> list[Violation]:
+    if path.is_absolute():
+        raise ValueError(f"Path must be relative: {path}")
+    index = SymbolIndex.load(index_path)
     if path.suffix == ".ipynb":
         violations = []
         if cells := json.loads(code).get("cells"):
@@ -811,6 +964,14 @@ def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]
                         cell_index=cell_idx,
                     )
                 )
+            if (rules.MissingNotebookH1Header.name in config.select) and not _has_h1_header(cells):
+                violations.append(
+                    Violation(
+                        rules.MissingNotebookH1Header(),
+                        path,
+                        Range(Position(0, 0)),
+                    )
+                )
         return violations
     elif path.suffix in {".rst", ".md", ".mdx"}:
         violations = []
@@ -822,7 +983,9 @@ def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]
         return violations
     else:
         linter = Linter(path=path, config=config, ignore=ignore_map(code), index=index)
-        linter.visit(ast.parse(code))
+        module = ast.parse(code)
+        linter.visit(module)
         linter.visit_comments(code)
+        linter.visit_file_content(code)
         linter.post_visit()
         return linter.violations

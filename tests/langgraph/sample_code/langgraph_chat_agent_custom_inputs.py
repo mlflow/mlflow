@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Generator, Optional, Sequence, Union
+from typing import Any, Generator, Sequence
 from uuid import uuid4
 
 from langchain_core.language_models import LanguageModelLike
@@ -74,8 +74,8 @@ tools = [uc_tool_format, lc_tool_format]
 
 def create_tool_calling_agent(
     model: LanguageModelLike,
-    tools: Union[ToolNode, Sequence[BaseTool]],
-    agent_prompt: Optional[str] = None,
+    tools: ToolNode | Sequence[BaseTool],
+    agent_prompt: str | None = None,
 ) -> CompiledStateGraph:
     model = model.bind_tools(tools)
 
@@ -140,13 +140,13 @@ class LangGraphChatAgent(ChatAgent):
     def predict(
         self,
         messages: list[ChatAgentMessage],
-        context: Optional[ChatContext] = None,
-        custom_inputs: Optional[dict[str, Any]] = None,
+        context: ChatContext | None = None,
+        custom_inputs: dict[str, Any] | None = None,
     ) -> ChatAgentResponse:
         request = {
             "messages": self._convert_messages_to_dict(messages),
             **({"custom_inputs": custom_inputs} if custom_inputs else {}),
-            **({"context": context.model_dump_compat()} if context else {}),
+            **({"context": context.model_dump()} if context else {}),
         }
 
         response = ChatAgentResponse(messages=[])
@@ -163,13 +163,13 @@ class LangGraphChatAgent(ChatAgent):
     def predict_stream(
         self,
         messages: list[ChatAgentMessage],
-        context: Optional[ChatContext] = None,
-        custom_inputs: Optional[dict[str, Any]] = None,
+        context: ChatContext | None = None,
+        custom_inputs: dict[str, Any] | None = None,
     ) -> Generator[ChatAgentChunk, None, None]:
         request = {
             "messages": self._convert_messages_to_dict(messages),
             **({"custom_inputs": custom_inputs} if custom_inputs else {}),
-            **({"context": context.model_dump_compat()} if context else {}),
+            **({"context": context.model_dump()} if context else {}),
         }
 
         last_message = None

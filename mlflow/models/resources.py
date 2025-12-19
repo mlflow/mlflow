@@ -1,7 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -21,6 +21,7 @@ class ResourceType(Enum):
     GENIE_SPACE = "genie_space"
     TABLE = "table"
     APP = "app"
+    LAKEBASE = "lakebase"
 
 
 class Resource(ABC):
@@ -82,7 +83,7 @@ class DatabricksResource(Resource, ABC):
     def type(self) -> ResourceType:
         raise NotImplementedError("Subclasses must implement the 'type' property.")
 
-    def __init__(self, name: str, on_behalf_of_user: Optional[bool] = None):
+    def __init__(self, name: str, on_behalf_of_user: bool | None = None):
         self.name = name
         self.on_behalf_of_user = on_behalf_of_user
 
@@ -113,7 +114,7 @@ class DatabricksUCConnection(DatabricksResource):
     def type(self) -> ResourceType:
         return ResourceType.UC_CONNECTION
 
-    def __init__(self, connection_name: str, on_behalf_of_user: Optional[bool] = None):
+    def __init__(self, connection_name: str, on_behalf_of_user: bool | None = None):
         super().__init__(connection_name, on_behalf_of_user)
 
 
@@ -132,7 +133,7 @@ class DatabricksServingEndpoint(DatabricksResource):
     def type(self) -> ResourceType:
         return ResourceType.SERVING_ENDPOINT
 
-    def __init__(self, endpoint_name: str, on_behalf_of_user: Optional[bool] = None):
+    def __init__(self, endpoint_name: str, on_behalf_of_user: bool | None = None):
         super().__init__(endpoint_name, on_behalf_of_user)
 
 
@@ -152,7 +153,7 @@ class DatabricksVectorSearchIndex(DatabricksResource):
     def type(self) -> ResourceType:
         return ResourceType.VECTOR_SEARCH_INDEX
 
-    def __init__(self, index_name: str, on_behalf_of_user: Optional[bool] = None):
+    def __init__(self, index_name: str, on_behalf_of_user: bool | None = None):
         super().__init__(index_name, on_behalf_of_user)
 
 
@@ -171,7 +172,7 @@ class DatabricksSQLWarehouse(DatabricksResource):
     def type(self) -> ResourceType:
         return ResourceType.SQL_WAREHOUSE
 
-    def __init__(self, warehouse_id: str, on_behalf_of_user: Optional[bool] = None):
+    def __init__(self, warehouse_id: str, on_behalf_of_user: bool | None = None):
         super().__init__(warehouse_id, on_behalf_of_user)
 
 
@@ -190,7 +191,7 @@ class DatabricksFunction(DatabricksResource):
     def type(self) -> ResourceType:
         return ResourceType.FUNCTION
 
-    def __init__(self, function_name: str, on_behalf_of_user: Optional[bool] = None):
+    def __init__(self, function_name: str, on_behalf_of_user: bool | None = None):
         super().__init__(function_name, on_behalf_of_user)
 
 
@@ -209,7 +210,7 @@ class DatabricksGenieSpace(DatabricksResource):
     def type(self) -> ResourceType:
         return ResourceType.GENIE_SPACE
 
-    def __init__(self, genie_space_id: str, on_behalf_of_user: Optional[bool] = None):
+    def __init__(self, genie_space_id: str, on_behalf_of_user: bool | None = None):
         super().__init__(genie_space_id, on_behalf_of_user)
 
 
@@ -230,7 +231,7 @@ class DatabricksTable(DatabricksResource):
     def type(self) -> ResourceType:
         return ResourceType.TABLE
 
-    def __init__(self, table_name: str, on_behalf_of_user: Optional[bool] = None):
+    def __init__(self, table_name: str, on_behalf_of_user: bool | None = None):
         super().__init__(table_name, on_behalf_of_user)
 
 
@@ -251,8 +252,27 @@ class DatabricksApp(DatabricksResource):
     def type(self) -> ResourceType:
         return ResourceType.APP
 
-    def __init__(self, app_name: str, on_behalf_of_user: Optional[bool] = None):
+    def __init__(self, app_name: str, on_behalf_of_user: bool | None = None):
         super().__init__(app_name, on_behalf_of_user)
+
+
+class DatabricksLakebase(DatabricksResource):
+    """
+    Defines a Databricks Lakebase Database Instance dependency for Model Serving
+
+     Args:
+         database_instance_name (str): The name of the lakebase/database instance used by the model
+         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resource is accessed with the permissions of the creator
+    """
+
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.LAKEBASE
+
+    def __init__(self, database_instance_name: str, on_behalf_of_user: bool | None = None):
+        super().__init__(database_instance_name, on_behalf_of_user)
 
 
 def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
@@ -266,6 +286,7 @@ def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
             ResourceType.GENIE_SPACE.value: DatabricksGenieSpace,
             ResourceType.TABLE.value: DatabricksTable,
             ResourceType.APP.value: DatabricksApp,
+            ResourceType.LAKEBASE.value: DatabricksLakebase,
         }
     }
     resource = resource_classes.get(target_uri)
@@ -301,8 +322,7 @@ class _ResourceBuilder:
         if api_version == "1":
             for target_uri, config in data.items():
                 for resource_type, values in config.items():
-                    resource_class = _get_resource_class_by_type(target_uri, resource_type)
-                    if resource_class:
+                    if resource_class := _get_resource_class_by_type(target_uri, resource_type):
                         resources.extend(resource_class.from_dict(value) for value in values)
                     else:
                         raise ValueError(f"Unsupported resource type: {resource_type}")

@@ -6,9 +6,10 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import OpenAIConfig, RouteConfig
+from mlflow.gateway.config import EndpointConfig, OpenAIConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
+from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -59,14 +60,33 @@ def chat_response():
     }
 
 
-@pytest.mark.asyncio
-async def test_chat():
+def completions_response():
+    return {
+        "id": "chatcmpl-abc123",
+        "object": "text.completion",
+        "created": 1677858242,
+        "model": "gpt-4o-mini",
+        "usage": {
+            "prompt_tokens": 13,
+            "completion_tokens": 7,
+            "total_tokens": 20,
+        },
+        "choices": [
+            {
+                "text": "\n\nThis is a test!",
+                "index": 0,
+                "finish_reason": "stop",
+            }
+        ],
+        "headers": {"Content-Type": "application/json"},
+    }
+
+
+async def _run_test_chat(provider):
     resp = chat_response()
-    config = chat_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
         payload = {"messages": [{"role": "user", "content": "Tell me a joke"}], "temperature": 0.5}
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -109,6 +129,13 @@ async def test_chat():
         )
 
 
+@pytest.mark.asyncio
+async def test_chat():
+    config = chat_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+    await _run_test_chat(provider)
+
+
 def chat_stream_response():
     return [
         b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
@@ -141,14 +168,10 @@ def chat_stream_response_incomplete():
     ]
 
 
-@pytest.mark.parametrize("resp", [chat_stream_response(), chat_stream_response_incomplete()])
-@pytest.mark.asyncio
-async def test_chat_stream(resp):
-    config = chat_config()
+async def _run_test_chat_stream(resp, provider):
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
         payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
         response = provider.chat_stream(chat.RequestPayload(**payload))
 
@@ -157,7 +180,11 @@ async def test_chat_stream(resp):
             {
                 "choices": [
                     {
-                        "delta": {"content": None, "role": "assistant"},
+                        "delta": {
+                            "content": None,
+                            "role": "assistant",
+                            "tool_calls": None,
+                        },
                         "finish_reason": None,
                         "index": 0,
                     }
@@ -169,7 +196,15 @@ async def test_chat_stream(resp):
             },
             {
                 "choices": [
-                    {"delta": {"content": "test", "role": None}, "finish_reason": None, "index": 0}
+                    {
+                        "delta": {
+                            "content": "test",
+                            "role": None,
+                            "tool_calls": None,
+                        },
+                        "finish_reason": None,
+                        "index": 0,
+                    }
                 ],
                 "created": 1,
                 "id": "test-id",
@@ -178,7 +213,15 @@ async def test_chat_stream(resp):
             },
             {
                 "choices": [
-                    {"delta": {"content": None, "role": None}, "finish_reason": "stop", "index": 0}
+                    {
+                        "delta": {
+                            "content": None,
+                            "role": None,
+                            "tool_calls": None,
+                        },
+                        "finish_reason": "stop",
+                        "index": 0,
+                    }
                 ],
                 "created": 1,
                 "id": "test-id",
@@ -204,6 +247,120 @@ async def test_chat_stream(resp):
         )
 
 
+@pytest.mark.parametrize("resp", [chat_stream_response(), chat_stream_response_incomplete()])
+@pytest.mark.asyncio
+async def test_chat_stream(resp):
+    config = chat_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+    await _run_test_chat_stream(resp, provider)
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_with_function_calling():
+    config = chat_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+
+    resp = [
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant",'
+        b'"tool_calls":[{"index":0,"id":"call_001","function":{"name":"get_weather"},'
+        b'"type":"function"}]}}]}\n',
+        b"\n",
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":null,"delta":{'
+        b'"tool_calls":[{"index":0,"function":{"arguments":"{\\"location\\":"'
+        b"}}]}}]}\n",
+        b"\n",
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":"stop","delta":{'
+        b'"tool_calls":[{"index":0,"function":{"arguments":"\\"Singapore\\"}"'
+        b"}}]}}]}\n",
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        payload = {"messages": [{"role": "user", "content": "What's the weather in Singapore?"}]}
+        response = provider.chat_stream(chat.RequestPayload(**payload))
+
+        chunks = [jsonable_encoder(chunk) async for chunk in response]
+        assert chunks == [
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "test",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": "call_001",
+                                    "type": "function",
+                                    "function": {"name": "get_weather", "arguments": None},
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "test",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {
+                            "role": None,
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": None,
+                                    "type": None,
+                                    "function": {"name": None, "arguments": '{"location":'},
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "test",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "delta": {
+                            "role": None,
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": None,
+                                    "type": None,
+                                    "function": {"name": None, "arguments": '"Singapore"}'},
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+        ]
+
+
 def completions_config():
     return {
         "name": "completions",
@@ -219,14 +376,10 @@ def completions_config():
     }
 
 
-@pytest.mark.asyncio
-async def test_completions():
-    resp = chat_response()
-    config = completions_config()
+async def _run_test_completions(resp, provider):
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
         }
@@ -257,11 +410,19 @@ async def test_completions():
         )
 
 
+@pytest.mark.parametrize("resp", [completions_response(), chat_response()])
+@pytest.mark.asyncio
+async def test_completions(resp):
+    config = completions_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+    await _run_test_completions(resp, provider)
+
+
 @pytest.mark.parametrize("prompt", [{"set1", "set2"}, ["list1"], [1], ["list1", "list2"], [1, 2]])
 @pytest.mark.asyncio
 async def test_completions_throws_if_prompt_contains_non_string(prompt):
     config = completions_config()
-    provider = OpenAIProvider(RouteConfig(**config))
+    provider = OpenAIProvider(EndpointConfig(**config))
     payload = {"prompt": prompt}
     with pytest.raises(ValidationError, match=r"prompt"):
         await provider.completions(completions.RequestPayload(**payload))
@@ -302,16 +463,10 @@ def completions_stream_response_incomplete():
     ]
 
 
-@pytest.mark.parametrize(
-    "resp", [completions_stream_response(), completions_stream_response_incomplete()]
-)
-@pytest.mark.asyncio
-async def test_completions_stream(resp):
-    config = completions_config()
+async def _run_test_completions_stream(resp, provider):
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
         payload = {"prompt": "This is a test"}
         response = provider.completions_stream(completions.RequestPayload(**payload))
 
@@ -376,6 +531,16 @@ async def test_completions_stream(resp):
         )
 
 
+@pytest.mark.parametrize(
+    "resp", [completions_stream_response(), completions_stream_response_incomplete()]
+)
+@pytest.mark.asyncio
+async def test_completions_stream(resp):
+    config = completions_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+    await _run_test_completions_stream(resp, provider)
+
+
 def embedding_config():
     return {
         "name": "embeddings",
@@ -391,8 +556,7 @@ def embedding_config():
     }
 
 
-@pytest.mark.asyncio
-async def test_embeddings():
+async def _run_test_embeddings(provider):
     resp = {
         "object": "list",
         "data": [
@@ -410,11 +574,9 @@ async def test_embeddings():
         "usage": {"prompt_tokens": 8, "total_tokens": 8},
         "headers": {"Content-Type": "application/json"},
     }
-    config = embedding_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
         payload = {"input": "This is a test"}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -443,6 +605,13 @@ async def test_embeddings():
             json={"model": "text-embedding-ada-002", "input": "This is a test"},
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
+
+
+@pytest.mark.asyncio
+async def test_embeddings():
+    config = embedding_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+    await _run_test_embeddings(provider)
 
 
 @pytest.mark.asyncio
@@ -477,7 +646,7 @@ async def test_embeddings_batch_input():
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
+        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {"input": ["1", "2"]}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -545,7 +714,7 @@ async def test_azure_openai():
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
+        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
         }
@@ -584,7 +753,7 @@ async def test_azuread_openai():
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
+        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
         }
@@ -648,7 +817,7 @@ def test_openai_provider_can_be_constructed_with_valid_configs(
         openai_api_version=api_version,
         openai_organization=organization,
     )
-    route_config = RouteConfig(
+    route_config = EndpointConfig(
         name="completions",
         endpoint_type="llm/v1/completions",
         model={
@@ -701,7 +870,7 @@ def test_invalid_openai_configs_throw_on_construction(
 @pytest.mark.asyncio
 async def test_param_model_is_not_permitted():
     config = azure_config("azuread")
-    provider = OpenAIProvider(RouteConfig(**config))
+    provider = OpenAIProvider(EndpointConfig(**config))
     payload = {
         "prompt": "This should fail",
         "max_tokens": 5000,
@@ -711,3 +880,174 @@ async def test_param_model_is_not_permitted():
         await provider.completions(completions.RequestPayload(**payload))
     assert "The parameter 'model' is not permitted" in e.value.detail
     assert e.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_openai_passthrough_chat():
+    config = chat_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+
+    # Mock OpenAI API response
+    mock_response = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-4o-mini",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Hello from passthrough!"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+    }
+
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_request", return_value=mock_response
+    ) as mock_send:
+        payload = {"messages": [{"role": "user", "content": "Hello"}]}
+        response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, payload)
+
+        # Verify send_request was called with correct parameters
+        assert mock_send.called
+        call_kwargs = mock_send.call_args[1]
+        assert call_kwargs["path"] == "chat/completions"
+        assert call_kwargs["payload"]["model"] == "gpt-4o-mini"
+        assert call_kwargs["payload"]["messages"] == [{"role": "user", "content": "Hello"}]
+
+        # Verify response is raw OpenAI format
+        assert response == mock_response
+
+
+@pytest.mark.asyncio
+async def test_openai_passthrough_embeddings():
+    embeddings_config = {
+        "name": "embeddings",
+        "endpoint_type": "llm/v1/embeddings",
+        "model": {
+            "provider": "openai",
+            "name": "text-embedding-3-small",
+            "config": {
+                "openai_api_base": "https://api.openai.com/v1",
+                "openai_api_key": "key",
+            },
+        },
+    }
+    provider = OpenAIProvider(EndpointConfig(**embeddings_config))
+
+    # Mock OpenAI API response
+    mock_response = {
+        "object": "list",
+        "data": [{"object": "embedding", "index": 0, "embedding": [0.1, 0.2, 0.3]}],
+        "model": "text-embedding-3-small",
+        "usage": {"prompt_tokens": 5, "total_tokens": 5},
+    }
+
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_request", return_value=mock_response
+    ) as mock_send:
+        payload = {"input": "Test input"}
+        response = await provider.passthrough(PassthroughAction.OPENAI_EMBEDDINGS, payload)
+
+        # Verify send_request was called with correct parameters
+        assert mock_send.called
+        call_kwargs = mock_send.call_args[1]
+        assert call_kwargs["path"] == "embeddings"
+        assert call_kwargs["payload"]["model"] == "text-embedding-3-small"
+        assert call_kwargs["payload"]["input"] == "Test input"
+
+        # Verify response is raw OpenAI format
+        assert response == mock_response
+
+
+@pytest.mark.asyncio
+async def test_openai_passthrough_responses():
+    config = chat_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+
+    # Mock OpenAI Responses API response (using correct Responses API schema)
+    mock_response = {
+        "id": "resp-123",
+        "object": "response",
+        "created": 1677858242,
+        "model": "gpt-4o-mini",
+        "status": "completed",
+        "output": [{"type": "text", "text": "Response from Responses API"}],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+    }
+
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_request", return_value=mock_response
+    ) as mock_send:
+        # Responses API uses 'input' and 'instructions' instead of 'messages'
+        payload = {
+            "input": [{"type": "text", "text": "Hello"}],
+            "instructions": "You are a helpful assistant",
+            "response_format": {"type": "text"},
+        }
+        response = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, payload)
+
+        # Verify send_request was called with correct parameters
+        assert mock_send.called
+        call_kwargs = mock_send.call_args[1]
+        assert call_kwargs["path"] == "responses"
+        assert call_kwargs["payload"]["model"] == "gpt-4o-mini"
+        assert call_kwargs["payload"]["input"] == [{"type": "text", "text": "Hello"}]
+        assert call_kwargs["payload"]["instructions"] == "You are a helpful assistant"
+
+        # Verify response is raw OpenAI Responses API format
+        assert response == mock_response
+
+
+@pytest.mark.asyncio
+async def test_azure_openai_passthrough_chat_removes_model():
+    azure_chat_config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "openai",
+            "name": "gpt-4o-mini",
+            "config": {
+                "openai_api_type": "azure",
+                "openai_api_base": "https://my-org.openai.azure.com/",
+                "openai_deployment_name": "my-deployment",
+                "openai_api_version": "2023-05-15",
+                "openai_api_key": "key",
+            },
+        },
+    }
+    provider = OpenAIProvider(EndpointConfig(**azure_chat_config))
+
+    # Mock OpenAI API response
+    mock_response = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-4o-mini",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Hello from Azure!"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+    }
+
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_request", return_value=mock_response
+    ) as mock_send:
+        payload = {"messages": [{"role": "user", "content": "Hello"}]}
+        response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, payload)
+
+        # Verify send_request was called
+        assert mock_send.called
+        call_kwargs = mock_send.call_args[1]
+        assert call_kwargs["path"] == "chat/completions"
+        # Azure OpenAI should NOT have model in payload
+        assert "model" not in call_kwargs["payload"]
+        assert call_kwargs["payload"]["messages"] == [{"role": "user", "content": "Hello"}]
+
+        # Verify response is raw OpenAI format
+        assert response == mock_response

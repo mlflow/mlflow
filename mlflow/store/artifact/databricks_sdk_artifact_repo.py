@@ -3,7 +3,7 @@ import logging
 import posixpath
 from concurrent.futures import Future
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from packaging.version import Version
 
@@ -27,11 +27,13 @@ _logger = logging.getLogger(__name__)
 # TODO: The following artifact repositories should use this class. Migrate them.
 #   - databricks_sdk_models_artifact_repo.py
 class DatabricksSdkArtifactRepository(ArtifactRepository):
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
         from databricks.sdk import WorkspaceClient
         from databricks.sdk.config import Config
 
-        super().__init__(artifact_uri, tracking_uri)
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         supports_large_file_uploads = _sdk_supports_large_file_uploads()
         wc = WorkspaceClient(
             config=(
@@ -67,10 +69,10 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
             return False
         return True
 
-    def full_path(self, artifact_path: Optional[str]) -> str:
+    def full_path(self, artifact_path: str | None) -> str:
         return f"{self.artifact_uri}/{artifact_path}" if artifact_path else self.artifact_uri
 
-    def log_artifact(self, local_file: str, artifact_path: Optional[str] = None) -> None:
+    def log_artifact(self, local_file: str, artifact_path: str | None = None) -> None:
         if Path(local_file).stat().st_size > 5 * (1024**3) and not _sdk_supports_large_file_uploads:
             raise MlflowException.invalid_parameter_value(
                 "Databricks SDK version < 0.41.0 does not support uploading files larger than 5GB. "
@@ -85,7 +87,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
                 overwrite=True,
             )
 
-    def log_artifacts(self, local_dir: str, artifact_path: Optional[str] = None) -> None:
+    def log_artifacts(self, local_dir: str, artifact_path: str | None = None) -> None:
         local_dir = Path(local_dir).resolve()
         futures: list[Future[None]] = []
         with self._create_thread_pool() as executor:
@@ -109,7 +111,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
         for fut in futures:
             fut.result()
 
-    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+    def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
         dest_path = self.full_path(path)
         if not self._is_dir(dest_path):
             return []

@@ -33,7 +33,7 @@ body:
       required: true
     attributes:
       label: MLflow version
-      description: MLflow version (run `mlflow --version`) or commit SHA if you have MLflow installed from source (run `pip freeze | grep mlflow`). The tracking server version is required if `mlflow server` or `mlflow ui` is used.
+      description: MLflow version (run `mlflow --version`) or commit SHA if you have MLflow installed from source (run `pip freeze | grep mlflow`). The tracking server version is required if `mlflow server` is used.
       value: |
         - Client: 1.x.y
         - Tracking server: 1.x.y
@@ -186,63 +186,23 @@ body:
       label: What component(s) does this bug affect?
       description: Please choose one or more components below.
       options:
-        - label: "`area/artifacts`: Artifact stores and artifact logging"
-          required: false
-        - label: "`area/build`: Build and test infrastructure for MLflow"
-          required: false
-        - label: "`area/deployments`: MLflow Deployments client APIs, server, and third-party Deployments integrations"
-          required: false
-        - label: "`area/docs`: MLflow documentation pages"
-          required: false
-        - label: "`area/examples`: Example code"
+        - label: "`area/tracking`: Tracking Service, tracking client APIs, autologging"
           required: false
         - label: "`area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry"
           required: false
-        - label: "`area/models`: MLmodel format, model serialization/deserialization, flavors"
+        - label: "`area/scoring`: MLflow model serving, deployment tools, Spark UDFs"
+          required: false
+        - label: "`area/evaluation`: MLflow model evaluation features, evaluation metrics, and evaluation workflows"
+          required: false
+        - label: "`area/prompt`: MLflow prompt engineering features, prompt templates, and prompt management"
+          required: false
+        - label: "`area/tracing`: MLflow Tracing features, tracing APIs, and LLM tracing functionality"
+          required: false
+        - label: "`area/gateway`: MLflow AI Gateway client APIs, server, and third-party integrations"
           required: false
         - label: "`area/projects`: MLproject format, project running backends"
           required: false
-        - label: "`area/scoring`: MLflow Model server, model deployment tools, Spark UDFs"
+        - label: "`area/uiux`: Front-end, user experience, plotting"
           required: false
-        - label: "`area/server-infra`: MLflow Tracking server backend"
-          required: false
-        - label: "`area/tracking`: Tracking Service, tracking client APIs, autologging"
-          required: false
-  - type: checkboxes
-    id: interface
-    attributes:
-      description: Please choose one or more interfaces below.
-      label: What interface(s) does this bug affect?
-      options:
-        - label: "`area/uiux`: Front-end, user experience, plotting, JavaScript, JavaScript dev server"
-          required: false
-        - label: "`area/docker`: Docker use across MLflow's components, such as MLflow Projects and MLflow Models"
-          required: false
-        - label: "`area/sqlalchemy`: Use of SQLAlchemy in the Tracking Service or Model Registry"
-          required: false
-        - label: "`area/windows`: Windows support"
-          required: false
-  - type: checkboxes
-    id: language
-    attributes:
-      description: Please choose one or more languages below.
-      label: What language(s) does this bug affect?
-      options:
-        - label: "`language/r`: R APIs and clients"
-          required: false
-        - label: "`language/java`: Java APIs and clients"
-          required: false
-        - label: "`language/new`: Proposals for new client languages"
-          required: false
-  - type: checkboxes
-    id: integration
-    attributes:
-      description: Please choose one or more cloud integrations below.
-      label: What integration(s) does this bug affect?
-      options:
-        - label: "`integrations/azure`: Azure and Azure ML integrations"
-          required: false
-        - label: "`integrations/sagemaker`: SageMaker integrations"
-          required: false
-        - label: "`integrations/databricks`: Databricks integrations"
+        - label: "`area/docs`: MLflow documentation pages"
           required: false

@@ -10,8 +10,7 @@ import type {
   RunsChartsParallelCardConfig,
   RunsChartsScatterCardConfig,
 } from '../../runs-charts.types';
-import { RunsChartsRunData } from '../RunsCharts.common';
-import { shouldEnableDifferenceViewCharts } from '../../../../../common/utils/FeatureUtils';
+import type { RunsChartsRunData } from '../RunsCharts.common';
 import { RunsChartsBarChartCard } from './RunsChartsBarChartCard';
 import { RunsChartsLineChartCard } from './RunsChartsLineChartCard';
 import { RunsChartsScatterChartCard } from './RunsChartsScatterChartCard';
@@ -26,7 +25,7 @@ import type {
 import { RunsChartsDifferenceChartCard } from './RunsChartsDifferenceChartCard';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { RunsChartsImageChartCard } from './RunsChartsImageChartCard';
-import { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
+import type { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 
 export interface RunsChartsCardProps
   extends RunsChartCardReorderProps,
@@ -58,8 +57,12 @@ const RunsChartsCardRaw = ({
   fullScreen,
   canMoveDown,
   canMoveUp,
+  canMoveToTop,
+  canMoveToBottom,
   previousChartUuid,
   nextChartUuid,
+  firstChartUuid,
+  lastChartUuid,
   onReorderWith,
   autoRefreshEnabled,
   onDownloadFullMetricHistoryCsv,
@@ -76,8 +79,22 @@ const RunsChartsCardRaw = ({
       canMoveUp,
       previousChartUuid,
       nextChartUuid,
+      canMoveToTop,
+      canMoveToBottom,
+      firstChartUuid,
+      lastChartUuid,
     }),
-    [onReorderWith, canMoveDown, canMoveUp, previousChartUuid, nextChartUuid],
+    [
+      onReorderWith,
+      canMoveDown,
+      canMoveUp,
+      previousChartUuid,
+      nextChartUuid,
+      canMoveToTop,
+      canMoveToBottom,
+      firstChartUuid,
+      lastChartUuid,
+    ],
   );
 
   const editProps = useMemo(
@@ -126,7 +143,7 @@ const RunsChartsCardRaw = ({
     );
   }
 
-  if (shouldEnableDifferenceViewCharts() && cardConfig.type === RunsChartType.DIFFERENCE) {
+  if (cardConfig.type === RunsChartType.DIFFERENCE) {
     return (
       <RunsChartsDifferenceChartCard
         config={cardConfig as RunsChartsDifferenceCardConfig}

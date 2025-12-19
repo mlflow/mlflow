@@ -37,14 +37,14 @@ import warnings
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator, Optional, TypeVar
+from typing import Any, Iterator, TypeVar
 
 import requests
 import yaml
 from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion
 from packaging.version import Version as OriginalVersion
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
@@ -55,8 +55,9 @@ T = TypeVar("T")
 
 
 class Version(OriginalVersion):
-    def __init__(self, version):
+    def __init__(self, version: str, release_date: datetime | None = None):
         self._is_dev = version == DEV_VERSION
+        self._release_date = release_date
         super().__init__(DEV_NUMERIC if self._is_dev else version)
 
     def __str__(self):
@@ -64,49 +65,84 @@ class Version(OriginalVersion):
 
     @classmethod
     def create_dev(cls):
-        return cls(DEV_VERSION)
+        return cls(DEV_VERSION, datetime.now(timezone.utc))
+
+    @property
+    def days_since_release(self) -> int | None:
+        """
+        Compute the number of days since this version was released.
+        Returns None if release date is not available.
+        """
+        if self._release_date is None:
+            return None
+        delta = datetime.now(timezone.utc) - self._release_date
+        return delta.days
 
 
-class PackageInfo(BaseModel, extra="forbid"):
+class PackageInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     pip_release: str
-    install_dev: Optional[str] = None
-    module_name: Optional[str] = None
+    install_dev: str | None = None
+    module_name: str | None = None
+    genai: bool = False
+    repo: str | None = None
 
 
-class TestConfig(BaseModel, extra="forbid"):
+class TestConfig(BaseModel):
     minimum: Version
     maximum: Version
-    unsupported: Optional[list[SpecifierSet]] = None
-    requirements: Optional[dict[str, list[str]]] = None
-    python: Optional[dict[str, str]] = None
-    runs_on: Optional[dict[str, str]] = None
-    java: Optional[dict[str, str]] = None
+    unsupported: list[SpecifierSet] | None = None
+    requirements: dict[str, list[str]] | None = None
+    python: dict[str, str] | None = None
+    runs_on: dict[str, str] | None = None
+    java: dict[str, str] | None = None
     run: str
-    allow_unreleased_max_version: Optional[bool] = None
-    pre_test: Optional[str] = None
+    allow_unreleased_max_version: bool | None = None
+    pre_test: str | None = None
     test_every_n_versions: int = 1
     test_tracing_sdk: bool = False
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
-    class Config:
-        arbitrary_types_allowed = True
-
-    @validator("minimum", pre=True)
+    @field_validator("minimum", mode="before")
+    @classmethod
     def validate_minimum(cls, v):
         return Version(v)
 
-    @validator("maximum", pre=True)
+    @field_validator("maximum", mode="before")
+    @classmethod
     def validate_maximum(cls, v):
         return Version(v)
 
-    @validator("unsupported", pre=True)
+    @field_validator("unsupported", mode="before")
+    @classmethod
     def validate_unsupported(cls, v):
         return [SpecifierSet(x) for x in v] if v else None
 
+    @field_validator("python", mode="before")
+    @classmethod
+    def validate_python_requirements(cls, v):
+        if v is None:
+            return v
 
-class FlavorConfig(BaseModel, extra="forbid"):
+        # Read the minimum Python version from .python-version file
+        python_version_file = Path(".python-version")
+        min_python_version = python_version_file.read_text().strip()
+
+        # Check if any value in the python dict matches the minimum version
+        for version in v.values():
+            if version == min_python_version:
+                raise ValueError(f"Unnecessary Python version requirement: {version}")
+
+        return v
+
+
+class FlavorConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     package_info: PackageInfo
-    models: Optional[TestConfig] = None
-    autologging: Optional[TestConfig] = None
+    models: TestConfig | None = None
+    autologging: TestConfig | None = None
 
     @property
     def categories(self) -> list[tuple[str, TestConfig]]:
@@ -118,7 +154,7 @@ class FlavorConfig(BaseModel, extra="forbid"):
         return cs
 
 
-class MatrixItem(BaseModel, extra="forbid"):
+class MatrixItem(BaseModel):
     name: str
     flavor: str
     category: str
@@ -132,10 +168,8 @@ class MatrixItem(BaseModel, extra="forbid"):
     supported: bool
     free_disk_space: bool
     runs_on: str
-    pre_test: Optional[str] = None
-
-    class Config:
-        arbitrary_types_allowed = True
+    pre_test: str | None = None
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     def __hash__(self):
         return hash(frozenset(dict(self)))
@@ -168,18 +202,20 @@ def uploaded_recently(dist: dict[str, Any]) -> bool:
 def get_released_versions(package_name: str) -> list[Version]:
     data = pypi_json(package_name)
     versions: list[Version] = []
-    for version, distributions in data["releases"].items():
+    for version_str, distributions in data["releases"].items():
         if len(distributions) == 0 or any(d.get("yanked", False) for d in distributions):
             continue
 
-        # Ignore versions that were uploaded recently to avoid testing unstable
-        # versions. Newly released versions often contain undiscovered bugs
-        # (example: https://github.com/huggingface/transformers/issues/34370).
-        if any(map(uploaded_recently, distributions)):
-            continue
+        # Extract the earliest upload time as the release date
+        upload_times = [
+            datetime.fromisoformat(ut.replace("Z", "+00:00"))
+            for dist in distributions
+            if (ut := dist.get("upload_time_iso_8601"))
+        ]
 
+        release_date = min(upload_times) if upload_times else None
         try:
-            version = Version(version)
+            version = Version(version_str, release_date)
         except InvalidVersion:
             # Ignore invalid versions such as https://pypi.org/project/pytz/2004d
             continue
@@ -220,13 +256,6 @@ def filter_versions(
     2. Older than or equal to `max_ver.major`.
     3. Not in `unsupported`.
     """
-    # Prevent specifying non-existent versions
-    assert min_ver in versions, (
-        f"Minimum version {min_ver} is not in the list of versions for {flavor}"
-    )
-    assert max_ver in versions or allow_unreleased_max_version, (
-        f"Minimum version {max_ver} is not in the list of versions for {flavor}"
-    )
 
     def _is_supported(v):
         for specified_set in unsupported:
@@ -234,10 +263,15 @@ def filter_versions(
                 return False
         return True
 
-    def _is_older_than_or_equal_to_max_major_version(v):
-        return v.major <= max_ver.major
+    def _check_max(v: Version) -> bool:
+        return v <= max_ver or (
+            # Exclude versions uploaded very recently to avoid testing unstable or potentially
+            # buggy releases. Newly released versions may have unresolved issues
+            # (see: https://github.com/huggingface/transformers/issues/34370).
+            v.major <= max_ver.major and v.days_since_release and v.days_since_release >= 1
+        )
 
-    def _is_newer_than_or_equal_to_min_version(v):
+    def _check_min(v: Version) -> bool:
         return v >= min_ver
 
     return list(
@@ -245,8 +279,8 @@ def filter_versions(
             lambda vers, f: filter(f, vers),
             [
                 _is_supported,
-                _is_older_than_or_equal_to_max_major_version,
-                _is_newer_than_or_equal_to_min_version,
+                _check_max,
+                _check_min,
             ],
             versions,
         )
@@ -282,7 +316,7 @@ def get_matched_requirements(requirements, version=None):
     return sorted(reqs)
 
 
-def get_java_version(java: Optional[dict[str, str]], version: str) -> str:
+def get_java_version(java: dict[str, str] | None, version: str) -> str:
     if java and (match := next(_find_matches(java, version), None)):
         return match
 
@@ -296,7 +330,7 @@ def pypi_json(package: str) -> dict[str, Any]:
     return resp.json()
 
 
-def _requires_python(package: str, version: str) -> Optional[str]:
+def _requires_python(package: str, version: str) -> str | None:
     package_json = pypi_json(package)
     for ver, dist in package_json.get("releases", {}).items():
         if ver != version:
@@ -308,11 +342,49 @@ def _requires_python(package: str, version: str) -> Optional[str]:
     return None
 
 
-def infer_python_version(package: str, version: str) -> str:
+def _requires_python_from_repo(repo_url: str) -> str | None:
+    """
+    Fetch requires-python from repository's pyproject.toml for dev version inference.
+    """
+    match = re.match(r"https://github\.com/([^/]+/[^/]+)/tree/HEAD(?:/(.+))?", repo_url)
+    if not match:
+        raise ValueError(f"Invalid GitHub repository URL format: {repo_url}")
+
+    owner_repo = match.group(1)
+    subpath = match.group(2) or ""
+    pyproject_path = f"{subpath}/pyproject.toml" if subpath else "pyproject.toml"
+    raw_url = f"https://raw.githubusercontent.com/{owner_repo}/HEAD/{pyproject_path}"
+
+    print(f"Fetching pyproject.toml from {owner_repo} (path: {pyproject_path})", file=sys.stderr)
+
+    try:
+        resp = requests.get(raw_url, timeout=10)
+        resp.raise_for_status()
+    except requests.HTTPError as e:
+        if e.response.status_code == 404:
+            print(f"  pyproject.toml not found at {raw_url}", file=sys.stderr)
+            return None
+        raise
+
+    if match := re.search(r'requires-python\s*=\s*["\']([^"\']+)["\']', resp.text):
+        print(f"  Found requires-python: {match.group(1)}", file=sys.stderr)
+        return match.group(1)
+
+    print("  requires-python field not found in pyproject.toml", file=sys.stderr)
+    return None
+
+
+def infer_python_version(package: str, version: str, repo_url: str | None = None) -> str:
     """
     Infer the minimum Python version required by the package.
     """
     candidates = ("3.10", "3.11")
+
+    if version == DEV_VERSION and repo_url:
+        if rp := _requires_python_from_repo(repo_url):
+            spec = SpecifierSet(rp)
+            return next(filter(spec.contains, candidates), candidates[0])
+
     if rp := _requires_python(package, version):
         spec = SpecifierSet(rp)
         return next(filter(spec.contains, candidates), candidates[0])
@@ -336,14 +408,16 @@ def _find_matches(spec: dict[str, T], version: str) -> Iterator[T]:
             yield val
 
 
-def get_python_version(python: Optional[dict[str, str]], package: str, version: str) -> str:
+def get_python_version(
+    python: dict[str, str] | None, package: str, version: str, repo_url: str | None = None
+) -> str:
     if python and (match := next(_find_matches(python, version), None)):
         return match
 
-    return infer_python_version(package, version)
+    return infer_python_version(package, version, repo_url)
 
 
-def get_runs_on(runs_on: Optional[dict[str, str]], version: str) -> str:
+def get_runs_on(runs_on: dict[str, str] | None, version: str) -> str:
     if runs_on and (match := next(_find_matches(runs_on, version), None)):
         return match
 
@@ -578,7 +652,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 versions = sorted(versions)[:: -cfg.test_every_n_versions][::-1]
 
             # Always test the minimum version
-            if cfg.minimum not in versions:
+            if cfg.minimum not in versions and cfg.minimum in all_versions:
                 versions.append(cfg.minimum)
 
             if not is_ref and cfg.requirements:
@@ -589,7 +663,9 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 requirements.extend(get_matched_requirements(cfg.requirements or {}, str(ver)))
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg.run)
-                python = get_python_version(cfg.python, package_info.pip_release, str(ver))
+                python = get_python_version(
+                    cfg.python, package_info.pip_release, str(ver), package_info.repo
+                )
                 runs_on = get_runs_on(cfg.runs_on, ver)
                 java = get_java_version(cfg.java, str(ver))
 
@@ -613,37 +689,37 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 )
 
             # Add tracing SDK test with the latest stable version
-            # TODO: Uncomment when REST store is migrated to V3 trace schema
-            # if len(versions) > 0 and category == "autologging" and cfg.test_tracing_sdk:
-            #     version = sorted(versions)[-1]  # Test against the latest stable version
-            #     matrix.add(
-            #         MatrixItem(
-            #             name=f"{name}-tracing",
-            #             flavor=flavor,
-            #             category="tracing-sdk",
-            #             job_name=f"{name} / tracing-sdk / {version}",
-            #             install=install,
-            #             # --import-mode=importlib is required for testing tracing SDK
-            #             # (mlflow-tracing) works properly, without being affected by environment.
-            #             run=run.replace("pytest", "pytest --import-mode=importlib"),
-            #             package=package_info.pip_release,
-            #             version=version,
-            #             java=java,
-            #             supported=version <= cfg.maximum,
-            #             free_disk_space=free_disk_space,
-            #             python=python,
-            #             runs_on=runs_on,
-            #         )
-            #     )
+            if len(versions) > 0 and category == "autologging" and cfg.test_tracing_sdk:
+                version = max(versions)  # Test against the latest stable version
+                matrix.add(
+                    MatrixItem(
+                        name=f"{name}-tracing",
+                        flavor=flavor,
+                        category="tracing-sdk",
+                        job_name=f"{name} / tracing-sdk / {version}",
+                        install=install,
+                        # --import-mode=importlib is required for testing tracing SDK
+                        # (mlflow-tracing) works properly, without being affected by environment.
+                        run=run.replace("pytest", "pytest --import-mode=importlib"),
+                        package=package_info.pip_release,
+                        version=version,
+                        java=java,
+                        supported=version <= cfg.maximum,
+                        free_disk_space=free_disk_space,
+                        python=python,
+                        runs_on=runs_on,
+                    )
+                )
 
             if package_info.install_dev:
                 install_dev = remove_comments(package_info.install_dev)
-                requirements = get_matched_requirements(cfg.requirements or {}, DEV_VERSION)
-                if requirements:
+                if requirements := get_matched_requirements(cfg.requirements or {}, DEV_VERSION):
                     install = make_pip_install_command(requirements) + "\n" + install_dev
                 else:
                     install = install_dev
-                python = get_python_version(cfg.python, package_info.pip_release, DEV_VERSION)
+                python = get_python_version(
+                    cfg.python, package_info.pip_release, DEV_VERSION, package_info.repo
+                )
                 runs_on = get_runs_on(cfg.runs_on, DEV_VERSION)
                 java = get_java_version(cfg.java, DEV_VERSION)
 
@@ -753,31 +829,11 @@ def split(matrix, n):
         yield chunk
 
 
-def validate_action_config(num_jobs: int):
-    with open(".github/workflows/cross-version-tests.yml") as f:
-        s = f.read()
-    s = re.sub(
-        r"needs\.set-matrix\.outputs\.matrix\d",
-        "needs.set-matrix.outputs.matrix",
-        s,
-    )
-    s = re.sub(
-        r"needs\.set-matrix\.outputs\.is_matrix\d_empty",
-        "needs.set-matrix.outputs.is_matrix_empty",
-        s,
-    )
-    jobs = yaml.safe_load(s)["jobs"]
-    jobs = [v for name, v in jobs.items() if name.startswith("test")]
-    assert len(jobs) == num_jobs, f"Expected {num_jobs} jobs, but got {len(jobs)}"
-    assert all(jobs[0] == j for j in jobs[1:]), "All jobs must have the same configuration"
-
-
 def main(args):
     # https://docs.github.com/en/actions/learn-github-actions/usage-limits-billing-and-administration#usage-limits
     # > A job matrix can generate a maximum of 256 jobs per workflow run.
     MAX_ITEMS = 256
     NUM_JOBS = 2
-    validate_action_config(NUM_JOBS)
 
     print(divider("Parameters"))
     print(json.dumps(args, indent=2))

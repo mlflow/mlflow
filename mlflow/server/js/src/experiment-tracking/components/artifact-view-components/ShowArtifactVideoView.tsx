@@ -63,7 +63,13 @@ const ShowArtifactVideoView = ({
       <div css={classNames.videoOuterContainer}>
         {loading && <LegacySkeleton active />}
         {videoUrl && (
-          <video css={loading ? classNames.hidden : classNames.video} src={videoUrl} controls preload="auto">
+          <video
+            css={loading ? classNames.hidden : classNames.video}
+            src={videoUrl}
+            controls
+            preload="auto"
+            aria-label="video"
+          >
             <track kind="captions" srcLang="en" src="" default />
           </video>
         )}

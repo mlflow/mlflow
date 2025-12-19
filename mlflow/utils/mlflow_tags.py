@@ -16,7 +16,9 @@ MLFLOW_SOURCE_TYPE = "mlflow.source.type"
 MLFLOW_SOURCE_NAME = "mlflow.source.name"
 MLFLOW_GIT_COMMIT = "mlflow.source.git.commit"
 MLFLOW_GIT_BRANCH = "mlflow.source.git.branch"
+MLFLOW_GIT_DIRTY = "mlflow.source.git.dirty"
 MLFLOW_GIT_REPO_URL = "mlflow.source.git.repoURL"
+MLFLOW_GIT_DIFF = "mlflow.source.git.diff"
 MLFLOW_LOGGED_MODELS = "mlflow.log-model.history"
 MLFLOW_MODEL_IS_EXTERNAL = "mlflow.model.isExternal"
 MLFLOW_MODEL_VERSIONS = "mlflow.modelVersions"
@@ -30,6 +32,9 @@ MLFLOW_AUTOLOGGING = "mlflow.autologging"
 MLFLOW_LOGGED_ARTIFACTS = "mlflow.loggedArtifacts"
 MLFLOW_LOGGED_IMAGES = "mlflow.loggedImages"
 MLFLOW_RUN_SOURCE_TYPE = "mlflow.runSourceType"
+
+# Indicates that an MLflow run was created by an evaluation
+MLFLOW_RUN_IS_EVALUATION = "mlflow.run.isEval"
 
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
@@ -64,6 +69,11 @@ MLFLOW_DATABRICKS_GIT_REPO_STATUS = "mlflow.databricks.gitRepoStatus"
 # Databricks model serving endpoint information
 MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME = "mlflow.databricks.modelServingEndpointName"
 
+# For Serverless GPU Compute (SGC) run resumption
+# Experiment tag prefix that maps SGC job run IDs to MLflow run IDs for automatic resumption
+# Format: mlflow.databricks.sgc.resumeRun.jobRunId.{job_run_id} -> {mlflow_run_id}
+MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX = "mlflow.databricks.sgc.resumeRun.jobRunId"
+
 # For MLflow Dataset tracking
 MLFLOW_DATASET_CONTEXT = "mlflow.data.context"
 
@@ -76,6 +86,7 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
 
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
+
 
 # A set of tags that cannot be updated by the user
 IMMUTABLE_TAGS = {MLFLOW_USER, MLFLOW_ARTIFACT_LOCATION}
@@ -94,6 +105,7 @@ TRACE_RESOLVE_TAGS_ALLOWLIST = (
     MLFLOW_GIT_COMMIT,
     MLFLOW_GIT_BRANCH,
     MLFLOW_GIT_REPO_URL,
+    MLFLOW_GIT_DIRTY,
 )
 
 

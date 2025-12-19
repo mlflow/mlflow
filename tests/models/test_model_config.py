@@ -42,19 +42,19 @@ def test_config_setup_correctly():
     assert config.get("llm_parameters").get("temperature") == 0.01
 
 
-@mock.patch("mlflow.models.model_config.__mlflow_model_config__", new=VALID_CONFIG_PATH)
 def test_config_setup_correctly_with_mlflow_langchain():
-    config = ModelConfig(development_config="nonexistent.yaml")
-    assert config.get("llm_parameters").get("temperature") == 0.01
+    with mock.patch("mlflow.models.model_config.__mlflow_model_config__", new=VALID_CONFIG_PATH):
+        config = ModelConfig(development_config="nonexistent.yaml")
+        assert config.get("llm_parameters").get("temperature") == 0.01
 
 
-@mock.patch("mlflow.models.model_config.__mlflow_model_config__", new=VALID_CONFIG_PATH_2)
 def test_config_setup_with_mlflow_langchain_path():
-    # here the config.yaml has the max_tokens set to 500
-    # where as the config_2.yaml has it set to 200.
-    # Here we give preference to the __mlflow_model_config__.
-    config = ModelConfig(development_config=VALID_CONFIG_PATH)
-    assert config.get("llm_parameters").get("max_tokens") == 200
+    with mock.patch("mlflow.models.model_config.__mlflow_model_config__", new=VALID_CONFIG_PATH_2):
+        # here the config.yaml has the max_tokens set to 500
+        # where as the config_2.yaml has it set to 200.
+        # Here we give preference to the __mlflow_model_config__.
+        config = ModelConfig(development_config=VALID_CONFIG_PATH)
+        assert config.get("llm_parameters").get("max_tokens") == 200
 
 
 def test_config_development_config_must_be_specified_with_keyword():
@@ -67,12 +67,13 @@ def test_config_development_config_is_a_dict():
     assert config.get("llm_parameters").get("temperature") == 0.01
 
 
-@mock.patch("mlflow.models.model_config.__mlflow_model_config__", new="")
 def test_config_setup_correctly_errors_with_no_config_path():
-    with pytest.raises(
-        FileNotFoundError, match="Config file is not provided which is needed to load the model."
-    ):
-        ModelConfig(development_config=VALID_CONFIG_PATH)
+    with mock.patch("mlflow.models.model_config.__mlflow_model_config__", new=""):
+        with pytest.raises(
+            FileNotFoundError,
+            match="Config file is not provided which is needed to load the model.",
+        ):
+            ModelConfig(development_config=VALID_CONFIG_PATH)
 
 
 def test_config_development_config_to_dict():

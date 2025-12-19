@@ -6,7 +6,7 @@ import json
 import pathlib
 import posixpath
 import tempfile
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
@@ -21,11 +21,12 @@ from mlflow.tracking.artifact_utils import (
 
 
 def download_artifacts(
-    artifact_uri: Optional[str] = None,
-    run_id: Optional[str] = None,
-    artifact_path: Optional[str] = None,
-    dst_path: Optional[str] = None,
-    tracking_uri: Optional[str] = None,
+    artifact_uri: str | None = None,
+    run_id: str | None = None,
+    artifact_path: str | None = None,
+    dst_path: str | None = None,
+    tracking_uri: str | None = None,
+    registry_uri: str | None = None,
 ) -> str:
     """Download an artifact file or directory to a local directory.
 
@@ -60,6 +61,7 @@ def download_artifacts(
             the local filesystem, unless the artifacts already exist on the local
             filesystem, in which case their local path is returned directly.
         tracking_uri: The tracking URI to be used when downloading artifacts.
+        registry_uri: The registry URI to be used when downloading artifacts.
 
     Returns:
         The location of the artifact file or directory on the local filesystem.
@@ -79,12 +81,17 @@ def download_artifacts(
         pathlib.Path(dst_path).mkdir(exist_ok=True, parents=True)
 
     if artifact_uri is not None:
-        return _download_artifact_from_uri(artifact_uri, output_path=dst_path)
+        return _download_artifact_from_uri(
+            artifact_uri, output_path=dst_path, tracking_uri=tracking_uri, registry_uri=registry_uri
+        )
 
     # Use `runs:/<run_id>/<artifact_path>` to download both run and model (if exists) artifacts
     if run_id and artifact_path:
         return _download_artifact_from_uri(
-            f"runs:/{posixpath.join(run_id, artifact_path)}", output_path=dst_path
+            f"runs:/{posixpath.join(run_id, artifact_path)}",
+            output_path=dst_path,
+            tracking_uri=tracking_uri,
+            registry_uri=registry_uri,
         )
 
     artifact_path = artifact_path if artifact_path is not None else ""
@@ -92,16 +99,18 @@ def download_artifacts(
     store = _get_store(store_uri=tracking_uri)
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = get_artifact_repository(
-        add_databricks_profile_info_to_artifact_uri(artifact_uri, tracking_uri)
+        add_databricks_profile_info_to_artifact_uri(artifact_uri, tracking_uri),
+        tracking_uri=tracking_uri,
+        registry_uri=registry_uri,
     )
     return artifact_repo.download_artifacts(artifact_path, dst_path=dst_path)
 
 
 def list_artifacts(
-    artifact_uri: Optional[str] = None,
-    run_id: Optional[str] = None,
-    artifact_path: Optional[str] = None,
-    tracking_uri: Optional[str] = None,
+    artifact_uri: str | None = None,
+    run_id: str | None = None,
+    artifact_path: str | None = None,
+    tracking_uri: str | None = None,
 ) -> list[FileInfo]:
     """List artifacts at the specified URI.
 
@@ -130,16 +139,21 @@ def list_artifacts(
 
     if artifact_uri is not None:
         root_uri, artifact_path = _get_root_uri_and_artifact_path(artifact_uri)
-        return get_artifact_repository(artifact_uri=root_uri).list_artifacts(artifact_path)
+        return get_artifact_repository(
+            artifact_uri=root_uri, tracking_uri=tracking_uri
+        ).list_artifacts(artifact_path)
 
     # Use `runs:/<run_id>/<artifact_path>` to list both run and model (if exists) artifacts
     if run_id and artifact_path:
-        return get_artifact_repository(artifact_uri=f"runs:/{run_id}").list_artifacts(artifact_path)
+        return get_artifact_repository(
+            artifact_uri=f"runs:/{run_id}", tracking_uri=tracking_uri
+        ).list_artifacts(artifact_path)
 
     store = _get_store(store_uri=tracking_uri)
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = get_artifact_repository(
-        add_databricks_profile_info_to_artifact_uri(artifact_uri, tracking_uri)
+        add_databricks_profile_info_to_artifact_uri(artifact_uri, tracking_uri),
+        tracking_uri=tracking_uri,
     )
     return artifact_repo.list_artifacts(artifact_path)
 

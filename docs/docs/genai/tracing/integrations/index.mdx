@@ -3,86 +3,17 @@
 MLflow Tracing is integrated with 20+ popular Generative AI libraries and frameworks, offering **one-line automatic tracing** experience. This allows you to gain immediate observability into your GenAI applications with minimal setup.
 
 MLflow's automatic tracing provides:
+
 - **Zero code changes** for basic observability
 - **Unified traces** across multi-framework apps
 - **Rich metadata** including inputs, outputs, and performance
 - **Production-ready** scaling and monitoring
 
-Click any integration above to get started with detailed setup instructions.
+Click any integration below to get started with detailed setup instructions.
 
-import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
+import TracingIntegrations from "@site/src/components/TracingIntegrations";
 
-<CardGroup isSmall>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/openai">
-    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/langchain">
-    <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/langgraph">
-    <span>![LangGraph Logo](/images/logos/langgraph-logo.png)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/llama_index">
-    <span>![LlamaIndex Logo](/images/logos/llamaindex-logo.svg)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/anthropic">
-    <span>![Anthropic Logo](/images/logos/anthropic-logo.svg)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/dspy">
-    <span>![DSPy Logo](/images/logos/dspy-logo.png)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/bedrock">
-    <span>![Bedrock Logo](/images/logos/bedrock-logo.png)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/autogen">
-    <span>![AutoGen Logo](/images/logos/autogen-logo.png)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/ag2">
-    <span>![AG2 Logo](/images/logos/ag2-logo.png)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/gemini">
-    <span>![Gemini Logo](/images/logos/google-gemini-logo.svg)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/litellm">
-    <span>![LiteLLM Logo](/images/logos/litellm-logo.jpg)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/crewai">
-    <span>![CrewAI Logo](/images/logos/crewai-logo.png)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/ollama">
-    <span>![Ollama Logo](/images/logos/ollama-logo.png)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/groq">
-    <span>![Groq Logo](/images/logos/groq-logo.svg)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/mistral">
-    <span>![Mistral Logo](/images/logos/mistral-ai-logo.svg)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/instructor">
-    <span>![Instructor Logo](/images/logos/instructor-logo.svg)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/openai-agent">
-    <span>![OpenAI Agent Logo](/images/logos/openai-agent-logo.png)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/swarm">
-    <span>![OpenAI Swarm Logo](/images/logos/openai-swarm-logo.png)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/deepseek">
-    <span>![DeepSeek Logo](/images/logos/deepseek-logo.png)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/txtai">
-    <span>![txtai Logo](/images/logos/txtai-logo.png)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/smolagents">
-    <span>![Smolagents Logo](/images/logos/smolagents-logo.png)</span>
-  </SmallLogoCard>
-  <SmallLogoCard link="/genai/tracing/integrations/listing/pydantic_ai">
-    <span>![PydanticAI Logo](/images/logos/pydanticai-logo.png)</span>
-  </SmallLogoCard>
-</CardGroup>
+<TracingIntegrations cardGroupProps={{ isSmall: true }} categorized={true} />
 <br />
 
 :::info Missing an Integration?

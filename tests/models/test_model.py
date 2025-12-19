@@ -586,22 +586,17 @@ def test_pyfunc_set_model():
 
 
 def test_langchain_set_model():
-    from langchain.chains import LLMChain
+    from langchain_core.runnables import RunnableLambda
 
-    def create_openai_llmchain():
-        from langchain.llms import OpenAI
-        from langchain.prompts import PromptTemplate
+    def create_runnable():
+        def my_runnable(input):
+            return f"Input was: {input}"
 
-        llm = OpenAI(temperature=0.9, openai_api_key="api_key")
-        prompt = PromptTemplate(
-            input_variables=["product"],
-            template="What is a good name for a company that makes {product}?",
-        )
-        model = LLMChain(llm=llm, prompt=prompt)
-        set_model(model)
+        runnable = RunnableLambda(my_runnable)
+        set_model(runnable)
 
-    create_openai_llmchain()
-    assert isinstance(mlflow.models.model.__mlflow_model__, LLMChain)
+    create_runnable()
+    assert isinstance(mlflow.models.model.__mlflow_model__, RunnableLambda)
 
 
 def test_error_set_model(sklearn_knn_model):
@@ -678,10 +673,10 @@ def test_save_model_with_prompts():
     assert model.prompts == [prompt_1.uri, prompt_2.uri]
 
     # Check that prompts were linked to the run via the linkedPrompts tag
-    from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+    from mlflow.tracing.constant import TraceTagKey
 
     run = mlflow.MlflowClient().get_run(model_info.run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)
@@ -713,3 +708,44 @@ def test_logged_model_status():
             )
     logged_model = mlflow.last_logged_model()
     assert logged_model.status == "FAILED"
+
+
+def test_model_log_links_prompts_to_logged_model():
+    client = mlflow.MlflowClient()
+
+    # Create actual prompts in the registry
+    client.create_prompt(name="test_prompt_1")
+    prompt_1 = client.create_prompt_version(name="test_prompt_1", template="Hello {{name}}")
+    client.create_prompt(name="test_prompt_2")
+    prompt_2 = client.create_prompt_version(name="test_prompt_2", template="Goodbye {{name}}")
+
+    with mlflow.start_run() as run:
+        model_info = Model.log("model", TestFlavor, prompts=[prompt_1, prompt_2])
+
+    # Verify prompts were linked to the run
+    run_data = client.get_run(run.info.run_id)
+    linked_prompts_tag = run_data.data.tags.get("mlflow.linkedPrompts")
+    assert linked_prompts_tag is not None
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 2
+    assert {p["name"] for p in linked_prompts} == {"test_prompt_1", "test_prompt_2"}
+
+    # Verify prompts were linked to the LoggedModel
+    logged_model = client.get_logged_model(model_info.model_id)
+    model_linked_prompts_tag = logged_model.tags.get("mlflow.linkedPrompts")
+    assert model_linked_prompts_tag is not None
+    model_linked_prompts = json.loads(model_linked_prompts_tag)
+    assert len(model_linked_prompts) == 2
+    assert {p["name"] for p in model_linked_prompts} == {"test_prompt_1", "test_prompt_2"}
+
+
+def test_get_model_info_with_logged_model():
+    def model(model_input: list[str]) -> list[str]:
+        return model_input
+
+    model_info_log_model = mlflow.pyfunc.log_model(
+        name="test_model", python_model=model, input_example=["a", "b", "c"]
+    )
+    model_info_get_model_info = mlflow.models.get_model_info(model_info_log_model.model_uri)
+    assert model_info_log_model.model_id == model_info_get_model_info.model_id
+    assert model_info_log_model.name == model_info_get_model_info.name

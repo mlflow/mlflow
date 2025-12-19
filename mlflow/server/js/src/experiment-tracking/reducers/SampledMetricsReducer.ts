@@ -5,7 +5,7 @@ import {
   GET_SAMPLED_METRIC_HISTORY_API_BULK,
   type GetSampledMetricHistoryBulkAction,
 } from '../sdk/SampledMetricHistoryService';
-import { SampledMetricsByRunUuidState } from '../types';
+import type { SampledMetricsByRunUuidState } from '../types';
 
 export const sampledMetricsByRunUuid = (
   state: SampledMetricsByRunUuidState = {},
@@ -60,12 +60,9 @@ export const sampledMetricsByRunUuid = (
           loading: true,
         };
       } else if (updatedState[runUuid][key][rangeKey] && isRefreshing) {
-        return {
-          ...state,
-          [runUuid]: {
-            ...state[runUuid],
-            [key]: { ...state[runUuid][key], [rangeKey]: { ...state[runUuid][key][rangeKey], refreshing: true } },
-          },
+        updatedState[runUuid][key][rangeKey] = {
+          ...updatedState[runUuid][key][rangeKey],
+          refreshing: true,
         };
       }
     }

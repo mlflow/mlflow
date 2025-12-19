@@ -1,0 +1,30 @@
+{
+  "name": "mlflow-typescript",
+  "private": true,
+  "description": "TypeScript implementation of MLflow Tracing SDK. This is the root workspace package that includes all the public packages as sub-directories.",
+  "workspaces": [
+    "core",
+    "integrations/*"
+  ],
+  "scripts": {
+    "build": "npm run build:subpackages",
+    "build:subpackages": "npm run build:core && npm run build:integrations",
+    "build:core": "cd core && npm run build",
+    "build:integrations": "npm run -C integrations/openai build && npm run -C integrations/anthropic build && npm run -C integrations/gemini build",
+    "test": "npm run test:core && npm run test:integrations",
+    "test:core": "cd core && npm run test",
+    "test:integrations": "npm run test:openai && npm run test:anthropic && npm run test:gemini",
+    "test:openai": "npm run -C integrations/openai test",
+    "test:anthropic": "npm run -C integrations/anthropic test",
+    "test:gemini": "npm run -C integrations/gemini test",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "npm run build",
+    "bump-version": "tsx scripts/bump-ts-version.ts"
+  },
+  "devDependencies": {
+    "typedoc": "^0.28.0"
+  }
+}

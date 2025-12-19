@@ -1,10 +1,6 @@
-from typing import Optional
-
 from mlflow.models.resources import Resource, _ResourceBuilder
-from mlflow.utils.annotations import experimental
 
 
-@experimental(version="2.21.0")
 class UserAuthPolicy:
     """
     A minimal list of scopes that the user should have access to
@@ -65,8 +61,8 @@ class AuthPolicy:
 
     def __init__(
         self,
-        user_auth_policy: Optional[UserAuthPolicy] = None,
-        system_auth_policy: Optional[SystemAuthPolicy] = None,
+        user_auth_policy: UserAuthPolicy | None = None,
+        system_auth_policy: SystemAuthPolicy | None = None,
     ):
         self.user_auth_policy = user_auth_policy
         self.system_auth_policy = system_auth_policy

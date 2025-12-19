@@ -151,7 +151,9 @@ def test_log_explanation_doesnt_create_autologged_run():
             mlflow.shap.log_explanation(model.predict, X)
 
         run_data = MlflowClient().get_run(run.info.run_id).data
-        metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
+        metrics = run_data.metrics
+        params = run_data.params
+        tags = run_data.tags
         assert not metrics
         assert not params
         assert all("mlflow." in key for key in tags)

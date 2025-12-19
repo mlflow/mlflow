@@ -1,7 +1,7 @@
-import { IntlShape } from 'react-intl';
+import type { IntlShape } from 'react-intl';
 import { saveAs } from 'file-saver';
-import { ExperimentEntity } from '../../../types';
-import { ExperimentRunsSelectorResult } from './experimentRuns.selector';
+import type { ExperimentEntity } from '../../../types';
+import type { ExperimentRunsSelectorResult } from './experimentRuns.selector';
 import { chartDataToCsv, chartMetricHistoryToCsv, runInfosToCsv } from '../../../utils/CsvUtils';
 import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
 
@@ -16,6 +16,12 @@ const MLFLOW_NOTEBOOK_TYPE = 'NOTEBOOK';
 const MLFLOW_EXPERIMENT_TYPE = 'MLFLOW_EXPERIMENT';
 
 const EXPERIMENT_TYPE_TAG = 'mlflow.experimentType';
+const EXPERIMENT_SOURCE_TYPE_TAG = 'mlflow.experiment.sourceType';
+const EXPERIMENT_SOURCE_ID_TAG = 'mlflow.experiment.sourceId';
+
+enum ExperimentSourceType {
+  REPO_NOTEBOOK = 'REPO_NOTEBOOK',
+}
 
 /**
  * Function that gets the experiment type for a given experiment object
@@ -48,6 +54,18 @@ export const isExperimentTypeNotebook = (experiment: ExperimentEntity) =>
  */
 export const canModifyExperiment = (experiment: ExperimentEntity) =>
   (experiment.allowedActions || []).includes('MODIFIY_PERMISSION');
+
+/**
+ * Function that gets the experiment source ID for a given experiment object
+ */
+export const getExperimentSourceId = (experiment: ExperimentEntity) =>
+  experiment.tags?.find((tag) => tag.key === EXPERIMENT_SOURCE_ID_TAG)?.value;
+
+/**
+ * Function that checks if experiment comes from repository notebook
+ */
+export const isRepoNotebookExperiment = (experiment: ExperimentEntity) =>
+  experiment.tags?.find((tag) => tag.key === EXPERIMENT_SOURCE_TYPE_TAG)?.value === ExperimentSourceType.REPO_NOTEBOOK;
 
 /**
  * Function used for downloading run data in CSV form.

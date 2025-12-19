@@ -4,10 +4,6 @@ sidebar_label: AG2
 ---
 
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
 
 # Tracing AG2🤖
 
@@ -15,10 +11,9 @@ import TabItem from "@theme/TabItem";
 
 [AG2](https://ag2.ai/) is an open-source framework for building and orchestrating AI agent interactions.
 
-[MLflow Tracing](../) provides automatic tracing capability for AG2, an open-source multi-agent framework. By enabling auto tracing
+[MLflow Tracing](../../) provides automatic tracing capability for AG2, an open-source multi-agent framework. By enabling auto tracing
 for AG2 by calling the <APILink fn="mlflow.ag2.autolog" /> function, MLflow will capture nested traces and logged them to the active MLflow Experiment upon agents execution.
 Note that since AG2 is built based on [AutoGen 0.2](https://microsoft.github.io/autogen/0.2/), this integration can be used when you use AutoGen 0.2.
-
 
 ```python
 import mlflow
@@ -28,11 +23,11 @@ mlflow.ag2.autolog()
 
 MLflow captures the following information about the multi-agent execution:
 
-* Which agent is called at different turns
-* Messages passed between agents
-* LLM and tool calls made by each agent, organized per an agent and a turn
-* Latencies
-* Any exception if raised
+- Which agent is called at different turns
+- Messages passed between agents
+- LLM and tool calls made by each agent, organized per an agent and a turn
+- Latencies
+- Any exception if raised
 
 ### Basic Example
 
@@ -179,7 +174,6 @@ chat_completion_6:
   Output tokens: 38
   Total tokens: 402
 ```
-
 
 ### Disable auto-tracing
 

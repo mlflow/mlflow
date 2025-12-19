@@ -1,7 +1,7 @@
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import React from 'react';
-import { Dash } from 'plotly.js';
+import type { Dash } from 'plotly.js';
 
 const STROKE_WIDTH = 3;
 
@@ -34,7 +34,7 @@ export type LegendLabelData = {
   metricKey?: string;
 };
 
-const TraceLabel: React.FC<LegendLabelData> = ({ label, color, dashStyle }) => {
+const TraceLabel: React.FC<React.PropsWithChildren<LegendLabelData>> = ({ label, color, dashStyle }) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -60,10 +60,9 @@ const TraceLabel: React.FC<LegendLabelData> = ({ label, color, dashStyle }) => {
   );
 };
 
-export const TraceLabelColorIndicator: React.FC<Pick<LegendLabelData, 'color' | 'dashStyle'>> = ({
-  color,
-  dashStyle,
-}) => {
+export const TraceLabelColorIndicator: React.FC<
+  React.PropsWithChildren<Pick<LegendLabelData, 'color' | 'dashStyle'>>
+> = ({ color, dashStyle }) => {
   const { theme } = useDesignSystemTheme();
   const strokeDasharray = dashStyle ? getDashArray(dashStyle) : undefined;
   const pathYOffset = theme.typography.fontSizeSm / 2;
@@ -94,7 +93,11 @@ type RunsMetricsLegendProps = {
   fullScreen?: boolean;
 };
 
-const RunsMetricsLegend: React.FC<RunsMetricsLegendProps> = ({ labelData, height, fullScreen }) => {
+const RunsMetricsLegend: React.FC<React.PropsWithChildren<RunsMetricsLegendProps>> = ({
+  labelData,
+  height,
+  fullScreen,
+}) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -111,7 +114,12 @@ const RunsMetricsLegend: React.FC<RunsMetricsLegendProps> = ({ labelData, height
       }}
     >
       {labelData.map((labelDatum) => (
-        <TraceLabel key={labelDatum.uuid ?? labelDatum.label} {...labelDatum} />
+        <TraceLabel
+          key={
+            labelDatum.uuid && labelDatum.metricKey ? `${labelDatum.uuid}-${labelDatum.metricKey}` : labelDatum.label
+          }
+          {...labelDatum}
+        />
       ))}
     </div>
   );

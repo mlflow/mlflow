@@ -1,7 +1,5 @@
 """add step to inputs table
 
-Revision ID: 6953534de441
-Revises: 400f98739977
 Create Date: 2025-02-13 11:50:07.098121
 
 """

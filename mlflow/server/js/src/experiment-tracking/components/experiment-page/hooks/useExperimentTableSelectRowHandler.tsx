@@ -1,7 +1,7 @@
-import { GridApi, RowSelectedEvent, SelectionChangedEvent } from '@ag-grid-community/core';
+import type { GridApi, RowSelectedEvent, SelectionChangedEvent } from '@ag-grid-community/core';
 import { useCallback, useRef } from 'react';
-import { ExperimentPageViewState } from '../models/ExperimentPageViewState';
-import { RunRowType } from '../utils/experimentPage.row-types';
+import type { ExperimentPageViewState } from '../models/ExperimentPageViewState';
+import type { RunRowType } from '../utils/experimentPage.row-types';
 import { uniqBy } from 'lodash';
 
 /**

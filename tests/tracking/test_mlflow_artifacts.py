@@ -3,8 +3,8 @@ import os
 import pathlib
 import subprocess
 import tempfile
-from collections import namedtuple
 from io import BytesIO
+from typing import NamedTuple
 
 import pytest
 import requests
@@ -12,6 +12,7 @@ import requests
 import mlflow
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.os import is_windows
 
 from tests.helper_functions import LOCALHOST, get_safe_port
@@ -40,10 +41,12 @@ def _launch_server(host, port, backend_store_uri, default_artifact_root, artifac
     return process
 
 
-ArtifactsServer = namedtuple(
-    "ArtifactsServer",
-    ["backend_store_uri", "default_artifact_root", "artifacts_destination", "url", "process"],
-)
+class ArtifactsServer(NamedTuple):
+    backend_store_uri: str
+    default_artifact_root: str
+    artifacts_destination: str
+    url: str
+    process: subprocess.Popen
 
 
 @pytest.fixture(scope="module")
@@ -54,6 +57,9 @@ def artifacts_server():
         artifacts_destination = os.path.join(tmpdir, "mlartifacts")
         url = f"http://{LOCALHOST}:{port}"
         default_artifact_root = f"{url}/api/2.0/mlflow-artifacts/artifacts"
+        # Initialize the database before launching the server process
+        s = SqlAlchemyStore(backend_store_uri, default_artifact_root)
+        s.engine.dispose()
         process = _launch_server(
             LOCALHOST,
             port,

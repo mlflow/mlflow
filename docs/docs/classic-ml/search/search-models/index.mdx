@@ -21,7 +21,7 @@ First, let's create some example logged models to demonstrate the search functio
 Before running the script, let's start the MLflow UI on a local host:
 
 ```bash
-mlflow ui
+mlflow server
 ```
 
 Visit `http://localhost:5000/` in your web browser. Let's create some example models:
@@ -144,6 +144,7 @@ for i, config in enumerate(model_configs):
 After running this script, you should have 6 different models logged across your experiments, each with different parameters, metrics, and tags.
 
 > **Note**: You may see a warning about "Failed to log model config as params" - this is a known MLflow internal warning that can be safely ignored. The models and their parameters are still logged correctly.
+
 ## Search Query Syntax \{#search-logged-models-syntax}
 
 The `search_logged_models` API uses a SQL-like Domain Specific Language (DSL) for querying logged models. While inspired by SQL, it has some specific limitations and features tailored for model search.
@@ -164,11 +165,13 @@ The `search_logged_models` API uses a SQL-like Domain Specific Language (DSL) fo
 ### Syntax Rules:
 
 **Left Side (Field) Syntax:**
+
 - Fields without special characters can be referenced directly (e.g., `creation_time`)
 - Use backticks for fields with special characters (e.g., `` metrics.`f1-score` ``)
 - Double quotes are also acceptable (e.g., `metrics."f1 score"`)
 
 **Right Side (Value) Syntax:**
+
 - String values must be enclosed in single quotes (e.g., `params.model_type = 'RandomForest'`)
 - Numeric values for metrics don't need quotes (e.g., `metrics.accuracy > 0.9`)
 - All non-metric values must be quoted, even if numeric
@@ -520,6 +523,7 @@ for metric in first_model_metrics:
 The `search_logged_models` API provides a powerful way to discover and compare models in MLflow. By combining flexible filtering, dataset-aware metrics, and ordering capabilities, you can efficiently find the best models for your use case from potentially thousands of candidates.
 
 Key takeaways:
+
 - Use SQL-like syntax with `metrics.`, `params.`, and `tags.` prefixes
 - Filter metrics by specific datasets for fair comparison
 - Combine multiple conditions with AND (OR is not supported)

@@ -40,7 +40,7 @@ async def test_autolog_assistant_agent(disable):
         assert trace.info.status == "OK"
         assert len(trace.data.spans) == 3
         span = trace.data.spans[0]
-        assert span.name == "run"
+        assert span.name == "assistant.run"
         assert span.span_type == SpanType.AGENT
         assert span.inputs == {"task": "1+1"}
         messages = span.outputs["messages"]
@@ -67,7 +67,7 @@ async def test_autolog_assistant_agent(disable):
         )
 
         span = trace.data.spans[1]
-        assert span.name == "on_messages"
+        assert span.name == "assistant.on_messages"
         assert span.span_type == SpanType.AGENT
         assert (
             span.outputs["chat_message"].items()
@@ -81,24 +81,21 @@ async def test_autolog_assistant_agent(disable):
         )
 
         span = trace.data.spans[2]
-        assert span.name == "create"
+        assert span.name == "ReplayChatCompletionClient.create"
         assert span.span_type == SpanType.LLM
         assert span.inputs["messages"] == [
             {"content": _SYSTEM_MESSAGE, "type": "SystemMessage"},
             {"content": "1+1", "source": "user", "type": "UserMessage"},
         ]
         assert span.outputs["content"] == "2"
-        assert span.get_attribute("mlflow.chat.messages") == [
-            {"role": "system", "content": _SYSTEM_MESSAGE},
-            {"role": "user", "content": "1+1"},
-            {"role": "assistant", "content": "2"},
-        ]
 
         assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
             "input_tokens": 6,
             "output_tokens": 1,
             "total_tokens": 7,
         }
+
+        assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "autogen"
 
         assert traces[0].info.token_usage == {
             "input_tokens": 6,
@@ -157,7 +154,7 @@ async def test_autolog_tool_agent():
     assert trace.info.status == "OK"
     assert len(trace.data.spans) == 3
     span = trace.data.spans[0]
-    assert span.name == "run"
+    assert span.name == "assistant.run"
     assert span.span_type == SpanType.AGENT
     assert span.inputs == {"task": "1+1"}
     messages = span.outputs["messages"]
@@ -218,7 +215,7 @@ async def test_autolog_tool_agent():
     )
 
     span = trace.data.spans[1]
-    assert span.name == "on_messages"
+    assert span.name == "assistant.on_messages"
     assert span.span_type == SpanType.AGENT
     assert (
         span.outputs["chat_message"].items()
@@ -233,7 +230,7 @@ async def test_autolog_tool_agent():
     assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTES
 
     span = trace.data.spans[2]
-    assert span.name == "create"
+    assert span.name == "ReplayChatCompletionClient.create"
     assert span.span_type == SpanType.LLM
     assert span.inputs["messages"] == [
         {"content": _SYSTEM_MESSAGE, "type": "SystemMessage"},
@@ -242,20 +239,6 @@ async def test_autolog_tool_agent():
     assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTES
     assert span.outputs["content"] == [
         {"id": "1", "arguments": '{"number": 1}', "name": "increment_number"}
-    ]
-    assert span.get_attribute("mlflow.chat.messages") == [
-        {"role": "system", "content": _SYSTEM_MESSAGE},
-        {"role": "user", "content": "1+1"},
-        {
-            "role": "assistant",
-            "tool_calls": [
-                {
-                    "id": "1",
-                    "type": "function",
-                    "function": {"name": "increment_number", "arguments": '{"number": 1}'},
-                }
-            ],
-        },
     ]
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
@@ -294,7 +277,7 @@ async def test_autolog_multi_modal():
     assert trace.info.status == "OK"
     assert len(trace.data.spans) == 3
     span = trace.data.spans[0]
-    assert span.name == "run"
+    assert span.name == "assistant.run"
     assert span.span_type == SpanType.AGENT
     assert span.inputs["task"]["content"][0] == "Can you describe the number in the image?"
     assert "data" in span.inputs["task"]["content"][1]
@@ -327,7 +310,7 @@ async def test_autolog_multi_modal():
     )
 
     span = trace.data.spans[1]
-    assert span.name == "on_messages"
+    assert span.name == "assistant.on_messages"
     assert span.span_type == SpanType.AGENT
     assert (
         span.outputs["chat_message"].items()
@@ -341,18 +324,13 @@ async def test_autolog_multi_modal():
     )
 
     span = trace.data.spans[2]
-    assert span.name == "create"
+    assert span.name == "ReplayChatCompletionClient.create"
     assert span.span_type == SpanType.LLM
     assert span.inputs["messages"] == [
         {"content": _SYSTEM_MESSAGE, "type": "SystemMessage"},
         {"content": f"{user_message}\n<image>", "source": "user", "type": "UserMessage"},
     ]
     assert span.outputs["content"] == "2"
-    assert span.get_attribute("mlflow.chat.messages") == [
-        {"role": "system", "content": _SYSTEM_MESSAGE},
-        {"role": "user", "content": f"{user_message}\n<image>"},
-        {"role": "assistant", "content": "2"},
-    ]
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 14,

@@ -3,12 +3,6 @@ sidebar_position: 10
 sidebar_label: Ollama
 ---
 
-import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
-
 # Tracing Ollama
 
 ![Ollama Tracing via autolog](/images/llms/tracing/ollama-tracing.png)
@@ -24,7 +18,6 @@ mlflow.openai.autolog()
 ```
 
 ### Example Usage
-
 
 1. Run the Ollama server with the desired LLM model.
 
@@ -44,7 +37,6 @@ mlflow.openai.autolog()
 mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment("Ollama")
 ```
-
 
 3. Query the LLM and see the traces in the MLflow UI.
 

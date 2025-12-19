@@ -1,22 +1,21 @@
-import functools
 import json
 import logging
 import threading
 import uuid
 import warnings
-from typing import Any, Optional, Union
+from typing import Any
+
+from pydantic import BaseModel
 
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
+from mlflow.entities.model_registry.prompt_version import PromptModelConfig
 from mlflow.entities.run import Run
-from mlflow.environment_variables import (
-    MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
-    MLFLOW_PROMPT_CACHE_MAX_SIZE,
-)
+from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.prompt.registry_utils import parse_prompt_name_or_uri, require_prompt_registry
+from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     NOT_FOUND,
@@ -25,16 +24,19 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_id_if_present
-from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.tracing.fluent import get_active_trace_id
+from mlflow.telemetry.events import LoadPromptEvent
+from mlflow.telemetry.track import record_usage_event
+from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.fluent import get_active_trace_id, get_current_active_span
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils.prompt import update_linked_prompts_tag
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import active_run, get_active_model_id
+from mlflow.tracking.fluent import _get_latest_active_run, get_active_model_id
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.databricks_utils import (
     _construct_databricks_uc_registered_model_url,
@@ -42,7 +44,12 @@ from mlflow.utils.databricks_utils import (
     get_workspace_url,
     stage_model_for_databricks_model_serving,
 )
-from mlflow.utils.env_pack import EnvPackType, pack_env_for_databricks_model_serving
+from mlflow.utils.env_pack import (
+    EnvPackConfig,
+    EnvPackType,
+    _validate_env_pack,
+    pack_env_for_databricks_model_serving,
+)
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_unity_catalog_uri
 
@@ -61,8 +68,8 @@ def register_model(
     name,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
-    tags: Optional[dict[str, Any]] = None,
-    env_pack: Optional[EnvPackType] = None,
+    tags: dict[str, Any] | None = None,
+    env_pack: EnvPackType | EnvPackConfig | None = None,
 ) -> ModelVersion:
     """Create a new model version in model registry for the model files specified by ``model_uri``.
 
@@ -83,10 +90,12 @@ def register_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         tags: A dictionary of key-value pairs that are converted into
             :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
-        env_pack: If specified, the model dependencies will first be installed into the current
-            Python environment, and then the complete environment will be packaged and included
-            in the registered model artifacts. This is useful when deploying the model to a
-            serving environment like Databricks Model Serving.
+        env_pack: Either a string or an EnvPackConfig. If specified,
+            the model dependencies are optionally first installed into the current Python
+            environment, and then the complete environment will be packaged and included
+            in the registered model artifacts. If the string shortcut "databricks_model_serving" is
+            used, then model dependencies will be installed in the current environment. This is
+            useful when deploying the model to a serving environment like Databricks Model Serving.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
@@ -138,9 +147,9 @@ def _register_model(
     name,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
-    tags: Optional[dict[str, Any]] = None,
+    tags: dict[str, Any] | None = None,
     local_model_path=None,
-    env_pack: Optional[EnvPackType] = None,
+    env_pack: EnvPackType | EnvPackConfig | None = None,
 ) -> ModelVersion:
     client = MlflowClient()
     try:
@@ -200,11 +209,20 @@ def _register_model(
     # Otherwise if the uri is of the form models:/..., try to get the model_id from the uri directly
     model_id = _parse_model_id_if_present(model_uri) if not model_id else model_id
 
-    if env_pack == "databricks_model_serving":
-        eprint("Packing environment for Databricks Model Serving...")
+    # Passing in the string value is a shortcut for passing in the EnvPackConfig
+    # Validate early; `_validate_env_pack` will raise on invalid inputs.
+    validated_env_pack = _validate_env_pack(env_pack)
+
+    # If env_pack is supported and indicates Databricks Model Serving, pack env and
+    # log the resulting artifacts.
+    if validated_env_pack:
+        eprint(
+            "Packing environment for Databricks Model Serving with install_dependencies "
+            f"{validated_env_pack.install_dependencies}..."
+        )
         with pack_env_for_databricks_model_serving(
             model_uri,
-            enforce_pip_requirements=True,
+            enforce_pip_requirements=validated_env_pack.install_dependencies,
         ) as artifacts_path_with_env:
             client.log_model_artifacts(model_id, artifacts_path_with_env)
 
@@ -255,7 +273,7 @@ def _register_model(
             {mlflow_tags.MLFLOW_MODEL_VERSIONS: json.dumps(new_value)},
         )
 
-    if env_pack == "databricks_model_serving":
+    if validated_env_pack:
         eprint(
             f"Staging model {create_version_response.name} "
             f"version {create_version_response.version} "
@@ -305,9 +323,9 @@ def _get_logged_models_from_run(source_run: Run, model_name: str) -> list[Logged
 
 
 def search_registered_models(
-    max_results: Optional[int] = None,
-    filter_string: Optional[str] = None,
-    order_by: Optional[list[str]] = None,
+    max_results: int | None = None,
+    filter_string: str | None = None,
+    order_by: list[str] | None = None,
 ) -> list[RegisteredModel]:
     """Search for registered models that satisfy the filter criteria.
 
@@ -410,9 +428,9 @@ def search_registered_models(
 
 
 def search_model_versions(
-    max_results: Optional[int] = None,
-    filter_string: Optional[str] = None,
-    order_by: Optional[list[str]] = None,
+    max_results: int | None = None,
+    filter_string: str | None = None,
+    order_by: list[str] | None = None,
 ) -> list[ModelVersion]:
     """Search for model versions that satisfy the filter criteria.
 
@@ -508,8 +526,8 @@ def search_model_versions(
 
 def set_model_version_tag(
     name: str,
-    version: Optional[str] = None,
-    key: Optional[str] = None,
+    version: str | None = None,
+    key: str | None = None,
     value: Any = None,
 ) -> None:
     """
@@ -532,15 +550,17 @@ def set_model_version_tag(
 @require_prompt_registry
 def register_prompt(
     name: str,
-    template: str,
-    commit_message: Optional[str] = None,
-    tags: Optional[dict[str, str]] = None,
+    template: str | list[dict[str, Any]],
+    commit_message: str | None = None,
+    tags: dict[str, str] | None = None,
+    response_format: type[BaseModel] | dict[str, Any] | None = None,
+    model_config: "PromptModelConfig | dict[str, Any] | None" = None,
 ) -> PromptVersion:
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
 
     A :py:class:`Prompt <mlflow.entities.Prompt>` is a pair of name and
-    template text at minimum. With MLflow Prompt Registry, you can create, manage, and
+    template content at minimum. With MLflow Prompt Registry, you can create, manage, and
     version control prompts with the MLflow's robust model tracking framework.
 
     If there is no registered prompt with the given name, a new prompt will be created.
@@ -549,9 +569,11 @@ def register_prompt(
 
     Args:
         name: The name of the prompt.
-        template: The template text of the prompt. It can contain variables enclosed in
-            double curly braces, e.g. {variable}, which will be replaced with actual values
-            by the `format` method.
+        template: The template content of the prompt. Can be either:
+            - A string containing text with variables enclosed in double curly braces,
+              e.g. {{variable}}, which will be replaced with actual values by the `format` method.
+            - A list of dictionaries representing chat messages, where each message has
+              'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
 
             .. note::
 
@@ -569,6 +591,10 @@ def register_prompt(
         tags: A dictionary of tags associated with the **prompt version**.
             This is useful for storing version-specific information, such as the author of
             the changes. Optional.
+        response_format: Optional Pydantic class or dictionary defining the expected response
+            structure. This can be used to specify the schema for structured outputs from LLM calls.
+        model_config: Optional PromptModelConfig instance or dictionary containing model-specific
+            configuration. Using PromptModelConfig provides validation and type safety.
 
     Returns:
         A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -578,15 +604,27 @@ def register_prompt(
     .. code-block:: python
 
         import mlflow
+        from pydantic import BaseModel
 
-        # Register a new prompt
+        # Register a text prompt
         mlflow.register_prompt(
-            name="my_prompt",
+            name="greeting_prompt",
             template="Respond to the user's message as a {{style}} AI.",
+            response_format={"type": "string", "description": "A friendly response"},
+        )
+
+        # Register a chat prompt with multiple messages
+        mlflow.register_prompt(
+            name="assistant_prompt",
+            template=[
+                {"role": "system", "content": "You are a helpful {{style}} assistant."},
+                {"role": "user", "content": "{{question}}"},
+            ],
+            response_format={"type": "object", "properties": {"answer": {"type": "string"}}},
         )
 
         # Load the prompt from the registry
-        prompt = mlflow.load_prompt("my_prompt")
+        prompt = mlflow.load_prompt("greeting_prompt")
 
         # Use the prompt in your application
         import openai
@@ -602,7 +640,7 @@ def register_prompt(
 
         # Update the prompt with a new version
         prompt = mlflow.register_prompt(
-            name="my_prompt",
+            name="greeting_prompt",
             template="Respond to the user's message as a {{style}} AI. {{greeting}}",
             commit_message="Add a greeting to the prompt.",
             tags={"author": "Bob"},
@@ -619,14 +657,56 @@ def register_prompt(
         template=template,
         commit_message=commit_message,
         tags=tags,
+        response_format=response_format,
+        model_config=model_config,
     )
 
 
 @require_prompt_registry
 def search_prompts(
-    filter_string: Optional[str] = None,
-    max_results: Optional[int] = None,
-) -> PagedList[Prompt]:
+    filter_string: str | None = None,
+    max_results: int | None = None,
+) -> list[Prompt]:
+    """
+    Search for prompts in the MLflow Prompt Registry.
+
+    This call returns prompt metadata for prompts that have been marked
+    as prompts (i.e. tagged with `mlflow.prompt.is_prompt=true`). We can
+    further restrict results via a standard registry filter expression.
+
+    Args:
+        filter_string (Optional[str]):
+            An additional registry-search expression to apply (e.g.
+            `"name LIKE 'my_prompt%'"`).  For Unity Catalog registries, must include
+            catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
+        max_results (Optional[int]):
+            The maximum number of prompts to return.
+
+    Returns:
+        A list of :py:class:`Prompt <mlflow.entities.Prompt>` objects representing prompt metadata:
+
+        - name: The prompt name
+        - description: The prompt description
+        - tags: Prompt-level tags
+        - creation_timestamp: When the prompt was created
+
+        To get the actual prompt template content,
+        use :py:func:`mlflow.genai.load_prompt()` API with a specific version:
+
+        .. code-block:: python
+            import mlflow
+
+            # Search for prompts
+            prompts = mlflow.genai.search_prompts(filter_string="name LIKE 'greeting%'")
+
+            # Get prompts by experiment
+            prompts = mlflow.genai.search_prompts(filter_string='experiment_id = "1"')
+
+            # Get specific version content
+            for prompt in prompts:
+                prompt_version = mlflow.genai.load_prompt(prompt.name, version="1")
+                print(f"Template: {prompt_version.template}")
+    """
     warnings.warn(
         PROMPT_API_MIGRATION_MSG.format(func_name="search_prompts"),
         category=FutureWarning,
@@ -646,12 +726,14 @@ def search_prompts(
 
 
 @require_prompt_registry
+@record_usage_event(LoadPromptEvent)
 def load_prompt(
     name_or_uri: str,
-    version: Optional[Union[str, int]] = None,
+    version: str | int | None = None,
     allow_missing: bool = False,
     link_to_model: bool = True,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
+    cache_ttl_seconds: float | None = None,
 ) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -667,6 +749,11 @@ def load_prompt(
                        by `model_id`, or the active model ID if `model_id` is None and
                        there is an active model.
         model_id: The ID of the model to which to link the prompt, if `link_to_model` is True.
+        cache_ttl_seconds: Time-to-live in seconds for the cached prompt. If not specified,
+            uses the value from `MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS` environment variable for
+            alias-based prompts (default 60), and the value from
+            `MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS` environment variable for version-based prompts
+            (default None, no TTL). Set to 0 to bypass the cache and always fetch from the server.
 
     Example:
 
@@ -683,6 +770,12 @@ def load_prompt(
         # Load a prompt version with an alias "production"
         prompt = mlflow.load_prompt("prompts:/my_prompt@production")
 
+        # Load with custom cache TTL (5 minutes)
+        prompt = mlflow.load_prompt("my_prompt", version=1, cache_ttl_seconds=300)
+
+        # Bypass cache entirely
+        prompt = mlflow.load_prompt("my_prompt", version=1, cache_ttl_seconds=0)
+
     """
     warnings.warn(
         PROMPT_API_MIGRATION_MSG.format(func_name="load_prompt"),
@@ -690,40 +783,27 @@ def load_prompt(
         stacklevel=3,
     )
 
-    if "@" in name_or_uri:
-        # Don't cache prompts loaded by alias since aliases can change over time
-        prompt = _load_prompt_not_cached(
-            name_or_uri=name_or_uri,
-            version=version,
-            allow_missing=allow_missing,
-        )
-    else:
-        # Otherwise, we use a cached function to avoid loading the same prompt multiple times.
-        # If the prompt from the cache is not found and allowing_missing is True, we
-        # try to load the prompt from the client without cache, since it may have been
-        # registered after the cache was created (uncommon scenario).
-        prompt = _load_prompt_cached(
-            name_or_uri=name_or_uri,
-            version=version,
-            allow_missing=allow_missing,
-        ) or _load_prompt_not_cached(
-            name_or_uri=name_or_uri,
-            version=version,
-            allow_missing=allow_missing,
-        )
+    client = MlflowClient()
+
+    # Load prompt with caching (handled by client)
+    prompt = client.load_prompt(
+        name_or_uri=name_or_uri,
+        version=version,
+        allow_missing=allow_missing,
+        cache_ttl_seconds=cache_ttl_seconds,
+    )
     if prompt is None:
         return
-
-    client = MlflowClient()
 
     # If there is an active MLflow run, associate the prompt with the run.
     # Note that we do this synchronously because it's unlikely that run linking occurs
     # in a latency sensitive environment, since runs aren't typically used in real-time /
     # production scenarios
-    if run := active_run():
-        client.link_prompt_version_to_run(
-            run.info.run_id, f"prompts:/{prompt.name}/{prompt.version}"
-        )
+    # NB: We shouldn't use `active_run()` here because it only returns the active run
+    # from the current thread. It doesn't work in multi-threaded scenarios such as
+    # MLflow GenAI evaluation.
+    if run := _get_latest_active_run():
+        client.link_prompt_version_to_run(run.info.run_id, prompt)
 
     if link_to_model:
         model_id = model_id or get_active_model_id()
@@ -743,7 +823,7 @@ def load_prompt(
                 except Exception:
                     # NB: We should still load the prompt even if linking fails, since the prompt
                     # is critical to the caller's application logic
-                    _logger.warn(
+                    _logger.warning(
                         f"Failed to link prompt '{prompt.name}' version '{prompt.version}'"
                         f" to model '{model_id}'.",
                         exc_info=True,
@@ -761,41 +841,13 @@ def load_prompt(
             prompt=prompt,
         )
 
+    # Set prompt version information as span attributes if there's an active span
+    if span := get_current_active_span():
+        current_value = span.attributes.get(SpanAttributeKey.LINKED_PROMPTS)
+        updated_value = update_linked_prompts_tag(current_value, [prompt])
+        span.set_attribute(SpanAttributeKey.LINKED_PROMPTS, updated_value)
+
     return prompt
-
-
-@functools.lru_cache(maxsize=MLFLOW_PROMPT_CACHE_MAX_SIZE.get())
-def _load_prompt_cached(
-    name_or_uri: str,
-    version: Optional[Union[str, int]] = None,
-    allow_missing: bool = False,
-) -> Optional[PromptVersion]:
-    """
-    Internal cached function to load prompts from registry.
-    """
-    return _load_prompt_not_cached(name_or_uri, version, allow_missing)
-
-
-def _load_prompt_not_cached(
-    name_or_uri: str,
-    version: Optional[Union[str, int]] = None,
-    allow_missing: bool = False,
-) -> Optional[PromptVersion]:
-    """
-    Load prompt from client, handling URI parsing.
-    """
-    client = MlflowClient()
-
-    # Use utility to handle URI vs name+version parsing
-    parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
-    if parsed_name_or_uri.startswith("prompts:/"):
-        # For URIs, don't pass version parameter
-        return client.load_prompt(parsed_name_or_uri, allow_missing=allow_missing)
-    else:
-        # For names, use the parsed version
-        return client.load_prompt(
-            parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing
-        )
 
 
 @require_prompt_registry

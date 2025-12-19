@@ -3,19 +3,17 @@ sidebar_position: 5
 sidebar_label: DSPy
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
 
 # Tracing DSPy🧩
 
-![DSPy Tracing via autolog](/images/llms/tracing/dspy-tracing.gif)
+<video src={useBaseUrl("/images/llms/tracing/dspy-tracing.mp4")} controls loop autoPlay muted aria-label="DSPy Tracing via autolog" />
 
 [DSPy](https://dspy.ai/) is an open-source framework for building modular AI systems and offers algorithms for optimizing their prompts and weights.
 
-[MLflow Tracing](../) provides automatic tracing capability for DSPy. You can enable tracing
+[MLflow Tracing](../../) provides automatic tracing capability for DSPy. You can enable tracing
 for DSPy by calling the <APILink fn="mlflow.dspy.autolog" /> function, and nested traces are automatically logged to the active MLflow Experiment upon invocation of DSPy modules.
 
 ```python
@@ -29,7 +27,6 @@ mlflow.dspy.autolog()
 MLflow DSPy integration is not only about tracing. MLflow offers full tracking experience for DSPy, including model tracking, index management, and evaluation. Please see the **[MLflow DSPy Flavor](/genai/flavors/dspy)** to learn more!
 
 :::
-
 
 ### Example Usage
 
@@ -139,8 +136,7 @@ with mlflow.start_run(run_name="CoT Evaluation"):
     )
 ```
 
-If you open the MLflow UI and go to the "CoT Evaluation" run, you will see the evaluation result, and the list of traces generated during the evaluation on the ``Traces`` tab.
-
+If you open the MLflow UI and go to the "CoT Evaluation" run, you will see the evaluation result, and the list of traces generated during the evaluation on the `Traces` tab.
 
 :::note
 
@@ -164,6 +160,55 @@ mlflow.dspy.autolog(log_traces_from_compile=True)
 # Optimize the DSPy program as usual
 tp = dspy.MIPROv2(metric=metric, auto="medium", num_threads=24)
 optimized = tp.compile(cot, trainset=trainset)
+```
+
+### Token usage
+
+MLflow >= 3.5.0 supports token usage tracking for dspy. The token usage call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object.
+
+```python
+import dspy
+import mlflow
+
+mlflow.dspy.autolog()
+
+dspy.settings.configure(lm=dspy.LM("openai/gpt-4o-mini"))
+
+task = dspy.Predict("instruction -> response")
+result = task(instruction="Translate 'hello' to French.")
+
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 143
+  Output tokens: 12
+  Total tokens: 155
+
+== Detailed usage for each LLM call: ==
+LM.__call__:
+  Input tokens: 143
+  Output tokens: 12
+  Total tokens: 155
 ```
 
 ### Disable auto-tracing

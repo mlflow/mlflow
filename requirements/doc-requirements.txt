@@ -1,8 +1,10 @@
 -r doc-min-requirements.txt
 tensorflow-cpu<=2.12.0; platform_system!="Darwin" or platform_machine!="arm64"
 tensorflow-macos<=2.12.0; platform_system=="Darwin" and platform_machine=="arm64"
-pyspark
+pyspark<4.1.0
 datasets
+# requried to run `log_figure` examples
+plotly
 # nbsphinx and ipython are required for jupyter notebook rendering
 nbsphinx==0.8.8
 # ipython 8.7.0 is an incompatible release
@@ -18,3 +20,16 @@ incremental<24.7.0
 # this is an extra dependency for the auth app which
 # is not included in the core mlflow requirements
 Flask-WTF<2
+# required for testing polars dataset integration
+polars>=1
+# required for the genai evaluation example
+openai
+# required for the haystack
+haystack-ai
+# required for deepeval scorer documentation
+deepeval
+# required for ragas scorer documentation
+ragas
+instructor
+litellm
+langchain-community>=0.3.0

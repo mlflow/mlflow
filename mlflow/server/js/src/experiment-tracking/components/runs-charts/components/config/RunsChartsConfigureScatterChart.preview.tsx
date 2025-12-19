@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { RunsChartsRunData } from '../RunsCharts.common';
+import type { RunsChartsRunData } from '../RunsCharts.common';
 import { RunsScatterPlot } from '../RunsScatterPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
-import { RunsChartsScatterCardConfig } from '../../runs-charts.types';
+import type { RunsChartsScatterCardConfig } from '../../runs-charts.types';
 
 export const RunsChartsConfigureScatterChartPreview = ({
   previewData,

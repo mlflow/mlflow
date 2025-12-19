@@ -1,11 +1,13 @@
 import json
 import os
 import posixpath
-from typing import Optional
 
 import mlflow.utils.databricks_utils
 from mlflow.entities import FileInfo
-from mlflow.environment_variables import MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO
+from mlflow.environment_variables import (
+    MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS,
+    MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -13,6 +15,7 @@ from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRep
 from mlflow.store.artifact.databricks_logged_model_artifact_repo import (
     DatabricksLoggedModelArtifactRepository,
 )
+from mlflow.store.artifact.databricks_run_artifact_repo import DatabricksRunArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service import utils
@@ -47,7 +50,9 @@ class DbfsRestArtifactRepository(ArtifactRepository):
     together with the RestStore.
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
         if not is_valid_dbfs_uri(artifact_uri):
             raise MlflowException(
                 message="DBFS URI must be of the form dbfs:/<path> or "
@@ -58,11 +63,12 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         # The dbfs:/ path ultimately used for artifact operations should not contain the
         # Databricks profile info, so strip it before setting ``artifact_uri``.
         super().__init__(
-            remove_databricks_profile_info_from_artifact_uri(artifact_uri), tracking_uri
+            remove_databricks_profile_info_from_artifact_uri(artifact_uri),
+            tracking_uri,
+            registry_uri,
         )
 
-        databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri)
-        if databricks_profile_uri:
+        if databricks_profile_uri := get_databricks_profile_uri_from_artifact_uri(artifact_uri):
             hostcreds_from_uri = get_databricks_host_creds(databricks_profile_uri)
             self.get_host_creds = lambda: hostcreds_from_uri
         else:
@@ -141,7 +147,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
                 file_path = os.path.join(dirpath, name)
                 self.log_artifact(file_path, artifact_subdir)
 
-    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+    def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
         dbfs_path = self._get_dbfs_path(path) if path else self._get_dbfs_path("")
         dbfs_list_json = {"path": dbfs_path}
         response = self._dbfs_list_api(dbfs_list_json)
@@ -190,7 +196,9 @@ def _get_host_creds_from_default_store():
     return store.get_host_creds
 
 
-def dbfs_artifact_repo_factory(artifact_uri: str, tracking_uri: Optional[str] = None):
+def dbfs_artifact_repo_factory(
+    artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+):
     """
     Returns an ArtifactRepository subclass for storing artifacts on DBFS.
 
@@ -205,6 +213,7 @@ def dbfs_artifact_repo_factory(artifact_uri: str, tracking_uri: Optional[str] = 
     Args:
         artifact_uri: DBFS root artifact URI.
         tracking_uri: The tracking URI.
+        registry_uri: The registry URI.
 
     Returns:
         Subclass of ArtifactRepository capable of storing artifacts on DBFS.
@@ -220,8 +229,19 @@ def dbfs_artifact_repo_factory(artifact_uri: str, tracking_uri: Optional[str] = 
     db_profile_uri = get_databricks_profile_uri_from_artifact_uri(cleaned_artifact_uri)
     if is_databricks_acled_artifacts_uri(artifact_uri):
         if DatabricksLoggedModelArtifactRepository.is_logged_model_uri(artifact_uri):
-            return DatabricksLoggedModelArtifactRepository(cleaned_artifact_uri, tracking_uri)
-        return DatabricksArtifactRepository(cleaned_artifact_uri, tracking_uri)
+            return DatabricksLoggedModelArtifactRepository(
+                cleaned_artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+            )
+        elif (
+            not MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS.get()
+            and DatabricksRunArtifactRepository.is_run_uri(artifact_uri)
+        ):
+            return DatabricksRunArtifactRepository(
+                cleaned_artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+            )
+        return DatabricksArtifactRepository(
+            cleaned_artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+        )
     elif (
         mlflow.utils.databricks_utils.is_dbfs_fuse_available()
         and MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO.get()
@@ -236,5 +256,9 @@ def dbfs_artifact_repo_factory(artifact_uri: str, tracking_uri: Optional[str] = 
         # workspace's DBFS should still work; it just may be slower.
         final_artifact_uri = remove_databricks_profile_info_from_artifact_uri(cleaned_artifact_uri)
         file_uri = "file:///dbfs/{}".format(strip_prefix(final_artifact_uri, "dbfs:/"))
-        return LocalArtifactRepository(file_uri, tracking_uri)
-    return DbfsRestArtifactRepository(cleaned_artifact_uri, tracking_uri)
+        return LocalArtifactRepository(
+            file_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+        )
+    return DbfsRestArtifactRepository(
+        cleaned_artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+    )

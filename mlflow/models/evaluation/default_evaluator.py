@@ -8,7 +8,7 @@ import shutil
 import tempfile
 import traceback
 from abc import abstractmethod
-from typing import Any, Callable, NamedTuple, Optional, Union
+from typing import Any, Callable, NamedTuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -61,9 +61,9 @@ def _extract_raw_model(model):
 
 
 def _extract_output_and_other_columns(
-    model_predictions: Union[list[Any], dict[str, Any], pd.DataFrame, pd.Series],
-    output_column_name: Optional[str],
-) -> tuple[pd.Series, Optional[pd.DataFrame], str]:
+    model_predictions: list[Any] | dict[str, Any] | pd.DataFrame | pd.Series,
+    output_column_name: str | None,
+) -> tuple[pd.Series, pd.DataFrame | None, str]:
     y_pred = None
     other_output_columns = None
     ERROR_MISSING_OUTPUT_COLUMN_NAME = (
@@ -146,7 +146,7 @@ def _extract_output_and_other_columns(
     )
 
 
-def _extract_predict_fn(model: Any) -> Optional[Callable[..., Any]]:
+def _extract_predict_fn(model: Any) -> Callable[..., Any] | None:
     """
     Extracts the predict function from the given model or raw_model.
 
@@ -291,7 +291,7 @@ class BuiltInEvaluator(ModelEvaluator):
         extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
-    ) -> Optional[EvaluationResult]:
+    ) -> EvaluationResult | None:
         """Implement the evaluation logic for each evaluator."""
 
     def log_metrics(self):
@@ -447,8 +447,8 @@ class BuiltInEvaluator(ModelEvaluator):
         metric: MetricDefinition,
         eval_df: pd.DataFrame,
         input_df: pd.DataFrame,
-        other_output_df: Optional[pd.DataFrame],
-    ) -> tuple[bool, list[Union[str, pd.DataFrame]]]:
+        other_output_df: pd.DataFrame | None,
+    ) -> tuple[bool, list[str | pd.DataFrame]]:
         """
         Given a metric_tuple, read the signature of the metric function and get the appropriate
         arguments from the input/output columns, other calculated metrics, and evaluator_config.
@@ -488,13 +488,9 @@ class BuiltInEvaluator(ModelEvaluator):
             for param_name, param in parameters.items():
                 column = self.col_mapping.get(param_name, param_name)
 
-                if (
-                    column == "predictions"
-                    or column == self.predictions
-                    or column == self.dataset.predictions_name
-                ):
+                if column in ("predictions", self.predictions, self.dataset.predictions_name):
                     eval_fn_args.append(eval_df_copy["prediction"])
-                elif column == "targets" or column == self.dataset.targets_name:
+                elif column in ("targets", self.dataset.targets_name):
                     if "target" in eval_df_copy:
                         eval_fn_args.append(eval_df_copy["target"])
                     else:
@@ -548,7 +544,7 @@ class BuiltInEvaluator(ModelEvaluator):
         self,
         custom_artifacts: list[_CustomArtifact],
         prediction: pd.Series,
-        target: Optional[np.array] = None,
+        target: np.ndarray | None = None,
     ):
         """Evaluate custom artifacts provided by users."""
         if not custom_artifacts:
@@ -582,13 +578,13 @@ class BuiltInEvaluator(ModelEvaluator):
         error_message_parts = [f"Metric '{metric_name}' requires the following:"]
 
         special_params = ["targets", "predictions"]
-        for param in special_params:
-            if param in param_names:
-                error_message_parts.append(f"  - the '{param}' parameter needs to be specified")
+        error_message_parts.extend(
+            f"  - the '{param}' parameter needs to be specified"
+            for param in special_params
+            if param in param_names
+        )
 
-        remaining_params = [param for param in param_names if param not in special_params]
-
-        if remaining_params:
+        if remaining_params := [param for param in param_names if param not in special_params]:
             error_message_parts.append(
                 f"  - missing columns {remaining_params} need to be defined or mapped"
             )
@@ -642,7 +638,7 @@ class BuiltInEvaluator(ModelEvaluator):
 
         raise MlflowException(error_message, error_code=INVALID_PARAMETER_VALUE)
 
-    def _get_eval_df(self, prediction: pd.Series, target: Optional[np.array] = None):
+    def _get_eval_df(self, prediction: pd.Series, target: np.ndarray | None = None):
         """
         Create a DataFrame with "prediction" and "target" columns.
 
@@ -657,7 +653,7 @@ class BuiltInEvaluator(ModelEvaluator):
         self,
         metrics: list[EvaluationMetric],
         eval_df: pd.DataFrame,
-        other_output_df: Optional[pd.DataFrame],
+        other_output_df: pd.DataFrame | None,
     ):
         """
         Order the list metrics so they can be computed in sequence.
@@ -698,7 +694,7 @@ class BuiltInEvaluator(ModelEvaluator):
         self,
         metrics: list[MetricDefinition],
         eval_df: pd.DataFrame,
-        other_output_df: Optional[pd.DataFrame],
+        other_output_df: pd.DataFrame | None,
     ):
         # test calculations on first row of eval_df
         _logger.info("Testing metrics on first row...")
@@ -710,8 +706,7 @@ class BuiltInEvaluator(ModelEvaluator):
                 _, eval_fn_args = self._get_args_for_metrics(
                     metric, first_row_df, first_row_input_df, other_output_df
                 )
-                metric_value = metric.evaluate(eval_fn_args)
-                if metric_value:
+                if metric_value := metric.evaluate(eval_fn_args):
                     name = f"{metric.name}/{metric.version}" if metric.version else metric.name
                     self.metrics_values.update({name: metric_value})
             except Exception as e:
@@ -730,8 +725,8 @@ class BuiltInEvaluator(ModelEvaluator):
         self,
         metrics: list[EvaluationMetric],
         prediction: pd.Series,
-        target: Optional[np.array] = None,
-        other_output_df: Optional[pd.DataFrame] = None,
+        target: np.ndarray | None = None,
+        other_output_df: pd.DataFrame | None = None,
     ):
         """
         Evaluate the metrics on the given prediction and target data.
@@ -758,9 +753,7 @@ class BuiltInEvaluator(ModelEvaluator):
         input_df = self.X.copy_to_avoid_mutation()
         for metric in metrics:
             _, eval_fn_args = self._get_args_for_metrics(metric, eval_df, input_df, other_output_df)
-            metric_value = metric.evaluate(eval_fn_args)
-
-            if metric_value:
+            if metric_value := metric.evaluate(eval_fn_args):
                 name = f"{metric.name}/{metric.version}" if metric.version else metric.name
                 self.metrics_values.update({name: metric_value})
 
@@ -925,10 +918,9 @@ class BuiltInEvaluator(ModelEvaluator):
         if extra_metrics is None:
             extra_metrics = []
 
-        bad_metrics = []
-        for metric in extra_metrics:
-            if not isinstance(metric, EvaluationMetric):
-                bad_metrics.append(metric)
+        bad_metrics = [
+            metric for metric in extra_metrics if not isinstance(metric, EvaluationMetric)
+        ]
         if len(bad_metrics) > 0:
             message = "\n".join(
                 [f"- Metric '{m}' has type '{type(m).__name__}'" for m in bad_metrics]

@@ -27,24 +27,32 @@ git checkout master
 git branch -D branch-9.0
 """
 
+import argparse
+import os
 import subprocess
 
-import click
 
-
-@click.command(help="Create a release tag")
-@click.option("--new-version", required=True)
-@click.option("--remote", required=False, default="origin", show_default=True)
-@click.option(
-    "--dry-run/--no-dry-run", is_flag=True, default=True, show_default=True, envvar="DRY_RUN"
-)
 def main(new_version: str, remote: str, dry_run: bool = False):
     release_tag = f"v{new_version}"
-    subprocess.run(["git", "tag", release_tag], check=True)
-    subprocess.run(
-        ["git", "push", remote, release_tag, *(["--dry-run"] if dry_run else [])], check=True
-    )
+    subprocess.check_call(["git", "tag", release_tag])
+    subprocess.check_call(["git", "push", remote, release_tag, *(["--dry-run"] if dry_run else [])])
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Create a release tag")
+    parser.add_argument("--new-version", required=True, help="New version to release")
+    parser.add_argument("--remote", default="origin", help="Git remote to use (default: origin)")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=os.environ.get("DRY_RUN", "true").lower() == "true",
+        help="Dry run mode (default: True, can be set via DRY_RUN env var)",
+    )
+    parser.add_argument(
+        "--no-dry-run",
+        action="store_false",
+        dest="dry_run",
+        help="Disable dry run mode",
+    )
+    args = parser.parse_args()
+    main(args.new_version, args.remote, args.dry_run)

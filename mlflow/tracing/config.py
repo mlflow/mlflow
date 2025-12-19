@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable
 
 from mlflow.tracing.utils.processor import validate_span_processors
 from mlflow.utils.annotations import experimental
@@ -63,7 +63,7 @@ def reset_config():
 
 @experimental(version="3.2.0")
 def configure(
-    span_processors: Optional[list[Callable[["LiveSpan"], None]]] = None,
+    span_processors: list[Callable[["LiveSpan"], None]] | None = None,
 ) -> TracingConfigContext:
     """
     Configure MLflow tracing. Can be used as function or context manager.

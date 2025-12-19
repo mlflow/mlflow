@@ -34,9 +34,6 @@ We welcome community contributions to MLflow. This page provides useful informat
     - [Python Server](#python-server)
       - [Building Protobuf Files](#building-protobuf-files)
       - [Database Schema Changes](#database-schema-changes)
-  - [Developing inside a Docker container (experimental)](#developing-inside-a-docker-container-experimental)
-    - [Prerequisites](#prerequisites)
-    - [Setup](#setup)
   - [Writing MLflow Examples](#writing-mlflow-examples)
   - [Building a Distributable Artifact](#building-a-distributable-artifact)
   - [Writing Docs](#writing-docs)
@@ -151,7 +148,7 @@ backwards compatibility testing may be requested.
 ### Consider introducing new features as MLflow Plugins
 
 [MLflow Plugins](https://mlflow.org/docs/latest/plugins.html) enable
-integration of third-party modules with many of MLflow’s components,
+integration of third-party modules with many of MLflow's components,
 allowing you to maintain and iterate on certain features independently
 of the MLflow Repository. Before implementing changes to the MLflow code
 base, consider whether your feature might be better structured as an
@@ -424,7 +421,7 @@ Distributable Artifact](#building-a-distributable-artifact).
 In one shell:
 
 ```bash
-mlflow ui
+mlflow server
 ```
 
 And in another shell:
@@ -437,6 +434,32 @@ yarn start
 The Javascript Dev Server will run at <http://localhost:3000> and the
 MLflow server will run at <http://localhost:5000> and show runs logged
 in `./mlruns`.
+
+**Note:** On some versions of MacOS, the "Airplay Receiver" process runs on port 5000 by default,
+which can cause [network request failures](https://stackoverflow.com/questions/72369320/why-always-something-is-running-at-port-5000-on-my-mac).
+If you are encountering such issues, disable the
+process via system settings, or specify another port (e.g. `mlflow server --port 8000`).
+
+If specifying a different port, please set the following environment variables before running `yarn start`:
+
+- `MLFLOW_PROXY=<tracking_server_uri>`
+- `MLFLOW_DEV_PROXY_MODE=false`
+
+For example:
+
+```
+$ mlflow server --port 8000
+...
+
+(in a separate shell)
+$ export MLFLOW_PROXY=http://127.0.0.1:8000
+$ export MLFLOW_DEV_PROXY_MODE=false
+$ yarn install
+$ yarn start
+...
+
+(UI should now be visible at localhost:3000)
+```
 
 #### Launching MLflow UI with MLflow AI Gateway for PromptLab
 
@@ -572,8 +595,8 @@ in a new file prefixed with `test_` so that `pytest` includes that file
 for testing.
 
 If your tests require usage of a tracking URI, the [pytest
-fixture](https://docs.pytest.org/en/3.2.1/fixture.html)
-[tracking_uri_mock](https://github.com/mlflow/mlflow/blob/master/tests/conftest.py#L74)
+fixture](https://docs.pytest.org/en/stable/explanation/fixtures.html)
+[`tracking_uri_mock`](https://github.com/mlflow/mlflow/blob/42c02c800a827fc1c78308ff017c31145143b52e/tests/conftest.py#L542)
 is automatically set up for every tests. It sets up a mock tracking URI
 that will set itself up before your test runs and tear itself down
 after.
@@ -653,7 +676,7 @@ below.
 
 ##### Building Protobuf Files
 
-To build protobuf files, simply run `python ./dev/generate_protos.py`. The required
+To build protobuf files, simply run `./dev/generate-protos.sh`. The required
 `protoc` version is `3.19.4`. You can find the URL of a
 system-appropriate installation of `protoc` at
 <https://github.com/protocolbuffers/protobuf/releases/tag/v3.19.4>, e.g.
@@ -686,60 +709,6 @@ These commands generate a new migration script (e.g., at
 `~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py`) that
 you should then edit to add migration logic.
 
-### Developing inside a Docker container (experimental)
-
-Instead of setting up local or virtual environment, it's possible to
-write code and tests inside a Docker container that will contain an
-isolated Python environment setup inside. It's possible to build and run
-preconfigured image, then attach with the compatible code editor (e.g.
-VSCode) into a running container. This helps avoiding issues with local
-setup, e.g. on CPU architectures that are not yet fully compatible with
-all dependency packages (e.g. Apple arm64 architecture).
-
-#### Prerequisites
-
-- Docker runtime installed on a local machine
-  (<https://docs.docker.com/get-docker/>)
-- Code editor compatible capable of running inside containers
-  - Example: VSCode (<https://code.visualstudio.com/download>) with
-    Remote Containers extension
-    (<https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers>)
-
-#### Setup
-
-Run the following command:
-
-```bash
-dev/run-test-container.sh
-```
-
-You will need to wait until the docker daemon will complete building the
-docker image. After successful build, the container will be
-automatically run with `mlflow-test` name. A new shell session running
-in container's context will start in the terminal window, do not close
-it.
-
-Now you can attach to the running container with your code editor.
-
-- Instructions for VSCode:
-
-  - invoke the command palette (`[Ctrl/CMD]+Shift+P`)
-  - find "Remote-Containers: Attach to Running Container..." option,
-    confirm with `Enter` key
-  - find the "mlflow-test" container, confirm with `Enter` key
-  - a new code editor should appear running inside the context of
-    Docker container
-  - you can now freely change source code and corresponding tests,
-    the changes will be reflected on your machine filesystem
-  - to run code or tests inside container, you can open a terminal
-    with `` [Ctrl/CMD]+Shift+` `` and run any
-    command which will be executed inside container, e.g.
-    `pytest tests/test_version.py`
-
-After typing `exit` in the terminal window that executed
-`dev/run-test-container.sh`, the container will be shut down and
-removed.
-
 ### Writing MLflow Examples
 
 The `mlflow/examples` directory has a collection of quickstart tutorials
@@ -758,7 +727,7 @@ If you are contributing a new model flavor, follow these steps:
     `mlflow/examples/new-model-flavor`
 3.  Implement your Python training `new-model-flavor` code in this
     directory
-4.  Convert this directory’s content into an [MLflow
+4.  Convert this directory's content into an [MLflow
     Project](https://mlflow.org/docs/latest/projects.html) executable
 5.  Add `README.md`, `MLproject`, and `conda.yaml` files and your code
 6.  Read instructions in the `mlflow/test/examples/README.md` and add a
@@ -832,11 +801,7 @@ For instructions on how to build the API docs, please check the [README.md](http
 
 The main MLflow docs (e.g. feature docs, tutorials, etc) are written using [Docusaurus](https://docusaurus.io/). The only prerequisite for building these docs is NodeJS >= 18.0. Please check out the [official NodeJS docs](https://nodejs.org/en/download) for platform-specific installation instructions.
 
-To get started, simply run `yarn && yarn start` from the [`docs/`](https://github.com/mlflow/mlflow/blob/master/docs/) folder. This will spin up a development server that can be viewed at `http://localhost:3000/` (by default). The source files (primarily `.MDX`) are located in the [`docs/docs/`](https://github.com/mlflow/mlflow/blob/master/docs/docs/) subfolder. Changes to these files should be automatically reflected in the development server!
-
-There are also some `.ipynb` files which serve as the source for some of our tutorials. These are converted to MDX via a custom script (`yarn convert-notebooks`). If you want to make changes to these, you will need to install the `nbconvert` Python package in order to preview your changes.
-
-For more detailed information, please check the [README.md](https://github.com/mlflow/mlflow/blob/master/docs/README.md) in the `docs/` folder. We're looking forward to your contributions!
+Please check the [README.md](https://github.com/mlflow/mlflow/blob/master/docs/README.md) in the `docs/` folder to get started. We're looking forward to your contributions!
 
 ### Sign your work
 

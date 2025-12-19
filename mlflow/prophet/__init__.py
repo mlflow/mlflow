@@ -15,7 +15,7 @@ Prophet (native) format
 import json
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -67,7 +67,17 @@ def get_default_pip_requirements():
     # to setup.py installation process.
     # If a pystan installation error occurs, ensure gcc>=8 is installed in your environment.
     # See: https://gcc.gnu.org/install/
-    return [_get_pinned_requirement("prophet")]
+    import prophet
+    from packaging.version import Version
+
+    pip_deps = [_get_pinned_requirement("prophet")]
+
+    # cmdstanpy>=1.3.0 is not compatible with prophet<=1.2.0
+    # https://github.com/facebook/prophet/issues/2697
+    if Version(prophet.__version__) <= Version("1.2.0"):
+        pip_deps.append("cmdstanpy<1.3.0")
+
+    return pip_deps
 
 
 def get_default_conda_env():
@@ -208,7 +218,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pr_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -218,12 +228,12 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
 ):
     """
     Logs a Prophet model as an MLflow artifact for the current run.
@@ -233,8 +243,7 @@ def log_model(
         artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
         signature: An instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -366,7 +375,7 @@ class _ProphetModelWrapper:
         """
         return self.pr_model
 
-    def predict(self, dataframe, params: Optional[dict[str, Any]] = None):
+    def predict(self, dataframe, params: dict[str, Any] | None = None):
         """
         Args:
             dataframe: Model input data.

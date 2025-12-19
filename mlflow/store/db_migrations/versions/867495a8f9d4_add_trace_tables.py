@@ -1,7 +1,5 @@
 """add trace tables
 
-Revision ID: 867495a8f9d4
-Revises: acf3f17fdcc7
 Create Date: 2024-04-27 12:29:25.178685
 
 """

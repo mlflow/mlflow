@@ -7,11 +7,14 @@ import logging
 import numbers
 import posixpath
 import re
-from typing import Optional
+import urllib.parse
+from typing import Any
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
+from mlflow.entities.webhook import WebhookEvent
 from mlflow.environment_variables import (
+    _MLFLOW_WEBHOOK_ALLOWED_SCHEMES,
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
     MLFLOW_TRUNCATE_LONG_VALUES,
 )
@@ -35,6 +38,9 @@ _REGISTERED_MODEL_ALIAS_REGEX = re.compile(r"^[\w\-]*$")
 
 # Regex for valid registered model alias to prevent conflict with version aliases.
 _REGISTERED_MODEL_ALIAS_VERSION_REGEX = re.compile(r"^[vV]\d+$")
+
+# The reserver "latest" alias name
+_REGISTERED_MODEL_ALIAS_LATEST = "latest"
 
 _BAD_ALIAS_CHARACTERS_MESSAGE = (
     "Names may only contain alphanumerics, underscores (_), and dashes (-)."
@@ -163,7 +169,7 @@ def bad_character_message():
 
 def path_not_unique(name):
     norm = posixpath.normpath(name)
-    return norm != name or norm == "." or norm.startswith("..") or norm.startswith("/")
+    return norm != str(name) or norm == "." or norm.startswith("..") or norm.startswith("/")
 
 
 def _validate_metric_name(name, path="name"):
@@ -472,6 +478,28 @@ def _validate_experiment_id_type(experiment_id):
         )
 
 
+def _validate_list_param(param_name: str, param_value: Any, allow_none: bool = False) -> None:
+    """
+    Validate that a parameter is a list and raise a helpful error if it isn't.
+
+    Args:
+        param_name: Name of the parameter being validated (e.g., "experiment_ids")
+        param_value: The value to validate
+        allow_none: If True, None is allowed. If False, None is treated as invalid.
+
+    Raises:
+        MlflowException: If the parameter is not a list (and not None when allow_none=True)
+    """
+    if allow_none and param_value is None:
+        return
+
+    if not isinstance(param_value, list):
+        raise MlflowException.invalid_parameter_value(
+            f"{param_name} must be a list, got {type(param_value).__name__}. "
+            f"Did you mean to use {param_name}=[{param_value!r}]?"
+        )
+
+
 def _validate_model_name(model_name):
     if model_name is None or model_name == "":
         raise MlflowException(missing_value("name"), error_code=INVALID_PARAMETER_VALUE)
@@ -506,6 +534,9 @@ def _validate_model_alias_name(model_alias_name):
         MAX_REGISTERED_MODEL_ALIAS_LENGTH,
         model_alias_name,
     )
+
+
+def _validate_model_alias_name_reserved(model_alias_name):
     if model_alias_name.lower() == "latest":
         raise MlflowException(
             "'latest' alias name (case insensitive) is reserved.",
@@ -649,7 +680,7 @@ def _validate_experiment_artifact_location_length(artifact_location: str):
         )
 
 
-def _validate_logged_model_name(name: Optional[str]) -> None:
+def _validate_logged_model_name(name: str | None) -> None:
     if name is None:
         return
 
@@ -660,3 +691,84 @@ def _validate_logged_model_name(name: Optional[str]) -> None:
             f"and cannot contain the following characters: {bad_chars}",
             INVALID_PARAMETER_VALUE,
         )
+
+
+_WEBHOOK_NAME_REGEX = re.compile(
+    r"^(?=.{1,63}$)"  # Total length between 1 and 63 characters
+    r"[a-z0-9]"  # Must start with letter or digit
+    r"([a-z0-9._-]*[a-z0-9])?$",  # Optional middle + end with letter/digit
+    re.IGNORECASE,
+)
+
+
+def _validate_webhook_name(name: str) -> None:
+    if not isinstance(name, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook name must be a string, got {type(name).__name__!r}"
+        )
+
+    if not _WEBHOOK_NAME_REGEX.fullmatch(name):
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook name {name!r} is invalid. It must start and end with a letter or digit, "
+            "be less than 63 characters long, and contain only letters, digits, dots (.), "
+            "underscores (_), and hyphens (-)."
+        )
+
+
+def _validate_webhook_url(url: str) -> None:
+    if not isinstance(url, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook URL must be a string, got {type(url).__name__!r}"
+        )
+
+    if not url.strip():
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook URL cannot be empty or just whitespace: {url!r}"
+        )
+
+    try:
+        parsed_url = urllib.parse.urlparse(url)
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value(f"Invalid webhook URL {url!r}: {e!r}") from e
+    schemes = _MLFLOW_WEBHOOK_ALLOWED_SCHEMES.get()
+    if parsed_url.scheme not in schemes:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid webhook URL scheme: {parsed_url.scheme!r}. "
+            f"Allowed schemes are: {', '.join(schemes)}."
+        )
+
+
+def _validate_webhook_events(events: list[WebhookEvent]) -> None:
+    if (
+        not events
+        or not isinstance(events, list)
+        or not all(isinstance(e, WebhookEvent) for e in events)
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook events must be a non-empty list of WebhookEvent objects: {events}."
+        )
+
+
+def _resolve_experiment_ids_and_locations(
+    experiment_ids: list[str] | None, locations: list[str] | None
+) -> list[str]:
+    if experiment_ids:
+        if locations:
+            raise MlflowException.invalid_parameter_value(
+                "`experiment_ids` is deprecated, use `locations` instead."
+            )
+        else:
+            locations = experiment_ids
+    if not locations:
+        return locations
+
+    if invalid_experiment_ids := [location for location in locations if "." in location]:
+        invalid_exp_ids_str = ", ".join(invalid_experiment_ids)
+        if len(invalid_exp_ids_str) > 20:
+            invalid_exp_ids_str = invalid_exp_ids_str[:20] + "..."
+        raise MlflowException.invalid_parameter_value(
+            "Locations must be a list of experiment IDs. "
+            f"Found invalid experiment IDs: {invalid_exp_ids_str}."
+        )
+
+    return locations

@@ -155,6 +155,7 @@ const gatewayErrorHandler = ({
   }
 };
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export class ModelGatewayService {
   static createEvaluationTextPayload(inputText: string, task: ModelGatewayRouteTask) {
     switch (task) {

@@ -10,18 +10,34 @@ from pydantic_ai.usage import Usage
 import mlflow
 import mlflow.pydantic_ai  # ensure the integration module is importable
 from mlflow.entities import SpanType
+from mlflow.pydantic_ai.autolog import (
+    _get_agent_attributes,
+    _get_mcp_server_attributes,
+    _get_model_attributes,
+    _get_tool_attributes,
+)
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 
 from tests.tracing.helper import get_traces
 
 PYDANTIC_AI_VERSION = Version(importlib.metadata.version("pydantic_ai"))
+# Usage was deprecated in favor of RequestUsage in 0.7.3
+IS_USAGE_DEPRECATED = PYDANTIC_AI_VERSION >= Version("0.7.3")
 
 _FINAL_ANSWER_WITHOUT_TOOL = "Paris"
 _FINAL_ANSWER_WITH_TOOL = "winner"
 
 
 def _make_dummy_response_without_tool():
+    # Usage was deprecated in favor of RequestUsage in 0.7.3
+    if IS_USAGE_DEPRECATED:
+        from pydantic_ai.usage import RequestUsage
+
     parts = [TextPart(content=_FINAL_ANSWER_WITHOUT_TOOL)]
-    usage = Usage(requests=1, request_tokens=1, response_tokens=1, total_tokens=2)
+    if IS_USAGE_DEPRECATED:
+        usage = RequestUsage(input_tokens=1, output_tokens=1)
+    else:
+        usage = Usage(requests=1, request_tokens=1, response_tokens=1, total_tokens=2)
     if PYDANTIC_AI_VERSION >= Version("0.2.0"):
         return ModelResponse(parts=parts, usage=usage)
     else:
@@ -30,10 +46,18 @@ def _make_dummy_response_without_tool():
 
 
 def _make_dummy_response_with_tool():
+    # Usage was deprecated in favor of RequestUsage in 0.7.3
+    if IS_USAGE_DEPRECATED:
+        from pydantic_ai.usage import RequestUsage
+
     call_parts = [ToolCallPart(tool_name="roulette_wheel", args={"square": 18})]
     final_parts = [TextPart(content=_FINAL_ANSWER_WITH_TOOL)]
-    usage_call = Usage(requests=0, request_tokens=10, response_tokens=20, total_tokens=30)
-    usage_final = Usage(requests=1, request_tokens=100, response_tokens=200, total_tokens=300)
+    if IS_USAGE_DEPRECATED:
+        usage_call = RequestUsage(input_tokens=10, output_tokens=20)
+        usage_final = RequestUsage(input_tokens=100, output_tokens=200)
+    else:
+        usage_call = Usage(requests=0, request_tokens=10, response_tokens=20, total_tokens=30)
+        usage_final = Usage(requests=1, request_tokens=100, response_tokens=200, total_tokens=300)
 
     if PYDANTIC_AI_VERSION >= Version("0.2.0"):
         call_resp = ModelResponse(parts=call_parts, usage=usage_call)
@@ -112,14 +136,37 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
 
     assert spans[0].name == "Agent.run_sync"
     assert spans[0].span_type == SpanType.AGENT
+    assert spans[0].get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "pydantic_ai"
+    outputs_0 = spans[0].get_attribute(SpanAttributeKey.OUTPUTS)
+    assert outputs_0 is not None
+    assert "_new_messages_serialized" in outputs_0
+    assert len(outputs_0["_new_messages_serialized"]) > 0
 
     assert spans[1].name == "Agent.run"
     assert spans[1].span_type == SpanType.AGENT
+    assert spans[1].get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "pydantic_ai"
+    outputs_1 = spans[1].get_attribute(SpanAttributeKey.OUTPUTS)
+    assert outputs_1 is not None
+    assert "_new_messages_serialized" in outputs_1
+    assert len(outputs_1["_new_messages_serialized"]) > 0
 
     span2 = spans[2]
     assert span2.name == "InstrumentedModel.request"
     assert span2.span_type == SpanType.LLM
     assert span2.parent_id == spans[1].span_id
+    assert span2.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "pydantic_ai"
+
+    assert span2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 1,
+        TokenUsageKey.OUTPUT_TOKENS: 1,
+        TokenUsageKey.TOTAL_TOKENS: 2,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "total_tokens": 2,
+    }
 
     with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
         mlflow.pydantic_ai.autolog(disable=True)
@@ -152,6 +199,18 @@ async def test_agent_run_enable_disable_autolog(simple_agent):
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == spans[0].span_id
 
+    assert span1.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 1,
+        TokenUsageKey.OUTPUT_TOKENS: 1,
+        TokenUsageKey.TOTAL_TOKENS: 2,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "total_tokens": 2,
+    }
+
 
 def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     sequence, resp = _make_dummy_response_with_tool()
@@ -180,19 +239,36 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     assert spans[1].span_type == SpanType.AGENT
 
     span2 = spans[2]
-    assert span2.name == "InstrumentedModel.request_1"
+    assert span2.name == "InstrumentedModel.request"
     assert span2.span_type == SpanType.LLM
     assert span2.parent_id == spans[1].span_id
 
     span3 = spans[3]
-    assert span3.name == "Tool.run"
     assert span3.span_type == SpanType.TOOL
     assert span3.parent_id == spans[1].span_id
 
     span4 = spans[4]
-    assert span4.name == "InstrumentedModel.request_2"
+    assert span4.name == "InstrumentedModel.request"
     assert span4.span_type == SpanType.LLM
     assert span4.parent_id == spans[1].span_id
+
+    assert span2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }
+
+    assert span4.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 200,
+        TokenUsageKey.TOTAL_TOKENS: 300,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 110,
+        "output_tokens": 220,
+        "total_tokens": 330,
+    }
 
 
 @pytest.mark.asyncio
@@ -220,26 +296,46 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
     assert spans[0].span_type == SpanType.AGENT
 
     span1 = spans[1]
-    assert span1.name == "InstrumentedModel.request_1"
+    assert span1.name == "InstrumentedModel.request"
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == spans[0].span_id
 
     span2 = spans[2]
-    assert span2.name == "Tool.run"
     assert span2.span_type == SpanType.TOOL
     assert span2.parent_id == spans[0].span_id
 
     span3 = spans[3]
-    assert span3.name == "InstrumentedModel.request_2"
+    assert span3.name == "InstrumentedModel.request"
     assert span3.span_type == SpanType.LLM
     assert span3.parent_id == spans[0].span_id
 
+    assert span1.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }
+
+    assert span3.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 200,
+        TokenUsageKey.TOTAL_TOKENS: 300,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 110,
+        "output_tokens": 220,
+        "total_tokens": 330,
+    }
+
 
 def test_agent_run_sync_failure(simple_agent):
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", side_effect=Exception):
+    with patch(
+        "pydantic_ai.models.instrumented.InstrumentedModel.request",
+        side_effect=ValueError("test error"),
+    ):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
-        with pytest.raises(Exception, match="e"):
+        with pytest.raises(ValueError, match="test error"):
             simple_agent.run_sync("France")
 
     traces = get_traces()
@@ -252,14 +348,97 @@ def test_agent_run_sync_failure(simple_agent):
     assert spans[0].span_type == SpanType.AGENT
     assert spans[1].name == "Agent.run"
     assert spans[1].span_type == SpanType.AGENT
-    assert spans[2].name == "InstrumentedModel.AsyncMock"
+    assert spans[2].name.startswith("InstrumentedModel.")
     assert spans[2].span_type == SpanType.LLM
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", side_effect=Exception):
+    with patch(
+        "pydantic_ai.models.instrumented.InstrumentedModel.request",
+        side_effect=ValueError("test error"),
+    ):
         mlflow.pydantic_ai.autolog(disable=True)
 
-        with pytest.raises(Exception):  # noqa
+        with pytest.raises(ValueError, match="test error"):
             simple_agent.run_sync("France")
 
     traces = get_traces()
     assert len(traces) == 1
+
+
+class _MockUnsafeClient:
+    _state = "open"
+
+    def __del__(self):
+        if self._state == "open":
+            pass
+
+
+@pytest.mark.parametrize(
+    ("getter_func", "mock_attrs", "expected_attrs", "excluded_attrs"),
+    [
+        (
+            _get_agent_attributes,
+            {"name": "test-agent", "system_prompt": "helpful", "retries": 3, "output_type": str},
+            {"name": "test-agent", "system_prompt": "helpful", "retries": 3, "output_type": "str"},
+            ["_client", "provider", "_internal_state"],
+        ),
+        (
+            _get_model_attributes,
+            {"model_name": "gpt-4", "name": "test-model"},
+            {"model_name": "gpt-4", "name": "test-model"},
+            ["client", "_client", "provider", "api_key", "callbacks"],
+        ),
+        (
+            _get_tool_attributes,
+            {"name": "my_tool", "description": "helpful", "max_retries": 2},
+            {"name": "my_tool", "description": "helpful", "max_retries": 2},
+            ["_internal", "func"],
+        ),
+        (
+            _get_mcp_server_attributes,
+            {"name": "my_server", "url": "http://localhost:8080"},
+            {"name": "my_server", "url": "http://localhost:8080"},
+            ["_client", "_session", "_internal"],
+        ),
+    ],
+)
+def test_attribute_getter_excludes_private_attrs(
+    getter_func, mock_attrs, expected_attrs, excluded_attrs
+):
+    class MockInstance:
+        pass
+
+    instance = MockInstance()
+    for key, value in mock_attrs.items():
+        setattr(instance, key, value)
+    for key in excluded_attrs:
+        setattr(instance, key, _MockUnsafeClient())
+
+    attrs = getter_func(instance)
+
+    for key, value in expected_attrs.items():
+        assert attrs[key] == value
+    for key in excluded_attrs:
+        assert key not in attrs
+
+
+def test_autolog_does_not_capture_client_references(simple_agent):
+    dummy = _make_dummy_response_without_tool()
+
+    async def request(self, *args, **kwargs):
+        return dummy
+
+    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+        mlflow.pydantic_ai.autolog(log_traces=True)
+        simple_agent.run_sync("France")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+
+    for span in spans:
+        attrs = span.attributes or {}
+        for key in attrs:
+            assert "client" not in key.lower() or key == "openai_client"
+            assert "provider" not in key.lower()
+            assert "_state" not in key.lower()
+            assert "httpx" not in key.lower()

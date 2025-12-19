@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow } from 'enzyme';
 import { PermissionDeniedView } from './PermissionDeniedView';
@@ -30,6 +31,6 @@ describe('PermissionDeniedView', () => {
 
   test('should render default message in h2 when no error message is passed', () => {
     wrapper = shallow(<PermissionDeniedView />);
-    expect(wrapper.find('[data-testid="error-message"]').text()).toBe(defaultMessage);
+    expect(wrapper.find('[data-testid="mlflow-error-message"]').text()).toBe(defaultMessage);
   });
 });

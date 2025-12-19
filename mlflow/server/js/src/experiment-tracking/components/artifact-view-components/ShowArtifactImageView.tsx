@@ -13,7 +13,7 @@ import {
   getLoggedModelArtifactLocationUrl,
 } from '../../../common/utils/ArtifactUtils';
 import { ImagePreviewGroup, Image } from '../../../shared/building_blocks/Image';
-import { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 
 type Props = {
@@ -29,6 +29,7 @@ const ShowArtifactImageView = ({
   getArtifact = getArtifactBytesContent,
   isLoggedModelsMode,
   loggedModelId,
+  entityTags,
 }: Props) => {
   const [isLoading, setIsLoading] = useState(true);
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -46,6 +47,7 @@ const ShowArtifactImageView = ({
         isLoggedModelsMode,
         loggedModelId,
         experimentId,
+        entityTags,
       },
       getArtifact,
     ).then((result: any) => {
@@ -54,7 +56,7 @@ const ShowArtifactImageView = ({
       setImageUrl(URL.createObjectURL(new Blob([new Uint8Array(result)], options)));
       setIsLoading(false);
     });
-  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId]);
+  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
 
   return (
     imageUrl && (

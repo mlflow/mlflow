@@ -11,22 +11,39 @@ import contextvars
 import functools
 import json
 import logging
+import os
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from opentelemetry import context as context_api
 from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
+from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
 import mlflow
+from mlflow.entities.trace_location import (
+    MlflowExperimentLocation,
+    TraceLocationBase,
+    UCSchemaLocation,
+)
+from mlflow.environment_variables import (
+    MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
+    MLFLOW_TRACE_SAMPLING_RATIO,
+    MLFLOW_USE_DEFAULT_TRACER_PROVIDER,
+)
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.config import reset_config
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination
+from mlflow.tracing.destination import TraceDestination, UserTraceDestinationRegistry
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
-from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
-from mlflow.utils.annotations import experimental
+from mlflow.tracing.utils.otlp import (
+    get_otlp_exporter,
+    should_export_otlp_metrics,
+    should_use_otlp_exporter,
+)
+from mlflow.tracing.utils.warning import suppress_warning
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
@@ -35,22 +52,67 @@ from mlflow.utils.databricks_utils import (
 if TYPE_CHECKING:
     from mlflow.entities import Span
 
-# Global tracer provider instance. We manage the tracer provider by ourselves instead of using
-# the global tracer provider provided by OpenTelemetry.
-_MLFLOW_TRACER_PROVIDER = None
-
-# Once() object ensures a function is executed only once in a process.
-# Note that it doesn't work as expected in a distributed environment.
-_MLFLOW_TRACER_PROVIDER_INITIALIZED = Once()
 
 # A trace destination specified by the user via the `set_destination` function.
-# This destination, when set, will take precedence over other configurations.
-_MLFLOW_TRACE_USER_DESTINATION = None
+_MLFLOW_TRACE_USER_DESTINATION = UserTraceDestinationRegistry()
+
 
 _logger = logging.getLogger(__name__)
 
 
-def start_span_in_context(name: str) -> trace.Span:
+class _TracerProviderWrapper:
+    """
+    A facade for the tracer provider.
+    MLflow uses different tracer providers depending on the MLFLOW_USE_DEFAULT_TRACER_PROVIDER
+    environment variable setting.
+    1. Use an isolated tracer provider instance managed by MLflow. This is the default behavior such
+       that MLflow does not break an environment where MLflow and OpenTelemetry SDK are used in
+       different purposes.
+    2. Use the global OpenTelemetry tracer provider singleton and traces created by MLflow and
+        OpenTelemetry SDK will be exported to the same destination.
+    """
+
+    def __init__(self):
+        self._isolated_tracer_provider = None
+        self._isolated_tracer_provider_once = Once()
+
+    @property
+    def once(self) -> Once:
+        if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+            return self._isolated_tracer_provider_once
+        return trace._TRACER_PROVIDER_SET_ONCE
+
+    def get(self) -> TracerProvider:
+        if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+            return self._isolated_tracer_provider
+        return trace.get_tracer_provider()
+
+    def set(self, tracer_provider: TracerProvider):
+        if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+            self._isolated_tracer_provider = tracer_provider
+        else:
+            # Bypass the once flag otherwise the update will be ignored.
+            # We check the once flag inside `get_or_init_tracer`. For other cases, trace provider
+            # should be forcibly updated.
+            trace._TRACER_PROVIDER = tracer_provider
+
+    def get_or_init_tracer(self, module_name: str) -> trace.Tracer:
+        self.once.do_once(_initialize_tracer_provider)
+        return self.get().get_tracer(module_name)
+
+    def reset(self):
+        if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+            self._isolated_tracer_provider = None
+            self._isolated_tracer_provider_once._done = False
+        else:
+            trace._TRACER_PROVIDER = None
+            trace._TRACER_PROVIDER_SET_ONCE._done = False
+
+
+provider = _TracerProviderWrapper()
+
+
+def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.Span:
     """
     Start a new OpenTelemetry span in the current context.
 
@@ -59,19 +121,32 @@ def start_span_in_context(name: str) -> trace.Span:
 
     Args:
         name: The name of the span.
+        experiment_id: The ID of the experiment to log the span to. If not specified, the span will
+            be logged to the active experiment or explicitly set trace destination.
 
     Returns:
         The newly created OpenTelemetry span.
     """
-    return _get_tracer(__name__).start_span(name)
+    attributes = {}
+    if experiment_id:
+        attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
+    span = _get_tracer(__name__).start_span(name, attributes=attributes)
+
+    if experiment_id and getattr(span, "_parent", None):
+        _logger.warning(
+            "The `experiment_id` parameter can only be used for root spans, but the span "
+            f"`{name}` is not a root span. The specified value `{experiment_id}` will be ignored."
+        )
+        span._span.attributes.pop(SpanAttributeKey.EXPERIMENT_ID, None)
+    return span
 
 
 def start_detached_span(
     name: str,
-    parent: Optional[trace.Span] = None,
-    experiment_id: Optional[str] = None,
-    start_time_ns: Optional[int] = None,
-) -> Optional[tuple[str, trace.Span]]:
+    parent: trace.Span | None = None,
+    experiment_id: str | None = None,
+    start_time_ns: int | None = None,
+) -> tuple[str, trace.Span] | None:
     """
     Start a new OpenTelemetry span that is not part of the current trace context, but with the
     explicit parent span ID if provided.
@@ -97,7 +172,15 @@ def start_detached_span(
         attributes[SpanAttributeKey.START_TIME_NS] = json.dumps(start_time_ns)
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
-    return tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
+    span = tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
+
+    if experiment_id and getattr(span, "_parent", None):
+        _logger.warning(
+            "The `experiment_id` parameter can only be used for root spans, but the span "
+            f"`{name}` is not a root span. The specified value `{experiment_id}` will be ignored."
+        )
+        span._span.attributes.pop(SpanAttributeKey.EXPERIMENT_ID, None)
+    return span
 
 
 @contextmanager
@@ -153,39 +236,83 @@ def detach_span_from_context(token: contextvars.Token):
     context_api.detach(token)
 
 
-@experimental(version="2.21.0")
-def set_destination(destination: TraceDestination):
+def set_destination(destination: TraceLocationBase, *, context_local: bool = False):
     """
-    Set a custom span destination to which MLflow will export the traces.
+    Set a custom span location to which MLflow will export the traces.
 
     A destination specified by this function will take precedence over
     other configurations, such as tracking URI, OTLP environment variables.
 
-    To reset the destination, call the :py:func:`mlflow.tracing.reset()` function.
-
     Args:
-        destination: A ``TraceDestination`` object that specifies the destination of the trace data.
+        destination: A trace location object that specifies the location of the trace data.
+            Currently, the following locations are supported:
+
+            - :py:class:`~mlflow.entities.trace_location.MlflowExperimentLocation`: Logs traces to
+                an MLflow experiment.
+            - :py:class:`~mlflow.entities.trace_location.UCSchemaLocation`: Logs traces to a
+                Databricks Unity Catalog schema. Only available in Databricks.
+
+        context_local: If False (default), the destination is set globally. If True, the destination
+            is isolated per async task or thread, providing isolation in concurrent applications.
 
     Example:
 
+        **Logging traces to MLflow Experiment:**
+
         .. code-block:: python
 
-            import mlflow
-            from mlflow.tracing.destination import MlflowExperiment
+            from mlflow.entities.trace_location import MlflowExperimentLocation
 
-            # Setting the destination to an MLflow experiment with ID "123"
-            mlflow.tracing.set_destination(MlflowExperiment(experiment_id="123"))
+            mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id="123"))
 
-            # Reset the destination (to an active experiment as default)
+        Note: This has the same effect as setting the active MLflow experiment via the
+        ``MLFLOW_EXPERIMENT_ID`` environment variable or the ``mlflow.set_experiment`` API,
+        but with narrower scope.
+
+        **Logging traces to Databricks Unity Catalog:**
+
+        .. code-block:: python
+
+            from mlflow.entities.trace_location import UCSchemaLocation
+
+            mlflow.tracing.set_destination(
+                UCSchemaLocation(catalog_name="catalog", schema_name="schema")
+            )
+
+        **Isolate the destination between async tasks or threads:**
+
+        .. code-block:: python
+
+            from mlflow.tracing.destination import Databricks
+
+            mlflow.tracing.set_destination(
+                MlflowExperimentLocation(experiment_id="123"),
+                context_local=True,
+            )
+
+        The destination set with the ``context_local`` flag will only be effective within the
+        current async task or thread. This is particularly useful when you want to send traces
+        to different destinations from a multi-tenant application.
+
+        ** Reset the destination:**
+
+        .. code-block:: python
+
             mlflow.tracing.reset()
+
     """
-    if not isinstance(destination, TraceDestination):
+    if isinstance(destination, TraceDestination):
+        # NB: Deprecation warnings are issued in the constructor of the destination classes
+        # so we don't need to issue a warning here.
+        destination = destination.to_location()
+
+    if not isinstance(destination, TraceLocationBase):
         raise MlflowException.invalid_parameter_value(
             f"Invalid destination type: {type(destination)}. "
-            "The destination must be an instance of TraceDestination."
+            "The destination must be an instance of TraceLocation."
         )
 
-    if isinstance(destination, Databricks) and (
+    if isinstance(destination, UCSchemaLocation) and (
         mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith("databricks")
     ):
         mlflow.set_tracking_uri("databricks")
@@ -194,94 +321,43 @@ def set_destination(destination: TraceDestination):
             "because the tracing destination is set to Databricks."
         )
 
-    # The destination needs to be persisted because the tracer setup can be re-initialized
-    # e.g. when the tracing is disabled and re-enabled, or tracking URI is changed, etc.
-    global _MLFLOW_TRACE_USER_DESTINATION
-    _MLFLOW_TRACE_USER_DESTINATION = destination
-
-    _setup_tracer_provider()
+    _MLFLOW_TRACE_USER_DESTINATION.set(destination, context_local=context_local)
+    _initialize_tracer_provider()
 
 
-def _get_tracer(module_name: str):
+def _get_tracer(module_name: str) -> trace.Tracer:
     """
     Get a tracer instance for the given module name.
 
     If the tracer provider is not initialized, this function will initialize the tracer provider.
     Other simultaneous calls to this function will block until the initialization is done.
     """
-    # Initiate tracer provider only once in the application lifecycle
-    _MLFLOW_TRACER_PROVIDER_INITIALIZED.do_once(_setup_tracer_provider)
-    return _MLFLOW_TRACER_PROVIDER.get_tracer(module_name)
+    return provider.get_or_init_tracer(module_name)
 
 
 def _get_trace_exporter():
     """
     Get the exporter instance that is used by the current tracer provider.
     """
-    if _MLFLOW_TRACER_PROVIDER:
-        processors = _MLFLOW_TRACER_PROVIDER._active_span_processor._span_processors
+    if tracer_provider := provider.get():
+        processors = tracer_provider._active_span_processor._span_processors
         # There should be only one processor used for MLflow tracing
         processor = processors[0]
         return processor.span_exporter
 
 
-def _setup_tracer_provider(disabled=False):
+def _initialize_tracer_provider(disabled=False):
     """
     Instantiate a tracer provider and set it as the global tracer provider.
 
     Note that this function ALWAYS updates the global tracer provider, regardless of the current
     state. It is the caller's responsibility to ensure that the tracer provider is initialized
-    only once, and update the _MLFLOW_TRACER_PROVIDER_INITIALIZED flag accordingly.
+    only once, and update the _INITIALIZED flag accordingly.
     """
-    global _MLFLOW_TRACER_PROVIDER
-
-    if disabled:
-        _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
+    processors = _get_span_processors(disabled=disabled)
+    if not processors:
+        provider.set(trace.NoOpTracerProvider())
         return
-
-    # TODO: Update this logic to pluggable registry where
-    #  1. Partners can implement span processor/exporter and destination class.
-    #  2. They can register their implementation to the registry via entry points.
-    #  3. MLflow will pick the implementation based on given destination id.
-    if _MLFLOW_TRACE_USER_DESTINATION is not None:
-        experiment_id = _MLFLOW_TRACE_USER_DESTINATION.experiment_id
-
-        tracking_uri = None
-        if isinstance(_MLFLOW_TRACE_USER_DESTINATION, MlflowExperiment):
-            tracking_uri = _MLFLOW_TRACE_USER_DESTINATION.tracking_uri
-
-        processor = _get_mlflow_span_processor(
-            tracking_uri=tracking_uri or mlflow.get_tracking_uri(), experiment_id=experiment_id
-        )
-
-    elif should_use_otlp_exporter():
-        # Export to OpenTelemetry Collector when configured
-        from mlflow.tracing.processor.otel import OtelSpanProcessor
-
-        exporter = get_otlp_exporter()
-        processor = OtelSpanProcessor(exporter)
-
-    elif is_in_databricks_model_serving_environment():
-        # Export to Inference Table when running in Databricks Model Serving
-        if not is_mlflow_tracing_enabled_in_model_serving():
-            _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
-            return
-
-        from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
-        from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
-
-        exporter = InferenceTableSpanExporter()
-        processor = InferenceTableSpanProcessor(exporter)
-
-    else:
-        # Default to MLflow Tracking Server
-        processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
-
-    tracer_provider = TracerProvider()
-    tracer_provider.add_span_processor(processor)
-    _MLFLOW_TRACER_PROVIDER = tracer_provider
-
-    from mlflow.tracing.utils.warning import suppress_warning
 
     # Demote the "Failed to detach context" log raised by the OpenTelemetry logger to DEBUG
     # level so that it does not show up in the user's console. This warning may indicate
@@ -297,8 +373,138 @@ def _setup_tracer_provider(disabled=False):
     suppress_warning("opentelemetry.sdk.trace", "Setting attribute on ended span")
     suppress_warning("opentelemetry.sdk.trace", "Calling end() on an ended span")
 
+    # NB: If otel resource env vars are set explicitly, don't create an empty resource
+    # so that they are propagated to otel spans.
+    otel_service_name = os.getenv("OTEL_SERVICE_NAME")
+    otel_resource_attributes = os.getenv("OTEL_RESOURCE_ATTRIBUTES")
+    resource = None
+    if not otel_service_name and not otel_resource_attributes:
+        # Setting an empty resource to avoid triggering resource aggregation, which causes
+        # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
+        # Add telemetry resource: https://opentelemetry.io/docs/specs/semconv/resource/#telemetry-sdk
+        resource = Resource(
+            {
+                "telemetry.sdk.language": "python",
+                "telemetry.sdk.name": "mlflow",
+                "telemetry.sdk.version": mlflow.__version__,
+            }
+        )
+    tracer_provider = TracerProvider(resource=resource, sampler=_get_trace_sampler())
+    for processor in processors:
+        tracer_provider.add_span_processor(processor)
 
-def _get_mlflow_span_processor(tracking_uri: str, experiment_id: Optional[str] = None):
+    provider.set(tracer_provider)
+
+
+def _get_trace_sampler() -> TraceIdRatioBased | None:
+    """
+    Get the sampler configuration based on environment variable.
+
+    Returns:
+        TraceIdRatioBased sampler or None for default sampling.
+    """
+    sampling_ratio = MLFLOW_TRACE_SAMPLING_RATIO.get()
+    if sampling_ratio is not None:
+        if not (0.0 <= sampling_ratio <= 1.0):
+            _logger.warning(
+                f"{MLFLOW_TRACE_SAMPLING_RATIO} must be between 0.0 and 1.0, got {sampling_ratio}. "
+                "Ignoring the invalid value and using default sampling (1.0)."
+            )
+            return None
+        return TraceIdRatioBased(sampling_ratio)
+    return None
+
+
+def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
+    """
+    Get the list of span processors based on configuration.
+
+    Args:
+        disabled: If True, returns an empty list of processors because tracing is disabled.
+
+    Returns:
+        List of span processors to be added to the TracerProvider.
+    """
+    if disabled:
+        return []
+
+    processors = []
+
+    # TODO: Update this logic to pluggable registry where
+    #  1. Partners can implement span processor/exporter and destination class.
+    #  2. They can register their implementation to the registry via entry points.
+    #  3. MLflow will pick the implementation based on given destination id.
+    if trace_destination := _MLFLOW_TRACE_USER_DESTINATION.get():
+        # In PrPr, users must set the destination to UCSchemaLocation to export traces to UC
+        if isinstance(trace_destination, UCSchemaLocation):
+            from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
+            from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
+
+            exporter = DatabricksUCTableSpanExporter(tracking_uri=mlflow.get_tracking_uri())
+            processor = DatabricksUCTableSpanProcessor(span_exporter=exporter)
+            processors.append(processor)
+
+        elif isinstance(trace_destination, MlflowExperimentLocation):
+            if is_in_databricks_model_serving_environment():
+                _logger.info(
+                    "Traces will be sent to the destination set by "
+                    "`mlflow.tracing.set_destination` API. To enable saving traces to "
+                    "both MLflow experiment and inference table, remove this API call "
+                    "from your model and set `MLFLOW_EXPERIMENT_ID` env var instead."
+                )
+            processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
+            processors.append(processor)
+
+        # Trace destination has highest precedence; definitely ignore defaults
+        # Ignore OTLP (unless dual export is set and we should use OTLP)
+        if not (should_use_otlp_exporter() and MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()):
+            return processors
+
+    # If no explicit trace destination OR we passed the dual exporter check, honor OTLP
+    # configuration.
+    if should_use_otlp_exporter():
+        from mlflow.tracing.processor.otel import OtelSpanProcessor
+
+        exporter = get_otlp_exporter()
+        otel_processor = OtelSpanProcessor(
+            span_exporter=exporter,
+            # Only export metrics from the Otel processor if dual export is not enabled.
+            # Otherwise, both Otel and MLflow processors will export metrics, causing
+            # duplication.
+            export_metrics=should_export_otlp_metrics()
+            and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get(),
+        )
+        processors.append(otel_processor)
+
+        # We have now added the OTLP processor.
+        # If dual export is not set, return.
+        # If dual export is set AND we have already added a set_destination processor, return.
+        # If dual export is set but no set_destination processor added, skip return and go
+        # to default processing to catch the default processor, if present.
+        if (not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()) or any(
+            not isinstance(p, OtelSpanProcessor) for p in processors
+        ):
+            return processors
+    # Finally, default MLflow-based processors (inference table in serving, else tracking URI).
+    if is_in_databricks_model_serving_environment():
+        if not is_mlflow_tracing_enabled_in_model_serving():
+            # May still return an OTLP processor from above, or nothing at all.
+            return processors
+
+        from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
+        from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
+
+        exporter = InferenceTableSpanExporter()
+        processor = InferenceTableSpanProcessor(exporter)
+        processors.append(processor)
+    else:
+        processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
+        processors.append(processor)
+
+    return processors
+
+
+def _get_mlflow_span_processor(tracking_uri: str):
     """
     Get the MLflow span processor instance that is used by the current tracer provider.
     """
@@ -307,7 +513,10 @@ def _get_mlflow_span_processor(tracking_uri: str, experiment_id: Optional[str] =
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
     exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
-    return MlflowV3SpanProcessor(exporter, experiment_id=experiment_id)
+    return MlflowV3SpanProcessor(
+        span_exporter=exporter,
+        export_metrics=should_export_otlp_metrics(),
+    )
 
 
 @raise_as_trace_exception
@@ -347,8 +556,8 @@ def disable():
     if not is_tracing_enabled():
         return
 
-    _setup_tracer_provider(disabled=True)
-    _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = True
+    _initialize_tracer_provider(disabled=True)
+    provider.once._done = True
 
 
 @raise_as_trace_exception
@@ -384,12 +593,12 @@ def enable():
         assert len(mlflow.search_traces()) == 2
 
     """
-    if is_tracing_enabled() and _MLFLOW_TRACER_PROVIDER_INITIALIZED.done:
+    if is_tracing_enabled() and provider.once._done:
         _logger.info("Tracing is already enabled")
         return
 
-    _setup_tracer_provider()
-    _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = True
+    _initialize_tracer_provider()
+    provider.once._done = True
 
 
 def trace_disabled(f):
@@ -420,11 +629,13 @@ def trace_disabled(f):
             if is_tracing_enabled():
                 disable()
                 try:
-                    is_func_called, result = True, f(*args, **kwargs)
+                    is_func_called = True
+                    result = f(*args, **kwargs)
                 finally:
                     enable()
             else:
-                is_func_called, result = True, f(*args, **kwargs)
+                is_func_called = True
+                result = f(*args, **kwargs)
         # We should only catch the exception from disable() and enable()
         # and let other exceptions propagate.
         except MlflowTracingException as e:
@@ -452,14 +663,13 @@ def reset():
     operation is performed.
     """
     # Set NoOp tracer provider to reset the global tracer to the initial state.
-    _setup_tracer_provider(disabled=True)
-    # Flip _MLFLOW_TRACE_PROVIDER_INITIALIZED flag to False so that
+    _initialize_tracer_provider(disabled=True)
+    # Flip the "once" flag to False so that
     # the next tracing operation will re-initialize the provider.
-    _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = False
+    provider.reset()
 
     # Reset the custom destination set by the user
-    global _MLFLOW_TRACE_USER_DESTINATION
-    _MLFLOW_TRACE_USER_DESTINATION = None
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
 
     # Reset the tracing configuration to defaults
     reset_config()
@@ -475,7 +685,7 @@ def is_tracing_enabled() -> bool:
     1. The default state (before any tracing operation)
     2. The tracer is not either ProxyTracer or NoOpTracer
     """
-    if not _MLFLOW_TRACER_PROVIDER_INITIALIZED.done:
+    if not provider.once._done:
         return True
 
     tracer = _get_tracer(__name__)

@@ -10,6 +10,7 @@ from typing import Any, Callable
 import requests
 
 from mlflow.environment_variables import (
+    _MLFLOW_DATABRICKS_TRAFFIC_ID,
     _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT,
     _MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT,
     MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT,
@@ -48,6 +49,8 @@ _UC_OSS_REST_API_PATH_PREFIX = "/api/2.1"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
 _V3_REST_API_PATH_PREFIX = "/api/3.0"
 _V3_TRACE_REST_API_PATH_PREFIX = f"{_V3_REST_API_PATH_PREFIX}/mlflow/traces"
+_V4_REST_API_PATH_PREFIX = "/api/4.0"
+_V4_TRACE_REST_API_PATH_PREFIX = f"{_V4_REST_API_PATH_PREFIX}/mlflow/traces"
 _ARMERIA_OK = "200 OK"
 _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
     "The 'retry_after_secs' parameter of DatabricksError is deprecated"
@@ -92,7 +95,7 @@ def http_request(
             in retry_codes range and retries have been exhausted.
         respect_retry_after_header: Whether to respect Retry-After header on status codes defined
             as Retry.RETRY_AFTER_STATUS_CODES or not.
-        retry_timeout_seconds: Timeout for retires. Only effective when using Databricks SDK.
+        retry_timeout_seconds: Timeout for retries. Only effective when using Databricks SDK.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     Returns:
@@ -110,6 +113,15 @@ def http_request(
         MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get() if backoff_jitter is None else backoff_jitter
     )
 
+    from mlflow.tracking.request_header.registry import resolve_request_headers
+
+    headers = dict(**resolve_request_headers())
+    if extra_headers:
+        headers = dict(**headers, **extra_headers)
+
+    if traffic_id := _MLFLOW_DATABRICKS_TRAFFIC_ID.get():
+        headers["x-databricks-traffic-id"] = traffic_id
+
     if host_creds.use_databricks_sdk:
         from databricks.sdk.errors import DatabricksError
 
@@ -119,6 +131,7 @@ def http_request(
             host_creds.token,
             host_creds.databricks_auth_profile,
             retry_timeout_seconds=retry_timeout_seconds,
+            timeout=timeout,
         )
 
         def make_sdk_call():
@@ -133,7 +146,7 @@ def http_request(
                 raw_response = ws_client.api_client.do(
                     method=method,
                     path=endpoint,
-                    headers=extra_headers,
+                    headers=headers,
                     raw=True,
                     query=kwargs.get("params"),
                     body=kwargs.get("json"),
@@ -203,12 +216,6 @@ def http_request(
             error_code=CUSTOMER_UNAUTHORIZED,
         )
 
-    from mlflow.tracking.request_header.registry import resolve_request_headers
-
-    headers = dict(**resolve_request_headers())
-    if extra_headers:
-        headers = dict(**headers, **extra_headers)
-
     if auth_str:
         headers["Authorization"] = auth_str
 
@@ -259,6 +266,7 @@ def get_workspace_client(
     token,
     databricks_auth_profile,
     retry_timeout_seconds=None,
+    timeout=None,
 ):
     from databricks.sdk import WorkspaceClient
     from databricks.sdk.config import Config
@@ -267,6 +275,8 @@ def get_workspace_client(
         kwargs = {"host": host, "token": token}
     else:
         kwargs = {"profile": databricks_auth_profile}
+    if timeout is not None:
+        kwargs["http_timeout_seconds"] = timeout
     config = Config(
         **kwargs,
         retry_timeout_seconds=retry_timeout_seconds
@@ -294,7 +304,8 @@ def http_request_safe(host_creds, endpoint, method, **kwargs):
 def verify_rest_response(response, endpoint):
     """Verify the return code and format, raise exception if the request was not successful."""
     # Handle Armeria-specific response case where response text is "200 OK"
-    if response.status_code == 200 and response.text.strip() == _ARMERIA_OK:
+    # v1/traces endpoint might return empty response
+    if response.status_code == 200 and response.text.strip() in (_ARMERIA_OK, ""):
         response._content = b"{}"  # Update response content to be an empty JSON dictionary
         return response
 
@@ -373,6 +384,27 @@ def _validate_backoff_factor(backoff_factor):
         )
 
 
+def validate_deployment_timeout_config(timeout: int | None, retry_timeout_seconds: int | None):
+    """
+    Validate that total retry timeout is not less than single request timeout.
+
+    Args:
+        timeout: Maximum time for a single HTTP request (in seconds)
+        retry_timeout_seconds: Maximum time for all retry attempts combined (in seconds)
+    """
+    if timeout is not None and retry_timeout_seconds is not None:
+        if retry_timeout_seconds < timeout:
+            warnings.warn(
+                f"MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT ({retry_timeout_seconds}s) is set "
+                f"lower than MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT ({timeout}s). This means the "
+                "total retry timeout could expire before a single request completes, causing "
+                "premature failures. For long-running predictions, ensure "
+                "MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT >= MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT. "
+                f"Recommended: Set MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT to at least {timeout}s.",
+                stacklevel=2,
+            )
+
+
 def _time_sleep(seconds: float) -> None:
     """
     This function is specifically mocked in `test_rest_utils.py` to test the backoff logic in
@@ -408,7 +440,7 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
     Raises:
         DatabricksError: If all retries are exhausted or non-retryable error occurs
     """
-    from databricks.sdk.errors import DatabricksError
+    from databricks.sdk.errors import STATUS_CODE_MAPPING, DatabricksError
 
     start_time = time.time()
     attempt = 0
@@ -418,8 +450,9 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
             return call_func()
         except DatabricksError as e:
             # Get HTTP status code from the error
-            status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
-
+            status_code = next(
+                (code for code, cls in STATUS_CODE_MAPPING.items() if isinstance(e, cls)), 500
+            )
             # Check if this is a retryable error
             if status_code not in retry_codes:
                 raise
@@ -483,7 +516,7 @@ def extract_all_api_info_for_service(service, path_prefix):
     return res
 
 
-def get_single_trace_endpoint(request_id, use_v3=False):
+def get_single_trace_endpoint(request_id, use_v3=True):
     """
     Get the endpoint for a single trace.
     For Databricks tracking URIs, use the V3 API.
@@ -498,74 +531,38 @@ def get_single_trace_endpoint(request_id, use_v3=False):
     return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}"
 
 
+def get_single_trace_endpoint_v4(location: str, trace_id: str) -> str:
+    """
+    Get the endpoint for a single trace using the V4 API.
+    """
+    return f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/{trace_id}"
+
+
+def get_single_assessment_endpoint_v4(location: str, trace_id: str, assessment_id: str) -> str:
+    """
+    Get the endpoint for a single assessment using the V4 API.
+    """
+    return f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/{trace_id}/assessments/{assessment_id}"
+
+
 def get_logged_model_endpoint(model_id: str) -> str:
     return f"{_REST_API_PATH_PREFIX}/mlflow/logged-models/{model_id}"
 
 
-def get_trace_info_endpoint(request_id):
-    return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}/info"
-
-
-def get_trace_assessment_endpoint(request_id, is_databricks=False):
-    """
-    Get the endpoint for a trace assessment.
-
-    Args:
-        request_id: The trace ID.
-        is_databricks: Whether the tracking URI is a Databricks URI.
-    """
-    return get_single_trace_endpoint(request_id, use_v3=is_databricks)
-
-
-def get_set_trace_tag_endpoint(request_id, is_databricks=False):
-    """
-    Get the endpoint for setting trace tags.
-
-    Args:
-        request_id: The trace ID.
-        is_databricks: Whether the tracking URI is a Databricks URI.
-    """
-    return f"{get_single_trace_endpoint(request_id, use_v3=is_databricks)}/tags"
-
-
-def get_create_assessment_endpoint(trace_id: str, is_databricks=False):
-    """
-    Get the endpoint for creating an assessment.
-
-    Args:
-        trace_id: The trace ID.
-        is_databricks: Whether the tracking URI is a Databricks URI.
-    """
-    if is_databricks:
-        return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments"
-    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments"
-
-
-def get_single_assessment_endpoint(trace_id: str, assessment_id: str, is_databricks=False):
+def get_single_assessment_endpoint(trace_id: str, assessment_id: str) -> str:
     """
     Get the endpoint for a single assessment.
 
     Args:
         trace_id: The trace ID.
         assessment_id: The assessment ID.
-        is_databricks: Whether the tracking URI is a Databricks URI.
     """
-    if is_databricks:
-        return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
-    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
+    return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
 
 
-def get_search_traces_v3_endpoint(is_databricks=False):
-    """
-    Return the endpoint for the SearchTraces API.
-
-    Args:
-        is_databricks: Whether the tracking URI is a Databricks URI. If True,
-                       returns the v3 endpoint, otherwise returns the v2 endpoint.
-    """
-    if is_databricks:
-        return f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
-    return f"{_TRACE_REST_API_PATH_PREFIX}/search"
+def get_trace_tag_endpoint(trace_id):
+    """Get the endpoint for trace tags. Always use v2 endpoint."""
+    return f"{_REST_API_PATH_PREFIX}/mlflow/traces/{trace_id}/tags"
 
 
 def call_endpoint(
@@ -711,6 +708,9 @@ class MlflowHostCreds:
         if isinstance(other, self.__class__):
             return self.__dict__ == other.__dict__
         return NotImplemented
+
+    def __hash__(self):
+        return hash(frozenset(self.__dict__.items()))
 
     @property
     def verify(self):

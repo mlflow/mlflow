@@ -1,5 +1,6 @@
 import { APILink } from "@site/src/components/APILink";
 import { CardGroup, PageCard } from "@site/src/components/Card";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # MLflow DSPy Flavor
 
@@ -58,17 +59,15 @@ A [signature](https://dspy.ai/learn/programming/signatures) is a natural languag
 
 #### `Optimizer`
 
-A [optimizer](https://dspy.ai/learn/optimization/optimizers) improves LM pipelines by adjusting modules to meet a performance metric, either by generating better prompts or fine-tuning models.
+An [optimizer](https://dspy.ai/learn/optimization/optimizers) improves LM pipelines by adjusting modules to meet a performance metric, either by generating better prompts or fine-tuning models.
 
 #### `Program`
 
 A program is a a set of modules connected into a pipeline to perform complex tasks. DSPy programs are flexible, allowing you to optimize and adapt them using the compiler.
 
-
 ## Automatic Tracing
 
-![DSPy Tracing via autolog](/images/llms/tracing/dspy-tracing.gif)
-
+<video src={useBaseUrl("/images/llms/tracing/dspy-tracing.mp4")} controls loop autoPlay muted aria-label="DSPy Tracing via autolog" />
 
 [MLflow Tracing](/genai/tracing) tracing is a powerful feature that allows you to monitor and debug your DSPy programs. With MLflow, you can enable auto tracing just by calling the <APILink fn="mlflow.dspy.autolog" /> function in your code.
 

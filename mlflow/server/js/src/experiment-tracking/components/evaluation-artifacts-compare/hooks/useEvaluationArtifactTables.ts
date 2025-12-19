@@ -1,6 +1,6 @@
 import { fromPairs } from 'lodash';
 import { useMemo } from 'react';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { extractLoggedTablesFromRunTags } from '../../../utils/ArtifactUtils';
 
 /**

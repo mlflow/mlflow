@@ -1,30 +1,36 @@
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
-import python from 'react-syntax-highlighter/dist/cjs/languages/prism/python';
+import go from 'react-syntax-highlighter/dist/cjs/languages/prism/go';
+import java from 'react-syntax-highlighter/dist/cjs/languages/prism/java';
+import javascript from 'react-syntax-highlighter/dist/cjs/languages/prism/javascript';
 import json from 'react-syntax-highlighter/dist/cjs/languages/prism/json';
-
-SyntaxHighlighter.registerLanguage('python', python);
-SyntaxHighlighter.registerLanguage('json', json);
-
+import python from 'react-syntax-highlighter/dist/cjs/languages/prism/python';
+import yaml from 'react-syntax-highlighter/dist/cjs/languages/prism/yaml';
+import sql from 'react-syntax-highlighter/dist/cjs/languages/prism/sql';
 import duotoneDarkStyle from './theme/databricks-duotone-dark';
 import lightStyle from './theme/databricks-light';
-import { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { pick } from 'lodash';
 
+SyntaxHighlighter.registerLanguage('sql', sql);
+SyntaxHighlighter.registerLanguage('java', java);
+SyntaxHighlighter.registerLanguage('python', python);
+SyntaxHighlighter.registerLanguage('go', go);
+SyntaxHighlighter.registerLanguage('javascript', javascript);
+SyntaxHighlighter.registerLanguage('yaml', yaml);
+SyntaxHighlighter.registerLanguage('json', json);
 export type CodeSnippetTheme = 'duotoneDark' | 'light';
-
 export const buttonBackgroundColorDark = 'rgba(140, 203, 255, 0)';
 export const buttonColorDark = 'rgba(255, 255, 255, 0.84)';
 export const buttonHoverColorDark = '#8ccbffcc';
 export const buttonHoverBackgroundColorDark = 'rgba(140, 203, 255, 0.08)';
 export const duboisAlertBackgroundColor = '#fff0f0';
 export const snippetPadding = '24px';
-
 const themesStyles: Record<CodeSnippetTheme, any> = {
   light: lightStyle,
   duotoneDark: duotoneDarkStyle,
 };
 
-export type CodeSnippetLanguage = 'python' | 'json' | 'text';
+export type CodeSnippetLanguage = 'sql' | 'java' | 'python' | 'javascript' | 'go' | 'yaml' | 'text' | 'json';
 
 export interface CodeSnippetProps {
   /**
@@ -57,9 +63,21 @@ export interface CodeSnippetProps {
    */
   lineNumberStyle?: CSSProperties;
   /**
-   * Whether or not to wrap long lines
+   * Boolean to specify whether to style the <code> block with white-space: pre-wrap or white-space: pre
    */
   wrapLongLines?: boolean;
+  /**
+   * Boolean that determines whether or not each line of code should be wrapped in a parent element
+   */
+  wrapLines?: boolean;
+  /**
+   * Props to pass to the line elements
+   */
+  lineProps?: React.HTMLProps<HTMLElement> | undefined;
+  /**
+   * Custom tag to use for the `<pre>` element
+   */
+  PreTag?: keyof JSX.IntrinsicElements | React.ComponentType<React.PropsWithChildren<any>> | undefined;
 }
 
 /**
@@ -74,6 +92,9 @@ export function CodeSnippet({
   showLineNumbers,
   lineNumberStyle,
   wrapLongLines,
+  wrapLines,
+  lineProps,
+  PreTag,
 }: CodeSnippetProps) {
   const customStyle = {
     border: 'none',
@@ -82,7 +103,6 @@ export function CodeSnippet({
     padding: snippetPadding,
     ...style,
   };
-
   return (
     <SyntaxHighlighter
       showLineNumbers={showLineNumbers}
@@ -93,9 +113,14 @@ export function CodeSnippet({
       codeTagProps={{
         style: pick(style, 'backgroundColor'),
       }}
+      lineProps={lineProps}
       wrapLongLines={wrapLongLines}
+      wrapLines={wrapLines}
+      PreTag={PreTag}
     >
       {children}
     </SyntaxHighlighter>
   );
 }
+
+export * from './actions/SnippetCopyAction';

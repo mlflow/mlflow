@@ -1,175 +1,283 @@
 ---
 sidebar_position: 2
 toc_max_heading_level: 4
-sidebar_label: Deep Learning Quickstart
+sidebar_label: Deep Learning
 ---
 
-import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import ImageBox from "@site/src/components/ImageBox";
 
 # Deep Learning Quickstart
 
-In this example, we demonstrate how to use MLflow 3 to track and evaluate deep learning models with a PyTorch-based Iris classifier.
-The example showcases how to **log checkpoints, link metrics to datasets, and rank models** based on performance metrics.
-With <APILink fn="mlflow.search_logged_models" /> you can easily find the best model based on the metric value.
+<ImageBox src="/images/tutorials/introductory/deep-learning/ui-system-metrics.png" alt="MLflow UI System metrics page" width="80%" />
+
+In this tutorial, we demonstrate how to use MLflow to track deep learning experiments with Pytorch. By combining MLflow
+
+- Save **checkpoints** with metrics.
+- Visualize the **loss curve** during training.
+- Monitor **system metrics** such as GPU utilization, memory footprint, disk usage, network, etc.
+- Record **hyperparameters** and optimizer settings.
+- Snapshot **library versions** for reproducibility.
+
+## Prerequisites: Set up MLflow and Pytorch
+
+MLflow is available on PyPI. Install MLflow and Pytorch with:
+
+```bash
+pip install mlflow torch torchvision
+```
+
+Then, follow the instructions in the [Set Up MLflow](/ml/getting-started/running-notebooks) guide to set up MLflow.
+
+## Step 1: Create a new experiment
+
+Create a new MLflow experiment for the tutorial and enable system metrics monitoring. Here we set the monitoring interval to 1 second because the training will be quick, but for longer training runs, you can set it to a larger value.
 
 ```python
-import pandas as pd
+import mlflow
+
+# The set_experiment API creates a new experiment if it doesn't exist.
+mlflow.set_experiment("Deep Learning Experiment")
+
+# IMPORTANT: Enable system metrics monitoring
+mlflow.config.enable_system_metrics_logging()
+mlflow.config.set_system_metrics_sampling_interval(1)
+```
+
+## Step 2: Prepare the dataset
+
+In this example, we will use the FashionMNIST dataset, which is a collection of 28x28 grayscale images of 10 different types of clothing.
+
+```python
 import torch
 import torch.nn as nn
-from sklearn.datasets import load_iris
-from sklearn.model_selection import train_test_split
+import torch.optim as optim
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
 
-import mlflow
-import mlflow.pytorch
-from mlflow.entities import Dataset
-
-
-# Helper function to prepare data
-def prepare_data(df):
-    X = torch.tensor(df.iloc[:, :-1].values, dtype=torch.float32)
-    y = torch.tensor(df.iloc[:, -1].values, dtype=torch.long)
-    return X, y
-
-
-# Helper function to compute accuracy
-def compute_accuracy(model, X, y):
-    with torch.no_grad():
-        outputs = model(X)
-        _, predicted = torch.max(outputs, 1)
-        accuracy = (predicted == y).sum().item() / y.size(0)
-    return accuracy
-
-
-# Define a basic PyTorch classifier
-class IrisClassifier(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
-        super().__init__()
-        self.fc1 = nn.Linear(input_size, hidden_size)
-        self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(hidden_size, output_size)
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.relu(x)
-        x = self.fc2(x)
-        return x
-
-
-# Load Iris dataset and prepare the DataFrame
-iris = load_iris()
-iris_df = pd.DataFrame(data=iris.data, columns=iris.feature_names)
-iris_df["target"] = iris.target
-
-# Split into training and testing datasets
-train_df, test_df = train_test_split(iris_df, test_size=0.2, random_state=42)
-
-# Prepare training data
-train_dataset = mlflow.data.from_pandas(train_df, name="train")
-X_train, y_train = prepare_data(train_dataset.df)
-
-# Define the PyTorch model and move it to the device
-input_size = X_train.shape[1]
-hidden_size = 16
-output_size = len(iris.target_names)
+# Define device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-scripted_model = IrisClassifier(input_size, hidden_size, output_size).to(device)
-scripted_model = torch.jit.script(scripted_model)
 
-# Start a run to represent the training job
-with mlflow.start_run() as run:
-    # Load the training dataset with MLflow. We will link training metrics to this dataset.
-    train_dataset: Dataset = mlflow.data.from_pandas(train_df, name="train")
-    X_train, y_train = prepare_data(train_dataset.df)
-
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(scripted_model.parameters(), lr=0.01)
-
-    for epoch in range(101):
-        X_train, y_train = X_train.to(device), y_train.to(device)
-        out = scripted_model(X_train)
-        loss = criterion(out, y_train)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        # Log a checkpoint with metrics every 10 epochs
-        if epoch % 10 == 0:
-            # Each newly created LoggedModel checkpoint is linked with its name and step
-            model_info = mlflow.pytorch.log_model(
-                pytorch_model=scripted_model,
-                name=f"torch-iris-{epoch}",
-                step=epoch,
-                input_example=X_train.numpy(),
-            )
-            # log params to the run, LoggedModel inherits those params
-            mlflow.log_params(
-                params={
-                    "n_layers": 3,
-                    "activation": "ReLU",
-                    "criterion": "CrossEntropyLoss",
-                    "optimizer": "Adam",
-                }
-            )
-            # Log metric on training dataset at step and link to LoggedModel
-            mlflow.log_metric(
-                key="accuracy",
-                value=compute_accuracy(scripted_model, X_train, y_train),
-                step=epoch,
-                model_id=model_info.model_id,
-                dataset=train_dataset,
-            )
+# Load and prepare data
+transform = transforms.Compose(
+    [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+)
+train_dataset = datasets.FashionMNIST(
+    "data", train=True, download=True, transform=transform
+)
+test_dataset = datasets.FashionMNIST("data", train=False, transform=transform)
+train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=1000)
 ```
 
-In the run page, you can see the logged models generated, and the model names follow the pattern of `torch-iris-<epoch>`:
+## Step 3: Define the model and optimizer
 
-<div className="center-div" style={{ width: "100%" }}>
-  ![The MLflow UI showing the run page with logged
-  models](/images/mlflow-3/deep-learning/run_page.png)
-</div>
-
-The logged models also show up in the **Models** tab of the experiment, including their dataset, parameters and metrics:
-
-<div className="center-div" style={{ width: "100%" }}>
-  ![The MLflow UI showing the logged models
-  tab](/images/mlflow-3/deep-learning/logged_models.png)
-</div>
-
-Use **<APILink fn="mlflow.search_logged_models" />** to search the logged models attached to the run, ordering them by the `accuracy` metric value to easily fetch the best and worst models:
+Define a simple MLP model with 2 hidden layers.
 
 ```python
-ranked_checkpoints = mlflow.search_logged_models(
-    filter_string=f"source_run_id='{run.info.run_id}'",
-    order_by=[{"field_name": "metrics.accuracy", "ascending": False}],
-    output_format="list",
-)
+import torch.nn as nn
 
-best_checkpoint = ranked_checkpoints[0]
-print(f"Best model: {best_checkpoint}")
-print(best_checkpoint.metrics)
 
-# Best model: <LoggedModel: artifact_location='file:///Users/serena.ruan/Documents/repos/mlflow-3-doc/mlruns/0/models/41bd5a16-25a6-447b-90e0-0f7b7e5cb6cf/artifacts', creation_timestamp=1743734069924, experiment_id='0', last_updated_timestamp=1743734075018, metrics=[<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='41bd5a16-25a6-447b-90e0-0f7b7e5cb6cf', run_id='12f143a7fda1461e9240d7ffad4ea5bd', step=100, timestamp=1743734075029, value=0.975>], model_id='41bd5a16-25a6-447b-90e0-0f7b7e5cb6cf', model_type='', model_uri='models:/41bd5a16-25a6-447b-90e0-0f7b7e5cb6cf', name='torch-iris-100', params={'activation': 'ReLU',
-#  'criterion': 'CrossEntropyLoss',
-#  'n_layers': '3',
-#  'optimizer': 'Adam'}, source_run_id='12f143a7fda1461e9240d7ffad4ea5bd', status=<LoggedModelStatus.READY: 'READY'>, status_message='', tags={'mlflow.source.git.commit': '7324c807f07a1766d4b951733e3d723504b4576e',
-#  'mlflow.source.name': 'a.py',
-#  'mlflow.source.type': 'LOCAL',
-#  'mlflow.user': 'serena.ruan'}>
-# [<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='41bd5a16-25a6-447b-90e0-0f7b7e5cb6cf', run_id='12f143a7fda1461e9240d7ffad4ea5bd', step=100, timestamp=1743734075029, value=0.975>]
+class NeuralNetwork(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.flatten = nn.Flatten()
+        self.linear_relu_stack = nn.Sequential(
+            nn.Linear(28 * 28, 512),
+            nn.ReLU(),
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, 10),
+        )
 
-worst_checkpoint = ranked_checkpoints[-1]
-print(f"Worst model: {worst_checkpoint}")
-print(worst_checkpoint.metrics)
+    def forward(self, x):
+        x = self.flatten(x)
+        logits = self.linear_relu_stack(x)
+        return logits
 
-# Worst model: <LoggedModel: artifact_location='file:///Users/serena.ruan/Documents/repos/mlflow-3-doc/mlruns/0/models/0d789084-9a3b-4b85-9d43-6a148c014b7e/artifacts', creation_timestamp=1743734016290, experiment_id='0', last_updated_timestamp=1743734022728, metrics=[<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='0d789084-9a3b-4b85-9d43-6a148c014b7e', run_id='12f143a7fda1461e9240d7ffad4ea5bd', step=0, timestamp=1743734022737, value=0.3>], model_id='0d789084-9a3b-4b85-9d43-6a148c014b7e', model_type='', model_uri='models:/0d789084-9a3b-4b85-9d43-6a148c014b7e', name='torch-iris-0', params={}, source_run_id='12f143a7fda1461e9240d7ffad4ea5bd', status=<LoggedModelStatus.READY: 'READY'>, status_message='', tags={'mlflow.source.git.commit': '7324c807f07a1766d4b951733e3d723504b4576e',
-#  'mlflow.source.name': 'a.py',
-#  'mlflow.source.type': 'LOCAL',
-#  'mlflow.user': 'serena.ruan'}>
-# [<Metric: dataset_digest='1f1c13b5', dataset_name='train', key='accuracy', model_id='0d789084-9a3b-4b85-9d43-6a148c014b7e', run_id='12f143a7fda1461e9240d7ffad4ea5bd', step=0, timestamp=1743734022737, value=0.3>]
+
+model = NeuralNetwork().to(device)
 ```
 
-Artifacts of the model can be viewed on the **Artifacts** tab of the model page:
+Then, define the training parameters and optimizer.
 
-<div className="center-div" style={{ width: "100%" }}>
-  ![The MLflow UI showing the model
-  artifacts](/images/mlflow-3/deep-learning/model_artifacts.png)
-</div>
+```python
+# Training parameters
+params = {
+    "epochs": 5,
+    "learning_rate": 1e-3,
+    "batch_size": 64,
+    "optimizer": "SGD",
+    "model_type": "MLP",
+    "hidden_units": [512, 512],
+}
+
+# Define optimizer and loss function
+loss_fn = nn.CrossEntropyLoss()
+optimizer = optim.SGD(model.parameters(), lr=params["learning_rate"])
+```
+
+## Step 4: Train the model
+
+Now we are ready to train the model. Inside the training loop, we log the metrics and checkpoints to MLflow. The key points in this code are:
+
+- Initiate an MLflow **run** context to start a new run that we will log the model and metadata to.
+- Log training parameters using `mlflow.log_params`.
+- Log various metrics using `mlflow.log_metrics`.
+- Save checkpoints for each epoch using `mlflow.pytorch.log_model`.
+
+```python
+with mlflow.start_run() as run:
+    # Log training parameters
+    mlflow.log_params(params)
+
+    for epoch in range(params["epochs"]):
+        model.train()
+        train_loss, correct, total = 0, 0, 0
+
+        for batch_idx, (data, target) in enumerate(train_loader):
+            data, target = data.to(device), target.to(device)
+
+            # Forward pass
+            optimizer.zero_grad()
+            output = model(data)
+            loss = loss_fn(output, target)
+
+            # Backward pass
+            loss.backward()
+            optimizer.step()
+
+            # Calculate metrics
+            train_loss += loss.item()
+            _, predicted = output.max(1)
+            total += target.size(0)
+            correct += predicted.eq(target).sum().item()
+
+            # Log batch metrics (every 100 batches)
+            if batch_idx % 100 == 0:
+                batch_loss = train_loss / (batch_idx + 1)
+                batch_acc = 100.0 * correct / total
+                mlflow.log_metrics(
+                    {"batch_loss": batch_loss, "batch_accuracy": batch_acc},
+                    step=epoch * len(train_loader) + batch_idx,
+                )
+
+        # Calculate epoch metrics
+        epoch_loss = train_loss / len(train_loader)
+        epoch_acc = 100.0 * correct / total
+
+        # Validation
+        model.eval()
+        val_loss, val_correct, val_total = 0, 0, 0
+        with torch.no_grad():
+            for data, target in test_loader:
+                data, target = data.to(device), target.to(device)
+                output = model(data)
+                loss = loss_fn(output, target)
+
+                val_loss += loss.item()
+                _, predicted = output.max(1)
+                val_total += target.size(0)
+                val_correct += predicted.eq(target).sum().item()
+
+        # Calculate and log epoch validation metrics
+        val_loss = val_loss / len(test_loader)
+        val_acc = 100.0 * val_correct / val_total
+
+        # Log epoch metrics
+        mlflow.log_metrics(
+            {
+                "train_loss": epoch_loss,
+                "train_accuracy": epoch_acc,
+                "val_loss": val_loss,
+                "val_accuracy": val_acc,
+            },
+            step=epoch,
+        )
+        # Log checkpoint at the end of each epoch
+        mlflow.pytorch.log_model(model, name=f"checkpoint_{epoch}")
+
+        print(
+            f"Epoch {epoch+1}/{params['epochs']}, "
+            f"Train Loss: {epoch_loss:.4f}, Train Acc: {epoch_acc:.2f}%, "
+            f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%"
+        )
+
+    # Log the final trained model
+    model_info = mlflow.pytorch.log_model(model, name="final_model")
+```
+
+## Step 5: View the training results in the MLflow UI
+
+To see the results of training, you can access the MLflow UI by navigating to the URL of the Tracking Server. If you have not started one, open a new terminal and run the following command at the root of the MLflow project and access the UI at http://localhost:5000 (or the port number you specified).
+
+```bash
+mlflow server --port 5000
+```
+
+When opening the site, you will see a screen similar to the following:
+
+<ImageBox src="/images/tutorials/introductory/deep-learning/ui-home.png" alt="MLflow UI Home page" />
+
+The "Experiments" section shows a list of (recently created) experiments. Click on the "Deep Learning Experiment" experiment we've created for this tutorial.
+
+<ImageBox src="/images/tutorials/introductory/hyperparameter-tuning/ui-run-list.png" alt="MLflow UI Run list page" />
+
+Click the Run in the table to view the details of the run. The overview page shows metadata such as the run duration, start time, training parameters, tags, etc. Navigate to the **Model metrics** and **System metrics** tabs to view the performance and system metrics logged during training.
+
+<Tabs>
+  <TabItem value="overview" label="Overview">
+    <ImageBox src="/images/tutorials/introductory/deep-learning/ui-run-overview.png" alt="MLflow UI Overview page" />
+  </TabItem>
+  <TabItem value="model-metrics" label="Model Metrics" default>
+    <ImageBox src="/images/tutorials/introductory/deep-learning/ui-model-metrics.png" alt="MLflow UI Model metrics page" />
+  </TabItem>
+  <TabItem value="system-metrics" label="System Metrics">
+    <ImageBox src="/images/tutorials/introductory/deep-learning/ui-system-metrics.png" alt="MLflow UI System metrics page" />
+  </TabItem>
+</Tabs>
+
+## Step 6: Load back the model and run inference
+
+You can load the final model or checkpoint from MLflow using the `mlflow.pytorch.load_model` function. Let's run the loaded model on the test set and evaluate the performance.
+
+```python
+# Load the final model
+model = mlflow.pytorch.load_model("runs:/<run_id>/final_model")
+# or load a checkpoint
+# model = mlflow.pytorch.load_model("runs:/<run_id>/checkpoint_<epoch>")
+model.to(device)
+model.eval()
+
+# Resume the previous run to log test metrics
+with mlflow.start_run(run_id=run.info.run_id) as run:
+    # Evaluate the model on the test set
+    test_loss, test_correct, test_total = 0, 0, 0
+    with torch.no_grad():
+        for data, target in test_loader:
+            data, target = data.to(device), target.to(device)
+        output = model(data)
+        loss = loss_fn(output, target)
+
+        test_loss += loss.item()
+        _, predicted = output.max(1)
+        test_total += target.size(0)
+        test_correct += predicted.eq(target).sum().item()
+
+    # Calculate and log final test metrics
+    test_loss = test_loss / len(test_loader)
+    test_acc = 100.0 * test_correct / test_total
+
+    mlflow.log_metrics({"test_loss": test_loss, "test_accuracy": test_acc})
+    print(f"Final Test Accuracy: {test_acc:.2f}%")
+```
+
+## Next Steps
+
+Congratulations on working through the MLflow Deep Learning Quickstart! You should now have a basic understanding of how to combine MLflow with deep learning frameworks such as PyTorch to track your experiments and models.
+
+- [MLflow for Deep Learning](/ml/deep-learning): Learn more about MLflow integration with deep learning frameworks.
+- [MLflow for GenAI](/genai): Learn how to use MLflow for GenAI/LLM development.
+- [MLflow Tracking](/ml/tracking/): Learn more about the MLflow Tracking APIs.
+- [Self-hosting Guide](/self-hosting): Learn how to self-host the MLflow Tracking Server and set it up for team collaboration.

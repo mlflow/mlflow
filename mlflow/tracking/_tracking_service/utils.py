@@ -2,23 +2,62 @@ import logging
 import os
 from collections import OrderedDict
 from contextlib import contextmanager
-from functools import partial
+from functools import lru_cache, partial
 from pathlib import Path
-from typing import Generator, Union
+from typing import Generator
 
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_TRACKING_URI
+from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.provider import reset
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME, _OSS_UNITY_CATALOG_SCHEME
+from mlflow.utils.uri import (
+    _DATABRICKS_UNITY_CATALOG_SCHEME,
+    _OSS_UNITY_CATALOG_SCHEME,
+    get_uri_scheme,
+)
 
 _logger = logging.getLogger(__name__)
 _tracking_uri = None
+
+
+def _has_existing_mlruns_data() -> bool:
+    """
+    Returns True if mlruns contains experiment data (meta.yaml files).
+
+    This check is used to maintain backward compatibility when switching the default
+    tracking URI from file-based storage to SQLite. If existing mlruns data is detected,
+    the default remains as file-based storage to avoid breaking existing workflows.
+    """
+    from mlflow.store.tracking.file_store import FileStore
+
+    mlruns_path = Path(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
+    if not mlruns_path.exists():
+        return False
+
+    try:
+        for item in mlruns_path.iterdir():
+            if item.is_dir() and item.name.isdigit():
+                for f in item.iterdir():
+                    if f.name == FileStore.META_DATA_FILE_NAME:
+                        return True
+    except (OSError, PermissionError):
+        return False
+
+    return False
+
+
+def _get_default_tracking_uri() -> str:
+    return (
+        DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        if _has_existing_mlruns_data()
+        else DEFAULT_TRACKING_URI
+    )
 
 
 def is_tracking_uri_set():
@@ -28,7 +67,7 @@ def is_tracking_uri_set():
     return False
 
 
-def set_tracking_uri(uri: Union[str, Path]) -> None:
+def set_tracking_uri(uri: str | Path) -> None:
     """
     Set the tracking server URI. This does not affect the
     currently active run (if one exists), but takes effect for successive runs.
@@ -119,14 +158,17 @@ def get_tracking_uri() -> str:
 
     .. code-block:: text
 
-        Current tracking uri: file:///.../mlruns
+        Current tracking uri: sqlite:///mlflow.db
     """
     if _tracking_uri is not None:
         return _tracking_uri
     elif uri := MLFLOW_TRACKING_URI.get():
         return uri
     else:
-        return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
+        default_uri = _get_default_tracking_uri()
+        if default_uri == DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH:
+            return path_to_local_file_uri(os.path.abspath(default_uri))
+        return default_uri
 
 
 def _get_file_store(store_uri, **_):
@@ -148,7 +190,7 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    return RestStore(partial(get_databricks_host_creds, store_uri))
+    return DatabricksTracingRestStore(partial(get_databricks_host_creds, store_uri))
 
 
 def _get_databricks_uc_rest_store(store_uri, **_):
@@ -209,6 +251,26 @@ _register_tracking_stores()
 
 def _get_store(store_uri=None, artifact_uri=None):
     return _tracking_store_registry.get_store(store_uri, artifact_uri)
+
+
+def _get_tracking_scheme(store_uri=None) -> str:
+    resolved_store_uri = _resolve_tracking_uri(store_uri)
+    return _get_tracking_scheme_with_resolved_uri(resolved_store_uri)
+
+
+@lru_cache(maxsize=100)
+def _get_tracking_scheme_with_resolved_uri(resolved_store_uri: str) -> str:
+    scheme = (
+        resolved_store_uri
+        if resolved_store_uri in {"databricks", "databricks-uc", "uc"}
+        else get_uri_scheme(resolved_store_uri)
+    )
+    builder = _tracking_store_registry._registry.get(scheme)
+    if builder is None:
+        return "None"
+    if builder.__module__.split(".", 1)[0] != "mlflow":
+        return "custom_scheme"
+    return scheme
 
 
 _artifact_repos_cache = OrderedDict()

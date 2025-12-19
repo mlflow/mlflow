@@ -35,29 +35,6 @@ def my_function(input_data):
 
 MLflow provides automatic tracing (autolog) for 20+ popular libraries. See the complete list at [Automatic Tracing Integrations](/genai/tracing/integrations).
 
-### Q: Can I add tracing to custom libraries or unsupported frameworks?
-
-Yes, you can add tracing to any Python code using manual tracing APIs:
-
-**Decorators** for functions:
-```python
-@mlflow.trace(name="Custom Operation")
-def my_custom_function():
-    return "result"
-```
-
-**Context managers** for code blocks:
-```python
-with mlflow.start_span(name="Custom Processing") as span:
-    result = custom_processing()
-    span.set_outputs({"result": result})
-```
-
-**Function wrapping** for third-party libraries:
-```python
-traced_function = mlflow.trace(third_party_function)
-```
-
 ## User Interface and Jupyter Integration
 
 ### Q: Can I view traces directly in Jupyter notebooks?
@@ -85,6 +62,7 @@ my_function()
 ```
 
 To control the display:
+
 ```python
 # Disable notebook display
 mlflow.tracing.disable_notebook_display()
@@ -112,48 +90,6 @@ def predict(messages: list[dict]) -> str:
     return result
 ```
 
-## Tags and Metadata
-
-### Q: How do I add tags to traces?
-
-There are several ways to add tags depending on when you want to set them:
-
-**During execution** (for active traces):
-```python
-@mlflow.trace
-def my_func(x):
-    mlflow.update_current_trace(tags={"user_id": "123", "session": "abc"})
-    return x + 1
-```
-
-**After completion** (for finished traces):
-```python
-from mlflow.client import MlflowClient
-
-client = MlflowClient()
-client.set_trace_tag(trace_id="trace_id", key="tag_key", value="tag_value")
-```
-
-**Via the MLflow UI**: Click the pencil icon next to tags in the trace view to edit them directly.
-
-### Q: What are the standard MLflow tags I should use?
-
-MLflow provides standard tags for common use cases:
-
-- `mlflow.trace.user`: Associate traces with specific users
-- `mlflow.trace.session`: Group traces from multi-turn conversations
-
-```python
-mlflow.update_current_trace(
-    tags={
-        "mlflow.trace.user": "user-123",
-        "mlflow.trace.session": "session-abc-456",
-        "environment": "production",
-        "app_version": "1.0.0",
-    }
-)
-```
-
 ## Production and Performance
 
 ### Q: Can I use MLflow Tracing for production applications?
@@ -161,7 +97,6 @@ mlflow.update_current_trace(
 Yes, MLflow Tracing is stable and designed to be used in production environments.
 
 When using MLflow Tracing in production environments, we recommend using the [MLflow Tracing SDK](https://pypi.org/project/mlflow-tracing/) (`mlflow-tracing`) to instrument your code/models/agents with a minimal set of dependencies and a smaller installation footprint. The SDK is designed to be a perfect fit for production environments where you want an efficient and lightweight tracing solution. Please refer to the [Production Monitoring](/genai/tracing/prod-tracing) section for more details.
-
 
 ### Q: How do I enable asynchronous trace logging?
 
@@ -186,11 +121,95 @@ mlflow.flush_trace_async_logging()
 
 You can configure the detailed behavior of asynchronous logging using the following environment variables:
 
-| Environment Variable | Description | Default |
-|---------------------|-------------|---------|
-| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS` | Maximum worker threads | `10` |
-| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` | Maximum queued traces | `1000` |
-| `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT` | Retry timeout in seconds | `500` |
+| Environment Variable                        | Description              | Default |
+| ------------------------------------------- | ------------------------ | ------- |
+| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS`    | Maximum worker threads   | `10`    |
+| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` | Maximum queued traces    | `1000`  |
+| `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`  | Retry timeout in seconds | `500`   |
+
+### Q: How to optimize the trace size in production?
+
+MLflow's Automatic Tracing integration captures rich information that are helpful for debugging and evaluating the model/agent. However, this comes at the cost of trace size. For example, you may not want to log the all retrieved document texts from your RAG application.
+
+MLflow supports plugging-in custom post-processing hooks applied to trace data before exporting to the backend. This allows you to reduce the trace size by removing unnecessary data, or applying security guardrails such as masking sensitive data.
+
+To register a custom hooks, use the <APILink fn="mlflow.tracing.configure">`mlflow.tracing.configure`</APILink> API. For example, the following code filters out the document contents from the retriever span output to reduce the trace size:
+
+```python
+import mlflow
+from mlflow.entities.span import Span, SpanType
+
+
+# Define a custom hook that takes a span as input and mutates it in-place.
+def filter_retrieval_output(span: Span):
+    """Filter out the document contents from the retriever span output and only keep the document ids."""
+    if span.span_type == SpanType.RETRIEVAL:
+        documents = span.outputs.get("documents")
+        document_ids = [doc.id for doc in documents]
+        span.set_outputs({"document_ids": document_ids})
+
+
+# Register the hook
+mlflow.tracing.configure(span_processors=[filter_retrieval_output])
+
+# Any traces created after the configuration will be filtered by the hook.
+...
+```
+
+Refer to the [Redacting Sensitive Data Safe](/genai/tracing/observe-with-traces/masking) guide for more details about the hook API and examples.
+
+### Q. Can I log traces to different experiments from a single application?
+
+Yes, you can log traces to different experiments from a single application. By default, MLflow logs traces to the current active experiment set via either the `mlflow.set_experiment` API or the `MLFLOW_EXPERIMENT_ID` environment variable.
+
+However, you may sometimes want to dynamically route traces to different experiments from a single application. For example, your application server may expose two endpoints, each serves a different model. Switching active experiment does not work because active experiment is globally defined and not isolated per thread or async context.
+
+Therefore, MLflow provides two different ways to switch target experiments to log traces:
+
+#### Optional 1. Set the `trace_destination` parameter when starting a manual trace
+
+The `trace_destination` parameter was introduced to the <APILink fn="mlflow.trace">@mlflow.trace</APILink> decorator and the <APILink fn="mlflow.start_span">mlflow.start_span</APILink> API in MLflow 3.3 to allow you to specify the target experiment for each trace explicitly.
+
+```python
+import mlflow
+from mlflow.entities.trace_location import MlflowExperimentLocation
+
+
+@mlflow.trace(trace_destination=MlflowExperimentLocation(experiment_id="1234"))
+def math_agent(request: Request):
+    # Your model logic here
+    ...
+```
+
+Note that the `trace_destination` parameter is only effective when it is set to the root span of the trace. If it is set to a child span, MLflow will ignore it and print a warning.
+
+#### Option 2. Use `mlflow.tracing.set_destination` with `context_local=True`
+
+The <APILink fn="mlflow.tracing.set_destination" /> API is a purpose-built API for setting the destination of traces, while bypassing the overhead of `mlflow.set_experiment`. The `context_local` parameter allows you to set the destination per async task or thread, providing isolation in concurrent applications. This option is useful when you use automatic tracing and not using the manual tracing APIs.
+
+```python
+import mlflow
+from mlflow.entities.trace_location import MlflowExperimentLocation
+
+
+@app.get("/math-agent")
+def math_agent(request: Request):
+    # The API is super low-overhead, so you can call it inside the request handler.
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id="1234"))
+
+    # Your model logic here
+    with mlflow.start_span(name="math-agent") as span:
+        ...
+
+
+@app.get("/chat-agent")
+def chat_agent(request: Request):
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id="5678"))
+
+    # Your model logic here
+    with mlflow.start_span(name="chat-agent") as span:
+        ...
+```
 
 ## Troubleshooting
 
@@ -203,8 +222,9 @@ There are multiple possible reasons why a trace may not be viewable in the MLflo
 2. **The browser cache is outdated**: When you upgrade MLflow to a new version, the browser cache may contain outdated data and prevent the UI from displaying traces correctly. Clear your browser cache (Shift+F5) and refresh the page.
 
 3. **MLflow server connectivity**: Ensure your MLflow tracking server is running and accessible:
+
    ```bash
-   mlflow ui --host 0.0.0.0 --port 5000
+   mlflow server --host 0.0.0.0 --port 5000
    ```
 
 4. **Experiment permissions**: Verify you have access to the experiment containing the trace.
@@ -254,6 +274,7 @@ MLflow monitors the trace execution time and expiration in a background thread. 
 Several issues could prevent traces from appearing:
 
 **Tracking URI not set**: Ensure your tracking URI is configured:
+
 ```python
 import mlflow
 
@@ -261,11 +282,13 @@ mlflow.set_tracking_uri("http://localhost:5000")  # or your server URL
 ```
 
 **Experiment not set**: Make sure you're logging to the correct experiment:
+
 ```python
 mlflow.set_experiment("my-tracing-experiment")
 ```
 
 **Autolog not called**: For supported libraries, ensure autolog is called before usage:
+
 ```python
 mlflow.openai.autolog()  # Call before using OpenAI
 ```
@@ -358,12 +381,14 @@ my_function()  # This will generate a trace
 Yes, you can use environment variables and global configuration:
 
 **Environment variable**: Set `MLFLOW_TRACING_ENABLED=false` to disable all tracing:
+
 ```bash
 export MLFLOW_TRACING_ENABLED=false
 python your_app.py  # No traces will be generated
 ```
 
 **Conditional tracing**: Use programmatic control:
+
 ```python
 import mlflow
 import os
@@ -372,7 +397,6 @@ import os
 if os.getenv("ENVIRONMENT") == "development":
     mlflow.openai.autolog()
 ```
-
 
 ## MLflow Runs Integration
 
@@ -433,14 +457,13 @@ Read more about [trace deletion](/genai/tracing/observe-with-traces/delete-trace
 
 Traces are stored in your MLflow tracking backend:
 
-**Local filesystem**: When using `mlflow ui` locally, traces are stored in the `mlruns` directory
+**Local filesystem**: When using `mlflow server` locally, traces are stored in the `mlruns` directory
 
 **Remote tracking server**: When using a remote MLflow server, traces are stored in the configured backend (database + artifact store)
 
 **Database**: Trace metadata is stored in the MLflow tracking database
 
 **Artifact store**: Large trace data may be stored in the artifact store (filesystem, S3, etc.)
-
 
 ## Integration and Compatibility
 
@@ -476,4 +499,4 @@ Yes, MLflow provides comprehensive manual tracing capabilities. Please refer to 
 
 ---
 
-*For additional questions or issues not covered here, please check the [MLflow documentation](/genai/tracing) or reach out to the community.*
+_For additional questions or issues not covered here, please check the [MLflow documentation](/genai/tracing) or reach out to the community._

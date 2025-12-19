@@ -1,3 +1,5 @@
+import type { KeyValueEntity } from '../../../common/types';
+
 export interface LoggedModelArtifactViewerProps {
   /**
    * Artifact viewer can also work with logged models instead of runs.
@@ -17,4 +19,6 @@ export interface LoggedModelArtifactViewerProps {
   isFallbackToLoggedModelArtifacts?: boolean;
 
   experimentId: string;
+
+  entityTags?: Partial<KeyValueEntity>[];
 }

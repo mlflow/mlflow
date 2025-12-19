@@ -4,8 +4,7 @@ import { MlflowService } from '../../../sdk/MlflowService';
 import { EXPERIMENT_TRACES_SORTABLE_COLUMNS, getTraceInfoRunId } from '../TracesView.utils';
 import { ViewType } from '../../../sdk/MlflowEnums';
 import { first, uniq, values } from 'lodash';
-import { RunEntity } from '../../../types';
-import { isExperimentLoggedModelsUIEnabled } from '../../../../common/utils/FeatureUtils';
+import type { RunEntity } from '../../../types';
 
 // A filter expression used to filter traces by run ID
 const RUN_ID_FILTER_EXPRESSION = 'request_metadata.`mlflow.sourceRun`';
@@ -96,7 +95,7 @@ export const useExperimentTraces = ({
       return filter;
     }
 
-    if (isExperimentLoggedModelsUIEnabled() && loggedModelId) {
+    if (loggedModelId) {
       if (filter) {
         return `${filter} AND ${LOGGED_MODEL_ID_FILTER_EXPRESSION}='${loggedModelId}'`;
       }

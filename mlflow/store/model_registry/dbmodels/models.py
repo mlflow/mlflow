@@ -1,12 +1,15 @@
+from cryptography.fernet import Fernet
 from sqlalchemy import (
     BigInteger,
     Column,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     PrimaryKeyConstraint,
     String,
     Text,
+    TypeDecorator,
 )
 from sqlalchemy.orm import backref, relationship
 
@@ -19,6 +22,14 @@ from mlflow.entities.model_registry import (
 )
 from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_INTERNAL, STAGE_NONE
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflow.entities.webhook import (
+    Webhook,
+    WebhookAction,
+    WebhookEntity,
+    WebhookEvent,
+    WebhookStatus,
+)
+from mlflow.environment_variables import MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.time import get_current_time_millis
 
@@ -204,3 +215,95 @@ class SqlRegisteredModelAlias(Base):
     # entity mappers
     def to_mlflow_entity(self):
         return RegisteredModelAlias(self.alias, self.version)
+
+
+class EncryptedString(TypeDecorator):
+    """
+    A custom SQLAlchemy type that encrypts data before storing in the database
+    and decrypts it when retrieving.
+    """
+
+    impl = String(1000)
+    cache_ok = True
+
+    def __init__(self):
+        super().__init__()
+        # Get encryption key from environment variable or generate one
+        # In production, this should come from a secure key management service
+        encryption_key = MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY.get() or Fernet.generate_key()
+        self.cipher = Fernet(encryption_key)
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            return self.cipher.encrypt(value.encode()).decode()
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            return self.cipher.decrypt(value.encode()).decode()
+        return value
+
+
+class SqlWebhook(Base):
+    __tablename__ = "webhooks"
+
+    webhook_id = Column(String(256), nullable=False)
+    name = Column(String(256), nullable=False)
+    description = Column(String(1000), nullable=True)
+    url = Column(String(500), nullable=False)
+    status = Column(String(20), nullable=False, default="ACTIVE")
+    secret = Column(EncryptedString(), nullable=True)  # Encrypted storage for HMAC secret
+    creation_timestamp = Column(BigInteger, default=get_current_time_millis)
+    last_updated_timestamp = Column(BigInteger, nullable=True, default=None)
+    deleted_timestamp = Column(BigInteger, nullable=True, default=None)  # For soft deletes
+
+    __table_args__ = (
+        PrimaryKeyConstraint("webhook_id", name="webhook_pk"),
+        Index("idx_webhooks_status", "status"),
+        Index("idx_webhooks_name", "name"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlWebhook ({self.webhook_id}, {self.name}, {self.url}, "
+            f"{self.status}, {self.creation_timestamp})>"
+        )
+
+    def to_mlflow_entity(self):
+        return Webhook(
+            webhook_id=self.webhook_id,
+            name=self.name,
+            url=self.url,
+            events=[we.to_mlflow_entity() for we in self.webhook_events],
+            creation_timestamp=self.creation_timestamp,
+            last_updated_timestamp=self.last_updated_timestamp,
+            description=self.description,
+            status=WebhookStatus(self.status),
+            secret=self.secret,
+        )
+
+
+class SqlWebhookEvent(Base):
+    __tablename__ = "webhook_events"
+
+    webhook_id = Column(String(256), ForeignKey("webhooks.webhook_id", ondelete="cascade"))
+    entity = Column(String(50), nullable=False)
+    action = Column(String(50), nullable=False)
+
+    # Relationship
+    webhook = relationship(
+        "SqlWebhook", backref=backref("webhook_events", cascade="all, delete-orphan")
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("webhook_id", "entity", "action", name="webhook_event_pk"),
+        Index("idx_webhook_events_entity", "entity"),
+        Index("idx_webhook_events_action", "action"),
+        Index("idx_webhook_events_entity_action", "entity", "action"),
+    )
+
+    def __repr__(self):
+        return f"<SqlWebhookEvent ({self.webhook_id}, {self.entity}, {self.action})>"
+
+    def to_mlflow_entity(self):
+        return WebhookEvent(entity=WebhookEntity(self.entity), action=WebhookAction(self.action))

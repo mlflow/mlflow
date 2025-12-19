@@ -1,3 +1,4 @@
+import random
 import subprocess
 import tempfile
 import time
@@ -6,8 +7,6 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import TraceInfoV2
-from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
@@ -32,29 +31,6 @@ def reset_tracking_uri():
 
 
 @pytest.fixture
-def mock_upload_trace_data():
-    with (
-        mock.patch(
-            "mlflow.tracking._tracking_service.client.TrackingServiceClient.end_trace",
-            return_value=TraceInfoV2(
-                request_id="tr-1234",
-                experiment_id="0",
-                timestamp_ms=0,
-                execution_time_ms=0,
-                status=TraceStatus.OK,
-                request_metadata={},
-                tags={"mlflow.artifactLocation": "test"},
-            ),
-        ),
-        mock.patch(
-            "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data",
-            return_value=None,
-        ) as mock_upload_trace_data,
-    ):
-        yield mock_upload_trace_data
-
-
-@pytest.fixture
 def databricks_tracking_uri():
     with mock.patch("mlflow.get_tracking_uri", return_value="databricks"):
         yield
@@ -73,31 +49,55 @@ def async_logging_enabled(request, monkeypatch):
 @pytest.fixture
 def otel_collector():
     """Start an OpenTelemetry collector in a Docker container."""
-    subprocess.run(["docker", "pull", "otel/opentelemetry-collector-contrib"], check=True)
+    subprocess.check_call(["docker", "pull", "otel/opentelemetry-collector"])
 
-    with (
-        tempfile.NamedTemporaryFile() as output_file,
-        subprocess.Popen(
-            [
-                "docker",
-                "run",
-                "-p",
-                "127.0.0.1:4317:4317",
-                "otel/opentelemetry-collector",
-            ],
+    # Use a random port to avoid conflicts
+    port = random.randint(20000, 30000)
+
+    docker_collector_config = """receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+exporters:
+  debug:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 1
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [debug]"""
+
+    with tempfile.NamedTemporaryFile() as output_file:
+        # Use echo to pipe config to Docker stdin
+        docker_cmd = [
+            "bash",
+            "-c",
+            f'echo "{docker_collector_config}" | '
+            f"docker run --rm -p 127.0.0.1:{port}:4317 -i "
+            f"otel/opentelemetry-collector --config=/dev/stdin",
+        ]
+
+        process = subprocess.Popen(
+            docker_cmd,
             stdout=output_file,
             stderr=subprocess.STDOUT,
             text=True,
-        ) as process,
-    ):
+        )
+
         # Wait for the collector to start
         time.sleep(5)
 
-        yield process, output_file.name
+        yield process, output_file.name, port
 
         # Stop the collector
-        container_id = subprocess.check_output(
-            ["docker", "ps", "-q", "--filter", "ancestor=otel/opentelemetry-collector"],
-            text=True,
-        ).strip()
-        subprocess.check_call(["docker", "stop", container_id])
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()

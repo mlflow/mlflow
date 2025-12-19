@@ -5,7 +5,7 @@ import threading
 import time
 import uuid
 from collections.abc import Container, Sequence
-from typing import Any, Optional
+from typing import Any
 
 from mlflow import MlflowClient
 from mlflow.entities import Metric, Param, RunTag
@@ -52,7 +52,7 @@ class MlflowStorage(BaseStorage):
     def __init__(
         self,
         experiment_id: str,
-        name: Optional[str] = None,
+        name: str | None = None,
         batch_flush_interval: float = 1.0,
         batch_size_threshold: int = 100,
     ):
@@ -170,9 +170,9 @@ class MlflowStorage(BaseStorage):
     def _queue_batch_operation(
         self,
         run_id: str,
-        metrics: Optional[list[Metric]] = None,
-        params: Optional[list[Param]] = None,
-        tags: Optional[list[RunTag]] = None,
+        metrics: list[Metric] | None = None,
+        params: list[Param] | None = None,
+        tags: list[RunTag] | None = None,
     ):
         """Queue metrics, parameters, or tags for batched processing."""
         with self._batch_lock:
@@ -227,14 +227,16 @@ class MlflowStorage(BaseStorage):
         for run_id in run_ids:
             self._flush_batch(run_id)
 
-    def _search_run_by_name(self, run_name: str):
+    def _search_runs_by_name(self, run_name: str):
         filter_string = f"tags.mlflow.runName = '{run_name}'"
         return self._mlflow_client.search_runs(
-            experiment_ids=[self._experiment_id], filter_string=filter_string
+            experiment_ids=[self._experiment_id],
+            filter_string=filter_string,
+            order_by=["attributes.start_time DESC"],
         )
 
     def create_new_study(
-        self, directions: Sequence[StudyDirection], study_name: Optional[str] = None
+        self, directions: Sequence[StudyDirection], study_name: str | None = None
     ) -> int:
         """Create a new study as a mlflow run."""
         study_name = study_name or DEFAULT_STUDY_NAME_PREFIX + str(uuid.uuid4())
@@ -271,11 +273,28 @@ class MlflowStorage(BaseStorage):
         # Flush all batches to ensure we have the latest data
         self.flush_all_batches()
 
-        runs = self._search_run_by_name(study_name)
+        runs = self._search_runs_by_name(study_name)
         if len(runs):
             return runs[0].info.run_id
         else:
             raise Exception(f"Study {study_name} not found")
+
+    def get_study_id_by_name_if_exists(self, study_name: str) -> str | None:
+        """Get study ID from name if it exists, otherwise return None.
+
+        Args:
+            study_name: The name of the study to look for
+
+        Returns:
+            Study ID if found, None otherwise
+        """
+        # Flush all batches to ensure we have the latest data
+        self.flush_all_batches()
+
+        if runs := self._search_runs_by_name(study_name):
+            return runs[0].info.run_id
+        else:
+            return None
 
     def get_study_name_from_id(self, study_id) -> str:
         # Flush the batch for this study to ensure we have the latest data
@@ -337,7 +356,7 @@ class MlflowStorage(BaseStorage):
             )
         return studies
 
-    def create_new_trial(self, study_id, template_trial: Optional[FrozenTrial] = None) -> int:
+    def create_new_trial(self, study_id, template_trial: FrozenTrial | None = None) -> int:
         # Ensure study batch is flushed before creating a new trial
         self._flush_batch(study_id)
 
@@ -493,7 +512,7 @@ class MlflowStorage(BaseStorage):
         return float(json.loads(param_value))
 
     def set_trial_state_values(
-        self, trial_id, state: TrialState, values: Optional[Sequence[float]] = None
+        self, trial_id, state: TrialState, values: Sequence[float] | None = None
     ) -> bool:
         # Update trial state
         if state.is_finished():
@@ -616,7 +635,7 @@ class MlflowStorage(BaseStorage):
         self,
         study_id,
         deepcopy: bool = True,
-        states: Optional[Container[TrialState]] = None,
+        states: Container[TrialState] | None = None,
     ) -> list[FrozenTrial]:
         # Flush all batches to ensure we have the latest data
         self.flush_all_batches()
@@ -625,14 +644,11 @@ class MlflowStorage(BaseStorage):
             experiment_ids=[self._experiment_id],
             filter_string=f"tags.mlflow.parentRunId='{study_id}'",
         )
-        trials = []
-        for run in runs:
-            trials.append(self.get_trial(run.info.run_id))
+        trials = [self.get_trial(run.info.run_id) for run in runs]
 
-        frozen_trials: list[FrozenTrial] = []
-        for trial in trials:
-            if states is None or trial.state in states:
-                frozen_trials.append(trial)
+        frozen_trials: list[FrozenTrial] = [
+            trial for trial in trials if states is None or trial.state in states
+        ]
         return frozen_trials
 
     def get_n_trials(self, study_id, states=None) -> int:

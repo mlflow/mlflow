@@ -8,12 +8,40 @@ This guide will walk you through how to search for traces in MLflow using both t
 
 MLflow's trace search functionality allows you to leverage SQL-like syntax to filter your traces based on a variety of conditions. While the `OR` keyword is not supported, the search functionality is powerful enough to handle complex queries for trace discovery and analysis.
 
+:::important
+**Local File Store offers only limited search capabilities and can become slow as data volume grows.** As of MLflow 3.6.0, the FileStore is deprecated. We recommend migrating to a SQL-backed store or Databricks for improved performance and more robust search functionality.
+:::
 
 ## Search Traces Overview
 
 When working with MLflow tracing in production environments, you'll often have thousands of traces across different experiments representing various model inferences, LLM calls, or ML pipeline executions. The `search_traces` API helps you find specific traces based on their execution characteristics, metadata, tags, and other attributes - making trace analysis and debugging much more efficient.
 
+## Filtering Traces in the UI
 
+The UI search supports all the same filter syntax as the API, allowing you to search by:
+
+- Trace inputs
+- Trace attributes: trace name, status, end time, execution time, run_id
+- Trace tags and metadata
+- Trace assessments: feedback or expectations
+
+Use the filters dropdown in the MLflow Trace UI to filter traces by various criteria:
+
+<div class="center-div" style={{ width: "100%" }}>
+  ![search components](/images/tracing_search_traces.png)
+</div>
+
+For example, searching for traces that with ERROR state:
+
+![Search Traces UI](/images/llms/tracing/search-traces-on-ui.png)
+
+Search for trace inputs:
+
+![Search Traces Inputs UI](/images/llms/tracing/search-traces-inputs-on-ui.png)
+
+Search for trace assessments by key and value:
+
+![Search Traces By Assessments UI](/images/llms/tracing/search-traces-assessments-on-ui.png)
 
 ## Search Query Syntax
 
@@ -25,126 +53,232 @@ The `search_traces` API uses a SQL-like Domain Specific Language (DSL) for query
   ![search components](/images/search-runs/search_syntax.png)
 </div>
 
-### Key Features:
+### Supported Filters and Comparators
 
-1. **Supported Attributes**: `request_id`, `timestamp_ms`, `execution_time_ms`, `status`, `name`, `run_id`
-2. **Tag Support**: Use `tags.` or `tag.` prefix to filter by trace tags
-3. **Metadata Support**: Use `metadata.` prefix to filter by request metadata
-4. **Timestamp Filtering**: Built-in support for time-based queries
-5. **Status Filtering**: Filter by trace execution status (OK, ERROR, IN_PROGRESS)
-
-### Syntax Rules:
-
-**Field Syntax:**
-- Attributes: `status`, `timestamp_ms`, `execution_time_ms`, `trace.name`
-- Tags: `tags.operation_type`, `tag.model_name` (both prefixes supported)
-- Metadata: `metadata.run_id`
-- Use backticks for special characters: `` tags.`model-name` ``
+| Field Type           | Fields                                                               | Operators                           | Examples                           |
+| -------------------- | -------------------------------------------------------------------- | ----------------------------------- | ---------------------------------- |
+| **Trace Status**     | `trace.status`                                                       | `=`, `!=`                           | trace.status = "OK"                |
+| **Trace Timestamps** | `trace.timestamp_ms`, `trace.execution_time_ms`, `trace.end_time_ms` | `=`, `!=`, `>`, `<`, `>=`, `<=`     | trace.end_time_ms > 1762408895531  |
+| **Trace IDs**        | `trace.run_id`                                                       | `=`                                 | trace.run_id = "run_id"            |
+| **String Fields**    | `trace.client_request_id`, `trace.name`                              | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | trace.name LIKE "%Generate%"       |
+| **Linked Prompts**   | `prompt`                                                             | `=` (format: `"name/version"`)      | prompt = "qa-system-prompt/4"      |
+| **Span Name/Type**   | `span.name`, `span.type`                                             | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | span.type RLIKE "^LLM"             |
+| **Span Attributes**  | `span.attributes.<key>`                                              | `LIKE`, `ILIKE`                     | span.attributes.model RLIKE "^gpt" |
+| **Tags**             | `tag.<key>`                                                          | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | tag.key = "value"                  |
+| **Metadata**         | `metadata.<key>`                                                     | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | metadata.user_id LIKE "user%"      |
+| **Feedback**         | `feedback.<name>`                                                    | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | feedback.rating = "excellent"      |
+| **Expectations**     | `expectation.<name>`                                                 | `=`, `!=`, `LIKE`, `ILIKE`, `RLIKE` | expectation.result = "pass"        |
+| **Full Text**        | `trace.text`                                                         | `LIKE` (with `%` wildcards)         | trace.text LIKE "%tell me a story" |
 
 **Value Syntax:**
+
 - String values must be quoted: `status = 'OK'`
 - Numeric values don't need quotes: `execution_time_ms > 1000`
 - Tag and metadata values must be quoted as strings
+- Full text search must use `LIKE` with `%` wildcards
 
-**Supported Comparators:**
-- **Numeric** (`timestamp_ms`, `execution_time_ms`): `>`, `>=`, `=`, `!=`, `<`, `<=`
-- **String** (`name`, `status`, `request_id`): `=`, `!=`, `IN`, `NOT IN`
-- **Tags/Metadata**: `=`, `!=`
+**Pattern Matching Operators:**
 
-**Trace Status Values:**
-- `OK` - Successful execution
-- `ERROR` - Failed execution
-- `IN_PROGRESS` - Currently executing
-
+- `LIKE`: Case-sensitive pattern matching (use `%` for wildcards)
+- `ILIKE`: Case-insensitive pattern matching (use `%` for wildcards)
+- `RLIKE`: Regular expression matching
 
 ### Example Queries
 
-#### Filter by Name
+#### Full Text Search
+
+Search for any contents existing in your trace.
+
 ```python
-# Search for traces by name
+# Search for traces containing specific text
+mlflow.search_traces(filter_string="trace.text LIKE '%authentication error%'")
+
+# Search for multiple terms
+mlflow.search_traces(filter_string="trace.text LIKE '%timeout%'")
+```
+
+#### Filter by Name
+
+```python
+# Exact match
 mlflow.search_traces(filter_string="trace.name = 'predict'")
-mlflow.search_traces(filter_string="name = 'llm_inference'")
+
+# Pattern matching with LIKE
+mlflow.search_traces(filter_string="trace.name LIKE '%inference%'")
+
+# Case-insensitive pattern matching with ILIKE
+mlflow.search_traces(filter_string="trace.name ILIKE '%PREDICT%'")
+
+# Regular expression matching with RLIKE
+mlflow.search_traces(filter_string="trace.name RLIKE '^(predict|inference)_[0-9]+'")
 ```
 
 #### Filter by Status
+
 ```python
 # Get successful traces
 mlflow.search_traces(filter_string="trace.status = 'OK'")
-mlflow.search_traces(filter_string="status = 'OK'")
 
 # Get failed traces
-mlflow.search_traces(filter_string="status = 'ERROR'")
+mlflow.search_traces(filter_string="trace.status = 'ERROR'")
 
-# Multiple statuses
-mlflow.search_traces(filter_string="status IN ('OK', 'ERROR')")
+# Get in-progress traces
+mlflow.search_traces(filter_string="trace.status != 'OK'")
 ```
 
 #### Filter by Execution Time
+
 ```python
 # Find slow traces (> 1 second)
-mlflow.search_traces(filter_string="execution_time_ms > 1000")
+mlflow.search_traces(filter_string="trace.execution_time_ms > 1000")
 
 # Performance range
 mlflow.search_traces(
-    filter_string="execution_time_ms >= 200 AND execution_time_ms <= 800"
+    filter_string="trace.execution_time_ms >= 200 AND trace.execution_time_ms <= 800"
 )
+
+# Equal to specific duration
+mlflow.search_traces(filter_string="trace.execution_time_ms = 500")
 ```
 
 #### Filter by Timestamp
+
 ```python
 import time
 
 # Get traces from last hour
 timestamp = int(time.time() * 1000)
-mlflow.search_traces(filter_string=f"trace.timestamp > {timestamp - 3600000}")
+mlflow.search_traces(filter_string=f"trace.timestamp_ms > {timestamp - 3600000}")
 
-# Alternative syntax
-mlflow.search_traces(filter_string=f"timestamp_ms > {timestamp - 3600000}")
-```
+# Exact timestamp match
+mlflow.search_traces(filter_string=f"trace.timestamp_ms = {timestamp}")
 
-#### Filter by Tags
-```python
-# Filter by tag values (both syntaxes supported)
-mlflow.search_traces(filter_string="tag.model_name = 'gpt-4'")
-mlflow.search_traces(filter_string="tags.operation_type = 'llm_inference'")
-```
-
-#### Filter by Run Association
-```python
-# Find traces associated with a specific run
-mlflow.search_traces(run_id="run_id_123456")
-
-# Or using filter string
-mlflow.search_traces(filter_string="metadata.run_id = 'run_id_123456'")
-```
-
-#### Combine Multiple Conditions
-```python
-# Complex query
-mlflow.search_traces(filter_string="trace.status = 'OK' AND tag.importance = 'high'")
-
-# Production error analysis
+# Timestamp range
 mlflow.search_traces(
-    filter_string="""
-        tags.environment = 'production'
-        AND status = 'ERROR'
-        AND execution_time_ms > 500
-    """
+    filter_string=f"trace.timestamp_ms >= {timestamp - 7200000} AND trace.timestamp_ms <= {timestamp - 3600000}"
 )
 ```
 
+#### Filter by Tags
 
-## Filtering Traces in the UI
+```python
+# Exact match
+mlflow.search_traces(filter_string="tag.model_name = 'gpt-4'")
 
-Use the search box in the MLflow Trace UI to filter traces by various criteria using the same syntax described above.
+# Pattern matching with LIKE (case-sensitive)
+mlflow.search_traces(filter_string="tag.model_name LIKE 'gpt-%'")
 
-![Search Traces UI](/images/llms/tracing/search-traces-on-ui.png)
+# Case-insensitive pattern matching with ILIKE
+mlflow.search_traces(filter_string="tag.environment ILIKE '%prod%'")
 
-The UI search supports all the same filter syntax as the API, allowing you to:
-- Filter by trace name, status, or execution time
-- Search by tags and metadata
-- Use timestamp ranges
-- Combine multiple conditions with AND
+# Regular expression matching with RLIKE
+mlflow.search_traces(filter_string="tag.version RLIKE '^v[0-9]+\\.[0-9]+'")
+```
+
+#### Filter by Run Association
+
+```python
+# Find traces associated with a specific run
+mlflow.search_traces(filter_string="trace.run_id = 'run_id_123456'")
+```
+
+#### Filter by Linked Prompts
+
+```python
+# Find traces using a specific prompt version
+mlflow.search_traces(filter_string='prompt = "qa-agent-system-prompt/4"')
+```
+
+:::note
+The `prompt` filter only supports exact match (`=`) operator with the format `"name/version"`.
+:::
+
+#### Filter by Span Attributes
+
+```python
+# Filter by span name
+mlflow.search_traces(filter_string="span.name = 'llm_call'")
+
+# Pattern matching on span name
+mlflow.search_traces(filter_string="span.name LIKE '%embedding%'")
+
+# Filter by span type
+mlflow.search_traces(filter_string="span.type = 'LLM'")
+
+# Filter by custom span attributes (requires wildcards with LIKE/ILIKE)
+mlflow.search_traces(filter_string="span.attributes.model_version LIKE '%v2%'")
+mlflow.search_traces(filter_string="span.attributes.temperature LIKE '%0.7%'")
+mlflow.search_traces(filter_string="span.attributes.model_version ILIKE '%V2%'")
+```
+
+#### Filter by Feedback
+
+```python
+# Filter by feedback ratings
+mlflow.search_traces(filter_string="feedback.rating = 'positive'")
+
+# Pattern matching on feedback
+mlflow.search_traces(filter_string="feedback.user_comment LIKE '%helpful%'")
+```
+
+#### Filter by Expectations
+
+```python
+# Filter by expectation values
+mlflow.search_traces(filter_string="expectation.accuracy = 'high'")
+
+# Pattern matching on expectations
+mlflow.search_traces(filter_string="expectation.label ILIKE '%success%'")
+```
+
+#### Filter by End Time
+
+```python
+import time
+
+# Get traces that completed in the last hour
+end_time = int(time.time() * 1000)
+mlflow.search_traces(filter_string=f"trace.end_time_ms > {end_time - 3600000}")
+
+# Find traces that ended within a specific time range
+mlflow.search_traces(
+    filter_string=f"trace.end_time_ms >= {end_time - 7200000} AND trace.end_time_ms <= {end_time - 3600000}"
+)
+```
+
+#### Combine Multiple Conditions
+
+```python
+# Complex query with tags and status
+mlflow.search_traces(filter_string="trace.status = 'OK' AND tag.importance = 'high'")
+
+# Production error analysis with execution time
+mlflow.search_traces(
+    filter_string="""
+        tag.environment = 'production'
+        AND trace.status = 'ERROR'
+        AND trace.execution_time_ms > 500
+    """
+)
+
+# Advanced query with span attributes and feedback
+mlflow.search_traces(
+    filter_string="""
+        span.name LIKE '%llm%'
+        AND feedback.rating = 'positive'
+        AND trace.execution_time_ms < 1000
+    """
+)
+
+# Search with pattern matching and time range
+mlflow.search_traces(
+    filter_string="""
+        trace.name ILIKE '%inference%'
+        AND trace.timestamp_ms > 1700000000000
+        AND span.attributes.model_version LIKE '%v2%'
+    """
+)
+```
 
 ## Programmatic Search with Python
 
@@ -154,10 +288,12 @@ The UI search supports all the same filter syntax as the API, allowing you to:
 import mlflow
 
 # Basic search with default DataFrame output
-traces_df = mlflow.search_traces(filter_string="status = 'OK'")
+traces_df = mlflow.search_traces(filter_string="trace.status = 'OK'")
 
 # Return as list of Trace objects
-traces_list = mlflow.search_traces(filter_string="status = 'OK'", return_type="list")
+traces_list = mlflow.search_traces(
+    filter_string="trace.status = 'OK'", return_type="list"
+)
 ```
 
 :::note
@@ -205,10 +341,9 @@ The `search_traces` API returns a pandas DataFrame by default with the following
 Alternatively, you can specify `return_type="list"` to get a list of <APILink fn="mlflow.entities.Trace" /> objects instead of a DataFrame.
 
 ```python
-traces = mlflow.search_traces(filter_string="status = 'OK'", return_type="list")
+traces = mlflow.search_traces(filter_string="trace.status = 'OK'", return_type="list")
 # list[mlflow.entities.Trace]
 ```
-
 
 ### Ordering Results
 
@@ -226,39 +361,6 @@ traces = mlflow.search_traces(order_by=["timestamp_ms DESC"])
 # Multiple ordering criteria
 traces = mlflow.search_traces(order_by=["timestamp_ms DESC", "status ASC"])
 ```
-
-### Extract Span Fields
-Extract specific span data into DataFrame columns:
-
-```python
-traces = mlflow.search_traces(
-    extract_fields=[
-        "morning_greeting.inputs.name",  # Extract specific input
-        "morning_greeting.outputs",  # Extract all outputs
-    ],
-)
-
-# Creates additional columns:
-# - morning_greeting.inputs.name
-# - morning_greeting.outputs
-```
-
-This is useful for creating evaluation datasets:
-
-```python
-eval_data = traces.rename(
-    columns={
-        "morning_greeting.inputs.name": "inputs",
-        "morning_greeting.outputs": "ground_truth",
-    }
-)
-
-results = mlflow.genai.evaluate(data=eval_data, scorers=[...])
-```
-
-:::note
-`extract_fields` only works with `return_type="pandas"`.
-:::
 
 ### Pagination
 
@@ -288,224 +390,7 @@ while True:
 print(f"Found {len(all_traces)} total traces")
 ```
 
-## Common Use Cases
-
-### Performance Analysis
-```python
-# Find slowest 10 traces
-slowest_traces = mlflow.search_traces(
-    filter_string="status = 'OK'",
-    order_by=["execution_time_ms DESC"],
-    max_results=10,
-)
-
-# Performance threshold violations
-slow_production = mlflow.search_traces(
-    filter_string="""
-        tags.environment = 'production'
-        AND execution_time_ms > 2000
-        AND status = 'OK'
-    """,
-)
-```
-
-### Error Analysis
-```python
-import time
-
-# Recent errors
-yesterday = int((time.time() - 24 * 3600) * 1000)
-error_traces = mlflow.search_traces(
-    filter_string=f"status = 'ERROR' AND timestamp_ms > {yesterday}",
-    order_by=["timestamp_ms DESC"],
-)
-
-# Analyze error patterns
-error_by_operation = {}
-for _, trace in error_traces.iterrows():
-    # Access tags from the trace object
-    tags = trace["tags"] if "tags" in trace else {}
-    op_type = tags.get("operation_type", "unknown")
-    error_by_operation[op_type] = error_by_operation.get(op_type, 0) + 1
-```
-
-### Model Performance Comparison
-```python
-# Compare performance across models
-models = ["gpt-4", "bert-base", "roberta-large"]
-model_stats = {}
-
-for model in models:
-    traces = mlflow.search_traces(
-        filter_string=f"tags.model_name = '{model}' AND status = 'OK'",
-        return_type="list",
-    )
-
-    if traces:
-        exec_times = [trace.info.execution_time_ms for trace in traces]
-        model_stats[model] = {
-            "count": len(traces),
-            "avg_time": sum(exec_times) / len(exec_times),
-            "max_time": max(exec_times),
-        }
-
-print("Model performance comparison:")
-for model, stats in model_stats.items():
-    print(f"{model}: {stats['count']} traces, avg {stats['avg_time']:.1f}ms")
-```
-
-### Creating Evaluation Datasets
-```python
-# Extract LLM conversation data for evaluation
-conversation_data = mlflow.search_traces(
-    filter_string="tags.task_type = 'conversation' AND status = 'OK'",
-    extract_fields=["llm_call.inputs.prompt", "llm_call.outputs.response"],
-)
-
-# Rename for evaluation
-eval_dataset = conversation_data.rename(
-    columns={
-        "llm_call.inputs.prompt": "inputs",
-        "llm_call.outputs.response": "ground_truth",
-    }
-)
-
-# Use with MLflow evaluate
-results = mlflow.genai.evaluate(data=eval_dataset, scorers=[...])
-```
-
-### Environment Monitoring
-```python
-# Monitor error rates across environments
-environments = ["production", "staging", "development"]
-
-for env in environments:
-    total = mlflow.search_traces(filter_string=f"tags.environment = '{env}'")
-
-    errors = mlflow.search_traces(
-        filter_string=f"tags.environment = '{env}' AND status = 'ERROR'",
-    )
-
-    error_rate = len(errors) / len(total) * 100 if len(total) > 0 else 0
-    print(f"{env}: {error_rate:.1f}% error rate ({len(errors)}/{len(total)})")
-```
-
-## Create Example Traces
-
-Create sample traces to explore the search functionality:
-
-```python
-import time
-import mlflow
-from mlflow.entities import SpanType
-
-
-# Define methods to be traced
-@mlflow.trace(span_type=SpanType.TOOL, attributes={"time": "morning"})
-def morning_greeting(name: str):
-    time.sleep(1)
-    mlflow.update_current_trace(tags={"person": name})
-    return f"Good morning {name}."
-
-
-@mlflow.trace(span_type=SpanType.TOOL, attributes={"time": "evening"})
-def evening_greeting(name: str):
-    time.sleep(1)
-    mlflow.update_current_trace(tags={"person": name})
-    return f"Good evening {name}."
-
-
-@mlflow.trace(span_type=SpanType.TOOL)
-def goodbye():
-    raise Exception("Cannot say goodbye")
-
-
-# Execute within different experiments
-morning_experiment = mlflow.set_experiment("Morning Experiment")
-morning_greeting("Tom")
-
-# Get timestamp for filtering
-morning_time = int(time.time() * 1000)
-
-evening_experiment = mlflow.set_experiment("Evening Experiment")
-evening_greeting("Mary")
-try:
-    goodbye()
-except:
-    pass  # This creates an ERROR trace
-
-print("Created example traces with different statuses and timing")
-```
-
-### Alternative Setup - Production-Like Traces
-
-```python
-import mlflow
-import time
-import random
-from mlflow import trace
-
-mlflow.set_experiment("trace-search-guide")
-
-# Configuration for realistic traces
-operation_types = ["llm_inference", "embedding_generation", "text_classification"]
-model_names = ["gpt-4", "bert-base", "roberta-large"]
-environments = ["production", "staging", "development"]
-
-
-def simulate_operation(op_type, model_name, duration_ms):
-    """Simulate an AI/ML operation"""
-    time.sleep(duration_ms / 1000.0)
-
-    # Simulate occasional errors
-    if random.random() < 0.1:
-        raise Exception(f"Simulated error in {op_type}")
-
-    return f"Completed {op_type} with {model_name}"
-
-
-# Create diverse traces
-for i in range(20):
-    op_type = random.choice(operation_types)
-    model_name = random.choice(model_names)
-    environment = random.choice(environments)
-    duration = random.randint(50, 2000)  # 50ms to 2s
-
-    try:
-        with mlflow.start_run():
-            mlflow.set_tag("environment", environment)
-
-            with trace(
-                name=f"{op_type}_{i}",
-                attributes={
-                    "operation_type": op_type,
-                    "model_name": model_name,
-                    "environment": environment,
-                    "input_tokens": str(random.randint(10, 500)),
-                },
-            ) as span:
-                result = simulate_operation(op_type, model_name, duration)
-                span.set_attribute("result", result)
-
-    except Exception:
-        # Creates ERROR status traces
-        continue
-
-print("Created 20 example traces with various characteristics")
-```
-
-Start MLflow UI to explore:
-```bash
-mlflow ui
-```
-
-Visit `http://localhost:5000/` to see your traces in the UI.
-
-With these traces created, you can experiment with searching within the UI or programmatically via either the fluent or client `search_traces` APIs.
-
-
 ## Important Notes
-
 
 ### MLflow Version Compatibility
 
@@ -513,31 +398,17 @@ With these traces created, you can experiment with searching within the UI or pr
 **DataFrame Schema**: The format depends on the MLflow version used to **call** the `search_traces` API, not the version used to log the traces. MLflow 3.x uses different column names than 2.x.
 :::
 
-**Return Type Support:**
-- MLflow 2.21.1+: `return_type` parameter available in `mlflow.search_traces()`
-- Earlier versions: Use `MlflowClient.search_traces()` for list output
-
 ### Performance Tips
+
 1. **Use timestamp filters** to limit search space
 2. **Limit max_results** for faster queries when ordering
 3. **Use pagination** for large result sets
-4. **Index frequently queried tags** in your storage system
 
 ### Backend Considerations
-- **Database Backend**: Optimized performance with proper indexing on timestamp and status
-- **Databricks**: Enhanced performance with `sql_warehouse_id` parameter
-- **Local File Store**: May be slower with large datasets. Not recommended, only suitable for storing small number of traces.
 
-## Summary
-
-The `search_traces` API provides powerful trace discovery and analysis capabilities in MLflow. By combining flexible filtering, time-based queries, tag-based organization, and advanced features like span field extraction, you can efficiently investigate trace patterns, debug issues, and monitor system performance.
-
-**Key takeaways:**
-- Use SQL-like syntax with `tags.`/`tag.`, `metadata.`, and direct attribute references
-- Filter by execution time, status, timestamps, and custom tags
-- Combine multiple conditions with AND (OR is not supported)
-- Use ordering and pagination for efficient data exploration
-- Leverage span field extraction for evaluation dataset creation
-- Choose appropriate return type based on your use case
-
-Whether you're debugging production issues, analyzing model performance, monitoring system health, or creating evaluation datasets, mastering the trace search API will make your MLflow workflow more efficient and insightful.
+- **SQL Store Backend**: Supports the full search syntax documented above, including:
+  - All trace, span, metadata, tag, feedback, and expectation filters
+  - Pattern matching operators (LIKE, ILIKE, RLIKE)
+  - Full text search with `trace.text`
+  - Optimized performance with proper indexing on timestamp
+- **Local File Store**: Limited search capabilities. May be slower with large datasets. Not recommended, only suitable for storing small number of traces.

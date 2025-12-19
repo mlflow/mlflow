@@ -1,3 +1,4 @@
+import { describe, test, expect } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
@@ -71,17 +72,17 @@ describe('ExperimentLoggedModelListPageColumnSelector', () => {
 
     // We should have only eval metrics hidden
     expect(currentColumnVisibility).toEqual({
-      'metrics.["eval","1234-eval"].alpha': false,
-      'metrics.["eval","1234-eval"].loss': false,
+      'metrics.{"metricKey":"alpha","datasetName":"eval","datasetDigest":"1234-eval"}': false,
+      'metrics.{"metricKey":"loss","datasetName":"eval","datasetDigest":"1234-eval"}': false,
     });
 
     // Now toggle ungrouped metrics
     await userEvent.click(screen.getByTitle('No dataset'));
 
     expect(currentColumnVisibility).toEqual({
-      'metrics.["eval","1234-eval"].alpha': false,
-      'metrics.["eval","1234-eval"].loss': false,
-      'metrics.ungrouped': false,
+      'metrics.{"metricKey":"alpha","datasetName":"eval","datasetDigest":"1234-eval"}': false,
+      'metrics.{"metricKey":"loss","datasetName":"eval","datasetDigest":"1234-eval"}': false,
+      'metrics.{"metricKey":"ungrouped"}': false,
     });
 
     // Disable attribute columns one by one
@@ -90,9 +91,9 @@ describe('ExperimentLoggedModelListPageColumnSelector', () => {
     await userEvent.click(screen.getByTitle('Dataset'));
 
     expect(currentColumnVisibility).toEqual({
-      'metrics.["eval","1234-eval"].alpha': false,
-      'metrics.["eval","1234-eval"].loss': false,
-      'metrics.ungrouped': false,
+      'metrics.{"metricKey":"alpha","datasetName":"eval","datasetDigest":"1234-eval"}': false,
+      'metrics.{"metricKey":"loss","datasetName":"eval","datasetDigest":"1234-eval"}': false,
+      'metrics.{"metricKey":"ungrouped"}': false,
       [ExperimentLoggedModelListPageKnownColumns.Dataset]: false,
       [ExperimentLoggedModelListPageKnownColumns.SourceRun]: false,
       [ExperimentLoggedModelListPageKnownColumns.Status]: false,

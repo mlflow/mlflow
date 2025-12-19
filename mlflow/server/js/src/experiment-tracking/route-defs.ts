@@ -1,74 +1,149 @@
 import { createLazyRouteElement } from '../common/utils/RoutingUtils';
 
-import { RoutePaths } from './routes';
+import { PageId, RoutePaths } from './routes';
 
 const getPromptPagesRouteDefs = () => {
   return [
     {
       path: RoutePaths.promptsPage,
       element: createLazyRouteElement(() => import('./pages/prompts/PromptsPage')),
-      pageId: 'mlflow.prompts',
+      pageId: PageId.promptsPage,
     },
     {
       path: RoutePaths.promptDetailsPage,
       element: createLazyRouteElement(() => import('./pages/prompts/PromptsDetailsPage')),
-      pageId: 'mlflow.prompts.details',
+      pageId: PageId.promptDetailsPage,
+    },
+  ];
+};
+
+const getExperimentPageRouteDefs = () => {
+  return [
+    {
+      path: RoutePaths.experimentObservatory,
+      element: createLazyRouteElement(() => {
+        return import('./components/ExperimentListView');
+      }),
+      pageId: 'mlflow.experiment.list',
+    },
+    {
+      path: RoutePaths.experimentPage,
+      element: createLazyRouteElement(() => {
+        return import('./pages/experiment-page-tabs/ExperimentPageTabs');
+      }),
+      pageId: PageId.experimentPage,
+      children: [
+        {
+          path: RoutePaths.experimentPageTabRuns,
+          pageId: PageId.experimentPageTabRuns,
+          element: createLazyRouteElement(() => import('./pages/experiment-runs/ExperimentRunsPage')),
+        },
+        {
+          path: RoutePaths.experimentPageTabTraces,
+          pageId: PageId.experimentPageTabTraces,
+          element: createLazyRouteElement(() => import('./pages/experiment-traces/ExperimentTracesPage')),
+        },
+        {
+          path: RoutePaths.experimentPageTabChatSessions,
+          pageId: PageId.experimentPageTabChatSessions,
+          element: createLazyRouteElement(() => import('./pages/experiment-chat-sessions/ExperimentChatSessionsPage')),
+        },
+        {
+          path: RoutePaths.experimentPageTabSingleChatSession,
+          pageId: PageId.experimentPageTabSingleChatSession,
+          element: createLazyRouteElement(
+            () => import('./pages/experiment-chat-sessions/single-chat-view/ExperimentSingleChatSessionPage'),
+          ),
+        },
+        {
+          path: RoutePaths.experimentPageTabModels,
+          pageId: PageId.experimentPageTabModels,
+          element: createLazyRouteElement(
+            () => import('./pages/experiment-logged-models/ExperimentLoggedModelListPage'),
+          ),
+        },
+        {
+          path: RoutePaths.experimentPageTabEvaluationRuns,
+          pageId: PageId.experimentPageTabEvaluationRuns,
+          element: createLazyRouteElement(
+            () => import('./pages/experiment-evaluation-runs/ExperimentEvaluationRunsPage'),
+          ),
+        },
+        {
+          path: RoutePaths.experimentPageTabScorers,
+          pageId: PageId.experimentPageTabScorers,
+          element: createLazyRouteElement(() => import('./pages/experiment-scorers/ExperimentScorersPage')),
+        },
+        {
+          path: RoutePaths.experimentPageTabDatasets,
+          pageId: PageId.experimentPageTabDatasets,
+          element: createLazyRouteElement(() => {
+            return import('./pages/experiment-evaluation-datasets/ExperimentEvaluationDatasetsPage');
+          }),
+        },
+        {
+          path: RoutePaths.experimentPageTabPrompts,
+          pageId: PageId.experimentPageTabPrompts,
+          element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptsPage')),
+        },
+        {
+          path: RoutePaths.experimentPageTabPromptDetails,
+          pageId: PageId.experimentPageTabPromptDetails,
+          element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptDetailsPage')),
+        },
+      ],
     },
   ];
 };
 
 export const getRouteDefs = () => [
   {
-    path: RoutePaths.experimentPageTabbed,
-    element: createLazyRouteElement(() => {
-      return import(/* webpackChunkName: "experimentPage" */ './components/HomePage');
-    }),
-    pageId: 'mlflow.experiment.details.tab',
+    path: RoutePaths.rootRoute,
+    element: createLazyRouteElement(() => import('../home/HomePage')),
+    pageId: PageId.home,
   },
+  {
+    path: RoutePaths.settingsPage,
+    element: createLazyRouteElement(() => import('../settings/SettingsPage')),
+    pageId: PageId.settingsPage,
+  },
+  ...getExperimentPageRouteDefs(),
   {
     path: RoutePaths.experimentLoggedModelDetailsPageTab,
     element: createLazyRouteElement(() => import('./pages/experiment-logged-models/ExperimentLoggedModelDetailsPage')),
-    pageId: 'mlflow.logged-model.details.tab',
+    pageId: PageId.experimentLoggedModelDetailsPageTab,
   },
   {
     path: RoutePaths.experimentLoggedModelDetailsPage,
     element: createLazyRouteElement(() => import('./pages/experiment-logged-models/ExperimentLoggedModelDetailsPage')),
-    pageId: 'mlflow.logged-model.details',
-  },
-  {
-    path: RoutePaths.experimentPage,
-    element: createLazyRouteElement(() => import(/* webpackChunkName: "experimentPage" */ './components/HomePage')),
-    pageId: 'mlflow.experiment.details',
-  },
-  {
-    path: RoutePaths.experimentPageSearch,
-    element: createLazyRouteElement(() => import(/* webpackChunkName: "experimentPage" */ './components/HomePage')),
-    pageId: 'mlflow.experiment.details.search',
+    pageId: PageId.experimentLoggedModelDetailsPage,
   },
   {
     path: RoutePaths.compareExperimentsSearch,
-    element: createLazyRouteElement(() => import(/* webpackChunkName: "experimentPage" */ './components/HomePage')),
-    pageId: 'mlflow.experiment.compare',
+    element: createLazyRouteElement(
+      () => import(/* webpackChunkName: "experimentPage" */ './components/experiment-page/ExperimentPage'),
+    ),
+    pageId: PageId.compareExperimentsSearch,
   },
   {
     path: RoutePaths.runPageWithTab,
     element: createLazyRouteElement(() => import('./components/run-page/RunPage')),
-    pageId: 'mlflow.experiment.run.details',
+    pageId: PageId.runPageWithTab,
   },
   {
     path: RoutePaths.runPageDirect,
     element: createLazyRouteElement(() => import('./components/DirectRunPage')),
-    pageId: 'mlflow.experiment.run.details.direct',
+    pageId: PageId.runPageDirect,
   },
   {
     path: RoutePaths.compareRuns,
     element: createLazyRouteElement(() => import('./components/CompareRunPage')),
-    pageId: 'mlflow.experiment.run.compare',
+    pageId: PageId.compareRuns,
   },
   {
     path: RoutePaths.metricPage,
     element: createLazyRouteElement(() => import('./components/MetricPage')),
-    pageId: 'mlflow.metric.details',
+    pageId: PageId.metricPage,
   },
   ...getPromptPagesRouteDefs(),
 ];

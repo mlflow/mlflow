@@ -1,16 +1,15 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { Data, Datum, Layout, PlotMouseEvent } from 'plotly.js';
+import { isNil } from 'lodash';
+import type { Data, Datum, Layout, PlotMouseEvent } from 'plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LazyPlot } from '../../LazyPlot';
 import { useMutableChartHoverCallback } from '../hooks/useMutableHoverCallback';
 import { highlightScatterTraces, useRenderRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
+import type { RunsChartsRunData, RunsChartAxisDef, RunsPlotsCommonProps } from './RunsCharts.common';
 import {
   commonRunsChartStyles,
-  RunsChartsRunData,
-  RunsChartAxisDef,
   runsChartDefaultContourMargin,
   runsChartHoverlabel,
-  RunsPlotsCommonProps,
   createThemedPlotlyLayout,
   useDynamicPlotSize,
   getLegendDataFromRuns,
@@ -118,11 +117,11 @@ export const RunsContourPlot = React.memo(
         const yAxisData = yAxis.type === 'METRIC' ? metrics : params;
         const zAxisData = zAxis.type === 'METRIC' ? metrics : params;
 
-        const x = xAxisData?.[xAxis.key]?.value || undefined;
-        const y = yAxisData?.[yAxis.key]?.value || undefined;
-        const z = zAxisData?.[zAxis.key]?.value || undefined;
+        const x = xAxisData?.[xAxis.key]?.value;
+        const y = yAxisData?.[yAxis.key]?.value;
+        const z = zAxisData?.[zAxis.key]?.value;
 
-        if (x && y && z) {
+        if (!isNil(x) && !isNil(y) && !isNil(z)) {
           xValues.push(x);
           yValues.push(y);
           zValues.push(z);

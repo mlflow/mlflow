@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /**
  * MLflow Documentation Styling
@@ -8,6 +8,9 @@
  * bundles Infima by default. Infima is a CSS framework designed to
  * work well for content-centric websites.
  */
+:root {
+  --color-brand-red: #eb1700;
+}
 
 /* --------------------------------
  * 0. Override tailwinds reset of li and ul elements styling
@@ -52,9 +55,9 @@ article ul ul ul {
  * 1. Font Imports and Typography
  * -------------------------------- */
 /* Import DM Sans for body text and DM Mono for code */
-@import url("https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
 
-:root[data-theme="light"] {
+:root[data-theme='light'] {
   --background-color: var(--background-color-light);
 }
 
@@ -66,8 +69,11 @@ article ul ul ul {
   background-color: var(--background-color);
 
   /* Font family variables */
-  --ifm-font-family-base: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  --ifm-font-family-monospace: 'DM Mono', SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --ifm-font-family-base:
+    'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans',
+    'Helvetica Neue', sans-serif;
+  --ifm-font-family-monospace:
+    'DM Mono', SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   --ifm-navbar-background-color: var(--background-color);
 
   /* Font weight variables - per designer specs */
@@ -123,8 +129,8 @@ article ul ul ul {
   --card-shadow1: rgba(50, 50, 93, 0.05);
   --card-shadow2: rgba(50, 50, 93, 0.08);
   --card-shadow3: rgba(0, 0, 0, 0.05);
-  --card-hover-shadow: 0 0 0 1px var(--card-shadow1),
-    0 0 14px 5px var(--card-shadow2), 0 0 10px 3px var(--card-shadow3);
+  --card-hover-shadow:
+    0 0 0 1px var(--card-shadow1), 0 0 14px 5px var(--card-shadow2), 0 0 10px 3px var(--card-shadow3);
   --padding-xs: 4px;
   --padding-sm: 8px;
   --padding-md: 16px;
@@ -134,9 +140,15 @@ article ul ul ul {
 
   /* Color system */
   /* Light mode colors */
-  --ifm-border-color: #6B7280;
+  --ifm-border-color: #6b7280;
   --ifm-color-emphasis-hover: #000000;
   --ifm-link-color: #0194e2;
+
+  /* Site-wide shadow colors */
+  --ifm-shadow-light: rgba(0, 0, 0, 0.1);
+  --ifm-shadow-medium: rgba(0, 0, 0, 0.15);
+  --ifm-shadow-heavy: rgba(0, 0, 0, 0.25);
+  --ifm-shadow-tile-hover: 0 10px 30px var(--ifm-shadow-light);
 
   /* Dynamic Coloring based on theme selection */
   --ifm-color-primary: #0194e2;
@@ -151,13 +163,13 @@ article ul ul ul {
   --ml-color-primary: #0194e2;
 
   /* GenAI - Red theme */
-  --genai-color-primary: #EB1700;
-  --genai-color-primary-dark: #D21400;
-  --genai-color-primary-darker: #B91100;
-  --genai-color-primary-darkest: #9F0F00;
-  --genai-color-primary-light: #FF3A23;
-  --genai-color-primary-lighter: #FF6C59;
-  --genai-color-primary-lightest: #FF9D8F;
+  --genai-color-primary: #eb1700;
+  --genai-color-primary-dark: #d21400;
+  --genai-color-primary-darker: #b91100;
+  --genai-color-primary-darkest: #9f0f00;
+  --genai-color-primary-light: #ff3a23;
+  --genai-color-primary-lighter: #ff6c59;
+  --genai-color-primary-lightest: #ff9d8f;
 
   /* Secondary colors */
   --ifm-color-secondary: #85552e;
@@ -309,12 +321,14 @@ h5 {
   text-transform: uppercase;
 }
 
-code, pre, kbd {
+code,
+pre,
+kbd {
   font-family: var(--ifm-font-family-monospace);
 }
 
 /* Dark mode overrides */
-[data-theme="dark"] {
+[data-theme='dark'] {
   --ifm-color-primary: #0194e2;
   --ifm-color-primary-dark: #0086cf;
   --ifm-color-primary-darker: #0072b0;
@@ -324,9 +338,15 @@ code, pre, kbd {
   --ifm-color-primary-lightest: #54cef0;
 
   /* Dark mode colors */
-  --ifm-border-color: #9CA3AF;
-  --ifm-color-emphasis-hover: #FFFFFF;
+  --ifm-border-color: #9ca3af;
+  --ifm-color-emphasis-hover: #ffffff;
   --ifm-link-color: #43c9ed;
+
+  /* Dark mode shadow colors */
+  --ifm-shadow-light: rgba(255, 255, 255, 0.1);
+  --ifm-shadow-medium: rgba(255, 255, 255, 0.15);
+  --ifm-shadow-heavy: rgba(255, 255, 255, 0.25);
+  --ifm-shadow-tile-hover: 0 10px 30px var(--ifm-shadow-light);
 
   /* Inverted shadows */
   --card-shadow1: rgba(162, 162, 162, 0.5);
@@ -368,7 +388,7 @@ code, pre, kbd {
  * -------------------------------- */
 
 /* GenAI theme activation */
-html[data-genai-theme="true"] {
+html[data-genai-theme='true'] {
   --ifm-color-primary: var(--genai-color-primary);
   --ifm-color-primary-dark: var(--genai-color-primary-dark);
   --ifm-color-primary-darker: var(--genai-color-primary-darker);
@@ -396,7 +416,7 @@ html[data-genai-theme="true"] {
 }
 
 .navbar__item:hover::before {
-  content: "";
+  content: '';
   position: absolute;
   bottom: 0;
   left: 0;
@@ -419,6 +439,9 @@ html[data-genai-theme="true"] {
 /* Sidebar background color and spacing */
 .theme-doc-sidebar-container {
   background-color: transparent;
+  border-right: none !important;
+  padding-top: 1rem;
+  margin-right: 2rem;
 }
 
 /* Common sidebar styles for both themes */
@@ -428,12 +451,19 @@ html[data-genai-theme="true"] {
 
 .sidebar-top-level-category > .menu__link,
 .sidebar-top-level-category > .menu__list-item-collapsible > .menu__link {
+  font-size: var(--font-size-body-s);
   font-weight: var(--font-weight-medium);
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  padding-left: 1.5rem;
 }
 
 .menu__list-item:not(.sidebar-top-level-category) > .menu__link,
 .menu__list-item:not(.sidebar-top-level-category) > .menu__list-item-collapsible > .menu__link {
   font-size: var(--font-size-body-s);
+  padding-left: 1.5rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
 }
 
 /* Regular menu links */
@@ -456,7 +486,7 @@ html[data-theme='light'] .menu__link--active {
 
 /* Dark mode */
 html[data-theme='dark'] .menu__link--active {
-  color: #FFFFFF; /* Pure white text */
+  color: #ffffff; /* Pure white text */
   background-color: transparent; /* No background color */
   font-weight: var(--font-weight-medium);
 }
@@ -473,19 +503,31 @@ html[data-theme='dark'] .menu__link--active {
   background-color: transparent;
 }
 
+/* External link icon in sidebar - make existing icon smaller */
+.menu__link--external svg,
+.menu__link[href^='http'] svg,
+.menu__link[href^='https'] svg,
+.menu a[target='_blank'] svg,
+.menu a[rel*='noopener'] svg {
+  width: 10px;
+  height: 10px;
+  vertical-align: middle;
+  margin-left: 0.2em;
+}
+
 /* --------------------------------
  * 5. Content Navigation
  * -------------------------------- */
 
 /* Align breadcrumb items */
- .breadcrumbs {
-   display: flex;
- }
+.breadcrumbs {
+  display: flex;
+}
 
- .breadcrumbs__item {
-   display: inline-flex;
-   align-items: center;
- }
+.breadcrumbs__item {
+  display: inline-flex;
+  align-items: center;
+}
 
 /* Breadcrumbs - make uniform with the link color scheme */
 .breadcrumbs__link {
@@ -508,7 +550,7 @@ html[data-theme='dark'] .menu__link--active {
 }
 
 .pagination-nav {
-    gap: 0;
+  gap: 0;
 }
 
 /* Make pagination consistent with the link colors */
@@ -545,14 +587,14 @@ html[data-theme='dark'] .menu__link--active {
 
 /* Pagination arrows now use the same color scheme instead of theme colors */
 .pagination-nav__link--next .pagination-nav__label::after {
-  content: ''
+  content: '';
 }
 .pagination-nav__link--prev .pagination-nav__label::before {
-  content: ''
+  content: '';
 }
 
 .pagination-nav__link--next::after {
-  content: ">";
+  content: '>';
   color: var(--ifm-border-color);
   font-size: 2rem;
   position: absolute;
@@ -561,7 +603,7 @@ html[data-theme='dark'] .menu__link--active {
 }
 
 .pagination-nav__link--prev::before {
-  content: "<";
+  content: '<';
   color: var(--ifm-border-color);
   font-size: 2rem;
   position: absolute;
@@ -603,6 +645,121 @@ html[data-theme='dark'] .menu__link--active {
 }
 
 /* --------------------------------
+ * 6.1. Modern Landing Page Components
+ * -------------------------------- */
+
+/* Hero Section */
+.hero-section {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 4rem 2rem;
+}
+
+.hero-content {
+  display: flex;
+  align-items: center;
+  gap: 4rem;
+  min-height: 400px;
+}
+
+.hero-text {
+  flex: 1;
+  max-width: 600px;
+}
+
+.hero-text h1 {
+  font-size: 3.5rem;
+  font-weight: 300;
+  line-height: 1.1;
+  margin-bottom: 1.5rem;
+  color: var(--ifm-color-emphasis-hover);
+}
+
+.hero-text p {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  color: var(--ifm-border-color);
+  margin-bottom: 2.5rem;
+}
+
+.hero-image {
+  flex: 1;
+  max-width: 500px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hero-image img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: var(--ifm-shadow-tile-hover);
+}
+
+/* Tiles Grid */
+.tiles-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Responsive Design */
+@media (max-width: 996px) {
+  .hero-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 2rem;
+  }
+
+  .hero-text h1 {
+    font-size: 2.5rem;
+  }
+
+  .tiles-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  .why-content {
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .value-prop-badge {
+    justify-content: center;
+  }
+
+  .feature-highlights {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-section {
+    padding: 2rem 1rem;
+  }
+
+  .hero-text h1 {
+    font-size: 2rem;
+  }
+
+  .tiles-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .tile-card {
+    padding: 1.5rem;
+  }
+}
+
+/* --------------------------------
  * 7. Image Styling
  * -------------------------------- */
 
@@ -626,6 +783,16 @@ must be applied to the wrapping div along with the desired max-height */
 .max-height-img-container img {
   max-height: 100%;
   width: auto;
+}
+
+/* --------------------------------
+ * 7.1. Video Styling
+ * -------------------------------- */
+
+video {
+  border-radius: 12px;
+  border: 1px solid var(--ifm-color-gray-300);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
 /* --------------------------------
@@ -658,6 +825,11 @@ In headlines Docusaurus adds this for us. */
   margin-bottom: 1.5rem;
 }
 
+.theme-code-block {
+  max-width: 100%;
+  min-width: 0;
+}
+
 /* Inline code */
 :not(pre) > code {
   border-radius: 4px;
@@ -677,7 +849,8 @@ table {
   border-spacing: 0;
 }
 
-th, td {
+th,
+td {
   padding: var(--padding-sm) var(--padding-md);
   border: 1px solid var(--ifm-border-color);
 }
@@ -711,7 +884,7 @@ th {
   border-bottom: 2px solid var(--ifm-color-emphasis-hover);
 }
 
-[role="tabpanel"] {
+[role='tabpanel'] {
   padding-left: 1.5rem;
   margin-top: 0.5rem;
   margin-left: 0.5rem;
@@ -765,7 +938,7 @@ th {
 }
 
 .footer__link-item:hover {
-  color: #FFFFFF;
+  color: #ffffff;
   text-decoration: none;
 }
 
@@ -783,4 +956,9 @@ th {
 
 .col--3 {
   padding-left: 0;
+}
+
+.theme-layout-main {
+  margin-left: auto;
+  margin-right: auto;
 }

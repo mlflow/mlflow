@@ -7,16 +7,19 @@ import posixpath
 import re
 import textwrap
 import warnings
-from typing import Any, AsyncGenerator, Optional
+from typing import Any, AsyncGenerator
 from urllib.parse import urlparse
+
+from fastapi import HTTPException
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.utils.uri import append_to_uri_path
 
 _logger = logging.getLogger(__name__)
-_gateway_uri: Optional[str] = None
+_gateway_uri: str | None = None
 
 
 def is_valid_endpoint_name(name: str) -> bool:
@@ -30,26 +33,61 @@ def is_valid_endpoint_name(name: str) -> bool:
 
 
 def check_configuration_route_name_collisions(config):
-    if "routes" in config:
+    endpoints = config.get("endpoints") or []
+    routes = config.get("routes") or []
+
+    endpoint_names = [endpoint["name"] for endpoint in endpoints]
+    route_names = [route["name"] for route in routes]
+
+    merged_names = endpoint_names + route_names
+    if len(merged_names) != len(set(merged_names)):
         raise MlflowException.invalid_parameter_value(
-            "The 'routes' field is not supported in the configuration file, "
-            "use 'endpoints' instead."
+            "Duplicate names found in endpoint / route configurations. "
+            "Please remove the duplicate endpoint / route name "
+            "from the configuration to ensure that endpoints / routes are created properly."
         )
-    routes = config.get("endpoints") or []
-    if len(routes) < 2:
-        return
-    names = [route["name"] for route in routes]
-    if len(names) != len(set(names)):
-        raise MlflowException.invalid_parameter_value(
-            "Duplicate names found in endpoint configurations. Please remove the duplicate endpoint"
-            " name from the configuration to ensure that endpoints are created properly."
-        )
+
+    endpoint_config_dict = {endpoint["name"]: endpoint for endpoint in endpoints}
+
+    for route in routes:
+        route_name = route["name"]
+        route_task_type = route["task_type"]
+
+        traffic_percentage_sum = 0
+        for destination in route.get("destinations"):
+            dest_name = destination.get("name")
+            dest_traffic_percentage = destination.get("traffic_percentage")
+            traffic_percentage_sum += dest_traffic_percentage
+            if dest_name not in endpoint_names:
+                raise MlflowException.invalid_parameter_value(
+                    f"The route destination name must be a endpoint name, "
+                    f"but the route '{route_name}' has an invalid destination name '{dest_name}'."
+                )
+
+            dest_endpoint_type = endpoint_config_dict[dest_name].get("endpoint_type")
+            if route_task_type != dest_endpoint_type:
+                raise MlflowException.invalid_parameter_value(
+                    f"The route destination endpoint types in the route '{route_name}' must have "
+                    f"endpoint type '{route_task_type}' but got endpoint type "
+                    f"'{dest_endpoint_type}'."
+                )
+
+            if not (0 <= dest_traffic_percentage <= 100):
+                raise MlflowException.invalid_parameter_value(
+                    "The route destination traffic percentage must between 0 and 100."
+                )
+
+        if traffic_percentage_sum != 100:
+            raise MlflowException.invalid_parameter_value(
+                "For each route configuration, the traffic percentage sum of destinations "
+                f"must be 100, but got invalid configuration of route '{route_name}'."
+            )
 
 
 def check_configuration_deprecated_fields(config):
-    routes = config.get("endpoints", [])
-    for route in routes:
-        if "route_type" in route:
+    endpoints = config.get("endpoints", [])
+    for endpoint in endpoints:
+        if "route_type" in endpoint:
             raise MlflowException.invalid_parameter_value(
                 "The 'route_type' configuration key is not supported in the configuration file. "
                 "Use 'endpoint_type' instead."
@@ -94,7 +132,7 @@ def _get_indent(s: str) -> str:
     return ""
 
 
-def _prepend(docstring: Optional[str], text: str) -> str:
+def _prepend(docstring: str | None, text: str) -> str:
     if not docstring:
         return text
 
@@ -303,3 +341,18 @@ async def make_streaming_response(resp):
         )
     else:
         return await resp
+
+
+def translate_http_exception(func):
+    """
+    Decorator for translating MLflow exceptions to HTTP exceptions
+    """
+
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except AIGatewayException as e:
+            raise HTTPException(status_code=e.status_code, detail=e.detail)
+
+    return wrapper

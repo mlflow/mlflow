@@ -1,3 +1,5 @@
+import { type KeyValueEntity } from '../common/types';
+
 /**
  * Type definitions for models used in experiment tracking.
  * See 'src/experiment-tracking/sdk/MlflowMessages.js' for reference
@@ -5,25 +7,16 @@
  * Note: this could be automatically generated in the future.
  */
 import { type CSSProperties } from 'react';
-import { ExperimentPageViewState } from './components/experiment-page/models/ExperimentPageViewState';
-import { RawEvaluationArtifact } from './sdk/EvaluationArtifactService';
+import type { ExperimentPageViewState } from './components/experiment-page/models/ExperimentPageViewState';
+import type { RawEvaluationArtifact } from './sdk/EvaluationArtifactService';
 import { type ArtifactNode } from './utils/ArtifactUtils';
-import { GetRun } from '../graphql/__generated__/graphql';
+import type { GetRun } from '../graphql/__generated__/graphql';
 
 export interface RunItem {
   runId: string;
   name: string;
   color: CSSProperties['color'];
   y: number;
-}
-
-/**
- * Simple key/value model enhanced with immutable.js
- * getter methods
- */
-export interface KeyValueEntity {
-  key: string;
-  value: string;
 }
 
 export type ModelAliasMap = { alias: string; version: string }[];
@@ -79,10 +72,20 @@ export interface RunEntity {
   };
   info: RunInfoEntity;
   inputs?: RunInfoInputsEntity;
+  outputs?: RunInfoOutputsEntity;
 }
 
 export interface RunInfoInputsEntity {
   datasetInputs?: RunDatasetWithTags[];
+  modelInputs?: RunModelEntity[];
+}
+
+export interface RunInfoOutputsEntity {
+  modelOutputs?: RunModelEntity[];
+}
+
+export interface RunModelEntity {
+  modelId: string;
 }
 
 export interface RunInfoEntity {
@@ -150,6 +153,19 @@ export type SampledMetricsByRunUuidState = {
   };
 };
 
+export interface RunInputsType {
+  modelInputs?: {
+    modelId: string;
+  }[];
+  datasetInputs?: RunDatasetWithTags[];
+}
+
+export interface RunOutputsType {
+  modelOutputs?: {
+    modelId: string;
+  }[];
+}
+
 export interface ExperimentStoreEntities {
   /**
    * Dictionary with experiment ID as key and entity object as a value
@@ -175,6 +191,14 @@ export interface ExperimentStoreEntities {
    * Dictionary of recorded input datasets by run UUIDs
    */
   runDatasetsByUuid: Record<string, RunDatasetWithTags[]>;
+
+  runInputsOutputsByUuid: Record<
+    string,
+    {
+      inputs?: RunInputsType;
+      outputs?: RunOutputsType;
+    }
+  >;
 
   /**
    * Dictionary with run UUID as key and metric sub-dictionary as a value.
@@ -309,6 +333,7 @@ export enum DatasetSourceTypes {
   S3 = 's3',
   HUGGING_FACE = 'hugging_face',
   UC = 'uc_volume',
+  DATABRICKS_UC_TABLE = 'databricks-uc-table',
 }
 
 /**
@@ -426,6 +451,7 @@ export interface SearchRunsApiResponse {
 
 export interface SearchExperimentsApiResponse {
   experiments: ExperimentEntity[];
+  next_page_token?: string;
 }
 
 export interface GetExperimentApiResponse {

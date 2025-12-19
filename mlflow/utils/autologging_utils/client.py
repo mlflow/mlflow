@@ -10,10 +10,9 @@ Remove this developer API.
 
 import logging
 import os
-from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, NamedTuple, Optional
 
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.entities.dataset_input import DatasetInput
@@ -35,10 +34,17 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
-_PendingCreateRun = namedtuple(
-    "_PendingCreateRun", ["experiment_id", "start_time", "tags", "run_name"]
-)
-_PendingSetTerminated = namedtuple("_PendingSetTerminated", ["status", "end_time"])
+
+class _PendingCreateRun(NamedTuple):
+    experiment_id: str
+    start_time: int | None
+    tags: list[RunTag]
+    run_name: str | None
+
+
+class _PendingSetTerminated(NamedTuple):
+    status: str | None
+    end_time: int | None
 
 
 class PendingRunId:
@@ -144,9 +150,9 @@ class MlflowAutologgingQueueingClient:
     def create_run(
         self,
         experiment_id: str,
-        start_time: Optional[int] = None,
-        tags: Optional[dict[str, Any]] = None,
-        run_name: Optional[str] = None,
+        start_time: int | None = None,
+        tags: dict[str, Any] | None = None,
+        run_name: str | None = None,
     ) -> PendingRunId:
         """
         Enqueues a CreateRun operation with the specified attributes, returning a `PendingRunId`
@@ -174,9 +180,9 @@ class MlflowAutologgingQueueingClient:
 
     def set_terminated(
         self,
-        run_id: Union[str, PendingRunId],
-        status: Optional[str] = None,
-        end_time: Optional[int] = None,
+        run_id: str | PendingRunId,
+        status: str | None = None,
+        end_time: int | None = None,
     ) -> None:
         """
         Enqueues an UpdateRun operation with the specified `status` and `end_time` attributes
@@ -186,7 +192,7 @@ class MlflowAutologgingQueueingClient:
             set_terminated=_PendingSetTerminated(status=status, end_time=end_time)
         )
 
-    def log_params(self, run_id: Union[str, PendingRunId], params: dict[str, Any]) -> None:
+    def log_params(self, run_id: str | PendingRunId, params: dict[str, Any]) -> None:
         """
         Enqueues a collection of Parameters to be logged to the run specified by `run_id`.
         """
@@ -196,9 +202,7 @@ class MlflowAutologgingQueueingClient:
         params_arr = [Param(key, str(value)) for key, value in params.items()]
         self._get_pending_operations(run_id).enqueue(params=params_arr)
 
-    def log_inputs(
-        self, run_id: Union[str, PendingRunId], datasets: Optional[list[DatasetInput]]
-    ) -> None:
+    def log_inputs(self, run_id: str | PendingRunId, datasets: list[DatasetInput] | None) -> None:
         """
         Enqueues a collection of Dataset to be logged to the run specified by `run_id`.
         """
@@ -208,11 +212,11 @@ class MlflowAutologgingQueueingClient:
 
     def log_metrics(
         self,
-        run_id: Union[str, PendingRunId],
+        run_id: str | PendingRunId,
         metrics: dict[str, float],
-        step: Optional[int] = None,
+        step: int | None = None,
         dataset: Optional["Dataset"] = None,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ) -> None:
         """
         Enqueues a collection of Metrics to be logged to the run specified by `run_id` at the
@@ -234,7 +238,7 @@ class MlflowAutologgingQueueingClient:
         ]
         self._get_pending_operations(run_id).enqueue(metrics=metrics_arr)
 
-    def set_tags(self, run_id: Union[str, PendingRunId], tags: dict[str, Any]) -> None:
+    def set_tags(self, run_id: str | PendingRunId, tags: dict[str, Any]) -> None:
         """
         Enqueues a collection of Tags to be logged to the run specified by `run_id`.
         """
@@ -262,13 +266,13 @@ class MlflowAutologgingQueueingClient:
             operations may still be inflight. Operation completion can be synchronously waited
             on via `RunOperations.await_completion()`.
         """
-        logging_futures = []
-        for pending_operations in self._pending_ops_by_run_id.values():
-            future = _AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL.submit(
+        logging_futures = [
+            _AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL.submit(
                 self._flush_pending_operations,
                 pending_operations=pending_operations,
             )
-            logging_futures.append(future)
+            for pending_operations in self._pending_ops_by_run_id.values()
+        ]
         self._pending_ops_by_run_id = {}
 
         logging_operations = RunOperations(logging_futures)
@@ -359,19 +363,19 @@ class MlflowAutologgingQueueingClient:
                 )
             )
 
-        for metrics_batch in chunk_list(
-            pending_operations.metrics_queue, chunk_size=MAX_METRICS_PER_BATCH
-        ):
-            operation_results.append(
-                self._try_operation(self._client.log_batch, run_id=run_id, metrics=metrics_batch)
+        operation_results.extend(
+            self._try_operation(self._client.log_batch, run_id=run_id, metrics=metrics_batch)
+            for metrics_batch in chunk_list(
+                pending_operations.metrics_queue, chunk_size=MAX_METRICS_PER_BATCH
             )
+        )
 
-        for datasets_batch in chunk_list(
-            pending_operations.datasets_queue, chunk_size=MAX_DATASETS_PER_BATCH
-        ):
-            operation_results.append(
-                self._try_operation(self._client.log_inputs, run_id=run_id, datasets=datasets_batch)
+        operation_results.extend(
+            self._try_operation(self._client.log_inputs, run_id=run_id, datasets=datasets_batch)
+            for datasets_batch in chunk_list(
+                pending_operations.datasets_queue, chunk_size=MAX_DATASETS_PER_BATCH
             )
+        )
 
         if pending_operations.set_terminated:
             operation_results.append(

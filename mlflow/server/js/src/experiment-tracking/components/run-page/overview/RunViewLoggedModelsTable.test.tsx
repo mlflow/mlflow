@@ -1,45 +1,43 @@
+import { jest, describe, it, expect } from '@jest/globals';
 import { IntlProvider } from 'react-intl';
-import { render, screen, waitFor, within } from '../../../../common/utils/TestUtils.react18';
+import { render, waitFor } from '../../../../common/utils/TestUtils.react18';
+import type { LoggedModelProto } from '../../../types';
 import { LoggedModelStatusProtoEnum, type RunInfoEntity } from '../../../types';
 import type { UseGetRunQueryResponseInputs, UseGetRunQueryResponseOutputs } from '../hooks/useGetRunQuery';
 import { RunViewLoggedModelsTable } from './RunViewLoggedModelsTable';
-import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { setupServer } from '../../../../common/utils/setup-msw';
-import { rest } from 'msw';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { TestRouter, testRoute } from '../../../../common/utils/RoutingTestUtils';
+import type { ComponentProps } from 'react';
+import { QueryClient, QueryClientProvider } from '../../../../common/utils/reactQueryHooks';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // High timeout because of testing heavy data table
 
 describe('RunViewLoggedModelsTable', () => {
-  const server = setupServer(
-    rest.get('/ajax-api/2.0/mlflow/logged-models/:modelId', (req, res, ctx) => {
-      const modelId = req.params['modelId'].toString();
-      return res(
-        ctx.json({
-          model: {
-            info: {
-              artifact_uri: `dbfs:/databricks/mlflow/${modelId}`,
-              creation_timestamp_ms: 1728322600000,
-              last_updated_timestamp_ms: 1728322600000,
-              source_run_id: 'run-id-1',
-              creator_id: 'test@test.com',
-              experiment_id: 'test-experiment',
-              model_id: modelId,
-              model_type: 'Agent',
-              name: `${modelId}-name`,
-              tags: [],
-              status_message: 'Ready',
-              status: LoggedModelStatusProtoEnum.LOGGED_MODEL_READY,
-              registrations: [],
-            },
-            data: {},
-          },
-        }),
-      );
-    }),
-  );
+  const testLoggedModels: LoggedModelProto[] = [
+    'input-model-1',
+    'input-model-2',
+    'output-model-1',
+    'output-model-2',
+  ].map((modelId) => ({
+    info: {
+      artifact_uri: `dbfs:/databricks/mlflow/${modelId}`,
+      creation_timestamp_ms: 1728322600000,
+      last_updated_timestamp_ms: 1728322600000,
+      source_run_id: 'run-id-1',
+      experiment_id: 'test-experiment',
+      model_id: modelId,
+      model_type: 'Agent',
+      name: `${modelId}-name`,
+      tags: [],
+      status_message: 'Ready',
+      status: LoggedModelStatusProtoEnum.LOGGED_MODEL_READY,
+      registrations: [],
+    },
+    data: {},
+  }));
+
   const inputs: UseGetRunQueryResponseInputs = {
     __typename: 'MlflowRunInputs',
     datasetInputs: null,
@@ -67,21 +65,38 @@ describe('RunViewLoggedModelsTable', () => {
     runName: 'run-name',
   };
 
-  const renderTestComponent = () => {
-    const queryClient = new QueryClient();
-    return render(<RunViewLoggedModelsTable inputs={inputs} outputs={outputs} runInfo={runInfo} />, {
-      wrapper: ({ children }) => (
-        <TestApolloProvider>
-          <QueryClientProvider client={queryClient}>
-            <DesignSystemProvider>
-              <IntlProvider locale="en">
-                <TestRouter routes={[testRoute(<>{children}</>)]} />
-              </IntlProvider>
-            </DesignSystemProvider>
-          </QueryClientProvider>
-        </TestApolloProvider>
-      ),
+  const renderTestComponent = (props: Partial<ComponentProps<typeof RunViewLoggedModelsTable>> = {}) => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
     });
+
+    return render(
+      <RunViewLoggedModelsTable
+        inputs={inputs}
+        outputs={outputs}
+        runInfo={runInfo}
+        loggedModelsV3={testLoggedModels}
+        isLoadingLoggedModels={false}
+        {...props}
+      />,
+      {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={queryClient}>
+            <TestApolloProvider>
+              <DesignSystemProvider>
+                <IntlProvider locale="en">
+                  <TestRouter routes={[testRoute(<>{children}</>)]} />
+                </IntlProvider>
+              </DesignSystemProvider>
+            </TestApolloProvider>
+          </QueryClientProvider>
+        ),
+      },
+    );
   };
   it('renders a table with logged models', async () => {
     const { getByText, getByRole, queryByText, getAllByRole } = renderTestComponent();
@@ -129,16 +144,12 @@ describe('RunViewLoggedModelsTable', () => {
     expect(outputModelTwoRow.querySelector(`[col-id="${stepColId}"]`)).toHaveTextContent('7');
   });
 
-  it('renders error message when request fails', async () => {
+  it('renders error message when  provided', async () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
 
-    server.use(
-      rest.get('/ajax-api/2.0/mlflow/logged-models/:modelId', (req, res, ctx) => {
-        return res(ctx.status(500), ctx.json({ message: 'Something went wrong.' }));
-      }),
-    );
-
-    const { getByText, queryByText } = renderTestComponent();
+    const { getByText, queryByText } = renderTestComponent({
+      loggedModelsError: new Error('Something went wrong.'),
+    });
 
     await waitFor(() => {
       expect(getByText(/Logged models \(\d+\)/)).toBeInTheDocument();

@@ -1,14 +1,20 @@
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Union
+import math
+from typing import TYPE_CHECKING, Any, Collection
 
-from mlflow.entities import Assessment, Trace
+from mlflow.entities import Assessment, Trace, TraceData
+from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME, Feedback
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
 from mlflow.genai.evaluation.constant import (
     AgentEvaluationReserverKey,
 )
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
+from mlflow.tracing.utils.search import traces_to_df
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
@@ -17,19 +23,70 @@ except ImportError:
     pass
 
 if TYPE_CHECKING:
-    from mlflow.genai.datasets import EvaluationDataset
+    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+    from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
 
     try:
         import pyspark.sql.dataframe
 
-        EvaluationDatasetTypes = Union[
-            pd.DataFrame, pyspark.sql.dataframe.DataFrame, list[dict], EvaluationDataset
-        ]
+        EvaluationDatasetTypes = (
+            pd.DataFrame
+            | pyspark.sql.dataframe.DataFrame
+            | list[dict]
+            | list[Trace]
+            | ManagedEvaluationDataset
+            | EntityEvaluationDataset
+        )
     except ImportError:
-        EvaluationDatasetTypes = Union[pd.DataFrame, list[dict], EvaluationDataset]
+        EvaluationDatasetTypes = (
+            pd.DataFrame
+            | list[dict]
+            | list[Trace]
+            | ManagedEvaluationDataset
+            | EntityEvaluationDataset
+        )
 
 
 _logger = logging.getLogger(__name__)
+
+USER_DEFINED_ASSESSMENT_NAME_KEY = "_user_defined_assessment_name"
+PGBAR_FORMAT = (
+    "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}] {postfix}"
+)
+
+
+def _get_eval_data_type(data: "EvaluationDatasetTypes") -> dict[str, Any]:
+    data_type = type(data)
+
+    if data_type is list:
+        if len(data) > 0 and all(isinstance(item, Trace) for item in data):
+            return {"eval_data_type": "list[Trace]"}
+        return {"eval_data_type": "list[dict]"}
+
+    if data_type is EntityEvaluationDataset:
+        return {"eval_data_type": "EntityEvaluationDataset"}
+    if data_type is ManagedEvaluationDataset:
+        return {"eval_data_type": "EvaluationDataset"}
+
+    module = data_type.__module__
+    qualname = data_type.__qualname__
+
+    if qualname == "DataFrame":
+        if module.startswith("pandas"):
+            return {"eval_data_type": "pd.DataFrame"}
+        if module.startswith("pyspark"):
+            return {"eval_data_type": "pyspark.sql.DataFrame"}
+
+    return "unknown"
+
+
+def _get_eval_data_size_and_fields(df: "pd.DataFrame") -> dict[str, Any]:
+    input_columns = set(df.columns.tolist())
+    relevant_fields = {"inputs", "outputs", "trace", "expectations"}
+    return {
+        "eval_data_size": len(df),
+        "eval_data_provided_fields": sorted(input_columns & relevant_fields),
+    }
 
 
 def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
@@ -38,16 +95,20 @@ def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     converts it into a pandas DataFrame.
     """
     if isinstance(data, list):
-        # validate that every item in the list is a dict and has inputs as key
-        for item in data:
-            if not isinstance(item, dict):
-                raise MlflowException.invalid_parameter_value(
-                    "Every item in the list must be a dictionary."
-                )
+        if all(isinstance(item, Trace) for item in data):
+            data = traces_to_df(data)
+        else:
+            for item in data:
+                if not isinstance(item, dict):
+                    raise MlflowException.invalid_parameter_value(
+                        "Every item in the list must be a dictionary."
+                    )
         df = pd.DataFrame(data)
     elif isinstance(data, pd.DataFrame):
         # Data is already a pd DataFrame, just copy it
         df = data.copy()
+    elif isinstance(data, (EntityEvaluationDataset, ManagedEvaluationDataset)):
+        df = data.to_df()
     else:
         try:
             from mlflow.utils.spark_utils import get_spark_dataframe_type
@@ -79,28 +140,16 @@ def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     return df
 
 
-def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
+def _convert_to_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     """
-    Takes in a dataset in the format that mlflow.genai.evaluate() expects and converts it into
-    to the current eval-set schema that Agent Evaluation takes in. The transformed schema should
-    be accepted by mlflow.evaluate().
-    The expected schema can be found at:
-    https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema
-
-    NB: The harness secretly support 'expectations' column as well. It accepts a dictionary of
-        expectations, which is same as the schema that mlflow.genai.evaluate() expects.
-        Therefore, we can simply pass through expectations column.
+    Takes in a dataset in the multiple format that mlflow.genai.evaluate() expects and converts
+    it into a standardized Pandas DataFrame.
     """
-    column_mapping = {
-        "inputs": "request",
-        "outputs": "response",
-    }
-
     df = _convert_eval_set_to_df(data)
 
     return (
-        df.rename(columns=column_mapping)
-        .pipe(_extract_request_from_trace)
+        df.pipe(_deserialize_trace_column_if_needed)
+        .pipe(_extract_request_response_from_trace)
         .pipe(_extract_expectations_from_trace)
     )
 
@@ -138,16 +187,58 @@ def _deserialize_inputs_and_expectations_column(df: "pd.DataFrame") -> "pd.DataF
     return df
 
 
-def _extract_request_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
+def _deserialize_trace_column_if_needed(df: "pd.DataFrame") -> "pd.DataFrame":
     """
-    Add `request` columns to the dataframe if it is not already present.
-    This is for compatibility with mlflow.evaluate() that requires `request` column.
+    Deserialize the `trace` column from the dataframe if it is a string.
+
+    Since MLflow 3.2.0, mlflow.search_traces() returns a pandas DataFrame with a `trace`
+    column that is a trace json representation rather than the Trace object itself. This
+    function deserializes the `trace` column into a Trace object.
+    """
+    if "trace" in df.columns:
+        df["trace"] = df["trace"].apply(lambda t: Trace.from_json(t) if isinstance(t, str) else t)
+    return df
+
+
+def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
+    """
+    Add `inputs` and `outputs` columns from traces if it is not already present.
     """
     if "trace" not in df.columns:
         return df
 
-    if "request" not in df.columns:
-        df["request"] = df["trace"].apply(lambda trace: json.loads(trace.data.request))
+    def _extract_attribute(trace_data: TraceData, attribute_name: str) -> Any:
+        if att := getattr(trace_data, attribute_name, None):
+            return json.loads(att)
+        return None
+
+    def _safe_extract_from_root_span(trace: Trace, attribute: str) -> Any:
+        """Safely extract an attribute from the root span, returning None if root span is None."""
+        root_span = trace.data._get_root_span()
+        if root_span is None:
+            return None
+        return getattr(root_span, attribute, None)
+
+    if "inputs" not in df.columns:
+        df["inputs"] = df["trace"].apply(
+            lambda trace: _safe_extract_from_root_span(trace, "inputs")
+        )
+    if "outputs" not in df.columns:
+        df["outputs"] = df["trace"].apply(
+            lambda trace: _safe_extract_from_root_span(trace, "outputs")
+        )
+
+    # Warn once if any traces have missing root spans
+    missing_root_span_mask = df["trace"].apply(lambda trace: trace.data._get_root_span() is None)
+    if missing_root_span_mask.any():
+        missing_count = missing_root_span_mask.sum()
+        _logger.warning(
+            f"{missing_count} trace(s) do not have a root span, so input and output data may be"
+            " missing for these traces. This may occur if traces were fetched using"
+            " search_traces(..., include_spans=False) and, if so, it can be resolved by fetching"
+            " traces using search_traces(..., include_spans=True)."
+        )
+
     return df
 
 
@@ -187,20 +278,21 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
             "Please install it with `pip install databricks-agents`."
         )
 
+    from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
     from mlflow.types.llm import ChatCompletionRequest
 
     def eval_fn(
         request_id: str,
-        request: Union[ChatCompletionRequest, str],
-        response: Optional[Any],
-        expected_response: Optional[Any],
-        trace: Optional[Trace],
-        guidelines: Optional[Union[list[str], dict[str, list[str]]]],
-        expected_facts: Optional[list[str]],
-        expected_retrieved_context: Optional[list[dict[str, str]]],
-        custom_expected: Optional[dict[str, Any]],
+        request: ChatCompletionRequest | str,
+        response: Any | None,
+        expected_response: Any | None,
+        trace: Trace | None,
+        guidelines: list[str] | dict[str, list[str]] | None,
+        expected_facts: list[str] | None,
+        expected_retrieved_context: list[dict[str, str]] | None,
+        custom_expected: dict[str, Any] | None,
         **kwargs,
-    ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
+    ) -> int | float | bool | str | Assessment | list[Assessment]:
         # Condense all expectations into a single dict
         expectations = {}
         if expected_response is not None:
@@ -224,7 +316,128 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
         }
         return scorer.run(**merged)
 
-    return metric(
+    metric_instance = metric(
         eval_fn=eval_fn,
         name=scorer.name,
     )
+    # Add aggregations as an attribute since the metric decorator doesn't accept it
+    metric_instance.aggregations = scorer.aggregations
+    # Add attribute to indicate if this is a built-in scorer
+    metric_instance._is_builtin_scorer = isinstance(scorer, BuiltInScorer)
+
+    return metric_instance
+
+
+def standardize_scorer_value(scorer_name: str, value: Any) -> list[Feedback]:
+    """
+    Convert the scorer return value to a list of MLflow Assessment (Feedback) objects.
+
+    Scorer can return:
+    - A number, boolean, or string, a list of them.
+    - An Feedback object
+    - A list of Feedback objects
+
+    All of the above will be converted to a list of Feedback objects.
+    """
+    # None is a valid metric value, return an empty list
+    if value is None:
+        return []
+
+    # Primitives are valid metric values
+    if isinstance(value, (int, float, bool, str)):
+        return [
+            Feedback(
+                name=scorer_name,
+                source=make_code_type_assessment_source(scorer_name),
+                value=value,
+            )
+        ]
+
+    if isinstance(value, Feedback):
+        value.name = _get_custom_assessment_name(value, scorer_name)
+        return [value]
+
+    if isinstance(value, Collection):
+        assessments = []
+        for item in value:
+            if isinstance(item, Feedback):
+                # Scorer returns multiple assessments as a list.
+                item.name = _get_custom_assessment_name(item, scorer_name)
+                assessments.append(item)
+            else:
+                # If the item is not assessment, the list represents a single assessment
+                # value of list type. Convert it to a Feedback object.
+                assessments.append(
+                    Feedback(
+                        name=scorer_name,
+                        source=make_code_type_assessment_source(scorer_name),
+                        value=item,
+                    )
+                )
+        return assessments
+
+    raise MlflowException.invalid_parameter_value(
+        f"Got unsupported result from scorer '{scorer_name}'. "
+        f"Expected the metric value to be a number, or a boolean, or a string, "
+        "or an Feedback, or a list of Feedbacks. "
+        f"Got {value}.",
+    )
+
+
+def _get_custom_assessment_name(assessment: Feedback, scorer_name: str) -> str:
+    """Get the name of the custom assessment. Use assessment name if present and not a builtin judge
+    name, otherwise use the scorer name.
+
+    Args:
+        assessment: The assessment to get the name for.
+        scorer_name: The name of the scprer.
+    """
+    # If the user didn't provide a name, use the scorer name
+    if assessment.name == DEFAULT_FEEDBACK_NAME or (
+        assessment.metadata is not None
+        and assessment.metadata.get(USER_DEFINED_ASSESSMENT_NAME_KEY) == "false"
+    ):
+        return scorer_name
+    return assessment.name
+
+
+def make_code_type_assessment_source(scorer_name: str) -> AssessmentSource:
+    return AssessmentSource(source_type=AssessmentSourceType.CODE, source_id=scorer_name)
+
+
+def is_none_or_nan(value: Any) -> bool:
+    """
+    Checks whether a value is None or NaN.
+
+    NB: This function does not handle pandas.NA.
+    """
+    # isinstance(value, float) check is needed to ensure that math.isnan is not called on an array.
+    return value is None or (isinstance(value, float) and math.isnan(value))
+
+
+def validate_tags(tags: Any) -> None:
+    """
+    Validate that tags are in the expected format: dict[str, str].
+
+    Args:
+        tags: The tags to validate.
+
+    Raises:
+        MlflowException: If tags are not in the correct format.
+    """
+    if is_none_or_nan(tags):
+        return
+
+    if not isinstance(tags, dict):
+        raise MlflowException.invalid_parameter_value(
+            f"Tags must be a dictionary, got {type(tags).__name__}. "
+        )
+
+    errors = [
+        f"Key {key!r} has type {type(key).__name__}; expected str."
+        for key in tags.keys()
+        if not isinstance(key, str)
+    ]
+
+    if errors:
+        raise MlflowException.invalid_parameter_value("Invalid tags:\n  - " + "\n  - ".join(errors))

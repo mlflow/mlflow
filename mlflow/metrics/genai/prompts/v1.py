@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.prompt_template import PromptTemplate
@@ -13,51 +13,85 @@ default_parameters = {
     "top_p": 1.0,
 }
 
-grading_system_prompt_template = PromptTemplate(
-    [
-        """
+
+def _build_grading_prompt_template(include_input: bool = True) -> PromptTemplate:
+    """
+    Build the grading system prompt template based on whether input is included.
+
+    Args:
+        include_input: Whether the prompt should reference and include input from the user.
+                      When False, the prompt only references the model's output.
+
+    Returns:
+        PromptTemplate configured for the specified input inclusion mode.
+    """
+    if include_input:
+        # When input is included, mention both input and output in the instructions
+        judge_description = (
+            "You are an impartial judge. You will be given an input that was sent to a "
+            "machine\nlearning model, and you will be given an output that the model produced. "
+            "You\nmay also be given additional information that was used by the model to "
+            "generate the output."
+        )
+        task_description = (
+            "Your task is to determine a numerical score called {name} based on the input "
+            "and output."
+        )
+        input_section = "\n\nInput:\n{input}"
+    else:
+        # When input is not included, only mention output in the instructions
+        judge_description = (
+            "You are an impartial judge. You will be given an output that a machine learning "
+            "model produced.\nYou may also be given additional information that was used by "
+            "the model to generate the output."
+        )
+        task_description = (
+            "Your task is to determine a numerical score called {name} based on the output "
+            "and any additional information provided."
+        )
+        input_section = ""
+
+    return PromptTemplate(
+        [
+            f"""
 Task:
 You must return the following fields in your response in two lines, one below the other:
-score: Your numerical score for the model's {name} based on the rubric
-justification: Your reasoning about the model's {name} score
+score: Your numerical score for the model's {{name}} based on the rubric
+justification: Your reasoning about the model's {{name}} score
 
-You are an impartial judge. You will be given an input that was sent to a machine
-learning model, and you will be given an output that the model produced. You
-may also be given additional information that was used by the model to generate the output.
+{judge_description}
 
-Your task is to determine a numerical score called {name} based on the input and output.
-A definition of {name} and a grading rubric are provided below.
+{task_description}
+A definition of {{name}} and a grading rubric are provided below.
 You must use the grading rubric to determine your score. You must also justify your score.
 
 Examples could be included below for reference. Make sure to use them as references and to
-understand them before completing the task.""",
-        """
-
-Input:
-{input}""",
-        """
+understand them before completing the task.{input_section}
 
 Output:
-{output}
+{{output}}
 
-{grading_context_columns}
+{{grading_context_columns}}
 
 Metric definition:
-{definition}
+{{definition}}
 
 Grading rubric:
-{grading_prompt}
+{{grading_prompt}}
 
-{examples}
+{{examples}}
 
 You must return the following fields in your response in two lines, one below the other:
-score: Your numerical score for the model's {name} based on the rubric
-justification: Your reasoning about the model's {name} score
+score: Your numerical score for the model's {{name}} based on the rubric
+justification: Your reasoning about the model's {{name}} score
 
 Do not add additional new lines. Do not add any other fields.
     """,
-    ]
-)
+        ]
+    )
+
+
+grading_system_prompt_template = _build_grading_prompt_template(include_input=True)
 
 
 @dataclass
@@ -69,9 +103,10 @@ class EvaluationModel:
     name: str
     definition: str
     grading_prompt: str
-    examples: Optional[list[EvaluationExample]] = None
+    examples: list[EvaluationExample] | None = None
     model: str = default_model
     parameters: dict[str, Any] = field(default_factory=lambda: default_parameters)
+    include_input: bool = True
 
     def to_dict(self):
         examples_str = (
@@ -80,9 +115,11 @@ class EvaluationModel:
             else f"Examples:\n{self._format_examples()}"
         )
 
+        template = _build_grading_prompt_template(include_input=self.include_input)
+
         return {
             "model": self.model,
-            "eval_prompt": grading_system_prompt_template.partial_fill(
+            "eval_prompt": template.partial_fill(
                 name=self.name,
                 definition=self.definition,
                 grading_prompt=self.grading_prompt,

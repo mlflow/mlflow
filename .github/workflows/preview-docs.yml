@@ -1,28 +1,99 @@
 name: Preview docs
 
 on:
-  pull_request_target:
+  workflow_run:
+    workflows: [docs]
+    types: [completed]
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   main:
     if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-latest
     permissions:
-      statuses: read # preview_docs.py checks PR statuses
-      pull-requests: write # preview_docs.py comments on PRs
+      pull-requests: write # To post comments on PRs
+      actions: write # To delete artifacts
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/setup-python
-      - name: Install dependencies
+        with:
+          sparse-checkout: |
+            .github
+      - name: Download alias
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          name: alias
+          path: /tmp
+      - name: Set alias
+        id: alias
         run: |
-          pip install requests
-      - name: Create preview link
+          cat /tmp/alias.txt
+          echo "value=$(cat /tmp/alias.txt)" >> $GITHUB_OUTPUT
+      - name: Download build artifact
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          name: docs-build-${{ github.event.workflow_run.id }}
+          path: downloaded-artifact
+      - uses: ./.github/actions/setup-node
+      - name: Deploy to Netlify
+        id: netlify_deploy
+        working-directory: downloaded-artifact
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CIRCLE_TOKEN: ${{ secrets.CIRCLE_TOKEN }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          ALIAS: ${{ steps.alias.outputs.value }}
+          RUN_ID: ${{ github.run_id }}
+        run: |-
+          OUTPUT=$(npx -y netlify-cli deploy \
+            --dir=. \
+            --no-build \
+            --message="Preview ${ALIAS} - GitHub Run ID: $RUN_ID" \
+            --alias="${ALIAS}" \
+            --json)
+          DEPLOY_URL=$(echo "$OUTPUT" | jq -r '.deploy_url')
+          echo "deploy_url=${DEPLOY_URL}/docs/latest/" >> $GITHUB_OUTPUT
+        continue-on-error: true
+      - name: Extract PR number
+        id: pr_number
+        if: startsWith(steps.alias.outputs.value, 'pr-')
+        env:
+          ALIAS: ${{ steps.alias.outputs.value }}
         run: |
-          python dev/preview_docs.py \
-            --commit-sha ${{ github.event.pull_request.head.sha }} \
-            --pull-number ${{ github.event.pull_request.number }} \
-            --workflow-run-id ${{ github.run_id }}
+          # Extract number from alias (e.g., "pr-123" -> "123")
+          PR_NUM=$(echo "$ALIAS" | sed 's/^pr-//')
+          echo "value=$PR_NUM" >> $GITHUB_OUTPUT
+          echo "Extracted PR number: $PR_NUM"
+      - name: Create preview link
+        if: startsWith(steps.alias.outputs.value, 'pr-')
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          PULL_NUMBER: ${{ steps.pr_number.outputs.value }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
+          STAGE: ${{ steps.netlify_deploy.outcome == 'success' && 'completed' || 'failed' }}
+          NETLIFY_URL: ${{ steps.netlify_deploy.outputs.deploy_url }}
+          DOCS_WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url }}
+        with:
+          script: |
+            const script = require(
+              `${process.env.GITHUB_WORKSPACE}/.github/workflows/preview-comment.js`
+            );
+            await script({ context, github, env: process.env });
+      - name: Delete Build Artifact
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          ARTIFACT_NAME: docs-build-${{ github.event.workflow_run.id }}
+        with:
+          script: |
+            const script = require(
+              `${process.env.GITHUB_WORKSPACE}/.github/workflows/delete-artifact.js`
+            );
+            await script({ context, github, env: process.env });

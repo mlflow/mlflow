@@ -76,7 +76,7 @@ def is_file_uri(uri):
 
 def is_http_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == "http" or scheme == "https"
+    return scheme in {"http", "https"}
 
 
 def is_databricks_uri(uri):
@@ -94,7 +94,7 @@ def is_fuse_or_uc_volumes_uri(uri):
     Multiple directory paths are collapsed into a single designator for root path validation.
     For example, "////Volumes/" will resolve to "/Volumes/" for validation purposes.
     """
-    resolved_uri = re.sub("/+", "/", uri).lower()
+    resolved_uri = re.sub(r"/+", "/", uri).lower()
     return any(
         resolved_uri.startswith(x.lower())
         for x in [
@@ -125,7 +125,7 @@ def is_valid_uc_volumes_uri(uri: str) -> bool:
 
 def is_databricks_unity_catalog_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == _DATABRICKS_UNITY_CATALOG_SCHEME or uri == _DATABRICKS_UNITY_CATALOG_SCHEME
+    return _DATABRICKS_UNITY_CATALOG_SCHEME in (scheme, uri)
 
 
 def is_oss_unity_catalog_uri(uri):
@@ -179,7 +179,7 @@ def get_db_info_from_uri(uri):
     returns None.
     """
     parsed_uri = urllib.parse.urlparse(uri)
-    if parsed_uri.scheme == "databricks" or parsed_uri.scheme == _DATABRICKS_UNITY_CATALOG_SCHEME:
+    if parsed_uri.scheme in ("databricks", _DATABRICKS_UNITY_CATALOG_SCHEME):
         # netloc should not be an empty string unless URI is formatted incorrectly.
         if parsed_uri.netloc == "":
             raise MlflowException(
@@ -240,7 +240,7 @@ def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile
         return artifact_uri
 
     scheme = artifact_uri_parsed.scheme
-    if scheme == "dbfs" or scheme == "runs" or scheme == "models":
+    if scheme in {"dbfs", "runs", "models"}:
         if databricks_profile_uri == "databricks":
             netloc = "databricks"
         else:
@@ -402,7 +402,7 @@ def is_valid_dbfs_uri(uri):
     return not parsed.netloc or db_profile_uri is not None
 
 
-def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
+def dbfs_hdfs_uri_to_fuse_path(dbfs_uri: str) -> str:
     """Converts the provided DBFS URI into a DBFS FUSE path
 
     Args:
@@ -411,9 +411,12 @@ def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
             is "dbfs:/" (e.g. Databricks)
 
     Returns:
-        A DBFS FUSE-style path, e.g. "/dbfs/my-directory"
+        A DBFS FUSE-style path, e.g. "/dbfs/my-directory". For UC Volumes paths
+        (e.g., "/Volumes/..."), returns the path unchanged.
 
     """
+    if _is_uc_volumes_path(dbfs_uri):
+        return dbfs_uri  # UC Volumes paths do not need conversion
     if not is_valid_dbfs_uri(dbfs_uri) and dbfs_uri == posixpath.abspath(dbfs_uri):
         # Convert posixpaths (e.g. "/tmp/mlflow") to DBFS URIs by adding "dbfs:/" as a prefix
         dbfs_uri = "dbfs:" + dbfs_uri
@@ -513,6 +516,30 @@ def validate_path_is_safe(path):
         raise exc
 
     return path
+
+
+def validate_path_within_directory(base_dir: str, constructed_path: str) -> str:
+    """
+    Validates that the constructed path (after resolving symlinks) is within the base directory.
+    This is a security measure to prevent symlink-based path traversal attacks.
+
+    Args:
+        base_dir: The trusted base directory path.
+        constructed_path: The full path that was constructed by joining base_dir with user input.
+
+    Returns:
+        The constructed_path if validation passes.
+    """
+    real_base_dir = pathlib.Path(base_dir).resolve()
+    real_constructed_path = pathlib.Path(constructed_path).resolve()
+
+    if not real_constructed_path.is_relative_to(real_base_dir):
+        raise MlflowException(
+            "Invalid path: resolved path is outside the artifact directory",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    return constructed_path
 
 
 def _escape_control_characters(text: str) -> str:

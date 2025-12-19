@@ -4,7 +4,7 @@ sidebar_custom_props:
 displayed_sidebar: docsSidebar
 ---
 
-import Link from "@docusaurus/Link";
+import { APILink } from "@site/src/components/APILink";
 import { Table } from "@site/src/components/Table";
 
 # Quickstart options and troubleshooting
@@ -67,8 +67,8 @@ We release MLflow on:
 - CRAN (`install.packages("mlflow")`)
 - Maven Central (`mlflow-client`, `mlflow-parent`, `mlflow-spark`)
 
-For R, see <Link to="/api_reference/R-api.html" target='_blank'>installing MLflow for R</Link>.
-For Java, see <Link to="/api_reference/java_api/index.html" target='_blank'>Java API</Link>.
+For R, see <APILink fn="mlflow.r" hash="">installing MLflow for R</APILink>.
+For Java, see <APILink fn="mlflow.java" hash="">Java API</APILink>.
 
 ## Save and serve models \{#quickstart_drilldown_log_and_load_model}
 
@@ -88,7 +88,7 @@ python examples/sklearn_logistic_regression/train.py
 ```
 
 When you run the example, it outputs an MLflow run ID for that experiment. If you look at the
-`mlflow ui`, you will also see that the run saved a **model** folder containing an `MLmodel`
+`mlflow server`, you will also see that the run saved a **model** folder containing an `MLmodel`
 description file and a pickled scikit-learn model. You can pass the run ID and the path of the model
 within the artifacts directory (here **model/**) to various tools. For example, MLflow includes a
 simple REST server for python-based models:

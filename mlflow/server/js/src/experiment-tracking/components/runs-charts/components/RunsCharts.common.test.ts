@@ -1,7 +1,10 @@
-import { MetricEntity } from '../../../types';
-import { RunsChartsParallelCardConfig, RunsChartType } from '../runs-charts.types';
+import { describe, it, expect, test } from '@jest/globals';
+import type { MetricEntity } from '../../../types';
+import type { RunsChartsParallelCardConfig } from '../runs-charts.types';
+import { RunsChartType } from '../runs-charts.types';
 import { RunsChartsParallelChartCard } from './cards/RunsChartsParallelChartCard';
-import { isEmptyChartCard, removeOutliersFromMetricHistory, RunsChartsRunData } from './RunsCharts.common';
+import type { RunsChartsRunData } from './RunsCharts.common';
+import { isEmptyChartCard, removeOutliersFromMetricHistory } from './RunsCharts.common';
 
 describe('removeOutliersFromMetricHistory', () => {
   it.each([

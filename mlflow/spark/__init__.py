@@ -18,7 +18,7 @@ import os
 import posixpath
 import re
 import shutil
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 import yaml
@@ -1078,7 +1078,7 @@ class _PyFuncModelWrapper:
     def predict(
         self,
         pandas_df,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Generate predictions given input data in a pandas DataFrame.

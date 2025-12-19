@@ -6,7 +6,6 @@ import os
 import re
 from os.path import join as path_join
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from unittest import mock
 
 import numpy as np
@@ -1232,10 +1231,13 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     )
     eval_fn_args = [eval_df, builtin_metrics]
 
+    # Import the module directly to avoid mock.patch import issues
+    from mlflow.models.evaluation.utils import metric as metric_module
+
     def dummy_fn(*_):
         pass
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         MetricDefinition(dummy_fn, "dummy_fn", 0, None).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             "Did not log metric 'dummy_fn' at index 0 in the `extra_metrics` parameter"
@@ -1245,7 +1247,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def incorrect_return_type(*_):
         return ["stuff"], 3
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(incorrect_return_type, incorrect_return_type.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
@@ -1256,7 +1258,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_list_scores(*_):
         return MetricValue(scores=5)
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         MetricDefinition(non_list_scores, non_list_scores.__name__, 0).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_list_scores.__name__}' at index 0 in the "
@@ -1266,7 +1268,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_numeric_scores(*_):
         return MetricValue(scores=[{"val": "string"}])
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         MetricDefinition(non_numeric_scores, non_numeric_scores.__name__, 0).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_numeric_scores.__name__}' at index 0 in the `extra_metrics`"
@@ -1276,7 +1278,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_list_justifications(*_):
         return MetricValue(justifications="string")
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(non_list_justifications, non_list_justifications.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
@@ -1288,7 +1290,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_str_justifications(*_):
         return MetricValue(justifications=[3, 4])
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(non_str_justifications, non_str_justifications.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
@@ -1300,7 +1302,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_dict_aggregates(*_):
         return MetricValue(aggregate_results=[5.0, 4.0])
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(non_dict_aggregates, non_dict_aggregates.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
@@ -1312,7 +1314,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def wrong_type_aggregates(*_):
         return MetricValue(aggregate_results={"toxicity": 0.0, "hi": "hi"})
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(wrong_type_aggregates, wrong_type_aggregates.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
@@ -1512,7 +1514,7 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
 
 
 def test_custom_metric_logs_artifacts_from_paths(
-    binary_logistic_regressor_model_uri, breast_cancer_dataset
+    binary_logistic_regressor_model_uri, breast_cancer_dataset, tmp_path
 ):
     fig_x = 8.0
     fig_y = 5.0
@@ -1563,25 +1565,24 @@ def test_custom_metric_logs_artifacts_from_paths(
         custom_artifacts=[example_custom_artifact],
     )
 
-    with TemporaryDirectory() as tmp_dir:
-        for img_ext in img_formats:
-            assert f"test_{img_ext}_artifact" in result.artifacts
-            assert f"test_{img_ext}_artifact.{img_ext}" in artifacts
-            assert isinstance(result.artifacts[f"test_{img_ext}_artifact"], ImageEvaluationArtifact)
+    for img_ext in img_formats:
+        assert f"test_{img_ext}_artifact" in result.artifacts
+        assert f"test_{img_ext}_artifact.{img_ext}" in artifacts
+        assert isinstance(result.artifacts[f"test_{img_ext}_artifact"], ImageEvaluationArtifact)
 
-            fig = Figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
-            ax = fig.subplots()
-            ax.plot([1, 2, 3])
-            fig.savefig(path_join(tmp_dir, f"test.{img_ext}"), format=img_ext)
+        fig = Figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
+        ax = fig.subplots()
+        ax.plot([1, 2, 3])
+        fig.savefig(path_join(tmp_path, f"test.{img_ext}"), format=img_ext)
 
-            saved_img = Image.open(path_join(tmp_dir, f"test.{img_ext}"))
-            result_img = result.artifacts[f"test_{img_ext}_artifact"].content
+        saved_img = Image.open(path_join(tmp_path, f"test.{img_ext}"))
+        result_img = result.artifacts[f"test_{img_ext}_artifact"].content
 
-            for img in (saved_img, result_img):
-                img_ext_qualified = "jpeg" if img_ext == "jpg" else img_ext
-                assert img.format.lower() == img_ext_qualified
-                assert img.size == (fig_x * fig_dpi, fig_y * fig_dpi)
-                assert pytest.approx(img.info.get("dpi"), 0.001) == (fig_dpi, fig_dpi)
+        for img in (saved_img, result_img):
+            img_ext_qualified = "jpeg" if img_ext == "jpg" else img_ext
+            assert img.format.lower() == img_ext_qualified
+            assert img.size == (fig_x * fig_dpi, fig_y * fig_dpi)
+            assert pytest.approx(img.info.get("dpi"), 0.001) == (fig_dpi, fig_dpi)
 
     assert "test_json_artifact" in result.artifacts
     assert "test_json_artifact.json" in artifacts
@@ -1621,7 +1622,7 @@ class _ExampleToBePickledObject:
         self.b = "hello"
 
     def __eq__(self, o: object) -> bool:
-        return self.a == o.a and self.b == self.b
+        return self.a == o.a and self.b == o.b
 
 
 def test_custom_metric_logs_artifacts_from_objects(
@@ -1960,7 +1961,8 @@ def test_custom_artifacts():
             evaluator_config={"log_model_explainability": False},  # For faster evaluation
         )
         custom_artifact = result.artifacts["custom_artifact"]
-        assert json.loads(Path(custom_artifact.uri).read_text()) == {"k": "v"}
+        path = custom_artifact.uri.removeprefix("file://")
+        assert json.loads(Path(path).read_text()) == {"k": "v"}
 
 
 def test_make_metric_name_inference():
@@ -2746,9 +2748,7 @@ def test_evaluate_no_model_type_with_custom_metric():
         from mlflow.metrics.base import standard_aggregations
 
         def word_count_eval(predictions, targets=None, metrics=None):
-            scores = []
-            for prediction in predictions:
-                scores.append(len(prediction.split(" ")))
+            scores = [len(prediction.split(" ")) for prediction in predictions]
             return MetricValue(
                 scores=scores,
                 aggregate_results=standard_aggregations(scores),
@@ -3320,7 +3320,7 @@ def test_evaluate_with_correctness():
         grading_prompt=(
             "Correctness: If the answer correctly answer the question, below "
             "are the details for different scores: "
-            "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
+            "- Score 0: the answer is completely incorrect, doesn't mention anything about "
             "the question or is completely contrary to the correct answer. "
             "- Score 1: the answer provides some relevance to the question and answer "
             "one aspect of the question correctly. "
@@ -4085,17 +4085,18 @@ def test_all_genai_custom_metrics_are_from_user_prompt():
             {
                 "inputs": ["words random", "This is a sentence."],
                 "ground_truth": ["words random", "This is a sentence."],
+                "custom_column": ["test", "test"],
             }
         )
         custom_metric = make_genai_metric_from_prompt(
             name="custom llm judge",
-            judge_prompt="This is a custom judge prompt.",
+            judge_prompt="This is a custom judge prompt. {custom_column}.",
             greater_is_better=False,
             parameters={"temperature": 0.0},
         )
         another_custom_metric = make_genai_metric_from_prompt(
             name="another custom llm judge",
-            judge_prompt="This is another custom judge prompt.",
+            judge_prompt="This is another custom judge prompt. {custom_column}.",
             greater_is_better=False,
             parameters={"temperature": 0.7},
         )
@@ -4281,3 +4282,317 @@ def test_regressor_returning_pandas_object(model_output, predictions):
             "root_mean_squared_error": 0.0,
             "sum_on_target": 3,
         }
+
+
+@pytest.mark.parametrize(
+    (
+        "data",
+        "evaluator_config",
+        "expected_metrics",
+        "expected_artifacts",
+        "description",
+    ),
+    [
+        # Binary classification with single class data + explicit labels
+        (
+            pd.DataFrame({"target": [0, 0, 0, 0], "prediction": [0, 0, 0, 0]}),
+            {"label_list": [0, 1]},
+            {
+                "accuracy_score": 1.0,
+                "true_negatives": 4,
+                "false_positives": 0,
+                "false_negatives": 0,
+                "true_positives": 0,
+            },
+            {"confusion_matrix": True},
+            "single_class_with_explicit_labels",
+        ),
+        # Normal binary classification
+        (
+            pd.DataFrame({"target": [0, 1, 0, 1], "prediction": [0, 1, 1, 0]}),
+            {},
+            {
+                "accuracy_score": 0.5,
+                "true_negatives": 1,
+                "false_positives": 1,
+                "false_negatives": 1,
+                "true_positives": 1,
+            },
+            {"confusion_matrix": True},
+            "binary_classification",
+        ),
+        # Multiclass with string labels
+        (
+            pd.DataFrame(
+                {
+                    "target": ["cat", "dog", "bird", "cat", "dog", "bird"],
+                    "prediction": ["cat", "dog", "cat", "dog", "bird", "bird"],
+                }
+            ),
+            {},
+            {"accuracy_score": 0.5},
+            {"per_class_metrics": True, "confusion_matrix": True},
+            "multiclass_string_labels",
+        ),
+        # Multiclass with missing class in data
+        (
+            pd.DataFrame(
+                {
+                    "target": ["cat", "dog", "cat", "dog"],
+                    "prediction": ["cat", "dog", "dog", "cat"],
+                }
+            ),
+            {"label_list": ["cat", "dog", "bird"]},
+            {"accuracy_score": 0.5},
+            {"per_class_metrics": True},
+            "multiclass_missing_class",
+        ),
+        # Multiclass with numeric labels
+        (
+            pd.DataFrame(
+                {
+                    "target": [0, 1, 2, 0, 1],
+                    "prediction": [0, 1, 1, 2, 1],
+                }
+            ),
+            {"label_list": [0, 1, 2]},
+            {"accuracy_score": 0.6},
+            {"per_class_metrics": True},
+            "multiclass_numeric_labels",
+        ),
+        # Auto-inferred binary with string labels
+        (
+            pd.DataFrame({"target": ["x", "y", "x", "y"], "prediction": ["x", "y", "y", "x"]}),
+            {},
+            {"accuracy_score": 0.5},
+            {"confusion_matrix": True},
+            "binary_auto_inferred_strings",
+        ),
+    ],
+)
+def test_classifier_evaluation_scenarios(
+    data, evaluator_config, expected_metrics, expected_artifacts, description
+):
+    result = mlflow.evaluate(
+        data=data,
+        targets="target",
+        predictions="prediction",
+        model_type="classifier",
+        evaluator_config=evaluator_config,
+    )
+
+    # Verify evaluation completed successfully
+    assert result is not None
+    assert "accuracy_score" in result.metrics
+
+    # Check specific expected metrics
+    for metric_name, expected_value in expected_metrics.items():
+        if isinstance(expected_value, float):
+            assert abs(result.metrics[metric_name] - expected_value) < 1e-6, (
+                f"Metric {metric_name} mismatch"
+            )
+        else:
+            assert result.metrics[metric_name] == expected_value, f"Metric {metric_name} mismatch"
+
+    # Check expected artifacts
+    for artifact_name, should_exist in expected_artifacts.items():
+        if should_exist:
+            assert artifact_name in result.artifacts, f"Missing artifact: {artifact_name}"
+
+    # Special validations for per-class metrics
+    if "per_class_metrics" in expected_artifacts:
+        per_class_df = result.artifacts["per_class_metrics"].content
+        # Verify structure
+        assert "positive_class" in per_class_df.columns
+        required_columns = {
+            "true_negatives",
+            "false_positives",
+            "false_negatives",
+            "true_positives",
+        }
+        assert required_columns.issubset(set(per_class_df.columns))
+
+        # Verify consistency: each row should sum to total number of samples
+        for _, row in per_class_df.iterrows():
+            total = sum(row[col] for col in required_columns)
+            assert total == len(data), (
+                f"Confusion matrix sum mismatch for class {row['positive_class']}"
+            )
+
+
+@pytest.mark.parametrize(
+    (
+        "data",
+        "evaluator_config",
+        "expected_error",
+        "error_message_pattern",
+        "description",
+    ),
+    [
+        # Single class without explicit labels
+        (
+            pd.DataFrame({"target": [0, 0, 0, 0], "prediction": [0, 0, 0, 0]}),
+            {},
+            MlflowException,
+            (
+                "Evaluation dataset for classification must contain at least two unique "
+                "labels, but only 1 unique labels were found\\."
+            ),
+            "single_class_no_labels",
+        ),
+        # Invalid pos_label
+        (
+            pd.DataFrame({"target": [0, 1, 0, 1], "prediction": [0, 1, 1, 0]}),
+            {"label_list": [0, 1], "pos_label": 2},
+            MlflowException,
+            "'pos_label' 2 must exist in 'label_list'",
+            "invalid_pos_label",
+        ),
+        # Single element label_list
+        (
+            pd.DataFrame({"target": [1, 1, 1, 1], "prediction": [1, 1, 1, 1]}),
+            {"label_list": [1]},
+            MlflowException,
+            (
+                "Evaluation dataset for classification must contain at least two unique "
+                "labels, but only 1 unique labels were found\\."
+            ),
+            "single_element_label_list",
+        ),
+        # Empty label_list
+        (
+            pd.DataFrame({"target": [0, 1, 0, 1], "prediction": [0, 1, 1, 0]}),
+            {"label_list": []},
+            MlflowException,
+            (
+                "Evaluation dataset for classification must contain at least two unique "
+                "labels, but only 0 unique labels were found\\."
+            ),
+            "empty_label_list",
+        ),
+    ],
+)
+def test_classifier_evaluation_error_conditions(
+    data, evaluator_config, expected_error, error_message_pattern, description
+):
+    with pytest.raises(expected_error, match=error_message_pattern):
+        mlflow.evaluate(
+            data=data,
+            targets="target",
+            predictions="prediction",
+            model_type="classifier",
+            evaluator_config=evaluator_config,
+        )
+
+
+@pytest.mark.parametrize(
+    (
+        "data",
+        "evaluator_config",
+        "expected_binary_metrics",
+        "expected_classes",
+        "description",
+    ),
+    [
+        # Binary with explicit labels and pos_label
+        (
+            pd.DataFrame({"target": [0, 1, 0, 1], "prediction": [0, 1, 1, 0]}),
+            {"label_list": [0, 1], "pos_label": 1},
+            True,  # Should have binary metrics
+            2,  # Two classes
+            "binary_explicit_pos_label",
+        ),
+        # Multiclass (3 classes)
+        (
+            pd.DataFrame({"target": [0, 1, 2, 0, 1], "prediction": [0, 1, 1, 2, 1]}),
+            {"label_list": [0, 1, 2]},
+            False,  # Should NOT have binary metrics
+            3,  # Three classes
+            "multiclass_three_classes",
+        ),
+        # Auto-inferred binary
+        (
+            pd.DataFrame({"target": ["x", "y", "x", "y"], "prediction": ["x", "y", "y", "x"]}),
+            {},
+            True,  # Should have binary metrics (auto-inferred)
+            2,  # Two classes
+            "binary_auto_inferred",
+        ),
+    ],
+)
+def test_label_validation_and_classification_type(
+    data, evaluator_config, expected_binary_metrics, expected_classes, description
+):
+    result = mlflow.evaluate(
+        data=data,
+        targets="target",
+        predictions="prediction",
+        model_type="classifier",
+        evaluator_config=evaluator_config,
+    )
+
+    assert result is not None
+    assert "accuracy_score" in result.metrics
+
+    # Check if binary metrics are present based on classification type
+    binary_metric_names = {
+        "true_negatives",
+        "false_positives",
+        "false_negatives",
+        "true_positives",
+    }
+    has_binary_metrics = all(metric in result.metrics for metric in binary_metric_names)
+
+    assert has_binary_metrics == expected_binary_metrics, (
+        f"Binary metrics presence mismatch for {description}"
+    )
+
+    # For multiclass, check per-class metrics
+    if not expected_binary_metrics:
+        assert "per_class_metrics" in result.artifacts
+        per_class_df = result.artifacts["per_class_metrics"].content
+        assert len(per_class_df) == expected_classes
+
+
+def test_multiclass_per_class_metrics_with_missing_class_failure():
+    """
+    Critical test demonstrating why labels=[0,1] is essential in per-class metrics.
+
+    This test validates that the hardcoded labels=[0,1] in per-class metrics calculation
+    prevents crashes when classes are missing from evaluation data.
+    """
+    # Create multiclass data where class 'C' is completely missing from evaluation
+    data = pd.DataFrame(
+        {
+            "target": ["A", "B", "A", "A", "B", "A", "B", "A"],  # Only A and B present
+            "prediction": ["A", "B", "A", "A", "B", "A", "B", "A"],  # Only A and B predicted
+        }
+    )
+
+    # Model was trained on A, B, C but evaluation data missing C
+    label_list = ["A", "B", "C"]  # C missing from actual data!
+
+    # This should work with proper labels=[0,1] hardcoding
+    result = mlflow.evaluate(
+        data=data,
+        targets="target",
+        predictions="prediction",
+        model_type="classifier",
+        evaluator_config={"label_list": label_list},
+    )
+
+    # Verify the evaluation completed successfully
+    assert result is not None
+    assert "per_class_metrics" in result.artifacts
+
+    # Check that per-class metrics were computed for all classes
+    per_class_df = result.artifacts["per_class_metrics"].content
+    assert len(per_class_df) == 3  # Should have metrics for A, B, C
+    assert set(per_class_df["positive_class"]) == {"A", "B", "C"}
+
+    # Verify class C has proper zero metrics (since it's missing from data)
+    class_c_metrics = per_class_df[per_class_df["positive_class"] == "C"].iloc[0]
+    assert class_c_metrics["true_negatives"] == 8  # All samples are negative for C
+    assert class_c_metrics["false_positives"] == 0  # No false positives
+    assert class_c_metrics["false_negatives"] == 0  # No false negatives
+    assert class_c_metrics["true_positives"] == 0  # No true positives

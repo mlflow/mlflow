@@ -5,6 +5,7 @@ import {
   getArtifactLocationUrl,
   getLoggedModelArtifactLocationUrl,
 } from '../../../../common/utils/ArtifactUtils';
+import type { KeyValueEntity } from '../../../../common/types';
 
 type FetchArtifactParams = {
   experimentId: string;
@@ -12,6 +13,7 @@ type FetchArtifactParams = {
   path: string;
   isLoggedModelsMode?: boolean;
   loggedModelId?: string;
+  entityTags?: Partial<KeyValueEntity>[];
 };
 
 type GetArtifactContentFn = typeof getArtifactContent | typeof getArtifactBytesContent;

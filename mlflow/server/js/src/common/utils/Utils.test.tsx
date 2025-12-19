@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { test, expect, jest } from '@jest/globals';
 import Utils from './Utils';
 import React from 'react';
 import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from '../../experiment-tracking/components/MetricsPlotControls';
@@ -851,7 +852,6 @@ test('mergeLoggedAndRegisteredModels should output registered models in order', 
   modelVersions[1].version = '2';
   modelVersions[1].creation_timestamp = 1000;
   models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
-  // @ts-expect-error TODO: fix this
   expect(models[0].registeredModelVersion).toEqual('3');
   // Only one registered
   modelVersions = [modelVersions[0]];

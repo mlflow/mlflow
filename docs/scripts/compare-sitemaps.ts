@@ -1,25 +1,23 @@
-import * as fs from "fs";
-import { XMLParser } from "fast-xml-parser";
-import fetch from "node-fetch";
+import * as fs from 'fs';
+import { XMLParser } from 'fast-xml-parser';
+import fetch from 'node-fetch';
 
 async function readSitemap(input: string): Promise<string> {
   if (/^https?:\/\//.test(input)) {
     const res = await fetch(input);
     if (!res.ok) {
       const responseBody = await res.text();
-      throw new Error(
-        `Failed to fetch ${input}: ${res.status} ${res.statusText}. Response body: ${responseBody}`
-      );
+      throw new Error(`Failed to fetch ${input}: ${res.status} ${res.statusText}. Response body: ${responseBody}`);
     }
     return await res.text();
   } else {
-    return await fs.promises.readFile(input, "utf8");
+    return await fs.promises.readFile(input, 'utf8');
   }
 }
 
 function normalizePath(url: string): string {
-  const idx = url.indexOf("/latest/");
-  return idx >= 0 ? url.slice(idx + "latest/".length) : url;
+  const idx = url.indexOf('/latest/');
+  return idx >= 0 ? url.slice(idx + 'latest/'.length) : url;
 }
 
 async function parseSitemap(input: string): Promise<Map<string, string>> {
@@ -63,7 +61,7 @@ function compareSitemaps(mapA: Map<string, string>, mapB: Map<string, string>) {
   const fileB = process.argv[3];
 
   if (!fileA || !fileB) {
-    console.error("Usage: tsx compare-sitemaps.ts <fileA|urlA> <fileB|urlB>");
+    console.error('Usage: tsx compare-sitemaps.ts <fileA|urlA> <fileB|urlB>');
     process.exit(1);
   }
 

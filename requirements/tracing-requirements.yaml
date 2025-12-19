@@ -1,0 +1,46 @@
+# Minimal requirements for the MLflow Tracing package. It is a lightweight
+# package that only includes the minimum set of dependencies and functionality
+# to instrument code/models/agents with MLflow Tracing.
+# When we release a new major/minor version, this file is automatically
+# updated as a part of the release process.
+
+protobuf:
+  pip_release: protobuf
+  minimum: "3.12.0"
+  max_major_version: 6
+
+packaging:
+  pip_release: packaging
+  max_major_version: 25
+
+# Required for tracing
+cachetools:
+  pip_release: cachetools
+  minimum: "5.0.0"
+  max_major_version: 6
+
+# 1.9.0 is the minimum supported version as NoOpTracer was introduced in 1.9.0
+opentelemetry-api:
+  pip_release: opentelemetry-api
+  minimum: "1.9.0"
+  max_major_version: 2
+
+opentelemetry-sdk:
+  pip_release: opentelemetry-sdk
+  minimum: "1.9.0"
+  max_major_version: 2
+
+opentelemetry-proto:
+  pip_release: opentelemetry-proto
+  minimum: "1.9.0"
+  max_major_version: 2
+
+databricks-sdk:
+  pip_release: databricks-sdk
+  minimum: "0.20.0"
+  max_major_version: 0
+
+pydantic:
+  pip_release: pydantic
+  minimum: "2.0.0"
+  max_major_version: 2

@@ -1,125 +1,46 @@
 ---
 sidebar_position: 2
+sidebar_label: "Quickstart"
 ---
 
-import { CardGroup, PageCard } from "@site/src/components/Card";
-import Link from "@docusaurus/Link";
-import { NotebookDownloadButton } from "@site/src/components/NotebookDownloadButton";
-import { Table } from "@site/src/components/Table";
+import ImageBox from "@site/src/components/ImageBox";
 
 # MLflow Tracking Quickstart
 
-Welcome to MLflow!
+The purpose of this quickstart is to provide a quick guide to the most essential core APIs of MLflow Tracking. In just a few minutes of following along with this quickstart, you will learn:
 
-The purpose of this quickstart is to provide a quick guide to the most essential core APIs of MLflow Tracking.
-Specifically, those that enable the logging, registering, and loading of a model for inference.
-
-:::note
-For a more in-depth and tutorial-based approach (if that is your style), please see the
-[Getting Started with MLflow](/ml/getting-started/logging-first-model) tutorial. We recommend that you start here first, though, as this quickstart
-uses the most common and frequently-used APIs for MLflow Tracking and serves as a good foundation for the other tutorials in the documentation.
-:::
-
-## What you will learn
-
-In just a few minutes of following along with this quickstart, you will learn:
-
-- How to **log** parameters, metrics, and a model
-- The basics of the **MLflow fluent API**
-- How to **register** a model during logging
+- How to **log** parameters, metrics, and a model using the MLflow logging API
 - How to navigate to a model in the **MLflow UI**
 - How to **load** a logged model for inference
 
-:::note
-If you would prefer to view a Jupyter Notebook version of this tutorial, click the following link:
+## Step 1 - Set up MLflow
 
-<Link className="button button--primary" to="notebooks/tracking_quickstart" target="_blank">
-  <span>View the Notebook</span>
-</Link>
-:::
-
-## Step 1 - Get MLflow
-
-MLflow is available on PyPI.
-
-### Installing Stable Release
-
-If you don't already have it installed on your system, you can install it with:
+MLflow is available on PyPI. If you don't already have it installed on your system, you can install it with:
 
 ```bash
 pip install mlflow
 ```
 
-### Installing a Release Candidate (RC)
+Then, follow the instructions in the [Set Up MLflow](/ml/getting-started/running-notebooks) guide to set up MLflow.
 
-If you are eager to test out new features and validate that an upcoming release of MLflow will work well in your infrastructure, installing the latest
-release candidate may be of interest to you.
-
-:::note
-Release Candidate builds are not recommended for actual use, rather they are intended only for testing validation.
-:::
-
-To install the latest version of MLflow's release candidates for a given version, see the example below that uses MLflow 2.14.0 as an example:
-
-```bash
-# install the latest release candidate
-pip install --pre mlflow
-
-# or install a specific rc version
-pip install mlflow==3.1.0rc0
-```
-
-## Step 2 - Start a Tracking Server
-
-### Using a Managed MLflow Tracking Server
-
-For details on options for using a managed MLflow Tracking Server, including how to create a Databricks Free Trial account with
-managed MLflow, [see the guide for tracking server options](/ml/getting-started/running-notebooks/).
-
-### Run a local Tracking Server
-
-We're going to start a local MLflow Tracking Server, which we will connect to for logging our data for this quickstart.
-From a terminal, run:
-
-```bash
-mlflow server --host 127.0.0.1 --port 8080
-```
-
-:::note
-You can choose any port that you would like, provided that it's not already in use.
-:::
-
-### Set the Tracking Server URI (if not using a Databricks Managed MLflow Tracking Server)
-
-If you're using a managed MLflow Tracking Server that is not provided by Databricks, or if you're running a local tracking server,
-ensure that you set the tracking server's uri using:
+If you just want to start super quick, run the following code in a notebook cell:
 
 ```python
 import mlflow
 
-mlflow.set_tracking_uri(uri="http://<host>:<port>")
+mlflow.set_experiment("MLflow Quickstart")
 ```
 
-If this is not set within your notebook or runtime environment, the runs will be logged to your local file system.
+## Step 2 - Prepare training data
 
-## Step 3 - Train a model and prepare metadata for logging
-
-In this section, we're going to log a model with MLflow. A quick overview of the steps are:
-
-- Load and prepare the Iris dataset for modeling.
-- Train a Logistic Regression model and evaluate its performance.
-- Prepare the model hyperparameters and calculate metrics for logging.
+Before training our first model, let's prepare the training data and model hyperparameters.
 
 ```python
-import mlflow
-from mlflow.models import infer_signature
-
 import pandas as pd
 from sklearn import datasets
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-
 
 # Load the Iris dataset
 X, y = datasets.load_iris(return_X_y=True)
@@ -136,80 +57,104 @@ params = {
     "multi_class": "auto",
     "random_state": 8888,
 }
-
-# Train the model
-lr = LogisticRegression(**params)
-lr.fit(X_train, y_train)
-
-# Predict on the test set
-y_pred = lr.predict(X_test)
-
-# Calculate metrics
-accuracy = accuracy_score(y_test, y_pred)
 ```
 
-## Step 4 - Log the model and its metadata to MLflow
+## Step 3 - Train a model with MLflow Autologging
 
-In this next step, we're going to use the model that we trained, the hyperparameters that we specified for the model's fit, and the
-loss metrics that were calculated by evaluating the model's performance on the test data to log to MLflow.
+In this step, we train the model on the training data loaded in the previous step, and log the model and its metadata to MLflow. The easiest way to do this is to using MLflow's **Autologging** feature.
+
+```python
+import mlflow
+
+# Enable autologging for scikit-learn
+mlflow.sklearn.autolog()
+
+# Just train the model normally
+lr = LogisticRegression(**params)
+lr.fit(X_train, y_train)
+```
+
+With just one line of additional code `mlflow.sklearn.autolog()`, now you get the best of both worlds: you can focus on training the model, and MLflow will take care of the rest:
+
+- Saving the trained model.
+- Recording the model's performance metrics during training, such as accuracy, precision, AUC curve.
+- Logging hyperparameter values used to train the model.
+- Track metadata such as input data format, user, timestamp, etc.
+
+To learn more about autologging and supported libraries, see the [Autologging](/ml/tracking/autolog/) documentation.
+
+## Step 4 - View the Run in the MLflow UI
+
+To see the results of training, you can access the MLflow UI by navigating to the URL of the Tracking Server. If you have not started one, open a new terminal and run the following command at the root of the MLflow project and access the UI at http://localhost:5000 (or the port number you specified).
+
+```bash
+mlflow server --port 5000
+```
+
+When opening the site, you will see a screen similar to the following:
+
+<ImageBox src="/images/tutorials/introductory/quickstart-tracking/quickstart-ui-home.png" alt="MLflow UI Home page" />
+
+The "Experiments" section shows a list of (recently created) experiments. Click on the "MLflow Quickstart" experiment.
+
+<ImageBox src="/images/tutorials/introductory/quickstart-tracking/quickstart-ui-run-list.png" alt="MLflow UI Run list page" />
+
+The training **Run** created by MLflow is listed in the table. Click the run to view the details.
+
+<ImageBox src="/images/tutorials/introductory/quickstart-tracking/quickstart-our-run.png" alt="MLflow UI Run detail page" />
+
+The Run detail page shows an overview of the run, its recorded metrics, hyper-parameters, tags, and more. Play around with the UI to see the different views and features.
+
+Scroll down to the "Model" section and you will see the model that was logged during training. Click on the model to view the details.
+
+<ImageBox src="/images/tutorials/introductory/quickstart-tracking/quickstart-ui-logged-models.png" alt="MLflow UI Model detail page" />
+
+The model page displays similar metadata such as performance metrics and hyper-parameters. It also includes an "Artifacts" section that lists the files that were logged during training. You can also see environment information such as the Python version and dependencies, which are stored for reproducibility.
+
+<ImageBox src="/images/tutorials/introductory/quickstart-tracking/quickstart-our-model.png" alt="MLflow UI Model detail page" />
+
+## Step 5 - Log a model and metadata manually
+
+Now that we've learned how to log a model training run with MLflow autologging, let's step further and learn how to log a model and metadata manually. This is useful when you want to have more control over the logging process.
 
 The steps that we will take are:
 
 - Initiate an MLflow **run** context to start a new run that we will log the model and metadata to.
+- Train and test the model.
 - **Log** model **parameters** and performance **metrics**.
 - **Tag** the run for easy retrieval.
-- **Register** the model in the MLflow Model Registry while **logging** (saving) the model.
-
-:::note
-While it can be valid to wrap the entire code within the `start_run` block, this is **not recommended**. If there as in issue with the
-training of the model or any other portion of code that is unrelated to MLflow-related actions, an empty or partially-logged run will be
-created, which will necessitate manual cleanup of the invalid run. It is best to keep the training execution outside of the run context block
-to ensure that the loggable content (parameters, metrics, artifacts, and the model) are fully materialized prior to logging.
-:::
 
 ```python
-# Set our tracking server uri for logging
-mlflow.set_tracking_uri(uri="http://127.0.0.1:8080")
-
-# Create a new MLflow Experiment
-mlflow.set_experiment("MLflow Quickstart")
-
 # Start an MLflow run
 with mlflow.start_run():
     # Log the hyperparameters
     mlflow.log_params(params)
 
-    # Log the loss metric
+    # Train the model
+    lr = LogisticRegression(**params)
+    lr.fit(X_train, y_train)
+
+    # Log the model
+    model_info = mlflow.sklearn.log_model(sk_model=lr, name="iris_model")
+
+    # Predict on the test set, compute and log the loss metric
+    y_pred = lr.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
     mlflow.log_metric("accuracy", accuracy)
 
-    # Infer the model signature
-    signature = infer_signature(X_train, lr.predict(X_train))
-
-    # Log the model, which inherits the parameters and metric
-    model_info = mlflow.sklearn.log_model(
-        sk_model=lr,
-        name="iris_model",
-        signature=signature,
-        input_example=X_train,
-        registered_model_name="tracking-quickstart",
-    )
-
-    # Set a tag that we can use to remind ourselves what this model was for
-    mlflow.set_logged_model_tags(
-        model_info.model_id, {"Training Info": "Basic LR model for iris data"}
-    )
+    # Optional: Set a tag that we can use to remind ourselves what this run was for
+    mlflow.set_tag("Training Info", "Basic LR model for iris data")
 ```
 
-## Step 5 - Load the model as a Python Function (pyfunc) and use it for inference
+## Step 6 - Load the model back for inference.
 
 After logging the model, we can perform inference by:
 
 - **Loading** the model using MLflow's `pyfunc` flavor.
 - Running **Predict** on new data using the loaded model.
 
-:::note
-The iris training data that we used was a numpy array structure. However, we can submit a Pandas DataFrame as well to the `predict` method, as shown
-below.
+:::info
+To load the model as native scikit-learn model, use `mlflow.sklearn.load_model(model_info.model_uri)` instead of the pyfunc flavor.
 :::
 
 ```python
@@ -229,7 +174,7 @@ result[:4]
 
 The output of this code will look something like this:
 
-<Table>
+<table>
   <thead>
     <tr>
       <th>sepal length (cm)</th>
@@ -274,49 +219,13 @@ The output of this code will look something like this:
       <td>1</td>
     </tr>
   </tbody>
-</Table>
+</table>
 
-## Step 6 - View the Run and Model in the MLflow UI
+## Next Steps
 
-In order to see the results of our run, we can navigate to the MLflow UI. Since we have already started the Tracking Server at
-_http://localhost:8080_, we can simply navigate to that URL in our browser.
+Congratulations on working through the MLflow Tracking Quickstart! You should now have a basic understanding of how to use the MLflow Tracking API to log models.
 
-When opening the site, you will see a screen similar to the following:
-
-<figure className="center-div" style={{ width: 1024, maxWidth: "100%", textAlign: "center" }}>
-  ![MLflow UI Experiment view page](/images/tutorials/introductory/quickstart-tracking/quickstart-our-experiment.png)
-  <figcaption>The main MLflow Tracking page, showing Experiments that have been created</figcaption>
-</figure>
-
-Clicking on the name of the Experiment that we created ("MLflow Quickstart") will give us a list of runs associated with the
-Experiment. You should see a random name that has been generated for the run and nothing else show up in the `Table` list view to the right.
-
-Clicking on the name of the run will take you to the Run page, where the details of what we've logged will be shown. The elements have
-been highlighted below to show how and where this data is recorded within the UI.
-
-<figure className="center-div" style={{ width: 1024, maxWidth: "100%", textAlign: "center" }}>
-  ![MLflow UI Run view page](/images/tutorials/introductory/quickstart-tracking/quickstart-our-run.png)
-  <figcaption>The run view page for our run</figcaption>
-</figure>
-
-Switch to the Models tab in the experiments page to view all the logged models under the Experiment, where you can see an entry for the logged model we just created ("iris_model").
-
-<figure className="center-div" style={{ width: 1024, maxWidth: "100%", textAlign: "center" }}>
-  ![MLflow UI Experiment view page models tab](/images/tutorials/introductory/quickstart-tracking/quickstart-our-experiment-models-tab.png)
-  <figcaption>The models tab of the MLflow Tracking page, showing a list of all models created</figcaption>
-</figure>
-
-Clicking on the name of the model will take you to the Logged Model page, with details on the logged model and its metadata.
-
-<figure className="center-div" style={{ width: 1024, maxWidth: "100%", textAlign: "center" }}>
-  ![MLflow UI Model view page](/images/tutorials/introductory/quickstart-tracking/quickstart-our-model.png)
-  <figcaption>The model view page for our logged model</figcaption>
-</figure>
-
-## Conclusion
-
-Congratulations on working through the MLflow Tracking Quickstart! You should now have a basic understanding of how to use the MLflow Tracking API to log
-models.
-
-If you are interested in a more in-depth tutorial, please see the [Getting Started with MLflow](/ml/getting-started/logging-first-model) tutorial as a
-good next step in increasing your knowledge about MLflow!
+- [MLflow for GenAI](/genai): Learn how to use MLflow for GenAI/LLM development.
+- [MLflow for Deep Learning](/ml/deep-learning): Learn how to use MLflow for deep learning frameworks such as PyTorch, TensorFlow, etc.
+- [MLflow Tracking](/ml/tracking/): Learn more about the MLflow Tracking APIs.
+- [Self-hosting Guide](/self-hosting): Learn how to self-host the MLflow Tracking Server and set it up for team collaboration.

@@ -88,7 +88,7 @@ export class RegisterModelForm extends React.Component<Props, State> {
     const creatingNewModel = selectedModel === CREATE_NEW_MODEL_OPTION_VALUE;
     return (
       // @ts-expect-error TS(2322): Type '{ children: (Element | null)[]; ref: any; la... Remove this comment to see the full error message
-      <LegacyForm ref={innerRef} layout="vertical" className="register-model-form">
+      <LegacyForm ref={innerRef} layout="vertical" className="mlflow-register-model-form">
         {/* "+ Create new model" OR "Select existing model" */}
         <LegacyForm.Item
           label={isCopy ? <b>Copy to model</b> : 'Model'}
@@ -96,7 +96,7 @@ export class RegisterModelForm extends React.Component<Props, State> {
           rules={[{ required: true, message: 'Please select a model or create a new one.' }]}
         >
           <LegacySelect
-            dropdownClassName="model-select-dropdown"
+            dropdownClassName="mlflow-model-select-dropdown"
             onChange={this.handleModelSelectChange}
             placeholder="Select a model"
             filterOption={this.handleFilterOption}
@@ -104,7 +104,7 @@ export class RegisterModelForm extends React.Component<Props, State> {
             // @ts-expect-error TS(2769): No overload matches this call.
             showSearch
           >
-            <Option value={CREATE_NEW_MODEL_OPTION_VALUE} className="create-new-model-option">
+            <Option value={CREATE_NEW_MODEL_OPTION_VALUE} className="mlflow-create-new-model-option">
               <i className="fa fa-plus fa-fw" style={{ fontSize: 13 }} /> {CREATE_NEW_MODEL_LABEL}
             </Option>
             <OptGroup label="Models">{Object.values(modelByName).map((model) => this.renderModel(model))}</OptGroup>

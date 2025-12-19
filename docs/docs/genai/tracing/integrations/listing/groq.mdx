@@ -46,7 +46,6 @@ print(message.choices[0].message.content)
 MLflow >= 3.2.0 supports token usage tracking for Groq. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
 available in the `token_usage` field of the trace info object.
 
-
 ```python
 import json
 import mlflow
@@ -98,7 +97,6 @@ Completions:
   Input tokens: 21
   Output tokens: 628
 ```
-
 
 Currently, groq token usage doesn't support token usage tracking for Audio transcription and Audio translation.
 

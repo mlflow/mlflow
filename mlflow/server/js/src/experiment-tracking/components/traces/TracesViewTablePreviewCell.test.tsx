@@ -1,3 +1,4 @@
+import { describe, test, jest, expect } from '@jest/globals';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { render, screen } from '../../../common/utils/TestUtils.react18';
 import { TracesViewTableResponsePreviewCell } from './TracesViewTablePreviewCell';
@@ -59,7 +60,7 @@ describe('ExperimentViewTracesTablePreviewCell', () => {
 
     await userEvent.click(screen.getByRole('button'));
 
-    expect(MlflowService.getExperimentTraceData).toBeCalledWith('test_request_id');
+    expect(MlflowService.getExperimentTraceData).toHaveBeenCalledWith('test_request_id');
 
     expect(document.body.textContent).toContain(formattedLongValue);
 

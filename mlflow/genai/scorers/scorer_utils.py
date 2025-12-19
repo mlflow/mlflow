@@ -5,7 +5,9 @@ import inspect
 import logging
 import re
 from textwrap import dedent
-from typing import Any, Callable, Optional
+from typing import Any, Callable
+
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 
 _logger = logging.getLogger(__name__)
 
@@ -50,8 +52,7 @@ class FunctionBodyExtractor(ast.NodeVisitor):
 
         self.function_body = dedent("".join(function_body_lines)).rstrip("\n")
 
-        indents = [stmt.col_offset for stmt in body if stmt.col_offset is not None]
-        if indents:
+        if indents := [stmt.col_offset for stmt in body if stmt.col_offset is not None]:
             self.indent_unit = min(indents)
 
 
@@ -72,7 +73,7 @@ def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
     return extractor.function_body, extractor.indent_unit
 
 
-def recreate_function(source: str, signature: str, func_name: str) -> Optional[Callable[..., Any]]:
+def recreate_function(source: str, signature: str, func_name: str) -> Callable[..., Any]:
     """
     Recreate a function from its source code, signature, and name.
 
@@ -82,57 +83,63 @@ def recreate_function(source: str, signature: str, func_name: str) -> Optional[C
         func_name: The name of the function.
 
     Returns:
-        The recreated function or None if recreation failed.
+        The recreated function.
     """
+    import mlflow
+
+    # Parse the signature to build the function definition
+    sig_match = re.match(r"\((.*?)\)", signature)
+    if not sig_match:
+        raise MlflowException(
+            f"Invalid signature format: '{signature}'", error_code=INVALID_PARAMETER_VALUE
+        )
+
+    params_str = sig_match.group(1).strip()
+
+    # Build the function definition with future annotations to defer type hint evaluation
+    func_def = "from __future__ import annotations\n"
+    func_def += f"def {func_name}({params_str}):\n"
+    # Indent the source code
+    indented_source = "\n".join(f"    {line}" for line in source.split("\n"))
+    func_def += indented_source
+
+    # Create a namespace with common MLflow imports that scorer functions might use
+    # Include mlflow module so type hints like "mlflow.entities.Trace" can be resolved
+    import_namespace = {
+        "mlflow": mlflow,
+    }
+
+    # Import commonly used MLflow classes
     try:
-        # Parse the signature to build the function definition
-        sig_match = re.match(r"\((.*?)\)", signature)
-        if not sig_match:
-            return None
+        from mlflow.entities import (
+            Assessment,
+            AssessmentError,
+            AssessmentSource,
+            AssessmentSourceType,
+            Feedback,
+            Trace,
+        )
+        from mlflow.genai.judges import CategoricalRating
 
-        params_str = sig_match.group(1).strip()
+        import_namespace.update(
+            {
+                "Feedback": Feedback,
+                "Assessment": Assessment,
+                "AssessmentSource": AssessmentSource,
+                "AssessmentError": AssessmentError,
+                "AssessmentSourceType": AssessmentSourceType,
+                "Trace": Trace,
+                "CategoricalRating": CategoricalRating,
+            }
+        )
+    except ImportError:
+        pass  # Some imports might not be available in all contexts
 
-        # Build the function definition
-        func_def = f"def {func_name}({params_str}):\n"
-        # Indent the source code
-        indented_source = "\n".join(f"    {line}" for line in source.split("\n"))
-        func_def += indented_source
+    # Local namespace will capture the created function
+    local_namespace = {}
 
-        # Create a namespace with common MLflow imports that scorer functions might use
-        import_namespace = {}
+    # Execute the function definition with MLflow imports available
+    exec(func_def, import_namespace, local_namespace)  # noqa: S102
 
-        # Import commonly used MLflow classes
-        try:
-            from mlflow.entities import (
-                Assessment,
-                AssessmentError,
-                AssessmentSource,
-                AssessmentSourceType,
-                Feedback,
-            )
-            from mlflow.genai.judges import CategoricalRating
-
-            import_namespace.update(
-                {
-                    "Feedback": Feedback,
-                    "Assessment": Assessment,
-                    "AssessmentSource": AssessmentSource,
-                    "AssessmentError": AssessmentError,
-                    "AssessmentSourceType": AssessmentSourceType,
-                    "CategoricalRating": CategoricalRating,
-                }
-            )
-        except ImportError:
-            pass  # Some imports might not be available in all contexts
-
-        local_namespace = {}
-
-        # Execute the function definition with MLflow imports available
-        exec(func_def, import_namespace, local_namespace)
-
-        # Return the recreated function
-        return local_namespace[func_name]
-
-    except Exception:
-        _logger.warning(f"Failed to recreate function '{func_name}' from serialized source code")
-        return None
+    # Return the recreated function
+    return local_namespace[func_name]

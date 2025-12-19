@@ -18,7 +18,7 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
 )
 
-from tests.openai.mock_openai import EMPTY_CHOICES
+from tests.openai.mock_openai import EMPTY_CHOICES, LIST_CONTENT
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
 MOCK_TOOLS = [
@@ -42,12 +42,8 @@ MOCK_TOOLS = [
 
 @pytest.fixture(params=[True, False], ids=["sync", "async"])
 def client(request, monkeypatch, mock_openai):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
     if request.param:
         client = openai.OpenAI(api_key="test", base_url=mock_openai)
         client._is_async = False
@@ -60,19 +56,17 @@ def client(request, monkeypatch, mock_openai):
 
 @pytest.fixture
 def completion_models():
-    model_infos = []
-    for temp in [0.1, 0.2, 0.3]:
-        model_infos.append(
-            mlflow.openai.log_model(
-                "gpt-4o-mini",
-                "completions",
-                name="model",
-                temperature=temp,
-                prompt="Say {text}",
-                pip_requirements=["mlflow"],  # Hard code for speed up
-            )
+    return [
+        mlflow.openai.log_model(
+            "gpt-4o-mini",
+            "completions",
+            name="model",
+            temperature=temp,
+            prompt="Say {text}",
+            pip_requirements=["mlflow"],  # Hard code for speed up
         )
-    return model_infos
+        for temp in [0.1, 0.2, 0.3]
+    ]
 
 
 @pytest.fixture
@@ -126,7 +120,7 @@ async def test_chat_completions_autolog(client):
         TokenUsageKey.OUTPUT_TOKENS: 12,
         TokenUsageKey.TOTAL_TOKENS: 21,
     }
-
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "openai"
     assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
     assert trace.info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
@@ -161,7 +155,7 @@ async def test_chat_completions_autolog_under_current_active_span(client):
     parent_span = trace.data.spans[0]
     assert parent_span.name == "parent"
     child_span = trace.data.spans[1]
-    assert child_span.name == "AsyncCompletions_1" if client._is_async else "Completions_1"
+    assert child_span.name == "AsyncCompletions" if client._is_async else "Completions"
     assert child_span.inputs == {"messages": messages, "model": "gpt-4o-mini", "temperature": 0}
     assert child_span.outputs["id"] == "chatcmpl-123"
     assert child_span.parent_id == parent_span.span_id
@@ -211,7 +205,23 @@ async def test_chat_completions_autolog_streaming(client, include_usage):
     span = trace.data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == input_params
-    assert span.outputs == "Hello world"  # aggregated string of streaming response
+
+    # Reconstructed response from streaming chunks
+    assert isinstance(span.outputs, dict)
+    assert span.outputs["id"] == "chatcmpl-123"
+    assert span.outputs["object"] == "chat.completion"
+    assert span.outputs["model"] == "gpt-4o-mini"
+    assert span.outputs["system_fingerprint"] == "fp_44709d6fcb"
+    assert "choices" in span.outputs
+    assert span.outputs["choices"][0]["message"]["role"] == "assistant"
+    assert span.outputs["choices"][0]["message"]["content"] == "Hello world"
+
+    # Usage should be preserved when include_usage=True
+    if include_usage:
+        assert "usage" in span.outputs
+        assert span.outputs["usage"]["prompt_tokens"] == 9
+        assert span.outputs["usage"]["completion_tokens"] == 12
+        assert span.outputs["usage"]["total_tokens"] == 21
 
     stream_event_data = trace.data.spans[0].events
     assert stream_event_data[0].name == "mlflow.chunk.item.0"
@@ -327,18 +337,41 @@ async def test_chat_completions_streaming_empty_choices(client):
         stream=True,
     )
 
-    if client._is_async:
-        chunks = []
-        async for chunk in await stream:
-            chunks.append(chunk)
-    else:
-        chunks = list(stream)
+    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
 
     # Ensure the stream has a chunk with empty choices
     assert chunks[0].choices == []
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
+
+
+@pytest.mark.asyncio
+async def test_chat_completions_streaming_with_list_content(client):
+    # Test streaming with Databricks-style list content in chunks.
+    mlflow.openai.autolog()
+    stream = client.chat.completions.create(
+        messages=[{"role": "user", "content": LIST_CONTENT}],
+        model="gpt-4o-mini",
+        stream=True,
+    )
+
+    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
+
+    assert len(chunks) == 2
+    assert chunks[0].choices[0].delta.content == [{"type": "text", "text": "Hello"}]
+    assert chunks[1].choices[0].delta.content == [{"type": "text", "text": " world"}]
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace is not None
+    assert trace.info.status == "OK"
+    assert len(trace.data.spans) == 1
+    span = trace.data.spans[0]
+    assert span.span_type == SpanType.CHAT_MODEL
+
+    # Verify the reconstructed message content is correct (text extracted from list)
+    assert isinstance(span.outputs, dict)
+    assert span.outputs["choices"][0]["message"]["content"] == "Hello world"
 
 
 @pytest.mark.asyncio
@@ -362,7 +395,7 @@ async def test_completions_autolog(client):
     assert span.span_type == SpanType.LLM
     assert span.inputs == {"prompt": "test", "model": "gpt-4o-mini", "temperature": 0}
     assert span.outputs["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
-
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "openai"
     assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
 
 
@@ -375,12 +408,7 @@ async def test_completions_autolog_streaming_empty_choices(client):
         stream=True,
     )
 
-    if client._is_async:
-        chunks = []
-        async for chunk in await stream:
-            chunks.append(chunk)
-    else:
-        chunks = list(stream)
+    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
 
     # Ensure the stream has a chunk with empty choices
     assert chunks[0].choices == []
@@ -515,9 +543,6 @@ async def test_autolog_raw_response(client):
     assert (
         span.outputs["choices"][0]["message"]["content"] == '[{"role": "user", "content": "test"}]'
     )
-    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == (
-        messages + [{"role": "assistant", "content": '[{"role": "user", "content": "test"}]'}]
-    )
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
 
     assert trace.info.token_usage == {
@@ -554,10 +579,13 @@ async def test_autolog_raw_response_stream(client):
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
-    assert span.outputs == "Hello world"
-    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == (
-        messages + [{"role": "assistant", "content": "Hello world"}]
-    )
+
+    # Reconstructed response from streaming chunks
+    assert isinstance(span.outputs, dict)
+    assert span.outputs["id"] == "chatcmpl-123"
+    assert span.outputs["object"] == "chat.completion"
+    assert span.outputs["model"] == "gpt-4o-mini"
+    assert span.outputs["choices"][0]["message"]["content"] == "Hello world"
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
 
 
@@ -730,12 +758,8 @@ async def test_autolog_link_traces_to_loaded_model_embeddings(client, embedding_
 def test_autolog_link_traces_to_loaded_model_embeddings_pyfunc(
     monkeypatch, mock_openai, embedding_models
 ):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
 
     mlflow.openai.autolog()
 
@@ -755,12 +779,8 @@ def test_autolog_link_traces_to_loaded_model_embeddings_pyfunc(
 
 @skip_when_testing_trace_sdk
 def test_autolog_link_traces_to_active_model(monkeypatch, mock_openai, embedding_models):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
 
     model = mlflow.create_external_model(name="test_model")
     mlflow.set_active_model(model_id=model.model_id)
@@ -811,3 +831,46 @@ async def test_model_loading_set_active_model_id_without_fetching_logged_model(
     model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id is not None
     assert span.inputs["messages"][0]["content"] == f"test {model_id}"
+
+
+@pytest.mark.skipif(
+    Version(openai.__version__) < Version("1.66"), reason="Requires OpenAI SDK >= 1.66"
+)
+@skip_when_testing_trace_sdk
+def test_reconstruct_response_from_stream():
+    from openai.types.responses import (
+        ResponseOutputItemDoneEvent,
+        ResponseOutputMessage,
+        ResponseOutputText,
+    )
+
+    from mlflow.openai.autolog import _reconstruct_response_from_stream
+    from mlflow.types.responses_helpers import OutputItem
+
+    content1 = ResponseOutputText(annotations=[], text="Hello", type="output_text")
+    content2 = ResponseOutputText(annotations=[], text=" world", type="output_text")
+
+    message1 = ResponseOutputMessage(
+        id="test-1", content=[content1], role="assistant", status="completed", type="message"
+    )
+
+    message2 = ResponseOutputMessage(
+        id="test-2", content=[content2], role="assistant", status="completed", type="message"
+    )
+
+    chunk1 = ResponseOutputItemDoneEvent(
+        item=message1, output_index=0, sequence_number=1, type="response.output_item.done"
+    )
+
+    chunk2 = ResponseOutputItemDoneEvent(
+        item=message2, output_index=1, sequence_number=2, type="response.output_item.done"
+    )
+
+    chunks = [chunk1, chunk2]
+
+    result = _reconstruct_response_from_stream(chunks)
+
+    assert result.output == [
+        OutputItem(**chunk1.item.to_dict()),
+        OutputItem(**chunk2.item.to_dict()),
+    ]

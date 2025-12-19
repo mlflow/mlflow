@@ -20,28 +20,24 @@ The following picture depicts the architecture of using a remote MLflow Tracking
 </figure>
 
 :::note
-You can find the list of supported data stores in the [artifact stores](/ml/tracking/artifact-stores) and [backend stores](/ml/tracking/backend-stores) documentation guides.
+You can find the list of supported data stores in the [artifact stores](/self-hosting/architecture/artifact-store) and [backend stores](/self-hosting/architecture/backend-store) documentation guides.
 :::
 
 When you start logging runs to the MLflow Tracking Server, the following happens:
 
 - **Part 1a and b**:
-
   - The MLflow client creates an instance of a _RestStore_ and sends REST API requests to log MLflow entities
   - The Tracking Server creates an instance of an _SQLAlchemyStore_ and connects to the remote host for inserting
     tracking information in the database (i.e., metrics, parameters, tags, etc.)
 
 - **Part 1c and d**:
-
   - Retrieval requests by the client return information from the configured _SQLAlchemyStore_ table
 
 - **Part 2a and b**:
-
   - Logging events for artifacts are made by the client using the `HttpArtifactRepository` to write files to MLflow Tracking Server
   - The Tracking Server then writes these files to the configured object store location with assumed role authentication
 
 - **Part 2c and d**:
-
   - Retrieving artifacts from the configured backend store for a user request is done with the same authorized authentication that was configured at server start
   - Artifacts are passed to the end user through the Tracking Server through the interface of the `HttpArtifactRepository`
 
@@ -95,7 +91,8 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - ./postgres-data:/var/lib/postgresql/data
+      - ./postgres-data:/var/lib/postgresql
+
   # MinIO server
   minio:
     image: minio/minio
@@ -157,7 +154,7 @@ export AWS_ACCESS_KEY_ID=minio_user
 export AWS_SECRET_ACCESS_KEY=minio_password
 ```
 
-You can find the instructions for how to configure credentials for other storages in [Supported Storage](/ml/tracking/artifact-stores#artifacts-store-supported-storages).
+You can find the instructions for how to configure credentials for other storages in [Supported Storage](/self-hosting/architecture/artifact-store#artifacts-store-supported-storages).
 
 #### Launch the tracking server
 
@@ -235,5 +232,5 @@ There are a couple of more advanced topics you can explore:
   You can also configure the Tracking Server to serve only backend store or artifact store, to handle different use cases such as large
   traffic or security concerns. See [other use cases](/ml/tracking#other-tracking-setup) for how to customize the Tracking Server for these use cases.
 - **Secure the Tracking Server**: The `--host` option exposes the service on all interfaces. If running a server in production, we
-  would recommend not exposing the built-in server broadly (as it is unauthenticated and unencrypted). Read [Secure Tracking Server](/ml/tracking/server#tracking-auth)
+  would recommend not exposing the built-in server broadly (as it is unauthenticated and unencrypted). Read [Secure Tracking Server](/self-hosting/security/network)
   for the best practices to secure the Tracking Server in production.

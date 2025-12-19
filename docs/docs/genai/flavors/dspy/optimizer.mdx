@@ -88,7 +88,8 @@ dspy.configure(lm=lm)
 
 gsm8k = GSM8K()
 
-trainset, devset = gsm8k.train, gsm8k.dev[:50]
+trainset = gsm8k.train
+devset = gsm8k.dev[:50]
 
 program = dspy.ChainOfThought("question -> answer")
 
@@ -108,7 +109,9 @@ optimized_program = teleprompter.compile(
 ```
 
 ## What Gets Logged?
+
 MLflow optimizer autologging logs the following information:
+
 - **Optimizer Parameters**: The hyper parameters of the optimizer (e.g. number of demonstrates).
 - **Optimized Program**: MLflow automatically saves the states of the optimized program as a json artifact.
 - **Datasets**: The train and evaluation datasets used in the optimization.
@@ -118,18 +121,22 @@ MLflow optimizer autologging logs the following information:
 
 When both `log_compiles` and `log_evals` are set to `True`, MLflow creates a run for `Teleprompter.compile` with child runs for `Evaluate.__call__` calls.
 In the MLflow UI, they are displayed hierarchically as shown below:
+
 <img src="https://i.imgur.com/eD0lA6V.png" alt="Experiment Page" width="700px"/>
 
 In the run page for the parent run (compile call), the optimizer parameters are displayed as run parameters. The progression of program performance is displayed as model metrics and the datasets used in the optimization are displayed as artifacts.
 When there are multiple type of evaluation calls (e.g. full dataset evaluation and mini-batch evaluation), the evaluation results are logged separately.
+
 <img src="https://i.imgur.com/lXKINPQ.png" alt="Parent Run" width="1000px"/>
 
 In the run page for the child run (evaluation call), the intermediate program states are displayed as run parameters, the performance metric are displayed as model metrics and the traces of the program are available in the trace tab.
+
 <img src="https://i.imgur.com/XAC9hND.png" alt="Child Run" width="800px"/>
 
 ## FAQ
 
 ### How to log my optimization and evaluation into a same run?
+
 To log both optimization and evaluation into a same run, you can manually create a parent run using `mlflow.start_run` and run your optimization and evaluation within the run.
 
 ```python

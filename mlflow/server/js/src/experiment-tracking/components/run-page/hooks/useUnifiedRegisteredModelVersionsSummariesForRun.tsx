@@ -2,7 +2,8 @@ import { useSelector } from 'react-redux';
 import type { ReduxState } from '../../../../redux-types';
 import { ModelRegistryRoutes } from '../../../../model-registry/routes';
 import { shouldEnableGraphQLModelVersionsForRunDetails } from '../../../../common/utils/FeatureUtils';
-import { UseGetRunQueryResponse } from './useGetRunQuery';
+import type { UseGetRunQueryResponse } from './useGetRunQuery';
+import type { LoggedModelProto } from '../../../types';
 
 /**
  * A unified model version summary that can be used to display model versions on the run page.
@@ -13,6 +14,7 @@ export type RunPageModelVersionSummary = {
   link: string;
   status: string | null;
   source: string | null;
+  sourceLoggedModel?: LoggedModelProto;
 };
 
 /**

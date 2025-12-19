@@ -47,7 +47,7 @@ SERVING_ENVIRONMENT = "SERVING_ENVIRONMENT"
 _logger = logging.getLogger(__name__)
 
 
-def _init(cmd, env_manager):  # noqa: D417
+def _init(cmd, env_manager):
     """
     Initialize the container and execute command.
 
@@ -91,8 +91,10 @@ def _install_pyfunc_deps(
     server_deps = ["gunicorn[gevent]"]
     if enable_mlserver:
         server_deps = [
-            "'mlserver>=1.2.0,!=1.3.1,<1.4.0'",
-            "'mlserver-mlflow>=1.2.0,!=1.3.1,<1.4.0'",
+            "'mlserver>=1.2.0,!=1.3.1,<2.0.0'",
+            "'mlserver-mlflow>=1.2.0,!=1.3.1,<2.0.0'",
+            # uvloop >= 0.22 is not compatible with mlserver
+            "'uvloop<0.22'",
         ]
 
     install_server_deps = [f"pip install {' '.join(server_deps)}"]

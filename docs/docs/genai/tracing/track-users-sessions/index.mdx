@@ -1,23 +1,21 @@
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Search, TrendingUp } from "lucide-react";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Track Users & Sessions
 
-![Traces with session IDs](/images/llms/tracing/trace-filter-by-user.gif)
+<video src={useBaseUrl("/images/llms/tracing/chat-sessions-demo.mp4")} controls loop autoPlay muted aria-label="Traces with session IDs" />
 
-Tracking users and sessions in your GenAI application provides essential context for understanding user behavior, analyzing conversation flows, and improving personalization. MLflow offers built-in support for associating traces with users and grouping them into sessions.
+Many real-world AI applications use session to maintain multi-turn user interactions. MLflow Tracing provides built-in support for associating traces with users and grouping them into sessions. Tracking users and sessions in your GenAI application provides essential context for understanding user behavior, analyzing conversation flows, and improving personalization.
 
-## Why Track Users and Sessions?
-
-User and session tracking enables powerful analytics and improvements for your GenAI application. Understanding how different users interact with your application helps identify usage patterns across your user base, while analyzing multi-turn conversations reveals how well your system maintains context retention across interactions.
-
-This tracking capability allows you to monitor performance metrics across different user segments, identifying areas for targeted improvements. You can also maintain session continuity across multiple interactions within the same conversation, creating better user experiences through improved context awareness.
-
-## Standard MLflow metadata fields
+## Store User and Session IDs in Metadata
 
 :::note New in MLflow 3
-User and session tracking is only available in MLflow 3 and above. To upgrade, please run `pip install --upgrade mlflow`
+The standard metadata for user and session tracking is only available in MLflow 3 and above. To upgrade, please run `pip install --upgrade mlflow`.
 :::
 
 MLflow provides two standard metadata fields for session and user tracking:
@@ -27,10 +25,12 @@ MLflow provides two standard metadata fields for session and user tracking:
 
 When you use these standard metadata fields, MLflow automatically enables filtering and grouping in the UI. Unlike tags, metadata cannot be updated once the trace is logged, making it ideal for immutable identifiers like user and session IDs.
 
-## Implementation Examples
+## Basic Usage
+
+To record user and session information in your application, use the <APILink fn="mlflow.update_current_trace" /> API and pass the user and session IDs in the metadata.
 
 <Tabs>
-  <TabItem value="basic" label="Basic Usage" default>
+  <TabItem value="python" label="Python" default>
     Here's how to add user and session tracking to your application:
 
     ```python
@@ -38,7 +38,7 @@ When you use these standard metadata fields, MLflow automatically enables filter
 
 
     @mlflow.trace
-    def chat_completion(user_id: str, session_id: str, message: str):
+    def chat_completion(message: list[dict], user_id: str, session_id: str):
         """Process a chat message with user and session tracking."""
 
         # Add user and session context to the current trace
@@ -50,47 +50,60 @@ When you use these standard metadata fields, MLflow automatically enables filter
         )
 
         # Your chat logic here
-        response = generate_response(message)
-        return response
-
-
-    # Example usage
-    def handle_user_message(request):
-        return chat_completion(
-            user_id=request.user_id,  # e.g., "user-123"
-            session_id=request.session_id,  # e.g., "session-abc-456"
-            message=request.message,
-        )
+        return generate_response(message)
     ```
 
-    **Key Implementation Notes:**
-    - The `@mlflow.trace` decorator automatically creates a trace for function execution
-    - <APILink fn="mlflow.update_current_trace" /> adds the user ID and session ID to the active trace
-    - Use consistent ID formats across your application for reliable analysis
   </TabItem>
-  <TabItem value="web-app" label="Web Application">
-    In production web applications, extract user and session information from request headers:
+  <TabItem value="typescript" label="TypeScript">
+    ```typescript
+    import * as mlflow from "mlflow-tracing";
+
+    const chatCompletion = mlflow.trace(
+        (message: list[dict], user_id: str, session_id: str) => {
+            // Add user and session context to the current trace
+            mlflow.updateCurrentTrace({
+                metadata: {
+                    "mlflow.trace.user": user_id,
+                    "mlflow.trace.session": session_id,
+                },
+            });
+
+            // Your chat logic here
+            return generate_response(message);
+        },
+        { name: "chat_completion" }
+    );
+    ```
+
+  </TabItem>
+</Tabs>
+
+## Web Application Example
+
+<Tabs>
+  <TabItem value="python" label="Python (FastAPI)" default>
 
     ```python
     import mlflow
     import os
     from fastapi import FastAPI, Request
     from pydantic import BaseModel
+    from openai import OpenAI
 
     app = FastAPI()
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    mlflow.set_tracking_uri("http://localhost:5000")
+    mlflow.set_experiment(experiment_id="<your-experiment-id>")
+    mlflow.openai.autolog()
 
 
     class ChatRequest(BaseModel):
         message: str
 
 
-    @app.post("/chat")  # FastAPI decorator should be outermost
-    @mlflow.trace  # Ensure @mlflow.trace is the inner decorator
-    def handle_chat(request: Request, chat_request: ChatRequest):
-        # Extract context from headers
-        session_id = request.headers.get("X-Session-ID")
-        user_id = request.headers.get("X-User-ID")
-
+    @mlflow.trace
+    def process_chat(message: str, user_id: str, session_id: str):
         # Update trace with user and session context
         mlflow.update_current_trace(
             metadata={
@@ -99,23 +112,115 @@ When you use these standard metadata fields, MLflow automatically enables filter
             }
         )
 
-        # Process the chat message
-        response_text = process_chat_message(chat_request.message, user_id, session_id)
+        # Process chat message using OpenAI API
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": message},
+            ],
+        )
+        return response.choices[0].message.content
+
+
+    @app.post("/chat")
+    def handle_chat(request: Request, chat_request: ChatRequest):
+        session_id = request.headers.get("X-Session-ID", "default-session")
+        user_id = request.headers.get("X-User-ID", "default-user")
+        response_text = process_chat(chat_request.message, user_id, session_id)
         return {"response": response_text}
+
+
+    @app.get("/")
+    async def root():
+        return {"message": "FastAPI MLflow Tracing Example"}
+
+
+    if __name__ == "__main__":
+        import uvicorn
+
+        uvicorn.run(app, host="0.0.0.0", port=8000)
     ```
 
-    **Example request:**
-    ```bash
-    curl -X POST "http://127.0.0.1:8000/chat" \
-         -H "Content-Type: application/json" \
-         -H "X-Session-ID: session-def-456" \
-         -H "X-User-ID: user-jane-doe-12345" \
-         -d '{"message": "What is my account balance?"}'
+  </TabItem>
+  <TabItem value="typescript" label="TypeScript (express)">
+    ```typescript
+    import express, { Request, Response } from 'express';
+    import bodyParser from 'body-parser';
+    import * as mlflow from 'mlflow-tracing';
+    import { tracedOpenAI } from "mlflow-openai";
+    import OpenAI from 'openai';
+
+    const app = express();
+    app.use(bodyParser.json());
+
+    const openai = tracedOpenAI(new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    }));
+
+    mlflow.init({
+      trackingUri: "http://localhost:5000",
+      experimentId: "<your-experiment-id>",
+    });
+
+    class Chat {
+      @mlflow.trace({ spanType: mlflow.SpanType.LLM })
+      static async process(message: string, userId: string, sessionId: string) {
+        // Update MLflow trace metadata for this user and session
+        await mlflow.updateCurrentTrace({
+          metadata: {
+            'mlflow.trace.session': sessionId,
+            'mlflow.trace.user': userId,
+          },
+        });
+
+        const response = await openai.responses.create({
+          model: 'gpt-4.1-mini',
+          instructions: 'You are a helpful assistant.',
+          input: message,
+        });
+        return response.output_text;
+      }
+    }
+
+    app.post('/chat', async (req: Request, res: Response) => {
+      const sessionId = req.header('X-Session-ID') || 'default-session';
+      const userId = req.header('X-User-ID') || 'default-user';
+      const message = req.body.message;
+
+      try {
+        const response = await Chat.process(message, userId, sessionId);
+        res.json({ response: response });
+      } catch (err) {
+        res.status(500).json({ error: 'OpenAI request failed.' });
+      }
+    });
+
+    app.get('/', (req: Request, res: Response) => {
+      res.json({ message: 'Express MLflow Tracing Example' });
+    });
+
+    if (require.main === module) {
+      app.listen(8000, () => {
+        console.log('Server listening on http://localhost:8000');
+      });
+    }
     ```
+
   </TabItem>
 </Tabs>
 
-## Querying and Analysis
+**Example request:**
+
+```bash
+curl -X POST http://localhost:8000/chat \
+    -H "Content-Type: application/json" \
+    -H "X-Session-ID: session-123" \
+    -H "X-User-ID: user-456" \
+    -d '{"message": "Hello, how are you?"}'
+```
+
+## Querying
 
 <Tabs>
   <TabItem value="ui-search" label="MLflow UI Search" default>
@@ -132,140 +237,50 @@ When you use these standard metadata fields, MLflow automatically enables filter
     metadata.`mlflow.trace.user` = 'user-123' AND metadata.`mlflow.trace.session` = 'session-abc-456'
     ```
 
-    The MLflow UI provides powerful filtering and grouping capabilities when you use the standard user and session metadata.
   </TabItem>
-  <TabItem value="user-analysis" label="User Analysis">
+  <TabItem value="user-analysis" label="Programmatic Analysis">
     Analyze user behavior patterns programmatically:
 
     ```python
     import mlflow
+    import pandas as pd
 
-
-    def analyze_user_behavior(user_id: str, experiment_id: str):
-        """Analyze a specific user's interaction patterns."""
-
-        # Search for all traces from a specific user
-        user_traces = mlflow.search_traces(
-            experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.user` = '{user_id}'",
-            return_type="list",
-        )
-
-        if len(user_traces) == 0:
-            return {"error": "No traces found for user"}
-
-        # Calculate key metrics
-        total_interactions = len(user_traces)
-        unique_sessions = len(
-            set(
-                t.info.request_metadata.get("mlflow.trace.session", "") for t in user_traces
-            )
-        )
-
-        successful_traces = [trace for trace in user_traces if trace.info.state == "OK"]
-        avg_response_time = (
-            sum(trace.info.execution_time_ms for trace in successful_traces)
-            / len(successful_traces)
-            if successful_traces
-            else 0
-        )
-
-        return {
-            "user_id": user_id,
-            "total_interactions": total_interactions,
-            "unique_sessions": unique_sessions,
-            "avg_response_time_ms": avg_response_time,
-        }
-
-
-    # Usage
-    user_stats = analyze_user_behavior("user-123", "1")
-    print(
-        f"User has {user_stats['total_interactions']} interactions across {user_stats['unique_sessions']} sessions"
+    # Search for all traces from a specific user
+    user_traces_df: pd.DataFrame = mlflow.search_traces(
+        filter_string=f"metadata.`mlflow.trace.user` = '{user_id}'",
     )
+
+    # Calculate key metrics
+    total_interactions = len(user_traces_df)
+    unique_sessions = user_traces_df["metadata.mlflow.trace.session"].nunique()
+    avg_response_time = user_traces_df["info.execution_time_ms"].mean()
+    success_rate = user_traces_df["info.state"].value_counts()["OK"] / total_interactions
+
+    # Display the results
+    print(f"User has {total_interactions} interactions across {unique_sessions} sessions")
+    print(f"Average response time: {avg_response_time} ms")
+    print(f"Success rate: {success_rate}")
     ```
+
   </TabItem>
-  <TabItem value="session-analysis" label="Session Analysis">
-    Analyze conversation flow within sessions:
 
-    ```python
-    def analyze_session_flow(session_id: str, experiment_id: str):
-        """Analyze conversation flow within a session."""
-
-        # Get all traces from a session, ordered chronologically
-        session_traces = mlflow.search_traces(
-            experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
-            order_by=["timestamp_ms ASC"],
-            return_type="list",
-        )
-
-        if len(session_traces) == 0:
-            return {"error": "No traces found for session"}
-
-        # Build conversation timeline
-        conversation_turns = []
-        for i, trace in enumerate(session_traces):
-            conversation_turns.append(
-                {
-                    "turn": i + 1,
-                    "timestamp": trace.info.timestamp_ms,
-                    "duration_ms": trace.info.execution_time_ms,
-                    "status": trace.info.status,
-                }
-            )
-
-        # Session-level metrics
-        session_duration = max(trace.info.timestamp_ms for trace in session_traces) - min(
-            trace.info.timestamp_ms for trace in session_traces
-        )
-        total_turns = len(conversation_turns)
-        avg_turn_duration = (
-            sum(trace.info.execution_time_ms for trace in session_traces) / total_turns
-        )
-
-        return {
-            "session_id": session_id,
-            "total_turns": total_turns,
-            "session_duration_ms": session_duration,
-            "avg_turn_duration_ms": avg_turn_duration,
-            "conversation_flow": conversation_turns,
-        }
-
-
-    # Usage
-    session_analysis = analyze_session_flow(session_id, exp.experiment_id)
-    print(
-        f"Session had {session_analysis['total_turns']} turns over {session_analysis['session_duration_ms']}ms"
-    )
-    ```
-  </TabItem>
 </Tabs>
-
-## Best Practices and Integration
-
-### Implementation Guidelines
-
-Successful user and session tracking requires consistent ID formats across your application to ensure reliable analysis and filtering. Define clear rules for when sessions start and end, such as after periods of inactivity or when users explicitly end conversations. Consider adding metadata enrichment with additional context like user segments or session types to enhance analysis capabilities. Combining user and session data with request IDs provides complete traceability across your system.
-
-### Integration with MLflow Features
-
-User and session tracking enhances other MLflow capabilities significantly. You can use user and session filters in trace search for targeted analysis and debugging. Quality evaluation becomes more powerful when comparing metrics across different user segments to identify improvement opportunities. Environment tracking combines well with user context for comprehensive observability, while production monitoring enables tracking performance patterns by user cohorts in live environments.
-
-## Summary
-
-User and session tracking with MLflow provides powerful capabilities for understanding user behavior and optimizing user experiences. This approach delivers enhanced analytics through deep insights into user behavior patterns and session dynamics across your application. It improves debugging by providing user and session context that helps identify and resolve user-specific issues more quickly.
-
-Quality monitoring becomes more targeted when you can track performance across different user segments, enabling focused improvements where they matter most. Conversation analysis through multi-turn conversation tracking helps optimize dialogue systems and user flows for better engagement.
-
-The combination of standard MLflow metadata (`mlflow.trace.user` and `mlflow.trace.session`) with custom context creates a comprehensive foundation for user-centric observability in GenAI applications.
 
 ## Next Steps
 
-**[Track Environments & Context](/genai/tracing/track-environments-context)**: Add deployment and version context to your traces
-
-**[Search Traces](/genai/tracing/search-traces)**: Master advanced filtering techniques for user and session analysis
-
-**[Quality Analysis](/genai/tracing/quality-with-traces)**: Use user and session data to improve application quality
-
-**[Production Monitoring](/genai/tracing/prod-tracing)**: Set up comprehensive production observability with user context
+<TilesGrid>
+  <TileCard
+    icon={Search}
+    title="Search Traces"
+    description="Master advanced filtering techniques for user and session analysis"
+    href="/genai/tracing/search-traces"
+    linkText="Learn search →"
+  />
+  <TileCard
+    icon={TrendingUp}
+    title="Production Monitoring"
+    description="Set up comprehensive production observability with user context"
+    href="/genai/tracing/prod-tracing"
+    linkText="Monitor production →"
+  />
+</TilesGrid>

@@ -1,5 +1,5 @@
 import { getArtifactChunkedText, getArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
-import { EvaluationArtifactTable, EvaluationArtifactTableEntry } from '../types';
+import type { EvaluationArtifactTable, EvaluationArtifactTableEntry } from '../types';
 
 // Reflects structure logged by mlflow.log_table()
 export interface RawEvaluationArtifact {

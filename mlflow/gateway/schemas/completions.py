@@ -1,8 +1,7 @@
-from typing import Optional
+from pydantic import ConfigDict
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
 from mlflow.types.chat import BaseRequestPayload
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
     "example": {
@@ -17,25 +16,21 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 
 class RequestPayload(BaseRequestPayload, RequestModel):
     prompt: str
-    model: Optional[str] = None
+    model: str | None = None
 
-    class Config:
-        if IS_PYDANTIC_V2_OR_NEWER:
-            json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
-        else:
-            schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_REQUEST_PAYLOAD_EXTRA_SCHEMA)
 
 
 class Choice(ResponseModel):
     index: int
     text: str
-    finish_reason: Optional[str] = None
+    finish_reason: str | None = None
 
 
 class CompletionsUsage(ResponseModel):
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
 
 
 _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
@@ -53,29 +48,25 @@ _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class ResponsePayload(ResponseModel):
-    id: Optional[str] = None
+    id: str | None = None
     object: str = "text_completion"
     created: int
     model: str
     choices: list[Choice]
     usage: CompletionsUsage
 
-    class Config:
-        if IS_PYDANTIC_V2_OR_NEWER:
-            json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
-        else:
-            schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_RESPONSE_PAYLOAD_EXTRA_SCHEMA)
 
 
 class StreamDelta(ResponseModel):
-    role: Optional[str] = None
-    content: Optional[str] = None
+    role: str | None = None
+    content: str | None = None
 
 
 class StreamChoice(ResponseModel):
     index: int
-    finish_reason: Optional[str] = None
-    text: Optional[str] = None
+    finish_reason: str | None = None
+    text: str | None = None
 
 
 _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
@@ -96,14 +87,10 @@ _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class StreamResponsePayload(ResponseModel):
-    id: Optional[str] = None
+    id: str | None = None
     object: str = "text_completion_chunk"
     created: int
     model: str
     choices: list[StreamChoice]
 
-    class Config:
-        if IS_PYDANTIC_V2_OR_NEWER:
-            json_schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
-        else:
-            schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA)

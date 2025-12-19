@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import ShowArtifactPage from './artifact-view-components/ShowArtifactPage';
-import { RunInfoEntity } from '../types';
+import type { RunInfoEntity } from '../types';
 import { useRunsArtifacts } from './experiment-page/hooks/useRunsArtifacts';
 import { getCommonArtifacts } from './experiment-page/utils/getCommonArtifacts';
 import { useDesignSystemTheme } from '@databricks/design-system';

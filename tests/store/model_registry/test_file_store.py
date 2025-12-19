@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -17,6 +18,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.pyfunc import PythonModel
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.time import get_current_time_millis
@@ -56,6 +58,11 @@ def rm_data(registered_model_names, tmp_path):
         tags_dir = rm_folder.joinpath(FileStore.TAGS_FOLDER_NAME)
         tags_dir.mkdir(parents=True, exist_ok=True)
     return rm_data
+
+
+def test_file_store_deprecation_warning(tmp_path):
+    with pytest.warns(FutureWarning, match="filesystem model registry backend.*will be deprecated"):
+        FileStore(str(tmp_path / "model_registry"))
 
 
 def test_create_registered_model(store):
@@ -1814,3 +1821,82 @@ def test_create_registered_model_handle_prompt_properly(store):
         r"but the name is already taken by a prompt.",
     ):
         store.create_registered_model("prompt")
+
+
+def test_create_model_version_with_model_id_and_no_run_id(store: FileStore):
+    class SimpleModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    name = "test_model_with_model_id"
+    store.create_registered_model(name)
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            name="model",
+            python_model=SimpleModel(),
+        )
+        run_id = run.info.run_id
+        model_id = model_info.model_id
+
+    mv = store.create_model_version(
+        name=name,
+        source="/absolute/path/to/source",
+        run_id=None,
+        model_id=model_id,
+    )
+
+    assert mv.run_id == run_id
+
+    mvd = store.get_model_version(name=mv.name, version=mv.version)
+    assert mvd.run_id == run_id
+
+
+def test_update_model_version_with_model_id_and_metrics(store: FileStore):
+    class SimpleModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    name = "test_model_with_model_id_and_metrics"
+    store.create_registered_model(name)
+
+    with mlflow.start_run() as run:
+        mlflow.log_param("learning_rate", "0.001")
+        model_info = mlflow.pyfunc.log_model(
+            name="model",
+            python_model=SimpleModel(),
+        )
+        mlflow.log_metric("execution_time", 33.74682, step=0, model_id=model_info.model_id)
+        run_id = run.info.run_id
+        model_id = model_info.model_id
+
+    mv = store.create_model_version(
+        name=name,
+        source="/absolute/path/to/source",
+        run_id=None,
+        model_id=model_id,
+    )
+
+    assert mv.run_id == run_id
+
+    mvd = store.get_model_version(name=mv.name, version=mv.version)
+    assert mvd.run_id == run_id
+    assert mvd.metrics is not None
+    assert len(mvd.metrics) == 1
+    assert mvd.metrics[0].key == "execution_time"
+    assert mvd.metrics[0].value == 33.74682
+    assert mvd.params == {"learning_rate": "0.001"}
+
+    updated_mvd = store.update_model_version(
+        name=mv.name,
+        version=mv.version,
+        description="Test description with metrics",
+    )
+    assert updated_mvd.description == "Test description with metrics"
+
+    retrieved_mvd = store.get_model_version(name=mv.name, version=mv.version)
+    assert retrieved_mvd.description == "Test description with metrics"
+    assert retrieved_mvd.metrics is not None
+    assert len(retrieved_mvd.metrics) == 1
+    assert retrieved_mvd.metrics[0].key == "execution_time"
+    assert retrieved_mvd.params == {"learning_rate": "0.001"}

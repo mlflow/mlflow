@@ -6,13 +6,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TraceDataDrawer } from './TraceDataDrawer';
 import { useEditExperimentTraceTags } from './hooks/useEditExperimentTraceTags';
 import { TracesViewControls } from './TracesViewControls';
-import { SortingState } from '@tanstack/react-table';
+import type { SortingState } from '@tanstack/react-table';
 import { compact, isFunction, isNil, uniq } from 'lodash';
 import { useExperimentViewTracesUIState } from './hooks/useExperimentViewTracesUIState';
 import { ExperimentViewTracesTableColumns, getTraceInfoTotalTokens } from './TracesView.utils';
 import { useActiveExperimentTrace } from './hooks/useActiveExperimentTrace';
 import { useActiveExperimentSpan } from './hooks/useActiveExperimentSpan';
-import { ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 
 export const TRACE_AUTO_REFRESH_INTERVAL = 30000;
 
@@ -119,11 +119,6 @@ export const TracesView = ({
     [traces],
   );
 
-  const { showEditTagsModalForTrace, EditTagsModal } = useEditExperimentTraceTags({
-    onSuccess: () => refreshCurrentPage(true),
-    existingTagKeys,
-  });
-
   const usingFilters = filter !== '';
 
   const anyTraceContainsTokenCount = traces.some((trace) => !isNil(getTraceInfoTotalTokens(trace)));
@@ -173,7 +168,6 @@ export const TracesView = ({
         loading={loading}
         error={error}
         onTraceClicked={onTraceClicked}
-        onTraceTagsEdit={showEditTagsModalForTrace}
         hasNextPage={hasNextPage}
         hasPreviousPage={hasPreviousPage}
         onPreviousPage={onPreviousPage}
@@ -214,7 +208,6 @@ export const TracesView = ({
           onSelectSpan={setSelectedSpanId}
         />
       )}
-      {EditTagsModal}
     </div>
   );
 };

@@ -50,6 +50,7 @@ def test_resolve_env_metadata_in_databricks_notebook():
         mock_db_utils.get_notebook_path.return_value = "/Users/bob/test.py"
         mock_db_utils.get_webapp_url.return_value = None
         mock_db_utils.get_workspace_url.return_value = None
+        mock_db_utils.get_workspace_id.return_value = None
         mock_db_utils.get_workspace_info_from_dbutils.return_value = (None, None)
 
         assert resolve_env_metadata() == {

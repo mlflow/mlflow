@@ -1,6 +1,5 @@
 import contextvars
 from dataclasses import dataclass
-from typing import Optional
 
 from mlflow.entities import LiveSpan
 
@@ -16,4 +15,4 @@ class SpanWithToken:
     """
 
     span: LiveSpan
-    token: Optional[contextvars.Token] = None
+    token: contextvars.Token | None = None

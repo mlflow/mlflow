@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -65,7 +65,7 @@ _LLM_INFERENCE_TASK_TO_DATA_FIELD = {
 
 
 def infer_signature_from_llm_inference_task(
-    inference_task: str, signature: Optional[ModelSignature] = None
+    inference_task: str, signature: ModelSignature | None = None
 ) -> ModelSignature:
     """
     Infers the signature according to the MLflow inference task.
@@ -104,9 +104,9 @@ def convert_messages_to_prompt(messages: list[dict[str, Any]], tokenizer) -> str
 
 
 def preprocess_llm_inference_input(
-    data: Union[pd.DataFrame, dict[str, Any]],
-    params: Optional[dict[str, Any]] = None,
-    flavor_config: Optional[dict[str, Any]] = None,
+    data: pd.DataFrame | dict[str, Any],
+    params: dict[str, Any] | None = None,
+    flavor_config: dict[str, Any] | None = None,
 ) -> tuple[list[Any], dict[str, Any]]:
     """
     When a MLflow inference task is given, return updated `data` and `params` that
@@ -162,7 +162,7 @@ def preprocess_llm_inference_input(
     return update_data, params
 
 
-def _get_stopping_criteria(stop: Optional[Union[str, list[str]]], model_name: Optional[str] = None):
+def _get_stopping_criteria(stop: str | list[str] | None, model_name: str | None = None):
     """Return a list of Hugging Face stopping criteria objects for the given stop sequences."""
     from transformers import AutoTokenizer, StoppingCriteria
 
@@ -257,14 +257,12 @@ def postprocess_output_for_llm_inference_task(
     Returns:
         List of dictionaries containing the output text and usage information for each input prompt.
     """
-    output_dicts = []
-    for input_data, output_tensor in zip(data, output_tensors):
-        output_dict = _get_output_and_usage_from_tensor(
+    return [
+        _get_output_and_usage_from_tensor(
             input_data, output_tensor, pipeline, flavor_config, model_config, inference_task
         )
-        output_dicts.append(output_dict)
-
-    return output_dicts
+        for input_data, output_tensor in zip(data, output_tensors)
+    ]
 
 
 def _get_output_and_usage_from_tensor(
@@ -360,7 +358,7 @@ def _get_finish_reason(total_tokens: int, completion_tokens: int, model_config):
     return finish_reason
 
 
-def _get_default_task_for_llm_inference_task(llm_inference_task: Optional[str]) -> Optional[str]:
+def _get_default_task_for_llm_inference_task(llm_inference_task: str | None) -> str | None:
     """
     Get corresponding original Transformers task for the given LLM inference task.
 
@@ -374,7 +372,7 @@ def _get_default_task_for_llm_inference_task(llm_inference_task: Optional[str]) 
 
 
 def preprocess_llm_embedding_params(
-    data: Union[pd.DataFrame, dict[str, Any]],
+    data: pd.DataFrame | dict[str, Any],
 ) -> tuple[list[str], dict[str, Any]]:
     """
     When `llm/v1/embeddings` task is given, extract the input data (with "input" key) and

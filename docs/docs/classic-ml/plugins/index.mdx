@@ -15,7 +15,7 @@ Try the built-in test plugin to see how plugins work:
 # Clone MLflow and install example plugin
 git clone https://github.com/mlflow/mlflow
 cd mlflow
-pip install -e tests/resources/mlflow-test-plugin
+pip install -e . tests/resources/mlflow-test-plugin
 ```
 
 ```bash
@@ -40,27 +40,27 @@ MLflow supports eight types of plugins, each addressing different integration ne
 
 ### **Storage & Persistence**
 
-| Plugin Type | Purpose | Example Use Cases |
-|-------------|---------|-------------------|
-| **Tracking Store** | Custom experiment data storage | Enterprise databases, cloud data warehouses |
-| **Artifact Repository** | Custom artifact storage | In-house blob storage, specialized file systems |
-| **Model Registry Store** | Custom model registry backend | Enterprise model catalogs, version control systems |
+| Plugin Type              | Purpose                        | Example Use Cases                                  |
+| ------------------------ | ------------------------------ | -------------------------------------------------- |
+| **Tracking Store**       | Custom experiment data storage | Enterprise databases, cloud data warehouses        |
+| **Artifact Repository**  | Custom artifact storage        | In-house blob storage, specialized file systems    |
+| **Model Registry Store** | Custom model registry backend  | Enterprise model catalogs, version control systems |
 
 ### **Authentication & Headers**
 
-| Plugin Type | Purpose | Example Use Cases |
-|-------------|---------|-------------------|
-| **Request Auth Provider** | Custom authentication | OAuth, API keys, certificate-based auth |
-| **Request Header Provider** | Custom HTTP headers | Environment identification, compliance headers |
-| **Run Context Provider** | Automatic run metadata | Git info, environment details, custom tags |
+| Plugin Type                 | Purpose                | Example Use Cases                              |
+| --------------------------- | ---------------------- | ---------------------------------------------- |
+| **Request Auth Provider**   | Custom authentication  | OAuth, API keys, certificate-based auth        |
+| **Request Header Provider** | Custom HTTP headers    | Environment identification, compliance headers |
+| **Run Context Provider**    | Automatic run metadata | Git info, environment details, custom tags     |
 
 ### **Execution & Evaluation**
 
-| Plugin Type | Purpose | Example Use Cases |
-|-------------|---------|-------------------|
+| Plugin Type         | Purpose                       | Example Use Cases                                  |
+| ------------------- | ----------------------------- | -------------------------------------------------- |
 | **Project Backend** | Custom execution environments | Internal clusters, job schedulers, cloud platforms |
-| **Model Evaluator** | Custom evaluation metrics | Domain-specific validation, custom test suites |
-| **Deployment** | Custom serving platforms | Internal serving infrastructure, edge deployment |
+| **Model Evaluator** | Custom evaluation metrics     | Domain-specific validation, custom test suites     |
+| **Deployment**      | Custom serving platforms      | Internal serving infrastructure, edge deployment   |
 
 ## Developing Custom Plugins
 
@@ -231,6 +231,7 @@ class MyCustomAuth:
 ```
 
 **Usage:**
+
 ```bash
 export MLFLOW_TRACKING_AUTH=my_auth_provider
 python your_mlflow_script.py
@@ -425,6 +426,7 @@ class MyEvaluator(ModelEvaluator):
   <TabItem value="storage-solutions" label="Storage Solutions" default>
 
 #### **SQL Server Plugin**
+
 Store artifacts directly in SQL Server databases:
 
 ```bash
@@ -443,6 +445,7 @@ with mlflow.start_run():
 ```
 
 #### **Alibaba Cloud OSS Plugin**
+
 Integrate with Aliyun Object Storage Service:
 
 ```bash
@@ -463,6 +466,7 @@ mlflow.create_experiment("oss_experiment", artifact_location="oss://bucket/path"
 ```
 
 #### **XetHub Plugin**
+
 Use XetHub for versioned artifact storage:
 
 ```bash
@@ -479,6 +483,7 @@ mlflow.create_experiment(
 ```
 
 #### **Elasticsearch Plugin**
+
 Use Elasticsearch for experiment tracking:
 
 ```bash
@@ -488,15 +493,16 @@ pip install mlflow-elasticsearchstore
   </TabItem>
   <TabItem value="deployment" label="Model Deployment">
 
-| Plugin | Target Platform | Installation |
-|--------|----------------|--------------|
-| **mlflow-redisai** | RedisAI | `pip install mlflow-redisai` |
-| **mlflow-torchserve** | TorchServe | `pip install mlflow-torchserve` |
-| **mlflow-ray-serve** | Ray Serve | `pip install mlflow-ray-serve` |
-| **mlflow-azureml** | Azure ML | Built-in with Azure ML |
-| **oci-mlflow** | Oracle Cloud | `pip install oci-mlflow` |
+| Plugin                | Target Platform | Installation                    |
+| --------------------- | --------------- | ------------------------------- |
+| **mlflow-redisai**    | RedisAI         | `pip install mlflow-redisai`    |
+| **mlflow-torchserve** | TorchServe      | `pip install mlflow-torchserve` |
+| **mlflow-ray-serve**  | Ray Serve       | `pip install mlflow-ray-serve`  |
+| **mlflow-azureml**    | Azure ML        | Built-in with Azure ML          |
+| **oci-mlflow**        | Oracle Cloud    | `pip install oci-mlflow`        |
 
 **Example deployment usage:**
+
 ```python
 import mlflow.deployments
 
@@ -511,6 +517,7 @@ client.create_deployment(
   <TabItem value="evaluation" label="Model Evaluation">
 
 #### **Giskard Plugin**
+
 Comprehensive model validation and bias detection:
 
 ```bash
@@ -521,9 +528,11 @@ pip install mlflow-giskard
 import mlflow
 
 # Evaluate with Giskard
-result = mlflow.evaluate(
+result = mlflow.models.evaluate(
     model,
     eval_data,
+    targets="label",
+    model_type="classifier",
     evaluators=["giskard"],
     evaluator_config={
         "giskard": {
@@ -536,6 +545,7 @@ result = mlflow.evaluate(
 ```
 
 **Detects vulnerabilities:**
+
 - Performance bias
 - Ethical bias
 - Data leakage
@@ -543,6 +553,7 @@ result = mlflow.evaluate(
 - Spurious correlations
 
 #### **Trubrics Plugin**
+
 Advanced model validation framework:
 
 ```bash
@@ -552,12 +563,13 @@ pip install trubrics-sdk
   </TabItem>
   <TabItem value="execution" label="Execution Backends">
 
-| Plugin | Platform | Use Case |
-|--------|----------|----------|
-| **mlflow-yarn** | Hadoop/YARN | Big data processing clusters |
-| **oci-mlflow** | Oracle Cloud | Oracle Cloud Infrastructure |
+| Plugin          | Platform     | Use Case                     |
+| --------------- | ------------ | ---------------------------- |
+| **mlflow-yarn** | Hadoop/YARN  | Big data processing clusters |
+| **oci-mlflow**  | Oracle Cloud | Oracle Cloud Infrastructure  |
 
 **Example usage:**
+
 ```bash
 # Run MLflow project on YARN
 mlflow run . --backend yarn --backend-config yarn-config.json
@@ -567,6 +579,7 @@ mlflow run . --backend yarn --backend-config yarn-config.json
   <TabItem value="enterprise" label="Enterprise Solutions">
 
 #### **JFrog Artifactory Plugin**
+
 Enterprise artifact governance:
 
 ```bash
@@ -574,12 +587,14 @@ pip install mlflow[jfrog]
 ```
 
 **Key Features:**
+
 - Artifacts stored in JFrog Artifactory
 - Full lifecycle management
 - Enterprise security and compliance
 - Integration with JFrog platform tools
 
 **Setup:**
+
 ```bash
 export ARTIFACTORY_AUTH_TOKEN="your_token"
 
@@ -590,6 +605,7 @@ mlflow server \
 ```
 
 **Usage:**
+
 ```python
 import mlflow
 from transformers import pipeline
@@ -604,6 +620,7 @@ with mlflow.start_run():
 ```
 
 **Configuration:**
+
 ```bash
 # Optional: Use HTTP instead of HTTPS
 export ARTIFACTORY_NO_SSL=true
@@ -777,20 +794,22 @@ twine upload dist/*
 
 ### Documentation Template
 
-```markdown
+````markdown
 # My MLflow Plugin
 
 ## Installation
 ```bash
 pip install my-mlflow-plugin
-```
+````
 
 ## Configuration
+
 ```bash
 export MY_PLUGIN_CONFIG="value"
 ```
 
 ## Usage
+
 ```python
 import mlflow
 
@@ -798,15 +817,18 @@ mlflow.set_tracking_uri("my-scheme://config")
 ```
 
 ## Features
+
 - Feature 1
 - Feature 2
 
 ## Examples
+
 See examples/ directory for complete usage examples.
 
 ## Best Practices
 
 ### **Plugin Development**
+
 - **Follow MLflow interfaces** - Implement all required abstract methods
 - **Handle errors gracefully** - Provide clear error messages for configuration issues
 - **Support authentication** - Integrate with existing credential systems
@@ -814,18 +836,21 @@ See examples/ directory for complete usage examples.
 - **Version compatibility** - Test against multiple MLflow versions
 
 ### **Performance Optimization**
+
 - **Batch operations** - Implement efficient bulk logging when possible
 - **Connection pooling** - Reuse connections to external systems
 - **Async operations** - Use async I/O for storage operations when beneficial
 - **Caching** - Cache frequently accessed metadata
 
 ### **Security Considerations**
+
 - **Credential management** - Never log or expose sensitive credentials
 - **Input validation** - Validate all user inputs and URIs
 - **Access controls** - Respect existing authentication and authorization
 - **Secure communication** - Use TLS/SSL for network communications
 
 ### **Testing Strategy**
+
 - **Unit tests** - Test individual plugin components
 - **Integration tests** - Test full workflows with MLflow
 - **Performance tests** - Verify acceptable performance characteristics

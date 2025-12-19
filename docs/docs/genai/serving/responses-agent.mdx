@@ -10,7 +10,7 @@ The <APILink fn="mlflow.pyfunc.ResponsesAgent">ResponsesAgent</APILink> class in
 
 The <APILink fn="mlflow.pyfunc.ResponsesAgent">`ResponsesAgent`</APILink> extends MLflow's PyFunc model
 interface to support conversational AI applications that require advanced capabilities such as
-multi-turn dialogue, tool-calling, multi-agent orchestration, and compatibility with OpenAI’s
+multi-turn dialogue, tool-calling, multi-agent orchestration, and compatibility with OpenAI's
 Responses API and MLflow model tracking.
 
 - 📦 Structured request/response handling
@@ -54,22 +54,26 @@ Full integration with MLflow's ecosystem including:
 ### Implementing a ResponsesAgent
 
 #### Getting started
-To create your own agent, subclass `mlflow.pyfunc.ResponsesAgent` and implement your agent logic in the `predict` method. The implementation is framework-agnostic, allowing you to use any agent authoring framework. Note that `pydantic>=2` is required to use ResponsesAgent. For example implementations, see the [simple chat agent](#simple-chat-example) and the [tool calling agent](#tool-calling-example) below.
+
+To create your own agent, subclass `mlflow.pyfunc.ResponsesAgent` and implement your agent logic in the `predict` method. The implementation is framework-agnostic, allowing you to use any agent authoring framework. Note that `pydantic>=2` is required to use ResponsesAgent. For example implementations of calling a Chat Completions LLM, Responses API LLM, wrapping a LangGraph agent, and tool calling agent, see the [code snippets](#examples) below.
 
 #### Creating agent output
+
 When implementing your agent, you'll work with two main output types: <APILink fn="mlflow.types.responses.ResponsesAgentResponse">`ResponsesAgentResponse`</APILink> and <APILink fn="mlflow.types.responses.ResponsesAgentResponse">`ResponsesAgentStreamEvent`</APILink>. These are the only pydantic objects you should create directly. The remaining classes in `mlflow.types.responses_helpers` are only for validating dictionaries.
 
 If you want to return outputs that don't fit into the standard interface, you can use the `custom_outputs` field.
 
 Below are some helper methods you can use to create common outputs within the ResponsesAgent interface:
+
+- <APILink fn="mlflow.pyfunc.ResponsesAgent.create_reasoning_item" />
 - <APILink fn="mlflow.pyfunc.ResponsesAgent.create_text_output_item" />
 - <APILink fn="mlflow.pyfunc.ResponsesAgent.create_function_call_item" />
 - <APILink fn="mlflow.pyfunc.ResponsesAgent.create_function_call_output_item" />
 - <APILink fn="mlflow.pyfunc.ResponsesAgent.create_text_delta" /> (only for streaming)
-
-
+- <APILink fn="mlflow.pyfunc.ResponsesAgent.create_annotation_added" /> (only for streaming)
 
 Here's an example of a complete tool calling sequence using `ResponsesAgentResponse` with a custom output:
+
 ```python
 from mlflow.pyfunc import ResponsesAgent
 from mlflow.types.responses import ResponsesAgentRequest, ResponsesAgentResponse
@@ -100,12 +104,15 @@ class SimpleResponsesAgent(ResponsesAgent):
 ```
 
 #### Streaming agent output
+
 For real-time processing, you can use streaming events instead of returning a complete response. Streaming allows you to send partial results as they become available, which is useful for long-running operations or when you want to show progress to users.
 
 ##### Basic text streaming
+
 To stream text within the ResponsesAgent interface, you should:
+
 - yield `response.output_text.delta` events with the chunks as they become available
-    - it must have an `item_id` that corresponds related events to a single output item
+  - it must have an `item_id` that corresponds related events to a single output item
 - yield a `response.output_item.done` event to aggregate all chunks
 
 ```python
@@ -141,6 +148,7 @@ class SimpleResponsesAgent(ResponsesAgent):
 ```
 
 ##### Tool calling with streaming
+
 You can also stream tool calls and their results. Each tool call and its output are sent as separate `response.output_item.done` events. This enables MLflow tracing and makes it easier for clients to reconstruct streamed message history.
 
 ```python
@@ -178,10 +186,10 @@ class SimpleResponsesAgent(ResponsesAgent):
         )
 ```
 
-
 ### Logging and Serving
 
 Log your agent using the [Models-from-code](/ml/model/models-from-code) approach. This approach is framework-agnostic and supports all authoring frameworks:
+
 ```python
 with mlflow.start_run():
     logged_agent_info = mlflow.pyfunc.log_model(
@@ -191,15 +199,17 @@ with mlflow.start_run():
 ```
 
 For ease of use, MLflow has built in the following features:
+
 - Automatic model signature inference
-    - An input and output signature that adheres to the ResponsesAgentRequest and ResponsesAgentResponse schemas will be set
+  - An input and output signature that adheres to the ResponsesAgentRequest and ResponsesAgentResponse schemas will be set
 - Metadata
-    - `{"task": "agent/v1/responses"}` will be automatically appended to any metadata that you may pass in when logging the model
+  - `{"task": "agent/v1/responses"}` will be automatically appended to any metadata that you may pass in when logging the model
 - Input Example
-    - Providing an input example is optional, `mlflow.types.responses.RESPONSES_AGENT_INPUT_EXAMPLE` will be used by default
-    - If you do provide an input example, ensure it's a dictionary of the ResponsesAgentRequest schema
+  - Providing an input example is optional, `mlflow.types.responses.RESPONSES_AGENT_INPUT_EXAMPLE` will be used by default
+  - If you do provide an input example, ensure it's a dictionary of the ResponsesAgentRequest schema
 
 To test out a ResponsesAgent, you can pass a single input dictionary that follows the ResponsesAgentRequest schema both before and after logging it:
+
 ```python
 import mlflow
 
@@ -217,8 +227,58 @@ To serve the model, refer to the [`serving options`](#serving-options) for detai
 
 ## Examples
 
-### Simple Chat Example
-Here's an example of an agent that calls OpenAI's gpt-4o model with a simple tool:
+### Simple Chat Example with a ChatCompletions LLM
+
+Here's an example of an agent that calls OpenAI's gpt-5 model with the ChatCompletions API:
+
+```python
+import mlflow
+from mlflow.models import set_model
+from mlflow.pyfunc import ResponsesAgent
+from mlflow.types.responses import (
+    ResponsesAgentRequest,
+    ResponsesAgentResponse,
+    output_to_responses_items_stream,
+    to_chat_completions_input,
+)
+from openai import OpenAI
+
+client = OpenAI()
+
+
+class SimpleResponsesAgent(ResponsesAgent):
+    def call_llm(self, messages):
+        for chunk in client.chat.completions.create(
+            model="gpt-5",
+            messages=messages,
+            stream=True,
+        ):
+            yield chunk.to_dict()
+
+    def predict(self, request: ResponsesAgentRequest):
+        outputs = [
+            event.item
+            for event in self.predict_stream(request)
+            if event.type == "response.output_item.done"
+        ]
+        return ResponsesAgentResponse(
+            output=outputs, custom_outputs=request.custom_inputs
+        )
+
+    def predict_stream(self, request: ResponsesAgentRequest):
+        messages = to_chat_completions_input([i.model_dump() for i in request.input])
+
+        yield from output_to_responses_items_stream(self.call_llm(messages))
+
+
+mlflow.openai.autolog()
+agent = SimpleResponsesAgent()
+set_model(agent)
+```
+
+### Simple Chat Example with a Responses API LLM
+
+Here's an example of an agent that calls OpenAI's gpt-4o model with the Responses API:
 
 ```python
 # uncomment below if running inside a jupyter notebook
@@ -263,8 +323,61 @@ agent = SimpleResponsesAgent(model="gpt-4o")
 set_model(agent)
 ```
 
+### Wrapping a LangGraph Agent
+
+Here's an example of wrapping a LangGraph agent in a ResponsesAgent:
+
+```python
+from typing import Generator
+
+import mlflow
+from langgraph.graph.state import CompiledStateGraph
+from mlflow.models import set_model
+from mlflow.pyfunc import ResponsesAgent
+from mlflow.types.responses import (
+    ResponsesAgentRequest,
+    ResponsesAgentResponse,
+    ResponsesAgentStreamEvent,
+    output_to_responses_items_stream,
+    to_chat_completions_input,
+)
+
+
+class LangGraphResponsesAgent(ResponsesAgent):
+    def __init__(self, agent: CompiledStateGraph):
+        self.agent = agent
+
+    def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+        outputs = [
+            event.item
+            for event in self.predict_stream(request)
+            if event.type == "response.output_item.done"
+        ]
+        return ResponsesAgentResponse(
+            output=outputs, custom_outputs=request.custom_inputs
+        )
+
+    def predict_stream(
+        self,
+        request: ResponsesAgentRequest,
+    ) -> Generator[ResponsesAgentStreamEvent, None, None]:
+        cc_msgs = to_chat_completions_input([i.model_dump() for i in request.input])
+
+        for _, events in self.agent.stream(
+            {"messages": cc_msgs}, stream_mode=["updates"]
+        ):
+            for node_data in events.values():
+                yield from output_to_responses_items_stream(node_data["messages"])
+
+
+mlflow.langchain.autolog()
+graph = None  # TODO: replace with your compiled LangGraph agent
+agent = LangGraphResponsesAgent(graph)
+set_model(agent)
+```
 
 ### Tool Calling Example
+
 Here's an example of an agent that calls OpenAI's gpt-4o model with a simple tool:
 
 ```python
@@ -509,6 +622,7 @@ mlflow.models.set_model(AGENT)
         )
         ```
     </TabItem>
+
 </Tabs>
 
 ## Schema and Types
@@ -564,6 +678,35 @@ ResponsesAgent works with structured schemas for requests and responses, check <
 2. **Schema Validation**: Verify input/output formats match expected schemas
 3. **Model Logging Issues**: User `models from code` feature to log the model
 4. **Missing traces**: Enable tracing by `mlflow.<flavor>.autolog` or manual tracing with `mlflow.start_span`
+5. **Timeout errors on long-running agent predictions**: If predictions take several minutes (e.g., agents with complex tool calling), you need to configure TWO separate timeouts:
+   - `MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT`: Maximum time for a SINGLE HTTP request (default: 120s)
+   - `MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT`: Maximum time for ALL retry attempts combined (default: 600s)
+
+   :::warning
+   `MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT` does not cancel hanging HTTP requests. It only checks elapsed time after each request completes. A hanging request will continue until `MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT` is reached, potentially causing token wastage and duplicate trace entries.
+   :::
+
+   For a long-running agent that takes 10 minutes per query:
+
+   ```python
+   import os
+
+   # Allow individual requests up to 15 minutes
+   os.environ["MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT"] = "900"
+
+   # Allow total retry time up to 20 minutes
+   os.environ["MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT"] = "1200"
+
+   from mlflow.deployments import get_deploy_client
+
+   client = get_deploy_client("databricks")
+   response = client.predict(endpoint="my-agent", inputs=data)
+   ```
+
+   :::tip
+   - If your longest query takes N seconds, set `MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT` to at least N seconds
+   - Set `MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT` >= `MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT`
+     :::
 
 ### Debugging
 

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   DangerIcon,
   Drawer,
@@ -12,13 +13,15 @@ import {
 import { getTraceDisplayName } from './TracesView.utils';
 import { useExperimentTraceData } from './hooks/useExperimentTraceData';
 import {
-  type ModelTrace,
-  ModelTraceInfo,
-  ModelTraceExplorerFrameRenderer,
+  type ModelTraceInfo,
+  ModelTraceExplorer,
+  ModelTraceExplorerSkeleton,
 } from '@databricks/web-shared/model-trace-explorer';
-import { useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useExperimentTraceInfo } from './hooks/useExperimentTraceInfo';
+const ContextProviders = ({ children, experimentId }: { children: React.ReactNode; experimentId?: string }) => {
+  return <>{children}</>;
+};
 
 export const TraceDataDrawer = ({
   requestId,
@@ -94,12 +97,7 @@ export const TraceDataDrawer = ({
 
   const renderContent = () => {
     if (loadingTraceData || loadingTraceInfo || loadingInternalTracingInfo) {
-      return (
-        <>
-          <TitleSkeleton />
-          <TableSkeleton lines={5} />
-        </>
-      );
+      return <ModelTraceExplorerSkeleton />;
     }
     if (traceInfo?.status === 'IN_PROGRESS') {
       return (
@@ -162,18 +160,24 @@ export const TraceDataDrawer = ({
       );
     }
     if (combinedModelTrace) {
-      // TODO: pass onSelectSpan or stop using iframe for OSS tracing page to enable spanId query params in the OSS tracing UI
       return (
         <div
           css={{
-            height: `calc(100% - ${theme.spacing.sm}px)`,
+            height: '100%',
             marginLeft: -theme.spacing.lg,
             marginRight: -theme.spacing.lg,
             marginBottom: -theme.spacing.lg,
           }}
+          // This is required for mousewheel scrolling within `Drawer`
           onWheel={(e) => e.stopPropagation()}
         >
-          <ModelTraceExplorerFrameRenderer modelTrace={combinedModelTrace as ModelTrace} height="100%" />
+          <ContextProviders experimentId={traceInfoToUse?.experiment_id}>
+            <ModelTraceExplorer
+              modelTrace={combinedModelTrace}
+              selectedSpanId={selectedSpanId}
+              onSelectSpan={onSelectSpan}
+            />
+          </ContextProviders>
         </div>
       );
     }

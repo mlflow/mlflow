@@ -3,15 +3,13 @@ sidebar_position: 4
 sidebar_label: LlamaIndex
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
 
 # Tracing LlamaIndex🦙
 
-![LlamaIndex Tracing via autolog](/images/llms/tracing/llamaindex-tracing.gif)
+<video src={useBaseUrl("/images/llms/tracing/llamaindex-tracing.mp4")} controls loop autoPlay muted aria-label="LlamaIndex Tracing via autolog" />
 
 [LlamaIndex](https://www.llamaindex.ai/) is an open-source framework for building agentic generative AI applications that allow large language models to work with your data in any format.
 
@@ -29,7 +27,6 @@ mlflow.llama_index.autolog()
 MLflow LlamaIndex integration is not only about tracing. MLflow offers full tracking experience for LlamaIndex, including model tracking, index management, and evaluation. Please checkout the **[MLflow LlamaIndex Flavor](/genai/flavors/llama-index)** to learn more!
 
 :::
-
 
 ### Example Usage
 
@@ -121,14 +118,13 @@ OpenAI.chat:
 
 ### LlamaIndex workflow
 
-The `Workflow` is LlamaIndex’s next-generation GenAI orchestration framework. It is designed as a flexible and interpretable framework for building arbitrary LLM applications such as an agent, a RAG flow, a data extraction pipeline, etc. MLflow supports tracking, evaluating, and tracing the Workflow objects, which makes them more observable and maintainable.
+The `Workflow` is LlamaIndex's next-generation GenAI orchestration framework. It is designed as a flexible and interpretable framework for building arbitrary LLM applications such as an agent, a RAG flow, a data extraction pipeline, etc. MLflow supports tracking, evaluating, and tracing the Workflow objects, which makes them more observable and maintainable.
 
 Automatic tracing for LlamaIndex workflow works off-the-shelf by calling the same `mlflow.llama_index.autolog()`.
 
 To learn more about MLflow's integration with LlamaIndex Workflow, continue to the following tutorials:
 
-* [Building Advanced RAG with MLflow and LlamaIndex Workflow](https://mlflow.org/blog/mlflow-llama-index-workflow)
-
+- [Building Advanced RAG with MLflow and LlamaIndex Workflow](https://mlflow.org/blog/mlflow-llama-index-workflow)
 
 ### Disable auto-tracing
 

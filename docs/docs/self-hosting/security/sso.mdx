@@ -1,0 +1,42 @@
+import ImageBox from "@site/src/components/ImageBox";
+
+# SSO (Single Sign-On)
+
+You can use SSO (Single Sign-On) to authenticate users to your MLflow instance, by installing a custom plugin or using a reverse proxy.
+
+## Using OIDC Plugin
+
+MLflow supports SSO (Single Sign-On) with custom plugins for authentication. The [mlflow-oidc-auth](https://github.com/mlflow-oidc/mlflow-oidc-auth) plugin provides OIDC support for MLflow.
+
+**Features**:
+
+- OIDC-based authentication for MLflow UI and API
+- User management through OIDC provider
+- User-level access control
+- Group-based access control
+- Permissions management based on regular expressions (allows or denies access to specific MLflow resources based on regular expressions and assigns permissions to users or groups)
+- Support for session, JWT, and basic authentication methods
+- Compatible with mlflow-client (basic auth)
+
+:::note
+
+This plugin is maintained by the community.
+
+:::
+
+```bash
+pip install mlflow-oidc-auth[full]
+mlflow server --app-name oidc-auth --host 0.0.0.0 --port 8080
+```
+
+## Reverse proxy pattern
+
+Another common approach is to place MLflow behind a proxy that handles SSO and forwards authenticated requests. The most popular way is to use [oauth2-proxy](https://github.com/oauth2-proxy/oauth2-proxy) reverse proxy.
+
+1. Configure your proxy (NGINX, Traefik, Envoy, or cloud gateways such as AWS ALB with OIDC) to authenticate users against your IdP (Okta, Azure AD, Google Workspace).
+2. After a successful login, inject user identity headers (for example, `X-Email` or `X-Forwarded-User`) and restrict access to authenticated sessions only.
+3. Run MLflow without the Basic Auth app and rely on the proxy as the enforcement layer, or map the incoming identity header to a Basic Auth user using a custom middleware.
+
+This pattern keeps MLflow stateless while deferring token validation and MFA enforcement to systems designed for it. You can find the reference implementation in [this repository](https://github.com/cloudacode/mlflow-oauth-sidecar).
+
+<ImageBox src="https://github.com/cloudacode/mlflow-oauth-sidecar/raw/main/mlflow-google-auth.gif" alt="Example" />

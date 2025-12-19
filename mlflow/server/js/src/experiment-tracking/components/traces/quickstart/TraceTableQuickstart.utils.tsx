@@ -5,6 +5,7 @@ import { FormattedMessage } from 'react-intl';
 export type QUICKSTART_FLAVOR =
   | 'openai'
   | 'langchain'
+  | 'langgraph'
   | 'llama_index'
   | 'dspy'
   | 'crewai'
@@ -77,6 +78,43 @@ chain = prompt | llm
 
 # Invoking the chain will cause a trace to be logged
 chain.invoke("What is MLflow?")`,
+  },
+  langgraph: {
+    minVersion: '2.19.0',
+    getContent: () => (
+      <FormattedMessage
+        defaultMessage="Automatically log traces for LangGraph workflows by calling the {code} function. For example:"
+        description="Description of how to log traces for the LangGraph package using MLflow autologging. This message is followed by a code example."
+        values={{
+          code: <code>mlflow.langchain.autolog()</code>,
+        }}
+      />
+    ),
+    getCodeSource: () =>
+      `from langchain_openai import ChatOpenAI
+from langgraph.graph import StateGraph
+from typing import Annotated
+
+mlflow.langchain.autolog()
+
+# Ensure that the "OPENAI_API_KEY" environment variable is set
+model = ChatOpenAI(model="gpt-4o-mini")
+
+# Define a minimal LangGraph workflow
+class GraphState(dict):
+    input: Annotated[str, "input"]
+
+def call_model(state: GraphState) -> GraphState:
+    response = model.invoke(state["input"])
+    return {"input": state["input"], "response": response.content}
+
+graph = StateGraph(GraphState)
+graph.add_node("model", call_model)
+graph.set_entry_point("model")
+app = graph.compile()
+
+# Executing the graph will log the steps as a trace
+app.invoke({"input": "Say hello to MLflow."})`,
   },
   llama_index: {
     minVersion: '2.15.1',
@@ -308,29 +346,19 @@ client.models.generate_content(model="gemini-1.5-flash", contents="Hello!")`,
     minVersion: '2.14.3',
     getContent: (baseComponentId) => (
       <>
-        <Typography.Paragraph>
+        <Typography.Paragraph css={{ maxWidth: 800 }}>
           <FormattedMessage
-            defaultMessage={
-              'To manually instrument your own traces, the most convenient method is to use the {code} function decorator. ' +
-              'This will cause the inputs and outputs of the function to be captured in the trace.'
-            }
+            defaultMessage="To manually instrument your own traces, the most convenient method is to use the {code} function decorator. This will cause the inputs and outputs of the function to be captured in the trace."
             description="Description of how to log custom code traces using MLflow. This message is followed by a code example."
             values={{
               code: <code>@mlflow.trace</code>,
             }}
           />
         </Typography.Paragraph>
-        <Typography.Paragraph>
+        <Typography.Paragraph css={{ maxWidth: 800 }}>
           <FormattedMessage
-            defaultMessage={
-              'For more complex use cases, MLflow also provides granular APIs that can be used to ' +
-              'control tracing behavior. For more information, please visit the <a>official documentation</a> on ' +
-              'fluent and client APIs for MLflow Tracing.'
-            }
-            description={
-              'Explanation of alternative APIs for custom tracing in MLflow. ' +
-              'The link leads to the MLflow documentation for the user to learn more.'
-            }
+            defaultMessage="For more complex use cases, MLflow also provides granular APIs that can be used to control tracing behavior. For more information, please visit the <a>official documentation</a> on fluent and client APIs for MLflow Tracing."
+            description="Explanation of alternative APIs for custom tracing in MLflow. The link leads to the MLflow documentation for the user to learn more."
             values={{
               a: (text: string) => (
                 <Typography.Link
@@ -350,13 +378,13 @@ client.models.generate_content(model="gemini-1.5-flash", contents="Hello!")`,
     getCodeSource: () =>
       `@mlflow.trace
 def foo(a):
-return a + bar(a)
+    return a + bar(a)
 
 # Various attributes can be passed to the decorator
 # to modify the information contained in the span
 @mlflow.trace(name = "custom_name", attributes = { "key": "value" })
 def bar(b):
-return b + 1
+    return b + 1
 
 # Invoking the traced function will cause a trace to be logged
 foo(1)`,

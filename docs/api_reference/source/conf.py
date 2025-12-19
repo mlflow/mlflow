@@ -12,7 +12,12 @@
 # serve to show the default.
 
 import os
+import subprocess
 import sys
+from pathlib import Path
+
+from sphinx.application import Sphinx
+from sphinx.environment import BuildEnvironment
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -22,7 +27,9 @@ sys.path.insert(0, os.path.abspath("."))
 
 import languagesections
 from docutils.nodes import Text
+from docutils.parsers.rst import directives
 from sphinx.addnodes import pending_xref
+from sphinx.directives.code import CodeBlock
 
 import mlflow
 
@@ -40,8 +47,6 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx_click.ext",
     "sphinx_tabs.tabs",
-    "testcode_block",
-    "nbsphinx",
     "sphinx_reredirects",
 ]
 
@@ -272,7 +277,15 @@ latex_documents = [
 
 # Mock torch imports as per suggestion in
 # https://github.com/sphinx-doc/sphinx/issues/6521#issuecomment-505765893
-autodoc_mock_imports = ["torch", "langchain_core", "langgraph"]
+autodoc_mock_imports = [
+    "torch",
+    "langchain_core",
+    "langgraph",
+    "langchain_community",
+    "langchain_community.chat_models",
+    "langchain_community.llms",
+    "ragas",
+]
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
@@ -400,9 +413,34 @@ def resolve_missing_references(app, doctree):
             text_node.parent.replace(text_node, Text(text_to_render, ""))
 
 
+def env_updated(app: Sphinx, env: BuildEnvironment) -> None:
+    items: list[str] = []
+    for _domain_name, domain in env.domains.items():
+        for _name, display_name, obj_type, _doc_name, _anchor, _priority in domain.get_objects():
+            if obj_type in ("function", "method", "class"):
+                items.append(display_name)
+
+    repo_root = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
+    path = Path(repo_root, "docs", "api_reference", "api_inventory.txt")
+    if not path.parent.exists():
+        path.parent.mkdir(parents=True)
+    path.write_text("\n".join(sorted(items)) + "\n")
+
+
+class TestCodeBlockDirective(CodeBlock):
+    """
+    Overrides the `code-block` directive to accept the `:test:` option.
+    The actual test extraction is done by the standalone testcode_block.py script.
+    """
+
+    option_spec = {**CodeBlock.option_spec, "test": directives.flag}
+
+
 def setup(app):
     languagesections.setup(app)
+    app.add_directive("code-block", TestCodeBlockDirective, override=True)
     app.connect("doctree-read", resolve_missing_references)
+    app.connect("env-updated", env_updated)
 
 
 linkcheck_ignore = [

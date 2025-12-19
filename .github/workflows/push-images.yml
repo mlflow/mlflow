@@ -6,6 +6,10 @@ on:
       - published
       - edited
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   push-images:
     runs-on: ubuntu-latest
@@ -30,16 +34,35 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check if should update latest tag
+        id: check_latest
+        run: |
+          CURRENT_VERSION=${GITHUB_REF_NAME#v}
+
+          HIGHEST_VERSION=$(gh release list --exclude-pre-releases --exclude-drafts --limit 100 | \
+            grep -E '^v[0-9]+\.[0-9]+\.[0-9]+\s' | \
+            awk '{print $1}' | \
+            sed 's/^v//' | \
+            sort -V | \
+            tail -n1)
+
+          if [ -z "$HIGHEST_VERSION" ] || [ "$(echo -e "$CURRENT_VERSION\n$HIGHEST_VERSION" | sort -V | tail -n1)" = "$CURRENT_VERSION" ]; then
+            echo "should_update_latest=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_update_latest=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Gather Docker Metadata for Tracking
         id: meta
         uses: docker/metadata-action@818d4b7b91585d195f67373fd9cb0332e31a7175 # v4.6.0
         with:
-          # list of Docker images to use as base name for tags
           images: |
             ghcr.io/mlflow/mlflow
-          # generate Docker tags based on the following events/attributes
           tags: |
             type=ref,event=tag
+            type=raw,value=latest,enable=${{ steps.check_latest.outputs.should_update_latest == 'true' }}
 
       - name: Build and Push Base Image
         uses: docker/build-push-action@1104d471370f9806843c095c1db02b5a90c5f8b6 # v3.3.1
@@ -55,12 +78,11 @@ jobs:
         id: modelmeta
         uses: docker/metadata-action@818d4b7b91585d195f67373fd9cb0332e31a7175 # v4.6.0
         with:
-          # list of Docker images to use as base name for tags
           images: |
             ghcr.io/mlflow/model-server
-          # generate Docker tags based on the following events/attributes
           tags: |
             type=ref,event=tag
+            type=raw,value=latest,enable=${{ steps.check_latest.outputs.should_update_latest == 'true' }}
 
       - name: Build Model Server Image
         run: |

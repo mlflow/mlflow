@@ -1,5 +1,5 @@
 from operator import itemgetter
-from typing import Any, Generator, Optional
+from typing import Any, Generator
 
 from langchain_core.messages import AIMessage, AIMessageChunk
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
@@ -84,8 +84,8 @@ class LangChainChatAgent(ChatAgent):
     def predict(
         self,
         messages: list[ChatAgentMessage],
-        context: Optional[ChatContext] = None,
-        custom_inputs: Optional[dict[str, Any]] = None,
+        context: ChatContext | None = None,
+        custom_inputs: dict[str, Any] | None = None,
     ) -> ChatAgentResponse:
         response = self.agent.invoke({"messages": self._convert_messages_to_dict(messages)})
         return ChatAgentResponse(**response)
@@ -93,8 +93,8 @@ class LangChainChatAgent(ChatAgent):
     def predict_stream(
         self,
         messages: list[ChatAgentMessage],
-        context: Optional[ChatContext] = None,
-        custom_inputs: Optional[dict[str, Any]] = None,
+        context: ChatContext | None = None,
+        custom_inputs: dict[str, Any] | None = None,
     ) -> Generator[ChatAgentChunk, None, None]:
         for event in self.agent.stream({"messages": self._convert_messages_to_dict(messages)}):
             yield ChatAgentChunk(**event)

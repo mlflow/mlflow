@@ -5,6 +5,10 @@
   margin-top: 20px;
 }
 
+.NoGap {
+  grid-gap: 0;
+}
+
 .MaxThreeColumns {
   grid-template-columns: repeat(3, minmax(200px, 33%));
 }
@@ -20,12 +24,12 @@
 }
 @media (max-width: 750px) {
   .MaxThreeColumns {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 @media (max-width: 650px) {
   .MaxThreeColumns {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -34,6 +38,9 @@
   flex: 1;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .CardBordered {
@@ -107,18 +114,18 @@
   display: flex;
   justify-content: center;
   align-self: stretch;
+}
 
-  span {
-    font-size: 1.25rem;
-    align-items: center;
-    display: flex;
-    max-width: 80%;
+.LogoCardImage span {
+  font-size: 1.25rem;
+  align-items: center;
+  display: flex;
+  max-width: 80%;
+}
 
-    img {
-      max-height: 100%;
-      object-fit: contain;
-    }
-  }
+.LogoCardImage span img {
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .SmallLogoCardContent {
@@ -128,9 +135,13 @@
   justify-content: center;
 }
 
+.SmallLogoCardRounded {
+  border-radius: 12px;
+}
+
 .SmallLogoCardImage {
-  max-width: 150px;
-  max-height: 80px;
+  max-width: 200px;
+  max-height: 60px;
   justify-content: center;
 }
 
@@ -168,6 +179,26 @@
 
 .TitleCardContent {
   width: 100%;
+}
+
+.TitleCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.TitleCardHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ifm-font-color-base);
+}
+
+/* Ensure right header keeps neutral color even when the card link applies hover styles */
+.Link .TitleCardHeaderRight,
+.Link:hover .TitleCardHeaderRight {
+  color: var(--ifm-font-color-base);
 }
 
 .TitleCardTitle {
@@ -208,19 +239,30 @@
 
 /* Responsive behavior for column layouts */
 @media (max-width: 1500px) {
-  .Cols6, .Cols5, .Cols4 {
+  .Cols6,
+  .Cols5,
+  .Cols4 {
     grid-template-columns: repeat(3, 1fr);
   }
 }
 
 @media (max-width: 1200px) {
-  .Cols6, .Cols5, .Cols4, .Cols3 {
+  .Cols6,
+  .Cols5,
+  .Cols4,
+  .Cols3 {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 750px) {
-  .Cols6, .Cols5, .Cols4, .Cols3, .Cols2 {
+  .Cols6,
+  .Cols5,
+  .Cols4,
+  .Cols3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .Cols2 {
     grid-template-columns: 1fr;
   }
 }

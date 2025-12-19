@@ -53,7 +53,9 @@ def test_is_valid_endpoint_name(name, expected):
 
 def test_check_configuration_route_name_collisions():
     config = {"endpoints": [{"name": "name1"}, {"name": "name2"}, {"name": "name1"}]}
-    with pytest.raises(MlflowException, match="Duplicate names found in endpoint configurations"):
+    with pytest.raises(
+        MlflowException, match="Duplicate names found in endpoint / route configurations"
+    ):
         check_configuration_route_name_collisions(config)
 
 

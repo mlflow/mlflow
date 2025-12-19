@@ -1,8 +1,7 @@
 ## This file describes extra ML library dependencies that you, as an end user,
 ## must install in order to use various MLflow Python modules.
 # Required by mlflow.spacy
-# TODO: Remove `<3.8` once we bump the minimim supported python version of MLflow to 3.9.
-spacy>=3.3.0,<3.8
+spacy>=3.3.0
 # Required by mlflow.tensorflow
 tensorflow>=2.10.0; platform_system!="Darwin" or platform_machine!="arm64"
 tensorflow-macos>=2.10.0; platform_system=="Darwin" and platform_machine=="arm64"
@@ -21,11 +20,12 @@ statsmodels
 # Required by mlflow.h2o
 h2o
 # Required by mlflow.onnx
-onnx>=1.11.0
+onnx>=1.17.0
 onnxruntime
+onnxscript
 tf2onnx
 # Required by mlflow.spark and using Delta with MLflow Tracking datasets
-pyspark
+pyspark<4.1.0
 # Required by mlflow.paddle
 paddlepaddle
 # Required by mlflow.prophet
@@ -41,13 +41,13 @@ prophet
 shap>=0.42.1
 # Required by mlflow.pmdarima
 pmdarima
-# Required by mlflow.diviner
-diviner
 # Required for using Hugging Face datasets with MLflow Tracking
 # Avoid datasets < 2.19.1 due to an incompatibility issue https://github.com/huggingface/datasets/issues/6737
 datasets>=2.19.1
 # Required by mlflow.transformers
 transformers
+# transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround
+tf-keras
 sentencepiece
 setfit
 librosa
@@ -63,8 +63,7 @@ llama_index
 llama-index-agent-openai
 # Required by mlflow.langchain
 langchain
-# Required by mlflow.promptflow
-promptflow
+langchain-openai
 # Required by mlflow.sentence_transformers
 sentence-transformers
 # Required by mlflow.anthropic
@@ -85,3 +84,11 @@ groq
 mistralai
 # Required by mlflow.autogen
 autogen-agentchat
+# Required by mlflow.semantic_kernel
+semantic-kernel
+# Required by mlflow.agno
+agno
+# Required by mlflow.strands
+strands-agents
+# Required by mlflow.haystack
+haystack-ai

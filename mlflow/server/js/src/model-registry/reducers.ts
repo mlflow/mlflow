@@ -19,7 +19,7 @@ import {
   PARSE_MLMODEL_FILE,
 } from './actions';
 import { getProtoField } from './utils';
-import _ from 'lodash';
+import { flatMap, isEmpty, isEqual, omit } from 'lodash';
 import { fulfilled, rejected } from '../common/utils/ActionUtils';
 import { RegisteredModelTag, ModelVersionTag } from './sdk/ModelRegistryMessages';
 
@@ -54,7 +54,7 @@ const modelByName = (state = {}, action: any) => {
         ...detailedModel,
       };
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-      if (_.isEqual(modelWithUpdatedMetadata, state[modelName])) {
+      if (isEqual(modelWithUpdatedMetadata, state[modelName])) {
         return state;
       }
       return {
@@ -64,7 +64,7 @@ const modelByName = (state = {}, action: any) => {
     }
     case fulfilled(DELETE_REGISTERED_MODEL): {
       const { model } = action.meta;
-      return _.omit(state, model.name);
+      return omit(state, model.name);
     }
     default:
       return state;
@@ -83,7 +83,7 @@ const modelVersionsByModel = (state = {}, action: any) => {
         [modelVersion.version]: modelVersion,
       };
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-      if (_.isEqual(state[modelName], updatedMap)) {
+      if (isEqual(state[modelName], updatedMap)) {
         return state;
       }
       return {
@@ -93,28 +93,16 @@ const modelVersionsByModel = (state = {}, action: any) => {
     }
     case fulfilled(SEARCH_MODEL_VERSIONS): {
       const modelVersions = action.payload[getProtoField('model_versions')];
-      if (!modelVersions) {
-        return state;
-      }
-      // Merge all modelVersions into the store
-      const newModelVersions = modelVersions.reduce(
-        (newState: any, modelVersion: any) => {
+      const nameToModelVersionMap: Record<string, Record<string, any>> = {};
+      if (modelVersions) {
+        modelVersions.forEach((modelVersion: any) => {
           const { name, version } = modelVersion;
-          return {
-            ...newState,
-            [name]: {
-              ...newState[name],
-              [version]: modelVersion,
-            },
-          };
-        },
-        { ...state },
-      );
-
-      if (_.isEqual(state, newModelVersions)) {
-        return state;
+          (nameToModelVersionMap[name] ||= {})[version] = modelVersion;
+        });
       }
-      return newModelVersions;
+      return {
+        ...nameToModelVersionMap,
+      };
     }
     case fulfilled(DELETE_MODEL_VERSION): {
       const { modelName, version } = action.meta;
@@ -122,12 +110,12 @@ const modelVersionsByModel = (state = {}, action: any) => {
       const modelVersionByVersion = state[modelName];
       return {
         ...state,
-        [modelName]: _.omit(modelVersionByVersion, version),
+        [modelName]: omit(modelVersionByVersion, version),
       };
     }
     case fulfilled(DELETE_REGISTERED_MODEL): {
       const { model } = action.meta;
-      return _.omit(state, model.name);
+      return omit(state, model.name);
     }
     default:
       return state;
@@ -199,7 +187,7 @@ export const getModelVersions = (state: any, modelName: any) => {
 };
 
 export const getAllModelVersions = (state: any) => {
-  return _.flatMap(Object.values(state.entities.modelVersionsByModel), (modelVersionByVersion) =>
+  return flatMap(Object.values(state.entities.modelVersionsByModel), (modelVersionByVersion) =>
     // @ts-expect-error TS(2769): No overload matches this call.
     Object.values(modelVersionByVersion),
   );
@@ -221,7 +209,7 @@ const tagsByRegisteredModel = (state = {}, action: any) => {
         const newState = { ...state };
         // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
         newState[modelName] = tagArrToObject(tags);
-        return _.isEqual(newState, state) ? state : newState;
+        return isEqual(newState, state) ? state : newState;
       } else {
         return state;
       }
@@ -248,9 +236,9 @@ const tagsByRegisteredModel = (state = {}, action: any) => {
       const { modelName, key } = action.meta;
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       const oldTags = state[modelName] || {};
-      const newTags = _.omit(oldTags, key);
+      const newTags = omit(oldTags, key);
       if (Object.keys(newTags).length === 0) {
-        return _.omit({ ...state }, modelName);
+        return omit({ ...state }, modelName);
       } else {
         return { ...state, [modelName]: newTags };
       }
@@ -312,13 +300,13 @@ const tagsByModelVersion = (state = {}, action: any) => {
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       const oldTags = state[modelName] ? state[modelName][version] || {} : {};
       const newState = { ...state };
-      const newTags = _.omit(oldTags, key);
+      const newTags = omit(oldTags, key);
       if (Object.keys(newTags).length === 0) {
         // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-        newState[modelName] = _.omit({ ...state[modelName] }, version);
+        newState[modelName] = omit({ ...state[modelName] }, version);
         // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-        if (_.isEmpty(newState[modelName])) {
-          return _.omit({ ...state }, modelName);
+        if (isEmpty(newState[modelName])) {
+          return omit({ ...state }, modelName);
         } else {
           return newState;
         }

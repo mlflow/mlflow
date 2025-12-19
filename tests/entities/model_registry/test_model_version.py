@@ -42,7 +42,8 @@ def _check(
 
 def test_creation_and_hydration():
     name = random_str()
-    t1, t2 = 100, 150
+    t1 = 100
+    t2 = 150
     source = "path/to/source"
     run_id = uuid.uuid4().hex
     run_link = "http://localhost:5000/path/to/run"

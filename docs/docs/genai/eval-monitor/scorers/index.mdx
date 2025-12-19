@@ -1,0 +1,106 @@
+import Link from "@docusaurus/Link";
+import TileCard from '@site/src/components/TileCard';
+import TilesGrid from '@site/src/components/TilesGrid';
+import { Bot, Target, Scale } from "lucide-react";
+import WorkflowSteps from '@site/src/components/WorkflowSteps';
+
+# What are Scorers?
+
+**Scorers** are key components of the MLflow GenAI evaluation framework. They provide a unified interface to define evaluation criteria for your models, agents, and applications.
+
+Scorers can be considered as **metrics** in the traditional ML sense. However, they are more flexible and can return more structured quality feedback, not only the scalar values that are typically represented by metrics.
+
+## How Scorers Work
+
+Scorers analyze inputs, outputs, and traces from your GenAI application and produce quality assessments. Here's the flow:
+
+1. You provide a dataset of <div className="inline-flex rounded-sm bg-green-100 px-2 py-1 text-sm text-green-900">inputs</div> (and optionally other columns such as <div className="inline-flex rounded-sm bg-yellow-100 px-2 py-1 text-sm text-yellow-900">expectations</div>)
+2. MLflow runs your `predict_fn` to generate <div className="inline-flex rounded-sm bg-orange-100 px-2 py-1 text-sm text-orange-900">outputs</div> and <div className="inline-flex rounded-sm bg-cyan-100 px-2 py-1 text-sm text-cyan-900">traces</div> for each row in the dataset. Alternatively, you can provide outputs and traces directly in the dataset and omit the predict function.
+3. Scorers receive the <div className="inline-flex rounded-sm bg-green-100 px-2 py-1 text-sm text-green-900">inputs</div>, <div className="inline-flex rounded-sm bg-orange-100 px-2 py-1 text-sm text-orange-900">outputs</div>, <div className="inline-flex rounded-sm bg-yellow-100 px-2 py-1 text-sm text-yellow-900">expectations</div>, and <div className="inline-flex rounded-sm bg-cyan-100 px-2 py-1 text-sm text-cyan-900">traces</div> (or a subset of them) and produce scores and metadata such as explanations and source information.
+4. MLflow aggregates the scorer results and saves them. You can analyze the results in the UI.
+
+## What Scorers you should use?
+
+MLflow provides different types of scorers to address different evaluation needs:
+
+> _I want to try evaluation quickly and get some results fast._
+
+&emsp;→ Use [Predefined Scorers](/genai/eval-monitor/scorers/llm-judge/predefined) to get started.
+
+> _I want to evaluate my application with a simple natural language criteria, such as "The response must be polite"._
+
+&emsp;→ Use [Guidelines-based Scorers](/genai/eval-monitor/scorers/llm-judge/guidelines).
+
+> _I want to use more advanced prompt for evaluating my application._
+
+&emsp;→ Use [Prompt-based Scorers](/genai/eval-monitor/scorers/llm-judge/make-judge).
+
+> _I want to dump the entire trace to the scorer and get detailed insights from it._
+
+&emsp;→ Use [Agent-as-a-Judge Scorers](/genai/eval-monitor/scorers/llm-judge/agentic-overview).
+
+> _I want to write my own code for evaluating my application. Other scorers don't fit my advanced needs._
+
+&emsp;→ Use [Code-based Scorers](/genai/eval-monitor/scorers/custom) to implement your own evaluation logic with Python.
+
+If you are still not sure about which scorer to use, you can ask to the Ask AI (add image) widget in the right below.
+
+## How to Write a Good Scorer?
+
+The general metrics such as 'Hallucination' or 'Toxicity' rarely work in practice. Successful practitioners
+analyze real data to uncover domain-specific failure modes and then define custom evaluation criteria from the ground up. Here is the general workflow of how to define a good scorer and iterate on it with MLflow.
+
+<WorkflowSteps
+  width="wide"
+  steps={[
+    {
+      title: "Generate traces or collect them from production",
+      description: <div>Start with generating <Link href="/genai/tracing">traces</Link> from a set of realistic input samples. If you already have production traces, that is even better.</div>
+    },
+    {
+      title: "Gather human feedback",
+      description: <div>Collect feedback from domain experts or users. MLflow provides <Link href="/genai/assessments/feedback">a UI and SDK</Link> for collecting feedback on traces.</div>
+    },
+    {
+      title: "Error analysis",
+      description: <div>Analyze the common failure modes (error categories) from the feedback.<br/>To organize traces into error categories, use <Link href="/genai/tracing/attach-tags">Trace Tag</Link> to label and filter traces.</div>
+    },
+    {
+      title: "Translate failure modes into Scorers",
+      description: <div>Define scorers that check for the common failure modes.For example, if the answer is in an incorrect format, you may define an <Link href="/genai/eval-monitor/scorers/llm-judge">LLM-as-a-Judge scorer</Link> that checks if the format is correct. We recommend starting with a simple instruction and then iteratively refine it.</div>
+    },
+    {
+      title: "Align scorers with human feedback.",
+      description: <div>LLM-as-a-Judge has natural biases. Relying on biased evaluation will lead to incorrect decision making. Therefore, it is important to refine the scorer to align with human feedback. You can manually iterate on prompts or instructions, or use the <Link href='/genai/eval-monitor/scorers/llm-judge/alignment'>Automatic Judge Alignment</Link> feature of MLflow to optimize the instruction with a state-of-the-art algorithm powered by <Link href='https://dspy.ai/'>DSPy</Link>.</div>
+    }
+  ]}
+/>
+
+:::tip Pro tip: Version Control Scorers
+
+As you iterate on the scorer, version control becomes important. MLflow can track <ins>[Scorer Versions](/genai/eval-monitor/scorers/versioning)</ins> to help you maintain changes and share the improved scorers with your team.
+
+:::
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Scale}
+    title="LLM-based Scorers"
+    description="Get started with LLM judges for evaluating qualities."
+    href="/genai/eval-monitor/scorers/llm-judge"
+  />
+  <TileCard
+    icon={Bot}
+    title="Evaluate Agents"
+    description="Evaluate AI agents with specialized techniques and custom scorers"
+    href="/genai/eval-monitor/running-evaluation/agents"
+  />
+  <TileCard
+    icon={Target}
+    title="Collect Human Feedback"
+    description="Gather and manage human feedback to improve your evaluation accuracy"
+    href="/genai/assessments/feedback"
+  />
+</TilesGrid>

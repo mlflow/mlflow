@@ -4,8 +4,8 @@ import shutil
 import sys
 import time
 import urllib
+import warnings
 from os.path import join
-from typing import Optional
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -61,7 +61,9 @@ from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils,
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
+    _REGISTERED_MODEL_ALIAS_LATEST,
     _validate_model_alias_name,
+    _validate_model_alias_name_reserved,
     _validate_model_version,
     _validate_model_version_tag,
     _validate_registered_model_tag,
@@ -131,6 +133,16 @@ class FileStore(AbstractStore):
         """
 
         super().__init__()
+        warnings.warn(
+            "The filesystem model registry backend (e.g., './mlruns') will be deprecated in "
+            "February 2026. Consider transitioning to a database backend (e.g., "
+            "'sqlite:///mlflow.db') to take advantage of the latest MLflow features. "
+            "See https://github.com/mlflow/mlflow/issues/18534 for more details and migration "
+            "guidance. For migrating existing data, "
+            "https://github.com/mlflow/mlflow-export-import can be used.",
+            FutureWarning,
+            stacklevel=2,
+        )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
         # Create models directory if needed
         if not exists(self.models_directory):
@@ -355,10 +367,7 @@ class FileStore(AbstractStore):
 
     def _list_all_registered_models(self):
         registered_model_paths = self._get_all_registered_model_paths()
-        registered_models = []
-        for path in registered_model_paths:
-            registered_models.append(self._get_registered_model_from_path(path))
-        return registered_models
+        return [self._get_registered_model_from_path(path) for path in registered_model_paths]
 
     def search_registered_models(
         self, filter_string=None, max_results=None, order_by=None, page_token=None
@@ -503,19 +512,19 @@ class FileStore(AbstractStore):
 
     def get_all_registered_model_tags_from_path(self, model_path):
         parent_path, tag_files = self._get_resource_files(model_path, FileStore.TAGS_FOLDER_NAME)
-        tags = []
-        for tag_file in tag_files:
-            tags.append(self._get_registered_model_tag_from_file(parent_path, tag_file))
-        return tags
+        return [
+            self._get_registered_model_tag_from_file(parent_path, tag_file)
+            for tag_file in tag_files
+        ]
 
     def get_all_registered_model_aliases_from_path(self, model_path):
         parent_path, alias_files = self._get_resource_files(
             model_path, FileStore.REGISTERED_MODELS_ALIASES_FOLDER_NAME
         )
-        aliases = []
-        for alias_file in alias_files:
-            aliases.append(self._get_registered_model_alias_from_file(parent_path, alias_file))
-        return aliases
+        return [
+            self._get_registered_model_alias_from_file(parent_path, alias_file)
+            for alias_file in alias_files
+        ]
 
     def _writeable_value(self, tag_value):
         if tag_value is None:
@@ -569,10 +578,10 @@ class FileStore(AbstractStore):
 
     def _get_model_version_tags_from_dir(self, directory) -> list[ModelVersionTag]:
         parent_path, tag_files = self._get_resource_files(directory, FileStore.TAGS_FOLDER_NAME)
-        tags = []
-        for tag_file in tag_files:
-            tags.append(self._get_registered_model_version_tag_from_file(parent_path, tag_file))
-        return tags
+        return [
+            self._get_registered_model_version_tag_from_file(parent_path, tag_file)
+            for tag_file in tag_files
+        ]
 
     def _get_model_version_dir(self, name, version):
         registered_model_path = self._get_registered_model_path(name)
@@ -612,7 +621,12 @@ class FileStore(AbstractStore):
         self, model_version: FileModelVersion, meta_dir=None, overwrite=True
     ):
         model_version_dict = dict(model_version)
-        del model_version_dict["tags"]
+        # Remove fields that are stored separately or derived from other sources
+        # - tags are stored in a separate folder
+        # - metrics and params are fetched from the logged model, not stored in meta.yaml
+        # - aliases are stored separately at the registered model level
+        for field in ["tags", "metrics", "params", "aliases"]:
+            model_version_dict.pop(field, None)
         meta_dir = meta_dir or self._get_model_version_dir(
             model_version.name, model_version.version
         )
@@ -638,7 +652,7 @@ class FileStore(AbstractStore):
         run_link=None,
         description=None,
         local_model_path=None,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ) -> ModelVersion:
         """
         Create a new model version from given source and run ID.
@@ -660,11 +674,11 @@ class FileStore(AbstractStore):
             created in the backend.
 
         """
+        from mlflow.tracking.client import MlflowClient
 
         def next_version(registered_model_name):
             path = self._get_registered_model_path(registered_model_name)
-            model_versions = self._list_file_model_versions_under_path(path)
-            if model_versions:
+            if model_versions := self._list_file_model_versions_under_path(path):
                 return max(mv.version for mv in model_versions) + 1
             else:
                 return 1
@@ -676,8 +690,6 @@ class FileStore(AbstractStore):
         if urllib.parse.urlparse(source).scheme == "models":
             parsed_model_uri = _parse_model_uri(source)
             try:
-                from mlflow.tracking.client import MlflowClient
-
                 if parsed_model_uri.model_id is not None:
                     # TODO: Propagate tracking URI to file store directly, rather than relying on
                     # global URI (individual MlflowClient instances may have different tracking
@@ -694,6 +706,11 @@ class FileStore(AbstractStore):
                     f"Unable to fetch model from model URI source artifact location '{source}'."
                     f"Error: {e}"
                 ) from e
+
+        if not run_id and model_id:
+            model = MlflowClient().get_logged_model(model_id)
+            run_id = model.source_run_id
+
         for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
             try:
                 creation_time = get_current_time_millis()
@@ -876,16 +893,15 @@ class FileStore(AbstractStore):
         return list_subdirs(join(self.root_directory, FileStore.MODELS_FOLDER_NAME), full_path=True)
 
     def _list_file_model_versions_under_path(self, path) -> list[FileModelVersion]:
-        model_versions = []
         model_version_dirs = list_all(
             path,
             filter_func=lambda x: os.path.isdir(x)
             and os.path.basename(os.path.normpath(x)).startswith("version-"),
             full_path=True,
         )
-        for directory in model_version_dirs:
-            model_versions.append(self._get_file_model_version_from_dir(directory))
-        return model_versions
+        return [
+            self._get_file_model_version_from_dir(directory) for directory in model_version_dirs
+        ]
 
     def search_model_versions(
         self, filter_string=None, max_results=None, order_by=None, page_token=None
@@ -1015,6 +1031,7 @@ class FileStore(AbstractStore):
             None
         """
         alias_path = self._get_registered_model_alias_path(name, alias)
+        _validate_model_alias_name_reserved(alias)
         self._fetch_file_model_version_if_exists(name, version)
         make_containing_dirs(alias_path)
         write_to(alias_path, self._writeable_value(version))
@@ -1049,6 +1066,10 @@ class FileStore(AbstractStore):
         Returns:
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
+        if alias.lower() == _REGISTERED_MODEL_ALIAS_LATEST:
+            latest_version = next(v for v in self.get_latest_versions(name) if v is not None)
+            return self.get_model_version(name, latest_version.version)
+
         alias_path = self._get_registered_model_alias_path(name, alias)
         if exists(alias_path):
             version = read_file(os.path.dirname(alias_path), os.path.basename(alias_path))

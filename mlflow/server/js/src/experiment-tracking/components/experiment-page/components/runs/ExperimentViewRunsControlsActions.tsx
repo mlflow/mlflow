@@ -1,16 +1,16 @@
 import { Button } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useNavigate } from '../../../../../common/utils/RoutingUtils';
-import { LegacyTooltip } from '@databricks/design-system';
+import { Tooltip } from '@databricks/design-system';
 import { LIFECYCLE_FILTER } from '../../../../constants';
 import Routes from '../../../../routes';
-import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
-import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import type { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
+import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunModals } from './ExperimentViewRunModals';
-import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
-import { RunInfoEntity } from '../../../../types';
+import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import type { RunInfoEntity } from '../../../../types';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { ExperimentViewRunsControlsActionsSelectTags } from './ExperimentViewRunsControlsActionsSelectTags';
 
@@ -21,7 +21,7 @@ export type ExperimentViewRunsControlsActionsProps = {
   refreshRuns: () => void;
 };
 
-const CompareRunsButtonWrapper: React.FC = ({ children }) => <>{children}</>;
+const CompareRunsButtonWrapper: React.FC<React.PropsWithChildren<unknown>> = ({ children }) => <>{children}</>;
 
 export const ExperimentViewRunsControlsActions = React.memo(
   ({ viewState, runsData, searchFacetsState, refreshRuns }: ExperimentViewRunsControlsActionsProps) => {

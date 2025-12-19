@@ -1,6 +1,8 @@
-import { Card, CardGroup, TitleCard } from "@site/src/components/Card";
+import { CardGroup, TitleCard } from "@site/src/components/Card";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import NebiusLogo from '@site/static/images/logos/nebius-logo.png';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Lightweight Tracing SDK Optimized for Production Usage
 
@@ -87,10 +89,11 @@ The lightweight SDK works with various observability platforms. Choose your pref
 
         </div>
         <div class="flex-item padding-md">
-          ![OSS Tracing](/images/llms/tracing/tracing-top.gif)
+          <video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop autoPlay muted aria-label="MLflow Tracing" />
         </div>
       </div>
     </div>
+
   </TabItem>
 
   <TabItem value="databricks" label="Databricks">
@@ -106,7 +109,7 @@ The lightweight SDK works with various observability platforms. Choose your pref
         </div>
 
         <div class="flex-item padding-md">
-          ![Monitoring](https://assets.docs.databricks.com/_static/images/generative-ai/monitoring/monitoring-hero.gif)
+          <video src="https://assets.docs.databricks.com/_static/images/generative-ai/monitoring/monitoring-hero.mp4" controls loop autoPlay muted aria-label="Databricks Monitoring" />
         </div>
       </div>
     </div>
@@ -128,13 +131,14 @@ The lightweight SDK works with various observability platforms. Choose your pref
           export OTEL_SERVICE_NAME="genai-app"
           ```
 
-          Refer to the [OpenTelemetry Integration](/genai/tracing/prod-tracing#opentelemetry-integration) documentation for detailed setup instructions.
+          Refer to the [OpenTelemetry Integration](/genai/tracing/opentelemetry/export) documentation for detailed setup instructions.
         </div>
         <div class="flex-item padding-md">
           ![OpenTelemetry Backend Examples](/images/llms/tracing/otel-backend-examples.png)
         </div>
       </div>
     </div>
+
   </TabItem>
 
   <TabItem value="sagemaker" label="Amazon SageMaker">
@@ -153,6 +157,7 @@ The lightweight SDK works with various observability platforms. Choose your pref
         </div>
       </div>
     </div>
+
   </TabItem>
 
   <TabItem value="nebius" label="Nebius">
@@ -172,12 +177,12 @@ The lightweight SDK works with various observability platforms. Choose your pref
 
         </div>
         <div class="flex-item padding-md">
-          <img src="/images/logos/nebius-logo.png" alt="Nebius Logo" width="80%" />
+          <img src={NebiusLogo} alt="Nebius Logo" width="80%" />
         </div>
       </div>
     </div>
-  </TabItem>
 
+  </TabItem>
 
 </Tabs>
 
@@ -330,12 +335,13 @@ def your_function():
 
 ## Package Size Comparison
 
-| Package | Size | Dependencies | Use Case |
-|---------|------|--------------|----------|
-| `mlflow` | ~1000MB | 20+ packages | Development, experimentation, full ML lifecycle |
-| `mlflow-tracing` | ~5MB | 5-8 packages | Production tracing, monitoring, observability |
+| Package          | Size    | Dependencies | Use Case                                        |
+| ---------------- | ------- | ------------ | ----------------------------------------------- |
+| `mlflow`         | ~1000MB | 20+ packages | Development, experimentation, full ML lifecycle |
+| `mlflow-tracing` | ~5MB    | 5-8 packages | Production tracing, monitoring, observability   |
 
 The lightweight SDK is **95% smaller** than the full MLflow package, making it ideal for:
+
 - Container deployments
 - Serverless functions
 - Edge computing

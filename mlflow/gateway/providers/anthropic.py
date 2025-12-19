@@ -1,16 +1,24 @@
 import json
+import logging
 import time
-from typing import AsyncIterable
+from typing import Any, AsyncIterable
 
-from mlflow.gateway.config import AnthropicConfig, RouteConfig
+from mlflow.gateway.config import AnthropicConfig, EndpointConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
     MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
 )
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
+from mlflow.gateway.providers.base import (
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+)
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
+from mlflow.types.chat import Function, ToolCallDelta
+
+_logger = logging.getLogger(__name__)
 
 
 class AnthropicAdapter(ProviderAdapter):
@@ -42,17 +50,76 @@ class AnthropicAdapter(ProviderAdapter):
 
         # Cohere uses `system` to set the system message
         # we concatenate all system messages from the user with a newline
-        system_messages = [m for m in payload["messages"] if m["role"] == "system"]
-        if system_messages:
+        if system_messages := [m for m in payload["messages"] if m["role"] == "system"]:
             payload["system"] = "\n".join(m["content"] for m in system_messages)
 
         # remaining messages are chat history
-        # we want to include only user and assistant messages
-        payload["messages"] = [m for m in payload["messages"] if m["role"] in ("user", "assistant")]
+        # we want to include only user, assistant or tool messages
+        # Anthropic format of tool related messages example
+        # https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview#tool-use-examples
+        converted_messages = []
+        for m in payload["messages"]:
+            if m["role"] == "user":
+                converted_messages.append(m)
+            elif m["role"] == "assistant":
+                if m.get("tool_calls") is not None:
+                    tool_use_contents = [
+                        {
+                            "type": "tool_use",
+                            "id": tool_call["id"],
+                            "name": tool_call["function"]["name"],
+                            "input": json.loads(tool_call["function"]["arguments"]),
+                        }
+                        for tool_call in m["tool_calls"]
+                    ]
+                    m["content"] = tool_use_contents
+                    m.pop("tool_calls")
+                converted_messages.append(m)
+            elif m["role"] == "tool":
+                converted_messages.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": m["tool_call_id"],
+                                "content": m["content"],
+                            }
+                        ],
+                    }
+                )
+            else:
+                _logger.info(f"Discarded unknown message: {m}")
+
+        payload["messages"] = converted_messages
 
         # The range of Anthropic's temperature is 0-1, but ours is 0-2, so we halve it
         if "temperature" in payload:
             payload["temperature"] = 0.5 * payload["temperature"]
+
+        # convert tool definition to Anthropic format
+        if tools := payload.pop("tools", None):
+            converted_tools = []
+            for tool in tools:
+                if tool["type"] != "function":
+                    raise AIGatewayException(
+                        status_code=422,
+                        detail=(
+                            "Only function calling tool is supported, but received tool type "
+                            f"{tool['type']}"
+                        ),
+                    )
+
+                tool_function = tool["function"]
+                converted_tools.append(
+                    {
+                        "name": tool_function["name"],
+                        "description": tool_function["description"],
+                        "input_schema": tool_function["parameters"],
+                    }
+                )
+
+            payload["tools"] = converted_tools
 
         return payload
 
@@ -67,6 +134,12 @@ class AnthropicAdapter(ProviderAdapter):
         #     {
         #       "text": "Blue is often seen as a calming and soothing color.",
         #       "type": "text"
+        #     },
+        #     {
+        #       "type": "tool_use",
+        #       "id": "toolu_011UYCoc...",
+        #       "name": "get_weather",
+        #       "input": { "city": "Singapore" }
         #     },
         #     {
         #       "source": {
@@ -104,7 +177,7 @@ class AnthropicAdapter(ProviderAdapter):
                     # TODO: Remove this casting once
                     # https://github.com/mlflow/mlflow/pull/14160 is merged
                     message=chat.ResponseMessage(
-                        **convert_message_to_mlflow_chat(resp).model_dump_compat()
+                        **convert_message_to_mlflow_chat(resp).model_dump()
                     ),
                     finish_reason=stop_reason,
                 )
@@ -125,6 +198,32 @@ class AnthropicAdapter(ProviderAdapter):
         content = resp.get("delta") or resp.get("content_block") or {}
         if (stop_reason := content.get("stop_reason")) is not None:
             stop_reason = "length" if stop_reason == "max_tokens" else "stop"
+
+        # example of function calling delta message format:
+        # https://platform.openai.com/docs/guides/function-calling#streaming
+        if content.get("type") == "tool_use":
+            delta = chat.StreamDelta(
+                tool_calls=[
+                    ToolCallDelta(
+                        index=0,
+                        id=content.get("id"),
+                        type="function",
+                        function=Function(name=content.get("name")),
+                    )
+                ]
+            )
+        elif content.get("type") == "input_json_delta":
+            delta = chat.StreamDelta(
+                tool_calls=[
+                    ToolCallDelta(index=0, function=Function(arguments=content.get("partial_json")))
+                ]
+            )
+        else:
+            delta = chat.StreamDelta(
+                role=None,
+                content=content.get("text"),
+            )
+
         return chat.StreamResponsePayload(
             id=resp["id"],
             created=int(time.time()),
@@ -133,10 +232,7 @@ class AnthropicAdapter(ProviderAdapter):
                 chat.StreamChoice(
                     index=resp["index"],
                     finish_reason=stop_reason,
-                    delta=chat.StreamDelta(
-                        role=None,
-                        content=content.get("text"),
-                    ),
+                    delta=delta,
                 )
             ],
         )
@@ -229,7 +325,11 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
     NAME = "Anthropic"
     CONFIG_TYPE = AnthropicConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    PASSTHROUGH_PROVIDER_PATHS = {
+        PassthroughAction.ANTHROPIC_MESSAGES: "messages",
+    }
+
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, AnthropicConfig):
             raise TypeError(f"Invalid config type {config.model.config}")
@@ -355,3 +455,26 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         # ```
 
         return AnthropicAdapter.model_to_completions(resp, self.config)
+
+    async def passthrough(
+        self, action: PassthroughAction, payload: dict[str, Any]
+    ) -> dict[str, Any] | AsyncIterable[bytes]:
+        provider_path = self._validate_passthrough_action(action)
+
+        # Add model name from config
+        payload["model"] = self.config.model.name
+
+        if payload.get("stream"):
+            return send_stream_request(
+                headers=self.headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload,
+            )
+        else:
+            return await send_request(
+                headers=self.headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload,
+            )

@@ -458,6 +458,9 @@ const ParallelCoordinatesPlot = (props: any) => {
         '.parcoords': {
           backgroundColor: theme.colors.backgroundPrimary,
         },
+        '.parcoords svg': {
+          overflow: 'visible !important',
+        },
         '.parcoords text.label': {
           fill: theme.colors.textPrimary,
         },

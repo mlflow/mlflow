@@ -1,7 +1,7 @@
 import os
 import time
-from collections import namedtuple
 from functools import wraps
+from typing import NamedTuple
 from unittest import mock
 
 import boto3
@@ -31,7 +31,11 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from tests.helper_functions import set_boto_credentials  # noqa: F401
 from tests.sagemaker.mock import TransformJob, TransformJobOperation, mock_sagemaker
 
-TrainedModel = namedtuple("TrainedModel", ["model_path", "run_id", "model_uri"])
+
+class TrainedModel(NamedTuple):
+    model_path: str
+    run_id: str
+    model_uri: str
 
 
 @pytest.fixture

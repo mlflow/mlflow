@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_input import DatasetInput
@@ -12,7 +12,7 @@ class RunInputs(_MlflowObject):
     def __init__(
         self,
         dataset_inputs: list[DatasetInput],
-        model_inputs: Optional[list[LoggedModelInput]] = None,
+        model_inputs: list[LoggedModelInput] | None = None,
     ) -> None:
         self._dataset_inputs = dataset_inputs
         self._model_inputs = model_inputs or []

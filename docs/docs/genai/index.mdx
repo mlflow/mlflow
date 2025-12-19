@@ -1,356 +1,96 @@
----
-sidebar_label: MLflow for GenAI
-sidebar_position: 1
----
-
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
+import useBaseUrl from '@docusaurus/useBaseUrl';
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import SearchBox from '@site/src/components/SearchBox';
 import Platform from "@site/src/content/platform.mdx"
-
-# MLflow for GenAI: Build Production-Ready AI Applications
-
-MLflow provides a comprehensive platform for developing, evaluating, and deploying Generative AI applications. From LLMs and agents to complex RAG systems, MLflow simplifies the entire GenAI lifecycle with purpose-built tools for observability, quality assurance, and production deployment.
-
-## GenAI Getting Started Resources
-
-Whether you're building your first chatbot or scaling enterprise AI systems, these resources will help you leverage MLflow's GenAI capabilities effectively. Each guide focuses on practical, real-world scenarios to get you productive quickly.
-
-<Tabs>
-  <TabItem value="genai-quickstart" label="GenAI Quickstart" default>
-    <div class="flex-column">
-      ### Start building GenAI applications with MLflow
-
-      <div class="flex-row">
-        <div class="flex-item">
-          #### Quickstarts
-
-          Build your first GenAI app in our [Getting Started guide](/genai/getting-started)
-
-          #### Guides
-
-          Master GenAI development with our [tracing quickstart](/genai/getting-started/tracing)
-
-          Ensure quality with [LLM evaluation](https://docs.databricks.com/aws/en/mlflow3/genai/getting-started/eval.html)
-
-        </div>
-
-        <div class="flex-item padding-md">
-          ![GenAI Development](/images/mlflow-3-trace-ui.png)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-
-  <TabItem value="tutorials" label="Tutorials">
-    <div class="flex-column">
-      ### Learn GenAI development through hands-on tutorials
-
-      <div class="flex-row">
-        <div class="flex-item">
-          #### Step-by-Step Guides
-
-          [Guide to tracing APIs](/genai/tracing/app-instrumentation)
-
-        </div>
-
-        <div class="flex-item padding-md">
-          ![Framework Support](/images/llms/llm-products.png)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-
-  <TabItem value="prompt-engineering" label="Prompt Engineering">
-    <div class="flex-column">
-      ### Develop and version control prompts effectively
-
-      <div class="flex-row">
-        <div class="flex-item">
-          #### Guides
-
-          [Prompt Engineering UI](/genai/prompt-version-mgmt/prompt-engineering) for no-code development
-
-          [Create and edit prompts](/genai/prompt-version-mgmt/prompt-registry/create-and-edit-prompts)
-
-          [Optimize prompts](/genai/prompt-version-mgmt/optimize-prompts)
-
-          [Evaluate prompts](/genai/prompt-version-mgmt/prompt-registry/evaluate-prompts)
-
-          [Use prompts in apps](/genai/prompt-version-mgmt/prompt-registry/use-prompts-in-apps)
-        </div>
-
-        <div class="flex-item padding-md">
-          ![Prompt Engineering](/images/prompt_modal_2.png)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-
-  <TabItem value="tracing-integrations" label="Tracing Integrations">
-    <div class="flex-column">
-      ### Integrate MLflow Tracing with popular GenAI frameworks
-
-      <div class="flex-row">
-        <div class="flex-item">
-          #### Supported Frameworks
-
-          Auto-instrumentation support for 15+ GenAI libraries
-
-          [View all integrations](/genai/tracing/integrations)
-
-          [Contribute new integrations](/genai/tracing/integrations/contribute)
-
-          Native support for [OpenAI](/genai/tracing/integrations/listing/openai), [LangChain](/genai/tracing/integrations/listing/langchain), [LlamaIndex](/genai/tracing/integrations/listing/llama_index), [DSPy](/genai/tracing/integrations/listing/dspy), and [more](/genai/tracing/integrations)
-        </div>
-        <div class="flex-item padding-md">
-          ![RAG Architecture](/images/llms/llama-index/llama_index_workflow_graph.png)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-</Tabs>
-
-## GenAI Development with MLflow
-
-MLflow transforms how teams build, evaluate, and deploy GenAI applications. With comprehensive tracing, automated evaluation, and seamless deployment options, MLflow provides everything you need to move from prototype to production with confidence. Our platform supports the entire GenAI lifecycle while maintaining the flexibility to work with any model provider or framework.
-
-Explore MLflow's GenAI capabilities below to accelerate your AI development!
-
-<Tabs>
-  <TabItem value="tracing-observability" label="Tracing & Observability">
-    <div class="flex-column">
-      ### Debug and monitor GenAI applications with complete visibility
-
-      <div class="flex-row">
-        <div class="flex-item padding-md">
-          #### Core Features
-
-          **MLflow Tracing** provides comprehensive observability for GenAI applications, capturing every LLM call, tool interaction, and decision point in your AI workflows.
-
-          **Key Benefits:**
-
-          - **Complete Visibility**: Trace every step from prompt to response
-          - **Framework Integration**: Auto-instrumentation for 15+ GenAI libraries
-          - **Interactive Debugging**: Native Jupyter notebook support
-          - **Production Monitoring**: OpenTelemetry-compatible traces for scalable observability
-
-          #### Guides
-
-          - [Getting Started with Tracing](/genai/tracing/quickstart)
-          - [Production Tracing](/genai/tracing/prod-tracing)
-        </div>
-
-        <div class="flex-item padding-md">
-          ![MLflow Tracing](/images/llms/tracing/tracing-top.gif)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-
-  <TabItem value="llm-evaluation" label="LLM Evaluation">
-    <div class="flex-column">
-      ### Systematically evaluate and improve GenAI quality
-
-      <div class="flex-row">
-        <div class="flex-item padding-md">
-          #### Core Features
-
-          **MLflow Evaluation** enables automated quality assessment using LLM judges, custom metrics, and comprehensive test suites for GenAI applications.
-
-          **Key Benefits:**
-
-          - **LLM-as-Judge**: Automated evaluation with configurable judge models
-          - **Custom Metrics**: Domain-specific evaluation criteria
-          - **Bulk Testing**: Evaluate across datasets with statistical analysis
-
-        </div>
-
-        <div class="flex-item padding-md">
-          ![MLflow Evaluation](/images/llms/llm-evaluate.gif)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-
-  <TabItem value="prompt-management" label="Prompt Management">
-    <div class="flex-column">
-      ### Engineer, version, and deploy prompts systematically
-
-      <div class="flex-row">
-        <div class="flex-item padding-md">
-          #### Core Features
-
-          **MLflow Prompt Registry** provides comprehensive tools for developing, testing, and deploying prompts with full version control and lifecycle management.
-
-          **Key Benefits:**
-
-          - **Visual Development**: No-code UI for prompt iteration
-          - **Version Control**: Git-like versioning for prompts
-          - **Lifecycle Management**: Manage prompts with aliases (dev, staging, prod)
-          - **Template Management**: Reusable prompt components and patterns
-
-          #### Guides
-
-          [Prompt Engineering UI](/genai/prompt-version-mgmt/prompt-engineering)
-
-          [Create and Edit Prompts](/genai/prompt-version-mgmt/prompt-registry/create-and-edit-prompts)
-
-          [Manage Prompt Lifecycles](/genai/prompt-version-mgmt/prompt-registry/manage-prompt-lifecycles-with-aliases)
-
-          [Use Prompts in Deployed Apps](/genai/prompt-version-mgmt/prompt-registry/use-prompts-in-deployed-apps)
-        </div>
-
-        <div class="flex-item padding-md">
-          ![Prompt Engineering](/images/prompt_modal_2.png)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-
-  <TabItem value="version-tracking" label="Version Tracking">
-    <div class="flex-column">
-      ### Track and compare GenAI application versions
-
-      <div class="flex-row">
-        <div class="flex-item padding-md">
-          #### Core Features
-
-          **MLflow Version Tracking** enables systematic tracking of GenAI application versions, linking traces, evaluations, and production deployments.
-
-          **Key Benefits:**
-
-          - **Application Versioning**: Track complete app configurations
-          - **Evaluation Linkage**: Connect evaluation results to specific versions
-          - **Production Tracing**: Link production traces to deployed versions
-          - **Version Comparison**: Compare performance across versions
-
-          #### Guides
-
-          [Version Tracking Quickstart](/genai/prompt-version-mgmt/version-tracking/quickstart)
-
-          [Track Application Versions](/genai/prompt-version-mgmt/version-tracking/track-application-versions-with-mlflow)
-
-          [Compare App Versions](/genai/prompt-version-mgmt/version-tracking/compare-app-versions)
-        </div>
-
-        <div class="flex-item padding-md">
-          ![Version Tracking](/images/oss_registry_3_overview.png)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-
-  <TabItem value="deployment-serving" label="Deployment & Serving">
-    <div class="flex-column">
-      ### Deploy GenAI applications to production environments
-
-      <div class="flex-row">
-        <div class="flex-item padding-md">
-          #### Core Features
-
-          **MLflow Serving** supports deploying GenAI applications with built-in governance through the AI Gateway and custom app serving capabilities.
-
-          **Key Benefits:**
-
-          - **AI Gateway**: Unified interface for LLM providers
-          - **Custom Apps**: Deploy complex GenAI applications
-          - **Response Agents**: Pre-built serving patterns
-          - **Endpoint Management**: Easy deployment configuration
-
-          #### Guides
-
-          [AI Gateway Setup](/genai/governance/ai-gateway/guides/step1-create-deployments)
-
-          [Using the AI Gateway](/genai/governance/ai-gateway/guides/step2-query-deployments)
-
-          [Deploy Custom Apps](/genai/serving/custom-apps)
-
-          [Response Agents](/genai/serving/responses-agent)
-        </div>
-
-        <div class="flex-item padding-md">
-          ![GenAI Deployment](/images/deployment/mlflow-deployment-overview.png)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-
-  <TabItem value="governance" label="Governance & Security">
-    <div class="flex-column">
-      ### Secure and govern your GenAI deployments
-
-      <div class="flex-row">
-        <div class="flex-item padding-md">
-          #### Core Features
-
-          **MLflow Governance** provides enterprise-grade security and compliance features including the AI Gateway for LLM provider management and Unity Catalog integration.
-
-          **Key Benefits:**
-
-          - **Unified LLM Access**: Single endpoint for multiple providers
-          - **Credential Management**: Secure API key storage
-          - **Unity Catalog**: Enterprise data governance
-          - **Provider Flexibility**: Swap providers without code changes
-
-          #### Guides
-
-          [AI Gateway Overview](/genai/governance/ai-gateway)
-
-          [Unity Catalog Integration](/genai/governance/unity-catalog)
-
-          [Setup AI Gateway](/genai/governance/ai-gateway/guides/step1-create-deployments)
-        </div>
-
-        <div class="flex-item padding-md">
-          ![Governance](/images/llms/llm-evaluate.gif)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-</Tabs>
-
-## Why MLflow for GenAI?
-
-<div class="flex-row" style={{ marginTop: "2rem" }}>
-  <div class="flex-item" style={{ flex: "1", marginRight: "1.5rem" }}>
-    #### 🔍 Complete Observability
-    See inside every AI decision with comprehensive tracing that captures prompts, retrievals, tool calls, and model responses. Debug complex workflows with confidence.
-  </div>
-  <div class="flex-item" style={{ flex: "1", marginRight: "1.5rem" }}>
-    #### 📊 Automated Quality Assurance
-    Stop manual testing with LLM judges and custom metrics. Systematically evaluate every change to ensure consistent improvements in your AI applications.
-  </div>
-  <div class="flex-item" style={{ flex: "1" }}>
-    #### 🚀 Production-Ready Platform
-    Deploy anywhere with confidence. From local servers to cloud platforms, MLflow handles the complexity of GenAI deployment, monitoring, and optimization.
-  </div>
-</div>
-
-<div class="flex-row" style={{ marginTop: "2rem", marginBottom: "2rem" }}>
-  <div class="flex-item" style={{ flex: "1", marginRight: "1rem" }}>
-    #### 🤝 Framework Freedom
-    Use any GenAI framework or model provider. With 15+ native integrations and extensible APIs, MLflow adapts to your tech stack, not the other way around.
-  </div>
-  <div class="flex-item" style={{ flex: "1", marginRight: "1rem" }}>
-    #### 🔄 End-to-End Lifecycle
-    Manage the complete GenAI journey from experimentation to production. Track prompts, evaluate quality, deploy models, and monitor performance in one platform.
-  </div>
-  <div class="flex-item" style={{ flex: "1" }}>
-    #### 👥 Open Source Community
-    Join thousands of teams building GenAI with MLflow. As part of the Linux Foundation, MLflow ensures your AI infrastructure remains open and vendor-neutral.
-  </div>
-</div>
-
-## Running MLflow for GenAI
+import { CardGroup, TitleCard } from "@site/src/components/Card";
+import { Heart, Zap, Puzzle, LifeBuoy, Binoculars, Activity } from "lucide-react";
+
+# MLflow GenAI: Ship High-quality GenAI, Fast
+
+MLflow GenAI is an open-source, all-in-one integrated platform that helps enhance your Agent & GenAI applications with end-to-end observability, evaluations, AI gateway, prompt management & optimization and tracking.
+
+<FeatureHighlights features={[
+  {
+    icon: Heart,
+    title: "Open Source",
+    description: "Join thousands of teams building GenAI with MLflow - with 20K+ GitHub Stars and 50M+ monthly downloads. As part of the Linux Foundation, MLflow ensures your AI infrastructure remains open and vendor-neutral."
+  },
+  {
+    icon: Zap,
+    title: "OpenTelemetry",
+    description: "MLflow Tracing is fully compatible with OpenTelemetry, making it free from vendor lock-in and easy to integrate with your existing observability stack."
+  },
+  {
+    icon: LifeBuoy,
+    title: "All-in-one Platform",
+    description: "Manage the complete GenAI journey from experimentation to production. Track prompts, evaluate quality, deploy models, and monitor performance in one platform."
+  },
+  {
+    icon: Binoculars,
+    title: "Complete Observability",
+    description: "See inside every AI decision with comprehensive tracing that captures prompts, retrievals, tool calls, and model responses. Debug complex workflows with confidence."
+  },
+  {
+    icon: Activity,
+    title: "Evaluation & Monitoring",
+    description: "Stop manual testing with LLM judges and custom metrics. Systematically evaluate every change to ensure consistent improvements in your AI applications."
+  },
+  {
+    icon: Puzzle,
+    title: "Framework Integration",
+    description: "Use any GenAI framework or model provider. With 30+ integrations and extensible APIs, MLflow adapts to your tech stack, not the other way around."
+  }
+]} />
+
+## Observability
+
+Debug and iterate on GenAI applications using MLflow's tracing, which captures your app's entire execution, including prompts, retrievals and tool calls.
+MLflow's open-source, OpenTelemetry-compatible tracing SDK helps avoid vendor lock-in.
+
+<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop muted aria-label="MLflow Tracing" poster={useBaseUrl("/images/llms/tracing/tracing-top-poster.png")} />
+
+<CardGroup cols={1}>
+    <TitleCard title="Observability Quickstart →" link="/genai/tracing/quickstart">
+    This quickstart will guide you through enabling tracing in your GenAI application and sending your first trace to MLflow.
+    </TitleCard>
+</CardGroup>
+
+## Evaluations
+
+Accurately measure free-form language with LLM judges by utilizing LLM-as-a-judge metrics, mimicking human expertise, to assess and enhance GenAI quality. Access pre-built judges for common metrics like hallucination or relevance, or develop custom judges tailored to your business needs and expert insights.
+
+<video src={useBaseUrl("/images/mlflow-3/eval-monitor/evaluation-result-video.mp4")} controls loop muted aria-label="MLflow Evaluation" poster={useBaseUrl("/images/mlflow-3/eval-monitor/evaluation-result-video-poster.png")} />
+
+<CardGroup cols={1}>
+    <TitleCard title="Evaluations Quickstart →" link="/genai/eval-monitor/quickstart">
+    This quickstart will walk you through preparing a dataset, configuring a scorer, and running your first evaluation in just a few steps.
+    </TitleCard>
+</CardGroup>
+
+## Prompt Management & Optimization
+
+Version, compare, iterate on, and discover prompt templates directly through the MLflow UI. Reuse prompts across multiple versions of your agent or application code, and view rich lineage identifying which versions are using each prompt.
+
+<video src={useBaseUrl("/images/llms/prompt-registry/prompt-management.mp4")} controls loop muted aria-label="MLflow Prompt Management" poster={useBaseUrl("/images/llms/prompt-registry/prompt-management-poster.png")} />
+
+<CardGroup cols={1}>
+    <TitleCard title="Prompt Management Quickstart →" link="/genai/prompt-registry/create-and-edit-prompts">
+    This quickstart will guide you through creating, editing and versioning prompts for your GenAI application.
+    </TitleCard>
+</CardGroup>
+
+---
+
+## Running Anywhere
 
 <Platform />
+
+## Ask AI About MLflow
+
+<SearchBox placeholder="What do you want to know about MLflow?" />
+
+## Community
+
+Connect with fellow builders, ask questions, and stay up to date — join our vibrant MLflow community on Slack, GitHub, LinkedIn, and more!
+
+Learn how to get involved and discover all our channels on the [Community Page](/community).

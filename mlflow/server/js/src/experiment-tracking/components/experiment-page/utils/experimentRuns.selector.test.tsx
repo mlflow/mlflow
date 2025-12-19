@@ -1,8 +1,11 @@
+import { describe, it, expect } from '@jest/globals';
 import { renderHook } from '../../../../common/utils/TestUtils.react18';
 import { Provider, useSelector } from 'react-redux';
-import { createStore, DeepPartial } from 'redux';
+import type { DeepPartial } from 'redux';
+import { createStore } from 'redux';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../fixtures/experiment-runs.fixtures';
-import { experimentRunsSelector, ExperimentRunsSelectorParams } from './experimentRuns.selector';
+import type { ExperimentRunsSelectorParams } from './experimentRuns.selector';
+import { experimentRunsSelector } from './experimentRuns.selector';
 import { LIFECYCLE_FILTER, MODEL_VERSION_FILTER } from '../../../types';
 
 import type { ReduxState } from '../../../../redux-types';

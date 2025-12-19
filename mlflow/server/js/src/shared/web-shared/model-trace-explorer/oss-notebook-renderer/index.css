@@ -1,0 +1,34 @@
+input,
+select,
+option,
+button,
+textarea,
+body,
+thead {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+body,
+thead {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+  box-shadow: none;
+}
+
+html,
+body,
+pre,
+code {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+}
+
+html {
+  overflow-y: hidden;
+}

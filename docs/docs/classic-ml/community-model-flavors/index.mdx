@@ -51,6 +51,7 @@ predictions = loaded_model.predict(new_data)
   <TabItem value="time-series" label="Time Series" default>
 
 ### **Sktime**
+
 Unified interface for time series forecasting, classification, and transformation.
 
 ```bash
@@ -82,6 +83,7 @@ pyfunc_predictions = loaded_pyfunc.predict(pd.DataFrame())
 ```
 
 ### **MLflavors Package**
+
 Support for multiple time series and ML frameworks in one package.
 
 ```bash
@@ -90,14 +92,15 @@ pip install mlflavors
 
 **Supported Frameworks:**
 
-| Framework | Category | Example Use Case |
-|-----------|----------|------------------|
-| **Orbit** | Time Series | Bayesian forecasting |
-| **StatsForecast** | Time Series | Statistical models |
-| **PyOD** | Anomaly Detection | Outlier detection |
-| **SDV** | Synthetic Data | Privacy-preserving data generation |
+| Framework         | Category          | Example Use Case                   |
+| ----------------- | ----------------- | ---------------------------------- |
+| **Orbit**         | Time Series       | Bayesian forecasting               |
+| **StatsForecast** | Time Series       | Statistical models                 |
+| **PyOD**          | Anomaly Detection | Outlier detection                  |
+| **SDV**           | Synthetic Data    | Privacy-preserving data generation |
 
 **PyOD Anomaly Detection Example:**
+
 ```python
 import mlflow
 from pyod.models.knn import KNN
@@ -106,7 +109,8 @@ import mlflavors
 
 # Generate synthetic data
 contamination = 0.1
-n_train, n_test = 200, 100
+n_train = 200
+n_test = 100
 X_train, X_test, _, y_test = generate_data(
     n_train=n_train, n_test=n_test, contamination=contamination
 )
@@ -127,6 +131,7 @@ with mlflow.start_run():
 ```
 
 **Serving PyOD Model:**
+
 ```python
 # Load as PyFunc
 loaded_pyfunc = mlflavors.pyod.pyfunc.load_model(model_uri="model_uri")
@@ -143,6 +148,7 @@ anomaly_scores = loaded_pyfunc.predict(predict_conf)[0]
   <TabItem value="visualization" label="Visualization">
 
 ### **MLflow VizMod**
+
 Treat visualizations as models for versioning, tracking, and deployment.
 
 ```bash
@@ -150,6 +156,7 @@ pip install mlflow-vizmod
 ```
 
 **Create and Log Interactive Visualizations:**
+
 ```python
 from sklearn.datasets import load_iris
 import altair as alt
@@ -184,6 +191,7 @@ Version Control: Track visualization changes over time. Reproducibility: Recreat
   <TabItem value="big-data" label="Big Data & Cloud">
 
 ### **BigML Integration**
+
 Deploy and manage BigML supervised models through MLflow.
 
 ```bash
@@ -224,6 +232,7 @@ BigML Integration: Direct support for BigML's supervised models. PyFunc Compatib
   <TabItem value="performance" label="Mlflow Go">
 
 ### **MLflow Go Backend**
+
 High-performance Go implementation of the MLflow tracking server for better scalability and performance.
 
 ```bash
@@ -231,6 +240,7 @@ pip install mlflow-go-backend
 ```
 
 **Performance Benefits:**
+
 - **Faster API calls** for critical tracking operations
 - **Higher concurrency** - handles more simultaneous requests
 - **Improved throughput** for high-volume ML workloads
@@ -249,6 +259,7 @@ mlflow-go server --backend-store-uri postgresql://user:pass@localhost:5432/mlflo
 ```
 
 **All existing MLflow server options are supported:**
+
 ```bash
 mlflow-go server \
   --backend-store-uri postgresql://user:pass@localhost:5432/mlflow \
@@ -309,11 +320,13 @@ with mlflow.start_run():
 Initial benchmarks show significant performance improvements:
 
 **API Response Times:**
+
 - **Search Runs**: 60% faster than Python implementation
 - **Log Metrics**: 45% faster batch logging
 - **Get Experiment**: 70% faster retrieval
 
 **Concurrency:**
+
 - **2x more concurrent requests** supported
 - **Better resource utilization** under load
 - **Reduced memory footprint** for server operations
@@ -339,11 +352,13 @@ Most MLflow REST API endpoints are implemented in Go. Missing endpoints automati
 #### **Migration Guide**
 
 **Step 1: Install Go Backend**
+
 ```bash
 pip install mlflow-go-backend
 ```
 
 **Step 2: Update Server Command**
+
 ```bash
 # Old command
 mlflow server --backend-store-uri postgresql://...
@@ -353,6 +368,7 @@ mlflow-go server --backend-store-uri postgresql://...
 ```
 
 **Step 3: Enable in Client Code**
+
 ```python
 import mlflow_go_backend
 
@@ -360,6 +376,7 @@ mlflow_go_backend.enable_go()
 ```
 
 **Step 4: Verify Performance**
+
 ```python
 import time
 import mlflow
@@ -549,17 +566,16 @@ forecaster.fit(y, X=X)
 
 # Log with custom flavor
 with mlflow.start_run():
-    custom_sktime_flavor.log_model(
+    model_info = custom_sktime_flavor.log_model(
         sktime_model=forecaster, artifact_path="custom_forecaster"
     )
-    model_uri = mlflow.get_artifact_uri("custom_forecaster")
 
 # Load and use natively
-loaded_model = custom_sktime_flavor.load_model(model_uri)
+loaded_model = custom_sktime_flavor.load_model(model_info.model_uri)
 native_predictions = loaded_model.predict(fh=[1, 2, 3])
 
 # Load as PyFunc for serving
-loaded_pyfunc = mlflow.pyfunc.load_model(model_uri)
+loaded_pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
 
 # Create configuration for PyFunc prediction
 config_df = pd.DataFrame(
@@ -605,13 +621,13 @@ predictions = response.json()
 
 #### By Use Case
 
-| Use Case | Frameworks | Installation | Key Features |
-|----------|------------|--------------|--------------|
-| **Time Series Forecasting** | Sktime, Orbit, StatsForecast | `pip install sktime[mlflow]` | Unified API, multiple algorithms |
-| **Anomaly Detection** | PyOD | `pip install mlflavors` | 40+ detection algorithms |
-| **Visualization** | Altair, Plotly via VizMod | `pip install mlflow-vizmod` | Interactive plots as models |
-| **Synthetic Data** | SDV | `pip install mlflavors` | Privacy-preserving data generation |
-| **Big Data ML** | BigML | `pip install bigmlflow` | Cloud-based supervised learning |
+| Use Case                    | Frameworks                   | Installation                 | Key Features                       |
+| --------------------------- | ---------------------------- | ---------------------------- | ---------------------------------- |
+| **Time Series Forecasting** | Sktime, Orbit, StatsForecast | `pip install sktime[mlflow]` | Unified API, multiple algorithms   |
+| **Anomaly Detection**       | PyOD                         | `pip install mlflavors`      | 40+ detection algorithms           |
+| **Visualization**           | Altair, Plotly via VizMod    | `pip install mlflow-vizmod`  | Interactive plots as models        |
+| **Synthetic Data**          | SDV                          | `pip install mlflavors`      | Privacy-preserving data generation |
+| **Big Data ML**             | BigML                        | `pip install bigmlflow`      | Cloud-based supervised learning    |
 
 #### Integration Patterns
 
@@ -759,6 +775,7 @@ def load_model(model_uri):
 1. **Create GitHub Repository** - Follow naming convention: `mlflow-{framework}`. Include comprehensive documentation. Add example notebooks.
 
 2. **Package Structure**
+
    ```
    mlflow-myframework/
    ├── setup.py

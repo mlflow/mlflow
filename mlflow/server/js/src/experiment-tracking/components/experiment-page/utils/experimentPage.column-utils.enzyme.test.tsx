@@ -1,13 +1,15 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { mount } from 'enzyme';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../constants';
-import { useRunsColumnDefinitions, UseRunsColumnDefinitionsParams } from './experimentPage.column-utils';
+import type { UseRunsColumnDefinitionsParams } from './experimentPage.column-utils';
+import { useRunsColumnDefinitions } from './experimentPage.column-utils';
 import {
   EXPERIMENT_FIELD_PREFIX_METRIC,
   EXPERIMENT_FIELD_PREFIX_PARAM,
   EXPERIMENT_FIELD_PREFIX_TAG,
   makeCanonicalSortKey,
 } from './experimentPage.common-utils';
-import { ColDef, ColGroupDef } from '@ag-grid-community/core';
+import type { ColDef, ColGroupDef } from '@ag-grid-community/core';
 import { createExperimentPageUIState } from '../models/ExperimentPageUIState';
 
 const getHookResult = (params: UseRunsColumnDefinitionsParams) => {
@@ -35,8 +37,8 @@ describe('ExperimentViewRuns column utils', () => {
       paramKeyList: MOCK_PARAMS,
       tagKeyList: MOCK_TAGS,
       onExpand: jest.fn(),
-      onSortBy: jest.fn(),
       onTogglePin: jest.fn(),
+      onToggleVisibility: jest.fn(),
       selectedColumns: createExperimentPageUIState().selectedColumns,
     });
   });
@@ -153,13 +155,56 @@ describe('ExperimentViewRuns column utils', () => {
     const setColumnVisibleMock = MOCK_HOOK_PARAMS.columnApi?.setColumnVisible;
 
     // Assert that setColumnVisible() has been called with "true" for metric_1 and param_2...
-    expect(setColumnVisibleMock).toBeCalledWith(makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_1'), true);
-    expect(setColumnVisibleMock).toBeCalledWith(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_2'), true);
+    expect(setColumnVisibleMock).toHaveBeenCalledWith(makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_1'), true);
+    expect(setColumnVisibleMock).toHaveBeenCalledWith(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_2'), true);
 
     // ...but has not for the remaining columns
-    expect(setColumnVisibleMock).not.toBeCalledWith(makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_2'), true);
+    expect(setColumnVisibleMock).not.toHaveBeenCalledWith(makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_2'), true);
+    expect(setColumnVisibleMock).not.toHaveBeenCalledWith(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_1'), true);
+  });
 
-    expect(setColumnVisibleMock).not.toBeCalledWith(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_1'), true);
+  test('it includes all columns', () => {
+    const selectedColumns = [
+      makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_1'),
+      makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_2'),
+      makeCanonicalSortKey(COLUMN_TYPES.TAGS, 'tag_1'),
+    ];
+
+    // Get column definitions
+    const columnDefinitions = getHookResult({
+      ...MOCK_HOOK_PARAMS,
+      selectedColumns,
+      isComparingRuns: false,
+    }) as unknown as ColGroupDef[];
+
+    // Find the metrics column group - should include all metrics
+    const metricsGroup = columnDefinitions.find((col) => col.groupId === COLUMN_TYPES.METRICS) as ColGroupDef;
+    expect(metricsGroup).toBeDefined();
+    expect(metricsGroup.children?.length).toBe(2); // All metrics
+
+    // Find the params column group - should include all params
+    const paramsGroup = columnDefinitions.find((col) => col.groupId === COLUMN_TYPES.PARAMS) as ColGroupDef;
+    expect(paramsGroup).toBeDefined();
+    expect(paramsGroup.children?.length).toBe(2); // All params
+
+    // Find the tags column group - should include all tags
+    const tagsGroup = columnDefinitions.find((col) => (col as any).colId === COLUMN_TYPES.TAGS) as ColGroupDef;
+    expect(tagsGroup).toBeDefined();
+    expect(tagsGroup.children?.length).toBe(2); // All tags
+  });
+
+  test('it includes all columns when comparing runs regardless of selection', () => {
+    // Set up selected columns but enable comparing runs
+    const selectedColumns = [makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_1')];
+
+    const columnDefinitions = getHookResult({
+      ...MOCK_HOOK_PARAMS,
+      selectedColumns,
+      isComparingRuns: true,
+    }) as unknown as any[];
+
+    // When comparing runs, we should only have 2 columns (checkbox and run name)
+    expect(columnDefinitions?.length).toBe(2);
   });
 
   test('remembers metric/param/tag keys even if they are not in the newly fetched set', () => {

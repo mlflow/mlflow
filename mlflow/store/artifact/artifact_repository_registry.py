@@ -1,5 +1,4 @@
 import warnings
-from typing import Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -56,7 +55,7 @@ class ArtifactRepositoryRegistry:
                 )
 
     def get_artifact_repository(
-        self, artifact_uri: str, tracking_uri: Optional[str] = None
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
     ) -> ArtifactRepository:
         """
         Get an artifact repository from the registry based on the scheme of artifact_uri
@@ -66,6 +65,8 @@ class ArtifactRepositoryRegistry:
                 repository implementation to instantiate and is passed to the constructor of the
                 implementation.
             tracking_uri: The tracking URI. This URI is passed to the constructor of the
+                implementation.
+            registry_uri: The registry URI. This URI is passed to the constructor of the
                 implementation.
 
         Returns:
@@ -79,7 +80,7 @@ class ArtifactRepositoryRegistry:
                 f"Could not find a registered artifact repository for: {artifact_uri}. "
                 f"Currently registered schemes are: {list(self._registry.keys())}"
             )
-        return repository(artifact_uri, tracking_uri)
+        return repository(artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri)
 
     def get_registered_artifact_repositories(self):
         """
@@ -92,12 +93,12 @@ class ArtifactRepositoryRegistry:
 
 
 def _dbfs_artifact_repo_factory(
-    artifact_uri: str, tracking_uri: Optional[str] = None
+    artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
 ) -> ArtifactRepository:
     return (
-        uc_volume_artifact_repo_factory(artifact_uri, tracking_uri)
+        uc_volume_artifact_repo_factory(artifact_uri, tracking_uri, registry_uri)
         if is_uc_volumes_uri(artifact_uri)
-        else dbfs_artifact_repo_factory(artifact_uri, tracking_uri)
+        else dbfs_artifact_repo_factory(artifact_uri, tracking_uri, registry_uri)
     )
 
 
@@ -125,7 +126,7 @@ _artifact_repository_registry.register_entrypoints()
 
 
 def get_artifact_repository(
-    artifact_uri: str, tracking_uri: Optional[str] = None
+    artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
 ) -> ArtifactRepository:
     """
     Get an artifact repository from the registry based on the scheme of artifact_uri
@@ -136,12 +137,16 @@ def get_artifact_repository(
             implementation.
         tracking_uri: The tracking URI. This URI is passed to the constructor of the
             implementation.
+        registry_uri: The registry URI. This URI is passed to the constructor of the
+            implementation.
 
     Returns:
         An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
         requirements.
     """
-    return _artifact_repository_registry.get_artifact_repository(artifact_uri, tracking_uri)
+    return _artifact_repository_registry.get_artifact_repository(
+        artifact_uri, tracking_uri, registry_uri
+    )
 
 
 def get_registered_artifact_repositories() -> dict[str, ArtifactRepository]:

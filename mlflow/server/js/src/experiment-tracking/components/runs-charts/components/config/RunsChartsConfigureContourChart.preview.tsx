@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { RunsChartsRunData } from '../RunsCharts.common';
+import type { RunsChartsRunData } from '../RunsCharts.common';
 import { RunsContourPlot } from '../RunsContourPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
-import { RunsChartsContourCardConfig } from '../../runs-charts.types';
+import type { RunsChartsContourCardConfig } from '../../runs-charts.types';
 
 export const RunsChartsConfigureContourChartPreview = ({
   previewData,

@@ -1,7 +1,7 @@
-import { type QueryFunctionContext, useQueries, useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { LoggedModelProto } from '../../types';
-import { loggedModelsDataRequest } from './request.utils';
-import { useArrayMemo } from '../../../common/hooks/useArrayMemo';
+import { type QueryFunctionContext, useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import type { LoggedModelProto } from '../../types';
+import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { useCallback } from 'react';
 
 type UseGetLoggedModelQueryResponseType = {
   model: LoggedModelProto;
@@ -14,12 +14,18 @@ const getQueryKey = (loggedModelId: string): UseGetLoggedModelQueryKey => ['GET_
 const queryFn = async ({
   queryKey: [, loggedModelId],
 }: QueryFunctionContext<UseGetLoggedModelQueryKey>): Promise<UseGetLoggedModelQueryResponseType> =>
-  loggedModelsDataRequest(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`, 'GET');
+  fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`), 'GET');
 
 /**
  * Retrieve logged model from API based on its ID
  */
-export const useGetLoggedModelQuery = ({ loggedModelId }: { loggedModelId?: string }) => {
+export const useGetLoggedModelQuery = ({
+  loggedModelId,
+  enabled = true,
+}: {
+  loggedModelId?: string;
+  enabled?: boolean;
+}) => {
   const { data, isLoading, isFetching, refetch, error } = useQuery<
     UseGetLoggedModelQueryResponseType,
     Error,
@@ -31,6 +37,7 @@ export const useGetLoggedModelQuery = ({ loggedModelId }: { loggedModelId?: stri
     cacheTime: 0,
     refetchOnWindowFocus: false,
     retry: false,
+    enabled,
   });
 
   return {
@@ -43,17 +50,31 @@ export const useGetLoggedModelQuery = ({ loggedModelId }: { loggedModelId?: stri
 };
 
 /**
- * Retrieve multiple logged models from API based on their IDs
+ * Lazy query function to retrieve logged model from API based on its ID
  */
-export const useGetLoggedModelQueries = (loggedModelIds: string[] = []) => {
-  const queries = useQueries({
-    queries: loggedModelIds.map((modelId) => ({
-      queryKey: getQueryKey(modelId),
-      queryFn,
-      cacheTime: 0,
-      refetchOnWindowFocus: false,
-      retry: false,
-    })),
-  });
-  return useArrayMemo(queries);
+export const useGetLoggedModelLazyQuery = () => {
+  const client = useQueryClient();
+  return useCallback(
+    (modelId: string) => client.ensureQueryData({ queryKey: getQueryKey(modelId), queryFn }),
+    [client],
+  );
+};
+
+/**
+ * A non-hook version of useGetLoggedModelQuery that can be used in async functions.
+ * @deprecated Use useGetLoggedModelQuery instead. This function is provided for backward compatibility for legacy class-based components.
+ */
+export const asyncGetLoggedModel = async (
+  loggedModelId: string,
+  failSilently = false,
+): Promise<UseGetLoggedModelQueryResponseType | undefined> => {
+  try {
+    const data = await fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`), 'GET');
+    return data;
+  } catch (error) {
+    if (failSilently) {
+      return undefined;
+    }
+    throw error;
+  }
 };

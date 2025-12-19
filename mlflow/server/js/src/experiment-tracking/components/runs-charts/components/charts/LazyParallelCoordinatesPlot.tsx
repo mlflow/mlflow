@@ -1,4 +1,5 @@
 import { LegacySkeleton } from '@databricks/design-system';
+// eslint-disable-next-line no-restricted-imports -- grandfathering, see go/ui-bestpractices
 import React, { Suspense } from 'react';
 
 const ParallelCoordinatesPlot = React.lazy(() => import('./ParallelCoordinatesPlot'));
@@ -6,7 +7,7 @@ const ParallelCoordinatesPlot = React.lazy(() => import('./ParallelCoordinatesPl
 const LazyParallelCoordinatesPlot = ({ fallback, ...props }: any) => {
   return (
     <Suspense fallback={fallback ?? <LegacySkeleton />}>
-      <ParallelCoordinatesPlot {...props}></ParallelCoordinatesPlot>
+      <ParallelCoordinatesPlot {...props} />
     </Suspense>
   );
 };

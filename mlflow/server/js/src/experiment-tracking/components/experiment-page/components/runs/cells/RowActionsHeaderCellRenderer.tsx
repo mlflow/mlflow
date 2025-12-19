@@ -1,5 +1,5 @@
 import { DashIcon, DropdownMenu, Icon, VisibleOffIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import React, { useEffect } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { RUNS_VISIBILITY_MODE } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/models/ExperimentPageUIState';
@@ -71,6 +71,13 @@ const RowActionsHeaderCellRendererV2 = React.memo(
               <FormattedMessage
                 defaultMessage="Hide all runs"
                 description="Menu option for revealing all hidden runs in the experiment view runs compare mode"
+              />
+            </DropdownMenu.RadioItem>
+            <DropdownMenu.RadioItem value={RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS}>
+              <DropdownMenu.ItemIndicator>{usingCustomVisibility ? <DashIcon /> : null}</DropdownMenu.ItemIndicator>
+              <FormattedMessage
+                defaultMessage="Hide finished runs"
+                description="Menu option for hiding all finished runs in the experiment view runs compare mode"
               />
             </DropdownMenu.RadioItem>
           </DropdownMenu.RadioGroup>

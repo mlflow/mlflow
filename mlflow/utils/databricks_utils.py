@@ -7,7 +7,7 @@ import platform
 import subprocess
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, NamedTuple, Optional, TypeVar
+from typing import TYPE_CHECKING, Callable, NamedTuple, ParamSpec, TypeVar
 
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.request_utils import augmented_raise_for_status
@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 import mlflow.utils
 from mlflow.environment_variables import (
+    _SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID,
     MLFLOW_ENABLE_DB_SDK,
     MLFLOW_TRACKING_URI,
 )
@@ -30,6 +31,7 @@ from mlflow.legacy_databricks_cli.configure.provider import (
     ProfileConfigProvider,
     SparkTaskContextConfigProvider,
 )
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.rest_utils import MlflowHostCreds, http_request
 from mlflow.utils.uri import (
@@ -169,8 +171,7 @@ def _get_property_from_spark_context(key):
     try:
         from pyspark import TaskContext
 
-        task_context = TaskContext.get()
-        if task_context:
+        if task_context := TaskContext.get():
             return task_context.getLocalProperty(key)
     except Exception:
         return None
@@ -203,14 +204,7 @@ def is_in_databricks_model_serving_environment():
     Check if the code is running in Databricks Model Serving environment.
     The environment variable set by Databricks when starting the serving container.
     """
-    val = (
-        os.environ.get("IS_IN_DB_MODEL_SERVING_ENV")
-        # Checking the old env var name for backward compatibility. The env var was renamed once
-        # to fix a model loading issue, but we still need to support it for a while.
-        # TODO: Remove this once the new env var is fully rolled out.
-        or os.environ.get("IS_IN_DATABRICKS_MODEL_SERVING_ENV")
-        or "false"
-    )
+    val = os.environ.get("IS_IN_DB_MODEL_SERVING_ENV", "false")
     return val.lower() == "true"
 
 
@@ -313,7 +307,7 @@ class DBConnectUDFSandboxInfo:
     mlflow_version: str
 
 
-_dbconnect_udf_sandbox_info_cache: Optional[DBConnectUDFSandboxInfo] = None
+_dbconnect_udf_sandbox_info_cache: DBConnectUDFSandboxInfo | None = None
 
 
 def get_dbconnect_udf_sandbox_info(spark):
@@ -652,8 +646,7 @@ def warn_on_deprecated_cross_workspace_registry_uri(registry_uri):
 def get_workspace_info_from_databricks_secrets(tracking_uri):
     profile, key_prefix = get_db_info_from_uri(tracking_uri)
     if key_prefix:
-        dbutils = _get_dbutils()
-        if dbutils:
+        if dbutils := _get_dbutils():
             workspace_id = dbutils.secrets.get(scope=profile, key=key_prefix + "-workspace-id")
             workspace_host = dbutils.secrets.get(scope=profile, key=key_prefix + "-host")
             return workspace_host, workspace_id
@@ -737,8 +730,7 @@ class TrackingURIConfigProvider(DatabricksConfigProvider):
         scope, key_prefix = get_db_info_from_uri(self.tracking_uri)
 
         if scope and key_prefix:
-            dbutils = _get_dbutils()
-            if dbutils:
+            if dbutils := _get_dbutils():
                 # Prefix differentiates users and is provided as path information in the URI
                 host = dbutils.secrets.get(scope=scope, key=key_prefix + "-host")
                 token = dbutils.secrets.get(scope=scope, key=key_prefix + "-token")
@@ -840,6 +832,18 @@ def get_databricks_host_creds(server_uri=None):
     )
 
 
+def get_databricks_workspace_client_config(server_uri: str):
+    from databricks.sdk import WorkspaceClient
+
+    profile, key_prefix = get_db_info_from_uri(server_uri)
+    profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
+    if key_prefix is not None:
+        config = TrackingURIConfigProvider(server_uri).get_config()
+        return WorkspaceClient(host=config.host, token=config.token).config
+
+    return WorkspaceClient(profile=profile).config
+
+
 @_use_repl_context_if_available("mlflowGitRepoUrl")
 def get_git_repo_url():
     try:
@@ -905,7 +909,7 @@ def is_running_in_ipython_environment():
         return False
 
 
-def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -> Optional[str]:
+def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -> str | None:
     """
     Obtains a Databricks URL corresponding to the specified MLflow Run, optionally referring
     to an artifact within the run.
@@ -941,7 +945,7 @@ def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -
         return None
 
 
-def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> Optional[str]:
+def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> str | None:
     """Obtains a Databricks URL corresponding to the specified Model Version.
 
     Args:
@@ -977,12 +981,12 @@ class DatabricksWorkspaceInfo:
     WORKSPACE_HOST_ENV_VAR = "_DATABRICKS_WORKSPACE_HOST"
     WORKSPACE_ID_ENV_VAR = "_DATABRICKS_WORKSPACE_ID"
 
-    def __init__(self, host: str, workspace_id: Optional[str] = None):
+    def __init__(self, host: str, workspace_id: str | None = None):
         self.host = host
         self.workspace_id = workspace_id
 
     @classmethod
-    def from_environment(cls) -> Optional[DatabricksWorkspaceInfoType]:
+    def from_environment(cls) -> DatabricksWorkspaceInfoType | None:
         if DatabricksWorkspaceInfo.WORKSPACE_HOST_ENV_VAR in os.environ:
             return DatabricksWorkspaceInfo(
                 host=os.environ[DatabricksWorkspaceInfo.WORKSPACE_HOST_ENV_VAR],
@@ -1001,7 +1005,7 @@ class DatabricksWorkspaceInfo:
         return env
 
 
-def get_databricks_workspace_info_from_uri(tracking_uri: str) -> Optional[DatabricksWorkspaceInfo]:
+def get_databricks_workspace_info_from_uri(tracking_uri: str) -> DatabricksWorkspaceInfo | None:
     if not is_databricks_uri(tracking_uri):
         return None
 
@@ -1027,8 +1031,7 @@ def get_databricks_workspace_info_from_uri(tracking_uri: str) -> Optional[Databr
 
 
 def check_databricks_secret_scope_access(scope_name):
-    dbutils = _get_dbutils()
-    if dbutils:
+    if dbutils := _get_dbutils():
         try:
             dbutils.secrets.list(scope_name)
         except Exception as e:
@@ -1042,12 +1045,41 @@ def check_databricks_secret_scope_access(scope_name):
             )
 
 
+def get_sgc_job_run_id() -> str | None:
+    """
+    Retrieves the Serverless GPU Compute (SGC) job run ID from Databricks.
+
+    This function is used to enable automatic run resumption for SGC jobs by fetching
+    the job run ID. It first checks the Databricks widget parameter, then falls back
+    to checking the environment variable if the widget is not found.
+
+    Returns:
+        str or None: The SGC job run ID if available, otherwise None. Returns None
+        when neither the widget nor environment variable is set.
+    """
+    try:
+        dbutils = _get_dbutils()
+        if job_run_id := dbutils.widgets.get("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"):
+            _logger.debug(f"SGC job run ID from dbutils widget: {job_run_id}")
+            return job_run_id
+    except _NoDbutilsError:
+        _logger.debug("dbutils not available, checking environment variable")
+    except Exception as e:
+        _logger.debug(f"Failed to retrieve SGC job run ID from dbutils widget: {e}", exc_info=True)
+
+    if job_run_id := _SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID.get():
+        _logger.debug(f"SGC job run ID from environment variable: {job_run_id}")
+        return job_run_id
+
+    return None
+
+
 def _construct_databricks_run_url(
     host: str,
     experiment_id: str,
     run_id: str,
-    workspace_id: Optional[str] = None,
-    artifact_path: Optional[str] = None,
+    workspace_id: str | None = None,
+    artifact_path: str | None = None,
 ) -> str:
     run_url = host
     if workspace_id and workspace_id != "0":
@@ -1062,7 +1094,7 @@ def _construct_databricks_run_url(
 
 
 def _construct_databricks_model_version_url(
-    host: str, name: str, version: str, workspace_id: Optional[str] = None
+    host: str, name: str, version: str, workspace_id: str | None = None
 ) -> str:
     model_version_url = host
     if workspace_id and workspace_id != "0":
@@ -1074,7 +1106,7 @@ def _construct_databricks_model_version_url(
 
 
 def _construct_databricks_logged_model_url(
-    workspace_url: str, experiment_id: str, model_id: str, workspace_id: Optional[str] = None
+    workspace_url: str, experiment_id: str, model_id: str, workspace_id: str | None = None
 ) -> str:
     """
     Get a Databricks URL for a given registered model version in Unity Catalog.
@@ -1093,7 +1125,7 @@ def _construct_databricks_logged_model_url(
 
 
 def _construct_databricks_uc_registered_model_url(
-    workspace_url: str, registered_model_name: str, version: str, workspace_id: Optional[str] = None
+    workspace_url: str, registered_model_name: str, version: str, workspace_id: str | None = None
 ) -> str:
     """
     Get a Databricks URL for a given registered model version in Unity Catalog.
@@ -1115,8 +1147,8 @@ def _construct_databricks_uc_registered_model_url(
 def _print_databricks_deployment_job_url(
     model_name: str,
     job_id: str,
-    workspace_url: Optional[str] = None,
-    workspace_id: Optional[str] = None,
+    workspace_url: str | None = None,
+    workspace_id: str | None = None,
 ) -> str:
     if not workspace_url:
         workspace_url = get_workspace_url()
@@ -1242,7 +1274,7 @@ class DatabricksRuntimeVersion(NamedTuple):
     minor: int
 
     @classmethod
-    def parse(cls, databricks_runtime: Optional[str] = None):
+    def parse(cls, databricks_runtime: str | None = None):
         dbr_version = databricks_runtime or get_databricks_runtime_version()
         try:
             dbr_version_splits = dbr_version.split(".", maxsplit=2)
@@ -1434,3 +1466,45 @@ def stage_model_for_databricks_model_serving(model_name: str, model_version: str
         },
     )
     augmented_raise_for_status(response)
+
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+def databricks_api_disabled(api_name: str = "This API", alternative: str | None = None):
+    """
+    Decorator that disables an API method when used with Databricks.
+
+    This decorator checks if the tracking URI is a Databricks URI and raises an error if so.
+
+    Args:
+        api_name: Name of the API for the error message.
+        alternative: Optional alternative solution to suggest in the error message.
+
+    Returns:
+        Decorator function that wraps the method to check for Databricks.
+    """
+
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+        @functools.wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            from mlflow.tracking import get_tracking_uri
+            from mlflow.utils.uri import is_databricks_uri
+
+            tracking_uri = get_tracking_uri()
+            if not is_databricks_uri(tracking_uri):
+                return func(*args, **kwargs)
+
+            error_msg = f"{api_name} is not supported in Databricks environments."
+            if alternative:
+                error_msg += f" {alternative}"
+
+            raise MlflowException(
+                error_msg,
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        return wrapper
+
+    return decorator

@@ -4,7 +4,6 @@ sidebar_label: Overview
 pagination_label: MLflow Serving
 ---
 
-import Link from "@docusaurus/Link";
 import { APILink } from "@site/src/components/APILink";
 import { CardGroup, LogoCard } from "@site/src/components/Card";
 
@@ -97,11 +96,11 @@ MLflow offers support for a variety of deployment targets. For detailed informat
 
 Deployment-related commands are primarily categorized under two modules:
 
-- <Link to="/api_reference/cli.html#mlflow-models" target="_blank">mlflow models</Link> - typically used for local deployment.
-- <Link to="/api_reference/cli.html#mlflow-deployments" target="_blank">mlflow deployments</Link> - typically used for deploying to custom targets.
+- <APILink fn="mlflow.server.cli" hash="mlflow-models">mlflow models</APILink> - typically used for local deployment.
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments">mlflow deployments</APILink> - typically used for deploying to custom targets.
 
 Note that these categories are not strictly separated and may overlap. Furthermore, certain targets require
-custom modules or plugins, for example, <Link to="/api_reference/cli.html#mlflow-sagemaker" target="_blank">mlflow sagemaker</Link> is used for Amazon
+custom modules or plugins, for example, <APILink fn="mlflow.server.cli" hash="mlflow-sagemaker">mlflow sagemaker</APILink> is used for Amazon
 SageMaker deployments, and the [azureml-mlflow](https://pypi.org/project/azureml-mlflow) library is required for Azure ML.
 
 Therefore, it is advisable to consult the specific documentation for your chosen target to identify the appropriate commands.

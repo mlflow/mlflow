@@ -1,12 +1,16 @@
+import { jest, describe, beforeAll, afterAll, test, expect } from '@jest/globals';
 import { mount } from 'enzyme';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
 import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { useRunsColumnDefinitions } from '../../utils/experimentPage.column-utils';
-import { ExperimentViewRunsTable, ExperimentViewRunsTableProps } from './ExperimentViewRunsTable';
+import type { ExperimentViewRunsTableProps } from './ExperimentViewRunsTable';
+import { ExperimentViewRunsTable } from './ExperimentViewRunsTable';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { createExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
+import { COLUMN_TYPES } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { makeCanonicalSortKey } from '../../utils/experimentPage.common-utils';
 
 /**
  * Mock all expensive utility functions
@@ -113,9 +117,41 @@ describe('ExperimentViewRunsTable', () => {
       ),
     });
 
+  const createLargeDatasetProps = (selectedKey: string, columnType: string) => {
+    const largeParamKeyList = Array.from({ length: 400 }, (_, i) => `p${i}`);
+    const largeMetricKeyList = Array.from({ length: 400 }, (_, i) => `m${i}`);
+    const largeTags: Record<string, { key: string; value: string }> = {};
+
+    // Add the selected key to the appropriate list
+    if (columnType === COLUMN_TYPES.PARAMS) {
+      largeParamKeyList.push(selectedKey);
+    } else if (columnType === COLUMN_TYPES.METRICS) {
+      largeMetricKeyList.push(selectedKey);
+    } else if (columnType === COLUMN_TYPES.TAGS) {
+      largeTags[selectedKey] = { key: selectedKey, value: 'testvalue' };
+    }
+
+    // Create enough tags to exceed threshold
+    for (let i = 0; i < 201; i++) {
+      largeTags[`tag${i}`] = { key: `tag${i}`, value: `value${i}` };
+    }
+
+    return {
+      runsData: {
+        ...defaultProps.runsData,
+        paramKeyList: largeParamKeyList,
+        metricKeyList: largeMetricKeyList,
+        tagsList: [largeTags],
+      },
+      uiState: Object.assign(createExperimentPageUIState(), {
+        selectedColumns: [makeCanonicalSortKey(columnType, selectedKey)],
+      }),
+    };
+  };
+
   test('should properly call creating column definitions function', () => {
     createWrapper();
-    expect(useRunsColumnDefinitions).toBeCalledWith(
+    expect(useRunsColumnDefinitions).toHaveBeenCalledWith(
       expect.objectContaining({
         selectedColumns: expect.anything(),
         compareExperiments: false,
@@ -127,12 +163,46 @@ describe('ExperimentViewRunsTable', () => {
     );
   });
 
+  test('should pass selected tag columns to column definitions', () => {
+    const tagKey = mockTagKeys[0];
+    createWrapper({
+      uiState: Object.assign(createExperimentPageUIState(), {
+        selectedColumns: [makeCanonicalSortKey(COLUMN_TYPES.TAGS, tagKey)],
+      }),
+    });
+    expect(useRunsColumnDefinitions).toHaveBeenCalledWith(expect.objectContaining({ tagKeyList: mockTagKeys }));
+  });
+
+  test('should filter tag columns when shouldOptimize is true', () => {
+    const tagKey = 'testtag1';
+    createWrapper(createLargeDatasetProps(tagKey, COLUMN_TYPES.TAGS));
+
+    const lastCall = jest.mocked(useRunsColumnDefinitions).mock.calls.slice(-1)[0][0] as any;
+    expect(lastCall.tagKeyList).toEqual([tagKey]);
+  });
+
+  test('should filter metric columns when shouldOptimize is true', () => {
+    const metricKey = 'testmetric1';
+    createWrapper(createLargeDatasetProps(metricKey, COLUMN_TYPES.METRICS));
+
+    const lastCall = jest.mocked(useRunsColumnDefinitions).mock.calls.slice(-1)[0][0] as any;
+    expect(lastCall.metricKeyList).toEqual([metricKey]);
+  });
+
+  test('should filter param columns when shouldOptimize is true', () => {
+    const paramKey = 'testparam1';
+    createWrapper(createLargeDatasetProps(paramKey, COLUMN_TYPES.PARAMS));
+
+    const lastCall = jest.mocked(useRunsColumnDefinitions).mock.calls.slice(-1)[0][0] as any;
+    expect(lastCall.paramKeyList).toEqual([paramKey]);
+  });
+
   test('should properly generate new column data on the new runs data', () => {
     const wrapper = createWrapper();
 
     // Assert that we're not calling for generating columns
     // while having "newparam" parameter
-    expect(useRunsColumnDefinitions).not.toBeCalledWith(
+    expect(useRunsColumnDefinitions).not.toHaveBeenCalledWith(
       expect.objectContaining({
         paramKeyList: ['p1', 'p2', 'p3', 'newparam'],
       }),
@@ -145,7 +215,7 @@ describe('ExperimentViewRunsTable', () => {
 
     // Assert that "newparam" parameter is being included in calls
     // for new columns
-    expect(useRunsColumnDefinitions).toBeCalledWith(
+    expect(useRunsColumnDefinitions).toHaveBeenCalledWith(
       expect.objectContaining({
         paramKeyList: ['p1', 'p2', 'p3', 'newparam'],
       }),
@@ -186,7 +256,7 @@ describe('ExperimentViewRunsTable', () => {
     const containingExperimentsWrapper = createWrapper({ moreRunsAvailable: false });
 
     // Assert "load more" row not being sent to agGrid
-    expect(mockGridApi.setRowData).not.toBeCalledWith(
+    expect(mockGridApi.setRowData).not.toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ isLoadMoreRow: true })]),
     );
 
@@ -196,7 +266,7 @@ describe('ExperimentViewRunsTable', () => {
     });
 
     // Assert "load more" row being added to payload
-    expect(mockGridApi.setRowData).toBeCalledWith(
+    expect(mockGridApi.setRowData).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ isLoadMoreRow: true })]),
     );
   });

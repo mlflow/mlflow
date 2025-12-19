@@ -19,11 +19,8 @@ import {
 import { getRunApi } from '../../experiment-tracking/actions';
 import { getModelVersion, getModelVersionSchemas } from '../reducers';
 import { ModelVersionView } from './ModelVersionView';
-import {
-  ActivityTypes,
-  PendingModelVersionActivity,
-  MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL,
-} from '../constants';
+import type { PendingModelVersionActivity } from '../constants';
+import { ActivityTypes, MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../constants';
 import Utils from '../../common/utils/Utils';
 import { getRunInfo, getRunTags } from '../../experiment-tracking/reducers/Reducers';
 import RequestStateWrapper, { triggerError } from '../../common/components/RequestStateWrapper';
@@ -32,14 +29,14 @@ import { Spinner } from '../../common/components/Spinner';
 import { ModelRegistryRoutes } from '../routes';
 import { getProtoField } from '../utils';
 import { getUUID } from '../../common/utils/ActionUtils';
-import _ from 'lodash';
+import { without } from 'lodash';
 import { PageContainer } from '../../common/components/PageContainer';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import type { ModelEntity, RunInfoEntity } from '../../experiment-tracking/types';
-import { ReduxState } from '../../redux-types';
+import type { ReduxState } from '../../redux-types';
 import { ErrorCodes } from '../../common/constants';
 import { injectIntl } from 'react-intl';
 
@@ -143,7 +140,7 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
         // `initGetMlModelFileRequestId` from `criticalInitialRequestIds`
         // to unblock RequestStateWrapper from rendering its content
         this.setState((prevState: any) => ({
-          criticalInitialRequestIds: _.without(prevState.criticalInitialRequestIds, this.initGetMlModelFileRequestId),
+          criticalInitialRequestIds: without(prevState.criticalInitialRequestIds, this.initGetMlModelFileRequestId),
         }));
       });
   }

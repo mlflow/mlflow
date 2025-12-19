@@ -1,3 +1,4 @@
+import { jest, describe, beforeAll, beforeEach, test, expect } from '@jest/globals';
 import { graphql, rest } from 'msw';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { render, screen, waitFor, within, act } from '@testing-library/react';
@@ -10,17 +11,17 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event';
 import { LoggedModelStatusProtoEnum } from '../../types';
 import { first, orderBy } from 'lodash';
-import { RunsChartsBarCardConfig } from '../../components/runs-charts/runs-charts.types';
-import { RunsChartsRunData } from '../../components/runs-charts/components/RunsCharts.common';
+import type { RunsChartsBarCardConfig } from '../../components/runs-charts/runs-charts.types';
+import type { RunsChartsRunData } from '../../components/runs-charts/components/RunsCharts.common';
 import { createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // increase timeout due to testing heavier tables and charts
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   isLoggedModelsFilteringAndSortingEnabled: jest.fn(() => true),
-  isExperimentLoggedModelsUIEnabled: jest.fn(() => true),
 }));
 
 // Mock the chart component to save some resources while easily assert that the correct chart is rendered

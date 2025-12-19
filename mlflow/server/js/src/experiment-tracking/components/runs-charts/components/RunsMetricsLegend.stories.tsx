@@ -1,6 +1,7 @@
 import { lineDashStyles } from './RunsCharts.common';
 import { chartColors, getRandomRunName } from './RunsCharts.stories-common';
-import RunsMetricsLegend, { LegendLabelData } from './RunsMetricsLegend';
+import type { LegendLabelData } from './RunsMetricsLegend';
+import RunsMetricsLegend from './RunsMetricsLegend';
 
 const createData = (withDashStyle: boolean): LegendLabelData[] => {
   const data = [];

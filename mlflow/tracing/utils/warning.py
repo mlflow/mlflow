@@ -2,7 +2,6 @@ import functools
 import importlib
 import logging
 import warnings
-from typing import Optional
 
 _logger = logging.getLogger(__name__)
 
@@ -58,13 +57,13 @@ def request_id_backward_compatible(func):
     """
 
     @functools.wraps(func)
-    def wrapper(*args, request_id: Optional[str] = None, **kwargs):
+    def wrapper(*args, request_id: str | None = None, **kwargs):
         if request_id is not None:
             warnings.warn(
                 f"The request_id parameter is deprecated from the {func.__name__} API "
                 "and will be removed in a future version. Please use the `trace_id` "
                 "parameter instead.",
-                category=DeprecationWarning,
+                category=FutureWarning,
                 stacklevel=2,
             )
 

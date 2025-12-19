@@ -1,7 +1,7 @@
 import time
 from typing import Any
 
-from mlflow.gateway.config import HuggingFaceTextGenerationInferenceConfig, RouteConfig
+from mlflow.gateway.config import EndpointConfig, HuggingFaceTextGenerationInferenceConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import (
@@ -15,7 +15,7 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
     NAME = "Hugging Face Text Generation Inference"
     CONFIG_TYPE = HuggingFaceTextGenerationInferenceConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(
             config.model.config, HuggingFaceTextGenerationInferenceConfig

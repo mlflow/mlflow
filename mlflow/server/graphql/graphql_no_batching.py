@@ -1,4 +1,4 @@
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 from graphql.error import GraphQLError
 from graphql.execution import ExecutionResult
@@ -58,7 +58,7 @@ def scan_query(ast_node: DocumentNode) -> QueryInfo:
     return QueryInfo(root_fields, max_aliases)
 
 
-def check_query_safety(ast_node: DocumentNode) -> Optional[ExecutionResult]:
+def check_query_safety(ast_node: DocumentNode) -> ExecutionResult | None:
     try:
         query_info = scan_query(ast_node)
     except GraphQLError as e:

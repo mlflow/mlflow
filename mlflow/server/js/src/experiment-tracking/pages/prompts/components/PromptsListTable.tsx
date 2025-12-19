@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   CursorPagination,
   Empty,
@@ -9,15 +10,16 @@ import {
   TableSkeletonRows,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { RegisteredPrompt } from '../types';
+import type { RegisteredPrompt } from '../types';
 import { PromptsListTableTagsCell } from './PromptsListTableTagsCell';
 import { PromptsListTableNameCell } from './PromptsListTableNameCell';
 import Utils from '../../../../common/utils/Utils';
 import { PromptsListTableVersionCell } from './PromptsListTableVersionCell';
-import { PromptsTableMetadata } from '../utils';
+import type { PromptsTableMetadata } from '../utils';
 import { first, isEmpty } from 'lodash';
 
 type PromptsTableColumnDef = ColumnDef<RegisteredPrompt>;
@@ -76,6 +78,7 @@ export const PromptsListTable = ({
   onNextPage,
   onPreviousPage,
   onEditTags,
+  experimentId,
 }: {
   prompts?: RegisteredPrompt[];
   error?: Error;
@@ -86,17 +89,21 @@ export const PromptsListTable = ({
   onNextPage: () => void;
   onPreviousPage: () => void;
   onEditTags: (editedEntity: RegisteredPrompt) => void;
+  experimentId?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
   const columns = usePromptsTableColumns();
 
-  const table = useReactTable({
-    data: prompts ?? [],
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (row, index) => row.name ?? index.toString(),
-    meta: { onEditTags } satisfies PromptsTableMetadata,
-  });
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/pages/prompts/components/PromptsListTable.tsx',
+    {
+      data: prompts ?? [],
+      columns,
+      getCoreRowModel: getCoreRowModel(),
+      getRowId: (row, index) => row.name ?? index.toString(),
+      meta: { onEditTags, experimentId } satisfies PromptsTableMetadata,
+    },
+  );
 
   const getEmptyState = () => {
     const isEmptyList = !isLoading && isEmpty(prompts);

@@ -153,6 +153,12 @@ def _create_conda_env_retry(
     while collecting package metadata. This function retries the command up to 3 times.
     """
     num_attempts = 3
+    retryable_errors = (
+        "ConnectionResetError",
+        "ChunkedEncodingError",
+        "CONNECTION FAILED",
+        "CondaHTTPError",
+    )
     for attempt in range(num_attempts):
         try:
             return _create_conda_env(
@@ -163,10 +169,7 @@ def _create_conda_env_retry(
                 capture_output=True,
             )
         except process.ShellCommandException as e:
-            error_str = str(e)
-            if (num_attempts - attempt - 1) > 0 and (
-                "ConnectionResetError" in error_str or "ChunkedEncodingError" in error_str
-            ):
+            if attempt < num_attempts - 1 and any(err in str(e) for err in retryable_errors):
                 _logger.warning("Conda env creation failed due to network issue. Retrying...")
                 continue
             raise

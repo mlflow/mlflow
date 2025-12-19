@@ -167,7 +167,6 @@ def test_queue_batch_operation_appends_to_existing_queue(setup_storage):
 
 
 def test_flush_batch_sends_data_to_mlflow(setup_storage):
-    """Test that _flush_batch properly sends data to MLflow client."""
     with patch("mlflow.optuna.storage.MlflowClient") as mock_client:
         storage = setup_storage
         run_id = "test-run-id"
@@ -198,7 +197,6 @@ def test_flush_batch_sends_data_to_mlflow(setup_storage):
 
 
 def test_flush_batch_does_nothing_for_empty_batch(setup_storage):
-    """Test that _flush_batch does nothing when batch is empty."""
     with patch("mlflow.optuna.storage.MlflowClient") as mock_client:
         storage = setup_storage
         run_id = "test-run-id"
@@ -219,7 +217,6 @@ def test_flush_batch_does_nothing_for_empty_batch(setup_storage):
 
 
 def test_flush_batch_handles_nonexistent_run(setup_storage):
-    """Test that _flush_batch handles nonexistent run gracefully."""
     with patch("mlflow.optuna.storage.MlflowClient") as mock_client:
         storage = setup_storage
         run_id = "nonexistent-run"
@@ -237,7 +234,6 @@ def test_flush_batch_handles_nonexistent_run(setup_storage):
 
 
 def test_flush_all_batches_flushes_all_runs(setup_storage):
-    """Test that flush_all_batches flushes all pending runs."""
     storage = setup_storage
     # Setup multiple runs with data
     run_ids = ["run1", "run2", "run3"]
@@ -261,7 +257,6 @@ def test_flush_all_batches_flushes_all_runs(setup_storage):
 
 
 def test_flush_all_batches_handles_empty_queue(setup_storage):
-    """Test that flush_all_batches works with empty queue."""
     storage = setup_storage
     # Ensure batch queue is empty
     storage._batch_queue = {}
@@ -679,3 +674,30 @@ def test_get_n_trials(setup_storage):
     study_id_to_frozen_studies, _ = _setup_studies(storage, n_study=2, n_trial=7, seed=50)
     for study_id in study_id_to_frozen_studies:
         assert storage.get_n_trials(study_id) == 7
+
+
+def test_study_exists_method(setup_storage):
+    storage = setup_storage
+
+    # Test non-existent study
+    assert not storage.get_study_id_by_name_if_exists("non-existent-study")
+
+    # Create a study
+    storage.create_new_study([StudyDirection.MINIMIZE], "test-study")
+
+    # Test existing study
+    assert storage.get_study_id_by_name_if_exists("test-study")
+
+
+def test_get_study_id_by_name_if_exists(setup_storage):
+    storage = setup_storage
+
+    # Test non-existent study
+    assert storage.get_study_id_by_name_if_exists("non-existent") is None
+
+    # Create a study
+    study_id = storage.create_new_study([StudyDirection.MINIMIZE], "test-study")
+
+    # Test existing study
+    result = storage.get_study_id_by_name_if_exists("test-study")
+    assert result == study_id

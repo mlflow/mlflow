@@ -2,7 +2,6 @@ import os
 import posixpath
 import re
 import urllib.parse
-from typing import Optional
 
 import requests
 
@@ -56,8 +55,7 @@ def _parse_abfss_uri(uri):
     account_name = match.group(2)
     domain_suffix = match.group(3)
     path = parsed.path
-    if path.startswith("/"):
-        path = path[1:]
+    path = path.removeprefix("/")
     return filesystem, account_name, domain_suffix, path
 
 
@@ -82,11 +80,12 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
     def __init__(
         self,
         artifact_uri: str,
-        tracking_uri: Optional[str] = None,
         credential=None,
         credential_refresh_def=None,
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
     ) -> None:
-        super().__init__(artifact_uri, tracking_uri)
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         _DEFAULT_TIMEOUT = 600  # 10 minutes
         self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
         self._parse_credentials(credential)
@@ -153,8 +152,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                 continue
             if result.is_directory:
                 subdir = posixpath.relpath(path=result.name, start=self.base_data_lake_directory)
-                if subdir.endswith("/"):
-                    subdir = subdir[:-1]
+                subdir = subdir.removesuffix("/")
                 infos.append(FileInfo(subdir, is_dir=True, file_size=None))
             else:
                 file_name = posixpath.relpath(path=result.name, start=self.base_data_lake_directory)

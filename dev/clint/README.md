@@ -46,3 +46,9 @@ exclude = [
   "path/to/file.py",
 ]
 ```
+
+## Testing
+
+```bash
+pytest dev/clint
+```

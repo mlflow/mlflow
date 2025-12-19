@@ -1,11 +1,15 @@
 Type: Package
 Package: mlflow
 Title: Interface to 'MLflow'
-Version: 3.1.1
+Version: 3.8.1
 Authors@R: 
-    c(person(given = "Matei",
-             family = "Zaharia",
+    c(person(given = "Ben",
+             family = "Wilson",
              role = c("aut", "cre"),
+             email = "benjamin.wilson@databricks.com"),
+      person(given = "Matei",
+             family = "Zaharia",
+             role = "aut",
              email = "matei@databricks.com"),
       person(given = "Javier",
              family = "Luraschi",
@@ -18,7 +22,6 @@ Authors@R:
              comment = c(ORCID = "0000-0001-7803-7901")),
       person(family = "RStudio",
              role = "cph"))
-Maintainer: Ben Wilson <benjamin.wilson@databricks.com>
 Description: R interface to 'MLflow', open source platform for
     the complete machine learning life cycle, see <https://mlflow.org/>.
     This package supports installing 'MLflow', tracking experiments,

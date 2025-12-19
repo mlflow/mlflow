@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
 from unittest import mock
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
@@ -18,7 +19,7 @@ from click.testing import CliRunner
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.cli import doctor, gc, server
+from mlflow.cli import cli, doctor, gc, server
 from mlflow.data import numpy_dataset
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
@@ -30,7 +31,11 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.rest_utils import augmented_raise_for_status
 from mlflow.utils.time import get_current_time_millis
 
-from tests.helper_functions import PROTOBUF_REQUIREMENT, get_safe_port, pyfunc_serve_and_score_model
+from tests.helper_functions import (
+    PROTOBUF_REQUIREMENT,
+    get_safe_port,
+    pyfunc_serve_and_score_model,
+)
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
@@ -65,19 +70,164 @@ def test_server_static_prefix_validation():
         run_server_mock.assert_not_called()
 
 
+def test_server_uvicorn_options():
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        # Test default behavior (uvicorn should be used when no server options specified)
+        CliRunner().invoke(server)
+        run_server_mock.assert_called_once_with(
+            file_store_path=mock.ANY,
+            registry_store_uri=mock.ANY,
+            default_artifact_root=mock.ANY,
+            serve_artifacts=mock.ANY,
+            artifacts_only=mock.ANY,
+            artifacts_destination=mock.ANY,
+            host="127.0.0.1",
+            port=5000,
+            static_prefix=None,
+            workers=None,
+            gunicorn_opts=None,
+            waitress_opts=None,
+            expose_prometheus=None,
+            app_name=None,
+            uvicorn_opts=None,
+            env_file=None,
+            secrets_cache_ttl=60,
+            secrets_cache_max_size=1000,
+        )
+
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        # Test with uvicorn-opts - use different options than dev mode
+        CliRunner().invoke(server, ["--uvicorn-opts", "--loop asyncio --limit-concurrency 100"])
+        run_server_mock.assert_called_once_with(
+            file_store_path=mock.ANY,
+            registry_store_uri=mock.ANY,
+            default_artifact_root=mock.ANY,
+            serve_artifacts=mock.ANY,
+            artifacts_only=mock.ANY,
+            artifacts_destination=mock.ANY,
+            host="127.0.0.1",
+            port=5000,
+            static_prefix=None,
+            workers=None,
+            gunicorn_opts=None,
+            waitress_opts=None,
+            expose_prometheus=None,
+            app_name=None,
+            uvicorn_opts="--loop asyncio --limit-concurrency 100",
+            env_file=None,
+            secrets_cache_ttl=60,
+            secrets_cache_max_size=1000,
+        )
+
+
+@pytest.mark.skipif(is_windows(), reason="--dev mode is not supported on Windows")
+def test_server_dev_mode():
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        # Test with --dev flag (should set uvicorn opts)
+        CliRunner().invoke(server, ["--dev"])
+        run_server_mock.assert_called_once_with(
+            file_store_path=mock.ANY,
+            registry_store_uri=mock.ANY,
+            default_artifact_root=mock.ANY,
+            serve_artifacts=mock.ANY,
+            artifacts_only=mock.ANY,
+            artifacts_destination=mock.ANY,
+            host="127.0.0.1",
+            port=5000,
+            static_prefix=None,
+            workers=None,
+            gunicorn_opts=None,
+            waitress_opts=None,
+            expose_prometheus=None,
+            app_name=None,
+            uvicorn_opts="--reload --log-level debug",
+            env_file=None,
+            secrets_cache_ttl=60,
+            secrets_cache_max_size=1000,
+        )
+
+
+@pytest.mark.skipif(is_windows(), reason="Gunicorn is not supported on Windows")
+def test_server_gunicorn_options():
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        # Test that gunicorn-opts disables uvicorn
+        CliRunner().invoke(server, ["--gunicorn-opts", "--timeout 120 --max-requests 1000"])
+        run_server_mock.assert_called_once_with(
+            file_store_path=mock.ANY,
+            registry_store_uri=mock.ANY,
+            default_artifact_root=mock.ANY,
+            serve_artifacts=mock.ANY,
+            artifacts_only=mock.ANY,
+            artifacts_destination=mock.ANY,
+            host="127.0.0.1",
+            port=5000,
+            static_prefix=None,
+            workers=None,
+            gunicorn_opts="--timeout 120 --max-requests 1000",
+            waitress_opts=None,
+            expose_prometheus=None,
+            app_name=None,
+            uvicorn_opts=None,
+            env_file=None,
+            secrets_cache_ttl=60,
+            secrets_cache_max_size=1000,
+        )
+
+    # Test conflicting options
+    result = CliRunner().invoke(
+        server, ["--uvicorn-opts", "--reload", "--gunicorn-opts", "--log-level debug"]
+    )
+    assert result.exit_code != 0
+    assert "Cannot specify multiple server options" in result.output
+
+
+def test_server_initializes_backend_store_when_tracking_enabled():
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with (
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend_mock,
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+        ):
+            result = runner.invoke(server)
+    assert result.exit_code == 0
+    init_backend_mock.assert_called_once_with(mock.ANY, mock.ANY, mock.ANY)
+    run_server_mock.assert_called_once()
+
+
+def test_server_skips_backend_store_init_in_artifacts_only_mode():
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with (
+            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend_mock,
+            mock.patch("mlflow.server._run_server") as run_server_mock,
+        ):
+            result = runner.invoke(server, ["--artifacts-only"])
+    assert result.exit_code == 0
+    init_backend_mock.assert_not_called()
+    run_server_mock.assert_called_once()
+
+
 def test_server_mlflow_artifacts_options():
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--artifacts-only"])
-        run_server_mock.assert_called_once()
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--serve-artifacts"])
-        run_server_mock.assert_called_once()
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--no-serve-artifacts"])
-        run_server_mock.assert_called_once()
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--artifacts-only"])
-        run_server_mock.assert_called_once()
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--artifacts-only"])
+            run_server_mock.assert_called_once()
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--serve-artifacts"])
+            run_server_mock.assert_called_once()
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--no-serve-artifacts"])
+            run_server_mock.assert_called_once()
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--artifacts-only"])
+            run_server_mock.assert_called_once()
 
 
 @pytest.mark.parametrize("command", [server])
@@ -420,7 +570,12 @@ def test_mlflow_gc_experiments(get_store_details, request):
     store.delete_experiment(exp_id_5)
     with pytest.raises(MlflowException, match=r"Experiments .+ can be deleted."):
         invoke_gc(
-            "--backend-store-uri", uri, "--experiment-ids", exp_id_5, "--older-than", "10d10h10m10s"
+            "--backend-store-uri",
+            uri,
+            "--experiment-ids",
+            exp_id_5,
+            "--older-than",
+            "10d10h10m10s",
         )
     experiments = store.search_experiments(view_type=ViewType.ALL)
     assert sorted([e.experiment_id for e in experiments]) == sorted(
@@ -535,10 +690,10 @@ def test_mlflow_models_serve(enable_mlserver):
     np.testing.assert_array_equal(served_model_preds, model.predict(data, None))
 
 
-def test_mlflow_tracking_disabled_in_artifacts_only_mode():
+def test_mlflow_tracking_disabled_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
-    process = subprocess.Popen(cmd)
+    process = subprocess.Popen(cmd, cwd=tmp_path)
     _await_server_up_or_die(port)
     resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow/experiments/search")
     assert (
@@ -548,18 +703,18 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode():
     process.kill()
 
 
-def test_mlflow_artifact_list_in_artifacts_only_mode():
+def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
-    process = subprocess.Popen(cmd)
-    try:
-        _await_server_up_or_die(port)
-        resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts")
-        augmented_raise_for_status(resp)
-        assert resp.status_code == 200
-        assert resp.text == "{}"
-    finally:
-        process.kill()
+    with subprocess.Popen(cmd, cwd=tmp_path) as process:
+        try:
+            _await_server_up_or_die(port)
+            resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts")
+            augmented_raise_for_status(resp)
+            assert resp.status_code == 200
+            assert resp.text == "{}"
+        finally:
+            process.kill()
 
 
 def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specified():
@@ -641,6 +796,114 @@ def test_doctor():
     assert res.exit_code == 0
 
 
+def test_env_file_loading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Setup: Create an experiment using the Python SDK
+    # Use file:// URI format for cross-platform compatibility
+    mlruns_path = tmp_path / "mlruns"
+    test_tracking_uri = mlruns_path.as_uri()  # This creates proper file:// URI
+    test_experiment_name = "test_experiment_from_env"
+
+    # Create experiment using SDK
+    mlflow.set_tracking_uri(test_tracking_uri)
+    mlflow.create_experiment(test_experiment_name)
+
+    # Create a test .env file pointing to this tracking URI
+    env_file_path = tmp_path / "test.env"
+    env_file_path.write_text(f"MLFLOW_TRACKING_URI={test_tracking_uri}\n")
+
+    runner = CliRunner()
+
+    # Clear the MLflow environment variables to ensure we're testing the loading
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
+    monkeypatch.delenv("MLFLOW_EXPERIMENT_NAME", raising=False)
+
+    # Ensure variables are not set before running command
+    assert "MLFLOW_TRACKING_URI" not in os.environ
+
+    # Use the existing experiments search CLI command with --env-file
+    result = runner.invoke(
+        cli,
+        ["--env-file", str(env_file_path), "experiments", "search"],
+        catch_exceptions=False,
+    )
+
+    # Check that the command executed successfully
+    assert result.exit_code == 0
+
+    # Verify the experiment we created is found (proves env vars were loaded)
+    assert test_experiment_name in result.output
+
+    # Verify the loading message
+    assert "Loaded environment variables from:" in result.output
+    assert str(env_file_path) in result.output
+
+
+def test_env_file_loading_invalid_path() -> None:
+    runner = CliRunner()
+
+    # Test error handling for non-existent file
+    result = runner.invoke(
+        cli,
+        ["--env-file", "nonexistent.env", "experiments", "search"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code != 0
+    assert "Environment file 'nonexistent.env' does not exist" in result.output
+
+
+@pytest.mark.parametrize(
+    ("args", "expected_max_results", "expected_view"),
+    [
+        (["experiments", "search"], None, ViewType.ACTIVE_ONLY),
+        (["experiments", "search", "--max-results", "50"], 50, ViewType.ACTIVE_ONLY),
+        (
+            ["experiments", "search", "--view", "all", "--max-results", "100"],
+            100,
+            ViewType.ALL,
+        ),
+    ],
+)
+def test_experiments_search_max_results(args, expected_max_results, expected_view):
+    with mock.patch("mlflow.search_experiments", return_value=[]) as mock_search:
+        result = CliRunner().invoke(cli, args, catch_exceptions=False)
+        assert result.exit_code == 0
+        mock_search.assert_called_once()
+        call_kwargs = mock_search.call_args[1]
+        assert call_kwargs.get("max_results") == expected_max_results
+        assert call_kwargs.get("view_type") == expected_view
+
+
+def test_experiments_search_max_results_zero():
+    with mock.patch("mlflow.search_experiments", return_value=[]) as mock_search:
+        result = CliRunner().invoke(
+            cli, ["experiments", "search", "--max-results", "0"], catch_exceptions=False
+        )
+        assert result.exit_code == 0
+        mock_search.assert_called_once()
+        call_kwargs = mock_search.call_args[1]
+        assert call_kwargs.get("max_results") == 0
+
+
+def test_experiments_search_max_results_negative():
+    result = CliRunner().invoke(
+        cli, ["experiments", "search", "--max-results", "-1"], catch_exceptions=False
+    )
+    assert result.exit_code != 0
+    assert "max-results must be a non-negative integer" in result.output
+
+
+def test_server_with_env_file(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text("TEST_VAR=test_value\n")
+
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        result = CliRunner().invoke(cli, ["--env-file", str(env_file), "server"])
+        assert result.exit_code == 0
+        run_server_mock.assert_called_once()
+        # Verify env_file parameter is passed
+        assert run_server_mock.call_args.kwargs["env_file"] == str(env_file)
+
+
 def test_mlflow_gc_with_datasets(sqlite_store):
     store = sqlite_store[0]
 
@@ -674,3 +937,105 @@ def test_mlflow_gc_with_datasets(sqlite_store):
     assert experiments[0].experiment_id == "0"
     with pytest.raises(MlflowException, match=f"No Experiment with id={experiment_id} exists"):
         store.get_experiment(experiment_id)
+
+
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_logged_model(get_store_details, request):
+    store, uri = request.getfixturevalue(get_store_details)
+    exp_id = store.create_experiment("exp")
+    model = store.create_logged_model(experiment_id=exp_id)
+
+    store.delete_logged_model(model.model_id)
+    subprocess.check_output([sys.executable, "-m", "mlflow", "gc", "--backend-store-uri", uri])
+
+    with pytest.raises(MlflowException, match=r".+ not found"):
+        store.get_logged_model(model.model_id)
+
+
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_logged_models_older_than(get_store_details, request):
+    store, uri = request.getfixturevalue(get_store_details)
+    exp_id = store.create_experiment("exp")
+    old_time = time.time() - (2 * 24 * 60 * 60)
+    with mock.patch("time.time", return_value=old_time):
+        model = store.create_logged_model(experiment_id=exp_id)
+
+    store.delete_logged_model(model.model_id)
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            uri,
+            "--older-than",
+            "1d",
+        ]
+    )
+
+    retrieved_model = store.get_logged_model(model.model_id, allow_deleted=True)
+    assert retrieved_model.model_id == model.model_id
+
+
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_logged_models_deletes_when_older_than(get_store_details, request):
+    store, uri = request.getfixturevalue(get_store_details)
+    exp_id = store.create_experiment("exp")
+    model = store.create_logged_model(experiment_id=exp_id)
+
+    old_deletion_ms = int((time.time() - (2 * 24 * 60 * 60)) * 1000)
+    with mock.patch("mlflow.utils.time.get_current_time_millis", return_value=old_deletion_ms):
+        store.delete_logged_model(model.model_id)
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            uri,
+            "--older-than",
+            "1d",
+        ]
+    )
+
+    with pytest.raises(MlflowException, match=r".+ not found"):
+        store.get_logged_model(model.model_id)
+
+
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_logged_models_mixed_time(get_store_details, request):
+    store, uri = request.getfixturevalue(get_store_details)
+    exp_id = store.create_experiment("exp")
+    old_model = store.create_logged_model(experiment_id=exp_id)
+    recent_model = store.create_logged_model(experiment_id=exp_id)
+
+    old_deletion_ms = int((time.time() - (3 * 24 * 60 * 60)) * 1000)
+    with mock.patch("mlflow.utils.time.get_current_time_millis", return_value=old_deletion_ms):
+        store.delete_logged_model(old_model.model_id)
+
+    with mock.patch("mlflow.utils.time.get_current_time_millis") as current_time_mock:
+        current_time_mock.return_value = int(time.time() * 1000)
+        store.delete_logged_model(recent_model.model_id)
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            uri,
+            "--older-than",
+            "1d",
+        ]
+    )
+
+    with pytest.raises(MlflowException, match=r".+ not found"):
+        store.get_logged_model(old_model.model_id)
+
+    retrieved_model = store.get_logged_model(recent_model.model_id, allow_deleted=True)
+    assert retrieved_model.model_id == recent_model.model_id

@@ -1,7 +1,9 @@
 import os
 import random
 import re
-from collections import namedtuple
+from io import BytesIO
+from typing import Any, NamedTuple
+from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -37,7 +39,9 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
 )
 
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_data: Any
 
 
 @pytest.fixture(scope="module")
@@ -51,7 +55,7 @@ def sklearn_knn_model():
 
 
 def random_int(lo=1, hi=1000000000):
-    return random.randint(lo, hi)
+    return random.randint(int(lo), int(hi))
 
 
 def _get_list_from_file(path):
@@ -275,7 +279,7 @@ def test_create_pip_requirement(tmp_path):
     )
     wm._create_pip_requirement(conda_env_path, pip_reqs_path)
     with open(pip_reqs_path) as f:
-        pip_reqs = [x.strip() for x in f.readlines()]
+        pip_reqs = [x.strip() for x in f]
     assert expected_pip_deps.sort() == pip_reqs.sort()
 
 
@@ -343,7 +347,7 @@ def test_serving_wheeled_model(sklearn_knn_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
+    scores = pd.read_json(BytesIO(resp.content), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_data))
 
 
@@ -409,3 +413,96 @@ def test_copy_metadata(mock_is_in_databricks, sklearn_knn_model):
     else:
         assert not os.path.exists(metadata_path)
     assert mock_is_in_databricks.call_count == 2
+
+
+def test_wheel_download_prevents_command_injection(tmp_path, monkeypatch):
+    malicious_attempts = [
+        "--only-binary=:all: && echo pwned",
+        "--prefer-binary; rm -rf /",
+        "--no-binary=:none: | cat /etc/passwd",
+        "../../../etc/passwd",
+        "--extra-index-url http://evil.com",
+        "--find-links /tmp",
+        "--index-url http://malicious.com",
+        "--trusted-host evil.com",
+        "--only-binary=package`rm -rf /`",
+        "--config-settings malicious=value",
+    ]
+
+    for malicious_option in malicious_attempts:
+        monkeypatch.setenv("MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS", malicious_option)
+        with pytest.raises(MlflowException, match="Invalid pip wheel option"):
+            WheeledModel._download_wheels(tmp_path / "req.txt", tmp_path / "wheels")
+
+
+def test_wheel_download_allowed_options(tmp_path, monkeypatch):
+    allowed_options = [
+        "--only-binary=:all:",
+        "--only-binary=:none:",
+        "--no-binary=:all:",
+        "--no-binary=:none:",
+        "--prefer-binary",
+        "--no-build-isolation",
+        "--use-pep517",
+        "--check-build-dependencies",
+        "--ignore-requires-python",
+        "--no-deps",
+        "--no-verify",
+        "--pre",
+        "--require-hashes",
+        "--no-clean",
+    ]
+
+    for option in allowed_options:
+        monkeypatch.setenv("MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS", option)
+        with mock.patch("subprocess.run") as mock_run:
+            WheeledModel._download_wheels(tmp_path / "req.txt", tmp_path / "wheels")
+            mock_run.assert_called_once()
+            assert option in mock_run.call_args[0][0]
+
+    # test combination of options
+    monkeypatch.setenv("MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS", "--prefer-binary --no-clean")
+    with mock.patch("subprocess.run") as mock_run:
+        WheeledModel._download_wheels(tmp_path / "req.txt", tmp_path / "wheels")
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args
+        assert "--prefer-binary --no-clean" in call_args[0][0]
+
+
+def test_wheel_download_extra_envs(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS", "--prefer-binary")
+    extra_envs = {
+        "PIP_INDEX_URL": "https://test.pypi.org/simple/",
+        "PIP_TRUSTED_HOST": "test.pypi.org",
+        "CUSTOM_VAR": "test_value",
+    }
+
+    with mock.patch("subprocess.run") as mock_run:
+        mock_run.return_value = mock.Mock(returncode=0)
+
+        WheeledModel._download_wheels(
+            tmp_path / "req.txt", tmp_path / "wheels", extra_envs=extra_envs
+        )
+
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args
+        assert "--prefer-binary" in call_args[0][0]
+        passed_env = call_args[1]["env"]
+        assert passed_env["PIP_INDEX_URL"] == "https://test.pypi.org/simple/"
+        assert passed_env["PIP_TRUSTED_HOST"] == "test.pypi.org"
+        assert passed_env["CUSTOM_VAR"] == "test_value"
+
+        # Verify original environment variables are preserved
+        assert passed_env["PATH"] == os.environ["PATH"]
+
+
+def test_wheel_download_no_extra_envs(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS", "--prefer-binary")
+
+    with mock.patch("subprocess.run") as mock_run:
+        mock_run.return_value = mock.Mock(returncode=0)
+
+        WheeledModel._download_wheels(tmp_path / "req.txt", tmp_path / "wheels", extra_envs=None)
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args
+        assert call_args[1]["env"] is None

@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, test, expect } from '@jest/globals';
 import {
   metricsByKey,
   getLatestMetrics,
@@ -53,7 +54,7 @@ describe('test getMetricsByKey', () => {
     expect(getMetricsByKey('run1', 'm2', state)).toEqual(undefined);
   });
 
-  test('returns matching key (1)', () => {
+  test('returns matching key (2)', () => {
     const state = {
       entities: {
         metricsByRunUuid: {

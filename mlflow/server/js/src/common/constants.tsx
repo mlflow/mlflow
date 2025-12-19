@@ -9,7 +9,7 @@ export const ErrorCodes = {
   RESOURCE_CONFLICT: 'RESOURCE_CONFLICT',
 };
 
-export const Version = '3.1.1.dev0';
+export const Version = '3.8.1.dev0';
 
 const DOCS_VERSION = 'latest';
 
@@ -28,9 +28,7 @@ export const ModelRegistryOnboardingString = (
 
 export const RegisteringModelDocUrl = DOCS_ROOT + '/model-registry.html#adding-an-mlflow-model-to-the-model-registry';
 
-export const ExperimentCliDocUrl = `${DOCS_ROOT}/cli.html#mlflow-experiments`;
-
-export const ExperimentSearchSyntaxDocUrl = `${DOCS_ROOT}/search-runs.html`;
+export const ExperimentRunSearchSyntaxDocUrl = `${DOCS_ROOT}/search-runs.html`;
 
 export const PyfuncDocUrl = `${DOCS_ROOT}/python_api/mlflow.pyfunc.html`;
 export const CustomPyfuncModelsDocUrl = DOCS_ROOT + '/python_api/mlflow.pyfunc.html#creating-custom-pyfunc-models';
@@ -39,7 +37,7 @@ export const LoggingRunsDocUrl = `${DOCS_ROOT}/tracking.html#logging-data-to-run
 
 export const onboarding = 'onboarding';
 
-export const SupportPageUrl = 'https://github.com/mlflow/mlflow/issues';
+export const SupportPageUrl = 'https://github.com/mlflow/mlflow/issues/new?template=ui_bug_report_template.yaml';
 
 export const ModelSignatureUrl = `${DOCS_ROOT}/models.html#model-signature`;
 

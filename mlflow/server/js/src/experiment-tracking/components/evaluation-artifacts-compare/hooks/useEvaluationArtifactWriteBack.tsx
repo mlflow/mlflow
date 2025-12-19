@@ -1,7 +1,7 @@
 import React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { ReduxState, ThunkDispatch } from '../../../../redux-types';
+import type { ReduxState, ThunkDispatch } from '../../../../redux-types';
 import { Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import {
   discardPendingEvaluationData,

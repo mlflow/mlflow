@@ -22,11 +22,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
+# Use `bash` by default for all `run` steps in this workflow:
 # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
 defaults:
   run:
-    shell: bash --noprofile --norc -exo pipefail {0}
+    shell: bash
 
 env:
   MLFLOW_HOME: ${{ github.workspace }}
@@ -61,15 +61,16 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -U pip setuptools wheel
-          pip install --no-dependencies tests/resources/mlflow-test-plugin
-          pip install .[extras,genai]
+          pip install tests/resources/mlflow-test-plugin
+          pip install .[extras,genai,mcp]
           pip install pyspark
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
           pip install datasets
           # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
-          pip install tensorflow
+          # tensorflow >= 2.22.0 are incompatible with protobuf < 5
+          pip install 'tensorflow<2.22.0' 'tf-keras<2.20.0'
           # Install torch and transformers to test metrics
-          pip install torch transformers tf-keras
+          pip install torch transformers
           pip install -r requirements/test-requirements.txt
           # Test the latest minor version in protobuf_major_version
           pip install "protobuf==${{ matrix.protobuf_major_version }}.*"
@@ -77,7 +78,18 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
+          # NB: test_mlflow_artifacts.py is excluded because it runs docker-compose with fresh
+          # container builds. The protobuf version in the test environment has no effect on the
+          # containers, making cross-version testing unnecessary and wasteful of disk space.
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate \
-            --ignore=tests/optuna --ignore=tests/pyspark/optuna --ignore=tests/genai \
+            --ignore-flavors \
+            --ignore=tests/projects \
+            --ignore=tests/examples \
+            --ignore=tests/evaluate \
+            --ignore=tests/optuna \
+            --ignore=tests/pyspark/optuna \
+            --ignore=tests/genai \
+            --ignore=tests/telemetry \
+            --ignore=tests/gateway \
+            --ignore=tests/tracking/test_mlflow_artifacts.py \
             tests

@@ -1,12 +1,7 @@
 import React, { useCallback } from 'react';
 import { SectionErrorBoundary } from './error-boundaries/SectionErrorBoundary';
-import {
-  ChevronRightIcon,
-  useDesignSystemTheme,
-  Accordion,
-  DesignSystemThemeInterface,
-  importantify,
-} from '@databricks/design-system';
+import type { DesignSystemThemeInterface } from '@databricks/design-system';
+import { ChevronRightIcon, useDesignSystemTheme, Accordion, importantify } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 
 interface CollapsibleSectionProps {

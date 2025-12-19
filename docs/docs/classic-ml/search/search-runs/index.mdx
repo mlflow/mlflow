@@ -28,7 +28,7 @@ this section.
 Before running the script, let's simply start the MLflow UI on a local host.
 
 ```bash
-mlflow ui
+mlflow server
 ```
 
 Let's visit `http://localhost:5000/` in our web browser. After doing so, you'll notice that we don't
@@ -36,7 +36,7 @@ have any experiments or models. Let's resolve this by creating a few MLflow runs
 below.
 
 Note that when you run this script, you'll want to do so from the same directory that you ran
-the `mlflow ui` command.
+the `mlflow server` command.
 
 ```python
 import mlflow
@@ -175,22 +175,18 @@ the field is being compared, like `0.8`.
 **Valid Syntax for Left and Right Side Elements:**
 
 1. **Left Side Syntax:**
-
    - Fields without special characters or reserved keywords can be referenced directly (e.g., `tag.test`).
    - Use backticks for fields that contain special characters or are reserved keywords.
    - Double quotes are also acceptable for enclosing field names (e.g., `tag."test"`).
 
    **Unsupported:**
-
    - Single quotes are **not valid** for enclosing field names (e.g., `tag.'test'` results in a syntax error).
 
 2. **Right Side Syntax:**
-
-   - Enclose values in single or double quotes based on content requirements (e.g., `` tag.`test` = 'abc' `` or `` tag.`test` = "abc" ``).
+   - Enclose values in single or double quotes based on content requirements (e.g., ``tag.`test` = 'abc'`` or ``tag.`test` = "abc"``).
    - Non-metric values, **including numeric values** that may be stored as tags or as parameters must be enclosed in quotations.
 
    **Unsupported:**
-
    - Using backticks or no wrapping for values is not allowed. Examples of invalid syntax include:
 
    This results in a syntax error as backticks cannot be used for right-hand values.
@@ -228,7 +224,6 @@ As noted above, MLflow search syntax is similar to SQL with a few notable except
 ```
 
 - For the SQL `IN` keyword, you can only search the following fields:
-
   - `datasets.name`
   - `datasets.digest`
   - `datasets.context`
@@ -241,7 +236,6 @@ a single search condition, you must assemble an inequality using the following c
 
 1. **An MLflow field**: a metric, param, tag, dataset or run metadata.
 2. **A comparator**: an inequality operator.
-
    - For numerics, MLflow supports `=`, `!=`, `>`, `>=`, `<`, and `<=`. Examples include:
 
      ```sql

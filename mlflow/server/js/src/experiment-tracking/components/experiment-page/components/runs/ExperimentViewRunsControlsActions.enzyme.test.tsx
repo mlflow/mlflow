@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { useState } from 'react';
 import type { ReactWrapper } from 'enzyme';
 import { IntlProvider } from 'react-intl';
@@ -10,18 +11,11 @@ import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtu
 // import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
 import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { experimentRunsSelector } from '../../utils/experimentRuns.selector';
-import {
-  ExperimentViewRunsControlsActions,
-  ExperimentViewRunsControlsActionsProps,
-} from './ExperimentViewRunsControlsActions';
-import {
-  ExperimentPageSearchFacetsState,
-  createExperimentPageSearchFacetsState,
-} from '../../models/ExperimentPageSearchFacetsState';
-
-jest.mock('./ExperimentViewRefreshButton', () => ({
-  ExperimentViewRefreshButton: () => <div />,
-}));
+import type { ExperimentViewRunsControlsActionsProps } from './ExperimentViewRunsControlsActions';
+import { ExperimentViewRunsControlsActions } from './ExperimentViewRunsControlsActions';
+import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 const MOCK_EXPERIMENT = EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789'];
 
@@ -55,11 +49,13 @@ const doMock = (additionalProps: Partial<ExperimentViewRunsControlsActionsProps>
       <Provider
         store={createStore((s) => s as any, EXPERIMENT_RUNS_MOCK_STORE, compose(applyMiddleware(promiseMiddleware())))}
       >
-        <MemoryRouter>
-          <IntlProvider locale="en">
-            <ExperimentViewRunsControlsActions {...props} />
-          </IntlProvider>
-        </MemoryRouter>
+        <DesignSystemProvider>
+          <MemoryRouter>
+            <IntlProvider locale="en">
+              <ExperimentViewRunsControlsActions {...props} />
+            </IntlProvider>
+          </MemoryRouter>
+        </DesignSystemProvider>
       </Provider>
     );
   };

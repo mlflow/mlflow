@@ -5,8 +5,6 @@ This represents a prompt in the registry with its metadata, without version-spec
 content like template text. For version-specific content, use PromptVersion.
 """
 
-from typing import Optional
-
 
 class Prompt:
     """
@@ -19,9 +17,9 @@ class Prompt:
     def __init__(
         self,
         name: str,
-        description: Optional[str] = None,
-        creation_timestamp: Optional[int] = None,
-        tags: Optional[dict[str, str]] = None,
+        description: str | None = None,
+        creation_timestamp: int | None = None,
+        tags: dict[str, str] | None = None,
     ):
         """
         Construct a Prompt entity.
@@ -43,12 +41,12 @@ class Prompt:
         return self._name
 
     @property
-    def description(self) -> Optional[str]:
+    def description(self) -> str | None:
         """The description of the prompt."""
         return self._description
 
     @property
-    def creation_timestamp(self) -> Optional[int]:
+    def creation_timestamp(self) -> int | None:
         """The creation timestamp of the prompt."""
         return self._creation_timestamp
 

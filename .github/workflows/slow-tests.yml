@@ -32,7 +32,7 @@ concurrency:
 
 defaults:
   run:
-    shell: bash --noprofile --norc -exo pipefail {0}
+    shell: bash
 
 env:
   MLFLOW_RUN_SLOW_TESTS: "true"
@@ -58,8 +58,6 @@ jobs:
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-        with:
-          python-version: 3.9
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies

@@ -1,5 +1,7 @@
-import React, { ReactNode, useMemo } from 'react';
-import { ExperimentPageUIState, createExperimentPageUIState } from '../models/ExperimentPageUIState';
+import type { ReactNode } from 'react';
+import React, { useMemo } from 'react';
+import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
+import { createExperimentPageUIState } from '../models/ExperimentPageUIState';
 
 const ExperimentPageUISetStateContext = React.createContext<
   React.Dispatch<React.SetStateAction<ExperimentPageUIState>>

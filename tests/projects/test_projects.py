@@ -79,7 +79,6 @@ def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
 
 
 def test_invalid_run_mode():
-    """Verify that we raise an exception given an invalid run mode"""
     with pytest.raises(
         ExecutionException, match="Got unsupported execution mode some unsupported mode"
     ):
@@ -106,12 +105,8 @@ def test_expected_tags_logged_when_using_conda():
 def test_run_local_git_repo(
     local_git_repo, local_git_repo_uri, use_start_run, version, monkeypatch
 ):
-    monkeypatch.setenvs(
-        {
-            "DATABRICKS_HOST": "my-host",
-            "DATABRICKS_TOKEN": "my-token",
-        }
-    )
+    monkeypatch.setenv("DATABRICKS_HOST", "my-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     if version is not None:
         uri = local_git_repo_uri + "#" + TEST_PROJECT_NAME
     else:
@@ -219,7 +214,6 @@ def test_run(use_start_run):
 
 
 def test_run_with_parent():
-    """Verify that if we are in a nested run, mlflow.projects.run() will have a parent_run_id."""
     with mlflow.start_run():
         parent_run_id = mlflow.active_run().info.run_id
         submitted_run = mlflow.projects.run(
@@ -291,9 +285,10 @@ def test_run_async():
     ],
 )
 def test_conda_path(mock_env, expected_conda, expected_activate, monkeypatch):
-    """Verify that we correctly determine the path to conda executables"""
-    monkeypatch.delenvs([CONDA_EXE, MLFLOW_CONDA_HOME.name], raising=False)
-    monkeypatch.setenvs(mock_env)
+    for name in [CONDA_EXE, MLFLOW_CONDA_HOME.name]:
+        monkeypatch.delenv(name, raising=False)
+    for name, value in mock_env.items():
+        monkeypatch.setenv(name, value)
     assert mlflow.utils.conda.get_conda_bin_executable("conda") == expected_conda
     assert mlflow.utils.conda.get_conda_bin_executable("activate") == expected_activate
 
@@ -324,10 +319,11 @@ def test_find_conda_executables(mock_env, expected_conda_env_create_path, monkey
     Verify that we correctly determine the path to executables to be used to
     create environments (for example, it could be mamba instead of conda)
     """
-    monkeypatch.delenvs(
-        [CONDA_EXE, MLFLOW_CONDA_HOME.name, MLFLOW_CONDA_CREATE_ENV_CMD.name], raising=False
-    )
-    monkeypatch.setenvs(mock_env)
+    monkeypatch.delenv(CONDA_EXE, raising=False)
+    monkeypatch.delenv(MLFLOW_CONDA_HOME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_CONDA_CREATE_ENV_CMD.name, raising=False)
+    for name, value in mock_env.items():
+        monkeypatch.setenv(name, value)
     conda_env_create_path = mlflow.utils.conda._get_conda_executable_for_create_env()
     assert conda_env_create_path == expected_conda_env_create_path
 
@@ -514,12 +510,8 @@ def test_credential_propagation(synchronous, monkeypatch):
         def communicate(self, _):
             return "", ""
 
-    monkeypatch.setenvs(
-        {
-            "DATABRICKS_HOST": "host",
-            "DATABRICKS_TOKEN": "mytoken",
-        }
-    )
+    monkeypatch.setenv("DATABRICKS_HOST", "host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "mytoken")
     with (
         mock.patch("subprocess.Popen", return_value=DummyProcess()) as popen_mock,
         mock.patch("mlflow.utils.uri.is_databricks_uri", return_value=True),

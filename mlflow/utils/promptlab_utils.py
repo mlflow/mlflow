@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from mlflow.entities.param import Param
 from mlflow.entities.run_status import RunStatus
@@ -76,7 +76,7 @@ def _create_promptlab_run_impl(
 
         artifact_dir = store.get_run(run_id).info.artifact_uri
 
-        utc_time_created = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
+        utc_time_created = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
         promptlab_model = Model(
             artifact_path="model",
             run_id=run_id,

@@ -102,6 +102,7 @@ environment manager. The following values are supported:
 \b
 - local: use the local environment
 - virtualenv: use virtualenv (and pyenv for Python version management)
+- uv: use uv
 - conda: use conda
 
 If unspecified, default to virtualenv.
@@ -116,6 +117,7 @@ environment manager. The following values are supported:
 \b
 - local: use the local environment
 - virtualenv: use virtualenv (and pyenv for Python version management)
+- uv: use uv
 - conda: use conda
 
 If unspecified, the appropriate environment manager is automatically selected based on
@@ -135,6 +137,7 @@ environment manager. The following values are supported:
 \b
 - local: use the local environment
 - virtualenv: use virtualenv (and pyenv for Python version management)
+- uv: use uv
 - conda: use conda
 
 If unspecified, default to None, then MLflow will automatically pick the env manager
@@ -150,7 +153,7 @@ INSTALL_MLFLOW = click.option(
     "--install-mlflow",
     is_flag=True,
     default=False,
-    help="If specified and there is a conda or virtualenv environment to be activated "
+    help="If specified and there is a conda, virtualenv, or uv environment to be activated "
     "mlflow will be installed into the environment after it has been "
     "activated. The version of installed mlflow will be the same as "
     "the one used to invoke this command.",
@@ -162,9 +165,11 @@ HOST = click.option(
     envvar="MLFLOW_HOST",
     metavar="HOST",
     default="127.0.0.1",
-    help="The network address to listen on (default: 127.0.0.1). "
-    "Use 0.0.0.0 to bind to all addresses if you want to access the tracking "
-    "server from other machines.",
+    help="The network interface to bind the server to (default: 127.0.0.1). "
+    "This controls which network interfaces accept connections. "
+    "Use '127.0.0.1' for local-only access, or '0.0.0.0' to allow connections from any network. "
+    "NOTE: This is NOT a security setting - it only controls network binding. "
+    "To restrict which clients can connect, use --allowed-hosts.",
 )
 
 PORT = click.option(
@@ -189,7 +194,7 @@ WORKERS = click.option(
     "-w",
     envvar="MLFLOW_WORKERS",
     default=None,
-    help="Number of gunicorn worker processes to handle requests (default: 4).",
+    help="Number of worker processes to handle requests (default: 4).",
 )
 
 MODELS_WORKERS = click.option(
@@ -254,4 +259,54 @@ INSTALL_JAVA = click.option(
     "Java, such as Spark, enable this automatically. "
     "Note: This option only works with the UBUNTU base image; "
     "Python base images do not support Java installation.",
+)
+
+# Security-related options for MLflow server
+ALLOWED_HOSTS = click.option(
+    "--allowed-hosts",
+    envvar="MLFLOW_SERVER_ALLOWED_HOSTS",
+    default=None,
+    help="Comma-separated list of allowed Host headers to prevent DNS rebinding attacks "
+    "(default: localhost + private IPs). "
+    "DNS rebinding allows attackers to trick your browser into accessing internal services. "
+    "Examples: 'mlflow.company.com,10.0.0.100:5000'. "
+    "Supports wildcards: 'mlflow.company.com,192.168.*,app-*.internal.com'. "
+    "Use '*' to allow ALL hosts (not recommended for production). "
+    "Default allows: localhost (all ports), private IPs (10.*, 192.168.*, 172.16-31.*). "
+    "Set this when exposing MLflow beyond localhost to prevent host header attacks.",
+)
+
+CORS_ALLOWED_ORIGINS = click.option(
+    "--cors-allowed-origins",
+    envvar="MLFLOW_SERVER_CORS_ALLOWED_ORIGINS",
+    default=None,
+    help="Comma-separated list of allowed CORS origins to prevent cross-site request attacks "
+    "(default: localhost origins on any port). "
+    "CORS attacks allow malicious websites to make requests to your MLflow server using your "
+    "credentials. Examples: 'https://app.company.com,https://notebook.company.com'. "
+    "Default allows: http://localhost:* (any port), http://127.0.0.1:*, http://[::1]:*. "
+    "Set this when you have web applications on different domains that need to access MLflow. "
+    "Use '*' to allow ALL origins (DANGEROUS - only for development!).",
+)
+
+DISABLE_SECURITY_MIDDLEWARE = click.option(
+    "--disable-security-middleware",
+    envvar="MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE",
+    is_flag=True,
+    default=False,
+    help="DANGEROUS: Disable all security middleware including CORS protection and host "
+    "validation. This completely removes security protections and should only be used for "
+    "testing. When disabled, your MLflow server is vulnerable to CORS attacks, DNS rebinding, "
+    "and clickjacking. Instead, prefer configuring specific security settings with "
+    "--cors-allowed-origins and --allowed-hosts.",
+)
+
+X_FRAME_OPTIONS = click.option(
+    "--x-frame-options",
+    envvar="MLFLOW_SERVER_X_FRAME_OPTIONS",
+    default="SAMEORIGIN",
+    help="X-Frame-Options header value for clickjacking protection. "
+    "Options: 'SAMEORIGIN' (default - allows embedding only from same origin), "
+    "'DENY' (prevents all embedding), 'NONE' (disables header - allows embedding from anywhere). "
+    "Set to 'NONE' if you need to embed MLflow UI in iframes from different origins.",
 )

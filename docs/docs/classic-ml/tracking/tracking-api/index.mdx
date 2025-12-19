@@ -1,4 +1,3 @@
-import Link from "@docusaurus/Link";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import { APILink } from "@site/src/components/APILink";
@@ -26,6 +25,7 @@ model.fit(X_train, y_train)
 ```
 
 **What gets logged automatically:**
+
 - Model parameters and hyperparameters
 - Training and validation metrics
 - Model artifacts and checkpoints
@@ -61,6 +61,7 @@ Ideal for custom training loops, advanced experimentation, or when you need prec
         # Log final model
         mlflow.sklearn.log_model(model, name="model")
     ```
+
   </TabItem>
   <TabItem label="Java" value="java">
     ```java
@@ -78,6 +79,7 @@ Ideal for custom training loops, advanced experimentation, or when you need prec
                         System.currentTimeMillis(), epoch);
     }
     ```
+
   </TabItem>
   <TabItem label="R" value="r">
     ```r
@@ -95,6 +97,7 @@ Ideal for custom training loops, advanced experimentation, or when you need prec
       }
     })
     ```
+
   </TabItem>
 </Tabs>
 
@@ -102,60 +105,60 @@ Ideal for custom training loops, advanced experimentation, or when you need prec
 
 ### Setup & Configuration
 
-| Function | Purpose | Example |
-|----------|---------|---------|
-| <APILink fn="mlflow.set_tracking_uri" /> | Connect to tracking server or database | `mlflow.set_tracking_uri("http://localhost:5000")` |
-| <APILink fn="mlflow.get_tracking_uri" /> | Get current tracking URI | `uri = mlflow.get_tracking_uri()` |
-| <APILink fn="mlflow.create_experiment" /> | Create new experiment | `exp_id = mlflow.create_experiment("my-experiment")` |
-| <APILink fn="mlflow.set_experiment" /> | Set active experiment | `mlflow.set_experiment("fraud-detection")` |
+| Function                                  | Purpose                                | Example                                              |
+| ----------------------------------------- | -------------------------------------- | ---------------------------------------------------- |
+| <APILink fn="mlflow.set_tracking_uri" />  | Connect to tracking server or database | `mlflow.set_tracking_uri("http://localhost:5000")`   |
+| <APILink fn="mlflow.get_tracking_uri" />  | Get current tracking URI               | `uri = mlflow.get_tracking_uri()`                    |
+| <APILink fn="mlflow.create_experiment" /> | Create new experiment                  | `exp_id = mlflow.create_experiment("my-experiment")` |
+| <APILink fn="mlflow.set_experiment" />    | Set active experiment                  | `mlflow.set_experiment("fraud-detection")`           |
 
 ### Run Management
 
-| Function | Purpose | Example |
-|----------|---------|---------|
-| <APILink fn="mlflow.start_run" /> | Start new run (with context manager) | `with mlflow.start_run(): ...` |
-| <APILink fn="mlflow.end_run" /> | End current run | `mlflow.end_run(status="FINISHED")` |
-| <APILink fn="mlflow.active_run" /> | Get currently active run | `run = mlflow.active_run()` |
-| <APILink fn="mlflow.last_active_run" /> | Get last completed run | `last_run = mlflow.last_active_run()` |
+| Function                                | Purpose                              | Example                               |
+| --------------------------------------- | ------------------------------------ | ------------------------------------- |
+| <APILink fn="mlflow.start_run" />       | Start new run (with context manager) | `with mlflow.start_run(): ...`        |
+| <APILink fn="mlflow.end_run" />         | End current run                      | `mlflow.end_run(status="FINISHED")`   |
+| <APILink fn="mlflow.active_run" />      | Get currently active run             | `run = mlflow.active_run()`           |
+| <APILink fn="mlflow.last_active_run" /> | Get last completed run               | `last_run = mlflow.last_active_run()` |
 
 ### Data Logging
 
-| Function | Purpose | Example |
-|----------|---------|---------|
-| <APILink fn="mlflow.log_param" /> / <APILink fn="mlflow.log_params" /> | Log hyperparameters | `mlflow.log_param("lr", 0.01)` |
+| Function                                                                 | Purpose                 | Example                                        |
+| ------------------------------------------------------------------------ | ----------------------- | ---------------------------------------------- |
+| <APILink fn="mlflow.log_param" /> / <APILink fn="mlflow.log_params" />   | Log hyperparameters     | `mlflow.log_param("lr", 0.01)`                 |
 | <APILink fn="mlflow.log_metric" /> / <APILink fn="mlflow.log_metrics" /> | Log performance metrics | `mlflow.log_metric("accuracy", 0.95, step=10)` |
-| <APILink fn="mlflow.log_input" /> | Log dataset information | `mlflow.log_input(dataset)` |
-| <APILink fn="mlflow.set_tag" /> / <APILink fn="mlflow.set_tags" /> | Add metadata tags | `mlflow.set_tag("model_type", "CNN")` |
+| <APILink fn="mlflow.log_input" />                                        | Log dataset information | `mlflow.log_input(dataset)`                    |
+| <APILink fn="mlflow.set_tag" /> / <APILink fn="mlflow.set_tags" />       | Add metadata tags       | `mlflow.set_tag("model_type", "CNN")`          |
 
 ### Artifact Management
 
-| Function | Purpose | Example |
-|----------|---------|---------|
-| <APILink fn="mlflow.log_artifact" /> | Log single file/directory | `mlflow.log_artifact("model.pkl")` |
-| <APILink fn="mlflow.log_artifacts" /> | Log entire directory | `mlflow.log_artifacts("./plots/")` |
-| <APILink fn="mlflow.get_artifact_uri" /> | Get artifact storage location | `uri = mlflow.get_artifact_uri()` |
+| Function                                 | Purpose                       | Example                            |
+| ---------------------------------------- | ----------------------------- | ---------------------------------- |
+| <APILink fn="mlflow.log_artifact" />     | Log single file/directory     | `mlflow.log_artifact("model.pkl")` |
+| <APILink fn="mlflow.log_artifacts" />    | Log entire directory          | `mlflow.log_artifacts("./plots/")` |
+| <APILink fn="mlflow.get_artifact_uri" /> | Get artifact storage location | `uri = mlflow.get_artifact_uri()`  |
 
 ### Model Management (New in MLflow 3)
 
-| Function | Purpose | Example |
-|----------|---------|---------|
-| <APILink fn="mlflow.initialize_logged_model" /> | Initialize a logged model in PENDING state | `model = mlflow.initialize_logged_model(name="my_model")` |
-| <APILink fn="mlflow.create_external_model" /> | Create external model (artifacts stored outside MLflow) | `model = mlflow.create_external_model(name="agent")` |
-| <APILink fn="mlflow.finalize_logged_model" /> | Update model status to READY or FAILED | `mlflow.finalize_logged_model(model_id, "READY")` |
-| <APILink fn="mlflow.get_logged_model" /> | Retrieve logged model by ID | `model = mlflow.get_logged_model(model_id)` |
-| <APILink fn="mlflow.last_logged_model" /> | Get most recently logged model | `model = mlflow.last_logged_model()` |
-| <APILink fn="mlflow.search_logged_models" /> | Search for logged models | `models = mlflow.search_logged_models(filter_string="name='my_model'")` |
-| <APILink fn="mlflow.log_model_params" /> | Log parameters to a specific model | `mlflow.log_model_params({"param": "value"}, model_id)` |
-| <APILink fn="mlflow.set_logged_model_tags" /> | Set tags on a logged model | `mlflow.set_logged_model_tags(model_id, {"key": "value"})` |
-| <APILink fn="mlflow.delete_logged_model_tag" /> | Delete tag from a logged model | `mlflow.delete_logged_model_tag(model_id, "key")` |
+| Function                                        | Purpose                                                 | Example                                                                 |
+| ----------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------- |
+| <APILink fn="mlflow.initialize_logged_model" /> | Initialize a logged model in PENDING state              | `model = mlflow.initialize_logged_model(name="my_model")`               |
+| <APILink fn="mlflow.create_external_model" />   | Create external model (artifacts stored outside MLflow) | `model = mlflow.create_external_model(name="agent")`                    |
+| <APILink fn="mlflow.finalize_logged_model" />   | Update model status to READY or FAILED                  | `mlflow.finalize_logged_model(model_id, "READY")`                       |
+| <APILink fn="mlflow.get_logged_model" />        | Retrieve logged model by ID                             | `model = mlflow.get_logged_model(model_id)`                             |
+| <APILink fn="mlflow.last_logged_model" />       | Get most recently logged model                          | `model = mlflow.last_logged_model()`                                    |
+| <APILink fn="mlflow.search_logged_models" />    | Search for logged models                                | `models = mlflow.search_logged_models(filter_string="name='my_model'")` |
+| <APILink fn="mlflow.log_model_params" />        | Log parameters to a specific model                      | `mlflow.log_model_params({"param": "value"}, model_id)`                 |
+| <APILink fn="mlflow.set_logged_model_tags" />   | Set tags on a logged model                              | `mlflow.set_logged_model_tags(model_id, {"key": "value"})`              |
+| <APILink fn="mlflow.delete_logged_model_tag" /> | Delete tag from a logged model                          | `mlflow.delete_logged_model_tag(model_id, "key")`                       |
 
 ### Active Model Management (New in MLflow 3)
 
-| Function | Purpose | Example |
-|----------|---------|---------|
-| <APILink fn="mlflow.set_active_model" /> | Set active model for trace linking | `mlflow.set_active_model(name="my_model")` |
-| <APILink fn="mlflow.get_active_model_id" /> | Get current active model ID | `model_id = mlflow.get_active_model_id()` |
-| <APILink fn="mlflow.clear_active_model" /> | Clear active model | `mlflow.clear_active_model()` |
+| Function                                    | Purpose                            | Example                                    |
+| ------------------------------------------- | ---------------------------------- | ------------------------------------------ |
+| <APILink fn="mlflow.set_active_model" />    | Set active model for trace linking | `mlflow.set_active_model(name="my_model")` |
+| <APILink fn="mlflow.get_active_model_id" /> | Get current active model ID        | `model_id = mlflow.get_active_model_id()`  |
+| <APILink fn="mlflow.clear_active_model" />  | Clear active model                 | `mlflow.clear_active_model()`              |
 
 ### Language-Specific API Coverage
 
@@ -343,6 +346,7 @@ mlflow.log_metric("gpu_utilization", gpu_usage, step=epoch, timestamp=now)
 ```
 
 **Step Requirements:**
+
 - Must be a valid 64-bit integer
 - Can be negative or out of order
 - Supports gaps in sequences (e.g., 1, 5, 75, -20)
@@ -432,6 +436,7 @@ Handle multiple runs efficiently with different parallelization approaches:
             score = evaluate_model(model)
             mlflow.log_metric("f1_score", score)
     ```
+
   </TabItem>
   <TabItem label="Multiprocessing" value="multiprocessing">
     Scale training across multiple CPU cores:
@@ -461,6 +466,7 @@ Handle multiple runs efficiently with different parallelization approaches:
 
         print(f"Completed {len(results)} experiments")
     ```
+
   </TabItem>
   <TabItem label="Multithreading" value="multithreading">
     Use child runs for thread-safe parallel execution:
@@ -491,6 +497,7 @@ Handle multiple runs efficiently with different parallelization approaches:
         mlflow.log_metric("avg_accuracy", sum(results) / len(results))
         mlflow.log_metric("max_accuracy", max(results))
     ```
+
   </TabItem>
 </Tabs>
 
@@ -523,6 +530,7 @@ with mlflow.start_run():
 ```
 
 **Search experiments by tags:**
+
 ```python
 # Find all transformer experiments
 transformer_runs = mlflow.search_runs(filter_string="tags.model_family = 'transformer'")
@@ -537,16 +545,16 @@ prod_models = mlflow.search_runs(
 
 MLflow automatically sets several system tags to capture execution context:
 
-| Tag | Description | When Set |
-|-----|-------------|----------|
-| `mlflow.source.name` | Source file or notebook name | Always |
-| `mlflow.source.type` | Source type (NOTEBOOK, JOB, LOCAL, etc.) | Always |
-| `mlflow.user` | User who created the run | Always |
-| `mlflow.source.git.commit` | Git commit hash | When run from git repo |
-| `mlflow.source.git.branch` | Git branch name | MLflow Projects only |
-| `mlflow.parentRunId` | Parent run ID for nested runs | Child runs only |
-| `mlflow.docker.image.name` | Docker image used | Docker environments |
-| `mlflow.note.content` | **User-editable** description | Manual only |
+| Tag                        | Description                              | When Set               |
+| -------------------------- | ---------------------------------------- | ---------------------- |
+| `mlflow.source.name`       | Source file or notebook name             | Always                 |
+| `mlflow.source.type`       | Source type (NOTEBOOK, JOB, LOCAL, etc.) | Always                 |
+| `mlflow.user`              | User who created the run                 | Always                 |
+| `mlflow.source.git.commit` | Git commit hash                          | When run from git repo |
+| `mlflow.source.git.branch` | Git branch name                          | MLflow Projects only   |
+| `mlflow.parentRunId`       | Parent run ID for nested runs            | Child runs only        |
+| `mlflow.docker.image.name` | Docker image used                        | Docker environments    |
+| `mlflow.note.content`      | **User-editable** description            | Manual only            |
 
 :::tip pro-tip
 Use `mlflow.note.content` to document experiment insights, hypotheses, or results directly in the MLflow UI. This tag appears in a dedicated Notes section on the run page.
@@ -600,14 +608,15 @@ print(f"Final run status: {last_run.info.status}")
 
 ## Language-Specific Guides
 
-- **Python**: <Link to="/api_reference/python_api/index.html" target="_blank">Complete Python API Reference</Link>
-- **Java**: <Link to="/api_reference/java_api/index.html" target="_blank">Java API Documentation</Link>
-- **R**: <Link to="/api_reference/R-api.html" target="_blank">R API Documentation</Link>
-- **REST**: <Link to="/api_reference/rest-api.html" target="_blank">REST API Reference</Link>
+- **Python**: <APILink fn="mlflow.python" hash="">Complete Python API Reference</APILink>
+- **Java**: <APILink fn="mlflow.java" hash="">Java API Documentation</APILink>
+- **R**: <APILink fn="mlflow.r" hash="">R API Documentation</APILink>
+- **REST**: <APILink fn="mlflow.rest" hash="">REST API Reference</APILink>
 
 ---
 
 **Next Steps:**
-- [Set up MLflow Tracking Server](/ml/tracking/server) for team collaboration
+
+- [Set up MLflow Tracking Server](/self-hosting) for team collaboration
 - [Explore Auto Logging](/ml/tracking/autolog) for supported frameworks
 - [Learn advanced search patterns](/ml/search/search-runs) for experiment analysis

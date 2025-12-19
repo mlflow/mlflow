@@ -1,5 +1,6 @@
 import { APILink } from "@site/src/components/APILink";
 import { Table } from "@site/src/components/Table";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # MLflow Langchain Autologging
 
@@ -31,10 +32,9 @@ mlflow.langchain.autolog()
 
 Once you have invoked the chain, you can view the logged traces and artifacts in the MLflow UI.
 
-![LangChain Tracing via autolog](/images/llms/tracing/tracing-top.gif)
+<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop autoPlay muted aria-label="MLflow Tracing" />
 
 ## Configure Autologging
-
 
 MLflow LangChain autologging can log various information about the model and its inference. **By default, only trace logging is enabled**, but you can enable autologging of other information by setting the corresponding parameters when calling <APILink fn="mlflow.langchain.autolog" />. For other configurations, please refer to the API documentation.
 
@@ -203,9 +203,7 @@ MLflow does not support other auto-logging features for LangGraph, such as autom
 
 ## How It Works
 
-
 MLflow LangChain Autologging uses two ways to log traces and other artifacts. Tracing is made possible via the [Callbacks](https://python.langchain.com/v0.1/docs/modules/callbacks/) framework of LangChain. Other artifacts are recorded by patching the invocation functions of the supported models. In typical scenarios, you don't need to care about the internal implementation details, but this section provides a brief overview of how it works under the hood.
-
 
 ### MLflow Tracing Callbacks
 
@@ -256,14 +254,14 @@ class CustomLangchainTracer(MlflowLangchainTracer):
 
 Other artifacts such as models are logged by patching the invocation functions of the supported models to insert the logging call. MLflow patches the following functions:
 
-* `invoke`
-* `batch`
-* `stream`
-* `get_relevant_documents` (for retrievers)
-* `__call__` (for Chains and AgentExecutors)
-* `ainvoke`
-* `abatch`
-* `astream`
+- `invoke`
+- `batch`
+- `stream`
+- `get_relevant_documents` (for retrievers)
+- `__call__` (for Chains and AgentExecutors)
+- `ainvoke`
+- `abatch`
+- `astream`
 
 :::warning
 MLflow supports autologging for async functions (e.g., `ainvoke`, `abatch`, `astream`), however, the logging operation is not
@@ -288,23 +286,21 @@ mlflow.langchain.autolog(silent=True)
 # No warning messages will be emitted from autologging
 ```
 
-
 ### I can't load the model logged by mlflow langchain autologging
 
 There are a few type of models that MLflow LangChain autologging does not support native saving or loading.
 
 - **Model contains langchain retrievers**
 
-    LangChain retrievers are not supported by MLflow autologging. If your model contains a retriever, you will need to manually log the model using the `mlflow.langchain.log_model` API.
-    As loading those models requires specifying `loader_fn` and `persist_dir` parameters, please check examples in
-    [retriever_chain](https://github.com/mlflow/mlflow/blob/master/examples/langchain/retriever_chain.py).
+  LangChain retrievers are not supported by MLflow autologging. If your model contains a retriever, you will need to manually log the model using the `mlflow.langchain.log_model` API.
+  As loading those models requires specifying `loader_fn` and `persist_dir` parameters, please check examples in
+  [retriever_chain](https://github.com/mlflow/mlflow/blob/master/examples/langchain/retriever_chain.py).
 
 - **Can't pickle certain objects**
 
-    For certain models that LangChain does not support native saving or loading, we will pickle the object when saving it. Due to this functionality, your cloudpickle version must be
-    consistent between the saving and loading environments to ensure that object references resolve properly. For further guarantees of correct object representation, you should ensure that your
-    environment has `pydantic` installed with at least version 2.
-
+  For certain models that LangChain does not support native saving or loading, we will pickle the object when saving it. Due to this functionality, your cloudpickle version must be
+  consistent between the saving and loading environments to ensure that object references resolve properly. For further guarantees of correct object representation, you should ensure that your
+  environment has `pydantic` installed with at least version 2.
 
 ### How to customize span names in the traces?
 

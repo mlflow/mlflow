@@ -1,13 +1,16 @@
+import { jest, describe, beforeAll, afterAll, it, expect } from '@jest/globals';
 import { Provider } from 'react-redux';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { EvaluationArtifactCompareTable } from './EvaluationArtifactCompareTable';
 import { screen, waitFor, renderWithIntl } from '../../../../common/utils/TestUtils.react18';
-import { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
+import type { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { BrowserRouter } from '../../../../common/utils/RoutingUtils';
+import { DesignSystemProvider } from '@databricks/design-system';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000);
 
 jest.mock('../../experiment-page/hooks/useExperimentRunColor', () => ({
@@ -190,16 +193,18 @@ describe('EvaluationArtifactCompareTable', () => {
     renderWithIntl(
       <BrowserRouter>
         <Provider store={mockStore}>
-          <EvaluationArtifactCompareTable
-            resultList={resultList}
-            visibleRuns={visibleRuns}
-            groupByColumns={groupByColumns}
-            onHideRun={onHideRun}
-            onDatasetSelected={onDatasetSelected}
-            highlightedText={highlightedText}
-            outputColumnName={outputColumnName}
-            isImageColumn={isImageColumn}
-          />
+          <DesignSystemProvider>
+            <EvaluationArtifactCompareTable
+              resultList={resultList}
+              visibleRuns={visibleRuns}
+              groupByColumns={groupByColumns}
+              onHideRun={onHideRun}
+              onDatasetSelected={onDatasetSelected}
+              highlightedText={highlightedText}
+              outputColumnName={outputColumnName}
+              isImageColumn={isImageColumn}
+            />
+          </DesignSystemProvider>
         </Provider>
       </BrowserRouter>,
     );
@@ -498,16 +503,18 @@ describe('EvaluationArtifactCompareTable', () => {
     renderWithIntl(
       <BrowserRouter>
         <Provider store={mockStore}>
-          <EvaluationArtifactCompareTable
-            resultList={resultList}
-            visibleRuns={visibleRuns}
-            groupByColumns={groupByColumns}
-            onHideRun={onHideRun}
-            onDatasetSelected={onDatasetSelected}
-            highlightedText={highlightedText}
-            outputColumnName={outputColumnName}
-            isImageColumn={isImageColumn}
-          />
+          <DesignSystemProvider>
+            <EvaluationArtifactCompareTable
+              resultList={resultList}
+              visibleRuns={visibleRuns}
+              groupByColumns={groupByColumns}
+              onHideRun={onHideRun}
+              onDatasetSelected={onDatasetSelected}
+              highlightedText={highlightedText}
+              outputColumnName={outputColumnName}
+              isImageColumn={isImageColumn}
+            />
+          </DesignSystemProvider>
         </Provider>
       </BrowserRouter>,
     );
@@ -751,16 +758,18 @@ describe('EvaluationArtifactCompareTable', () => {
     renderWithIntl(
       <BrowserRouter>
         <Provider store={mockStore}>
-          <EvaluationArtifactCompareTable
-            resultList={resultList}
-            visibleRuns={visibleRuns}
-            groupByColumns={groupByColumns}
-            onHideRun={onHideRun}
-            onDatasetSelected={onDatasetSelected}
-            highlightedText={highlightedText}
-            outputColumnName={outputColumnName}
-            isImageColumn={isImageColumn}
-          />
+          <DesignSystemProvider>
+            <EvaluationArtifactCompareTable
+              resultList={resultList}
+              visibleRuns={visibleRuns}
+              groupByColumns={groupByColumns}
+              onHideRun={onHideRun}
+              onDatasetSelected={onDatasetSelected}
+              highlightedText={highlightedText}
+              outputColumnName={outputColumnName}
+              isImageColumn={isImageColumn}
+            />
+          </DesignSystemProvider>
         </Provider>
       </BrowserRouter>,
     );

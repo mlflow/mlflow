@@ -67,17 +67,18 @@ export const DEFAULT_DIFF_SWITCH_SELECTED = false;
 export const DEFAULT_LIFECYCLE_FILTER = LIFECYCLE_FILTER.ACTIVE;
 export const DEFAULT_MODEL_VERSION_FILTER = MODEL_VERSION_FILTER.ALL_RUNS;
 
-export const MAX_DETECT_NEW_RUNS_RESULTS = 26; // so the refresh button badge can be 25+
-export const POLL_INTERVAL = 15000;
-
 export const AUTOML_TAG_PREFIX = '_databricks_automl';
 export const AUTOML_EVALUATION_METRIC_TAG = `${AUTOML_TAG_PREFIX}.evaluation_metric`;
+export const AUTOML_PROBLEM_TYPE_TAG = `${AUTOML_TAG_PREFIX}.problem_type`;
 
 export const AUTOML_TEST_EVALUATION_METRIC_PREFIX = 'test_';
 
 export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = 'mlflow.experiment.primaryMetric.name';
 export const MLFLOW_RUN_DATASET_CONTEXT_TAG = 'mlflow.data.context';
 export const MLFLOW_LOGGED_ARTIFACTS_TAG = 'mlflow.loggedArtifacts';
+export const MLFLOW_LINKED_PROMPTS_TAG = 'mlflow.linkedPrompts';
+export const MLFLOW_LOGGED_MODEL_USER_TAG = 'mlflow.user';
+export const MLFLOW_TRACES_TAB_LABELING_SCHEMAS_TAG = 'mlflow.tracesTabLabelingSchemas';
 export const EXPERIMENT_PAGE_FEEDBACK_URL = 'https://github.com/mlflow/mlflow/issues/6348';
 
 export const MLFLOW_RUN_TYPE_TAG = 'mlflow.runType';
@@ -86,8 +87,9 @@ export const MLFLOW_RUN_SOURCE_TYPE_TAG = 'mlflow.runSourceType';
 export const MLFLOW_RUN_TYPE_VALUE_EVALUATION = 'evaluation';
 
 export const MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG = 'mlflow.source.git.branch';
+export const MLFLOW_PROMPT_VERSION_COUNT_TAG = 'PromptVersionCount';
 
-export const MONITORING_BETA_EXPIRATION_DATE = new Date('2025-06-24T00:00:00');
+export const MONITORING_BETA_EXPIRATION_DATE = new Date('2030-06-24T00:00:00');
 
 export enum MLflowRunSourceType {
   PROMPT_ENGINEERING = 'PROMPT_ENGINEERING',
@@ -114,6 +116,7 @@ export const MLFLOW_MODEL_METRIC_NAME = 'Model metrics';
 
 export const EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY = 'viewStateShareKey';
 export const EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX = 'mlflow.sharedViewState.';
+export const SELECTED_TRACE_ID_QUERY_PARAM = 'selectedTraceId';
 
 export const MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH = 'images';
 export const IMAGE_FILE_EXTENSION = 'png';
@@ -136,12 +139,36 @@ export const LINE_CHART_RELATIVE_TIME_THRESHOLD = 1000 * 60 * 60 * 24; // 1 day
 export const HOUR_IN_MILLISECONDS = 1000 * 60 * 60; // 1 hour
 
 export enum ExperimentPageTabName {
+  Runs = 'runs',
+  Traces = 'traces',
   Models = 'models',
   EvaluationMonitoring = 'evaluation-monitoring',
+  Judges = 'judges',
+  EvaluationRuns = 'evaluation-runs',
   Datasets = 'datasets',
   LabelingSessions = 'labeling-sessions',
+  LabelingSchemas = 'label-schemas',
+  Prompts = 'prompts',
+  ChatSessions = 'chat-sessions',
+  SingleChatSession = 'single-chat-session',
 }
 
 export const getMlflow3DocsLink = () => {
   return 'https://docs.databricks.com/aws/en/mlflow/mlflow-3-install';
 };
+
+export enum ExperimentKind {
+  GENAI_DEVELOPMENT = 'genai_development',
+  CUSTOM_MODEL_DEVELOPMENT = 'custom_model_development',
+  GENAI_DEVELOPMENT_INFERRED = 'genai_development_inferred',
+  CUSTOM_MODEL_DEVELOPMENT_INFERRED = 'custom_model_development_inferred',
+  NO_INFERRED_TYPE = 'no_inferred_type',
+  FINETUNING = 'finetuning',
+  FORECASTING = 'forecasting',
+  CLASSIFICATION = 'classification',
+  REGRESSION = 'regression',
+  AUTOML = 'automl',
+  EMPTY = '',
+}
+
+export const CREATE_NEW_VERSION_QUERY_PARAM = 'create_new_version';

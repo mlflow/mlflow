@@ -1,19 +1,12 @@
 import pytest
-
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
-
-# Skip the entire module if not using pydantic v2
-if not IS_PYDANTIC_V2_OR_NEWER:
-    pytest.skip(
-        "ResponsesAgent and its pydantic classes are not supported in pydantic v1. Skipping test.",
-        allow_module_level=True,
-    )
+from pydantic import ValidationError
 
 from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
 )
+from mlflow.types.responses_helpers import Message
 
 
 def test_responses_request_validation():
@@ -55,6 +48,20 @@ def test_responses_request_validation():
                 ],
             }
         )
+
+
+def test_message_content_validation():
+    # Test that None content is rejected (by Pydantic validation)
+    with pytest.raises(ValidationError, match="Input should be a valid"):
+        Message(role="assistant", content=None, type="message")
+
+    # Test that empty string content is allowed
+    message_empty_str = Message(role="assistant", content="", type="message")
+    assert message_empty_str.content == ""
+
+    # Test that empty list content is allowed
+    message_empty_list = Message(role="assistant", content=[], type="message")
+    assert message_empty_list.content == []
 
 
 def test_responses_response_validation():

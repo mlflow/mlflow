@@ -1,3 +1,4 @@
+import { describe, jest, beforeEach, test, expect } from '@jest/globals';
 import { DragAndDropProvider, useDragAndDropElement } from './useDragAndDropElement';
 import { act, fireEvent, render, screen } from '../utils/TestUtils.react18';
 
@@ -33,7 +34,7 @@ describe('useDragAndDropElement', () => {
     onDrop.mockClear();
   });
 
-  test('Test drag and drop within single group', async () => {
+  test('drag and drop within single group', async () => {
     render(
       <div>
         <DragAndDropProvider>

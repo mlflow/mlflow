@@ -7,11 +7,14 @@
 
 import { MLFLOW_LOGGED_ARTIFACTS_TAG } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import Utils from './Utils';
-import { KeyValueEntity, RunLoggedArtifactType } from '@mlflow/mlflow/src/experiment-tracking/types';
+import { RunLoggedArtifactType } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { KeyValueEntity } from '../types';
 
 export const MLFLOW_INTERNAL_PREFIX = 'mlflow.';
+const MLFLOW_INTERNAL_PREFIX_UC = '_mlflow_';
 
-export const isUserFacingTag = (tagKey: string) => !tagKey.startsWith(MLFLOW_INTERNAL_PREFIX);
+export const isUserFacingTag = (tagKey: string) =>
+  !tagKey.startsWith(MLFLOW_INTERNAL_PREFIX) && !tagKey.startsWith(MLFLOW_INTERNAL_PREFIX_UC);
 
 export const diffCurrentAndNewTags = (
   currentTags: KeyValueEntity[],

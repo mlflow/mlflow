@@ -1,5 +1,5 @@
 import { FormattedMessage, useIntl } from 'react-intl';
-import { LoggedModelProto } from '../../types';
+import type { LoggedModelProto } from '../../types';
 import { RegisterModel } from '../../../model-registry/components/RegisterModel';
 import { useCallback } from 'react';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';

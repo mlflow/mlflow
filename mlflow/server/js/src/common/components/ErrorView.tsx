@@ -4,7 +4,8 @@ import error404Img from '../static/404-overflow.svg';
 import Routes from '../../experiment-tracking/routes';
 import { Link } from '../utils/RoutingUtils';
 import { FormattedMessage } from 'react-intl';
-import { DesignSystemHocProps, WithDesignSystemThemeHoc } from '@databricks/design-system';
+import type { DesignSystemHocProps } from '@databricks/design-system';
+import { WithDesignSystemThemeHoc } from '@databricks/design-system';
 
 const altMessages: Record<number, string> = {
   400: '400 Bad Request',
@@ -26,11 +27,13 @@ function ErrorImage(props: ErrorImageProps) {
 
   switch (props.statusCode) {
     case 404:
-      return <img className="center" alt={alt} style={{ height: '300px', marginTop: '80px' }} src={error404Img} />;
+      return (
+        <img className="mlflow-center" alt={alt} style={{ height: '300px', marginTop: '80px' }} src={error404Img} />
+      );
     default:
       return (
         <img
-          className="center"
+          className="mlflow-center"
           alt={alt}
           src={errorDefaultImg}
           style={{
@@ -93,7 +96,7 @@ class ErrorViewImpl extends Component<ErrorViewImplProps> {
     const centerMessage = ErrorViewImpl.centerMessages[statusCode] || 'HTTP Request Error';
 
     return (
-      <div className="center">
+      <div className="mlflow-center">
         <ErrorImage statusCode={statusCode} />
         <h1 style={{ paddingTop: '10px' }}>{centerMessage}</h1>
         <h2 style={{ color: designSystemThemeApi.theme.colors.textSecondary }}>

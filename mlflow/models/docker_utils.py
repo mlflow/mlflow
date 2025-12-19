@@ -1,7 +1,7 @@
 import logging
 import os
 from subprocess import Popen
-from typing import Optional, Union
+from typing import Literal
 from urllib.parse import urlparse
 
 from mlflow.environment_variables import MLFLOW_DOCKER_OPENJDK_VERSION
@@ -11,7 +11,7 @@ from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
 
-UBUNTU_BASE_IMAGE = "ubuntu:20.04"
+UBUNTU_BASE_IMAGE = "ubuntu:22.04"
 PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
 
 
@@ -30,6 +30,8 @@ RUN apt install -y software-properties-common \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt update \
     && apt install -y python3.10 python3.10-distutils \
+    # Remove python3-blinker to avoid pip uninstall conflicts
+    && apt remove -y python3-blinker \
     && ln -s -f $(which python3.10) /usr/bin/python \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py
@@ -68,19 +70,22 @@ SETUP_MINICONDA = """# Setup miniconda
 RUN curl --fail -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh > miniconda.sh
 RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
 ENV PATH="/miniconda/bin:$PATH"
+# Remove default channels to avoid `CondaToSNonInteractiveError`.
+# See https://github.com/mlflow/mlflow/pull/16752 for more details.
+RUN conda config --system --remove channels defaults && conda config --system --add channels conda-forge
 """  # noqa: E501
 
 
 def generate_dockerfile(
     output_dir: str,
     base_image: str,
-    model_install_steps: Optional[str],
+    model_install_steps: str | None,
     entrypoint: str,
-    env_manager: Union[em.CONDA, em.LOCAL, em.VIRTUALENV],
-    mlflow_home: Optional[str] = None,
+    env_manager: Literal["conda", "local", "virtualenv"] = em.CONDA,
+    mlflow_home: str | None = None,
     enable_mlserver: bool = False,
     disable_env_creation_at_runtime: bool = True,
-    install_java: Optional[bool] = None,
+    install_java: bool | None = None,
 ):
     """
     Generates a Dockerfile that can be used to build a docker image, that serves ML model

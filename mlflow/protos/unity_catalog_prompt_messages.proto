@@ -2,18 +2,14 @@ syntax = "proto2";
 
 package mlflow.unitycatalog;
 
-import "google/protobuf/struct.proto";
-import "google/protobuf/timestamp.proto";
-import "google/protobuf/empty.proto";
 import "databricks.proto";
+import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
-option java_package = "com.databricks.api.proto.managedcatalog";
 option java_generate_equals_and_hash = true;
+option java_package = "com.databricks.api.proto.managedcatalog";
 option py_generic_services = true;
-option (scalapb.options) = {
-  flat_package: true,
-};
+option (scalapb.options) = {flat_package: true};
 
 // Common message types
 message Prompt {
@@ -87,29 +83,22 @@ message CreatePromptRequest {
   optional Prompt prompt = 2;
 }
 
-
-
 message UpdatePromptRequest {
   optional string name = 1;
   optional Prompt prompt = 2;
 }
-
-
 
 message DeletePromptRequest {
   // Registered Prompt unique name identifier.
   optional string name = 1;
 }
 
-message DeletePromptResponse {
-}
+message DeletePromptResponse {}
 
 message GetPromptRequest {
   // Registered Prompt unique name identifier.
   optional string name = 1;
 }
-
-
 
 message SearchPromptsRequest {
   reserved 2;

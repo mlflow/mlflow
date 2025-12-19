@@ -1,13 +1,18 @@
+import functools
 import logging
 import os
 import tempfile
 import warnings
 
+import torch
 from packaging.version import Version
 
 import mlflow.pytorch
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+from mlflow.models import infer_signature
+from mlflow.tracking.fluent import _initialize_logged_model
+from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils import (
     BatchMetricsLogger,
     ExceptionSafeAbstractClass,
@@ -66,13 +71,24 @@ def _get_optimizer_name(optimizer):
         )
 
 
+_MLFLOW_LIGHTNING_AUTOLOGGING_TMP_DIR_ENV = "_MLFLOW_LIGHTNING_AUTOLOGGING_TMP_DIR"
+_INPUT_OUTPUT_TENSORS_FILENAME = "input_output_tensors.pkl"
+
+
 class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     """
     Callback for auto-logging metrics and parameters.
     """
 
     def __init__(
-        self, client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
+        self,
+        client,
+        metrics_logger,
+        run_id,
+        log_models,
+        log_every_n_epoch,
+        log_every_n_step,
+        log_model_signatures,
     ):
         if log_every_n_step and _pl_version < Version("1.1.0"):
             raise MlflowException(
@@ -89,6 +105,9 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         # Sets for tracking which metrics are logged on steps and which are logged on epochs
         self._step_metrics = set()
         self._epoch_metrics = set()
+        self.log_model_signatures = log_model_signatures
+        self._model_forward_patch = None
+        self._first_batch_checked = False
 
     def _log_metrics(self, trainer, step, metric_items):
         # pytorch-lightning runs a few steps of validation in the beginning of training
@@ -250,6 +269,61 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         self.client.log_params(self.run_id, params)
         self.client.flush(synchronous=True)
 
+        if self.log_models and self.log_model_signatures:
+            # Set up `model.forward` patch in order to capture
+            # the first batch input (for inferring model signature).
+
+            # Note:
+            #  1. The `model.forward` patch can't be set up in the
+            #  `patched Trainer.fit` method, because in training with
+            #  parallel strategy, the `model.forward` is called in spawned
+            #  training workers (subprocesses), and the patch in parent process
+            #  does not work in subprocess.
+            #
+            #  2. We can't use `Callback.on_train_batch_start` to capture
+            #  the first batch input, because the argument `batch` in
+            #  `Callback.on_train_batch_start` contains input and target,
+            #  and lightning callback interface does not restrict the
+            #  data format of the batch argument, so we have no way to
+            #  extract `model.forward` input from the batch argument
+            #  (the extracting logic is defined in `model.training_step`).
+            lightning_module = trainer.strategy.lightning_module
+            original_model_forward = lightning_module.forward
+
+            def patched_model_forward(*inputs, **kwargs):
+                result = original_model_forward(*inputs, **kwargs)
+                if not self._first_batch_checked:
+                    try:
+                        # Model signature only supports input schema of one Tensor
+                        if (
+                            len(inputs) == 1
+                            and isinstance(inputs[0], torch.Tensor)
+                            and isinstance(result, torch.Tensor)
+                        ):
+                            tempdir = os.environ.get(_MLFLOW_LIGHTNING_AUTOLOGGING_TMP_DIR_ENV)
+                            assert tempdir is not None, (
+                                "_MLFLOW_LIGHTNING_AUTOLOGGING_TMP_DIR environment variable "
+                                "is missing."
+                            )
+                            torch.save(
+                                (inputs[0], result),
+                                os.path.join(tempdir, _INPUT_OUTPUT_TENSORS_FILENAME),
+                            )
+                    except Exception:
+                        pass
+                    self._first_batch_checked = True
+
+                return result
+
+            patch = gorilla.Patch(
+                lightning_module,
+                "forward",
+                patched_model_forward,
+                gorilla.Settings(allow_hit=True, store_hit=True),
+            )
+            gorilla.apply(patch)
+            self._model_forward_patch = patch
+
     @rank_zero_only
     def on_train_end(self, trainer, pl_module):
         """
@@ -296,7 +370,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
             if save_best_only=True, the decision to overwrite the current save file is made
             based on either the maximization or the minimization of the monitored quantity.
         save_weights_only: In automatic model checkpointing, if True, then
-            only the model’s weights will be saved. Otherwise, the optimizer states,
+            only the model's weights will be saved. Otherwise, the optimizer states,
             lr-scheduler states, etc are added in the checkpoint too.
         save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
             saves the model after each epoch. When using integer, the callback
@@ -462,6 +536,8 @@ def patched_fit(original, self, *args, **kwargs):
     .. _EarlyStoppingCallback:
         https://pytorch-lightning.readthedocs.io/en/latest/early_stopping.html
     """
+    from mlflow.pytorch import _is_forecasting_model
+
     if not MIN_REQ_VERSION <= _pl_version <= MAX_REQ_VERSION:
         warnings.warn(
             "Autologging is known to be compatible with pytorch-lightning versions between "
@@ -469,15 +545,33 @@ def patched_fit(original, self, *args, **kwargs):
             "outside this range."
         )
 
+    model = args[0] if len(args) > 0 else kwargs["model"]
+    if _is_forecasting_model(model):
+        # The forecasting model predict method calls tensor board writer's add_hparams
+        # method, which triggers pytorch autologging. The patch is for disabling it.
+        original_predict = model.predict
+
+        @functools.wraps(original_predict)
+        def patched_predict(*args, **kwargs):
+            with disable_autologging():
+                return original_predict(*args, **kwargs)
+
+        model.predict = patched_predict
+
     with disable_autologging():
         run_id = mlflow.active_run().info.run_id
         tracking_uri = mlflow.get_tracking_uri()
         client = MlflowAutologgingQueueingClient(tracking_uri)
 
+        log_model_signatures = get_autologging_config(
+            mlflow.pytorch.FLAVOR_NAME, "log_model_signatures", True
+        )
         log_models = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_models", True)
         model_id = None
         if log_models:
-            model_id = mlflow.initialize_logged_model(name="model").model_id
+            model_id = _initialize_logged_model(
+                name="model", flavor=mlflow.pytorch.FLAVOR_NAME
+            ).model_id
         metrics_logger = BatchMetricsLogger(run_id, tracking_uri, model_id=model_id)
 
         log_every_n_epoch = get_autologging_config(
@@ -496,7 +590,13 @@ def patched_fit(original, self, *args, **kwargs):
         if not any(isinstance(callbacks, __MlflowPLCallback) for callbacks in self.callbacks):
             self.callbacks += [
                 __MlflowPLCallback(
-                    client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
+                    client,
+                    metrics_logger,
+                    run_id,
+                    log_models,
+                    log_every_n_epoch,
+                    log_every_n_step,
+                    log_model_signatures,
                 )
             ]
 
@@ -541,17 +641,44 @@ def patched_fit(original, self, *args, **kwargs):
 
         client.flush(synchronous=False)
 
-        result = original(self, *args, **kwargs)
-
-        if early_stop_callback is not None:
-            _log_early_stop_metrics(early_stop_callback, client, run_id, model_id=model_id)
-
-        if Version(pl.__version__) < Version("1.4.0"):
-            summary = str(ModelSummary(self.model, mode="full"))
-        else:
-            summary = str(ModelSummary(self.model, max_depth=-1))
-
         with tempfile.TemporaryDirectory() as tempdir:
+            os.environ[_MLFLOW_LIGHTNING_AUTOLOGGING_TMP_DIR_ENV] = tempdir
+
+            try:
+                result = original(self, *args, **kwargs)
+            finally:
+                for callback in self.callbacks:
+                    if isinstance(callback, __MlflowPLCallback) and callback._model_forward_patch:
+                        gorilla.revert(callback._model_forward_patch)
+
+            model_signature = None
+            input_output_tensors_file = os.path.join(tempdir, _INPUT_OUTPUT_TENSORS_FILENAME)
+            if os.path.exists(input_output_tensors_file):
+                input_tensor, output_tensor = torch.load(input_output_tensors_file)
+                try:
+                    input_example = input_tensor.cpu().numpy()
+                    with torch.no_grad():
+                        output_example = output_tensor.cpu().numpy()
+                    model_signature = infer_signature(
+                        input_example,
+                        output_example,
+                    )
+                except Exception as e:
+                    _logger.warning(
+                        "Inferring model signature failed, skip logging signature. "
+                        "You need to manually log the model with a provided signature after "
+                        f"training. root cause: {e!r}.",
+                        exc_info=True,
+                    )
+
+            if early_stop_callback is not None:
+                _log_early_stop_metrics(early_stop_callback, client, run_id, model_id=model_id)
+
+            if Version(pl.__version__) < Version("1.4.0"):
+                summary = str(ModelSummary(self.model, mode="full"))
+            else:
+                summary = str(ModelSummary(self.model, max_depth=-1))
+
             summary_file = os.path.join(tempdir, "model_summary.txt")
             with open(summary_file, "w") as f:
                 f.write(summary)
@@ -567,6 +694,7 @@ def patched_fit(original, self, *args, **kwargs):
                 name="model",
                 registered_model_name=registered_model_name,
                 model_id=model_id,
+                signature=model_signature,
             )
 
             if early_stop_callback is not None and self.checkpoint_callback.best_model_path:

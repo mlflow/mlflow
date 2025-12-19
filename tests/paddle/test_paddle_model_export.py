@@ -1,6 +1,6 @@
 import json
 import os
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -37,7 +37,10 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
 )
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
+
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_dataframe: Any
 
 
 def get_dataset():
