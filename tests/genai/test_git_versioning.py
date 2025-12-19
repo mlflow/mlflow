@@ -258,14 +258,10 @@ def test_git_diff_includes_staged_changes(tmp_git_repo: Path):
 def test_enable_git_model_versioning_from_subdirectory(
     monkeypatch: pytest.MonkeyPatch, tmp_git_repo: Path
 ):
-    # Create a subdirectory
     subdir = tmp_git_repo / "subdir"
     subdir.mkdir()
-
-    # Change to the subdirectory
     monkeypatch.chdir(subdir)
 
-    # enable_git_model_versioning should work from the subdirectory
     context = enable_git_model_versioning()
     assert context.info is not None
     assert context.info.commit is not None
