@@ -106,6 +106,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
+    SqlTraceMetrics,
     SqlTraceTag,
 )
 from mlflow.store.tracking.gateway.sqlalchemy_mixin import SqlAlchemyGatewayStoreMixin
@@ -113,6 +114,7 @@ from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import (
     SpanAttributeKey,
     SpansLocation,
+    TokenUsageKey,
     TraceMetadataKey,
     TraceSizeStatsKey,
     TraceTagKey,
@@ -217,8 +219,19 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     TRACE_FOLDER_NAME = "traces"
     DEFAULT_EXPERIMENT_ID = "0"
     EVALUATION_DATASET_ID_PREFIX = "d-"
-    _db_uri_sql_alchemy_engine_map = {}
-    _db_uri_sql_alchemy_engine_map_lock = threading.Lock()
+    _engine_map: dict[str, sqlalchemy.engine.Engine] = {}
+    _engine_map_lock = threading.Lock()
+
+    @classmethod
+    def _get_or_create_engine(cls, db_uri: str) -> sqlalchemy.engine.Engine:
+        """Get a cached engine or create a new one for the given database URI."""
+        if db_uri not in cls._engine_map:
+            with cls._engine_map_lock:
+                if db_uri not in cls._engine_map:
+                    cls._engine_map[db_uri] = (
+                        mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
+                    )
+        return cls._engine_map[db_uri]
 
     def __init__(self, db_uri, default_artifact_root):
         """
@@ -237,19 +250,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.artifact_root_uri = resolve_uri_if_local(default_artifact_root)
-        # Quick check to see if the respective SQLAlchemy database engine has already been created.
-        if db_uri not in SqlAlchemyStore._db_uri_sql_alchemy_engine_map:
-            with SqlAlchemyStore._db_uri_sql_alchemy_engine_map_lock:
-                # Repeat check to prevent race conditions where one thread checks for an existing
-                # engine while another is creating the respective one, resulting in multiple
-                # engines being created. It isn't combined with the above check to prevent
-                # inefficiency from multiple threads waiting for the lock to check for engine
-                # existence if it has already been created.
-                if db_uri not in SqlAlchemyStore._db_uri_sql_alchemy_engine_map:
-                    SqlAlchemyStore._db_uri_sql_alchemy_engine_map[db_uri] = (
-                        mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
-                    )
-        self.engine = SqlAlchemyStore._db_uri_sql_alchemy_engine_map[db_uri]
+        self.engine = self._get_or_create_engine(db_uri)
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
         # DB migrations
@@ -2622,6 +2623,23 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 SqlAssessments.from_mlflow_entity(a) for a in trace_info.assessments
             ]
 
+            # Parse and store token usage as trace metrics if present in metadata
+            if token_usage_metadata := trace_info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE):
+                try:
+                    token_usage_dict = json.loads(token_usage_metadata)
+
+                    # Create a metric row for each token usage field
+                    trace_metrics = [
+                        SqlTraceMetrics(request_id=trace_id, key=key, value=float(value))
+                        for key in TokenUsageKey.all_keys()
+                        if (value := token_usage_dict.get(key)) is not None
+                    ]
+
+                    sql_trace_info.metrics = trace_metrics
+                except Exception as e:
+                    # If token usage metadata is malformed, skip it
+                    _logger.debug(f"Failed to parse token usage metadata: {e}", exc_info=True)
+
             try:
                 session.add(sql_trace_info)
                 session.flush()
@@ -3537,6 +3555,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         value=json.dumps(trace_token_usage),
                     )
                 )
+
+                # Store token usage as trace metrics
+                for key in TokenUsageKey.all_keys():
+                    if (value := trace_token_usage.get(key)) is not None:
+                        session.merge(
+                            SqlTraceMetrics(request_id=trace_id, key=key, value=float(value))
+                        )
+
             if session_id:
                 existing_session_id = (
                     session.query(SqlTraceMetadata)
@@ -5091,7 +5117,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
 
                 # Handle span.attributes.<attribute> format
                 if key_name.startswith("attributes."):
-                    attr_name = key_name[len("attributes.") :]
+                    attr_name = SearchTraceUtils._trim_backticks(key_name[len("attributes.") :])
                     # Search within the content JSON for the specific attribute
                     # TODO: we should improve this by saving only the attributes into the table.
                     if comparator == "RLIKE":
