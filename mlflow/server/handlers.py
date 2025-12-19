@@ -43,6 +43,7 @@ from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
+from mlflow.entities.trace_metrics import MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
@@ -170,6 +171,7 @@ from mlflow.protos.service_pb2 import (
     LogOutputs,
     LogParam,
     MlflowService,
+    QueryTraceMetrics,
     RegisterScorer,
     RemoveDatasetFromExperiments,
     RestoreExperiment,
@@ -215,6 +217,7 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.telemetry import get_telemetry_client
@@ -273,6 +276,8 @@ _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
 MAX_RESULTS_PER_RUN = 2500
+# Chunk size for streaming artifact uploads and downloads (1 MB)
+ARTIFACT_STREAM_CHUNK_SIZE = 1024 * 1024
 
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
@@ -2748,7 +2753,8 @@ def _download_artifact(artifact_path):
     file_handle = open(dst, "rb")  # noqa: SIM115
 
     def stream_and_remove_file():
-        yield from file_handle
+        while chunk := file_handle.read(ARTIFACT_STREAM_CHUNK_SIZE):
+            yield chunk
         file_handle.close()
         tmp_dir.cleanup()
 
@@ -2769,11 +2775,7 @@ def _upload_artifact(artifact_path):
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, tail)
         with open(tmp_path, "wb") as f:
-            chunk_size = 1024 * 1024  # 1 MB
-            while True:
-                chunk = request.stream.read(chunk_size)
-                if len(chunk) == 0:
-                    break
+            while chunk := request.stream.read(ARTIFACT_STREAM_CHUNK_SIZE):
                 f.write(chunk)
 
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -3327,6 +3329,60 @@ def get_trace_artifact_handler() -> Response:
         download_name=TRACE_DATA_FILE_NAME,
     )
     return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _query_trace_metrics() -> Response:
+    request_message = _get_request_message(
+        QueryTraceMetrics(),
+        schema={
+            "experiment_ids": [_assert_array, _assert_required, _assert_item_type_string],
+            "view_type": [_assert_required],
+            "metric_name": [_assert_string, _assert_required],
+            "aggregations": [_assert_array, _assert_required],
+            "dimensions": [_assert_array, _assert_item_type_string],
+            "filters": [_assert_array, _assert_item_type_string],
+            "time_interval_seconds": [_assert_intlike],
+            "start_time_ms": [_assert_intlike],
+            "end_time_ms": [_assert_intlike],
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+        },
+    )
+    max_results = (
+        request_message.max_results
+        if request_message.HasField("max_results")
+        else MAX_RESULTS_QUERY_TRACE_METRICS
+    )
+    time_interval_seconds = (
+        request_message.time_interval_seconds
+        if request_message.HasField("time_interval_seconds")
+        else None
+    )
+    start_time_ms = (
+        request_message.start_time_ms if request_message.HasField("start_time_ms") else None
+    )
+    end_time_ms = request_message.end_time_ms if request_message.HasField("end_time_ms") else None
+
+    result = _get_tracking_store().query_trace_metrics(
+        experiment_ids=request_message.experiment_ids,
+        view_type=MetricViewType.from_proto(request_message.view_type),
+        metric_name=request_message.metric_name,
+        aggregations=[MetricAggregation.from_proto(agg) for agg in request_message.aggregations],
+        dimensions=request_message.dimensions or None,
+        filters=request_message.filters or None,
+        time_interval_seconds=time_interval_seconds,
+        start_time_ms=start_time_ms,
+        end_time_ms=end_time_ms,
+        max_results=max_results,
+        page_token=request_message.page_token or None,
+    )
+    response_message = QueryTraceMetrics.Response()
+    response_message.data_points.extend([dp.to_proto() for dp in result])
+    if result.token:
+        response_message.next_page_token = result.token
+    return _wrap_response(response_message)
 
 
 # Assessments API handlers
@@ -4922,6 +4978,7 @@ HANDLERS = {
     LinkPromptsToTrace: _link_prompts_to_trace,
     BatchGetTraces: _batch_get_traces,
     GetTrace: _get_trace,
+    QueryTraceMetrics: _query_trace_metrics,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,
