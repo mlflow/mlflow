@@ -2940,8 +2940,8 @@ def test_post_ui_telemetry_handler_telemetry_disabled_by_env(
 
 
 def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
-    # Create a test file with binary data larger than the chunk size
-    test_file_size = ARTIFACT_STREAM_CHUNK_SIZE * 2 + 1000  # ~2MB
+    # Create a test file with binary data larger than the chunk size (2MB + 1000 bytes)
+    test_file_size = ARTIFACT_STREAM_CHUNK_SIZE * 2 + 1000
     test_data = b"x" * test_file_size
 
     artifact_path = "test_model/model.pkl"
@@ -2966,18 +2966,18 @@ def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
         response = _download_artifact(artifact_path)
 
         # Extract chunks from the response by iterating over its data
-        chunks_yielded = list(response.response)
+        response_chunks = list(response.response)
 
         # Verify that data was streamed in chunks, not line by line
         # For a 2MB+ binary file, line-by-line would produce many small chunks
         # Chunk-based streaming should produce exactly 3 chunks (2*1MB + 1000 bytes)
-        assert len(chunks_yielded) == 3, f"Expected 3 chunks, got {len(chunks_yielded)}"
+        assert len(response_chunks) == 3, f"Expected 3 chunks, got {len(response_chunks)}"
 
         # Verify chunk sizes
-        assert len(chunks_yielded[0]) == ARTIFACT_STREAM_CHUNK_SIZE
-        assert len(chunks_yielded[1]) == ARTIFACT_STREAM_CHUNK_SIZE
-        assert len(chunks_yielded[2]) == 1000
+        assert len(response_chunks[0]) == ARTIFACT_STREAM_CHUNK_SIZE
+        assert len(response_chunks[1]) == ARTIFACT_STREAM_CHUNK_SIZE
+        assert len(response_chunks[2]) == 1000
 
         # Verify that all data is correctly streamed
-        streamed_data = b"".join(chunks_yielded)
+        streamed_data = b"".join(response_chunks)
         assert streamed_data == test_data

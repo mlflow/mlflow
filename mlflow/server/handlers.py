@@ -2753,10 +2753,7 @@ def _download_artifact(artifact_path):
     file_handle = open(dst, "rb")  # noqa: SIM115
 
     def stream_and_remove_file():
-        while True:
-            chunk = file_handle.read(ARTIFACT_STREAM_CHUNK_SIZE)
-            if not chunk:
-                break
+        while chunk := file_handle.read(ARTIFACT_STREAM_CHUNK_SIZE):
             yield chunk
         file_handle.close()
         tmp_dir.cleanup()
