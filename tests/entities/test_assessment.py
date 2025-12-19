@@ -12,6 +12,8 @@ from mlflow.entities.assessment import (
     ExpectationValue,
     Feedback,
     FeedbackValue,
+    Issue,
+    IssueValue,
 )
 from mlflow.entities.assessment_error import _STACK_TRACE_TRUNCATION_LENGTH
 from mlflow.exceptions import MlflowException
@@ -617,3 +619,132 @@ def test_feedback_rejects_invalid_error_types(invalid_error):
         MlflowException, match="'error' must be an Exception, AssessmentError, or string"
     ):
         Feedback(name="test", error=invalid_error)
+
+
+def test_issue_creation():
+    issue = Issue(
+        issue_id="issue-123",
+        issue_name="Missing context in response",
+        trace_id="trace-456",
+        metadata={"key1": "value1"},
+    )
+
+    assert issue.issue_id == "issue-123"
+    assert issue.issue_name == "Missing context in response"
+    assert issue.trace_id == "trace-456"
+    assert issue.metadata["key1"] == "value1"
+    assert issue.metadata[AssessmentMetadataKey.ISSUE_NAME] == "Missing context in response"
+    assert issue.name == "issue-123"
+    assert issue.source.source_type == "LLM_JUDGE"
+
+
+def test_issue_creation_with_custom_source():
+    source = AssessmentSource(source_type="LLM_JUDGE", source_id="trace-insights-v1")
+    issue = Issue(
+        issue_id="issue-123",
+        issue_name="Test Issue",
+        source=source,
+    )
+
+    assert issue.source.source_type == "LLM_JUDGE"
+    assert issue.source.source_id == "trace-insights-v1"
+
+
+def test_issue_validation_missing_issue_id():
+    with pytest.raises(MlflowException, match="issue_id.*must be specified"):
+        Issue(issue_id="", issue_name="Test Issue")
+
+    with pytest.raises(MlflowException, match="issue_id.*must be specified"):
+        Issue(issue_id=None, issue_name="Test Issue")
+
+
+def test_issue_validation_missing_issue_name():
+    with pytest.raises(MlflowException, match="issue_name.*must be specified"):
+        Issue(issue_id="issue-123", issue_name="")
+
+    with pytest.raises(MlflowException, match="issue_name.*must be specified"):
+        Issue(issue_id="issue-123", issue_name=None)
+
+
+def test_issue_proto_dict_conversion():
+    timestamp_ms = int(time.time() * 1000)
+    source = AssessmentSource(source_type="LLM_JUDGE", source_id="trace-insights-v1")
+
+    issue = Issue(
+        issue_id="issue-123",
+        issue_name="Missing context in response",
+        trace_id="trace-456",
+        source=source,
+        create_time_ms=timestamp_ms,
+        last_update_time_ms=timestamp_ms,
+        metadata={"key1": "value1"},
+    )
+
+    proto = issue.to_proto()
+    assert isinstance(proto, ProtoAssessment)
+    assert proto.assessment_name == "issue-123"
+    assert proto.trace_id == "trace-456"
+    assert proto.metadata[AssessmentMetadataKey.ISSUE_NAME] == "Missing context in response"
+
+    result = Assessment.from_proto(proto)
+    assert isinstance(result, Issue)
+    assert result.issue_id == "issue-123"
+    assert result.issue_name == "Missing context in response"
+    assert result.trace_id == "trace-456"
+    assert result.metadata["key1"] == "value1"
+
+    issue_dict = issue.to_dictionary()
+    assert issue_dict["assessment_name"] == "issue-123"
+    assert issue_dict["trace_id"] == "trace-456"
+    assert issue_dict["issue"].get("value", True) is True
+
+    result = Assessment.from_dictionary(issue_dict)
+    assert isinstance(result, Issue)
+    assert result.issue_id == "issue-123"
+    assert result.issue_name == "Missing context in response"
+
+
+def test_assessment_value_validation_with_issue():
+    common_args = {
+        "trace_id": "trace_id",
+        "name": "relevance",
+        "source": AssessmentSource(source_type="LLM_JUDGE", source_id="judge_1"),
+        "create_time_ms": 123456789,
+        "last_update_time_ms": 123456789,
+    }
+
+    # Valid: only issue (IssueValue now contains just a boolean)
+    Assessment(issue=IssueValue(value=True), **common_args)
+
+    # Invalid: issue with expectation
+    with pytest.raises(MlflowException, match=r"Exactly one of"):
+        Assessment(
+            issue=IssueValue(value=True),
+            expectation=ExpectationValue("MLflow"),
+            **common_args,
+        )
+
+    # Invalid: issue with feedback
+    with pytest.raises(MlflowException, match=r"Exactly one of"):
+        Assessment(
+            issue=IssueValue(value=True),
+            feedback=FeedbackValue("This is correct."),
+            **common_args,
+        )
+
+    # Invalid: all three
+    with pytest.raises(MlflowException, match=r"Exactly one of"):
+        Assessment(
+            issue=IssueValue(value=True),
+            expectation=ExpectationValue("MLflow"),
+            feedback=FeedbackValue("This is correct."),
+            **common_args,
+        )
+
+    # Invalid: error with issue
+    with pytest.raises(MlflowException, match=r"Cannot set `error` when `issue` is specified"):
+        Assessment(
+            issue=IssueValue(value=True),
+            error=AssessmentError(error_code="E001"),
+            **common_args,
+        )
