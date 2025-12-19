@@ -11,7 +11,7 @@ import { formatProviderName } from '../../utils/providerUtils';
 import { LongFormSection, LongFormSummary } from '../../../common/components/long-form';
 import type { Model, SecretInfo } from '../../types';
 import { formatTokens, formatCost } from '../../utils/formatters';
-import type { SecretMode } from '../secrets/SecretConfigSection';
+import type { SecretMode } from '../model-configuration';
 
 const LONG_FORM_TITLE_WIDTH = 200;
 

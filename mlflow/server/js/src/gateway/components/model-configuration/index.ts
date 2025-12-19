@@ -48,6 +48,7 @@ export {
 
 // Types
 export type {
+  SecretMode,
   ModelConfiguration,
   ApiKeyConfiguration,
   NewSecretData,
