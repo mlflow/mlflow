@@ -63,7 +63,6 @@ from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException, MlflowTracingException
-from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -198,16 +197,13 @@ _GATEWAY_PROVIDER = "gateway"
 def _is_gateway_model(model: str | None) -> bool:
     if model is None:
         return False
-    try:
-        provider, _ = _parse_model_uri(model)
-        return provider == _GATEWAY_PROVIDER
-    except MlflowException:
-        return False
+    parts = model.split(":/", 1)
+    return len(parts) == 2 and parts[0] == _GATEWAY_PROVIDER
 
 
 def _extract_endpoint_ref(model: str) -> str:
-    _, endpoint_ref = _parse_model_uri(model)
-    return endpoint_ref
+    _, endpoint_ref = model.split(":/", 1)
+    return endpoint_ref.lstrip("/")
 
 
 def _build_gateway_model(endpoint_ref: str) -> str:
