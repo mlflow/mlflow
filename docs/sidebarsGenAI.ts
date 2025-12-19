@@ -17,6 +17,7 @@ const sidebarsGenAI: SidebarsConfig = {
       type: 'link',
       href: '/genai/getting-started/connect-environment',
       className: 'sidebar-top-level-category',
+      label: 'Set Up MLflow Server',
     },
     {
       type: 'link',
