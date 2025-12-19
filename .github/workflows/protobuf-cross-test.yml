@@ -63,7 +63,7 @@ jobs:
           pip install -U pip setuptools wheel
           pip install tests/resources/mlflow-test-plugin
           pip install .[extras,genai,mcp]
-          pip install pyspark
+          pip install "pyspark<4.1"
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
           pip install datasets
           # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
