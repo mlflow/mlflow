@@ -34,6 +34,7 @@ class ScorerKind(Enum):
     DECORATOR = "decorator"
     INSTRUCTIONS = "instructions"
     GUIDELINES = "guidelines"
+    THIRD_PARTY = "third_party"
 
 
 _ALLOWED_SCORERS_FOR_REGISTRATION = [
