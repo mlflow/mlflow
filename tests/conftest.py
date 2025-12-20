@@ -262,7 +262,7 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
         condition = flaky_marker.kwargs.get("condition", True)
         if condition:
             should_rerun = True
-            attempts = flaky_marker.kwargs.get("attempts", 2)
+            attempts = flaky_marker.kwargs.get("attempts", 3)
 
     item.execution_count = 0
     need_to_run = True
