@@ -17,6 +17,7 @@ class WorkspaceAwareMixin:
     Classes using this mixin must have a ManagedSessionMaker attribute.
     """
 
+    @property
     def supports_workspaces(self) -> bool:
         """Indicates this store supports workspace isolation."""
         return True

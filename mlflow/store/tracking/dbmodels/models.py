@@ -2266,7 +2266,7 @@ class SqlGatewaySecret(Base):
         server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
     )
     """
-    Workspace: `String` (limit 63 characters). Workspace scope for multi-tenant isolation.
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
     """
 
     __table_args__ = (
@@ -2359,7 +2359,7 @@ class SqlGatewayEndpoint(Base):
         server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
     )
     """
-    Workspace: `String` (limit 63 characters). Workspace scope for multi-tenant isolation.
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
     """
 
     __table_args__ = (
@@ -2464,7 +2464,7 @@ class SqlGatewayModelDefinition(Base):
         server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
     )
     """
-    Workspace: `String` (limit 63 characters). Workspace scope for multi-tenant isolation.
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
     """
 
     secret = relationship("SqlGatewaySecret")

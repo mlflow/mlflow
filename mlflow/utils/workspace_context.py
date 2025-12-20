@@ -17,10 +17,13 @@ def get_request_workspace() -> str | None:
     2) ``MLFLOW_WORKSPACE`` environment variable (client-side fallback, including threads).
     """
 
-    if workspace := _WORKSPACE.get():
+    if workspace := (_WORKSPACE.get() or "").strip():
         return workspace
 
-    return MLFLOW_WORKSPACE.get()
+    if env_workspace := (MLFLOW_WORKSPACE.get() or "").strip():
+        return env_workspace
+
+    return None
 
 
 def _validate_workspace(workspace: str | None) -> None:

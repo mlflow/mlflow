@@ -110,7 +110,7 @@ MLFLOW_REGISTRY_URI = _EnvironmentVariable("MLFLOW_REGISTRY_URI", str, None)
 #: Defaults to the tracking URI when unset.
 MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", str, None)
 
-#: Enables workspace-aware (multi-tenant) behavior for MLflow servers and clients.
+#: Enables workspace-aware behavior for MLflow servers and clients.
 #: When set, requests can include a workspace. Some workspace providers support default workspaces.
 #: (default: ``False``)
 MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
