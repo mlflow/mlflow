@@ -255,13 +255,10 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
     """
     from _pytest.runner import runtestprotocol
 
-    # Get attempts from the flaky marker
-    flaky_marker = item.get_closest_marker("flaky")
-
     # Check if we should enable flaky rerun logic
     should_rerun = False
     attempts = 1
-    if flaky_marker is not None:
+    if flaky_marker := item.get_closest_marker("flaky"):
         condition = flaky_marker.kwargs.get("condition", True)
         if condition:
             should_rerun = True
