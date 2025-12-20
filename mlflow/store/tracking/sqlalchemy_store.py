@@ -270,6 +270,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         self._initialize_store_state()
 
+    @property
     def supports_workspaces(self) -> bool:
         return False
 
@@ -541,7 +542,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
     def _filter_experiment_ids(self, session, experiment_ids):
         """
-        Hook for subclasses to filter experiment IDs (e.g., for multi-tenancy).
+        Hook for subclasses to filter experiment IDs (e.g., for workspaces).
         """
 
         return experiment_ids
@@ -550,7 +551,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         self, session, entity_type: EntityAssociationType, entity_ids: list[str]
     ):
         """
-        Hook for subclasses to filter entity IDs (e.g., for multi-tenancy).
+        Hook for subclasses to filter entity IDs (e.g., for workspaces).
         """
         return entity_ids
 

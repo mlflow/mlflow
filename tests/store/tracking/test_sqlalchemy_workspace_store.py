@@ -90,7 +90,7 @@ def test_sqlalchemy_store_returns_workspace_aware_when_enabled(tmp_path, monkeyp
     store = tracking_utils._get_sqlalchemy_store(backend_uri, artifact_dir.as_uri())
     try:
         assert isinstance(store, WorkspaceAwareSqlAlchemyStore)
-        assert store.supports_workspaces() is True
+        assert store.supports_workspaces is True
     finally:
         store._dispose_engine()
 
@@ -103,7 +103,7 @@ def test_sqlalchemy_store_is_single_tenant_when_disabled(tmp_path, monkeypatch):
     store = tracking_utils._get_sqlalchemy_store(backend_uri, artifact_dir.as_uri())
     try:
         assert not isinstance(store, WorkspaceAwareSqlAlchemyStore)
-        assert store.supports_workspaces() is False
+        assert store.supports_workspaces is False
     finally:
         store._dispose_engine()
 

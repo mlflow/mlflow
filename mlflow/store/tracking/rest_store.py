@@ -122,6 +122,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.workspace_rest_store_mixin import WorkspaceRestStoreMixin
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 from mlflow.utils.databricks_utils import databricks_api_disabled
@@ -144,7 +145,7 @@ from mlflow.utils.validation import _resolve_experiment_ids_and_locations
 _logger = logging.getLogger(__name__)
 
 
-class RestStore(AbstractStore):
+class RestStore(WorkspaceRestStoreMixin, AbstractStore):
     """
     Client for a remote tracking server accessed via REST API calls
 
@@ -198,6 +199,8 @@ class RestStore(AbstractStore):
         retry_timeout_seconds=None,
         response_proto=None,
     ):
+        self._validate_workspace_support_if_specified()
+
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
             # /mlflow/traces/{trace_id}/info.
@@ -1764,6 +1767,8 @@ class RestStore(AbstractStore):
         """
         if not spans:
             return []
+
+        self._validate_workspace_support_if_specified()
 
         server_version = self._get_server_version(self.get_host_creds())
         if server_version is None:
