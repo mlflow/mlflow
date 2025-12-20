@@ -1,6 +1,6 @@
 import json
 from unittest import mock
-from unittest.mock import call, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 from litellm.types.utils import ModelResponse
@@ -8,7 +8,9 @@ from litellm.types.utils import ModelResponse
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import SpanType
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
@@ -23,12 +25,15 @@ from mlflow.genai.scorers import (
     ExpectationsGuidelines,
     Fluency,
     Guidelines,
+    KnowledgeRetention,
     RelevanceToQuery,
     RetrievalGroundedness,
     RetrievalRelevance,
     RetrievalSufficiency,
     Safety,
     Summarization,
+    ToolCallCorrectness,
+    ToolCallEfficiency,
     UserFrustration,
 )
 from mlflow.genai.scorers.base import Scorer, ScorerKind
@@ -577,16 +582,35 @@ def test_equivalence():
     assert result.value == CategoricalRating.YES
 
 
-@pytest.mark.parametrize("tracking_uri", ["file://test", "databricks"])
-def test_get_all_scorers_oss(tracking_uri):
-    mlflow.set_tracking_uri(tracking_uri)
-
+def test_get_all_scorers():
     scorers = get_all_scorers()
+    scorer_class_names = {type(s).__name__ for s in scorers}
 
-    # Safety and RetrievalRelevance are only available in Databricks
-    # Now we have 9 scorers for OSS and 11 for Databricks
-    assert len(scorers) == (11 if tracking_uri == "databricks" else 9)
+    expected_scorers = {
+        "RetrievalRelevance",
+        "RetrievalSufficiency",
+        "RetrievalGroundedness",
+        "ExpectationsGuidelines",
+        "RelevanceToQuery",
+        "Safety",
+        "Correctness",
+        "Fluency",
+        "Equivalence",
+        "Completeness",
+        "Summarization",
+        "UserFrustration",
+        "ConversationCompleteness",
+        "ConversationalSafety",
+        "ConversationalToolCallEfficiency",
+        "ConversationalRoleAdherence",
+        "KnowledgeRetention",
+        "ToolCallEfficiency",
+        "ToolCallCorrectness",
+    }
+
+    assert scorer_class_names == expected_scorers
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
+    assert len({s.name for s in scorers}) == len(scorers)
 
 
 def test_retrieval_relevance_get_input_fields():
@@ -1667,6 +1691,94 @@ def test_conversational_tool_call_efficiency_instructions():
     assert "efficient" in instructions.lower() or "redundant" in instructions.lower()
 
 
+def test_tool_call_efficiency():
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "What is the weather in Paris?"})
+        with mlflow.start_span(name="get_weather", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"city": "Paris"})
+            tool_span.set_outputs("Sunny, 22°C")
+        span.set_outputs("The weather in Paris is sunny and 22°C")
+
+    efficient_trace = mlflow.get_trace(span.trace_id)
+
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "Get weather for InvalidCity"})
+        with mlflow.start_span(name="get_weather", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"city": "InvalidCity123"})
+            tool_span.record_exception(ValueError("City not found"))
+        span.set_outputs("Sorry, I couldn't find that city")
+
+    exception_trace = mlflow.get_trace(span.trace_id)
+
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke:
+        mock_invoke.return_value = Feedback(
+            name="tool_call_efficiency",
+            value=CategoricalRating.YES,
+            rationale="Tool usage is efficient",
+        )
+
+        scorer = ToolCallEfficiency()
+        result = scorer(trace=efficient_trace)
+
+        assert result.name == "tool_call_efficiency"
+        assert result.value == CategoricalRating.YES
+        mock_invoke.assert_called()
+
+        result = scorer(trace=exception_trace)
+        assert result.name == "tool_call_efficiency"
+        mock_invoke.assert_called()
+
+
+def test_tool_call_correctness_with_correct_tool_call():
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "What is the weather in San Francisco?"})
+        with mlflow.start_span(name="get_weather", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"location": "San Francisco", "unit": "celsius"})
+            tool_span.set_outputs("15°C, partly cloudy")
+        span.set_outputs("The weather in San Francisco is 15°C and partly cloudy")
+
+    correct_trace = mlflow.get_trace(span.trace_id)
+
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke:
+        mock_invoke.return_value = Feedback(
+            name="tool_call_correctness",
+            value=CategoricalRating.YES,
+            rationale="Tool calls are correct and appropriate",
+        )
+
+        scorer = ToolCallCorrectness()
+        result = scorer(trace=correct_trace)
+
+        assert result.name == "tool_call_correctness"
+        assert result.value == CategoricalRating.YES
+        mock_invoke.assert_called()
+
+
+def test_tool_call_correctness_with_incorrect_tool_call():
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "What is the weather in San Francisco?"})
+        with mlflow.start_span(name="calculator", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"expression": "San Francisco"})
+            tool_span.set_outputs("Error: invalid expression")
+        span.set_outputs("I'm sorry, I couldn't get the weather")
+
+    incorrect_trace = mlflow.get_trace(span.trace_id)
+
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke:
+        mock_invoke.return_value = Feedback(
+            name="tool_call_correctness",
+            value=CategoricalRating.NO,
+            rationale="Wrong tool used for weather query",
+        )
+
+        scorer = ToolCallCorrectness()
+        result = scorer(trace=incorrect_trace)
+
+        assert result.name == "tool_call_correctness"
+        assert result.value == CategoricalRating.NO
+        mock_invoke.assert_called()
+
+
 def test_conversational_role_adherence_with_session():
     session_id = "test_session_role"
     traces = []
@@ -1710,6 +1822,207 @@ def test_conversational_role_adherence_instructions():
     instructions = scorer.instructions
     assert "role" in instructions.lower()
     assert "persona" in instructions.lower() or "boundaries" in instructions.lower()
+
+
+def _create_test_trace_with_session(
+    turn_name: str,
+    session_id: str,
+    input_data: dict[str, str],
+    output_data: str,
+):
+    """Helper to create a trace for KnowledgeRetention tests."""
+    with mlflow.start_span(name=turn_name) as span:
+        span.set_inputs(input_data)
+        span.set_outputs(output_data)
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    return mlflow.get_trace(span.trace_id)
+
+
+def test_knowledge_retention_uses_default_last_turn_scorer():
+    session_id = "test_session_default_scorer"
+    session = []
+
+    session.append(
+        _create_test_trace_with_session(
+            turn_name="turn_0",
+            session_id=session_id,
+            input_data={"question": "My name is Alice and I love Python"},
+            output_data="Nice to meet you Alice! Python is great.",
+        )
+    )
+
+    session.append(
+        _create_test_trace_with_session(
+            turn_name="turn_1",
+            session_id=session_id,
+            input_data={"question": "What programming language do I like?"},
+            output_data="You mentioned you love Python!",
+        )
+    )
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name="last_turn_knowledge_retention",
+            value="yes",
+            rationale="AI correctly recalled the user loves Python",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id="test-model",
+            ),
+        ),
+    ) as mock_invoke_judge:
+        scorer = KnowledgeRetention()
+        result = scorer(session=session)
+
+        assert isinstance(result, Feedback)
+        assert result.value == "yes"
+        assert "successful" in result.rationale.lower()
+
+        assert mock_invoke_judge.call_count == 2
+
+        first_call_kwargs = mock_invoke_judge.call_args_list[0].kwargs
+        assert "prompt" in first_call_kwargs
+        conversation_content = first_call_kwargs["prompt"][1].content
+        assert "My name is Alice and I love Python" in conversation_content
+
+
+def test_knowledge_retention_success():
+    session_id = "test_session_kr_success"
+    traces = []
+
+    traces.append(
+        _create_test_trace_with_session(
+            turn_name="turn_0",
+            session_id=session_id,
+            input_data={"question": "My name is Alice and I love Python"},
+            output_data="Nice to meet you Alice! Python is great.",
+        )
+    )
+
+    traces.append(
+        _create_test_trace_with_session(
+            turn_name="turn_1",
+            session_id=session_id,
+            input_data={"question": "What programming language do I like?"},
+            output_data="You mentioned you love Python!",
+        )
+    )
+
+    fake_scorer = Mock(spec=Scorer)
+    fake_scorer.return_value = Feedback(
+        name="last_turn_knowledge_retention",
+        value="yes",
+        rationale="AI correctly recalled the user loves Python",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id="test-model",
+        ),
+    )
+
+    scorer = KnowledgeRetention(last_turn_scorer=fake_scorer)
+    result = scorer(session=traces)
+
+    assert isinstance(result, Feedback)
+    assert result.value == "yes"
+    assert "successful" in result.rationale.lower()
+
+    assert fake_scorer.call_count == 2
+
+    first_call_args = fake_scorer.call_args_list[0]
+    assert len(first_call_args.kwargs["session"]) == 1
+
+    second_call_args = fake_scorer.call_args_list[1]
+    assert len(second_call_args.kwargs["session"]) == 2
+
+
+def test_knowledge_retention_failure():
+    session_id = "test_session_kr_failure"
+    traces = []
+
+    traces.append(
+        _create_test_trace_with_session(
+            turn_name="turn_0",
+            session_id=session_id,
+            input_data={"question": "My name is Alice"},
+            output_data="Nice to meet you Alice!",
+        )
+    )
+
+    traces.append(
+        _create_test_trace_with_session(
+            turn_name="turn_1",
+            session_id=session_id,
+            input_data={"question": "What's my name?"},
+            output_data="Your name is Bob!",
+        )
+    )
+
+    fake_scorer = Mock(spec=Scorer)
+    fake_scorer.return_value = Feedback(
+        name="last_turn_knowledge_retention",
+        value="no",
+        rationale="AI incorrectly recalled name as Bob instead of Alice",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id="test-model",
+        ),
+    )
+
+    scorer = KnowledgeRetention(last_turn_scorer=fake_scorer)
+    result = scorer(session=traces)
+
+    assert isinstance(result, Feedback)
+    assert result.value == "no"
+    assert "failed" in result.rationale.lower() or "no" in result.rationale.lower()
+
+    assert "Turn 1" in result.rationale
+
+    assert "AI incorrectly recalled name as Bob instead of Alice" in result.rationale
+
+
+def test_knowledge_retention_single_turn():
+    session_id = "test_session_single"
+    traces = []
+
+    traces.append(
+        _create_test_trace_with_session(
+            turn_name="turn_0",
+            session_id=session_id,
+            input_data={"question": "Hello"},
+            output_data="Hi there!",
+        )
+    )
+
+    fake_scorer = Mock(spec=Scorer)
+    fake_scorer.return_value = Feedback(
+        name="last_turn_knowledge_retention",
+        value="yes",
+        rationale="Single turn evaluated - no prior context to contradict",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id="test-model",
+        ),
+    )
+
+    scorer = KnowledgeRetention(last_turn_scorer=fake_scorer)
+    result = scorer(session=traces)
+
+    assert isinstance(result, Feedback)
+    assert result.value == "yes"
+    assert "successful" in result.rationale.lower()
+
+    fake_scorer.assert_called_once()
+    call_args = fake_scorer.call_args
+    assert len(call_args.kwargs["session"]) == 1
+
+
+def test_knowledge_retention_empty_session():
+    scorer = KnowledgeRetention()
+    with pytest.raises(
+        MlflowException, match="cannot evaluate knowledge retention on empty session"
+    ):
+        scorer(session=[])
 
 
 def test_session_level_scorer_with_invalid_kwargs():

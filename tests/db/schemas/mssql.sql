@@ -74,7 +74,7 @@ CREATE TABLE inputs (
 CREATE TABLE jobs (
 	id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	creation_time BIGINT NOT NULL,
-	function_fullname VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	job_name VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	params VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	timeout FLOAT,
 	status INTEGER NOT NULL,
@@ -100,7 +100,7 @@ CREATE TABLE secrets (
 	encrypted_value VARBINARY NOT NULL,
 	wrapped_dek VARBINARY NOT NULL,
 	kek_version INTEGER NOT NULL,
-	masked_value VARCHAR(100) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	masked_value VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	provider VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	auth_config VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",

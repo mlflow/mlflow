@@ -26,6 +26,7 @@ from mlflow.genai.utils.prompts.available_tools_extraction import (
     get_available_tools_extraction_prompts,
 )
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import (
     AssessmentMetadataKey,
     SpanAttributeKey,
@@ -42,6 +43,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from mlflow.genai.evaluation.entities import EvalItem, EvalResult
+    from mlflow.genai.utils.type import FunctionCall
     from mlflow.types.chat import ChatTool
 
 _logger = logging.getLogger(__name__)
@@ -164,7 +166,68 @@ def resolve_outputs_from_trace(
     return outputs
 
 
-def parse_tool_calls_from_trace(trace: Trace) -> list[dict[str, str]]:
+def _get_exception_from_span(span: Span) -> str | None:
+    """
+    Extract exception information from span events.
+
+    Args:
+        span: The span to check for exception events.
+
+    Returns:
+        A formatted string containing exception information if found, None otherwise.
+    """
+    exception_events = [event for event in span.events if event.name == "exception"]
+    if not exception_events:
+        return None
+
+    exception_event = exception_events[0]
+    attrs = exception_event.attributes
+
+    exception_type = attrs.get("exception.type", "Exception")
+
+    if exception_message := attrs.get("exception.message"):
+        return f"{exception_type}: {exception_message}"
+    return exception_type
+
+
+def extract_tools_called_from_trace(trace: Trace) -> list["FunctionCall"]:
+    """
+    Extract tool call information from TOOL type spans in a trace.
+
+    This function extracts tool spans (spans with span_type==SpanType.TOOL) from a trace
+    and returns them as a list of FunctionCall objects containing the tool name, inputs,
+    and outputs.
+
+    Args:
+        trace: A single Trace object to extract tool calls from.
+
+    Returns:
+        List of FunctionCall objects.
+        Returns empty list if no tool spans are found.
+
+    Example:
+        >>> trace = mlflow.get_trace(trace_id)
+        >>> tools = extract_tools_called_from_trace(trace)
+        >>> # Returns: [FunctionCall(name="tool_name", arguments={...}, outputs={...})]
+    """
+    from mlflow.genai.utils.type import FunctionCall
+
+    tools_called = []
+    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+
+    for tool_span in sorted(tool_spans, key=lambda s: s.start_time_ns or 0):
+        tool_info = FunctionCall(
+            name=tool_span.name,
+            arguments=tool_span.inputs or None,
+            outputs=tool_span.outputs or None,
+            exception=_get_exception_from_span(tool_span),
+        )
+        tools_called.append(tool_info)
+
+    return tools_called
+
+
+def parse_tool_call_messages_from_trace(trace: Trace) -> list[dict[str, str]]:
     """
     Extract and format tool call information from TOOL type spans in a trace.
 
@@ -182,22 +245,64 @@ def parse_tool_calls_from_trace(trace: Trace) -> list[dict[str, str]]:
 
     Example:
         >>> trace = mlflow.get_trace(trace_id)
-        >>> tool_messages = parse_tool_calls_from_trace(trace)
+        >>> tool_messages = parse_tool_call_messages_from_trace(trace)
         >>> # Returns: [{"role": "tool", "content": "Tool: name\\nInputs: ...\\nOutputs: ..."}]
     """
+    tools_called = extract_tools_called_from_trace(trace)
 
     tool_messages = []
-    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
-
-    for tool_span in sorted(tool_spans, key=lambda s: s.start_time_ns or 0):
-        tool_info = f"Tool: {tool_span.name}"
-        if tool_span.inputs:
-            tool_info += f"\nInputs: {tool_span.inputs}"
-        if tool_span.outputs:
-            tool_info += f"\nOutputs: {tool_span.outputs}"
+    for tool in tools_called:
+        tool_info = f"Tool: {tool.name}"
+        if tool.arguments is not None:
+            tool_info += f"\nInputs: {tool.arguments}"
+        if tool.outputs is not None:
+            tool_info += f"\nOutputs: {tool.outputs}"
+        if tool.exception is not None:
+            tool_info += f"\nException: {tool.exception}"
         tool_messages.append({"role": "tool", "content": tool_info})
 
     return tool_messages
+
+
+def validate_session(session: list[Trace]) -> None:
+    """
+    Validate that all traces in session belong to the same session.
+
+    Args:
+        session: List of traces to validate.
+
+    Raises:
+        MlflowException: If traces are missing session_id or belong to different sessions.
+    """
+    session_id_to_trace_ids: dict[str, list[str]] = {}
+    for trace in session:
+        session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
+        if session_id is None:
+            raise MlflowException(
+                f"All traces in 'session' must have a session_id. "
+                f"Trace {trace.info.trace_id} is missing session_id. "
+                f"See https://mlflow.org/docs/latest/genai/tracing/track-users-sessions/ "
+                f"for information on how to set session_id on traces.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if session_id not in session_id_to_trace_ids:
+            session_id_to_trace_ids[session_id] = []
+        session_id_to_trace_ids[session_id].append(trace.info.trace_id)
+
+    if len(session_id_to_trace_ids) != 1:
+        session_details = "\n".join(
+            f"session_id '{sid}': trace_ids {trace_ids[:3]}"
+            + (
+                f" and {len(trace_ids) - 3} more trace{'s' if len(trace_ids) - 3 != 1 else ''}"
+                if len(trace_ids) > 3
+                else ""
+            )
+            for sid, trace_ids in session_id_to_trace_ids.items()
+        )
+        raise MlflowException.invalid_parameter_value(
+            f"All traces in 'session' must belong to the same session. "
+            f"Found {len(session_id_to_trace_ids)} different session(s):\n{session_details}"
+        )
 
 
 def resolve_conversation_from_session(
@@ -233,7 +338,7 @@ def resolve_conversation_from_session(
 
         # Extract tool calls from TOOL type spans (if requested)
         if include_tool_calls:
-            tool_messages = parse_tool_calls_from_trace(trace)
+            tool_messages = parse_tool_call_messages_from_trace(trace)
             conversation.extend(tool_messages)
 
         # Extract and parse output (assistant message)
@@ -248,7 +353,7 @@ def resolve_conversation_from_session(
 def resolve_expectations_from_trace(
     expectations: dict[str, Any] | None,
     trace: Trace,
-    source: AssessmentSourceType = AssessmentSourceType.HUMAN,
+    source_type: AssessmentSourceType = AssessmentSourceType.HUMAN,
     *,
     extract_if_none: bool = True,
 ) -> dict[str, Any] | None:
@@ -258,7 +363,7 @@ def resolve_expectations_from_trace(
     Args:
         expectations: Dictionary of expected outcomes. If None, will be extracted from trace.
         trace: MLflow trace object containing the execution to evaluate.
-        source: Assessment source type to filter expectations by. Defaults to HUMAN.
+        source_type: Assessment source type to filter expectations by. Defaults to HUMAN.
         extract_if_none: If True, extract from trace when expectations is None. If False, only
                         return the provided expectations value. Defaults to True.
 
@@ -268,28 +373,71 @@ def resolve_expectations_from_trace(
     """
     if expectations is None and trace is not None and extract_if_none:
         try:
-            return extract_expectations_from_trace(trace, source=source)
+            return extract_expectations_from_trace(trace, source_type=source_type)
         except Exception as e:
             _logger.debug(f"Could not extract expectations from trace: {e}")
     return expectations
 
 
+def resolve_expectations_from_session(
+    expectations: dict[str, Any] | None,
+    session: list[Trace],
+    source_type: AssessmentSourceType = AssessmentSourceType.HUMAN,
+) -> dict[str, Any] | None:
+    """
+    Extract session-level expectations from the first trace in a session if not provided.
+
+    Args:
+        expectations: Dictionary of expected outcomes. If provided, this is returned as-is
+                     (ground truth). If None, will be extracted from session.
+        session: List of traces from the same session.
+        source_type: Assessment source type to filter expectations by. Defaults to HUMAN.
+
+    Returns:
+        The provided expectations if not None (ground truth), otherwise extracted
+        session-level expectations from the first trace, or None if extraction fails.
+    """
+    if expectations is None and session:
+        try:
+            sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
+            first_trace = sorted_traces[0]
+
+            expectation_assessments = first_trace.search_assessments(type="expectation")
+
+            expectation_assessments = [
+                exp
+                for exp in expectation_assessments
+                if exp.source
+                and exp.source.source_type == source_type
+                and exp.metadata
+                and TraceMetadataKey.TRACE_SESSION in exp.metadata
+            ]
+
+            return {exp.name: exp.expectation.value for exp in expectation_assessments} or None
+        except Exception as e:
+            _logger.debug(f"Could not extract expectations from session: {e}")
+    return expectations
+
+
 def extract_expectations_from_trace(
-    trace: Trace, source: str | None = None
+    trace: Trace,
+    source_type: str | None = None,
 ) -> dict[str, Any] | None:
     """
     Extract expectations from trace assessments.
 
     Args:
         trace: MLflow trace object
-        source: If specified, only extract expectations from the given source type.
-                Must be one of the valid AssessmentSourceType values
-                If None, extract all expectations regardless of source.
+        source_type: If specified, only extract expectations from the given source type.
+                     Must be one of the valid AssessmentSourceType values
+                     If None, extract all expectations regardless of source.
 
     Returns:
         Dictionary of expectations, or None if no expectations found
     """
-    validated_source = AssessmentSourceType._standardize(source) if source is not None else None
+    validated_source = (
+        AssessmentSourceType._standardize(source_type) if source_type is not None else None
+    )
 
     expectation_assessments = trace.search_assessments(type="expectation")
 
