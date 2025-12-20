@@ -1,0 +1,387 @@
+---
+name: agent-evaluation
+description: Evaluate custom GenAI agents using MLflow. Sets up tracing, creates evaluation datasets, defines quality criteria, and runs evaluations with scorers.
+allowed-tools: Read, Write, Bash, Grep, Glob, WebFetch
+---
+
+# Agent Evaluation with MLflow
+
+This skill helps you evaluate custom GenAI agents using MLflow's evaluation utilities.
+
+## Documentation Access Protocol
+
+**MANDATORY: All documentation must be accessed through llms.txt**
+
+1. Start at: `https://mlflow.org/docs/latest/llms.txt`
+2. Query llms.txt for your topic with specific prompt
+3. If llms.txt references another doc, extract and fetch that URL
+4. Only use WebSearch if llms.txt truly doesn't cover the topic
+
+This applies to ALL steps in the evaluation process, not just CLI commands.
+
+## Setup
+
+Before evaluation, complete these setup steps:
+
+### 1. Install MLflow
+
+Check if mlflow >=3.6.0 is installed. If not then:
+```bash
+uv pip install mlflow
+```
+
+Run `uv run mlflow --help` to understand the commands in the mlflow CLI related to evaluations, in particular `traces` and `scorers`. 
+
+**IMPORTANT: use the mlflow CLI to perform operations. Fall back to code only if an operation is not supported in the CLI.**
+
+### 2. Configure `MLFLOW_TRACKING_URI` environment variable.
+
+1. Check existing variable in the environment or the agent's code/config.
+2. Run `databricks auth profiles` and add `databricks:/X` as a candidate valuie if `X` is a listed profile.
+3. Add `http://127.0.0.1:5000` as the option to run mlflow locally
+
+Present these options to the user and ask for a selection:
+- If the user selects `databricks:/X` then make sure that the profile is authenticated. If not ask the user to run `databricks auth login -p <X>`
+- If the user selects local server then run a local server in the background with `uv run mlflow run server --port 5050 --backend-store-uri sqlite:///mlflow.db  --default-artifact-root ./mlruns`.
+
+Set the MLFLOW_TRACKING_URI based on the user's selection.
+
+### 3. Configure `MLFLOW_EXPERIMENT_ID` environment variable.
+
+1. Check existing variable in the environment or the agent's code/config.
+2. If you cannot find an existing experiment then propose to the user a new experiment name and check whether the experiment already exists.
+3. If the experiment doesn't exist then ask for the user's confirmation to create a new experiment using the mlflow cli. 
+3. Test the settings by inspecting the details of the chosen experiment using the `mlflow experiments get` CLI.
+4. Set `MLFLOW_EXPERIMENT_ID` the value of the experiment id.
+
+### 4. Integrate with mlflow tracing
+
+**IMPORTANT: The agent needs to be integrated with mlflow tracing. DO NOT MOVE FORWARD IF TRACING DOES NOT WORK**
+
+Complete these steps IN ORDER:
+
+#### Step 4.1: Enable Autolog for the Library
+
+If the agent uses a popular library (e.g., langgraph, langchain, strands), enable autolog to automatically trace library calls.
+
+1. Identify which library the agent uses (LangChain, LangGraph, etc.)
+2. Add the appropriate autolog call (e.g., `mlflow.langchain.autolog()`). Read the mlflow documentation for the exact call depending on the library.
+3. Place this call in the initialization code (typically in main.py or __init__.py)
+
+Example:
+```python
+import mlflow
+mlflow.langchain.autolog()  # For LangChain/LangGraph
+```
+
+#### Step 4.2: Add @trace Decorators to Entry Points
+
+**CRITICAL STEP - DO NOT SKIP**: You must decorate all entry point functions with `@mlflow.trace`.
+
+1. **Identify all entry points**: Find the functions that serve as the main interface to the agent
+   - These are typically functions like `run_agent()`, `stream_agent()`, `handle_request()`, etc.
+   - Read the code to find candidate functions.
+
+2. **Add the decorator**: Import and add `@mlflow.trace` to EACH entry point
+   Example:
+   ```python
+   import mlflow
+
+   @mlflow.trace  # <-- ADD THIS
+   def run_agent(query: str, llm_provider: LLMProvider) -> str:
+       # Agent code here
+       ...
+
+   @mlflow.trace  # <-- ADD THIS TOO
+   def stream_agent(query: str, llm_provider: LLMProvider):
+       # Streaming agent code here
+       ...
+   ```
+
+3. **Verify decorators are present**: Use grep or search to confirm all entry points have the decorator:
+   Example:
+   ```bash
+   grep -B 2 "def run_agent\|def stream_agent\|def handle_request" <agent_file>.py
+   ```
+   You should see `@mlflow.trace` above each entry point function.
+
+#### Step 4.2.5: Capture Session ID for Conversation Grouping
+
+**IMPORTANT**: If the agent supports sessions or conversations, capture the session_id in traces to enable grouping related queries.
+
+1. **Check if agent uses session_id**: Search the codebase for session-related variables
+   ```bash
+   grep -r "session_id\|session_ID\|conversation_id" src/
+   ```
+   Look for:
+   - Function parameters named `session_id`, `conversation_id`, etc.
+   - Session state in agent configuration or state classes
+   - Chat/conversation modes that maintain context
+
+2. **If session_id exists in the code but NOT in traces**: Add session tracking to entry points
+
+   **After** the `@mlflow.trace` decorator and session_id generation, add:
+   ```python
+   @mlflow.trace
+   def run_agent(query: str, llm_provider: LLMProvider, session_id: str | None = None) -> str:
+       # Generate session_id if not provided
+       if session_id is None:
+           session_id = str(uuid.uuid4())
+
+       # Capture session_id in trace for conversation grouping
+       trace_id = mlflow.get_active_trace_id()
+       if trace_id:
+           mlflow.set_trace_tag(trace_id, "session_id", session_id)
+
+       # Rest of function...
+   ```
+
+3. **Verify session_id is captured**: Test with an explicit session_id and check the trace
+   ```python
+   # Run agent with test session
+   response = run_agent("test query", provider, session_id="test-session-123")
+
+   # Verify trace has session tag
+   trace_id = mlflow.get_last_active_trace_id()
+   trace = client.get_trace(trace_id)
+   assert "session_id" in trace.info.tags
+   assert trace.info.tags["session_id"] == "test-session-123"
+   ```
+
+4. **Benefits of session tracking**:
+   - Filter traces by conversation: `mlflow traces search --filter "tags.session_id = '<id>'"`
+   - Group multi-turn interactions for analysis
+   - Track conversation-level metrics (e.g., queries per session, session duration)
+
+**Skip this step if**: The agent doesn't have session/conversation functionality
+
+#### Step 4.3: Verify Complete Trace Structure
+
+Now verify that BOTH autolog and decorators are working together:
+
+1. **Invoke the agent** with a sample input and use `mlflow.get_last_active_trace_id()` to retrieve the trace.
+2. **Verify the trace hierarchy** shows ALL levels:
+   ```
+   ✓ Top-level span: Function decorated with @trace (e.g., "run_agent")
+     └── ✓ Library spans: LangChain/LangGraph (from autolog)
+         └── Agent nodes
+             └── LLM calls
+   ```
+
+If you don't see the top-level span with your function name, the `@trace` decorator is missing or not working.
+
+**CHECKPOINT**: Do not proceed until you can confirm:
+- [ ] Autolog is enabled
+- [ ] All entry points have `@mlflow.trace` decorator
+- [ ] Test trace shows complete hierarchy with both decorator and autolog spans
+- [ ] Session ID is captured in traces (if agent supports sessions/conversations)
+
+## Evaluation Process
+
+### Step 1: Understand Agent Purpose
+
+1. Invoke the agent with sample input
+2. Inspect the MLflow trace (especially LLM prompts which describe agent purpose)
+3. Print your understanding and ask user for verification
+4. **Wait for user confirmation before proceeding**
+
+### Step 2: Define Scorers that will check quality criteria
+
+1. Check experiment for existing scorers using `uv run mlflow scorers` CLI
+2. If none exist, propose criteria matching the agent's purpose
+   - Example: For knowledge base agents → relevance and groundedness
+3. **Review MLflow's built-in scorers** using the Documentation Access Protocol:
+   - Read https://mlflow.org/docs/latest/llms.txt using WebFetch to find information about built-in judges/scorers
+   - Look for sections on "judges", "scorers", "LLM-as-a-judge", "evaluation". 
+   - Extract and fetch the URLs for the linked docs.
+   - Read the linked docs to find information about built-in scorers and their functionality.
+4. Check whether built-in scorers cover your criteria and note which require ground-truth. **IMPORTANT: Built-in scorers make specific assumptions about the trace structure. Make sure that these assumptions hold over the agent's traces before deciding to use a built-in scorer**
+5. Present proposed criteria/scorers to user for confirmation.
+6. **IMPORTANT - Custom Scorer Design**: When defining custom scorers, use **pass/fail format** with "pass"/"fail" values rather than numeric scales:
+   - ✓ Preferred: `"pass"` (passes criterion) or `"fail"` (fails criterion)
+   - ✗ Avoid: Numeric scales (1-5), percentages, or other formats
+   - Rationale: Binary pass/fail scorers are easier to interpret, aggregate, and use for filtering/analysis
+   - Example: For a "Completeness" scorer, return "yes" if the answer is complete, "no" if incomplete
+7. If custom scorers are needed then create them using `uv run mlflow scorers register-llm-judge` CLI. 
+   - Read https://mlflow.org/docs/latest/llms.txt using WebFetch to find information about how to define custom scorers. 
+   - Extract and fetch the URLs for the linked docs.
+   - Look for sections on "make_judge" to understand how to author the instructions for `register-llm-judge` and the variables that can be used.
+   - Use the default model for custom scorers unless instructed differently by the user. 
+   - **IMPORTANT: NO NEED TO REGISTER BUILT-IN SCORERS**
+8. Use `uv run mlflow traces evaluate --output json` to test the chosen scorers against one of the existing traces and address any errors. 
+
+### Step 3: Prepare Evaluation Dataset
+
+Complete these steps IN ORDER:
+
+1. **Read MLflow's GenAI evaluation dataset documentation**:
+   - **FIRST**: Read https://mlflow.org/docs/latest/llms.txt using WebFetch
+   - Search for "evaluation dataset", "genai dataset", "dataset schema"
+   - **IMPORTANT: mlflow has generic datasets but GenAI datasets for agent evaluation are different**
+   - Pay attention to the schema of evaluation datasets and the SDK to manage them
+
+2. Check for existing datasets in the experiment:
+   ```python
+   from mlflow import MlflowClient
+
+   client = MlflowClient()
+
+   # Search for datasets in specific experiments
+   datasets = client.search_datasets(experiment_ids=["<experiment_id>"], max_results=10)
+
+   # Print dataset information (only name and ID to avoid Databricks API limitations)
+   if datasets:
+       print(f"Found {len(datasets)} dataset(s):\n")
+       for dataset in datasets:
+           print(f"  Name: {dataset.name}")
+           print(f"  ID: {dataset.dataset_id}")
+           print()
+   else:
+       print("No datasets found in this experiment.")
+
+   # Get next page if available
+   if datasets.token:
+      next_page = client.search_datasets(
+         experiment_ids=["<experiment_id>"], page_token=datasets.token
+      )
+   ```
+
+   **Note**: Only print `name` and `dataset_id` fields. Do NOT access `experiment_ids` or `tags` as these may fail with Databricks tracking URIs ("Evaluation dataset APIs is not supported in Databricks environments").
+
+3. **If multiple datasets exist, compare and recommend the most diverse one**:
+
+   For each dataset found:
+   - Use `get_dataset(name)` to load the dataset
+   - Use `.to_df()` to convert to DataFrame for analysis
+   - Calculate **size**: Total records with `len(df)`
+   - Calculate **diversity** by examining queries:
+     - Query length variance (short vs long queries)
+     - Query complexity (simple keywords vs multi-part questions)
+     - Topic variety (documentation, PRs, releases, troubleshooting, etc.)
+   - Extract representative samples using `df.sample(n=min(10, len(df)))` to show variety
+
+   Compare datasets by:
+   - **Record count**: More records = better coverage
+   - **Query diversity**: Variety in types, lengths, and topics
+   - **Combined score**: Prefer datasets with both high count AND high diversity
+
+   Display comparison showing:
+   - Dataset names
+   - Record counts
+   - Sample queries (showing mix of simple/complex, short/long)
+   - Diversity indicators (e.g., "includes version queries, PR searches, multi-step questions")
+
+   Recommend the dataset that has **both high record count and high diversity**:
+   - If one dataset is clearly larger AND more diverse → recommend it
+   - If trade-off exists (e.g., smaller but more diverse vs larger but repetitive) → show comparison and ask user to choose
+
+   Present the recommendation with clear reasoning, then ask for confirmation.
+
+4. If none exist, **create a proper MLflow evaluation dataset** using this workflow:
+
+   **CRITICAL: You MUST use the MLflow GenAI datasets SDK, not just Python lists/DataFrames**
+
+   **IMPORTANT: Databricks Unity Catalog Requirements**
+
+   If using a Databricks tracking URI (starts with `databricks://`):
+   - The `name` parameter must be a **fully-qualified Unity Catalog table name**: `<catalog>.<schema>.<table>`
+   - Tags are **NOT supported** (managed by Unity Catalog)
+   - Dataset search is **NOT supported** (use Unity Catalog search instead)
+   - **ACTION**: Use AskUserQuestion to get the UC table name from the user
+     - Suggest format: `<catalog>.<schema>.mlflow_agent_eval_v1`
+     - If the user asks for help the search for catalogs and schemas then use the `databricks catalogs list` and `databricks schemas list <catalog>` commands.
+
+   ```python
+   from mlflow.genai.datasets import create_dataset
+
+   # Step 4a: Create the dataset and associate with experiment
+   dataset = create_dataset(
+       name="<name>",  # For Databricks: catalog.schema.table (e.g., "main.default.mlflow_agent_eval_v1")
+                       # For OSS MLflow: descriptive name (e.g., "mlflow-agent-eval-v1")
+       experiment_id="<experiment_id>",  # Associates with experiment
+       tags={  # Optional - ONLY for non-Databricks environments
+           "version": "1.0",
+           "purpose": "agent_evaluation",
+       } if not is_databricks else None
+   )
+
+   # Step 4b: Prepare 10 sample inputs matching real-world usage
+   # Records must be a list of dicts with "inputs" key (and optionally "expectations")
+   records = [
+       {
+           "inputs": {"query": "Sample question 1"},
+           # "expectations": {...}  # Optional ground truth
+       },
+       # ... more records
+   ]
+
+   # Step 4c: Add records to the dataset
+   dataset = dataset.merge_records(records)
+   ```
+
+   **Verification**: Confirm the dataset is created and associated:
+   ```python
+   print(f"Dataset ID: {dataset.dataset_id}")
+   print(f"Associated experiments: {dataset.experiment_ids}")
+   print(f"Number of records: {len(dataset.records)}")
+   ```
+
+### Step 4: Run Evaluation
+
+#### Step 4.1: Gather traces from the evaluation dataset
+
+   ```python
+   """Execute the agent on the evaluation dataset and gather traces."""
+
+   import os
+   import mlflow
+   from mlflow.genai.datasets import get_dataset
+
+   # ASSUMPTIONS
+   # -`run_agent` is the method to invoke the agent.
+   # - DATASET_NAME is the name of the dataset.
+
+   print("Loading evaluation dataset...")
+   dataset = get_dataset(DATASET_NAME)
+   df = dataset.to_df()
+
+   trace_ids = []
+   for index, row in df.iterrows():
+      inputs = row['inputs']
+
+      try:
+         # Run agent and capture trace
+         response = run_agent(**inputs)
+         trace_ids.append(mlflow.get_last_active_trace_id())
+      except Exception as e:
+         print(f"✗ Error: {e}")
+         continue
+
+   traces_list = ",".join(traces_ids)
+
+   print("\n" + "=" * 60)
+   print("\n✓ Agent execution complete!")
+
+   print("\n" + "=" * 60)
+   print("EVALUATION USING CLI")
+   print("=" * 60)
+   print("\nTo evaluate the generated traces, run:")
+   print(f"\n  export MLFLOW_TRACKING_URI={os.getenv('MLFLOW_TRACKING_URI')}")
+   print(f"  export MLFLOW_EXPERIMENT_ID={os.getenv('MLFLOW_EXPERIMENT_ID')}")
+   print(f"\n  mlflow traces evaluate \\")
+   print(f"    --output json \\")
+   print(f"    --experiment-id {os.getenv('MLFLOW_EXPERIMENT_ID')} \\")
+   print(f"    --scorers <scorer1>, <scorer2>, ... \\")
+   print(f"    --trace_ids {traces_list}")
+   print("\nThis will evaluate ALL traces in the experiment with the specified scorers.")
+   print("=" * 60)
+   ```
+
+
+#### Step 4.2: Apply scorers
+1. Use `uv run mlflow traces evaluate --output json` to run the scorers on the generated traces. 
+  - **IMPORTANT: The JSON output follows after some free-text output can be ignored**
+
+#### Step 4.3: Analyze results and generate report
+
+3. Inspect the JSON output of evaluation and identify patterns of failures. Summarize these patterns in an evaluation report and suggest improvements.
