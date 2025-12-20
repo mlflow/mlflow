@@ -3,6 +3,7 @@ import {
   Empty,
   Input,
   KeyIcon,
+  LinkIcon,
   PencilIcon,
   SearchIcon,
   Spinner,
@@ -27,7 +28,12 @@ import { useState } from 'react';
 interface ApiKeysListProps {
   onKeyClick?: (secret: SecretInfo) => void;
   onEditClick?: (secret: SecretInfo) => void;
-  onDeleteClick?: (secret: SecretInfo, modelDefinitions: ModelDefinition[], bindingCount: number) => void;
+  onDeleteClick?: (
+    secret: SecretInfo,
+    modelDefinitions: ModelDefinition[],
+    endpoints: Endpoint[],
+    bindingCount: number,
+  ) => void;
   onEndpointsClick?: (secret: SecretInfo, endpoints: Endpoint[]) => void;
   onBindingsClick?: (secret: SecretInfo, bindings: EndpointBinding[]) => void;
 }
@@ -245,31 +251,33 @@ export const ApiKeysList = ({
               {visibleColumns.includes(ApiKeysColumn.USED_BY) && (
                 <TableCell css={{ flex: 1 }}>
                   {bindingCount > 0 ? (
-                    <span
-                      role="button"
-                      tabIndex={0}
+                    <button
+                      type="button"
                       onClick={() => {
                         const secretBindings = getBindingsForSecret(secret.secret_id);
                         onBindingsClick?.(secret, secretBindings);
                       }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          const secretBindings = getBindingsForSecret(secret.secret_id);
-                          onBindingsClick?.(secret, secretBindings);
-                        }
-                      }}
                       css={{
-                        color: theme.colors.actionPrimaryBackgroundDefault,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: theme.spacing.xs,
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
                         cursor: 'pointer',
+                        color: theme.colors.actionPrimaryBackgroundDefault,
                         '&:hover': {
                           textDecoration: 'underline',
                         },
                       }}
                     >
-                      {bindingCount}
-                    </span>
+                      <LinkIcon css={{ color: theme.colors.textSecondary, fontSize: 14 }} />
+                      <Typography.Text css={{ color: 'inherit' }}>
+                        {bindingCount} {bindingCount === 1 ? 'resource' : 'resources'}
+                      </Typography.Text>
+                    </button>
                   ) : (
-                    <Typography.Text color="secondary">{bindingCount}</Typography.Text>
+                    <Typography.Text color="secondary">-</Typography.Text>
                   )}
                 </TableCell>
               )}
@@ -303,7 +311,9 @@ export const ApiKeysList = ({
                       defaultMessage: 'Delete API key',
                       description: 'Gateway > API keys list > Delete API key button aria label',
                     })}
-                    onClick={() => onDeleteClick?.(secret, secretModels, bindingCount)}
+                    onClick={() =>
+                      onDeleteClick?.(secret, secretModels, getEndpointsForSecret(secret.secret_id), bindingCount)
+                    }
                   />
                 </div>
               </TableCell>

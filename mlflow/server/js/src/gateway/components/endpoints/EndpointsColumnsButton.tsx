@@ -11,40 +11,40 @@ import {
 } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 
-export enum ApiKeysColumn {
-  KEY_NAME = 'key_name',
+export enum EndpointsColumn {
+  NAME = 'name',
   PROVIDER = 'provider',
-  ENDPOINTS = 'endpoints',
+  MODELS = 'models',
   USED_BY = 'used_by',
-  LAST_UPDATED = 'last_updated',
+  LAST_MODIFIED = 'last_modified',
   CREATED = 'created',
 }
 
-const COLUMN_LABELS: Record<ApiKeysColumn, string> = {
-  [ApiKeysColumn.KEY_NAME]: 'Key name',
-  [ApiKeysColumn.PROVIDER]: 'Provider',
-  [ApiKeysColumn.ENDPOINTS]: 'Endpoints',
-  [ApiKeysColumn.USED_BY]: 'Used by',
-  [ApiKeysColumn.LAST_UPDATED]: 'Last updated',
-  [ApiKeysColumn.CREATED]: 'Created',
+const COLUMN_LABELS: Record<EndpointsColumn, string> = {
+  [EndpointsColumn.NAME]: 'Name',
+  [EndpointsColumn.PROVIDER]: 'Provider',
+  [EndpointsColumn.MODELS]: 'Models',
+  [EndpointsColumn.USED_BY]: 'Used by',
+  [EndpointsColumn.LAST_MODIFIED]: 'Last modified',
+  [EndpointsColumn.CREATED]: 'Created',
 };
 
 // Columns that cannot be hidden
-const REQUIRED_COLUMNS = [ApiKeysColumn.KEY_NAME];
+const REQUIRED_COLUMNS = [EndpointsColumn.NAME];
 
-interface ApiKeysColumnsButtonProps {
-  visibleColumns: ApiKeysColumn[];
-  onColumnsChange: (columns: ApiKeysColumn[]) => void;
+interface EndpointsColumnsButtonProps {
+  visibleColumns: EndpointsColumn[];
+  onColumnsChange: (columns: EndpointsColumn[]) => void;
 }
 
-export const ApiKeysColumnsButton = ({ visibleColumns, onColumnsChange }: ApiKeysColumnsButtonProps) => {
+export const EndpointsColumnsButton = ({ visibleColumns, onColumnsChange }: EndpointsColumnsButtonProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  const allColumns = Object.values(ApiKeysColumn);
+  const allColumns = Object.values(EndpointsColumn);
   const toggleableColumns = allColumns.filter((col) => !REQUIRED_COLUMNS.includes(col));
 
-  const handleToggle = (column: ApiKeysColumn) => {
+  const handleToggle = (column: EndpointsColumn) => {
     if (REQUIRED_COLUMNS.includes(column)) return;
 
     const newColumns = visibleColumns.includes(column)
@@ -54,12 +54,12 @@ export const ApiKeysColumnsButton = ({ visibleColumns, onColumnsChange }: ApiKey
   };
 
   return (
-    <DialogCombobox componentId="mlflow.gateway.api-keys-list.columns-dropdown" label="Columns" multiSelect>
+    <DialogCombobox componentId="mlflow.gateway.endpoints-list.columns-dropdown" label="Columns" multiSelect>
       <DialogComboboxCustomButtonTriggerWrapper>
         <Button
-          componentId="mlflow.gateway.api-keys-list.columns-button"
+          componentId="mlflow.gateway.endpoints-list.columns-button"
           endIcon={<ChevronDownIcon />}
-          data-testid="api-keys-column-selector-button"
+          data-testid="endpoints-column-selector-button"
         >
           <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
             <ColumnsIcon />
@@ -88,6 +88,6 @@ export const ApiKeysColumnsButton = ({ visibleColumns, onColumnsChange }: ApiKey
   );
 };
 
-export const DEFAULT_VISIBLE_COLUMNS: ApiKeysColumn[] = Object.values(ApiKeysColumn).filter(
-  (col) => col !== ApiKeysColumn.CREATED,
+export const DEFAULT_VISIBLE_COLUMNS: EndpointsColumn[] = Object.values(EndpointsColumn).filter(
+  (col) => col !== EndpointsColumn.CREATED,
 );

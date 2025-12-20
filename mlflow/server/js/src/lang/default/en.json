@@ -455,6 +455,10 @@
     "defaultMessage": "Creator",
     "description": "Lable name for the creator under details tab on the model view page"
   },
+  "1s9Fdc": {
+    "defaultMessage": "Used by",
+    "description": "Used by label for connected resources"
+  },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
     "description": "Label for the custom column group in the logged model column selector"
@@ -2094,6 +2098,10 @@
     "defaultMessage": "Type a value",
     "description": "Key-value tag editor modal > Value input placeholder"
   },
+  "FKoHx5": {
+    "defaultMessage": "Security Notice: Default Passphrase in Use",
+    "description": "Gateway > Default passphrase warning banner title"
+  },
   "FPMrvd": {
     "defaultMessage": "Search traces",
     "description": "Experiment page > traces view filters > filter string input placeholder"
@@ -2490,10 +2498,6 @@
     "defaultMessage": "Error loading shared view state: share key is invalid",
     "description": "Experiment page > share viewstate > error > share key is invalid"
   },
-  "J0En95": {
-    "defaultMessage": "Connected resources",
-    "description": "Connected resources label"
-  },
   "J2XCE/": {
     "defaultMessage": "Specify sequences that signal the model to stop generating text.",
     "description": "Experiment page > prompt lab > stop parameter help text"
@@ -2697,10 +2701,6 @@
   "Kkuttk": {
     "defaultMessage": "Assessment",
     "description": "Evaluation review > evaluations list > assessment sort option label prefix"
-  },
-  "KoBxNq": {
-    "defaultMessage": "Connected resources",
-    "description": "Connected resources column header"
   },
   "KqReh3": {
     "defaultMessage": "Error stack trace",
@@ -3525,6 +3525,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button text for creating model in the model registry"
   },
+  "SDClGN": {
+    "defaultMessage": "Resources using this endpoint ({count})",
+    "description": "Gateway > Delete endpoint modal > Bindings list header"
+  },
   "SI6n4L": {
     "defaultMessage": "Compare",
     "description": "Label for the compare mode on the registered prompt details page"
@@ -3875,6 +3879,10 @@
   "VDkXRG": {
     "defaultMessage": "View model",
     "description": "Label for a button that opens a new tab to view the details of a logged ML model while registering a model version"
+  },
+  "VGGGB3": {
+    "defaultMessage": "This endpoint is currently in use. Deleting it will break connections to the resources listed below.",
+    "description": "Warning about resources using this endpoint"
   },
   "VGJhVI": {
     "defaultMessage": "Add New Tag",
@@ -4230,6 +4238,10 @@
   "YECxws": {
     "defaultMessage": "Compare",
     "description": "Label for the compare experiments action on the experiments list page"
+  },
+  "YEN2Ll": {
+    "defaultMessage": "Used by ({count})",
+    "description": "Gateway > Endpoint bindings drawer > Title"
   },
   "YGo9ni": {
     "defaultMessage": "Select a provider to configure API key",
@@ -4743,6 +4755,10 @@
     "defaultMessage": "Select a cell to display preview",
     "description": "Experiment page > table view > preview sidebar > nothing selected"
   },
+  "cAujuc": {
+    "defaultMessage": "Endpoints using this key ({count})",
+    "description": "Gateway > Delete API key modal > Endpoints list header"
+  },
   "cB0/61": {
     "defaultMessage": "Z axis",
     "description": "Label for Z axis in Contour chart configurator in compare runs chart config modal"
@@ -4859,10 +4875,6 @@
     "defaultMessage": "Trace ID",
     "description": "Column label for trace ID"
   },
-  "cvqfn9": {
-    "defaultMessage": "This endpoint is currently used by {bindingCount, plural, one {# resource} other {# resources}}. Deleting it will break those connections.",
-    "description": "Warning about resources using this endpoint"
-  },
   "cx7Ksv": {
     "defaultMessage": "Created by",
     "description": "Created by label"
@@ -4938,10 +4950,6 @@
   "ddAFCW": {
     "defaultMessage": "500: Internal server error",
     "description": "Generic 500 user-friendly error for the MLflow UI"
-  },
-  "deJfGV": {
-    "defaultMessage": "{count, plural, one {# model} other {# models}}",
-    "description": "Gateway > Endpoints using key drawer > Model count"
   },
   "dl0TeT": {
     "defaultMessage": "Save",
@@ -5231,10 +5239,6 @@
     "defaultMessage": "Metrics",
     "description": "Row group title for metrics of runs on the experiment compare runs page"
   },
-  "fsga0A": {
-    "defaultMessage": "Connected resources ({count})",
-    "description": "Gateway > Endpoint bindings drawer > Title"
-  },
   "fv7vQf": {
     "defaultMessage": "Rename",
     "description": "Menu item to rename an experiment run"
@@ -5378,10 +5382,6 @@
   "giZdtW": {
     "defaultMessage": "Model",
     "description": "Experiment page > runs table > models column > default label for no specific model"
-  },
-  "gleX6d": {
-    "defaultMessage": "This key is currently used by {modelCount, plural, one {# model definition} other {# model definitions}}. After deletion, you will need to attach a different API key to {modelCount, plural, one {this model} other {these models}} via the Edit Endpoint page.",
-    "description": "Warning about models using this key"
   },
   "glxGz2": {
     "defaultMessage": "Parallel coordinates chart does not support aggregated string values.",
@@ -5763,6 +5763,10 @@
     "defaultMessage": "Cancel",
     "description": "Experiment page > artifact compare view > \"add new row\" modal cancel button label"
   },
+  "jzNMBH": {
+    "defaultMessage": "This key is currently in use. After deleting, you will need to attach a different API key to continue using the endpoints currently using this key.",
+    "description": "Gateway > Delete API key modal > Warning about endpoints using this key"
+  },
   "k/AedV": {
     "defaultMessage": "Plain text",
     "description": "Tooltip content for a button that changes the render mode of the prompt to plain text"
@@ -5830,6 +5834,10 @@
   "kZaBMS": {
     "defaultMessage": "trace.status = 'OK'",
     "description": "Placeholder example for filter string input"
+  },
+  "kbOsmf": {
+    "defaultMessage": "The AI Gateway is using the default encryption passphrase. This is acceptable for development or single-user deployments, but for multi-user production environments, you should rotate the passphrase using the CLI command: mlflow crypto rotate-kek",
+    "description": "Gateway > Default passphrase warning banner description"
   },
   "kdTxC2": {
     "defaultMessage": "Disable run grouping in order to access the evaluation view",

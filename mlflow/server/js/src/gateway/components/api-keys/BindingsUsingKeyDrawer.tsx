@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
 import { Drawer, Empty, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { Link } from '../../../common/utils/RoutingUtils';
 import { timestampToDate } from '../../utils/dateUtils';
+import GatewayRoutes from '../../routes';
 import type { Endpoint, EndpointBinding, ResourceType } from '../../types';
 
 interface BindingsUsingKeyDrawerProps {
@@ -117,9 +119,19 @@ export const BindingsUsingKeyDrawer = ({ open, bindings, endpoints, onClose }: B
                             description="Gateway > Bindings using key drawer > Via endpoint label"
                           />
                         </Typography.Text>
-                        <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
+                        <Link
+                          to={GatewayRoutes.getEndpointDetailsRoute(binding.endpoint_id)}
+                          css={{
+                            fontSize: theme.typography.fontSizeSm,
+                            color: theme.colors.actionPrimaryBackgroundDefault,
+                            textDecoration: 'none',
+                            '&:hover': {
+                              textDecoration: 'underline',
+                            },
+                          }}
+                        >
                           {getEndpointName(binding.endpoint_id)}
-                        </Typography.Text>
+                        </Link>
                       </div>
                       <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
                         <FormattedMessage

@@ -395,7 +395,7 @@ export const ProviderSelect = ({
   componentIdPrefix = 'mlflow.gateway.provider-select',
 }: ProviderSelectProps) => {
   const { theme } = useDesignSystemTheme();
-  const { data: providers, isLoading } = useProvidersQuery();
+  const { data: providers, isLoading, error: queryError } = useProvidersQuery();
 
   const { commonItems, litellmItems, otherProviders } = useMemo(() => {
     if (!providers)
@@ -471,6 +471,17 @@ export const ProviderSelect = ({
     },
     [onChange],
   );
+
+  if (queryError) {
+    return (
+      <div>
+        <FormUI.Label htmlFor={componentIdPrefix}>
+          <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
+        </FormUI.Label>
+        <FormUI.Message type="error" message={queryError.message || 'Failed to load providers'} />
+      </div>
+    );
+  }
 
   if (isLoading || commonItems.length === 0) {
     return (

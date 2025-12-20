@@ -26,6 +26,7 @@ import { formatProviderName } from '../../utils/providerUtils';
 import { timestampToDate } from '../../utils/dateUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import { EndpointsFilterButton, type EndpointsFilter } from './EndpointsFilterButton';
+import { EndpointsColumnsButton, EndpointsColumn, DEFAULT_VISIBLE_COLUMNS } from './EndpointsColumnsButton';
 import { EndpointBindingsDrawer } from './EndpointBindingsDrawer';
 import { DeleteEndpointModal } from './DeleteEndpointModal';
 import GatewayRoutes from '../../routes';
@@ -40,6 +41,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
   const { formatMessage } = useIntl();
   const [searchFilter, setSearchFilter] = useState('');
   const [filter, setFilter] = useState<EndpointsFilter>({ providers: [] });
+  const [visibleColumns, setVisibleColumns] = useState<EndpointsColumn[]>(DEFAULT_VISIBLE_COLUMNS);
   const [bindingsDrawerEndpoint, setBindingsDrawerEndpoint] = useState<{
     endpointId: string;
     endpointName: string;
@@ -133,6 +135,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
           css={{ maxWidth: 300 }}
         />
         <EndpointsFilterButton availableProviders={availableProviders} filter={filter} onFilterChange={setFilter} />
+        <EndpointsColumnsButton visibleColumns={visibleColumns} onColumnsChange={setVisibleColumns} />
       </div>
 
       <Table
@@ -147,18 +150,31 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
           <TableHeader componentId="mlflow.gateway.endpoints-list.name-header" css={{ flex: 2 }}>
             <FormattedMessage defaultMessage="Name" description="Endpoint name column header" />
           </TableHeader>
-          <TableHeader componentId="mlflow.gateway.endpoints-list.provider-header" css={{ flex: 1 }}>
-            <FormattedMessage defaultMessage="Provider" description="Provider column header" />
-          </TableHeader>
-          <TableHeader componentId="mlflow.gateway.endpoints-list.models-header" css={{ flex: 2 }}>
-            <FormattedMessage defaultMessage="Models" description="Models column header" />
-          </TableHeader>
-          <TableHeader componentId="mlflow.gateway.endpoints-list.bindings-header" css={{ flex: 1 }}>
-            <FormattedMessage defaultMessage="Connected resources" description="Connected resources column header" />
-          </TableHeader>
-          <TableHeader componentId="mlflow.gateway.endpoints-list.modified-header" css={{ flex: 1 }}>
-            <FormattedMessage defaultMessage="Last modified" description="Last modified column header" />
-          </TableHeader>
+          {visibleColumns.includes(EndpointsColumn.PROVIDER) && (
+            <TableHeader componentId="mlflow.gateway.endpoints-list.provider-header" css={{ flex: 1 }}>
+              <FormattedMessage defaultMessage="Provider" description="Provider column header" />
+            </TableHeader>
+          )}
+          {visibleColumns.includes(EndpointsColumn.MODELS) && (
+            <TableHeader componentId="mlflow.gateway.endpoints-list.models-header" css={{ flex: 2 }}>
+              <FormattedMessage defaultMessage="Models" description="Models column header" />
+            </TableHeader>
+          )}
+          {visibleColumns.includes(EndpointsColumn.USED_BY) && (
+            <TableHeader componentId="mlflow.gateway.endpoints-list.bindings-header" css={{ flex: 1 }}>
+              <FormattedMessage defaultMessage="Used by" description="Used by column header" />
+            </TableHeader>
+          )}
+          {visibleColumns.includes(EndpointsColumn.LAST_MODIFIED) && (
+            <TableHeader componentId="mlflow.gateway.endpoints-list.modified-header" css={{ flex: 1 }}>
+              <FormattedMessage defaultMessage="Last modified" description="Last modified column header" />
+            </TableHeader>
+          )}
+          {visibleColumns.includes(EndpointsColumn.CREATED) && (
+            <TableHeader componentId="mlflow.gateway.endpoints-list.created-header" css={{ flex: 1 }}>
+              <FormattedMessage defaultMessage="Created" description="Created column header" />
+            </TableHeader>
+          )}
           <TableHeader
             componentId="mlflow.gateway.endpoints-list.actions-header"
             css={{ flex: 0, minWidth: 96, maxWidth: 96 }}
@@ -184,27 +200,40 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
                 </Link>
               </div>
             </TableCell>
-            <TableCell css={{ flex: 1 }}>
-              <ProviderCell modelMappings={endpoint.model_mappings} />
-            </TableCell>
-            <TableCell css={{ flex: 2 }}>
-              <ModelsCell modelMappings={endpoint.model_mappings} />
-            </TableCell>
-            <TableCell css={{ flex: 1 }}>
-              <BindingsCell
-                bindings={getBindingsForEndpoint(endpoint.endpoint_id)}
-                onViewBindings={() =>
-                  setBindingsDrawerEndpoint({
-                    endpointId: endpoint.endpoint_id,
-                    endpointName: endpoint.name ?? endpoint.endpoint_id,
-                    bindings: getBindingsForEndpoint(endpoint.endpoint_id),
-                  })
-                }
-              />
-            </TableCell>
-            <TableCell css={{ flex: 1 }}>
-              <TimeAgo date={timestampToDate(endpoint.last_updated_at)} />
-            </TableCell>
+            {visibleColumns.includes(EndpointsColumn.PROVIDER) && (
+              <TableCell css={{ flex: 1 }}>
+                <ProviderCell modelMappings={endpoint.model_mappings} />
+              </TableCell>
+            )}
+            {visibleColumns.includes(EndpointsColumn.MODELS) && (
+              <TableCell css={{ flex: 2 }}>
+                <ModelsCell modelMappings={endpoint.model_mappings} />
+              </TableCell>
+            )}
+            {visibleColumns.includes(EndpointsColumn.USED_BY) && (
+              <TableCell css={{ flex: 1 }}>
+                <BindingsCell
+                  bindings={getBindingsForEndpoint(endpoint.endpoint_id)}
+                  onViewBindings={() =>
+                    setBindingsDrawerEndpoint({
+                      endpointId: endpoint.endpoint_id,
+                      endpointName: endpoint.name ?? endpoint.endpoint_id,
+                      bindings: getBindingsForEndpoint(endpoint.endpoint_id),
+                    })
+                  }
+                />
+              </TableCell>
+            )}
+            {visibleColumns.includes(EndpointsColumn.LAST_MODIFIED) && (
+              <TableCell css={{ flex: 1 }}>
+                <TimeAgo date={timestampToDate(endpoint.last_updated_at)} />
+              </TableCell>
+            )}
+            {visibleColumns.includes(EndpointsColumn.CREATED) && (
+              <TableCell css={{ flex: 1 }}>
+                <TimeAgo date={timestampToDate(endpoint.created_at)} />
+              </TableCell>
+            )}
             <TableCell css={{ flex: 0, minWidth: 96, maxWidth: 96 }}>
               <div css={{ display: 'flex', gap: theme.spacing.xs }}>
                 <Link to={GatewayRoutes.getEditEndpointRoute(endpoint.endpoint_id)}>
