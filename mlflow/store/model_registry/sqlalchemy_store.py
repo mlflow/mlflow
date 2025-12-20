@@ -138,6 +138,7 @@ class SqlAlchemyStore(AbstractStore):
         # mlflow.store.db.utils._verify_schema(self.engine)
         self._initialize_store_state()
 
+    @property
     def supports_workspaces(self) -> bool:
         """Indicates whether this store supports workspace isolation."""
         return False

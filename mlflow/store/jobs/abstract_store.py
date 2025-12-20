@@ -12,9 +12,9 @@ class AbstractJobStore(ABC):
     Abstract class that defines API interfaces for storing Job metadata.
     """
 
+    @property
     def supports_workspaces(self) -> bool:
         """Return whether workspaces are supported by this job store."""
-
         return False
 
     @abstractmethod

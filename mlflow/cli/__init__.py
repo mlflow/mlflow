@@ -505,7 +505,8 @@ def _validate_static_prefix(ctx, param, value):
     envvar=MLFLOW_ENABLE_WORKSPACES.name,
     default=False,
     show_default=True,
-    help="Enable backwards compatible workspace-aware multi-tenancy mode.",
+    help="Enable backwards compatible workspaces mode for logical isolation of experiments, "
+    + "registered models, and prompts.",
 )
 def server(
     ctx,

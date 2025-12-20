@@ -19,6 +19,15 @@ from mlflow.store.workspace_aware_mixin import WorkspaceAwareMixin
 
 _logger = logging.getLogger(__name__)
 
+_WORKSPACE_ISOLATED_MODELS = (
+    SqlRegisteredModel,
+    SqlModelVersion,
+    SqlWebhook,
+    SqlRegisteredModelTag,
+    SqlModelVersionTag,
+    SqlRegisteredModelAlias,
+)
+
 
 class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
     """
@@ -38,23 +47,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
         query = super()._get_query(session, model)
         workspace = self._get_active_workspace()
 
-        if model is SqlRegisteredModel:
-            return query.filter(SqlRegisteredModel.workspace == workspace)
-
-        if model is SqlModelVersion:
-            return query.filter(SqlModelVersion.workspace == workspace)
-
-        if model is SqlWebhook:
-            return query.filter(SqlWebhook.workspace == workspace)
-
-        if model is SqlRegisteredModelTag:
-            return query.filter(SqlRegisteredModelTag.workspace == workspace)
-
-        if model is SqlModelVersionTag:
-            return query.filter(SqlModelVersionTag.workspace == workspace)
-
-        if model is SqlRegisteredModelAlias:
-            return query.filter(SqlRegisteredModelAlias.workspace == workspace)
+        if model in _WORKSPACE_ISOLATED_MODELS:
+            return query.filter(model.workspace == workspace)
 
         return query
 
@@ -74,22 +68,7 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
         """
         workspace = self._get_active_workspace()
 
-        if model is SqlRegisteredModel:
-            return [SqlRegisteredModel.workspace == workspace]
-
-        if model is SqlModelVersion:
-            return [SqlModelVersion.workspace == workspace]
-
-        if model is SqlWebhook:
-            return [SqlWebhook.workspace == workspace]
-
-        if model is SqlRegisteredModelTag:
-            return [SqlRegisteredModelTag.workspace == workspace]
-
-        if model is SqlModelVersionTag:
-            return [SqlModelVersionTag.workspace == workspace]
-
-        if model is SqlRegisteredModelAlias:
-            return [SqlRegisteredModelAlias.workspace == workspace]
+        if model in _WORKSPACE_ISOLATED_MODELS:
+            return [model.workspace == workspace]
 
         return []

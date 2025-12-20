@@ -263,6 +263,14 @@ if not IS_TRACING_SDK_ONLY:
         set_model_version_tag,
         set_prompt_alias,
     )
+    from mlflow.tracking._workspace.fluent import (
+        create_workspace,
+        delete_workspace,
+        get_workspace,
+        list_workspaces,
+        set_workspace,
+        update_workspace,
+    )
     from mlflow.tracking.fluent import (
         ActiveModel,
         ActiveRun,
@@ -332,7 +340,9 @@ if not IS_TRACING_SDK_ONLY:
         "clear_active_model",
         "create_experiment",
         "create_external_model",
+        "create_workspace",
         "delete_experiment",
+        "delete_workspace",
         "delete_run",
         "delete_tag",
         "disable_system_metrics_logging",
@@ -349,6 +359,7 @@ if not IS_TRACING_SDK_ONLY:
         "get_experiment_by_name",
         "import_checkpoints",
         "get_logged_model",
+        "get_workspace",
         "get_parent_run",
         "get_registry_uri",
         "get_run",
@@ -380,6 +391,7 @@ if not IS_TRACING_SDK_ONLY:
         "search_logged_models",
         "search_model_versions",
         "search_registered_models",
+        "list_workspaces",
         "search_runs",
         "search_prompts",
         "set_active_model",
@@ -393,6 +405,7 @@ if not IS_TRACING_SDK_ONLY:
         "set_system_metrics_sampling_interval",
         "set_tag",
         "set_tags",
+        "set_workspace",
         "start_run",
         "validate_evaluation_results",
         "Image",
@@ -406,6 +419,7 @@ if not IS_TRACING_SDK_ONLY:
         "delete_prompt_alias",
         "set_logged_model_tags",
         "delete_logged_model_tag",
+        "update_workspace",
     ]
 
 

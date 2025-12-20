@@ -126,3 +126,19 @@ def test_server_features_endpoint(monkeypatch):
     resp = client.get("/api/2.0/mlflow/server-features")
     assert resp.status_code == 200
     assert resp.get_json() == {"workspaces_enabled": False}
+
+
+def test_server_features_skips_workspace_resolution(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+
+    def _raise_if_called(_header_workspace):
+        raise AssertionError("workspace resolution should not run for server-features")
+
+    monkeypatch.setattr(
+        "mlflow.server.workspace_helpers.resolve_workspace_from_header", _raise_if_called
+    )
+
+    client = flask_app.test_client()
+    resp = client.get("/api/2.0/mlflow/server-features", headers={WORKSPACE_HEADER_NAME: "missing"})
+    assert resp.status_code == 200
+    assert resp.get_json() == {"workspaces_enabled": True}

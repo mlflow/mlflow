@@ -620,7 +620,9 @@ def initialize_backend_stores(
     if MLFLOW_ENABLE_WORKSPACES.get():
         if not default_artifact_root:
             raise MlflowException.invalid_parameter_value(
-                "--enable-workspaces requires --default-artifact-root to be set."
+                "--enable-workspaces requires --default-artifact-root to be set. "
+                "Workspace mode disables per-experiment artifact locations, so this value "
+                "becomes the base path for workspace-scoped artifacts."
             )
 
         # Initialize the workspace store to verify it's correctly configured
@@ -632,9 +634,15 @@ def initialize_backend_stores(
         _verify_model_registry_store_workspace_support(registry_store)
 
 
+def _store_supports_workspaces(
+    store: AbstractTrackingStore | AbstractModelRegistryStore,
+) -> bool:
+    """Return whether the provided store reports workspace support."""
+    return bool(getattr(store, "supports_workspaces", False))
+
+
 def _verify_tracking_store_workspace_support(tracking_store: AbstractTrackingStore) -> None:
-    supports_fn = getattr(tracking_store, "supports_workspaces", None)
-    if not callable(supports_fn) or not supports_fn():
+    if not _store_supports_workspaces(tracking_store):
         raise MlflowException(
             "The configured tracking store does not support workspace-aware operations. "
             "Remove the --enable-workspaces flag or configure a workspace-capable backend store.",
@@ -648,8 +656,7 @@ def _verify_model_registry_store_workspace_support(
     if registry_store is None:
         return
 
-    supports_fn = getattr(registry_store, "supports_workspaces", None)
-    if not callable(supports_fn) or not supports_fn():
+    if not _store_supports_workspaces(registry_store):
         raise MlflowException(
             "The configured model registry store does not support workspace-aware operations. "
             "Remove the --enable-workspaces flag or configure a workspace-capable backend store.",
@@ -658,8 +665,7 @@ def _verify_model_registry_store_workspace_support(
 
 
 def _verify_job_store_workspace_support(job_store: AbstractJobStore) -> None:
-    supports_fn = getattr(job_store, "supports_workspaces", None)
-    if not callable(supports_fn) or not supports_fn():
+    if not _store_supports_workspaces(job_store):
         raise MlflowException(
             "The configured job store does not support workspace-aware operations. "
             "Remove the --enable-workspaces flag or configure a workspace-capable backend store.",
@@ -1020,7 +1026,7 @@ def _disable_if_workspaces_disabled(func):
             return Response(
                 (
                     f"Endpoint: {request.url_rule} disabled because the server is running "
-                    "without multi-tenancy support. To enable workspace functionality, run "
+                    "without workspaces support. To enable workspace, run "
                     "`mlflow server` with `--enable-workspaces`"
                 ),
                 503,
