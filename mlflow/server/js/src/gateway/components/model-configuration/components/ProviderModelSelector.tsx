@@ -1,6 +1,6 @@
 import { useMemo, memo } from 'react';
 import { Tag, useDesignSystemTheme } from '@databricks/design-system';
-import { ProviderSelect } from '../../create-endpoint/ProviderSelect';
+import { NavigableProviderSelect as ProviderSelect } from '../../create-endpoint/NavigableProviderSelect';
 import { ModelSelect } from '../../create-endpoint/ModelSelect';
 import type { Model } from '../../../types';
 

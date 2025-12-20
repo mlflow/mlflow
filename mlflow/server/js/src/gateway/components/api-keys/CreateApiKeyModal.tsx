@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Alert, Modal, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { ProviderSelect } from '../create-endpoint';
+import { NavigableProviderSelect as ProviderSelect } from '../create-endpoint/NavigableProviderSelect';
 import { SecretFormFields, type SecretFormData } from '../secrets';
 import { useCreateSecret } from '../../hooks/useCreateSecret';
 import { useProviderConfigQuery } from '../../hooks/useProviderConfigQuery';

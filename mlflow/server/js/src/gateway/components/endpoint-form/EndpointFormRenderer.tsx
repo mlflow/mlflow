@@ -3,7 +3,8 @@ import { Alert, Button, FormUI, Tooltip, Typography, useDesignSystemTheme } from
 import { GatewayInput } from '../common';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, useFormContext } from 'react-hook-form';
-import { ProviderSelect } from '../create-endpoint/ProviderSelect';
+// import { ProviderSelect } from '../create-endpoint/ProviderSelect';
+import { NavigableProviderSelect as ProviderSelect } from '../create-endpoint/NavigableProviderSelect';
 import { ModelSelect } from '../create-endpoint/ModelSelect';
 import { ApiKeyConfigurator, useApiKeyConfiguration } from '../model-configuration';
 import type { ApiKeyConfiguration } from '../model-configuration';
