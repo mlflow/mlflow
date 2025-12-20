@@ -11,7 +11,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
 
 
 @lru_cache(maxsize=1)
-def _get_notebook_name():
+def _get_notebook_name() -> str | None:
     """
     Attempt to get the current Jupyter notebook name using multiple methods.
 
@@ -20,8 +20,7 @@ def _get_notebook_name():
     """
     # Method 1: Check VS Code notebook path in IPython user namespace
     # VS Code's Jupyter extension stores the notebook path in ip.user_ns
-    notebook_path = _get_vscode_notebook_path()
-    if notebook_path:
+    if notebook_path := _get_vscode_notebook_path():
         return os.path.basename(notebook_path)
 
     # Method 2: Check environment variables
@@ -41,7 +40,7 @@ def _get_notebook_name():
     return None
 
 
-def _get_vscode_notebook_path():
+def _get_vscode_notebook_path() -> str | None:
     """
     Get notebook path from VS Code's IPython user namespace.
 
@@ -66,7 +65,7 @@ def _get_vscode_notebook_path():
     return None
 
 
-def _get_notebook_path_from_sessions():
+def _get_notebook_path_from_sessions() -> str | None:
     """
     Get notebook path by querying Jupyter server sessions.
 
@@ -94,7 +93,7 @@ def _get_notebook_path_from_sessions():
     return None
 
 
-def _get_kernel_id():
+def _get_kernel_id() -> str | None:
     """
     Get the current kernel ID from the connection file.
 
@@ -114,7 +113,7 @@ def _get_kernel_id():
     return None
 
 
-def _get_running_servers():
+def _get_running_servers() -> list[dict]:
     """
     Get list of running Jupyter servers by scanning the runtime directory.
 
@@ -130,8 +129,8 @@ def _get_running_servers():
 
         # Get server files, sorted by modification time (most recent first)
         server_files = sorted(
-            list(runtime_dir.glob("nbserver-*.json"))
-            + list(runtime_dir.glob("jpserver-*.json")),
+            list(runtime_dir.glob("nbserver-*.json"))  # jupyter notebook (or lab 2)
+            + list(runtime_dir.glob("jpserver-*.json")),  # jupyterlab 3
             key=os.path.getmtime,
             reverse=True,
         )
@@ -146,7 +145,7 @@ def _get_running_servers():
         pass
 
 
-def _get_sessions_notebook(server, kernel_id):
+def _get_sessions_notebook(server: dict, kernel_id: str) -> str | None:
     """
     Query a server's sessions API to find the notebook for a kernel.
 
@@ -158,11 +157,7 @@ def _get_sessions_notebook(server, kernel_id):
         The notebook path if found, None otherwise.
     """
     url = server.get("url", "").rstrip("/")
-    token = server.get("token", "")
-
-    # Check for JupyterHub token
-    if not token and "JUPYTERHUB_API_TOKEN" in os.environ:
-        token = os.environ["JUPYTERHUB_API_TOKEN"]
+    token = server.get("token") or os.getenv("JUPYTERHUB_API_TOKEN", "")
 
     sessions_url = f"{url}/api/sessions"
     if token:
@@ -181,7 +176,7 @@ def _get_sessions_notebook(server, kernel_id):
     return None
 
 
-def _is_in_jupyter_notebook():
+def _is_in_jupyter_notebook() -> bool:
     """
     Check if we're running inside a Jupyter notebook (not just IPython).
 
