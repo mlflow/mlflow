@@ -258,11 +258,13 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
     flaky_marker = item.get_closest_marker("flaky")
     if flaky_marker is None:
         # No flaky marker, use default behavior
+        # Duration tracking for non-flaky tests is handled by pytest_runtest_setup/teardown
         return None
 
     # Check condition - if False, skip rerun logic
     condition = flaky_marker.kwargs.get("condition", True)
     if not condition:
+        # Duration tracking for non-flaky tests is handled by pytest_runtest_setup/teardown
         return None
 
     attempts = flaky_marker.kwargs.get("attempts", 2)
@@ -290,16 +292,39 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
             # No rerun needed (passed or exhausted attempts), exit the loop
             need_to_run = False
 
+    # Mark that this test's duration was already tracked
+    item._duration_tracked = True
     _test_results.append(
         TestResult(path=item.path, test_name=item.name, execution_time=total_duration)
     )
     return True  # Indicate that we handled this protocol
 
 
+@pytest.hookimpl(hookwrapper=True, tryfirst=True)
 def pytest_runtest_setup(item):
+    """Record start time before test setup and check for test requirements."""
+    # Record start time for duration tracking (for non-flaky tests)
+    if not hasattr(item, "_duration_tracked"):
+        item._test_start_time = time.perf_counter()
+
+    # Check for SSH requirement marker
     markers = [mark.name for mark in item.iter_markers()]
     if "requires_ssh" in markers and not item.config.getoption("--requires-ssh"):
         pytest.skip("use `--requires-ssh` to run this test")
+
+    yield
+
+
+@pytest.hookimpl(hookwrapper=True, trylast=True)
+def pytest_runtest_teardown(item):
+    """Record duration after test teardown for non-flaky tests."""
+    yield
+    # Only track duration if it wasn't already tracked by pytest_runtest_protocol (flaky tests)
+    if not hasattr(item, "_duration_tracked") and hasattr(item, "_test_start_time"):
+        duration = time.perf_counter() - item._test_start_time
+        _test_results.append(
+            TestResult(path=item.path, test_name=item.name, execution_time=duration)
+        )
 
 
 def fetch_pr_labels():
