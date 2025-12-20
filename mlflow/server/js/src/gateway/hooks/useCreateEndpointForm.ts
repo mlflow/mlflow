@@ -1,7 +1,6 @@
 import { useForm } from 'react-hook-form';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from '../../common/utils/RoutingUtils';
-import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useCreateEndpointMutation } from './useCreateEndpointMutation';
 import { useCreateSecret } from './useCreateSecret';
 import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMutation';
@@ -42,7 +41,6 @@ export interface UseCreateEndpointFormResult {
 
 export function useCreateEndpointForm(): UseCreateEndpointFormResult {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const form = useForm<CreateEndpointFormData>({
     defaultValues: {
@@ -130,7 +128,7 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
 
       navigate(GatewayRoutes.getEndpointDetailsRoute(endpointResponse.endpoint.endpoint_id));
     } catch {
-      // Errors are captured by mutation error state
+      // Errors are handled by mutation error state
     }
   };
 
@@ -144,6 +142,28 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
   const existingSecretId = form.watch('existingSecretId');
   const newSecretName = form.watch('newSecret.name');
   const newSecretFields = form.watch('newSecret.secretFields');
+
+  const prevProviderRef = useRef(provider);
+
+  useEffect(() => {
+    const prevProvider = prevProviderRef.current;
+    prevProviderRef.current = provider;
+
+    if (!prevProvider || !provider || prevProvider === provider) {
+      return;
+    }
+
+    form.setValue('modelName', '');
+    form.setValue('secretMode', 'new');
+    form.setValue('existingSecretId', '');
+    form.setValue('newSecret', {
+      name: '',
+      authMode: '',
+      secretFields: {},
+      configFields: {},
+    });
+    resetErrors();
+  }, [provider, form, resetErrors]);
 
   const { data: models } = useModelsQuery({ provider: provider || undefined });
   const selectedModel = models?.find((m) => m.model === modelName);

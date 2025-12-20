@@ -2518,7 +2518,7 @@ def test_get_provider_config_with_multiple_auth_modes():
         data = response.get_json()
 
         assert "auth_modes" in data
-        assert data["default_mode"] == "access_keys"
+        assert data["default_mode"] == "api_key"
         assert len(data["auth_modes"]) >= 2
 
         access_keys_mode = next(m for m in data["auth_modes"] if m["mode"] == "access_keys")
