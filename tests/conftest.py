@@ -237,7 +237,8 @@ def generate_duration_stats() -> str:
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
     """
-    Custom test protocol that supports rerunning failed tests marked with @pytest.mark.flaky.
+    Custom test protocol that tracks test duration and supports rerunning failed tests
+    marked with @pytest.mark.flaky.
 
     This is a simplified implementation inspired by pytest-rerunfailures:
     https://github.com/pytest-dev/pytest-rerunfailures/blob/365dc54ba3069f55a870cda2c3e1e3c33c68f326/src/pytest_rerunfailures.py#L564-L619
@@ -256,18 +257,15 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
 
     # Get attempts from the flaky marker
     flaky_marker = item.get_closest_marker("flaky")
-    if flaky_marker is None:
-        # No flaky marker, use default behavior
-        # Duration tracking for non-flaky tests is handled by pytest_runtest_setup/teardown
-        return None
 
-    # Check condition - if False, skip rerun logic
-    condition = flaky_marker.kwargs.get("condition", True)
-    if not condition:
-        # Duration tracking for non-flaky tests is handled by pytest_runtest_setup/teardown
-        return None
-
-    attempts = flaky_marker.kwargs.get("attempts", 2)
+    # Check if we should enable flaky rerun logic
+    should_rerun = False
+    attempts = 1
+    if flaky_marker is not None:
+        condition = flaky_marker.kwargs.get("condition", True)
+        if condition:
+            should_rerun = True
+            attempts = flaky_marker.kwargs.get("attempts", 2)
 
     item.execution_count = 0
     need_to_run = True
@@ -280,7 +278,7 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
         total_duration += time.perf_counter() - start
 
         for report in reports:
-            if report.when == "call" and report.failed:
+            if should_rerun and report.when == "call" and report.failed:
                 if item.execution_count < attempts:
                     report.outcome = "rerun"
                     # Re-initialize the test item for the next run
@@ -292,39 +290,16 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
             # No rerun needed (passed or exhausted attempts), exit the loop
             need_to_run = False
 
-    # Mark that this test's duration was already tracked
-    item._duration_tracked = True
     _test_results.append(
         TestResult(path=item.path, test_name=item.name, execution_time=total_duration)
     )
     return True  # Indicate that we handled this protocol
 
 
-@pytest.hookimpl(hookwrapper=True, tryfirst=True)
 def pytest_runtest_setup(item):
-    """Record start time before test setup and check for test requirements."""
-    # Record start time for duration tracking (for non-flaky tests)
-    if not hasattr(item, "_duration_tracked"):
-        item._test_start_time = time.perf_counter()
-
-    # Check for SSH requirement marker
     markers = [mark.name for mark in item.iter_markers()]
     if "requires_ssh" in markers and not item.config.getoption("--requires-ssh"):
         pytest.skip("use `--requires-ssh` to run this test")
-
-    yield
-
-
-@pytest.hookimpl(hookwrapper=True, trylast=True)
-def pytest_runtest_teardown(item):
-    """Record duration after test teardown for non-flaky tests."""
-    yield
-    # Only track duration if it wasn't already tracked by pytest_runtest_protocol (flaky tests)
-    if not hasattr(item, "_duration_tracked") and hasattr(item, "_test_start_time"):
-        duration = time.perf_counter() - item._test_start_time
-        _test_results.append(
-            TestResult(path=item.path, test_name=item.name, execution_time=duration)
-        )
 
 
 def fetch_pr_labels():
