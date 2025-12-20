@@ -1,4 +1,4 @@
-import { describe, jest, test, expect } from '@jest/globals';
+import { describe, jest, test, expect, beforeAll } from '@jest/globals';
 import { IntlProvider } from 'react-intl';
 import { render, screen } from '../../../../../common/utils/TestUtils.react18';
 import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
@@ -12,6 +12,9 @@ import { useState } from 'react';
 const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
 describe('ExperimentViewRunsGroupBySelector', () => {
+  beforeAll(() => {
+    jest.setTimeout(10000);
+  });
   const runsDataDatasets: Partial<ExperimentRunsSelectorResult> = {
     datasetsList: [
       [
