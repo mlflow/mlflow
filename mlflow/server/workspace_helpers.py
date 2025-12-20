@@ -55,7 +55,7 @@ def _get_workspace_store(workspace_uri: str | None = None, tracking_uri: str | N
     """
     if not MLFLOW_ENABLE_WORKSPACES.get():
         raise MlflowException(
-            "Workspace APIs are not available: multi-tenancy is not enabled on this server",
+            "Workspace APIs are not available: workspaces are not enabled on this server",
             databricks_pb2.FEATURE_DISABLED,
         )
 
@@ -97,11 +97,17 @@ def _workspace_error_response(exc: Exception) -> Response:
 
 
 def workspace_before_request_handler():
+    # The server-features endpoint must remain reachable even if the workspace header points to a
+    # missing workspace, so skip workspace resolution entirely for this route.
+    path = request.path.rstrip("/")
+    if path.endswith("/mlflow/server-features"):
+        return None
+
     if not MLFLOW_ENABLE_WORKSPACES.get():
         if request.headers.get(WORKSPACE_HEADER_NAME, "").strip():
             return _workspace_error_response(
                 MlflowException(
-                    "Workspace APIs are not available: multi-tenancy is not enabled on this server",
+                    "Workspace APIs are not available: workspaces are not enabled on this server",
                     error_code=databricks_pb2.FEATURE_DISABLED,
                 )
             )

@@ -552,7 +552,7 @@ def _workspace_contexts_for_recovery() -> list[ContextManager[str | None]]:
     """
     Determine the set of workspace contexts that may contain unfinished jobs.
 
-    When multi-tenancy is disabled, this returns only a ``nullcontext``. Otherwise, it queries the
+    When workspaces are disabled, this returns only a ``nullcontext``. Otherwise, it queries the
     configured workspace store to enumerate all defined workspaces so the job runner can resume
     tasks for each tenant.
     """

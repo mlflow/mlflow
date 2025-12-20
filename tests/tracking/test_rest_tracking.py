@@ -3394,6 +3394,25 @@ def test_suppress_url_printing(mlflow_client: MlflowClient, monkeypatch):
     assert captured_output.getvalue() == ""
 
 
+def test_log_url_includes_workspace_when_set(mlflow_client: MlflowClient, monkeypatch):
+    exp_id = mlflow_client.create_experiment("test_log_url_workspace")
+    run = mlflow_client.create_run(experiment_id=exp_id)
+    captured_output = StringIO()
+    monkeypatch.setattr(sys, "stdout", captured_output)
+    monkeypatch.setattr(
+        "mlflow.tracking._tracking_service.client.get_workspace_url", lambda: "http://localhost"
+    )
+    monkeypatch.setattr(
+        "mlflow.tracking._tracking_service.client.get_request_workspace", lambda: "team space"
+    )
+
+    mlflow_client._tracking_client._log_url(run.info.run_id)
+
+    out = captured_output.getvalue()
+    expected_fragment = f"/#/workspaces/team%20space/experiments/{exp_id}/runs/{run.info.run_id}"
+    assert expected_fragment in out
+
+
 def test_assessments_end_to_end(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
 
