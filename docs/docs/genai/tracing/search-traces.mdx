@@ -89,6 +89,9 @@ The `search_traces` API uses a SQL-like Domain Specific Language (DSL) for query
 
 Search for any contents existing in your trace.
 
+<Tabs>
+<TabItem value="python" label="Python" default>
+
 ```python
 # Search for traces containing specific text
 mlflow.search_traces(filter_string="trace.text LIKE '%authentication error%'")
@@ -97,7 +100,30 @@ mlflow.search_traces(filter_string="trace.text LIKE '%authentication error%'")
 mlflow.search_traces(filter_string="trace.text LIKE '%timeout%'")
 ```
 
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+// Search for traces containing specific text
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.text LIKE '%authentication error%'"
+});
+
+// Search for multiple terms
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.text LIKE '%timeout%'"
+});
+```
+
+</TabItem>
+</Tabs>
+
 #### Filter by Name
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 ```python
 # Exact match
@@ -113,7 +139,36 @@ mlflow.search_traces(filter_string="trace.name ILIKE '%PREDICT%'")
 mlflow.search_traces(filter_string="trace.name RLIKE '^(predict|inference)_[0-9]+'")
 ```
 
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+// Exact match
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.name = 'predict'"
+});
+
+// Pattern matching with LIKE
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.name LIKE '%inference%'"
+});
+
+// Case-insensitive pattern matching with ILIKE
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.name ILIKE '%PREDICT%'"
+});
+```
+
+</TabItem>
+</Tabs>
+
 #### Filter by Status
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 ```python
 # Get successful traces
@@ -126,7 +181,36 @@ mlflow.search_traces(filter_string="trace.status = 'ERROR'")
 mlflow.search_traces(filter_string="trace.status != 'OK'")
 ```
 
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+// Get successful traces
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.status = 'OK'"
+});
+
+// Get failed traces
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.status = 'ERROR'"
+});
+
+// Get in-progress traces
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.status != 'OK'"
+});
+```
+
+</TabItem>
+</Tabs>
+
 #### Filter by Execution Time
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 ```python
 # Find slow traces (> 1 second)
@@ -141,7 +225,30 @@ mlflow.search_traces(
 mlflow.search_traces(filter_string="trace.execution_time_ms = 500")
 ```
 
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+// Find slow traces (> 1 second)
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.execution_time_ms > 1000"
+});
+
+// Performance range
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.execution_time_ms >= 200 AND trace.execution_time_ms <= 800"
+});
+```
+
+</TabItem>
+</Tabs>
+
 #### Filter by Timestamp
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 ```python
 import time
@@ -159,7 +266,31 @@ mlflow.search_traces(
 )
 ```
 
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+// Get traces from last hour
+const timestamp = Date.now();
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: `trace.timestamp_ms > ${timestamp - 3600000}`
+});
+
+// Timestamp range
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: `trace.timestamp_ms >= ${timestamp - 7200000} AND trace.timestamp_ms <= ${timestamp - 3600000}`
+});
+```
+
+</TabItem>
+</Tabs>
+
 #### Filter by Tags
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 ```python
 # Exact match
@@ -175,25 +306,88 @@ mlflow.search_traces(filter_string="tag.environment ILIKE '%prod%'")
 mlflow.search_traces(filter_string="tag.version RLIKE '^v[0-9]+\\.[0-9]+'")
 ```
 
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+// Exact match
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "tag.model_name = 'gpt-4'"
+});
+
+// Pattern matching with LIKE (case-sensitive)
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "tag.model_name LIKE 'gpt-%'"
+});
+
+// Case-insensitive pattern matching with ILIKE
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "tag.environment ILIKE '%prod%'"
+});
+```
+
+</TabItem>
+</Tabs>
+
 #### Filter by Run Association
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 ```python
 # Find traces associated with a specific run
 mlflow.search_traces(filter_string="trace.run_id = 'run_id_123456'")
 ```
 
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+// Find traces associated with a specific run
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.run_id = 'run_id_123456'"
+});
+```
+
+</TabItem>
+</Tabs>
+
 #### Filter by Linked Prompts
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 ```python
 # Find traces using a specific prompt version
 mlflow.search_traces(filter_string='prompt = "qa-agent-system-prompt/4"')
 ```
 
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+// Find traces using a specific prompt version
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: 'prompt = "qa-agent-system-prompt/4"'
+});
+```
+
+</TabItem>
+</Tabs>
+
 :::note
 The `prompt` filter only supports exact match (`=`) operator with the format `"name/version"`.
 :::
 
 #### Filter by Span Attributes
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 ```python
 # Filter by span name
@@ -211,7 +405,36 @@ mlflow.search_traces(filter_string="span.attributes.temperature LIKE '%0.7%'")
 mlflow.search_traces(filter_string="span.attributes.model_version ILIKE '%V2%'")
 ```
 
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+// Filter by span name
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "span.name = 'llm_call'"
+});
+
+// Pattern matching on span name
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "span.name LIKE '%embedding%'"
+});
+
+// Filter by span type
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "span.type = 'LLM'"
+});
+```
+
+</TabItem>
+</Tabs>
+
 #### Filter by Feedback
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 ```python
 # Filter by feedback ratings
@@ -221,7 +444,30 @@ mlflow.search_traces(filter_string="feedback.rating = 'positive'")
 mlflow.search_traces(filter_string="feedback.user_comment LIKE '%helpful%'")
 ```
 
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+// Filter by feedback ratings
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "feedback.rating = 'positive'"
+});
+
+// Pattern matching on feedback
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "feedback.user_comment LIKE '%helpful%'"
+});
+```
+
+</TabItem>
+</Tabs>
+
 #### Filter by Expectations
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 ```python
 # Filter by expectation values
@@ -231,7 +477,30 @@ mlflow.search_traces(filter_string="expectation.accuracy = 'high'")
 mlflow.search_traces(filter_string="expectation.label ILIKE '%success%'")
 ```
 
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+// Filter by expectation values
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "expectation.accuracy = 'high'"
+});
+
+// Pattern matching on expectations
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "expectation.label ILIKE '%success%'"
+});
+```
+
+</TabItem>
+</Tabs>
+
 #### Filter by End Time
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 ```python
 import time
@@ -246,7 +515,31 @@ mlflow.search_traces(
 )
 ```
 
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+// Get traces that completed in the last hour
+const endTime = Date.now();
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: `trace.end_time_ms > ${endTime - 3600000}`
+});
+
+// Find traces that ended within a specific time range
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: `trace.end_time_ms >= ${endTime - 7200000} AND trace.end_time_ms <= ${endTime - 3600000}`
+});
+```
+
+</TabItem>
+</Tabs>
+
 #### Combine Multiple Conditions
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 ```python
 # Complex query with tags and status
@@ -279,6 +572,38 @@ mlflow.search_traces(
     """
 )
 ```
+
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+// Complex query with tags and status
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.status = 'OK' AND tag.importance = 'high'"
+});
+
+// Production error analysis with execution time
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "tag.environment = 'production' AND trace.status = 'ERROR' AND trace.execution_time_ms > 500"
+});
+
+// Advanced query with span attributes and feedback
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "span.name LIKE '%llm%' AND feedback.rating = 'positive' AND trace.execution_time_ms < 1000"
+});
+
+// Search with pattern matching and time range
+await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.name ILIKE '%inference%' AND trace.timestamp_ms > 1700000000000"
+});
+```
+
+</TabItem>
+</Tabs>
 
 ## Programmatic Search
 
