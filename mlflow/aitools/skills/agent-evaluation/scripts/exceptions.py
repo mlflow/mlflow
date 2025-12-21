@@ -39,52 +39,34 @@ class AgentEvaluationError(Exception):
 class EnvironmentError(AgentEvaluationError):
     """Environment configuration errors (missing vars, wrong versions)."""
 
-    pass
-
 
 class AuthenticationError(AgentEvaluationError):
     """Authentication and credential errors."""
-
-    pass
 
 
 class TracingError(AgentEvaluationError):
     """Tracing integration errors (missing decorators, autolog issues)."""
 
-    pass
-
 
 class DatasetError(AgentEvaluationError):
     """Dataset creation and loading errors."""
-
-    pass
 
 
 class DatasetLoadError(DatasetError):
     """Failed to load or parse dataset."""
 
-    pass
-
 
 class DatasetSchemaError(DatasetError):
     """Invalid dataset schema or format."""
-
-    pass
 
 
 class ScorerError(AgentEvaluationError):
     """Scorer definition and execution errors."""
 
-    pass
-
 
 class EvaluationError(AgentEvaluationError):
     """Evaluation execution errors."""
 
-    pass
-
 
 class LLMProviderError(AgentEvaluationError):
     """LLM provider configuration or API errors."""
-
-    pass

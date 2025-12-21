@@ -32,31 +32,67 @@ def check_databricks_auth():
     host = os.getenv("DATABRICKS_HOST")
 
     if not token and not host:
-        # Try using databricks-cli profile
+        # Try using databricks SDK (more robust) or fallback to CLI
         try:
-            from databricks_cli.sdk.api_client import ApiClient
+            # Try new Databricks SDK first
+            try:
+                from databricks import sdk
 
-            print("  ↻ Using Databricks CLI profile...")
-            api_client = ApiClient()
+                print("  ↻ Using Databricks SDK...")
 
-            # Test with lightweight API call
+                # Try to create workspace client
+                try:
+                    w = sdk.WorkspaceClient()
+                    # Test with a simple API call
+                    current_user = w.current_user.me()
+                    print(f"  ✓ Authenticated as: {current_user.user_name}")
+                    print()
+                    return []
+
+                except AttributeError as e:
+                    # Handle NoneType error gracefully
+                    if "'NoneType'" in str(e):
+                        print("  ✗ Databricks configuration incomplete or corrupted")
+                        print()
+                        return ["Run: databricks auth login --profile DEFAULT"]
+                    raise
+
+            except ImportError:
+                # Fall back to old databricks-cli
+                from databricks_cli.sdk.api_client import ApiClient
+
+                print("  ↻ Using Databricks CLI profile...")
+
+                try:
+                    api_client = ApiClient()
+
+                    # Check if api_client is properly initialized
+                    if api_client is None or not hasattr(api_client, 'host'):
+                        print("  ✗ Databricks CLI profile not configured")
+                        print()
+                        return ["Run: databricks auth login --profile DEFAULT"]
+
+                except (AttributeError, TypeError) as e:
+                    print(f"  ✗ Profile configuration error: {str(e)[:80]}")
+                    print()
+                    return ["Run: databricks auth login --profile DEFAULT"]
+
+            # Test with MLflow client
             from mlflow import MlflowClient
             client = MlflowClient()
-
-            # Try to list experiments (lightweight call)
             experiments = client.search_experiments(max_results=1)
-            print(f"  ✓ Databricks profile authenticated")
+            print("  ✓ Databricks profile authenticated")
             print()
             return []
 
         except ImportError:
-            print("  ✗ databricks-cli not installed")
+            print("  ✗ Neither databricks-sdk nor databricks-cli installed")
             print()
-            return ["Install databricks-cli: pip install databricks-cli"]
+            return ["Install databricks SDK: pip install databricks-sdk"]
         except Exception as e:
             print(f"  ✗ Authentication failed: {str(e)[:100]}")
             print()
-            return ["Run: databricks auth login --host <workspace-url>"]
+            return ["Run: databricks auth login --profile DEFAULT"]
 
     # Test with environment variables
     try:
@@ -65,7 +101,7 @@ def check_databricks_auth():
         client = MlflowClient()
         experiments = client.search_experiments(max_results=1)
 
-        print(f"  ✓ Databricks token valid")
+        print("  ✓ Databricks token valid")
         print()
         return []
 
@@ -74,7 +110,7 @@ def check_databricks_auth():
         print()
         return [
             "Check DATABRICKS_TOKEN is set correctly",
-            "Run: databricks auth login --host <workspace-url>"
+            "Run: databricks auth login --host <workspace-url>",
         ]
 
 

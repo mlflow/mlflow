@@ -2,14 +2,111 @@
 
 Complete guide for creating and managing MLflow evaluation datasets for agent evaluation.
 
+## Read MLflow Documentation First
+
+Before creating any dataset, read the MLflow GenAI dataset documentation:
+- Query llms.txt for "evaluation datasets", "dataset schema", "mlflow.genai.datasets"
+- Understand required record schema and APIs
+
+## Examine Your Agent's Function Signature
+
+Before writing dataset code:
+
+1. Open your agent's entry point function
+2. Read its function signature to identify parameter names
+3. Note which parameters come from the dataset vs. your code
+
+**Example:**
+```python
+# Agent code
+def run_agent(query: str, llm_provider: LLMProvider, session_id: str | None = None) -> str:
+    ...
+```
+
+**Parameter analysis:**
+- `query` (str) → **FROM DATASET** - this goes in `inputs` dict
+- `llm_provider` (LLMProvider) → **FROM CODE** - provided by predict_fn
+- `session_id` (str, optional) → **FROM CODE** - optional, not needed in dataset
+
+**Therefore, your dataset inputs MUST be:**
+```python
+{"inputs": {"query": "your question here"}}  # ✅ CORRECT - matches parameter name
+```
+
+**NOT:**
+```python
+{"inputs": {"request": "..."}}    # ❌ WRONG - no 'request' parameter
+{"inputs": {"question": "..."}}   # ❌ WRONG - no 'question' parameter
+{"inputs": {"prompt": "..."}}     # ❌ WRONG - no 'prompt' parameter
+```
+
+---
+
+## Required Schema & APIs
+
+### Record Schema
+
+Every dataset record has this structure:
+
+```python
+{
+    "inputs": dict,        # REQUIRED - parameters for your agent function
+    "expectations": dict,  # OPTIONAL - ground truth for evaluation
+    "tags": dict          # OPTIONAL - metadata for filtering
+}
+```
+
+**CRITICAL**: The `inputs` dict keys MUST EXACTLY match your agent's function parameter names (as identified in Step 2 above).
+
+### Required APIs - NEVER/ALWAYS Rules
+
+#### ❌ NEVER Use These:
+
+- `mlflow.data.from_pandas()` - Wrong namespace, for non-GenAI datasets
+- `mlflow.log_input()` - Wrong approach for evaluation datasets
+- Manual DataFrame creation without GenAI APIs
+- Searching MLflow runs to "recreate" datasets
+- Hardcoding dataset queries in evaluation scripts
+
+#### ✅ ALWAYS Use These:
+
+**Core Operations:**
+
+```python
+from mlflow.genai.datasets import create_dataset, search_datasets
+
+# CREATE dataset
+dataset = create_dataset(name="my-dataset", experiment_id=["1"])
+
+# ADD records
+records = [{"inputs": {"query": "test"}}]
+dataset.merge_records(records)
+
+# LOAD dataset
+datasets = search_datasets(filter_string="name = 'my-dataset'")
+dataset = datasets[0]
+
+# USE in evaluation
+results = mlflow.genai.evaluate(
+    data=dataset,
+    predict_fn=predict_fn,
+    scorers=[RelevanceToQuery()]
+)
+```
+
+**For complete workflows:**
+- Check existing datasets: `python scripts/list_datasets.py`
+- Create new dataset: `python scripts/create_dataset_template.py`
+
+---
+
 ## Table of Contents
 
 1. [Understanding MLflow GenAI Datasets](#understanding-mlflow-genai-datasets)
-2. [Checking Existing Datasets](#checking-existing-datasets)
-3. [Comparing Datasets for Selection](#comparing-datasets-for-selection)
-4. [Creating New Datasets](#creating-new-datasets)
-5. [Databricks Unity Catalog Considerations](#databricks-unity-catalog-considerations)
-6. [Best Practices](#best-practices)
+2. [Checking Existing Datasets](#checking-existing-datasets) (Use list_datasets.py script)
+3. [Creating New Datasets](#creating-new-datasets) (Use create_dataset_template.py script)
+4. [Databricks Unity Catalog Considerations](#databricks-unity-catalog-considerations)
+5. [Best Practices](#best-practices)
 
 ## Understanding MLflow GenAI Datasets
 
@@ -23,362 +120,82 @@ GenAI evaluation datasets are specialized datasets for evaluating language model
 - Can be associated with experiments
 - Support pagination and search (in OSS MLflow)
 
-### Documentation
-
-**Always consult the official MLflow documentation**:
-1. Read `https://mlflow.org/docs/latest/llms.txt`
-2. Search for "evaluation dataset", "genai dataset", "dataset schema"
-3. Follow links to detailed documentation
-
 ### Dataset Schema
 
-Records must follow this format:
-
-```python
-[
-    {
-        "inputs": {"query": "What is MLflow?"},
-        "expectations": {"answer": "MLflow is an open source platform..."}  # Optional
-    },
-    {
-        "inputs": {"query": "How do I log a model?"},
-        # expectations are optional
-    },
-    ...
-]
-```
+See the [Required Schema & APIs](#required-schema--apis) section above for the complete record schema definition.
 
 **Key points**:
-- `inputs`: Required dict containing inputs to your agent (e.g., `{"query": "..."}`)
-- `expectations`: Optional dict with expected outputs or ground truth
+- `inputs`: Required dict with parameters matching your agent's function signature
+- `expectations`: Optional dict for ground truth evaluation
+- Each record tests one agent interaction
 
 ## Checking Existing Datasets
 
 Before creating a new dataset, check if suitable datasets already exist.
 
-### Search for Datasets
+### Use the Dataset Discovery Script
 
-```python
-from mlflow import MlflowClient
-
-client = MlflowClient()
-
-# Search for datasets in specific experiments
-datasets = client.search_datasets(
-    experiment_ids=["<experiment_id>"],
-    max_results=10
-)
-
-# Print dataset information
-if datasets:
-    print(f"Found {len(datasets)} dataset(s):\n")
-    for dataset in datasets:
-        print(f"  Name: {dataset.name}")
-        print(f"  ID: {dataset.dataset_id}")
-        print()
-else:
-    print("No datasets found in this experiment.")
-
-# Get next page if available
-if datasets.token:
-    next_page = client.search_datasets(
-        experiment_ids=["<experiment_id>"],
-        page_token=datasets.token
-    )
+```bash
+uv run python scripts/list_datasets.py
 ```
 
-### Important: Field Access Limitations
+**This script automatically:**
+- Lists all datasets in your experiment
+- Calculates diversity metrics (record count, query length range)
+- Shows sample queries from each dataset
+- Recommends the best dataset based on size and diversity
+- Allows interactive selection
 
-**OSS MLflow**: Can access all fields (`name`, `dataset_id`, `experiment_ids`, `tags`)
+**The script handles:**
+- Both OSS MLflow and Databricks environments
+- Pagination for large result sets
+- Field access limitations (Databricks only supports `name` and `dataset_id`)
+- Dataset comparison and recommendation logic
 
-**Databricks**: **ONLY** access `name` and `dataset_id` fields.
-
-Do **NOT** access `experiment_ids` or `tags` as these may fail with:
-```
-"Evaluation dataset APIs is not supported in Databricks environments"
-```
-
-### Load Dataset Details
-
-To see the actual records in a dataset:
-
-```python
-from mlflow.genai.datasets import get_dataset
-
-# Load dataset by name
-dataset = get_dataset("<dataset_name>")
-
-# Convert to DataFrame for analysis
-df = dataset.to_df()
-
-print(f"Dataset: {dataset.dataset_id}")
-print(f"Records: {len(df)}")
-print()
-
-# Show sample records
-print("Sample records:")
-for i, row in df.head(5).iterrows():
-    inputs = row['inputs']
-    query = inputs.get('query', str(inputs))
-    print(f"  {i+1}. {query[:80]}{'...' if len(query) > 80 else ''}")
-```
-
-## Comparing Datasets for Selection
-
-If multiple datasets exist, compare them to select the most appropriate for evaluation.
-
-### Comparison Criteria
-
-**1. Size (Record Count)**
-- More records = better coverage
-- Minimum: 10 records
-- Recommended: 20-50 records
-
-**2. Query Diversity**
-- Variety in query types (simple vs complex)
-- Range of query lengths (short vs long)
-- Different topics or capabilities tested
-
-**3. Quality**
-- Realistic queries matching actual use cases
-- Clear, well-formed questions
-- Representative of production workload
-
-### Analyze Dataset Diversity
-
-```python
-import pandas as pd
-
-# Load dataset
-dataset = get_dataset("<dataset_name>")
-df = dataset.to_df()
-
-# Extract queries
-queries = []
-for idx, row in df.iterrows():
-    inputs = row['inputs']
-    query = inputs.get('query', inputs.get('question', str(inputs)))
-    queries.append(query)
-
-# Calculate diversity metrics
-query_lengths = [len(q) for q in queries]
-
-print(f"Dataset: <dataset_name>")
-print(f"  Total records: {len(queries)}")
-print(f"  Query length range: {min(query_lengths)}-{max(query_lengths)} chars")
-print(f"  Average length: {sum(query_lengths)/len(query_lengths):.1f} chars")
-print()
-
-# Show variety of samples
-print("Sample queries (showing variety):")
-# Sort by length to show range
-sorted_queries = sorted(zip(queries, query_lengths), key=lambda x: x[1])
-samples = [
-    sorted_queries[0],  # Shortest
-    sorted_queries[len(sorted_queries)//3],  # Short-medium
-    sorted_queries[len(sorted_queries)//2],  # Medium
-    sorted_queries[2*len(sorted_queries)//3],  # Medium-long
-    sorted_queries[-1]  # Longest
-]
-
-for i, (query, length) in enumerate(samples, 1):
-    print(f"  {i}. [{length} chars] {query[:80]}{'...' if length > 80 else ''}")
-```
-
-### Recommendation Logic
-
-**Prefer datasets with BOTH high count AND high diversity:**
-
-1. **Clear winner**: Dataset is both larger AND more diverse → recommend it
-2. **Trade-off**: One is larger but less diverse, another is smaller but more diverse → show comparison and ask user
-3. **Similar quality**: Multiple good datasets → ask user based on preferences
-
-**Present comparison with clear reasoning:**
-
-```
-Dataset Comparison:
-
-1. mlflow_agent_eval_v1
-   - Records: 32
-   - Diversity: HIGH (mix of short/long, simple/complex queries)
-   - Topics: Documentation, PRs, releases, troubleshooting
-   - Recommendation: ✓ RECOMMENDED (best balance)
-
-2. mlflow_agent_eval_old
-   - Records: 15
-   - Diversity: MEDIUM (mostly short queries)
-   - Topics: Documentation only
-   - Recommendation: Consider for targeted doc evaluation
-
-Recommended: mlflow_agent_eval_v1
-Reason: Larger size (32 vs 15) and higher diversity
-```
+**For manual dataset access**, use the APIs shown in [Required Schema & APIs](#required-schema--apis).
 
 ## Creating New Datasets
 
 If no suitable dataset exists, create a new one.
 
-### Quick Start with Script
+### ⚠️ Before Creating Dataset ⚠️
 
-Use the template generator script:
+**Complete these steps FIRST:**
+
+1. ✅ Read MLflow GenAI dataset documentation (see top of file)
+2. ✅ Examine your agent's function signature
+3. ✅ Know exact parameter names to use in `inputs` dict
+
+### Use the Dataset Template Generator
 
 ```bash
-python .claude/skills/agent-evaluation/scripts/create_dataset_template.py
+uv run python scripts/create_dataset_template.py
 ```
 
-This will:
+**The script will:**
 1. Detect your environment (OSS MLflow vs Databricks)
-2. Guide you through naming (including UC table name for Databricks)
-3. Help create sample queries interactively
-4. Generate a complete Python script
-5. Execute the script to create the dataset
+2. Guide you through naming conventions:
+   - **OSS**: Simple names like `mlflow-agent-eval-v1`
+   - **Databricks**: UC table names like `main.default.mlflow_agent_eval_v1`
+3. Help create 10+ diverse sample queries interactively
+4. Generate a complete Python script using correct APIs
+5. Optionally execute the script to create the dataset
 
-### Manual Creation Workflow
+**The generated script handles:**
+- Correct API usage (`mlflow.genai.datasets` namespace)
+- Environment-specific requirements (tags for OSS, UC tables for Databricks)
+- Input validation and error handling
 
-If you prefer to create the dataset manually:
+### For Manual Creation
 
-#### Step 1: Prepare Environment
+If you prefer manual creation, follow the API patterns in [Required Schema & APIs](#required-schema--apis):
 
-```python
-import os
-from mlflow.genai.datasets import create_dataset
+1. Use `create_dataset()` with correct name format
+2. Prepare records with `inputs` dict matching your agent parameters
+3. Add records with `dataset.merge_records()`
+4. Verify with `dataset.to_df()`
 
-# Ensure environment is configured
-tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
-experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID")
-
-print(f"Tracking URI: {tracking_uri}")
-print(f"Experiment ID: {experiment_id}")
-```
-
-#### Step 2: Determine Dataset Name
-
-**For Databricks (Unity Catalog)**:
-- Must use fully-qualified name: `<catalog>.<schema>.<table>`
-- Example: `main.default.mlflow_agent_eval_v1`
-- See [Databricks Unity Catalog Considerations](#databricks-unity-catalog-considerations)
-
-**For OSS MLflow**:
-- Use descriptive name: `mlflow-agent-eval-v1`
-- Can include version suffix
-
-#### Step 3: Create Dataset
-
-```python
-# Create the dataset and associate with experiment
-dataset = create_dataset(
-    name="<dataset_name>",  # See naming guidance above
-    experiment_id="<experiment_id>",
-    tags={  # Optional - ONLY for OSS MLflow
-        "version": "1.0",
-        "purpose": "agent_evaluation",
-    } if not is_databricks else None
-)
-
-print(f"✓ Dataset created: {dataset.dataset_id}")
-```
-
-#### Step 4: Prepare Sample Inputs
-
-Create 10+ diverse queries that test different aspects of your agent:
-
-```python
-records = [
-    {
-        "inputs": {"query": "What is MLflow?"}
-    },
-    {
-        "inputs": {"query": "How do I log a model in MLflow?"}
-    },
-    {
-        "inputs": {"query": "What's the difference between mlflow.log_param and mlflow.log_metric?"}
-    },
-    {
-        "inputs": {"query": "Show me an example of using mlflow.langchain.autolog()"}
-    },
-    {
-        "inputs": {"query": "What LLM judges are available in MLflow for evaluation?"}
-    },
-    # ... add 5+ more diverse queries
-]
-```
-
-**Guidelines**:
-- Minimum 10 queries
-- Mix simple and complex questions
-- Vary query lengths (short, medium, long)
-- Cover different agent capabilities
-- Include edge cases if relevant
-
-#### Step 5: Add Records to Dataset
-
-```python
-# Merge records into the dataset
-dataset = dataset.merge_records(records)
-
-print(f"✓ Added {len(records)} records to dataset")
-```
-
-#### Step 6: Verify Dataset
-
-```python
-print("\n" + "=" * 60)
-print("Dataset Created Successfully!")
-print("=" * 60)
-print(f"Dataset ID: {dataset.dataset_id}")
-print(f"Number of records: {len(dataset.records)}")
-print()
-
-# Show sample records
-print("Sample records:")
-for i, record in enumerate(dataset.records[:5], 1):
-    query = record["inputs"].get("query", str(record["inputs"]))
-    print(f"  {i}. {query[:80]}{'...' if len(query) > 80 else ''}")
-```
-
-### Complete Example
-
-```python
-#!/usr/bin/env python3
-"""Create MLflow evaluation dataset."""
-
-import os
-from mlflow.genai.datasets import create_dataset
-
-# Configuration
-os.environ["MLFLOW_TRACKING_URI"] = "databricks://DEFAULT"
-os.environ["MLFLOW_EXPERIMENT_ID"] = "123456"
-
-DATASET_NAME = "main.default.mlflow_agent_eval_v1"  # Databricks UC table
-EXPERIMENT_ID = "123456"
-
-# Create dataset
-dataset = create_dataset(
-    name=DATASET_NAME,
-    experiment_id=EXPERIMENT_ID,
-)
-
-# Prepare records
-records = [
-    {"inputs": {"query": "What is MLflow?"}},
-    {"inputs": {"query": "How do I log models?"}},
-    {"inputs": {"query": "What are MLflow experiments?"}},
-    {"inputs": {"query": "How do I use mlflow.langchain.autolog()?"}},
-    {"inputs": {"query": "What evaluation scorers does MLflow provide?"}},
-    {"inputs": {"query": "How can I track LLM calls in MLflow?"}},
-    {"inputs": {"query": "What's the difference between runs and experiments?"}},
-    {"inputs": {"query": "How do I deploy models with MLflow?"}},
-    {"inputs": {"query": "Can MLflow track hyperparameters?"}},
-    {"inputs": {"query": "What is the MLflow Model Registry?"}},
-]
-
-# Add records
-dataset = dataset.merge_records(records)
-
-# Verify
-print(f"✓ Dataset created: {dataset.dataset_id}")
-print(f"✓ Records: {len(dataset.records)}")
-```
+**See Databricks Unity Catalog Considerations section** if using Databricks.
 
 ## Databricks Unity Catalog Considerations
 
@@ -405,7 +222,7 @@ When using Databricks as your tracking URI, special considerations apply.
 **Option 1: Ask User**
 Use the interactive script:
 ```bash
-python .claude/skills/agent-evaluation/scripts/create_dataset_template.py
+uv run python .claude/skills/agent-evaluation/scripts/create_dataset_template.py
 ```
 
 **Option 2: List with Databricks CLI**
@@ -431,49 +248,44 @@ Where:
 - `default`: Default schema
 - `mlflow_agent_eval_v1`: Your table name (include version)
 
-### Databricks-Specific Code
+### Code Pattern
 
+When creating datasets for Databricks:
 ```python
-from mlflow.genai.datasets import create_dataset
-
-# For Databricks: No tags, UC table name
+# Use fully-qualified UC table name, no tags
 dataset = create_dataset(
-    name="main.default.mlflow_agent_eval_v1",  # Fully-qualified UC table
+    name="main.default.mlflow_agent_eval_v1",
     experiment_id="<experiment_id>",
-    # No tags parameter - not supported in Databricks
+    # Note: No tags parameter
 )
-
-records = [
-    {"inputs": {"query": "Sample query 1"}},
-    {"inputs": {"query": "Sample query 2"}},
-    # ...
-]
-
-dataset = dataset.merge_records(records)
 ```
+
+See [Required Schema & APIs](#required-schema--apis) for complete API examples.
 
 ## Best Practices
 
 ### Query Diversity
 
-**Include variety**:
-- **Simple queries**: "What is X?"
-- **Complex queries**: "How do I do X and Y while avoiding Z?"
-- **Short queries**: 5-10 words
-- **Long queries**: 20+ words, multi-part questions
-- **Different topics**: Cover all agent capabilities
+Create a **representative test set** covering different aspects:
 
-**Example diverse set**:
+**Variety dimensions:**
+- **Complexity**: Simple ("What is X?") to complex ("How do I do X and Y while avoiding Z?")
+- **Length**: Short (5-10 words) to long (20+ words, multi-part)
+- **Topics**: Cover all agent capabilities and edge cases
+- **Query types**: Questions, requests, comparisons, examples
+
+**Example diverse set:**
 ```python
-queries = [
-    "What is MLflow?",  # Simple, short, basic
-    "How do I log a model?",  # Simple, action-oriented
-    "What's the difference between experiments and runs?",  # Comparison
-    "Show me an example of using autolog with LangChain",  # Example request
-    "How can I track hyperparameters, metrics, and artifacts in a single run?",  # Complex, multi-part
-    "What LLM evaluation judges are available and when should I use each one?",  # Complex, requires analysis
+[
+    {"inputs": {"query": "What is MLflow?"}},  # Simple, short, basic
+    {"inputs": {"query": "How do I log a model?"}},  # Action-oriented
+    {"inputs": {"query": "What's the difference between experiments and runs?"}},  # Comparison
+    {"inputs": {"query": "Show me an example of using autolog with LangChain"}},  # Example request
+    {"inputs": {"query": "How can I track hyperparameters, metrics, and artifacts in a single run?"}},  # Complex, multi-part
 ]
 ```
+
+See generated script output for more examples.
 
 ### Sample Size
 

@@ -12,10 +12,11 @@ Usage:
     python scripts/validate_environment.py
 """
 
-import os
-import sys
-import subprocess
 import importlib.util
+import os
+import subprocess
+import sys
+
 from packaging import version
 
 
@@ -25,12 +26,7 @@ def run_mlflow_doctor():
     print()
 
     try:
-        result = subprocess.run(
-            ["mlflow", "doctor"],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
+        result = subprocess.run(["mlflow", "doctor"], capture_output=True, text=True, timeout=10)
 
         # Print output (mlflow doctor goes to stderr)
         output = result.stderr + result.stdout
@@ -77,6 +73,7 @@ def check_mlflow_version():
 
     try:
         import mlflow
+
         current_version = mlflow.__version__
 
         # Remove dev/rc suffixes for comparison
@@ -101,12 +98,7 @@ def check_agent_package():
     print("Checking agent package...")
 
     # Try to find the agent package by checking for common agent entry points
-    agent_patterns = [
-        "mlflow_agent",
-        "agent",
-        "src.agent",
-        "app.agent"
-    ]
+    agent_patterns = ["mlflow_agent", "agent", "src.agent", "app.agent"]
 
     for pattern in agent_patterns:
         spec = importlib.util.find_spec(pattern)

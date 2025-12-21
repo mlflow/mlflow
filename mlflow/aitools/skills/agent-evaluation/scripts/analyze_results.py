@@ -20,7 +20,6 @@ import json
 import sys
 from collections import defaultdict
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 
@@ -36,7 +35,7 @@ def load_evaluation_results(json_file: str) -> list[dict[str, Any]]:
             content = f.read()
 
         # Find the start of JSON array (skip console output)
-        json_start = content.find('[')
+        json_start = content.find("[")
         if json_start == -1:
             print("✗ No JSON array found in file")
             sys.exit(1)
@@ -102,12 +101,9 @@ def extract_scorer_results(data: list[dict[str, Any]]) -> dict[str, list[dict]]:
                 print(f"  ⚠ Warning: Scorer {scorer_name} had error for trace {trace_id}: {error}")
                 continue
 
-            scorer_results[scorer_name].append({
-                "query": query,
-                "trace_id": trace_id,
-                "passed": passed,
-                "rationale": rationale
-            })
+            scorer_results[scorer_name].append(
+                {"query": query, "trace_id": trace_id, "passed": passed, "rationale": rationale}
+            )
 
     return scorer_results
 
@@ -147,7 +143,7 @@ def calculate_pass_rates(scorer_results: dict[str, list[dict]]) -> dict[str, dic
             "passed": passed,
             "total": total,
             "grade": grade,
-            "emoji": emoji
+            "emoji": emoji,
         }
 
     return pass_rates
@@ -167,29 +163,31 @@ def detect_failure_patterns(scorer_results: dict[str, list[dict]]) -> list[dict]
     for scorer_name, results in scorer_results.items():
         for result in results:
             if not result["passed"]:
-                failures_by_query[result["query"]].append({
-                    "scorer": scorer_name,
-                    "rationale": result["rationale"],
-                    "trace_id": result["trace_id"]
-                })
+                failures_by_query[result["query"]].append(
+                    {
+                        "scorer": scorer_name,
+                        "rationale": result["rationale"],
+                        "trace_id": result["trace_id"],
+                    }
+                )
 
     # Pattern 1: Multi-failure queries (queries failing 3+ scorers)
     multi_failures = []
     for query, failures in failures_by_query.items():
         if len(failures) >= 3:
-            multi_failures.append({
-                "query": query,
-                "scorers": [f["scorer"] for f in failures],
-                "count": len(failures)
-            })
+            multi_failures.append(
+                {"query": query, "scorers": [f["scorer"] for f in failures], "count": len(failures)}
+            )
 
     if multi_failures:
-        patterns.append({
-            "name": "Multi-Failure Queries",
-            "description": "Queries failing 3 or more scorers - need comprehensive fixes",
-            "queries": multi_failures,
-            "priority": "CRITICAL"
-        })
+        patterns.append(
+            {
+                "name": "Multi-Failure Queries",
+                "description": "Queries failing 3 or more scorers - need comprehensive fixes",
+                "queries": multi_failures,
+                "priority": "CRITICAL",
+            }
+        )
 
     # Pattern 2: Keyword-based patterns
     keyword_patterns = [
@@ -203,19 +201,23 @@ def detect_failure_patterns(scorer_results: dict[str, list[dict]]) -> list[dict]
         matching_failures = []
         for query, failures in failures_by_query.items():
             if keyword.lower() in query.lower():
-                matching_failures.append({
-                    "query": query,
-                    "scorers": [f["scorer"] for f in failures],
-                    "count": len(failures)
-                })
+                matching_failures.append(
+                    {
+                        "query": query,
+                        "scorers": [f["scorer"] for f in failures],
+                        "count": len(failures),
+                    }
+                )
 
         if matching_failures:
-            patterns.append({
-                "name": pattern_name,
-                "description": description,
-                "queries": matching_failures,
-                "priority": "HIGH"
-            })
+            patterns.append(
+                {
+                    "name": pattern_name,
+                    "description": description,
+                    "queries": matching_failures,
+                    "priority": "HIGH",
+                }
+            )
 
     return patterns
 
@@ -231,32 +233,38 @@ def generate_recommendations(pass_rates: dict[str, dict], patterns: list[dict]) 
     # Recommendations from low-performing scorers
     for scorer_name, metrics in pass_rates.items():
         if metrics["pass_rate"] < 80:
-            recommendations.append({
-                "title": f"Improve {scorer_name} performance",
-                "issue": f"Only {metrics['pass_rate']:.1f}% pass rate ({metrics['passed']}/{metrics['total']})",
-                "impact": "Will improve overall evaluation quality",
-                "effort": "Medium",
-                "priority": "HIGH" if metrics["pass_rate"] < 70 else "MEDIUM"
-            })
+            recommendations.append(
+                {
+                    "title": f"Improve {scorer_name} performance",
+                    "issue": f"Only {metrics['pass_rate']:.1f}% pass rate ({metrics['passed']}/{metrics['total']})",
+                    "impact": "Will improve overall evaluation quality",
+                    "effort": "Medium",
+                    "priority": "HIGH" if metrics["pass_rate"] < 70 else "MEDIUM",
+                }
+            )
 
     # Recommendations from patterns
     for pattern in patterns:
         if pattern["priority"] == "CRITICAL":
-            recommendations.append({
-                "title": f"Fix {pattern['name'].lower()}",
-                "issue": f"{len(pattern['queries'])} queries failing multiple scorers",
-                "impact": "Critical for baseline quality",
-                "effort": "High",
-                "priority": "CRITICAL"
-            })
+            recommendations.append(
+                {
+                    "title": f"Fix {pattern['name'].lower()}",
+                    "issue": f"{len(pattern['queries'])} queries failing multiple scorers",
+                    "impact": "Critical for baseline quality",
+                    "effort": "High",
+                    "priority": "CRITICAL",
+                }
+            )
         elif len(pattern["queries"]) >= 3:
-            recommendations.append({
-                "title": f"Address {pattern['name'].lower()}",
-                "issue": pattern["description"],
-                "impact": f"Affects {len(pattern['queries'])} queries",
-                "effort": "Medium",
-                "priority": "HIGH"
-            })
+            recommendations.append(
+                {
+                    "title": f"Address {pattern['name'].lower()}",
+                    "issue": pattern["description"],
+                    "impact": f"Affects {len(pattern['queries'])} queries",
+                    "effort": "Medium",
+                    "priority": "HIGH",
+                }
+            )
 
     # Sort by priority
     priority_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
@@ -270,7 +278,7 @@ def generate_report(
     pass_rates: dict[str, dict],
     patterns: list[dict],
     recommendations: list[dict],
-    output_file: str
+    output_file: str,
 ) -> None:
     """Generate markdown evaluation report."""
 
@@ -285,7 +293,7 @@ def generate_report(
         f"**Scorers**: {len(scorer_results)} ({', '.join(scorer_results.keys())})",
         "",
         "## Overall Pass Rates",
-        ""
+        "",
     ]
 
     # Pass rates table
@@ -298,33 +306,36 @@ def generate_report(
     report_lines.extend(["", ""])
 
     # Average pass rate
-    avg_pass_rate = sum(m["pass_rate"] for m in pass_rates.values()) / len(pass_rates) if pass_rates else 0
+    avg_pass_rate = (
+        sum(m["pass_rate"] for m in pass_rates.values()) / len(pass_rates) if pass_rates else 0
+    )
     report_lines.append(f"**Average Pass Rate**: {avg_pass_rate:.1f}%")
     report_lines.extend(["", ""])
 
     # Failure patterns
     if patterns:
-        report_lines.extend([
-            "## Failure Patterns Detected",
-            ""
-        ])
+        report_lines.extend(["## Failure Patterns Detected", ""])
 
         for i, pattern in enumerate(patterns, 1):
-            report_lines.extend([
-                f"### {i}. {pattern['name']} [{pattern['priority']}]",
-                "",
-                f"**Description**: {pattern['description']}",
-                "",
-                f"**Affected Queries**: {len(pattern['queries'])}",
-                ""
-            ])
+            report_lines.extend(
+                [
+                    f"### {i}. {pattern['name']} [{pattern['priority']}]",
+                    "",
+                    f"**Description**: {pattern['description']}",
+                    "",
+                    f"**Affected Queries**: {len(pattern['queries'])}",
+                    "",
+                ]
+            )
 
-            for query_info in pattern['queries'][:5]:  # Show first 5
-                report_lines.append(f"- **Query**: \"{query_info['query'][:100]}{'...' if len(query_info['query']) > 100 else ''}\"")
+            for query_info in pattern["queries"][:5]:  # Show first 5
+                report_lines.append(
+                    f'- **Query**: "{query_info["query"][:100]}{"..." if len(query_info["query"]) > 100 else ""}"'
+                )
                 report_lines.append(f"  - Failed scorers: {', '.join(query_info['scorers'])}")
                 report_lines.append("")
 
-            if len(pattern['queries']) > 5:
+            if len(pattern["queries"]) > 5:
                 report_lines.append(f"  _(+{len(pattern['queries']) - 5} more queries)_")
                 report_lines.append("")
 
@@ -332,40 +343,41 @@ def generate_report(
 
     # Recommendations
     if recommendations:
-        report_lines.extend([
-            "## Recommendations",
-            ""
-        ])
+        report_lines.extend(["## Recommendations", ""])
 
         for i, rec in enumerate(recommendations, 1):
-            report_lines.extend([
-                f"### {i}. {rec['title']} [{rec['priority']}]",
-                "",
-                f"- **Issue**: {rec['issue']}",
-                f"- **Expected Impact**: {rec['impact']}",
-                f"- **Effort**: {rec['effort']}",
-                ""
-            ])
+            report_lines.extend(
+                [
+                    f"### {i}. {rec['title']} [{rec['priority']}]",
+                    "",
+                    f"- **Issue**: {rec['issue']}",
+                    f"- **Expected Impact**: {rec['impact']}",
+                    f"- **Effort**: {rec['effort']}",
+                    "",
+                ]
+            )
 
     # Next steps
-    report_lines.extend([
-        "## Next Steps",
-        "",
-        "1. Address CRITICAL and HIGH priority recommendations first",
-        "2. Re-run evaluation after implementing fixes",
-        "3. Compare results to measure improvement",
-        "4. Consider expanding dataset to cover identified gaps",
-        "",
-        "---",
-        "",
-        f"**Report Generated**: {timestamp}",
-        "**Evaluation Framework**: MLflow Agent Evaluation",
-        ""
-    ])
+    report_lines.extend(
+        [
+            "## Next Steps",
+            "",
+            "1. Address CRITICAL and HIGH priority recommendations first",
+            "2. Re-run evaluation after implementing fixes",
+            "3. Compare results to measure improvement",
+            "4. Consider expanding dataset to cover identified gaps",
+            "",
+            "---",
+            "",
+            f"**Report Generated**: {timestamp}",
+            "**Evaluation Framework**: MLflow Agent Evaluation",
+            "",
+        ]
+    )
 
     # Write report
-    with open(output_file, 'w') as f:
-        f.write('\n'.join(report_lines))
+    with open(output_file, "w") as f:
+        f.write("\n".join(report_lines))
 
     print(f"\n✓ Report saved to: {output_file}")
 
@@ -379,7 +391,9 @@ def main():
 
     # Parse arguments
     if len(sys.argv) < 2:
-        print("Usage: python scripts/analyze_results.py <evaluation_results.json> [--output report.md]")
+        print(
+            "Usage: python scripts/analyze_results.py <evaluation_results.json> [--output report.md]"
+        )
         sys.exit(1)
 
     json_file = sys.argv[1]
@@ -415,7 +429,9 @@ def main():
     print("\nOverall Pass Rates:")
     for scorer_name, metrics in pass_rates.items():
         emoji = metrics["emoji"]
-        print(f"  {scorer_name:30} {metrics['pass_rate']:5.1f}% ({metrics['passed']}/{metrics['total']}) {emoji}")
+        print(
+            f"  {scorer_name:30} {metrics['pass_rate']:5.1f}% ({metrics['passed']}/{metrics['total']}) {emoji}"
+        )
     print()
 
     # Detect patterns
@@ -425,7 +441,9 @@ def main():
     if patterns:
         print(f"✓ Found {len(patterns)} pattern(s)")
         for pattern in patterns:
-            print(f"  - {pattern['name']}: {len(pattern['queries'])} queries [{pattern['priority']}]")
+            print(
+                f"  - {pattern['name']}: {len(pattern['queries'])} queries [{pattern['priority']}]"
+            )
     else:
         print("  No significant patterns detected")
     print()

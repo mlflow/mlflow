@@ -20,10 +20,10 @@ Usage:
     python validate_tracing_runtime.py --module my_agent --entry-point process  # Specify both
 """
 
+import argparse
+import importlib
 import os
 import sys
-import importlib
-import argparse
 from pathlib import Path
 
 
@@ -126,14 +126,14 @@ def find_decorated_functions() -> list[tuple[str, str]]:
 
         try:
             content = py_file.read_text()
-            lines = content.split('\n')
+            lines = content.split("\n")
 
             for i, line in enumerate(lines):
-                if '@mlflow.trace' in line:
+                if "@mlflow.trace" in line:
                     # Look for function definition in next few lines
-                    for j in range(i+1, min(i+5, len(lines))):
-                        if 'def ' in lines[j]:
-                            func_name = lines[j].split('def ')[1].split('(')[0].strip()
+                    for j in range(i + 1, min(i + 5, len(lines))):
+                        if "def " in lines[j]:
+                            func_name = lines[j].split("def ")[1].split("(")[0].strip()
                             decorated_functions.append((str(py_file), func_name))
                             print(f"  ✓ {py_file}:{func_name}")
                             break
@@ -149,8 +149,16 @@ def find_entry_points_by_pattern() -> list[tuple[str, str, bool]]:
 
     # Common entry point patterns
     patterns = [
-        "run_agent", "stream_agent", "handle_request", "process_query",
-        "chat", "query", "process", "execute", "handle", "invoke"
+        "run_agent",
+        "stream_agent",
+        "handle_request",
+        "process_query",
+        "chat",
+        "query",
+        "process",
+        "execute",
+        "handle",
+        "invoke",
     ]
 
     found = []
@@ -182,11 +190,11 @@ def find_all_public_functions(module_name: str) -> list[str]:
         functions = []
 
         for name in dir(module):
-            if not name.startswith('_'):  # Public functions only
+            if not name.startswith("_"):  # Public functions only
                 obj = getattr(module, name)
                 if callable(obj):
                     # Check if it's defined in this module (not imported)
-                    if hasattr(obj, '__module__') and obj.__module__ == module_name:
+                    if hasattr(obj, "__module__") and obj.__module__ == module_name:
                         functions.append(name)
 
         return functions
@@ -266,17 +274,17 @@ def select_entry_point(module_name: str, specified_entry_point: str = None) -> s
     # Method 5: Manual input
     print("\n✗ Could not auto-detect entry point")
     entry_point = input("Enter entry point function name manually: ").strip()
-    return entry_point if entry_point else None
+    return entry_point or None
 
 
 def run_test_query(
     module_name: str,
     entry_point_name: str,
     test_query: str = "What is MLflow?",
-    test_session_id: str = "test-session-123"
+    test_session_id: str = "test-session-123",
 ):
     """Run a test query and verify trace capture."""
-    print(f"\nRunning test query...")
+    print("\nRunning test query...")
     print(f"  Module: {module_name}")
     print(f"  Entry point: {entry_point_name}")
     print(f"  Query: {test_query}")
@@ -292,7 +300,7 @@ def run_test_query(
             agent_module = importlib.import_module(module_name)
         except ImportError as e:
             print(f"  ✗ Could not import module '{module_name}': {e}")
-            print(f"    Try: pip install -e . (from project root)")
+            print("    Try: pip install -e . (from project root)")
             return None
 
         # Get the entry point function
@@ -304,7 +312,7 @@ def run_test_query(
         print(f"  ✓ Found entry point: {entry_point_name}")
 
         # Try to call the entry point (be flexible with signatures)
-        print(f"\n  Executing agent...")
+        print("\n  Executing agent...")
         try:
             # Try different call signatures
             try:
@@ -315,15 +323,17 @@ def run_test_query(
                 except TypeError:
                     # Might need LLM provider or other args
                     print(f"  ⚠ Could not call {entry_point_name} with simple args")
-                    print(f"    You may need to run this validation manually with proper configuration")
+                    print(
+                        "    You may need to run this validation manually with proper configuration"
+                    )
                     return None
 
-            print(f"  ✓ Agent executed successfully")
+            print("  ✓ Agent executed successfully")
 
             # Get trace
             trace_id = mlflow.get_last_active_trace_id()
             if not trace_id:
-                print(f"  ✗ No trace ID captured!")
+                print("  ✗ No trace ID captured!")
                 return None
 
             print(f"  ✓ Trace captured: {trace_id}")
@@ -337,12 +347,14 @@ def run_test_query(
         except Exception as e:
             print(f"  ✗ Error executing agent: {e}")
             import traceback
+
             traceback.print_exc()
             return None
 
     except Exception as e:
         print(f"  ✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return None
 
@@ -365,7 +377,7 @@ def verify_trace_structure(trace) -> tuple[bool, list[str]]:
     def count_spans(spans):
         count = len(spans)
         for span in spans:
-            if hasattr(span, 'spans') and span.spans:
+            if hasattr(span, "spans") and span.spans:
                 count += count_spans(span.spans)
         return count
 
@@ -375,14 +387,14 @@ def verify_trace_structure(trace) -> tuple[bool, list[str]]:
     if total_spans < 2:
         issues.append("Only one span found - autolog may not be working")
     else:
-        print(f"  ✓ Multiple spans detected - autolog appears to be working")
+        print("  ✓ Multiple spans detected - autolog appears to be working")
 
     # Print hierarchy
     def print_hierarchy(spans, indent=0):
         for span in spans:
             prefix = "    " + "  " * indent
             print(f"{prefix}- {span.name} ({span.span_type})")
-            if hasattr(span, 'spans') and span.spans:
+            if hasattr(span, "spans") and span.spans:
                 print_hierarchy(span.spans, indent + 1)
 
     print("\n  Trace hierarchy:")
@@ -396,20 +408,23 @@ def verify_session_id(trace, expected_session_id: str) -> tuple[bool, str]:
     print("\nVerifying session ID capture...")
 
     if "session_id" not in trace.info.tags:
-        print(f"  ✗ Session ID not found in trace tags")
+        print("  ✗ Session ID not found in trace tags")
         return False, "Session ID not captured"
 
     actual_session_id = trace.info.tags["session_id"]
     print(f"  ✓ Session ID found: {actual_session_id}")
 
     if actual_session_id == expected_session_id:
-        print(f"  ✓ Session ID matches expected value")
+        print("  ✓ Session ID matches expected value")
         return True, ""
     else:
-        print(f"  ✗ Session ID mismatch!")
+        print("  ✗ Session ID mismatch!")
         print(f"    Expected: {expected_session_id}")
         print(f"    Got: {actual_session_id}")
-        return False, f"Session ID mismatch: expected {expected_session_id}, got {actual_session_id}"
+        return (
+            False,
+            f"Session ID mismatch: expected {expected_session_id}, got {actual_session_id}",
+        )
 
 
 def main():
@@ -424,10 +439,10 @@ Examples:
   python validate_tracing.py --module my_agent.agent            # Specify module
   python validate_tracing.py --entry-point process              # Specify entry point
   python validate_tracing.py --module my_agent --entry-point process  # Both
-        """
+        """,
     )
-    parser.add_argument('--module', help='Agent module name (e.g., "mlflow_agent.agent")')
-    parser.add_argument('--entry-point', help='Entry point function name (e.g., "run_agent")')
+    parser.add_argument("--module", help='Agent module name (e.g., "mlflow_agent.agent")')
+    parser.add_argument("--entry-point", help='Entry point function name (e.g., "run_agent")')
     args = parser.parse_args()
 
     print("=" * 60)

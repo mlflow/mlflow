@@ -7,9 +7,8 @@ Complete guide for selecting and creating scorers to evaluate agent quality.
 1. [Understanding Scorers](#understanding-scorers)
 2. [Built-in Scorers](#built-in-scorers)
 3. [Custom Scorer Design](#custom-scorer-design)
-4. [Pass/Fail Format (Recommended)](#passfail-format-recommended)
-5. [Scorer Registration](#scorer-registration)
-6. [Testing Scorers](#testing-scorers)
+4. [Scorer Registration](#scorer-registration)
+5. [Testing Scorers](#testing-scorers)
 
 ## Understanding Scorers
 
@@ -47,21 +46,22 @@ Modern scorers use an LLM to judge quality:
 
 MLflow provides several built-in scorers for common evaluation criteria.
 
-### Accessing Built-in Scorers
+### Discovering Built-in Scorers
 
-**Always use the Documentation Access Protocol:**
-
-1. Read `https://mlflow.org/docs/latest/llms.txt`
-2. Search for keywords: "judges", "scorers", "LLM-as-a-judge", "evaluation"
-3. Follow links to detailed scorer documentation
-4. Review available scorers and their requirements
-
-### Checking Available Scorers
-
-List registered scorers in your environment:
+List all available built-in scorers:
 
 ```bash
-uv run mlflow scorers
+uv run mlflow scorers list -b
+```
+
+This shows all built-in scorers provided by MLflow with their names and descriptions.
+
+### Checking Registered Scorers
+
+List scorers registered in your experiment:
+
+```bash
+uv run mlflow scorers list --experiment-id $MLFLOW_EXPERIMENT_ID
 ```
 
 Output shows:
@@ -69,36 +69,23 @@ Output shows:
 - Whether they're built-in or custom
 - Registration details
 
-### Common Built-in Scorers
+### Understanding Built-in Scorers
 
-**Note**: Exact list depends on MLflow version. Consult documentation for current list.
+Use `uv run mlflow scorers list -b` to see the complete list of available built-in scorers for your MLflow version.
 
-**Typical built-in scorers include:**
+**Common categories include:**
 
-**RelevanceToQuery**
-- Judges if response addresses the question
-- Reference-free
-- Use for: All agents
+**Reference-free scorers** (judge without ground truth):
+- Relevance, Completeness, Coherence, Clarity
+- Use for: All agents, no expected outputs needed
 
-**Completeness**
-- Judges if answer is complete
-- Reference-free
-- Use for: Question answering, information retrieval
+**Ground-truth scorers** (require expected outputs):
+- Answer Correctness, Faithfulness, Accuracy
+- Use for: When you have known correct answers in dataset
 
-**Groundedness**
-- Judges if response is grounded in provided context
-- May require ground truth context
+**Context-based scorers** (require context/documents):
+- Groundedness, Citation Quality
 - Use for: RAG systems, knowledge base agents
-
-**Coherence**
-- Judges if response is logically coherent
-- Reference-free
-- Use for: All agents, especially conversational
-
-**Answer Correctness**
-- Compares response to expected answer
-- Requires ground truth
-- Use for: When you have known correct answers
 
 ### Important: Trace Structure Assumptions
 
@@ -121,20 +108,7 @@ Before using a built-in scorer:
 
 ### Using Built-in Scorers
 
-Built-in scorers can be used in two ways:
-
-**Option 1: Direct use without registration** (always available):
-
-```bash
-mlflow traces evaluate \
-  --trace-ids <trace_id> \
-  --scorers RelevanceToQuery,Completeness \
-  --output json
-```
-
-**Option 2: Register to experiment** (recommended for consistency):
-
-Registering built-in scorers to your experiment makes them show up when listing scorers:
+Register built-in scorers to your experiment:
 
 ```python
 import os
@@ -144,13 +118,6 @@ from mlflow.genai.scorers import Correctness, Relevance
 scorer = Correctness()
 scorer.register(experiment_id=os.getenv("MLFLOW_EXPERIMENT_ID"))
 ```
-
-**Available built-in scorers** (check MLflow docs for complete list):
-- `Correctness`
-- `Relevance`
-- `Faithfulness`
-- `Coherence`
-- And others...
 
 **Benefits of registration**:
 - Shows up in `mlflow scorers list --experiment-id <id>`
@@ -164,6 +131,20 @@ Create custom scorers when:
 - You need domain-specific evaluation
 - Your agent has unique requirements
 - Trace structure doesn't match built-in assumptions
+
+## MLflow Judge Constraints
+
+⚠️ **The MLflow CLI has specific requirements for custom scorers.**
+
+Before creating custom scorers, read the complete constraints guide:
+- See `references/scorers-constraints.md` for detailed requirements
+
+**Key constraints:**
+1. `{{trace}}` variable cannot be mixed with `{{inputs}}` or `{{outputs}}`
+2. CLI requires "yes"/"no" return values (not "pass"/"fail")
+3. Instructions must include at least one template variable
+
+---
 
 ### Design Process
 
@@ -202,15 +183,13 @@ Given:
 Criteria: The agent should use tools when needed (e.g., search for factual queries)
 and should not use tools unnecessarily (e.g., for greetings).
 
-Evaluate whether appropriate tools were used. Return "pass" if tools were used
-appropriately, "fail" if not.
+Evaluate whether appropriate tools were used. Return "yes" if tools were used
+appropriately, "no" if not.
 ```
 
 **Step 4: Choose Output Format**
 
-See [Pass/Fail Format](#passfail-format-recommended) below.
-
-**Strongly recommend: Pass/Fail format**
+Use yes/no format as required by the CLI (see CRITICAL CONSTRAINTS above).
 
 ### Example Custom Scorers
 
@@ -229,10 +208,10 @@ Given a query and trace showing tool calls, determine if:
 2. Tools were NOT used unnecessarily (greetings, simple questions)
 3. The RIGHT tools were chosen for the task
 
-Return "pass" if tool usage was appropriate, "fail" if not.
+Return "yes" if tool usage was appropriate, "no" if not.
 
 Variables: query, response, trace
-Output: pass/fail
+Output: yes/no
 ```
 
 **Example 2: Factual Accuracy**
@@ -248,132 +227,76 @@ You are evaluating the factual accuracy of an AI agent's response.
 Review the agent's response and determine if the information provided is
 factually correct based on the context and your knowledge.
 
-Return "pass" if the response is factually accurate, "fail" if it contains
+Return "yes" if the response is factually accurate, "no" if it contains
 incorrect information or makes unsupported claims.
 
 Variables: query, response, context (optional)
-Output: pass/fail
-```
-
-## Pass/Fail Format (Recommended)
-
-### Why Pass/Fail?
-
-**Strongly recommend using pass/fail format** over numeric scales.
-
-**Benefits**:
-1. **Easier to interpret**: "Did it pass?" vs "What does 3.5 mean?"
-2. **Simpler aggregation**: Pass rate = passed / total
-3. **Better for filtering**: "Show me all failures"
-4. **Clear actionability**: Pass = good, Fail = needs work
-5. **Consistent across scorers**: All scorers use same scale
-
-### Format Specification
-
-**Pass values**: `"pass"`, `"yes"`, `"true"`, `"passed"`
-**Fail values**: `"fail"`, `"no"`, `"false"`, `"failed"`
-
-**Prefer**: `"pass"` and `"fail"` for consistency.
-
-### Pass/Fail vs Numeric Scales
-
-**❌ Avoid Numeric Scales**:
-```
-Output: 1-5 scale
-- 1 = Poor
-- 2 = Below Average
-- 3 = Average
-- 4 = Good
-- 5 = Excellent
-
-Problems:
-- Hard to interpret (is 3 good enough?)
-- Subjective (one judge's 3 is another's 4)
-- Difficult to aggregate
-- Unclear thresholds
-```
-
-**✅ Prefer Pass/Fail**:
-```
-Output: pass or fail
-- pass = Meets criteria
-- fail = Does not meet criteria
-
-Benefits:
-- Clear interpretation
-- Objective threshold
-- Easy aggregation (% passed)
-- Actionable
-```
-
-### Example Pass/Fail Instructions
-
-**Good:**
-```
-Evaluate whether the response is complete.
-
-A response is COMPLETE if it fully answers all parts of the question
-without omitting important information.
-
-Return "pass" if the response is complete, "fail" if incomplete.
-```
-
-**Bad:**
-```
-Rate the completeness of the response on a scale of 1-5, where:
-1 = Very incomplete
-2 = Mostly incomplete
-3 = Somewhat complete
-4 = Mostly complete
-5 = Very complete
+Output: yes/no
 ```
 
 ## Scorer Registration
 
-### Using register-llm-judge CLI
+### Check CLI Help First
 
-**Recommended method** for most custom scorers:
+Run `--help` to verify parameter names:
+
+```bash
+uv run mlflow scorers register-llm-judge --help
+```
+
+### Correct CLI Parameters
 
 ```bash
 uv run mlflow scorers register-llm-judge \
-  --name "ToolUsageAppropriate" \
-  --definition "Judges whether appropriate tools were used for the query" \
-  --instructions "You are evaluating tool usage by an AI agent..." \
-  --variables query,response,trace \
-  --output pass/fail
+  -n "ScorerName"           # --name (REQUIRED)
+  -i "Instructions..."      # --instructions (REQUIRED, must include variable)
+  -d "Description"          # --description (OPTIONAL)
+  -m "model"               # --model (OPTIONAL)
+  -x "experiment_id"       # --experiment-id (or use MLFLOW_EXPERIMENT_ID env)
 ```
 
-**Parameters**:
-- `--name`: Scorer name (used to reference it in evaluation)
-- `--definition`: Short description of what it evaluates
-- `--instructions`: Complete evaluation instructions for the LLM judge
-- `--variables`: Comma-separated list of inputs (query, response, trace, context)
-- `--output`: Output format (prefer "pass/fail")
-- `--model` (optional): LLM to use (default is usually fine)
+### Registration Example - All Requirements Met
+
+```bash
+# ✅ CORRECT - Has variable, uses yes/no, correct parameters
+uv run mlflow scorers register-llm-judge \
+  -n "RelevanceCheck" \
+  -d "Checks if response addresses the query" \
+  -i "Given the response {{ outputs }}, determine if it directly addresses the query. Return 'yes' if relevant, 'no' if not."
+```
+
+```bash
+# ✅ CORRECT - Uses {{trace}} only (no other variables), yes/no, correct parameters
+uv run mlflow scorers register-llm-judge \
+  -n "ToolUsageCheck" \
+  -d "Evaluates tool selection quality" \
+  -i "Examine the trace {{ trace }}. Did the agent use appropriate tools for the query? Return 'yes' if appropriate, 'no' if not."
+```
 
 ### Using make_judge() Function
 
 **Programmatic registration** for advanced use cases:
 
 ```python
-from mlflow.llms.evaluation import make_judge
+from mlflow.genai.judges import make_judge
+from typing import Literal
 
 scorer = make_judge(
     name="ToolUsageAppropriate",
-    definition="Judges whether appropriate tools were used",
+    description="Judges whether appropriate tools were used",
     instructions="""
     You are evaluating tool usage by an AI agent.
 
-    Given a query and trace, determine if appropriate tools were used.
-    Return "pass" if tool usage was appropriate, "fail" if not.
+    Given a trace: {{ trace }}
+
+    Determine if appropriate tools were used.
+    Return "yes" if tool usage was appropriate, "no" if not.
     """,
-    variables=["query", "response", "trace"],
-    output_type="pass/fail",
-    # model="gpt-4",  # Optional, defaults to configured model
+    feedback_value_type=Literal["yes", "no"],
 )
 
 # Register the scorer
-mlflow.log_scorer(scorer, name="ToolUsageAppropriate")
+registered_scorer = scorer.register(experiment_id="your_experiment_id")
 ```
 
 **When to use make_judge()**:
@@ -382,15 +305,15 @@ mlflow.log_scorer(scorer, name="ToolUsageAppropriate")
 - Integration with existing code
 - Dynamic scorer generation
 
+**Important**: The `make_judge()` API follows the same constraints documented in the CRITICAL CONSTRAINTS section above. Use `Literal["yes", "no"]` for `feedback_value_type` for binary scorers.
+
 ### Best Practices
 
 **1. Use default model** unless you have specific needs:
 - Default is usually sufficient and cost-effective
 - Specify model only for specialized evaluation
 
-**2. Do NOT register built-in scorers**:
-- Built-in scorers are already available
-- Registration only needed for custom scorers
+**2. Register both built-in and custom scorers for version control and team collaboration**
 
 **3. Test before full evaluation**:
 - Test on single trace first
@@ -425,7 +348,7 @@ uv run mlflow traces evaluate \
 - No null or empty outputs
 
 **Check 2: Output Format**
-- For pass/fail: Returns "pass" or "fail"
+- For yes/no: Returns "yes" or "no"
 - For numeric: Returns number in expected range
 
 **Check 3: Makes Sense**
@@ -452,20 +375,20 @@ uv run mlflow traces evaluate \
 ```bash
 # Test ToolUsageAppropriate scorer
 
-# Test 1: Query that should use tools (expect: pass)
-mlflow traces evaluate \
+# Test 1: Query that should use tools (expect: yes)
+uv run mlflow traces evaluate \
   --scorers ToolUsageAppropriate \
   --trace-ids <trace_with_tool_use> \
   --output json
 
-# Test 2: Greeting that shouldn't use tools (expect: pass)
-mlflow traces evaluate \
+# Test 2: Greeting that shouldn't use tools (expect: yes)
+uv run mlflow traces evaluate \
   --scorers ToolUsageAppropriate \
   --trace-ids <trace_greeting> \
   --output json
 
-# Test 3: Query that should use tools but didn't (expect: fail)
-mlflow traces evaluate \
+# Test 3: Query that should use tools but didn't (expect: no)
+uv run mlflow traces evaluate \
   --scorers ToolUsageAppropriate \
   --trace-ids <trace_missing_tools> \
   --output json

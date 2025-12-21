@@ -358,7 +358,7 @@ records = [
 **Solutions**:
 1. Test scorer on single trace:
    ```bash
-   mlflow traces evaluate \
+   uv run mlflow traces evaluate \
      --scorers MyScorer \
      --trace-ids <single_trace> \
      --output json
@@ -392,7 +392,7 @@ records = [
 2. Test on known good examples:
    ```bash
    # Test on trace you know should pass
-   mlflow traces evaluate \
+   uv run mlflow traces evaluate \
      --scorers MyScorer \
      --trace-ids <good_trace>
    ```
@@ -442,7 +442,7 @@ records = [
 
 2. Verify all required parameters provided:
    ```bash
-   mlflow scorers register-llm-judge \
+   uv run mlflow scorers register-llm-judge \
      --name "MyScorer" \
      --definition "..." \
      --instructions "..." \

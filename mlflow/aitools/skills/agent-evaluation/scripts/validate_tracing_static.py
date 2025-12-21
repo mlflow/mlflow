@@ -25,10 +25,10 @@ def find_autolog_calls(src_path="src"):
     print("Checking for autolog...")
 
     autolog_patterns = [
-        r'mlflow\.langchain\.autolog\(\)',
-        r'mlflow\.langgraph\.autolog\(\)',
-        r'mlflow\.openai\.autolog\(\)',
-        r'mlflow\.autolog\(\)',
+        r"mlflow\.langchain\.autolog\(\)",
+        r"mlflow\.langgraph\.autolog\(\)",
+        r"mlflow\.openai\.autolog\(\)",
+        r"mlflow\.autolog\(\)",
     ]
 
     # Search in likely initialization files
@@ -47,15 +47,15 @@ def find_autolog_calls(src_path="src"):
                 content = file_path.read_text()
                 for autolog_pattern in autolog_patterns:
                     if re.search(autolog_pattern, content):
-                        lib = autolog_pattern.split('.')[1]
+                        lib = autolog_pattern.split(".")[1]
                         found.append((str(file_path), lib))
                         print(f"  ✓ Found mlflow.{lib}.autolog() in {file_path}")
             except Exception:
                 continue
 
     if not found:
-        print(f"  ✗ No autolog call found")
-        print(f"    Searched for: mlflow.{{langchain,langgraph,openai}}.autolog()")
+        print("  ✗ No autolog call found")
+        print("    Searched for: mlflow.{langchain,langgraph,openai}.autolog()")
         return []
 
     return found
@@ -67,26 +67,30 @@ def check_import_order(file_path):
 
     try:
         content = Path(file_path).read_text()
-        lines = content.split('\n')
+        lines = content.split("\n")
 
         autolog_line = None
         agent_import_line = None
 
         for i, line in enumerate(lines, 1):
-            if 'autolog()' in line:
+            if "autolog()" in line:
                 autolog_line = i
             # Look for imports from agent modules (adjust pattern as needed)
-            if autolog_line and ('from' in line and 'agent' in line.lower()):
+            if autolog_line and ("from" in line and "agent" in line.lower()):
                 agent_import_line = i
                 break
 
         if autolog_line and agent_import_line:
             if autolog_line < agent_import_line:
-                print(f"  ✓ Autolog (line {autolog_line}) before agent imports (line {agent_import_line})")
+                print(
+                    f"  ✓ Autolog (line {autolog_line}) before agent imports (line {agent_import_line})"
+                )
                 return True
             else:
-                print(f"  ✗ Autolog (line {autolog_line}) after agent imports (line {agent_import_line})")
-                print(f"    Move autolog call before agent imports")
+                print(
+                    f"  ✗ Autolog (line {autolog_line}) after agent imports (line {agent_import_line})"
+                )
+                print("    Move autolog call before agent imports")
                 return False
         elif autolog_line:
             print(f"  ✓ Autolog found at line {autolog_line}")
@@ -108,25 +112,25 @@ def find_decorated_functions(src_path="src"):
     for py_file in Path(".").rglob(f"{src_path}/**/*.py"):
         try:
             content = py_file.read_text()
-            lines = content.split('\n')
+            lines = content.split("\n")
 
             for i, line in enumerate(lines):
-                if '@mlflow.trace' in line:
+                if "@mlflow.trace" in line:
                     # Look for function definition in next few lines
-                    for j in range(i+1, min(i+5, len(lines))):
-                        if 'def ' in lines[j]:
-                            func_match = re.search(r'def\s+(\w+)\s*\(', lines[j])
+                    for j in range(i + 1, min(i + 5, len(lines))):
+                        if "def " in lines[j]:
+                            func_match = re.search(r"def\s+(\w+)\s*\(", lines[j])
                             if func_match:
                                 func_name = func_match.group(1)
-                                decorated.append((str(py_file), func_name, i+1))
-                                print(f"  ✓ {py_file}:{func_name} (line {i+1})")
+                                decorated.append((str(py_file), func_name, i + 1))
+                                print(f"  ✓ {py_file}:{func_name} (line {i + 1})")
                                 break
         except Exception:
             continue
 
     if not decorated:
-        print(f"  ✗ No @mlflow.trace decorators found")
-        print(f"    Add @mlflow.trace to entry point functions")
+        print("  ✗ No @mlflow.trace decorators found")
+        print("    Add @mlflow.trace to entry point functions")
         return []
 
     return decorated
@@ -147,11 +151,11 @@ def check_mlflow_imports(decorated_functions):
 
         try:
             content = Path(file_path).read_text()
-            if 'import mlflow' in content:
+            if "import mlflow" in content:
                 print(f"  ✓ mlflow imported in {file_path}")
             else:
                 print(f"  ✗ mlflow NOT imported in {file_path}")
-                print(f"    Add: import mlflow")
+                print("    Add: import mlflow")
                 all_good = False
         except Exception as e:
             print(f"  ⚠ Could not check {file_path}: {e}")
@@ -164,9 +168,9 @@ def check_session_id_capture(decorated_functions):
     print("\nChecking session ID capture...")
 
     session_patterns = [
-        r'mlflow\.get_last_active_trace_id\(\)',
-        r'mlflow\.set_trace_tag\(',
-        r'session_id',
+        r"mlflow\.get_last_active_trace_id\(\)",
+        r"mlflow\.set_trace_tag\(",
+        r"session_id",
     ]
 
     found_session_tracking = []
@@ -186,9 +190,9 @@ def check_session_id_capture(decorated_functions):
             continue
 
     if not found_session_tracking:
-        print(f"  ⚠ No session ID capture detected")
-        print(f"    This is optional but recommended for conversation tracking")
-        print(f"    See references/tracing-integration.md for implementation")
+        print("  ⚠ No session ID capture detected")
+        print("    This is optional but recommended for conversation tracking")
+        print("    See references/tracing-integration.md for implementation")
 
     return found_session_tracking
 

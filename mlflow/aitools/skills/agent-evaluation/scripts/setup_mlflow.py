@@ -15,30 +15,18 @@ from pathlib import Path
 
 def parse_arguments():
     """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Configure MLflow for agent evaluation"
+    parser = argparse.ArgumentParser(description="Configure MLflow for agent evaluation")
+    parser.add_argument(
+        "--tracking-uri",
+        help="MLflow tracking URI (e.g., databricks://DEFAULT, http://127.0.0.1:5050)",
+    )
+    parser.add_argument("--experiment-id", help="Experiment ID to use")
+    parser.add_argument("--experiment-name", help="Experiment name (for search or creation)")
+    parser.add_argument(
+        "--create", action="store_true", help="Create new experiment with --experiment-name"
     )
     parser.add_argument(
-        '--tracking-uri',
-        help='MLflow tracking URI (e.g., databricks://DEFAULT, http://127.0.0.1:5050)'
-    )
-    parser.add_argument(
-        '--experiment-id',
-        help='Experiment ID to use'
-    )
-    parser.add_argument(
-        '--experiment-name',
-        help='Experiment name (for search or creation)'
-    )
-    parser.add_argument(
-        '--create',
-        action='store_true',
-        help='Create new experiment with --experiment-name'
-    )
-    parser.add_argument(
-        '--non-interactive',
-        action='store_true',
-        help='Fail if args missing (no prompts)'
+        "--non-interactive", action="store_true", help="Fail if args missing (no prompts)"
     )
     return parser.parse_args()
 
@@ -46,12 +34,7 @@ def parse_arguments():
 def check_mlflow_installed() -> bool:
     """Check if MLflow >=3.6.0 is installed."""
     try:
-        result = subprocess.run(
-            ["mlflow", "--version"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
+        result = subprocess.run(["mlflow", "--version"], capture_output=True, text=True, check=True)
         version = result.stdout.strip().split()[-1]
         print(f"✓ MLflow {version} is installed")
         return True
@@ -65,12 +48,9 @@ def detect_databricks_profiles() -> list[str]:
     """Detect available Databricks profiles."""
     try:
         result = subprocess.run(
-            ["databricks", "auth", "profiles"],
-            capture_output=True,
-            text=True,
-            check=True
+            ["databricks", "auth", "profiles"], capture_output=True, text=True, check=True
         )
-        profiles = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
+        profiles = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
         return profiles
     except (subprocess.CalledProcessError, FileNotFoundError):
         return []
@@ -81,10 +61,7 @@ def check_databricks_auth(profile: str) -> bool:
     try:
         # Try a simple API call to check auth
         result = subprocess.run(
-            ["databricks", "auth", "env", "-p", profile],
-            capture_output=True,
-            text=True,
-            check=True
+            ["databricks", "auth", "env", "-p", profile], capture_output=True, text=True, check=True
         )
         return "DATABRICKS_TOKEN" in result.stdout or "DATABRICKS_HOST" in result.stdout
     except subprocess.CalledProcessError:
@@ -101,17 +78,21 @@ def start_local_mlflow_server(port: int = 5050) -> bool:
 
         # Start server in background
         cmd = [
-            "mlflow", "server",
-            "--port", str(port),
-            "--backend-store-uri", "sqlite:///mlflow.db",
-            "--default-artifact-root", "./mlruns"
+            "mlflow",
+            "server",
+            "--port",
+            str(port),
+            "--backend-store-uri",
+            "sqlite:///mlflow.db",
+            "--default-artifact-root",
+            "./mlruns",
         ]
 
         print(f"  Command: {' '.join(cmd)}")
-        print(f"  Running in background...")
+        print("  Running in background...")
 
         # Note: In production, you might want to use nohup or subprocess.Popen with proper detachment
-        print(f"\n  To start the server manually, run:")
+        print("\n  To start the server manually, run:")
         print(f"    {' '.join(cmd)} &")
         print(f"\n  Server will be available at: http://127.0.0.1:{port}")
 
@@ -121,7 +102,44 @@ def start_local_mlflow_server(port: int = 5050) -> bool:
         return False
 
 
-def configure_tracking_uri(args_uri: str | None = None, non_interactive: bool = False) -> str | None:
+def is_interactive() -> bool:
+    """Check if running in interactive terminal."""
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def select_best_tracking_uri_auto() -> str:
+    """Auto-select best tracking URI for non-interactive mode."""
+    # Priority 1: Use existing MLFLOW_TRACKING_URI if set
+    existing = os.getenv("MLFLOW_TRACKING_URI")
+    if existing:
+        print(f"✓ Using existing MLFLOW_TRACKING_URI: {existing}")
+        return existing
+
+    # Priority 2: Try DEFAULT Databricks profile
+    profiles = detect_databricks_profiles()
+    if profiles:
+        # Look for DEFAULT profile
+        if "DEFAULT" in profiles:
+            uri = "databricks://DEFAULT"
+            print(f"✓ Auto-selected Databricks profile: {uri}")
+            return uri
+
+        # Fallback to first profile
+        first_profile = profiles[0]
+        uri = f"databricks://{first_profile}"
+        print(f"✓ Auto-selected Databricks profile: {uri}")
+        return uri
+
+    # Priority 3: Fallback to local SQLite
+    uri = "sqlite:///mlflow.db"
+    print(f"✓ Auto-selected local SQLite: {uri}")
+    print("  (No Databricks profiles found)")
+    return uri
+
+
+def configure_tracking_uri(
+    args_uri: str | None = None, non_interactive: bool = False
+) -> str | None:
     """Interactive configuration of MLFLOW_TRACKING_URI.
 
     Args:
@@ -133,10 +151,14 @@ def configure_tracking_uri(args_uri: str | None = None, non_interactive: bool = 
         print(f"\n✓ Using tracking URI: {args_uri}")
         return args_uri
 
-    # Non-interactive mode requires args
+    # Auto-detect non-interactive mode if not explicitly set
+    if not non_interactive and not is_interactive():
+        print("Detected non-interactive environment, using auto-select mode")
+        non_interactive = True
+
+    # Non-interactive mode: auto-select best option
     if non_interactive:
-        print("✗ --tracking-uri required in non-interactive mode")
-        sys.exit(1)
+        return select_best_tracking_uri_auto()
 
     print("\n" + "=" * 60)
     print("Step 1: Configure MLFLOW_TRACKING_URI")
@@ -147,7 +169,7 @@ def configure_tracking_uri(args_uri: str | None = None, non_interactive: bool = 
     if existing:
         print(f"\nCurrent value: {existing}")
         response = input("Keep this value? (y/n): ").strip().lower()
-        if response == 'y':
+        if response == "y":
             return existing
 
     # Detect options
@@ -194,13 +216,13 @@ def configure_tracking_uri(args_uri: str | None = None, non_interactive: bool = 
             print(f"\n⚠ Profile '{profile}' is not authenticated")
             print(f"  Please run: databricks auth login -p {profile}")
             response = input("Continue anyway? (y/n): ").strip().lower()
-            if response != 'y':
+            if response != "y":
                 return None
 
     # Handle local server
     if selected.startswith("http://127.0.0.1"):
         response = input("\nStart local MLflow server? (y/n): ").strip().lower()
-        if response == 'y':
+        if response == "y":
             start_local_mlflow_server()
 
     return selected
@@ -213,20 +235,16 @@ def list_experiments(tracking_uri: str) -> list[dict]:
         env["MLFLOW_TRACKING_URI"] = tracking_uri
 
         result = subprocess.run(
-            ["mlflow", "experiments", "list"],
-            capture_output=True,
-            text=True,
-            check=True,
-            env=env
+            ["mlflow", "experiments", "list"], capture_output=True, text=True, check=True, env=env
         )
 
         # Parse output (simplified)
-        lines = result.stdout.strip().split('\n')
+        lines = result.stdout.strip().split("\n")
         experiments = []
 
         for line in lines[2:]:  # Skip header
             if line.strip():
-                parts = [p.strip() for p in line.split('|') if p.strip()]
+                parts = [p.strip() for p in line.split("|") if p.strip()]
                 if len(parts) >= 2:
                     exp_id = parts[0]
                     name = parts[1]
@@ -249,11 +267,11 @@ def create_experiment(tracking_uri: str, name: str) -> str | None:
             capture_output=True,
             text=True,
             check=True,
-            env=env
+            env=env,
         )
 
         # Extract experiment ID from output
-        for line in result.stdout.split('\n'):
+        for line in result.stdout.split("\n"):
             if "Experiment" in line and "created" in line:
                 # Try to extract ID
                 words = line.split()
@@ -273,7 +291,7 @@ def configure_experiment_id(
     args_exp_id: str | None = None,
     args_exp_name: str | None = None,
     create_new: bool = False,
-    non_interactive: bool = False
+    non_interactive: bool = False,
 ) -> str | None:
     """Interactive configuration of MLFLOW_EXPERIMENT_ID.
 
@@ -299,9 +317,9 @@ def configure_experiment_id(
             # Try to find it by name (might have been created but ID not parsed)
             experiments = list_experiments(tracking_uri)
             for exp in experiments:
-                if exp['name'] == args_exp_name:
+                if exp["name"] == args_exp_name:
                     print(f"✓ Found experiment ID: {exp['id']}")
-                    return exp['id']
+                    return exp["id"]
             print(f"✗ Failed to create or find experiment '{args_exp_name}'")
             sys.exit(1)
 
@@ -310,9 +328,9 @@ def configure_experiment_id(
         print(f"\n✓ Searching for experiment: {args_exp_name}")
         experiments = list_experiments(tracking_uri)
         for exp in experiments:
-            if exp['name'] == args_exp_name:
+            if exp["name"] == args_exp_name:
                 print(f"✓ Found experiment ID: {exp['id']}")
-                return exp['id']
+                return exp["id"]
 
         if non_interactive:
             print(f"✗ Experiment '{args_exp_name}' not found")
@@ -321,7 +339,7 @@ def configure_experiment_id(
         # In interactive mode, prompt to create
         print(f"⚠ Experiment '{args_exp_name}' not found")
         response = input("Create new experiment? (y/n): ").strip().lower()
-        if response == 'y':
+        if response == "y":
             exp_id = create_experiment(tracking_uri, args_exp_name)
             if exp_id:
                 print(f"✓ Experiment created with ID: {exp_id}")
@@ -329,9 +347,9 @@ def configure_experiment_id(
             else:
                 experiments = list_experiments(tracking_uri)
                 for exp in experiments:
-                    if exp['name'] == args_exp_name:
+                    if exp["name"] == args_exp_name:
                         print(f"✓ Found experiment ID: {exp['id']}")
-                        return exp['id']
+                        return exp["id"]
                 print("✗ Could not determine experiment ID")
                 return None
 
@@ -349,7 +367,7 @@ def configure_experiment_id(
     if existing:
         print(f"\nCurrent value: {existing}")
         response = input("Keep this value? (y/n): ").strip().lower()
-        if response == 'y':
+        if response == "y":
             return existing
 
     # List experiments
@@ -376,7 +394,7 @@ def configure_experiment_id(
             try:
                 choice = int(input(f"Select experiment (1-{min(len(experiments), 10) + 1}): "))
                 if 1 <= choice <= min(len(experiments), 10):
-                    return experiments[choice - 1]['id']
+                    return experiments[choice - 1]["id"]
                 elif choice == min(len(experiments), 10) + 1:
                     break  # Create new
                 print(f"Please enter a number between 1 and {min(len(experiments), 10) + 1}")
@@ -399,9 +417,9 @@ def configure_experiment_id(
         # Try to find it by name
         experiments = list_experiments(tracking_uri)
         for exp in experiments:
-            if exp['name'] == name:
+            if exp["name"] == name:
                 print(f"✓ Found experiment ID: {exp['id']}")
-                return exp['id']
+                return exp["id"]
 
         print("✗ Could not determine experiment ID")
         return None
@@ -430,11 +448,7 @@ def main():
 
     # Configure experiment ID
     experiment_id = configure_experiment_id(
-        tracking_uri,
-        args.experiment_id,
-        args.experiment_name,
-        args.create,
-        args.non_interactive
+        tracking_uri, args.experiment_id, args.experiment_name, args.create, args.non_interactive
     )
     if not experiment_id:
         print("\n✗ Setup cancelled")

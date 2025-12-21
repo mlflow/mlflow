@@ -8,39 +8,20 @@ handling both OSS MLflow and Databricks Unity Catalog scenarios.
 
 import argparse
 import os
-import sys
 import subprocess
+import sys
 
 
 def parse_arguments():
     """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Generate dataset creation script"
-    )
+    parser = argparse.ArgumentParser(description="Generate dataset creation script")
+    parser.add_argument("--dataset-name", help="Dataset name (for non-Databricks)")
+    parser.add_argument("--catalog", help="UC catalog name (for Databricks)")
+    parser.add_argument("--schema", help="UC schema name (for Databricks)")
+    parser.add_argument("--table", help="UC table name (for Databricks)")
+    parser.add_argument("--test-cases-file", help="File with test cases (one per line, minimum 10)")
     parser.add_argument(
-        '--dataset-name',
-        help='Dataset name (for non-Databricks)'
-    )
-    parser.add_argument(
-        '--catalog',
-        help='UC catalog name (for Databricks)'
-    )
-    parser.add_argument(
-        '--schema',
-        help='UC schema name (for Databricks)'
-    )
-    parser.add_argument(
-        '--table',
-        help='UC table name (for Databricks)'
-    )
-    parser.add_argument(
-        '--test-cases-file',
-        help='File with test cases (one per line, minimum 10)'
-    )
-    parser.add_argument(
-        '--non-interactive',
-        action='store_true',
-        help='Fail if args missing (no prompts)'
+        "--non-interactive", action="store_true", help="Fail if args missing (no prompts)"
     )
     return parser.parse_args()
 
@@ -88,12 +69,9 @@ def list_databricks_catalogs() -> list[str]:
     """List available Databricks catalogs."""
     try:
         result = subprocess.run(
-            ["databricks", "catalogs", "list"],
-            capture_output=True,
-            text=True,
-            check=True
+            ["databricks", "catalogs", "list"], capture_output=True, text=True, check=True
         )
-        lines = result.stdout.strip().split('\n')
+        lines = result.stdout.strip().split("\n")
         # Simple parsing - just get first column
         catalogs = []
         for line in lines[2:]:  # Skip header
@@ -111,12 +89,9 @@ def list_databricks_schemas(catalog: str) -> list[str]:
     """List schemas in a Databricks catalog."""
     try:
         result = subprocess.run(
-            ["databricks", "schemas", "list", catalog],
-            capture_output=True,
-            text=True,
-            check=True
+            ["databricks", "schemas", "list", catalog], capture_output=True, text=True, check=True
         )
-        lines = result.stdout.strip().split('\n')
+        lines = result.stdout.strip().split("\n")
         # Simple parsing
         schemas = []
         for line in lines[2:]:  # Skip header
@@ -125,8 +100,8 @@ def list_databricks_schemas(catalog: str) -> list[str]:
                 if parts:
                     # Schema name is usually in format catalog.schema
                     schema_full = parts[0]
-                    if '.' in schema_full:
-                        schemas.append(schema_full.split('.')[1])
+                    if "." in schema_full:
+                        schemas.append(schema_full.split(".")[1])
                     else:
                         schemas.append(schema_full)
         return schemas
@@ -139,7 +114,7 @@ def get_databricks_table_name(
     args_catalog: str | None = None,
     args_schema: str | None = None,
     args_table: str | None = None,
-    non_interactive: bool = False
+    non_interactive: bool = False,
 ) -> str:
     """Interactive selection of Unity Catalog table name.
 
@@ -178,7 +153,7 @@ def get_databricks_table_name(
         catalogs = list_databricks_catalogs()
 
         if catalogs:
-            print(f"\nAvailable catalogs:")
+            print("\nAvailable catalogs:")
             for i, cat in enumerate(catalogs, 1):
                 print(f"  {i}. {cat}")
 
@@ -210,7 +185,7 @@ def get_databricks_table_name(
         schemas = list_databricks_schemas(catalog)
 
         if schemas:
-            print(f"\nAvailable schemas:")
+            print("\nAvailable schemas:")
             for i, sch in enumerate(schemas, 1):
                 print(f"  {i}. {sch}")
 
@@ -249,8 +224,7 @@ def get_databricks_table_name(
 
 
 def generate_sample_queries(
-    test_cases_file: str | None = None,
-    non_interactive: bool = False
+    test_cases_file: str | None = None, non_interactive: bool = False
 ) -> list[str]:
     """Interactive creation of sample evaluation queries.
 
@@ -307,7 +281,7 @@ def generate_dataset_creation_code(
     experiment_id: str,
     dataset_name: str,
     queries: list[str],
-    is_databricks: bool
+    is_databricks: bool,
 ) -> str:
     """Generate Python code for dataset creation."""
 
@@ -319,10 +293,24 @@ def generate_dataset_creation_code(
         records_str += f'        {{"inputs": {{"query": "{query_escaped}"}}}},\n'
     records_str += "    ]"
 
-    tags_code = "" if is_databricks else """
+    tags_code = (
+        ""
+        if is_databricks
+        else """
         "version": "1.0",
         "purpose": "agent_evaluation",
     """
+    )
+
+    # Build tags parameter conditionally (cleaner approach)
+    tags_param = (
+        ""
+        if is_databricks
+        else f""",
+    tags={{
+{tags_code}
+    }}"""
+    )
 
     code = f'''#!/usr/bin/env python3
 """
@@ -355,9 +343,7 @@ print()
 print("Creating dataset...")
 dataset = create_dataset(
     name=DATASET_NAME,
-    experiment_id=EXPERIMENT_ID,{'' if is_databricks else '''
-    tags={''' + tags_code + '''
-    }'''}
+    experiment_id=EXPERIMENT_ID{tags_param}
 )
 print("✓ Dataset created")
 print()
@@ -423,10 +409,7 @@ def main():
     # Step 2: Get dataset name
     if is_databricks:
         dataset_name = get_databricks_table_name(
-            args.catalog,
-            args.schema,
-            args.table,
-            args.non_interactive
+            args.catalog, args.schema, args.table, args.non_interactive
         )
     else:
         # Non-Databricks: simple dataset name
@@ -451,16 +434,12 @@ def main():
     print("=" * 60)
 
     code = generate_dataset_creation_code(
-        tracking_uri,
-        experiment_id,
-        dataset_name,
-        queries,
-        is_databricks
+        tracking_uri, experiment_id, dataset_name, queries, is_databricks
     )
 
     # Write to file
     output_file = "create_evaluation_dataset.py"
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         f.write(code)
 
     print(f"\n✓ Script generated: {output_file}")
@@ -480,7 +459,7 @@ def main():
     print()
     print(f"1. Review the generated script: {output_file}")
     print(f"2. Execute it: python {output_file}")
-    print(f"3. Verify the dataset was created successfully")
+    print("3. Verify the dataset was created successfully")
     print()
     print("=" * 60)
 

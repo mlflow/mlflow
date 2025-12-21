@@ -6,10 +6,10 @@ This script creates a customized Python script that executes the agent
 on an evaluation dataset and collects trace IDs for scoring.
 """
 
-import os
-import sys
 import importlib
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -46,7 +46,7 @@ def find_entry_point(module_name: str) -> str | None:
         module = importlib.import_module(module_name)
 
         # Common entry point names
-        for name in ['run_agent', 'stream_agent', 'handle_request', 'query', 'chat']:
+        for name in ["run_agent", "stream_agent", "handle_request", "query", "chat"]:
             if hasattr(module, name):
                 return name
 
@@ -59,7 +59,7 @@ def find_entry_point(module_name: str) -> str | None:
 def list_datasets() -> list[str]:
     """List available datasets in the experiment."""
     try:
-        code = '''
+        code = """
 import os
 from mlflow import MlflowClient
 
@@ -69,24 +69,15 @@ experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID")
 datasets = client.search_datasets(experiment_ids=[experiment_id])
 for dataset in datasets:
     print(dataset.name)
-'''
-        result = subprocess.run(
-            ["python", "-c", code],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        return [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
+"""
+        result = subprocess.run(["python", "-c", code], capture_output=True, text=True, check=True)
+        return [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
     except Exception:
         return []
 
 
 def generate_evaluation_code(
-    tracking_uri: str,
-    experiment_id: str,
-    dataset_name: str,
-    agent_module: str,
-    entry_point: str
+    tracking_uri: str, experiment_id: str, dataset_name: str, agent_module: str, entry_point: str
 ) -> str:
     """Generate Python code for running evaluation."""
 
@@ -320,16 +311,12 @@ def main():
     print("=" * 60)
 
     code = generate_evaluation_code(
-        tracking_uri,
-        experiment_id,
-        dataset_name,
-        agent_module,
-        entry_point
+        tracking_uri, experiment_id, dataset_name, agent_module, entry_point
     )
 
     # Write to file
     output_file = "run_agent_evaluation.py"
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         f.write(code)
 
     print(f"\n✓ Script generated: {output_file}")
@@ -348,10 +335,10 @@ def main():
     print("=" * 60)
     print()
     print(f"1. Review the generated script: {output_file}")
-    print(f"2. Update the TODO sections with your agent's setup code")
-    print(f"3. Update the agent call to match your signature")
+    print("2. Update the TODO sections with your agent's setup code")
+    print("3. Update the agent call to match your signature")
     print(f"4. Execute it: python {output_file}")
-    print(f"5. Use the trace IDs to run evaluation with scorers")
+    print("5. Use the trace IDs to run evaluation with scorers")
     print()
     print("=" * 60)
 

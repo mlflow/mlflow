@@ -271,7 +271,7 @@ Now verify that **BOTH** autolog and decorators are working together.
 The easiest way to verify tracing is to use the validation script:
 
 ```bash
-python .claude/skills/agent-evaluation/scripts/validate_tracing.py
+uv run python .claude/skills/agent-evaluation/scripts/validate_tracing.py
 ```
 
 This script will:
@@ -376,7 +376,7 @@ Trace structure:
 
 Run the validation script to verify:
 ```bash
-python .claude/skills/agent-evaluation/scripts/validate_tracing.py
+uv run python .claude/skills/agent-evaluation/scripts/validate_tracing.py
 ```
 
 Expected output:
