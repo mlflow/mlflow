@@ -1,12 +1,17 @@
 from functools import wraps
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.constants import USE_CASE_BUILTIN_JUDGE
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
+from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
+
+if TYPE_CHECKING:
+    from mlflow.genai.utils.type import FunctionCall
+    from mlflow.types.chat import ChatTool
 
 _MODEL_API_DOC = {
     "model": """Judge model to use. Must be either `"databricks"` or a form of
@@ -217,28 +222,35 @@ def is_correct(
     model: str | None = None,
 ) -> Feedback:
     """
-    LLM judge determines whether the given response is correct for the input request.
+    LLM judge determines whether the expected facts are supported by the response.
+
+    This judge evaluates if the facts specified in ``expected_facts`` or ``expected_response``
+    are contained in or supported by the model's response.
+
+    .. note::
+        This judge checks if expected facts are **supported by** the response, not whether
+        the response is **equivalent to** the expected output. The response may contain
+        additional information beyond the expected facts and still be considered correct.
 
     Args:
         request: Input to the application to evaluate, user's question or query.
         response: The response from the application to evaluate.
-        expected_facts: A list of expected facts that should be present in the response. Optional.
-        expected_response: The expected response from the application. Optional.
+        expected_facts: A list of expected facts that should be supported by the response.
+        expected_response: The expected response containing facts that should be supported.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
-        value indicating whether the response is correct for the request.
+        value indicating whether the expected facts are supported by the response.
 
     Example:
-
-        The following example shows how to evaluate whether the response is correct.
 
         .. code-block:: python
 
             from mlflow.genai.judges import is_correct
 
+            # Response supports the expected response - correct
             feedback = is_correct(
                 request="What is the capital of France?",
                 response="Paris is the capital of France.",
@@ -246,6 +258,7 @@ def is_correct(
             )
             print(feedback.value)  # "yes"
 
+            # Response contradicts the expected facts - incorrect
             feedback = is_correct(
                 request="What is the capital of France?",
                 response="London is the capital of France.",
@@ -362,6 +375,197 @@ def is_grounded(
         feedback = invoke_judge_model(
             model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
         )
+
+    return _sanitize_feedback(feedback)
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+def is_tool_call_efficient(
+    *,
+    request: str,
+    tools_called: list["FunctionCall"],
+    available_tools: list["ChatTool"],
+    name: str | None = None,
+    model: str | None = None,
+) -> Feedback:
+    """
+    LLM judge determines whether the agent's tool usage is efficient and free of redundancy.
+
+    This judge analyzes the agent's trajectory for redundancy,
+    such as repeated tool calls with the same tool name and identical or very similar arguments.
+
+    Args:
+        request: The original user request that the agent is trying to fulfill.
+        tools_called: The sequence of tools that were called by the agent.
+            Each element should be a FunctionCall object.
+        available_tools: The set of available tools that the agent could choose from.
+            Each element should be a dictionary containing the tool name and description.
+        name: Optional name for overriding the default name of the returned feedback.
+        model: {{ model }}
+
+    Returns:
+        A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no" value
+        indicating whether the tool usage is efficient ("yes") or contains redundancy ("no").
+
+    Example:
+
+        The following example shows how to evaluate whether an agent's tool calls are efficient.
+
+        .. code-block:: python
+
+            from mlflow.genai.judges import is_tool_call_efficient
+            from mlflow.genai.utils.type import FunctionCall
+
+            # Efficient tool usage
+            feedback = is_tool_call_efficient(
+                request="What is the capital of France and translate it to Spanish?",
+                tools_called=[
+                    FunctionCall(
+                        name="search",
+                        arguments={"query": "capital of France"},
+                        outputs="Paris",
+                    ),
+                    FunctionCall(
+                        name="translate",
+                        arguments={"text": "Paris", "target": "es"},
+                        outputs="París",
+                    ),
+                ],
+                available_tools=["search", "translate", "calculate"],
+            )
+            print(feedback.value)  # "yes"
+
+            # Redundant tool usage
+            feedback = is_tool_call_efficient(
+                request="What is the capital of France?",
+                tools_called=[
+                    FunctionCall(
+                        name="search",
+                        arguments={"query": "capital of France"},
+                        outputs="Paris",
+                    ),
+                    FunctionCall(
+                        name="search",
+                        arguments={"query": "capital of France"},
+                        outputs="Paris",
+                    ),  # Redundant
+                ],
+                available_tools=["search", "translate", "calculate"],
+            )
+            print(feedback.value)  # "no"
+
+            # Tool call with exception
+            feedback = is_tool_call_efficient(
+                request="Get weather for an invalid city",
+                tools_called=[
+                    FunctionCall(
+                        name="get_weather",
+                        arguments={"city": "InvalidCity123"},
+                        exception="ValueError: City not found",
+                    ),
+                ],
+                available_tools=["get_weather"],
+            )
+            print(feedback.value)  # Judge evaluates based on exception context
+
+    """
+    from mlflow.genai.judges.prompts.tool_call_efficiency import (
+        TOOL_CALL_EFFICIENCY_FEEDBACK_NAME,
+        get_prompt,
+    )
+
+    model = model or get_default_model()
+    assessment_name = name or TOOL_CALL_EFFICIENCY_FEEDBACK_NAME
+
+    prompt = get_prompt(request=request, tools_called=tools_called, available_tools=available_tools)
+    feedback = invoke_judge_model(
+        model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+    )
+
+    return _sanitize_feedback(feedback)
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+def is_tool_call_correct(
+    *,
+    request: str,
+    tools_called: list["FunctionCall"],
+    available_tools: list["ChatTool"],
+    name: str | None = None,
+    model: str | None = None,
+) -> Feedback:
+    """
+    LLM judge determines whether the agent's tool calls and their arguments are correct
+    and reasonable.
+
+    This judge analyzes whether the tools selected and the arguments provided to them
+    are appropriate for fulfilling the user's request.
+
+    Args:
+        request: The original user request that the agent is trying to fulfill.
+        tools_called: The sequence of tools that were called by the agent.
+            Each element should be a FunctionCall object.
+        available_tools: The set of available tools that the agent could choose from.
+            Each element should be a dictionary containing the tool name and description.
+        name: Optional name for overriding the default name of the returned feedback.
+        model: {{ model }}
+
+    Returns:
+        A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no" value
+        indicating whether the tool calls and arguments are correct ("yes") or incorrect ("no").
+
+    Example:
+
+        The following example shows how to evaluate whether an agent's tool calls are correct.
+
+        .. code-block:: python
+
+            from mlflow.genai.judges import is_tool_call_correct
+            from mlflow.genai.utils.type import FunctionCall
+
+            # Correct tool usage
+            feedback = is_tool_call_correct(
+                request="What is the weather in San Francisco?",
+                tools_called=[
+                    FunctionCall(
+                        name="get_weather",
+                        arguments={"location": "San Francisco", "unit": "celsius"},
+                        outputs="15°C, partly cloudy",
+                    ),
+                ],
+                available_tools=["get_weather", "search", "calculate"],
+            )
+            print(feedback.value)  # "yes"
+
+            # Incorrect tool usage
+            feedback = is_tool_call_correct(
+                request="What is the weather in San Francisco?",
+                tools_called=[
+                    FunctionCall(
+                        name="calculate",
+                        arguments={"expression": "San Francisco"},
+                        outputs="Error: invalid expression",
+                    ),  # Wrong tool for weather query
+                ],
+                available_tools=["get_weather", "search", "calculate"],
+            )
+            print(feedback.value)  # "no"
+
+    """
+    from mlflow.genai.judges.prompts.tool_call_correctness import (
+        TOOL_CALL_CORRECTNESS_FEEDBACK_NAME,
+        get_prompt,
+    )
+
+    model = model or get_default_model()
+    assessment_name = name or TOOL_CALL_CORRECTNESS_FEEDBACK_NAME
+
+    prompt = get_prompt(request=request, tools_called=tools_called, available_tools=available_tools)
+    feedback = invoke_judge_model(
+        model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+    )
 
     return _sanitize_feedback(feedback)
 

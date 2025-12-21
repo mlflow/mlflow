@@ -262,6 +262,57 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>Command key and invocation context (cli or mcp)</td>
       <td>`{"command_key": "genai/analyze_experiment", "context": "cli"}`</td>
     </tr>
+    <tr>
+      <td>gateway_start</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>ui_event</td>
+      <td>A UI interaction event. See the [below table](#ui-interaction-metadata) for a description of the various metadata elements</td>
+      <td>`{ "eventType": "onClick", "componentViewId": "88fc9edd-5e9e-4a17-abd2-c543f505b8eb", "componentId": "mlflow.prompts.list.create", "componentType": "button", timestamp_ns: 1765784028467000000 }`</td>
+    </tr>
+  </tbody>
+</Table>
+
+#### UI Interaction Metadata
+
+This table describes a list of metadata that may be collected together with a given UI interaction log.
+
+<Table>
+  <thead>
+    <tr>
+      <th style={{ width: "20%" }}>Metadata Element</th>
+      <th style={{ width: "40%" }}>Explanation</th>
+      <th style={{ width: "40%" }}>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Component ID of interactive UI elements</td>
+      <td>An ID string of an interactive element (e.g. button, switch, link, input field) in the UI. A log is generated upon clicking, typing, or otherwise interacting with such elements. A comprehensive list of component ID values can be found by [this search query](https://github.com/search?q=repo%3Amlflow%2Fmlflow%20componentId%3D&type=code).</td>
+      <td>`mlflow.prompts.list.create` (identifier for the "Create prompt" button on the prompts page)</td>
+    </tr>
+    <tr>
+      <td>Event type</td>
+      <td>An enumerated categorical value describing the nature of the interaction</td>
+      <td>`onView`, `onClick`, `onValueChange`</td>
+    </tr>
+    <tr>
+      <td>Component type</td>
+      <td>An enumerated categorical value describing the type of component that the interaction happened with</td>
+      <td>`button`, `alert`, `banner`, `radio`, `input`, ...</td>
+    </tr>
+    <tr>
+      <td>Component View ID</td>
+      <td>A randomly generated UUID that is regenerated whenever the UI element rerenders</td>
+      <td>`774db636-5cfa-4ce8-8f56-7e7126dc3439`</td>
+    </tr>
+    <tr>
+      <td>Timestamp</td>
+      <td>The client-side timestamp of when the interaction occurred</td>
+      <td>`1765789548484000`.</td>
+    </tr>
   </tbody>
 </Table>
 
@@ -308,6 +359,7 @@ If you'd like support for additional CI environments, please [open an issue on o
 
 - The environment variable only takes effect in processes where it is explicitly set or inherited.
 - If you spawn subprocesses from a clean environment, those subprocesses may not inherit your shell's environment, and telemetry could remain enabled. e.g. `subprocess.run([...], env={})`
+- Setting this environment variable before running `mlflow server` also disables all UI telemetry
 
 Recommendations to ensure telemetry is consistently disabled across all environments:
 
@@ -326,7 +378,17 @@ assert get_telemetry_client() is None, "Telemetry is enabled"
 
 ### How to opt-out for your organization?
 
-Organizations can disable telemetry by blocking network access to `https://config.mlflow-telemetry.io`. When this endpoint is unreachable, MLflow automatically disables telemetry.
+Aside from setting the environment variables described above, organizations can additionally opt out of telemetry by blocking network access to the `mlflow-telemetry.io` domain. When this domain is unreachable, telemetry will be disabled.
+
+### Opting out of UI telemetry
+
+As described above, the admin of an MLflow server can set the `MLFLOW_DISABLE_TELEMETRY` or `DO_NOT_TRACK`
+environment variables to disable UI telemetry globally for the server. However, if you are not
+an admin (i.e. you have no ability to set environment variables), you can still personally opt
+out from UI telemetry by visiting the "Settings" page in the MLflow UI (introduced in MLflow 3.8.0).
+
+Setting the toggle to "Off" will disable UI telemetry from your device, even if the admin has not
+opted out server-side.
 
 ## What are we doing with this data?
 

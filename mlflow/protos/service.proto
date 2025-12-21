@@ -982,6 +982,25 @@ service MlflowService {
     };
   }
 
+  // Query aggregated metrics for traces, spans, or assessments.
+  // Supports grouping by dimensions and time-based aggregation.
+  rpc queryTraceMetrics(QueryTraceMetrics) returns (QueryTraceMetrics.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/metrics"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Query Trace Metrics"
+    };
+  }
+
   rpc createLoggedModel(CreateLoggedModel) returns (CreateLoggedModel.Response) {
     option (rpc) = {
       endpoints: [
@@ -3159,6 +3178,111 @@ message CalculateTraceFilterCorrelation {
   }
 }
 
+// View type for metrics aggregation.
+enum MetricViewType {
+  // Aggregate at trace level.
+  TRACES = 1;
+  // Aggregate at span level.
+  SPANS = 2;
+  // Aggregate at assessment level.
+  ASSESSMENTS = 3;
+}
+
+// Aggregation type for metrics.
+enum AggregationType {
+  // Count of entities.
+  COUNT = 1;
+  // Sum of values.
+  SUM = 2;
+  // Average of values.
+  AVG = 3;
+  // Percentile aggregation (requires percentile_value parameter).
+  PERCENTILE = 4;
+  // Minimum value.
+  MIN = 5;
+  // Maximum value.
+  MAX = 6;
+}
+
+message MetricAggregation {
+  // The type of aggregation to perform.
+  optional AggregationType aggregation_type = 1;
+
+  // The percentile value to compute (0-100), required when aggregation_type is PERCENTILE.
+  // Examples: 50 (median), 75, 90, 95, 99.
+  // This field is ignored for other aggregation types.
+  optional double percentile_value = 2;
+}
+
+// Query aggregated metrics for traces, spans, or assessments.
+message QueryTraceMetrics {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Required: The experiment IDs to search traces.
+  repeated string experiment_ids = 1;
+
+  // Required: The level at which to aggregate metrics.
+  optional MetricViewType view_type = 2;
+
+  // Required: The name of the metric to query (e.g. "latency").
+  optional string metric_name = 3;
+
+  // Required: The aggregations to apply.
+  repeated MetricAggregation aggregations = 4;
+
+  // Optional: Dimensions to group metrics by. (e.g. "name", "status")
+  repeated string dimensions = 5;
+
+  // Optional: Filter expressions to apply. (e.g. `trace.status="OK"`)
+  repeated string filters = 6;
+
+  // Optional: Time interval for grouping in seconds.
+  // When set, results automatically include a time dimension grouped by
+  // the specified interval.
+  // Examples: 60 (minute), 3600 (hour), 86400 (day), 604800 (week), 2592000 (month).
+  optional int64 time_interval_seconds = 7;
+
+  // Optional: Start of time range in milliseconds since epoch.
+  // Required if time_interval_seconds is set.
+  optional int64 start_time_ms = 8;
+
+  // Optional: End of time range in milliseconds since epoch.
+  // Required if time_interval_seconds is set.
+  optional int64 end_time_ms = 9;
+
+  // Optional: Maximum number of data points to return.
+  // Default: 1000
+  optional int32 max_results = 10 [default = 1000];
+
+  // Optional: Pagination token for fetching the next page of results.
+  optional string page_token = 11;
+
+  message Response {
+    // Data points grouped by dimensions.
+    repeated MetricDataPoint data_points = 1;
+
+    // Pagination token for fetching the next page.
+    // Empty if no more results are available.
+    optional string next_page_token = 2;
+  }
+}
+
+// A single data point with dimension values and metric values.
+message MetricDataPoint {
+  // Metric name, e.g. "latency"
+  optional string metric_name = 1;
+
+  // Dimension values for this data point
+  // Keys correspond to dimensions
+  // e.g., {"status": "OK"}
+  map<string, string> dimensions = 2;
+
+  // Metric values for this data point
+  // Keys are aggregation types
+  // e.g., {"AVG": 150, "P99": 234.5}
+  map<string, double> values = 3;
+}
+
 message SetTraceTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -4020,8 +4144,10 @@ message GatewaySecretInfo {
   optional string secret_id = 1;
   // User-friendly name for the secret (must be unique)
   optional string secret_name = 2;
-  // Masked version of the secret for display (e.g., "sk-...xyz123")
-  optional string masked_value = 3;
+  // Masked version of the secret values for display as key-value pairs.
+  // For simple API keys: {"api_key": "sk-...xyz123"}
+  // For compound credentials: ``{"aws_access_key_id": "AKI...1234", "aws_secret_access_key": "***"}``
+  map<string, string> masked_values = 3;
   // Timestamp (milliseconds since epoch) when the secret was created
   optional int64 created_at = 4;
   // Timestamp (milliseconds since epoch) when the secret was last updated

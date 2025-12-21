@@ -3,6 +3,8 @@ import click
 from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.gateway.config import _validate_config
 from mlflow.gateway.runner import run_app
+from mlflow.telemetry.events import GatewayStartEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.os import is_windows
 
 
@@ -19,7 +21,6 @@ def commands():
     pass
 
 
-# TODO: add telemetry decorator
 @commands.command("start", help="Start the MLflow Gateway service")
 @click.option(
     "--config-path",
@@ -43,6 +44,7 @@ def commands():
     default=2,
     help="The number of workers.",
 )
+@record_usage_event(GatewayStartEvent)
 def start(config_path: str, host: str, port: str, workers: int):
     if is_windows():
         raise click.ClickException("MLflow AI Gateway does not support Windows.")

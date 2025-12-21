@@ -13,6 +13,7 @@ from mlflow.entities import EvaluationDataset, Expectation, Feedback, Metric, Pa
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
+from mlflow.gateway.cli import start
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer
@@ -40,6 +41,7 @@ from mlflow.telemetry.events import (
     CreateRunEvent,
     CreateWebhookEvent,
     EvaluateEvent,
+    GatewayStartEvent,
     GenAIEvaluateEvent,
     GetLoggedModelEvent,
     GitModelVersioningEvent,
@@ -58,6 +60,7 @@ from mlflow.telemetry.events import (
     StartTraceEvent,
 )
 from mlflow.tracking.fluent import _create_dataset_input, _initialize_logged_model
+from mlflow.utils.os import is_windows
 
 from tests.telemetry.helper_functions import validate_telemetry_record
 
@@ -856,6 +859,30 @@ def test_mcp_run(mock_requests, mock_telemetry_client: TelemetryClient):
     mock_run_server.assert_called_once()
     mock_telemetry_client.flush()
     validate_telemetry_record(mock_telemetry_client, mock_requests, McpRunEvent.name)
+
+
+@pytest.mark.skipif(is_windows(), reason="Windows does not support gateway start")
+def test_gateway_start(tmp_path, mock_requests, mock_telemetry_client: TelemetryClient):
+    config = tmp_path.joinpath("config.yml")
+    config.write_text(
+        """
+endpoints:
+  - name: test-endpoint
+    endpoint_type: llm/v1/completions
+    model:
+      provider: openai
+      name: gpt-3.5-turbo
+      config:
+        openai_api_key: test-key
+"""
+    )
+
+    runner = CliRunner(catch_exceptions=False)
+    with mock.patch("mlflow.gateway.cli.run_app"):
+        runner.invoke(start, ["--config-path", str(config)])
+
+    mock_telemetry_client.flush()
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GatewayStartEvent.name)
 
 
 def test_ai_command_run(mock_requests, mock_telemetry_client: TelemetryClient):

@@ -73,8 +73,9 @@ results = mlflow.genai.evaluate(
 | Scorer                                                                                     | What does it evaluate?                                        | Requires ground-truth? | Requires traces?      |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------- | ---------------------- | --------------------- |
 | <APILink fn="mlflow.genai.scorers.RelevanceToQuery">RelevanceToQuery</APILink>             | Does the app's response directly address the user's input?    | No                     | No                    |
-| <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink>                       | Is the app's response correct compared to ground-truth?       | Yes\*                  | No                    |
+| <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink>                       | Are the expected facts supported by the app's response?       | Yes\*                  | No                    |
 | <APILink fn="mlflow.genai.scorers.Completeness">Completeness</APILink>\*\*                 | Does the agent address all questions in a single user prompt? | No                     | No                    |
+| <APILink fn="mlflow.genai.scorers.Fluency">Fluency</APILink>                               | Is the response grammatically correct and naturally flowing?  | No                     | No                    |
 | <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink>                         | Does the response adhere to provided guidelines?              | Yes\*                  | No                    |
 | <APILink fn="mlflow.genai.scorers.ExpectationsGuidelines">ExpectationsGuidelines</APILink> | Does the response meet specific expectations and guidelines?  | Yes\*                  | No                    |
 | <APILink fn="mlflow.genai.scorers.Safety">Safety</APILink>                                 | Does the app's response avoid harmful or toxic content?       | No                     | No                    |
@@ -97,6 +98,7 @@ Multi-turn scorers evaluate entire conversation sessions rather than individual 
 | <APILink fn="mlflow.genai.scorers.ConversationalRoleAdherence">ConversationalRoleAdherence</APILink>\*\*           | Does the assistant maintain its assigned role throughout the conversation? | Yes               |
 | <APILink fn="mlflow.genai.scorers.ConversationalSafety">ConversationalSafety</APILink>\*\*                         | Are the assistant's responses safe and free of harmful content?            | Yes               |
 | <APILink fn="mlflow.genai.scorers.ConversationalToolCallEfficiency">ConversationalToolCallEfficiency</APILink>\*\* | Was tool usage across the conversation efficient and appropriate?          | Yes               |
+| <APILink fn="mlflow.genai.scorers.KnowledgeRetention">KnowledgeRetention</APILink>\*\*                             | Does the assistant correctly retain information from earlier user inputs?  | Yes               |
 | <APILink fn="mlflow.genai.scorers.UserFrustration">UserFrustration</APILink>\*\*                                   | Is the user frustrated? Was the frustration resolved?                      | Yes               |
 
 :::info Multi-Turn Evaluation Requirements

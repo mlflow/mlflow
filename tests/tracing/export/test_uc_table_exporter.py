@@ -160,7 +160,10 @@ def test_export_spans_batch_flush_on_interval(monkeypatch):
     assert len(spans) == 1
 
 
-def test_export_spans_batch_shutdown():
+def test_export_spans_batch_shutdown(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "10")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "1000")
+
     exporter = DatabricksUCTableSpanExporter()
     exporter._client = mock.MagicMock()
 
@@ -183,7 +186,10 @@ def test_export_spans_batch_shutdown():
     assert len(spans) == 3
 
 
-def test_export_spans_batch_thread_safety():
+def test_export_spans_batch_thread_safety(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "10")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "1000")
+
     exporter = DatabricksUCTableSpanExporter()
     exporter._client = mock.MagicMock()
 
@@ -210,7 +216,10 @@ def test_export_spans_batch_thread_safety():
             assert len(spans) == 10 if i < 2 else 5, f"Batch {i} had {len(spans)} spans"
 
 
-def test_export_spans_batch_split_spans_by_location():
+def test_export_spans_batch_split_spans_by_location(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "10")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "1000")
+
     exporter = DatabricksUCTableSpanExporter()
     exporter._client = mock.MagicMock()
 
@@ -248,7 +257,10 @@ def test_export_spans_batch_split_spans_by_location():
     assert len(spans) == 3
 
 
-def test_at_exit_callback_registered_in_correct_order():
+def test_at_exit_callback_registered_in_correct_order(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "10")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "1000")
+
     # This test validates that the two atexit callbacks are registered in the correct order.
     # AsyncTraceExportQueue must be shut down AFTER SpanBatcher. Since atexit executes callbacks in
     # last-in-first-out order, we must register the callback for AsyncTraceExportQueue first.

@@ -21,6 +21,7 @@ from mlflow.genai.evaluation.utils import is_none_or_nan
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
+    _try_extract_available_tools_with_llm,
     convert_predict_fn,
     create_minimal_trace,
     extract_available_tools_from_trace,
@@ -32,11 +33,14 @@ from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
     parse_outputs_to_str,
-    parse_tool_calls_from_trace,
+    parse_tool_call_messages_from_trace,
     resolve_conversation_from_session,
+    resolve_expectations_from_session,
 )
 from mlflow.tracing import set_span_chat_tools
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import build_otel_context
+from mlflow.types.chat import ChatTool, FunctionToolDefinition
 
 from tests.tracing.helper import create_test_trace_info, get_traces, purge_traces
 
@@ -581,27 +585,27 @@ def test_extract_expectations_from_trace_with_source_filter():
 
     trace = mlflow.get_trace(trace_id)
 
-    result = extract_expectations_from_trace(trace, source=None)
+    result = extract_expectations_from_trace(trace, source_type=None)
     assert result == {
         "human_expectation": {"expected": "Answer from human"},
         "llm_expectation": "LLM generated expectation",
         "code_expectation": 42,
     }
 
-    result = extract_expectations_from_trace(trace, source="HUMAN")
+    result = extract_expectations_from_trace(trace, source_type="HUMAN")
     assert result == {"human_expectation": {"expected": "Answer from human"}}
 
-    result = extract_expectations_from_trace(trace, source="LLM_JUDGE")
+    result = extract_expectations_from_trace(trace, source_type="LLM_JUDGE")
     assert result == {"llm_expectation": "LLM generated expectation"}
 
-    result = extract_expectations_from_trace(trace, source="CODE")
+    result = extract_expectations_from_trace(trace, source_type="CODE")
     assert result == {"code_expectation": 42}
 
-    result = extract_expectations_from_trace(trace, source="human")
+    result = extract_expectations_from_trace(trace, source_type="human")
     assert result == {"human_expectation": {"expected": "Answer from human"}}
 
     with pytest.raises(mlflow.exceptions.MlflowException, match="Invalid assessment source type"):
-        extract_expectations_from_trace(trace, source="INVALID_SOURCE")
+        extract_expectations_from_trace(trace, source_type="INVALID_SOURCE")
 
 
 def test_extract_expectations_from_trace_returns_none_when_no_expectations():
@@ -614,7 +618,7 @@ def test_extract_expectations_from_trace_returns_none_when_no_expectations():
     result = extract_expectations_from_trace(trace)
     assert result is None
 
-    result = extract_expectations_from_trace(trace, source="HUMAN")
+    result = extract_expectations_from_trace(trace, source_type="HUMAN")
     assert result is None
 
 
@@ -785,7 +789,7 @@ def test_create_minimal_trace_with_source_but_no_session():
     assert trace.data._get_root_span().outputs == "answer"
 
 
-def test_parse_tool_calls_from_trace():
+def test_parse_tool_call_messages_from_trace():
     with mlflow.start_span(name="root") as root_span:
         root_span.set_inputs({"question": "What is the stock price?"})
 
@@ -800,7 +804,7 @@ def test_parse_tool_calls_from_trace():
         root_span.set_outputs("AAPL price is $150.")
 
     trace = mlflow.get_trace(root_span.trace_id)
-    tool_messages = parse_tool_calls_from_trace(trace)
+    tool_messages = parse_tool_call_messages_from_trace(trace)
 
     assert len(tool_messages) == 2
     assert tool_messages[0] == {
@@ -815,18 +819,18 @@ def test_parse_tool_calls_from_trace():
     }
 
 
-def test_parse_tool_calls_from_trace_no_tools():
+def test_parse_tool_call_messages_from_trace_no_tools():
     with mlflow.start_span(name="root") as span:
         span.set_inputs({"question": "Hello"})
         span.set_outputs("Hi there")
 
     trace = mlflow.get_trace(span.trace_id)
-    tool_messages = parse_tool_calls_from_trace(trace)
+    tool_messages = parse_tool_call_messages_from_trace(trace)
 
     assert tool_messages == []
 
 
-def test_parse_tool_calls_from_trace_tool_without_outputs():
+def test_parse_tool_call_messages_from_trace_tool_without_outputs():
     with mlflow.start_span(name="root") as root_span:
         root_span.set_inputs({"query": "test"})
 
@@ -836,7 +840,7 @@ def test_parse_tool_calls_from_trace_tool_without_outputs():
         root_span.set_outputs("result")
 
     trace = mlflow.get_trace(root_span.trace_id)
-    tool_messages = parse_tool_calls_from_trace(trace)
+    tool_messages = parse_tool_call_messages_from_trace(trace)
 
     assert len(tool_messages) == 1
     assert tool_messages[0] == {
@@ -902,6 +906,80 @@ def test_resolve_conversation_from_session_with_tool_calls():
 
 def test_resolve_conversation_from_session_empty():
     assert resolve_conversation_from_session([]) == []
+
+
+def test_session_level_expectations_filtering():
+    session_id = "test-session"
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"question": "Test"})
+        span.set_outputs({"answer": "Test answer"})
+
+    trace_id = span.trace_id
+
+    session_exp = Expectation(
+        name="session_exp",
+        value="session_value",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+        metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+    )
+    mlflow.log_assessment(trace_id=trace_id, assessment=session_exp)
+
+    trace_exp = Expectation(
+        name="trace_exp",
+        value="trace_value",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+        metadata={},
+    )
+    mlflow.log_assessment(trace_id=trace_id, assessment=trace_exp)
+
+    trace = mlflow.get_trace(trace_id)
+
+    session_result = resolve_expectations_from_session(None, [trace])
+    assert session_result == {"session_exp": "session_value"}
+    assert "trace_exp" not in session_result
+
+
+def test_resolve_expectations_from_session_with_provided_expectations():
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"question": "Test"})
+        span.set_outputs({"answer": "Test answer"})
+
+    trace = mlflow.get_trace(span.trace_id)
+    provided_expectations = {"provided": "value"}
+
+    result = resolve_expectations_from_session(provided_expectations, [trace])
+    assert result == provided_expectations
+
+
+@pytest.mark.parametrize(
+    ("expectations", "has_session_exp", "expected"),
+    [
+        (None, False, None),
+        (None, True, {"session_exp": "session_value"}),
+        ({"provided": "value"}, True, {"provided": "value"}),
+    ],
+)
+def test_resolve_expectations_from_session_edge_cases(expectations, has_session_exp, expected):
+    session_id = "test-session"
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"question": "Test"})
+        span.set_outputs({"answer": "Test answer"})
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+
+    if has_session_exp:
+        exp = Expectation(
+            name="session_exp",
+            value="session_value",
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+            metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+        )
+        mlflow.log_assessment(trace_id=span.trace_id, assessment=exp)
+
+    trace = mlflow.get_trace(span.trace_id)
+    result = resolve_expectations_from_session(expectations, [trace])
+    assert result == expected
 
 
 def test_convert_predict_fn_async_function():
@@ -992,8 +1070,14 @@ def test_extract_available_tools_from_trace_basic(
     extracted_tools = extract_available_tools_from_trace(trace)
 
     assert len(extracted_tools) == 1
-    assert extracted_tools[0].function.name == tool_name
-    assert extracted_tools[0].function.description == tool_description
+    assert extracted_tools[0].model_dump(exclude_none=True) == {
+        "type": "function",
+        "function": {
+            "name": tool_name,
+            "description": tool_description,
+            "parameters": {"type": "object", "properties": {"param": {"type": "string"}}},
+        },
+    }
 
 
 def test_extract_available_tools_from_trace_with_multiple_spans():
@@ -1042,9 +1126,38 @@ def test_extract_available_tools_from_trace_with_multiple_spans():
     extracted_tools = extract_available_tools_from_trace(trace)
 
     assert len(extracted_tools) == 2
-    tool_names = [t.function.name for t in extracted_tools]
-    assert "add" in tool_names
-    assert "multiply" in tool_names
+
+    extracted_tools_sorted = sorted(extracted_tools, key=lambda t: t.function.name)
+
+    assert extracted_tools_sorted[0].model_dump(exclude_none=True) == {
+        "type": "function",
+        "function": {
+            "name": "add",
+            "description": "Add two numbers",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "a": {"type": "number"},
+                    "b": {"type": "number"},
+                },
+            },
+        },
+    }
+
+    assert extracted_tools_sorted[1].model_dump(exclude_none=True) == {
+        "type": "function",
+        "function": {
+            "name": "multiply",
+            "description": "Multiply two numbers",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x": {"type": "number"},
+                    "y": {"type": "number"},
+                },
+            },
+        },
+    }
 
 
 def test_extract_available_tools_from_trace_deduplication():
@@ -1064,14 +1177,20 @@ def test_extract_available_tools_from_trace_deduplication():
             set_span_chat_tools(span1, tools)
 
         with mlflow.start_span(name="llm2", span_type="LLM") as span2:
-            set_span_chat_tools(span2, tools)  # Same tool
+            set_span_chat_tools(span2, tools)
 
     trace = mlflow.get_trace(parent.trace_id)
     extracted_tools = extract_available_tools_from_trace(trace)
 
-    # Should only return 1 tool despite being in 2 spans
     assert len(extracted_tools) == 1
-    assert extracted_tools[0].function.name == "get_weather"
+    assert extracted_tools[0].model_dump(exclude_none=True) == {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get weather info",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    }
 
 
 def test_extract_available_tools_from_trace_different_descriptions():
@@ -1091,7 +1210,7 @@ def test_extract_available_tools_from_trace_different_descriptions():
             "type": "function",
             "function": {
                 "name": "search",
-                "description": "Search the database",  # Different description
+                "description": "Search the database",
                 "parameters": {"type": "object", "properties": {}},
             },
         }
@@ -1107,22 +1226,31 @@ def test_extract_available_tools_from_trace_different_descriptions():
     trace = mlflow.get_trace(parent.trace_id)
     extracted_tools = extract_available_tools_from_trace(trace)
 
-    # Should return 2 tools since descriptions are different
     assert len(extracted_tools) == 2
-    descriptions = [t.function.description for t in extracted_tools]
-    assert "Search the web" in descriptions
-    assert "Search the database" in descriptions
+
+    extracted_tools_sorted = sorted(extracted_tools, key=lambda t: t.function.description)
+
+    assert extracted_tools_sorted[0].model_dump(exclude_none=True) == {
+        "type": "function",
+        "function": {
+            "name": "search",
+            "description": "Search the database",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    }
+
+    assert extracted_tools_sorted[1].model_dump(exclude_none=True) == {
+        "type": "function",
+        "function": {
+            "name": "search",
+            "description": "Search the web",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    }
 
 
-@pytest.mark.parametrize(
-    "trace_fixture",
-    [
-        None,
-        Trace(info=create_test_trace_info(trace_id="tr-123"), data=None),
-        Trace(info=create_test_trace_info(trace_id="tr-456"), data=TraceData(spans=[])),
-    ],
-)
-def test_extract_available_tools_from_trace_returns_empty(trace_fixture):
+def test_extract_available_tools_from_trace_returns_empty():
+    trace_fixture = Trace(info=create_test_trace_info(trace_id="tr-456"), data=TraceData(spans=[]))
     result = extract_available_tools_from_trace(trace_fixture)
     assert result == []
 
@@ -1165,4 +1293,84 @@ def test_extract_available_tools_from_trace_with_invalid_tools(has_valid_tool, e
 
     assert len(extracted_tools) == expected_count
     if has_valid_tool:
-        assert extracted_tools[0].function.name == "valid_tool"
+        assert extracted_tools[0].model_dump(exclude_none=True) == {
+            "type": "function",
+            "function": {
+                "name": "valid_tool",
+                "description": "A valid tool",
+            },
+        }
+
+
+def test_extract_available_tools_llm_fallback_triggered_when_no_tools_found(monkeypatch):
+    with mlflow.start_span(name="llm_span", span_type=SpanType.LLM) as span:
+        span.set_inputs(
+            {
+                "messages": [{"role": "user", "content": "test"}],
+                "tools": [
+                    {
+                        "tool_name": "hard_to_extract_tool",
+                        "description": "A tool that is hard to extract",
+                    }
+                ],
+            }
+        )
+        span.set_outputs({"response": "result"})
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    mock_tools = [
+        ChatTool(
+            type="function",
+            function=FunctionToolDefinition(
+                name="hard_to_extract_tool",
+                description="A tool that is hard to extract",
+                parameters={"type": "object", "properties": {"x": {"type": "string"}}},
+            ),
+        )
+    ]
+
+    mock_llm_fallback_called = []
+
+    def mock_llm_fallback(trace_arg, model_arg):
+        mock_llm_fallback_called.append({"trace": trace_arg, "model": model_arg})
+        return mock_tools
+
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._try_extract_available_tools_with_llm",
+        mock_llm_fallback,
+    )
+
+    extracted_tools = extract_available_tools_from_trace(trace, model="openai:/gpt-4")
+
+    assert len(mock_llm_fallback_called) == 1
+    assert mock_llm_fallback_called[0]["trace"] == trace
+    assert mock_llm_fallback_called[0]["model"] == "openai:/gpt-4"
+    assert len(extracted_tools) == 1
+    assert extracted_tools[0].model_dump(exclude_none=True) == {
+        "type": "function",
+        "function": {
+            "name": "hard_to_extract_tool",
+            "description": "A tool that is hard to extract",
+            "parameters": {"type": "object", "properties": {"x": {"type": "string"}}},
+        },
+    }
+
+
+def test_try_extract_available_tools_with_llm_returns_empty_on_error(monkeypatch):
+    with mlflow.start_span(name="llm_span", span_type=SpanType.LLM) as span:
+        span.set_inputs({"messages": [{"role": "user", "content": "test"}]})
+        span.set_outputs({"response": "result"})
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    def mock_raise_error(*args, **kwargs):
+        raise RuntimeError("LLM API error")
+
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils.get_chat_completions_with_structured_output",
+        mock_raise_error,
+    )
+
+    result = _try_extract_available_tools_with_llm(trace, model="openai:/gpt-4")
+    assert result == []
