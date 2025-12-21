@@ -18,10 +18,12 @@ Comprehensive guide for evaluating GenAI agents with MLflow. Use this skill for 
 
 ## Quick Start
 
+**Setup (prerequisite)**: Install MLflow 3.8+, configure environment, integrate tracing
+
 **Evaluation workflow in 4 steps**:
-1. **Setup**: Install MLflow 3.8+, configure environment, integrate tracing
-2. **Understand**: Run agent, inspect traces, understand purpose
-3. **Define**: Select/create scorers for quality criteria
+1. **Understand**: Run agent, inspect traces, understand purpose
+2. **Define**: Select/create scorers for quality criteria
+3. **Dataset**: ALWAYS discover existing datasets first, only create new if needed
 4. **Evaluate**: Run agent on dataset, apply scorers, analyze results
 
 ## Command Conventions
@@ -100,17 +102,29 @@ Before evaluation, complete these three setup steps:
 
 ### Step 3: Prepare Evaluation Dataset
 
-Check existing datasets first:
+**ALWAYS discover existing datasets first** to prevent duplicate work:
 
-```bash
-uv run python scripts/list_datasets.py
-```
+1. **Run dataset discovery** (mandatory):
+   ```bash
+   uv run python scripts/list_datasets.py
+   ```
 
-If no suitable dataset exists, create one:
+2. **Present findings to user**:
+   - Show all discovered datasets with their characteristics (size, topics covered)
+   - If datasets found, highlight most relevant options based on agent type
 
-```bash
-uv run python scripts/create_dataset_template.py
-```
+3. **Ask user about existing datasets**:
+   - "I found [N] existing evaluation dataset(s). Do you want to use one of these? (y/n)"
+   - If yes: Ask which dataset to use and record the dataset name
+   - If no: Proceed to step 4
+
+4. **Create new dataset only if user declined existing ones**:
+   ```bash
+   uv run python scripts/create_dataset_template.py
+   ```
+   Review and execute the generated script.
+
+**IMPORTANT**: Do not skip dataset discovery. Always run `list_datasets.py` first, even if you plan to create a new dataset. This prevents duplicate work and ensures users are aware of existing evaluation datasets.
 
 **For complete dataset guide:** See `references/dataset-preparation.md`
 
@@ -168,11 +182,12 @@ Executable automation for common operations:
 
 **Dataset Management:**
 - **list_datasets.py**: Dataset discovery and comparison
-  - **Use**: Step 3.1 (ALWAYS run first)
+  - **Use**: Step 3 - MANDATORY first step
   - Lists, compares, recommends datasets with diversity metrics
+  - Always run before considering dataset creation
 
 - **create_dataset_template.py**: Dataset creation code generator
-  - **Use**: Step 3.2 (Only if no suitable dataset exists)
+  - **Use**: Step 3 - ONLY if user declines existing datasets
   - Generates customized dataset creation script
   - **IMPORTANT**: Generated code uses `mlflow.genai.datasets` APIs and prompts you to inspect agent function signature to match parameters exactly
 
