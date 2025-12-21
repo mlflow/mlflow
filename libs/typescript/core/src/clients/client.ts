@@ -1,6 +1,13 @@
 import { TraceInfo } from '../core/entities/trace_info';
 import { Trace } from '../core/entities/trace';
-import { CreateExperiment, DeleteExperiment, GetTraceInfoV3, StartTraceV3 } from './spec';
+import { TraceLocationType } from '../core/entities/trace_location';
+import {
+  CreateExperiment,
+  DeleteExperiment,
+  GetTraceInfoV3,
+  StartTraceV3,
+  SearchTracesV3
+} from './spec';
 import { getRequestHeaders, makeRequest } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
@@ -145,5 +152,58 @@ export class MlflowClient {
       ),
       payload
     );
+  }
+
+  /**
+   * Search for traces that match the given filter criteria.
+   *
+   * @param options - Search options
+   * @param options.experimentIds - List of experiment IDs to search over
+   * @param options.filter - Filter expression (e.g. "trace.status = 'OK'")
+   * @param options.maxResults - Maximum number of traces to return (default 100, max 500)
+   * @param options.orderBy - List of columns for ordering results (e.g. ["timestamp_ms DESC"])
+   * @param options.pageToken - Token for pagination from a previous search
+   * @returns Object containing traces and optional next page token
+   */
+  async searchTraces(options: {
+    experimentIds?: string[];
+    filter?: string;
+    maxResults?: number;
+    orderBy?: string[];
+    pageToken?: string;
+  } = {}): Promise<{ traces: TraceInfo[]; nextPageToken?: string }> {
+    const url = SearchTracesV3.getEndpoint(this.host);
+
+    const locations: SearchTracesV3.TraceLocation[] | undefined = options.experimentIds?.map(
+      (experimentId) => ({
+        type: 'MLFLOW_EXPERIMENT' as const,
+        mlflow_experiment: { experiment_id: experimentId }
+      })
+    );
+
+    const payload: SearchTracesV3.Request = {
+      locations,
+      filter: options.filter,
+      max_results: options.maxResults,
+      order_by: options.orderBy,
+      page_token: options.pageToken
+    };
+
+    const response = await makeRequest<SearchTracesV3.Response>(
+      'POST',
+      url,
+      getRequestHeaders(
+        this.databricksToken,
+        this.trackingServerUsername,
+        this.trackingServerPassword
+      ),
+      payload
+    );
+
+    const traces = (response.traces || []).map((t) => TraceInfo.fromJson(t));
+    return {
+      traces,
+      nextPageToken: response.next_page_token
+    };
   }
 }

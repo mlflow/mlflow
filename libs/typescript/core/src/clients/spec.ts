@@ -94,3 +94,43 @@ export namespace GetCredentialsForTraceDataDownload {
     };
   }
 }
+
+/**
+ * Search for traces
+ */
+export namespace SearchTracesV3 {
+  export const getEndpoint = (host: string) => `${host}/api/3.0/mlflow/traces/search`;
+
+  /**
+   * TraceLocation for search request - specifies where to search for traces
+   */
+  export interface TraceLocation {
+    type: 'MLFLOW_EXPERIMENT' | 'INFERENCE_TABLE' | 'TRACE_LOCATION_TYPE_UNSPECIFIED';
+    mlflow_experiment?: {
+      experiment_id: string;
+    };
+    inference_table?: {
+      full_table_name: string;
+    };
+  }
+
+  export interface Request {
+    /** List of locations to search over */
+    locations?: TraceLocation[];
+    /** Filter expression (e.g. "trace.status = 'OK'") */
+    filter?: string;
+    /** Maximum number of traces to return (max 500, default 100) */
+    max_results?: number;
+    /** List of columns for ordering results (e.g. ["timestamp_ms DESC"]) */
+    order_by?: string[];
+    /** Token for pagination */
+    page_token?: string;
+  }
+
+  export interface Response {
+    /** List of traces matching the search criteria */
+    traces: Parameters<typeof TraceInfo.fromJson>[0][];
+    /** Token for fetching the next page of results */
+    next_page_token?: string;
+  }
+}
