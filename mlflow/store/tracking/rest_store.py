@@ -38,6 +38,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_metrics import MetricAggregation, MetricDataPoint, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
@@ -95,6 +96,7 @@ from mlflow.protos.service_pb2 import (
     LogOutputs,
     LogParam,
     MlflowService,
+    QueryTraceMetrics,
     RegisterScorer,
     RemoveDatasetFromExperiments,
     RestoreExperiment,
@@ -120,7 +122,7 @@ from mlflow.protos.service_pb2 import (
     UpsertDatasetRecords,
 )
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.rest_mixin import RestGatewayStoreMixin
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
@@ -644,6 +646,49 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         # Always use v2 endpoint
         req_body = message_to_json(DeleteTraceTag(key=key))
         self._call_endpoint(DeleteTraceTag, req_body, endpoint=get_trace_tag_endpoint(trace_id))
+
+    def query_trace_metrics(
+        self,
+        experiment_ids: list[str],
+        view_type: MetricViewType,
+        metric_name: str,
+        aggregations: list[MetricAggregation],
+        dimensions: list[str] | None = None,
+        filters: list[str] | None = None,
+        time_interval_seconds: int | None = None,
+        start_time_ms: int | None = None,
+        end_time_ms: int | None = None,
+        max_results: int = MAX_RESULTS_QUERY_TRACE_METRICS,
+        page_token: str | None = None,
+    ) -> PagedList[MetricDataPoint]:
+        max_results = max_results or MAX_RESULTS_QUERY_TRACE_METRICS
+        request = QueryTraceMetrics(
+            experiment_ids=experiment_ids,
+            view_type=view_type.to_proto(),
+            metric_name=metric_name,
+            aggregations=[agg.to_proto() for agg in aggregations],
+            max_results=max_results,
+        )
+        if dimensions:
+            request.dimensions.extend(dimensions)
+        if filters:
+            request.filters.extend(filters)
+        if time_interval_seconds is not None:
+            request.time_interval_seconds = time_interval_seconds
+        if start_time_ms is not None:
+            request.start_time_ms = start_time_ms
+        if end_time_ms is not None:
+            request.end_time_ms = end_time_ms
+        if page_token is not None:
+            request.page_token = page_token
+
+        req_body = message_to_json(request)
+        endpoint = f"{_V3_TRACE_REST_API_PATH_PREFIX}/metrics"
+        response_proto = self._call_endpoint(QueryTraceMetrics, req_body, endpoint)
+
+        data_points = [MetricDataPoint.from_proto(dp) for dp in response_proto.data_points]
+        token = response_proto.next_page_token or None
+        return PagedList(data_points, token)
 
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """

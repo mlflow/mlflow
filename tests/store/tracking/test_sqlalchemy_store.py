@@ -303,19 +303,6 @@ def test_fail_on_multiple_drivers():
 
 
 @pytest.fixture
-def store(tmp_path: Path, db_uri: str) -> SqlAlchemyStore:
-    artifact_uri = tmp_path / "artifacts"
-    artifact_uri.mkdir(exist_ok=True)
-    if db_uri_env := MLFLOW_TRACKING_URI.get():
-        s = SqlAlchemyStore(db_uri_env, artifact_uri.as_uri())
-        yield s
-        _cleanup_database(s)
-    else:
-        s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
-        yield s
-
-
-@pytest.fixture
 def store_and_trace_info(store):
     exp_id = store.create_experiment("test")
     timestamp_ms = get_current_time_millis()

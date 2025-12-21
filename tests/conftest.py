@@ -237,7 +237,8 @@ def generate_duration_stats() -> str:
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
     """
-    Custom test protocol that supports rerunning failed tests marked with @pytest.mark.flaky.
+    Custom test protocol that tracks test duration and supports rerunning failed tests
+    marked with @pytest.mark.flaky.
 
     This is a simplified implementation inspired by pytest-rerunfailures:
     https://github.com/pytest-dev/pytest-rerunfailures/blob/365dc54ba3069f55a870cda2c3e1e3c33c68f326/src/pytest_rerunfailures.py#L564-L619
@@ -254,18 +255,14 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
     """
     from _pytest.runner import runtestprotocol
 
-    # Get attempts from the flaky marker
-    flaky_marker = item.get_closest_marker("flaky")
-    if flaky_marker is None:
-        # No flaky marker, use default behavior
-        return None
-
-    # Check condition - if False, skip rerun logic
-    condition = flaky_marker.kwargs.get("condition", True)
-    if not condition:
-        return None
-
-    attempts = flaky_marker.kwargs.get("attempts", 2)
+    # Check if we should enable flaky rerun logic
+    should_rerun = False
+    attempts = 1
+    if flaky_marker := item.get_closest_marker("flaky"):
+        condition = flaky_marker.kwargs.get("condition", True)
+        if condition:
+            should_rerun = True
+            attempts = flaky_marker.kwargs.get("attempts", 3)
 
     item.execution_count = 0
     need_to_run = True
@@ -278,7 +275,7 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
         total_duration += time.perf_counter() - start
 
         for report in reports:
-            if report.when == "call" and report.failed:
+            if should_rerun and report.when == "call" and report.failed:
                 if item.execution_count < attempts:
                     report.outcome = "rerun"
                     # Re-initialize the test item for the next run
