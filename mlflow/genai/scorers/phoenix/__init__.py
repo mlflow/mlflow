@@ -27,7 +27,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
-from mlflow.genai.judges.utils import CategoricalRating, get_default_model
+from mlflow.genai.judges.utils import get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.phoenix.models import create_phoenix_model
@@ -52,12 +52,12 @@ class PhoenixScorer(Scorer):
 
     _evaluator: Any = PrivateAttr()
     _model: str = PrivateAttr()
-    _label_map: dict[str, CategoricalRating] = PrivateAttr()
 
     def __init__(
         self,
         metric_name: str | None = None,
         model: str | None = None,
+        **evaluator_kwargs: Any,
     ):
         if metric_name is None:
             metric_name = self.metric_name
@@ -68,15 +68,7 @@ class PhoenixScorer(Scorer):
 
         phoenix_model = create_phoenix_model(model)
         evaluator_class = get_evaluator_class(metric_name)
-        self._evaluator = evaluator_class(model=phoenix_model)
-
-        config = get_metric_config(metric_name)
-        positive_label = config["positive_label"]
-        negative_label = config["negative_label"]
-        self._label_map = {
-            positive_label: CategoricalRating.YES,
-            negative_label: CategoricalRating.NO,
-        }
+        self._evaluator = evaluator_class(model=phoenix_model, **evaluator_kwargs)
 
     def __call__(
         self,
@@ -114,12 +106,10 @@ class PhoenixScorer(Scorer):
 
             label, score, explanation = self._evaluator.evaluate(record=record)
 
-            value = self._label_map.get(label, CategoricalRating.UNKNOWN)
-
             return Feedback(
                 name=self.name,
-                value=value,
-                rationale=explanation,
+                value=label,
+                rationale=explanation or None,
                 source=assessment_source,
                 metadata={
                     FRAMEWORK_METADATA_KEY: "phoenix",
@@ -141,6 +131,7 @@ class PhoenixScorer(Scorer):
 def get_scorer(
     metric_name: str,
     model: str | None = None,
+    **evaluator_kwargs: Any,
 ) -> PhoenixScorer:
     """
     Get a Phoenix metric as an MLflow scorer.
@@ -166,6 +157,7 @@ def get_scorer(
     return PhoenixScorer(
         metric_name=metric_name,
         model=model,
+        **evaluator_kwargs,
     )
 
 
@@ -293,4 +285,5 @@ __all__ = [
     "Toxicity",
     "QA",
     "Summarization",
+    "get_metric_config",
 ]

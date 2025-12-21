@@ -5,7 +5,6 @@ import pytest
 
 from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.utils import CategoricalRating
 
 
 def test_phoenix_check_installed_raises_without_phoenix():
@@ -14,10 +13,10 @@ def test_phoenix_check_installed_raises_without_phoenix():
             if "mlflow.genai.scorers.phoenix" in mod:
                 del sys.modules[mod]
 
-        from mlflow.genai.scorers.phoenix.models import _check_phoenix_installed
+        from mlflow.genai.scorers.phoenix.utils import check_phoenix_installed
 
         with pytest.raises(MlflowException, match="arize-phoenix-evals"):
-            _check_phoenix_installed()
+            check_phoenix_installed()
 
 
 def test_phoenix_hallucination_scorer_with_mock():
@@ -46,12 +45,12 @@ def test_phoenix_hallucination_scorer_with_mock():
         result = scorer(
             inputs="What is the capital of France?",
             outputs="Paris is the capital of France.",
-            expectations={"context": "France is in Europe. Its capital is Paris."},
+            expectations={"expected_response": "France is in Europe. Its capital is Paris."},
         )
 
         assert isinstance(result, Feedback)
         assert result.name == "Hallucination"
-        assert result.value == CategoricalRating.YES
+        assert result.value == "factual"
         assert result.metadata["score"] == 0.9
         assert result.metadata["label"] == "factual"
 
@@ -81,12 +80,12 @@ def test_phoenix_relevance_scorer_with_mock():
         scorer = Relevance(model="openai:/gpt-4")
         result = scorer(
             inputs="What is machine learning?",
-            expectations={"context": "Machine learning is a subset of AI."},
+            expectations={"expected_response": "Machine learning is a subset of AI."},
         )
 
         assert isinstance(result, Feedback)
         assert result.name == "Relevance"
-        assert result.value == CategoricalRating.YES
+        assert result.value == "relevant"
         assert result.metadata["score"] == 0.85
 
 
@@ -117,7 +116,7 @@ def test_phoenix_toxicity_scorer_with_mock():
 
         assert isinstance(result, Feedback)
         assert result.name == "Toxicity"
-        assert result.value == CategoricalRating.YES
+        assert result.value == "non-toxic"
         assert result.metadata["score"] == 0.95
 
 
@@ -147,12 +146,12 @@ def test_phoenix_qa_scorer_with_mock():
         result = scorer(
             inputs="What is 2+2?",
             outputs="4",
-            expectations={"context": "2+2=4"},
+            expectations={"expected_response": "2+2=4"},
         )
 
         assert isinstance(result, Feedback)
         assert result.name == "QA"
-        assert result.value == CategoricalRating.YES
+        assert result.value == "correct"
 
 
 def test_phoenix_summarization_scorer_with_mock():
@@ -185,7 +184,7 @@ def test_phoenix_summarization_scorer_with_mock():
 
         assert isinstance(result, Feedback)
         assert result.name == "Summarization"
-        assert result.value == CategoricalRating.YES
+        assert result.value == "good"
 
 
 def test_phoenix_scorer_negative_label():
@@ -214,11 +213,11 @@ def test_phoenix_scorer_negative_label():
         result = scorer(
             inputs="test",
             outputs="test output",
-            expectations={"context": "test context"},
+            expectations={"expected_response": "test context"},
         )
 
         assert isinstance(result, Feedback)
-        assert result.value == CategoricalRating.NO
+        assert result.value == "hallucinated"
 
 
 def test_phoenix_get_scorer():
@@ -247,7 +246,7 @@ def test_phoenix_get_scorer():
         result = scorer(
             inputs="test",
             outputs="test output",
-            expectations={"context": "test context"},
+            expectations={"expected_response": "test context"},
         )
 
         assert isinstance(result, Feedback)
@@ -309,7 +308,7 @@ def test_phoenix_assessment_source():
         result = scorer(
             inputs="test",
             outputs="test output",
-            expectations={"context": "test context"},
+            expectations={"expected_response": "test context"},
         )
 
         assert result.source is not None

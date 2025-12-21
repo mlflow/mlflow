@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import logging
-
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
@@ -10,18 +8,7 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     _invoke_databricks_serving_endpoint,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-
-_logger = logging.getLogger(__name__)
-
-
-def _check_phoenix_installed():
-    try:
-        import phoenix.evals  # noqa: F401
-    except ImportError:
-        raise MlflowException.invalid_parameter_value(
-            "Phoenix evaluators require the 'arize-phoenix-evals' package. "
-            "Install it with: pip install arize-phoenix-evals"
-        )
+from mlflow.genai.scorers.phoenix.utils import check_phoenix_installed
 
 
 class _NoOpRateLimiter:
@@ -40,12 +27,10 @@ class DatabricksPhoenixModel:
 
     def __init__(self):
         self._model_name = _DATABRICKS_DEFAULT_JUDGE_MODEL
-        # Required by Phoenix's set_verbosity context manager
         self._verbose = False
         self._rate_limiter = _NoOpRateLimiter()
 
     def __call__(self, prompt, **kwargs) -> str:
-        # Phoenix may pass MultimodalPrompt objects instead of strings
         prompt_str = str(prompt) if not isinstance(prompt, str) else prompt
         result = call_chat_completions(user_prompt=prompt_str, system_prompt="")
         return result.output
@@ -63,13 +48,10 @@ class DatabricksServingEndpointPhoenixModel:
 
     def __init__(self, endpoint_name: str):
         self._endpoint_name = endpoint_name
-        # Required by Phoenix's set_verbosity context manager
         self._verbose = False
         self._rate_limiter = _NoOpRateLimiter()
 
     def __call__(self, prompt, **kwargs) -> str:
-        # Phoenix may pass MultimodalPrompt objects instead of strings
-        # Convert to string if needed
         prompt_str = str(prompt) if not isinstance(prompt, str) else prompt
         output = _invoke_databricks_serving_endpoint(
             model_name=self._endpoint_name,
@@ -91,7 +73,7 @@ def create_phoenix_model(model_uri: str):
         model_uri: Model URI in one of these formats:
             - "databricks" - Use default Databricks managed judge
             - "databricks:/endpoint" - Use Databricks serving endpoint
-            - "provider:/model" - Use provider-specific model (e.g., "openai:/gpt-4")
+            - "provider:/model" - Use LiteLLM model (e.g., "openai:/gpt-4")
 
     Returns:
         A Phoenix-compatible model adapter
@@ -99,7 +81,7 @@ def create_phoenix_model(model_uri: str):
     Raises:
         MlflowException: If the model URI format is invalid
     """
-    _check_phoenix_installed()
+    check_phoenix_installed()
 
     if model_uri == "databricks":
         return DatabricksPhoenixModel()
@@ -107,39 +89,11 @@ def create_phoenix_model(model_uri: str):
         endpoint_name = model_uri.split(":", 1)[1].removeprefix("/")
         return DatabricksServingEndpointPhoenixModel(endpoint_name)
     elif ":" in model_uri:
+        from phoenix.evals import LiteLLMModel
+
         provider, model_name = model_uri.split(":", 1)
         model_name = model_name.removeprefix("/")
-
-        match provider:
-            case "openai":
-                from phoenix.evals import OpenAIModel
-
-                return OpenAIModel(model=model_name)
-            case "azure_openai":
-                from phoenix.evals import AzureOpenAIModel
-
-                return AzureOpenAIModel(model=model_name)
-            case "bedrock":
-                from phoenix.evals import BedrockModel
-
-                return BedrockModel(model_id=model_name)
-            case "anthropic":
-                from phoenix.evals import AnthropicModel
-
-                return AnthropicModel(model=model_name)
-            case "gemini":
-                from phoenix.evals import GeminiModel
-
-                return GeminiModel(model=model_name)
-            case "mistral":
-                from phoenix.evals import MistralAIModel
-
-                return MistralAIModel(model=model_name)
-            case _:
-                # Fall back to LiteLLM for other providers
-                from phoenix.evals import LiteLLMModel
-
-                return LiteLLMModel(model=f"{provider}/{model_name}")
+        return LiteLLMModel(model=f"{provider}/{model_name}")
     else:
         raise MlflowException.invalid_parameter_value(
             f"Invalid model_uri format: '{model_uri}'. "

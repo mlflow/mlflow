@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from mlflow.entities.trace import Trace
+from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
@@ -13,6 +14,45 @@ from mlflow.genai.utils.trace_utils import (
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
 )
+
+
+def check_phoenix_installed():
+    """Check if Phoenix is installed and raise an error if not."""
+    try:
+        import phoenix.evals  # noqa: F401
+    except ImportError:
+        raise MlflowException.invalid_parameter_value(
+            "Phoenix evaluators require the 'arize-phoenix-evals' package. "
+            "Install it with: pip install arize-phoenix-evals"
+        )
+
+
+def get_reference_from_expectations(expectations: dict[str, Any] | None) -> str | None:
+    """Extract reference/context from expectations dict using standard MLflow keys."""
+    if not expectations:
+        return None
+    return (
+        expectations.get("expected_response")
+        or expectations.get("context")
+        or expectations.get("reference")
+        or expectations.get("expected_output")
+    )
+
+
+def get_reference_from_trace(trace: Trace) -> str | None:
+    """Extract reference context from trace retrieval spans."""
+    span_id_to_context = extract_retrieval_context_from_trace(trace)
+    if not span_id_to_context:
+        return None
+
+    contexts = []
+    for ctx_list in span_id_to_context.values():
+        for ctx in ctx_list:
+            if isinstance(ctx, dict) and "content" in ctx:
+                contexts.append(ctx["content"])
+            else:
+                contexts.append(str(ctx))
+    return "\n".join(contexts) if contexts else None
 
 
 def map_scorer_inputs_to_phoenix_record(
@@ -42,43 +82,15 @@ def map_scorer_inputs_to_phoenix_record(
 
     record = {}
 
-    # Parse inputs to string
     if inputs is not None:
-        input_str = parse_inputs_to_str(inputs)
-        record["input"] = input_str
+        record["input"] = parse_inputs_to_str(inputs)
 
-    # Parse outputs to string
     if outputs is not None:
-        output_str = parse_outputs_to_str(outputs)
-        record["output"] = output_str
+        record["output"] = parse_outputs_to_str(outputs)
 
-    # Toxicity evaluator expects text in 'input' field, not 'output'
-    # If only outputs provided and no input, use output as input for Toxicity
-    if metric_name == "Toxicity" and "input" not in record and "output" in record:
-        record["input"] = record["output"]
-
-    # Handle context/reference from expectations or trace
-    reference = None
-    if expectations:
-        reference = (
-            expectations.get("context")
-            or expectations.get("reference")
-            or expectations.get("expected_output")
-        )
-
-    # If no reference from expectations, try to extract from trace retrieval spans
+    reference = get_reference_from_expectations(expectations)
     if not reference and trace:
-        span_id_to_context = extract_retrieval_context_from_trace(trace)
-        if span_id_to_context:
-            contexts = []
-            for ctx_list in span_id_to_context.values():
-                for ctx in ctx_list:
-                    if isinstance(ctx, dict) and "content" in ctx:
-                        contexts.append(ctx["content"])
-                    else:
-                        contexts.append(str(ctx))
-            if contexts:
-                reference = "\n".join(contexts)
+        reference = get_reference_from_trace(trace)
 
     if reference:
         record["reference"] = reference

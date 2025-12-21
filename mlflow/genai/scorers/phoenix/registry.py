@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.phoenix.models import _check_phoenix_installed
+from mlflow.genai.scorers.phoenix.utils import check_phoenix_installed
 
-# Map metric names to their evaluator classes and configurations
 _METRIC_REGISTRY = {
     "Hallucination": {
         "evaluator_class": "HallucinationEvaluator",
@@ -53,7 +52,7 @@ def get_evaluator_class(metric_name: str):
     Raises:
         MlflowException: If the metric is not supported
     """
-    _check_phoenix_installed()
+    check_phoenix_installed()
 
     if metric_name not in _METRIC_REGISTRY:
         available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
