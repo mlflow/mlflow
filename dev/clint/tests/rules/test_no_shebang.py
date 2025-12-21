@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 from clint.config import Config
-from clint.linter import Location, lint_file
+from clint.linter import Position, Range, lint_file
 from clint.rules import NoShebang
 
 
@@ -14,7 +14,7 @@ def test_no_shebang(index_path: Path) -> None:
     results = lint_file(Path("test.py"), code, config, index_path)
     assert len(results) == 1
     assert all(isinstance(r.rule, NoShebang) for r in results)
-    assert results[0].loc == Location(0, 0)  # First line, first column (0-indexed)
+    assert results[0].range == Range(Position(0, 0))  # First line, first column (0-indexed)
 
     # Test file without shebang - should not trigger violation
     code = "print('hello')"
@@ -38,7 +38,7 @@ def test_no_shebang_various_patterns(index_path: Path, shebang: str) -> None:
     code = f"{shebang}\nprint('hello')\n"
     results = lint_file(Path("test.py"), code, config, index_path)
     assert all(isinstance(r.rule, NoShebang) for r in results)
-    assert results[0].loc == Location(0, 0)
+    assert results[0].range == Range(Position(0, 0))
 
 
 @pytest.mark.parametrize(

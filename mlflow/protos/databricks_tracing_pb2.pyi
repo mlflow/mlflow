@@ -1,10 +1,10 @@
 import assessments_pb2 as _assessments_pb2
 import databricks_pb2 as _databricks_pb2
-from scalapb import scalapb_pb2 as _scalapb_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
+from scalapb import scalapb_pb2 as _scalapb_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor

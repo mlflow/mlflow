@@ -16,7 +16,6 @@ AggregationFn = Callable[[dict[str, bool | float | str | Feedback | list[Feedbac
 @deprecated(
     since="3.5.0",
 )
-@experimental(version="3.0.0")
 @dataclass
 class LLMParams:
     """
@@ -41,7 +40,6 @@ class LLMParams:
 @deprecated(
     since="3.5.0",
 )
-@experimental(version="3.0.0")
 @dataclass
 class OptimizerConfig:
     """

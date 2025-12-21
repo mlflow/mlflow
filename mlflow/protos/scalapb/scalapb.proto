@@ -2,9 +2,9 @@ syntax = "proto2";
 
 package scalapb;
 
-option java_package = "org.mlflow.scalapb_interface";
-
 import "google/protobuf/descriptor.proto";
+
+option java_package = "org.mlflow.scalapb_interface";
 
 message ScalaPbOptions {
   // If set then it overrides the java_package and package.

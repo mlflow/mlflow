@@ -4,22 +4,27 @@ sidebar_label: Optimize Prompts
 ---
 
 import { APILink } from "@site/src/components/APILink";
+import { CardGroup, Card, SmallLogoCard } from "@site/src/components/Card";
 
 # Optimize Prompts (Experimental)
 
-MLflow offers the <APILink fn="mlflow.genai.optimize_prompts" /> API, enabling you to automatically improve your prompts using evaluation metrics and training data. This powerful feature allows you to enhance prompt effectiveness across any agent framework by applying prompt optimization algorithms, reducing manual effort and ensuring consistent quality.
+**The simple way to continuously improve your AI agents and prompts.**
+
+MLflow's prompt optimization lets you systematically enhance your AI applications with minimal code changes. Whether you're building with LangChain, OpenAI Agent, CrewAI, or your own custom implementation, MLflow provides a universal path from initial prototyping to steady improvement.
+
+**Minimum rewrites, no lock-in, just better prompts.**
 
 Currently, MLflow supports the [GEPA](https://arxiv.org/abs/2507.19457) optimization algorithm through the <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer" >`GepaPromptOptimizer`</APILink>. GEPA iteratively refines prompts using LLM-driven reflection and automated feedback, leading to systematic and data-driven improvements.
 
-:::tip Key Benefits
+:::tip Why Use MLflow Prompt Optimization?
 
-- **Automatic Improvement**: Optimize prompts based on evaluation metrics without manual tuning
-- **Data-Driven Optimization**: Uses your training data and custom scorers to guide optimization
-- **Framework Agnostic**: Works with any agent framework, providing broad compatibility
-- **Joint Optimization**: Enable the simultaneous refinement of multiple prompts for best overall performance
-- **Flexible Evaluation**: Support for custom scorers and aggregation function
-- **Version Control**: Automatically registers optimized prompts in MLflow Prompt Registry
-- **Extensible**: Plug in custom optimization algorithms by extending the base class
+- **Zero Framework Lock-in**: Works with ANY agent framework—LangChain, OpenAI Agent, CrewAI, or custom solutions
+- **Minimal Code Changes**: Add a few lines to start optimizing; no architectural rewrites needed
+- **Data-Driven Improvement**: Automatically learn from your evaluation data and custom metrics
+- **Multi-Prompt Optimization**: Jointly optimize multiple prompts for complex agent workflows
+- **Granular Control**: Optimize single prompts or entire multi-prompt workflows—you decide what to improve
+- **Production-Ready**: Built-in version control and registry for seamless deployment
+- **Extensible**: Bring your own optimization algorithms with simple base class extension
 
 :::
 
@@ -29,7 +34,7 @@ The `optimize_prompts` API requires **MLflow >= 3.5.0**.
 
 ## Quick Start
 
-Here's a simple example of optimizing a prompt for better accuracy:
+Here's a realistic example of optimizing a prompt for medical paper section classification:
 
 ```python
 import mlflow
@@ -37,43 +42,57 @@ import openai
 from mlflow.genai.optimize import GepaPromptOptimizer
 from mlflow.genai.scorers import Correctness
 
-# Register initial prompt
+# Register initial prompt for classifying medical paper sections
 prompt = mlflow.genai.register_prompt(
-    name="qa",
-    template="Answer this question: {{question}}",
+    name="medical_section_classifier",
+    template="Classify this medical research paper sentence into one of these sections: CONCLUSIONS, RESULTS, METHODS, OBJECTIVE, BACKGROUND.\n\nSentence: {{sentence}}",
 )
 
 
 # Define your prediction function
-def predict_fn(question: str) -> str:
-    prompt = mlflow.genai.load_prompt("prompts:/qa/1")
+def predict_fn(sentence: str) -> str:
+    prompt = mlflow.genai.load_prompt("prompts:/medical_section_classifier/1")
     completion = openai.OpenAI().chat.completions.create(
-        model="gpt-5-mini",
+        model="gpt-5-nano",
         # load prompt template using PromptVersion.format()
-        messages=[{"role": "user", "content": prompt.format(question=question)}],
+        messages=[{"role": "user", "content": prompt.format(sentence=sentence)}],
     )
     return completion.choices[0].message.content
 
 
-# Training data with inputs and expected outputs
+# Training data with medical paper sentences and ground truth labels
+# fmt: off
+raw_data = [
+    ("The emergence of HIV as a chronic condition means that people living with HIV are required to take more responsibility for the self-management of their condition , including making physical , emotional and social adjustments .", "BACKGROUND"),
+    ("This paper describes the design and evaluation of Positive Outlook , an online program aiming to enhance the self-management skills of gay men living with HIV .", "BACKGROUND"),
+    ("This study is designed as a randomised controlled trial in which men living with HIV in Australia will be assigned to either an intervention group or usual care control group .", "METHODS"),
+    ("The intervention group will participate in the online group program ` Positive Outlook ' .", "METHODS"),
+    ("The program is based on self-efficacy theory and uses a self-management approach to enhance skills , confidence and abilities to manage the psychosocial issues associated with HIV in daily life .", "METHODS"),
+    ("Participants will access the program for a minimum of 90 minutes per week over seven weeks .", "METHODS"),
+    ("Primary outcomes are domain specific self-efficacy , HIV related quality of life , and outcomes of health education .", "METHODS"),
+    ("Secondary outcomes include : depression , anxiety and stress ; general health and quality of life ; adjustment to HIV ; and social support .", "METHODS"),
+    ("Data collection will take place at baseline , completion of the intervention ( or eight weeks post randomisation ) and at 12 week follow-up .", "METHODS"),
+    ("Results of the Positive Outlook study will provide information regarding the effectiveness of online group programs improving health related outcomes for men living with HIV .", "CONCLUSIONS"),
+    ("The aim of this study was to evaluate the efficacy , safety and complications of orbital steroid injection versus oral steroid therapy in the management of thyroid-related ophthalmopathy .", "OBJECTIVE"),
+    ("A total of 29 patients suffering from thyroid ophthalmopathy were included in this study .", "METHODS"),
+    ("Patients were randomized into two groups : group I included 15 patients treated with oral prednisolone and group II included 14 patients treated with peribulbar triamcinolone orbital injection .", "METHODS"),
+    ("Both groups showed improvement in symptoms and in clinical evidence of inflammation with improvement of eye movement and proptosis in most cases .", "RESULTS"),
+    ("Mean exophthalmometry value before treatment was 22.6 1.98 mm that decreased to 18.6 0.996 mm in group I , compared with 23 1.86 mm that decreased to 19.08 1.16 mm in group II .", "RESULTS"),
+    ("There was no change in the best-corrected visual acuity in both groups .", "RESULTS"),
+    ("There was an increase in body weight , blood sugar , blood pressure and gastritis in group I in 66.7 % , 33.3 % , 50 % and 75 % , respectively , compared with 0 % , 0 % , 8.3 % and 8.3 % in group II .", "RESULTS"),
+    ("Orbital steroid injection for thyroid-related ophthalmopathy is effective and safe .", "CONCLUSIONS"),
+    ("It eliminates the adverse reactions associated with oral corticosteroid use .", "CONCLUSIONS"),
+    ("The aim of this prospective randomized study was to examine whether active counseling and more liberal oral fluid intake decrease postoperative pain , nausea and vomiting in pediatric ambulatory tonsillectomy .", "OBJECTIVE"),
+]
+# fmt: on
+
+# Format dataset for optimization
 dataset = [
     {
-        # The inputs schema should match with the input arguments of the prediction function.
-        "inputs": {"question": "What is the capital of France?"},
-        "expectations": {"expected_response": "Paris"},
-    },
-    {
-        "inputs": {"question": "What is the capital of Germany?"},
-        "expectations": {"expected_response": "Berlin"},
-    },
-    {
-        "inputs": {"question": "What is the capital of Japan?"},
-        "expectations": {"expected_response": "Tokyo"},
-    },
-    {
-        "inputs": {"question": "What is the capital of Italy?"},
-        "expectations": {"expected_response": "Rome"},
-    },
+        "inputs": {"sentence": sentence},
+        "expectations": {"expected_response": label},
+    }
+    for sentence, label in raw_data
 ]
 
 # Optimize the prompt
@@ -81,8 +100,10 @@ result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
     prompt_uris=[prompt.uri],
-    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
-    scorers=[Correctness(model="openai:/gpt-5")],
+    optimizer=GepaPromptOptimizer(
+        reflection_model="openai:/gpt-5", max_metric_calls=300
+    ),
+    scorers=[Correctness(model="openai:/gpt-5-mini")],
 )
 
 # Use the optimized prompt
@@ -90,59 +111,98 @@ optimized_prompt = result.optimized_prompts[0]
 print(f"Optimized template: {optimized_prompt.template}")
 ```
 
-The API will produce an improved prompt that performs better on your evaluation criteria.
+The API will automatically improve the prompt to better classify medical paper sections by learning from the training examples.
 
 ### Example: Simple Prompt → Optimized Prompt
 
-<table>
-<tr>
-<td width="50%" valign="top">
+<CardGroup cols={2}>
+<Card style={{ justifyContent: 'flex-start' }}>
 
 **Before Optimization:**
 
+<div style={{ maxWidth: '100%' }}>
+
 ```text
-Answer this question: {{question}}
+Classify this medical research paper sentence
+into one of these sections: CONCLUSIONS, RESULTS,
+METHODS, OBJECTIVE, BACKGROUND.
+
+Sentence: {{sentence}}
 ```
 
-</td>
-<td width="50%" valign="top">
+</div>
+
+</Card>
+<Card>
 
 **After Optimization:**
 
+<div style={{ maxWidth: '100%' }}>
+
 ```text
-Answer this question: {{question}}.
-Focus on providing precise,
-factual information without additional commentary or explanations.
+You are a single-sentence classifier for medical research abstracts. For each input sentence, decide which abstract section it belongs to and output exactly one label in UPPERCASE with no extra words, punctuation, or explanation.
 
-1. **Identify the Subject**: Clearly determine the specific subject
-of the question (e.g., geography, history)
-and provide a concise answer.
+Allowed labels: CONCLUSIONS, RESULTS, METHODS, OBJECTIVE, BACKGROUND
 
-2. **Clarity and Precision**: Your response should be a single,
-clear statement that directly addresses the question.
-Do not add extra details, context, or alternatives.
+Input format:
+- The prompt will be:
+  "Classify this medical research paper sentence into one of these sections: CONCLUSIONS, RESULTS, METHODS, OBJECTIVE, BACKGROUND.
 
-3. **Expected Format**: The expected output should be the exact answer
-with minimal words where appropriate.
-For instance, when asked about capitals, the answer should
-simply state the name of the capital city,
-e.g., "Tokyo" for Japan, "Rome" for Italy, and "Paris" for France.
+  Sentence: {{sentence}}"
 
-4. **Handling Variations**: If the question contains multiple
-parts or variations, focus on the primary query
- and answer it directly. Avoid over-complication.
+Core rules:
+- Use only the information in the single sentence.
+- Classify by the sentence's function: context-setting vs aim vs procedure vs findings vs interpretation.
+- Return exactly one uppercase label from the allowed set.
 
-5. **Niche Knowledge**: Ensure that the responses are based on
-commonly accepted geographic and historical facts,
-as this type of information is crucial for accuracy in your answers.
+Decision guide and lexical cues:
 
-Adhere strictly to these guidelines to maintain consistency
-and quality in your responses.
+1) RESULTS
+- Reports observed findings/outcomes tied to data.
+- Common cues: past-tense result verbs and outcome terms: "showed," "was/were associated with," "increased/decreased," "improved," "reduced," "significant," "p < …," "odds ratio," "risk ratio," "95% CI," percentages, rates, counts or numbers tied to effects/adverse events.
+- If it explicitly states changes, associations, statistical significance, or quantified outcomes, choose RESULTS.
+
+2) CONCLUSIONS
+- Interpretation, implications, recommendations, or high-level takeaways.
+- Common cues: "In conclusion," "These findings suggest/indicate," "We conclude," statements about practice/policy/clinical implications, benefit–risk judgments, feasibility statements.
+- Sentences that forecast the significance/utility of the study's results ("Results will provide insight/information," "Findings will inform/guide practice") are CONCLUSIONS.
+- Tie-break with RESULTS: If a sentence describes an outcome as a general claim without specific observed data/statistics, prefer CONCLUSIONS over RESULTS.
+
+3) METHODS
+- How the study was conducted: design, participants, interventions/programs, measurements/outcomes lists, timelines, procedures, or analyses.
+- Common cues: design terms ("randomized," "double-blind," "cross-sectional," "cohort," "case-control"), "participants," "n =," inclusion/exclusion criteria, instruments/scales, dosing/protocols, schedules/timelines, statistical tests/analysis plans ("multivariate regression," "Kaplan–Meier," "ANOVA," "we will compare"), trial registration, ethics approval.
+- Measurement/outcome lists are METHODS (e.g., "Secondary outcomes include: …"; "Primary outcome was …").
+- Numbers specifying sample size (e.g., "n = 200") → METHODS; numbers tied to effects → RESULTS.
+- Program/intervention descriptions, components, theoretical basis, and mechanisms are METHODS, even if written in present tense and even if they contain purpose phrases. Examples: "The program is based on self-efficacy theory…," "The intervention uses a self-management approach to enhance skills…," "The device is designed to…"
+  - Important: An infinitive "to [verb] …" inside a program/intervention description (e.g., "uses X to improve Y") is METHODS, not OBJECTIVE, because it describes how the intervention works, not the study's aim.
+
+4) OBJECTIVE
+- The aim/purpose/hypothesis of the study.
+- Common cues: "Objective(s):" "Aim/Purpose was," "We aimed/sought/intended to," "We hypothesized that …"
+- Infinitive purpose phrases indicating the study's aim without procedures or results: "To determine/evaluate/assess/investigate whether …" → OBJECTIVE.
+- Phrases like "The aim of this study was to evaluate the efficacy/safety of X vs Y …" → OBJECTIVE.
+- If "We evaluated/assessed …" is clearly used as a purpose statement (not describing methods or results), label OBJECTIVE.
+
+5) BACKGROUND
+- Context, rationale, prior knowledge, unmet need; introduces topic without specific aims, procedures, or results.
+- Common cues: burden/prevalence statements, "X is common," "X remains poorly understood," prior work summaries, general descriptions.
+- If a sentence merely states that a paper describes/reports a program/design/evaluation without concrete procedures/analyses, label as BACKGROUND.
+
+Important tie-break rules:
+- RESULTS vs CONCLUSIONS: Observed data/findings → RESULTS; interpretation/generalization/recommendation → CONCLUSIONS.
+- OBJECTIVE vs METHODS: Purpose/aim of the study → OBJECTIVE; concrete design/intervention details/measurements/analysis steps → METHODS.
+- BACKGROUND vs OBJECTIVE: Context/motivation without an explicit study aim → BACKGROUND.
+- BACKGROUND vs METHODS: General description without concrete procedures/analyses → BACKGROUND.
+- The word "Results" at the start does not guarantee RESULTS; e.g., "Results will provide information …" → CONCLUSIONS.
+
+Output constraint:
+- Return exactly one uppercase label: CONCLUSIONS, RESULTS, METHODS, OBJECTIVE, or BACKGROUND. No extra text or punctuation.
 ```
 
-</td>
-</tr>
-</table>
+</div>
+
+</Card>
+</CardGroup>
 
 ## Components
 
@@ -222,15 +282,37 @@ def predict_fn(question: str) -> str:
 Provide a dataset with `inputs` and `expectations`. Both columns should have dictionary values. `inputs` values will be passed to the predict function as keyword arguments. Please refer to [Predefined LLM Scorers](/genai/eval-monitor/scorers/llm-judge/predefined/) for the expected format of each built in scorers.
 
 ```python
-# List of dictionaries
+# List of dictionaries - Example: Medical paper classification
 dataset = [
     {
-        "inputs": {"question": "What is AI?"},
-        "expectations": {"expected_response": "Artificial Intelligence"},
+        "inputs": {
+            "sentence": "The emergence of HIV as a chronic condition means that people living with HIV are required to take more responsibility..."
+        },
+        "expectations": {"expected_response": "BACKGROUND"},
     },
     {
-        "inputs": {"question": "What is ML?"},
-        "expectations": {"expected_response": "Machine Learning"},
+        "inputs": {
+            "sentence": "This study is designed as a randomised controlled trial in which men living with HIV..."
+        },
+        "expectations": {"expected_response": "METHODS"},
+    },
+    {
+        "inputs": {
+            "sentence": "Both groups showed improvement in symptoms and in clinical evidence of inflammation..."
+        },
+        "expectations": {"expected_response": "RESULTS"},
+    },
+    {
+        "inputs": {
+            "sentence": "Orbital steroid injection for thyroid-related ophthalmopathy is effective and safe."
+        },
+        "expectations": {"expected_response": "CONCLUSIONS"},
+    },
+    {
+        "inputs": {
+            "sentence": "The aim of this study was to evaluate the efficacy, safety and complications..."
+        },
+        "expectations": {"expected_response": "OBJECTIVE"},
     },
 ]
 
@@ -240,12 +322,14 @@ import pandas as pd
 dataset = pd.DataFrame(
     {
         "inputs": [
-            {"question": "What is AI?"},
-            {"question": "What is ML?"},
+            {"sentence": "The emergence of HIV as a chronic condition..."},
+            {"sentence": "This study is designed as a randomised controlled trial..."},
+            {"sentence": "Both groups showed improvement in symptoms..."},
         ],
         "expectations": [
-            {"expected_response": "Artificial Intelligence"},
-            {"expected_response": "Machine Learning"},
+            {"expected_response": "BACKGROUND"},
+            {"expected_response": "METHODS"},
+            {"expected_response": "RESULTS"},
         ],
     }
 )
@@ -266,6 +350,27 @@ optimizer = GepaPromptOptimizer(
 ```
 
 ## Advanced Usage
+
+### Works with Any Agent Framework
+
+MLflow's optimization is **framework-agnostic**—it works seamlessly with LangChain, LangGraph, OpenAI Agent, Pydantic AI, CrewAI, AutoGen, or any custom framework. No need to rewrite your existing agents or switch frameworks.
+
+See these framework-specific guides for detailed examples:
+
+<CardGroup isSmall>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/langchain-optimization">
+    <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/langgraph-optimization">
+    <span>![LangGraph Logo](/images/logos/langgraph-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/openai-agent-optimization">
+    <span>![OpenAI Agent Logo](/images/logos/openai-agent-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/pydantic-ai-optimization">
+    <span>![Pydantic AI Logo](/images/logos/pydanticai-logo.png)</span>
+  </SmallLogoCard>
+</CardGroup>
 
 ### Using Custom Scorers
 
@@ -391,72 +496,6 @@ result = mlflow.genai.optimize_prompts(
 # Access optimized prompts
 optimized_plan = result.optimized_prompts[0]
 optimized_answer = result.optimized_prompts[1]
-```
-
-### Use Agent Framework
-
-You can optimize your prompt used with agent frameworks. The example below optimizes a prompt for a LangChain workflow. Note that we call <APILink fn="mlflow.entities.model_registry.PromptVersion.to_single_brace_format" >`PromptVersion.to_single_brace_format()`</APILink> instead of <APILink fn="mlflow.entities.model_registry.PromptVersion.format" >`PromptVersion.format()`</APILink> inside `predict_fn`.
-
-```python
-import mlflow
-from mlflow.genai.scorers import Correctness
-from mlflow.genai.optimize.optimizers import GepaPromptOptimizer
-from langchain.prompts import PromptTemplate
-from langchain.llms import OpenAI
-from langchain.chains import LLMChain
-
-
-def predict_fn(input_language, output_language, text):
-    template = PromptTemplate(
-        input_variables=["input_language", "output_language", "text"],
-        template=prompt.to_single_brace_format(),  # call to_single_brace_format
-    )
-
-    llm = OpenAI(temperature=0.7)
-
-    chain = LLMChain(llm=llm, prompt=template)
-
-    result = chain.run(
-        input_language=input_language, output_language=output_language, text=text
-    )
-
-    return result
-
-
-dataset = [
-    {
-        "inputs": {
-            "input_language": "English",
-            "output_language": "French",
-            "text": "Hello, how are you?",
-        },
-        "expectations": {"expected_response": "Bonjour, comment allez-vous?"},
-    },
-    {
-        "inputs": {
-            "input_language": "English",
-            "output_language": "Spanish",
-            "text": "Good morning",
-        },
-        "expectations": {"expected_response": "Buenos días"},
-    },
-    {
-        "inputs": {
-            "input_language": "English",
-            "output_language": "German",
-            "text": "Thank you very much",
-        },
-        "expectations": {"expected_response": "Vielen Dank"},
-    },
-]
-
-result = mlflow.genai.optimize_prompts(
-    predict_fn=predict_fn,
-    train_data=dataset,
-    prompt_uris=[prompt.uri],
-    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
-    scorers=[Correctness(model="openai:/gpt-5")],
-)
 ```
 
 ## Result Object

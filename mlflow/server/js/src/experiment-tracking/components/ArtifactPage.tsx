@@ -137,7 +137,13 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
         fallbackEntityTags ?? this.props.entityTags,
       );
     } else {
-      await this.props.listArtifactsApi(runUuid, undefined, this.listArtifactRequestIds[0]);
+      await this.props.listArtifactsApi(
+        runUuid,
+        undefined,
+        this.listArtifactRequestIds[0],
+        this.props.experimentId,
+        this.props.entityTags,
+      );
     }
     if (this.props.initialSelectedArtifactPath) {
       const parts = this.props.initialSelectedArtifactPath.split('/');
@@ -160,7 +166,13 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
             fallbackEntityTags ?? this.props.entityTags,
           );
         } else {
-          await this.props.listArtifactsApi(runUuid, pathSoFar, this.listArtifactRequestIds[i + 1]);
+          await this.props.listArtifactsApi(
+            runUuid,
+            pathSoFar,
+            this.listArtifactRequestIds[i + 1],
+            this.props.experimentId,
+            this.props.entityTags,
+          );
         }
         pathSoFar += '/';
       }

@@ -217,3 +217,10 @@ export const textDecompressDeflate = async (compressedText: string) => {
 };
 
 export const isTextCompressedDeflate = (text: string) => text.startsWith(COMPRESSED_TEXT_DEFLATE_PREFIX);
+
+/**
+ * Sanitizes a string for use in a regular expression by escaping special characters.
+ */
+export const sanitizeStringForRegexp = (str: string) => {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};

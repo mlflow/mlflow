@@ -4,19 +4,11 @@
  */
 
 export const shouldEnableRunDetailsPageAutoRefresh = () => true;
-/**
- * UI feature preview: enables prompt lab
- */
-export const shouldEnablePromptLab = () => true;
 
 /**
  * Enable chart expressions feature
  */
 export const shouldEnableChartExpressions = () => false;
-/**
- * Should enable toggling aggregation of individual runs in run groups
- */
-export const shouldEnableToggleIndividualRunsInGroups = () => false;
 
 /**
  * Update relative time axis to use date
@@ -31,10 +23,6 @@ export const shouldEnableMinMaxMetricsOnExperimentPage = () => false;
 
 export const shouldUseCompressedExperimentViewSharedState = () => true;
 export const shouldEnableUnifiedChartDataTraceHighlight = () => true;
-/**
- * Determines if the regexp-based auto runs search filter is enabled.
- * This should be disabled in OSS since backend does not support it yet.
- */
 export const shouldUseRegexpBasedAutoRunsSearchFilter = () => false;
 export const shouldUseRunRowsVisibilityMap = () => true;
 export const isUnstableNestedComponentsMigrated = () => true;
@@ -55,6 +43,20 @@ export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
 export const shouldRerunExperimentUISeeding = () => false;
 
 /**
+ * Feature flag to enable Scorers UI tab in experiment page
+ */
+export const enableScorersUI = () => {
+  return false;
+};
+
+/**
+ * Determines if running scorers feature is enabled (ability to run LLM scorers on sample traces)
+ */
+export const isRunningScorersEnabled = () => {
+  return false;
+};
+
+/**
  * Determines if experiment kind inference is enabled.
  */
 export const shouldEnableExperimentKindInference = () => true;
@@ -70,6 +72,10 @@ export const shouldUseSharedTaggingUI = () => false;
 
 export const shouldDisableReproduceRunButton = () => false;
 
+export const shouldEnablePromptLab = () => {
+  return true;
+};
+
 export const shouldUnifyLoggedModelsAndRegisteredModels = () => {
   return false;
 };
@@ -78,13 +84,6 @@ export const shouldUnifyLoggedModelsAndRegisteredModels = () => {
  * Enables use of GetLoggedModels API allowing to get multiple logged models by their IDs.
  */
 export const shouldUseGetLoggedModelsBatchAPI = () => {
-  return false;
-};
-
-/**
- * Uses restructured routes for experiment page: parent+child hierarchy with <Outlet> instead of tab parameter.
- */
-export const shouldEnableExperimentPageChildRoutes = () => {
   return false;
 };
 
@@ -129,8 +128,18 @@ export const shouldUseUnifiedArtifactBrowserForRunDetailsPage = () => {
   return false;
 };
 
-export const shouldEnableTagGrouping = () => {
-  return true;
+/**
+ * Determines if the run metadata are visible on run details page overview.
+ */
+export const shouldEnableRunDetailsMetadataBoxOnRunDetailsPage = () => {
+  return false;
+};
+
+/**
+ * Determines if the artifacts are visible on run details page overview.
+ */
+export const shouldEnableArtifactsOnRunDetailsPage = () => {
+  return false;
 };
 
 /**
@@ -140,4 +149,8 @@ export const shouldEnableTagGrouping = () => {
  */
 export const shouldDisableAssessmentsPaneOnFetchFailure = () => {
   return false;
+};
+
+export const shouldEnableExperimentPageSideTabs = () => {
+  return true;
 };

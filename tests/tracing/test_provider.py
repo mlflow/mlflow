@@ -10,6 +10,7 @@ from mlflow.entities.trace_location import MlflowExperimentLocation, UCSchemaLoc
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_TRACE_SAMPLING_RATIO,
+    MLFLOW_USE_DEFAULT_TRACER_PROVIDER,
 )
 from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.destination import Databricks, MlflowExperiment
@@ -26,7 +27,7 @@ from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 from mlflow.tracing.provider import (
     _get_tracer,
-    _setup_tracer_provider,
+    _initialize_tracer_provider,
     is_tracing_enabled,
     start_span_in_context,
     trace_disabled,
@@ -38,9 +39,10 @@ from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_tra
 
 @pytest.fixture
 def mock_setup_tracer_provider():
-    # To count the number of times _setup_tracer_provider is called
+    # To count the number of times _initialize_tracer_provider is called
     with mock.patch(
-        "mlflow.tracing.provider._setup_tracer_provider", side_effect=_setup_tracer_provider
+        "mlflow.tracing.provider._initialize_tracer_provider",
+        side_effect=_initialize_tracer_provider,
     ) as setup_mock:
         yield setup_mock
 
@@ -122,6 +124,56 @@ def test_set_destination_databricks_uc(monkeypatch):
     assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
     assert isinstance(processors[0].span_exporter, DatabricksUCTableSpanExporter)
     assert get_active_spans_table_name() == "catalog.schema.mlflow_experiment_trace_otel_spans"
+
+
+def test_set_destination_databricks_uc_with_oltp_env_no_dual_export(monkeypatch):
+    # set_destination is called but OLTP is also set w/o dual export mode enabled
+    monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "false")
+    with (
+        mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True),
+        mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter,
+    ):
+        mock_get_exporter.return_value = mock.MagicMock()
+
+        mlflow.tracing.reset()
+        mlflow.tracing.set_destination(
+            destination=UCSchemaLocation(
+                catalog_name="catalog",
+                schema_name="schema",
+            )
+        )
+        tracer = _get_tracer("test")
+        processors = tracer.span_processor._span_processors
+        assert len(processors) == 1
+        assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
+        assert isinstance(processors[0].span_exporter, DatabricksUCTableSpanExporter)
+        assert get_active_spans_table_name() == "catalog.schema.mlflow_experiment_trace_otel_spans"
+
+
+def test_set_destination_databricks_uc_with_oltp_env_with_dual_export(monkeypatch):
+    # set_destination is called but OLTP is also set w/ dual export mode enabled
+    monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "true")
+    with (
+        mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True),
+        mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter,
+    ):
+        mock_get_exporter.return_value = mock.MagicMock()
+
+        mlflow.tracing.reset()
+        mlflow.tracing.set_destination(
+            destination=UCSchemaLocation(
+                catalog_name="catalog",
+                schema_name="schema",
+            )
+        )
+        tracer = _get_tracer("test")
+        processors = tracer.span_processor._span_processors
+        assert len(processors) == 2
+        assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
+        assert isinstance(processors[0].span_exporter, DatabricksUCTableSpanExporter)
+        # OTLP processor needs to be there for dual export mode
+        assert isinstance(processors[1], OtelSpanProcessor)
+        assert get_active_spans_table_name() == "catalog.schema.mlflow_experiment_trace_otel_spans"
 
 
 def test_set_destination_from_env_var_mlflow_experiment(monkeypatch):
@@ -261,7 +313,9 @@ def test_trace_disabled_decorator(enabled_initially):
         assert enable_mock.call_count == (1 if enabled_initially else 0)
 
 
-def test_disable_enable_tracing_not_mutate_otel_provider():
+def test_disable_enable_tracing_not_mutate_otel_provider(monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+
     # This test validates that disable/enable MLflow tracing does not mutate the OpenTelemetry's
     # global tracer provider instance.
     otel_tracer_provider = trace.get_tracer_provider()
@@ -403,8 +457,7 @@ def test_sampling_ratio(monkeypatch):
     )
 
 
-def test_otlp_exclusive_vs_dual_export(monkeypatch):
-    """Test OTLP exclusive mode vs dual export mode."""
+def test_otlp_exclusive_vs_dual_export_with_no_set_location(monkeypatch):
     from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
     from mlflow.tracing.processor.otel import OtelSpanProcessor
     from mlflow.tracing.provider import _get_tracer
@@ -420,9 +473,6 @@ def test_otlp_exclusive_vs_dual_export(monkeypatch):
         mlflow.tracing.reset()
         tracer = _get_tracer("test")
 
-        from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
-
-        assert _MLFLOW_TRACER_PROVIDER is not None
         processors = tracer.span_processor._span_processors
 
         # Should have only OTLP processor as primary
@@ -440,9 +490,6 @@ def test_otlp_exclusive_vs_dual_export(monkeypatch):
         mlflow.tracing.reset()
         tracer = _get_tracer("test")
 
-        from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
-
-        assert _MLFLOW_TRACER_PROVIDER is not None
         processors = tracer.span_processor._span_processors
 
         # Should have both processors
@@ -454,7 +501,6 @@ def test_otlp_exclusive_vs_dual_export(monkeypatch):
 @skip_when_testing_trace_sdk
 @pytest.mark.parametrize("dual_export", [False, True])
 def test_metrics_export_with_otlp_trace_export(monkeypatch, dual_export):
-    """Test metrics export configuration when OTLP is enabled."""
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4317")
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090")
 
@@ -482,7 +528,6 @@ def test_metrics_export_with_otlp_trace_export(monkeypatch, dual_export):
 
 @skip_when_testing_trace_sdk
 def test_metrics_export_without_otlp_trace_export(monkeypatch):
-    """Test metrics export configuration when OTLP is disabled."""
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090")
 
     # No OTLP tracing endpoints set

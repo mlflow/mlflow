@@ -10,7 +10,6 @@ def reset_tracing_config():
 
 
 def test_tracing_config_default_values():
-    """Test that TracingConfig has expected default values."""
     config = TracingConfig()
     assert config.span_processors == []
 
@@ -79,8 +78,6 @@ def test_configure_context_manager():
 
 
 def test_context_manager_with_exception():
-    """Test context manager restores config even when exception occurs."""
-
     def filter1(span):
         pass
 
@@ -99,8 +96,6 @@ def test_context_manager_with_exception():
 
 
 def test_context_manager_with_non_copyable_callable():
-    """Test context manager handles non-copyable callables gracefully."""
-
     # Lambda functions are not deepcopyable
     lambda_filter = lambda span: None  # noqa: E731
 

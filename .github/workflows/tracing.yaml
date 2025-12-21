@@ -59,6 +59,7 @@ jobs:
             --ignore tests/tracing/test_assessment.py \
             --ignore tests/tracing/test_otel_logging.py \
             --ignore tests/tracing/processor/test_otel_metrics.py \
+            --ignore tests/tracing/opentelemetry/test_integration.py \
             --ignore tests/tracing/test_otel_loading.py \
             --import-mode=importlib
 

@@ -152,7 +152,6 @@ def test_list_artifacts():
 
 
 def test_constructor_with_valid_uri():
-    """Test that constructor works with valid logged model URIs."""
     mock_databricks_artifact_repo = mock.MagicMock()
     mock_databricks_sdk_repo = mock.MagicMock()
     with (
@@ -182,7 +181,6 @@ def test_constructor_with_valid_uri():
     ],
 )
 def test_constructor_with_invalid_uri(invalid_uri: str):
-    """Test that constructor raises exception with invalid URIs."""
     with pytest.raises(MlflowException, match="Invalid artifact URI"):
         DatabricksLoggedModelArtifactRepository(invalid_uri)
 
@@ -202,13 +200,11 @@ def test_constructor_with_invalid_uri(invalid_uri: str):
     ],
 )
 def test_is_logged_model_uri(uri: str, expected_result: bool):
-    """Test the is_logged_model_uri static method."""
     result = DatabricksLoggedModelArtifactRepository.is_logged_model_uri(uri)
     assert result == expected_result
 
 
 def test_uri_parsing():
-    """Test that URI components are correctly parsed."""
     mock_databricks_artifact_repo = mock.MagicMock()
     mock_databricks_sdk_repo = mock.MagicMock()
     with (
@@ -234,7 +230,6 @@ def test_uri_parsing():
 
 
 def test_build_root_path():
-    """Test that root path is built correctly."""
     mock_databricks_artifact_repo = mock.MagicMock()
     mock_databricks_sdk_repo = mock.MagicMock()
     with (
@@ -259,7 +254,6 @@ def test_build_root_path():
 
 
 def test_expected_uri_format():
-    """Test that the expected URI format is correctly returned."""
     mock_databricks_artifact_repo = mock.MagicMock()
     mock_databricks_sdk_repo = mock.MagicMock()
     with (

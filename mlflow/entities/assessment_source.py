@@ -95,7 +95,7 @@ class AssessmentSource(_MlflowObject):
     def from_proto(cls, proto):
         return AssessmentSource(
             source_type=AssessmentSourceType.from_proto(proto.source_type),
-            source_id=proto.source_id if proto.source_id else None,
+            source_id=proto.source_id or None,
         )
 
 

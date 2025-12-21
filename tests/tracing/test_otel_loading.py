@@ -1,10 +1,5 @@
-"""
-Tests for get_trace functionality with OpenTelemetry traces.
-This test suite verifies that traces sent via OpenTelemetry can be retrieved
-using MLflow's get_trace functionality, ensuring proper OTel to MLflow conversion.
-"""
-
 import uuid
+from pathlib import Path
 
 import pytest
 from opentelemetry import trace as otel_trace
@@ -19,25 +14,37 @@ import mlflow
 from mlflow.entities import SpanStatusCode
 from mlflow.entities.assessment import AssessmentSource, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.server import handlers
+from mlflow.server.fastapi_app import app
+from mlflow.server.handlers import initialize_backend_stores
+from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
+from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
+from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
+from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracing.utils import encode_trace_id
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.version import IS_TRACING_SDK_ONLY
 
-from tests.tracking.integration_test_utils import _init_server
+from tests.helper_functions import get_safe_port
+from tests.tracking.integration_test_utils import ServerThread
 
 if IS_TRACING_SDK_ONLY:
     pytest.skip("OTel get_trace tests require full MLflow server", allow_module_level=True)
 
 
 @pytest.fixture
-def mlflow_server(tmp_path):
-    backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
-    artifact_root = tmp_path.as_uri()
+def mlflow_server(tmp_path: Path, db_uri: str):
+    artifact_uri = tmp_path.joinpath("artifacts").as_uri()
 
-    # Use _init_server with FastAPI (which is now the default)
-    with _init_server(backend_store_uri, artifact_root) as url:
+    # Force-reset backend stores before each test
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(db_uri, default_artifact_root=artifact_uri)
+
+    with ServerThread(app, get_safe_port()) as url:
         yield url
 
 
@@ -442,3 +449,144 @@ def test_multiple_assessments_on_otel_trace(mlflow_server: str, is_async):
     )
     assert len(tagged_traces) == 1
     assert tagged_traces[0].info.trace_id == trace_id
+
+
+def test_span_kind_translation(mlflow_server: str, is_async):
+    experiment = mlflow.set_experiment("span-kind-translation-test")
+    experiment_id = experiment.experiment_id
+
+    tracer = create_tracer(mlflow_server, experiment_id, "span-kind-translation-test-service")
+
+    with tracer.start_as_current_span("llm-call") as span:
+        span.set_attribute(OpenInferenceTranslator.SPAN_KIND_ATTRIBUTE_KEY, "LLM")
+
+    with tracer.start_as_current_span("retriever-call") as span:
+        span.set_attribute(OpenInferenceTranslator.SPAN_KIND_ATTRIBUTE_KEY, "RETRIEVER")
+
+    with tracer.start_as_current_span("tool-call") as span:
+        span.set_attribute(TraceloopTranslator.SPAN_KIND_ATTRIBUTE_KEY, "tool")
+
+    if is_async:
+        _flush_async_logging()
+
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+    )
+
+    assert len(traces) == 3
+    for trace_info in traces:
+        retrieved_trace = mlflow.get_trace(trace_info.info.trace_id)
+        for span in retrieved_trace.data.spans:
+            if span.name == "llm-call":
+                assert span.span_type == "LLM"
+            elif span.name == "retriever-call":
+                assert span.span_type == "RETRIEVER"
+            elif span.name == "tool-call":
+                assert span.span_type == "TOOL"
+
+
+@pytest.mark.parametrize(
+    "translator", [GenAiTranslator, OpenInferenceTranslator, TraceloopTranslator]
+)
+def test_span_inputs_outputs_translation(
+    mlflow_server: str, is_async, translator: OtelSchemaTranslator
+):
+    experiment = mlflow.set_experiment("span-inputs-outputs-translation-test")
+    experiment_id = experiment.experiment_id
+
+    tracer = create_tracer(
+        mlflow_server, experiment_id, "span-inputs-outputs-translation-test-service"
+    )
+
+    with tracer.start_as_current_span("llm-call") as span:
+        span.set_attribute(translator.INPUT_VALUE_KEYS[0], "Hello, world!")
+        span.set_attribute(translator.OUTPUT_VALUE_KEYS[0], "Bye!")
+
+    if is_async:
+        _flush_async_logging()
+
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+    )
+    assert len(traces) == 1
+    retrieved_trace = mlflow.get_trace(traces[0].info.trace_id)
+    assert retrieved_trace.data.spans[0].inputs == "Hello, world!"
+    assert retrieved_trace.data.spans[0].outputs == "Bye!"
+    assert retrieved_trace.info.request_preview == '"Hello, world!"'
+    assert retrieved_trace.info.response_preview == '"Bye!"'
+
+
+@pytest.mark.parametrize(
+    "translator", [GenAiTranslator, OpenInferenceTranslator, TraceloopTranslator]
+)
+def test_span_token_usage_translation(
+    mlflow_server: str, is_async, translator: OtelSchemaTranslator
+):
+    experiment = mlflow.set_experiment("span-token-usage-translation-test")
+    experiment_id = experiment.experiment_id
+
+    tracer = create_tracer(
+        mlflow_server, experiment_id, "span-token-usage-translation-test-service"
+    )
+
+    with tracer.start_as_current_span("llm-call") as span:
+        span.set_attribute(translator.INPUT_TOKEN_KEY, 100)
+        span.set_attribute(translator.OUTPUT_TOKEN_KEY, 50)
+
+    if is_async:
+        _flush_async_logging()
+
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+    )
+    assert len(traces) > 0
+    for trace_info in traces:
+        assert trace_info.info.token_usage == {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }
+        retrieved_trace = mlflow.get_trace(trace_info.info.trace_id)
+        assert (
+            retrieved_trace.data.spans[0].attributes[SpanAttributeKey.CHAT_USAGE]
+            == trace_info.info.token_usage
+        )
+
+
+@pytest.mark.parametrize(
+    "translator", [GenAiTranslator, OpenInferenceTranslator, TraceloopTranslator]
+)
+def test_aggregated_token_usage_from_multiple_spans(
+    mlflow_server: str, is_async, translator: OtelSchemaTranslator
+):
+    experiment = mlflow.set_experiment("aggregated-token-usage-test")
+    experiment_id = experiment.experiment_id
+
+    tracer = create_tracer(mlflow_server, experiment_id, "token-aggregation-service")
+
+    with tracer.start_as_current_span("parent-llm-call") as parent:
+        parent.set_attribute(translator.INPUT_TOKEN_KEY, 100)
+        parent.set_attribute(translator.OUTPUT_TOKEN_KEY, 50)
+
+        with tracer.start_as_current_span("child-llm-call-1") as child1:
+            child1.set_attribute(translator.INPUT_TOKEN_KEY, 200)
+            child1.set_attribute(translator.OUTPUT_TOKEN_KEY, 75)
+
+        with tracer.start_as_current_span("child-llm-call-2") as child2:
+            child2.set_attribute(translator.INPUT_TOKEN_KEY, 150)
+            child2.set_attribute(translator.OUTPUT_TOKEN_KEY, 100)
+
+    if is_async:
+        _flush_async_logging()
+
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+    )
+
+    trace_id = traces[0].info.trace_id
+    retrieved_trace = mlflow.get_trace(trace_id)
+
+    assert retrieved_trace.info.token_usage is not None
+    assert retrieved_trace.info.token_usage["input_tokens"] == 450
+    assert retrieved_trace.info.token_usage["output_tokens"] == 225
+    assert retrieved_trace.info.token_usage["total_tokens"] == 675

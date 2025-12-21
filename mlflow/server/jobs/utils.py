@@ -12,10 +12,9 @@ import tempfile
 import threading
 import time
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
-
-import cloudpickle
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
@@ -23,8 +22,9 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
+from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.utils.environment import _PythonEnv
+from mlflow.utils.import_hooks import register_post_import_hook
 
 if TYPE_CHECKING:
     import huey
@@ -105,7 +105,7 @@ def _start_huey_consumer_proc(
     huey_instance_key: str,
     max_job_parallelism: int,
 ):
-    from mlflow.server import MLFLOW_HUEY_INSTANCE_KEY
+    from mlflow.server.constants import MLFLOW_HUEY_INSTANCE_KEY
     from mlflow.utils.process import _exec_cmd
 
     return _exec_cmd(
@@ -180,9 +180,11 @@ def _exec_job_in_subproc(
         job_cmd = [sys.executable, "-m", _JOB_ENTRY_MODULE]
 
     result_file = str(Path(tmpdir) / "result.json")
-    transient_error_classes_file = str(Path(tmpdir) / "transient_error_classes.pkl")
-    with open(transient_error_classes_file, "wb") as f:
-        cloudpickle.dump(transient_error_classes, f)
+    transient_error_classes_file = str(Path(tmpdir) / "transient_error_classes")
+    transient_error_classes = transient_error_classes or []
+    with open(transient_error_classes_file, "w") as f:
+        for cls in transient_error_classes:
+            f.write(f"{cls.__module__}.{cls.__name__}\n")
 
     with subprocess.Popen(
         job_cmd,
@@ -213,7 +215,7 @@ def _exec_job_in_subproc(
 
 def _exec_job(
     job_id: str,
-    function: Callable[..., Any],
+    job_name: str,
     params: dict[str, Any],
     timeout: float | None,
 ) -> None:
@@ -222,6 +224,8 @@ def _exec_job(
     job_store = _get_job_store()
     job_store.start_job(job_id)
 
+    fn_fullname = get_job_fn_fullname(job_name)
+    function = _load_function(fn_fullname)
     fn_metadata = function._job_fn_metadata
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -270,12 +274,28 @@ def _get_or_init_huey_instance(instance_key: str):
     from huey import SqliteHuey
     from huey.serializer import Serializer
 
-    class CloudPickleSerializer(Serializer):
+    class CustomJSONEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, datetime):
+                return {
+                    "__type__": "datetime",
+                    "value": obj.isoformat(),
+                }
+            return super().default(obj)
+
+    def json_loader_object_hook(d):
+        if d.get("__type__") == "datetime":
+            return datetime.fromisoformat(d["value"])
+        return d
+
+    class JsonSerializer(Serializer):
         def serialize(self, data):
-            return cloudpickle.dumps(data)
+            return json.dumps(data._asdict(), cls=CustomJSONEncoder).encode("utf-8")
 
         def deserialize(self, data):
-            return cloudpickle.loads(data)
+            from huey.registry import Message
+
+            return Message(**json.loads(data.decode("utf-8"), object_hook=json_loader_object_hook))
 
     with _huey_instance_map_lock:
         if instance_key not in _huey_instance_map:
@@ -286,7 +306,7 @@ def _get_or_init_huey_instance(instance_key: str):
             huey_instance = SqliteHuey(
                 filename=huey_store_file,
                 results=False,
-                serializer=CloudPickleSerializer(),
+                serializer=JsonSerializer(),
             )
             huey_submit_task_fn = huey_instance.task(retries=0)(_exec_job)
             _huey_instance_map[instance_key] = HueyInstance(
@@ -296,14 +316,15 @@ def _get_or_init_huey_instance(instance_key: str):
         return _huey_instance_map[instance_key]
 
 
-def _launch_huey_consumer(job_fn_fullname: str) -> None:
-    _logger.info(f"Starting huey consumer for job function {job_fn_fullname}")
-    job_fn = _load_function(job_fn_fullname)
+def _launch_huey_consumer(job_name: str) -> None:
+    _logger.info(f"Starting huey consumer for job function {job_name}")
+
+    fn_fullname = get_job_fn_fullname(job_name)
+    job_fn = _load_function(fn_fullname)
 
     if not hasattr(job_fn, "_job_fn_metadata"):
         raise MlflowException.invalid_parameter_value(
-            f"The job function {job_fn_fullname} is not decorated by "
-            "'mlflow.server.jobs.job_function'."
+            f"The job function {job_name} is not decorated by 'mlflow.server.jobs.job_function'."
         )
 
     max_job_parallelism = job_fn._job_fn_metadata.max_workers
@@ -313,7 +334,7 @@ def _launch_huey_consumer(job_fn_fullname: str) -> None:
             # start MLflow job runner process
             # Put it inside the loop to ensure the job runner process alive
             job_runner_proc = _start_huey_consumer_proc(
-                job_fn_fullname,
+                job_name,
                 max_job_parallelism,
             )
             job_runner_proc.wait()
@@ -322,7 +343,7 @@ def _launch_huey_consumer(job_fn_fullname: str) -> None:
     # start job runner.
     threading.Thread(
         target=_huey_consumer_thread,
-        name=f"MLflow-huey-consumer-{job_fn_fullname}-watcher",
+        name=f"MLflow-huey-consumer-{job_name}-watcher",
         daemon=False,
     ).start()
 
@@ -390,11 +411,10 @@ def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
             job_store.reset_job(job.job_id)  # reset the job status to PENDING
 
         params = json.loads(job.params)
-        function = _load_function(job.function_fullname)
         timeout = job.timeout
         # enqueue job
-        _get_or_init_huey_instance(job.function_fullname).submit_task(
-            job.job_id, function, params, timeout
+        _get_or_init_huey_instance(job.job_name).submit_task(
+            job.job_id, job.job_name, params, timeout
         )
 
 
@@ -420,9 +440,7 @@ def _validate_function_parameters(function: Callable[..., Any], params: dict[str
     ]
 
     # Check for missing required parameters
-    missing_params = [param for param in required_params if param not in params]
-
-    if missing_params:
+    if missing_params := [param for param in required_params if param not in params]:
         raise MlflowException.invalid_parameter_value(
             f"Missing required parameters for function '{function.__name__}': {missing_params}. "
             f"Expected parameters: {list(sig.parameters.keys())}"
@@ -430,7 +448,7 @@ def _validate_function_parameters(function: Callable[..., Any], params: dict[str
 
 
 def _check_requirements(backend_store_uri: str | None = None) -> None:
-    from mlflow.server import BACKEND_STORE_URI_ENV_VAR
+    from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
     from mlflow.utils.uri import extract_db_type_from_uri
 
     if os.name == "nt":
@@ -451,3 +469,35 @@ def _check_requirements(backend_store_uri: str | None = None) -> None:
         raise MlflowException(
             f"MLflow job backend requires a database backend store URI but got {backend_store_uri}"
         )
+
+
+# The map from job name to the job function's fullname.
+_job_name_to_fn_fullname_map = {}
+
+
+def get_job_fn_fullname(job_name: str):
+    if job_name not in _job_name_to_fn_fullname_map:
+        raise MlflowException.invalid_parameter_value(f"Invalid job name: {job_name}")
+    return _job_name_to_fn_fullname_map[job_name]
+
+
+def _build_job_name_to_fn_fullname_map():
+    from mlflow.server.jobs import _SUPPORTED_JOB_FUNCTION_LIST
+
+    for fn_fullname in set(_SUPPORTED_JOB_FUNCTION_LIST):
+        try:
+            fn_meta = _load_function(fn_fullname)._job_fn_metadata
+            if exist_fullname := _job_name_to_fn_fullname_map.get(fn_meta.name):
+                if exist_fullname != fn_fullname:
+                    _logger.warning(
+                        f"The 2 job functions {fn_fullname} and {exist_fullname} have the same "
+                        f"job name {fn_meta.name}, this is not allowed, skip loading function "
+                        f"{fn_fullname}."
+                    )
+            else:
+                _job_name_to_fn_fullname_map[fn_meta.name] = fn_fullname
+        except Exception as e:
+            _logger.warning(f"loading job function {fn_fullname} failed: {e!r}", exc_info=True)
+
+
+register_post_import_hook(lambda m: _build_job_name_to_fn_fullname_map(), __name__)

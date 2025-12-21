@@ -14,10 +14,12 @@ export const ExperimentViewHeaderShareButton = ({
   searchFacetsState,
   uiState,
   experimentIds,
+  type,
 }: {
   searchFacetsState?: ExperimentPageSearchFacetsState;
   uiState?: ExperimentPageUIState;
   experimentIds?: string[];
+  type?: 'primary' | 'link' | 'tertiary';
 }) => {
   const [showGetLinkModal, setShowGetLinkModal] = useState(false);
 
@@ -41,7 +43,7 @@ export const ExperimentViewHeaderShareButton = ({
       {/* TODO: ensure that E2E tests are working after refactor is complete */}
       <Button
         componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentviewheadersharebutton.tsx_44"
-        type="primary"
+        type={type}
         onClick={() => setShowGetLinkModal(true)}
         data-testid="share-button"
       >

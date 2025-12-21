@@ -1124,7 +1124,6 @@ def test_save_and_load_model_with_special_chars(
 
 
 def test_model_with_code_path_containing_main(tmp_path):
-    """Test that the __main__ module is unaffected by model loading"""
     directory = tmp_path.joinpath("model_with_main")
     directory.mkdir()
     main = directory.joinpath("__main__.py")
@@ -2557,15 +2556,14 @@ def test_pyfunc_model_traces_link_to_model_id():
         def predict(self, model_input: list[str]) -> list[str]:
             return model_input
 
-    model_infos = []
-    for i in range(3):
-        model_infos.append(
-            mlflow.pyfunc.log_model(
-                name="test_model",
-                python_model=TestModel(),
-                input_example=["a", "b", "c"],
-            )
+    model_infos = [
+        mlflow.pyfunc.log_model(
+            name="test_model",
+            python_model=TestModel(),
+            input_example=["a", "b", "c"],
         )
+        for i in range(3)
+    ]
 
     for model_info in model_infos:
         pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)

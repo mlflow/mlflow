@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import AsyncIterable
+from enum import Enum
+from typing import Any, AsyncIterable
 
 import numpy as np
 
@@ -11,6 +12,30 @@ from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.utils.annotations import developer_stable
 
 
+class PassthroughAction(str, Enum):
+    """
+    Enum for passthrough endpoint actions.
+    """
+
+    OPENAI_CHAT = "openai_chat"
+    OPENAI_EMBEDDINGS = "openai_embeddings"
+    OPENAI_RESPONSES = "openai_responses"
+    ANTHROPIC_MESSAGES = "anthropic_messages"
+    GEMINI_GENERATE_CONTENT = "gemini_generate_content"
+    GEMINI_STREAM_GENERATE_CONTENT = "gemini_stream_generate_content"
+
+
+# Mapping of passthrough actions to their gateway API routes
+PASSTHROUGH_ROUTES = {
+    PassthroughAction.OPENAI_CHAT: "/openai/v1/chat/completions",
+    PassthroughAction.OPENAI_EMBEDDINGS: "/openai/v1/embeddings",
+    PassthroughAction.OPENAI_RESPONSES: "/openai/v1/responses",
+    PassthroughAction.ANTHROPIC_MESSAGES: "/anthropic/v1/messages",
+    PassthroughAction.GEMINI_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:generateContent",  # noqa: E501
+    PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:streamGenerateContent",  # noqa: E501
+}
+
+
 @developer_stable
 class BaseProvider(ABC):
     """
@@ -20,6 +45,7 @@ class BaseProvider(ABC):
     NAME: str = ""
     SUPPORTED_ROUTE_TYPES: tuple[str, ...]
     CONFIG_TYPE: type[ConfigModel]
+    PASSTHROUGH_PROVIDER_PATHS: dict[PassthroughAction, str] = {}
 
     def __init__(self, config: EndpointConfig):
         if self.NAME == "":
@@ -68,6 +94,55 @@ class BaseProvider(ABC):
         raise AIGatewayException(
             status_code=501,
             detail=f"The embeddings route is not implemented for {self.NAME} models.",
+        )
+
+    def _validate_passthrough_action(self, action: PassthroughAction) -> str:
+        """
+        Validates that the passthrough action is supported by this provider
+        and returns the provider path.
+
+        Args:
+            action: The passthrough action to validate
+
+        Returns:
+            The provider path for the action
+        """
+        provider_path = self.PASSTHROUGH_PROVIDER_PATHS.get(action)
+        if provider_path is None:
+            route = PASSTHROUGH_ROUTES.get(action, action.value)
+            supported_routes = ", ".join(
+                f"/gateway{route} (provider_path: {path})"
+                for act in self.PASSTHROUGH_PROVIDER_PATHS.keys()
+                if (route := PASSTHROUGH_ROUTES.get(act))
+                and (path := self.PASSTHROUGH_PROVIDER_PATHS.get(act))
+            )
+            raise AIGatewayException(
+                status_code=400,
+                detail=f"Unsupported passthrough endpoint '{route}' for {self.NAME} provider. "
+                f"Supported endpoints: {supported_routes}",
+            )
+        return provider_path
+
+    async def passthrough(
+        self, action: PassthroughAction, payload: dict[str, Any]
+    ) -> dict[str, Any] | AsyncIterable[bytes]:
+        """
+        Unified passthrough endpoint for raw API requests.
+
+        Args:
+            action: The passthrough action to perform (e.g., OPENAI_CHAT, OPENAI_EMBEDDINGS)
+            payload: Raw request payload in the format expected by the target API
+
+        Returns:
+            Raw response from the target API, optionally as an async iterable for streaming
+
+        Raises:
+            AIGatewayException: If the passthrough action is not implemented for this provider
+        """
+        route = PASSTHROUGH_ROUTES.get(action)
+        raise AIGatewayException(
+            status_code=501,
+            detail=f"The passthrough route '{route}' is not implemented for {self.NAME} models.",
         )
 
     @staticmethod
@@ -139,6 +214,12 @@ class TrafficRouteProvider(BaseProvider):
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         prov = self._get_provider()
         return await prov.embeddings(payload)
+
+    async def passthrough(
+        self, action: PassthroughAction, payload: dict[str, Any]
+    ) -> dict[str, Any] | AsyncIterable[bytes]:
+        prov = self._get_provider()
+        return await prov.passthrough(action, payload)
 
 
 class ProviderAdapter(ABC):

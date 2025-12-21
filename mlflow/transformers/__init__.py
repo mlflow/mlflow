@@ -2933,11 +2933,7 @@ def autolog(
 
         safe_patch(
             FLAVOR_NAME,
-            (
-                setfit.SetFitTrainer
-                if Version(setfit.__version__) < Version("1.0.0")
-                else setfit.Trainer
-            ),
+            (setfit.SetFitTrainer if Version(setfit.__version__).major < 1 else setfit.Trainer),
             "train",
             functools.partial(train),
             manage_run=False,

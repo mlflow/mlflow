@@ -1,5 +1,5 @@
 import {
-  MIcon,
+  MarkdownIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
   TextBoxIcon,
@@ -54,7 +54,7 @@ export function ModelTraceExplorerRenderModeToggle({
           }
         >
           <div css={{ display: 'flex', alignItems: 'center' }}>
-            <MIcon css={{ fontSize: theme.typography.fontSizeLg }} />
+            <MarkdownIcon css={{ fontSize: theme.typography.fontSizeLg }} />
           </div>
         </Tooltip>
       </SegmentedControlButton>

@@ -170,23 +170,39 @@ export type ModelTraceLocationInferenceTable = {
   };
 };
 
-export type ModelTraceLocation = ModelTraceLocationMlflowExperiment | ModelTraceLocationInferenceTable;
+export type ModelTraceLocationUcSchema = {
+  type: 'UC_SCHEMA';
+  uc_schema: { catalog_name: string; schema_name: string };
+};
+
+export type ModelTraceLocation =
+  | ModelTraceLocationMlflowExperiment
+  | ModelTraceLocationInferenceTable
+  | ModelTraceLocationUcSchema;
 
 export type ModelTraceInfoV3 = {
   trace_id: string;
   client_request_id?: string;
   trace_location: ModelTraceLocation;
+  /**
+   * @deprecated Use `request_preview` instead
+   */
+  request?: string;
   request_preview?: string;
+  /**
+   * @deprecated Use `response_preview` instead
+   */
+  response?: string;
   response_preview?: string;
   // timestamp in a format like "2025-02-19T09:52:23.140Z"
   request_time: string;
   // formatted duration string like "32.4s"
-  execution_duration: string;
+  execution_duration?: string;
   state: ModelTraceState;
   trace_metadata?: {
     [key: string]: string;
   };
-  assessments: Assessment[];
+  assessments?: Assessment[];
   tags: {
     [key: string]: string;
   };
@@ -412,6 +428,10 @@ export interface ExpectationSerializedValue {
 
 export type Expectation = ExpectationValue | ExpectationSerializedValue;
 
+export interface AssessmentMetadata {
+  span_name?: string;
+}
+
 // should be aligned with `mlflow/api/proto/service.proto`
 export interface AssessmentBase {
   assessment_id: string;
@@ -437,6 +457,8 @@ export interface AssessmentBase {
 
   // UI only field to store the overridden assessment object for easier display
   overriddenAssessment?: Assessment;
+
+  error?: AssessmentError;
 }
 
 export interface FeedbackAssessment extends AssessmentBase {

@@ -11481,7 +11481,7 @@ public final class MlflowArtifacts {
   static {
     java.lang.String[] descriptorData = {
       "\n\026mlflow_artifacts.proto\022\020mlflow.artifac" +
-      "ts\032\025scalapb/scalapb.proto\032\020databricks.pr" +
+      "ts\032\020databricks.proto\032\025scalapb/scalapb.pr" +
       "oto\"\036\n\020DownloadArtifact\032\n\n\010Response\"\034\n\016U" +
       "ploadArtifact\032\n\n\010Response\"T\n\rListArtifac" +
       "ts\022\014\n\004path\030\001 \001(\t\0325\n\010Response\022)\n\005files\030\001 " +
@@ -11544,8 +11544,8 @@ public final class MlflowArtifacts {
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
-          org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
           com.databricks.api.proto.databricks.Databricks.getDescriptor(),
+          org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
         });
     internal_static_mlflow_artifacts_DownloadArtifact_descriptor =
       getDescriptor().getMessageTypes().get(0);
@@ -11661,8 +11661,8 @@ public final class MlflowArtifacts {
     registry.add(org.mlflow.scalapb_interface.Scalapb.options);
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);
-    org.mlflow.scalapb_interface.Scalapb.getDescriptor();
     com.databricks.api.proto.databricks.Databricks.getDescriptor();
+    org.mlflow.scalapb_interface.Scalapb.getDescriptor();
   }
 
   // @@protoc_insertion_point(outer_class_scope)

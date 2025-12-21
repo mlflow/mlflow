@@ -4,6 +4,7 @@ import pytest
 
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.telemetry.events import (
+    AiCommandRunEvent,
     AlignJudgeEvent,
     CreateDatasetEvent,
     CreateExperimentEvent,
@@ -77,6 +78,7 @@ def test_create_model_version_parse_params(arguments, expected_params):
 
 
 def test_event_name():
+    assert AiCommandRunEvent.name == "ai_command_run"
     assert CreatePromptEvent.name == "create_prompt"
     assert CreateLoggedModelEvent.name == "create_logged_model"
     assert CreateRegisteredModelEvent.name == "create_registered_model"

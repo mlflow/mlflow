@@ -439,6 +439,9 @@ html[data-genai-theme='true'] {
 /* Sidebar background color and spacing */
 .theme-doc-sidebar-container {
   background-color: transparent;
+  border-right: none !important;
+  padding-top: 1rem;
+  margin-right: 2rem;
 }
 
 /* Common sidebar styles for both themes */
@@ -448,12 +451,19 @@ html[data-genai-theme='true'] {
 
 .sidebar-top-level-category > .menu__link,
 .sidebar-top-level-category > .menu__list-item-collapsible > .menu__link {
+  font-size: var(--font-size-body-s);
   font-weight: var(--font-weight-medium);
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  padding-left: 1.5rem;
 }
 
 .menu__list-item:not(.sidebar-top-level-category) > .menu__link,
 .menu__list-item:not(.sidebar-top-level-category) > .menu__list-item-collapsible > .menu__link {
   font-size: var(--font-size-body-s);
+  padding-left: 1.5rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
 }
 
 /* Regular menu links */
@@ -776,6 +786,16 @@ must be applied to the wrapping div along with the desired max-height */
 }
 
 /* --------------------------------
+ * 7.1. Video Styling
+ * -------------------------------- */
+
+video {
+  border-radius: 12px;
+  border: 1px solid var(--ifm-color-gray-300);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* --------------------------------
  * 8. Accessibility
  * -------------------------------- */
 
@@ -803,6 +823,11 @@ In headlines Docusaurus adds this for us. */
 /* Code blocks */
 .codeBlockContainer {
   margin-bottom: 1.5rem;
+}
+
+.theme-code-block {
+  max-width: 100%;
+  min-width: 0;
 }
 
 /* Inline code */
@@ -931,4 +956,9 @@ th {
 
 .col--3 {
   padding-left: 0;
+}
+
+.theme-layout-main {
+  margin-left: auto;
+  margin-right: auto;
 }

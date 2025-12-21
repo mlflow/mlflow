@@ -14,8 +14,10 @@ import { ModelTraceExplorer, type ModelTrace } from '@databricks/web-shared/mode
 import { EvaluationsReviewDetailsHeader } from './EvaluationsReviewDetails';
 import { GenAiEvaluationTracesReview } from './GenAiEvaluationTracesReview';
 import { useGenAITracesTableConfig } from '../hooks/useGenAITracesTableConfig';
+import type { GetTraceFunction } from '../hooks/useGetTrace';
 import { useGetTrace } from '../hooks/useGetTrace';
 import type { AssessmentInfo, EvalTraceComparisonEntry, SaveAssessmentsQuery } from '../types';
+import { getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '../utils/TraceUtils';
 
 const MODAL_SPACING_REM = 4;
 const DEFAULT_MODAL_MARGIN_REM = 1;
@@ -43,7 +45,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     otherRunDisplayName?: string;
     exportToEvalsInstanceEnabled?: boolean;
     assessmentInfos: AssessmentInfo[];
-    getTrace?: (traceId?: string) => Promise<ModelTrace | undefined>;
+    getTrace?: GetTraceFunction;
     saveAssessmentsQuery?: SaveAssessmentsQuery;
   }) => {
     const { theme, classNamePrefix } = useDesignSystemTheme();
@@ -108,12 +110,16 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
 
     const tracesTableConfig = useGenAITracesTableConfig();
 
-    const traceQueryResult = useGetTrace(getTrace, evaluation?.currentRunValue?.traceInfo?.trace_id);
-    const compareToTraceQueryResult = useGetTrace(getTrace, evaluation?.otherRunValue?.traceInfo?.trace_id);
+    // --- Auto-polling until trace is complete if the backend supports returning partial spans ---
+    const spansLocation = getSpansLocation(evaluation?.currentRunValue?.traceInfo);
+    const shouldEnablePolling = spansLocation === TRACKING_STORE_SPANS_LOCATION;
+
+    const traceQueryResult = useGetTrace(getTrace, evaluation?.currentRunValue?.traceInfo, shouldEnablePolling);
+    const compareToTraceQueryResult = useGetTrace(getTrace, evaluation?.otherRunValue?.traceInfo, shouldEnablePolling);
 
     // Prefetching the next and previous traces to optimize performance
-    useGetTrace(getTrace, nextEvaluation?.currentRunValue?.traceInfo?.trace_id);
-    useGetTrace(getTrace, previousEvaluation?.currentRunValue?.traceInfo?.trace_id);
+    useGetTrace(getTrace, nextEvaluation?.currentRunValue?.traceInfo);
+    useGetTrace(getTrace, previousEvaluation?.currentRunValue?.traceInfo);
 
     // is true if only one of the two runs has a trace
     const isSingleTraceView = Boolean(evaluation?.currentRunValue) !== Boolean(evaluation?.otherRunValue);
@@ -161,7 +167,8 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
           }}
           footer={null} // Hide the footer
         >
-          {currentTraceQueryResult.isFetching && (
+          {/* Only show skeleton for the first fetch to avoid flickering when polling new spans */}
+          {!currentTraceQueryResult?.data && currentTraceQueryResult?.isFetching && (
             <GenericSkeleton
               label="Loading trace..."
               style={{
@@ -177,9 +184,12 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
           )}
           {
             // Show ModelTraceExplorer only if there is no run to compare to and there's trace data.
-            isSingleTraceView && !isNil(currentTraceQueryResult.data) ? (
+            isSingleTraceView && !isNil(currentTraceQueryResult?.data) ? (
               <div css={{ height: '100%', marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
-                <ModelTraceExplorerModalBody traceData={currentTraceQueryResult.data} />
+                {/* prettier-ignore */}
+                <ModelTraceExplorerModalBody
+                  traceData={currentTraceQueryResult.data}
+                />
               </div>
             ) : (
               evaluation.currentRunValue && (
@@ -269,6 +279,15 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
   },
 );
 
-const ModelTraceExplorerModalBody = ({ traceData }: { traceData: ModelTrace }) => {
-  return <ModelTraceExplorer modelTrace={traceData} />;
+// prettier-ignore
+const ModelTraceExplorerModalBody = ({
+  traceData,
+}: {
+  traceData: ModelTrace;
+}) => {
+  return (
+    <ModelTraceExplorer
+      modelTrace={traceData}
+    />
+  );
 };

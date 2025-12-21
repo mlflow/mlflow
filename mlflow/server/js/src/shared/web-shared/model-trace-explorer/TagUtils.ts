@@ -1,4 +1,4 @@
-import _ from 'lodash';
+import { truncate, takeWhile } from 'lodash';
 
 export const MLFLOW_INTERNAL_PREFIX = 'mlflow.';
 const MLFLOW_INTERNAL_PREFIX_UC = '_mlflow_';
@@ -16,8 +16,8 @@ export const parseJSONSafe = (json: string) => {
 };
 
 export const truncateToFirstLineWithMaxLength = (str: string, maxLength: number): string => {
-  const truncated = _.truncate(str, {
+  const truncated = truncate(str, {
     length: maxLength,
   });
-  return _.takeWhile(truncated, (char) => char !== '\n').join('');
+  return takeWhile(truncated, (char) => char !== '\n').join('');
 };

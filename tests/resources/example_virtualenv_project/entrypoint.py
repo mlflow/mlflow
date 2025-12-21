@@ -20,7 +20,7 @@ parser.add_argument(
 args = parser.parse_args()
 if args.test:
     assert "VIRTUAL_ENV" in os.environ
-    assert sys.version_info[:3] == (3, 10, 16), sys.version_info
+    assert ".".join(map(str, sys.version_info[:3])) == "3.10.19", sys.version_info
     assert sklearn.__version__ == "1.4.2", sklearn.__version__
 
 X = np.array([[-1, -1], [-2, -1], [1, 1], [2, 1]])

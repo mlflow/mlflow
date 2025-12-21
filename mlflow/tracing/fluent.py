@@ -15,7 +15,7 @@ from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
 from mlflow.entities import NoOpSpan, SpanType, Trace
-from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan, create_mlflow_span
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_location import TraceLocationBase
@@ -483,10 +483,15 @@ def start_span(
 
         # Create a new MLflow span and register it to the in-memory trace manager
         request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
-        mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
+
+        # SpanProcessor should have already registered the span in the in-memory trace manager
+        trace_manager = InMemoryTraceManager.get_instance()
+        mlflow_span = trace_manager.get_span_from_id(
+            request_id, encode_span_id(otel_span.context.span_id)
+        )
+        mlflow_span.set_span_type(span_type)
         attributes = dict(attributes) if attributes is not None else {}
         mlflow_span.set_attributes(attributes)
-        InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
     except Exception:
         _logger.debug(f"Failed to start span {name}.", exc_info=True)
@@ -581,7 +586,12 @@ def start_span_no_context(
         else:
             trace_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
 
-        mlflow_span = create_mlflow_span(otel_span, trace_id, span_type)
+        # SpanProcessor should have already registered the span in the in-memory trace manager
+        trace_manager = InMemoryTraceManager.get_instance()
+        mlflow_span = trace_manager.get_span_from_id(
+            trace_id, encode_span_id(otel_span.context.span_id)
+        )
+        mlflow_span.set_span_type(span_type)
 
         # # If the span is a no-op span i.e. tracing is disabled, do nothing
         if isinstance(mlflow_span, NoOpSpan):
@@ -591,14 +601,10 @@ def start_span_no_context(
             mlflow_span.set_inputs(inputs)
         mlflow_span.set_attributes(attributes or {})
 
-        trace_manager = InMemoryTraceManager.get_instance()
         if tags := exclude_immutable_tags(tags or {}):
             # Update trace tags for trace in in-memory trace manager
             with trace_manager.get_trace(trace_id) as trace:
                 trace.info.tags.update(tags)
-
-        # Register new span in the in-memory trace manager
-        trace_manager.register_span(mlflow_span)
 
         return mlflow_span
     except Exception as e:
@@ -942,8 +948,7 @@ def get_active_trace_id() -> str | None:
     Returns:
         The ID of the current active trace if exists, otherwise None.
     """
-    active_span = get_current_active_span()
-    if active_span:
+    if active_span := get_current_active_span():
         return active_span.trace_id
     return None
 
@@ -1116,8 +1121,7 @@ def update_current_trace(
         return
 
     def _warn_non_string_values(d: dict[str, Any], field_name: str):
-        non_string_items = {k: v for k, v in d.items() if not isinstance(v, str)}
-        if non_string_items:
+        if non_string_items := {k: v for k, v in d.items() if not isinstance(v, str)}:
             _logger.warning(
                 f"Found non-string values in {field_name}. Non-string values in {field_name} will "
                 f"automatically be stringified when the trace is logged. Non-string items: "

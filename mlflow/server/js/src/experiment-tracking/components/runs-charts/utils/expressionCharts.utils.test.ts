@@ -1,3 +1,4 @@
+import { describe, it, jest, expect } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 import { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
 import { useChartExpressionParser } from '../hooks/useChartExpressionParser';
@@ -18,7 +19,8 @@ describe('getExpressionChartsSortedMetricHistory', () => {
       uuid: 'run-uuid',
       displayName: 'run-name',
     };
-    const evaluateExpression = jest.fn();
+    const evaluateExpression =
+      jest.fn<Parameters<typeof getExpressionChartsSortedMetricHistory>[0]['evaluateExpression']>();
     const xAxisKey = RunsChartsLineChartXAxisType.STEP;
 
     const result = getExpressionChartsSortedMetricHistory({
@@ -51,7 +53,8 @@ describe('getExpressionChartsSortedMetricHistory', () => {
         ],
       },
     };
-    const evaluateExpression = jest.fn();
+    const evaluateExpression =
+      jest.fn<Parameters<typeof getExpressionChartsSortedMetricHistory>[0]['evaluateExpression']>();
     const xAxisKey = RunsChartsLineChartXAxisType.STEP;
 
     const result = getExpressionChartsSortedMetricHistory({

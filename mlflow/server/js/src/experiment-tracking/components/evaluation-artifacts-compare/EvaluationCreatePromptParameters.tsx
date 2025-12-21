@@ -1,4 +1,4 @@
-import { FormUI, InfoSmallIcon, Input, LegacyTooltip, useDesignSystemTheme, Tag } from '@databricks/design-system';
+import { FormUI, InfoSmallIcon, Input, Tooltip, useDesignSystemTheme, Tag } from '@databricks/design-system';
 import { usePromptEvaluationParameters } from './hooks/usePromptEvaluationParameters';
 import { FormattedMessage } from 'react-intl';
 import { LineSmoothSlider } from '../LineSmoothSlider';
@@ -83,15 +83,21 @@ export const EvaluationCreatePromptParameters = ({
           <>
             <FormUI.Label htmlFor={parameterDef.name} css={{ span: { fontWeight: 'normal' } }}>
               <FormattedMessage {...parameterDef.string} />
-              <LegacyTooltip title={<FormattedMessage {...parameterDef.helpString} />} placement="right">
-                <InfoSmallIcon
-                  css={{
-                    marginLeft: theme.spacing.sm,
-                    verticalAlign: 'text-top',
-                    color: theme.colors.textSecondary,
-                  }}
-                />
-              </LegacyTooltip>
+              <Tooltip
+                componentId="mlflow.experiment-tracking.evaluation-prompt-params.help"
+                content={<FormattedMessage {...parameterDef.helpString} />}
+                side="right"
+              >
+                <span>
+                  <InfoSmallIcon
+                    css={{
+                      marginLeft: theme.spacing.sm,
+                      verticalAlign: 'text-top',
+                      color: theme.colors.textSecondary,
+                    }}
+                  />
+                </span>
+              </Tooltip>
             </FormUI.Label>
             <FormUI.Hint />
             {parameterDef.name === 'temperature' && (

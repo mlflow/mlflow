@@ -1,14 +1,17 @@
 import type { CellContext } from '@tanstack/react-table';
 import { first, isNil } from 'lodash';
+import type { FormatDateOptions } from 'react-intl';
 
 import type { ThemeType } from '@databricks/design-system';
 import { ArrowRightIcon, Tag, Tooltip, Typography, UserIcon } from '@databricks/design-system';
-import type { IntlShape } from '@databricks/i18n';
-import { ExpectationValuePreview, type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
+import { type IntlShape } from '@databricks/i18n';
+import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { ExpectationValuePreview } from '@databricks/web-shared/model-trace-explorer';
 
 import { LoggedModelCell } from './LoggedModelCell';
 import { NullCell } from './NullCell';
 import { RunName } from './RunName';
+import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { SourceCellRenderer } from './Source/SourceRenderer';
 import { StackedComponents } from './StackedComponents';
 import { StatusCellRenderer } from './StatusRenderer';
@@ -26,6 +29,8 @@ import {
 import { RunColorCircle } from '../components/RunColorCircle';
 import {
   CUSTOM_METADATA_COLUMN_ID,
+  EXECUTION_DURATION_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
   RESPONSE_COLUMN_ID,
@@ -39,18 +44,50 @@ import {
   TRACE_NAME_COLUMN_ID,
   USER_COLUMN_ID,
 } from '../hooks/useTableColumns';
-import { type AssessmentInfo, type EvalTraceComparisonEntry } from '../types';
+import type { AssessmentInfo, EvalTraceComparisonEntry } from '../types';
 import { getUniqueValueCountsBySourceId } from '../utils/AggregationUtils';
 import { COMPARE_TO_RUN_COLOR, CURRENT_RUN_COLOR } from '../utils/Colors';
 import { timeSinceStr } from '../utils/DisplayUtils';
 import { shouldEnableTagGrouping } from '../utils/FeatureUtils';
 import {
-  convertTraceInfoV3ToModelTraceInfo,
   getCustomMetadataKeyFromColumnId,
   getTagKeyFromColumnId,
   getTraceInfoOutputs,
   MLFLOW_SOURCE_RUN_KEY,
 } from '../utils/TraceUtils';
+
+type timestampType = number | string | Date | null;
+
+/**
+ * Formats a timestamp into a date and time string.
+ * @param timestamp
+ * @param intl
+ * @param options
+ * @returns {string} formatted date and time string
+ * @example
+ * formatDateTime(1626825600000, intl);
+ * // => 'Jul 21, 2021, 12:00 AM'
+ * formatDateTime(1626825600000, intl, { hour: 'numeric', minute: '2-digit' });
+ * // => 'Jul 21, 2021, 5:30 AM'
+ * formatDateTime(1626825600000, intl, { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+ * // => 'Jul 21, 2021, 05:30 AM PDT'
+ * formatDateTime(1626825600000, intl, { month: 'long', minute: '2-digit'});
+ * // => 'July 21, 2021, 05:30 AM'
+ **/
+export function formatDateTime(timestamp: timestampType, intl: IntlShape, options?: FormatDateOptions): string {
+  if (!timestamp) {
+    return '';
+  }
+
+  return intl.formatDate(timestamp, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    ...options,
+  });
+}
 
 export const assessmentCellRenderer = (
   theme: ThemeType,
@@ -350,8 +387,9 @@ export const traceInfoCellRenderer = (
   colId: string,
   comparisonEntry: EvalTraceComparisonEntry,
   onChangeEvaluationId: (evalId: string) => void,
+  intl: IntlShape,
   theme: ThemeType,
-  onTraceTagsEdit?: (trace: ModelTraceInfo) => void,
+  onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void,
 ) => {
   const currentTraceInfo = comparisonEntry.currentRunValue?.traceInfo;
   const otherTraceInfo = isComparing ? comparisonEntry.otherRunValue?.traceInfo : undefined;
@@ -369,7 +407,15 @@ export const traceInfoCellRenderer = (
               content={date.toLocaleString(navigator.language, { timeZoneName: 'short' })}
             >
               <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {timeSinceStr(date)}
+                {formatDateTime(date, intl, {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: false,
+                })}
               </span>
             </Tooltip>
           ) : (
@@ -443,9 +489,7 @@ export const traceInfoCellRenderer = (
     );
 
     // We only support editing tags in single trace mode
-    const onAddEditTags = !otherTraceInfo
-      ? () => onTraceTagsEdit?.(currentTraceInfo ? convertTraceInfoV3ToModelTraceInfo(currentTraceInfo) : {})
-      : undefined;
+    const onAddEditTags = !otherTraceInfo && currentTraceInfo ? () => onTraceTagsEdit?.(currentTraceInfo) : undefined;
 
     return (
       <StackedComponents
@@ -603,7 +647,6 @@ export const traceInfoCellRenderer = (
               css={{ width: 'fit-content', maxWidth: '100%' }}
               componentId="mlflow.genai-traces-table.trace-id"
               color="indigo"
-              title={value}
               onClick={() => onChangeEvaluationId(value)}
             >
               <span
@@ -651,26 +694,30 @@ export const traceInfoCellRenderer = (
   } else if (colId === SESSION_COLUMN_ID) {
     const value = currentTraceInfo?.trace_metadata?.['mlflow.trace.session'];
     const otherValue = otherTraceInfo?.trace_metadata?.['mlflow.trace.session'];
+    const currentTraceId = currentTraceInfo?.trace_id;
+    const otherTraceId = otherTraceInfo?.trace_id;
     return (
       <StackedComponents
         first={
           value ? (
-            <Tag
-              css={{ width: 'fit-content', maxWidth: '100%' }}
-              componentId="mlflow.genai-traces-table.session"
-              title={value}
-            >
-              <span
-                css={{
-                  display: 'inline-block',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
+            <SessionIdLinkWrapper sessionId={value} experimentId={experimentId} traceId={currentTraceId}>
+              <Tag
+                css={{ width: 'fit-content', maxWidth: '100%' }}
+                componentId="mlflow.genai-traces-table.session"
+                title={value}
               >
-                {value}
-              </span>
-            </Tag>
+                <span
+                  css={{
+                    display: 'inline-block',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {value}
+                </span>
+              </Tag>
+            </SessionIdLinkWrapper>
           ) : (
             <NullCell isComparing={isComparing} />
           )
@@ -678,22 +725,24 @@ export const traceInfoCellRenderer = (
         second={
           isComparing &&
           (otherValue ? (
-            <Tag
-              css={{ width: 'fit-content', maxWidth: '100%' }}
-              componentId="mlflow.genai-traces-table.session"
-              title={otherValue}
-            >
-              <span
-                css={{
-                  display: 'inline-block',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
+            <SessionIdLinkWrapper sessionId={otherValue} experimentId={experimentId} traceId={otherTraceId}>
+              <Tag
+                css={{ width: 'fit-content', maxWidth: '100%' }}
+                componentId="mlflow.genai-traces-table.session"
+                title={otherValue}
               >
-                {otherValue}
-              </span>
-            </Tag>
+                <span
+                  css={{
+                    display: 'inline-block',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {otherValue}
+                </span>
+              </Tag>
+            </SessionIdLinkWrapper>
           ) : (
             <NullCell isComparing={isComparing} />
           ))
@@ -767,7 +816,97 @@ export const traceInfoCellRenderer = (
         }
       />
     );
+  } else if (colId === EXECUTION_DURATION_COLUMN_ID) {
+    // Parse and reformat time values from the backend. Keep up to 3 decimal places for float values,
+    // trim trailing zeros and the dot if there are no decimal places
+    const normalizeFloatValue = (val?: string) => {
+      if (val === undefined) {
+        return undefined;
+      }
+      const floatVal = parseFloat(val);
+      const unit = val
+        ?.replace?.(/[0-9.]/g, '')
+        .trim()
+        .toLowerCase();
+      if (isNil(floatVal) || isNaN(floatVal)) {
+        return undefined;
+      }
+      return [floatVal.toFixed(3).replace(/\.?0+$/, ''), unit].filter(Boolean).join('');
+    };
+
+    const value = normalizeFloatValue(currentTraceInfo?.[EXECUTION_DURATION_COLUMN_ID]);
+    const otherValue = normalizeFloatValue(otherTraceInfo?.[EXECUTION_DURATION_COLUMN_ID]);
+
+    return (
+      <StackedComponents
+        first={
+          !isNil(value) ? (
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={value}>
+              {value}
+            </div>
+          ) : (
+            <NullCell isComparing={isComparing} />
+          )
+        }
+        second={
+          isComparing &&
+          (!isNil(otherValue) ? (
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={otherValue}>
+              {otherValue}
+            </div>
+          ) : (
+            <NullCell isComparing={isComparing} />
+          ))
+        }
+      />
+    );
+  } else if (colId === LINKED_PROMPTS_COLUMN_ID) {
+    const formatPrompts = (promptsJson: string | undefined) => {
+      if (!promptsJson) return null;
+      try {
+        const prompts = JSON.parse(promptsJson);
+        if (Array.isArray(prompts) && prompts.length > 0) {
+          return prompts
+            .map((prompt: { name: string; version: string }) => `${prompt.name}/${prompt.version}`)
+            .join(', ');
+        }
+      } catch (e) {
+        // Invalid JSON, return as-is
+        return promptsJson;
+      }
+      return null;
+    };
+
+    const currentPrompts = currentTraceInfo?.tags?.['mlflow.linkedPrompts'];
+    const otherPrompts = otherTraceInfo?.tags?.['mlflow.linkedPrompts'];
+    const formattedCurrent = formatPrompts(currentPrompts);
+    const formattedOther = formatPrompts(otherPrompts);
+
+    return (
+      <StackedComponents
+        first={
+          formattedCurrent ? (
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={formattedCurrent}>
+              {formattedCurrent}
+            </div>
+          ) : (
+            <NullCell isComparing={isComparing} />
+          )
+        }
+        second={
+          isComparing &&
+          (formattedOther ? (
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={formattedOther}>
+              {formattedOther}
+            </div>
+          ) : (
+            <NullCell isComparing={isComparing} />
+          ))
+        }
+      />
+    );
   }
+
   const value = currentTraceInfo ? stringifyValue(getTraceInfoValueWithColId(currentTraceInfo, colId)) : '';
   const otherValue = otherTraceInfo ? stringifyValue(getTraceInfoValueWithColId(otherTraceInfo, colId)) : '';
 

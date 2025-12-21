@@ -21,6 +21,7 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
 _AUTOLOGGING_PATCHES = {}
+_AUTOLOGGING_CLEANUP_CALLBACKS = {}
 
 
 # Function attribute used for testing purposes to verify that a given function
@@ -718,6 +719,15 @@ def revert_patches(autologging_integration):
         gorilla.revert(patch)
 
     _AUTOLOGGING_PATCHES.pop(autologging_integration, None)
+
+    # Call any registered cleanup callbacks (e.g., for OTel uninstrumentation)
+    for callback in _AUTOLOGGING_CLEANUP_CALLBACKS.get(autologging_integration, []):
+        try:
+            callback()
+        except Exception as e:
+            _logger.warning(f"Error calling cleanup callback for {autologging_integration}: {e}")
+
+    _AUTOLOGGING_CLEANUP_CALLBACKS.pop(autologging_integration, None)
 
 
 # Represents an active autologging session using two fields:

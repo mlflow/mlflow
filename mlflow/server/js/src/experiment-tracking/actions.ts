@@ -386,14 +386,27 @@ export const loadMoreRunsApi = (params: any) => ({
 
 // TODO: run_uuid is deprecated, use run_id instead
 export const LIST_ARTIFACTS_API = 'LIST_ARTIFACTS_API';
-export const listArtifactsApi = (runUuid: any, path?: any, id = getUUID()) => {
-  return {
-    type: LIST_ARTIFACTS_API,
-    payload: MlflowService.listArtifacts({
+export const listArtifactsApi = (
+  runUuid: any,
+  path?: any,
+  id = getUUID(),
+  experimentId?: string,
+  entityTags?: Partial<KeyValueEntity>[],
+) => {
+  const getRunArtifactDataFromMLflowAPI = () =>
+    MlflowService.listArtifacts({
       run_uuid: runUuid,
       // only pass path if not null or undefined
       ...(path && { path: path }),
-    }),
+    });
+
+  const getRunArtifactData = () => {
+    return getRunArtifactDataFromMLflowAPI();
+  };
+
+  return {
+    type: LIST_ARTIFACTS_API,
+    payload: getRunArtifactData(),
     meta: { id: id, runUuid: runUuid, path: path },
   };
 };

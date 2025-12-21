@@ -1,12 +1,12 @@
-import { getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { matchPredefinedError } from '../../errors';
 
 // eslint-disable-next-line no-restricted-globals
 export const fetchFn = fetch; // use global fetch for oss
 
-export const makeRequest = async <T>(path: string, method: 'POST' | 'GET', body?: T) => {
+export const makeRequest = async <T>(path: string, method: 'POST' | 'GET', body?: T, signal?: AbortSignal) => {
   const options: RequestInit = {
     method,
+    signal,
     headers: {
       ...(body ? { 'Content-Type': 'application/json' } : {}),
       ...getDefaultHeaders(document.cookie),
@@ -39,4 +39,37 @@ export const getAjaxUrl = (relativeUrl: any) => {
     return '/' + relativeUrl;
   }
   return relativeUrl;
+};
+
+// Parse cookies from document.cookie
+function parseCookies(cookieString = document.cookie) {
+  return cookieString.split(';').reduce((cookies: { [key: string]: string }, cookie: string) => {
+    const [name, value] = cookie.trim().split('=');
+    cookies[name] = decodeURIComponent(value || '');
+    return cookies;
+  }, {});
+}
+
+export const getDefaultHeadersFromCookies = (cookieStr: any) => {
+  const headerCookiePrefix = 'mlflow-request-header-';
+  const parsedCookie = parseCookies(cookieStr);
+  if (!parsedCookie || Object.keys(parsedCookie).length === 0) {
+    return {};
+  }
+  return Object.keys(parsedCookie)
+    .filter((cookieName) => cookieName.startsWith(headerCookiePrefix))
+    .reduce(
+      (acc, cookieName) => ({
+        ...acc,
+        [cookieName.substring(headerCookiePrefix.length)]: parsedCookie[cookieName],
+      }),
+      {},
+    );
+};
+
+export const getDefaultHeaders = (cookieStr: any) => {
+  const cookieHeaders = getDefaultHeadersFromCookies(cookieStr);
+  return {
+    ...cookieHeaders,
+  };
 };

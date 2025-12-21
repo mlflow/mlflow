@@ -1,5 +1,4 @@
 import {
-  LegacyTooltip,
   TableFilterLayout,
   Button,
   TableFilterInput,
@@ -63,7 +62,7 @@ export const ModelSearchInputHelpTooltip = ({
           <FormattedMessage defaultMessage="Examples:" description="Text header for examples of mlflow search syntax" />
           <br />
           • tags.my_key = "my_value"
-          <br />• name ilike "%{exampleEntityName}%" and tags.my_key = "my_value"
+          <br />• name ILIKE "%{exampleEntityName}%" AND tags.my_key = "my_value"
         </div>
         <Popover.Arrow />
       </Popover.Content>

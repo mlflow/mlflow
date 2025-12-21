@@ -1,6 +1,4 @@
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
@@ -45,7 +43,7 @@ os.environ["OPENAI_API_KEY"] = getpass("Enter your OpenAI API key: ")
         ![Create Prompt UI](/images/llms/prompt-registry/create-prompt-ui.png)
       </div>
 
-      1. Run `mlflow ui` in your terminal to start the MLflow UI.
+      1. Run `mlflow server` in your terminal to start the MLflow UI.
       2. Navigate to the **Prompts** tab in the MLflow UI.
       3. Click on the **Create Prompt** button.
       4. Fill in the prompt details such as name, prompt template text, and commit message (optional).
@@ -158,6 +156,7 @@ def predict_fn(sentences: str) -> str:
 Run the <APILink fn="mlflow.genai.evaluate" /> API to evaluate the model with the prepared data and prompt. In this example, we will use the following two built-in metrics.
 
 ```python
+from typing import Literal
 from mlflow.genai.judges import make_judge
 
 answer_similarity = make_judge(
@@ -169,6 +168,7 @@ answer_similarity = make_judge(
         "Return 'yes' if the output is similar to the expected answer, otherwise return 'no'."
     ),
     model="openai:/gpt-5-mini",
+    feedback_value_type=Literal["yes", "no"],
 )
 
 results = mlflow.genai.evaluate(

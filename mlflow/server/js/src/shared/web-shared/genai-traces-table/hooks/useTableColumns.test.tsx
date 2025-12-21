@@ -1,3 +1,4 @@
+import { jest, describe, afterEach, it, expect } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 
 import type { IntlShape } from '@databricks/i18n';
@@ -130,6 +131,7 @@ describe('useTableColumns', () => {
           tags: {},
           trace_id: '',
           trace_location: {} as any,
+          trace_metadata: {},
         },
       },
     ];
@@ -156,10 +158,13 @@ describe('useTableColumns', () => {
     // 8) request_time (TRACE_INFO)
     // 9) state (TRACE_INFO)
     // 10) source (TRACE_INFO)
-    // 11) run_name (TRACE_INFO)
-    // 12) tags (TRACE_INFO)
-    // 13) quality (ASSESSMENT)
-    expect(result.current).toHaveLength(15);
+    // 11) logged_model (TRACE_INFO)
+    // 12) prompt (TRACE_INFO)
+    // 13) tokens (TRACE_INFO)
+    // 14) run_name (TRACE_INFO)
+    // 15) tags (TRACE_INFO)
+    // 16) quality (ASSESSMENT)
+    expect(result.current).toHaveLength(16);
 
     const colIds = result.current.map((c) => c.id);
     expect(colIds).toContain('request');
@@ -195,6 +200,7 @@ describe('useTableColumns', () => {
           tags: {},
           trace_id: '',
           trace_location: {} as any,
+          trace_metadata: {},
         },
       },
     ];
@@ -221,9 +227,12 @@ describe('useTableColumns', () => {
     // 8) request_time (TRACE_INFO)
     // 9) state (TRACE_INFO)
     // 10) source (TRACE_INFO)
-    // 11) tags (TRACE_INFO)
-    // 12) quality (ASSESSMENT)
-    expect(result.current).toHaveLength(14);
+    // 11) logged_model (TRACE_INFO)
+    // 12) prompt (TRACE_INFO)
+    // 13) tokens (TRACE_INFO)
+    // 14) tags (TRACE_INFO)
+    // 15) quality (ASSESSMENT)
+    expect(result.current).toHaveLength(15);
 
     const colIds = result.current.map((c) => c.id);
     expect(colIds).toContain('request');
@@ -325,10 +334,10 @@ describe('useTableColumns', () => {
 
     // Expected columns:
     // 1) request (INPUT)
-    // 2-15) standard trace info columns (trace_id, trace_name, response, user, session, execution_duration, request_time, state, source, logged_model, tokens, run_name, tags)
-    // 16-18) custom metadata columns (user_id, environment, deployment_version)
-    // 19) quality (ASSESSMENT)
-    expect(result.current).toHaveLength(18);
+    // 2-16) standard trace info columns (trace_id, trace_name, response, user, session, execution_duration, request_time, state, source, logged_model, prompt, tokens, run_name, tags)
+    // 17-19) custom metadata columns (user_id, environment, deployment_version)
+    // 20) quality (ASSESSMENT)
+    expect(result.current).toHaveLength(19);
 
     const colIds = result.current.map((c) => c.id);
     expect(colIds).toContain('custom_metadata:user_id');
@@ -455,7 +464,7 @@ describe('useTableColumns', () => {
           trace_id: '',
           trace_location: {} as any,
           // No trace_metadata
-        },
+        } as any,
       },
     ];
 

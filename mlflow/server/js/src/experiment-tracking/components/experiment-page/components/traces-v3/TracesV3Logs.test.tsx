@@ -1,9 +1,10 @@
+import { jest, describe, beforeEach, afterEach, it, expect } from '@jest/globals';
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TracesV3Logs } from './TracesV3Logs';
 import { IntlProvider } from '@databricks/i18n';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { QueryClient, QueryClientProvider, type UseMutateAsyncFunction } from '@databricks/web-shared/query-client';
 import { DesignSystemProvider } from '@databricks/design-system';
 import {
   useMlflowTracesTableMetadata,
@@ -50,7 +51,6 @@ jest.mock('../../../evaluations/hooks/useDeleteTraces', () => ({
 jest.mock('../../../traces/hooks/useEditExperimentTraceTags', () => ({
   useEditExperimentTraceTags: jest.fn(),
 }));
-
 jest.mock('@mlflow/mlflow/src/common/utils/MarkdownUtils', () => ({
   useMarkdownConverter: jest.fn(),
 }));

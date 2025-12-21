@@ -10,13 +10,16 @@ from mlflow.entities.assessment import (
     AssessmentSourceType,
     Feedback,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult
 from mlflow.genai.judges.utils import CategoricalRating
-from mlflow.genai.scorers import RelevanceToQuery, Safety, Scorer
+from mlflow.genai.scorers import RelevanceToQuery, Safety, Scorer, UserFrustration
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import SerializedScorer
 from mlflow.genai.scorers.builtin_scorers import _sanitize_scorer_feedback
+from mlflow.genai.utils.type import FunctionCall
+from mlflow.types.chat import ChatTool, FunctionToolDefinition
 
 from tests.genai.conftest import databricks_only
 
@@ -106,7 +109,9 @@ def test_sanitize_scorer_feedback_preserves_empty_string():
     )
     sanitized = _sanitize_scorer_feedback(feedback)
     assert sanitized.value == ""
-    assert sanitized.error == "Empty value"
+    # String errors are converted to AssessmentError objects
+    assert sanitized.error.error_message == "Empty value"
+    assert sanitized.error.error_code == "ASSESSMENT_ERROR"
 
 
 def test_sanitize_scorer_feedback_handles_categorical_rating_input():
@@ -304,6 +309,19 @@ def test_is_correct_oss():
     assert "What is the capital of France?" in prompt
     assert "Paris is the capital of France." in prompt
     assert "Paris" in prompt
+
+
+def test_is_correct_rejects_both_expected_response_and_expected_facts():
+    with pytest.raises(
+        MlflowException,
+        match="Only one of expected_response or expected_facts should be provided, not both",
+    ):
+        judges.is_correct(
+            request="What is the capital of France?",
+            response="Paris is the capital of France.",
+            expected_response="Paris",
+            expected_facts=["Paris is the capital of France"],
+        )
 
 
 def test_is_context_sufficient_oss():
@@ -539,3 +557,113 @@ def test_ser_deser():
         assert isinstance(deserialized, Safety)
         assert deserialized.name == "safety"
         assert deserialized.required_columns == {"inputs", "outputs"}
+
+
+def test_ser_deser_session_level_scorer():
+    scorer = UserFrustration()
+
+    # Verify the scorer is session-level
+    assert scorer.is_session_level_scorer is True
+
+    # Test serialization
+    serialized_dict = scorer.model_dump()
+    assert serialized_dict["is_session_level_scorer"] is True
+    assert serialized_dict["name"] == "user_frustration"
+    assert serialized_dict["builtin_scorer_class"] == "UserFrustration"
+
+    # Test deserialization from dict
+    deserialized = Scorer.model_validate(serialized_dict)
+    assert isinstance(deserialized, UserFrustration)
+    assert deserialized.name == "user_frustration"
+    assert deserialized.is_session_level_scorer is True
+
+    # Test deserialization from SerializedScorer object
+    serialized_obj = SerializedScorer(**serialized_dict)
+    deserialized2 = Scorer.model_validate(serialized_obj)
+    assert isinstance(deserialized2, UserFrustration)
+    assert deserialized2.is_session_level_scorer is True
+
+
+def test_is_tool_call_efficient_with_custom_name_and_model():
+    with mock.patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=Feedback(
+            name="custom_efficiency_check",
+            value=CategoricalRating.YES,
+            rationale="Let's think step by step. Tool usage is optimal.",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id="anthropic:/claude-3-sonnet",
+            ),
+        ),
+    ) as mock_invoke:
+        feedback = judges.is_tool_call_efficient(
+            request="Get weather for Paris",
+            tools_called=[
+                FunctionCall(
+                    name="get_weather",
+                    arguments={"city": "Paris"},
+                    outputs="Sunny, 22°C",
+                    exception=None,
+                )
+            ],
+            available_tools=[
+                ChatTool(
+                    type="function",
+                    function=FunctionToolDefinition(name="get_weather", description="Get weather"),
+                )
+            ],
+            name="custom_efficiency_check",
+            model="anthropic:/claude-3-sonnet",
+        )
+
+    assert feedback.name == "custom_efficiency_check"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.source.source_id == "anthropic:/claude-3-sonnet"
+
+    mock_invoke.assert_called_once()
+    args, kwargs = mock_invoke.call_args
+    assert args[0] == "anthropic:/claude-3-sonnet"
+    assert kwargs["assessment_name"] == "custom_efficiency_check"
+
+
+def test_is_tool_call_correct_with_custom_name_and_model():
+    with mock.patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=Feedback(
+            name="custom_correctness_check",
+            value=CategoricalRating.YES,
+            rationale="Let's think step by step. Tool calls and arguments are appropriate.",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id="anthropic:/claude-3-sonnet",
+            ),
+        ),
+    ) as mock_invoke:
+        feedback = judges.is_tool_call_correct(
+            request="Get weather for Paris",
+            tools_called=[
+                FunctionCall(
+                    name="get_weather",
+                    arguments={"city": "Paris"},
+                    outputs="Sunny, 22°C",
+                )
+            ],
+            available_tools=[
+                ChatTool(
+                    type="function",
+                    function=FunctionToolDefinition(name="get_weather", description="Get weather"),
+                )
+            ],
+            name="custom_correctness_check",
+            model="anthropic:/claude-3-sonnet",
+        )
+
+    assert feedback.name == "custom_correctness_check"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.source.source_id == "anthropic:/claude-3-sonnet"
+
+    mock_invoke.assert_called_once()
+    args, kwargs = mock_invoke.call_args
+    assert args[0] == "anthropic:/claude-3-sonnet"
+    assert kwargs["assessment_name"] == "custom_correctness_check"

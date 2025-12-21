@@ -1,4 +1,5 @@
 import importlib
+from unittest import mock
 
 import openai
 import pytest
@@ -27,6 +28,16 @@ def mock_openai():
 def reset_autolog(reset_autolog_state):
     # Apply the reset_autolog_state fixture to all tests for LangChain
     return
+
+
+@pytest.fixture(autouse=True)
+def mock_init_auth():
+    def mocked_init_auth(config_instance):
+        config_instance.host = "https://databricks.com/"
+        config_instance._header_factory = lambda: {}
+
+    with mock.patch("databricks.sdk.config.Config.init_auth", new=mocked_init_auth):
+        yield
 
 
 # Define a special embedding for testing

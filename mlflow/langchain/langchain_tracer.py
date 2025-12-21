@@ -23,7 +23,7 @@ from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, Spa
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils.chat import parse_token_usage
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -53,15 +53,25 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             thread-local context. Occasionally this has to be passed manually because
             the callback may be invoked asynchronously and Langchain doesn't correctly
             propagate the thread-local context.
+        run_inline: If True, the callback runs in the main async task rather than being
+            offloaded to a thread pool. This ensures proper context propagation when combining
+            autolog traces with manual @mlflow.trace decorators in async scenarios. Default is
+            False for backward compatibility. Configurable via
+            mlflow.langchain.autolog(run_tracer_inline=True).
     """
 
     def __init__(
         self,
         prediction_context: Optional["Context"] = None,
+        run_inline: bool = False,
     ):
         # NB: The tracer can handle multiple traces in parallel under multi-threading scenarios.
         # DO NOT use instance variables to manage the state of single trace.
         super().__init__()
+        # NB: run_inline is an attribute defined in BaseCallbackHandler that controls whether
+        # the callback runs in the main async task or is offloaded to a thread pool.
+        # https://github.com/langchain-ai/langchain/blob/78c10f879077bc848d3d474ab202d49a6103727b/libs/core/langchain_core/callbacks/base.py#L438-L439
+        self.run_inline = run_inline
         # run_id: (LiveSpan, OTel token)
         self._run_span_mapping: dict[str, SpanWithToken] = {}
         self._prediction_context = prediction_context
@@ -447,7 +457,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Start span for a chain run."""
         if metadata:
             kwargs.update({"metadata": metadata})
-        # not considering streaming events for now
+
         self._start_span(
             span_name=name or self._assign_span_name(serialized, "chain"),
             parent_run_id=parent_run_id,
@@ -456,6 +466,15 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             inputs=inputs,
             attributes=kwargs,
         )
+
+        # NB: We need to guard this with active trace existence because sometimes LangGraph
+        # execute the callback within an isolated thread where the active trace is not set.
+        if (
+            metadata is not None
+            and (thread_id := metadata.get("thread_id"))
+            and mlflow.get_current_active_span() is not None
+        ):
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: thread_id})
 
     def on_chain_end(
         self,

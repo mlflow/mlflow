@@ -1,5 +1,8 @@
 import {
   Alert,
+  Button,
+  ChevronDownIcon,
+  ChevronRightIcon,
   FormUI,
   Modal,
   RHFControlledComponents,
@@ -10,17 +13,21 @@ import {
 import { useState } from 'react';
 import { useForm, Controller, FormProvider } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
-import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
+import type { ChatPromptMessage, PromptModelConfigFormData, RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { useCreateRegisteredPromptMutation } from './useCreateRegisteredPromptMutation';
 import {
+  formDataToModelConfig,
   getChatPromptMessagesFromValue,
   getPromptContentTagValue,
   isChatPrompt,
+  PROMPT_EXPERIMENT_IDS_TAG_KEY,
+  PROMPT_MODEL_CONFIG_TAG_KEY,
   PROMPT_TYPE_CHAT,
   PROMPT_TYPE_TEXT,
+  validateModelConfig,
 } from '../utils';
-import { ChatPromptMessage } from '../types';
 import { ChatMessageCreator } from '../components/ChatMessageCreator';
+import { ModelConfigForm } from '../components/ModelConfigForm';
 
 export enum CreatePromptModalMode {
   CreatePrompt = 'CreatePrompt',
@@ -31,14 +38,17 @@ export const useCreatePromptModal = ({
   mode = CreatePromptModalMode.CreatePromptVersion,
   registeredPrompt,
   latestVersion,
+  experimentId,
   onSuccess,
 }: {
   mode: CreatePromptModalMode;
   registeredPrompt?: RegisteredPrompt;
   latestVersion?: RegisteredPromptVersion;
+  experimentId?: string;
   onSuccess?: (result: { promptName: string; promptVersion?: string }) => void | Promise<any>;
 }) => {
   const [open, setOpen] = useState(false);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const intl = useIntl();
 
   const form = useForm<{
@@ -48,6 +58,7 @@ export const useCreatePromptModal = ({
     commitMessage: string;
     tags: { key: string; value: string }[];
     promptType: typeof PROMPT_TYPE_CHAT | typeof PROMPT_TYPE_TEXT;
+    modelConfig: PromptModelConfigFormData;
   }>({
     defaultValues: {
       draftName: '',
@@ -56,6 +67,7 @@ export const useCreatePromptModal = ({
       commitMessage: '',
       tags: [],
       promptType: PROMPT_TYPE_TEXT,
+      modelConfig: {},
     },
   });
 
@@ -108,10 +120,28 @@ export const useCreatePromptModal = ({
             }
           }
 
+          // Validate model config if any field is provided
+          const modelConfigErrors = validateModelConfig(values.modelConfig);
+          if (Object.keys(modelConfigErrors).length > 0) {
+            Object.entries(modelConfigErrors).forEach(([field, message]) => {
+              form.setError(`modelConfig.${field}` as any, { type: 'validation', message });
+            });
+            return;
+          }
+
           const chatMessages = values.chatMessages.map((message) => ({
             ...message,
             content: message.content.trim(),
           }));
+
+          // Prepare experiment ID tag which has `,${experimentId},` format
+          const promptTags = experimentId ? [{ key: PROMPT_EXPERIMENT_IDS_TAG_KEY, value: `,${experimentId},` }] : [];
+
+          // Convert model config form data to backend format
+          const modelConfig = formDataToModelConfig(values.modelConfig);
+          const modelConfigTags = modelConfig
+            ? [{ key: PROMPT_MODEL_CONFIG_TAG_KEY, value: JSON.stringify(modelConfig) }]
+            : [];
 
           mutateCreateVersion(
             {
@@ -119,7 +149,8 @@ export const useCreatePromptModal = ({
               content: values.promptType === PROMPT_TYPE_CHAT ? JSON.stringify(chatMessages) : values.draftValue,
               commitMessage: values.commitMessage,
               promptName,
-              tags: values.tags,
+              tags: [...values.tags, ...modelConfigTags],
+              promptTags,
               promptType: values.promptType,
             },
             {
@@ -250,6 +281,26 @@ export const useCreatePromptModal = ({
           componentId="mlflow.prompts.create.commit_message"
           name="commitMessage"
         />
+        <Spacer />
+        {/* Advanced Settings Section */}
+        <Button
+          componentId="mlflow.prompts.create.toggle_advanced_settings"
+          type="link"
+          onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+          icon={showAdvancedSettings ? <ChevronDownIcon /> : <ChevronRightIcon />}
+          css={{ padding: 0 }}
+        >
+          <FormattedMessage
+            defaultMessage="Advanced settings (optional)"
+            description="Toggle button for advanced settings in prompt creation modal"
+          />
+        </Button>
+        {showAdvancedSettings && (
+          <>
+            <Spacer size="sm" />
+            <ModelConfigForm />
+          </>
+        )}
       </Modal>
     </FormProvider>
   );
@@ -263,6 +314,11 @@ export const useCreatePromptModal = ({
     const promptType = isChatPrompt(latestVersion) ? PROMPT_TYPE_CHAT : PROMPT_TYPE_TEXT;
     const parsedMessages = getChatPromptMessagesFromValue(tagValue);
 
+    // Check if latest version has model config to auto-expand advanced settings
+    const hasModelConfig =
+      mode === CreatePromptModalMode.CreatePromptVersion &&
+      latestVersion?.tags?.some((tag) => tag.key === PROMPT_MODEL_CONFIG_TAG_KEY && tag.value);
+
     form.reset({
       commitMessage: '',
       draftName: '',
@@ -272,7 +328,9 @@ export const useCreatePromptModal = ({
         : [{ role: 'user', content: '' }],
       tags: [],
       promptType,
+      modelConfig: {},
     });
+    setShowAdvancedSettings(!!hasModelConfig);
     setOpen(true);
   };
 

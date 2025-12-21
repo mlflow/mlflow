@@ -1,12 +1,11 @@
 import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
-import { CardGroup, TitleCard } from "@site/src/components/Card";
-import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { MessageSquare, Target, BarChart3, ExternalLink, Bot, Users, CheckCircle, TrendingUp, Database, Book, Rocket, Scale } from "lucide-react";
+import { Rocket, Scale } from "lucide-react";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Evaluating LLMs/Agents with MLflow
 
@@ -23,7 +22,7 @@ This documentation covers MLflow's **GenAI evaluation system** which uses:
 
 MLflow's evaluation and monitoring capabilities help you systematically measure, improve, and maintain the quality of your GenAI applications throughout their lifecycle from development through production.
 
-<ImageBox src="/images/mlflow-3/eval-monitor/evaluation-result-video.gif" alt="Prompt Evaluation" />
+<video src={useBaseUrl("/images/mlflow-3/eval-monitor/evaluation-result-video.mp4")} controls loop autoPlay muted aria-label="Prompt Evaluation" />
 
 A core tenet of MLflow's evaluation capabilities is **Evaluation-Driven Development**. This is an emerging practice to tackle the challenge of building high-quality LLM/Agentic applications. MLflow is an **end-to-end** platform that is designed to support this practice and help you deploy AI applications with confidence.
 
@@ -66,7 +65,7 @@ A core tenet of MLflow's evaluation capabilities is **Evaluation-Driven Developm
 
         Feedbacks are attached to traces and recorded with metadata, including user, timestamp, revisions, etc.
 
-        [Learn more →](/genai/tracing/collect-user-feedback)
+        [Learn more →](/genai/assessments/feedback)
 
         </div>
 
@@ -228,7 +227,7 @@ results = mlflow.genai.evaluate(
 Open the MLflow UI to review the evaluation results. If you are using OSS MLflow, you can use the following command to start the UI:
 
 ```bash
-mlflow ui --port 5000
+mlflow server --port 5000
 ```
 
 If you are using cloud-based MLflow, open the experiment page in the platform. You should see a new evaluation run is created under the "Runs" tab. Click on the run name to view the evaluation results.

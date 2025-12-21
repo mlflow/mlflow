@@ -71,6 +71,7 @@ To create an Agent-as-a-Judge, simply call the `make_judge` API and pass an inst
 ```python
 import mlflow
 from mlflow.genai.judges import make_judge
+from typing import Literal
 import time
 
 performance_judge = make_judge(
@@ -84,6 +85,7 @@ performance_judge = make_judge(
         "- Proper use of caching mechanisms\n\n"
         "Rate as: 'optimal', 'acceptable', or 'needs_improvement'"
     ),
+    feedback_value_type=Literal["optimal", "acceptable", "needs_improvement"],
     model="openai:/gpt-5",
     # model="anthropic:/claude-opus-4-1-20250805",
 )
@@ -173,6 +175,7 @@ tool_optimization_judge = make_judge(
         "Provide specific optimization suggestions.\n"
         "Rate efficiency as: 'optimal', 'good', 'suboptimal', or 'poor'"
     ),
+    feedback_value_type=Literal["optimal", "good", "suboptimal", "poor"],
     model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
@@ -193,6 +196,7 @@ loop_detector_judge = make_judge(
         "Report specific span patterns that indicate issues.\n"
         "Classify as: 'clean', 'warning', or 'critical'"
     ),
+    feedback_value_type=Literal["clean", "warning", "critical"],
     model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
@@ -213,6 +217,7 @@ reasoning_judge = make_judge(
         "Identify specific reasoning flaws with span IDs.\n"
         "Score 1-100 for reasoning quality."
     ),
+    feedback_value_type=int,
     model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
@@ -231,6 +236,7 @@ rag_judge = make_judge(
         "3. Are sources properly cited?\n\n"
         "Rate as: 'good', 'acceptable', or 'poor'"
     ),
+    feedback_value_type=Literal["good", "acceptable", "poor"],
     model="anthropic:/claude-opus-4-1-20250805",
 )
 
@@ -263,6 +269,7 @@ error_handling_judge = make_judge(
         "Identify specific error scenarios and how they were handled.\n"
         "Rate as: 'robust', 'adequate', or 'fragile'"
     ),
+    feedback_value_type=Literal["robust", "adequate", "fragile"],
     model="anthropic:/claude-opus-4-1-20250805",
 )
 ```

@@ -238,6 +238,7 @@ export const MOCK_TRACE_INFO_V3: ModelTraceInfoV3 = {
     'mlflow.traceInputs': '"test inputs"',
     'mlflow.traceOutputs': '"test outputs"',
     'mlflow.trace_schema.version': '3',
+    'mlflow.trace.tokenUsage': '{"input_tokens": 100, "output_tokens": 200, "total_tokens": 300}',
   },
   tags: {},
   assessments: [MOCK_ASSESSMENT],

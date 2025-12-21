@@ -111,10 +111,11 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
 
         for group in hook_groups:
             if HOOK_FIELD_HOOKS in group:
-                filtered_hooks = []
-                for hook in group[HOOK_FIELD_HOOKS]:
-                    if MLFLOW_HOOK_IDENTIFIER not in hook.get(HOOK_FIELD_COMMAND, ""):
-                        filtered_hooks.append(hook)
+                filtered_hooks = [
+                    hook
+                    for hook in group[HOOK_FIELD_HOOKS]
+                    if MLFLOW_HOOK_IDENTIFIER not in hook.get(HOOK_FIELD_COMMAND, "")
+                ]
 
                 if filtered_hooks:
                     filtered_groups.append({HOOK_FIELD_HOOKS: filtered_hooks})

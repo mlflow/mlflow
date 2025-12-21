@@ -54,7 +54,7 @@ run:
 
 This downloads and transforms the MovieLens dataset, trains an ALS
 model, and then trains a Keras model -- you can compare the results by
-using ``mlflow ui``.
+using ``mlflow server``.
 
 You can also try changing the number of ALS iterations or Keras hidden
 units:

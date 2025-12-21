@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, afterEach, it, expect } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -12,8 +13,8 @@ jest.mock('./mlflow-fetch-utils', () => ({
   getTraceArtifact: jest.fn(),
 }));
 
-jest.mock('../hooks/useGetModelTraceInfoV3', () => ({
-  useGetModelTraceInfoV3: jest.fn().mockReturnValue({
+jest.mock('../hooks/useGetModelTraceInfo', () => ({
+  useGetModelTraceInfo: jest.fn().mockReturnValue({
     refetch: jest.fn(),
   }),
 }));

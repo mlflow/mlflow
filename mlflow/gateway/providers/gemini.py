@@ -5,7 +5,11 @@ from typing import Any, AsyncIterable
 
 from mlflow.gateway.config import EndpointConfig, GeminiConfig
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
+from mlflow.gateway.providers.base import (
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+)
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import (
     chat as chat_schema,
@@ -144,14 +148,11 @@ class GeminiAdapter(ProviderAdapter):
         if system_message:
             gemini_payload["system_instruction"] = system_message
 
-        generation_config = {k: v for k, v in payload.items() if k in GENERATION_CONFIGS}
-
-        if generation_config:
+        if generation_config := {k: v for k, v in payload.items() if k in GENERATION_CONFIGS}:
             gemini_payload["generationConfig"] = generation_config
 
-        tools = payload.pop("tools", None)
         # convert tool definition to Gemini format
-        if tools:
+        if tools := payload.pop("tools", None):
             function_declarations = []
             for tool in tools:
                 if tool["type"] != "function":
@@ -592,6 +593,11 @@ class GeminiProvider(BaseProvider):
     NAME = "Gemini"
     CONFIG_TYPE = GeminiConfig
 
+    PASSTHROUGH_PROVIDER_PATHS = {
+        PassthroughAction.GEMINI_GENERATE_CONTENT: "{model}:generateContent",
+        PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "{model}:streamGenerateContent?alt=sse",
+    }
+
     def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, GeminiConfig):
@@ -728,3 +734,26 @@ class GeminiProvider(BaseProvider):
                 break
             resp = json.loads(data)
             yield self.adapter_class.model_to_chat_streaming(resp, self.config)
+
+    async def passthrough(
+        self, action: PassthroughAction, payload: dict[str, Any]
+    ) -> dict[str, Any] | AsyncIterable[bytes]:
+        provider_path = self._validate_passthrough_action(action)
+        provider_path = provider_path.format(model=self.config.model.name)
+
+        is_streaming = action == PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
+
+        if is_streaming:
+            return send_stream_request(
+                headers=self.headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload,
+            )
+        else:
+            return await send_request(
+                headers=self.headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload,
+            )

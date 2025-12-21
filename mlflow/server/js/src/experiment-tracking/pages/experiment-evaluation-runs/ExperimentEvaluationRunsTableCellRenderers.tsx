@@ -19,7 +19,6 @@ import { Link } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import Routes from '../../routes';
 import { FormattedMessage } from 'react-intl';
-import { RunPageTabName } from '../../constants';
 import { useSaveExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { RunColorPill } from '../../components/experiment-page/components/RunColorPill';
@@ -28,6 +27,7 @@ import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTabl
 import { useMemo } from 'react';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
+import { RunPageTabName } from '../../constants';
 
 export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   row,
@@ -296,7 +296,9 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
     return <div>-</div>;
   }
   const runUuid = row.original.info.runUuid;
-  const Icon = isRowHidden(runUuid) ? VisibleOffIcon : VisibleIcon;
+  const rowIndex = row.index;
+  const runStatus = row.original.info.status;
+  const Icon = isRowHidden(runUuid, rowIndex, runStatus) ? VisibleOffIcon : VisibleIcon;
 
-  return <Icon onClick={() => toggleRowVisibility(runUuid)} />;
+  return <Icon onClick={() => toggleRowVisibility(runUuid)} css={{ cursor: 'pointer' }} />;
 };

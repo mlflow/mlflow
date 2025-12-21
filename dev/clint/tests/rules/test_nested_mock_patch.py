@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, lint_file
+from clint.linter import Position, Range, lint_file
 from clint.rules.nested_mock_patch import NestedMockPatch
 
 
@@ -18,7 +18,7 @@ def test_foo():
     violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, NestedMockPatch) for v in violations)
-    assert violations[0].loc == Location(4, 4)
+    assert violations[0].range == Range(Position(4, 4))
 
 
 def test_nested_mock_patch_from_unittest_import_mock(index_path: Path) -> None:
@@ -34,7 +34,7 @@ def test_foo():
     violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, NestedMockPatch) for v in violations)
-    assert violations[0].loc == Location(4, 4)
+    assert violations[0].range == Range(Position(4, 4))
 
 
 def test_nested_mock_patch_object(index_path: Path) -> None:
@@ -50,7 +50,7 @@ def test_foo():
     violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, NestedMockPatch) for v in violations)
-    assert violations[0].loc == Location(4, 4)
+    assert violations[0].range == Range(Position(4, 4))
 
 
 def test_nested_mock_patch_dict(index_path: Path) -> None:
@@ -66,7 +66,7 @@ def test_foo():
     violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, NestedMockPatch) for v in violations)
-    assert violations[0].loc == Location(4, 4)
+    assert violations[0].range == Range(Position(4, 4))
 
 
 def test_nested_mock_patch_mixed(index_path: Path) -> None:
@@ -82,7 +82,7 @@ def test_foo():
     violations = lint_file(Path("test_nested_mock_patch.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, NestedMockPatch) for v in violations)
-    assert violations[0].loc == Location(4, 4)
+    assert violations[0].range == Range(Position(4, 4))
 
 
 def test_multiple_context_managers_is_ok(index_path: Path) -> None:
@@ -197,5 +197,5 @@ def test_foo():
     # Should detect both levels of nesting
     assert len(violations) == 2
     assert all(isinstance(v.rule, NestedMockPatch) for v in violations)
-    assert violations[0].loc == Location(4, 4)
-    assert violations[1].loc == Location(5, 8)
+    assert violations[0].range == Range(Position(4, 4))
+    assert violations[1].range == Range(Position(5, 8))

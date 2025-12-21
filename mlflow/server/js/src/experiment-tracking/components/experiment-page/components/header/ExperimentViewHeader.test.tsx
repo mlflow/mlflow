@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { ExperimentViewHeader, ExperimentViewHeaderSkeleton } from './ExperimentViewHeader';
 import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import type { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
@@ -75,10 +76,6 @@ describe('ExperimentViewHeader', () => {
       expect(tooltip).toHaveTextContent('Path: test/experiment/name');
       expect(tooltip).toHaveTextContent('Experiment ID: 123');
       expect(tooltip).toHaveTextContent('Artifact Location: file:/tmp/mlruns');
-    });
-
-    it('renders breadcrumb navigation', () => {
-      expect(screen.getByText('Experiments')).toBeInTheDocument();
     });
 
     it('displays share and management buttons', () => {

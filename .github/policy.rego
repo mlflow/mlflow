@@ -63,6 +63,25 @@ deny_unpinned_actions contains msg if {
 	)
 }
 
+deny_missing_shell_defaults contains msg if {
+	# Only check workflow files (not composite actions)
+	# Composite actions have 'runs' instead of 'jobs'
+	input.jobs
+	not input.defaults.run.shell
+	msg := "Workflow must have 'defaults.run.shell: bash' to enable pipefail by default"
+}
+
+deny_wrong_shell_defaults contains msg if {
+	# Only check workflow files (not composite actions)
+	input.jobs
+	shell := input.defaults.run.shell
+	shell != "bash"
+	msg := sprintf(
+		"Workflow has 'defaults.run.shell: %s' but it must be 'bash' to enable pipefail by default",
+		[shell],
+	)
+}
+
 ###########################   RULE HELPERS   ##################################
 jobs_without_permissions(jobs) := {job_id |
 	some job_id, job in jobs

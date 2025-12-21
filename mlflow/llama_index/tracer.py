@@ -374,7 +374,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         template = event.template
         template_args = {
             **template.kwargs,
-            **(event.template_args if event.template_args else {}),
+            **(event.template_args or {}),
         }
         span.set_attributes(
             {
@@ -504,7 +504,7 @@ class StreamResolver:
         Returns:
             True if the span is registered successfully, False otherwise.
         """
-        if inspect.isgenerator(result):
+        if inspect.isgenerator(result) or inspect.isasyncgen(result):
             stream = result
         elif isinstance(result, (StreamingResponse, AsyncStreamingResponse)):
             stream = result.response_gen
@@ -515,13 +515,16 @@ class StreamResolver:
         else:
             raise ValueError(f"Unsupported streaming response type: {type(result)}")
 
-        if inspect.getgeneratorstate(stream) == inspect.GEN_CLOSED:
-            # Not registering the span because the generator is already exhausted.
-            # It's counter-intuitive that the generator is closed before the response
-            # is returned, but it can happen because some agents run streaming request
-            # in a separate thread. In this case, the generator can be closed before
-            # the response is returned in the main thread.
-            return False
+        # Check if generator/async generator is already closed
+        # Async generators use ag_frame, sync generators use gi_frame
+        if inspect.isasyncgen(stream):
+            # For async generators, ag_frame is None when closed
+            if stream.ag_frame is None:
+                return False
+        elif inspect.isgenerator(stream):
+            # For sync generators, use getgeneratorstate
+            if inspect.getgeneratorstate(stream) == inspect.GEN_CLOSED:
+                return False
 
         self._span_id_to_span_and_gen[span.span_id] = (span, stream)
         return True

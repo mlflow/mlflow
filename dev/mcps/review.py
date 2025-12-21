@@ -126,8 +126,7 @@ def filter_diff(full_diff: str) -> str:
     for line in filtered_diff:
         if line.startswith("@@"):
             # Parse hunk header: @@ -old_start,old_count +new_start,new_count @@
-            match = re.match(r"@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@", line)
-            if match:
+            if match := re.match(r"@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@", line):
                 old_line = int(match.group(1))
                 new_line = int(match.group(2))
             result_lines.append(line)

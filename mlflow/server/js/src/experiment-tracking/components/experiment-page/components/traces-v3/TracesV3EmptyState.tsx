@@ -1,5 +1,5 @@
 import { useMonitoringFilters } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
-import { useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
+import { createTraceLocationForExperiment, useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
 import { FormattedMessage } from '@databricks/i18n';
 import { Button, DangerIcon, Empty, ParagraphSkeleton, SearchIcon } from '@databricks/design-system';
 import { getNamedDateFilters } from './utils/dateUtils';
@@ -9,9 +9,18 @@ import { useIntl } from '@databricks/i18n';
 import { getExperimentKindFromTags } from '@mlflow/mlflow/src/experiment-tracking/utils/ExperimentKindUtils';
 import { ExperimentKind } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { TracesViewTableNoTracesQuickstart } from '../../../traces/quickstart/TracesViewTableNoTracesQuickstart';
+import type {
+  ModelTraceLocationMlflowExperiment,
+  ModelTraceLocationUcSchema,
+} from '@databricks/web-shared/model-trace-explorer';
 
-export const TracesV3EmptyState = (props: { experimentIds: string[]; loggedModelId?: string }) => {
-  const { experimentIds, loggedModelId } = props;
+export const TracesV3EmptyState = (props: {
+  traceSearchLocations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  experimentIds: string[];
+  loggedModelId?: string;
+  isCallDisabled?: boolean;
+}) => {
+  const { experimentIds, traceSearchLocations, loggedModelId, isCallDisabled } = props;
 
   const intl = useIntl();
 
@@ -20,10 +29,11 @@ export const TracesV3EmptyState = (props: { experimentIds: string[]; loggedModel
     isLoading,
     error,
   } = useSearchMlflowTraces({
-    experimentId: experimentIds[0],
+    locations: traceSearchLocations,
     pageSize: 1,
     limit: 1,
     ...(loggedModelId ? { filterByLoggedModelId: loggedModelId } : {}),
+    disabled: isCallDisabled,
   });
 
   // check experiment tags to see if it's genai or custom

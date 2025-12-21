@@ -498,8 +498,7 @@ def autolog(
         Returns:
             A list of classes that includes the argument in the first position.
         """
-        subclasses = klass.__subclasses__()
-        if subclasses:
+        if subclasses := klass.__subclasses__():
             subclass_lists = [find_subclasses(c) for c in subclasses]
             chain = itertools.chain.from_iterable(subclass_lists)
             return [klass] + list(chain)

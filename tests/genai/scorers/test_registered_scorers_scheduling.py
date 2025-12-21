@@ -38,7 +38,6 @@ def serialization_scorer(outputs) -> bool:
 
 
 def test_scorer_register():
-    """Test registering a scorer."""
     my_scorer = length_check
     with patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add:
         registered = my_scorer.register(name="my_length_check")
@@ -62,7 +61,6 @@ def test_scorer_register():
 
 
 def test_scorer_register_default_name():
-    """Test registering with default name."""
     my_scorer = length_check
     with patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add:
         registered = my_scorer.register()
@@ -73,7 +71,6 @@ def test_scorer_register_default_name():
 
 
 def test_scorer_start():
-    """Test starting a scorer."""
     my_scorer = length_check
     my_scorer = my_scorer._create_copy()
     my_scorer.name = "my_length_check"
@@ -119,7 +116,6 @@ def test_scorer_start_with_zero_sample_rate_raises_error(sample_rate):
 
 
 def test_scorer_start_not_registered():
-    """Test starting a scorer that isn't registered."""
     my_scorer = length_check
 
     # Should work fine - start doesn't require pre-registration
@@ -133,7 +129,6 @@ def test_scorer_start_not_registered():
 
 
 def test_scorer_update():
-    """Test updating a scorer."""
     my_scorer = length_check
     my_scorer = my_scorer._create_copy()
     my_scorer.name = "my_length_check"
@@ -165,7 +160,6 @@ def test_scorer_update():
 
 
 def test_scorer_stop():
-    """Test stopping a scorer."""
     my_scorer = length_check
     my_scorer = my_scorer._create_copy()
     my_scorer.name = "my_length_check"
@@ -186,7 +180,6 @@ def test_scorer_stop():
 
 
 def test_scorer_register_with_experiment_id():
-    """Test registering a scorer with experiment_id."""
     my_scorer = length_check
     with patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add:
         my_scorer.register(name="test_scorer", experiment_id="exp123")
@@ -198,7 +191,6 @@ def test_scorer_register_with_experiment_id():
 
 
 def test_scorer_start_with_name_param():
-    """Test starting a scorer using name parameter."""
     my_scorer = length_check
     # Scorer doesn't need name modification
 
@@ -249,7 +241,6 @@ def test_scorer_update_with_all_params():
 
 
 def test_builtin_scorer_register():
-    """Test registering a builtin scorer with custom name."""
     guidelines_scorer = Guidelines(guidelines="Be helpful")
 
     # Verify original serialization
@@ -297,7 +288,6 @@ def test_builtin_scorer_update():
 
 
 def test_all_methods_are_immutable():
-    """Test that all methods return new instances and don't modify the original."""
     original = length_check
 
     # Set up some state
@@ -342,8 +332,6 @@ def test_all_methods_are_immutable():
 
 
 def test_class_scorer_cannot_be_registered():
-    """Test that class-based scorers cannot be registered."""
-
     class CustomScorer(Scorer):
         name: str = "custom"
 
@@ -367,7 +355,6 @@ def test_class_scorer_cannot_be_registered():
 
 
 def test_register_with_custom_name_updates_serialization():
-    """Test that registering with a custom name properly updates serialization data."""
     # Use the pre-defined scorer to avoid source extraction issues
     test_scorer = serialization_scorer
 

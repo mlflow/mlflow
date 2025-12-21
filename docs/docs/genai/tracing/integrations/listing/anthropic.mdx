@@ -4,23 +4,38 @@ sidebar_label: Anthropic
 ---
 
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing Anthropic
 
-![OpenAI Tracing via autolog](/images/llms/anthropic/anthropic-tracing.png)
+![Anthropic Tracing via autolog](/images/llms/anthropic/anthropic-tracing.png)
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for Anthropic LLMs. By enabling auto tracing
-for Anthropic by calling the <APILink fn="mlflow.anthropic.autolog" /> function, MLflow will capture nested traces and log them to the active MLflow Experiment upon invocation of Anthropic Python SDK.
+for Anthropic by calling the <APILink fn="mlflow.anthropic.autolog" /> function, MLflow will capture nested traces and log them to the active MLflow Experiment upon invocation of Anthropic Python SDK. In Typescript, you can instead use the `tracedAnthropic` function to wrap the Anthropic client.
 
-```python
-import mlflow
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
+    ```python
+    import mlflow
 
-mlflow.anthropic.autolog()
-```
+    mlflow.anthropic.autolog()
+    ```
+
+</TabItem>
+<TabItem value="typescript" label="JS / TS">
+    ```typescript
+    import Anthropic from "@anthropic-ai/sdk";
+    import { tracedAnthropic } from "mlflow-anthropic";
+
+    const client = tracedAnthropic(new Anthropic());
+    ```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 MLflow trace automatically captures the following information about Anthropic calls:
 
@@ -29,11 +44,14 @@ MLflow trace automatically captures the following information about Anthropic ca
 - Model name
 - Additional metadata such as `temperature`, `max_tokens`, if specified.
 - Function calling if returned in the response
+- Token usage information
 - Any exception if raised
 
 ## Supported APIs
 
 MLflow supports automatic tracing for the following Anthropic APIs:
+
+### Python
 
 | Chat Completion | Function Calling | Streaming |  Async   | Image | Batch |
 | :-------------: | :--------------: | :-------: | :------: | :---: | :---: |
@@ -45,54 +63,98 @@ MLflow supports automatic tracing for the following Anthropic APIs:
 
 </div>
 
+### TypeScript / JavaScript
+
+| Chat Completion | Function Calling | Streaming | Async |
+| :-------------: | :--------------: | :-------: | :---: |
+|       ✅        |     ✅ (\*2)     |     -     |  ✅   |
+
+<div style={{ fontSize: '0.9em', marginTop: '10px' }}>
+
+(\*2) Function calls in responses are captured and can be rendered in the MLflow UI. The TypeScript SDK is natively async.
+
+</div>
+
 To request support for additional APIs, please open a [feature request](https://github.com/mlflow/mlflow/issues) on GitHub.
 
 ## Basic Example
 
-```python
-import anthropic
-import mlflow
+<Tabs>
+  <TabItem value="python" label="Python" default>
+    ```python
+    import anthropic
+    import mlflow
 
-# Enable auto-tracing for Anthropic
-mlflow.anthropic.autolog()
+    # Enable auto-tracing for Anthropic
+    mlflow.anthropic.autolog()
 
-# Optional: Set a tracking URI and an experiment
-mlflow.set_tracking_uri("http://localhost:5000")
-mlflow.set_experiment("Anthropic")
+    # Optional: Set a tracking URI and an experiment
+    mlflow.set_tracking_uri("http://localhost:5000")
+    mlflow.set_experiment("Anthropic")
 
-# Configure your API key.
-client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    # Configure your API key.
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
-# Use the create method to create new message.
-message = client.messages.create(
-    model="claude-3-5-sonnet-20241022",
-    max_tokens=1024,
-    messages=[
-        {"role": "user", "content": "Hello, Claude"},
-    ],
-)
-```
+    # Use the create method to create new message.
+    message = client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=1024,
+        messages=[
+            {"role": "user", "content": "Hello, Claude"},
+        ],
+    )
+    ```
+
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+    ```typescript
+    import Anthropic from "@anthropic-ai/sdk";
+    import { tracedAnthropic } from "mlflow-anthropic";
+
+    // Wrap the Anthropic client with the tracedAnthropic function
+    const client = tracedAnthropic(new Anthropic());
+
+    // Invoke the client as usual
+    const message = await client.messages.create({
+        model: "claude-3-7-sonnet-20250219",
+        max_tokens: 1024,
+        messages: [
+            {"role": "user", "content": "Hello, Claude"},
+        ],
+    });
+    ```
+
+  </TabItem>
+</Tabs>
 
 ## Async
 
 MLflow Tracing has supported the asynchronous API of the Anthropic SDK since MLflow 2.21.0. Its usage is the same as the synchronous API.
 
-```python
-import anthropic
+<Tabs>
+  <TabItem value="python" label="Python" default>
+    ```python
+    import anthropic
 
-# Enable trace logging
-mlflow.anthropic.autolog()
+    # Enable trace logging
+    mlflow.anthropic.autolog()
 
-client = anthropic.AsyncAnthropic()
+    client = anthropic.AsyncAnthropic()
 
-response = await client.messages.create(
-    model="claude-3-5-sonnet-20241022",
-    max_tokens=1024,
-    messages=[
-        {"role": "user", "content": "Hello, Claude"},
-    ],
-)
-```
+    response = await client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=1024,
+        messages=[
+            {"role": "user", "content": "Hello, Claude"},
+        ],
+    )
+    ```
+
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+    Anthropic Typescript / Javascript SDK is natively async. See the basic example above.
+  </TabItem>
+</Tabs>
 
 ## Advanced Example: Tool Calling Agent
 
@@ -197,6 +259,9 @@ for city, answer in zip(cities, answers):
 MLflow >= 3.2.0 supports token usage tracking for Anthropic. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
 available in the `token_usage` field of the trace info object.
 
+<Tabs>
+  <TabItem value="python" label="Python" default>
+
 ```python
 import json
 import mlflow
@@ -230,6 +295,38 @@ for span in trace.data.spans:
         print(f"  Output tokens: {usage['output_tokens']}")
         print(f"  Total tokens: {usage['total_tokens']}")
 ```
+
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+// After your Anthropic call completes, flush and fetch the trace
+await mlflow.flushTraces();
+const lastTraceId = mlflow.getLastActiveTraceId();
+
+if (lastTraceId) {
+  const client = new mlflow.MlflowClient({ trackingUri: "http://localhost:5000" });
+  const trace = await client.getTrace(lastTraceId);
+
+  // Total token usage on the trace
+  console.log("== Total token usage: ==");
+  console.log(trace.info.tokenUsage); // { input_tokens, output_tokens, total_tokens }
+
+  // Per-span usage (if provided by the provider)
+  console.log("\n== Detailed usage for each LLM call: ==");
+  for (const span of trace.data.spans) {
+    const usage = span.attributes?.["mlflow.chat.tokenUsage"];
+    if (usage) {
+      console.log(`${span.name}:`, usage);
+    }
+  }
+}
+```
+
+  </TabItem>
+</Tabs>
 
 ```bash
 == Total token usage: ==

@@ -57,6 +57,10 @@ class SpanType:
     RERANKER = "RERANKER"
     MEMORY = "MEMORY"
     UNKNOWN = "UNKNOWN"
+    WORKFLOW = "WORKFLOW"
+    TASK = "TASK"
+    GUARDRAIL = "GUARDRAIL"
+    EVALUATOR = "EVALUATOR"
 
 
 def create_mlflow_span(
@@ -716,9 +720,13 @@ class LiveSpan(Span):
             start_time_ns=span.start_time_ns,
             experiment_id=experiment_id,
         )
+
         # The latter one from attributes is the newly generated trace ID by the span processor.
         trace_id = trace_id or json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
-        clone_span = LiveSpan(otel_span, trace_id, span.span_type)
+        # Span processor registers a new span in the in-memory trace manager, but we want to pop it
+        clone_span = trace_manager._traces[trace_id].span_dict.pop(
+            encode_span_id(otel_span.context.span_id)
+        )
 
         # Copy all the attributes, inputs, outputs, and events from the original span
         clone_span.set_status(span.status)
@@ -861,8 +869,7 @@ class _SpanAttributesRegistry:
         return {key: self.get(key) for key in self._span.attributes.keys()}
 
     def get(self, key: str):
-        serialized_value = self._span.attributes.get(key)
-        if serialized_value:
+        if serialized_value := self._span.attributes.get(key):
             try:
                 return json.loads(serialized_value)
             except Exception:

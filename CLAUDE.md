@@ -4,6 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **For contribution guidelines, code standards, and additional development information not covered here, please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).**
 
+## Code Style Principles
+
+- Use top-level imports (only use lazy imports when necessary)
+- Only add docstrings in tests when they provide additional context
+- Only add comments that explain non-obvious logic or provide additional context
+
 ## Repository Overview
 
 MLflow is an open-source platform for managing the end-to-end machine learning lifecycle. It provides tools for:
@@ -19,10 +25,8 @@ MLflow is an open-source platform for managing the end-to-end machine learning l
 ### Start the Full Development Environment (Recommended)
 
 ```bash
-# Kill any existing servers
-pkill -f "mlflow server" || true; pkill -f "yarn start" || true
-
 # Start both MLflow backend and React frontend dev servers
+# (The script will automatically clean up any existing servers)
 nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
 
 # Monitor the logs
@@ -48,6 +52,7 @@ export MLFLOW_TRACKING_URI="databricks"                        # Must be set to 
 export MLFLOW_REGISTRY_URI="databricks-uc"                     # Use "databricks-uc" for Unity Catalog, or "databricks" for workspace model registry
 
 # Start the dev server with these environment variables
+# (The script will automatically clean up any existing servers)
 nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
 
 # Monitor the logs
@@ -162,10 +167,6 @@ git commit -s -m "Your commit message"
 # Then check all files changed in your PR
 uv run --only-group lint pre-commit run --from-ref origin/master --to-ref HEAD
 
-# Fix any issues and amend your commit if needed
-git add <fixed files>
-git commit --amend -s
-
 # Re-run pre-commit to verify fixes
 uv run --only-group lint pre-commit run --from-ref origin/master --to-ref HEAD
 
@@ -175,11 +176,13 @@ git push origin <your-branch>
 
 This workflow ensures you only check files you've actually modified in your PR, avoiding false positives from unrelated files.
 
-**IMPORTANT**: You MUST sign all commits with DCO (Developer Certificate of Origin). Always use the `-s` flag:
+**IMPORTANT**: You MUST sign all commits with DCO (Developer Certificate of Origin). Always use the `-s` flag. When Claude Code authors or co-authors changes, include the Co-Authored-By trailer:
 
 ```bash
-# REQUIRED: Always use -s flag when committing
-git commit -s -m "Your commit message"
+# REQUIRED: Always use -s flag and include Co-Authored-By when Claude helped
+git commit -s -m "Your commit message
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
 
 # This will NOT work - missing -s flag
 # git commit -m "Your commit message"  ❌
@@ -218,6 +221,7 @@ The repository uses pre-commit for code quality. Install hooks with:
 
 ```bash
 uv run --only-group lint pre-commit install --install-hooks
+uv run --only-group lint pre-commit run install-bin -a -v
 ```
 
 Run pre-commit manually:
@@ -225,9 +229,6 @@ Run pre-commit manually:
 ```bash
 # Run on all files
 uv run --only-group lint pre-commit run --all-files
-
-# Run on all files, skipping hooks that require external tools
-SKIP=taplo,typos,conftest uv run --only-group lint pre-commit run --all-files
 
 # Run on specific files
 uv run --only-group lint pre-commit run --files path/to/file.py
@@ -237,22 +238,3 @@ uv run --only-group lint pre-commit run ruff --all-files
 ```
 
 This runs Ruff, typos checker, and other tools automatically before commits.
-
-**Note about external tools**: Some pre-commit hooks require external tools that aren't Python packages:
-
-- `taplo` - TOML formatter
-- `typos` - Spell checker
-- `conftest` - Policy testing tool
-
-To install these tools:
-
-```bash
-# Install all tools at once (recommended)
-uv run --only-group lint bin/install.py
-```
-
-This automatically downloads and installs the correct versions of all external tools to the `bin/` directory. The tools work on both Linux and ARM Macs.
-
-These tools are optional. Use `SKIP=taplo,typos,conftest` if they're not installed.
-
-**Note**: If the typos hook fails, you only need to fix typos in code that was changed by your PR, not pre-existing typos in the codebase.

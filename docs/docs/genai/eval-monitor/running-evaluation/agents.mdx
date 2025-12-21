@@ -1,8 +1,5 @@
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
 import { APILink } from "@site/src/components/APILink";
 import ImageBox from '@site/src/components/ImageBox';
-import TabsWrapper from '@site/src/components/TabsWrapper';
 import WorkflowSteps from '@site/src/components/WorkflowSteps';
 import TilesGrid from '@site/src/components/TilesGrid';
 import TileCard from '@site/src/components/TileCard';
@@ -116,6 +113,31 @@ from openai import OpenAI
 def predict_fn(question: str) -> str:
     return Runner.run_sync(agent, question).final_output
 ```
+
+:::tip
+
+**Async Functions are Supported!**
+
+If your agent library provides an async API, you can use it directly without converting to sync. MLflow automatically detects and handles async functions:
+
+```python
+async def predict_fn(question: str) -> str:
+    result = await Runner.run(agent, question)
+    return result.final_output
+
+
+mlflow.genai.evaluate(
+    data=eval_dataset, predict_fn=predict_fn, scorers=[exact_match, uses_correct_tools]
+)
+```
+
+By default, async functions have a 5-minute timeout. Configure this using the `MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT` environment variable:
+
+```bash
+export MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT=600  # 10 minutes
+```
+
+:::
 
 ### Step 2: Create evaluation dataset
 

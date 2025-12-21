@@ -92,8 +92,6 @@ def test_proto_info_to_mlflow_prompt_info():
 
 
 def test_proto_to_mlflow_prompt():
-    """Test that proto_to_mlflow_prompt correctly handles the decoupled tag architecture."""
-
     # Test with version tags - the key behavior we care about
     proto_version = ProtoPromptVersion()
     proto_version.name = "test_prompt"

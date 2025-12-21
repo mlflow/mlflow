@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   Empty,
   Input,
@@ -20,7 +21,6 @@ import {
   flexRender,
   getCoreRowModel,
   getExpandedRowModel,
-  useReactTable,
 } from '@tanstack/react-table';
 import type { LoggedModelProto, LoggedModelMetricProto, RunEntity } from '../../types';
 import { ExperimentLoggedModelDetailsTableRunCellRenderer } from './ExperimentLoggedModelDetailsTableRunCellRenderer';
@@ -160,15 +160,18 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
     [intl],
   );
 
-  const table = useReactTable({
-    data: filteredMetrics,
-    getCoreRowModel: getCoreRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
-    getRowId: (row) => [row.key, row.dataset_digest, row.run_id].join('.') ?? '',
-    enableColumnResizing: true,
-    columnResizeMode: 'onChange',
-    columns,
-  });
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/components/experiment-logged-models/ExperimentLoggedModelDetailsMetricsTable.tsx',
+    {
+      data: filteredMetrics,
+      getCoreRowModel: getCoreRowModel(),
+      getExpandedRowModel: getExpandedRowModel(),
+      getRowId: (row) => [row.key, row.dataset_digest, row.run_id].join('.') ?? '',
+      enableColumnResizing: true,
+      columnResizeMode: 'onChange',
+      columns,
+    },
+  );
 
   const renderTableContent = () => {
     if (relatedRunsLoading) {

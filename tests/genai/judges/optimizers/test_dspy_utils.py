@@ -23,7 +23,6 @@ from tests.genai.judges.optimizers.conftest import MockJudge
 
 
 def test_sanitize_judge_name(sample_trace_with_assessment, mock_judge):
-    """Test judge name sanitization in trace_to_dspy_example."""
     # The sanitization is now done inside trace_to_dspy_example
     # Test that it correctly handles different judge name formats
 
@@ -42,7 +41,6 @@ def test_sanitize_judge_name(sample_trace_with_assessment, mock_judge):
 
 
 def test_trace_to_dspy_example_two_human_assessments(trace_with_two_human_assessments, mock_judge):
-    """Test that most recent HUMAN assessment is used when there are multiple HUMAN assessments."""
     dspy = pytest.importorskip("dspy", reason="DSPy not installed")
 
     trace = trace_with_two_human_assessments
@@ -57,7 +55,6 @@ def test_trace_to_dspy_example_two_human_assessments(trace_with_two_human_assess
 def test_trace_to_dspy_example_human_vs_llm_priority(
     trace_with_human_and_llm_assessments, mock_judge
 ):
-    """Test that HUMAN assessment is prioritized over LLM_JUDGE even when LLM_JUDGE is newer."""
     dspy = pytest.importorskip("dspy", reason="DSPy not installed")
 
     trace = trace_with_human_and_llm_assessments
@@ -172,7 +169,6 @@ def test_trace_to_dspy_example_missing_required_fields(request, trace_fixture, r
 
 
 def test_trace_to_dspy_example_no_assessment(sample_trace_without_assessment, mock_judge):
-    """Test trace conversion with no matching assessment."""
     # Use the fixture for trace without assessment
     trace = sample_trace_without_assessment
 
@@ -201,7 +197,6 @@ def test_create_dspy_signature(mock_judge):
 
 
 def test_agreement_metric():
-    """Test agreement metric function."""
     # Test metric with matching results
     example = Mock()
     example.result = "pass"
@@ -233,7 +228,6 @@ def test_agreement_metric_error_handling():
     ],
 )
 def test_convert_mlflow_uri_to_litellm(mlflow_uri, expected_litellm_uri):
-    """Test conversion of MLflow URI to LiteLLM format."""
     assert convert_mlflow_uri_to_litellm(mlflow_uri) == expected_litellm_uri
 
 
@@ -246,7 +240,6 @@ def test_convert_mlflow_uri_to_litellm(mlflow_uri, expected_litellm_uri):
     ],
 )
 def test_convert_mlflow_uri_to_litellm_invalid(invalid_uri):
-    """Test conversion with invalid URIs."""
     with pytest.raises(MlflowException, match="Failed to convert MLflow URI"):
         convert_mlflow_uri_to_litellm(invalid_uri)
 
@@ -315,7 +308,6 @@ def test_mlflow_to_litellm_uri_round_trip_conversion(mlflow_uri):
     ],
 )
 def test_construct_dspy_lm_utility_method(model, expected_type):
-    """Test the construct_dspy_lm utility method with different model types."""
     import dspy
 
     result = construct_dspy_lm(model)
@@ -326,3 +318,28 @@ def test_construct_dspy_lm_utility_method(model, expected_type):
         assert isinstance(result, dspy.LM)
         # Ensure MLflow URI format is converted (no :/ in the model)
         assert ":/" not in result.model
+
+
+def test_agent_eval_lm_uses_optimizer_session_name():
+    from mlflow.utils import AttrDict
+
+    pytest.importorskip("dspy", reason="DSPy not installed")
+
+    mock_response = AttrDict({"output": "test response", "error_message": None})
+
+    with (
+        patch("mlflow.genai.judges.optimizers.dspy_utils.call_chat_completions") as mock_call,
+        patch("mlflow.genai.judges.optimizers.dspy_utils.VERSION", "1.0.0"),
+    ):
+        mock_call.return_value = mock_response
+
+        agent_lm = AgentEvalLM()
+        agent_lm.forward(prompt="test prompt")
+
+        # Verify call_chat_completions was called with the optimizer session name
+        mock_call.assert_called_once_with(
+            user_prompt="test prompt",
+            system_prompt=None,
+            session_name="mlflow-judge-optimizer-v1.0.0",
+            use_case="judge_alignment",
+        )

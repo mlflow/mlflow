@@ -7,3 +7,26 @@ export const shouldBlockLargeTraceDisplay = () => {
 export const getLargeTraceDisplaySizeThreshold = () => {
   return 1e9;
 };
+
+/**
+ * Determines if traces V4 API should be used to fetch traces
+ */
+export const shouldUseTracesV4API = () => {
+  return false;
+};
+
+/**
+ * Determines if the new labeling schemas UI in trace assessments pane is enabled.
+ * This feature allows users to configure feedback schemas at the experiment level
+ * for labeling traces in the Traces tab.
+ */
+export const shouldEnableTracesTabLabelingSchemas = () => {
+  return false;
+};
+
+/**
+ * Determines if assessments/scores should be shown in experiment chat sessions.
+ */
+export const shouldEnableAssessmentsInSessions = () => {
+  return true;
+};

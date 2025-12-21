@@ -20,6 +20,9 @@ export const isEditableExperimentKind = (experimentKind: ExperimentKind): boolea
   experimentKind === ExperimentKind.CUSTOM_MODEL_DEVELOPMENT ||
   experimentKind === ExperimentKind.EMPTY;
 
+export const isGenAIExperimentKind = (experimentKind: ExperimentKind): boolean =>
+  experimentKind === ExperimentKind.GENAI_DEVELOPMENT || experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED;
+
 export const normalizeInferredExperimentKind = (experimentKind: ExperimentKind): ExperimentKind => {
   if (experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED) {
     return ExperimentKind.GENAI_DEVELOPMENT;
