@@ -303,19 +303,6 @@ def test_fail_on_multiple_drivers():
 
 
 @pytest.fixture
-def store(tmp_path: Path, db_uri: str) -> SqlAlchemyStore:
-    artifact_uri = tmp_path / "artifacts"
-    artifact_uri.mkdir(exist_ok=True)
-    if db_uri_env := MLFLOW_TRACKING_URI.get():
-        s = SqlAlchemyStore(db_uri_env, artifact_uri.as_uri())
-        yield s
-        _cleanup_database(s)
-    else:
-        s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
-        yield s
-
-
-@pytest.fixture
 def store_and_trace_info(store):
     exp_id = store.create_experiment("test")
     timestamp_ms = get_current_time_millis()
@@ -2785,6 +2772,74 @@ def test_search_runs_datasets(store: SqlAlchemyStore):
         run_view_type=ViewType.ACTIVE_ONLY,
     )
     assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
+
+
+def test_search_runs_datasets_with_param_filters(store: SqlAlchemyStore):
+    """Test that combining param/tag filters with dataset filters works correctly.
+
+    This is a regression test for https://github.com/mlflow/mlflow/pull/19498
+    where combining non-attribute filters (params, tags, metrics) with dataset
+    filters caused SQLAlchemy alias conflicts.
+    """
+    exp_id = _create_experiments(store, "test_search_runs_datasets_with_param_filters")
+    run1 = _run_factory(store, _get_run_configs(exp_id))
+    run2 = _run_factory(store, _get_run_configs(exp_id))
+
+    # Log params to runs
+    store.log_param(run1.info.run_id, Param("learning_rate", "0.01"))
+    store.log_param(run1.info.run_id, Param("batch_size", "32"))
+    store.log_param(run2.info.run_id, Param("learning_rate", "0.02"))
+
+    # Log datasets to runs
+    dataset1 = entities.Dataset(
+        name="train_data",
+        digest="digest1",
+        source_type="local",
+        source="source1",
+    )
+    train_tag = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="training")]
+    store.log_inputs(run1.info.run_id, [entities.DatasetInput(dataset1, train_tag)])
+    store.log_inputs(run2.info.run_id, [entities.DatasetInput(dataset1, train_tag)])
+
+    run_id1 = run1.info.run_id
+
+    # Test: param filter + dataset name filter
+    result = store.search_runs(
+        [exp_id],
+        filter_string="params.learning_rate = '0.01' AND dataset.name = 'train_data'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id1}
+
+    # Test: param filter + dataset context filter
+    result = store.search_runs(
+        [exp_id],
+        filter_string="params.learning_rate = '0.01' AND dataset.context = 'training'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id1}
+
+    # Test: multiple param filters + dataset filter
+    result = store.search_runs(
+        [exp_id],
+        filter_string=(
+            "params.learning_rate = '0.01' AND params.batch_size = '32' "
+            "AND dataset.name = 'train_data'"
+        ),
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id1}
+
+    # Test: param filter + multiple dataset filters
+    result = store.search_runs(
+        [exp_id],
+        filter_string=(
+            "params.learning_rate = '0.01' AND dataset.name = 'train_data' "
+            "AND dataset.context = 'training'"
+        ),
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id1}
 
 
 def test_search_datasets(store: SqlAlchemyStore):

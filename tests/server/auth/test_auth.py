@@ -805,6 +805,327 @@ def test_scorer_read_permission(client, monkeypatch):
             response.raise_for_status()
 
 
+def _graphql_query(tracking_uri, query, variables=None, auth=None):
+    return requests.post(
+        f"{tracking_uri}/graphql",
+        json={"query": query, "variables": variables or {}},
+        auth=auth,
+    )
+
+
+def test_graphql_requires_authentication(client, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
+
+    query = """
+    query {
+        mlflowGetExperiment(input: {experimentId: "0"}) {
+            experiment {
+                experimentId
+                name
+            }
+        }
+    }
+    """
+    response = _graphql_query(client.tracking_uri, query)
+    assert response.status_code == 401
+
+
+def test_graphql_get_experiment_authorization(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("graphql_test_exp")
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/experiments/permissions/create",
+            json_payload={
+                "experiment_id": experiment_id,
+                "username": username2,
+                "permission": "NO_PERMISSIONS",
+            },
+            auth=(username1, password1),
+        )
+
+    query = """
+    query($expId: String!) {
+        mlflowGetExperiment(input: {experimentId: $expId}) {
+            experiment {
+                experimentId
+                name
+            }
+        }
+    }
+    """
+
+    # user1 (creator) should be able to read the experiment
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"expId": experiment_id},
+        auth=(username1, password1),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    experiment_data = data["data"]["mlflowGetExperiment"]["experiment"]
+    assert experiment_data["experimentId"] == experiment_id
+    assert experiment_data["name"] == "graphql_test_exp"
+
+    # user2 (NO_PERMISSIONS) should NOT be able to read the experiment
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"expId": experiment_id},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # With authorization denied, the result should be null
+    assert data.get("data", {}).get("mlflowGetExperiment") is None
+
+
+def test_graphql_get_run_authorization(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("graphql_run_test_exp")
+        run = client.create_run(experiment_id)
+        run_id = run.info.run_id
+        client.set_terminated(run_id)
+
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/experiments/permissions/create",
+            json_payload={
+                "experiment_id": experiment_id,
+                "username": username2,
+                "permission": "NO_PERMISSIONS",
+            },
+            auth=(username1, password1),
+        )
+
+    query = """
+    query($runId: String!) {
+        mlflowGetRun(input: {runId: $runId}) {
+            run {
+                info {
+                    runId
+                    experimentId
+                }
+            }
+        }
+    }
+    """
+
+    # user1 (creator) should be able to read the run
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"runId": run_id},
+        auth=(username1, password1),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    run_data = data["data"]["mlflowGetRun"]["run"]
+    assert run_data["info"]["runId"] == run_id
+    assert run_data["info"]["experimentId"] == experiment_id
+
+    # user2 (NO_PERMISSIONS) should NOT be able to read the run
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"runId": run_id},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("data", {}).get("mlflowGetRun") is None
+
+
+def test_graphql_search_runs_authorization(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp1_id = client.create_experiment("graphql_search_exp1")
+        exp2_id = client.create_experiment("graphql_search_exp2")
+
+        run1 = client.create_run(exp1_id)
+        client.set_terminated(run1.info.run_id)
+
+        run2 = client.create_run(exp2_id)
+        client.set_terminated(run2.info.run_id)
+
+        # Grant READ on exp1 to user2, NO_PERMISSIONS on exp2
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/experiments/permissions/create",
+            json_payload={
+                "experiment_id": exp1_id,
+                "username": username2,
+                "permission": "READ",
+            },
+            auth=(username1, password1),
+        )
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/experiments/permissions/create",
+            json_payload={
+                "experiment_id": exp2_id,
+                "username": username2,
+                "permission": "NO_PERMISSIONS",
+            },
+            auth=(username1, password1),
+        )
+
+    query = """
+    query($expIds: [String]!) {
+        mlflowSearchRuns(input: {experimentIds: $expIds}) {
+            runs {
+                info {
+                    runId
+                    experimentId
+                }
+            }
+        }
+    }
+    """
+
+    # user1 should see both runs
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"expIds": [exp1_id, exp2_id]},
+        auth=(username1, password1),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    runs = data.get("data", {}).get("mlflowSearchRuns", {}).get("runs", [])
+    assert len(runs) == 2
+
+    # user2 should only see run from exp1 (exp2 is filtered out)
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"expIds": [exp1_id, exp2_id]},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    runs = data.get("data", {}).get("mlflowSearchRuns", {}).get("runs", [])
+    assert len(runs) == 1
+    assert runs[0]["info"]["experimentId"] == exp1_id
+
+
+def test_graphql_list_artifacts_authorization(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("graphql_artifacts_test_exp")
+        run = client.create_run(experiment_id)
+        run_id = run.info.run_id
+        client.set_terminated(run_id)
+
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/experiments/permissions/create",
+            json_payload={
+                "experiment_id": experiment_id,
+                "username": username2,
+                "permission": "NO_PERMISSIONS",
+            },
+            auth=(username1, password1),
+        )
+
+    query = """
+    query($runId: String!) {
+        mlflowListArtifacts(input: {runId: $runId}) {
+            rootUri
+            files {
+                path
+            }
+        }
+    }
+    """
+
+    # user1 (creator) should be able to list artifacts
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"runId": run_id},
+        auth=(username1, password1),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("data", {}).get("mlflowListArtifacts") is not None
+
+    # user2 (NO_PERMISSIONS) should NOT be able to list artifacts
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"runId": run_id},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("data", {}).get("mlflowListArtifacts") is None
+
+
+def test_graphql_nonexistent_experiment(client, monkeypatch):
+    username, password = create_user(client.tracking_uri)
+
+    query = """
+    query($expId: String!) {
+        mlflowGetExperiment(input: {experimentId: $expId}) {
+            experiment {
+                experimentId
+                name
+            }
+        }
+    }
+    """
+
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"expId": "999999999"},
+        auth=(username, password),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("data", {}).get("mlflowGetExperiment") is None
+
+
+def test_graphql_nonexistent_run(client, monkeypatch):
+    username, password = create_user(client.tracking_uri)
+
+    query = """
+    query($runId: String!) {
+        mlflowGetRun(input: {runId: $runId}) {
+            run {
+                info {
+                    runId
+                    experimentId
+                }
+            }
+        }
+    }
+    """
+
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"runId": "00000000000000000000000000000000"},
+        auth=(username, password),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("data", {}).get("mlflowGetRun") is None
+
+
 def test_get_metric_history_bulk_interval_auth(client: MlflowClient, monkeypatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
