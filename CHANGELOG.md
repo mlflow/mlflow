@@ -4,44 +4,49 @@
 
 MLflow 3.8.0 includes several major features and improvements
 
-Features:
+### Major Features
 
-- [Server-infra] [ Gateway 1/10 ] Simplify secrets and masked secrets with map types (#19440, @BenWilson2)
+- ⚙️ **Prompt Model Configuration**: Prompts can now include model configuration, allowing you to associate specific model settings with prompt templates for more reproducible LLM workflows. (#18963, #19174, #19279, @chenmoneygithub)
+- ⏳ **In-Progress Trace Display**: The Traces UI now supports displaying spans from in-progress traces with auto-polling, enabling real-time debugging and monitoring of long-running LLM applications. (#19265, @B-Step62)
+- ⚖️ **DeepEval Judges Integration**: New `get_judge` API enables using DeepEval's evaluation metrics as MLflow scorers, providing access to 20+ evaluation metrics including answer relevancy, faithfulness, and hallucination detection. (#18988, @smoorjani)
+- 🛡️ **Conversational Safety Scorer**: New built-in scorer for evaluating safety of multi-turn conversations, analyzing entire conversation histories for hate speech, harassment, violence, and other safety concerns. (#19106, @joelrobin18)
+- ⚡ **Conversational Tool Call Efficiency Scorer**: New built-in scorer for evaluating tool call efficiency in multi-turn agent interactions, detecting redundant calls, missing batching opportunities, and poor tool selections. (#19245, @joelrobin18)
+
+### Important Notice
+
+- **Collection of UI Telemetry**. From MLflow 3.8.0 onwards, MLflow will collect anonymized data about UI interactions, similar to the telemetry we collect for the Python SDK. If you manage your own server, UI telemetry is automatically disabled by setting the existing environment variables: `MLFLOW_DISABLE_TELEMETRY=true` or `DO_NOT_TRACK=true`. If you do not manage your own server (e.g. you use a managed service or are not the admin), you can still opt out personally via the new "Settings" tab in the MLflow UI. For more information, please read the documentation on [usage tracking](https://mlflow.org/docs/latest/community/usage-tracking/).
+
+### Features:
+
 - [Tracking] Add default passphrase support (#19360, @BenWilson2)
 - [Tracing] Pydantic AI Stream support (#19118, @joelrobin18)
 - [Docs] Deprecate Unity Catalog function integration in AI Gateway (#19457, @harupy)
 - [Evaluation] Add basic RAGAS judges wrapping for MLflow (#19345, @SomtochiUmeh)
 - [Tracking] Add `--max-results` option to mlflow experiments search (#19359, @alkispoly-db)
-- [Evaluation] [3/6][Builtin Judges] Conversational Role Adherence (#19247, @joelrobin18)
-- [UI] Add prompt model config to the prompt registry UI (#19279, @chenmoneygithub)
 - [Tracking] Enhance encryption security (#19253, @BenWilson2)
-- [Tracing] Support display in progress traces (#19265, @B-Step62)
 - [Tracking] Fix and simplify Gateway store interfaces (#19346, @BenWilson2)
 - [Evaluation] Add inference_params support for LLM Judges (#19152, @debu-sinha)
 - [Tracing] Support batch span export to UC Table (#19324, @B-Step62)
 - [Tracking] Add endpoint tags (#19308, @BenWilson2)
 - [Docs / Evaluation] Add MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS to limit concurrent scorer execution (#19248, @debu-sinha)
-- [Tracking] [Endpoints] [9/x] Add provider, model, and configuration handling (#19009, @BenWilson2)
 - [Evaluation / Tracking] Enable search_datasets in Databricks managed MLflow (#19254, @alkispoly-db)
-- [Evaluation] [2/6][Builtin Judges] Conversational Tool Call Efficiency (#19245, @joelrobin18)
-- [Tracking] [Endpoints] [8/x] Add credential cache (#19014, @BenWilson2)
-- [Evaluation] [1/4] Add basic deepeval judge wrapping (#18988, @smoorjani)
-- [Prompts] [ML-59440] render text prompt previews in markdown (#19200, @ispoljari)
-- [Tracking] [Endpoints] [7/x] Add rest store implementation (#19008, @BenWilson2)
-- [Prompts] Add model config to prompt (backend and docs change) (#19174, @chenmoneygithub)
+- [Prompts] render text prompt previews in markdown (#19200, @ispoljari)
 - [UI] Add linked prompts filter for trace search tab (#19192, @TomeHirata)
 - [Evaluation] Automatically wrap async functions when passed to predict_fn (#19249, @smoorjani)
-- [Tracking] [Endpoints] [6/x] Protos and entities interfaces (#19007, @BenWilson2)
-- [Tracking] [Endpoints] [5/x] SQL Store backend for Endpoints (#19006, @BenWilson2)
-- [Tracking] [Endpoints] [4/x] Abstract store interface (#19005, @BenWilson2)
-- [Evaluation] [1/6][Builtin Judges] Conversational Safety Judge (#19106, @joelrobin18)
-- [Tracking] [Endpoints] [3/x] Entities base definitions (#19004, @BenWilson2)
+- [Evaluation] [3/6][builtin judges] Conversational Role Adherence (#19247, @joelrobin18)
 - [Tracking] [Endpoints] [1/x] Add backend DB tables for Endpoints (#19002, @BenWilson2)
-- [Prompts] Add unified cache + TTL for prompt loading (#18963, @chenmoneygithub)
+- [Tracking] [Endpoints] [3/x] Entities base definitions (#19004, @BenWilson2)
+- [Tracking] [Endpoints] [4/x] Abstract store interface (#19005, @BenWilson2)
+- [Tracking] [Endpoints] [5/x] SQL Store backend for Endpoints (#19006, @BenWilson2)
+- [Tracking] [Endpoints] [6/x] Protos and entities interfaces (#19007, @BenWilson2)
+- [Tracking] [Endpoints] [7/x] Add rest store implementation (#19008, @BenWilson2)
+- [Tracking] [Endpoints] [8/x] Add credential cache (#19014, @BenWilson2)
+- [Tracking] [Endpoints] [9/x] Add provider, model, and configuration handling (#19009, @BenWilson2)
 - [Evaluation / UI] Add show/hide visibility control for Evaluation runs chart view (#18797) (#18852, @pradpalnis)
 - [Tracking] Add mlflow experiments get command (#19097, @alkispoly-db)
+- [Server-infra] [ Gateway 1/10 ] Simplify secrets and masked secrets with map types (#19440, @BenWilson2)
 
-Bug fixes:
+### Bug fixes:
 
 - [Tracing / UI] Branch 3.8 patch: Fix GraphQL SearchRuns filter using invalid attribute key in trace comparison (#19526, @WeichenXu123)
 - [Scoring / Tracking] Fix artifact download performance regression (#19520, @copilot-swe-agent)
@@ -53,7 +58,7 @@ Bug fixes:
 - [Tracing / Tracking] Fix litellm autolog for versions >= 1.78 (#19459, @harupy)
 - [Model Registry / Tracking] Fix SQLAlchemy engine connection pool leak in model registry and job stores (#19386, @harupy)
 - [UI] [Bug fix] Traces UI: Support filtering on assessments with multiple values (e.g. error and boolean) (#19262, @dbczumar)
-- [Evaluation / Tracing] Fix error initialization in Feedback  (#19340, @alkispoly-db)
+- [Evaluation / Tracing] Fix error initialization in Feedback (#19340, @alkispoly-db)
 - [Models] Switch container build to subprocess for Sagemaker (#19277, @BenWilson2)
 - [Scoring] Fix scorers issue on Strands traces (#18835, @joelrobin18)
 - [Tracking] Stop initializing backend stores in artifacts only mode (#19167, @mprahl)
@@ -67,7 +72,7 @@ Bug fixes:
 - [Tracking] Update docker compose to use --artifacts-destination not --default-artifact-root (#19215, @B-Step62)
 - [Build] Reduce clint error message verbosity by consolidating README instructions (#19155, @copilot-swe-agent)
 
-Documentation updates:
+### Documentation updates:
 
 - [Docs] Add specific references for correctness scorers (#19472, @BenWilson2)
 - [Docs] Add documentation for Fluency scorer (#19481, @alkispoly-db)
