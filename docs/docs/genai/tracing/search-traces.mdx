@@ -280,7 +280,10 @@ mlflow.search_traces(
 )
 ```
 
-## Programmatic Search with Python
+## Programmatic Search
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 <APILink fn="mlflow.search_traces" /> provides convenient trace search functionality:
 
@@ -299,6 +302,36 @@ traces_list = mlflow.search_traces(
 :::note
 The `return_type` parameter is available in MLflow 2.21.1+. For older versions, use <APILink fn="mlflow.client.MlflowClient.search_traces" /> for list output.
 :::
+
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+The `MlflowClient.searchTraces()` method provides trace search functionality:
+
+```typescript
+import { MlflowClient } from 'mlflow-tracing';
+
+const client = new MlflowClient({
+  trackingUri: 'http://localhost:5000',
+  host: 'http://localhost:5000'
+});
+
+// Basic search
+const result = await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.status = 'OK'"
+});
+
+// Access the traces
+for (const trace of result.traces) {
+  console.log(trace.traceId, trace.state);
+  console.log('Request:', trace.requestPreview);
+  console.log('Response:', trace.responsePreview);
+}
+```
+
+</TabItem>
+</Tabs>
 
 ### Return Format
 
@@ -354,6 +387,9 @@ MLflow supports ordering results by the following keys:
 - `status` - Trace execution status
 - `request_id` - Trace identifier
 
+<Tabs>
+<TabItem value="python" label="Python" default>
+
 ```python
 # Order by timestamp (most recent first)
 traces = mlflow.search_traces(order_by=["timestamp_ms DESC"])
@@ -362,7 +398,31 @@ traces = mlflow.search_traces(order_by=["timestamp_ms DESC"])
 traces = mlflow.search_traces(order_by=["timestamp_ms DESC", "status ASC"])
 ```
 
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+// Order by timestamp (most recent first)
+const result = await client.searchTraces({
+  experimentIds: ['1'],
+  orderBy: ['timestamp_ms DESC']
+});
+
+// With max results limit
+const result = await client.searchTraces({
+  experimentIds: ['1'],
+  orderBy: ['timestamp_ms DESC'],
+  maxResults: 50
+});
+```
+
+</TabItem>
+</Tabs>
+
 ### Pagination
+
+<Tabs>
+<TabItem value="python" label="Python" default>
 
 <APILink fn="mlflow.client.MlflowClient.search_traces" /> supports pagination:
 
@@ -389,6 +449,38 @@ while True:
 
 print(f"Found {len(all_traces)} total traces")
 ```
+
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+import { MlflowClient } from 'mlflow-tracing';
+
+const client = new MlflowClient({
+  trackingUri: 'http://localhost:5000',
+  host: 'http://localhost:5000'
+});
+
+let pageToken: string | undefined;
+const allTraces = [];
+
+do {
+  const result = await client.searchTraces({
+    experimentIds: ['1'],
+    filter: "trace.status = 'OK'",
+    maxResults: 100,
+    pageToken
+  });
+
+  allTraces.push(...result.traces);
+  pageToken = result.nextPageToken;
+} while (pageToken);
+
+console.log(`Found ${allTraces.length} total traces`);
+```
+
+</TabItem>
+</Tabs>
 
 ## Important Notes
 

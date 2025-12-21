@@ -19,7 +19,7 @@
 MLflow Typescript SDK is a variant of the [MLflow Python SDK](https://github.com/mlflow/mlflow) that provides a TypeScript API for MLflow.
 
 > [!IMPORTANT]
-> MLflow Typescript SDK is catching up with the Python SDK. Currently only support [Tracing]() and [Feedback Collection]() features. Please raise an issue in Github if you need a feature that is not supported.
+> MLflow Typescript SDK is catching up with the Python SDK. Currently supports [Tracing](), [Feedback Collection](), and [Trace Search]() features. Please raise an issue in Github if you need a feature that is not supported.
 
 ## Packages
 
@@ -96,6 +96,30 @@ getWeather('San Francisco');
 // Alternatively, start and end span manually
 const span = mlflow.startSpan({ name: 'my-span' });
 span.end();
+```
+
+### Search Traces
+
+Use `MlflowClient` to search for traces:
+
+```typescript
+import { MlflowClient } from 'mlflow-tracing';
+
+const client = new MlflowClient({
+  trackingUri: 'http://localhost:5000',
+  host: 'http://localhost:5000'
+});
+
+const result = await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.status = 'OK'",
+  maxResults: 100,
+  orderBy: ['timestamp_ms DESC']
+});
+
+for (const trace of result.traces) {
+  console.log(trace.traceId, trace.requestPreview, trace.responsePreview);
+}
 ```
 
 View traces in MLflow UI:

@@ -1,6 +1,5 @@
 import { TraceInfo } from '../core/entities/trace_info';
 import { Trace } from '../core/entities/trace';
-import { TraceLocationType } from '../core/entities/trace_location';
 import {
   CreateExperiment,
   DeleteExperiment,
@@ -165,13 +164,15 @@ export class MlflowClient {
    * @param options.pageToken - Token for pagination from a previous search
    * @returns Object containing traces and optional next page token
    */
-  async searchTraces(options: {
-    experimentIds?: string[];
-    filter?: string;
-    maxResults?: number;
-    orderBy?: string[];
-    pageToken?: string;
-  } = {}): Promise<{ traces: TraceInfo[]; nextPageToken?: string }> {
+  async searchTraces(
+    options: {
+      experimentIds?: string[];
+      filter?: string;
+      maxResults?: number;
+      orderBy?: string[];
+      pageToken?: string;
+    } = {}
+  ): Promise<{ traces: TraceInfo[]; nextPageToken?: string }> {
     const url = SearchTracesV3.getEndpoint(this.host);
 
     const locations: SearchTracesV3.TraceLocation[] | undefined = options.experimentIds?.map(

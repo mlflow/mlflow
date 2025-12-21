@@ -55,6 +55,45 @@ const span = mlflow.startSpan({ name: 'my-span' });
 span.end();
 ```
 
+### Search Traces
+
+Use `MlflowClient` to search for traces programmatically:
+
+```typescript
+import { MlflowClient } from 'mlflow-tracing';
+
+const client = new MlflowClient({
+  trackingUri: 'http://localhost:5000',
+  host: 'http://localhost:5000'
+});
+
+// Search traces with filter
+const result = await client.searchTraces({
+  experimentIds: ['1'],
+  filter: "trace.status = 'OK'",
+  maxResults: 100,
+  orderBy: ['timestamp_ms DESC']
+});
+
+// Access the traces
+for (const trace of result.traces) {
+  console.log(trace.traceId, trace.state);
+  console.log('Request:', trace.requestPreview);
+  console.log('Response:', trace.responsePreview);
+}
+
+// Pagination
+let pageToken = result.nextPageToken;
+while (pageToken) {
+  const nextPage = await client.searchTraces({
+    experimentIds: ['1'],
+    pageToken
+  });
+  // Process nextPage.traces...
+  pageToken = nextPage.nextPageToken;
+}
+```
+
 ## Documentation 📘
 
 Official documentation for MLflow Typescript SDK can be found [here](https://mlflow.org/docs/latest/genai/tracing/quickstart).
