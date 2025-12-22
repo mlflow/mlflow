@@ -1013,3 +1013,40 @@ class ExclusiveFileLock:
         # Release lock
         fcntl.flock(self.fd, fcntl.LOCK_UN)
         self.fd.close()
+
+
+def check_tarfile_security(archive_path):
+    """
+    Check the tar file content,
+    If its members contains path of:
+     * an absolute path
+     * a relative path that escapes the extraction directory
+     * a relative path that goes through a symlink
+    then raise error.
+    """
+    with tarfile.open(archive_path, "r") as tar:
+        symlink_set = set()
+        for m in tar.getmembers():
+            if m.issym():
+                symlink_set.add(posixpath.normpath(m.name))
+        for m in tar.getmembers():
+            if not m.issym():
+                path = posixpath.normpath(m.name)
+                if path.startswith("/"):
+                    raise MlflowException(
+                        "Absolute path destination in the archive file is not allowed, "
+                        f"but got path {path}."
+                    )
+                path_parts = path.split("/")
+                if path_parts[0] == "..":
+                    raise MlflowException(
+                        "Escaped path destination in the archive file is not allowed, "
+                        f"but got path {path}."
+                    )
+                for prefix_len in range(1, len(path_parts) + 1):
+                    prefix_path = "/".join(path_parts[:prefix_len])
+                    if prefix_path in symlink_set:
+                        raise MlflowException(
+                            "Destination path in the archive file can not go through a symlink, "
+                            f"but got path {path}."
+                        )
