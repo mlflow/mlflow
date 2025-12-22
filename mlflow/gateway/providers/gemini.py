@@ -642,10 +642,8 @@ class GeminiProvider(BaseProvider):
         result_headers = self.headers.copy()
 
         if headers:
-            for key, value in headers.items():
-                # Don't override api key header
-                if key not in result_headers:
-                    result_headers[key] = value
+            # Don't override api key header
+            result_headers = headers | result_headers
 
         return result_headers
 
