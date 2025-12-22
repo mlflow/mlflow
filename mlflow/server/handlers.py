@@ -4365,7 +4365,6 @@ def _invoke_scorer_handler():
     Invoke a scorer on traces asynchronously.
 
     This is a UI-only AJAX endpoint for invoking scorers from the frontend.
-    For SDK-based invocation, use the gateway proxy route.
     """
     _validate_content_type(request, ["application/json"])
 
@@ -4391,17 +4390,13 @@ def _invoke_scorer_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # Parse serialized_scorer if it's a JSON string
-    if isinstance(serialized_scorer, str):
-        try:
-            scorer_dict = json.loads(serialized_scorer)
-        except json.JSONDecodeError as e:
-            raise MlflowException(
-                f"Invalid JSON in serialized_scorer: {e}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-    else:
-        scorer_dict = serialized_scorer
+    try:
+        scorer_dict = json.loads(serialized_scorer)
+    except json.JSONDecodeError as e:
+        raise MlflowException(
+            f"Invalid JSON in serialized_scorer: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     # Validate scorer can be deserialized (fail fast)
     from mlflow.genai.scorers.base import Scorer
@@ -4414,12 +4409,9 @@ def _invoke_scorer_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # Re-serialize to ensure consistent JSON format for the job
-    serialized_scorer_str = json.dumps(scorer_dict)
-
     # Import job function and submit_job
+    from mlflow.genai.scorers.job import invoke_scorer_job
     from mlflow.server.jobs import submit_job
-    from mlflow.server.jobs.scorer_invoke import invoke_scorer_job
 
     jobs = []
 
@@ -4433,7 +4425,7 @@ def _invoke_scorer_handler():
                 function=invoke_scorer_job,
                 params={
                     "experiment_id": experiment_id,
-                    "serialized_scorer": serialized_scorer_str,
+                    "serialized_scorer": serialized_scorer,
                     "trace_ids": session_trace_ids,
                     "log_assessments": log_assessments,
                 },
@@ -4448,7 +4440,7 @@ def _invoke_scorer_handler():
                 function=invoke_scorer_job,
                 params={
                     "experiment_id": experiment_id,
-                    "serialized_scorer": serialized_scorer_str,
+                    "serialized_scorer": serialized_scorer,
                     "trace_ids": batch_trace_ids,
                     "log_assessments": log_assessments,
                 },
@@ -4469,6 +4461,7 @@ def _group_traces_by_session_id(trace_ids: list[str]) -> dict[str, list[str]]:
 
     tracking_store = _get_tracking_store()
     session_groups = defaultdict(list)
+    trace_info_cache: dict[str, tuple[str, int]] = {}  # trace_id -> (session_id, timestamp_ms)
 
     for trace_id in trace_ids:
         try:
@@ -4477,23 +4470,17 @@ def _group_traces_by_session_id(trace_ids: list[str]) -> dict[str, list[str]]:
                 trace_metadata = trace.info.trace_metadata or {}
                 if session_id := trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
                     session_groups[session_id].append(trace_id)
+                    trace_info_cache[trace_id] = (session_id, trace.info.timestamp_ms or 0)
         except Exception:
             # Skip traces that can't be fetched
             pass
 
     # Sort trace_ids within each session by trace timestamp
-    # We need to re-fetch to get timestamps for sorting
     for session_id in session_groups:
-        traces_with_ts = []
-        for trace_id in session_groups[session_id]:
-            try:
-                trace = tracking_store.get_trace(trace_id)
-                if trace and trace.info:
-                    traces_with_ts.append((trace_id, trace.info.timestamp_ms or 0))
-            except Exception:
-                traces_with_ts.append((trace_id, 0))
-        traces_with_ts.sort(key=lambda x: x[1])
-        session_groups[session_id] = [t[0] for t in traces_with_ts]
+        session_groups[session_id] = sorted(
+            session_groups[session_id],
+            key=lambda tid: trace_info_cache.get(tid, ("", 0))[1],
+        )
 
     return dict(session_groups)
 

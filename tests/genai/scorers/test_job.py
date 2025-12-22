@@ -177,7 +177,7 @@ def client(tmp_path_factory: pytest.TempPathFactory, mock_gateway_server: str) -
     """Start an MLflow server with job execution enabled for scorer invocation."""
     from tests.helper_functions import get_safe_port
 
-    tmp_path = tmp_path_factory.mktemp("scorer_invoke_server")
+    tmp_path = tmp_path_factory.mktemp("scorer_job_server")
     backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
 
     port = get_safe_port()
@@ -198,14 +198,14 @@ def client(tmp_path_factory: pytest.TempPathFactory, mock_gateway_server: str) -
             **os.environ,
             "MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "true",
             # Register the scorer invoke job function
-            "_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST": (
-                "mlflow.server.jobs.scorer_invoke.invoke_scorer_job"
-            ),
+            "_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST": ("mlflow.genai.scorers.job.invoke_scorer_job"),
             "_MLFLOW_ALLOWED_JOB_NAME_LIST": "invoke_scorer",
             # Allow loading custom scorers (normally restricted to Databricks runtime)
             "DATABRICKS_RUNTIME_VERSION": "15.0",
             # Point gateway calls to our mock server (test override)
             "_MLFLOW_GATEWAY_BASE_URL_TEST_OVERRIDE": mock_gateway_server,
+            # Set batch size to 2 for testing job batching behavior
+            "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE": "2",
         },
         start_new_session=True,
     ) as server_proc:
@@ -234,7 +234,7 @@ def experiment_with_traces(client: Client):
     """Create an experiment with traces for testing, including expectations."""
     mlflow.set_tracking_uri(client.server_url)
 
-    experiment_name = f"test_scorer_invoke_{time.time()}"
+    experiment_name = f"test_scorer_job_{time.time()}"
     experiment_id = mlflow.create_experiment(experiment_name)
     mlflow.set_experiment(experiment_id=experiment_id)
 

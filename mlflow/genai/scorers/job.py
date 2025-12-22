@@ -5,9 +5,11 @@ This module provides the job function for invoking scorers on traces asynchronou
 It reuses the core scoring and logging logic from the evaluation harness for consistency.
 """
 
+import functools
 import json
 import os
-from typing import Any, TypedDict
+from dataclasses import asdict, dataclass, field
+from typing import Any, Callable
 
 from mlflow.entities import Trace
 from mlflow.environment_variables import MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS
@@ -16,26 +18,65 @@ from mlflow.server.jobs import job
 from mlflow.store.tracking.abstract_store import AbstractStore
 
 
-class ScorerFailure(TypedDict):
+@dataclass
+class ScorerFailure:
     trace_id: str | None
     error_code: str
     error_message: str
 
 
-class InvokeScorerResult(TypedDict):
+@dataclass
+class InvokeScorerResult:
     trace_ids: list[str]
     success: bool
-    assessments: dict[str, list[Any]]
-    failures: list[ScorerFailure]
+    assessments: dict[str, list[Any]] = field(default_factory=dict)
+    failures: list[ScorerFailure] = field(default_factory=list)
+
+
+def _make_failure(trace_id: str | None, error: Exception, prefix: str = "") -> ScorerFailure:
+    """Create a standardized ScorerFailure from an exception."""
+    msg = f"{prefix}{error}" if prefix else str(error)
+    return ScorerFailure(trace_id=trace_id, error_code=type(error).__name__, error_message=msg)
+
+
+def _translate_scorer_job_failure(
+    func: Callable[..., dict[str, Any]],
+) -> Callable[..., dict[str, Any]]:
+    """
+    Decorator that catches uncaught exceptions and converts them to failure responses.
+
+    Acts as a safety net for job-level failures (e.g., deserialization errors,
+    unexpected crashes). Per-trace error handling is still done within the
+    batch processing functions.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> dict[str, Any]:
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            # Extract trace_ids from args/kwargs for the failure response
+            # trace_ids is the 3rd positional arg or a kwarg
+            trace_ids = kwargs.get("trace_ids") or (args[2] if len(args) > 2 else [])
+            return asdict(
+                InvokeScorerResult(
+                    trace_ids=trace_ids,
+                    success=False,
+                    failures=[_make_failure(None, e)],
+                )
+            )
+
+    return wrapper
 
 
 @job(name="invoke_scorer", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
+@_translate_scorer_job_failure
 def invoke_scorer_job(
     experiment_id: str,
     serialized_scorer: str,
     trace_ids: list[str],
     log_assessments: bool = True,
-) -> InvokeScorerResult:
+) -> dict[str, Any]:
     """
     Huey job function for async scorer invocation.
 
@@ -70,33 +111,18 @@ def invoke_scorer_job(
         original_tracking_uri = get_tracking_uri()
         os.environ["_MLFLOW_GATEWAY_BASE_URL"] = original_tracking_uri
 
-    # Deserialize scorer - fail entire job if this fails
-    try:
-        scorer_dict = json.loads(serialized_scorer)
-        scorer = Scorer.model_validate(scorer_dict)
-    except Exception as e:
-        return {
-            "trace_ids": trace_ids,
-            "success": False,
-            "assessments": {},
-            "failures": [
-                {
-                    "trace_id": None,
-                    "error_code": type(e).__name__,
-                    "error_message": f"Failed to deserialize scorer: {e}",
-                }
-            ],
-        }
+    # Deserialize scorer
+    scorer_dict = json.loads(serialized_scorer)
+    scorer = Scorer.model_validate(scorer_dict)
 
     tracking_store = _get_tracking_store()
 
-    # Check if this is a session-level (conversation) scorer
-    is_session_scorer = scorer.is_session_level_scorer
-
-    if is_session_scorer:
-        return _run_session_scorer(scorer, trace_ids, tracking_store, log_assessments)
+    if scorer.is_session_level_scorer:
+        result = _run_session_scorer(scorer, trace_ids, tracking_store, log_assessments)
     else:
-        return _run_single_turn_scorer_batch(scorer, trace_ids, tracking_store, log_assessments)
+        result = _run_single_turn_scorer_batch(scorer, trace_ids, tracking_store, log_assessments)
+
+    return asdict(result)
 
 
 def _fetch_traces_batch(
@@ -121,37 +147,16 @@ def _fetch_traces_batch(
 
     # Detect missing traces
     failures = [
-        {
-            "trace_id": trace_id,
-            "error_code": "TRACE_NOT_FOUND",
-            "error_message": f"Trace not found: {trace_id}",
-        }
+        ScorerFailure(
+            trace_id=trace_id,
+            error_code="TRACE_NOT_FOUND",
+            error_message=f"Trace not found: {trace_id}",
+        )
         for trace_id in trace_ids
         if trace_id not in trace_map
     ]
 
     return trace_map, failures
-
-
-def _create_eval_item_from_trace(trace: Trace) -> "EvalItem":
-    """
-    Create an EvalItem from a trace.
-
-    Args:
-        trace: The trace to create an EvalItem from.
-
-    Returns:
-        An EvalItem with the trace set.
-    """
-    from mlflow.genai.evaluation.entities import EvalItem
-
-    return EvalItem(
-        request_id=trace.info.trace_id,
-        inputs=None,
-        outputs=None,
-        expectations=None,
-        trace=trace,
-    )
 
 
 def _run_session_scorer(
@@ -185,18 +190,16 @@ def _run_session_scorer(
 
     # For session scorers, we need all traces - fail if any are missing
     if failures:
-        return {
-            "trace_ids": trace_ids,
-            "success": False,
-            "assessments": {},
-            "failures": failures,
-        }
+        return InvokeScorerResult(
+            trace_ids=trace_ids,
+            success=False,
+            failures=failures,
+        )
 
     # Preserve order of traces as requested
     traces = [trace_map[tid] for tid in trace_ids]
 
-    # Create EvalItems from traces
-    session_items = [_create_eval_item_from_trace(t) for t in traces]
+    session_items = [EvalItem.from_trace(t) for t in traces]
 
     # Get session_id from the first trace's metadata (if available)
     first_session_item = get_first_trace_in_session(session_items)
@@ -224,25 +227,17 @@ def _run_session_scorer(
                 assessments=feedbacks,
             )
 
-        return {
-            "trace_ids": trace_ids,
-            "success": True,
-            "assessments": {first_trace_id: [f.to_dictionary() for f in feedbacks]},
-            "failures": [],
-        }
+        return InvokeScorerResult(
+            trace_ids=trace_ids,
+            success=True,
+            assessments={first_trace_id: [f.to_dictionary() for f in feedbacks]},
+        )
     except Exception as e:
-        return {
-            "trace_ids": trace_ids,
-            "success": False,
-            "assessments": {},
-            "failures": [
-                {
-                    "trace_id": first_trace_id,
-                    "error_code": type(e).__name__,
-                    "error_message": str(e),
-                }
-            ],
-        }
+        return InvokeScorerResult(
+            trace_ids=trace_ids,
+            success=False,
+            failures=[_make_failure(first_trace_id, e)],
+        )
 
 
 def _run_single_turn_scorer_batch(
@@ -271,14 +266,8 @@ def _run_single_turn_scorer_batch(
 
     assessments_by_trace: dict[str, list[dict[str, Any]]] = {}
 
-    for trace_id in trace_ids:
-        trace = trace_map.get(trace_id)
-        if trace is None:
-            # Already recorded as failure in _fetch_traces_batch
-            continue
-
-        # Create EvalItem from trace
-        eval_item = _create_eval_item_from_trace(trace)
+    for trace_id, trace in trace_map.items():
+        eval_item = EvalItem.from_trace(trace)
 
         try:
             # Use _compute_eval_scores from harness - supports scorer tracing,
@@ -300,17 +289,11 @@ def _run_single_turn_scorer_batch(
 
             assessments_by_trace[trace_id] = [f.to_dictionary() for f in feedbacks]
         except Exception as e:
-            failures.append(
-                {
-                    "trace_id": trace_id,
-                    "error_code": type(e).__name__,
-                    "error_message": str(e),
-                }
-            )
+            failures.append(_make_failure(trace_id, e))
 
-    return {
-        "trace_ids": trace_ids,
-        "success": len(failures) == 0,
-        "assessments": assessments_by_trace,
-        "failures": failures,
-    }
+    return InvokeScorerResult(
+        trace_ids=trace_ids,
+        success=len(failures) == 0,
+        assessments=assessments_by_trace,
+        failures=failures,
+    )

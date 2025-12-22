@@ -1175,7 +1175,7 @@ MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS = _EnvironmentVariable(
 
 #: Number of traces to batch into a single scorer invocation job.
 MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE = _EnvironmentVariable(
-    "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE", int, 2
+    "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE", int, 100
 )
 
 

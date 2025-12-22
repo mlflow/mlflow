@@ -18,7 +18,7 @@ R = TypeVar("R")
 
 _SUPPORTED_JOB_FUNCTION_LIST = [
     # Putting all supported job function fullname in the list
-    "mlflow.server.jobs.scorer_invoke.invoke_scorer_job",
+    "mlflow.genai.scorers.job.invoke_scorer_job",
 ]
 
 if supported_job_function_list_env := os.environ.get("_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST"):
