@@ -316,7 +316,6 @@ def test_trace_disabled_decorator(enabled_initially):
 
 def test_trace_disabled_preserves_type_annotations():
     # Test that @trace_disabled preserves type annotations for static type checkers.
-    # This validates the fix for https://github.com/mlflow/mlflow/issues/19566
 
     def original_func(x: int, y: str) -> float:
         return float(x)
