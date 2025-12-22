@@ -7,6 +7,7 @@ import {
 
 import { ChevronDownIcon, DialogCombobox, DialogComboboxCustomButtonTriggerWrapper } from '@databricks/design-system';
 import { defineMessage, FormattedMessage } from 'react-intl';
+import { EvaluateTracesParams } from './types';
 import { isEmpty } from 'lodash';
 import { useMemo, useState } from 'react';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
@@ -41,8 +42,8 @@ export const SampleScorerTracesToEvaluatePicker = ({
   onTracesToEvaluateChange,
   tracesToEvaluate,
 }: {
-  tracesToEvaluate: { traceCount: number; traceIds?: string[] };
-  onTracesToEvaluateChange: (tracesToEvaluate: { traceCount: number; traceIds?: string[] }) => void;
+  tracesToEvaluate: Pick<EvaluateTracesParams, 'traceCount' | 'traceIds'>;
+  onTracesToEvaluateChange: (tracesToEvaluate: Pick<EvaluateTracesParams, 'traceCount' | 'traceIds'>) => void;
 }) => {
   const [displayPickCustomTracesModal, setDisplayPickCustomTracesModal] = useState(false);
   const tracesToEvaluateDropdownValue = useMemo(() => {

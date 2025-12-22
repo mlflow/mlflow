@@ -2,11 +2,11 @@ import { render } from '@testing-library/react';
 import { IntlProvider } from '@databricks/i18n';
 import { useForm } from 'react-hook-form';
 import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer';
-import { useEvaluateTraces, type JudgeEvaluationResult, type EvaluateTracesParams } from './useEvaluateTraces';
+import { useEvaluateTraces, type JudgeEvaluationResult } from './useEvaluateTraces';
 import { type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
-import { LLM_TEMPLATE } from './types';
+import { LLM_TEMPLATE, type EvaluateTracesParams } from './types';
 import { jest } from '@jest/globals';
 import { describe } from '@jest/globals';
 import { beforeEach } from '@jest/globals';
@@ -107,7 +107,7 @@ describe('SampleScorerOutputPanelContainer', () => {
           error: null,
           currentTraceIndex: 0,
           totalTraces: 0,
-          tracesCount: 10,
+          tracesToEvaluate: { traceCount: 10, traceIds: [] },
         }),
         expect.anything(),
       );
@@ -193,6 +193,7 @@ describe('SampleScorerOutputPanelContainer', () => {
 
       expect(mockEvaluateTraces).toHaveBeenCalledWith({
         traceCount: 10,
+        traceIds: [],
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions: 'Test instructions',
         experimentId,

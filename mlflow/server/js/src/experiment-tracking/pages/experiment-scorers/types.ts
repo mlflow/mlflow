@@ -1,3 +1,8 @@
+import {
+  ModelTraceLocationMlflowExperiment,
+  ModelTraceLocationUcSchema,
+} from '@databricks/web-shared/model-trace-explorer';
+
 interface ScheduledScorerBase {
   name: string;
   sampleRate?: number; // Percentage between 0 and 100
@@ -62,3 +67,33 @@ export type ScorerConfig = {
   filter_string?: string;
   scorer_version?: number;
 };
+
+interface EvaluateChatParamsBase {
+  traceCount?: number;
+  traceIds?: string[];
+  locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  experimentId: string;
+}
+
+/**
+ * Parameters for evaluating traces with custom LLM judges
+ */
+export interface EvaluateChatCompletionsParams extends EvaluateChatParamsBase {
+  judgeInstructions: string;
+}
+
+/**
+ * Parameters for evaluating traces with built-in judges
+ */
+export interface EvaluateChatAssessmentsParams extends EvaluateChatParamsBase {
+  requestedAssessments: Array<{
+    assessment_name: string;
+    assessment_examples?: any[];
+  }>;
+  guidelines?: string[];
+}
+
+/**
+ * Union type for all trace evaluation parameters
+ */
+export type EvaluateTracesParams = EvaluateChatCompletionsParams | EvaluateChatAssessmentsParams;
