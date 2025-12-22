@@ -359,6 +359,10 @@
     "defaultMessage": "Copy",
     "description": "Button text for copy button"
   },
+  "1NeHsz": {
+    "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
+    "description": "Label for the number of traces selected"
+  },
   "1RxxTj": {
     "defaultMessage": "(Version {sourceModelVersion})",
     "description": "Version number of the source model version"
@@ -5770,6 +5774,10 @@
   "pjlcSc": {
     "defaultMessage": "Metric",
     "description": "Run page > Overview > Metrics table > Key column header"
+  },
+  "pjluqu": {
+    "defaultMessage": "Select traces",
+    "description": "Option for selecting custom traces"
   },
   "pl1bdY": {
     "defaultMessage": "Registered Models",
