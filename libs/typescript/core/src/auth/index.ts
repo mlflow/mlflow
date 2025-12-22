@@ -271,7 +271,7 @@ function createOssAuth(options: AuthOptions): AuthProvider {
   }
 
   // Headers provider for OSS MLflow
-   // eslint-disable-next-line require-await, @typescript-eslint/require-await
+  // eslint-disable-next-line require-await, @typescript-eslint/require-await
   const headersProvider: HeadersProvider = async () => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authHeader) {
