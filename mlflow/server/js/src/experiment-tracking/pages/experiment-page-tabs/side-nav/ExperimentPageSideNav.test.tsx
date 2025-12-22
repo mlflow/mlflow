@@ -23,6 +23,13 @@ jest.mock('@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent', () => ({
   useLogTelemetryEvent: jest.fn(() => jest.fn()),
 }));
 
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableExperimentOverviewTab: jest.fn(() => true),
+}));
+
 describe('ExperimentPageSideNav', () => {
   const renderTestComponent = (experimentKind: ExperimentKind, activeTab: ExperimentPageTabName) => {
     const queryClient = new QueryClient();

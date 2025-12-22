@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import invariant from 'invariant';
 import { useParams } from '../../../common/utils/RoutingUtils';
-import { TableFilterInput, TableFilterLayout, Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { TracesV3DateSelector } from '../../components/experiment-page/components/traces-v3/TracesV3DateSelector';
+import { GenAiTracesTableSearchInput } from '@databricks/web-shared/genai-traces-table';
 
 enum OverviewTab {
   Usage = 'usage',
@@ -50,24 +51,21 @@ const ExperimentOverviewPage = () => {
             padding: `${theme.spacing.md}px 0`,
           }}
         >
-          <TableFilterLayout css={{ marginBottom: 0 }}>
-            {/* Search input */}
-            <TableFilterInput
-              componentId="mlflow.experiment.overview.search-charts"
-              placeholder={intl.formatMessage({
-                defaultMessage: 'Search charts',
-                description: 'Placeholder for search charts input',
-              })}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </TableFilterLayout>
+          {/* Search input */}
+          <GenAiTracesTableSearchInput
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            placeholder={intl.formatMessage({
+              defaultMessage: 'Search charts',
+              description: 'Placeholder for search charts input',
+            })}
+          />
 
-          {/* Time range selector - same as traces tab */}
+          {/* Time range selector */}
           <TracesV3DateSelector />
         </div>
 
-        <Tabs.Content value={OverviewTab.Usage}>{/* Usage tab content */}</Tabs.Content>
+        <Tabs.Content value={OverviewTab.Usage} />
       </Tabs.Root>
     </div>
   );
