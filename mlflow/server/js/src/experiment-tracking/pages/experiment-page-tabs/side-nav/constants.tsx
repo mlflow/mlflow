@@ -14,7 +14,7 @@ import {
   UserGroupIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { enableScorersUI } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { enableScorersUI, shouldEnableExperimentOverviewTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 export const FULL_WIDTH_CLASS_NAME = 'mlflow-experiment-page-side-nav-full';
 export const COLLAPSED_CLASS_NAME = 'mlflow-experiment-page-side-nav-collapsed';
@@ -175,17 +175,21 @@ export const useExperimentPageSideNavConfig = ({
   ) {
     return {
       'top-level': [
-        {
-          label: (
-            <FormattedMessage
-              defaultMessage="Overview"
-              description="Label for the overview tab in the MLflow experiment navbar"
-            />
-          ),
-          icon: <ChartLineIcon />,
-          tabName: ExperimentPageTabName.Overview,
-          componentId: 'mlflow.experiment-side-nav.genai.overview',
-        },
+        ...(shouldEnableExperimentOverviewTab()
+          ? [
+              {
+                label: (
+                  <FormattedMessage
+                    defaultMessage="Overview"
+                    description="Label for the overview tab in the MLflow experiment navbar"
+                  />
+                ),
+                icon: <ChartLineIcon />,
+                tabName: ExperimentPageTabName.Overview,
+                componentId: 'mlflow.experiment-side-nav.genai.overview',
+              },
+            ]
+          : []),
         ...(hasTrainingRuns
           ? [
               {
