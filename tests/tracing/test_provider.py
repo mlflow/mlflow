@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from typing import get_type_hints
 from unittest import mock
 
 import pytest
@@ -311,6 +312,30 @@ def test_trace_disabled_decorator(enabled_initially):
         assert test_fn() == 0
         assert call_count == 4
         assert enable_mock.call_count == (1 if enabled_initially else 0)
+
+
+def test_trace_disabled_preserves_type_annotations():
+    # Test that @trace_disabled preserves type annotations for static type checkers.
+    # This validates the fix for https://github.com/mlflow/mlflow/issues/19566
+
+    def original_func(x: int, y: str) -> float:
+        return float(x)
+
+    @trace_disabled
+    def decorated_func(x: int, y: str) -> float:
+        return float(x)
+
+    # Verify that type hints are preserved
+    original_hints = get_type_hints(original_func)
+    decorated_hints = get_type_hints(decorated_func)
+
+    assert original_hints == decorated_hints
+    assert decorated_hints["x"] is int
+    assert decorated_hints["y"] is str
+    assert decorated_hints["return"] is float
+
+    # Verify the decorated function still works correctly
+    assert decorated_func(42, "hello") == 42.0
 
 
 def test_disable_enable_tracing_not_mutate_otel_provider(monkeypatch):
