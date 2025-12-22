@@ -19,6 +19,8 @@ from mlflow.types.schema import (
     DataType,
     Map,
     Object,
+    ParamSchema,
+    ParamSpec,
     Property,
     Schema,
 )
@@ -387,6 +389,71 @@ def _infer_schema_from_type_hint(type_hint: type[Any]) -> Schema:
     if col_spec_type.required is False:
         raise InvalidTypeHintException(message=OPTIONAL_INPUT_MSG)
     return Schema([ColSpec(type=col_spec_type.dtype, required=col_spec_type.required)])
+
+
+def _infer_params_schema_from_type_hints(type_hint: type[Any]) -> ParamSchema | None:
+    params_specs = []
+    invalid_fields = []
+    # from pdb import set_trace; set_trace()
+    if _is_pydantic_type_hint(type_hint):
+        fields = model_fields(type_hint)
+        for field_name, field_info in fields.items():
+            annotation = field_info.annotation
+            # this shouldn't happen since pydantic has checks for missing annotations
+            # but added here to avoid potential edge cases
+            if annotation is None:
+                invalid_fields.append(field_name)
+                continue
+            colspec_type = _infer_colspec_type_from_type_hint(annotation)
+            if colspec_type.required is False and field_required(field_info):
+                raise InvalidTypeHintException(
+                    message=f"Optional field `{field_name}` "
+                    "in Pydantic model `{type_hint.__name__}` "
+                    "doesn't have a default value. Please set default value to None for this field."
+                )
+            default = getattr(field_info, "default", None)
+            if default is pydantic.fields.PydanticUndefined:
+                default = None
+            params_specs.append(
+                {
+                    "name": field_name,
+                    "dtype": colspec_type.dtype,
+                    "default": default,
+                }
+            )
+    else:  # fall back to colspec parsing, automated defaults
+        fields = _infer_colspec_type_from_type_hint(type_hint).dtype
+        if hasattr(fields, "properties"):  # otherwise, assume dict[str, Any]
+            for field in fields.properties:
+                params_specs.append({"name": field.name, "dtype": field.dtype, "default": None})
+
+    # If no params_specs detected, return None
+    if len(params_specs) == 0:
+        return None
+
+    # Iterate over gathered info
+    params_schema = []
+    for param in params_specs:
+        # from pdb import set_trace; set_trace()
+        # Handling array type
+        if isinstance(param["dtype"], Array):  # nested array
+            dtype = param["dtype"]._dtype
+            if not isinstance(dtype, DataType):
+                raise InvalidTypeHintException(
+                    message=f"Param `{field.name}` must be a 1D array in model "
+                    "`{type_hint.__name__}`"
+                )
+            p = ParamSpec(
+                name=param["name"], dtype=dtype, shape=(-1,), default=param.get("default", []) or []
+            )
+        elif isinstance(param["dtype"], DataType):  # elementary data type
+            p = ParamSpec(name=param["name"], dtype=param["dtype"], default=param["default"])
+        else:
+            dtype = param["dtype"]
+            raise NotImplementedError(f"Type hint cannot parse dtype {dtype}")
+        params_schema.append(p)
+
+    return ParamSchema(params_schema)
 
 
 def _validate_data_against_type_hint(data: Any, type_hint: type[Any]) -> Any:
