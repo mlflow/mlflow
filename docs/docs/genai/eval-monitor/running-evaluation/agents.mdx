@@ -169,11 +169,10 @@ eval_dataset = [
 
 ### Step 3: Define scorers
 
-We'll use MLflow's built-in scorers to evaluate both the correctness of the output and the tool usage patterns.
+We'll define a custom scorer to evaluate the correctness of the final output.
 
 ```python
 from mlflow.genai import scorer
-from mlflow.genai.scorers import ToolCallCorrectness, ToolCallEfficiency
 
 
 @scorer
@@ -199,6 +198,8 @@ For custom evaluation patterns, you can create your own scorers that parse trace
 Now we are ready to run the evaluation!
 
 ```python
+from mlflow.genai.scorers import ToolCallCorrectness, ToolCallEfficiency
+
 results = mlflow.genai.evaluate(
     data=eval_dataset,
     predict_fn=predict_fn,
