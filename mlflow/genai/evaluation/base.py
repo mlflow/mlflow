@@ -13,6 +13,7 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
+from mlflow.genai.evaluation.entities import EvaluationResult
 from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
 from mlflow.genai.evaluation.utils import (
     _convert_to_eval_set,
@@ -24,7 +25,6 @@ from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, vali
 from mlflow.genai.utils.display_utils import display_evaluation_output
 from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.models.evaluation.base import (
-    EvaluationResult,
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
 )
@@ -234,7 +234,7 @@ def evaluate(
             :py:func:`mlflow.set_active_model` function.
 
     Returns:
-        An :py:class:`mlflow.models.EvaluationResult~` object.
+        An :py:class:`mlflow.genai.evaluation.entities.EvaluationResult` object.
 
     Note:
         Certain advanced features of this function are only supported on Databricks.
