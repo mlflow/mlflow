@@ -379,12 +379,17 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         # Add conditional beta header based on payload
         if payload and payload.get("output_format"):
             if payload["output_format"].get("type") == "json_schema":
-                result_headers["anthropic-beta"] = "structured-outputs-2025-11-13"
+                if "anthropic-beta" not in result_headers:
+                    result_headers["anthropic-beta"] = "structured-outputs-2025-11-13"
+                else:
+                    result_headers["anthropic-beta"] = (
+                        f"{result_headers['anthropic-beta']},structured-outputs-2025-11-13"
+                    )
 
         if headers:
             for key, value in headers.items():
                 # Don't override api key or version headers
-                if key not in headers:
+                if key not in result_headers:
                     result_headers[key] = value
 
         return result_headers

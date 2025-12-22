@@ -644,7 +644,7 @@ class GeminiProvider(BaseProvider):
         if headers:
             for key, value in headers.items():
                 # Don't override api key header
-                if key not in headers:
+                if key not in result_headers:
                     result_headers[key] = value
 
         return result_headers
