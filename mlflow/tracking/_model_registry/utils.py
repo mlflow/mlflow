@@ -233,8 +233,16 @@ def _get_store_registry():
     for scheme in ["http", "https"]:
         _model_registry_store_registry.register(scheme, _get_rest_store)
 
-    for scheme in DATABASE_ENGINES:
-        _model_registry_store_registry.register(scheme, _get_sqlalchemy_store)
+    try:
+        import sqlalchemy  # noqa: F401
+
+        has_sqlalchemy = True
+    except ImportError:
+        has_sqlalchemy = False
+
+    if has_sqlalchemy:
+        for scheme in DATABASE_ENGINES:
+            _model_registry_store_registry.register(scheme, _get_sqlalchemy_store)
 
     for scheme in ["", "file"]:
         _model_registry_store_registry.register(scheme, _get_file_store)
