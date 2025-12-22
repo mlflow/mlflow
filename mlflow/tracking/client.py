@@ -2844,6 +2844,7 @@ class MlflowClient:
         """
         # TODO: The current implementation creates a temporary file. Consider adding
         # a direct upload API to artifact repositories to avoid this overhead.
+        # Other log-in-memory-object APIs (e.g., log_text) can benefit from this too.
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             with open(tmp_path, "wb") as f:
                 while chunk := stream.read(8192):
