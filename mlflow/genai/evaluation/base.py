@@ -13,7 +13,6 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
-from mlflow.genai.evaluation.entities import EvaluationResult
 from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
 from mlflow.genai.evaluation.utils import (
     _convert_to_eval_set,
@@ -43,6 +42,7 @@ from mlflow.tracking.fluent import _get_experiment_id, _set_active_model
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION
 
 if TYPE_CHECKING:
+    from mlflow.genai.evaluation.entities import EvaluationResult
     from mlflow.genai.evaluation.utils import EvaluationDatasetTypes
 
 
@@ -54,7 +54,7 @@ def evaluate(
     scorers: list[Scorer],
     predict_fn: Callable[..., Any] | None = None,
     model_id: str | None = None,
-) -> EvaluationResult:
+) -> "EvaluationResult":
     """
     Evaluate the performance of a generative AI model/application using specified
     data and scorers.
@@ -250,7 +250,7 @@ def evaluate(
 
 
 @record_usage_event(GenAIEvaluateEvent)
-def _run_harness(data, scorers, predict_fn, model_id) -> tuple[EvaluationResult, dict[str, Any]]:
+def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult", dict[str, Any]]:
     """
     Internal harness for running evaluation.
 
