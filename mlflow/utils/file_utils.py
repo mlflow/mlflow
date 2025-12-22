@@ -1015,14 +1015,14 @@ class ExclusiveFileLock:
         self.fd.close()
 
 
-def check_tarfile_security(archive_path):
+def check_tarfile_security(archive_path: str) -> None:
     """
-    Check the tar file content,
-    If its members contains path of:
-     * an absolute path
-     * a relative path that escapes the extraction directory
-     * a relative path that goes through a symlink
-    then raise error.
+    Check the tar file content.
+    If its members contain any of the following paths:
+     * An absolute path.
+     * A relative path that escapes the extraction directory.
+     * A relative path that goes through a symlink.
+    then raise an error.
     """
     with tarfile.open(archive_path, "r") as tar:
         symlink_set = set()

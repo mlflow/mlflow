@@ -281,7 +281,7 @@ def test_check_tarfile_security(tmp_path):
             tar.addfile(info, data)
 
     tar3_path = str(tmp_path.joinpath("file3.tar"))
-    create_tar_with_escaped_path(tar3_path, "/tmp/pwned2.txt", b"ABX")
+    create_tar_with_abs_path(tar3_path, "/tmp/pwned2.txt", b"ABX")
     with pytest.raises(
         MlflowException, match="Absolute path destination in the archive file is not allowed"
     ):
