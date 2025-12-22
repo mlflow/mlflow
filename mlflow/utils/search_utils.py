@@ -1650,6 +1650,7 @@ class SearchTraceUtils(SearchUtils):
     _SPAN_IDENTIFIER = "span"
     _FEEDBACK_IDENTIFIER = "feedback"
     _EXPECTATION_IDENTIFIER = "expectation"
+    _ISSUE_IDENTIFIER = "issue"
 
     # These are aliases for the base identifiers
     # e.g. trace.status is equivalent to attribute.status
@@ -1666,6 +1667,7 @@ class SearchTraceUtils(SearchUtils):
         _SPAN_IDENTIFIER,
         _FEEDBACK_IDENTIFIER,
         _EXPECTATION_IDENTIFIER,
+        _ISSUE_IDENTIFIER,
     }
     _VALID_IDENTIFIERS = _IDENTIFIERS | set(_ALTERNATE_IDENTIFIERS.keys())
 
@@ -1846,7 +1848,11 @@ class SearchTraceUtils(SearchUtils):
 
     @classmethod
     def is_assessment(cls, key_type, key_name, comparator):
-        if key_type in (cls._FEEDBACK_IDENTIFIER, cls._EXPECTATION_IDENTIFIER):
+        if key_type in (
+            cls._FEEDBACK_IDENTIFIER,
+            cls._EXPECTATION_IDENTIFIER,
+            cls._ISSUE_IDENTIFIER,
+        ):
             if not key_name:
                 raise MlflowException(
                     "Assessment field name cannot be empty",
@@ -1957,8 +1963,12 @@ class SearchTraceUtils(SearchUtils):
                     f"{token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-        elif identifier_type in (cls._FEEDBACK_IDENTIFIER, cls._EXPECTATION_IDENTIFIER):
-            # Feedback and expectation values are stored as JSON, so we expect string values
+        elif identifier_type in (
+            cls._FEEDBACK_IDENTIFIER,
+            cls._EXPECTATION_IDENTIFIER,
+            cls._ISSUE_IDENTIFIER,
+        ):
+            # Assessment values are stored as JSON, so we expect string values
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             else:
