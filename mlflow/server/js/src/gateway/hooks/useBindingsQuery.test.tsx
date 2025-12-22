@@ -21,8 +21,8 @@ function createWrapper() {
 
 const generateMockBinding = (id: string): EndpointBinding => ({
   endpoint_id: `ep-${id}`,
-  resource_type: 'experiment',
-  resource_id: `exp-${id}`,
+  resource_type: 'scorer_job',
+  resource_id: `job-${id}`,
   created_at: 1700000000000,
 });
 

@@ -14,12 +14,8 @@ interface BindingsUsingKeyDrawerProps {
 
 const formatResourceType = (resourceType: ResourceType): string => {
   switch (resourceType) {
-    case 'experiment':
-      return 'Experiment';
-    case 'registered_model':
-      return 'Registered Model';
-    case 'endpoint_model':
-      return 'Endpoint Model';
+    case 'scorer_job':
+      return 'Scorer Job';
     default:
       return resourceType;
   }
@@ -39,7 +35,6 @@ export const BindingsUsingKeyDrawer = ({ open, bindings, endpoints, onClose }: B
     }
   };
 
-  // Group bindings by resource type for display
   const groupedBindings = useMemo(() => {
     const groups = new Map<ResourceType, EndpointBinding[]>();
     bindings.forEach((binding) => {
@@ -50,23 +45,6 @@ export const BindingsUsingKeyDrawer = ({ open, bindings, endpoints, onClose }: B
   }, [bindings]);
 
   const renderResourceLink = (binding: EndpointBinding) => {
-    // Only experiments have a link for now
-    if (binding.resource_type === 'experiment') {
-      return (
-        <Link
-          to={Routes.getExperimentPageRoute(binding.resource_id)}
-          css={{
-            color: theme.colors.actionPrimaryBackgroundDefault,
-            fontWeight: theme.typography.typographyBoldFontWeight,
-            textDecoration: 'none',
-            '&:hover': { textDecoration: 'underline' },
-          }}
-        >
-          {formatResourceType(binding.resource_type)} {binding.resource_id}
-        </Link>
-      );
-    }
-    // Other resource types just show text
     return (
       <Typography.Text bold>
         {formatResourceType(binding.resource_type)} {binding.resource_id}

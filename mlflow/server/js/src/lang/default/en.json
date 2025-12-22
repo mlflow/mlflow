@@ -23,6 +23,14 @@
     "defaultMessage": "Cancel",
     "description": "Button label for cancelling the creation of an assessment"
   },
+  "+4+wQY": {
+    "defaultMessage": "Store it securely and restrict access to server administrators only.",
+    "description": "AI Gateway setup guide > Passphrase warning security note"
+  },
+  "+8+eEg": {
+    "defaultMessage": "Follow these steps to enable the AI Gateway feature for managing AI provider credentials.",
+    "description": "AI Gateway setup guide > Subtitle"
+  },
   "+CGMk6": {
     "defaultMessage": "On",
     "description": "Telemetry enabled label"
@@ -319,6 +327,10 @@
     "defaultMessage": "Active",
     "description": "Linked model dropdown option to show active experiment runs"
   },
+  "0skVwM": {
+    "defaultMessage": "No endpoints found",
+    "description": "Empty state title when filter returns no results"
+  },
   "0sy/fq": {
     "defaultMessage": "Create API key",
     "description": "Gateway > API keys page > Create API key button"
@@ -614,6 +626,10 @@
     "defaultMessage": "Use the log artifact APIs to store file outputs from MLflow runs.",
     "description": "Information in the empty state explaining how one could log artifacts output files for the experiment runs"
   },
+  "3h/dM6": {
+    "defaultMessage": "Set up MLflow AI Gateway",
+    "description": "AI Gateway setup guide > Main title"
+  },
   "3vS6G9": {
     "defaultMessage": "{count, plural, one {# trace was} other {# traces were}} removed",
     "description": "Success message after deleting sessions - trace count"
@@ -669,6 +685,10 @@
   "4HbEVz": {
     "defaultMessage": "You need to select a served model endpoint using dropdown first",
     "description": "Experiment page > new run modal > invalid state - no model endpoint selected"
+  },
+  "4I6V2N": {
+    "defaultMessage": "Search Endpoints",
+    "description": "Placeholder for endpoint search filter"
   },
   "4Itm9y": {
     "defaultMessage": "Large trace",
@@ -741,6 +761,10 @@
   "4yjF8O": {
     "defaultMessage": "Show all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
+  },
+  "5+bcQe": {
+    "defaultMessage": "No endpoints created",
+    "description": "Empty state title for endpoints list"
   },
   "53b+wP": {
     "defaultMessage": "Step",
@@ -934,9 +958,17 @@
     "defaultMessage": "Load model",
     "description": "Code comment which states how to load the model"
   },
+  "6cm996": {
+    "defaultMessage": "The AI Gateway requires additional dependencies installed on the MLflow tracking server (not client machines):",
+    "description": "AI Gateway setup guide > Step 1 description"
+  },
   "6d5JTO": {
     "defaultMessage": "No traces recorded",
     "description": "Message displayed when there are no traces logged to the experiment"
+  },
+  "6di5qX": {
+    "defaultMessage": "Create endpoint",
+    "description": "Gateway > Endpoints page > Create endpoint button"
   },
   "6fP+8o": {
     "defaultMessage": "See more",
@@ -1258,6 +1290,10 @@
     "defaultMessage": "{timeSince, plural, =1 {1 second} other {# seconds}} ago",
     "description": "Text for time in seconds since given date for MLflow views"
   },
+  "97xY+o": {
+    "defaultMessage": "Loading endpoints...",
+    "description": "Loading message for endpoints list"
+  },
   "98Ub01": {
     "defaultMessage": "Delete Model Version",
     "description": "Title text for model version deletion modal in model versions view page"
@@ -1342,6 +1378,10 @@
     "defaultMessage": "No prompt versions created",
     "description": "A header for the empty state in the prompt versions table"
   },
+  "9tCd/m": {
+    "defaultMessage": "AI Gateway",
+    "description": "Header title for the AI Gateway configuration page"
+  },
   "9ut1Fj": {
     "defaultMessage": "Create",
     "description": "Label for the create experiment action on the experiments list page"
@@ -1390,6 +1430,10 @@
     "defaultMessage": "Messages",
     "description": "Section header in the chat tab that displays the message history between the user and the chat model"
   },
+  "AB6/gE": {
+    "defaultMessage": "Endpoints",
+    "description": "Gateway side nav > Endpoints tab"
+  },
   "ACNZd9": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments automatically identified as generative AI development"
@@ -1405,6 +1449,10 @@
   "AFI74W": {
     "defaultMessage": "Group by: {value}",
     "description": "Experiment page > group by runs control > trigger button label > with value"
+  },
+  "AFrm2A": {
+    "defaultMessage": "Created {date}",
+    "description": "Gateway > Endpoint bindings drawer > Created date"
   },
   "AGLzB5": {
     "defaultMessage": "my-api-key",
@@ -1549,6 +1597,10 @@
   "BTAzqb": {
     "defaultMessage": "Toggle visibility of rows",
     "description": "Accessibility label for the button that toggles visibility of rows in the experiment view logged models compare mode"
+  },
+  "BTroP6": {
+    "defaultMessage": "Use \"Create endpoint\" button to create a new endpoint",
+    "description": "Empty state message for endpoints list explaining how to create"
   },
   "BU8Jni": {
     "defaultMessage": "Response",
@@ -1798,10 +1850,6 @@
     "defaultMessage": "Other Providers",
     "description": "Section header for other providers"
   },
-  "E+x0F4": {
-    "defaultMessage": "Gateway",
-    "description": "Header title for the gateway configuration page"
-  },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
     "description": "Error message displayed on logged models page when experiment data fails to load"
@@ -1950,6 +1998,10 @@
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
   },
+  "FVP/7B": {
+    "defaultMessage": "3. Configure encryption passphrase (production deployments)",
+    "description": "AI Gateway setup guide > Step 3 title"
+  },
   "FWEOg2": {
     "defaultMessage": "Relevance to Query",
     "description": "LLM template option"
@@ -1973,6 +2025,10 @@
   "FdDWTo": {
     "defaultMessage": "Clear All",
     "description": "String for the clear button to clear any selected parameters and metrics"
+  },
+  "FedDjX": {
+    "defaultMessage": "1. Install MLflow with GenAI extras on the server",
+    "description": "AI Gateway setup guide > Step 1 title"
   },
   "Fg/zU/": {
     "defaultMessage": "GenAI apps & agents",
@@ -2466,6 +2522,10 @@
     "defaultMessage": "Type {itemName} to confirm deletion:",
     "description": "Type to confirm instruction"
   },
+  "KSgUAW": {
+    "defaultMessage": "Name",
+    "description": "Endpoint name column header"
+  },
   "KV3BXl": {
     "defaultMessage": "Select as baseline version",
     "description": "Label for selecting baseline prompt version in the comparison view"
@@ -2489,6 +2549,10 @@
   "Kkuttk": {
     "defaultMessage": "Assessment",
     "description": "Evaluation review > evaluations list > assessment sort option label prefix"
+  },
+  "KoBxNq": {
+    "defaultMessage": "Connected resources",
+    "description": "Connected resources column header"
   },
   "KqReh3": {
     "defaultMessage": "Error stack trace",
@@ -2609,6 +2673,10 @@
   "Ls2ris": {
     "defaultMessage": "Mark as reviewed",
     "description": "Evaluation review > assessments > mark as reviewed button"
+  },
+  "LxUEVH": {
+    "defaultMessage": "No resources connected to this endpoint",
+    "description": "Gateway > Endpoint bindings drawer > Empty state"
   },
   "M+HfWb": {
     "defaultMessage": "Irrelevant",
@@ -2838,6 +2906,10 @@
     "defaultMessage": "Table settings",
     "description": "Run view > artifact view > logged table > table settings tooltip"
   },
+  "O+/hDQ": {
+    "defaultMessage": "For local development, MLflow uses a default passphrase. For production deployments, server administrators must set a secure encryption passphrase on the tracking server before starting it:",
+    "description": "AI Gateway setup guide > Step 3 description"
+  },
   "O1rYVN": {
     "defaultMessage": "Load model as a Spark UDF. Override result_type if the model does not return double values.",
     "description": "Code comment which states how to load model using spark UDF"
@@ -2853,6 +2925,10 @@
   "O9r1RR": {
     "defaultMessage": "Start Time:",
     "description": "Row title for the start time of runs on the experiment compare runs page"
+  },
+  "OCpkAU": {
+    "defaultMessage": "The AI Gateway requires a SQL-based backend store (SQLite, PostgreSQL, MySQL, or MSSQL) to persist credentials securely. Start the MLflow server with a database URI:",
+    "description": "AI Gateway setup guide > Step 2 description"
   },
   "OEGyWZ": {
     "defaultMessage": "Predict on a Spark DataFrame.",
@@ -3197,6 +3273,10 @@
     "defaultMessage": "loading...",
     "description": "Loading spinner text to show that the artifact loading is in progress"
   },
+  "RlaLwX": {
+    "defaultMessage": "Endpoints",
+    "description": "Endpoints page title"
+  },
   "Rlwm5V": {
     "defaultMessage": "Name is required",
     "description": "A validation state for the prompt name in the prompt creation modal"
@@ -3204,6 +3284,10 @@
   "RmmAwm": {
     "defaultMessage": "Top P",
     "description": "Label for top P input"
+  },
+  "Rqy/A/": {
+    "defaultMessage": "Loading...",
+    "description": "Loading message for gateway page"
   },
   "Rs+SVS": {
     "defaultMessage": "Ready",
@@ -3308,10 +3392,6 @@
   "SnPghu": {
     "defaultMessage": "Delete sessions",
     "description": "Delete sessions action"
-  },
-  "Sr/ipm": {
-    "defaultMessage": "Loading providers...",
-    "description": "Loading message for providers list"
   },
   "SrV58C": {
     "defaultMessage": "Settings",
@@ -3492,6 +3572,10 @@
     "defaultMessage": "Filter: {filterString}",
     "description": "Filter display for scorer"
   },
+  "UNoKOI": {
+    "defaultMessage": "Delete endpoint",
+    "description": "Gateway > Endpoints list > Delete endpoint button aria label"
+  },
   "UQhorr": {
     "defaultMessage": "Edit",
     "description": "Edit assessment menu item"
@@ -3643,6 +3727,10 @@
   "VpFZR/": {
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the delete prompt version modal"
+  },
+  "VqSjYH": {
+    "defaultMessage": "MLflow documentation",
+    "description": "AI Gateway setup guide > Documentation link text"
   },
   "VrxfuC": {
     "defaultMessage": "Usage example",
@@ -4087,6 +4175,10 @@
     "defaultMessage": "Model attributes",
     "description": "Header title for the model attributes section of the logged model list table"
   },
+  "ZoEf0Y": {
+    "defaultMessage": "2. Use a SQL-based tracking store",
+    "description": "AI Gateway setup guide > Step 2 title"
+  },
   "ZoIjun": {
     "defaultMessage": "Duration",
     "description": "Run page > Overview > Run duration section label"
@@ -4507,6 +4599,10 @@
     "defaultMessage": "Trace ID",
     "description": "Column label for trace ID"
   },
+  "cvqfn9": {
+    "defaultMessage": "This endpoint is currently used by {bindingCount, plural, one {# resource} other {# resources}}. Deleting it will break those connections.",
+    "description": "Warning about resources using this endpoint"
+  },
   "cy9EfG": {
     "defaultMessage": "Attributes",
     "description": "Experiment page > group by runs control > attributes section label"
@@ -4842,6 +4938,10 @@
   "frPtD/": {
     "defaultMessage": "Metrics",
     "description": "Row group title for metrics of runs on the experiment compare runs page"
+  },
+  "fsga0A": {
+    "defaultMessage": "Connected resources ({count})",
+    "description": "Gateway > Endpoint bindings drawer > Title"
   },
   "fv7vQf": {
     "defaultMessage": "Rename",
@@ -5315,6 +5415,10 @@
     "defaultMessage": "Open the {experimentsLink} page.",
     "description": "Instruction to open the experiments page from the log traces drawer"
   },
+  "jcg8zG": {
+    "defaultMessage": "Models",
+    "description": "Models column header"
+  },
   "jhjCgW": {
     "defaultMessage": "Agent versions",
     "description": "Label for the agent versions tab in the MLflow experiment navbar"
@@ -5446,6 +5550,10 @@
   "kmtWGf": {
     "defaultMessage": "{count, plural, one { # trace } other { # traces }} will be deleted.",
     "description": "Experiment page > traces view controls > Delete traces modal > Confirmation message title"
+  },
+  "knJfuf": {
+    "defaultMessage": "Learn more about the AI Gateway in the {gatewayDocs}.",
+    "description": "AI Gateway setup guide > Documentation link"
   },
   "ktiuki": {
     "defaultMessage": "Get Link",
@@ -5598,6 +5706,10 @@
   "m9e01X": {
     "defaultMessage": "No tags to display.",
     "description": "Text shown when there are no tags to display"
+  },
+  "mBhoMH": {
+    "defaultMessage": "Last modified",
+    "description": "Last modified column header"
   },
   "mIFcgu": {
     "defaultMessage": "Cancel",
@@ -5875,6 +5987,10 @@
     "defaultMessage": "Add",
     "description": "Add new key-value tag modal > Add button text"
   },
+  "oUUe9R": {
+    "defaultMessage": "Edit endpoint",
+    "description": "Gateway > Endpoints list > Edit endpoint button aria label"
+  },
   "oWPgX7": {
     "defaultMessage": "Rename",
     "description": "Label for the rename run button above the experiment runs table"
@@ -5942,10 +6058,6 @@
   "p2po2x": {
     "defaultMessage": "Delete prompt",
     "description": "A header for the delete prompt modal"
-  },
-  "p5xut2": {
-    "defaultMessage": "Available Providers",
-    "description": "Title for providers list"
   },
   "pBUaAK": {
     "defaultMessage": "Are you sure you want to delete this tag？",
@@ -6147,6 +6259,10 @@
     "defaultMessage": "Make Predictions",
     "description": "Heading text for the prediction section on the registered model from the experiment run"
   },
+  "r5/6HV": {
+    "defaultMessage": "Resources using endpoint: {name}",
+    "description": "Gateway > Endpoint bindings drawer > Subtitle"
+  },
   "r5JI+N": {
     "defaultMessage": "Please select metrics",
     "description": "Placeholder text for metrics in parallel coordinates plot in MLflow"
@@ -6174,6 +6290,10 @@
   "rCMgRJ": {
     "defaultMessage": "Name",
     "description": "Header for \"name\" column in the experiment run dataset schema"
+  },
+  "rDIzM4": {
+    "defaultMessage": "This passphrase protects encryption keys and should never be shared. {securityNote}",
+    "description": "AI Gateway setup guide > Passphrase warning"
   },
   "rFJSWc": {
     "defaultMessage": "Attempt to display",
@@ -6210,6 +6330,10 @@
   "rdrvCs": {
     "defaultMessage": "Created",
     "description": "Secret created label"
+  },
+  "retpTK": {
+    "defaultMessage": "API Keys",
+    "description": "Gateway side nav > API Keys tab"
   },
   "rgSaFx": {
     "defaultMessage": "Span type",
