@@ -11,10 +11,6 @@
     "defaultMessage": "Temperature",
     "description": "Label for temperature input"
   },
-  "+1d2x/": {
-    "defaultMessage": "Run judge on traces",
-    "description": "Title for running judge on traces"
-  },
   "+1i81u": {
     "defaultMessage": "Registered At",
     "description": "Label name for registered timestamp metadata in model version page"
@@ -926,6 +922,10 @@
     "defaultMessage": "Go back to <link>the home page.</link>",
     "description": "Default error message for error views in MLflow"
   },
+  "6AUuoS": {
+    "defaultMessage": "Run judge on {isTraces, select, true {traces} other {sessions}}",
+    "description": "Title for running judge on traces or sessions"
+  },
   "6BRlPU": {
     "defaultMessage": "Rationale",
     "description": "Field label for assessment rationale in an edit form"
@@ -1297,6 +1297,10 @@
   "8kU9Sc": {
     "defaultMessage": "No API keys found",
     "description": "Empty state title when filter returns no results"
+  },
+  "8nHnwU": {
+    "defaultMessage": "Select sessions",
+    "description": "Option for selecting custom traces"
   },
   "8qJt7/": {
     "defaultMessage": "Experimental",
@@ -3345,6 +3349,10 @@
     "defaultMessage": "Create a model",
     "description": "Create button to register a new model"
   },
+  "RVVbC8": {
+    "defaultMessage": "Select scope",
+    "description": "Label for the scorer evaluation scope selection"
+  },
   "RWVGkL": {
     "defaultMessage": "Columns",
     "description": "Columns label for the chat sessions table column selector"
@@ -3456,6 +3464,10 @@
   "STEhnv": {
     "defaultMessage": "Description",
     "description": "Header for the description column in the experiments table"
+  },
+  "SUmLKb": {
+    "defaultMessage": "Last session",
+    "description": "Option for last session"
   },
   "SXKt8h": {
     "defaultMessage": "Must be unique in this experiment. Cannot be changed after creation.",
@@ -4743,6 +4755,10 @@
     "defaultMessage": "Attributes",
     "description": "Experiment page > group by runs control > attributes section label"
   },
+  "d+WXp2": {
+    "defaultMessage": "Last 5 sessions",
+    "description": "Option for last 5 sessions"
+  },
   "d00egE": {
     "defaultMessage": "No span with type RETRIEVER found in trace.",
     "description": "GenAi Traces Table > Modal > Message displayed when no retrievals are found"
@@ -5259,10 +5275,6 @@
     "defaultMessage": "User is not authorized.",
     "description": "Unauthorized (HTTP STATUS 401) generic error message"
   },
-  "guCNzD": {
-    "defaultMessage": "Run the judge on the selected group of traces",
-    "description": "Description for running judge on traces"
-  },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
@@ -5526,6 +5538,10 @@
   "j7cj5r": {
     "defaultMessage": "Please log at least one table artifact containing evaluation data. <link>Learn more</link>.",
     "description": "Experiment page > artifact compare view > empty state for no evaluation tables logged > subtitle"
+  },
+  "j9F8Nt": {
+    "defaultMessage": "Last 10 sessions",
+    "description": "Option for last 10 sessions"
   },
   "jA7Y1x": {
     "defaultMessage": "Edit API key",
@@ -6274,6 +6290,10 @@
   "pVF+2s": {
     "defaultMessage": "Show less",
     "description": "Label for a link that shows less tags when clicked"
+  },
+  "pYUr49": {
+    "defaultMessage": "What do you want the scorer to evaluate?",
+    "description": "Hint for the scorer evaluation scope selection"
   },
   "paQ2Wc": {
     "defaultMessage": "Stage (deprecated)",
@@ -7234,6 +7254,10 @@
   "y56Vz9": {
     "defaultMessage": "In progress",
     "description": "Experiment page > traces table > status label > in progress"
+  },
+  "y6KMoc": {
+    "defaultMessage": "Run the judge on the selected group of {isTraces, select, true {traces} other {sessions}}",
+    "description": "Description for running judge on traces or sessions"
   },
   "y8O4PM": {
     "defaultMessage": "Retrieval Groundedness",
