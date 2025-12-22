@@ -57,7 +57,7 @@ export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ experime
     return <ChartLoadingState />;
   }
 
-  if (error instanceof Error) {
+  if (error) {
     return <ChartErrorState />;
   }
 

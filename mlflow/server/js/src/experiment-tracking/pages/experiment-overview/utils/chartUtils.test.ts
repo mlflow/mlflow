@@ -107,4 +107,3 @@ describe('chartUtils', () => {
     });
   });
 });
-

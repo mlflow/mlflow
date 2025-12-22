@@ -99,4 +99,3 @@ export const ChartEmptyState: React.FC<ChartEmptyStateProps> = ({ height, messag
     </div>
   );
 };
-

@@ -39,4 +39,3 @@ export function getTimestampFromDataPoint(dp: MetricDataPoint): number {
   }
   return 0;
 }
-

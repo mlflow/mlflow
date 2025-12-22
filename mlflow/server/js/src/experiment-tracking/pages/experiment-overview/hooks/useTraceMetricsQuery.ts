@@ -1,11 +1,9 @@
-import type { QueryClient } from '@databricks/web-shared/query-client';
 import { useQuery } from '../../../../common/utils/reactQueryHooks';
 import { MlflowService } from '../../../sdk/MlflowService';
 import {
   type QueryTraceMetricsRequest,
   type MetricAggregation,
   MetricViewType,
-  AggregationType,
 } from '@databricks/web-shared/model-trace-explorer';
 
 export const TRACE_METRICS_QUERY_KEY = 'traceMetrics';
@@ -81,7 +79,7 @@ export function useTraceMetricsQuery({
       endTimeMs,
       viewType,
       metricName,
-      aggregations,
+      JSON.stringify(aggregations),
       timeIntervalSeconds,
     ],
     queryFn: async () => {
