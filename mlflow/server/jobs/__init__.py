@@ -224,12 +224,15 @@ def get_job(job_id: str) -> JobEntity:
     return job_store.get_job(job_id)
 
 
-def cancel_job(job_id: str) -> None:
+def cancel_job(job_id: str) -> JobEntity:
     """
     Cancel a job by its ID.
 
     Args:
         job_id: The ID of the job to cancel
+
+    Returns:
+        The job entity
 
     Raises:
         MlflowException: If job with the given ID is not found

@@ -55,6 +55,11 @@ class Client:
         response.raise_for_status()
         return response.json()
 
+    def cancel_job(self, job_id: str) -> dict[str, Any]:
+        response = requests.delete(f"{self.server_url}/ajax-api/3.0/jobs/{job_id}")
+        response.raise_for_status()
+        return response.json()
+
     def wait_job(self, job_id: str, timeout: float = 10) -> dict[str, Any]:
         beg_time = time.time()
         while time.time() - beg_time <= timeout:
@@ -136,7 +141,7 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
             os.killpg(server_proc.pid, signal.SIGKILL)
 
 
-def test_job_endpoint(client: Client):
+def test_job_submit(client: Client):
     job_id = client.submit_job(
         job_name="simple_job_fun",
         params={"x": 3, "y": 4},
@@ -151,6 +156,29 @@ def test_job_endpoint(client: Client):
         "timeout": None,
         "status": "SUCCEEDED",
         "result": {"a": 7, "b": 12},
+        "retry_count": 0,
+    }
+
+
+def test_job_cancel(client: Client):
+    job_id = client.submit_job(
+        job_name="simple_job_fun",
+        params={"x": 3, "y": 4, "sleep_secs": 120},
+    )["job_id"]
+    time.sleep(2)
+
+    client.cancel_job(job_id)
+
+    job_json = client.get_job(job_id)
+    job_json.pop("creation_time")
+    job_json.pop("last_update_time")
+    assert job_json == {
+        "job_id": job_id,
+        "job_name": "simple_job_fun",
+        "params": {"x": 3, "y": 4, "sleep_secs": 120},
+        "timeout": None,
+        "status": "CANCELED",
+        "result": None,
         "retry_count": 0,
     }
 

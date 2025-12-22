@@ -131,7 +131,7 @@ class AbstractJobStore(ABC):
         """
 
     @abstractmethod
-    def cancel_job(self, job_id: str) -> None:
+    def cancel_job(self, job_id: str) -> Job:
         """
         Cancel a job by its ID.
 
