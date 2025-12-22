@@ -4391,14 +4391,6 @@ def _invoke_scorer_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # Validate trace_ids limit
-    max_traces = 1000
-    if len(trace_ids) > max_traces:
-        raise MlflowException(
-            f"Too many trace_ids: {len(trace_ids)}. Maximum allowed is {max_traces}.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
     # Parse serialized_scorer if it's a JSON string
     if isinstance(serialized_scorer, str):
         try:
