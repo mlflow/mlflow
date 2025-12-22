@@ -12,6 +12,8 @@ CREATE TABLE endpoints (
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_at BIGINT NOT NULL,
+	routing_strategy VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	fallback_config_json VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id)
 )
 
