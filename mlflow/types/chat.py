@@ -144,6 +144,19 @@ class ChatTool(BaseModel):
     function: FunctionToolDefinition | None = None
 
 
+class ResponseFormat(BaseModel):
+    """
+    Response format configuration for structured outputs.
+
+    Supported formats: {"type": "json_schema", "json_schema": {...}}.
+
+    The schema should follow JSON Schema specification.
+    """
+
+    type: Literal["text", "json_object", "json_schema"]
+    json_schema: dict[str, Any] | None = None
+
+
 class BaseRequestPayload(BaseModel):
     """Common parameters used for chat completions and completion endpoints."""
 
@@ -154,6 +167,7 @@ class BaseRequestPayload(BaseModel):
     stream: bool | None = None
     stream_options: dict[str, Any] | None = None
     model: str | None = None
+    response_format: ResponseFormat | None = None
 
 
 # NB: For interface constructs that rely on other BaseModel implementations, in

@@ -319,6 +319,29 @@ class OpenAIProvider(BaseProvider):
                 f"Invalid OpenAI API type '{self.openai_config.openai_api_type}'"
             )
 
+    def _get_headers(
+        self,
+        payload: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, str]:
+        """
+        Generate headers for OpenAI API requests.
+
+        Args:
+            payload: Request payload (reserved for future conditional headers)
+            headers: Optional headers from client request to propagate
+
+        Returns:
+            Merged headers with provider headers taking precedence
+        """
+        result_headers = self.headers.copy()
+
+        if headers:
+            # Don't override api key or organization headers
+            result_headers = headers | result_headers
+
+        return result_headers
+
     @property
     def adapter_class(self):
         return OpenAIAdapter
@@ -623,7 +646,10 @@ class OpenAIProvider(BaseProvider):
         return OpenAIAdapter.model_to_embeddings(resp, self.config)
 
     async def passthrough(
-        self, action: PassthroughAction, payload: dict[str, Any]
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[bytes]:
         payload_with_model = self.adapter_class._add_model_to_payload_if_necessary(
             payload, self.config
@@ -631,18 +657,20 @@ class OpenAIProvider(BaseProvider):
 
         provider_path = self._validate_passthrough_action(action)
 
+        request_headers = self._get_headers(payload_with_model, headers)
+
         supports_streaming = action != PassthroughAction.OPENAI_EMBEDDINGS
 
         if supports_streaming and payload_with_model.get("stream"):
             return send_stream_request(
-                headers=self.headers,
+                headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload_with_model,
             )
         else:
             return await send_request(
-                headers=self.headers,
+                headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload_with_model,
