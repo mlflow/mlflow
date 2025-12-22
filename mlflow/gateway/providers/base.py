@@ -124,7 +124,10 @@ class BaseProvider(ABC):
         return provider_path
 
     async def passthrough(
-        self, action: PassthroughAction, payload: dict[str, Any]
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[bytes]:
         """
         Unified passthrough endpoint for raw API requests.
@@ -132,6 +135,7 @@ class BaseProvider(ABC):
         Args:
             action: The passthrough action to perform (e.g., OPENAI_CHAT, OPENAI_EMBEDDINGS)
             payload: Raw request payload in the format expected by the target API
+            headers: Optional HTTP headers from client request to propagate
 
         Returns:
             Raw response from the target API, optionally as an async iterable for streaming
@@ -216,10 +220,13 @@ class TrafficRouteProvider(BaseProvider):
         return await prov.embeddings(payload)
 
     async def passthrough(
-        self, action: PassthroughAction, payload: dict[str, Any]
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[bytes]:
         prov = self._get_provider()
-        return await prov.passthrough(action, payload)
+        return await prov.passthrough(action, payload, headers)
 
 
 class ProviderAdapter(ABC):
