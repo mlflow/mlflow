@@ -20,6 +20,8 @@ from mlflow.types.chat import Function, ToolCallDelta
 
 _logger = logging.getLogger(__name__)
 
+_ANTHROPIC_STRUCTURED_OUTPUTS_HEADER = "structured-outputs-2025-11-13"
+
 
 class AnthropicAdapter(ProviderAdapter):
     @classmethod
@@ -380,11 +382,11 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         if payload and payload.get("output_format"):
             if payload["output_format"].get("type") == "json_schema":
                 if "anthropic-beta" not in result_headers:
-                    result_headers["anthropic-beta"] = "structured-outputs-2025-11-13"
+                    result_headers["anthropic-beta"] = _ANTHROPIC_STRUCTURED_OUTPUTS_HEADER
                 else:
-                    if "structured-outputs-2025-11-13" not in result_headers["anthropic-beta"]:
+                    if _ANTHROPIC_STRUCTURED_OUTPUTS_HEADER not in result_headers["anthropic-beta"]:
                         result_headers["anthropic-beta"] = (
-                            f"{result_headers['anthropic-beta']},structured-outputs-2025-11-13"
+                            f"{result_headers['anthropic-beta']},{_ANTHROPIC_STRUCTURED_OUTPUTS_HEADER}"
                         )
 
         if headers:
