@@ -8,6 +8,7 @@ import { TracesV3DateSelector } from '../../components/experiment-page/component
 import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../hooks/useMonitoringFilters';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
 import { TraceRequestsChart } from './components/TraceRequestsChart';
+import { TraceLatencyChart } from './components/TraceLatencyChart';
 
 enum OverviewTab {
   Usage = 'usage',
@@ -35,6 +36,9 @@ const ExperimentGenAIOverviewPageImpl = () => {
   // Convert ISO strings to milliseconds for the API
   const startTimeMs = startTime ? new Date(startTime).getTime() : undefined;
   const endTimeMs = endTime ? new Date(endTime).getTime() : undefined;
+
+  // Common props for all chart components
+  const chartProps = { experimentId, startTimeMs, endTimeMs };
 
   return (
     <div
@@ -87,8 +91,27 @@ const ExperimentGenAIOverviewPageImpl = () => {
         </div>
 
         <Tabs.Content value={OverviewTab.Usage} css={{ flex: 1, overflowY: 'auto' }}>
-          <div css={{ padding: `${theme.spacing.sm}px 0` }}>
-            <TraceRequestsChart experimentId={experimentId} startTimeMs={startTimeMs} endTimeMs={endTimeMs} />
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.lg,
+              padding: `${theme.spacing.sm}px 0`,
+            }}
+          >
+            {/* Requests chart - full width */}
+            <TraceRequestsChart {...chartProps} />
+
+            {/* Latency chart*/}
+            <div
+              css={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                gap: theme.spacing.md,
+              }}
+            >
+              <TraceLatencyChart {...chartProps} />
+            </div>
           </div>
         </Tabs.Content>
       </Tabs.Root>

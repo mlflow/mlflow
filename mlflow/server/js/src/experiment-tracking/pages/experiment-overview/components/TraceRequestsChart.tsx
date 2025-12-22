@@ -6,14 +6,9 @@ import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web
 import { useTraceMetricsQuery, calculateTimeInterval } from '../hooks/useTraceMetricsQuery';
 import { ChartLoadingState, ChartErrorState, ChartEmptyState } from './ChartCardWrapper';
 import { formatTimestamp, getTimestampFromDataPoint } from '../utils/chartUtils';
+import type { OverviewChartProps } from '../types';
 
-interface TraceRequestsChartProps {
-  experimentId: string;
-  startTimeMs?: number;
-  endTimeMs?: number;
-}
-
-export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ experimentId, startTimeMs, endTimeMs }) => {
+export const TraceRequestsChart: React.FC<OverviewChartProps> = ({ experimentId, startTimeMs, endTimeMs }) => {
   const { theme } = useDesignSystemTheme();
 
   // Calculate time interval for grouping
