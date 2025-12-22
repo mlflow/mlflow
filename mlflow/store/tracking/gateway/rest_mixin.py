@@ -20,9 +20,9 @@ from mlflow.protos.service_pb2 import (
     CreateGatewayEndpointBinding,
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
-    DeleteEndpointTag,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
+    DeleteGatewayEndpointTag,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DetachModelFromGatewayEndpoint,
@@ -33,7 +33,7 @@ from mlflow.protos.service_pb2 import (
     ListGatewayEndpoints,
     ListGatewayModelDefinitions,
     ListGatewaySecretInfos,
-    SetEndpointTag,
+    SetGatewayEndpointTag,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
@@ -74,8 +74,8 @@ class RestGatewayStoreMixin:
         CreateGatewayEndpointBinding,
         DeleteGatewayEndpointBinding,
         ListGatewayEndpointBindings,
-        SetEndpointTag,
-        DeleteEndpointTag,
+        SetGatewayEndpointTag,
+        DeleteGatewayEndpointTag,
     }
 
     # ========== Secrets Management APIs ==========
@@ -373,6 +373,7 @@ class RestGatewayStoreMixin:
         secret_id: str | None = None,
         model_name: str | None = None,
         updated_by: str | None = None,
+        provider: str | None = None,
     ) -> GatewayModelDefinition:
         """
         Update a model definition.
@@ -383,6 +384,7 @@ class RestGatewayStoreMixin:
             secret_id: Optional new secret ID.
             model_name: Optional new model name.
             updated_by: Optional identifier of the user updating the definition.
+            provider: Optional new provider.
 
         Returns:
             The updated GatewayModelDefinition object.
@@ -394,6 +396,7 @@ class RestGatewayStoreMixin:
                 secret_id=secret_id,
                 model_name=model_name,
                 updated_by=updated_by,
+                provider=provider,
             )
         )
         response_proto = self._call_endpoint(UpdateGatewayModelDefinition, req_body)
@@ -551,13 +554,13 @@ class RestGatewayStoreMixin:
             tag: GatewayEndpointTag with key and value to set.
         """
         req_body = message_to_json(
-            SetEndpointTag(
+            SetGatewayEndpointTag(
                 endpoint_id=endpoint_id,
                 key=tag.key,
                 value=tag.value,
             )
         )
-        self._call_endpoint(SetEndpointTag, req_body)
+        self._call_endpoint(SetGatewayEndpointTag, req_body)
 
     def delete_gateway_endpoint_tag(self, endpoint_id: str, key: str) -> None:
         """
@@ -568,9 +571,9 @@ class RestGatewayStoreMixin:
             key: Tag key to delete.
         """
         req_body = message_to_json(
-            DeleteEndpointTag(
+            DeleteGatewayEndpointTag(
                 endpoint_id=endpoint_id,
                 key=key,
             )
         )
-        self._call_endpoint(DeleteEndpointTag, req_body)
+        self._call_endpoint(DeleteGatewayEndpointTag, req_body)

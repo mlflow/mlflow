@@ -19,6 +19,14 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.store.tracking.dbmodels.models import (
+    SqlGatewayEndpoint,
+    SqlGatewayEndpointBinding,
+    SqlGatewayEndpointModelMapping,
+    SqlGatewayEndpointTag,
+    SqlGatewayModelDefinition,
+    SqlGatewaySecret,
+)
 from mlflow.store.tracking.gateway.config_resolver import (
     get_endpoint_config,
     get_resource_endpoint_configs,
@@ -35,16 +43,30 @@ def set_kek_passphrase(monkeypatch):
     monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", TEST_PASSPHRASE)
 
 
+def _cleanup_database(store: SqlAlchemyStore):
+    """Clean up gateway-specific tables after each test."""
+    with store.ManagedSessionMaker() as session:
+        # Delete all rows in gateway tables in dependency order
+        for model in (
+            SqlGatewayEndpointTag,
+            SqlGatewayEndpointBinding,
+            SqlGatewayEndpointModelMapping,
+            SqlGatewayEndpoint,
+            SqlGatewayModelDefinition,
+            SqlGatewaySecret,
+        ):
+            session.query(model).delete()
+
+
 @pytest.fixture
-def store(tmp_path: Path):
+def store(tmp_path: Path, db_uri: str):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
     if db_uri_env := MLFLOW_TRACKING_URI.get():
         s = SqlAlchemyStore(db_uri_env, artifact_uri.as_uri())
         yield s
+        _cleanup_database(s)
     else:
-        db_path = tmp_path / "mlflow.db"
-        db_uri = f"sqlite:///{db_path}"
         s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
         yield s
 
@@ -67,8 +89,9 @@ def test_create_gateway_secret(store: SqlAlchemyStore):
     assert secret.secret_name == "my-api-key"
     assert secret.provider == "openai"
     assert secret.created_by == "test-user"
-    assert secret.masked_value is not None
-    assert "sk-test-123456" not in secret.masked_value
+    assert isinstance(secret.masked_values, dict)
+    assert "api_key" in secret.masked_values
+    assert "sk-test-123456" not in secret.masked_values["api_key"]
 
 
 def test_create_gateway_secret_with_auth_config(store: SqlAlchemyStore):
@@ -96,9 +119,11 @@ def test_create_gateway_secret_with_dict_value(store: SqlAlchemyStore):
 
     assert secret.secret_name == "multi-secret"
     assert secret.provider == "bedrock"
-    # Multi-key dict secrets show all keys with masked values
-    assert "aws_access_key_id:" in secret.masked_value
-    assert "aws_secret_access_key:" in secret.masked_value
+    assert isinstance(secret.masked_values, dict)
+    assert "aws_access_key_id" in secret.masked_values
+    assert "aws_secret_access_key" in secret.masked_values
+    assert "AKIA1234567890" not in secret.masked_values["aws_access_key_id"]
+    assert "secret-key-here" not in secret.masked_values["aws_secret_access_key"]
 
 
 def test_create_gateway_secret_duplicate_name_raises(store: SqlAlchemyStore):
@@ -211,22 +236,58 @@ def test_delete_gateway_secret(store: SqlAlchemyStore):
 
 
 def test_list_gateway_secret_infos(store: SqlAlchemyStore):
-    store.create_gateway_secret(
+    s1 = store.create_gateway_secret(
         secret_name="openai-1", secret_value={"api_key": "v1"}, provider="openai"
     )
-    store.create_gateway_secret(
+    s2 = store.create_gateway_secret(
         secret_name="openai-2", secret_value={"api_key": "v2"}, provider="openai"
     )
-    store.create_gateway_secret(
+    s3 = store.create_gateway_secret(
         secret_name="anthropic-1", secret_value={"api_key": "v3"}, provider="anthropic"
     )
+    created_ids = {s1.secret_id, s2.secret_id, s3.secret_id}
 
     all_secrets = store.list_secret_infos()
-    assert len(all_secrets) >= 3
+    all_ids = {s.secret_id for s in all_secrets}
+    assert created_ids.issubset(all_ids)
 
     openai_secrets = store.list_secret_infos(provider="openai")
-    assert len(openai_secrets) == 2
+    openai_ids = {s.secret_id for s in openai_secrets}
+    assert {s1.secret_id, s2.secret_id}.issubset(openai_ids)
+    assert s3.secret_id not in openai_ids
     assert all(s.provider == "openai" for s in openai_secrets)
+
+
+def test_secret_id_and_name_are_immutable_at_database_level(store: SqlAlchemyStore):
+    """
+    Verify that secret_id and secret_name cannot be modified at the database level.
+
+    These fields are used as AAD (Additional Authenticated Data) in AES-GCM encryption.
+    If they are modified, decryption will fail. A database trigger enforces this immutability
+    to prevent any code path from accidentally allowing mutation.
+    """
+    from sqlalchemy import text
+    from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
+
+    secret = store.create_gateway_secret(
+        secret_name="immutable-test",
+        secret_value={"api_key": "test-value"},
+        provider="openai",
+    )
+
+    def attempt_mutation(session):
+        session.execute(
+            text("UPDATE secrets SET secret_name = :new_name WHERE secret_id = :id"),
+            {"new_name": "modified-name", "id": secret.secret_id},
+        )
+        session.flush()
+
+    with store.ManagedSessionMaker() as session:
+        with pytest.raises((DatabaseError, IntegrityError, OperationalError)):
+            attempt_mutation(session)
+
+    retrieved = store.get_secret_info(secret_id=secret.secret_id)
+    assert retrieved.secret_name == "immutable-test"
 
 
 # =============================================================================
@@ -913,7 +974,7 @@ def test_get_gateway_endpoint_config(store: SqlAlchemyStore):
     )
 
     config = get_endpoint_config(
-        endpoint_id=endpoint.endpoint_id,
+        endpoint_name=endpoint.name,
         store=store,
     )
 
@@ -946,7 +1007,7 @@ def test_get_gateway_endpoint_config_with_auth_config(store: SqlAlchemyStore):
     )
 
     config = get_endpoint_config(
-        endpoint_id=endpoint.endpoint_id,
+        endpoint_name=endpoint.name,
         store=store,
     )
 
@@ -981,7 +1042,7 @@ def test_get_gateway_endpoint_config_multiple_models(store: SqlAlchemyStore):
     )
 
     config = get_endpoint_config(
-        endpoint_id=endpoint.endpoint_id,
+        endpoint_name=endpoint.name,
         store=store,
     )
 
@@ -995,7 +1056,7 @@ def test_get_gateway_endpoint_config_multiple_models(store: SqlAlchemyStore):
 def test_get_gateway_endpoint_config_nonexistent_endpoint_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="not found") as exc:
         get_endpoint_config(
-            endpoint_id="nonexistent-endpoint-id",
+            endpoint_name="nonexistent-endpoint",
             store=store,
         )
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)

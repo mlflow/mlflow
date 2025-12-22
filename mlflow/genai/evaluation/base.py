@@ -237,8 +237,8 @@ def evaluate(
         An :py:class:`mlflow.models.EvaluationResult~` object.
 
     Note:
-        This function is only supported on Databricks. The tracking URI must be
-        set to Databricks.
+        Certain advanced features of this function are only supported on Databricks.
+        The tracking URI must be set to Databricks to use these features.
 
     .. warning::
 

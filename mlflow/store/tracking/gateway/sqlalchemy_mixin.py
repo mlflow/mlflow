@@ -119,15 +119,7 @@ class SqlAlchemyGatewayStoreMixin:
             current_time = get_current_time_millis()
 
             value_to_encrypt = json.dumps(secret_value)
-
-            # For dict secrets with multiple keys, show keys with masked values
-            # so users can see what fields are stored
-            if len(secret_value) == 1:
-                first_value = next(iter(secret_value.values()), "")
-                masked_value = _mask_secret_value(first_value)
-            else:
-                masked_parts = [f"{k}: {_mask_secret_value(v)}" for k, v in secret_value.items()]
-                masked_value = "{" + ", ".join(masked_parts) + "}"
+            masked_value = _mask_secret_value(secret_value)
 
             kek_manager = KEKManager()
 
@@ -143,7 +135,7 @@ class SqlAlchemyGatewayStoreMixin:
                 secret_name=secret_name,
                 encrypted_value=encrypted.encrypted_value,
                 wrapped_dek=encrypted.wrapped_dek,
-                masked_value=masked_value,
+                masked_value=json.dumps(masked_value),
                 kek_version=encrypted.kek_version,
                 provider=provider,
                 auth_config=json.dumps(auth_config) if auth_config else None,
@@ -223,17 +215,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             if secret_value is not None:
                 value_to_encrypt = json.dumps(secret_value)
-
-                # For dict secrets with multiple keys, show keys with masked values
-                # so users can see what fields are stored
-                if len(secret_value) == 1:
-                    first_value = next(iter(secret_value.values()), "")
-                    masked_value = _mask_secret_value(first_value)
-                else:
-                    masked_parts = [
-                        f"{k}: {_mask_secret_value(v)}" for k, v in secret_value.items()
-                    ]
-                    masked_value = "{" + ", ".join(masked_parts) + "}"
+                masked_value = _mask_secret_value(secret_value)
 
                 kek_manager = KEKManager()
 
@@ -247,7 +229,7 @@ class SqlAlchemyGatewayStoreMixin:
                 sql_secret.encrypted_value = encrypted.encrypted_value
                 sql_secret.wrapped_dek = encrypted.wrapped_dek
                 sql_secret.kek_version = encrypted.kek_version
-                sql_secret.masked_value = masked_value
+                sql_secret.masked_value = json.dumps(masked_value)
 
             if auth_config is not None:
                 # Empty dict {} explicitly clears auth_config, non-empty dict replaces it
@@ -428,6 +410,7 @@ class SqlAlchemyGatewayStoreMixin:
         secret_id: str | None = None,
         model_name: str | None = None,
         updated_by: str | None = None,
+        provider: str | None = None,
     ) -> GatewayModelDefinition:
         """
         Update a model definition.
@@ -438,6 +421,7 @@ class SqlAlchemyGatewayStoreMixin:
             secret_id: Optional new secret ID.
             model_name: Optional new model name.
             updated_by: Username of the updater.
+            provider: Optional new provider.
 
         Returns:
             Updated GatewayModelDefinition entity.
@@ -464,6 +448,8 @@ class SqlAlchemyGatewayStoreMixin:
                 sql_model_def.secret_id = secret_id
             if model_name is not None:
                 sql_model_def.model_name = model_name
+            if provider is not None:
+                sql_model_def.provider = provider
 
             sql_model_def.last_updated_at = get_current_time_millis()
             if updated_by:

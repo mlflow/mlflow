@@ -44,6 +44,21 @@ class TraceStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     ERROR: _ClassVar[TraceStatus]
     IN_PROGRESS: _ClassVar[TraceStatus]
 
+class MetricViewType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    TRACES: _ClassVar[MetricViewType]
+    SPANS: _ClassVar[MetricViewType]
+    ASSESSMENTS: _ClassVar[MetricViewType]
+
+class AggregationType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    COUNT: _ClassVar[AggregationType]
+    SUM: _ClassVar[AggregationType]
+    AVG: _ClassVar[AggregationType]
+    PERCENTILE: _ClassVar[AggregationType]
+    MIN: _ClassVar[AggregationType]
+    MAX: _ClassVar[AggregationType]
+
 class LoggedModelStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     LOGGED_MODEL_STATUS_UNSPECIFIED: _ClassVar[LoggedModelStatus]
@@ -67,6 +82,15 @@ TRACE_STATUS_UNSPECIFIED: TraceStatus
 OK: TraceStatus
 ERROR: TraceStatus
 IN_PROGRESS: TraceStatus
+TRACES: MetricViewType
+SPANS: MetricViewType
+ASSESSMENTS: MetricViewType
+COUNT: AggregationType
+SUM: AggregationType
+AVG: AggregationType
+PERCENTILE: AggregationType
+MIN: AggregationType
+MAX: AggregationType
 LOGGED_MODEL_STATUS_UNSPECIFIED: LoggedModelStatus
 LOGGED_MODEL_PENDING: LoggedModelStatus
 LOGGED_MODEL_READY: LoggedModelStatus
@@ -932,6 +956,71 @@ class CalculateTraceFilterCorrelation(_message.Message):
     base_filter: str
     def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ..., filter_string1: _Optional[str] = ..., filter_string2: _Optional[str] = ..., base_filter: _Optional[str] = ...) -> None: ...
 
+class MetricAggregation(_message.Message):
+    __slots__ = ("aggregation_type", "percentile_value")
+    AGGREGATION_TYPE_FIELD_NUMBER: _ClassVar[int]
+    PERCENTILE_VALUE_FIELD_NUMBER: _ClassVar[int]
+    aggregation_type: AggregationType
+    percentile_value: float
+    def __init__(self, aggregation_type: _Optional[_Union[AggregationType, str]] = ..., percentile_value: _Optional[float] = ...) -> None: ...
+
+class QueryTraceMetrics(_message.Message):
+    __slots__ = ("experiment_ids", "view_type", "metric_name", "aggregations", "dimensions", "filters", "time_interval_seconds", "start_time_ms", "end_time_ms", "max_results", "page_token")
+    class Response(_message.Message):
+        __slots__ = ("data_points", "next_page_token")
+        DATA_POINTS_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        data_points: _containers.RepeatedCompositeFieldContainer[MetricDataPoint]
+        next_page_token: str
+        def __init__(self, data_points: _Optional[_Iterable[_Union[MetricDataPoint, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    VIEW_TYPE_FIELD_NUMBER: _ClassVar[int]
+    METRIC_NAME_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATIONS_FIELD_NUMBER: _ClassVar[int]
+    DIMENSIONS_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    TIME_INTERVAL_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_MS_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_MS_FIELD_NUMBER: _ClassVar[int]
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    experiment_ids: _containers.RepeatedScalarFieldContainer[str]
+    view_type: MetricViewType
+    metric_name: str
+    aggregations: _containers.RepeatedCompositeFieldContainer[MetricAggregation]
+    dimensions: _containers.RepeatedScalarFieldContainer[str]
+    filters: _containers.RepeatedScalarFieldContainer[str]
+    time_interval_seconds: int
+    start_time_ms: int
+    end_time_ms: int
+    max_results: int
+    page_token: str
+    def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ..., view_type: _Optional[_Union[MetricViewType, str]] = ..., metric_name: _Optional[str] = ..., aggregations: _Optional[_Iterable[_Union[MetricAggregation, _Mapping]]] = ..., dimensions: _Optional[_Iterable[str]] = ..., filters: _Optional[_Iterable[str]] = ..., time_interval_seconds: _Optional[int] = ..., start_time_ms: _Optional[int] = ..., end_time_ms: _Optional[int] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class MetricDataPoint(_message.Message):
+    __slots__ = ("metric_name", "dimensions", "values")
+    class DimensionsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    class ValuesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: float
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[float] = ...) -> None: ...
+    METRIC_NAME_FIELD_NUMBER: _ClassVar[int]
+    DIMENSIONS_FIELD_NUMBER: _ClassVar[int]
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    metric_name: str
+    dimensions: _containers.ScalarMap[str, str]
+    values: _containers.ScalarMap[str, float]
+    def __init__(self, metric_name: _Optional[str] = ..., dimensions: _Optional[_Mapping[str, str]] = ..., values: _Optional[_Mapping[str, float]] = ...) -> None: ...
+
 class SetTraceTag(_message.Message):
     __slots__ = ("request_id", "key", "value")
     class Response(_message.Message):
@@ -1632,10 +1721,17 @@ class Scorer(_message.Message):
     def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ..., scorer_id: _Optional[str] = ...) -> None: ...
 
 class GatewaySecretInfo(_message.Message):
-    __slots__ = ("secret_id", "secret_name", "masked_value", "created_at", "last_updated_at", "provider", "created_by", "last_updated_by", "auth_config_json")
+    __slots__ = ("secret_id", "secret_name", "masked_values", "created_at", "last_updated_at", "provider", "created_by", "last_updated_by", "auth_config_json")
+    class MaskedValuesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
     SECRET_ID_FIELD_NUMBER: _ClassVar[int]
     SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
-    MASKED_VALUE_FIELD_NUMBER: _ClassVar[int]
+    MASKED_VALUES_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     PROVIDER_FIELD_NUMBER: _ClassVar[int]
@@ -1644,14 +1740,14 @@ class GatewaySecretInfo(_message.Message):
     AUTH_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
     secret_id: str
     secret_name: str
-    masked_value: str
+    masked_values: _containers.ScalarMap[str, str]
     created_at: int
     last_updated_at: int
     provider: str
     created_by: str
     last_updated_by: str
     auth_config_json: str
-    def __init__(self, secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ..., masked_value: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., provider: _Optional[str] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., auth_config_json: _Optional[str] = ...) -> None: ...
+    def __init__(self, secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ..., masked_values: _Optional[_Mapping[str, str]] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., provider: _Optional[str] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., auth_config_json: _Optional[str] = ...) -> None: ...
 
 class GatewayModelDefinition(_message.Message):
     __slots__ = ("model_definition_id", "name", "secret_id", "secret_name", "provider", "model_name", "created_at", "last_updated_at", "created_by", "last_updated_by")
@@ -1868,7 +1964,7 @@ class ListGatewayModelDefinitions(_message.Message):
     def __init__(self, provider: _Optional[str] = ..., secret_id: _Optional[str] = ...) -> None: ...
 
 class UpdateGatewayModelDefinition(_message.Message):
-    __slots__ = ("model_definition_id", "name", "secret_id", "model_name", "updated_by")
+    __slots__ = ("model_definition_id", "name", "secret_id", "model_name", "updated_by", "provider")
     class Response(_message.Message):
         __slots__ = ("model_definition",)
         MODEL_DEFINITION_FIELD_NUMBER: _ClassVar[int]
@@ -1879,12 +1975,14 @@ class UpdateGatewayModelDefinition(_message.Message):
     SECRET_ID_FIELD_NUMBER: _ClassVar[int]
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
     model_definition_id: str
     name: str
     secret_id: str
     model_name: str
     updated_by: str
-    def __init__(self, model_definition_id: _Optional[str] = ..., name: _Optional[str] = ..., secret_id: _Optional[str] = ..., model_name: _Optional[str] = ..., updated_by: _Optional[str] = ...) -> None: ...
+    provider: str
+    def __init__(self, model_definition_id: _Optional[str] = ..., name: _Optional[str] = ..., secret_id: _Optional[str] = ..., model_name: _Optional[str] = ..., updated_by: _Optional[str] = ..., provider: _Optional[str] = ...) -> None: ...
 
 class DeleteGatewayModelDefinition(_message.Message):
     __slots__ = ("model_definition_id",)
@@ -2033,7 +2131,7 @@ class ListGatewayEndpointBindings(_message.Message):
     resource_id: str
     def __init__(self, endpoint_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ...) -> None: ...
 
-class SetEndpointTag(_message.Message):
+class SetGatewayEndpointTag(_message.Message):
     __slots__ = ("endpoint_id", "key", "value")
     class Response(_message.Message):
         __slots__ = ()
@@ -2046,7 +2144,7 @@ class SetEndpointTag(_message.Message):
     value: str
     def __init__(self, endpoint_id: _Optional[str] = ..., key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
-class DeleteEndpointTag(_message.Message):
+class DeleteGatewayEndpointTag(_message.Message):
     __slots__ = ("endpoint_id", "key")
     class Response(_message.Message):
         __slots__ = ()

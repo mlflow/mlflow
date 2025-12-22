@@ -277,7 +277,15 @@ latex_documents = [
 
 # Mock torch imports as per suggestion in
 # https://github.com/sphinx-doc/sphinx/issues/6521#issuecomment-505765893
-autodoc_mock_imports = ["torch", "langchain_core", "langgraph"]
+autodoc_mock_imports = [
+    "torch",
+    "langchain_core",
+    "langgraph",
+    "langchain_community",
+    "langchain_community.chat_models",
+    "langchain_community.llms",
+    "ragas",
+]
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.

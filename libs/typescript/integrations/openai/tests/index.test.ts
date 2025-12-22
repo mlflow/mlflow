@@ -7,6 +7,7 @@ import { tracedOpenAI } from '../src';
 import { OpenAI } from 'openai';
 import { http, HttpResponse } from 'msw';
 import { openAIMswServer, useMockOpenAIServer } from '../../helpers/openaiTestHelper';
+import { createAuthProvider } from 'mlflow-tracing/src/auth';
 
 const TEST_TRACKING_URI = 'http://localhost:5000';
 
@@ -18,7 +19,8 @@ describe('tracedOpenAI', () => {
 
   beforeAll(async () => {
     // Setup MLflow client and experiment
-    client = new mlflow.MlflowClient({ trackingUri: TEST_TRACKING_URI, host: TEST_TRACKING_URI });
+    const authProvider = createAuthProvider({ trackingUri: TEST_TRACKING_URI });
+    client = new mlflow.MlflowClient({ trackingUri: TEST_TRACKING_URI, authProvider });
 
     // Create a new experiment
     const experimentName = `test-experiment-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;

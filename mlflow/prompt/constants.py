@@ -8,6 +8,7 @@ PROMPT_TEXT_TAG_KEY = "mlflow.prompt.text"
 # Unity Catalog tags cannot contain dots
 PROMPT_TYPE_TAG_KEY = "_mlflow_prompt_type"
 RESPONSE_FORMAT_TAG_KEY = "_mlflow_prompt_response_format"
+PROMPT_MODEL_CONFIG_TAG_KEY = "_mlflow_prompt_model_config"
 
 # Prompt types
 PROMPT_TYPE_TEXT = "text"

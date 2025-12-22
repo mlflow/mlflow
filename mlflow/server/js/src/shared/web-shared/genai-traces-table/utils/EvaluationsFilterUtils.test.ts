@@ -1,7 +1,7 @@
 import { describe, it, expect } from '@jest/globals';
 
 import { filterEvaluationResults } from './EvaluationsFilterUtils';
-import type { AssessmentFilter, EvalTraceComparisonEntry } from '../types';
+import type { AssessmentFilter, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from '../types';
 
 describe('filterEvaluationResults', () => {
   const evals: EvalTraceComparisonEntry[] = [
@@ -118,5 +118,89 @@ describe('filterEvaluationResults', () => {
     filteredResults = filterEvaluationResults(evalsWithTraceInfo, [], 'inputs');
 
     expect(filteredResults).toEqual(evalsWithTraceInfo);
+  });
+
+  it('filters on assessment value when multiple assessment value types exist for same name', () => {
+    const makeEntry = (
+      assessments: RunEvaluationTracesDataEntry['responseAssessmentsByName'],
+    ): EvalTraceComparisonEntry => ({
+      currentRunValue: {
+        evaluationId: 'eval-1',
+        requestId: 'req-1',
+        inputs: {},
+        inputsId: 'inputs-1',
+        outputs: {},
+        targets: {},
+        overallAssessments: [],
+        responseAssessmentsByName: assessments,
+        metrics: {},
+      },
+    });
+
+    const evalsWithMultipleAssessments: EvalTraceComparisonEntry[] = [
+      makeEntry({
+        mixedAssessment: [
+          { name: 'mixedAssessment', errorMessage: 'Some error' },
+          { name: 'mixedAssessment', stringValue: 'yes' },
+        ],
+      }),
+      makeEntry({
+        mixedAssessment: [{ name: 'mixedAssessment', stringValue: 'no' }],
+      }),
+      makeEntry({
+        mixedAssessment: [{ name: 'mixedAssessment', errorMessage: 'Only error' }],
+      }),
+    ];
+
+    const yesFilter: AssessmentFilter[] = [
+      { assessmentName: 'mixedAssessment', filterValue: 'yes', run: 'currentRun' },
+    ];
+    const noFilter: AssessmentFilter[] = [{ assessmentName: 'mixedAssessment', filterValue: 'no', run: 'currentRun' }];
+
+    const yesResults = filterEvaluationResults(evalsWithMultipleAssessments, yesFilter, undefined, 'currentRun');
+    expect(yesResults).toHaveLength(1);
+    expect(yesResults[0]).toBe(evalsWithMultipleAssessments[0]);
+
+    const noResults = filterEvaluationResults(evalsWithMultipleAssessments, noFilter, undefined, 'currentRun');
+    expect(noResults).toHaveLength(1);
+    expect(noResults[0]).toBe(evalsWithMultipleAssessments[1]);
+  });
+
+  it('filters on Error value to find assessments with errors', () => {
+    const makeEntry = (
+      assessments: RunEvaluationTracesDataEntry['responseAssessmentsByName'],
+    ): EvalTraceComparisonEntry => ({
+      currentRunValue: {
+        evaluationId: 'eval-1',
+        requestId: 'req-1',
+        inputs: {},
+        inputsId: 'inputs-1',
+        outputs: {},
+        targets: {},
+        overallAssessments: [],
+        responseAssessmentsByName: assessments,
+        metrics: {},
+      },
+    });
+
+    const evalsWithErrors: EvalTraceComparisonEntry[] = [
+      makeEntry({
+        testAssessment: [{ name: 'testAssessment', stringValue: 'yes' }],
+      }),
+      makeEntry({
+        testAssessment: [{ name: 'testAssessment', errorMessage: 'Some error occurred' }],
+      }),
+      makeEntry({
+        testAssessment: [{ name: 'testAssessment', stringValue: 'no' }],
+      }),
+    ];
+
+    const errorFilter: AssessmentFilter[] = [
+      { assessmentName: 'testAssessment', filterValue: 'Error', run: 'currentRun' },
+    ];
+
+    const errorResults = filterEvaluationResults(evalsWithErrors, errorFilter, undefined, 'currentRun');
+    expect(errorResults).toHaveLength(1);
+    expect(errorResults[0]).toBe(evalsWithErrors[1]);
   });
 });

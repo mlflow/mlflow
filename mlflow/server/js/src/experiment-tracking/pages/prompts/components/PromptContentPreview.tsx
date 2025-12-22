@@ -42,6 +42,7 @@ export const PromptContentPreview = ({
   registeredPrompt,
   showEditAliasesModal,
   showEditPromptVersionMetadataModal,
+  showEditModelConfigModal,
 }: {
   promptVersion?: RegisteredPromptVersion;
   onUpdatedContent?: () => Promise<any>;
@@ -50,6 +51,7 @@ export const PromptContentPreview = ({
   registeredPrompt?: RegisteredPrompt;
   showEditAliasesModal?: (versionNumber: string) => void;
   showEditPromptVersionMetadataModal: (promptVersion: RegisteredPromptVersion) => void;
+  showEditModelConfigModal?: (promptVersion: RegisteredPromptVersion) => void;
 }) => {
   const value = useMemo(() => (promptVersion ? getPromptContentTagValue(promptVersion) : ''), [promptVersion]);
   const isChatPromptType = useMemo(() => isChatPrompt(promptVersion), [promptVersion]);
@@ -170,6 +172,7 @@ export const PromptContentPreview = ({
         registeredPromptVersion={promptVersion}
         showEditAliasesModal={showEditAliasesModal}
         showEditPromptVersionMetadataModal={showEditPromptVersionMetadataModal}
+        showEditModelConfigModal={showEditModelConfigModal}
       />
       {isChatPromptType && <Spacer shrinks={false} />}
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
