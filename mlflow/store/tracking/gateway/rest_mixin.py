@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from mlflow.entities import (
@@ -106,13 +105,12 @@ class RestGatewayStoreMixin:
         Returns:
             The created GatewaySecretInfo object with masked value.
         """
-        auth_config_json = json.dumps(auth_config) if auth_config is not None else None
         req_body = message_to_json(
             CreateGatewaySecret(
                 secret_name=secret_name,
                 secret_value=secret_value,
                 provider=provider,
-                auth_config_json=auth_config_json,
+                auth_config=auth_config or {},
                 created_by=created_by,
             )
         )
@@ -161,12 +159,11 @@ class RestGatewayStoreMixin:
         Returns:
             The updated GatewaySecretInfo object with masked value.
         """
-        auth_config_json = json.dumps(auth_config) if auth_config is not None else None
         req_body = message_to_json(
             UpdateGatewaySecret(
                 secret_id=secret_id,
                 secret_value=secret_value or {},
-                auth_config_json=auth_config_json,
+                auth_config=auth_config or {},
                 updated_by=updated_by,
             )
         )

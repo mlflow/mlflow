@@ -3077,7 +3077,7 @@ def test_update_gateway_secret():
             UpdateGatewaySecret(
                 secret_id="secret-123",
                 secret_value={"api_key": "sk-new-value"},
-                auth_config_json='{"region": "us-east-1"}',
+                auth_config={"region": "us-east-1"},
             )
         )
         _verify_requests(mock_http, creds, "gateway/secrets/update", "POST", body, use_v3=True)

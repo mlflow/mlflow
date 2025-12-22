@@ -98,13 +98,12 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
     if (formData.authMode) {
       authConfig['auth_mode'] = formData.authMode;
     }
-    const authConfigJson = Object.keys(authConfig).length > 0 ? JSON.stringify(authConfig) : undefined;
 
     await createSecret({
       secret_name: formData.name,
       secret_value: formData.secretFields,
       provider,
-      auth_config_json: authConfigJson,
+      auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
     }).then(() => {
       handleClose();
       onSuccess?.();

@@ -59,7 +59,7 @@ export interface CreateSecretRequest {
   secret_name: string;
   secret_value: Record<string, string>;
   provider?: string;
-  auth_config_json?: string;
+  auth_config?: Record<string, string>;
   created_by?: string;
 }
 
@@ -74,7 +74,7 @@ export interface GetSecretInfoResponse {
 export interface UpdateSecretRequest {
   secret_id: string;
   secret_value: Record<string, string>;
-  auth_config_json?: string;
+  auth_config?: Record<string, string>;
   updated_by?: string;
 }
 
@@ -199,16 +199,23 @@ export interface DetachModelFromEndpointRequest {
   model_definition_id: string;
 }
 
+export type ResourceType = 'experiment' | 'registered_model' | 'endpoint_model';
+
 export interface EndpointBinding {
-  binding_id: string;
   endpoint_id: string;
-  experiment_id: string;
+  resource_type: ResourceType;
+  resource_id: string;
   created_at: number;
+  last_updated_at?: number;
+  created_by?: string;
+  last_updated_by?: string;
 }
 
 export interface CreateEndpointBindingRequest {
   endpoint_id: string;
-  experiment_id: string;
+  resource_type: ResourceType;
+  resource_id: string;
+  created_by?: string;
 }
 
 export interface CreateEndpointBindingResponse {
