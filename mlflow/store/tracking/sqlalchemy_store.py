@@ -192,18 +192,27 @@ class DatasetFilter(TypedDict, total=False):
 
 
 _GATEWAY_PROVIDER = "gateway"
+_INSTRUCTIONS_JUDGE_PYDANTIC_DATA = "instructions_judge_pydantic_data"
+_BUILTIN_SCORER_PYDANTIC_DATA = "builtin_scorer_pydantic_data"
 
 
 def _is_gateway_model(model: str | None) -> bool:
     if model is None:
         return False
-    parts = model.split(":/", 1)
-    return len(parts) == 2 and parts[0] == _GATEWAY_PROVIDER
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    try:
+        provider, _ = _parse_model_uri(model)
+        return provider == _GATEWAY_PROVIDER
+    except MlflowException:
+        return False
 
 
 def _extract_endpoint_ref(model: str) -> str:
-    _, endpoint_ref = model.split(":/", 1)
-    return endpoint_ref.lstrip("/")
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    _, endpoint_ref = _parse_model_uri(model)
+    return endpoint_ref
 
 
 def _build_gateway_model(endpoint_ref: str) -> str:
@@ -211,9 +220,9 @@ def _build_gateway_model(endpoint_ref: str) -> str:
 
 
 def _extract_model_from_serialized_scorer(serialized_data: dict[str, Any]) -> str | None:
-    if ij_data := serialized_data.get("instructions_judge_pydantic_data"):
+    if ij_data := serialized_data.get(_INSTRUCTIONS_JUDGE_PYDANTIC_DATA):
         return ij_data.get("model")
-    if bs_data := serialized_data.get("builtin_scorer_pydantic_data"):
+    if bs_data := serialized_data.get(_BUILTIN_SCORER_PYDANTIC_DATA):
         return bs_data.get("model")
     return None
 
@@ -222,10 +231,10 @@ def _update_model_in_serialized_scorer(
     serialized_data: dict[str, Any], new_model: str | None
 ) -> dict[str, Any]:
     result = serialized_data.copy()
-    if ij_data := result.get("instructions_judge_pydantic_data"):
-        result["instructions_judge_pydantic_data"] = {**ij_data, "model": new_model}
-    elif bs_data := result.get("builtin_scorer_pydantic_data"):
-        result["builtin_scorer_pydantic_data"] = {**bs_data, "model": new_model}
+    if ij_data := result.get(_INSTRUCTIONS_JUDGE_PYDANTIC_DATA):
+        result[_INSTRUCTIONS_JUDGE_PYDANTIC_DATA] = {**ij_data, "model": new_model}
+    elif bs_data := result.get(_BUILTIN_SCORER_PYDANTIC_DATA):
+        result[_BUILTIN_SCORER_PYDANTIC_DATA] = {**bs_data, "model": new_model}
     return result
 
 
