@@ -1,4 +1,5 @@
 import { JSONBig } from '../core/utils/json';
+import { HeadersProvider } from '../auth';
 
 /**
  * Make a request to the given URL with the given method, headers, body, and timeout.
@@ -8,12 +9,13 @@ import { JSONBig } from '../core/utils/json';
 export async function makeRequest<T>(
   method: string,
   url: string,
-  headers: Record<string, string>,
+  headerProvider: HeadersProvider,
   body?: any,
   timeout?: number
 ): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout ?? getDefaultTimeout());
+  const headers = await headerProvider();
 
   try {
     const response = await fetch(url, {

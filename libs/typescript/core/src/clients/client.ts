@@ -6,20 +6,6 @@ import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
 import { AuthProvider, HeadersProvider } from '../auth';
 
-/**
- * Options for creating an MlflowClient.
- */
-export interface MlflowClientOptions {
-  /**
-   * The tracking URI (e.g., "databricks", "http://localhost:5000")
-   */
-  trackingUri: string;
-
-  /**
-   * Authentication provider for the client.
-   */
-  authProvider: AuthProvider;
-}
 
 /**
  * Client for MLflow tracing operations.
@@ -41,9 +27,13 @@ export class MlflowClient {
   /**
    * Creates a new MlflowClient.
    *
-   * @param options - Client configuration options
+   * @param trackingUri - The tracking URI (e.g., "databricks", "http://localhost:5000")
+   * @param authProvider - The authentication provider to get tokens for authenticated requests
    */
-  constructor(options: MlflowClientOptions) {
+  constructor(options: {
+    trackingUri: string;
+    authProvider: AuthProvider;
+  }) {
     this.headersProvider = options.authProvider.getHeadersProvider();
     this.hostUrl = options.authProvider.getHost();
 
@@ -72,8 +62,7 @@ export class MlflowClient {
   async createTrace(traceInfo: TraceInfo): Promise<TraceInfo> {
     const url = StartTraceV3.getEndpoint(this.hostUrl);
     const payload: StartTraceV3.Request = { trace: { trace_info: traceInfo.toJson() } };
-    const headers = await this.headersProvider();
-    const response = await makeRequest<StartTraceV3.Response>('POST', url, headers, payload);
+    const response = await makeRequest<StartTraceV3.Response>('POST', url, this.headersProvider, payload);
     return TraceInfo.fromJson(response.trace.trace_info);
   }
 
@@ -95,8 +84,7 @@ export class MlflowClient {
    */
   async getTraceInfo(traceId: string): Promise<TraceInfo> {
     const url = GetTraceInfoV3.getEndpoint(this.hostUrl, traceId);
-    const headers = await this.headersProvider();
-    const response = await makeRequest<GetTraceInfoV3.Response>('GET', url, headers);
+    const response = await makeRequest<GetTraceInfoV3.Response>('GET', url, this.headersProvider);
 
     // The V3 API returns a Trace object with trace_info field
     if (response.trace?.trace_info) {
@@ -124,8 +112,7 @@ export class MlflowClient {
   ): Promise<string> {
     const url = CreateExperiment.getEndpoint(this.hostUrl);
     const payload: CreateExperiment.Request = { name, artifact_location: artifactLocation, tags };
-    const headers = await this.headersProvider();
-    const response = await makeRequest<CreateExperiment.Response>('POST', url, headers, payload);
+    const response = await makeRequest<CreateExperiment.Response>('POST', url, this.headersProvider, payload);
     return response.experiment_id;
   }
 
@@ -135,7 +122,6 @@ export class MlflowClient {
   async deleteExperiment(experimentId: string): Promise<void> {
     const url = DeleteExperiment.getEndpoint(this.hostUrl);
     const payload: DeleteExperiment.Request = { experiment_id: experimentId };
-    const headers = await this.headersProvider();
-    await makeRequest<void>('POST', url, headers, payload);
+    await makeRequest<void>('POST', url, this.headersProvider, payload);
   }
 }

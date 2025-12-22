@@ -26,12 +26,20 @@ export interface ArtifactsClientOptions {
 /**
  * Get the appropriate artifacts client based on the tracking URI.
  *
- * @param options - Options for creating the artifacts client
+ * @param trackingUri - The tracking URI (e.g., "databricks", "http://localhost:5000")
+ * @param host - The resolved host URL for API requests
+ * @param authProvider - The authentication provider to get tokens for authenticated requests
  * @returns The appropriate artifacts client.
  */
-export function getArtifactsClient(options: ArtifactsClientOptions): ArtifactsClient {
-  const { trackingUri, host, authProvider } = options;
-
+export function getArtifactsClient({
+  trackingUri,
+  host,
+  authProvider,
+}: {
+  trackingUri: string;
+  host: string;
+  authProvider: AuthProvider;
+}): ArtifactsClient {
   if (trackingUri.startsWith('databricks')) {
     return new DatabricksArtifactsClient({ host, authProvider });
   } else {

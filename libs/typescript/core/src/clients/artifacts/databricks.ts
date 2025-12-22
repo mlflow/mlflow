@@ -72,11 +72,10 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
    */
   private async getCredentialsForTraceDataUpload(traceId: string): Promise<ArtifactCredentialInfo> {
     const url = GetCredentialsForTraceDataUpload.getEndpoint(this.host, traceId);
-    const headers = await this.headersProvider();
     const response = await makeRequest<GetCredentialsForTraceDataUpload.Response>(
       'GET',
       url,
-      headers
+      this.headersProvider
     );
     return response.credential_info;
   }
@@ -89,11 +88,10 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     traceId: string
   ): Promise<ArtifactCredentialInfo> {
     const url = GetCredentialsForTraceDataDownload.getEndpoint(this.host, traceId);
-    const headers = await this.headersProvider();
     const response = await makeRequest<GetCredentialsForTraceDataDownload.Response>(
       'GET',
       url,
-      headers
+      this.headersProvider
     );
 
     if (response.credential_info) {

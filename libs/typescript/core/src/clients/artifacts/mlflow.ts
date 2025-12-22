@@ -10,20 +10,6 @@ import { AuthProvider, HeadersProvider } from '../../auth';
  */
 const TRACE_DATA_FILE_NAME = 'traces.json';
 
-/**
- * Options for creating an MlflowArtifactsClient.
- */
-export interface MlflowArtifactsClientOptions {
-  /**
-   * The MLflow tracking server host URL
-   */
-  host: string;
-
-  /**
-   * Authentication provider
-   */
-  authProvider: AuthProvider;
-}
 
 /**
  * MLflow OSS Artifacts Client
@@ -35,7 +21,7 @@ export class MlflowArtifactsClient implements ArtifactsClient {
   private readonly host: string;
   private headersProvider: HeadersProvider;
 
-  constructor(options: MlflowArtifactsClientOptions) {
+  constructor(options: { host: string; authProvider: AuthProvider }) {
     this.host = options.host;
     this.headersProvider = options.authProvider.getHeadersProvider();
   }
@@ -55,8 +41,7 @@ export class MlflowArtifactsClient implements ArtifactsClient {
 
     // Upload trace data to the artifact store
     const artifactUrl = this.getArtifactUrlForTrace(traceInfo);
-    const headers = await this.headersProvider();
-    await makeRequest<void>('PUT', artifactUrl, headers, traceDataJson);
+    await makeRequest<void>('PUT', artifactUrl, this.headersProvider, traceDataJson);
   }
 
   /**
@@ -71,9 +56,7 @@ export class MlflowArtifactsClient implements ArtifactsClient {
   async downloadTraceData(traceInfo: TraceInfo): Promise<TraceData> {
     // Download the trace data file
     const artifactUrl = this.getArtifactUrlForTrace(traceInfo);
-    const headers = await this.headersProvider();
-
-    const traceDataJson = await makeRequest<SerializedTraceData>('GET', artifactUrl, headers);
+    const traceDataJson = await makeRequest<SerializedTraceData>('GET', artifactUrl, this.headersProvider);
 
     // Parse JSON back to TraceData (equivalent to Python's try_read_trace_data)
     try {
