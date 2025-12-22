@@ -127,11 +127,6 @@ async def _run_test_chat(provider):
             "https://api.openai.com/v1/chat/completions",
             json={
                 "model": "gpt-4o-mini",
-                "temperature": 0.5,
-                "top_p": 0.9,
-                "presence_penalty": 0.1,
-                "frequency_penalty": 0.2,
-                "n": 1,
                 **payload,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
