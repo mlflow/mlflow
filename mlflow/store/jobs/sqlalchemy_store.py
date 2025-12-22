@@ -315,3 +315,15 @@ class SqlAlchemyJobStore(AbstractJobStore):
                     f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
                 )
             return job.to_mlflow_entity()
+
+    def cancel_job(self, job_id: str) -> None:
+        """
+        Cancel a job by its ID.
+
+        Args:
+            job_id: The ID of the job to cancel
+
+        Returns:
+            MlflowException: If job with the given ID is not found
+        """
+        self._update_job(job_id, JobStatus.CANCELED)

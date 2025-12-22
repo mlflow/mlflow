@@ -11,6 +11,7 @@ class JobStatus(str, Enum):
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
     TIMEOUT = "TIMEOUT"
+    CANCELED = "CANCELED"
 
     @classmethod
     def from_int(cls, status_int: int) -> "JobStatus":

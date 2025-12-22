@@ -129,3 +129,15 @@ class AbstractJobStore(ABC):
         Raises:
             MlflowException: If job with the given ID is not found
         """
+
+    @abstractmethod
+    def cancel_job(self, job_id: str) -> None:
+        """
+        Cancel a job by its ID.
+
+        Args:
+            job_id: The ID of the job to cancel
+
+        Returns:
+            MlflowException: If job with the given ID is not found
+        """
