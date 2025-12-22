@@ -15,9 +15,10 @@ describe('DatabricksArtifactsClient', () => {
   // Create a mock AuthProvider for testing
   const mockAuthProvider: AuthProvider = {
     getHost: () => testHost,
+    // eslint-disable-next-line require-await, @typescript-eslint/require-await
     getHeadersProvider: () => async () => ({
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${testToken}`
+      Authorization: `Bearer ${testToken}`
     }),
     getDatabricksToken: () => testToken
   };

@@ -10,7 +10,6 @@ import { AuthProvider, HeadersProvider } from '../../auth';
  */
 const TRACE_DATA_FILE_NAME = 'traces.json';
 
-
 /**
  * MLflow OSS Artifacts Client
  *
@@ -56,7 +55,11 @@ export class MlflowArtifactsClient implements ArtifactsClient {
   async downloadTraceData(traceInfo: TraceInfo): Promise<TraceData> {
     // Download the trace data file
     const artifactUrl = this.getArtifactUrlForTrace(traceInfo);
-    const traceDataJson = await makeRequest<SerializedTraceData>('GET', artifactUrl, this.headersProvider);
+    const traceDataJson = await makeRequest<SerializedTraceData>(
+      'GET',
+      artifactUrl,
+      this.headersProvider
+    );
 
     // Parse JSON back to TraceData (equivalent to Python's try_read_trace_data)
     try {

@@ -195,9 +195,7 @@ function createDatabricksAuth(options: AuthOptions): AuthProvider {
   // Resolve host - must be available synchronously
   // Priority: explicit option > env var > config file
   const host =
-    options.host ||
-    process.env.DATABRICKS_HOST ||
-    readHostFromConfigFile(configPath, profile);
+    options.host || process.env.DATABRICKS_HOST || readHostFromConfigFile(configPath, profile);
 
   if (!host) {
     throw new Error(
@@ -208,22 +206,25 @@ function createDatabricksAuth(options: AuthOptions): AuthProvider {
   }
 
   // Create Databricks SDK Config - it handles all credential resolution
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
   const databricksConfig = new Config({
     host: options.host,
     token: options.databricksToken,
     profile,
-    configFile: options.databricksConfigPath,
+    configFile: options.databricksConfigPath
   });
 
   // Headers provider delegates entirely to the SDK
   const headersProvider: HeadersProvider = async () => {
     // SDK resolves credentials from env vars, config file, OAuth, etc.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     await databricksConfig.ensureResolved();
 
     const headers = new Headers();
     headers.set('Content-Type', 'application/json');
 
     // SDK adds appropriate auth headers (Bearer token, OAuth, etc.)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     await databricksConfig.authenticate(headers);
 
     // Convert Headers to plain object
@@ -240,7 +241,7 @@ function createDatabricksAuth(options: AuthOptions): AuthProvider {
   return {
     getHost: () => host,
     getHeadersProvider: () => headersProvider,
-    getDatabricksToken: () => databricksToken,
+    getDatabricksToken: () => databricksToken
   };
 }
 
@@ -270,6 +271,7 @@ function createOssAuth(options: AuthOptions): AuthProvider {
   }
 
   // Headers provider for OSS MLflow
+   // eslint-disable-next-line require-await, @typescript-eslint/require-await
   const headersProvider: HeadersProvider = async () => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authHeader) {
@@ -281,6 +283,6 @@ function createOssAuth(options: AuthOptions): AuthProvider {
   return {
     getHost: () => host,
     getHeadersProvider: () => headersProvider,
-    getDatabricksToken: () => undefined,
+    getDatabricksToken: () => undefined
   };
 }

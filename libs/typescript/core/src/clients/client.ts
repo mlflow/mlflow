@@ -6,7 +6,6 @@ import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
 import { AuthProvider, HeadersProvider } from '../auth';
 
-
 /**
  * Client for MLflow tracing operations.
  *
@@ -30,10 +29,7 @@ export class MlflowClient {
    * @param trackingUri - The tracking URI (e.g., "databricks", "http://localhost:5000")
    * @param authProvider - The authentication provider to get tokens for authenticated requests
    */
-  constructor(options: {
-    trackingUri: string;
-    authProvider: AuthProvider;
-  }) {
+  constructor(options: { trackingUri: string; authProvider: AuthProvider }) {
     this.headersProvider = options.authProvider.getHeadersProvider();
     this.hostUrl = options.authProvider.getHost();
 
@@ -62,7 +58,12 @@ export class MlflowClient {
   async createTrace(traceInfo: TraceInfo): Promise<TraceInfo> {
     const url = StartTraceV3.getEndpoint(this.hostUrl);
     const payload: StartTraceV3.Request = { trace: { trace_info: traceInfo.toJson() } };
-    const response = await makeRequest<StartTraceV3.Response>('POST', url, this.headersProvider, payload);
+    const response = await makeRequest<StartTraceV3.Response>(
+      'POST',
+      url,
+      this.headersProvider,
+      payload
+    );
     return TraceInfo.fromJson(response.trace.trace_info);
   }
 
@@ -112,7 +113,12 @@ export class MlflowClient {
   ): Promise<string> {
     const url = CreateExperiment.getEndpoint(this.hostUrl);
     const payload: CreateExperiment.Request = { name, artifact_location: artifactLocation, tags };
-    const response = await makeRequest<CreateExperiment.Response>('POST', url, this.headersProvider, payload);
+    const response = await makeRequest<CreateExperiment.Response>(
+      'POST',
+      url,
+      this.headersProvider,
+      payload
+    );
     return response.experiment_id;
   }
 
