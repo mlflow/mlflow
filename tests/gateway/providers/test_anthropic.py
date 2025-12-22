@@ -764,22 +764,31 @@ def passthrough_messages_stream_response():
 async def test_passthrough_anthropic_messages():
     resp = passthrough_messages_response()
     config = chat_config()
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+
+    captured_session_headers = {}
+    mock_session_client = mock_http_client(MockAsyncResponse(resp))
+
+    def mock_client_session(headers=None):
+        captured_session_headers.update(headers or {})
+        return mock_session_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
         provider = AnthropicProvider(EndpointConfig(**config))
         payload = {
             "messages": [{"role": "user", "content": "Hello"}],
             "max_tokens": 1024,
             "temperature": 0.7,
         }
-        response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
+        custom_headers = {"X-Custom-Header": "custom-value", "X-Request-ID": "req-789"}
+        response = await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES, payload, headers=custom_headers
+        )
 
         assert payload["model"] == "claude-2.1"
 
         assert response == resp
 
-        mock_post.assert_called_once_with(
+        mock_session_client.post.assert_called_once_with(
             "https://api.anthropic.com/v1/messages",
             json={
                 "messages": [{"role": "user", "content": "Hello"}],
@@ -790,21 +799,38 @@ async def test_passthrough_anthropic_messages():
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
 
+        # Verify provider headers are propagated correctly
+        assert captured_session_headers["x-api-key"] == "key"
+        assert captured_session_headers["anthropic-version"] == "2023-06-01"
+
+        # Verify custom headers are propagated correctly
+        assert captured_session_headers["X-Custom-Header"] == "custom-value"
+        assert captured_session_headers["X-Request-ID"] == "req-789"
+
 
 @pytest.mark.asyncio
 async def test_passthrough_anthropic_messages_streaming():
     resp = passthrough_messages_stream_response()
     config = chat_config()
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
-    ) as mock_post:
+
+    captured_session_headers = {}
+    mock_session_client = mock_http_client(MockAsyncStreamingResponse(resp))
+
+    def mock_client_session(headers=None):
+        captured_session_headers.update(headers or {})
+        return mock_session_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
         provider = AnthropicProvider(EndpointConfig(**config))
         payload = {
             "messages": [{"role": "user", "content": "Hello"}],
             "max_tokens": 1024,
             "stream": True,
         }
-        response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
+        custom_headers = {"X-Stream-ID": "stream-123"}
+        response = await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES, payload, headers=custom_headers
+        )
 
         assert payload["model"] == "claude-2.1"
 
@@ -820,7 +846,7 @@ async def test_passthrough_anthropic_messages_streaming():
         assert b"message_delta" in chunks[5]
         assert b"message_stop" in chunks[6]
 
-        mock_post.assert_called_once_with(
+        mock_session_client.post.assert_called_once_with(
             "https://api.anthropic.com/v1/messages",
             json={
                 "messages": [{"role": "user", "content": "Hello"}],
@@ -830,6 +856,13 @@ async def test_passthrough_anthropic_messages_streaming():
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
+
+        # Verify provider headers are propagated correctly
+        assert captured_session_headers["x-api-key"] == "key"
+        assert captured_session_headers["anthropic-version"] == "2023-06-01"
+
+        # Verify custom headers are propagated correctly
+        assert captured_session_headers["X-Stream-ID"] == "stream-123"
 
 
 @pytest.mark.asyncio

@@ -907,7 +907,10 @@ async def test_openai_passthrough_chat():
         "mlflow.gateway.providers.openai.send_request", return_value=mock_response
     ) as mock_send:
         payload = {"messages": [{"role": "user", "content": "Hello"}]}
-        response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, payload)
+        custom_headers = {"X-Custom-Header": "custom-value", "X-Request-ID": "req-123"}
+        response = await provider.passthrough(
+            PassthroughAction.OPENAI_CHAT, payload, headers=custom_headers
+        )
 
         # Verify send_request was called with correct parameters
         assert mock_send.called
@@ -915,6 +918,13 @@ async def test_openai_passthrough_chat():
         assert call_kwargs["path"] == "chat/completions"
         assert call_kwargs["payload"]["model"] == "gpt-4o-mini"
         assert call_kwargs["payload"]["messages"] == [{"role": "user", "content": "Hello"}]
+
+        # Verify provider headers are propagated correctly
+        assert call_kwargs["headers"]["Authorization"] == "Bearer key"
+
+        # Verify custom headers are propagated correctly
+        assert call_kwargs["headers"]["X-Custom-Header"] == "custom-value"
+        assert call_kwargs["headers"]["X-Request-ID"] == "req-123"
 
         # Verify response is raw OpenAI format
         assert response == mock_response
@@ -948,7 +958,10 @@ async def test_openai_passthrough_embeddings():
         "mlflow.gateway.providers.openai.send_request", return_value=mock_response
     ) as mock_send:
         payload = {"input": "Test input"}
-        response = await provider.passthrough(PassthroughAction.OPENAI_EMBEDDINGS, payload)
+        custom_headers = {"X-Custom-Header": "custom-value"}
+        response = await provider.passthrough(
+            PassthroughAction.OPENAI_EMBEDDINGS, payload, headers=custom_headers
+        )
 
         # Verify send_request was called with correct parameters
         assert mock_send.called
@@ -956,6 +969,12 @@ async def test_openai_passthrough_embeddings():
         assert call_kwargs["path"] == "embeddings"
         assert call_kwargs["payload"]["model"] == "text-embedding-3-small"
         assert call_kwargs["payload"]["input"] == "Test input"
+
+        # Verify provider headers are propagated correctly
+        assert call_kwargs["headers"]["Authorization"] == "Bearer key"
+
+        # Verify custom headers are propagated correctly
+        assert call_kwargs["headers"]["X-Custom-Header"] == "custom-value"
 
         # Verify response is raw OpenAI format
         assert response == mock_response
@@ -986,7 +1005,10 @@ async def test_openai_passthrough_responses():
             "instructions": "You are a helpful assistant",
             "response_format": {"type": "text"},
         }
-        response = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, payload)
+        custom_headers = {"X-Trace-ID": "trace-456"}
+        response = await provider.passthrough(
+            PassthroughAction.OPENAI_RESPONSES, payload, headers=custom_headers
+        )
 
         # Verify send_request was called with correct parameters
         assert mock_send.called
@@ -995,6 +1017,12 @@ async def test_openai_passthrough_responses():
         assert call_kwargs["payload"]["model"] == "gpt-4o-mini"
         assert call_kwargs["payload"]["input"] == [{"type": "text", "text": "Hello"}]
         assert call_kwargs["payload"]["instructions"] == "You are a helpful assistant"
+
+        # Verify provider headers are propagated correctly
+        assert call_kwargs["headers"]["Authorization"] == "Bearer key"
+
+        # Verify custom headers are propagated correctly
+        assert call_kwargs["headers"]["X-Trace-ID"] == "trace-456"
 
         # Verify response is raw OpenAI Responses API format
         assert response == mock_response
@@ -1039,7 +1067,10 @@ async def test_azure_openai_passthrough_chat_removes_model():
         "mlflow.gateway.providers.openai.send_request", return_value=mock_response
     ) as mock_send:
         payload = {"messages": [{"role": "user", "content": "Hello"}]}
-        response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, payload)
+        custom_headers = {"X-Azure-Custom": "azure-header"}
+        response = await provider.passthrough(
+            PassthroughAction.OPENAI_CHAT, payload, headers=custom_headers
+        )
 
         # Verify send_request was called
         assert mock_send.called
@@ -1048,6 +1079,12 @@ async def test_azure_openai_passthrough_chat_removes_model():
         # Azure OpenAI should NOT have model in payload
         assert "model" not in call_kwargs["payload"]
         assert call_kwargs["payload"]["messages"] == [{"role": "user", "content": "Hello"}]
+
+        # Verify provider headers are propagated correctly (Azure uses api-key header)
+        assert call_kwargs["headers"]["api-key"] == "key"
+
+        # Verify custom headers are propagated correctly
+        assert call_kwargs["headers"]["X-Azure-Custom"] == "azure-header"
 
         # Verify response is raw OpenAI format
         assert response == mock_response

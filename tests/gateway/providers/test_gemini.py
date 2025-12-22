@@ -1053,9 +1053,15 @@ def passthrough_stream_generate_content_response():
 async def test_passthrough_gemini_generate_content():
     resp = passthrough_generate_content_response()
     config = chat_config()
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+
+    captured_session_headers = {}
+    mock_session_client = mock_http_client(MockAsyncResponse(resp))
+
+    def mock_client_session(headers=None):
+        captured_session_headers.update(headers or {})
+        return mock_session_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
         provider = GeminiProvider(EndpointConfig(**config))
         payload = {
             "contents": [
@@ -1065,23 +1071,39 @@ async def test_passthrough_gemini_generate_content():
                 }
             ]
         }
-        response = await provider.passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, payload)
+        custom_headers = {"X-Custom-Header": "gemini-custom", "X-Request-ID": "gemini-req-456"}
+        response = await provider.passthrough(
+            PassthroughAction.GEMINI_GENERATE_CONTENT, payload, headers=custom_headers
+        )
 
         assert response == resp
 
-        mock_post.assert_called_once()
-        call_args = mock_post.call_args
+        mock_session_client.post.assert_called_once()
+        call_args = mock_session_client.post.call_args
         assert "gemini-2.0-flash:generateContent" in call_args[0][0]
         assert call_args[1]["json"]["contents"] == [{"role": "user", "parts": [{"text": "Hello"}]}]
+
+        # Verify provider headers are propagated correctly
+        assert captured_session_headers["x-goog-api-key"] == "key"
+
+        # Verify custom headers are propagated correctly
+        assert captured_session_headers["X-Custom-Header"] == "gemini-custom"
+        assert captured_session_headers["X-Request-ID"] == "gemini-req-456"
 
 
 @pytest.mark.asyncio
 async def test_passthrough_gemini_stream_generate_content():
     resp = passthrough_stream_generate_content_response()
     config = chat_config()
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
-    ) as mock_post:
+
+    captured_session_headers = {}
+    mock_session_client = mock_http_client(MockAsyncStreamingResponse(resp))
+
+    def mock_client_session(headers=None):
+        captured_session_headers.update(headers or {})
+        return mock_session_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
         provider = GeminiProvider(EndpointConfig(**config))
         payload = {
             "contents": [
@@ -1091,8 +1113,9 @@ async def test_passthrough_gemini_stream_generate_content():
                 }
             ]
         }
+        custom_headers = {"X-Stream-Context": "gemini-stream"}
         response = await provider.passthrough(
-            PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, payload
+            PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, payload, headers=custom_headers
         )
 
         chunks = [chunk async for chunk in response]
@@ -1103,10 +1126,16 @@ async def test_passthrough_gemini_stream_generate_content():
         assert b"How can I help you?" in chunks[2]
         assert b"STOP" in chunks[2]
 
-        mock_post.assert_called_once()
-        call_args = mock_post.call_args
+        mock_session_client.post.assert_called_once()
+        call_args = mock_session_client.post.call_args
         assert "gemini-2.0-flash:streamGenerateContent?alt=sse" in call_args[0][0]
         assert call_args[1]["json"]["contents"] == [{"role": "user", "parts": [{"text": "Hello"}]}]
+
+        # Verify provider headers are propagated correctly
+        assert captured_session_headers["x-goog-api-key"] == "key"
+
+        # Verify custom headers are propagated correctly
+        assert captured_session_headers["X-Stream-Context"] == "gemini-stream"
 
 
 @pytest.mark.asyncio

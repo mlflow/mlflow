@@ -382,9 +382,10 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                 if "anthropic-beta" not in result_headers:
                     result_headers["anthropic-beta"] = "structured-outputs-2025-11-13"
                 else:
-                    result_headers["anthropic-beta"] = (
-                        f"{result_headers['anthropic-beta']},structured-outputs-2025-11-13"
-                    )
+                    if "structured-outputs-2025-11-13" not in result_headers["anthropic-beta"]:
+                        result_headers["anthropic-beta"] = (
+                            f"{result_headers['anthropic-beta']},structured-outputs-2025-11-13"
+                        )
 
         if headers:
             for key, value in headers.items():
