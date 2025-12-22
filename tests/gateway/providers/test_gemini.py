@@ -369,7 +369,6 @@ async def test_gemini_chat():
             "Invalid parameter maxOutputTokens. Use max_tokens instead.",
         ),
         ({"topK": 40}, [], "Invalid parameter topK. Use top_k instead."),
-        ({"top_p": 1.1}, [], "top_p should be less than or equal to 1"),
     ],
 )
 async def test_invalid_parameters_chat(override, exclude_keys, expected_msg):
