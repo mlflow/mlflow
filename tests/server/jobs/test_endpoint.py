@@ -309,5 +309,5 @@ def test_job_endpoint_search(client: Client):
     assert response.status_code == 422
     assert (
         response.json()["detail"][0]["msg"]
-        == "Input should be 'PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED' or 'TIMEOUT'"
+        == "Input should be 'PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED' or 'TIMEOUT' or 'CANCELED'"
     )
