@@ -40,6 +40,8 @@ services:
   mysql:
     image: mysql@sha256:569c4128dfa625ac2ac62cdd8af588a3a6a60a049d1a8d8f0fac95880ecdbbe5
     restart: always
+    # Allow non-SUPER users (our test user) to create triggers/functions when binlog is enabled.
+    command: --log-bin-trust-function-creators=1
     environment:
       MYSQL_ROOT_PASSWORD: root-password
       MYSQL_DATABASE: mlflowdb
