@@ -1,0 +1,316 @@
+"""
+Huey job function for async scorer invocation.
+
+This module provides the job function for invoking scorers on traces asynchronously.
+It reuses the core scoring and logging logic from the evaluation harness for consistency.
+"""
+
+import json
+import os
+from typing import Any, TypedDict
+
+from mlflow.entities import Trace
+from mlflow.environment_variables import MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS
+from mlflow.genai.evaluation.entities import EvalItem
+from mlflow.server.jobs import job
+from mlflow.store.tracking.abstract_store import AbstractStore
+
+
+class ScorerFailure(TypedDict):
+    trace_id: str | None
+    error_code: str
+    error_message: str
+
+
+class InvokeScorerResult(TypedDict):
+    trace_ids: list[str]
+    success: bool
+    assessments: dict[str, list[Any]]
+    failures: list[ScorerFailure]
+
+
+@job(name="invoke_scorer", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
+def invoke_scorer_job(
+    experiment_id: str,
+    serialized_scorer: str,
+    trace_ids: list[str],
+    log_assessments: bool = True,
+) -> InvokeScorerResult:
+    """
+    Huey job function for async scorer invocation.
+
+    Reuses the core scoring logic from the evaluation harness
+    for consistency and feature parity.
+
+    Args:
+        experiment_id: The experiment ID for the traces.
+        serialized_scorer: JSON string of the serialized scorer.
+        trace_ids: List of trace IDs to evaluate.
+        log_assessments: Whether to log assessments to the traces.
+
+    Returns:
+        A dictionary containing:
+        - trace_ids: The trace IDs that were requested
+        - success: True only if all evaluations succeeded
+        - assessments: Dict mapping trace_id to list of assessment dictionaries
+        - failures: List of failure dictionaries with trace_id, error_code, error_message
+    """
+    from mlflow.genai.scorers.base import Scorer
+    from mlflow.server.handlers import _get_tracking_store
+    from mlflow.tracking import get_tracking_uri
+
+    # Save the original tracking URI (HTTP) before _get_tracking_store() overwrites it.
+    # The gateway provider needs the HTTP URI to route requests through the MLflow server.
+    # _get_tracking_store() calls set_tracking_uri() with the backend store URI (e.g., sqlite://),
+    # which would break gateway routing. We save it to an env var that doesn't get clobbered.
+    # For testing purposes, we allow overriding the gateway base URL using an environment variable.
+    if override := os.environ.get("_MLFLOW_GATEWAY_BASE_URL_TEST_OVERRIDE"):
+        os.environ["_MLFLOW_GATEWAY_BASE_URL"] = override
+    else:
+        original_tracking_uri = get_tracking_uri()
+        os.environ["_MLFLOW_GATEWAY_BASE_URL"] = original_tracking_uri
+
+    # Deserialize scorer - fail entire job if this fails
+    try:
+        scorer_dict = json.loads(serialized_scorer)
+        scorer = Scorer.model_validate(scorer_dict)
+    except Exception as e:
+        return {
+            "trace_ids": trace_ids,
+            "success": False,
+            "assessments": {},
+            "failures": [
+                {
+                    "trace_id": None,
+                    "error_code": type(e).__name__,
+                    "error_message": f"Failed to deserialize scorer: {e}",
+                }
+            ],
+        }
+
+    tracking_store = _get_tracking_store()
+
+    # Check if this is a session-level (conversation) scorer
+    is_session_scorer = scorer.is_session_level_scorer
+
+    if is_session_scorer:
+        return _run_session_scorer(scorer, trace_ids, tracking_store, log_assessments)
+    else:
+        return _run_single_turn_scorer_batch(scorer, trace_ids, tracking_store, log_assessments)
+
+
+def _fetch_traces_batch(
+    trace_ids: list[str],
+    tracking_store: AbstractStore,
+) -> tuple[dict[str, Trace], list[ScorerFailure]]:
+    """
+    Fetch traces in batch and return a mapping plus failures for missing traces.
+
+    Args:
+        trace_ids: List of trace IDs to fetch.
+        tracking_store: The tracking store instance.
+
+    Returns:
+        Tuple of (trace_id -> trace mapping, list of failures for missing traces).
+
+    Raises:
+        Exception: If batch_get_traces fails (e.g., DB error).
+    """
+    traces = tracking_store.batch_get_traces(trace_ids)
+    trace_map = {t.info.trace_id: t for t in traces}
+
+    # Detect missing traces
+    failures = [
+        {
+            "trace_id": trace_id,
+            "error_code": "TRACE_NOT_FOUND",
+            "error_message": f"Trace not found: {trace_id}",
+        }
+        for trace_id in trace_ids
+        if trace_id not in trace_map
+    ]
+
+    return trace_map, failures
+
+
+def _create_eval_item_from_trace(trace: Trace) -> "EvalItem":
+    """
+    Create an EvalItem from a trace.
+
+    Args:
+        trace: The trace to create an EvalItem from.
+
+    Returns:
+        An EvalItem with the trace set.
+    """
+    from mlflow.genai.evaluation.entities import EvalItem
+
+    return EvalItem(
+        request_id=trace.info.trace_id,
+        inputs=None,
+        outputs=None,
+        expectations=None,
+        trace=trace,
+    )
+
+
+def _run_session_scorer(
+    scorer: Any,
+    trace_ids: list[str],
+    tracking_store: AbstractStore,
+    log_assessments: bool,
+) -> InvokeScorerResult:
+    """
+    Run a session-level scorer on all traces as a conversation.
+
+    Reuses evaluate_session_level_scorers from the evaluation harness.
+
+    Args:
+        scorer: The scorer instance.
+        trace_ids: List of trace IDs (representing a session).
+        tracking_store: The tracking store instance.
+        log_assessments: Whether to log assessments to the traces.
+
+    Returns:
+        Result dictionary with success, assessments, and failures.
+    """
+    from mlflow.genai.evaluation.harness import _log_assessments
+    from mlflow.genai.evaluation.session_utils import (
+        evaluate_session_level_scorers,
+        get_first_trace_in_session,
+    )
+    from mlflow.tracing.constant import TraceMetadataKey
+
+    trace_map, failures = _fetch_traces_batch(trace_ids, tracking_store)
+
+    # For session scorers, we need all traces - fail if any are missing
+    if failures:
+        return {
+            "trace_ids": trace_ids,
+            "success": False,
+            "assessments": {},
+            "failures": failures,
+        }
+
+    # Preserve order of traces as requested
+    traces = [trace_map[tid] for tid in trace_ids]
+
+    # Create EvalItems from traces
+    session_items = [_create_eval_item_from_trace(t) for t in traces]
+
+    # Get session_id from the first trace's metadata (if available)
+    first_session_item = get_first_trace_in_session(session_items)
+    trace_metadata = first_session_item.trace.info.trace_metadata or {}
+    session_id = trace_metadata.get(TraceMetadataKey.TRACE_SESSION, "unknown_session")
+
+    first_trace = first_session_item.trace
+    first_trace_id = first_trace.info.trace_id
+
+    try:
+        result = evaluate_session_level_scorers(
+            session_id=session_id,
+            session_items=session_items,
+            multi_turn_scorers=[scorer],
+        )
+
+        # result is {first_trace_id: [feedbacks]}
+        feedbacks = result[first_trace_id]
+
+        # Log assessments if requested
+        if log_assessments and feedbacks:
+            _log_assessments(
+                run_id=None,  # No MLflow run context in API path
+                trace=first_trace,
+                assessments=feedbacks,
+            )
+
+        return {
+            "trace_ids": trace_ids,
+            "success": True,
+            "assessments": {first_trace_id: [f.to_dictionary() for f in feedbacks]},
+            "failures": [],
+        }
+    except Exception as e:
+        return {
+            "trace_ids": trace_ids,
+            "success": False,
+            "assessments": {},
+            "failures": [
+                {
+                    "trace_id": first_trace_id,
+                    "error_code": type(e).__name__,
+                    "error_message": str(e),
+                }
+            ],
+        }
+
+
+def _run_single_turn_scorer_batch(
+    scorer: Any,
+    trace_ids: list[str],
+    tracking_store: AbstractStore,
+    log_assessments: bool,
+) -> InvokeScorerResult:
+    """
+    Run a single-turn scorer on each trace individually (batch processing).
+
+    Reuses _compute_eval_scores from the evaluation harness.
+
+    Args:
+        scorer: The scorer instance.
+        trace_ids: List of trace IDs to evaluate.
+        tracking_store: The tracking store instance.
+        log_assessments: Whether to log assessments to the traces.
+
+    Returns:
+        Result dictionary with success, assessments, and failures.
+    """
+    from mlflow.genai.evaluation.harness import _compute_eval_scores, _log_assessments
+
+    trace_map, failures = _fetch_traces_batch(trace_ids, tracking_store)
+
+    assessments_by_trace: dict[str, list[dict[str, Any]]] = {}
+
+    for trace_id in trace_ids:
+        trace = trace_map.get(trace_id)
+        if trace is None:
+            # Already recorded as failure in _fetch_traces_batch
+            continue
+
+        # Create EvalItem from trace
+        eval_item = _create_eval_item_from_trace(trace)
+
+        try:
+            # Use _compute_eval_scores from harness - supports scorer tracing,
+            # captures stack traces on errors
+            feedbacks = _compute_eval_scores(
+                eval_item=eval_item,
+                scorers=[scorer],
+                # Disable scorer tracing if we're not logging assessments
+                disable_scorer_tracing=not log_assessments,
+            )
+
+            # Log assessments if requested
+            if log_assessments and feedbacks:
+                _log_assessments(
+                    run_id=None,  # No MLflow run context in API path
+                    trace=trace,
+                    assessments=feedbacks,
+                )
+
+            assessments_by_trace[trace_id] = [f.to_dictionary() for f in feedbacks]
+        except Exception as e:
+            failures.append(
+                {
+                    "trace_id": trace_id,
+                    "error_code": type(e).__name__,
+                    "error_message": str(e),
+                }
+            )
+
+    return {
+        "trace_ids": trace_ids,
+        "success": len(failures) == 0,
+        "assessments": assessments_by_trace,
+        "failures": failures,
+    }

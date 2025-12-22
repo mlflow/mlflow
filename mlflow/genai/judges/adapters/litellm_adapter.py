@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 from contextlib import ContextDecorator
 from typing import TYPE_CHECKING, Any
@@ -212,7 +213,10 @@ def _invoke_litellm_and_handle_tools(
 
     # Construct model URI and gateway params
     if provider == "gateway":
-        tracking_uri = get_tracking_uri()
+        # Use _MLFLOW_GATEWAY_BASE_URL if set (by job workers), otherwise fall back to tracking URI.
+        # Job workers set this env var because _get_tracking_store() overwrites MLFLOW_TRACKING_URI
+        # with the backend store URI (e.g., sqlite://), but gateway needs the HTTP server URL.
+        tracking_uri = os.environ.get("_MLFLOW_GATEWAY_BASE_URL") or get_tracking_uri()
 
         # Validate that tracking URI is a valid HTTP(S) URL for gateway
         if not is_http_uri(tracking_uri):

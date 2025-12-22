@@ -9,6 +9,7 @@ import re
 import tempfile
 import time
 import urllib
+from collections import defaultdict
 from functools import partial, wraps
 from typing import Any
 
@@ -48,6 +49,7 @@ from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, 
 from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
+    MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -4371,6 +4373,7 @@ def _invoke_scorer_handler():
     experiment_id = args.get("experiment_id")
     serialized_scorer = args.get("serialized_scorer")
     trace_ids = args.get("trace_ids", [])
+    log_assessments = args.get("log_assessments", False)
 
     if not experiment_id:
         raise MlflowException(
@@ -4388,11 +4391,119 @@ def _invoke_scorer_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # TODO: Implement invoke_scorer on tracking store
-    raise MlflowException(
-        "Scorer invocation is not yet implemented",
-        error_code=databricks_pb2.NOT_IMPLEMENTED,
-    )
+    # Validate trace_ids limit
+    max_traces = 1000
+    if len(trace_ids) > max_traces:
+        raise MlflowException(
+            f"Too many trace_ids: {len(trace_ids)}. Maximum allowed is {max_traces}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Parse serialized_scorer if it's a JSON string
+    if isinstance(serialized_scorer, str):
+        try:
+            scorer_dict = json.loads(serialized_scorer)
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"Invalid JSON in serialized_scorer: {e}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    else:
+        scorer_dict = serialized_scorer
+
+    # Validate scorer can be deserialized (fail fast)
+    from mlflow.genai.scorers.base import Scorer
+
+    try:
+        scorer = Scorer.model_validate(scorer_dict)
+    except Exception as e:
+        raise MlflowException(
+            f"Failed to validate scorer: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Re-serialize to ensure consistent JSON format for the job
+    serialized_scorer_str = json.dumps(scorer_dict)
+
+    # Import job function and submit_job
+    from mlflow.server.jobs import submit_job
+    from mlflow.server.jobs.scorer_invoke import invoke_scorer_job
+
+    jobs = []
+
+    # Check if this is a session-level (conversation) scorer
+    if scorer.is_session_level_scorer:
+        # For conversation judges, group traces by session_id
+        session_groups = _group_traces_by_session_id(trace_ids)
+
+        for session_id, session_trace_ids in session_groups.items():
+            job = submit_job(
+                function=invoke_scorer_job,
+                params={
+                    "experiment_id": experiment_id,
+                    "serialized_scorer": serialized_scorer_str,
+                    "trace_ids": session_trace_ids,
+                    "log_assessments": log_assessments,
+                },
+            )
+            jobs.append({"job_id": job.job_id, "trace_ids": session_trace_ids})
+    else:
+        # For single-turn judges, batch traces into jobs
+        batch_size = MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE.get()
+        for i in range(0, len(trace_ids), batch_size):
+            batch_trace_ids = trace_ids[i : i + batch_size]
+            job = submit_job(
+                function=invoke_scorer_job,
+                params={
+                    "experiment_id": experiment_id,
+                    "serialized_scorer": serialized_scorer_str,
+                    "trace_ids": batch_trace_ids,
+                    "log_assessments": log_assessments,
+                },
+            )
+            jobs.append({"job_id": job.job_id, "trace_ids": batch_trace_ids})
+
+    return jsonify({"jobs": jobs})
+
+
+def _group_traces_by_session_id(trace_ids: list[str]) -> dict[str, list[str]]:
+    """
+    Group trace_ids by their session_id metadata.
+
+    Fetches traces from the tracking store and groups them by session_id.
+    Traces without a session_id are skipped.
+    """
+    from mlflow.tracing.constant import TraceMetadataKey
+
+    tracking_store = _get_tracking_store()
+    session_groups = defaultdict(list)
+
+    for trace_id in trace_ids:
+        try:
+            trace = tracking_store.get_trace(trace_id)
+            if trace and trace.info:
+                trace_metadata = trace.info.trace_metadata or {}
+                if session_id := trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
+                    session_groups[session_id].append(trace_id)
+        except Exception:
+            # Skip traces that can't be fetched
+            pass
+
+    # Sort trace_ids within each session by trace timestamp
+    # We need to re-fetch to get timestamps for sorting
+    for session_id in session_groups:
+        traces_with_ts = []
+        for trace_id in session_groups[session_id]:
+            try:
+                trace = tracking_store.get_trace(trace_id)
+                if trace and trace.info:
+                    traces_with_ts.append((trace_id, trace.info.timestamp_ms or 0))
+            except Exception:
+                traces_with_ts.append((trace_id, 0))
+        traces_with_ts.sort(key=lambda x: x[1])
+        session_groups[session_id] = [t[0] for t in traces_with_ts]
+
+    return dict(session_groups)
 
 
 def _get_rest_path(base_path, version=2):

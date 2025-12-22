@@ -1167,6 +1167,17 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", int, 60
 )
 
+#: Specifies the maximum number of workers for async judge invocation jobs.
+#: (default: ``10``)
+MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS", int, 10
+)
+
+#: Number of traces to batch into a single scorer invocation job.
+MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE = _EnvironmentVariable(
+    "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE", int, 2
+)
+
 
 #: Specifies the maximum number of completion iterations allowed when invoking
 #: judge models. This prevents infinite loops in case of complex traces or

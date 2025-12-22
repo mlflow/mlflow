@@ -302,16 +302,30 @@ def _compute_eval_scores(
     *,
     eval_item: EvalItem,
     scorers: list[Scorer],
+    disable_scorer_tracing: bool = False,
 ) -> list[Feedback]:
-    """Compute the per-eval-item scores."""
+    """Compute the per-eval-item scores.
+
+    Args:
+        eval_item: The evaluation item containing inputs, outputs, expectations, and trace.
+        scorers: List of scorer instances to run.
+        disable_scorer_tracing: If True, disable scorer tracing even if
+            MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING env var is set.
+
+    Returns:
+        List of Feedback objects from all scorers.
+    """
     if not scorers:
         return []
+
+    # Enable tracing if env var is set and not explicitly disabled
+    should_trace = not disable_scorer_tracing and MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get()
 
     def run_scorer(scorer):
         try:
             scorer_func = scorer.run
 
-            if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get():
+            if should_trace:
                 scorer_func = mlflow.trace(name=scorer.name, span_type=SpanType.EVALUATOR)(
                     scorer_func
                 )
@@ -338,9 +352,7 @@ def _compute_eval_scores(
             ]
 
         # Record the trace ID for the scorer function call.
-        if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get() and (
-            trace_id := mlflow.get_last_active_trace_id(thread_local=True)
-        ):
+        if should_trace and (trace_id := mlflow.get_last_active_trace_id(thread_local=True)):
             for feedback in feedbacks:
                 feedback.metadata = {
                     **(feedback.metadata or {}),
