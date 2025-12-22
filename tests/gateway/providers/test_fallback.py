@@ -2,9 +2,11 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from fastapi import HTTPException
 
 from mlflow.entities.gateway_endpoint import FallbackStrategy
 from mlflow.gateway.config import EndpointConfig
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import FallbackProvider
 from mlflow.gateway.schemas import chat, embeddings
 
@@ -264,3 +266,43 @@ async def test_fallback_provider_passthrough():
 
         response = await provider.passthrough(action, payload)
         assert response["result"] == "success"
+
+
+@pytest.mark.parametrize(
+    ("exception", "expected_status"),
+    [
+        pytest.param(
+            AIGatewayException(status_code=503, detail="Service unavailable"),
+            503,
+        ),
+        pytest.param(
+            HTTPException(status_code=403, detail="Forbidden"),
+            403,
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_fallback_provider_propagates_http_status(exception, expected_status):
+    config1 = chat_config()
+    config2 = chat_config()
+    config2["name"] = "chat-fallback"
+
+    provider = _get_fallback_provider([config1, config2])
+
+    with mock.patch("aiohttp.ClientSession") as mock_session:
+        mock_client = mock_http_client(MockAsyncResponse({}))
+        mock_session.return_value = mock_client
+        mock_client.post.side_effect = [
+            Exception("First provider failed"),
+            exception,
+        ]
+
+        payload = chat.RequestPayload(
+            messages=[{"role": "user", "content": "Tell me a joke"}],
+            temperature=0.5,
+        )
+
+        with pytest.raises(Exception, match="All 2 fallback attempts failed") as exc_info:
+            await provider.chat(payload)
+
+        assert exc_info.value.status_code == expected_status

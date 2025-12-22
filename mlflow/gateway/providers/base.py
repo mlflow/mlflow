@@ -272,8 +272,12 @@ class FallbackProvider(BaseProvider):
             Result from the first successful provider call
 
         Raises:
-            AIGatewayException: If all fallback attempts fail
+            AIGatewayException: If all fallback attempts fail, with status code
+                propagated from the last exception if it was an AIGatewayException
+                or HTTPException
         """
+        from fastapi import HTTPException
+
         last_error = None
 
         for attempt, provider in enumerate(self._providers[: self._max_attempts], 1):
@@ -286,8 +290,13 @@ class FallbackProvider(BaseProvider):
                     continue
                 break
 
+        # Propagate HTTP status code from the last exception if available
+        status_code = 500
+        if isinstance(last_error, (AIGatewayException, HTTPException)):
+            status_code = last_error.status_code
+
         raise AIGatewayException(
-            status_code=500,
+            status_code=status_code,
             detail=f"All {self._max_attempts} fallback attempts failed. Last error: {last_error!s}",
         )
 
@@ -304,8 +313,12 @@ class FallbackProvider(BaseProvider):
             Stream chunks from the first successful provider call
 
         Raises:
-            AIGatewayException: If all fallback attempts fail
+            AIGatewayException: If all fallback attempts fail, with status code
+                propagated from the last exception if it was an AIGatewayException
+                or HTTPException
         """
+        from fastapi import HTTPException
+
         last_error = None
 
         for attempt, provider in enumerate(self._providers[: self._max_attempts], 1):
@@ -320,8 +333,13 @@ class FallbackProvider(BaseProvider):
                     continue
                 break
 
+        # Propagate HTTP status code from the last exception if available
+        status_code = 500
+        if isinstance(last_error, (AIGatewayException, HTTPException)):
+            status_code = last_error.status_code
+
         raise AIGatewayException(
-            status_code=500,
+            status_code=status_code,
             detail=f"All {self._max_attempts} fallback attempts failed. Last error: {last_error!s}",
         )
 
