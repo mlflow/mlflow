@@ -10,7 +10,7 @@ enum OverviewTab {
   Usage = 'usage',
 }
 
-const ExperimentOverviewPage = () => {
+const ExperimentGenAIOverviewPage = () => {
   const { experimentId } = useParams();
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -71,4 +71,4 @@ const ExperimentOverviewPage = () => {
   );
 };
 
-export default ExperimentOverviewPage;
+export default ExperimentGenAIOverviewPage;
