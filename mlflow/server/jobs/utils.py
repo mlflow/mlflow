@@ -139,7 +139,7 @@ def _exec_job_in_subproc(
     transient_error_classes: list[type[Exception]] | None,
     timeout: float | None,
     tmpdir: str,
-    job_store: AbstractJobStore,
+    job_store: "AbstractJobStore",
     job_id: str,
 ) -> JobResult | None:
     """
@@ -212,11 +212,12 @@ def _exec_job_in_subproc(
                 popen.kill()
                 return None
 
-            if beg_time + timeout > time.time():
-                # timeout
-                popen.kill()
-                job_store.mark_job_timed_out(job_id)
-                return None
+            if timeout is not None:
+                if beg_time + timeout <= time.time():
+                    # timeout
+                    popen.kill()
+                    job_store.mark_job_timed_out(job_id)
+                    return None
 
         if popen.returncode == 0:
             return JobResult.load(result_file)
