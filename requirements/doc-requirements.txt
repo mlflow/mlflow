@@ -3,7 +3,7 @@ tensorflow-cpu<=2.12.0; platform_system!="Darwin" or platform_machine!="arm64"
 tensorflow-macos<=2.12.0; platform_system=="Darwin" and platform_machine=="arm64"
 pyspark<4.1.0
 datasets
-# requried to run `log_figure` examples
+# required to run `log_figure` examples
 plotly
 # nbsphinx and ipython are required for jupyter notebook rendering
 nbsphinx==0.8.8
