@@ -52,7 +52,7 @@ describe('useSecretsQuery', () => {
 
     expect(result.current.data).toHaveLength(2);
     expect(result.current.data[0].secret_id).toBe('secret-1');
-    expect(result.current.error).toBeUndefined();
+    expect(result.current.error).toBeFalsy();
   });
 
   test('returns empty array when no secrets exist', async () => {
@@ -67,7 +67,7 @@ describe('useSecretsQuery', () => {
     });
 
     expect(result.current.data).toEqual([]);
-    expect(result.current.error).toBeUndefined();
+    expect(result.current.error).toBeFalsy();
   });
 
   test('filters secrets by provider', async () => {

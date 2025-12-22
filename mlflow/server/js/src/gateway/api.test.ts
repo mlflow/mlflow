@@ -50,7 +50,7 @@ describe('GatewayApi', () => {
       await expect(
         GatewayApi.createSecret({
           secret_name: 'duplicate-secret',
-          secret_value: 'test-value',
+          secret_value: { api_key: 'test-value' },
         }),
       ).rejects.toThrow('Secret name already exists');
     });
