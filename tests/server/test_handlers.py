@@ -2580,6 +2580,56 @@ def test_invoke_scorer_missing_trace_ids():
         assert "trace_ids" in data["message"]
 
 
+def test_invoke_scorer_submits_jobs():
+    serialized_scorer = json.dumps(
+        {
+            "name": "test_judge",
+            "aggregations": [],
+            "description": None,
+            "is_session_level_scorer": False,
+            "mlflow_version": mlflow.__version__,
+            "serialization_version": 1,
+            "builtin_scorer_class": None,
+            "builtin_scorer_pydantic_data": None,
+            "call_source": None,
+            "call_signature": None,
+            "original_func_name": None,
+            "instructions_judge_pydantic_data": {
+                "instructions": "Test: {{ inputs }}",
+                "model": "openai:/gpt-4",
+                "feedback_value_type": {
+                    "enum": ["Yes", "No"],
+                    "title": "Result",
+                    "type": "string",
+                },
+            },
+        }
+    )
+
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        mock_job = mock.MagicMock()
+        mock_job.job_id = "test-job-123"
+        mock_submit.return_value = mock_job
+
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1", "trace2"],
+                },
+            )
+            assert response.status_code == 200
+            data = response.get_json()
+            assert "jobs" in data
+            assert len(data["jobs"]) == 1
+            assert data["jobs"][0]["job_id"] == "test-job-123"
+            assert data["jobs"][0]["trace_ids"] == ["trace1", "trace2"]
+
+        mock_submit.assert_called_once()
+
+
 def test_get_ui_telemetry_handler(
     test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
 ):

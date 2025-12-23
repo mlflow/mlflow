@@ -13,9 +13,18 @@ from typing import Any, Callable
 
 from mlflow.entities import Trace
 from mlflow.environment_variables import MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS
+from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.entities import EvalItem
+from mlflow.genai.evaluation.harness import _compute_eval_scores, _log_assessments
+from mlflow.genai.evaluation.session_utils import (
+    evaluate_session_level_scorers,
+    get_first_trace_in_session,
+)
+from mlflow.genai.scorers.base import Scorer
 from mlflow.server.jobs import job
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracking import get_tracking_uri
 
 
 @dataclass
@@ -96,9 +105,7 @@ def invoke_scorer_job(
         - assessments: Dict mapping trace_id to list of assessment dictionaries
         - failures: List of failure dictionaries with trace_id, error_code, error_message
     """
-    from mlflow.genai.scorers.base import Scorer
     from mlflow.server.handlers import _get_tracking_store
-    from mlflow.tracking import get_tracking_uri
 
     # Save the original tracking URI (HTTP) before _get_tracking_store() overwrites it.
     # The gateway provider needs the HTTP URI to route requests through the MLflow server.
@@ -179,13 +186,6 @@ def _run_session_scorer(
     Returns:
         Result dictionary with success, assessments, and failures.
     """
-    from mlflow.genai.evaluation.harness import _log_assessments
-    from mlflow.genai.evaluation.session_utils import (
-        evaluate_session_level_scorers,
-        get_first_trace_in_session,
-    )
-    from mlflow.tracing.constant import TraceMetadataKey
-
     trace_map, failures = _fetch_traces_batch(trace_ids, tracking_store)
 
     # For session scorers, we need all traces - fail if any are missing
@@ -201,10 +201,17 @@ def _run_session_scorer(
 
     session_items = [EvalItem.from_trace(t) for t in traces]
 
-    # Get session_id from the first trace's metadata (if available)
+    # Get session_id from the first trace's metadata
     first_session_item = get_first_trace_in_session(session_items)
     trace_metadata = first_session_item.trace.info.trace_metadata or {}
-    session_id = trace_metadata.get(TraceMetadataKey.TRACE_SESSION, "unknown_session")
+    session_id = trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
+
+    if not session_id:
+        raise MlflowException(
+            "Session-level scorer requires traces with session metadata. "
+            f"Trace {first_session_item.trace.info.trace_id} is missing "
+            f"'{TraceMetadataKey.TRACE_SESSION}' in its metadata."
+        )
 
     first_trace = first_session_item.trace
     first_trace_id = first_trace.info.trace_id
@@ -260,8 +267,6 @@ def _run_single_turn_scorer_batch(
     Returns:
         Result dictionary with success, assessments, and failures.
     """
-    from mlflow.genai.evaluation.harness import _compute_eval_scores, _log_assessments
-
     trace_map, failures = _fetch_traces_batch(trace_ids, tracking_store)
 
     assessments_by_trace: dict[str, list[dict[str, Any]]] = {}

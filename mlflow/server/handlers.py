@@ -4398,7 +4398,6 @@ def _invoke_scorer_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # Validate scorer can be deserialized (fail fast)
     from mlflow.genai.scorers.base import Scorer
 
     try:
@@ -4409,7 +4408,6 @@ def _invoke_scorer_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # Import job function and submit_job
     from mlflow.genai.scorers.job import invoke_scorer_job
     from mlflow.server.jobs import submit_job
 
@@ -4454,32 +4452,32 @@ def _group_traces_by_session_id(trace_ids: list[str]) -> dict[str, list[str]]:
     """
     Group trace_ids by their session_id metadata.
 
-    Fetches traces from the tracking store and groups them by session_id.
+    Fetches trace info from the tracking store and groups them by session_id.
     Traces without a session_id are skipped.
     """
     from mlflow.tracing.constant import TraceMetadataKey
 
     tracking_store = _get_tracking_store()
     session_groups = defaultdict(list)
-    trace_info_cache: dict[str, tuple[str, int]] = {}  # trace_id -> (session_id, timestamp_ms)
+    # trace_id -> (session_id, timestamp_ms)
+    trace_info_cache: dict[str, tuple[str, int | None]] = {}
 
     for trace_id in trace_ids:
         try:
-            trace = tracking_store.get_trace(trace_id)
-            if trace and trace.info:
-                trace_metadata = trace.info.trace_metadata or {}
+            if trace_info := tracking_store.get_trace_info(trace_id):
+                trace_metadata = trace_info.trace_metadata or {}
                 if session_id := trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
                     session_groups[session_id].append(trace_id)
-                    trace_info_cache[trace_id] = (session_id, trace.info.timestamp_ms or 0)
+                    trace_info_cache[trace_id] = (session_id, trace_info.timestamp_ms)
         except Exception:
             # Skip traces that can't be fetched
             pass
 
-    # Sort trace_ids within each session by trace timestamp
+    # Sort trace_ids within each session by trace timestamp (None timestamps sort last)
     for session_id in session_groups:
         session_groups[session_id] = sorted(
             session_groups[session_id],
-            key=lambda tid: trace_info_cache.get(tid, ("", 0))[1],
+            key=lambda tid: trace_info_cache.get(tid, ("", None))[1] or float("inf"),
         )
 
     return dict(session_groups)
