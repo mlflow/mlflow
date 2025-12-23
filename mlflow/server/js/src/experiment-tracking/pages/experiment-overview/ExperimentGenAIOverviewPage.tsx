@@ -8,6 +8,7 @@ import { TracesV3DateSelector } from '../../components/experiment-page/component
 import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../hooks/useMonitoringFilters';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
 import { LazyTraceRequestsChart } from './components/LazyTraceRequestsChart';
+import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
 import { calculateTimeInterval } from './hooks/useTraceMetricsQuery';
 
 enum OverviewTab {
@@ -104,6 +105,17 @@ const ExperimentGenAIOverviewPageImpl = () => {
           >
             {/* Requests chart - full width */}
             <LazyTraceRequestsChart {...chartProps} />
+
+            {/* Latency chart*/}
+            <div
+              css={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                gap: theme.spacing.lg,
+              }}
+            >
+              <LazyTraceLatencyChart {...chartProps} />
+            </div>
           </div>
         </Tabs.Content>
       </Tabs.Root>
