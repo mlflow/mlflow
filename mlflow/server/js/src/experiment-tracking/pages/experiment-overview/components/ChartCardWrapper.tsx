@@ -4,6 +4,61 @@ import { FormattedMessage } from 'react-intl';
 
 const DEFAULT_CHART_HEIGHT = 280;
 
+interface ChartHeaderProps {
+  /** Icon component to display before the title */
+  icon: React.ReactNode;
+  /** Chart title */
+  title: React.ReactNode;
+  /** Main value to display (e.g., "1.2K", "150 ms") */
+  value?: React.ReactNode;
+  /** Optional subtitle shown after the value */
+  subtitle?: React.ReactNode;
+}
+
+/**
+ * Common header component for chart cards with icon, title, and value
+ */
+export const ChartHeader: React.FC<ChartHeaderProps> = ({ icon, title, value, subtitle }) => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div css={{ marginBottom: theme.spacing.lg }}>
+      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+        <span css={{ color: theme.colors.textSecondary, display: 'flex' }}>{icon}</span>
+        <Typography.Text bold size="lg">
+          {title}
+        </Typography.Text>
+      </div>
+      {value !== undefined && (
+        <Typography.Title level={3} css={{ margin: 0, marginTop: theme.spacing.sm }}>
+          {value}
+          {subtitle && (
+            <>
+              {' '}
+              <Typography.Text color="secondary" css={{ fontWeight: 'normal' }}>
+                {subtitle}
+              </Typography.Text>
+            </>
+          )}
+        </Typography.Title>
+      )}
+    </div>
+  );
+};
+
+/**
+ * "Over time" label shown above time-series charts
+ */
+export const OverTimeLabel: React.FC = () => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <Typography.Text color="secondary" size="sm" css={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+      <FormattedMessage defaultMessage="Over time" description="Label above time-series charts" />
+    </Typography.Text>
+  );
+};
+
 interface ChartCardWrapperProps {
   children: React.ReactNode;
   height?: number;
