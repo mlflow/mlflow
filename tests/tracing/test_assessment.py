@@ -8,9 +8,11 @@ from mlflow.entities.assessment import (
     AssessmentSource,
     Expectation,
     Feedback,
+    Issue,
 )
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 _HUMAN_ASSESSMENT_SOURCE = AssessmentSource(
@@ -635,3 +637,60 @@ def test_log_feedback_ai_judge_deprecation_warning(trace_id, source_type):
     assert assessment.name == "quality"
     assert assessment.feedback.value == 0.8
     assert assessment.rationale == "AI evaluation"
+
+
+def test_log_issue(trace_id):
+    issue = Issue(
+        issue_id="issue-123",
+        issue_name="Hallucination",
+        trace_id=trace_id,
+        source=_LLM_ASSESSMENT_SOURCE,
+        metadata={"severity": "high"},
+    )
+    mlflow.log_assessment(trace_id=trace_id, assessment=issue)
+
+    trace = mlflow.get_trace(trace_id)
+    assert len(trace.info.assessments) == 1
+    assessment = trace.info.assessments[0]
+    assert isinstance(assessment, Issue)
+    assert assessment.trace_id == trace_id
+    assert assessment.name == "issue-123"
+    assert assessment.issue_id == "issue-123"
+    assert assessment.issue_name == "Hallucination"
+    assert assessment.metadata[AssessmentMetadataKey.ISSUE_NAME] == "Hallucination"
+    assert assessment.source == _LLM_ASSESSMENT_SOURCE
+    assert assessment.create_time_ms is not None
+    assert assessment.last_update_time_ms is not None
+    assert assessment.issue.value is True
+    assert assessment.metadata["severity"] == "high"
+    assert assessment.feedback is None
+    assert assessment.expectation is None
+
+
+def test_log_issue_invalid_parameters():
+    with pytest.raises(MlflowException, match=r"The `issue_id` field must be specified."):
+        Issue(issue_id="", issue_name="Hallucination")
+
+    with pytest.raises(MlflowException, match=r"The `issue_name` field must be specified."):
+        Issue(issue_id="issue-123", issue_name="")
+
+
+def test_delete_issue(trace_id):
+    issue = Issue(
+        issue_id="issue-to-delete",
+        issue_name="Temporary Issue",
+        trace_id=trace_id,
+    )
+    logged_issue = mlflow.log_assessment(trace_id=trace_id, assessment=issue)
+    assessment_id = logged_issue.assessment_id
+
+    trace = mlflow.get_trace(trace_id)
+    assert len(trace.info.assessments) == 1
+
+    mlflow.delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
+
+    with pytest.raises(MlflowException, match=r"Assessment with ID"):
+        mlflow.get_assessment(trace_id, assessment_id)
+
+    trace = mlflow.get_trace(trace_id)
+    assert len(trace.info.assessments) == 0

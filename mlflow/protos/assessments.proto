@@ -71,6 +71,13 @@ message Expectation {
   optional SerializedValue serialized_value = 3;
 }
 
+// An issue identified from trace analysis that links to an Issue entity.
+// The issue_id is stored as the assessment name, and issue_name is stored in metadata.
+message Issue {
+  // Boolean value indicating the trace is linked to the issue.
+  optional bool value = 1 [default = true];
+}
+
 // Feedback provided on the model / agent output(s) contained in the trace
 message Feedback {
   // Value of the feedback-based assessment.
@@ -111,13 +118,16 @@ message Assessment {
   // The last update time of this assessment.
   optional google.protobuf.Timestamp last_update_time = 7;
 
-  // An Assessment can either be human/code/judge Feedback, human-generated Expectation, or an error.
-  // The name of the Feedback or Expectation must be the same with the assessment_name.
+  // An Assessment can either be human/code/judge Feedback, human-generated Expectation,
+  // an Issue link from trace analysis, or an error.
+  // The name of the Feedback, Expectation, or Issue must be the same with the assessment_name.
   oneof value {
     // The feedback on the trace from this assessment.
     Feedback feedback = 9;
     // A representation of the guidelines and/or expected response from the agent.
     Expectation expectation = 10;
+    // A link to an identified issue from trace analysis.
+    Issue issue = 16;
   }
 
   // Justification for the assessment.

@@ -40,7 +40,7 @@ from mlflow.entities import (
     _DatasetSummary,
     trace_location,
 )
-from mlflow.entities.assessment import ExpectationValue, FeedbackValue
+from mlflow.entities.assessment import ExpectationValue, FeedbackValue, Issue
 from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
@@ -5591,6 +5591,36 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
     # Test: Search for non-existent expectation
     traces, _ = store.search_traces([exp_id], filter_string='expectation.nonexistent = "value"')
     assert len(traces) == 0
+
+
+def test_search_traces_with_issue_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_issue_filter")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+
+    issue1 = Issue(issue_id="i-123", issue_name="Response Too Verbose", trace_id=trace1_id)
+    issue2 = Issue(issue_id="i-123", issue_name="Response Too Short", trace_id=trace2_id)
+    issue3 = Issue(issue_id="i-456", issue_name="Response Too Long", trace_id=trace2_id)
+
+    store.create_assessment(issue1)
+    store.create_assessment(issue2)
+    store.create_assessment(issue3)
+
+    # Test: Search for traces with issue = true
+    traces, _ = store.search_traces([exp_id], filter_string='issue.`i-123` = "true"')
+    assert len(traces) == 2
+    assert traces[0].trace_id == trace1_id
+    assert traces[1].trace_id == trace2_id
+
+    traces, _ = store.search_traces([exp_id], filter_string='issue.`i-456` = "true"')
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace2_id
 
 
 def test_search_traces_with_run_id(store: SqlAlchemyStore):
