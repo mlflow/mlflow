@@ -3668,6 +3668,10 @@
     "defaultMessage": "Add New Tag",
     "description": "Add new key-value tag modal > Modal title"
   },
+  "VLonhQ": {
+    "defaultMessage": "Requests",
+    "description": "Title for the trace requests chart"
+  },
   "VMVNTR": {
     "defaultMessage": "Requested experiment was not found.",
     "description": "A message shown on the experiment page if the experiment is not found"
