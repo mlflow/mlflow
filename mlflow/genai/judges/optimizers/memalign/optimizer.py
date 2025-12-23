@@ -72,11 +72,14 @@ class MemoryAugmentedJudge(Judge):
         self._examples = OrderedDict()
         self._next_id = 1
 
+        self._distillation_model = distillation_model
         self._distillation_lm = construct_dspy_lm(distillation_model)
         self._distill_template = _load_distillation_template()
 
         self._semantic_memory: list[str] = []
 
+        self._embedder_name = embedder_name
+        self._embed_dim = embed_dim
         self._embedder = dspy.Embedder(embedder_name, dimensions=embed_dim)
         self._search = None
 
@@ -154,10 +157,10 @@ class MemoryAugmentedJudge(Judge):
         return MemoryAugmentedJudge(
             base_judge=self._base_judge,
             base_signature=self._base_signature,
-            distillation_model=self._distillation_lm.model,
+            distillation_model=self._distillation_model,
             retrieval_k=self._retrieval_k,
-            embedder_name=self._embedder.provider,
-            embed_dim=self._embedder.dimensions,
+            embedder_name=self._embedder_name,
+            embed_dim=self._embed_dim,
             examples=filtered_examples,
         )
 
