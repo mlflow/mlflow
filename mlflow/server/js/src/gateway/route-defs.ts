@@ -13,6 +13,11 @@ export const getGatewayRouteDefs = () => {
           element: createLazyRouteElement(() => import('./pages/ApiKeysPage')),
           pageId: GatewayPageId.apiKeysPage,
         },
+        {
+          path: 'endpoints/create',
+          element: createLazyRouteElement(() => import('./pages/CreateEndpointPage')),
+          pageId: GatewayPageId.createEndpointPage,
+        },
       ],
     },
   ];
