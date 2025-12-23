@@ -179,26 +179,8 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
                 tickLine={false}
                 interval="preserveStartEnd"
               />
-              <YAxis
-                yAxisId="left"
-                orientation="left"
-                tick={{ fontSize: 10, fill: theme.colors.textSecondary }}
-                axisLine={false}
-                tickLine={false}
-                width={40}
-                hide={true}
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                tick={{ fontSize: 10, fill: theme.colors.textSecondary }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(value) => `${value}%`}
-                width={45}
-                domain={[0, 'auto']}
-                hide={true}
-              />
+              <YAxis yAxisId="left" hide />
+              <YAxis yAxisId="right" hide />
               <Tooltip
                 contentStyle={{
                   backgroundColor: theme.colors.backgroundPrimary,
