@@ -64,6 +64,73 @@ describe('TraceRequestsChart', () => {
     } as Response);
   });
 
+  describe('loading state', () => {
+    it('should render loading spinner while data is being fetched', async () => {
+      // Create a promise that never resolves to keep the component in loading state
+      mockFetchOrFail.mockReturnValue(new Promise(() => {}));
+
+      renderComponent({
+        experimentId: testExperimentId,
+        startTimeMs: oneHourAgo,
+        endTimeMs: now,
+      });
+
+      // Check for spinner (loading state)
+      expect(screen.getByRole('img')).toBeInTheDocument();
+    });
+  });
+
+  describe('error state', () => {
+    it('should render error message when API call fails', async () => {
+      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
+
+      renderComponent({
+        experimentId: testExperimentId,
+        startTimeMs: oneHourAgo,
+        endTimeMs: now,
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Failed to load chart data')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('empty data state', () => {
+    it('should render empty state message when no data points are returned', async () => {
+      mockFetchOrFail.mockResolvedValue({
+        json: () => Promise.resolve({ data_points: [] }),
+      } as Response);
+
+      renderComponent({
+        experimentId: testExperimentId,
+        startTimeMs: oneHourAgo,
+        endTimeMs: now,
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();
+      });
+    });
+
+    it('should render empty state when data_points is undefined', async () => {
+      // Cast to simulate edge case where API might return malformed response
+      mockFetchOrFail.mockResolvedValue({
+        json: () => Promise.resolve({ data_points: undefined }),
+      } as Response);
+
+      renderComponent({
+        experimentId: testExperimentId,
+        startTimeMs: oneHourAgo,
+        endTimeMs: now,
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();
+      });
+    });
+  });
+
   describe('with data', () => {
     const mockDataPoints = [
       {
@@ -96,9 +163,10 @@ describe('TraceRequestsChart', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
-        // Verify the bar chart has the correct number of data points
-        expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
       });
+
+      // Verify the bar chart has the correct number of data points
+      expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
     });
 
     it('should display the total request count', async () => {

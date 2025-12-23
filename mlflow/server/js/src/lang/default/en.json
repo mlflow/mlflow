@@ -4587,6 +4587,10 @@
     "defaultMessage": "No runs have been logged yet. <link>Learn more</link> about how to create ML model training runs in this experiment.",
     "description": "Empty state description text for experiment runs page when no runs are logged in the experiment"
   },
+  "cp/h86": {
+    "defaultMessage": "Failed to load chart data",
+    "description": "Error message when chart fails to load"
+  },
   "crFjQx": {
     "defaultMessage": "Loading providers...",
     "description": "Loading message for providers"
@@ -7246,6 +7250,10 @@
   "zwO8+l": {
     "defaultMessage": "20",
     "description": "Label for 20 first runs visible in run count selector within runs compare configuration modal"
+  },
+  "zwktEP": {
+    "defaultMessage": "No data available for the selected time range",
+    "description": "Message shown when there is no data to display in the chart"
   },
   "zxfWCx": {
     "defaultMessage": "Add/Edit Prompt Version Metadata",

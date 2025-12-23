@@ -272,10 +272,33 @@ describe('ExperimentGenAIOverviewPage', () => {
 
       renderComponent();
 
-      // Verify total count is displayed (50 + 75 = 125)
       await waitFor(() => {
         expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
-        expect(screen.getByText('125')).toBeInTheDocument();
+      });
+
+      // Verify total count is displayed (50 + 75 = 125)
+      expect(screen.getByText('125')).toBeInTheDocument();
+    });
+
+    it('should show empty state when no data is available', async () => {
+      mockFetchOrFail.mockResolvedValue({
+        json: () => Promise.resolve({ data_points: [] }),
+      } as Response);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();
+      });
+    });
+
+    it('should show error state when API call fails', async () => {
+      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Failed to load chart data')).toBeInTheDocument();
       });
     });
 

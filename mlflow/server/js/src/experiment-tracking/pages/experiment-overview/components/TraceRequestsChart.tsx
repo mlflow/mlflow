@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery, calculateTimeInterval } from '../hooks/useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from '../utils/chartUtils';
+import { ChartLoadingState, ChartErrorState, ChartEmptyState } from './ChartCardWrapper';
 
 export interface TraceRequestsChartProps {
   experimentId: string;
@@ -52,6 +53,14 @@ export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ experime
     });
   }, [traceCountDataPoints, timeIntervalSeconds]);
 
+  if (isLoading) {
+    return <ChartLoadingState />;
+  }
+
+  if (error) {
+    return <ChartErrorState />;
+  }
+
   return (
     <div
       css={{
@@ -76,28 +85,32 @@ export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ experime
 
       {/* Chart */}
       <div css={{ height: 200 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-            <XAxis
-              dataKey="name"
-              tick={{ fontSize: 10, fill: theme.colors.textSecondary, dy: theme.spacing.sm }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis hide />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: theme.colors.backgroundPrimary,
-                border: `1px solid ${theme.colors.border}`,
-                borderRadius: theme.borders.borderRadiusMd,
-                fontSize: 12,
-              }}
-              cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-              formatter={(value: number) => [`${value}`, 'Requests']}
-            />
-            <Bar dataKey="count" fill={theme.colors.blue400} radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        {chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 10, fill: theme.colors.textSecondary, dy: theme.spacing.sm }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis hide />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: theme.colors.backgroundPrimary,
+                  border: `1px solid ${theme.colors.border}`,
+                  borderRadius: theme.borders.borderRadiusMd,
+                  fontSize: 12,
+                }}
+                cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
+                formatter={(value: number) => [`${value}`, 'Requests']}
+              />
+              <Bar dataKey="count" fill={theme.colors.blue400} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <ChartEmptyState />
+        )}
       </div>
     </div>
   );
