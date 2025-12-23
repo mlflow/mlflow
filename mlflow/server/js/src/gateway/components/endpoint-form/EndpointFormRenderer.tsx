@@ -13,26 +13,11 @@ import { LongFormSection } from '../../../common/components/long-form/LongFormSe
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { ProviderModel, SecretInfo } from '../../types';
 import { formatTokens, formatCost } from '../../utils/formatters';
+import type { CreateEndpointFormData } from '../../hooks/useCreateEndpointForm';
 
 const LONG_FORM_TITLE_WIDTH = 200;
 
-/**
- * Shared form data interface for both create and edit endpoint forms.
- * Both use the same field structure.
- */
-export interface EndpointFormData {
-  name: string;
-  provider: string;
-  modelName: string;
-  secretMode: SecretMode;
-  existingSecretId: string;
-  newSecret: {
-    name: string;
-    authMode: string;
-    secretFields: Record<string, string>;
-    configFields: Record<string, string>;
-  };
-}
+export type EndpointFormData = CreateEndpointFormData;
 
 export interface EndpointFormRendererProps {
   /** Whether this is editing an existing endpoint (affects button labels, etc.) */
@@ -94,11 +79,9 @@ export const EndpointFormRenderer = ({
   const existingSecretId = form.watch('existingSecretId');
   const newSecret = form.watch('newSecret');
 
-  // Get API key configuration data for the selected provider
   const { existingSecrets, isLoadingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } =
     useApiKeyConfiguration({ provider });
 
-  // Convert form values to ApiKeyConfiguration format for the presentation component
   const apiKeyConfig: ApiKeyConfiguration = useMemo(
     () => ({
       mode: secretMode,
@@ -108,7 +91,6 @@ export const EndpointFormRenderer = ({
     [secretMode, existingSecretId, newSecret],
   );
 
-  // Handler to update form values when ApiKeyConfigurator changes
   const handleApiKeyChange = useCallback(
     (config: ApiKeyConfiguration) => {
       if (config.mode !== secretMode) {
@@ -124,7 +106,6 @@ export const EndpointFormRenderer = ({
     [form, secretMode, existingSecretId, newSecret],
   );
 
-  // Determine button disabled state and tooltip
   const isButtonDisabled = mode === 'edit' ? !isFormComplete || !hasChanges : !isFormComplete;
   const buttonTooltip = !isFormComplete
     ? intl.formatMessage({
@@ -159,7 +140,6 @@ export const EndpointFormRenderer = ({
           gap: theme.spacing.md,
           padding: `0 ${theme.spacing.md}px`,
           overflow: 'auto',
-          // Stack vertically on narrow screens
           '@media (max-width: 1023px)': {
             flexDirection: 'column',
           },
@@ -234,7 +214,6 @@ export const EndpointFormRenderer = ({
                     value={field.value}
                     onChange={(value) => {
                       field.onChange(value);
-                      // Reset all dependent fields when provider changes
                       form.setValue('modelName', '');
                       form.setValue('existingSecretId', '');
                       form.setValue('secretMode', 'new');

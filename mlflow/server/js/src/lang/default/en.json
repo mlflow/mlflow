@@ -283,10 +283,6 @@
     "defaultMessage": "Evaluate and improve the quality, cost, latency of your GenAI app",
     "description": "Title of the empty state for the evaluation runs page"
   },
-  "07uplU": {
-    "defaultMessage": "Variant",
-    "description": "Label for provider variant selector"
-  },
   "08WP3h": {
     "defaultMessage": "Staging",
     "description": "Column title for staging phase version in the registered model page"
@@ -749,6 +745,10 @@
   "4Jyn2b": {
     "defaultMessage": "Add/Edit alias for model version {version}",
     "description": "Model registry > model version alias editor > Title of the update alias modal"
+  },
+  "4MSEHr": {
+    "defaultMessage": "LiteLLM ({count} providers)",
+    "description": "Navigation to LiteLLM providers"
   },
   "4NEPlV": {
     "defaultMessage": "Scatter Plot",
@@ -1938,10 +1938,6 @@
     "defaultMessage": "Filter",
     "description": "Label for the filter button in the trace explorer."
   },
-  "DwsF2a": {
-    "defaultMessage": "Other Providers",
-    "description": "Section header for other providers"
-  },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
     "description": "Error message displayed on logged models page when experiment data fails to load"
@@ -2265,10 +2261,6 @@
   "H2UIIZ": {
     "defaultMessage": "null",
     "description": "Null value in the evaluations table."
-  },
-  "H5/OUa": {
-    "defaultMessage": "Platform",
-    "description": "Label for OpenAI/Azure platform selector"
   },
   "H7JwOl": {
     "defaultMessage": "Delete version",
@@ -5087,6 +5079,10 @@
     "defaultMessage": "Ready.",
     "description": "Default status message for model versions that are ready"
   },
+  "f3Jrpu": {
+    "defaultMessage": "LiteLLM ({count} matches)",
+    "description": "Navigation showing matching LiteLLM providers"
+  },
   "f4CfIz": {
     "defaultMessage": "(edited)",
     "description": "Link text in an edited assessment that allows the user to click to see the previous value"
@@ -5346,6 +5342,10 @@
   "guCNzD": {
     "defaultMessage": "Run the judge on the selected group of traces",
     "description": "Description for running judge on traces"
+  },
+  "gwS08B": {
+    "defaultMessage": "Back to common providers",
+    "description": "Navigation back to common providers list"
   },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
@@ -6746,10 +6746,6 @@
   "sTp/V3": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab pane title for parallel coordinate plots on the compare runs page"
-  },
-  "sUDP3e": {
-    "defaultMessage": "Common Providers",
-    "description": "Section header for common providers"
   },
   "sWbj1n": {
     "defaultMessage": "Apply filters",
