@@ -115,6 +115,7 @@ export const SampleScorerTracesToEvaluatePicker = ({
             }
             setDisplayPickCustomTracesModal(false);
           }}
+          initialTraceIdsSelected={itemsToEvaluate.itemIds}
         />
       )}
     </>

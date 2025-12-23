@@ -7099,6 +7099,10 @@
     "defaultMessage": "Set as baseline",
     "description": "In the run data difference comparison table, the label for an option to set particular experiment run as a baseline one - meaning other runs will be compared to it."
   },
+  "x/G0Ow": {
+    "defaultMessage": "Trace {index} of {total}",
+    "description": "Index of the current trace and total number of traces"
+  },
   "x/YJtF": {
     "defaultMessage": "MLflow MCP server",
     "description": "Home page news card title one"

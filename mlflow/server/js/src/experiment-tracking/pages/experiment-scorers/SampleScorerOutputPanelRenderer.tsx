@@ -167,6 +167,13 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               }}
             >
               <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+                <Typography.Text size="sm" color="secondary">
+                  <FormattedMessage
+                    defaultMessage="Trace {index} of {total}"
+                    description="Index of the current trace and total number of traces"
+                    values={{ index: currentTraceIndex + 1, total: totalTraces }}
+                  />
+                </Typography.Text>
                 <Button
                   componentId={`${COMPONENT_ID_PREFIX}.previous-trace-button`}
                   size="small"
