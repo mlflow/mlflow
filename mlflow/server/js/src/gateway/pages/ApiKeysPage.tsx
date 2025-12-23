@@ -1,4 +1,4 @@
-import { Button, PlusIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, KeyIcon, PlusIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
@@ -82,7 +82,8 @@ const ApiKeysPage = () => {
           borderBottom: `1px solid ${theme.colors.borderDecorative}`,
         }}
       >
-        <Typography.Title level={3} css={{ margin: 0 }}>
+        <Typography.Title level={3} css={{ margin: 0, display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+          <KeyIcon />
           <FormattedMessage defaultMessage="API Keys" description="API Keys page title" />
         </Typography.Title>
         <Button
