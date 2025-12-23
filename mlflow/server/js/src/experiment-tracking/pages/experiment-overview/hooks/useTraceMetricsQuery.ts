@@ -1,12 +1,29 @@
 import { useQuery } from '../../../../common/utils/reactQueryHooks';
-import { MlflowService } from '../../../sdk/MlflowService';
+import { fetchOrFail, getAjaxUrl } from '../../../../common/utils/FetchUtils';
+import { catchNetworkErrorIfExists } from '../../../utils/NetworkUtils';
 import {
   type QueryTraceMetricsRequest,
+  type QueryTraceMetricsResponse,
   type MetricAggregation,
   MetricViewType,
 } from '@databricks/web-shared/model-trace-explorer';
 
 export const TRACE_METRICS_QUERY_KEY = 'traceMetrics';
+
+/**
+ * Query aggregated trace metrics for experiments
+ */
+async function queryTraceMetrics(params: QueryTraceMetricsRequest): Promise<QueryTraceMetricsResponse> {
+  return fetchOrFail(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(params),
+  })
+    .then((res) => res.json())
+    .catch(catchNetworkErrorIfExists);
+}
 
 // Time intervals in seconds
 const MINUTE_IN_SECONDS = 60;
@@ -83,7 +100,7 @@ export function useTraceMetricsQuery({
       timeIntervalSeconds,
     ],
     queryFn: async () => {
-      const response = await MlflowService.queryTraceMetrics(queryParams);
+      const response = await queryTraceMetrics(queryParams);
       return response;
     },
     enabled: !!experimentId,
