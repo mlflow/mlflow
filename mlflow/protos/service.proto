@@ -4204,7 +4204,7 @@ message GatewayEndpointModelMapping {
   // User ID who created the mapping
   optional string created_by = 7;
   // Type of linkage (PRIMARY, FALLBACK)
-  optional LinkageType linkage_type = 8;
+  optional GatewayModelLinkageType linkage_type = 8;
   // Order for fallback attempts (only for FALLBACK linkages, NULL for PRIMARY)
   optional int32 fallback_order = 9;
 }
@@ -4423,7 +4423,7 @@ enum FallbackStrategy {
 }
 
 // Type of linkage between endpoint and model definition
-enum LinkageType {
+enum GatewayModelLinkageType {
   LINKAGE_TYPE_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
   // Primary linkage: used for routing traffic
   PRIMARY = 1;

@@ -1,7 +1,11 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from mlflow.entities.gateway_endpoint import FallbackConfig, LinkageType, RoutingStrategy
+from mlflow.entities.gateway_endpoint import (
+    FallbackConfig,
+    GatewayModelLinkageType,
+    RoutingStrategy,
+)
 
 
 @dataclass
@@ -34,7 +38,7 @@ class GatewayModelConfig:
     secret_value: dict[str, Any]
     auth_config: dict[str, Any] | None = None
     weight: float = 1.0
-    linkage_type: LinkageType = LinkageType.PRIMARY
+    linkage_type: GatewayModelLinkageType = GatewayModelLinkageType.PRIMARY
     fallback_order: int | None = None
 
 

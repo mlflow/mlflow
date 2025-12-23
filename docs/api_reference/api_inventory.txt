@@ -348,6 +348,12 @@ mlflow.entities.Experiment.to_proto
 mlflow.entities.ExperimentTag
 mlflow.entities.ExperimentTag.from_proto
 mlflow.entities.ExperimentTag.to_proto
+mlflow.entities.FallbackConfig
+mlflow.entities.FallbackConfig.from_proto
+mlflow.entities.FallbackConfig.to_proto
+mlflow.entities.FallbackStrategy
+mlflow.entities.FallbackStrategy.from_proto
+mlflow.entities.FallbackStrategy.to_proto
 mlflow.entities.Feedback
 mlflow.entities.Feedback.from_dictionary
 mlflow.entities.Feedback.from_proto
@@ -369,6 +375,7 @@ mlflow.entities.GatewayEndpointTag.to_proto
 mlflow.entities.GatewayModelDefinition
 mlflow.entities.GatewayModelDefinition.from_proto
 mlflow.entities.GatewayModelDefinition.to_proto
+mlflow.entities.GatewayModelLinkageType
 mlflow.entities.GatewayResourceType
 mlflow.entities.GatewaySecretInfo
 mlflow.entities.GatewaySecretInfo.from_proto
@@ -385,7 +392,6 @@ mlflow.entities.LifecycleStage
 mlflow.entities.LifecycleStage.is_valid
 mlflow.entities.LifecycleStage.matches_view_type
 mlflow.entities.LifecycleStage.view_type_to_stages
-mlflow.entities.LinkageType
 mlflow.entities.LiveSpan
 mlflow.entities.LiveSpan.add_event
 mlflow.entities.LiveSpan.from_dict
@@ -575,10 +581,10 @@ mlflow.entities.gateway_endpoint.GatewayEndpointBinding
 mlflow.entities.gateway_endpoint.GatewayEndpointModelMapping
 mlflow.entities.gateway_endpoint.GatewayEndpointTag
 mlflow.entities.gateway_endpoint.GatewayModelDefinition
+mlflow.entities.gateway_endpoint.GatewayModelLinkageType
 mlflow.entities.gateway_endpoint.GatewayResourceType
-mlflow.entities.gateway_secrets.GatewaySecretInfo
-mlflow.entities.gateway_endpoint.LinkageType
 mlflow.entities.gateway_endpoint.RoutingStrategy
+mlflow.entities.gateway_secrets.GatewaySecretInfo
 mlflow.entities.input_tag.InputTag
 mlflow.entities.lifecycle_stage.LifecycleStage
 mlflow.entities.logged_model.LoggedModel

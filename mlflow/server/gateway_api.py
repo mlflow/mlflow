@@ -12,7 +12,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from mlflow.entities.gateway_endpoint import LinkageType
+from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AmazonBedrockConfig,
@@ -251,7 +251,9 @@ def _create_provider(
     """
     # Get PRIMARY models
     primary_models = [
-        model for model in endpoint_config.models if model.linkage_type == LinkageType.PRIMARY
+        model
+        for model in endpoint_config.models
+        if model.linkage_type == GatewayModelLinkageType.PRIMARY
     ]
 
     if not primary_models:
@@ -291,7 +293,9 @@ def _create_provider(
     # Wrap with FallbackProvider if fallback configuration exists
     if endpoint_config.fallback_config:
         fallback_models = [
-            model for model in endpoint_config.models if model.linkage_type == LinkageType.FALLBACK
+            model
+            for model in endpoint_config.models
+            if model.linkage_type == GatewayModelLinkageType.FALLBACK
         ]
 
         if not fallback_models:

@@ -76,11 +76,11 @@ class FallbackStrategy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FALLBACK_STRATEGY_UNSPECIFIED: _ClassVar[FallbackStrategy]
     SEQUENTIAL: _ClassVar[FallbackStrategy]
 
-class LinkageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+class GatewayModelLinkageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
-    LINKAGE_TYPE_UNSPECIFIED: _ClassVar[LinkageType]
-    PRIMARY: _ClassVar[LinkageType]
-    FALLBACK: _ClassVar[LinkageType]
+    LINKAGE_TYPE_UNSPECIFIED: _ClassVar[GatewayModelLinkageType]
+    PRIMARY: _ClassVar[GatewayModelLinkageType]
+    FALLBACK: _ClassVar[GatewayModelLinkageType]
 ACTIVE_ONLY: ViewType
 DELETED_ONLY: ViewType
 ALL: ViewType
@@ -115,9 +115,9 @@ ROUTING_STRATEGY_UNSPECIFIED: RoutingStrategy
 REQUEST_BASED_TRAFFIC_SPLIT: RoutingStrategy
 FALLBACK_STRATEGY_UNSPECIFIED: FallbackStrategy
 SEQUENTIAL: FallbackStrategy
-LINKAGE_TYPE_UNSPECIFIED: LinkageType
-PRIMARY: LinkageType
-FALLBACK: LinkageType
+LINKAGE_TYPE_UNSPECIFIED: GatewayModelLinkageType
+PRIMARY: GatewayModelLinkageType
+FALLBACK: GatewayModelLinkageType
 
 class Metric(_message.Message):
     __slots__ = ("key", "value", "timestamp", "step", "dataset_name", "dataset_digest", "model_id", "run_id")
@@ -1821,9 +1821,9 @@ class GatewayEndpointModelMapping(_message.Message):
     weight: float
     created_at: int
     created_by: str
-    linkage_type: LinkageType
+    linkage_type: GatewayModelLinkageType
     fallback_order: int
-    def __init__(self, mapping_id: _Optional[str] = ..., endpoint_id: _Optional[str] = ..., model_definition_id: _Optional[str] = ..., model_definition: _Optional[_Union[GatewayModelDefinition, _Mapping]] = ..., weight: _Optional[float] = ..., created_at: _Optional[int] = ..., created_by: _Optional[str] = ..., linkage_type: _Optional[_Union[LinkageType, str]] = ..., fallback_order: _Optional[int] = ...) -> None: ...
+    def __init__(self, mapping_id: _Optional[str] = ..., endpoint_id: _Optional[str] = ..., model_definition_id: _Optional[str] = ..., model_definition: _Optional[_Union[GatewayModelDefinition, _Mapping]] = ..., weight: _Optional[float] = ..., created_at: _Optional[int] = ..., created_by: _Optional[str] = ..., linkage_type: _Optional[_Union[GatewayModelLinkageType, str]] = ..., fallback_order: _Optional[int] = ...) -> None: ...
 
 class GatewayEndpoint(_message.Message):
     __slots__ = ("endpoint_id", "name", "created_at", "last_updated_at", "model_mappings", "created_by", "last_updated_by", "tags", "routing_strategy", "fallback_config")

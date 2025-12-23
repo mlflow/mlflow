@@ -10,8 +10,8 @@ from mlflow.entities import (
     GatewayEndpointModelMapping,
     GatewayEndpointTag,
     GatewayModelDefinition,
+    GatewayModelLinkageType,
     GatewaySecretInfo,
-    LinkageType,
     RoutingStrategy,
 )
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
@@ -1281,9 +1281,11 @@ def test_create_gateway_endpoint_with_fallback_routing(store: SqlAlchemyStore):
 
     # Verify linkage types and fallback_order
     assert len(endpoint.model_mappings) == 3  # 1 PRIMARY + 2 FALLBACK
-    primary_mappings = [m for m in endpoint.model_mappings if m.linkage_type == LinkageType.PRIMARY]
+    primary_mappings = [
+        m for m in endpoint.model_mappings if m.linkage_type == GatewayModelLinkageType.PRIMARY
+    ]
     fallback_mappings = [
-        m for m in endpoint.model_mappings if m.linkage_type == LinkageType.FALLBACK
+        m for m in endpoint.model_mappings if m.linkage_type == GatewayModelLinkageType.FALLBACK
     ]
     assert len(primary_mappings) == 1
     assert len(fallback_mappings) == 2
@@ -1328,7 +1330,7 @@ def test_create_gateway_endpoint_with_traffic_split(store: SqlAlchemyStore):
     assert len(endpoint.model_mappings) == 2
     # All should be PRIMARY linkages for traffic split
     for mapping in endpoint.model_mappings:
-        assert mapping.linkage_type == LinkageType.PRIMARY
+        assert mapping.linkage_type == GatewayModelLinkageType.PRIMARY
 
 
 def test_get_gateway_endpoint_with_fallback_preserves_config(store: SqlAlchemyStore):
@@ -1385,9 +1387,10 @@ def test_get_gateway_endpoint_with_fallback_preserves_config(store: SqlAlchemySt
         model_def2.model_definition_id,
     ]
 
-    # Verify fallback models are in the model_mappings with correct fallback_order
     fallback_mappings = [
-        m for m in retrieved_by_id.model_mappings if m.linkage_type == LinkageType.FALLBACK
+        m
+        for m in retrieved_by_id.model_mappings
+        if m.linkage_type == GatewayModelLinkageType.FALLBACK
     ]
     assert len(fallback_mappings) == 2
     fallback_mappings_sorted = sorted(fallback_mappings, key=lambda m: m.fallback_order)
@@ -1407,7 +1410,9 @@ def test_get_gateway_endpoint_with_fallback_preserves_config(store: SqlAlchemySt
 
     # Verify fallback models
     fallback_mappings_by_name = [
-        m for m in retrieved_by_name.model_mappings if m.linkage_type == LinkageType.FALLBACK
+        m
+        for m in retrieved_by_name.model_mappings
+        if m.linkage_type == GatewayModelLinkageType.FALLBACK
     ]
     assert len(fallback_mappings_by_name) == 2
     fallback_mappings_by_name_sorted = sorted(

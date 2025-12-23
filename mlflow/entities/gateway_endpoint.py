@@ -16,6 +16,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import (
     GatewayModelDefinition as ProtoGatewayModelDefinition,
 )
+from mlflow.protos.service_pb2 import GatewayModelLinkageType as ProtoGatewayModelLinkageType
 from mlflow.protos.service_pb2 import RoutingStrategy as ProtoRoutingStrategy
 
 
@@ -57,11 +58,21 @@ class FallbackStrategy(str, Enum):
         return ProtoFallbackStrategy.Value(self.value)
 
 
-class LinkageType(str, Enum):
+class GatewayModelLinkageType(str, Enum):
     """Type of linkage between endpoint and model definition."""
 
     PRIMARY = "PRIMARY"
     FALLBACK = "FALLBACK"
+
+    @classmethod
+    def from_proto(cls, proto: ProtoGatewayModelLinkageType) -> "GatewayModelLinkageType":
+        try:
+            return cls(ProtoGatewayModelLinkageType.Name(proto))
+        except ValueError:
+            return None
+
+    def to_proto(self) -> ProtoGatewayModelLinkageType:
+        return ProtoGatewayModelLinkageType.Value(self.value)
 
 
 @dataclass
@@ -198,7 +209,7 @@ class GatewayEndpointModelMapping(_MlflowObject):
     model_definition_id: str
     model_definition: GatewayModelDefinition | None
     weight: float
-    linkage_type: LinkageType
+    linkage_type: GatewayModelLinkageType
     fallback_order: int | None
     created_at: int
     created_by: str | None = None
@@ -211,7 +222,7 @@ class GatewayEndpointModelMapping(_MlflowObject):
         if self.model_definition is not None:
             proto.model_definition.CopyFrom(self.model_definition.to_proto())
         proto.weight = self.weight
-        proto.linkage_type = self.linkage_type.value
+        proto.linkage_type = self.linkage_type.to_proto()
         if self.fallback_order is not None:
             proto.fallback_order = self.fallback_order
         proto.created_at = self.created_at
@@ -230,7 +241,7 @@ class GatewayEndpointModelMapping(_MlflowObject):
             model_definition_id=proto.model_definition_id,
             model_definition=model_def,
             weight=proto.weight,
-            linkage_type=LinkageType(proto.linkage_type),
+            linkage_type=GatewayModelLinkageType.from_proto(proto.linkage_type),
             fallback_order=proto.fallback_order if proto.HasField("fallback_order") else None,
             created_at=proto.created_at,
             created_by=proto.created_by or None,

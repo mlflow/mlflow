@@ -2435,7 +2435,7 @@ class SqlGatewayEndpointModelMapping(Base):
         )
 
     def to_mlflow_entity(self):
-        from mlflow.entities.gateway_endpoint import LinkageType
+        from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 
         model_def = None
         if self.model_definition:
@@ -2446,7 +2446,7 @@ class SqlGatewayEndpointModelMapping(Base):
             model_definition_id=self.model_definition_id,
             model_definition=model_def,
             weight=self.weight,
-            linkage_type=LinkageType(self.linkage_type),
+            linkage_type=GatewayModelLinkageType(self.linkage_type),
             fallback_order=self.fallback_order,
             created_at=self.created_at,
             created_by=self.created_by,
