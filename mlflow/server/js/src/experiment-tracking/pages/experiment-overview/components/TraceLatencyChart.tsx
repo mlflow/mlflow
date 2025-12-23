@@ -67,7 +67,7 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
     aggregations: [{ aggregation_type: AggregationType.AVG }],
   });
 
-  const latencyDataPoints = latencyData?.data_points || [];
+  const latencyDataPoints = useMemo(() => latencyData?.data_points || [], [latencyData?.data_points]);
   const isLoading = isLoadingTimeSeries || isLoadingAvg;
   const error = timeSeriesError || avgError;
 
