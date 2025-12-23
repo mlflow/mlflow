@@ -4158,8 +4158,8 @@ message GatewaySecretInfo {
   optional string created_by = 7;
   // User ID who last updated the secret
   optional string last_updated_by = 8;
-  // Provider-specific auth configuration as JSON (e.g., region, project_id)
-  optional string auth_config_json = 9;
+  // Provider-specific auth configuration (e.g., auth_mode, region, project_id)
+  map<string, string> auth_config = 9;
 }
 
 // Reusable model definition that can be shared across endpoints
@@ -4264,12 +4264,12 @@ message CreateGatewaySecret {
   map<string, string> secret_value = 2;
   // Optional LLM provider (e.g., "openai", "anthropic")
   optional string provider = 3;
-  // Reserved: credential_name was removed - auth_mode is now stored in auth_config_json
+  // Reserved: credential_name was removed - auth_mode is now stored in auth_config
   reserved 4;
   reserved "credential_name";
-  // Optional provider-specific auth configuration as JSON string.
+  // Optional provider-specific auth configuration.
   // For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
-  optional string auth_config_json = 5;
+  map<string, string> auth_config = 5;
   // Username of the creator
   optional string created_by = 6;
 
@@ -4297,12 +4297,12 @@ message UpdateGatewaySecret {
   // For simple API keys: {"api_key": "sk-xxx"}
   // For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}
   map<string, string> secret_value = 2;
-  // Reserved: credential_name was removed - auth_mode is now stored in auth_config_json
+  // Reserved: credential_name was removed - auth_mode is now stored in auth_config
   reserved 3;
   reserved "credential_name";
-  // Optional new auth configuration as JSON string.
+  // Optional new auth configuration.
   // For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
-  optional string auth_config_json = 4;
+  map<string, string> auth_config = 4;
   // Username of the updater
   optional string updated_by = 5;
 

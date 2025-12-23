@@ -5,3 +5,5 @@ export { CreateApiKeyModal } from './CreateApiKeyModal';
 export { EditApiKeyModal } from './EditApiKeyModal';
 export { DeleteApiKeyModal } from './DeleteApiKeyModal';
 export { ApiKeyDetailsDrawer } from './ApiKeyDetailsDrawer';
+export { EndpointsUsingKeyDrawer } from './EndpointsUsingKeyDrawer';
+export { BindingsUsingKeyDrawer } from './BindingsUsingKeyDrawer';

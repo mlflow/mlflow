@@ -243,6 +243,10 @@
     "defaultMessage": "Updated",
     "description": "Secret last updated label"
   },
+  "02+DX/": {
+    "defaultMessage": "Provider cannot be changed.",
+    "description": "Tooltip explaining why provider field is disabled"
+  },
   "033qfw": {
     "defaultMessage": "Select a framework and follow the instructions to log traces with MLflow.",
     "description": "Helper text shown at the top of the log traces drawer"
@@ -550,6 +554,10 @@
   "2plDKs": {
     "defaultMessage": "Input",
     "description": "Evaluation review > evaluations list > input sort option label prefix"
+  },
+  "2tQXw0": {
+    "defaultMessage": "Key name cannot be changed.",
+    "description": "Tooltip explaining why key name field is disabled"
   },
   "2zy+D5": {
     "defaultMessage": "Add new tag",
@@ -2174,6 +2182,10 @@
     "defaultMessage": "Y-axis:",
     "description": "Label text for Y-axis in box plot comparison in MLflow"
   },
+  "Hn1aOC": {
+    "defaultMessage": "Endpoints using key: {name}",
+    "description": "Gateway > Endpoints using key drawer > Subtitle showing key name"
+  },
   "HnGOwk": {
     "defaultMessage": "Registered models",
     "description": "Title for the registered models section on the run details page"
@@ -2445,6 +2457,10 @@
   "KMVqUP": {
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the registered prompts table"
+  },
+  "KObL+y": {
+    "defaultMessage": "Endpoints ({count})",
+    "description": "Gateway > Endpoints using key drawer > Title"
   },
   "KRzwkL": {
     "defaultMessage": "Type {itemName} to confirm deletion:",
@@ -2762,6 +2778,10 @@
     "defaultMessage": "Machine learning",
     "description": "Label for custom experiments automatically identified as being focused on machine learning"
   },
+  "NV7Fz+": {
+    "defaultMessage": "Created {date}",
+    "description": "Gateway > Endpoints using key drawer > Endpoint created date"
+  },
   "NVsatz": {
     "defaultMessage": "Provider{count}",
     "description": "Provider filter button label with count"
@@ -2934,6 +2954,10 @@
     "defaultMessage": "No assessments available",
     "description": "Message shown when there are no assessments to display in simplified view"
   },
+  "PMaJHI": {
+    "defaultMessage": "Used by ({count})",
+    "description": "Gateway > Bindings using key drawer > Title"
+  },
   "PNfcez": {
     "defaultMessage": "Add row",
     "description": "Experiment page > artifact compare view > add new row button"
@@ -2988,6 +3012,10 @@
   "Q0i5xG": {
     "defaultMessage": "Scatter chart",
     "description": "Experiment tracking > runs charts > add chart menu > scatter plot"
+  },
+  "Q5CR/y": {
+    "defaultMessage": "Create a new key if a different name is needed.",
+    "description": "Tooltip suggestion to create new key for different name"
   },
   "Q6oN2U": {
     "defaultMessage": "Chart view",
@@ -4179,6 +4207,10 @@
     "defaultMessage": "The chunk-relevance-precision LLM judge determines whether the chunks returned by the retriever are relevant to the input request. Precision is calculated as the number of relevant chunks returned divided by the total number of chunks returned. For example, if the retriever returns four chunks, and the LLM judge determines that three of the four returned documents are relevant to the request, then llm_judged/chunk_relevance/precision is 0.75.",
     "description": "Evaluation results > known type of evaluation result assessment > chunk relevance judge."
   },
+  "aW3CeS": {
+    "defaultMessage": "Bound {date}",
+    "description": "Gateway > Bindings using key drawer > Binding created date"
+  },
   "aXw0NO": {
     "defaultMessage": "Please select metric",
     "description": "Placeholder text where one can select metrics from the list of available metrics to render on the graph"
@@ -4395,6 +4427,10 @@
     "defaultMessage": "LLM template",
     "description": "Section header for LLM template selection"
   },
+  "cHV5jh": {
+    "defaultMessage": "Resources using this key via endpoints",
+    "description": "Gateway > Bindings using key drawer > Subtitle"
+  },
   "cHgTsd": {
     "defaultMessage": "Add filter",
     "description": "Button label for adding a filter in the GenAI Traces Table filter form"
@@ -4542,6 +4578,10 @@
   "ddAFCW": {
     "defaultMessage": "500: Internal server error",
     "description": "Generic 500 user-friendly error for the MLflow UI"
+  },
+  "deJfGV": {
+    "defaultMessage": "{count, plural, one {# model} other {# models}}",
+    "description": "Gateway > Endpoints using key drawer > Model count"
   },
   "dl0TeT": {
     "defaultMessage": "Save",
@@ -5070,6 +5110,10 @@
   "ho2T6B": {
     "defaultMessage": "Error",
     "description": "Model trace header > status label > error"
+  },
+  "hvImg5": {
+    "defaultMessage": "No resources are using this key",
+    "description": "Gateway > Bindings using key drawer > Empty state"
   },
   "hxMEqi": {
     "defaultMessage": "The model version will be copied to {selectedModel} as a new version.",
@@ -5951,6 +5995,10 @@
     "defaultMessage": "You're viewing artifacts assigned to a <link>logged model</link> associated with this run.",
     "description": "Alert message to inform the user that they are viewing artifacts assigned to a logged model associated with this run."
   },
+  "pcn2Ff": {
+    "defaultMessage": "via endpoint:",
+    "description": "Gateway > Bindings using key drawer > Via endpoint label"
+  },
   "peyOdH": {
     "defaultMessage": "Cancel",
     "description": "Text for canceling changes on rows in editable form table in MLflow"
@@ -6338,6 +6386,10 @@
   "t0Qkuc": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Metrics table > Value column header"
+  },
+  "tCC/M3": {
+    "defaultMessage": "Create a new key if a different provider is needed.",
+    "description": "Tooltip suggestion to create new key for different provider"
   },
   "tCkDwC": {
     "defaultMessage": "Create API Key",
@@ -6870,6 +6922,10 @@
   "yPdr5F": {
     "defaultMessage": "Does app's response directly address the user's input?",
     "description": "Hint for RelevanceToQuery template"
+  },
+  "yQkV88": {
+    "defaultMessage": "No endpoints are using this key",
+    "description": "Gateway > Endpoints using key drawer > Empty state"
   },
   "ySno61": {
     "defaultMessage": "The code snippets below demonstrate how to make predictions using the logged model.",
