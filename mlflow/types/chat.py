@@ -168,6 +168,10 @@ class BaseRequestPayload(BaseModel):
     stream_options: dict[str, Any] | None = None
     model: str | None = None
     response_format: ResponseFormat | None = None
+    top_p: float | None = Field(None, ge=0, le=1)
+    presence_penalty: float | None = Field(None, ge=-2, le=2)
+    frequency_penalty: float | None = Field(None, ge=-2, le=2)
+    top_k: int | None = Field(None, ge=1)
 
 
 # NB: For interface constructs that rely on other BaseModel implementations, in

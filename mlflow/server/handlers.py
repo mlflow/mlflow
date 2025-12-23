@@ -3946,13 +3946,11 @@ def _create_gateway_secret():
             "secret_name": [_assert_required, _assert_string],
             "secret_value": [_assert_secret_value],
             "provider": [_assert_string],
-            "auth_config_json": [_assert_string],
             "created_by": [_assert_string],
         },
     )
-    auth_config = None
-    if request_message.auth_config_json:
-        auth_config = json.loads(request_message.auth_config_json)
+    # Empty map means no auth_config was provided
+    auth_config = dict(request_message.auth_config) or None
 
     secret = _get_tracking_store().create_gateway_secret(
         secret_name=request_message.secret_name,
@@ -3988,13 +3986,11 @@ def _update_gateway_secret():
         UpdateGatewaySecret(),
         schema={
             "secret_id": [_assert_required, _assert_string],
-            "auth_config_json": [_assert_string],
             "updated_by": [_assert_string],
         },
     )
-    auth_config = None
-    if request_message.auth_config_json:
-        auth_config = json.loads(request_message.auth_config_json)
+    # Empty map means no auth_config was provided
+    auth_config = dict(request_message.auth_config) or None
 
     # Empty map means no update to secret_value
     secret_value = dict(request_message.secret_value) or None

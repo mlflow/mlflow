@@ -1,4 +1,4 @@
-import { Alert, Input, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Input, Modal, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { SecretFormFields } from '../secrets';
 import { useEditApiKeyModal } from '../../hooks/useEditApiKeyModal';
@@ -66,12 +66,31 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
           <Typography.Text bold>
             <FormattedMessage defaultMessage="Key Name" description="Key name label" />
           </Typography.Text>
-          <Input
-            componentId="mlflow.gateway.edit-api-key-modal.name"
-            value={secret.secret_name}
-            disabled
-            css={{ backgroundColor: theme.colors.actionDisabledBackground }}
-          />
+          <Tooltip
+            componentId="mlflow.gateway.edit-api-key-modal.name-tooltip"
+            content={
+              <>
+                {intl.formatMessage({
+                  defaultMessage: 'Key name cannot be changed.',
+                  description: 'Tooltip explaining why key name field is disabled',
+                })}
+                <br />
+                {intl.formatMessage({
+                  defaultMessage: 'Create a new key if a different name is needed.',
+                  description: 'Tooltip suggestion to create new key for different name',
+                })}
+              </>
+            }
+          >
+            <span css={{ display: 'block' }}>
+              <Input
+                componentId="mlflow.gateway.edit-api-key-modal.name"
+                value={secret.secret_name}
+                disabled
+                css={{ backgroundColor: theme.colors.actionDisabledBackground }}
+              />
+            </span>
+          </Tooltip>
         </div>
 
         {provider && (
@@ -79,12 +98,31 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
             <Typography.Text bold>
               <FormattedMessage defaultMessage="Provider" description="Provider label" />
             </Typography.Text>
-            <Input
-              componentId="mlflow.gateway.edit-api-key-modal.provider"
-              value={formatProviderName(provider)}
-              disabled
-              css={{ backgroundColor: theme.colors.actionDisabledBackground }}
-            />
+            <Tooltip
+              componentId="mlflow.gateway.edit-api-key-modal.provider-tooltip"
+              content={
+                <>
+                  {intl.formatMessage({
+                    defaultMessage: 'Provider cannot be changed.',
+                    description: 'Tooltip explaining why provider field is disabled',
+                  })}
+                  <br />
+                  {intl.formatMessage({
+                    defaultMessage: 'Create a new key if a different provider is needed.',
+                    description: 'Tooltip suggestion to create new key for different provider',
+                  })}
+                </>
+              }
+            >
+              <span css={{ display: 'block' }}>
+                <Input
+                  componentId="mlflow.gateway.edit-api-key-modal.provider"
+                  value={formatProviderName(provider)}
+                  disabled
+                  css={{ backgroundColor: theme.colors.actionDisabledBackground }}
+                />
+              </span>
+            </Tooltip>
           </div>
         )}
 

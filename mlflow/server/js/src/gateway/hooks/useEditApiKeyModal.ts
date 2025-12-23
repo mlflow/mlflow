@@ -111,12 +111,11 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
       if (effectiveAuthMode) {
         authConfig['auth_mode'] = effectiveAuthMode;
       }
-      const authConfigJson = Object.keys(authConfig).length > 0 ? JSON.stringify(authConfig) : undefined;
 
       await updateSecret({
         secret_id: secret.secret_id,
         secret_value: formData.secretFields,
-        auth_config_json: authConfigJson,
+        auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
       });
 
       handleClose();

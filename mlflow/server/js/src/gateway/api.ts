@@ -28,6 +28,7 @@ import type {
   CreateEndpointBindingRequest,
   CreateEndpointBindingResponse,
   ListEndpointBindingsResponse,
+  SecretsConfigResponse,
 } from './types';
 
 const defaultErrorHandler = async ({
@@ -270,18 +271,29 @@ export const GatewayApi = {
     });
   },
 
-  listEndpointBindings: (endpointId?: string, experimentId?: string) => {
+  listEndpointBindings: (endpointId?: string, resourceType?: string, resourceId?: string) => {
     const params = new URLSearchParams();
     if (endpointId) {
       params.append('endpoint_id', endpointId);
     }
-    if (experimentId) {
-      params.append('experiment_id', experimentId);
+    if (resourceType) {
+      params.append('resource_type', resourceType);
+    }
+    if (resourceId) {
+      params.append('resource_id', resourceId);
     }
     const relativeUrl = ['ajax-api/3.0/mlflow/gateway/endpoints/bindings/list', params.toString()].join('?');
     return fetchEndpoint({
       relativeUrl,
       error: defaultErrorHandler,
     }) as Promise<ListEndpointBindingsResponse>;
+  },
+
+  // Configuration
+  getSecretsConfig: () => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/secrets/config',
+      error: defaultErrorHandler,
+    }) as Promise<SecretsConfigResponse>;
   },
 };
