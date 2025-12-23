@@ -376,6 +376,8 @@ mlflow.entities.GatewayModelDefinition
 mlflow.entities.GatewayModelDefinition.from_proto
 mlflow.entities.GatewayModelDefinition.to_proto
 mlflow.entities.GatewayModelLinkageType
+mlflow.entities.GatewayModelLinkageType.from_proto
+mlflow.entities.GatewayModelLinkageType.to_proto
 mlflow.entities.GatewayResourceType
 mlflow.entities.GatewaySecretInfo
 mlflow.entities.GatewaySecretInfo.from_proto
