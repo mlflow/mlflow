@@ -19,6 +19,7 @@ import invariant from 'invariant';
 import { isTracesRelatedTab } from './utils';
 import { useLogTelemetryEvent } from '@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent';
 import { useMemo } from 'react';
+import { generateUUID } from '@mlflow/mlflow/src/common/utils/generateUUID';
 
 export const ExperimentPageSideNavSection = ({
   sectionKey,
@@ -33,7 +34,7 @@ export const ExperimentPageSideNavSection = ({
   const { experimentId } = useParams();
   const { search } = useLocation();
   const logTelemetryEvent = useLogTelemetryEvent();
-  const viewId = useMemo(() => crypto.randomUUID(), []);
+  const viewId = useMemo(() => generateUUID(), []);
 
   invariant(experimentId, 'Experiment ID must be defined');
 

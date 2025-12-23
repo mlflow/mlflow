@@ -28,6 +28,7 @@ import {
 import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
+import { generateUUID } from '../utils/generateUUID';
 
 const isHomeActive = (location: Location) => matchPath({ path: '/', end: true }, location.pathname);
 const isExperimentsActive = (location: Location) =>
@@ -42,7 +43,7 @@ export function MlflowSidebar() {
   const { theme } = useDesignSystemTheme();
   const invalidateExperimentList = useInvalidateExperimentList();
   const navigate = useNavigate();
-  const viewId = useMemo(() => crypto.randomUUID(), []);
+  const viewId = useMemo(() => generateUUID(), []);
 
   const [showCreateExperimentModal, setShowCreateExperimentModal] = useState(false);
   const [showCreateModelModal, setShowCreateModelModal] = useState(false);
