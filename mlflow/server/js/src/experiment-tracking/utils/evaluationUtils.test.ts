@@ -53,6 +53,28 @@ describe('evaluationUtils', () => {
         // Assert
         expect(result).toEqual(['trace']);
       });
+
+      it('should extract conversation variable', () => {
+        // Arrange
+        const instructions = 'Evaluate the {{conversation}}';
+
+        // Act
+        const result = extractTemplateVariables(instructions);
+
+        // Assert
+        expect(result).toEqual(['conversation']);
+      });
+
+      it('should extract conversation and expectations variables', () => {
+        // Arrange
+        const instructions = 'Check {{conversation}} against {{expectations}}';
+
+        // Act
+        const result = extractTemplateVariables(instructions);
+
+        // Assert
+        expect(result).toEqual(['conversation', 'expectations']);
+      });
     });
 
     describe('Edge Cases', () => {

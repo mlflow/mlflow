@@ -27,6 +27,18 @@ describe('validateInstructions', () => {
       expect(result).toBe(true);
     });
 
+    it('should return true for valid instructions with {{ conversation }} variable alone', () => {
+      const result = validateInstructions('Evaluate the {{ conversation }}');
+
+      expect(result).toBe(true);
+    });
+
+    it('should return true for valid instructions with {{ conversation }} and {{ expectations }}', () => {
+      const result = validateInstructions('Check {{ conversation }} against {{ expectations }}');
+
+      expect(result).toBe(true);
+    });
+
     it('should return true for valid instructions with multiple allowed variables', () => {
       const result = validateInstructions(
         'Compare {{ inputs }} with {{ outputs }} and check against {{ expectations }}',
@@ -89,7 +101,7 @@ describe('validateInstructions', () => {
       const result = validateInstructions('Use {{ inputs without closing or closing only }}');
 
       expect(result).toBe(
-        'Must contain at least one variable: {{ inputs }}, {{ outputs }}, {{ expectations }}, or {{ trace }}',
+        'Must contain at least one variable: {{ inputs }}, {{ outputs }}, {{ expectations }}, {{ trace }}, or {{ conversation }}',
       );
     });
   });
@@ -99,7 +111,7 @@ describe('validateInstructions', () => {
       const result = validateInstructions('Check {{ invalid }} variable');
 
       expect(result).toBe(
-        'Invalid variable: {{ invalid }}. Only {{ inputs }}, {{ outputs }}, {{ expectations }}, {{ trace }} are allowed',
+        'Invalid variable: {{ invalid }}. Only {{ inputs }}, {{ outputs }}, {{ expectations }}, {{ trace }}, {{ conversation }} are allowed',
       );
     });
 
@@ -114,7 +126,7 @@ describe('validateInstructions', () => {
       const result = validateInstructions('This instruction has no template variables');
 
       expect(result).toBe(
-        'Must contain at least one variable: {{ inputs }}, {{ outputs }}, {{ expectations }}, or {{ trace }}',
+        'Must contain at least one variable: {{ inputs }}, {{ outputs }}, {{ expectations }}, {{ trace }}, or {{ conversation }}',
       );
     });
 
@@ -134,7 +146,7 @@ describe('validateInstructions', () => {
       const result = validateInstructions('Check {{ input-value }} with dash');
 
       expect(result).toBe(
-        'Must contain at least one variable: {{ inputs }}, {{ outputs }}, {{ expectations }}, or {{ trace }}',
+        'Must contain at least one variable: {{ inputs }}, {{ outputs }}, {{ expectations }}, {{ trace }}, or {{ conversation }}',
       );
     });
 
@@ -142,6 +154,48 @@ describe('validateInstructions', () => {
       const result = validateInstructions('Check {{ input123 }} with numbers');
 
       expect(result).toContain('Invalid variable: {{ input123 }}');
+    });
+  });
+
+  describe('Conversation Variable Restrictions', () => {
+    it('should reject {{ conversation }} when used with {{ inputs }}', () => {
+      const result = validateInstructions('Check {{ conversation }} with {{ inputs }}');
+
+      expect(result).toBe(
+        '{{ conversation }} can only be used with {{ expectations }}. Remove {{ inputs }} to use {{ conversation }}',
+      );
+    });
+
+    it('should reject {{ conversation }} when used with {{ outputs }}', () => {
+      const result = validateInstructions('Check {{ conversation }} with {{ outputs }}');
+
+      expect(result).toBe(
+        '{{ conversation }} can only be used with {{ expectations }}. Remove {{ outputs }} to use {{ conversation }}',
+      );
+    });
+
+    it('should reject {{ conversation }} when used with {{ trace }}', () => {
+      const result = validateInstructions('Check {{ conversation }} with {{ trace }}');
+
+      expect(result).toBe(
+        '{{ conversation }} can only be used with {{ expectations }}. Remove {{ trace }} to use {{ conversation }}',
+      );
+    });
+
+    it('should reject {{ conversation }} when used with multiple disallowed variables', () => {
+      const result = validateInstructions('Check {{ conversation }} with {{ inputs }} and {{ outputs }}');
+
+      expect(result).toContain('{{ conversation }} can only be used with {{ expectations }}');
+      expect(result).toContain('inputs');
+      expect(result).toContain('outputs');
+    });
+
+    it('should reject {{ conversation }} when used with all other variables', () => {
+      const result = validateInstructions(
+        'Check {{ conversation }} with {{ inputs }}, {{ outputs }}, {{ expectations }}, and {{ trace }}',
+      );
+
+      expect(result).toContain('{{ conversation }} can only be used with {{ expectations }}');
     });
   });
 });

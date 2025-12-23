@@ -238,6 +238,18 @@ describe('SampleScorerOutputPanelContainer', () => {
       );
     });
 
+    it('should disable run scorer button when instructions contain {{ conversation }}', () => {
+      renderComponent({ defaultValues: { instructions: 'Check {{ conversation }} with {{ expectations }}' } });
+
+      expect(mockedRenderer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          isRunScorerDisabled: true,
+          runScorerDisabledTooltip: expect.stringContaining('session-level'),
+        }),
+        expect.anything(),
+      );
+    });
+
     it('should not call onScorerFinished when evaluation returns empty results', async () => {
       const onScorerFinished = jest.fn();
       mockEvaluateTraces.mockResolvedValue([]);

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import type { Control, UseFormSetValue, UseFormGetValues } from 'react-hook-form';
 import { Controller, useWatch } from 'react-hook-form';
 import {
@@ -22,7 +22,7 @@ import {
   Tooltip,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
+import { useTemplateOptions, validateInstructions, hasConversationVariable } from './llmScorerUtils';
 import type { SCORER_TYPE } from './constants';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
 import { LLM_TEMPLATE } from './types';
@@ -305,6 +305,21 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
                   />
                 </DropdownMenu.HintRow>
               </DropdownMenu.Item>
+              <DropdownMenu.Item
+                componentId={`${COMPONENT_ID_PREFIX}.add-variable-conversation`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  appendVariable('{{ conversation }}');
+                }}
+              >
+                <FormattedMessage defaultMessage="Conversation" description="Label for conversation variable option" />
+                <DropdownMenu.HintRow>
+                  <FormattedMessage
+                    defaultMessage="Full conversation history. Can only be used with expectations."
+                    description="Description for conversation variable"
+                  />
+                </DropdownMenu.HintRow>
+              </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
         </div>
@@ -500,12 +515,30 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
   const { theme } = useDesignSystemTheme();
   const selectedTemplate = useWatch({ control, name: 'llmTemplate' });
 
+  // Watch instructions to check for conversation variable
+  const instructions = useWatch({ control, name: 'instructions' });
+
+  // TODO(ML-60517): Support automatic evaluation with conversation variable
+  // Check if instructions contain the conversation variable (which disables auto-evaluation)
+  const isSessionLevelScorer = useMemo(() => {
+    if (selectedTemplate !== LLM_TEMPLATE.CUSTOM) return false;
+    return hasConversationVariable(instructions);
+  }, [selectedTemplate, instructions]);
+
   // Update name when template changes
   useEffect(() => {
     if (mode === SCORER_FORM_MODE.CREATE && selectedTemplate) {
       setValue('name', selectedTemplate);
     }
   }, [selectedTemplate, setValue, mode]);
+
+  // TODO(ML-60517): Support automatic evaluation with conversation variable
+  // Disable automatic evaluation (set sampleRate to 0) when conversation variable is used
+  useEffect(() => {
+    if (isSessionLevelScorer) {
+      setValue('sampleRate', 0);
+    }
+  }, [isSessionLevelScorer, setValue]);
 
   return (
     <div
@@ -521,7 +554,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
       <GuidelinesSection mode={mode} control={control} selectedTemplate={selectedTemplate} />
       <InstructionsSection mode={mode} control={control} setValue={setValue} getValues={getValues} />
       <ModelSection mode={mode} control={control} />
-      <EvaluateTracesSectionRenderer control={control} mode={mode} />
+      <EvaluateTracesSectionRenderer control={control} mode={mode} isSessionLevelScorer={isSessionLevelScorer} />
     </div>
   );
 };

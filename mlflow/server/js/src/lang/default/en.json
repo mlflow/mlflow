@@ -1818,6 +1818,10 @@
     "defaultMessage": "Define custom instructions for LLM evaluation",
     "description": "Hint for Custom template"
   },
+  "D5R9Tp": {
+    "defaultMessage": "Automatic evaluation is not supported for session-level scorers",
+    "description": "Tooltip message when auto-evaluation is disabled for session-level scorer"
+  },
   "D7SSDK": {
     "defaultMessage": "Automatically log traces for LiteLLM API calls by calling the {code} function. For example:",
     "description": "Description of how to log traces for the LiteLLM package using MLflow autologging. This message is followed by a code example."
@@ -2265,6 +2269,10 @@
   "Hk0RSH": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for Y-axis in box plot comparison in MLflow"
+  },
+  "HmAnGc": {
+    "defaultMessage": "Running the scorer on a sample of traces is not supported for session-level scorers",
+    "description": "Tooltip message when instructions contain conversation variable (session-level scorer)"
   },
   "Hn1aOC": {
     "defaultMessage": "Endpoints using key: {name}",
@@ -3009,6 +3017,10 @@
   "OimAJb": {
     "defaultMessage": "Scatter Plot",
     "description": "Tab pane title for scatterplots on the compare runs page"
+  },
+  "OilzZP": {
+    "defaultMessage": "Conversation",
+    "description": "Label for conversation variable option"
   },
   "Oj2ENw": {
     "defaultMessage": "No models registered yet. <link>Learn more about registering models</link>.",
@@ -6810,6 +6822,10 @@
   "vVSm7w": {
     "defaultMessage": "This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it.",
     "description": "A descriptive tooltip for the \"Models\" column header in the runs table on the MLflow experiment detail page"
+  },
+  "vaC40H": {
+    "defaultMessage": "Full conversation history. Can only be used with expectations.",
+    "description": "Description for conversation variable"
   },
   "vaJYHp": {
     "defaultMessage": "At least one form field has incorrect value. Please correct and try again.",
