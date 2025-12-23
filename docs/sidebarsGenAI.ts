@@ -19,8 +19,8 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
-      type: 'link',
-      href: '/genai/tracing/quickstart/',
+      type: 'doc',
+      id: 'tracing/quickstart/index',
       label: 'Start Tracing',
       className: 'sidebar-top-level-category',
     },
