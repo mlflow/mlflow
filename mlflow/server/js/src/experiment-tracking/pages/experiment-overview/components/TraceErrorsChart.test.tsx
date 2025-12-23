@@ -201,7 +201,7 @@ describe('TraceErrorsChart', () => {
 
       // Error rate: (5 + 10) / (100 + 200) = 15/300 = 5%
       await waitFor(() => {
-        expect(screen.getByText(/5\.0% error rate/)).toBeInTheDocument();
+        expect(screen.getByText(/Overall error rate: 5\.0%/)).toBeInTheDocument();
       });
     });
 
@@ -305,7 +305,7 @@ describe('TraceErrorsChart', () => {
 
       // Should render without crashing, error rate should be 0%
       await waitFor(() => {
-        expect(screen.getByText(/0\.0% error rate/)).toBeInTheDocument();
+        expect(screen.getByText(/Overall error rate: 0\.0%/)).toBeInTheDocument();
       });
     });
   });
