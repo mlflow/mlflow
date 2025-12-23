@@ -121,6 +121,9 @@ def get_resource_endpoint_configs(
                         model_name=sql_model_def.model_name,
                         secret_value=secret_value,
                         auth_config=auth_config,
+                        weight=sql_mapping.weight,
+                        linkage_type=sql_mapping.to_mlflow_entity().linkage_type,
+                        fallback_order=sql_mapping.fallback_order,
                     )
                 )
 
@@ -221,6 +224,9 @@ def get_endpoint_config(
                     auth_config=json.loads(sql_secret.auth_config)
                     if sql_secret.auth_config
                     else None,
+                    weight=sql_mapping.weight,
+                    linkage_type=sql_mapping.to_mlflow_entity().linkage_type,
+                    fallback_order=sql_mapping.fallback_order,
                 )
             )
 

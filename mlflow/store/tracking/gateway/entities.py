@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from mlflow.entities.gateway_endpoint import FallbackConfig, RoutingStrategy
+from mlflow.entities.gateway_endpoint import FallbackConfig, LinkageType, RoutingStrategy
 
 
 @dataclass
@@ -23,6 +23,9 @@ class GatewayModelConfig:
             {"api_key": "..."}.
         auth_config: Non-secret configuration including auth_mode (e.g.,
             {"auth_mode": "access_keys", "aws_region_name": "us-east-1"}).
+        weight: Routing weight for traffic distribution (default 1.0).
+        linkage_type: Type of linkage (PRIMARY or FALLBACK).
+        fallback_order: Order for fallback attempts (only for FALLBACK linkages, None for PRIMARY).
     """
 
     model_definition_id: str
@@ -30,6 +33,9 @@ class GatewayModelConfig:
     model_name: str
     secret_value: dict[str, Any]
     auth_config: dict[str, Any] | None = None
+    weight: float = 1.0
+    linkage_type: LinkageType = LinkageType.PRIMARY
+    fallback_order: int | None = None
 
 
 @dataclass

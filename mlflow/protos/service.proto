@@ -4203,6 +4203,10 @@ message GatewayEndpointModelMapping {
   optional int64 created_at = 6;
   // User ID who created the mapping
   optional string created_by = 7;
+  // Type of linkage (PRIMARY, FALLBACK)
+  optional LinkageType linkage_type = 8;
+  // Order for fallback attempts (only for FALLBACK linkages, NULL for PRIMARY)
+  optional int32 fallback_order = 9;
 }
 
 // Endpoint entity representing an LLM gateway endpoint
@@ -4407,8 +4411,8 @@ message DeleteGatewayModelDefinition {
 // Routing strategy for endpoints
 enum RoutingStrategy {
   ROUTING_STRATEGY_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
-  // Fallback routing strategy: tries models in order until success
-  FALLBACK = 1;
+  // Request-based traffic split: distributes traffic based on weights
+  REQUEST_BASED_TRAFFIC_SPLIT = 1;
 }
 
 // Fallback strategy for routing (future-proof for additional strategies)
@@ -4418,14 +4422,21 @@ enum FallbackStrategy {
   SEQUENTIAL = 1;
 }
 
+// Type of linkage between endpoint and model definition
+enum LinkageType {
+  LINKAGE_TYPE_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  // Primary linkage: used for routing traffic
+  PRIMARY = 1;
+  // Fallback linkage: used for failover
+  FALLBACK = 2;
+}
+
 // Configuration for fallback routing
 message FallbackConfig {
   // The fallback strategy.
   optional FallbackStrategy strategy = 1;
   // The max attempts for fallback routing (cannot exceed number of destinations).
   optional int32 max_attempts = 2;
-  // An ordered list of fallback destination configurations (model definition IDs).
-  repeated string model_definition_ids = 3;
 }
 
 message CreateGatewayEndpoint {

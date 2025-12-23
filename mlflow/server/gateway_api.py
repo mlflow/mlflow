@@ -12,6 +12,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from mlflow.entities.gateway_endpoint import LinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AmazonBedrockConfig,
@@ -33,6 +34,7 @@ from mlflow.gateway.providers.base import (
     BaseProvider,
     FallbackProvider,
     PassthroughAction,
+    TrafficRouteProvider,
 )
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import make_streaming_response, translate_http_exception
@@ -234,35 +236,104 @@ def _create_provider(
     """
     Create a provider instance based on endpoint routing strategy.
 
+    Fallback is independent of routing strategy - if fallback_config is present,
+    the provider is wrapped with FallbackProvider.
+
     Args:
         endpoint_config: The endpoint configuration with model details and routing config.
         endpoint_type: Endpoint type (chat or embeddings).
 
     Returns:
-        Provider instance (standard provider or routing provider like FallbackProvider).
+        Provider instance (standard provider, TrafficRouteProvider, or FallbackProvider).
 
     Raises:
         MlflowException: If endpoint configuration is invalid or has no models.
     """
-    if (
-        endpoint_config.routing_strategy == RoutingStrategy.FALLBACK
-        and endpoint_config.fallback_config
-    ):
-        return _create_fallback_provider(endpoint_config, endpoint_type)
+    # Get PRIMARY models
+    primary_models = [
+        model for model in endpoint_config.models if model.linkage_type == LinkageType.PRIMARY
+    ]
 
-    # Default: use the first model (standard single-provider logic)
-    if not endpoint_config.models:
+    if not primary_models:
         raise MlflowException(
-            f"Endpoint '{endpoint_config.endpoint_name}' has no models configured",
+            f"Endpoint '{endpoint_config.endpoint_name}' has no PRIMARY models configured",
             error_code=RESOURCE_DOES_NOT_EXIST,
         )
 
-    model_config = endpoint_config.models[0]
-    gateway_endpoint_config = _build_endpoint_config(
-        endpoint_config.endpoint_name, model_config, endpoint_type
-    )
-    provider_class = get_provider(model_config.provider)
-    return provider_class(gateway_endpoint_config)
+    # Create base provider based on routing strategy
+    if endpoint_config.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT:
+        # Traffic split: distribute requests based on weights
+        configs = []
+        weights = []
+        for model_config in primary_models:
+            gateway_endpoint_config = _build_endpoint_config(
+                endpoint_name=endpoint_config.endpoint_name,
+                model_config=model_config,
+                endpoint_type=endpoint_type,
+            )
+            configs.append(gateway_endpoint_config)
+            weights.append(int(model_config.weight * 100))  # Convert to percentage
+
+        base_provider = TrafficRouteProvider(
+            configs=configs,
+            traffic_splits=weights,
+            routing_strategy="TRAFFIC_SPLIT",
+        )
+    else:
+        # Default: use the first PRIMARY model
+        model_config = primary_models[0]
+        gateway_endpoint_config = _build_endpoint_config(
+            endpoint_config.endpoint_name, model_config, endpoint_type
+        )
+        provider_class = get_provider(model_config.provider)
+        base_provider = provider_class(gateway_endpoint_config)
+
+    # Wrap with FallbackProvider if fallback configuration exists
+    if endpoint_config.fallback_config:
+        fallback_models = [
+            model for model in endpoint_config.models if model.linkage_type == LinkageType.FALLBACK
+        ]
+
+        if not fallback_models:
+            _logger.warning(
+                f"Endpoint '{endpoint_config.endpoint_name}' has fallback_config "
+                "but no FALLBACK models configured"
+            )
+            return base_provider
+
+        # Sort fallback models by fallback_order
+        fallback_models.sort(
+            key=lambda m: m.fallback_order if m.fallback_order is not None else float("inf")
+        )
+
+        fallback_configs = [
+            _build_endpoint_config(
+                endpoint_name=endpoint_config.endpoint_name,
+                model_config=model_config,
+                endpoint_type=endpoint_type,
+            )
+            for model_config in fallback_models
+        ]
+
+        max_attempts = endpoint_config.fallback_config.max_attempts or len(fallback_models)
+
+        # FallbackProvider expects all providers (primary + fallback)
+        # We need to create a combined provider that tries primary first, then fallbacks
+        all_configs = [
+            _build_endpoint_config(
+                endpoint_name=endpoint_config.endpoint_name,
+                model_config=primary_models[0],
+                endpoint_type=endpoint_type,
+            )
+        ] + fallback_configs
+
+        return FallbackProvider(
+            configs=all_configs,
+            max_attempts=max_attempts + 1,  # +1 to include primary
+            strategy=endpoint_config.fallback_config.strategy,
+        )
+
+    return base_provider
 
 
 def _create_provider_from_endpoint_name(

@@ -520,16 +520,15 @@ class SqlAlchemyGatewayStoreMixin:
             model_definition_ids: List of model definition IDs to attach to the endpoint.
                                   At least one model definition is required.
             created_by: Username of the creator.
-            routing_strategy: Routing strategy for the endpoint (e.g., "FALLBACK").
-            fallback_config: Fallback configuration (required if routing_strategy is "FALLBACK").
+            routing_strategy: Routing strategy for the endpoint.
+            fallback_config: Fallback configuration (optional, independent of routing strategy).
 
         Returns:
             Endpoint entity with model_mappings populated.
 
         Raises:
             MlflowException: If model_definition_ids list is empty (INVALID_PARAMETER_VALUE),
-                or if any referenced model definition does not exist (RESOURCE_DOES_NOT_EXIST),
-                or if routing_strategy is FALLBACK but fallback_config is missing.
+                or if any referenced model definition does not exist (RESOURCE_DOES_NOT_EXIST).
         """
         if not model_definition_ids:
             raise MlflowException(
@@ -537,20 +536,19 @@ class SqlAlchemyGatewayStoreMixin:
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        if routing_strategy == RoutingStrategy.FALLBACK and not fallback_config:
-            raise MlflowException(
-                "fallback_config is required when routing_strategy is FALLBACK",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
         with self.ManagedSessionMaker() as session:
+            # Validate all model definitions exist (both primary and fallback)
+            all_model_def_ids = set(model_definition_ids)
+            if fallback_config and fallback_config.model_definition_ids:
+                all_model_def_ids.update(fallback_config.model_definition_ids)
+
             existing_model_defs = (
                 session.query(SqlGatewayModelDefinition.model_definition_id)
-                .filter(SqlGatewayModelDefinition.model_definition_id.in_(model_definition_ids))
+                .filter(SqlGatewayModelDefinition.model_definition_id.in_(all_model_def_ids))
                 .all()
             )
             existing_ids = {m.model_definition_id for m in existing_model_defs}
-            if missing := set(model_definition_ids) - existing_ids:
+            if missing := all_model_def_ids - existing_ids:
                 raise MlflowException(
                     f"Model definitions not found: {', '.join(missing)}",
                     error_code=RESOURCE_DOES_NOT_EXIST,
@@ -573,6 +571,7 @@ class SqlAlchemyGatewayStoreMixin:
             )
             session.add(sql_endpoint)
 
+            # Create PRIMARY linkages
             for model_def_id in model_definition_ids:
                 mapping_id = f"m-{uuid.uuid4().hex}"
                 sql_mapping = SqlGatewayEndpointModelMapping(
@@ -580,10 +579,27 @@ class SqlAlchemyGatewayStoreMixin:
                     endpoint_id=endpoint_id,
                     model_definition_id=model_def_id,
                     weight=1,
+                    linkage_type="PRIMARY",
                     created_at=current_time,
                     created_by=created_by,
                 )
                 session.add(sql_mapping)
+
+            # Create FALLBACK linkages if fallback_config.model_definition_ids provided
+            if fallback_config and fallback_config.model_definition_ids:
+                for fallback_order, model_def_id in enumerate(fallback_config.model_definition_ids):
+                    mapping_id = f"m-{uuid.uuid4().hex}"
+                    sql_mapping = SqlGatewayEndpointModelMapping(
+                        mapping_id=mapping_id,
+                        endpoint_id=endpoint_id,
+                        model_definition_id=model_def_id,
+                        weight=1,
+                        linkage_type="FALLBACK",
+                        fallback_order=fallback_order,
+                        created_at=current_time,
+                        created_by=created_by,
+                    )
+                    session.add(sql_mapping)
 
             session.flush()
             session.refresh(sql_endpoint)
@@ -710,6 +726,7 @@ class SqlAlchemyGatewayStoreMixin:
         endpoint_id: str,
         model_definition_id: str,
         weight: float = 1.0,
+        linkage_type: str = "PRIMARY",
         created_by: str | None = None,
     ) -> GatewayEndpointModelMapping:
         """
@@ -719,6 +736,7 @@ class SqlAlchemyGatewayStoreMixin:
             endpoint_id: ID of the endpoint to attach the model to.
             model_definition_id: ID of the model definition to attach.
             weight: Routing weight for traffic distribution (default 1.0).
+            linkage_type: Type of linkage - "PRIMARY" or "FALLBACK" (default "PRIMARY").
             created_by: Username of the creator.
 
         Returns:
@@ -727,7 +745,7 @@ class SqlAlchemyGatewayStoreMixin:
         Raises:
             MlflowException: If the endpoint or model definition is not found
                 (RESOURCE_DOES_NOT_EXIST), or if the model definition is already
-                attached to this endpoint (RESOURCE_ALREADY_EXISTS).
+                attached to this endpoint with the same linkage_type (RESOURCE_ALREADY_EXISTS).
         """
         with self.ManagedSessionMaker() as session:
             sql_endpoint = self._get_entity_or_raise(
@@ -748,6 +766,7 @@ class SqlAlchemyGatewayStoreMixin:
                 endpoint_id=endpoint_id,
                 model_definition_id=model_definition_id,
                 weight=weight,
+                linkage_type=linkage_type,
                 created_at=current_time,
                 created_by=created_by,
             )
@@ -775,6 +794,7 @@ class SqlAlchemyGatewayStoreMixin:
         self,
         endpoint_id: str,
         model_definition_id: str,
+        linkage_type: str | None = None,
     ) -> None:
         """
         Detach a model definition from an endpoint.
@@ -784,23 +804,26 @@ class SqlAlchemyGatewayStoreMixin:
         Args:
             endpoint_id: ID of the endpoint.
             model_definition_id: ID of the model definition to detach.
+            linkage_type: Optional linkage type filter. If not provided, detaches all linkages
+                         for this endpoint-model pair.
 
         Raises:
             MlflowException: If the mapping is not found (RESOURCE_DOES_NOT_EXIST).
         """
         with self.ManagedSessionMaker() as session:
-            sql_mapping = (
-                session.query(SqlGatewayEndpointModelMapping)
-                .filter(
-                    SqlGatewayEndpointModelMapping.endpoint_id == endpoint_id,
-                    SqlGatewayEndpointModelMapping.model_definition_id == model_definition_id,
-                )
-                .first()
+            query = session.query(SqlGatewayEndpointModelMapping).filter(
+                SqlGatewayEndpointModelMapping.endpoint_id == endpoint_id,
+                SqlGatewayEndpointModelMapping.model_definition_id == model_definition_id,
             )
+            if linkage_type:
+                query = query.filter(SqlGatewayEndpointModelMapping.linkage_type == linkage_type)
+
+            sql_mapping = query.first()
             if not sql_mapping:
+                linkage_str = f" with linkage type '{linkage_type}'" if linkage_type else ""
                 raise MlflowException(
                     f"Model definition '{model_definition_id}' is not attached to "
-                    f"endpoint '{endpoint_id}'",
+                    f"endpoint '{endpoint_id}'{linkage_str}",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 

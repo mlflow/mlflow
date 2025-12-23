@@ -30,6 +30,7 @@ from mlflow.entities.gateway_endpoint import (
     GatewayEndpointTag,
     GatewayModelDefinition,
     GatewayResourceType,
+    LinkageType,
     RoutingStrategy,
 )
 from mlflow.entities.gateway_secrets import GatewaySecretInfo
@@ -142,6 +143,7 @@ __all__ = [
     "GatewayModelDefinition",
     "GatewayResourceType",
     "GatewaySecretInfo",
+    "LinkageType",
     "RoutingStrategy",
     "Webhook",
     "WebhookEvent",

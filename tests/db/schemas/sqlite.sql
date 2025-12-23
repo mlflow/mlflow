@@ -360,6 +360,8 @@ CREATE TABLE endpoint_model_mappings (
 	weight FLOAT NOT NULL,
 	created_by VARCHAR(255),
 	created_at BIGINT NOT NULL,
+	linkage_type VARCHAR(64) DEFAULT 'PRIMARY' NOT NULL,
+	fallback_order INTEGER,
 	CONSTRAINT endpoint_model_mappings_pk PRIMARY KEY (mapping_id),
 	CONSTRAINT fk_endpoint_model_mappings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_endpoint_model_mappings_model_definition_id FOREIGN KEY(model_definition_id) REFERENCES model_definitions (model_definition_id)

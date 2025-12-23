@@ -2385,6 +2385,16 @@ class SqlGatewayEndpointModelMapping(Base):
     Routing weight: `Float`. Used for traffic distribution when endpoint has multiple models.
     Default is 1.0.
     """
+    linkage_type = Column(String(64), default="PRIMARY", nullable=False)
+    """
+    Linkage type: `String` (limit 64 characters). Specifies whether this is a PRIMARY or
+    FALLBACK linkage. Default is PRIMARY.
+    """
+    fallback_order = Column(Integer, nullable=True)
+    """
+    Fallback order: `Integer`. Specifies the order for fallback attempts.
+    NULL for PRIMARY linkages. Lower values are tried first.
+    """
     created_by = Column(String(255), nullable=True)
     """
     Creator user ID: `String` (limit 255 characters).
@@ -2410,9 +2420,10 @@ class SqlGatewayEndpointModelMapping(Base):
         Index("index_endpoint_model_mappings_endpoint_id", "endpoint_id"),
         Index("index_endpoint_model_mappings_model_definition_id", "model_definition_id"),
         Index(
-            "unique_endpoint_model_mapping",
+            "unique_endpoint_model_linkage_mapping",
             "endpoint_id",
             "model_definition_id",
+            "linkage_type",
             unique=True,
         ),
     )
@@ -2424,6 +2435,8 @@ class SqlGatewayEndpointModelMapping(Base):
         )
 
     def to_mlflow_entity(self):
+        from mlflow.entities.gateway_endpoint import LinkageType
+
         model_def = None
         if self.model_definition:
             model_def = self.model_definition.to_mlflow_entity()
@@ -2433,6 +2446,8 @@ class SqlGatewayEndpointModelMapping(Base):
             model_definition_id=self.model_definition_id,
             model_definition=model_def,
             weight=self.weight,
+            linkage_type=LinkageType(self.linkage_type),
+            fallback_order=self.fallback_order,
             created_at=self.created_at,
             created_by=self.created_by,
         )

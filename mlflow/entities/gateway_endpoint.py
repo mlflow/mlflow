@@ -28,7 +28,7 @@ class GatewayResourceType(str, Enum):
 class RoutingStrategy(str, Enum):
     """Routing strategy for gateway endpoints."""
 
-    FALLBACK = "FALLBACK"
+    REQUEST_BASED_TRAFFIC_SPLIT = "REQUEST_BASED_TRAFFIC_SPLIT"
 
     @classmethod
     def from_proto(cls, proto: ProtoRoutingStrategy) -> "RoutingStrategy":
@@ -57,31 +57,40 @@ class FallbackStrategy(str, Enum):
         return ProtoFallbackStrategy.Value(self.value)
 
 
+class LinkageType(str, Enum):
+    """Type of linkage between endpoint and model definition."""
+
+    PRIMARY = "PRIMARY"
+    FALLBACK = "FALLBACK"
+
+
 @dataclass
 class FallbackConfig(_MlflowObject):
     """
     Configuration for fallback routing strategy.
 
     Defines how requests should be routed across multiple models when using
-    fallback routing. Models are tried in the order specified until one succeeds
-    or max_attempts is reached.
+    fallback routing. Fallback models are defined via GatewayEndpointModelMapping
+    with linkage_type=FALLBACK and ordered by fallback_order.
 
     Args:
         strategy: The fallback strategy to use (e.g., FallbackStrategy.SEQUENTIAL).
-        max_attempts: Maximum number of models to try.
-        model_definition_ids: Ordered list of model definition IDs to try in sequence.
+        max_attempts: Maximum number of fallback models to try (None = try all).
+        model_definition_ids: Ordered list of model definition IDs for fallback.
+                              Order determines fallback sequence (stored in DB as fallback_order).
     """
 
     strategy: FallbackStrategy | None = None
     max_attempts: int | None = None
-    model_definition_ids: list[str] = field(default_factory=list)
+    model_definition_ids: list[str] | None = None
 
     def to_proto(self) -> ProtoFallbackConfig:
         proto = ProtoFallbackConfig()
         proto.strategy = self.strategy.to_proto() if self.strategy else None
         if self.max_attempts is not None:
             proto.max_attempts = self.max_attempts
-        proto.model_definition_ids.extend(self.model_definition_ids)
+        if self.model_definition_ids is not None:
+            proto.model_definition_ids.extend(self.model_definition_ids)
         return proto
 
     @classmethod
@@ -92,7 +101,9 @@ class FallbackConfig(_MlflowObject):
         return cls(
             strategy=strategy,
             max_attempts=proto.max_attempts,
-            model_definition_ids=list(proto.model_definition_ids),
+            model_definition_ids=list(proto.model_definition_ids)
+            if proto.model_definition_ids
+            else None,
         )
 
 
@@ -176,6 +187,8 @@ class GatewayEndpointModelMapping(_MlflowObject):
         model_definition_id: ID of the model definition.
         model_definition: The full model definition (populated via JOIN).
         weight: Routing weight for traffic distribution (default 1).
+        linkage_type: Type of linkage (PRIMARY or FALLBACK).
+        fallback_order: Order for fallback attempts (only for FALLBACK linkages, NULL for PRIMARY).
         created_at: Timestamp (milliseconds) when the mapping was created.
         created_by: User ID who created the mapping.
     """
@@ -185,6 +198,8 @@ class GatewayEndpointModelMapping(_MlflowObject):
     model_definition_id: str
     model_definition: GatewayModelDefinition | None
     weight: float
+    linkage_type: LinkageType
+    fallback_order: int | None
     created_at: int
     created_by: str | None = None
 
@@ -196,6 +211,9 @@ class GatewayEndpointModelMapping(_MlflowObject):
         if self.model_definition is not None:
             proto.model_definition.CopyFrom(self.model_definition.to_proto())
         proto.weight = self.weight
+        proto.linkage_type = self.linkage_type.value
+        if self.fallback_order is not None:
+            proto.fallback_order = self.fallback_order
         proto.created_at = self.created_at
         if self.created_by is not None:
             proto.created_by = self.created_by
@@ -212,6 +230,8 @@ class GatewayEndpointModelMapping(_MlflowObject):
             model_definition_id=proto.model_definition_id,
             model_definition=model_def,
             weight=proto.weight,
+            linkage_type=LinkageType(proto.linkage_type),
+            fallback_order=proto.fallback_order if proto.HasField("fallback_order") else None,
             created_at=proto.created_at,
             created_by=proto.created_by or None,
         )

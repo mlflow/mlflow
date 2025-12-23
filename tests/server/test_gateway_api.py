@@ -697,7 +697,7 @@ def test_create_provider_from_endpoint_name_no_models(store: SqlAlchemyStore):
             endpoint_id=endpoint.endpoint_id, endpoint_name="test-endpoint", models=[]
         ),
     ):
-        with pytest.raises(MlflowException, match="has no models configured"):
+        with pytest.raises(MlflowException, match="has no PRIMARY models configured"):
             _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
 
 
@@ -1442,7 +1442,7 @@ def test_create_fallback_provider_single_model(store: SqlAlchemyStore):
     endpoint = store.create_gateway_endpoint(
         name="test-fallback-single-endpoint",
         model_definition_ids=[model_def.model_definition_id],
-        routing_strategy=RoutingStrategy.FALLBACK,
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
         fallback_config=FallbackConfig(
             strategy=FallbackStrategy.SEQUENTIAL,
             max_attempts=1,
@@ -1453,9 +1453,9 @@ def test_create_fallback_provider_single_model(store: SqlAlchemyStore):
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, FallbackProvider)
-    assert len(provider._providers) == 1
+    assert len(provider._providers) == 2
     assert isinstance(provider._providers[0], OpenAIProvider)
-    assert provider._max_attempts == 1
+    assert provider._max_attempts == 2
 
 
 def test_create_fallback_provider_multiple_models(store: SqlAlchemyStore):
@@ -1486,7 +1486,7 @@ def test_create_fallback_provider_multiple_models(store: SqlAlchemyStore):
     endpoint = store.create_gateway_endpoint(
         name="test-fallback-multi-endpoint",
         model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
-        routing_strategy=RoutingStrategy.FALLBACK,
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
         fallback_config=FallbackConfig(
             strategy=FallbackStrategy.SEQUENTIAL,
             max_attempts=2,
@@ -1497,10 +1497,11 @@ def test_create_fallback_provider_multiple_models(store: SqlAlchemyStore):
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, FallbackProvider)
-    assert len(provider._providers) == 2
+    assert len(provider._providers) == 3
     assert isinstance(provider._providers[0], OpenAIProvider)
-    assert isinstance(provider._providers[1], AnthropicProvider)
-    assert provider._max_attempts == 2
+    assert isinstance(provider._providers[1], OpenAIProvider)
+    assert isinstance(provider._providers[2], AnthropicProvider)
+    assert provider._max_attempts == 3
 
 
 def test_create_fallback_provider_max_attempts_exceeds_providers(store: SqlAlchemyStore):
@@ -1518,7 +1519,7 @@ def test_create_fallback_provider_max_attempts_exceeds_providers(store: SqlAlche
     endpoint = store.create_gateway_endpoint(
         name="test-fallback-max-attempts-endpoint",
         model_definition_ids=[model_def.model_definition_id],
-        routing_strategy=RoutingStrategy.FALLBACK,
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
         fallback_config=FallbackConfig(
             strategy=FallbackStrategy.SEQUENTIAL,
             max_attempts=10,
@@ -1529,7 +1530,7 @@ def test_create_fallback_provider_max_attempts_exceeds_providers(store: SqlAlche
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, FallbackProvider)
-    assert provider._max_attempts == 1
+    assert provider._max_attempts == 2
 
 
 def test_create_fallback_provider_no_max_attempts(store: SqlAlchemyStore):
@@ -1560,7 +1561,7 @@ def test_create_fallback_provider_no_max_attempts(store: SqlAlchemyStore):
     endpoint = store.create_gateway_endpoint(
         name="test-fallback-no-max-endpoint",
         model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
-        routing_strategy=RoutingStrategy.FALLBACK,
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
         fallback_config=FallbackConfig(
             strategy=FallbackStrategy.SEQUENTIAL,
             model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
@@ -1570,8 +1571,8 @@ def test_create_fallback_provider_no_max_attempts(store: SqlAlchemyStore):
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, FallbackProvider)
-    assert len(provider._providers) == 2
-    assert provider._max_attempts == 2
+    assert len(provider._providers) == 3
+    assert provider._max_attempts == 3
 
 
 def test_create_provider_default_routing_single_model(store: SqlAlchemyStore):
