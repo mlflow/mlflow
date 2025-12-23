@@ -115,10 +115,6 @@
     "defaultMessage": "No traces found. Try clearing your active filters to see more traces.",
     "description": "Text displayed when no traces are found in the trace review page"
   },
-  "+pJvL0": {
-    "defaultMessage": "Over time",
-    "description": "Label above the latency chart"
-  },
   "+w9a+1": {
     "defaultMessage": "Open runs in this group in the new tab",
     "description": "Experiment page > grouped runs table > tooltip for a button that opens runs in a group in a new tab"
@@ -1309,6 +1305,10 @@
   "8wnmuq": {
     "defaultMessage": "2. Trace your code",
     "description": "Section title introducing the tracing quickstart example"
+  },
+  "8xKF+v": {
+    "defaultMessage": "Over time",
+    "description": "Label above time-series charts"
   },
   "8xji5J": {
     "defaultMessage": "X-axis:",
@@ -2957,10 +2957,6 @@
   "Nj6Ez5": {
     "defaultMessage": "Name",
     "description": "Text for name column in schema table in model version page"
-  },
-  "NkyJeV": {
-    "defaultMessage": "Over time",
-    "description": "Label above the errors chart"
   },
   "Nlm9bK": {
     "defaultMessage": "Add tags",
