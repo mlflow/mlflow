@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useDesignSystemTheme, Typography, ClockIcon } from '@databricks/design-system';
+import { useDesignSystemTheme, ClockIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
 import {
@@ -12,7 +12,7 @@ import {
   getPercentileKey,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
-import { ChartLoadingState, ChartErrorState, ChartEmptyState } from './ChartCardWrapper';
+import { ChartLoadingState, ChartErrorState, ChartEmptyState, ChartHeader, OverTimeLabel } from './ChartCardWrapper';
 import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
 
@@ -129,25 +129,13 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
         backgroundColor: theme.colors.backgroundPrimary,
       }}
     >
-      {/* Chart header */}
-      <div css={{ marginBottom: theme.spacing.lg }}>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-          <ClockIcon css={{ color: theme.colors.textSecondary }} />
-          <Typography.Text bold size="lg">
-            <FormattedMessage defaultMessage="Latency" description="Title for the latency chart" />
-          </Typography.Text>
-        </div>
-        {avgLatency !== undefined && (
-          <Typography.Title level={3} css={{ margin: 0, marginTop: theme.spacing.sm }}>
-            {formatLatency(avgLatency)}
-          </Typography.Title>
-        )}
-      </div>
+      <ChartHeader
+        icon={<ClockIcon />}
+        title={<FormattedMessage defaultMessage="Latency" description="Title for the latency chart" />}
+        value={avgLatency !== undefined ? formatLatency(avgLatency) : undefined}
+      />
 
-      {/* "Over time" label */}
-      <Typography.Text color="secondary" size="sm" css={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-        <FormattedMessage defaultMessage="Over time" description="Label above the latency chart" />
-      </Typography.Text>
+      <OverTimeLabel />
 
       {/* Chart */}
       <div css={{ height: 200, marginTop: theme.spacing.sm }}>
