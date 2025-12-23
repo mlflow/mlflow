@@ -4061,6 +4061,573 @@ public final class Assessments {
 
   }
 
+  public interface IssueOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.assessments.Issue)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * Boolean value indicating the trace is linked to the issue.
+     * </pre>
+     *
+     * <code>optional bool value = 1 [default = true];</code>
+     * @return Whether the value field is set.
+     */
+    boolean hasValue();
+    /**
+     * <pre>
+     * Boolean value indicating the trace is linked to the issue.
+     * </pre>
+     *
+     * <code>optional bool value = 1 [default = true];</code>
+     * @return The value.
+     */
+    boolean getValue();
+  }
+  /**
+   * <pre>
+   * An issue identified from trace analysis that links to an Issue entity.
+   * The issue_id is stored as the assessment name, and issue_name is stored in metadata.
+   * </pre>
+   *
+   * Protobuf type {@code mlflow.assessments.Issue}
+   */
+  public static final class Issue extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.assessments.Issue)
+      IssueOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use Issue.newBuilder() to construct.
+    private Issue(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private Issue() {
+      value_ = true;
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new Issue();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private Issue(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 8: {
+              bitField0_ |= 0x00000001;
+              value_ = input.readBool();
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.Assessments.internal_static_mlflow_assessments_Issue_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.Assessments.internal_static_mlflow_assessments_Issue_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.Assessments.Issue.class, org.mlflow.api.proto.Assessments.Issue.Builder.class);
+    }
+
+    private int bitField0_;
+    public static final int VALUE_FIELD_NUMBER = 1;
+    private boolean value_;
+    /**
+     * <pre>
+     * Boolean value indicating the trace is linked to the issue.
+     * </pre>
+     *
+     * <code>optional bool value = 1 [default = true];</code>
+     * @return Whether the value field is set.
+     */
+    @java.lang.Override
+    public boolean hasValue() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <pre>
+     * Boolean value indicating the trace is linked to the issue.
+     * </pre>
+     *
+     * <code>optional bool value = 1 [default = true];</code>
+     * @return The value.
+     */
+    @java.lang.Override
+    public boolean getValue() {
+      return value_;
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        output.writeBool(1, value_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeBoolSize(1, value_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.Assessments.Issue)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.Assessments.Issue other = (org.mlflow.api.proto.Assessments.Issue) obj;
+
+      if (hasValue() != other.hasValue()) return false;
+      if (hasValue()) {
+        if (getValue()
+            != other.getValue()) return false;
+      }
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasValue()) {
+        hash = (37 * hash) + VALUE_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+            getValue());
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.Assessments.Issue parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Assessments.Issue parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Assessments.Issue parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Assessments.Issue parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Assessments.Issue parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Assessments.Issue parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Assessments.Issue parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Assessments.Issue parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Assessments.Issue parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Assessments.Issue parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Assessments.Issue parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Assessments.Issue parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.Assessments.Issue prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * <pre>
+     * An issue identified from trace analysis that links to an Issue entity.
+     * The issue_id is stored as the assessment name, and issue_name is stored in metadata.
+     * </pre>
+     *
+     * Protobuf type {@code mlflow.assessments.Issue}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.assessments.Issue)
+        org.mlflow.api.proto.Assessments.IssueOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Assessments.internal_static_mlflow_assessments_Issue_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Assessments.internal_static_mlflow_assessments_Issue_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Assessments.Issue.class, org.mlflow.api.proto.Assessments.Issue.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.Assessments.Issue.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        value_ = true;
+        bitField0_ = (bitField0_ & ~0x00000001);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.Assessments.internal_static_mlflow_assessments_Issue_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Assessments.Issue getDefaultInstanceForType() {
+        return org.mlflow.api.proto.Assessments.Issue.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Assessments.Issue build() {
+        org.mlflow.api.proto.Assessments.Issue result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Assessments.Issue buildPartial() {
+        org.mlflow.api.proto.Assessments.Issue result = new org.mlflow.api.proto.Assessments.Issue(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.value_ = value_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.Assessments.Issue) {
+          return mergeFrom((org.mlflow.api.proto.Assessments.Issue)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.Assessments.Issue other) {
+        if (other == org.mlflow.api.proto.Assessments.Issue.getDefaultInstance()) return this;
+        if (other.hasValue()) {
+          setValue(other.getValue());
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.Assessments.Issue parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.Assessments.Issue) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private boolean value_ = true;
+      /**
+       * <pre>
+       * Boolean value indicating the trace is linked to the issue.
+       * </pre>
+       *
+       * <code>optional bool value = 1 [default = true];</code>
+       * @return Whether the value field is set.
+       */
+      @java.lang.Override
+      public boolean hasValue() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * Boolean value indicating the trace is linked to the issue.
+       * </pre>
+       *
+       * <code>optional bool value = 1 [default = true];</code>
+       * @return The value.
+       */
+      @java.lang.Override
+      public boolean getValue() {
+        return value_;
+      }
+      /**
+       * <pre>
+       * Boolean value indicating the trace is linked to the issue.
+       * </pre>
+       *
+       * <code>optional bool value = 1 [default = true];</code>
+       * @param value The value to set.
+       * @return This builder for chaining.
+       */
+      public Builder setValue(boolean value) {
+        bitField0_ |= 0x00000001;
+        value_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Boolean value indicating the trace is linked to the issue.
+       * </pre>
+       *
+       * <code>optional bool value = 1 [default = true];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearValue() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        value_ = true;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.assessments.Issue)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.assessments.Issue)
+    private static final org.mlflow.api.proto.Assessments.Issue DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.Assessments.Issue();
+    }
+
+    public static org.mlflow.api.proto.Assessments.Issue getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<Issue>
+        PARSER = new com.google.protobuf.AbstractParser<Issue>() {
+      @java.lang.Override
+      public Issue parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new Issue(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<Issue> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<Issue> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.Assessments.Issue getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
   public interface FeedbackOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.assessments.Feedback)
       com.google.protobuf.MessageOrBuilder {
@@ -5397,6 +5964,33 @@ public final class Assessments {
 
     /**
      * <pre>
+     * A link to an identified issue from trace analysis.
+     * </pre>
+     *
+     * <code>.mlflow.assessments.Issue issue = 16;</code>
+     * @return Whether the issue field is set.
+     */
+    boolean hasIssue();
+    /**
+     * <pre>
+     * A link to an identified issue from trace analysis.
+     * </pre>
+     *
+     * <code>.mlflow.assessments.Issue issue = 16;</code>
+     * @return The issue.
+     */
+    org.mlflow.api.proto.Assessments.Issue getIssue();
+    /**
+     * <pre>
+     * A link to an identified issue from trace analysis.
+     * </pre>
+     *
+     * <code>.mlflow.assessments.Issue issue = 16;</code>
+     */
+    org.mlflow.api.proto.Assessments.IssueOrBuilder getIssueOrBuilder();
+
+    /**
+     * <pre>
      * Justification for the assessment.
      * </pre>
      *
@@ -5719,13 +6313,13 @@ public final class Assessments {
             }
             case 90: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000200;
+              bitField0_ |= 0x00000400;
               rationale_ = bs;
               break;
             }
             case 98: {
               org.mlflow.api.proto.Assessments.AssessmentError.Builder subBuilder = null;
-              if (((bitField0_ & 0x00000400) != 0)) {
+              if (((bitField0_ & 0x00000800) != 0)) {
                 subBuilder = error_.toBuilder();
               }
               error_ = input.readMessage(org.mlflow.api.proto.Assessments.AssessmentError.PARSER, extensionRegistry);
@@ -5733,14 +6327,14 @@ public final class Assessments {
                 subBuilder.mergeFrom(error_);
                 error_ = subBuilder.buildPartial();
               }
-              bitField0_ |= 0x00000400;
+              bitField0_ |= 0x00000800;
               break;
             }
             case 106: {
-              if (!((mutable_bitField0_ & 0x00000800) != 0)) {
+              if (!((mutable_bitField0_ & 0x00001000) != 0)) {
                 metadata_ = com.google.protobuf.MapField.newMapField(
                     MetadataDefaultEntryHolder.defaultEntry);
-                mutable_bitField0_ |= 0x00000800;
+                mutable_bitField0_ |= 0x00001000;
               }
               com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
               metadata__ = input.readMessage(
@@ -5751,13 +6345,27 @@ public final class Assessments {
             }
             case 114: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000800;
+              bitField0_ |= 0x00001000;
               overrides_ = bs;
               break;
             }
             case 120: {
-              bitField0_ |= 0x00001000;
+              bitField0_ |= 0x00002000;
               valid_ = input.readBool();
+              break;
+            }
+            case 130: {
+              org.mlflow.api.proto.Assessments.Issue.Builder subBuilder = null;
+              if (valueCase_ == 16) {
+                subBuilder = ((org.mlflow.api.proto.Assessments.Issue) value_).toBuilder();
+              }
+              value_ =
+                  input.readMessage(org.mlflow.api.proto.Assessments.Issue.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom((org.mlflow.api.proto.Assessments.Issue) value_);
+                value_ = subBuilder.buildPartial();
+              }
+              valueCase_ = 16;
               break;
             }
             default: {
@@ -5812,6 +6420,7 @@ public final class Assessments {
             com.google.protobuf.AbstractMessage.InternalOneOfEnum {
       FEEDBACK(9),
       EXPECTATION(10),
+      ISSUE(16),
       VALUE_NOT_SET(0);
       private final int value;
       private ValueCase(int value) {
@@ -5831,6 +6440,7 @@ public final class Assessments {
         switch (value) {
           case 9: return FEEDBACK;
           case 10: return EXPECTATION;
+          case 16: return ISSUE;
           case 0: return VALUE_NOT_SET;
           default: return null;
         }
@@ -6292,6 +6902,49 @@ public final class Assessments {
       return org.mlflow.api.proto.Assessments.Expectation.getDefaultInstance();
     }
 
+    public static final int ISSUE_FIELD_NUMBER = 16;
+    /**
+     * <pre>
+     * A link to an identified issue from trace analysis.
+     * </pre>
+     *
+     * <code>.mlflow.assessments.Issue issue = 16;</code>
+     * @return Whether the issue field is set.
+     */
+    @java.lang.Override
+    public boolean hasIssue() {
+      return valueCase_ == 16;
+    }
+    /**
+     * <pre>
+     * A link to an identified issue from trace analysis.
+     * </pre>
+     *
+     * <code>.mlflow.assessments.Issue issue = 16;</code>
+     * @return The issue.
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Assessments.Issue getIssue() {
+      if (valueCase_ == 16) {
+         return (org.mlflow.api.proto.Assessments.Issue) value_;
+      }
+      return org.mlflow.api.proto.Assessments.Issue.getDefaultInstance();
+    }
+    /**
+     * <pre>
+     * A link to an identified issue from trace analysis.
+     * </pre>
+     *
+     * <code>.mlflow.assessments.Issue issue = 16;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Assessments.IssueOrBuilder getIssueOrBuilder() {
+      if (valueCase_ == 16) {
+         return (org.mlflow.api.proto.Assessments.Issue) value_;
+      }
+      return org.mlflow.api.proto.Assessments.Issue.getDefaultInstance();
+    }
+
     public static final int RATIONALE_FIELD_NUMBER = 11;
     private volatile java.lang.Object rationale_;
     /**
@@ -6304,7 +6957,7 @@ public final class Assessments {
      */
     @java.lang.Override
     public boolean hasRationale() {
-      return ((bitField0_ & 0x00000200) != 0);
+      return ((bitField0_ & 0x00000400) != 0);
     }
     /**
      * <pre>
@@ -6366,7 +7019,7 @@ public final class Assessments {
      */
     @java.lang.Override
     @java.lang.Deprecated public boolean hasError() {
-      return ((bitField0_ & 0x00000400) != 0);
+      return ((bitField0_ & 0x00000800) != 0);
     }
     /**
      * <pre>
@@ -6508,7 +7161,7 @@ public final class Assessments {
      */
     @java.lang.Override
     public boolean hasOverrides() {
-      return ((bitField0_ & 0x00000800) != 0);
+      return ((bitField0_ & 0x00001000) != 0);
     }
     /**
      * <pre>
@@ -6570,7 +7223,7 @@ public final class Assessments {
      */
     @java.lang.Override
     public boolean hasValid() {
-      return ((bitField0_ & 0x00001000) != 0);
+      return ((bitField0_ & 0x00002000) != 0);
     }
     /**
      * <pre>
@@ -6628,10 +7281,10 @@ public final class Assessments {
       if (valueCase_ == 10) {
         output.writeMessage(10, (org.mlflow.api.proto.Assessments.Expectation) value_);
       }
-      if (((bitField0_ & 0x00000200) != 0)) {
+      if (((bitField0_ & 0x00000400) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 11, rationale_);
       }
-      if (((bitField0_ & 0x00000400) != 0)) {
+      if (((bitField0_ & 0x00000800) != 0)) {
         output.writeMessage(12, getError());
       }
       com.google.protobuf.GeneratedMessageV3
@@ -6640,11 +7293,14 @@ public final class Assessments {
           internalGetMetadata(),
           MetadataDefaultEntryHolder.defaultEntry,
           13);
-      if (((bitField0_ & 0x00000800) != 0)) {
+      if (((bitField0_ & 0x00001000) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 14, overrides_);
       }
-      if (((bitField0_ & 0x00001000) != 0)) {
+      if (((bitField0_ & 0x00002000) != 0)) {
         output.writeBool(15, valid_);
+      }
+      if (valueCase_ == 16) {
+        output.writeMessage(16, (org.mlflow.api.proto.Assessments.Issue) value_);
       }
       unknownFields.writeTo(output);
     }
@@ -6687,10 +7343,10 @@ public final class Assessments {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(10, (org.mlflow.api.proto.Assessments.Expectation) value_);
       }
-      if (((bitField0_ & 0x00000200) != 0)) {
+      if (((bitField0_ & 0x00000400) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(11, rationale_);
       }
-      if (((bitField0_ & 0x00000400) != 0)) {
+      if (((bitField0_ & 0x00000800) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(12, getError());
       }
@@ -6704,12 +7360,16 @@ public final class Assessments {
         size += com.google.protobuf.CodedOutputStream
             .computeMessageSize(13, metadata__);
       }
-      if (((bitField0_ & 0x00000800) != 0)) {
+      if (((bitField0_ & 0x00001000) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(14, overrides_);
       }
-      if (((bitField0_ & 0x00001000) != 0)) {
+      if (((bitField0_ & 0x00002000) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeBoolSize(15, valid_);
+      }
+      if (valueCase_ == 16) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(16, (org.mlflow.api.proto.Assessments.Issue) value_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -6793,6 +7453,10 @@ public final class Assessments {
           if (!getExpectation()
               .equals(other.getExpectation())) return false;
           break;
+        case 16:
+          if (!getIssue()
+              .equals(other.getIssue())) return false;
+          break;
         case 0:
         default:
       }
@@ -6864,6 +7528,10 @@ public final class Assessments {
         case 10:
           hash = (37 * hash) + EXPECTATION_FIELD_NUMBER;
           hash = (53 * hash) + getExpectation().hashCode();
+          break;
+        case 16:
+          hash = (37 * hash) + ISSUE_FIELD_NUMBER;
+          hash = (53 * hash) + getIssue().hashCode();
           break;
         case 0:
         default:
@@ -7058,18 +7726,18 @@ public final class Assessments {
         }
         bitField0_ = (bitField0_ & ~0x00000040);
         rationale_ = "";
-        bitField0_ = (bitField0_ & ~0x00000200);
+        bitField0_ = (bitField0_ & ~0x00000400);
         if (errorBuilder_ == null) {
           error_ = null;
         } else {
           errorBuilder_.clear();
         }
-        bitField0_ = (bitField0_ & ~0x00000400);
+        bitField0_ = (bitField0_ & ~0x00000800);
         internalGetMutableMetadata().clear();
         overrides_ = "";
-        bitField0_ = (bitField0_ & ~0x00001000);
-        valid_ = true;
         bitField0_ = (bitField0_ & ~0x00002000);
+        valid_ = true;
+        bitField0_ = (bitField0_ & ~0x00004000);
         valueCase_ = 0;
         value_ = null;
         return this;
@@ -7154,26 +7822,33 @@ public final class Assessments {
             result.value_ = expectationBuilder_.build();
           }
         }
-        if (((from_bitField0_ & 0x00000200) != 0)) {
-          to_bitField0_ |= 0x00000200;
+        if (valueCase_ == 16) {
+          if (issueBuilder_ == null) {
+            result.value_ = value_;
+          } else {
+            result.value_ = issueBuilder_.build();
+          }
+        }
+        if (((from_bitField0_ & 0x00000400) != 0)) {
+          to_bitField0_ |= 0x00000400;
         }
         result.rationale_ = rationale_;
-        if (((from_bitField0_ & 0x00000400) != 0)) {
+        if (((from_bitField0_ & 0x00000800) != 0)) {
           if (errorBuilder_ == null) {
             result.error_ = error_;
           } else {
             result.error_ = errorBuilder_.build();
           }
-          to_bitField0_ |= 0x00000400;
+          to_bitField0_ |= 0x00000800;
         }
         result.metadata_ = internalGetMetadata();
         result.metadata_.makeImmutable();
-        if (((from_bitField0_ & 0x00001000) != 0)) {
-          to_bitField0_ |= 0x00000800;
-        }
-        result.overrides_ = overrides_;
         if (((from_bitField0_ & 0x00002000) != 0)) {
           to_bitField0_ |= 0x00001000;
+        }
+        result.overrides_ = overrides_;
+        if (((from_bitField0_ & 0x00004000) != 0)) {
+          to_bitField0_ |= 0x00002000;
         }
         result.valid_ = valid_;
         result.bitField0_ = to_bitField0_;
@@ -7256,7 +7931,7 @@ public final class Assessments {
           mergeLastUpdateTime(other.getLastUpdateTime());
         }
         if (other.hasRationale()) {
-          bitField0_ |= 0x00000200;
+          bitField0_ |= 0x00000400;
           rationale_ = other.rationale_;
           onChanged();
         }
@@ -7266,7 +7941,7 @@ public final class Assessments {
         internalGetMutableMetadata().mergeFrom(
             other.internalGetMetadata());
         if (other.hasOverrides()) {
-          bitField0_ |= 0x00001000;
+          bitField0_ |= 0x00002000;
           overrides_ = other.overrides_;
           onChanged();
         }
@@ -7280,6 +7955,10 @@ public final class Assessments {
           }
           case EXPECTATION: {
             mergeExpectation(other.getExpectation());
+            break;
+          }
+          case ISSUE: {
+            mergeIssue(other.getIssue());
             break;
           }
           case VALUE_NOT_SET: {
@@ -8597,6 +9276,183 @@ public final class Assessments {
         return expectationBuilder_;
       }
 
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Assessments.Issue, org.mlflow.api.proto.Assessments.Issue.Builder, org.mlflow.api.proto.Assessments.IssueOrBuilder> issueBuilder_;
+      /**
+       * <pre>
+       * A link to an identified issue from trace analysis.
+       * </pre>
+       *
+       * <code>.mlflow.assessments.Issue issue = 16;</code>
+       * @return Whether the issue field is set.
+       */
+      @java.lang.Override
+      public boolean hasIssue() {
+        return valueCase_ == 16;
+      }
+      /**
+       * <pre>
+       * A link to an identified issue from trace analysis.
+       * </pre>
+       *
+       * <code>.mlflow.assessments.Issue issue = 16;</code>
+       * @return The issue.
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.Assessments.Issue getIssue() {
+        if (issueBuilder_ == null) {
+          if (valueCase_ == 16) {
+            return (org.mlflow.api.proto.Assessments.Issue) value_;
+          }
+          return org.mlflow.api.proto.Assessments.Issue.getDefaultInstance();
+        } else {
+          if (valueCase_ == 16) {
+            return issueBuilder_.getMessage();
+          }
+          return org.mlflow.api.proto.Assessments.Issue.getDefaultInstance();
+        }
+      }
+      /**
+       * <pre>
+       * A link to an identified issue from trace analysis.
+       * </pre>
+       *
+       * <code>.mlflow.assessments.Issue issue = 16;</code>
+       */
+      public Builder setIssue(org.mlflow.api.proto.Assessments.Issue value) {
+        if (issueBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          value_ = value;
+          onChanged();
+        } else {
+          issueBuilder_.setMessage(value);
+        }
+        valueCase_ = 16;
+        return this;
+      }
+      /**
+       * <pre>
+       * A link to an identified issue from trace analysis.
+       * </pre>
+       *
+       * <code>.mlflow.assessments.Issue issue = 16;</code>
+       */
+      public Builder setIssue(
+          org.mlflow.api.proto.Assessments.Issue.Builder builderForValue) {
+        if (issueBuilder_ == null) {
+          value_ = builderForValue.build();
+          onChanged();
+        } else {
+          issueBuilder_.setMessage(builderForValue.build());
+        }
+        valueCase_ = 16;
+        return this;
+      }
+      /**
+       * <pre>
+       * A link to an identified issue from trace analysis.
+       * </pre>
+       *
+       * <code>.mlflow.assessments.Issue issue = 16;</code>
+       */
+      public Builder mergeIssue(org.mlflow.api.proto.Assessments.Issue value) {
+        if (issueBuilder_ == null) {
+          if (valueCase_ == 16 &&
+              value_ != org.mlflow.api.proto.Assessments.Issue.getDefaultInstance()) {
+            value_ = org.mlflow.api.proto.Assessments.Issue.newBuilder((org.mlflow.api.proto.Assessments.Issue) value_)
+                .mergeFrom(value).buildPartial();
+          } else {
+            value_ = value;
+          }
+          onChanged();
+        } else {
+          if (valueCase_ == 16) {
+            issueBuilder_.mergeFrom(value);
+          }
+          issueBuilder_.setMessage(value);
+        }
+        valueCase_ = 16;
+        return this;
+      }
+      /**
+       * <pre>
+       * A link to an identified issue from trace analysis.
+       * </pre>
+       *
+       * <code>.mlflow.assessments.Issue issue = 16;</code>
+       */
+      public Builder clearIssue() {
+        if (issueBuilder_ == null) {
+          if (valueCase_ == 16) {
+            valueCase_ = 0;
+            value_ = null;
+            onChanged();
+          }
+        } else {
+          if (valueCase_ == 16) {
+            valueCase_ = 0;
+            value_ = null;
+          }
+          issueBuilder_.clear();
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * A link to an identified issue from trace analysis.
+       * </pre>
+       *
+       * <code>.mlflow.assessments.Issue issue = 16;</code>
+       */
+      public org.mlflow.api.proto.Assessments.Issue.Builder getIssueBuilder() {
+        return getIssueFieldBuilder().getBuilder();
+      }
+      /**
+       * <pre>
+       * A link to an identified issue from trace analysis.
+       * </pre>
+       *
+       * <code>.mlflow.assessments.Issue issue = 16;</code>
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.Assessments.IssueOrBuilder getIssueOrBuilder() {
+        if ((valueCase_ == 16) && (issueBuilder_ != null)) {
+          return issueBuilder_.getMessageOrBuilder();
+        } else {
+          if (valueCase_ == 16) {
+            return (org.mlflow.api.proto.Assessments.Issue) value_;
+          }
+          return org.mlflow.api.proto.Assessments.Issue.getDefaultInstance();
+        }
+      }
+      /**
+       * <pre>
+       * A link to an identified issue from trace analysis.
+       * </pre>
+       *
+       * <code>.mlflow.assessments.Issue issue = 16;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Assessments.Issue, org.mlflow.api.proto.Assessments.Issue.Builder, org.mlflow.api.proto.Assessments.IssueOrBuilder> 
+          getIssueFieldBuilder() {
+        if (issueBuilder_ == null) {
+          if (!(valueCase_ == 16)) {
+            value_ = org.mlflow.api.proto.Assessments.Issue.getDefaultInstance();
+          }
+          issueBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              org.mlflow.api.proto.Assessments.Issue, org.mlflow.api.proto.Assessments.Issue.Builder, org.mlflow.api.proto.Assessments.IssueOrBuilder>(
+                  (org.mlflow.api.proto.Assessments.Issue) value_,
+                  getParentForChildren(),
+                  isClean());
+          value_ = null;
+        }
+        valueCase_ = 16;
+        onChanged();;
+        return issueBuilder_;
+      }
+
       private java.lang.Object rationale_ = "";
       /**
        * <pre>
@@ -8607,7 +9463,7 @@ public final class Assessments {
        * @return Whether the rationale field is set.
        */
       public boolean hasRationale() {
-        return ((bitField0_ & 0x00000200) != 0);
+        return ((bitField0_ & 0x00000400) != 0);
       }
       /**
        * <pre>
@@ -8666,7 +9522,7 @@ public final class Assessments {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000200;
+  bitField0_ |= 0x00000400;
         rationale_ = value;
         onChanged();
         return this;
@@ -8680,7 +9536,7 @@ public final class Assessments {
        * @return This builder for chaining.
        */
       public Builder clearRationale() {
-        bitField0_ = (bitField0_ & ~0x00000200);
+        bitField0_ = (bitField0_ & ~0x00000400);
         rationale_ = getDefaultInstance().getRationale();
         onChanged();
         return this;
@@ -8699,7 +9555,7 @@ public final class Assessments {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000200;
+  bitField0_ |= 0x00000400;
         rationale_ = value;
         onChanged();
         return this;
@@ -8719,7 +9575,7 @@ public final class Assessments {
        * @return Whether the error field is set.
        */
       @java.lang.Deprecated public boolean hasError() {
-        return ((bitField0_ & 0x00000400) != 0);
+        return ((bitField0_ & 0x00000800) != 0);
       }
       /**
        * <pre>
@@ -8756,7 +9612,7 @@ public final class Assessments {
         } else {
           errorBuilder_.setMessage(value);
         }
-        bitField0_ |= 0x00000400;
+        bitField0_ |= 0x00000800;
         return this;
       }
       /**
@@ -8775,7 +9631,7 @@ public final class Assessments {
         } else {
           errorBuilder_.setMessage(builderForValue.build());
         }
-        bitField0_ |= 0x00000400;
+        bitField0_ |= 0x00000800;
         return this;
       }
       /**
@@ -8788,7 +9644,7 @@ public final class Assessments {
        */
       @java.lang.Deprecated public Builder mergeError(org.mlflow.api.proto.Assessments.AssessmentError value) {
         if (errorBuilder_ == null) {
-          if (((bitField0_ & 0x00000400) != 0) &&
+          if (((bitField0_ & 0x00000800) != 0) &&
               error_ != null &&
               error_ != org.mlflow.api.proto.Assessments.AssessmentError.getDefaultInstance()) {
             error_ =
@@ -8800,7 +9656,7 @@ public final class Assessments {
         } else {
           errorBuilder_.mergeFrom(value);
         }
-        bitField0_ |= 0x00000400;
+        bitField0_ |= 0x00000800;
         return this;
       }
       /**
@@ -8818,7 +9674,7 @@ public final class Assessments {
         } else {
           errorBuilder_.clear();
         }
-        bitField0_ = (bitField0_ & ~0x00000400);
+        bitField0_ = (bitField0_ & ~0x00000800);
         return this;
       }
       /**
@@ -8830,7 +9686,7 @@ public final class Assessments {
        * <code>optional .mlflow.assessments.AssessmentError error = 12 [deprecated = true];</code>
        */
       @java.lang.Deprecated public org.mlflow.api.proto.Assessments.AssessmentError.Builder getErrorBuilder() {
-        bitField0_ |= 0x00000400;
+        bitField0_ |= 0x00000800;
         onChanged();
         return getErrorFieldBuilder().getBuilder();
       }
@@ -9048,7 +9904,7 @@ public final class Assessments {
        * @return Whether the overrides field is set.
        */
       public boolean hasOverrides() {
-        return ((bitField0_ & 0x00001000) != 0);
+        return ((bitField0_ & 0x00002000) != 0);
       }
       /**
        * <pre>
@@ -9107,7 +9963,7 @@ public final class Assessments {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00001000;
+  bitField0_ |= 0x00002000;
         overrides_ = value;
         onChanged();
         return this;
@@ -9121,7 +9977,7 @@ public final class Assessments {
        * @return This builder for chaining.
        */
       public Builder clearOverrides() {
-        bitField0_ = (bitField0_ & ~0x00001000);
+        bitField0_ = (bitField0_ & ~0x00002000);
         overrides_ = getDefaultInstance().getOverrides();
         onChanged();
         return this;
@@ -9140,7 +9996,7 @@ public final class Assessments {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00001000;
+  bitField0_ |= 0x00002000;
         overrides_ = value;
         onChanged();
         return this;
@@ -9159,7 +10015,7 @@ public final class Assessments {
        */
       @java.lang.Override
       public boolean hasValid() {
-        return ((bitField0_ & 0x00002000) != 0);
+        return ((bitField0_ & 0x00004000) != 0);
       }
       /**
        * <pre>
@@ -9187,7 +10043,7 @@ public final class Assessments {
        * @return This builder for chaining.
        */
       public Builder setValid(boolean value) {
-        bitField0_ |= 0x00002000;
+        bitField0_ |= 0x00004000;
         valid_ = value;
         onChanged();
         return this;
@@ -9203,7 +10059,7 @@ public final class Assessments {
        * @return This builder for chaining.
        */
       public Builder clearValid() {
-        bitField0_ = (bitField0_ & ~0x00002000);
+        bitField0_ = (bitField0_ & ~0x00004000);
         valid_ = true;
         onChanged();
         return this;
@@ -9282,6 +10138,11 @@ public final class Assessments {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_assessments_Expectation_SerializedValue_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_assessments_Issue_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_assessments_Issue_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_assessments_Feedback_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -9319,26 +10180,28 @@ public final class Assessments {
       "ogle.protobuf.Value\022I\n\020serialized_value\030" +
       "\003 \001(\0132/.mlflow.assessments.Expectation.S" +
       "erializedValue\032>\n\017SerializedValue\022\034\n\024ser" +
-      "ialization_format\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"e" +
-      "\n\010Feedback\022%\n\005value\030\002 \001(\0132\026.google.proto" +
-      "buf.Value\0222\n\005error\030\003 \001(\0132#.mlflow.assess" +
-      "ments.AssessmentError\"\331\004\n\nAssessment\022\025\n\r" +
-      "assessment_id\030\001 \001(\t\022\035\n\017assessment_name\030\002" +
-      " \001(\tB\004\370\206\031\001\022\020\n\010trace_id\030\003 \001(\t\022\017\n\007span_id\030" +
-      "\004 \001(\t\0224\n\006source\030\005 \001(\0132$.mlflow.assessmen" +
-      "ts.AssessmentSource\022/\n\013create_time\030\006 \001(\013" +
-      "2\032.google.protobuf.Timestamp\0224\n\020last_upd" +
-      "ate_time\030\007 \001(\0132\032.google.protobuf.Timesta" +
-      "mp\0220\n\010feedback\030\t \001(\0132\034.mlflow.assessment" +
-      "s.FeedbackH\000\0226\n\013expectation\030\n \001(\0132\037.mlfl" +
-      "ow.assessments.ExpectationH\000\022\021\n\trational" +
-      "e\030\013 \001(\t\0226\n\005error\030\014 \001(\0132#.mlflow.assessme" +
-      "nts.AssessmentErrorB\002\030\001\022>\n\010metadata\030\r \003(" +
-      "\0132,.mlflow.assessments.Assessment.Metada" +
-      "taEntry\022\021\n\toverrides\030\016 \001(\t\022\023\n\005valid\030\017 \001(" +
-      "\010:\004true\032/\n\rMetadataEntry\022\013\n\003key\030\001 \001(\t\022\r\n" +
-      "\005value\030\002 \001(\t:\0028\001B\007\n\005valueB\031\n\024org.mlflow." +
-      "api.proto\220\001\001"
+      "ialization_format\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\034" +
+      "\n\005Issue\022\023\n\005value\030\001 \001(\010:\004true\"e\n\010Feedback" +
+      "\022%\n\005value\030\002 \001(\0132\026.google.protobuf.Value\022" +
+      "2\n\005error\030\003 \001(\0132#.mlflow.assessments.Asse" +
+      "ssmentError\"\205\005\n\nAssessment\022\025\n\rassessment" +
+      "_id\030\001 \001(\t\022\035\n\017assessment_name\030\002 \001(\tB\004\370\206\031\001" +
+      "\022\020\n\010trace_id\030\003 \001(\t\022\017\n\007span_id\030\004 \001(\t\0224\n\006s" +
+      "ource\030\005 \001(\0132$.mlflow.assessments.Assessm" +
+      "entSource\022/\n\013create_time\030\006 \001(\0132\032.google." +
+      "protobuf.Timestamp\0224\n\020last_update_time\030\007" +
+      " \001(\0132\032.google.protobuf.Timestamp\0220\n\010feed" +
+      "back\030\t \001(\0132\034.mlflow.assessments.Feedback" +
+      "H\000\0226\n\013expectation\030\n \001(\0132\037.mlflow.assessm" +
+      "ents.ExpectationH\000\022*\n\005issue\030\020 \001(\0132\031.mlfl" +
+      "ow.assessments.IssueH\000\022\021\n\trationale\030\013 \001(" +
+      "\t\0226\n\005error\030\014 \001(\0132#.mlflow.assessments.As" +
+      "sessmentErrorB\002\030\001\022>\n\010metadata\030\r \003(\0132,.ml" +
+      "flow.assessments.Assessment.MetadataEntr" +
+      "y\022\021\n\toverrides\030\016 \001(\t\022\023\n\005valid\030\017 \001(\010:\004tru" +
+      "e\032/\n\rMetadataEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value" +
+      "\030\002 \001(\t:\0028\001B\007\n\005valueB\031\n\024org.mlflow.api.pr" +
+      "oto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -9371,18 +10234,24 @@ public final class Assessments {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_assessments_Expectation_SerializedValue_descriptor,
         new java.lang.String[] { "SerializationFormat", "Value", });
-    internal_static_mlflow_assessments_Feedback_descriptor =
+    internal_static_mlflow_assessments_Issue_descriptor =
       getDescriptor().getMessageTypes().get(3);
+    internal_static_mlflow_assessments_Issue_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_assessments_Issue_descriptor,
+        new java.lang.String[] { "Value", });
+    internal_static_mlflow_assessments_Feedback_descriptor =
+      getDescriptor().getMessageTypes().get(4);
     internal_static_mlflow_assessments_Feedback_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_assessments_Feedback_descriptor,
         new java.lang.String[] { "Value", "Error", });
     internal_static_mlflow_assessments_Assessment_descriptor =
-      getDescriptor().getMessageTypes().get(4);
+      getDescriptor().getMessageTypes().get(5);
     internal_static_mlflow_assessments_Assessment_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_assessments_Assessment_descriptor,
-        new java.lang.String[] { "AssessmentId", "AssessmentName", "TraceId", "SpanId", "Source", "CreateTime", "LastUpdateTime", "Feedback", "Expectation", "Rationale", "Error", "Metadata", "Overrides", "Valid", "Value", });
+        new java.lang.String[] { "AssessmentId", "AssessmentName", "TraceId", "SpanId", "Source", "CreateTime", "LastUpdateTime", "Feedback", "Expectation", "Issue", "Rationale", "Error", "Metadata", "Overrides", "Valid", "Value", });
     internal_static_mlflow_assessments_Assessment_MetadataEntry_descriptor =
       internal_static_mlflow_assessments_Assessment_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_assessments_Assessment_MetadataEntry_fieldAccessorTable = new

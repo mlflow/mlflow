@@ -90,6 +90,8 @@ class AssessmentMetadataKey:
     JUDGE_COST = "mlflow.assessment.judgeCost"
     # When the scorer generates a trace for assessment scoring, log the trace ID here.
     SCORER_TRACE_ID = "mlflow.assessment.scorerTraceId"
+    # The name of the issue associated with the assessment.
+    ISSUE_NAME = "mlflow.issue.name"
 
 
 # All storage backends are guaranteed to support request_metadata key/value up to 250 characters
