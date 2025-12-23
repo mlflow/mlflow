@@ -79,8 +79,11 @@ const ExperimentGenAIOverviewPageImpl = () => {
             })}
           />
 
-          {/* Time range selector */}
-          <TracesV3DateSelector />
+          {/*
+           * Time range selector - exclude 'ALL' since charts require start_time_ms and end_time_ms
+           * TODO: remove this once this is supported in backend
+           */}
+          <TracesV3DateSelector excludeOptions={['ALL']} />
         </div>
 
         <Tabs.Content value={OverviewTab.Usage} css={{ flex: 1, overflowY: 'auto' }}>
