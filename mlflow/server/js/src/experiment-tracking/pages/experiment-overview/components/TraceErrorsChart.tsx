@@ -157,7 +157,7 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
         <Typography.Title level={3} css={{ margin: 0, marginTop: theme.spacing.sm }}>
           {totalErrors.toLocaleString()}{' '}
           <Typography.Text color="secondary" css={{ fontWeight: 'normal' }}>
-            ({overallErrorRate.toFixed(1)}% error rate)
+            (Overall error rate: {overallErrorRate.toFixed(1)}%)
           </Typography.Text>
         </Typography.Title>
       </div>
