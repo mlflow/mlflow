@@ -52,7 +52,16 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   useEffect(() => {
     reset();
     setCurrentTraceIndex(0);
-  }, [llmTemplate, reset, evaluationScope]);
+  }, [llmTemplate, reset]);
+
+  // Reset evaluation config when switching evaluation scope
+  useEffect(() => {
+    reset();
+    setItemsToEvaluate({
+      itemCount: DEFAULT_TRACE_COUNT,
+      itemIds: [],
+    });
+  }, [evaluationScope, reset]);
 
   // Handle the "Run scorer" button click
   const handleRunScorer = useCallback(async () => {

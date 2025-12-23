@@ -15,6 +15,7 @@ import { SelectTracesModal } from '../../components/SelectTracesModal';
 import { ScorerFormData } from './utils/scorerTransformUtils';
 import { useFormContext } from 'react-hook-form';
 import { ScorerEvaluationScope } from './constants';
+import { SelectSessionsModal } from '../../components/SelectSessionsModal';
 
 enum PickerOption {
   'LAST_TRACE_OR_SESSION' = '1',
@@ -97,11 +98,19 @@ export const SampleScorerTracesToEvaluatePicker = ({
             endIcon={<ChevronDownIcon />}
           >
             {itemsToEvaluateDropdownValue === PickerOption.CUSTOM ? (
-              <FormattedMessage
-                defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
-                description="Label for the number of traces selected"
-                values={{ count: itemsToEvaluate.itemIds?.length }}
-              />
+              evaluationScope === ScorerEvaluationScope.TRACES ? (
+                <FormattedMessage
+                  defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
+                  description="Label for the number of traces selected"
+                  values={{ count: itemsToEvaluate.itemIds?.length }}
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="{count, plural, one {1 session selected} other {# sessions selected}}"
+                  description="Label for the number of sessions selected"
+                  values={{ count: itemsToEvaluate.itemIds?.length }}
+                />
+              )
             ) : (
               <FormattedMessage {...PickerOptionsLabels[itemsToEvaluateDropdownValue]} />
             )}
@@ -136,7 +145,7 @@ export const SampleScorerTracesToEvaluatePicker = ({
           </DialogComboboxOptionList>
         </DialogComboboxContent>
       </DialogCombobox>
-      {displayPickCustomTracesModal && (
+      {displayPickCustomTracesModal && evaluationScope === ScorerEvaluationScope.TRACES && (
         <SelectTracesModal
           onClose={() => {
             onItemsToEvaluateChange({ ...itemsToEvaluate });
@@ -149,6 +158,21 @@ export const SampleScorerTracesToEvaluatePicker = ({
             setDisplayPickCustomTracesModal(false);
           }}
           initialTraceIdsSelected={itemsToEvaluate.itemIds}
+        />
+      )}
+      {displayPickCustomTracesModal && evaluationScope === ScorerEvaluationScope.SESSIONS && (
+        <SelectSessionsModal
+          onClose={() => {
+            onItemsToEvaluateChange({ ...itemsToEvaluate });
+            setDisplayPickCustomTracesModal(false);
+          }}
+          onSuccess={(traceIds) => {
+            if (!isEmpty(traceIds)) {
+              onItemsToEvaluateChange({ itemCount: undefined, itemIds: traceIds });
+            }
+            setDisplayPickCustomTracesModal(false);
+          }}
+          initialSessionIdsSelected={itemsToEvaluate.itemIds}
         />
       )}
     </>
