@@ -484,7 +484,7 @@ def test_job_timeout(monkeypatch, tmp_path):
         ).job_id
         wait_job_finalize(job_id)
         pid = int((job_tmp_path / "pid").read_text())
-        # assert timeout job process is killed.
+        # assert the canceled job process is killed.
         assert not is_process_alive(pid)
 
         assert_job_result(job_id, JobStatus.TIMEOUT, None)
@@ -641,10 +641,13 @@ def test_cancel_job(monkeypatch, tmp_path: Path):
         job_tmp_path.mkdir()
 
         job_id = submit_job(sleep_fun, {"sleep_secs": 120, "tmp_dir": str(job_tmp_path)}).job_id
-        time.sleep(2)  # wait for job process starting
+
+        while not (job_tmp_path / "pid").exists():
+            time.sleep(1)  # wait for job process starting
+
         cancel_job(job_id)
 
-        time.sleep(2)  # wait for job process being actually killed
+        time.sleep(5)  # wait for job process being actually killed
         pid = int((job_tmp_path / "pid").read_text())
         # assert timeout job process is killed.
         assert not is_process_alive(pid)

@@ -139,5 +139,8 @@ class AbstractJobStore(ABC):
             job_id: The ID of the job to cancel
 
         Returns:
+            Job entity
+
+        Raises:
             MlflowException: If job with the given ID is not found
         """

@@ -96,6 +96,12 @@ class SqlAlchemyJobStore(AbstractJobStore):
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
 
+            if JobStatus.is_finalized(job.status):
+                raise MlflowException(
+                    f"The Job {job_id} is already finalized with status: {job.status}, "
+                    "it can't be updated."
+                )
+
             job.status = new_status.to_int()
             if result is not None:
                 job.result = result
@@ -325,6 +331,9 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job_id: The ID of the job to cancel
 
         Returns:
+            Job entity
+
+        Raises:
             MlflowException: If job with the given ID is not found
         """
         return self._update_job(job_id, JobStatus.CANCELED)
