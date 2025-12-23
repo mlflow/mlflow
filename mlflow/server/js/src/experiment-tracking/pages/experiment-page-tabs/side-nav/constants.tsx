@@ -2,6 +2,7 @@ import React from 'react';
 import { ExperimentKind } from '../../../constants';
 import { ExperimentPageTabName } from '../../../constants';
 import {
+  ChartLineIcon,
   DatabaseIcon,
   ForkHorizontalIcon,
   GavelIcon,
@@ -13,7 +14,7 @@ import {
   UserGroupIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { enableScorersUI } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { enableScorersUI, shouldEnableExperimentOverviewTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 export const FULL_WIDTH_CLASS_NAME = 'mlflow-experiment-page-side-nav-full';
 export const COLLAPSED_CLASS_NAME = 'mlflow-experiment-page-side-nav-collapsed';
@@ -173,10 +174,24 @@ export const useExperimentPageSideNavConfig = ({
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED
   ) {
     return {
-      ...(hasTrainingRuns
-        ? {
-            // append training runs to top-level if they exist
-            'top-level': [
+      'top-level': [
+        ...(shouldEnableExperimentOverviewTab()
+          ? [
+              {
+                label: (
+                  <FormattedMessage
+                    defaultMessage="Overview"
+                    description="Label for the overview tab in the MLflow experiment navbar"
+                  />
+                ),
+                icon: <ChartLineIcon />,
+                tabName: ExperimentPageTabName.Overview,
+                componentId: 'mlflow.experiment-side-nav.genai.overview',
+              },
+            ]
+          : []),
+        ...(hasTrainingRuns
+          ? [
               {
                 label: (
                   <FormattedMessage
@@ -188,11 +203,9 @@ export const useExperimentPageSideNavConfig = ({
                 tabName: ExperimentPageTabName.Runs,
                 componentId: 'mlflow.experiment-side-nav.genai.training-runs',
               },
-            ],
-          }
-        : {
-            'top-level': [],
-          }),
+            ]
+          : []),
+      ],
       ...ExperimentPageSideNavGenAIConfig,
       observability: [
         ...ExperimentPageSideNavGenAIConfig.observability,
