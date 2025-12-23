@@ -29,6 +29,8 @@ GENERATION_CONFIG_KEY_MAPPING = {
     "max_tokens": "maxOutputTokens",
     "top_k": "topK",
     "top_p": "topP",
+    "frequency_penalty": "frequencyPenalty",
+    "presence_penalty": "presencePenalty",
 }
 
 GENERATION_CONFIGS = [
@@ -38,6 +40,8 @@ GENERATION_CONFIGS = [
     "maxOutputTokens",
     "topK",
     "topP",
+    "frequencyPenalty",
+    "presencePenalty",
 ]
 
 
@@ -90,11 +94,6 @@ class GeminiAdapter(ProviderAdapter):
                 raise AIGatewayException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
-
-        if "top_p" in payload and payload["top_p"] > 1:
-            raise AIGatewayException(
-                status_code=422, detail="top_p should be less than or equal to 1"
-            )
 
         payload = rename_payload_keys(payload, GENERATION_CONFIG_KEY_MAPPING)
 
