@@ -31,6 +31,10 @@
     "defaultMessage": "Follow these steps to enable the AI Gateway feature for managing AI provider credentials.",
     "description": "AI Gateway setup guide > Subtitle"
   },
+  "+9xfKv": {
+    "defaultMessage": "Select",
+    "description": "Confirm button in the select traces modal"
+  },
   "+CGMk6": {
     "defaultMessage": "On",
     "description": "Telemetry enabled label"
@@ -5082,6 +5086,10 @@
   "frPtD/": {
     "defaultMessage": "Metrics",
     "description": "Row group title for metrics of runs on the experiment compare runs page"
+  },
+  "fscXHt": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button in the select traces modal"
   },
   "fsga0A": {
     "defaultMessage": "Connected resources ({count})",
