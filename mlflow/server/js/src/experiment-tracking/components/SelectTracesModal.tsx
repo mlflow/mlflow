@@ -32,8 +32,8 @@ export const SelectTracesModal = ({
   return (
     <Modal
       visible
-      title="Select traces" // TODO
-      componentId="TODO"
+      title={<FormattedMessage defaultMessage="Select traces" description="Title for the select traces modal" />}
+      componentId="mlflow.experiment-scorers.form.select-traces-modal"
       onCancel={onClose}
       css={{ width: '90% !important' }}
       size="wide"

@@ -3636,6 +3636,10 @@
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Row entry for version columns in the registered model page"
   },
+  "U0joaT": {
+    "defaultMessage": "Select traces",
+    "description": "Title for the select traces modal"
+  },
   "U3btBc": {
     "defaultMessage": "Examples:",
     "description": "Text header for examples of mlflow search syntax"
