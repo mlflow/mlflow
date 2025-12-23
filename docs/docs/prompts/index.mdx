@@ -84,12 +84,10 @@ import TabItem from "@theme/TabItem";
           # Optional: Specify any additional metadata about the prompt version
           tags={
               "author": "author@example.com",
+              "task": "summarization",
+              "language": "en",
           },
       )
-
-      # Optional: Set tags that apply to the prompt (across versions)
-      mlflow.genai.set_prompt_tag("summarization-prompt", "task", "summarization")
-      mlflow.genai.set_prompt_tag("summarization-prompt", "language", "en")
 
       # The prompt object contains information about the registered prompt
       print(f"Created prompt '{text_prompt.name}' (version {text_prompt.version})")
