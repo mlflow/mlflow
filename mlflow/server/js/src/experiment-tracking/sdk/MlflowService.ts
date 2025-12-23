@@ -13,7 +13,12 @@
  *   Aug 1, 2018 3:42:41 PM. We will update the generation pipeline to actually
  *   place these generated objects in the correct location shortly.
  */
-import type { ModelTraceInfo, ModelTraceData } from '@databricks/web-shared/model-trace-explorer';
+import type {
+  ModelTraceInfo,
+  ModelTraceData,
+  QueryTraceMetricsRequest,
+  QueryTraceMetricsResponse,
+} from '@databricks/web-shared/model-trace-explorer';
 import { type ParsedQs, stringify as queryStringStringify } from 'qs';
 import {
   defaultResponseParser,
@@ -359,4 +364,13 @@ export class MlflowService {
         request_ids: traceRequestIds,
       },
     }) as Promise<{ traces_deleted: number }>;
+
+  /**
+   * Query aggregated trace metrics for experiments
+   */
+  static queryTraceMetrics = (data: QueryTraceMetricsRequest) =>
+    postJson({
+      relativeUrl: 'ajax-api/3.0/mlflow/traces/metrics',
+      data,
+    }) as Promise<QueryTraceMetricsResponse>;
 }
