@@ -2,8 +2,6 @@ import React from 'react';
 import {
   useDesignSystemTheme,
   Typography,
-  SimpleSelect,
-  SimpleSelectOption,
   Button,
   PlayCircleFillIcon,
   LoadingState,
@@ -15,7 +13,8 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 import { SimplifiedModelTraceExplorer } from '@databricks/web-shared/model-trace-explorer';
 import type { Assessment, ModelTrace } from '@databricks/web-shared/model-trace-explorer';
-import { COMPONENT_ID_PREFIX, BUTTON_VARIANT, type ButtonVariant } from './constants';
+import { COMPONENT_ID_PREFIX, BUTTON_VARIANT, type ButtonVariant, DEFAULT_TRACE_COUNT } from './constants';
+import { SampleScorerTracesToEvaluatePicker } from './SampleScorerTracesToEvaluatePicker';
 
 /**
  * Run scorer button component.
@@ -119,23 +118,10 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
           <FormattedMessage defaultMessage="Sample judge output" description="Title for sample judge output panel" />
         </Typography.Text>
         <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-          <SimpleSelect
-            componentId={`${COMPONENT_ID_PREFIX}.sample-output-traces-select`}
-            id="sample-output-traces-select"
-            value={String(tracesCount)}
-            onChange={({ target }) => onTracesCountChange(Number(target.value))}
-            triggerSize="small"
-          >
-            <SimpleSelectOption value="1">
-              <FormattedMessage defaultMessage="Last trace" description="Option for last trace" />
-            </SimpleSelectOption>
-            <SimpleSelectOption value="5">
-              <FormattedMessage defaultMessage="Last 5 traces" description="Option for last 5 traces" />
-            </SimpleSelectOption>
-            <SimpleSelectOption value="10">
-              <FormattedMessage defaultMessage="Last 10 traces" description="Option for last 10 traces" />
-            </SimpleSelectOption>
-          </SimpleSelect>
+          <SampleScorerTracesToEvaluatePicker
+            tracesToEvaluate={{ traceCount: tracesCount }}
+            onTracesToEvaluateChange={({ traceCount }) => onTracesCountChange(traceCount)}
+          />
           {!isInitialScreen && (
             <Tooltip
               componentId={`${COMPONENT_ID_PREFIX}.rerun-scorer-button-tooltip`}
@@ -168,6 +154,7 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               flexDirection: 'column',
               padding: theme.spacing.md,
               gap: theme.spacing.xs,
+              flex: 1,
             }}
           >
             {/* Carousel controls and trace info */}
