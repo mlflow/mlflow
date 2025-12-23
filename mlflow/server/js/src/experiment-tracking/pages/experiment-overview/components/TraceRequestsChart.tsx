@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
-import { useDesignSystemTheme, Typography, ChartLineIcon } from '@databricks/design-system';
+import { useDesignSystemTheme, ChartLineIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from '../utils/chartUtils';
-import { ChartLoadingState, ChartErrorState, ChartEmptyState } from './ChartCardWrapper';
+import { ChartLoadingState, ChartErrorState, ChartEmptyState, ChartHeader, OverTimeLabel } from './ChartCardWrapper';
 import type { OverviewChartProps } from '../types';
 
 export const TraceRequestsChart: React.FC<OverviewChartProps> = ({
@@ -67,18 +67,12 @@ export const TraceRequestsChart: React.FC<OverviewChartProps> = ({
         backgroundColor: theme.colors.backgroundPrimary,
       }}
     >
-      {/* Chart header */}
-      <div css={{ marginBottom: theme.spacing.lg }}>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-          <ChartLineIcon css={{ color: theme.colors.textSecondary }} />
-          <Typography.Text bold size="lg">
-            <FormattedMessage defaultMessage="Requests" description="Title for the trace requests chart" />
-          </Typography.Text>
-        </div>
-        <Typography.Title level={3} css={{ margin: 0, marginTop: theme.spacing.sm, marginBottom: theme.spacing.sm }}>
-          {totalRequests.toLocaleString()}
-        </Typography.Title>
-      </div>
+      <ChartHeader
+        icon={<ChartLineIcon />}
+        title={<FormattedMessage defaultMessage="Requests" description="Title for the trace requests chart" />}
+        value={totalRequests.toLocaleString()}
+      />
+      <OverTimeLabel />
 
       {/* Chart */}
       <div css={{ height: 200 }}>
