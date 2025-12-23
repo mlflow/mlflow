@@ -58,7 +58,7 @@ export const SampleScorerTracesToEvaluatePicker = ({
     <>
       <DialogCombobox
         componentId="mlflow.experiment-scorers.form.traces-picker"
-        id="TODO"
+        id="mlflow.experiment-scorers.form.traces-picker"
         value={[itemsToEvaluateDropdownValue]}
       >
         <DialogComboboxCustomButtonTriggerWrapper>
