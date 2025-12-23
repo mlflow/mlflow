@@ -1,11 +1,11 @@
 import { TIME_BUCKET_DIMENSION_KEY, type MetricDataPoint } from '@databricks/web-shared/model-trace-explorer';
 
 /**
- * Format timestamp for x-axis labels based on time interval granularity
+ * Format timestamp for trace metrics charts x-axis labels based on time interval granularity
  * @param timestampMs - Timestamp in milliseconds
  * @param timeIntervalSeconds - Time interval in seconds used for grouping
  */
-export function formatTimestamp(timestampMs: number, timeIntervalSeconds: number): string {
+export function formatTimestampForTraceMetrics(timestampMs: number, timeIntervalSeconds: number): string {
   const date = new Date(timestampMs);
 
   // Build format options based on time interval granularity

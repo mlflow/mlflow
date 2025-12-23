@@ -7,7 +7,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { TracesV3DateSelector } from '../../components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../hooks/useMonitoringFilters';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
-import { TraceRequestsChart } from './components/TraceRequestsChart';
+import { LazyTraceRequestsChart } from './components/LazyTraceRequestsChart';
 
 enum OverviewTab {
   Usage = 'usage',
@@ -85,7 +85,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
 
         <Tabs.Content value={OverviewTab.Usage} css={{ flex: 1, overflowY: 'auto' }}>
           <div css={{ padding: `${theme.spacing.sm}px 0` }}>
-            <TraceRequestsChart experimentId={experimentId} startTimeMs={startTimeMs} endTimeMs={endTimeMs} />
+            <LazyTraceRequestsChart experimentId={experimentId} startTimeMs={startTimeMs} endTimeMs={endTimeMs} />
           </div>
         </Tabs.Content>
       </Tabs.Root>

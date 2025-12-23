@@ -4,9 +4,9 @@ import { FormattedMessage } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery, calculateTimeInterval } from '../hooks/useTraceMetricsQuery';
-import { formatTimestamp, getTimestampFromDataPoint } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from '../utils/chartUtils';
 
-interface TraceRequestsChartProps {
+export interface TraceRequestsChartProps {
   experimentId: string;
   startTimeMs?: number;
   endTimeMs?: number;
@@ -46,7 +46,7 @@ export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ experime
     return traceCountDataPoints.map((dp) => {
       const timestampMs = getTimestampFromDataPoint(dp);
       return {
-        name: timestampMs ? formatTimestamp(timestampMs, timeIntervalSeconds) : '',
+        name: timestampMs ? formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds) : '',
         count: dp.values?.[AggregationType.COUNT] || 0,
       };
     });

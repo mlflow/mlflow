@@ -4,15 +4,16 @@ import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
 import { TraceRequestsChart } from './TraceRequestsChart';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { MlflowService } from '../../../sdk/MlflowService';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 
-// Mock MlflowService
-jest.mock('../../../sdk/MlflowService', () => ({
-  MlflowService: {
-    queryTraceMetrics: jest.fn(),
-  },
+// Mock FetchUtils
+jest.mock('../../../../common/utils/FetchUtils', () => ({
+  fetchOrFail: jest.fn(),
+  getAjaxUrl: (url: string) => url,
 }));
+
+import { fetchOrFail } from '../../../../common/utils/FetchUtils';
+const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
 
 // Mock recharts components to avoid rendering issues in tests
 jest.mock('recharts', () => ({
@@ -29,10 +30,6 @@ jest.mock('recharts', () => ({
   YAxis: () => <div data-testid="y-axis" />,
   Tooltip: () => <div data-testid="tooltip" />,
 }));
-
-const mockQueryTraceMetrics = MlflowService.queryTraceMetrics as jest.MockedFunction<
-  typeof MlflowService.queryTraceMetrics
->;
 
 describe('TraceRequestsChart', () => {
   const testExperimentId = 'test-experiment-123';
@@ -61,6 +58,10 @@ describe('TraceRequestsChart', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Mock fetchOrFail to return a response with json() method
+    mockFetchOrFail.mockResolvedValue({
+      json: () => Promise.resolve({ data_points: [] }),
+    } as Response);
   });
 
   describe('with data', () => {
@@ -83,9 +84,9 @@ describe('TraceRequestsChart', () => {
     ];
 
     it('should render chart with data points', async () => {
-      mockQueryTraceMetrics.mockResolvedValue({
-        data_points: mockDataPoints,
-      });
+      mockFetchOrFail.mockResolvedValue({
+        json: () => Promise.resolve({ data_points: mockDataPoints }),
+      } as Response);
 
       renderComponent({
         experimentId: testExperimentId,
@@ -101,9 +102,9 @@ describe('TraceRequestsChart', () => {
     });
 
     it('should display the total request count', async () => {
-      mockQueryTraceMetrics.mockResolvedValue({
-        data_points: mockDataPoints,
-      });
+      mockFetchOrFail.mockResolvedValue({
+        json: () => Promise.resolve({ data_points: mockDataPoints }),
+      } as Response);
 
       renderComponent({
         experimentId: testExperimentId,
@@ -118,9 +119,9 @@ describe('TraceRequestsChart', () => {
     });
 
     it('should display the "Requests" title', async () => {
-      mockQueryTraceMetrics.mockResolvedValue({
-        data_points: mockDataPoints,
-      });
+      mockFetchOrFail.mockResolvedValue({
+        json: () => Promise.resolve({ data_points: mockDataPoints }),
+      } as Response);
 
       renderComponent({
         experimentId: testExperimentId,
@@ -134,15 +135,18 @@ describe('TraceRequestsChart', () => {
     });
 
     it('should format large numbers with locale formatting', async () => {
-      mockQueryTraceMetrics.mockResolvedValue({
-        data_points: [
-          {
-            metric_name: TraceMetricKey.TRACE_COUNT,
-            dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
-            values: { [AggregationType.COUNT]: 1234567 },
-          },
-        ],
-      });
+      mockFetchOrFail.mockResolvedValue({
+        json: () =>
+          Promise.resolve({
+            data_points: [
+              {
+                metric_name: TraceMetricKey.TRACE_COUNT,
+                dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
+                values: { [AggregationType.COUNT]: 1234567 },
+              },
+            ],
+          }),
+      } as Response);
 
       renderComponent({
         experimentId: testExperimentId,
@@ -158,9 +162,7 @@ describe('TraceRequestsChart', () => {
   });
 
   describe('API call parameters', () => {
-    it('should call queryTraceMetrics with correct parameters', async () => {
-      mockQueryTraceMetrics.mockResolvedValue({ data_points: [] });
-
+    it('should call fetchOrFail with correct parameters', async () => {
       const startTimeMs = oneHourAgo;
       const endTimeMs = now;
 
@@ -171,22 +173,20 @@ describe('TraceRequestsChart', () => {
       });
 
       await waitFor(() => {
-        expect(mockQueryTraceMetrics).toHaveBeenCalledWith(
+        expect(mockFetchOrFail).toHaveBeenCalledWith(
+          'ajax-api/3.0/mlflow/traces/metrics',
           expect.objectContaining({
-            experiment_ids: [testExperimentId],
-            view_type: MetricViewType.TRACES,
-            metric_name: TraceMetricKey.TRACE_COUNT,
-            aggregations: [{ aggregation_type: AggregationType.COUNT }],
-            start_time_ms: startTimeMs,
-            end_time_ms: endTimeMs,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: expect.stringContaining(testExperimentId),
           }),
         );
       });
     });
 
     it('should calculate appropriate time interval for 1-hour range', async () => {
-      mockQueryTraceMetrics.mockResolvedValue({ data_points: [] });
-
       const endTimeMs = Date.now();
       const startTimeMs = endTimeMs - 60 * 60 * 1000; // 1 hour
 
@@ -197,17 +197,12 @@ describe('TraceRequestsChart', () => {
       });
 
       await waitFor(() => {
-        expect(mockQueryTraceMetrics).toHaveBeenCalledWith(
-          expect.objectContaining({
-            time_interval_seconds: 60, // MINUTE_IN_SECONDS
-          }),
-        );
+        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
+        expect(callBody.time_interval_seconds).toBe(60); // MINUTE_IN_SECONDS
       });
     });
 
     it('should calculate appropriate time interval for 24-hour range', async () => {
-      mockQueryTraceMetrics.mockResolvedValue({ data_points: [] });
-
       const endTimeMs = Date.now();
       const startTimeMs = endTimeMs - 12 * 60 * 60 * 1000; // 12 hours
 
@@ -218,17 +213,12 @@ describe('TraceRequestsChart', () => {
       });
 
       await waitFor(() => {
-        expect(mockQueryTraceMetrics).toHaveBeenCalledWith(
-          expect.objectContaining({
-            time_interval_seconds: 3600, // HOUR_IN_SECONDS
-          }),
-        );
+        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
+        expect(callBody.time_interval_seconds).toBe(3600); // HOUR_IN_SECONDS
       });
     });
 
     it('should calculate appropriate time interval for 7-day range', async () => {
-      mockQueryTraceMetrics.mockResolvedValue({ data_points: [] });
-
       const endTimeMs = Date.now();
       const startTimeMs = endTimeMs - 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -239,31 +229,31 @@ describe('TraceRequestsChart', () => {
       });
 
       await waitFor(() => {
-        expect(mockQueryTraceMetrics).toHaveBeenCalledWith(
-          expect.objectContaining({
-            time_interval_seconds: 86400, // DAY_IN_SECONDS
-          }),
-        );
+        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
+        expect(callBody.time_interval_seconds).toBe(86400); // DAY_IN_SECONDS
       });
     });
   });
 
   describe('data transformation', () => {
     it('should handle data points with missing values gracefully', async () => {
-      mockQueryTraceMetrics.mockResolvedValue({
-        data_points: [
-          {
-            metric_name: TraceMetricKey.TRACE_COUNT,
-            dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
-            values: {}, // Missing COUNT value
-          },
-          {
-            metric_name: TraceMetricKey.TRACE_COUNT,
-            dimensions: { time_bucket: '2025-12-22T11:00:00Z' },
-            values: { [AggregationType.COUNT]: 50 },
-          },
-        ],
-      });
+      mockFetchOrFail.mockResolvedValue({
+        json: () =>
+          Promise.resolve({
+            data_points: [
+              {
+                metric_name: TraceMetricKey.TRACE_COUNT,
+                dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
+                values: {}, // Missing COUNT value
+              },
+              {
+                metric_name: TraceMetricKey.TRACE_COUNT,
+                dimensions: { time_bucket: '2025-12-22T11:00:00Z' },
+                values: { [AggregationType.COUNT]: 50 },
+              },
+            ],
+          }),
+      } as Response);
 
       renderComponent({
         experimentId: testExperimentId,
@@ -278,15 +268,18 @@ describe('TraceRequestsChart', () => {
     });
 
     it('should handle data points with missing time_bucket', async () => {
-      mockQueryTraceMetrics.mockResolvedValue({
-        data_points: [
-          {
-            metric_name: TraceMetricKey.TRACE_COUNT,
-            dimensions: {}, // Missing time_bucket
-            values: { [AggregationType.COUNT]: 25 },
-          },
-        ],
-      });
+      mockFetchOrFail.mockResolvedValue({
+        json: () =>
+          Promise.resolve({
+            data_points: [
+              {
+                metric_name: TraceMetricKey.TRACE_COUNT,
+                dimensions: {}, // Missing time_bucket
+                values: { [AggregationType.COUNT]: 25 },
+              },
+            ],
+          }),
+      } as Response);
 
       renderComponent({
         experimentId: testExperimentId,

@@ -6,17 +6,18 @@ import ExperimentGenAIOverviewPage from './ExperimentGenAIOverviewPage';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MemoryRouter, Route, Routes } from '../../../common/utils/RoutingUtils';
-import { MlflowService } from '../../sdk/MlflowService';
 import { rest } from 'msw';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 
-// Mock MlflowService
-jest.mock('../../sdk/MlflowService', () => ({
-  MlflowService: {
-    queryTraceMetrics: jest.fn(),
-  },
+// Mock FetchUtils
+jest.mock('../../../common/utils/FetchUtils', () => ({
+  fetchOrFail: jest.fn(),
+  getAjaxUrl: (url: string) => url,
 }));
+
+import { fetchOrFail } from '../../../common/utils/FetchUtils';
+const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
 
 // Mock recharts to avoid rendering issues
 jest.mock('recharts', () => ({
@@ -33,10 +34,6 @@ jest.mock('recharts', () => ({
   YAxis: () => <div data-testid="y-axis" />,
   Tooltip: () => <div data-testid="tooltip" />,
 }));
-
-const mockQueryTraceMetrics = MlflowService.queryTraceMetrics as jest.MockedFunction<
-  typeof MlflowService.queryTraceMetrics
->;
 
 describe('ExperimentGenAIOverviewPage', () => {
   const testExperimentId = 'test-experiment-456';
@@ -67,10 +64,10 @@ describe('ExperimentGenAIOverviewPage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Default mock for queryTraceMetrics to return empty data
-    mockQueryTraceMetrics.mockResolvedValue({
-      data_points: [],
-    });
+    // Default mock for fetchOrFail to return empty data
+    mockFetchOrFail.mockResolvedValue({
+      json: () => Promise.resolve({ data_points: [] }),
+    } as Response);
   });
 
   describe('page rendering', () => {
@@ -200,21 +197,19 @@ describe('ExperimentGenAIOverviewPage', () => {
     });
 
     it('should use LAST_7_DAYS as default time range for API calls', async () => {
-      mockQueryTraceMetrics.mockResolvedValue({ data_points: [] });
-
       renderComponent();
 
       await waitFor(() => {
-        expect(mockQueryTraceMetrics).toHaveBeenCalled();
+        expect(mockFetchOrFail).toHaveBeenCalled();
       });
 
       // Verify that start_time_ms and end_time_ms are within expected range for 7 days
-      const callArgs = mockQueryTraceMetrics.mock.calls[0][0];
+      const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
       const now = Date.now();
       const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
 
-      expect(callArgs.start_time_ms).toBeGreaterThanOrEqual(sevenDaysAgo - 60000); // Allow 1 minute tolerance
-      expect(callArgs.start_time_ms).toBeLessThanOrEqual(sevenDaysAgo + 60000);
+      expect(callBody.start_time_ms).toBeGreaterThanOrEqual(sevenDaysAgo - 60000); // Allow 1 minute tolerance
+      expect(callBody.start_time_ms).toBeLessThanOrEqual(sevenDaysAgo + 60000);
     });
 
     it('should handle custom time range from URL parameters', async () => {
@@ -224,32 +219,30 @@ describe('ExperimentGenAIOverviewPage', () => {
         customStartTime,
       )}&endTime=${encodeURIComponent(customEndTime)}`;
 
-      mockQueryTraceMetrics.mockResolvedValue({ data_points: [] });
-
       renderComponent(urlWithParams);
 
       await waitFor(() => {
-        expect(mockQueryTraceMetrics).toHaveBeenCalledWith(
-          expect.objectContaining({
-            start_time_ms: expect.any(Number),
-            end_time_ms: expect.any(Number),
-          }),
-        );
+        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
+        expect(callBody.start_time_ms).toEqual(expect.any(Number));
+        expect(callBody.end_time_ms).toEqual(expect.any(Number));
       });
     });
   });
 
   describe('chart integration', () => {
     it('should render TraceRequestsChart component', async () => {
-      mockQueryTraceMetrics.mockResolvedValue({
-        data_points: [
-          {
-            metric_name: TraceMetricKey.TRACE_COUNT,
-            dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
-            values: { [AggregationType.COUNT]: 100 },
-          },
-        ],
-      });
+      mockFetchOrFail.mockResolvedValue({
+        json: () =>
+          Promise.resolve({
+            data_points: [
+              {
+                metric_name: TraceMetricKey.TRACE_COUNT,
+                dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
+                values: { [AggregationType.COUNT]: 100 },
+              },
+            ],
+          }),
+      } as Response);
 
       renderComponent();
 
@@ -259,20 +252,23 @@ describe('ExperimentGenAIOverviewPage', () => {
     });
 
     it('should display chart with data when API returns data', async () => {
-      mockQueryTraceMetrics.mockResolvedValue({
-        data_points: [
-          {
-            metric_name: TraceMetricKey.TRACE_COUNT,
-            dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
-            values: { [AggregationType.COUNT]: 50 },
-          },
-          {
-            metric_name: TraceMetricKey.TRACE_COUNT,
-            dimensions: { time_bucket: '2025-12-22T11:00:00Z' },
-            values: { [AggregationType.COUNT]: 75 },
-          },
-        ],
-      });
+      mockFetchOrFail.mockResolvedValue({
+        json: () =>
+          Promise.resolve({
+            data_points: [
+              {
+                metric_name: TraceMetricKey.TRACE_COUNT,
+                dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
+                values: { [AggregationType.COUNT]: 50 },
+              },
+              {
+                metric_name: TraceMetricKey.TRACE_COUNT,
+                dimensions: { time_bucket: '2025-12-22T11:00:00Z' },
+                values: { [AggregationType.COUNT]: 75 },
+              },
+            ],
+          }),
+      } as Response);
 
       renderComponent();
 
@@ -284,16 +280,11 @@ describe('ExperimentGenAIOverviewPage', () => {
     });
 
     it('should pass experimentId to TraceRequestsChart', async () => {
-      mockQueryTraceMetrics.mockResolvedValue({ data_points: [] });
-
       renderComponent();
 
       await waitFor(() => {
-        expect(mockQueryTraceMetrics).toHaveBeenCalledWith(
-          expect.objectContaining({
-            experiment_ids: [testExperimentId],
-          }),
-        );
+        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
+        expect(callBody.experiment_ids).toEqual([testExperimentId]);
       });
     });
   });

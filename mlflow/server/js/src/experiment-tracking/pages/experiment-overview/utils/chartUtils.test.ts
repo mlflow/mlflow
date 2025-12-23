@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { formatTimestamp, getTimestampFromDataPoint } from './chartUtils';
+import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from './chartUtils';
 import type { MetricDataPoint } from '@databricks/web-shared/model-trace-explorer';
 
 // Time intervals in seconds
@@ -9,46 +9,46 @@ const DAY_IN_SECONDS = 86400;
 const MONTH_IN_SECONDS = 2592000;
 
 describe('chartUtils', () => {
-  describe('formatTimestamp', () => {
+  describe('formatTimestampForTraceMetrics', () => {
     // Use a fixed timestamp for consistent testing: 2025-12-22 10:30:45 UTC
     const testTimestamp = new Date('2025-12-22T10:30:45Z').getTime();
 
     it('should format timestamp at minute level (timeInterval <= 60s)', () => {
-      const result = formatTimestamp(testTimestamp, MINUTE_IN_SECONDS);
+      const result = formatTimestampForTraceMetrics(testTimestamp, MINUTE_IN_SECONDS);
       // Should show time only (hour:minute)
       expect(result).toMatch(/\d{1,2}:\d{2}/);
     });
 
     it('should format timestamp at hour level (timeInterval <= 3600s)', () => {
-      const result = formatTimestamp(testTimestamp, HOUR_IN_SECONDS);
+      const result = formatTimestampForTraceMetrics(testTimestamp, HOUR_IN_SECONDS);
       // Should show month/day and hour
       expect(result).toMatch(/\d{1,2}\/\d{1,2}/);
     });
 
     it('should format timestamp at day level (timeInterval <= 86400s)', () => {
-      const result = formatTimestamp(testTimestamp, DAY_IN_SECONDS);
+      const result = formatTimestampForTraceMetrics(testTimestamp, DAY_IN_SECONDS);
       // Should show month/day
       expect(result).toMatch(/\d{1,2}\/\d{1,2}/);
     });
 
     it('should format timestamp at month level (timeInterval > 86400s)', () => {
-      const result = formatTimestamp(testTimestamp, MONTH_IN_SECONDS);
+      const result = formatTimestampForTraceMetrics(testTimestamp, MONTH_IN_SECONDS);
       // Should show short month and year (e.g., "Dec '25")
       expect(result).toMatch(/[A-Za-z]+.*\d{2}/);
     });
 
     it('should handle edge case at exactly 60 seconds (minute level)', () => {
-      const result = formatTimestamp(testTimestamp, 60);
+      const result = formatTimestampForTraceMetrics(testTimestamp, 60);
       expect(result).toMatch(/\d{1,2}:\d{2}/);
     });
 
     it('should handle edge case at exactly 3600 seconds (hour level)', () => {
-      const result = formatTimestamp(testTimestamp, 3600);
+      const result = formatTimestampForTraceMetrics(testTimestamp, 3600);
       expect(result).toMatch(/\d{1,2}\/\d{1,2}/);
     });
 
     it('should handle edge case at exactly 86400 seconds (day level)', () => {
-      const result = formatTimestamp(testTimestamp, 86400);
+      const result = formatTimestampForTraceMetrics(testTimestamp, 86400);
       expect(result).toMatch(/\d{1,2}\/\d{1,2}/);
     });
   });
