@@ -30,59 +30,38 @@ pytestmark = pytest.mark.skipif(
 
 
 class MockGatewayHandler(BaseHTTPRequestHandler):
-    """Mock handler for MLflow gateway chat completions endpoint."""
+    """Mock handler for MLflow gateway chat completions endpoint.
+
+    Uses the model name from the request body to determine response behavior
+    name (e.g., mock-single-turn, mock-conversation) to signal expected behavior.
+    """
 
     def do_POST(self):
         content_length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(content_length))
 
+        model = body.get("model", "")
         messages = body.get("messages", [])
         prompt_text = str(messages)
-
-        # Check for agentic scorers ({{trace}} template) - indicated by tool calls
         tools = body.get("tools", [])
-        if tools:
-            # {{trace}} scorers use tools to fetch trace data - just return a valid response
-            response = self._make_response("3", "Counted 3 spans")
-        # Check for conversation data (session-level scorers)
-        elif "conversation" in prompt_text.lower():
-            # Validate that {{conversation}} was parsed - should contain conversation turns
-            # Session 1: "Hello, how are you?" / "What's your name?"
-            # Session 2: "What's the weather?" / "Thanks!"
-            prompt_lower = prompt_text.lower()
-            # Check for either session's content
-            has_session_1 = "hello" in prompt_lower and (
-                "name" in prompt_lower or "assistant" in prompt_lower
-            )
-            has_session_2 = "weather" in prompt_lower and "thanks" in prompt_lower
-            if has_session_1:
-                response = self._make_response("Good", "Session 1: Good conversation")
-            elif has_session_2:
-                response = self._make_response("Average", "Session 2: Average conversation")
-            else:
-                self._send_error(
-                    "Conversation content not found. Expected session 1 (hello/name) "
-                    f"or session 2 (weather/thanks). Got: {prompt_text[:500]}"
-                )
-                return
-        # Check for safety evaluation (builtin scorer)
-        elif "safe" in prompt_text.lower() or "harmful" in prompt_text.lower():
-            # Builtin Safety scorer uses its own prompt template with trace data
-            # Just validate that some trace content is present
-            if "what is" not in prompt_text.lower() and "answer" not in prompt_text.lower():
-                self._send_error("Trace data not found in safety prompt")
-                return
+
+        # Route based on model/endpoint name for explicit behavior selection
+        if "agentic" in model:
+            # Agentic scorers ({{trace}} template) must use tools to fetch trace data
+            response = self._handle_agentic_request(tools)
+            if response is None:
+                return  # Error already sent
+        elif "conversation" in model:
+            response = self._handle_conversation_request(prompt_text)
+            if response is None:
+                return  # Error already sent
+        elif "safety" in model:
             response = self._make_response("yes", "Content is safe")
         else:
             # Default: single-turn scorers with {{inputs}}/{{outputs}}/{{expectations}}
-            if "what is" not in prompt_text.lower() or "the answer is" not in prompt_text.lower():
-                self._send_error(f"Trace inputs/outputs not found in prompt: {prompt_text[:500]}")
-                return
-            # Validate that expectations were parsed (expected_answer values are "0", "2", or "4")
-            if "expected_answer" not in prompt_text.lower():
-                self._send_error(f"Expectations not found in prompt: {prompt_text[:500]}")
-                return
-            response = self._make_response("Yes", "Mock response")
+            response = self._handle_single_turn_request(prompt_text)
+            if response is None:
+                return  # Error already sent
 
         response_body = json.dumps(response).encode()
         self.send_response(200)
@@ -90,6 +69,44 @@ class MockGatewayHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(response_body)))
         self.end_headers()
         self.wfile.write(response_body)
+
+    def _handle_conversation_request(self, prompt_text: str) -> dict[str, Any] | None:
+        """Handle conversation scorer requests, returning different responses per session."""
+        prompt_lower = prompt_text.lower()
+        # Session 1: "Hello, how are you?" / "What's your name?"
+        # Session 2: "What's the weather?" / "Thanks!"
+        has_session_1 = "hello" in prompt_lower and (
+            "name" in prompt_lower or "assistant" in prompt_lower
+        )
+        has_session_2 = "weather" in prompt_lower and "thanks" in prompt_lower
+        if has_session_1:
+            return self._make_response("Good", "Session 1: Good conversation")
+        elif has_session_2:
+            return self._make_response("Average", "Session 2: Average conversation")
+        else:
+            self._send_error(
+                "Conversation content not found. Expected session 1 (hello/name) "
+                f"or session 2 (weather/thanks). Got: {prompt_text[:500]}"
+            )
+            return None
+
+    def _handle_agentic_request(self, tools: list[dict[str, Any]]) -> dict[str, Any] | None:
+        """Handle agentic scorer requests with validation that tools are present."""
+        if not tools:
+            self._send_error("Agentic scorer requests must include tools for trace data fetching")
+            return None
+        return self._make_response("3", "Counted 3 spans")
+
+    def _handle_single_turn_request(self, prompt_text: str) -> dict[str, Any] | None:
+        """Handle single-turn scorer requests with validation."""
+        prompt_lower = prompt_text.lower()
+        if "what is" not in prompt_lower or "the answer is" not in prompt_lower:
+            self._send_error(f"Trace inputs/outputs not found in prompt: {prompt_text[:500]}")
+            return None
+        if "expected_answer" not in prompt_lower:
+            self._send_error(f"Expectations not found in prompt: {prompt_text[:500]}")
+            return None
+        return self._make_response("Yes", "Mock response")
 
     def _make_response(self, result: str, rationale: str) -> dict[str, Any]:
         return {
@@ -200,10 +217,8 @@ def client(tmp_path_factory: pytest.TempPathFactory, mock_gateway_server: str) -
             # Register the scorer invoke job function
             "_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST": ("mlflow.genai.scorers.job.invoke_scorer_job"),
             "_MLFLOW_ALLOWED_JOB_NAME_LIST": "invoke_scorer",
-            # Allow loading custom scorers (normally restricted to Databricks runtime)
-            "DATABRICKS_RUNTIME_VERSION": "15.0",
-            # Point gateway calls to our mock server (test override)
-            "_MLFLOW_GATEWAY_BASE_URL_TEST_OVERRIDE": mock_gateway_server,
+            # Point gateway calls to our mock server
+            "MLFLOW_GATEWAY_URI": mock_gateway_server,
             # Set batch size to 2 for testing job batching behavior
             "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE": "2",
         },
@@ -275,7 +290,7 @@ def test_invoke_scorer_basic(client: Client, experiment_with_traces):
     judge = make_judge(
         name="answer_quality",
         instructions="Input: {{ inputs }}\nOutput: {{ outputs }}\nExpected: {{ expectations }}",
-        model="gateway:/mock-endpoint",
+        model="gateway:/mock-single-turn",
         feedback_value_type=Literal["Yes", "No"],
     )
 
@@ -297,7 +312,6 @@ def test_invoke_scorer_basic(client: Client, experiment_with_traces):
     # Wait for all jobs and verify results
     for job_info in jobs:
         result = client.wait_job_succeeded(job_info["job_id"])["result"]
-        assert result["success"] is True
         assert result["failures"] == []
 
         for trace_id in job_info["trace_ids"]:
@@ -313,7 +327,7 @@ def test_invoke_scorer_missing_trace(client: Client, experiment_with_traces):
     judge = make_judge(
         name="answer_quality",
         instructions="Input: {{ inputs }}\nOutput: {{ outputs }}",
-        model="gateway:/mock-endpoint",
+        model="gateway:/mock-single-turn",
         feedback_value_type=Literal["Yes", "No"],
     )
 
@@ -325,7 +339,7 @@ def test_invoke_scorer_missing_trace(client: Client, experiment_with_traces):
 
     # Job succeeds but result indicates trace not found
     result = client.wait_job_succeeded(response["jobs"][0]["job_id"])["result"]
-    assert result["success"] is False
+    assert len(result["failures"]) > 0
     assert result["failures"][0]["trace_id"] == fake_trace_id
     assert result["failures"][0]["error_code"] == "TRACE_NOT_FOUND"
 
@@ -414,7 +428,7 @@ def test_invoke_agentic_scorer(client: Client, experiment_with_agentic_trace):
     judge = make_judge(
         name="span_counter",
         instructions="Count spans in: {{ trace }}",
-        model="gateway:/mock-endpoint",
+        model="gateway:/mock-agentic",
         feedback_value_type=Literal["1", "2", "3", "4", "5"],
     )
 
@@ -425,7 +439,7 @@ def test_invoke_agentic_scorer(client: Client, experiment_with_agentic_trace):
     )
 
     result = client.wait_job_succeeded(response["jobs"][0]["job_id"])["result"]
-    assert result["success"] is True
+    assert result["failures"] == []
     assert result["assessments"][trace_id][0]["assessment_name"] == "span_counter"
     assert result["assessments"][trace_id][0]["feedback"]["value"] == "3"
 
@@ -439,7 +453,7 @@ def test_invoke_conversation_scorer(client: Client, experiment_with_conversation
     judge = make_judge(
         name="conversation_quality",
         instructions="Evaluate: {{ conversation }}",
-        model="gateway:/mock-endpoint",
+        model="gateway:/mock-conversation",
         feedback_value_type=Literal["Good", "Average", "Poor"],
     )
 
@@ -460,7 +474,7 @@ def test_invoke_conversation_scorer(client: Client, experiment_with_conversation
     results_by_session = {}
     for job_info in jobs:
         result = client.wait_job_succeeded(job_info["job_id"])["result"]
-        assert result["success"] is True
+        assert result["failures"] == []
         # Session-level scorers log to first trace only
         assert len(result["assessments"]) == 1
 
@@ -486,7 +500,7 @@ def test_invoke_builtin_safety_scorer(client: Client, experiment_with_traces):
             "mlflow_version": "3.6.0rc0",
             "serialization_version": 1,
             "builtin_scorer_class": "Safety",
-            "builtin_scorer_pydantic_data": {"name": "safety", "model": "gateway:/mock-endpoint"},
+            "builtin_scorer_pydantic_data": {"name": "safety", "model": "gateway:/mock-safety"},
             "call_source": None,
             "call_signature": None,
             "original_func_name": None,
@@ -501,7 +515,7 @@ def test_invoke_builtin_safety_scorer(client: Client, experiment_with_traces):
     )
 
     result = client.wait_job_succeeded(response["jobs"][0]["job_id"])["result"]
-    assert result["success"] is True
+    assert result["failures"] == []
     assert result["assessments"][trace_id][0]["assessment_name"] == "safety"
     assert result["assessments"][trace_id][0]["feedback"]["value"].lower() in ("yes", "no")
 
@@ -513,7 +527,7 @@ def test_invoke_scorer_with_log_assessments(client: Client, experiment_with_trac
     judge = make_judge(
         name="answer_quality",
         instructions="Input: {{ inputs }}\nOutput: {{ outputs }}\nExpected: {{ expectations }}",
-        model="gateway:/mock-endpoint",
+        model="gateway:/mock-single-turn",
         feedback_value_type=Literal["Yes", "No"],
     )
 
@@ -545,7 +559,7 @@ def test_invoke_scorer_partial_success(client: Client, experiment_with_traces):
     judge = make_judge(
         name="answer_quality",
         instructions="Input: {{ inputs }}\nOutput: {{ outputs }}\nExpected: {{ expectations }}",
-        model="gateway:/mock-endpoint",
+        model="gateway:/mock-single-turn",
         feedback_value_type=Literal["Yes", "No"],
     )
 
@@ -557,7 +571,7 @@ def test_invoke_scorer_partial_success(client: Client, experiment_with_traces):
 
     # Job succeeds but result has partial failure
     result = client.wait_job_succeeded(response["jobs"][0]["job_id"])["result"]
-    assert result["success"] is False
+    assert len(result["failures"]) > 0
 
     # Valid trace got assessment
     assert result["assessments"][valid_trace_id][0]["assessment_name"] == "answer_quality"

@@ -7,12 +7,14 @@ It reuses the core scoring and logging logic from the evaluation harness for con
 
 import functools
 import json
-import os
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable
 
 from mlflow.entities import Trace
-from mlflow.environment_variables import MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS
+from mlflow.environment_variables import (
+    MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS,
+    MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.entities import EvalItem
 from mlflow.genai.evaluation.harness import _compute_eval_scores, _log_assessments
@@ -24,7 +26,6 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.server.jobs import job
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.constant import TraceMetadataKey
-from mlflow.tracking import get_tracking_uri
 
 
 @dataclass
@@ -37,13 +38,11 @@ class ScorerFailure:
 @dataclass
 class InvokeScorerResult:
     trace_ids: list[str]
-    success: bool
     assessments: dict[str, list[Any]] = field(default_factory=dict)
     failures: list[ScorerFailure] = field(default_factory=list)
 
 
 def _make_failure(trace_id: str | None, error: Exception, prefix: str = "") -> ScorerFailure:
-    """Create a standardized ScorerFailure from an exception."""
     msg = f"{prefix}{error}" if prefix else str(error)
     return ScorerFailure(trace_id=trace_id, error_code=type(error).__name__, error_message=msg)
 
@@ -70,7 +69,6 @@ def _translate_scorer_job_failure(
             return asdict(
                 InvokeScorerResult(
                     trace_ids=trace_ids,
-                    success=False,
                     failures=[_make_failure(None, e)],
                 )
             )
@@ -101,22 +99,10 @@ def invoke_scorer_job(
     Returns:
         A dictionary containing:
         - trace_ids: The trace IDs that were requested
-        - success: True only if all evaluations succeeded
         - assessments: Dict mapping trace_id to list of assessment dictionaries
         - failures: List of failure dictionaries with trace_id, error_code, error_message
     """
     from mlflow.server.handlers import _get_tracking_store
-
-    # Save the original tracking URI (HTTP) before _get_tracking_store() overwrites it.
-    # The gateway provider needs the HTTP URI to route requests through the MLflow server.
-    # _get_tracking_store() calls set_tracking_uri() with the backend store URI (e.g., sqlite://),
-    # which would break gateway routing. We save it to an env var that doesn't get clobbered.
-    # For testing purposes, we allow overriding the gateway base URL using an environment variable.
-    if override := os.environ.get("_MLFLOW_GATEWAY_BASE_URL_TEST_OVERRIDE"):
-        os.environ["_MLFLOW_GATEWAY_BASE_URL"] = override
-    else:
-        original_tracking_uri = get_tracking_uri()
-        os.environ["_MLFLOW_GATEWAY_BASE_URL"] = original_tracking_uri
 
     # Deserialize scorer
     scorer_dict = json.loads(serialized_scorer)
@@ -184,7 +170,7 @@ def _run_session_scorer(
         log_assessments: Whether to log assessments to the traces.
 
     Returns:
-        Result dictionary with success, assessments, and failures.
+        Result dictionary with assessments and failures.
     """
     trace_map, failures = _fetch_traces_batch(trace_ids, tracking_store)
 
@@ -192,7 +178,6 @@ def _run_session_scorer(
     if failures:
         return InvokeScorerResult(
             trace_ids=trace_ids,
-            success=False,
             failures=failures,
         )
 
@@ -236,13 +221,11 @@ def _run_session_scorer(
 
         return InvokeScorerResult(
             trace_ids=trace_ids,
-            success=True,
             assessments={first_trace_id: [f.to_dictionary() for f in feedbacks]},
         )
     except Exception as e:
         return InvokeScorerResult(
             trace_ids=trace_ids,
-            success=False,
             failures=[_make_failure(first_trace_id, e)],
         )
 
@@ -265,7 +248,7 @@ def _run_single_turn_scorer_batch(
         log_assessments: Whether to log assessments to the traces.
 
     Returns:
-        Result dictionary with success, assessments, and failures.
+        Result dictionary with assessments and failures.
     """
     trace_map, failures = _fetch_traces_batch(trace_ids, tracking_store)
 
@@ -280,8 +263,6 @@ def _run_single_turn_scorer_batch(
             feedbacks = _compute_eval_scores(
                 eval_item=eval_item,
                 scorers=[scorer],
-                # Disable scorer tracing if we're not logging assessments
-                disable_scorer_tracing=not log_assessments,
             )
 
             # Log assessments if requested
@@ -298,7 +279,80 @@ def _run_single_turn_scorer_batch(
 
     return InvokeScorerResult(
         trace_ids=trace_ids,
-        success=len(failures) == 0,
         assessments=assessments_by_trace,
         failures=failures,
     )
+
+
+def _group_traces_by_session_id(
+    trace_ids: list[str],
+    tracking_store: AbstractStore,
+) -> dict[str, list[str]]:
+    """
+    Group trace_ids by their session_id metadata.
+
+    Fetches trace info from the tracking store and groups them by session_id.
+    Traces without a session_id are skipped.
+
+    Args:
+        trace_ids: List of trace IDs to group.
+        tracking_store: The tracking store instance.
+
+    Returns:
+        Dictionary mapping session_id to list of trace_ids, sorted by timestamp.
+    """
+    session_groups: dict[str, list[str]] = {}
+    # trace_id -> (session_id, timestamp_ms)
+    trace_info_cache: dict[str, tuple[str, int | None]] = {}
+
+    for trace_id in trace_ids:
+        try:
+            if trace_info := tracking_store.get_trace_info(trace_id):
+                trace_metadata = trace_info.trace_metadata or {}
+                if session_id := trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
+                    if session_id not in session_groups:
+                        session_groups[session_id] = []
+                    session_groups[session_id].append(trace_id)
+                    trace_info_cache[trace_id] = (session_id, trace_info.timestamp_ms)
+        except Exception:
+            # Skip traces that can't be fetched
+            pass
+
+    # Sort trace_ids within each session by trace timestamp (None timestamps sort last)
+    for session_id in session_groups:
+        session_groups[session_id] = sorted(
+            session_groups[session_id],
+            key=lambda tid: trace_info_cache.get(tid, ("", None))[1] or float("inf"),
+        )
+
+    return session_groups
+
+
+def get_trace_batches_for_scorer(
+    trace_ids: list[str],
+    scorer: Scorer,
+    tracking_store: AbstractStore,
+) -> list[list[str]]:
+    """
+    Get trace ID batches for scorer invocation.
+
+    Handles batching logic for both session-level and single-turn scorers:
+    - Session-level scorers: Groups traces by session_id, returns one batch per session.
+    - Single-turn scorers: Batches traces based on MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE.
+
+    Args:
+        trace_ids: List of trace IDs to evaluate.
+        scorer: The validated Scorer instance.
+        tracking_store: The tracking store instance.
+
+    Returns:
+        List of trace ID batches, where each batch should be submitted as a separate job.
+    """
+    if scorer.is_session_level_scorer:
+        # For conversation judges, group traces by session_id
+        session_groups = _group_traces_by_session_id(trace_ids, tracking_store)
+        return list(session_groups.values())
+    else:
+        # For single-turn judges, batch traces into fixed-size batches
+        batch_size = MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE.get()
+        return [trace_ids[i : i + batch_size] for i in range(0, len(trace_ids), batch_size)]

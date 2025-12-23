@@ -9,7 +9,6 @@ import re
 import tempfile
 import time
 import urllib
-from collections import defaultdict
 from functools import partial, wraps
 from typing import Any
 
@@ -49,7 +48,6 @@ from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, 
 from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
-    MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -4399,6 +4397,8 @@ def _invoke_scorer_handler():
         )
 
     from mlflow.genai.scorers.base import Scorer
+    from mlflow.genai.scorers.job import get_trace_batches_for_scorer, invoke_scorer_job
+    from mlflow.server.jobs import submit_job
 
     try:
         scorer = Scorer.model_validate(scorer_dict)
@@ -4408,79 +4408,23 @@ def _invoke_scorer_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    from mlflow.genai.scorers.job import invoke_scorer_job
-    from mlflow.server.jobs import submit_job
+    tracking_store = _get_tracking_store()
+    batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
 
     jobs = []
-
-    # Check if this is a session-level (conversation) scorer
-    if scorer.is_session_level_scorer:
-        # For conversation judges, group traces by session_id
-        session_groups = _group_traces_by_session_id(trace_ids)
-
-        for session_id, session_trace_ids in session_groups.items():
-            job = submit_job(
-                function=invoke_scorer_job,
-                params={
-                    "experiment_id": experiment_id,
-                    "serialized_scorer": serialized_scorer,
-                    "trace_ids": session_trace_ids,
-                    "log_assessments": log_assessments,
-                },
-            )
-            jobs.append({"job_id": job.job_id, "trace_ids": session_trace_ids})
-    else:
-        # For single-turn judges, batch traces into jobs
-        batch_size = MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE.get()
-        for i in range(0, len(trace_ids), batch_size):
-            batch_trace_ids = trace_ids[i : i + batch_size]
-            job = submit_job(
-                function=invoke_scorer_job,
-                params={
-                    "experiment_id": experiment_id,
-                    "serialized_scorer": serialized_scorer,
-                    "trace_ids": batch_trace_ids,
-                    "log_assessments": log_assessments,
-                },
-            )
-            jobs.append({"job_id": job.job_id, "trace_ids": batch_trace_ids})
+    for batch_trace_ids in batches:
+        job = submit_job(
+            function=invoke_scorer_job,
+            params={
+                "experiment_id": experiment_id,
+                "serialized_scorer": serialized_scorer,
+                "trace_ids": batch_trace_ids,
+                "log_assessments": log_assessments,
+            },
+        )
+        jobs.append({"job_id": job.job_id, "trace_ids": batch_trace_ids})
 
     return jsonify({"jobs": jobs})
-
-
-def _group_traces_by_session_id(trace_ids: list[str]) -> dict[str, list[str]]:
-    """
-    Group trace_ids by their session_id metadata.
-
-    Fetches trace info from the tracking store and groups them by session_id.
-    Traces without a session_id are skipped.
-    """
-    from mlflow.tracing.constant import TraceMetadataKey
-
-    tracking_store = _get_tracking_store()
-    session_groups = defaultdict(list)
-    # trace_id -> (session_id, timestamp_ms)
-    trace_info_cache: dict[str, tuple[str, int | None]] = {}
-
-    for trace_id in trace_ids:
-        try:
-            if trace_info := tracking_store.get_trace_info(trace_id):
-                trace_metadata = trace_info.trace_metadata or {}
-                if session_id := trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
-                    session_groups[session_id].append(trace_id)
-                    trace_info_cache[trace_id] = (session_id, trace_info.timestamp_ms)
-        except Exception:
-            # Skip traces that can't be fetched
-            pass
-
-    # Sort trace_ids within each session by trace timestamp (None timestamps sort last)
-    for session_id in session_groups:
-        session_groups[session_id] = sorted(
-            session_groups[session_id],
-            key=lambda tid: trace_info_cache.get(tid, ("", None))[1] or float("inf"),
-        )
-
-    return dict(session_groups)
 
 
 def _get_rest_path(base_path, version=2):

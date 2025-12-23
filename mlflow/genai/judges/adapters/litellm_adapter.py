@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
 from contextlib import ContextDecorator
 from typing import TYPE_CHECKING, Any
@@ -17,7 +16,7 @@ if TYPE_CHECKING:
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
+from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
@@ -213,10 +212,12 @@ def _invoke_litellm_and_handle_tools(
 
     # Construct model URI and gateway params
     if provider == "gateway":
-        # Use _MLFLOW_GATEWAY_BASE_URL if set (by job workers), otherwise fall back to tracking URI.
-        # Job workers set this env var because _get_tracking_store() overwrites MLFLOW_TRACKING_URI
-        # with the backend store URI (e.g., sqlite://), but gateway needs the HTTP server URL.
-        tracking_uri = os.environ.get("_MLFLOW_GATEWAY_BASE_URL") or get_tracking_uri()
+        # MLFLOW_GATEWAY_URI takes precedence over tracking URI for gateway routing.
+        # This is needed for async job workers: the job infrastructure passes the HTTP
+        # tracking URI (e.g., http://127.0.0.1:5000) to workers, but _get_tracking_store()
+        # overwrites MLFLOW_TRACKING_URI with the backend store URI (e.g., sqlite://).
+        # Job workers set MLFLOW_GATEWAY_URI to preserve the HTTP URI for gateway calls.
+        tracking_uri = MLFLOW_GATEWAY_URI.get() or get_tracking_uri()
 
         # Validate that tracking URI is a valid HTTP(S) URL for gateway
         if not is_http_uri(tracking_uri):
