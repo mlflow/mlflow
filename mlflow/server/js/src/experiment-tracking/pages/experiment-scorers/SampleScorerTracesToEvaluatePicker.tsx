@@ -39,26 +39,26 @@ const PickerOptionsLabels = {
 };
 
 export const SampleScorerTracesToEvaluatePicker = ({
-  onTracesToEvaluateChange,
-  tracesToEvaluate,
+  onItemsToEvaluateChange,
+  itemsToEvaluate,
 }: {
-  tracesToEvaluate: Pick<EvaluateTracesParams, 'traceCount' | 'traceIds'>;
-  onTracesToEvaluateChange: (tracesToEvaluate: Pick<EvaluateTracesParams, 'traceCount' | 'traceIds'>) => void;
+  itemsToEvaluate: Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>;
+  onItemsToEvaluateChange: (itemsToEvaluate: Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>) => void;
 }) => {
   const [displayPickCustomTracesModal, setDisplayPickCustomTracesModal] = useState(false);
-  const tracesToEvaluateDropdownValue = useMemo(() => {
-    if (!isEmpty(tracesToEvaluate.traceIds)) {
+  const itemsToEvaluateDropdownValue = useMemo(() => {
+    if (!isEmpty(itemsToEvaluate.itemIds)) {
       return PickerOption.CUSTOM;
     }
-    return coerceToEnum(PickerOption, String(tracesToEvaluate.traceCount), PickerOption.LAST_10_TRACES);
-  }, [tracesToEvaluate]);
+    return coerceToEnum(PickerOption, String(itemsToEvaluate.itemCount), PickerOption.LAST_10_TRACES);
+  }, [itemsToEvaluate]);
 
   return (
     <>
       <DialogCombobox
         componentId="mlflow.experiment-scorers.form.traces-picker"
         id="TODO"
-        value={[tracesToEvaluateDropdownValue]}
+        value={[itemsToEvaluateDropdownValue]}
       >
         <DialogComboboxCustomButtonTriggerWrapper>
           <Button
@@ -66,14 +66,14 @@ export const SampleScorerTracesToEvaluatePicker = ({
             size="small"
             endIcon={<ChevronDownIcon />}
           >
-            {tracesToEvaluateDropdownValue === PickerOption.CUSTOM ? (
+            {itemsToEvaluateDropdownValue === PickerOption.CUSTOM ? (
               <FormattedMessage
                 defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
                 description="Label for the number of traces selected"
-                values={{ count: tracesToEvaluate.traceIds?.length }}
+                values={{ count: itemsToEvaluate.itemIds?.length }}
               />
             ) : (
-              <FormattedMessage {...PickerOptionsLabels[tracesToEvaluateDropdownValue]} />
+              <FormattedMessage {...PickerOptionsLabels[itemsToEvaluateDropdownValue]} />
             )}
           </Button>
         </DialogComboboxCustomButtonTriggerWrapper>
@@ -82,9 +82,9 @@ export const SampleScorerTracesToEvaluatePicker = ({
             {[PickerOption.LAST_TRACE, PickerOption.LAST_5_TRACES, PickerOption.LAST_10_TRACES].map((value) => (
               <DialogComboboxOptionListSelectItem
                 value={value}
-                checked={tracesToEvaluateDropdownValue === value}
+                checked={itemsToEvaluateDropdownValue === value}
                 onChange={() => {
-                  onTracesToEvaluateChange({ traceCount: Number(value), traceIds: undefined });
+                  onItemsToEvaluateChange({ itemCount: Number(value), itemIds: undefined });
                 }}
               >
                 <FormattedMessage {...PickerOptionsLabels[value]} />

@@ -69,8 +69,8 @@ interface SampleScorerOutputPanelRendererProps {
   handlePrevious: () => void;
   handleNext: () => void;
   totalTraces: number;
-  tracesToEvaluate: Pick<EvaluateTracesParams, 'traceCount' | 'traceIds'>;
-  onTracesToEvaluateChange: (tracesToEvaluate: Pick<EvaluateTracesParams, 'traceCount' | 'traceIds'>) => void;
+  itemsToEvaluate: Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>;
+  onItemsToEvaluateChange: (itemsToEvaluate: Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>) => void;
 }
 
 const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererProps> = ({
@@ -85,8 +85,8 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
   handlePrevious,
   handleNext,
   totalTraces,
-  tracesToEvaluate,
-  onTracesToEvaluateChange,
+  itemsToEvaluate,
+  onItemsToEvaluateChange,
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -120,8 +120,8 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
         </Typography.Text>
         <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
           <SampleScorerTracesToEvaluatePicker
-            tracesToEvaluate={tracesToEvaluate}
-            onTracesToEvaluateChange={onTracesToEvaluateChange}
+            itemsToEvaluate={itemsToEvaluate}
+            onItemsToEvaluateChange={onItemsToEvaluateChange}
           />
           {!isInitialScreen && (
             <Tooltip

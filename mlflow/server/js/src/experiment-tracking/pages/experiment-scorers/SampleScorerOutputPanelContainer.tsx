@@ -29,9 +29,9 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   const scorerType = useWatch({ control, name: 'scorerType' });
   const { errors } = useFormState({ control });
 
-  const [tracesToEvaluate, setTracesToEvaluate] = useState<Pick<EvaluateTracesParams, 'traceCount' | 'traceIds'>>({
-    traceCount: DEFAULT_TRACE_COUNT,
-    traceIds: [],
+  const [itemsToEvaluate, setItemsToEvaluate] = useState<Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>>({
+    itemCount: DEFAULT_TRACE_COUNT,
+    itemIds: [],
   });
   const [evaluateTraces, { data, isLoading, error, reset }] = useEvaluateTraces();
 
@@ -68,15 +68,15 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       // Prepare evaluation parameters based on mode
       const evaluationParams = isCustomMode
         ? {
-            traceCount: tracesToEvaluate.traceCount,
-            traceIds: tracesToEvaluate.traceIds,
+            itemCount: itemsToEvaluate.itemCount,
+            itemIds: itemsToEvaluate.itemIds,
             locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' as const }],
             judgeInstructions: judgeInstructions || '',
             experimentId,
           }
         : {
-            traceCount: tracesToEvaluate.traceCount,
-            traceIds: tracesToEvaluate.traceIds,
+            itemCount: itemsToEvaluate.itemCount,
+            itemIds: itemsToEvaluate.itemIds,
             locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' as const }],
             requestedAssessments: [
               {
@@ -105,7 +105,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     judgeInstructions,
     llmTemplate,
     guidelines,
-    tracesToEvaluate,
+    itemsToEvaluate,
     evaluateTraces,
     experimentId,
     onScorerFinished,
@@ -229,8 +229,8 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       handlePrevious={handlePrevious}
       handleNext={handleNext}
       totalTraces={data?.length ?? 0}
-      tracesToEvaluate={tracesToEvaluate}
-      onTracesToEvaluateChange={setTracesToEvaluate}
+      itemsToEvaluate={itemsToEvaluate}
+      onItemsToEvaluateChange={setItemsToEvaluate}
     />
   );
 };

@@ -69,8 +69,10 @@ export type ScorerConfig = {
 };
 
 interface EvaluateChatParamsBase {
-  traceCount?: number;
-  traceIds?: string[];
+  // Number of items to evaluate. This can be the number of traces or sessions.
+  itemCount?: number;
+  // Explicit list of item IDs to evaluate. Can be either trace IDs or session IDs. This is used to override the itemCount.
+  itemIds?: string[];
   locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   experimentId: string;
 }

@@ -7,9 +7,9 @@ import { isEmpty } from 'lodash';
 
 const fetchTracesAndGetIds = async (
   queryClient: QueryClient,
-  { traceCount, locations }: Required<Pick<EvaluateTracesParams, 'traceCount' | 'locations'>>,
+  { itemCount, locations }: Required<Pick<EvaluateTracesParams, 'itemCount' | 'locations'>>,
 ) => {
-  const modifiedTraceCount = Math.max(traceCount, DEFAULT_TRACE_COUNT);
+  const modifiedTraceCount = Math.max(itemCount, DEFAULT_TRACE_COUNT);
 
   const traces = await queryClient.fetchQuery({
     queryKey: [
@@ -36,7 +36,7 @@ const fetchTracesAndGetIds = async (
   const traceIds = traces
     .map((trace) => trace.trace_id)
     .filter((id): id is string => Boolean(id))
-    .slice(0, traceCount);
+    .slice(0, itemCount);
 
   return traceIds;
 };
@@ -46,13 +46,13 @@ export const useGetTraceIdsForEvaluation = () => {
 
   return useCallback(
     async (params: EvaluateTracesParams) => {
-      const { traceCount = 0, locations, traceIds } = params;
-      if (traceIds && !isEmpty(traceIds)) {
-        return traceIds;
+      const { itemCount: traceCount = 0, locations, itemIds } = params;
+      if (itemIds && !isEmpty(itemIds)) {
+        return itemIds;
       }
       const fetchedTraceIds = await fetchTracesAndGetIds(queryClient, {
         locations,
-        traceCount,
+        itemCount: traceCount,
       });
       return fetchedTraceIds;
     },
