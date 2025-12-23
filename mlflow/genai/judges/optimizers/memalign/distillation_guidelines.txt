@@ -23,7 +23,7 @@ Here are the user judgement examples:
 {% for id, feedback_record in zip(ids, feedback_records) %}
 {
   "id": {{ id }},
-  {% for field, value in feedback_record %}
+  {% for field, value in feedback_record.items() %}
   "{{ field }}": "{{ value }}",
   {% endfor %}
 }
