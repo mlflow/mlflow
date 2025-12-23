@@ -33,7 +33,7 @@ export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ experime
     timeIntervalSeconds,
   });
 
-  const traceCountDataPoints = traceCountData?.data_points || [];
+  const traceCountDataPoints = useMemo(() => traceCountData?.data_points || [], [traceCountData?.data_points]);
 
   // Get total requests
   const totalRequests = useMemo(
