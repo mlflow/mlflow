@@ -385,6 +385,7 @@ mlflow.entities.LifecycleStage
 mlflow.entities.LifecycleStage.is_valid
 mlflow.entities.LifecycleStage.matches_view_type
 mlflow.entities.LifecycleStage.view_type_to_stages
+mlflow.entities.LinkageType
 mlflow.entities.LiveSpan
 mlflow.entities.LiveSpan.add_event
 mlflow.entities.LiveSpan.from_dict
@@ -441,6 +442,9 @@ mlflow.entities.Param
 mlflow.entities.Param.from_proto
 mlflow.entities.Param.to_proto
 mlflow.entities.Prompt
+mlflow.entities.RoutingStrategy
+mlflow.entities.RoutingStrategy.from_proto
+mlflow.entities.RoutingStrategy.to_proto
 mlflow.entities.Run
 mlflow.entities.Run.from_proto
 mlflow.entities.Run.to_dictionary
@@ -564,6 +568,8 @@ mlflow.entities.entity_type.EntityAssociationType
 mlflow.entities.experiment.Experiment
 mlflow.entities.experiment_tag.ExperimentTag
 mlflow.entities.file_info.FileInfo
+mlflow.entities.gateway_endpoint.FallbackConfig
+mlflow.entities.gateway_endpoint.FallbackStrategy
 mlflow.entities.gateway_endpoint.GatewayEndpoint
 mlflow.entities.gateway_endpoint.GatewayEndpointBinding
 mlflow.entities.gateway_endpoint.GatewayEndpointModelMapping
@@ -571,6 +577,8 @@ mlflow.entities.gateway_endpoint.GatewayEndpointTag
 mlflow.entities.gateway_endpoint.GatewayModelDefinition
 mlflow.entities.gateway_endpoint.GatewayResourceType
 mlflow.entities.gateway_secrets.GatewaySecretInfo
+mlflow.entities.gateway_endpoint.LinkageType
+mlflow.entities.gateway_endpoint.RoutingStrategy
 mlflow.entities.input_tag.InputTag
 mlflow.entities.lifecycle_stage.LifecycleStage
 mlflow.entities.logged_model.LoggedModel
