@@ -198,7 +198,6 @@ export const SecretFormFields = ({
             validationState={errors?.configFields?.[field.name] ? 'error' : undefined}
             disabled={disabled}
           />
-          {field.description && !errors?.configFields?.[field.name] && <FormUI.Hint>{field.description}</FormUI.Hint>}
           {errors?.configFields?.[field.name] && (
             <FormUI.Message type="error" message={errors.configFields[field.name]} />
           )}

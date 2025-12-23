@@ -20,9 +20,9 @@ function createWrapper() {
 }
 
 const generateMockBinding = (id: string): EndpointBinding => ({
-  binding_id: `binding-${id}`,
   endpoint_id: `ep-${id}`,
-  experiment_id: `exp-${id}`,
+  resource_type: 'experiment',
+  resource_id: `exp-${id}`,
   created_at: 1700000000000,
 });
 
@@ -49,7 +49,7 @@ describe('useBindingsQuery', () => {
     });
 
     expect(result.current.data).toHaveLength(2);
-    expect(result.current.data[0].binding_id).toBe('binding-1');
+    expect(result.current.data[0].endpoint_id).toBe('ep-1');
     expect(result.current.error).toBeUndefined();
   });
 
