@@ -1,7 +1,9 @@
 import json
 import os
+from collections.abc import Generator
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 from urllib.request import urlopen
 
 from mlflow.entities import SourceType
@@ -24,17 +26,14 @@ def _get_notebook_name() -> str | None:
         return os.path.basename(notebook_path)
 
     # Method 2: Check environment variables
-    vsc_notebook = os.environ.get("__vsc_ipynb_file__")
-    if vsc_notebook:
+    if vsc_notebook := os.environ.get("__vsc_ipynb_file__"):
         return os.path.basename(vsc_notebook)
 
-    ipynb_file = os.environ.get("IPYNB_FILE")
-    if ipynb_file:
+    if ipynb_file := os.environ.get("IPYNB_FILE"):
         return os.path.basename(ipynb_file)
 
     # Method 3: Query Jupyter server sessions (for JupyterLab/classic Jupyter)
-    notebook_path = _get_notebook_path_from_sessions()
-    if notebook_path:
+    if notebook_path := _get_notebook_path_from_sessions():
         return os.path.basename(notebook_path)
 
     return None
@@ -82,8 +81,7 @@ def _get_notebook_path_from_sessions() -> str | None:
 
         for server in _get_running_servers():
             try:
-                notebook_path = _get_sessions_notebook(server, kernel_id)
-                if notebook_path:
+                if notebook_path := _get_sessions_notebook(server, kernel_id):
                     return notebook_path
             except Exception:
                 continue
@@ -105,15 +103,14 @@ def _get_kernel_id() -> str | None:
 
         connection_file = Path(ipykernel.get_connection_file()).stem
         # Connection file is like: kernel-<uuid>
-        kernel_id = connection_file.split("-", 1)[1]
-        return kernel_id
+        return connection_file.split("-", 1)[1]
     except Exception:
         pass
 
     return None
 
 
-def _get_running_servers() -> list[dict]:
+def _get_running_servers() -> Generator[dict[str, Any], None, None]:
     """
     Get list of running Jupyter servers by scanning the runtime directory.
 
@@ -145,7 +142,7 @@ def _get_running_servers() -> list[dict]:
         pass
 
 
-def _get_sessions_notebook(server: dict, kernel_id: str) -> str | None:
+def _get_sessions_notebook(server: dict[str, Any], kernel_id: str) -> str | None:
     """
     Query a server's sessions API to find the notebook for a kernel.
 

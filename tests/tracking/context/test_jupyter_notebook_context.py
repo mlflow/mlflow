@@ -78,13 +78,13 @@ def test_get_kernel_id_success():
     mock_ipykernel = mock.Mock()
     mock_ipykernel.get_connection_file.return_value = f"/path/to/kernel-{MOCK_KERNEL_ID}.json"
 
-    with mock.patch.dict("sys.modules", {"ipykernel": mock_ipykernel}):
-        with mock.patch(
-            "mlflow.tracking.context.jupyter_notebook_context.Path"
-        ) as mock_path:
-            mock_path.return_value.stem = f"kernel-{MOCK_KERNEL_ID}"
-            result = _get_kernel_id()
-            assert result == MOCK_KERNEL_ID
+    with (
+        mock.patch.dict("sys.modules", {"ipykernel": mock_ipykernel}),
+        mock.patch("mlflow.tracking.context.jupyter_notebook_context.Path") as mock_path,
+    ):
+        mock_path.return_value.stem = f"kernel-{MOCK_KERNEL_ID}"
+        result = _get_kernel_id()
+        assert result == MOCK_KERNEL_ID
 
 
 def test_get_kernel_id_import_error():
@@ -101,35 +101,37 @@ def test_get_running_servers_finds_servers(tmp_path):
     mock_jupyter_core = mock.Mock()
     mock_jupyter_core.paths.jupyter_runtime_dir.return_value = str(tmp_path)
 
-    with mock.patch.dict(
-        "sys.modules",
-        {"jupyter_core": mock_jupyter_core, "jupyter_core.paths": mock_jupyter_core.paths},
-    ):
-        with mock.patch(
+    with (
+        mock.patch.dict(
+            "sys.modules",
+            {"jupyter_core": mock_jupyter_core, "jupyter_core.paths": mock_jupyter_core.paths},
+        ),
+        mock.patch(
             "mlflow.tracking.context.jupyter_notebook_context.Path",
             return_value=tmp_path,
-        ):
-            servers = list(_get_running_servers())
+        ),
+    ):
+        list(_get_running_servers())
 
 
 def test_get_running_servers_no_servers(tmp_path):
     mock_jupyter_core = mock.Mock()
     mock_jupyter_core.paths.jupyter_runtime_dir.return_value = str(tmp_path)
 
-    with mock.patch.dict(
-        "sys.modules",
-        {"jupyter_core": mock_jupyter_core, "jupyter_core.paths": mock_jupyter_core.paths},
+    with (
+        mock.patch.dict(
+            "sys.modules",
+            {"jupyter_core": mock_jupyter_core, "jupyter_core.paths": mock_jupyter_core.paths},
+        ),
+        mock.patch("mlflow.tracking.context.jupyter_notebook_context.Path") as mock_path,
     ):
-        with mock.patch(
-            "mlflow.tracking.context.jupyter_notebook_context.Path"
-        ) as mock_path:
-            mock_path_instance = mock.Mock()
-            mock_path_instance.is_dir.return_value = True
-            mock_path_instance.glob.return_value = []
-            mock_path.return_value = mock_path_instance
+        mock_path_instance = mock.Mock()
+        mock_path_instance.is_dir.return_value = True
+        mock_path_instance.glob.return_value = []
+        mock_path.return_value = mock_path_instance
 
-            servers = list(_get_running_servers())
-            assert servers == []
+        servers = list(_get_running_servers())
+        assert servers == []
 
 
 def test_get_running_servers_import_error():
@@ -142,9 +144,7 @@ def test_get_sessions_notebook_finds_notebook():
     server = {"url": "http://localhost:8888/", "token": "test_token"}
     mock_sessions = [{"kernel": {"id": MOCK_KERNEL_ID}, "path": MOCK_NOTEBOOK_PATH}]
 
-    with mock.patch(
-        "mlflow.tracking.context.jupyter_notebook_context.urlopen"
-    ) as mock_urlopen:
+    with mock.patch("mlflow.tracking.context.jupyter_notebook_context.urlopen") as mock_urlopen:
         mock_response = mock.Mock()
         mock_response.__enter__ = mock.Mock(return_value=mock_response)
         mock_response.__exit__ = mock.Mock(return_value=False)
@@ -160,9 +160,7 @@ def test_get_sessions_notebook_no_matching_kernel():
     server = {"url": "http://localhost:8888/", "token": "test_token"}
     mock_sessions = [{"kernel": {"id": "different_kernel"}, "path": "other_notebook.ipynb"}]
 
-    with mock.patch(
-        "mlflow.tracking.context.jupyter_notebook_context.urlopen"
-    ) as mock_urlopen:
+    with mock.patch("mlflow.tracking.context.jupyter_notebook_context.urlopen") as mock_urlopen:
         mock_response = mock.Mock()
         mock_response.__enter__ = mock.Mock(return_value=mock_response)
         mock_response.__exit__ = mock.Mock(return_value=False)
@@ -184,25 +182,23 @@ def test_get_sessions_notebook_connection_error():
         assert result is None
 
 
-def test_get_sessions_notebook_with_jupyterhub_token():
+def test_get_sessions_notebook_with_jupyterhub_token(monkeypatch):
     server = {"url": "http://localhost:8888/", "token": ""}
     mock_sessions = [{"kernel": {"id": MOCK_KERNEL_ID}, "path": MOCK_NOTEBOOK_PATH}]
 
+    monkeypatch.setenv("JUPYTERHUB_API_TOKEN", "hub_token")
+
     with (
-        mock.patch.dict("os.environ", {"JUPYTERHUB_API_TOKEN": "hub_token"}),
-        mock.patch(
-            "mlflow.tracking.context.jupyter_notebook_context.urlopen"
-        ) as mock_urlopen,
+        mock.patch("mlflow.tracking.context.jupyter_notebook_context.urlopen") as mock_urlopen,
+        mock.patch("json.load", return_value=mock_sessions),
     ):
         mock_response = mock.Mock()
         mock_response.__enter__ = mock.Mock(return_value=mock_response)
         mock_response.__exit__ = mock.Mock(return_value=False)
-
-        with mock.patch("json.load", return_value=mock_sessions):
-            mock_urlopen.return_value = mock_response
-            result = _get_sessions_notebook(server, MOCK_KERNEL_ID)
-            call_args = mock_urlopen.call_args
-            assert "hub_token" in call_args[0][0]
+        mock_urlopen.return_value = mock_response
+        _get_sessions_notebook(server, MOCK_KERNEL_ID)
+        call_args = mock_urlopen.call_args
+        assert "hub_token" in call_args[0][0]
 
 
 @pytest.mark.parametrize(
@@ -215,15 +211,22 @@ def test_get_sessions_notebook_with_jupyterhub_token():
         (None, {}, None, None),
     ],
 )
-def test_get_notebook_name(vscode_path, env_vars, sessions_path, expected):
+def test_get_notebook_name(vscode_path, env_vars, sessions_path, expected, monkeypatch):
     _get_notebook_name.cache_clear()
+
+    # Clear relevant env vars that the code checks
+    monkeypatch.delenv("__vsc_ipynb_file__", raising=False)
+    monkeypatch.delenv("IPYNB_FILE", raising=False)
+
+    # Set the test env vars
+    for key, value in env_vars.items():
+        monkeypatch.setenv(key, value)
 
     with (
         mock.patch(
             "mlflow.tracking.context.jupyter_notebook_context._get_vscode_notebook_path",
             return_value=vscode_path,
         ),
-        mock.patch.dict("os.environ", env_vars, clear=True),
         mock.patch(
             "mlflow.tracking.context.jupyter_notebook_context._get_notebook_path_from_sessions",
             return_value=sessions_path,
