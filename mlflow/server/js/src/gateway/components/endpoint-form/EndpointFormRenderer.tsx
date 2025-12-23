@@ -1,13 +1,22 @@
+import { useState } from 'react';
 import { Alert, Button, FormUI, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { GatewayInput } from '../common';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, useFormContext } from 'react-hook-form';
 import { ProviderSelect } from '../create-endpoint/ProviderSelect';
+import { ModelSelectorModal } from '../model-selector';
+import { LongFormSection } from '../../../common/components/long-form/LongFormSection';
+import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import { formatProviderName } from '../../utils/providerUtils';
+import { formatTokens, formatCost } from '../../utils/formatters';
+import type { ProviderModel } from '../../types';
+
+const LONG_FORM_TITLE_WIDTH = 200;
 
 export interface EndpointFormData {
   name: string;
   provider: string;
+  modelName: string;
 }
 
 export interface EndpointFormRendererProps {
@@ -16,6 +25,7 @@ export interface EndpointFormRendererProps {
   error: Error | null;
   errorMessage: string | null;
   resetErrors: () => void;
+  selectedModel: ProviderModel | undefined;
   isFormComplete: boolean;
   hasChanges?: boolean;
   onSubmit: (values: EndpointFormData) => Promise<void>;
@@ -30,6 +40,7 @@ export const EndpointFormRenderer = ({
   error,
   errorMessage,
   resetErrors,
+  selectedModel,
   isFormComplete,
   hasChanges = true,
   onSubmit,
@@ -40,8 +51,10 @@ export const EndpointFormRenderer = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const form = useFormContext<EndpointFormData>();
+  const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
 
   const provider = form.watch('provider');
+  const modelName = form.watch('modelName');
 
   const isButtonDisabled = mode === 'edit' ? !isFormComplete || !hasChanges : !isFormComplete;
   const buttonTooltip = !isFormComplete
@@ -74,16 +87,33 @@ export const EndpointFormRenderer = ({
         css={{
           flex: 1,
           display: 'flex',
-          gap: theme.spacing.lg,
-          padding: theme.spacing.md,
+          gap: theme.spacing.md,
+          padding: `0 ${theme.spacing.md}px`,
           overflow: 'auto',
+          '@media (max-width: 1023px)': {
+            flexDirection: 'column',
+          },
         }}
       >
-        <div css={{ flexGrow: 1, maxWidth: 600 }}>
-          <div css={{ marginBottom: theme.spacing.lg }}>
-            <FormUI.Label htmlFor={`${componentIdPrefix}.name`}>
-              <FormattedMessage defaultMessage="Name" description="Endpoint name label" />
-            </FormUI.Label>
+        {/* Main form column */}
+        <div
+          css={{
+            flexGrow: 1,
+            maxWidth: 900,
+            minWidth: 0,
+            '@media (max-width: 1023px)': {
+              maxWidth: '100%',
+            },
+          }}
+        >
+          {/* Name Section */}
+          <LongFormSection
+            titleWidth={LONG_FORM_TITLE_WIDTH}
+            title={intl.formatMessage({
+              defaultMessage: 'Name',
+              description: 'Section title for endpoint name',
+            })}
+          >
             <Controller
               control={form.control}
               name="name"
@@ -113,57 +143,125 @@ export const EndpointFormRenderer = ({
                 </div>
               )}
             />
-          </div>
+          </LongFormSection>
 
-          <div css={{ marginBottom: theme.spacing.lg }}>
-            <Controller
-              control={form.control}
-              name="provider"
-              rules={{ required: 'Provider is required' }}
-              render={({ field, fieldState }) => (
-                <ProviderSelect
-                  value={field.value}
-                  onChange={field.onChange}
-                  error={fieldState.error?.message}
-                  componentIdPrefix={`${componentIdPrefix}.provider`}
+          {/* Model Section */}
+          <LongFormSection
+            titleWidth={LONG_FORM_TITLE_WIDTH}
+            title={intl.formatMessage({
+              defaultMessage: 'Model',
+              description: 'Section title for model configuration',
+            })}
+            hideDivider
+          >
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+              {/* Provider subsection */}
+              <div>
+                <Controller
+                  control={form.control}
+                  name="provider"
+                  rules={{ required: 'Provider is required' }}
+                  render={({ field, fieldState }) => (
+                    <ProviderSelect
+                      value={field.value}
+                      onChange={(value) => {
+                        field.onChange(value);
+                        form.setValue('modelName', '');
+                      }}
+                      error={fieldState.error?.message}
+                      componentIdPrefix={`${componentIdPrefix}.provider`}
+                    />
+                  )}
                 />
+              </div>
+
+              {/* Model subsection - only show when provider is selected */}
+              {provider && (
+                <div>
+                  <FormUI.Label htmlFor={`${componentIdPrefix}.model`}>
+                    <FormattedMessage defaultMessage="Model" description="Model label" />
+                  </FormUI.Label>
+                  <Button
+                    componentId={`${componentIdPrefix}.select-model`}
+                    onClick={() => setIsModelSelectorOpen(true)}
+                    css={{
+                      width: '100%',
+                      fontWeight: 'normal',
+                      '& > span': {
+                        width: '100%',
+                        justifyContent: 'flex-start',
+                      },
+                    }}
+                  >
+                    {modelName || (
+                      <span css={{ color: theme.colors.textSecondary }}>
+                        <FormattedMessage
+                          defaultMessage="Select a model..."
+                          description="Model selection placeholder"
+                        />
+                      </span>
+                    )}
+                  </Button>
+                </div>
               )}
-            />
-          </div>
+            </div>
+          </LongFormSection>
         </div>
 
+        {/* Summary sidebar */}
         <div
           css={{
             flexShrink: 0,
-            width: 300,
-            padding: theme.spacing.md,
-            backgroundColor: theme.colors.backgroundSecondary,
-            borderRadius: theme.general.borderRadiusBase,
+            width: 360,
+            position: 'sticky',
+            top: 0,
+            alignSelf: 'flex-start',
+            '@media (max-width: 1023px)': {
+              width: '100%',
+              position: 'static',
+            },
           }}
         >
-          <Typography.Title level={4} css={{ marginBottom: theme.spacing.md }}>
-            <FormattedMessage defaultMessage="Summary" description="Summary sidebar title" />
-          </Typography.Title>
-
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-            <div>
-              <Typography.Text bold color="secondary">
-                <FormattedMessage defaultMessage="Provider" description="Summary provider label" />
-              </Typography.Text>
-              <Typography.Text css={{ display: 'block' }}>
+          <LongFormSummary
+            title={intl.formatMessage({
+              defaultMessage: 'Summary',
+              description: 'Summary sidebar title',
+            })}
+          >
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+              {/* Provider */}
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                <Typography.Text bold color="secondary">
+                  <FormattedMessage defaultMessage="Provider" description="Summary provider label" />
+                </Typography.Text>
                 {provider ? (
-                  formatProviderName(provider)
+                  <Typography.Text>{formatProviderName(provider)}</Typography.Text>
                 ) : (
-                  <span css={{ color: theme.colors.textSecondary }}>
-                    <FormattedMessage defaultMessage="Not selected" description="Summary not selected" />
-                  </span>
+                  <Typography.Text color="secondary">
+                    <FormattedMessage defaultMessage="Not configured" description="Summary not configured" />
+                  </Typography.Text>
                 )}
-              </Typography.Text>
+              </div>
+
+              {/* Model */}
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                <Typography.Text bold color="secondary">
+                  <FormattedMessage defaultMessage="Model" description="Summary model label" />
+                </Typography.Text>
+                {modelName ? (
+                  <ModelSummary model={selectedModel} modelName={modelName} />
+                ) : (
+                  <Typography.Text color="secondary">
+                    <FormattedMessage defaultMessage="Not configured" description="Summary not configured" />
+                  </Typography.Text>
+                )}
+              </div>
             </div>
-          </div>
+          </LongFormSummary>
         </div>
       </div>
 
+      {/* Footer buttons */}
       <div
         css={{
           display: 'flex',
@@ -193,6 +291,87 @@ export const EndpointFormRenderer = ({
           </Button>
         </Tooltip>
       </div>
+
+      <ModelSelectorModal
+        isOpen={isModelSelectorOpen}
+        onClose={() => setIsModelSelectorOpen(false)}
+        onSelect={(model) => {
+          form.setValue('modelName', model.model);
+          setIsModelSelectorOpen(false);
+        }}
+        provider={provider}
+      />
     </>
+  );
+};
+
+/** Helper component to display model metadata in the summary */
+const ModelSummary = ({ model, modelName }: { model: ProviderModel | undefined; modelName: string }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+
+  const capabilities: string[] = [];
+  if (model?.supports_function_calling) capabilities.push('Tools');
+  if (model?.supports_reasoning) capabilities.push('Reasoning');
+
+  const contextWindow = formatTokens(model?.max_input_tokens);
+  const inputCost = formatCost(model?.input_cost_per_token);
+  const outputCost = formatCost(model?.output_cost_per_token);
+
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, minWidth: 0, maxWidth: '100%' }}>
+      {/* Model name */}
+      <Typography.Text
+        bold
+        css={{
+          fontSize: theme.typography.fontSizeSm,
+          wordBreak: 'break-all',
+          overflowWrap: 'anywhere',
+        }}
+      >
+        {modelName}
+      </Typography.Text>
+
+      {/* Capabilities */}
+      {capabilities.length > 0 && (
+        <Typography.Text
+          color="secondary"
+          css={{ fontSize: theme.typography.fontSizeSm, marginLeft: theme.spacing.sm }}
+        >
+          {capabilities.join(', ')}
+        </Typography.Text>
+      )}
+
+      {/* Context & Cost info */}
+      {model && (contextWindow || inputCost || outputCost) && (
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            marginLeft: theme.spacing.sm,
+            fontSize: theme.typography.fontSizeSm,
+            color: theme.colors.textSecondary,
+          }}
+        >
+          {contextWindow && (
+            <span>
+              {intl.formatMessage(
+                { defaultMessage: 'Max input: {tokens}', description: 'Max input tokens' },
+                { tokens: contextWindow },
+              )}
+            </span>
+          )}
+          {(inputCost || outputCost) && (
+            <span>
+              {intl.formatMessage(
+                { defaultMessage: 'Cost: {input} in / {output} out', description: 'Model cost per token' },
+                { input: inputCost ?? '-', output: outputCost ?? '-' },
+              )}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
   );
 };
