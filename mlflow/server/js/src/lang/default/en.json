@@ -3086,6 +3086,10 @@
     "defaultMessage": "Name",
     "description": "Text for name column in schema table in model version page"
   },
+  "NkyJeV": {
+    "defaultMessage": "Over time",
+    "description": "Label above the errors chart"
+  },
   "Nlm9bK": {
     "defaultMessage": "Add tags",
     "description": "Label for the add tags button on the registered prompt details page"
@@ -6998,6 +7002,10 @@
   "t0Qkuc": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Metrics table > Value column header"
+  },
+  "t3mHNt": {
+    "defaultMessage": "Errors",
+    "description": "Title for the errors chart"
   },
   "tCC/M3": {
     "defaultMessage": "Create a new key if a different provider is needed.",
