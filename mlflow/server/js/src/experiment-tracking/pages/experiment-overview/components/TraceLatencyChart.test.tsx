@@ -81,14 +81,15 @@ jest.mock('recharts', () => ({
 
 describe('TraceLatencyChart', () => {
   const testExperimentId = 'test-experiment-123';
-  const now = Date.now();
-  const oneHourAgo = now - 60 * 60 * 1000;
+  // Use fixed timestamps for predictable bucket generation
+  const startTimeMs = new Date('2025-12-22T10:00:00Z').getTime();
+  const endTimeMs = new Date('2025-12-22T12:00:00Z').getTime(); // 2 hours = 3 buckets with 1hr interval
 
   // Default props reused across tests
   const defaultProps = {
     experimentId: testExperimentId,
-    startTimeMs: oneHourAgo,
-    endTimeMs: now,
+    startTimeMs,
+    endTimeMs,
     timeIntervalSeconds: 3600, // 1 hour
   };
 
@@ -142,20 +143,21 @@ describe('TraceLatencyChart', () => {
   });
 
   describe('empty data state', () => {
-    it('should render empty state message when no data points are returned', async () => {
-      mockApiResponse([]);
+    it('should render chart with zeros when no data points are returned', async () => {
+      mockApiResponses([], []);
 
       renderComponent();
 
+      // Chart should still render with all time buckets (filled with zeros)
       await waitFor(() => {
-        expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();
+        expect(screen.getByTestId('line-chart')).toHaveAttribute('data-count', '3');
       });
     });
 
-    it('should render empty state when data_points is undefined', async () => {
-      mockApiResponse(undefined);
+    it('should render empty state when time range is not provided', async () => {
+      mockApiResponse([]);
 
-      renderComponent();
+      renderComponent({ startTimeMs: undefined, endTimeMs: undefined });
 
       await waitFor(() => {
         expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();
@@ -171,7 +173,7 @@ describe('TraceLatencyChart', () => {
 
     const mockAvgDataPoints = [createAvgLatencyDataPoint(250)];
 
-    it('should render chart with data points', async () => {
+    it('should render chart with all time buckets', async () => {
       mockApiResponses(mockPercentileDataPoints, mockAvgDataPoints);
 
       renderComponent();
@@ -180,8 +182,8 @@ describe('TraceLatencyChart', () => {
         expect(screen.getByTestId('line-chart')).toBeInTheDocument();
       });
 
-      // Verify the line chart has the correct number of data points
-      expect(screen.getByTestId('line-chart')).toHaveAttribute('data-count', '2');
+      // Verify the line chart has all 3 time buckets (10:00, 11:00, 12:00)
+      expect(screen.getByTestId('line-chart')).toHaveAttribute('data-count', '3');
     });
 
     it('should display all three percentile lines', async () => {
@@ -247,6 +249,18 @@ describe('TraceLatencyChart', () => {
         const referenceLine = screen.getByTestId('reference-line');
         expect(referenceLine).toBeInTheDocument();
         expect(referenceLine).toHaveAttribute('data-label', 'AVG (250 ms)');
+      });
+    });
+
+    it('should fill missing time buckets with zeros', async () => {
+      // Only provide data for one time bucket
+      mockApiResponses([createLatencyDataPoint('2025-12-22T10:00:00Z', 150, 350, 800)], mockAvgDataPoints);
+
+      renderComponent();
+
+      // Chart should still show all 3 time buckets
+      await waitFor(() => {
+        expect(screen.getByTestId('line-chart')).toHaveAttribute('data-count', '3');
       });
     });
   });
@@ -320,7 +334,7 @@ describe('TraceLatencyChart', () => {
           {
             metric_name: TraceMetricKey.LATENCY,
             dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
-            values: {}, // Missing percentile values
+            values: {}, // Missing percentile values - will be treated as 0
           },
         ],
         [createAvgLatencyDataPoint(100)],
@@ -328,9 +342,9 @@ describe('TraceLatencyChart', () => {
 
       renderComponent();
 
-      // Should still render without crashing
+      // Should still render with all time buckets
       await waitFor(() => {
-        expect(screen.getByTestId('line-chart')).toBeInTheDocument();
+        expect(screen.getByTestId('line-chart')).toHaveAttribute('data-count', '3');
       });
     });
 
@@ -339,9 +353,9 @@ describe('TraceLatencyChart', () => {
 
       renderComponent();
 
-      // Should still render the chart without avg
+      // Should still render the chart with all time buckets
       await waitFor(() => {
-        expect(screen.getByTestId('line-chart')).toBeInTheDocument();
+        expect(screen.getByTestId('line-chart')).toHaveAttribute('data-count', '3');
       });
 
       // Should NOT display avg value or reference line when not available
@@ -353,7 +367,7 @@ describe('TraceLatencyChart', () => {
         [
           {
             metric_name: TraceMetricKey.LATENCY,
-            dimensions: {}, // Missing time_bucket
+            dimensions: {}, // Missing time_bucket - won't be mapped to any bucket
             values: {
               [getPercentileKey(P50)]: 100,
               [getPercentileKey(P90)]: 200,
@@ -366,9 +380,9 @@ describe('TraceLatencyChart', () => {
 
       renderComponent();
 
-      // Should still render the chart
+      // Should still render the chart with all generated time buckets (all with 0 values)
       await waitFor(() => {
-        expect(screen.getByTestId('line-chart')).toBeInTheDocument();
+        expect(screen.getByTestId('line-chart')).toHaveAttribute('data-count', '3');
       });
     });
   });
