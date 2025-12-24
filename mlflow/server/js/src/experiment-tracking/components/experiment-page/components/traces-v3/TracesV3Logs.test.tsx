@@ -16,6 +16,7 @@ import {
   REQUEST_TIME_COLUMN_ID,
   TracesTableColumnType,
   TracesTableColumnGroup,
+  FilterOperator,
 } from '@databricks/web-shared/genai-traces-table';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
@@ -479,5 +480,45 @@ describe('TracesV3Logs', () => {
         });
       },
     );
+  });
+
+  describe('Initial filters', () => {
+    it('should apply initial filters when provided', async () => {
+      const setFiltersMock = jest.fn();
+      jest.mocked(useFilters).mockReturnValue([[], setFiltersMock]);
+
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: false,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
+        isInitialTimeFilterLoading: false,
+      });
+
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+
+      const initialFilters = [{ column: 'prompt', operator: FilterOperator.EQUALS, value: 'test-prompt/1' }];
+
+      renderComponent({ initialFilters });
+      await waitForRoutesToBeRendered();
+
+      // Should have called setFilters with initialFilters
+      await waitFor(() => {
+        expect(setFiltersMock).toHaveBeenCalledWith(initialFilters);
+      });
+    });
   });
 });
