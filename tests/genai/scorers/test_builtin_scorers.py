@@ -1779,6 +1779,166 @@ def test_tool_call_correctness_with_incorrect_tool_call():
         mock_invoke.assert_called()
 
 
+@pytest.fixture
+def tool_call_trace_two_tools():
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "Search for MLflow and summarize"})
+        with mlflow.start_span(name="search", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"query": "MLflow"})
+            tool_span.set_outputs("MLflow is an ML platform")
+        with mlflow.start_span(name="summarize", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"max_length": 100})
+            tool_span.set_outputs("MLflow platform summary")
+        span.set_outputs("Summary: MLflow platform summary")
+    return mlflow.get_trace(span.trace_id)
+
+
+@pytest.fixture
+def tool_call_trace_one_tool():
+    with mlflow.start_span(name="agent") as span:
+        span.set_inputs({"question": "Search for MLflow"})
+        with mlflow.start_span(name="search", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"query": "MLflow"})
+            tool_span.set_outputs("MLflow is an ML platform")
+        span.set_outputs("MLflow is an ML platform")
+    return mlflow.get_trace(span.trace_id)
+
+
+@pytest.mark.parametrize(
+    ("should_consider_ordering", "expected_tool_calls", "expected_result"),
+    [
+        # Ordered, correct order -> YES
+        (
+            True,
+            [
+                {"name": "search", "arguments": {"query": "MLflow"}},
+                {"name": "summarize", "arguments": {"max_length": 100}},
+            ],
+            CategoricalRating.YES,
+        ),
+        # Ordered, wrong order -> NO
+        (
+            True,
+            [
+                {"name": "summarize", "arguments": {"max_length": 100}},
+                {"name": "search", "arguments": {"query": "MLflow"}},
+            ],
+            CategoricalRating.NO,
+        ),
+        # Unordered, different order -> YES
+        (
+            False,
+            [
+                {"name": "summarize", "arguments": {"max_length": 100}},
+                {"name": "search", "arguments": {"query": "MLflow"}},
+            ],
+            CategoricalRating.YES,
+        ),
+        # Unordered, wrong arguments -> NO
+        (
+            False,
+            [
+                {"name": "search", "arguments": {"query": "Wrong query"}},
+                {"name": "summarize", "arguments": {"max_length": 100}},
+            ],
+            CategoricalRating.NO,
+        ),
+    ],
+)
+def test_tool_call_correctness_exact_match_full_expectations(
+    tool_call_trace_two_tools, should_consider_ordering, expected_tool_calls, expected_result
+):
+    scorer = ToolCallCorrectness(
+        should_exact_match=True, should_consider_ordering=should_consider_ordering
+    )
+    expectations = {"expected_tool_calls": expected_tool_calls}
+    result = scorer(trace=tool_call_trace_two_tools, expectations=expectations)
+    assert result.value == expected_result
+
+
+@pytest.mark.parametrize(
+    ("expected_tool_calls", "expected_result"),
+    [
+        # Correct tool names -> YES
+        ([{"name": "search"}, {"name": "summarize"}], CategoricalRating.YES),
+        # Wrong tool name -> NO
+        ([{"name": "search"}, {"name": "translate"}], CategoricalRating.NO),
+    ],
+)
+def test_tool_call_correctness_exact_match_partial_expectations(
+    tool_call_trace_two_tools, expected_tool_calls, expected_result
+):
+    scorer = ToolCallCorrectness(should_exact_match=True, should_consider_ordering=False)
+    expectations = {"expected_tool_calls": expected_tool_calls}
+    result = scorer(trace=tool_call_trace_two_tools, expectations=expectations)
+    assert result.value == expected_result
+
+
+def test_tool_call_correctness_exact_match_count_mismatch(tool_call_trace_one_tool):
+    scorer = ToolCallCorrectness(should_exact_match=True, should_consider_ordering=False)
+    expectations = {"expected_tool_calls": [{"name": "search"}, {"name": "summarize"}]}
+    result = scorer(trace=tool_call_trace_one_tool, expectations=expectations)
+    assert result.value == CategoricalRating.NO
+    assert "Expected 2 tool call(s), but got 1" in result.rationale
+
+
+def test_tool_call_correctness_exact_match_without_expectations_raises_error(
+    tool_call_trace_one_tool,
+):
+    scorer = ToolCallCorrectness(should_exact_match=True)
+    with pytest.raises(MlflowException, match="should_exact_match=True requires expectations"):
+        scorer(trace=tool_call_trace_one_tool)
+
+
+def test_tool_call_correctness_fuzzy_match_with_expectations(tool_call_trace_one_tool):
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke:
+        mock_invoke.return_value = Feedback(
+            name="tool_call_correctness",
+            value=CategoricalRating.YES,
+            rationale="Tool calls match expectations semantically",
+        )
+
+        scorer = ToolCallCorrectness()
+        expectations = {
+            "expected_tool_calls": [
+                {"name": "search", "arguments": {"query": "MLflow documentation"}}
+            ]
+        }
+        result = scorer(trace=tool_call_trace_one_tool, expectations=expectations)
+
+        assert result.value == CategoricalRating.YES
+        mock_invoke.assert_called_once()
+
+
+def test_tool_call_correctness_parse_expectations_with_function_call_objects():
+    from mlflow.genai.utils.type import FunctionCall
+
+    scorer = ToolCallCorrectness()
+    expectations = {
+        "expected_tool_calls": [
+            FunctionCall(name="search", arguments={"query": "test"}),
+            FunctionCall(name="summarize"),
+        ]
+    }
+
+    expected_calls = scorer._parse_expectations(expectations)
+    assert len(expected_calls) == 2
+    assert expected_calls[0].name == "search"
+    assert expected_calls[0].arguments == {"query": "test"}
+    assert expected_calls[1].name == "summarize"
+    assert scorer._has_partial_expectations_only(expected_calls)
+
+
+@pytest.mark.parametrize(
+    "expectations",
+    [None, {}, {"expected_tool_calls": []}],
+)
+def test_tool_call_correctness_parse_expectations_empty(expectations):
+    scorer = ToolCallCorrectness()
+    expected_calls = scorer._parse_expectations(expectations)
+    assert expected_calls is None
+
+
 def test_conversational_role_adherence_with_session():
     session_id = "test_session_role"
     traces = []

@@ -1,4 +1,5 @@
 import inspect
+import json
 import logging
 import math
 from abc import abstractmethod
@@ -6,6 +7,9 @@ from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
 import pydantic
+
+from mlflow.genai.utils.type import FunctionCall
+from mlflow.types.chat import ChatTool
 
 if TYPE_CHECKING:
     from mlflow.types.llm import ChatMessage
@@ -59,6 +63,9 @@ from mlflow.genai.judges.prompts.summarization import (
 )
 from mlflow.genai.judges.prompts.tool_call_correctness import (
     TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS,
+)
+from mlflow.genai.judges.prompts.tool_call_correctness import (
+    get_prompt as get_tool_call_correctness_prompt,
 )
 from mlflow.genai.judges.prompts.tool_call_efficiency import (
     TOOL_CALL_EFFICIENCY_PROMPT_INSTRUCTIONS,
@@ -811,14 +818,30 @@ class ToolCallCorrectness(BuiltInScorer):
     to fulfill the user's request. It checks if the tool choices align with the user's intent and
     if the arguments passed to each tool are reasonable.
 
+    The scorer supports three modes of evaluation:
+
+    1. **Ground-truth free** (default): When no expectations are provided, uses an LLM to judge
+       whether tool calls are reasonable given the user request and available tools.
+
+    2. **With expectations (fuzzy match)**: When expectations are provided and
+       ``should_exact_match=False``, uses an LLM to semantically compare actual tool calls
+       against expected tool calls.
+
+    3. **With expectations (exact match)**: When expectations are provided and
+       ``should_exact_match=True``, performs direct comparison of tool names and arguments.
+
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
     Args:
         name: The name of the scorer. Defaults to "tool_call_correctness".
         model: {{ model }}
+        should_exact_match: If True, use exact matching for tool names and arguments.
+            If False (default), use LLM-based fuzzy matching for semantic comparison.
+        should_consider_ordering: If True, consider the order of tool calls when comparing.
+            If False (default), ignore ordering and compare as sets.
 
-    Example (direct usage):
+    Example (ground-truth free):
 
     .. code-block:: python
 
@@ -826,17 +849,49 @@ class ToolCallCorrectness(BuiltInScorer):
         from mlflow.genai.scorers import ToolCallCorrectness
 
         trace = mlflow.get_trace("<your-trace-id>")
-        feedback = ToolCallCorrectness(name="my_tool_call_correctness")(trace=trace)
-        print(feedback)
+        feedback = ToolCallCorrectness()(trace=trace)
 
-    Example (with evaluate):
+    Example (with expectations - fuzzy match):
 
     .. code-block:: python
 
-        import mlflow
+        from mlflow.genai.scorers import ToolCallCorrectness
 
-        data = mlflow.search_traces(...)
-        result = mlflow.genai.evaluate(data=data, scorers=[ToolCallCorrectness()])
+        scorer = ToolCallCorrectness()
+        expectations = {
+            "expected_tool_calls": [
+                {"name": "search", "arguments": {"query": "MLflow"}},
+                {"name": "summarize", "arguments": {"max_length": 100}},
+            ]
+        }
+        feedback = scorer(trace=trace, expectations=expectations)
+
+    Example (with expectations - exact match):
+
+    .. code-block:: python
+
+        from mlflow.genai.scorers import ToolCallCorrectness
+
+        scorer = ToolCallCorrectness(should_exact_match=True)
+        expectations = {
+            "expected_tool_calls": [
+                {"name": "search"},  # Partial: only check tool name
+                {"name": "summarize"},
+            ]
+        }
+        feedback = scorer(trace=trace, expectations=expectations)
+
+    Example (with ordering):
+
+    .. code-block:: python
+
+        from mlflow.genai.scorers import ToolCallCorrectness
+
+        # Enforce that tools are called in the expected order
+        scorer = ToolCallCorrectness(
+            should_exact_match=True,
+            should_consider_ordering=True,
+        )
     """
 
     name: str = "tool_call_correctness"
@@ -846,13 +901,15 @@ class ToolCallCorrectness(BuiltInScorer):
         "Evaluate whether the tools called and the arguments they are called with "
         "are reasonable given the user request."
     )
+    should_exact_match: bool = False
+    should_consider_ordering: bool = False
 
     @property
     def instructions(self) -> str:
         return TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS
 
     def get_input_fields(self) -> list[JudgeField]:
-        return [
+        fields = [
             JudgeField(
                 name="trace",
                 description=(
@@ -863,18 +920,230 @@ class ToolCallCorrectness(BuiltInScorer):
                 ),
             ),
         ]
+        if self.should_exact_match:
+            fields.append(
+                JudgeField(
+                    name="expectations",
+                    description=(
+                        "A dictionary containing expected tool calls. Must contain an "
+                        "'expected_tool_calls' key with a list of expected function calls. "
+                        "Each call should have 'name' and optionally 'arguments'. "
+                        "Required when should_exact_match=True."
+                    ),
+                )
+            )
+        else:
+            fields.append(
+                JudgeField(
+                    name="expectations",
+                    description=(
+                        "Optional dictionary containing expected tool calls for ground-truth "
+                        "comparison. Contains 'expected_tool_calls' key with list of calls."
+                    ),
+                )
+            )
+        return fields
 
-    def __call__(self, *, trace: Trace) -> Feedback:
+    def validate_columns(self, columns: set[str]) -> None:
+        super().validate_columns(columns)
+        if self.should_exact_match and "expectations/expected_tool_calls" not in columns:
+            raise MissingColumnsException(
+                self.name,
+                {"expectations/expected_tool_calls (required when should_exact_match=True)"},
+            )
+
+    def _parse_expectations(self, expectations: dict[str, Any] | None) -> list[FunctionCall] | None:
+        """Parse and normalize expectations into FunctionCall objects."""
+        if not expectations or "expected_tool_calls" not in expectations:
+            return None
+
+        expected_tool_calls = expectations["expected_tool_calls"]
+        if not expected_tool_calls:
+            return None
+
+        normalized_calls = []
+        for call in expected_tool_calls:
+            if isinstance(call, FunctionCall):
+                normalized_calls.append(call)
+            elif isinstance(call, dict):
+                name = call.get("name")
+                arguments = call.get("arguments")
+                if arguments is not None and not isinstance(arguments, dict):
+                    raise MlflowException(
+                        f"Invalid arguments type: {type(arguments)}. Arguments must be a dict."
+                    )
+                normalized_calls.append(FunctionCall(name=name, arguments=arguments))
+            else:
+                raise MlflowException(
+                    f"Invalid expected tool call format: {type(call)}. "
+                    "Expected dict with 'name' and optional 'arguments', or FunctionCall object."
+                )
+
+        return normalized_calls
+
+    def _has_partial_expectations_only(self, expected_calls: list[FunctionCall]) -> bool:
+        """Check if any expected call lacks arguments (partial expectations)."""
+        return any(call.arguments is None for call in expected_calls)
+
+    def _normalize_arguments(self, args: dict[str, Any] | None) -> dict[str, Any]:
+        if args is None:
+            return {}
+        if isinstance(args, dict):
+            return args
+        raise MlflowException(f"Invalid arguments type: {type(args)}. Arguments must be a dict.")
+
+    def _calls_match(
+        self, actual: FunctionCall, expected: FunctionCall, compare_arguments: bool
+    ) -> bool:
+        if actual.name != expected.name:
+            return False
+        if not compare_arguments:
+            return True
+        return self._normalize_arguments(actual.arguments) == self._normalize_arguments(
+            expected.arguments
+        )
+
+    def _evaluate_correctness_exact(
+        self,
+        actual_calls: list[FunctionCall],
+        expected_calls: list[FunctionCall],
+        compare_arguments: bool,
+        check_order: bool,
+    ) -> Feedback:
+        if len(actual_calls) != len(expected_calls):
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale=(
+                    f"Expected {len(expected_calls)} tool call(s), "
+                    f"but got {len(actual_calls)} tool call(s)."
+                ),
+                source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+            )
+
+        if check_order:
+            mismatches = []
+            for i, (actual, expected) in enumerate(zip(actual_calls, expected_calls)):
+                if not self._calls_match(actual, expected, compare_arguments):
+                    if compare_arguments:
+                        mismatches.append(
+                            f"Position {i + 1}: expected {expected.name}("
+                            f"{json.dumps(self._normalize_arguments(expected.arguments))}), "
+                            f"got {actual.name}("
+                            f"{json.dumps(self._normalize_arguments(actual.arguments))})"
+                        )
+                    else:
+                        mismatches.append(
+                            f"Position {i + 1}: expected {expected.name}, got {actual.name}"
+                        )
+
+            if mismatches:
+                return Feedback(
+                    name=self.name,
+                    value=CategoricalRating.NO,
+                    rationale=f"Tool calls do not match in order: {'; '.join(mismatches)}",
+                    source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+                )
+
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.YES,
+                rationale="All tool calls match expected sequence exactly.",
+                source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+            )
+        else:
+
+            def get_signature(call: FunctionCall) -> str:
+                if compare_arguments:
+                    args = json.dumps(self._normalize_arguments(call.arguments), sort_keys=True)
+                    return f"{call.name}({args})"
+                return call.name or ""
+
+            actual_sigs = {get_signature(c) for c in actual_calls}
+            expected_sigs = {get_signature(c) for c in expected_calls}
+
+            if actual_sigs == expected_sigs:
+                return Feedback(
+                    name=self.name,
+                    value=CategoricalRating.YES,
+                    rationale="All expected tool calls present (order ignored).",
+                    source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+                )
+
+            missing = expected_sigs - actual_sigs
+            extra = actual_sigs - expected_sigs
+
+            rationale_parts = []
+            if missing:
+                rationale_parts.append(f"Missing: {missing}")
+            if extra:
+                rationale_parts.append(f"Unexpected: {extra}")
+
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale="; ".join(rationale_parts),
+                source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+            )
+
+    def _evaluate_correctness_llm(
+        self,
+        request: str,
+        actual_calls: list[FunctionCall],
+        expected_calls: list[FunctionCall],
+        available_tools: list[ChatTool],
+        compare_arguments: bool,
+        check_order: bool,
+    ) -> Feedback:
+        model = self.model or get_default_model()
+        prompt = get_tool_call_correctness_prompt(
+            request=request,
+            tools_called=actual_calls,
+            available_tools=available_tools,
+            expected_calls=expected_calls,
+            compare_arguments=compare_arguments,
+            check_order=check_order,
+        )
+        return invoke_judge_model(model, prompt, assessment_name=self.name)
+
+    def __call__(self, *, trace: Trace, expectations: dict[str, Any] | None = None) -> Feedback:
         request = extract_request_from_trace(trace)
         available_tools = extract_available_tools_from_trace(trace)
-        tools_called = extract_tools_called_from_trace(trace)
+        actual_calls = extract_tools_called_from_trace(trace)
 
-        return judges.is_tool_call_correct(
+        expected_calls = self._parse_expectations(expectations)
+
+        if expected_calls is None:
+            if self.should_exact_match:
+                raise MlflowException(
+                    "should_exact_match=True requires expectations to be provided. "
+                    "Cannot perform exact matching without ground truth."
+                )
+            return judges.is_tool_call_correct(
+                request=request,
+                tools_called=actual_calls,
+                available_tools=available_tools,
+                name=self.name,
+                model=self.model,
+            )
+
+        compare_arguments = not self._has_partial_expectations_only(expected_calls)
+
+        if self.should_exact_match:
+            return self._evaluate_correctness_exact(
+                actual_calls=actual_calls,
+                expected_calls=expected_calls,
+                compare_arguments=compare_arguments,
+                check_order=self.should_consider_ordering,
+            )
+
+        return self._evaluate_correctness_llm(
             request=request,
-            tools_called=tools_called,
+            actual_calls=actual_calls,
+            expected_calls=expected_calls,
             available_tools=available_tools,
-            name=self.name,
-            model=self.model,
+            compare_arguments=compare_arguments,
+            check_order=self.should_consider_ordering,
         )
 
 
