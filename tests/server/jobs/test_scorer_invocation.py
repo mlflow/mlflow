@@ -46,22 +46,24 @@ class MockGatewayHandler(BaseHTTPRequestHandler):
         tools = body.get("tools", [])
 
         # Route based on model/endpoint name for explicit behavior selection
-        if "agentic" in model:
+        if model == "mock-agentic":
             # Agentic scorers ({{trace}} template) must use tools to fetch trace data
             response = self._handle_agentic_request(tools)
             if response is None:
                 return  # Error already sent
-        elif "conversation" in model:
+        elif model == "mock-conversation":
             response = self._handle_conversation_request(prompt_text)
             if response is None:
                 return  # Error already sent
-        elif "safety" in model:
+        elif model == "mock-safety":
             response = self._make_response("yes", "Content is safe")
-        else:
-            # Default: single-turn scorers with {{inputs}}/{{outputs}}/{{expectations}}
+        elif model == "mock-single-turn":
             response = self._handle_single_turn_request(prompt_text)
             if response is None:
                 return  # Error already sent
+        else:
+            self._send_error(f"Unknown model: {model}")
+            return
 
         response_body = json.dumps(response).encode()
         self.send_response(200)

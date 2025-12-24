@@ -26,6 +26,7 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.server.jobs import job
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.utils import construct_full_inputs
 
 
 @dataclass
@@ -63,9 +64,8 @@ def _translate_scorer_job_failure(
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            # Extract trace_ids from args/kwargs for the failure response
-            # trace_ids is the 3rd positional arg or a kwarg
-            trace_ids = kwargs.get("trace_ids") or (args[2] if len(args) > 2 else [])
+            arguments = construct_full_inputs(func, *args, **kwargs)
+            trace_ids = arguments.get("trace_ids", [])
             return asdict(
                 InvokeScorerResult(
                     trace_ids=trace_ids,
