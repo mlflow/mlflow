@@ -12,6 +12,7 @@ import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
 import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
 import { calculateTimeInterval } from './hooks/useTraceMetricsQuery';
+import { generateTimeBuckets } from './utils/chartUtils';
 
 enum OverviewTab {
   Usage = 'usage',
@@ -43,8 +44,14 @@ const ExperimentGenAIOverviewPageImpl = () => {
   // Calculate time interval once for all charts
   const timeIntervalSeconds = calculateTimeInterval(startTimeMs, endTimeMs);
 
+  // Generate all time buckets once for all charts
+  const timeBuckets = useMemo(
+    () => generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds),
+    [startTimeMs, endTimeMs, timeIntervalSeconds],
+  );
+
   // Common props for all chart components
-  const chartProps = { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds };
+  const chartProps = { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets };
 
   return (
     <div

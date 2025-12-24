@@ -154,3 +154,73 @@ export const ChartEmptyState: React.FC<ChartEmptyStateProps> = ({ height, messag
     </div>
   );
 };
+
+/**
+ * Returns common tooltip style configuration for Recharts tooltips
+ */
+export function useChartTooltipStyle() {
+  const { theme } = useDesignSystemTheme();
+  return {
+    backgroundColor: theme.colors.backgroundPrimary,
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: theme.borders.borderRadiusMd,
+    fontSize: theme.typography.fontSizeSm,
+  };
+}
+
+/**
+ * Returns common XAxis props for time-series charts
+ */
+export function useChartXAxisProps() {
+  const { theme } = useDesignSystemTheme();
+  return {
+    tick: { fontSize: 10, fill: theme.colors.textSecondary, dy: theme.spacing.sm },
+    axisLine: false,
+    tickLine: false,
+    interval: 'preserveStartEnd' as const,
+  };
+}
+
+/**
+ * Returns a legend formatter function with consistent styling
+ */
+export function useChartLegendFormatter() {
+  const { theme } = useDesignSystemTheme();
+  return (value: string) => (
+    <span
+      style={{
+        color: theme.colors.textPrimary,
+        fontSize: theme.typography.fontSizeSm,
+        cursor: 'pointer',
+      }}
+    >
+      {value}
+    </span>
+  );
+}
+
+/**
+ * Props for the ChartContainer component
+ */
+interface ChartContainerProps {
+  children: React.ReactNode;
+}
+
+/**
+ * Common container styling for chart cards
+ */
+export const ChartContainer: React.FC<ChartContainerProps> = ({ children }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        padding: theme.spacing.lg,
+        backgroundColor: theme.colors.backgroundPrimary,
+      }}
+    >
+      {children}
+    </div>
+  );
+};

@@ -1,4 +1,63 @@
+import { useState, useCallback, useMemo } from 'react';
 import { TIME_BUCKET_DIMENSION_KEY, type MetricDataPoint } from '@databricks/web-shared/model-trace-explorer';
+
+/**
+ * Custom hook for managing legend highlight state in charts.
+ * Returns state and handlers for highlighting chart series on legend hover.
+ *
+ * @param defaultOpacity - The opacity when no item is hovered (default: 1)
+ * @param dimmedOpacity - The opacity for non-hovered items (default: 0.2)
+ */
+export function useLegendHighlight(defaultOpacity = 1, dimmedOpacity = 0.2) {
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+
+  const getOpacity = useCallback(
+    (itemKey: string) => {
+      if (hoveredItem === null) return defaultOpacity;
+      return hoveredItem === itemKey ? defaultOpacity : dimmedOpacity;
+    },
+    [hoveredItem, defaultOpacity, dimmedOpacity],
+  );
+
+  const handleLegendMouseEnter = useCallback((data: { value: string }) => {
+    setHoveredItem(data.value);
+  }, []);
+
+  const handleLegendMouseLeave = useCallback(() => {
+    setHoveredItem(null);
+  }, []);
+
+  return {
+    hoveredItem,
+    getOpacity,
+    handleLegendMouseEnter,
+    handleLegendMouseLeave,
+  };
+}
+
+/**
+ * Creates a Map from data points, extracting timestamp as key and a value using the provided extractor.
+ * This is useful for looking up values by timestamp when filling in missing time buckets.
+ *
+ * @param dataPoints - Array of metric data points
+ * @param valueExtractor - Function to extract the value from each data point
+ */
+export function useTimestampValueMap<T>(
+  dataPoints: MetricDataPoint[],
+  valueExtractor: (dp: MetricDataPoint) => T,
+): Map<number, T> {
+  return useMemo(() => {
+    const map = new Map<number, T>();
+    for (const dp of dataPoints) {
+      const timeBucket = dp.dimensions?.[TIME_BUCKET_DIMENSION_KEY];
+      if (timeBucket) {
+        const ts = new Date(timeBucket).getTime();
+        map.set(ts, valueExtractor(dp));
+      }
+    }
+    return map;
+  }, [dataPoints, valueExtractor]);
+}
 
 /**
  * Format timestamp for trace metrics charts x-axis labels based on time interval granularity
