@@ -414,8 +414,10 @@ exclude = [
 ]
 typing-extensions-allowlist = [
   # Docs: https://typing-extensions.readthedocs.io/en/latest/
-  "typing_extensions.Self",        # Added in 4.0.0
-  "typing_extensions.NotRequired", # Added in 4.0.0
+  "typing_extensions.Self",         # Added in 4.0.0
+  "typing_extensions.NotRequired",  # Added in 4.0.0
+  "typing_extensions.overload",     # Added in 4.0.0 (enables runtime introspection via get_overloads)
+  "typing_extensions.get_overloads", # Added in 4.0.0 (runtime access to overload signatures)
 ]
 # Rules that are only enabled for code examples.
 example-rules = [

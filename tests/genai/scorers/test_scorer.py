@@ -461,7 +461,6 @@ def test_make_judge_scorer_works_without_databricks_uri():
 
 
 def test_scorer_has_overload_annotations():
-    """Test that the scorer function has proper @overload annotations for type checkers."""
     from mlflow.genai.scorers.base import scorer
 
     overloads = get_overloads(scorer)
