@@ -66,9 +66,9 @@ def test_job_status_conversion():
         JobStatus.from_int(-1)
 
     with pytest.raises(
-        MlflowException, match="The value 5 can't be converted to JobStatus enum value."
+        MlflowException, match="The value 6 can't be converted to JobStatus enum value."
     ):
-        JobStatus.from_int(5)
+        JobStatus.from_int(6)
 
     with pytest.raises(
         MlflowException, match="The string 'ABC' can't be converted to JobStatus enum value."

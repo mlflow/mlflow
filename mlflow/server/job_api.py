@@ -83,6 +83,20 @@ def submit_job(payload: SubmitJobPayload) -> Job:
         )
 
 
+@job_api_router.patch("/cancel/{job_id}", response_model=Job)
+def cancel_job(job_id: str) -> Job:
+    from mlflow.server.jobs import cancel_job
+
+    try:
+        job = cancel_job(job_id)
+        return Job.from_job_entity(job)
+    except MlflowException as e:
+        raise HTTPException(
+            status_code=e.get_http_status_code(),
+            detail=e.message,
+        )
+
+
 class SearchJobPayload(BaseModel):
     job_name: str | None = None
     params: dict[str, Any] | None = None
