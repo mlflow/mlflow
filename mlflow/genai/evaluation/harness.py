@@ -390,14 +390,33 @@ def _compute_eval_scores(
 
 
 def _get_new_expectations(eval_item: EvalItem) -> list[Expectation]:
+    """Get new expectations for an eval item that haven't been logged to the trace yet.
+
+    This function handles cases where the trace may be missing (e.g., when using
+    certain backends like SageMaker that don't fully support MLflow tracing).
+
+    Args:
+        eval_item: The evaluation item containing inputs, outputs, expectations,
+            and optionally a trace object.
+
+    Returns:
+        A list of Expectation objects that are new (not already logged to the trace).
+        Returns all expectations from the eval_item if the trace is missing or invalid.
+    """
+    # If trace is missing, skip existing expectation checks
+    if eval_item.trace is None or eval_item.trace.info is None:
+        return eval_item.get_expectation_assessments() or []
+
     existing_expectations = {
         a.name for a in eval_item.trace.info.assessments if a.expectation is not None
     }
+
     return [
         exp
         for exp in eval_item.get_expectation_assessments()
         if exp.name not in existing_expectations
     ]
+
 
 
 def _log_assessments(
