@@ -2196,7 +2196,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
 
             # Batch resolve gateway endpoint IDs to names
-            resolved_scorers = self._batch_resolve_serialized_scorers(
+            resolved_scorers = self._batch_resolve_endpoint_in_serialized_scorers(
                 [sv.serialized_scorer for sv in sql_scorer_versions]
             )
             return [
@@ -2393,7 +2393,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
 
             # Batch resolve gateway endpoint IDs to names
-            resolved_scorers = self._batch_resolve_serialized_scorers(
+            resolved_scorers = self._batch_resolve_endpoint_in_serialized_scorers(
                 [sv.serialized_scorer for sv in sql_scorer_versions]
             )
             return [
@@ -4810,7 +4810,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             creation_time=scorer_version.creation_time,
         )
 
-    def _batch_resolve_serialized_scorers(self, serialized_scorers: list[str]) -> list[str]:
+    def _batch_resolve_endpoint_in_serialized_scorers(
+        self, serialized_scorers: list[str]
+    ) -> list[str]:
         """
         Batch resolve gateway endpoint IDs to names in serialized scorer strings.
 
