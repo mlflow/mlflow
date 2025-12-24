@@ -7,4 +7,6 @@ export interface OverviewChartProps {
   endTimeMs?: number;
   /** Time interval in seconds for grouping metrics by time bucket */
   timeIntervalSeconds: number;
+  /** Pre-computed array of timestamp (ms) for all time buckets in the range */
+  timeBuckets: number[];
 }

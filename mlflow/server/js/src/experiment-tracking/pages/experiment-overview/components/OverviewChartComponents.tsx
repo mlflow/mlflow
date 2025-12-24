@@ -154,3 +154,73 @@ export const OverviewChartEmptyState: React.FC<OverviewChartEmptyStateProps> = (
     </div>
   );
 };
+
+/**
+ * Returns common tooltip style configuration for Recharts tooltips
+ */
+export function useChartTooltipStyle() {
+  const { theme } = useDesignSystemTheme();
+  return {
+    backgroundColor: theme.colors.backgroundPrimary,
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: theme.borders.borderRadiusMd,
+    fontSize: theme.typography.fontSizeSm,
+  };
+}
+
+/**
+ * Returns common XAxis props for time-series charts
+ */
+export function useChartXAxisProps() {
+  const { theme } = useDesignSystemTheme();
+  return {
+    tick: { fontSize: 10, fill: theme.colors.textSecondary, dy: theme.spacing.sm },
+    axisLine: false,
+    tickLine: false,
+    interval: 'preserveStartEnd' as const,
+  };
+}
+
+/**
+ * Returns a legend formatter function with consistent styling
+ */
+export function useChartLegendFormatter() {
+  const { theme } = useDesignSystemTheme();
+  return (value: string) => (
+    <span
+      style={{
+        color: theme.colors.textPrimary,
+        fontSize: theme.typography.fontSizeSm,
+        cursor: 'pointer',
+      }}
+    >
+      {value}
+    </span>
+  );
+}
+
+/**
+ * Props for the OverviewChartContainer component
+ */
+interface OverviewChartContainerProps {
+  children: React.ReactNode;
+}
+
+/**
+ * Common container styling for overview chart cards
+ */
+export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ children }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        padding: theme.spacing.lg,
+        backgroundColor: theme.colors.backgroundPrimary,
+      }}
+    >
+      {children}
+    </div>
+  );
+};

@@ -1,22 +1,21 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useDesignSystemTheme, LightningIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import {
-  MetricViewType,
-  AggregationType,
-  TraceMetricKey,
-  TIME_BUCKET_DIMENSION_KEY,
-} from '@databricks/web-shared/model-trace-explorer';
+import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
   OverviewChartEmptyState,
   OverviewChartHeader,
+  OverviewChartContainer,
   OverviewChartTimeLabel,
+  useChartTooltipStyle,
+  useChartXAxisProps,
+  useChartLegendFormatter,
 } from './OverviewChartComponents';
-import { formatTimestampForTraceMetrics, generateTimeBuckets } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, useLegendHighlight, useTimestampValueMap } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
 
 /**
@@ -37,8 +36,13 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = ({
   startTimeMs,
   endTimeMs,
   timeIntervalSeconds,
+  timeBuckets,
 }) => {
   const { theme } = useDesignSystemTheme();
+  const tooltipStyle = useChartTooltipStyle();
+  const xAxisProps = useChartXAxisProps();
+  const legendFormatter = useChartLegendFormatter();
+  const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight(0.8, 0.2);
 
   // Fetch input tokens over time
   const {
@@ -102,68 +106,27 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = ({
     [outputDataPoints],
   );
 
-  // Create maps of tokens by timestamp for merging
-  const inputTokensMap = useMemo(() => {
-    const map = new Map<number, number>();
-    for (const dp of inputDataPoints) {
-      const timeBucket = dp.dimensions?.[TIME_BUCKET_DIMENSION_KEY];
-      if (timeBucket) {
-        const ts = new Date(timeBucket).getTime();
-        map.set(ts, dp.values?.[AggregationType.SUM] || 0);
-      }
-    }
-    return map;
-  }, [inputDataPoints]);
-
-  const outputTokensMap = useMemo(() => {
-    const map = new Map<number, number>();
-    for (const dp of outputDataPoints) {
-      const timeBucket = dp.dimensions?.[TIME_BUCKET_DIMENSION_KEY];
-      if (timeBucket) {
-        const ts = new Date(timeBucket).getTime();
-        map.set(ts, dp.values?.[AggregationType.SUM] || 0);
-      }
-    }
-    return map;
-  }, [outputDataPoints]);
-
-  // Generate all time buckets within the selected range
-  const allTimeBuckets = useMemo(
-    () => generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds),
-    [startTimeMs, endTimeMs, timeIntervalSeconds],
+  // Create maps of tokens by timestamp using shared utility
+  const sumExtractor = useCallback(
+    (dp: { values?: Record<string, number> }) => dp.values?.[AggregationType.SUM] || 0,
+    [],
   );
+  const inputTokensMap = useTimestampValueMap(inputDataPoints, sumExtractor);
+  const outputTokensMap = useTimestampValueMap(outputDataPoints, sumExtractor);
 
   // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
-    return allTimeBuckets.map((timestampMs) => ({
+    return timeBuckets.map((timestampMs) => ({
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       inputTokens: inputTokensMap.get(timestampMs) || 0,
       outputTokens: outputTokensMap.get(timestampMs) || 0,
     }));
-  }, [allTimeBuckets, inputTokensMap, outputTokensMap, timeIntervalSeconds]);
-
-  // Track hovered legend item
-  const [hoveredArea, setHoveredArea] = useState<string | null>(null);
+  }, [timeBuckets, inputTokensMap, outputTokensMap, timeIntervalSeconds]);
 
   // Area colors
   const areaColors = {
     inputTokens: theme.colors.blue400,
     outputTokens: theme.colors.green400,
-  };
-
-  // Get opacity for an area based on hover state
-  const getAreaOpacity = (areaKey: string) => {
-    if (hoveredArea === null) return 0.8;
-    return hoveredArea === areaKey ? 0.8 : 0.2;
-  };
-
-  // Handle legend hover
-  const handleLegendMouseEnter = (data: { value: string }) => {
-    setHoveredArea(data.value);
-  };
-
-  const handleLegendMouseLeave = () => {
-    setHoveredArea(null);
   };
 
   if (isLoading) {
@@ -175,14 +138,7 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = ({
   }
 
   return (
-    <div
-      css={{
-        border: `1px solid ${theme.colors.border}`,
-        borderRadius: theme.borders.borderRadiusMd,
-        padding: theme.spacing.lg,
-        backgroundColor: theme.colors.backgroundPrimary,
-      }}
-    >
+    <OverviewChartContainer>
       <OverviewChartHeader
         icon={<LightningIcon />}
         title={<FormattedMessage defaultMessage="Token Usage" description="Title for the token usage chart" />}
@@ -197,21 +153,10 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = ({
         {inputDataPoints.length > 0 || outputDataPoints.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
-              <XAxis
-                dataKey="name"
-                tick={{ fontSize: 10, fill: theme.colors.textSecondary, dy: theme.spacing.sm }}
-                axisLine={false}
-                tickLine={false}
-                interval="preserveStartEnd"
-              />
+              <XAxis dataKey="name" {...xAxisProps} />
               <YAxis hide />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: theme.colors.backgroundPrimary,
-                  border: `1px solid ${theme.colors.border}`,
-                  borderRadius: theme.borders.borderRadiusMd,
-                  fontSize: theme.typography.fontSizeSm,
-                }}
+                contentStyle={tooltipStyle}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
                 formatter={(value: number, name: string) => [formatTokenCount(value), name]}
               />
@@ -221,8 +166,8 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = ({
                 stackId="1"
                 stroke={areaColors.inputTokens}
                 fill={areaColors.inputTokens}
-                strokeOpacity={getAreaOpacity('Input Tokens')}
-                fillOpacity={getAreaOpacity('Input Tokens')}
+                strokeOpacity={getOpacity('Input Tokens')}
+                fillOpacity={getOpacity('Input Tokens')}
                 strokeWidth={2}
                 name="Input Tokens"
               />
@@ -232,8 +177,8 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = ({
                 stackId="1"
                 stroke={areaColors.outputTokens}
                 fill={areaColors.outputTokens}
-                strokeOpacity={getAreaOpacity('Output Tokens')}
-                fillOpacity={getAreaOpacity('Output Tokens')}
+                strokeOpacity={getOpacity('Output Tokens')}
+                fillOpacity={getOpacity('Output Tokens')}
                 strokeWidth={2}
                 name="Output Tokens"
               />
@@ -243,17 +188,7 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = ({
                 height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={(value) => (
-                  <span
-                    style={{
-                      color: theme.colors.textPrimary,
-                      fontSize: theme.typography.fontSizeSm,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {value}
-                  </span>
-                )}
+                formatter={legendFormatter}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -261,6 +196,6 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = ({
           <OverviewChartEmptyState />
         )}
       </div>
-    </div>
+    </OverviewChartContainer>
   );
 };

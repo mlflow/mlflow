@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useDesignSystemTheme, DangerIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
@@ -6,7 +6,6 @@ import {
   MetricViewType,
   AggregationType,
   TraceMetricKey,
-  TIME_BUCKET_DIMENSION_KEY,
   TraceFilterKey,
   TraceStatus,
   createTraceFilter,
@@ -17,9 +16,13 @@ import {
   OverviewChartErrorState,
   OverviewChartEmptyState,
   OverviewChartHeader,
+  OverviewChartContainer,
   OverviewChartTimeLabel,
+  useChartTooltipStyle,
+  useChartXAxisProps,
+  useChartLegendFormatter,
 } from './OverviewChartComponents';
-import { formatTimestampForTraceMetrics, generateTimeBuckets } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, useLegendHighlight, useTimestampValueMap } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
 
 // Filter to get only error traces
@@ -30,8 +33,13 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
   startTimeMs,
   endTimeMs,
   timeIntervalSeconds,
+  timeBuckets,
 }) => {
   const { theme } = useDesignSystemTheme();
+  const tooltipStyle = useChartTooltipStyle();
+  const xAxisProps = useChartXAxisProps();
+  const legendFormatter = useChartLegendFormatter();
+  const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
 
   // Fetch error count metrics grouped by time bucket
   const {
@@ -81,40 +89,17 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
   );
   const overallErrorRate = totalTraces > 0 ? (totalErrors / totalTraces) * 100 : 0;
 
-  // Create maps by timestamp for easy lookup
-  const errorCountByTimestamp = useMemo(() => {
-    const map = new Map<number, number>();
-    for (const dp of errorDataPoints) {
-      const timeBucket = dp.dimensions?.[TIME_BUCKET_DIMENSION_KEY];
-      if (timeBucket) {
-        const ts = new Date(timeBucket).getTime();
-        map.set(ts, dp.values?.[AggregationType.COUNT] || 0);
-      }
-    }
-    return map;
-  }, [errorDataPoints]);
-
-  const totalCountByTimestamp = useMemo(() => {
-    const map = new Map<number, number>();
-    for (const dp of totalDataPoints) {
-      const timeBucket = dp.dimensions?.[TIME_BUCKET_DIMENSION_KEY];
-      if (timeBucket) {
-        const ts = new Date(timeBucket).getTime();
-        map.set(ts, dp.values?.[AggregationType.COUNT] || 0);
-      }
-    }
-    return map;
-  }, [totalDataPoints]);
-
-  // Generate all time buckets within the selected range
-  const allTimeBuckets = useMemo(
-    () => generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds),
-    [startTimeMs, endTimeMs, timeIntervalSeconds],
+  // Create maps by timestamp for easy lookup using shared utility
+  const countExtractor = useCallback(
+    (dp: { values?: Record<string, number> }) => dp.values?.[AggregationType.COUNT] || 0,
+    [],
   );
+  const errorCountByTimestamp = useTimestampValueMap(errorDataPoints, countExtractor);
+  const totalCountByTimestamp = useTimestampValueMap(totalDataPoints, countExtractor);
 
   // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
-    return allTimeBuckets.map((timestampMs) => {
+    return timeBuckets.map((timestampMs) => {
       const errorCount = errorCountByTimestamp.get(timestampMs) || 0;
       const totalCount = totalCountByTimestamp.get(timestampMs) || 0;
       const errorRate = totalCount > 0 ? (errorCount / totalCount) * 100 : 0;
@@ -125,7 +110,7 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
         errorRate: Math.round(errorRate * 100) / 100, // Round to 2 decimal places
       };
     });
-  }, [allTimeBuckets, errorCountByTimestamp, totalCountByTimestamp, timeIntervalSeconds]);
+  }, [timeBuckets, errorCountByTimestamp, totalCountByTimestamp, timeIntervalSeconds]);
 
   // Calculate average error rate across time buckets for the reference line
   const avgErrorRate = useMemo(() => {
@@ -133,24 +118,6 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
     const sum = chartData.reduce((acc, dp) => acc + dp.errorRate, 0);
     return sum / chartData.length;
   }, [chartData]);
-
-  // Track hovered legend item
-  const [hoveredSeries, setHoveredSeries] = useState<string | null>(null);
-
-  // Get opacity based on hover state
-  const getOpacity = (seriesKey: string) => {
-    if (hoveredSeries === null) return 1;
-    return hoveredSeries === seriesKey ? 1 : 0.2;
-  };
-
-  // Handle legend hover
-  const handleLegendMouseEnter = (data: { value: string }) => {
-    setHoveredSeries(data.value);
-  };
-
-  const handleLegendMouseLeave = () => {
-    setHoveredSeries(null);
-  };
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -161,14 +128,7 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
   }
 
   return (
-    <div
-      css={{
-        border: `1px solid ${theme.colors.border}`,
-        borderRadius: theme.borders.borderRadiusMd,
-        padding: theme.spacing.lg,
-        backgroundColor: theme.colors.backgroundPrimary,
-      }}
-    >
+    <OverviewChartContainer>
       <OverviewChartHeader
         icon={<DangerIcon />}
         title={<FormattedMessage defaultMessage="Errors" description="Title for the errors chart" />}
@@ -183,22 +143,11 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
         {totalDataPoints.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-              <XAxis
-                dataKey="name"
-                tick={{ fontSize: 10, fill: theme.colors.textSecondary, dy: theme.spacing.sm }}
-                axisLine={false}
-                tickLine={false}
-                interval="preserveStartEnd"
-              />
+              <XAxis dataKey="name" {...xAxisProps} />
               <YAxis yAxisId="left" hide />
               <YAxis yAxisId="right" domain={[0, 100]} hide />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: theme.colors.backgroundPrimary,
-                  border: `1px solid ${theme.colors.border}`,
-                  borderRadius: theme.borders.borderRadiusMd,
-                  fontSize: 12,
-                }}
+                contentStyle={tooltipStyle}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
                 formatter={(value: number, name: string) => {
                   if (name === 'Error Count') {
@@ -246,17 +195,7 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
                 height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={(value) => (
-                  <span
-                    style={{
-                      color: theme.colors.textPrimary,
-                      fontSize: theme.typography.fontSizeSm,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {value}
-                  </span>
-                )}
+                formatter={legendFormatter}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -264,6 +203,6 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
           <OverviewChartEmptyState />
         )}
       </div>
-    </div>
+    </OverviewChartContainer>
   );
 };
