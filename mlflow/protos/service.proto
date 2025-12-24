@@ -4437,19 +4437,25 @@ message FallbackConfig {
   optional FallbackStrategy strategy = 1;
   // The max attempts for fallback routing (cannot exceed number of destinations).
   optional int32 max_attempts = 2;
+  // Ordered list of model definitions for fallback
+  repeated GatewayEndpointModelMapping model_mappings = 3;
 }
 
 message CreateGatewayEndpoint {
   // Optional user-friendly name for the endpoint
   optional string name = 1;
-  // List of model definition IDs to attach to this endpoint
+  // List of PRIMARY model definition IDs to attach to this endpoint
   repeated string model_definition_ids = 2;
   // Username of the creator
   optional string created_by = 3;
   // Optional routing strategy for the endpoint
   optional RoutingStrategy routing_strategy = 4;
-  // Optional fallback configuration (required if routing_strategy is FALLBACK)
-  optional FallbackConfig fallback_config = 5;
+  // Optional fallback strategy
+  optional FallbackStrategy fallback_strategy = 5;
+  // Optional max attempts for fallback (cannot exceed number of fallback models)
+  optional int32 fallback_max_attempts = 6;
+  // Optional ordered list of FALLBACK model definition IDs (order determines fallback_order)
+  repeated string fallback_model_definition_ids = 7;
 
   message Response {
     // The created endpoint with all model mappings
@@ -4475,6 +4481,16 @@ message UpdateGatewayEndpoint {
   optional string name = 2;
   // Username of the updater
   optional string updated_by = 3;
+  // Optional new list of PRIMARY model definition IDs (replaces existing PRIMARY linkages)
+  repeated string model_definition_ids = 4;
+  // Optional new routing strategy for the endpoint
+  optional RoutingStrategy routing_strategy = 5;
+  // Optional fallback strategy
+  optional FallbackStrategy fallback_strategy = 6;
+  // Optional max attempts for fallback (cannot exceed number of fallback models)
+  optional int32 fallback_max_attempts = 7;
+  // Optional ordered list of FALLBACK model definition IDs (order determines fallback_order)
+  repeated string fallback_model_definition_ids = 8;
 
   message Response {
     // The updated endpoint

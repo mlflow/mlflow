@@ -12,12 +12,14 @@ from mlflow.entities import (
     EvaluationDataset,
     Experiment,
     ExperimentTag,
+    FallbackStrategy,
     GatewayResourceType,
     InputTag,
     LifecycleStage,
     LoggedModelParameter,
     Metric,
     Param,
+    RoutingStrategy,
     RunTag,
     SourceType,
     ViewType,
@@ -3111,11 +3113,19 @@ def test_create_gateway_endpoint():
         store.create_gateway_endpoint(
             name="my-endpoint",
             model_definition_ids=["model-def-123"],
+            routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+            fallback_strategy=FallbackStrategy.SEQUENTIAL,
+            fallback_max_attempts=2,
+            fallback_model_definition_ids=["model-def-456", "model-def-789"],
         )
         body = message_to_json(
             CreateGatewayEndpoint(
                 name="my-endpoint",
                 model_definition_ids=["model-def-123"],
+                routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT.to_proto(),
+                fallback_strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
+                fallback_max_attempts=2,
+                fallback_model_definition_ids=["model-def-456", "model-def-789"],
             )
         )
         _verify_requests(mock_http, creds, "gateway/endpoints/create", "POST", body, use_v3=True)
@@ -3136,8 +3146,26 @@ def test_update_gateway_endpoint():
     store = RestStore(lambda: creds)
 
     with mock_http_request() as mock_http:
-        store.update_gateway_endpoint(endpoint_id="endpoint-123", name="new-name")
-        body = message_to_json(UpdateGatewayEndpoint(endpoint_id="endpoint-123", name="new-name"))
+        store.update_gateway_endpoint(
+            endpoint_id="endpoint-123",
+            name="updated-endpoint",
+            model_definition_ids=["model-def-123", "model-def-456"],
+            routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+            fallback_strategy=FallbackStrategy.SEQUENTIAL,
+            fallback_max_attempts=3,
+            fallback_model_definition_ids=["model-def-fallback-1", "model-def-fallback-2"],
+        )
+        body = message_to_json(
+            UpdateGatewayEndpoint(
+                endpoint_id="endpoint-123",
+                name="updated-endpoint",
+                model_definition_ids=["model-def-123", "model-def-456"],
+                routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT.to_proto(),
+                fallback_strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
+                fallback_max_attempts=3,
+                fallback_model_definition_ids=["model-def-fallback-1", "model-def-fallback-2"],
+            )
+        )
         _verify_requests(mock_http, creds, "gateway/endpoints/update", "POST", body, use_v3=True)
 
 

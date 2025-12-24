@@ -45,6 +45,7 @@ from mlflow.entities import (
     GatewayEndpointModelMapping,
     GatewayEndpointTag,
     GatewayModelDefinition,
+    GatewayModelLinkageType,
     GatewayResourceType,
     GatewaySecretInfo,
     InputTag,
@@ -2238,15 +2239,27 @@ class SqlGatewayEndpoint(Base):
 
     def to_mlflow_entity(self):
         fallback_config = None
+        model_mappings = [m.to_mlflow_entity() for m in self.model_mappings]
+        primary_mappings = [
+            m for m in model_mappings if m.linkage_type == GatewayModelLinkageType.PRIMARY
+        ]
+        fallback_mappings = [
+            m for m in model_mappings if m.linkage_type == GatewayModelLinkageType.FALLBACK
+        ]
         if self.fallback_config_json:
             try:
                 fallback_config_dict = json.loads(self.fallback_config_json)
+
+                fallback_mappings.sort(
+                    key=lambda m: m.fallback_order if m.fallback_order is not None else float("inf")
+                )
+
                 fallback_config = FallbackConfig(
-                    FallbackStrategy(fallback_config_dict.get("strategy"))
+                    strategy=FallbackStrategy(fallback_config_dict.get("strategy"))
                     if fallback_config_dict.get("strategy")
                     else None,
-                    fallback_config_dict.get("max_attempts"),
-                    fallback_config_dict.get("model_definition_ids"),
+                    max_attempts=fallback_config_dict.get("max_attempts"),
+                    model_mappings=fallback_mappings,
                 )
             except (json.JSONDecodeError, TypeError):
                 pass
@@ -2256,7 +2269,7 @@ class SqlGatewayEndpoint(Base):
         return GatewayEndpoint(
             endpoint_id=self.endpoint_id,
             name=self.name,
-            model_mappings=[mapping.to_mlflow_entity() for mapping in self.model_mappings],
+            model_mappings=primary_mappings,
             tags=[tag.to_mlflow_entity() for tag in self.tags],
             created_at=self.created_at,
             last_updated_at=self.last_updated_at,

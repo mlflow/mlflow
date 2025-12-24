@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -90,21 +92,20 @@ class FallbackConfig(_MlflowObject):
     Args:
         strategy: The fallback strategy to use (e.g., FallbackStrategy.SEQUENTIAL).
         max_attempts: Maximum number of fallback models to try (None = try all).
-        model_definition_ids: Ordered list of model definition IDs for fallback.
-                              Order determines fallback sequence (stored in DB as fallback_order).
+        model_mappings: Ordered list of model mappings for fallback.
     """
 
     strategy: FallbackStrategy | None = None
     max_attempts: int | None = None
-    model_definition_ids: list[str] | None = None
+    model_mappings: list[GatewayEndpointModelMapping] = field(default_factory=list)
 
     def to_proto(self) -> ProtoFallbackConfig:
         proto = ProtoFallbackConfig()
         proto.strategy = self.strategy.to_proto() if self.strategy else None
         if self.max_attempts is not None:
             proto.max_attempts = self.max_attempts
-        if self.model_definition_ids is not None:
-            proto.model_definition_ids.extend(self.model_definition_ids)
+        if self.model_mappings is not None:
+            proto.model_mappings.extend([m.to_proto() for m in self.model_mappings])
         return proto
 
     @classmethod
@@ -115,9 +116,9 @@ class FallbackConfig(_MlflowObject):
         return cls(
             strategy=strategy,
             max_attempts=proto.max_attempts,
-            model_definition_ids=list(proto.model_definition_ids)
-            if proto.model_definition_ids
-            else None,
+            model_mappings=[
+                GatewayEndpointModelMapping.from_proto(m) for m in proto.model_mappings
+            ],
         )
 
 

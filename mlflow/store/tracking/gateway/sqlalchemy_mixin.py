@@ -3,14 +3,13 @@ from __future__ import annotations
 import json
 import os
 import uuid
-from dataclasses import asdict
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
 from mlflow.entities import (
-    FallbackConfig,
+    FallbackStrategy,
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
@@ -510,18 +509,22 @@ class SqlAlchemyGatewayStoreMixin:
         model_definition_ids: list[str],
         created_by: str | None = None,
         routing_strategy: RoutingStrategy | None = None,
-        fallback_config: FallbackConfig | None = None,
+        fallback_strategy: FallbackStrategy | None = None,
+        fallback_max_attempts: int | None = None,
+        fallback_model_definition_ids: list[str] | None = None,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
 
         Args:
             name: User-friendly name for the endpoint.
-            model_definition_ids: List of model definition IDs to attach to the endpoint.
+            model_definition_ids: List of PRIMARY model definition IDs to attach to the endpoint.
                                   At least one model definition is required.
             created_by: Username of the creator.
             routing_strategy: Routing strategy for the endpoint.
-            fallback_config: Fallback configuration (optional, independent of routing strategy).
+            fallback_strategy: Fallback strategy (optional, independent of routing strategy).
+            fallback_max_attempts: Max attempts for fallback.
+            fallback_model_definition_ids: Ordered list of FALLBACK model definition IDs.
 
         Returns:
             Endpoint entity with model_mappings populated.
@@ -539,8 +542,8 @@ class SqlAlchemyGatewayStoreMixin:
         with self.ManagedSessionMaker() as session:
             # Validate all model definitions exist (both primary and fallback)
             all_model_def_ids = set(model_definition_ids)
-            if fallback_config and fallback_config.model_definition_ids:
-                all_model_def_ids.update(fallback_config.model_definition_ids)
+            if fallback_model_definition_ids:
+                all_model_def_ids.update(fallback_model_definition_ids)
 
             existing_model_defs = (
                 session.query(SqlGatewayModelDefinition.model_definition_id)
@@ -557,6 +560,17 @@ class SqlAlchemyGatewayStoreMixin:
             endpoint_id = f"e-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
+            # Build fallback_config_json if any fallback parameters provided
+            fallback_config_json = None
+            if fallback_strategy or fallback_max_attempts or fallback_model_definition_ids:
+                fallback_config_json = json.dumps(
+                    {
+                        "strategy": fallback_strategy.value if fallback_strategy else None,
+                        "max_attempts": fallback_max_attempts,
+                        "model_definition_ids": fallback_model_definition_ids or [],
+                    }
+                )
+
             sql_endpoint = SqlGatewayEndpoint(
                 endpoint_id=endpoint_id,
                 name=name,
@@ -565,9 +579,7 @@ class SqlAlchemyGatewayStoreMixin:
                 created_by=created_by,
                 last_updated_by=created_by,
                 routing_strategy=routing_strategy.value if routing_strategy else None,
-                fallback_config_json=json.dumps(asdict(fallback_config))
-                if fallback_config
-                else None,
+                fallback_config_json=fallback_config_json,
             )
             session.add(sql_endpoint)
 
@@ -585,9 +597,9 @@ class SqlAlchemyGatewayStoreMixin:
                 )
                 session.add(sql_mapping)
 
-            # Create FALLBACK linkages if fallback_config.model_definition_ids provided
-            if fallback_config and fallback_config.model_definition_ids:
-                for fallback_order, model_def_id in enumerate(fallback_config.model_definition_ids):
+            # Create FALLBACK linkages if fallback_model_definition_ids provided
+            if fallback_model_definition_ids:
+                for fallback_order, model_def_id in enumerate(fallback_model_definition_ids):
                     mapping_id = f"m-{uuid.uuid4().hex}"
                     sql_mapping = SqlGatewayEndpointModelMapping(
                         mapping_id=mapping_id,
@@ -641,16 +653,28 @@ class SqlAlchemyGatewayStoreMixin:
     def update_gateway_endpoint(
         self,
         endpoint_id: str,
-        name: str,
+        name: str | None = None,
         updated_by: str | None = None,
+        routing_strategy: RoutingStrategy | None = None,
+        fallback_strategy: FallbackStrategy | None = None,
+        fallback_max_attempts: int | None = None,
+        fallback_model_definition_ids: list[str] | None = None,
+        model_definition_ids: list[str] | None = None,
     ) -> GatewayEndpoint:
         """
-        Update an endpoint's name.
+        Update an endpoint's configuration.
 
         Args:
             endpoint_id: ID of the endpoint to update.
-            name: New name for the endpoint.
-            updated_by: Username of the updater.
+            name: Optional new name for the endpoint.
+            updated_by: Optional username of the updater.
+            routing_strategy: Optional new routing strategy.
+            fallback_strategy: Optional fallback strategy.
+            fallback_max_attempts: Optional max attempts for fallback.
+            fallback_model_definition_ids: Optional ordered list of FALLBACK model definition IDs.
+                If provided, existing FALLBACK linkages will be replaced.
+            model_definition_ids: Optional new list of PRIMARY model definition IDs.
+                If provided, existing PRIMARY linkages will be replaced.
 
         Returns:
             Updated Endpoint entity.
@@ -660,7 +684,88 @@ class SqlAlchemyGatewayStoreMixin:
                 session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
             )
 
-            sql_endpoint.name = name
+            if name is not None:
+                sql_endpoint.name = name
+
+            if routing_strategy is not None:
+                sql_endpoint.routing_strategy = routing_strategy.value
+
+            # Update fallback_config_json if any fallback parameters provided
+            if (
+                fallback_strategy is not None
+                or fallback_max_attempts is not None
+                or fallback_model_definition_ids is not None
+            ):
+                sql_endpoint.fallback_config_json = json.dumps(
+                    {
+                        "strategy": fallback_strategy.value if fallback_strategy else None,
+                        "max_attempts": fallback_max_attempts,
+                        "model_definition_ids": fallback_model_definition_ids,
+                    }
+                )
+
+            # Replace FALLBACK linkages if fallback_model_definition_ids provided
+            if fallback_model_definition_ids is not None:
+                # Delete existing FALLBACK linkages
+                session.query(SqlGatewayEndpointModelMapping).filter(
+                    SqlGatewayEndpointModelMapping.endpoint_id == endpoint_id,
+                    SqlGatewayEndpointModelMapping.linkage_type == "FALLBACK",
+                ).delete()
+
+                # Validate all fallback model definitions exist
+                for model_def_id in fallback_model_definition_ids:
+                    self._get_entity_or_raise(
+                        session,
+                        SqlGatewayModelDefinition,
+                        {"model_definition_id": model_def_id},
+                        "GatewayModelDefinition",
+                    )
+
+                # Create new FALLBACK linkages
+                for fallback_order, model_def_id in enumerate(fallback_model_definition_ids):
+                    sql_mapping = SqlGatewayEndpointModelMapping(
+                        mapping_id=uuid.uuid4().hex,
+                        endpoint_id=endpoint_id,
+                        model_definition_id=model_def_id,
+                        weight=1.0,
+                        linkage_type="FALLBACK",
+                        fallback_order=fallback_order,
+                        created_at=get_current_time_millis(),
+                        created_by=updated_by,
+                    )
+                    session.add(sql_mapping)
+
+            # Replace PRIMARY linkages if model_definition_ids provided
+            if model_definition_ids is not None:
+                # Delete existing PRIMARY linkages
+                session.query(SqlGatewayEndpointModelMapping).filter(
+                    SqlGatewayEndpointModelMapping.endpoint_id == endpoint_id,
+                    SqlGatewayEndpointModelMapping.linkage_type == "PRIMARY",
+                ).delete()
+
+                # Validate all model definitions exist
+                for model_def_id in model_definition_ids:
+                    self._get_entity_or_raise(
+                        session,
+                        SqlGatewayModelDefinition,
+                        {"model_definition_id": model_def_id},
+                        "GatewayModelDefinition",
+                    )
+
+                # Create new PRIMARY linkages
+                for model_def_id in model_definition_ids:
+                    sql_mapping = SqlGatewayEndpointModelMapping(
+                        mapping_id=uuid.uuid4().hex,
+                        endpoint_id=endpoint_id,
+                        model_definition_id=model_def_id,
+                        weight=1.0,
+                        linkage_type="PRIMARY",
+                        fallback_order=None,
+                        created_at=get_current_time_millis(),
+                        created_by=updated_by,
+                    )
+                    session.add(sql_mapping)
+
             sql_endpoint.last_updated_at = get_current_time_millis()
             if updated_by:
                 sql_endpoint.last_updated_by = updated_by
