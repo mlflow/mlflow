@@ -32,9 +32,14 @@ from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, m
 def _get_fallback_provider(
     endpoint_configs: list[dict[str, Any]], max_attempts: int | None = None
 ) -> FallbackProvider:
-    configs = [EndpointConfig(**config) for config in endpoint_configs]
+    from mlflow.gateway.providers import get_provider
+
+    providers = [
+        get_provider(config["model"]["provider"])(EndpointConfig(**config))
+        for config in endpoint_configs
+    ]
     return FallbackProvider(
-        configs=configs,
+        providers=providers,
         strategy=FallbackStrategy.SEQUENTIAL,
         max_attempts=max_attempts,
     )
@@ -245,9 +250,9 @@ async def test_fallback_embeddings_with_fallback():
 
 
 @pytest.mark.asyncio
-async def test_fallback_provider_empty_configs():
-    with pytest.raises(Exception, match="must contain at least one endpoint configuration"):
-        FallbackProvider(configs=[], max_attempts=None, strategy=FallbackStrategy.SEQUENTIAL)
+async def test_fallback_provider_empty_providers():
+    with pytest.raises(Exception, match="must contain at least one provider"):
+        FallbackProvider(providers=[], max_attempts=None, strategy=FallbackStrategy.SEQUENTIAL)
 
 
 @pytest.mark.asyncio

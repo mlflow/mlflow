@@ -241,22 +241,19 @@ class FallbackProvider(BaseProvider):
 
     def __init__(
         self,
-        configs: list[EndpointConfig],
+        providers: list[BaseProvider],
         strategy: FallbackStrategy | None = None,
         max_attempts: int | None = None,
     ):
-        from mlflow.gateway.providers import get_provider
-
-        if not configs:
+        if not providers:
             raise MlflowException.invalid_parameter_value(
-                "'configs' must contain at least one endpoint configuration."
+                "'providers' must contain at least one provider."
             )
 
-        self._providers = [get_provider(config.model.provider)(config) for config in configs]
+        self._providers = providers
 
         max_attempts = max_attempts if max_attempts is not None else len(self._providers)
         self._max_attempts = min(max_attempts, len(self._providers))
-
         self._strategy = strategy
 
     async def _execute_with_fallback(self, method_name: str, *args, **kwargs):

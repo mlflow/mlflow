@@ -212,7 +212,7 @@ def _create_provider(
             configs.append(gateway_endpoint_config)
             weights.append(int(model_config.weight * 100))  # Convert to percentage
 
-        base_provider = TrafficRouteProvider(
+        primary_provider = TrafficRouteProvider(
             configs=configs,
             traffic_splits=weights,
             routing_strategy="TRAFFIC_SPLIT",
@@ -224,7 +224,7 @@ def _create_provider(
             endpoint_config.endpoint_name, model_config, endpoint_type
         )
         provider_class = get_provider(model_config.provider)
-        base_provider = provider_class(gateway_endpoint_config)
+        primary_provider = provider_class(gateway_endpoint_config)
 
     # Wrap with FallbackProvider if fallback configuration exists
     if endpoint_config.fallback_config:
@@ -239,18 +239,20 @@ def _create_provider(
                 f"Endpoint '{endpoint_config.endpoint_name}' has fallback_config "
                 "but no FALLBACK models configured"
             )
-            return base_provider
+            return primary_provider
 
         # Sort fallback models by fallback_order
         fallback_models.sort(
             key=lambda m: m.fallback_order if m.fallback_order is not None else float("inf")
         )
 
-        fallback_configs = [
-            _build_endpoint_config(
-                endpoint_name=endpoint_config.endpoint_name,
-                model_config=model_config,
-                endpoint_type=endpoint_type,
+        fallback_providers = [
+            get_provider(model_config.provider)(
+                _build_endpoint_config(
+                    endpoint_name=endpoint_config.endpoint_name,
+                    model_config=model_config,
+                    endpoint_type=endpoint_type,
+                )
             )
             for model_config in fallback_models
         ]
@@ -259,21 +261,15 @@ def _create_provider(
 
         # FallbackProvider expects all providers (primary + fallback)
         # We need to create a combined provider that tries primary first, then fallbacks
-        all_configs = [
-            _build_endpoint_config(
-                endpoint_name=endpoint_config.endpoint_name,
-                model_config=primary_models[0],
-                endpoint_type=endpoint_type,
-            )
-        ] + fallback_configs
+        all_providers = [primary_provider] + fallback_providers
 
         return FallbackProvider(
-            configs=all_configs,
+            providers=all_providers,
             max_attempts=max_attempts + 1,  # +1 to include primary
             strategy=endpoint_config.fallback_config.strategy,
         )
 
-    return base_provider
+    return primary_provider
 
 
 def _create_provider_from_endpoint_name(

@@ -21,7 +21,7 @@ from mlflow.gateway.config import (
     OpenAIConfig,
 )
 from mlflow.gateway.providers.anthropic import AnthropicProvider
-from mlflow.gateway.providers.base import FallbackProvider
+from mlflow.gateway.providers.base import FallbackProvider, TrafficRouteProvider
 from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
 from mlflow.gateway.providers.gemini import GeminiProvider
 from mlflow.gateway.providers.litellm import LiteLLMProvider
@@ -1454,7 +1454,8 @@ def test_create_fallback_provider_single_model(store: SqlAlchemyStore):
 
     assert isinstance(provider, FallbackProvider)
     assert len(provider._providers) == 2
-    assert isinstance(provider._providers[0], OpenAIProvider)
+    assert isinstance(provider._providers[0], TrafficRouteProvider)
+    assert isinstance(provider._providers[1], OpenAIProvider)
     assert provider._max_attempts == 2
 
 
@@ -1498,7 +1499,9 @@ def test_create_fallback_provider_multiple_models(store: SqlAlchemyStore):
 
     assert isinstance(provider, FallbackProvider)
     assert len(provider._providers) == 3
-    assert isinstance(provider._providers[0], OpenAIProvider)
+    assert isinstance(provider._providers[0], TrafficRouteProvider)
+    assert isinstance(provider._providers[0]._providers[0], OpenAIProvider)
+    assert isinstance(provider._providers[0]._providers[1], AnthropicProvider)
     assert isinstance(provider._providers[1], OpenAIProvider)
     assert isinstance(provider._providers[2], AnthropicProvider)
     assert provider._max_attempts == 3
