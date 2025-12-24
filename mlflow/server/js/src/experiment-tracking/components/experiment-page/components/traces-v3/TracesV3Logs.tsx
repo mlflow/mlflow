@@ -118,11 +118,7 @@ const TracesV3LogsImpl = React.memo(
     const queryClient = useQueryClient();
     const prevInitialFiltersRef = useRef<TableFilter[] | undefined>();
 
-    useEffect(() => {
-      if (!initialFilters || initialFilters.length === 0) {
-        return;
-      }
-
+    if (initialFilters && initialFilters.length > 0) {
       const prevFilters = prevInitialFiltersRef.current;
       const filtersChanged =
         !prevFilters ||
@@ -136,7 +132,7 @@ const TracesV3LogsImpl = React.memo(
         setFilters(initialFilters);
         prevInitialFiltersRef.current = initialFilters;
       }
-    }, [initialFilters, setFilters]);
+    }
 
     const defaultSelectedColumns = useCallback(
       (allColumns: TracesTableColumn[]) => {
