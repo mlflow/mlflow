@@ -211,17 +211,39 @@ describe('ExperimentGenAIOverviewPage', () => {
   });
 
   describe('chart integration', () => {
-    it('should render chart components and pass experimentId', async () => {
+    it('should render all chart components', async () => {
       renderComponent();
 
-      // Verify charts are rendered
+      // Verify all charts are rendered
       await waitFor(() => {
         expect(screen.getByText('Requests')).toBeInTheDocument();
+        expect(screen.getByText('Latency')).toBeInTheDocument();
+        expect(screen.getByText('Errors')).toBeInTheDocument();
+      });
+    });
+
+    it('should pass experimentId to chart API calls', async () => {
+      renderComponent();
+
+      await waitFor(() => {
+        expect(mockFetchOrFail).toHaveBeenCalled();
       });
 
       // Verify experimentId is passed to chart API calls
       const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
       expect(callBody.experiment_ids).toEqual([testExperimentId]);
+    });
+
+    it('should render charts in correct layout', async () => {
+      renderComponent();
+
+      await waitFor(() => {
+        // Requests chart should be present (full width)
+        expect(screen.getByText('Requests')).toBeInTheDocument();
+        // Latency and Errors charts should be present (side by side)
+        expect(screen.getByText('Latency')).toBeInTheDocument();
+        expect(screen.getByText('Errors')).toBeInTheDocument();
+      });
     });
   });
 });
