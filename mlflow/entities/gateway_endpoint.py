@@ -36,6 +36,7 @@ class RoutingStrategy(str, Enum):
         try:
             return cls(ProtoRoutingStrategy.Name(proto))
         except ValueError:
+            # unspecified in proto is treated as None
             return None
 
     def to_proto(self) -> ProtoRoutingStrategy:
@@ -52,6 +53,7 @@ class FallbackStrategy(str, Enum):
         try:
             return cls(ProtoFallbackStrategy.Name(proto))
         except ValueError:
+            # unspecified in proto is treated as None
             return None
 
     def to_proto(self) -> ProtoFallbackStrategy:
@@ -69,6 +71,7 @@ class GatewayModelLinkageType(str, Enum):
         try:
             return cls(ProtoGatewayModelLinkageType.Name(proto))
         except ValueError:
+            # unspecified in proto is treated as None
             return None
 
     def to_proto(self) -> ProtoGatewayModelLinkageType:
@@ -199,7 +202,7 @@ class GatewayEndpointModelMapping(_MlflowObject):
         model_definition: The full model definition (populated via JOIN).
         weight: Routing weight for traffic distribution (default 1).
         linkage_type: Type of linkage (PRIMARY or FALLBACK).
-        fallback_order: Order for fallback attempts (only for FALLBACK linkages, NULL for PRIMARY).
+        fallback_order: Zero-indexed order for fallback attempts (only for FALLBACK linkages)
         created_at: Timestamp (milliseconds) when the mapping was created.
         created_by: User ID who created the mapping.
     """

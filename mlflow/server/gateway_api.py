@@ -38,7 +38,7 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import make_streaming_response, translate_http_exception
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
 from mlflow.store.tracking.gateway.entities import (
@@ -162,70 +162,6 @@ def _build_endpoint_config(
             "provider": model_config.provider,
             "config": provider_config.model_dump(),
         },
-    )
-
-
-def _create_fallback_provider(
-    endpoint_config: GatewayEndpointConfig,
-    endpoint_type: EndpointType,
-) -> FallbackProvider:
-    """
-    Create a FallbackProvider from endpoint configuration.
-
-    Args:
-        endpoint_config: The endpoint configuration with model details and routing config.
-        endpoint_type: Endpoint type (chat or embeddings).
-
-    Returns:
-        FallbackProvider instance configured with ordered models for failover.
-
-    Raises:
-        MlflowException: If configuration is invalid or no valid models are found.
-    """
-    fallback_config = endpoint_config.fallback_config
-    if not fallback_config:
-        raise MlflowException(
-            f"Endpoint '{endpoint_config.endpoint_name}' does not have fallback configuration",
-            error_code=RESOURCE_DOES_NOT_EXIST,
-        )
-
-    model_definition_ids = fallback_config.model_definition_ids
-    max_attempts = fallback_config.max_attempts or len(model_definition_ids)
-
-    if not model_definition_ids:
-        raise MlflowException(
-            f"Endpoint '{endpoint_config.endpoint_name}' has fallback routing, "
-            "but no model_definition_ids are configured",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-    model_configs_by_id = {m.model_definition_id: m for m in endpoint_config.models}
-
-    configs = []
-    for model_def_id in model_definition_ids:
-        if model_def_id not in model_configs_by_id:
-            _logger.warning(
-                f"Model definition {model_def_id} not found in endpoint "
-                f"{endpoint_config.endpoint_name}",
-            )
-            continue
-
-        model_config = model_configs_by_id[model_def_id]
-        gateway_endpoint_config = _build_endpoint_config(
-            endpoint_name=endpoint_config.endpoint_name,
-            model_config=model_config,
-            endpoint_type=endpoint_type,
-        )
-        configs.append(gateway_endpoint_config)
-
-    if not configs:
-        raise MlflowException(
-            f"No valid model configurations found for endpoint '{endpoint_config.endpoint_name}'",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-    return FallbackProvider(
-        configs=configs, max_attempts=max_attempts, strategy=fallback_config.strategy
     )
 
 
