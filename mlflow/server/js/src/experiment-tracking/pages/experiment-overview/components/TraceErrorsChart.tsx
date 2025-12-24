@@ -12,7 +12,6 @@ import {
   createTraceFilter,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from '../utils/chartUtils';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
@@ -20,6 +19,7 @@ import {
   OverviewChartHeader,
   OverviewChartTimeLabel,
 } from './OverviewChartComponents';
+import { formatTimestampForTraceMetrics, generateTimeBuckets } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
 
 // Filter to get only error traces
@@ -81,34 +81,51 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
   );
   const overallErrorRate = totalTraces > 0 ? (totalErrors / totalTraces) * 100 : 0;
 
-  // Create a map of time bucket -> total count for easy lookup
-  const totalCountMap = useMemo(() => {
-    const map = new Map<string, number>();
+  // Create maps by timestamp for easy lookup
+  const errorCountByTimestamp = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const dp of errorDataPoints) {
+      const timeBucket = dp.dimensions?.[TIME_BUCKET_DIMENSION_KEY];
+      if (timeBucket) {
+        const ts = new Date(timeBucket).getTime();
+        map.set(ts, dp.values?.[AggregationType.COUNT] || 0);
+      }
+    }
+    return map;
+  }, [errorDataPoints]);
+
+  const totalCountByTimestamp = useMemo(() => {
+    const map = new Map<number, number>();
     for (const dp of totalDataPoints) {
       const timeBucket = dp.dimensions?.[TIME_BUCKET_DIMENSION_KEY];
       if (timeBucket) {
-        map.set(timeBucket, dp.values?.[AggregationType.COUNT] || 0);
+        const ts = new Date(timeBucket).getTime();
+        map.set(ts, dp.values?.[AggregationType.COUNT] || 0);
       }
     }
     return map;
   }, [totalDataPoints]);
 
-  // Prepare chart data for recharts - combine error count and error rate
+  // Generate all time buckets within the selected range
+  const allTimeBuckets = useMemo(
+    () => generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds),
+    [startTimeMs, endTimeMs, timeIntervalSeconds],
+  );
+
+  // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
-    return errorDataPoints.map((dp) => {
-      const timestampMs = getTimestampFromDataPoint(dp);
-      const timeBucket = dp.dimensions?.[TIME_BUCKET_DIMENSION_KEY] || '';
-      const errorCount = dp.values?.[AggregationType.COUNT] || 0;
-      const totalCount = totalCountMap.get(timeBucket) || 0;
+    return allTimeBuckets.map((timestampMs) => {
+      const errorCount = errorCountByTimestamp.get(timestampMs) || 0;
+      const totalCount = totalCountByTimestamp.get(timestampMs) || 0;
       const errorRate = totalCount > 0 ? (errorCount / totalCount) * 100 : 0;
 
       return {
-        name: timestampMs ? formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds) : '',
+        name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
         errorCount,
         errorRate: Math.round(errorRate * 100) / 100, // Round to 2 decimal places
       };
     });
-  }, [errorDataPoints, totalCountMap, timeIntervalSeconds]);
+  }, [allTimeBuckets, errorCountByTimestamp, totalCountByTimestamp, timeIntervalSeconds]);
 
   // Calculate average error rate across time buckets for the reference line
   const avgErrorRate = useMemo(() => {
@@ -174,7 +191,7 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
                 interval="preserveStartEnd"
               />
               <YAxis yAxisId="left" hide />
-              <YAxis yAxisId="right" hide />
+              <YAxis yAxisId="right" domain={[0, 100]} hide />
               <Tooltip
                 contentStyle={{
                   backgroundColor: theme.colors.backgroundPrimary,

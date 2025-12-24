@@ -49,14 +49,15 @@ const createTotalCountDataPoint = (timeBucket: string, count: number) => ({
 
 describe('TraceErrorsChart', () => {
   const testExperimentId = 'test-experiment-123';
-  const now = Date.now();
-  const oneHourAgo = now - 60 * 60 * 1000;
+  // Use fixed timestamps for predictable bucket generation
+  const startTimeMs = new Date('2025-12-22T10:00:00Z').getTime();
+  const endTimeMs = new Date('2025-12-22T12:00:00Z').getTime(); // 2 hours = 3 buckets with 1hr interval
 
   // Default props reused across tests
   const defaultProps = {
     experimentId: testExperimentId,
-    startTimeMs: oneHourAgo,
-    endTimeMs: now,
+    startTimeMs,
+    endTimeMs,
     timeIntervalSeconds: 3600, // 1 hour
   };
 
@@ -108,20 +109,24 @@ describe('TraceErrorsChart', () => {
   });
 
   describe('empty data state', () => {
-    it('should render empty state message when no data points are returned', async () => {
-      mockApiResponse([]);
+    it('should render chart with zeros when no data points are returned', async () => {
+      mockApiResponses([], []);
 
       renderComponent();
 
+      // Chart should still render with all time buckets (filled with zeros)
       await waitFor(() => {
-        expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
+
+      // Total errors should be 0
+      expect(screen.getByText(/^0$/)).toBeInTheDocument();
     });
 
-    it('should render empty state when data_points is undefined', async () => {
-      mockApiResponse(undefined);
+    it('should render empty state when time range is not provided', async () => {
+      mockApiResponse([]);
 
-      renderComponent();
+      renderComponent({ startTimeMs: undefined, endTimeMs: undefined });
 
       await waitFor(() => {
         expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();
@@ -140,7 +145,7 @@ describe('TraceErrorsChart', () => {
       createTotalCountDataPoint('2025-12-22T11:00:00Z', 200),
     ];
 
-    it('should render chart with data points', async () => {
+    it('should render chart with all time buckets', async () => {
       mockApiResponses(mockErrorDataPoints, mockTotalDataPoints);
 
       renderComponent();
@@ -149,7 +154,8 @@ describe('TraceErrorsChart', () => {
         expect(screen.getByTestId('composed-chart')).toBeInTheDocument();
       });
 
-      expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '2');
+      // Should have all 3 time buckets (10:00, 11:00, 12:00)
+      expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
     });
 
     it('should display the "Errors" title', async () => {
@@ -213,8 +219,22 @@ describe('TraceErrorsChart', () => {
       await waitFor(() => {
         const referenceLine = screen.getByTestId('reference-line');
         expect(referenceLine).toBeInTheDocument();
-        // AVG error rate: (5% + 5%) / 2 = 5%
         expect(referenceLine).toHaveAttribute('data-label', expect.stringContaining('AVG'));
+      });
+    });
+
+    it('should fill missing time buckets with zeros', async () => {
+      // Only provide data for one time bucket
+      mockApiResponses(
+        [createErrorCountDataPoint('2025-12-22T10:00:00Z', 5)],
+        [createTotalCountDataPoint('2025-12-22T10:00:00Z', 100)],
+      );
+
+      renderComponent();
+
+      // Chart should still show all 3 time buckets
+      await waitFor(() => {
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
     });
   });
@@ -256,7 +276,7 @@ describe('TraceErrorsChart', () => {
           {
             metric_name: TraceMetricKey.TRACE_COUNT,
             dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
-            values: {}, // Missing COUNT value
+            values: {}, // Missing COUNT value - will be treated as 0
           },
           createErrorCountDataPoint('2025-12-22T11:00:00Z', 10),
         ],
@@ -268,10 +288,11 @@ describe('TraceErrorsChart', () => {
 
       renderComponent();
 
-      // Should still render and show total of 10 (0 + 10)
+      // Should still render with all time buckets and show total of 10 (0 + 10)
       await waitFor(() => {
-        expect(screen.getByText(/10/)).toBeInTheDocument();
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
+      expect(screen.getByText(/10/)).toBeInTheDocument();
     });
 
     it('should handle zero total count gracefully (no division by zero)', async () => {
@@ -282,9 +303,36 @@ describe('TraceErrorsChart', () => {
 
       renderComponent();
 
-      // Should render without crashing, error rate should be 0%
+      // Should render with all time buckets, error rate should be 0%
       await waitFor(() => {
-        expect(screen.getByText(/Overall error rate: 0\.0%/)).toBeInTheDocument();
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
+      });
+      expect(screen.getByText(/Overall error rate: 0\.0%/)).toBeInTheDocument();
+    });
+
+    it('should handle data points with missing time_bucket', async () => {
+      mockApiResponses(
+        [
+          {
+            metric_name: TraceMetricKey.TRACE_COUNT,
+            dimensions: {}, // Missing time_bucket - won't be mapped to any bucket
+            values: { [AggregationType.COUNT]: 5 },
+          },
+        ],
+        [
+          {
+            metric_name: TraceMetricKey.TRACE_COUNT,
+            dimensions: {}, // Missing time_bucket
+            values: { [AggregationType.COUNT]: 100 },
+          },
+        ],
+      );
+
+      renderComponent();
+
+      // Should still render the chart with all generated time buckets (all with 0 values in chart)
+      await waitFor(() => {
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
     });
   });
