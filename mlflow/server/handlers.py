@@ -4439,7 +4439,6 @@ def _invoke_scorer_handler():
     Invoke a scorer on traces asynchronously.
 
     This is a UI-only AJAX endpoint for invoking scorers from the frontend.
-    For SDK-based invocation, use the gateway proxy route.
     """
     _validate_content_type(request, ["application/json"])
 
@@ -4447,6 +4446,7 @@ def _invoke_scorer_handler():
     experiment_id = args.get("experiment_id")
     serialized_scorer = args.get("serialized_scorer")
     trace_ids = args.get("trace_ids", [])
+    log_assessments = args.get("log_assessments", False)
 
     if not experiment_id:
         raise MlflowException(
@@ -4464,11 +4464,43 @@ def _invoke_scorer_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # TODO: Implement invoke_scorer on tracking store
-    raise MlflowException(
-        "Scorer invocation is not yet implemented",
-        error_code=databricks_pb2.NOT_IMPLEMENTED,
-    )
+    try:
+        scorer_dict = json.loads(serialized_scorer)
+    except json.JSONDecodeError as e:
+        raise MlflowException(
+            f"Invalid JSON in serialized_scorer: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    from mlflow.genai.scorers.base import Scorer
+    from mlflow.genai.scorers.job import get_trace_batches_for_scorer, invoke_scorer_job
+    from mlflow.server.jobs import submit_job
+
+    try:
+        scorer = Scorer.model_validate(scorer_dict)
+    except Exception as e:
+        raise MlflowException(
+            f"Failed to validate scorer: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    tracking_store = _get_tracking_store()
+    batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
+
+    jobs = []
+    for batch_trace_ids in batches:
+        job = submit_job(
+            function=invoke_scorer_job,
+            params={
+                "experiment_id": experiment_id,
+                "serialized_scorer": serialized_scorer,
+                "trace_ids": batch_trace_ids,
+                "log_assessments": log_assessments,
+            },
+        )
+        jobs.append({"job_id": job.job_id, "trace_ids": batch_trace_ids})
+
+    return jsonify({"jobs": jobs})
 
 
 def _get_rest_path(base_path, version=2):
