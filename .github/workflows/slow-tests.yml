@@ -68,7 +68,7 @@ jobs:
           # transformers requires `tf-keras` when keras 3.0 is installed.
           # See https://github.com/huggingface/transformers/issues/27377 for more details.
           # Installing pyarrow < 18 to prevent lightgbm test pip installation resolution conflicts.
-          python -m pip install langchain_experimental tf-keras "pyarrow<18"
+          python -m pip install langchain_experimental tf-keras "pyarrow<18" "paddlepaddle<=3.2.1"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
