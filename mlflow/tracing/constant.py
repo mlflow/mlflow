@@ -145,3 +145,139 @@ class SpansLocation(str, Enum):
 
 # Path to the notebook trace renderer directory
 TRACE_RENDERER_ASSET_PATH = "/static-files/lib/notebook-trace-renderer"
+
+
+class TraceMetricKey:
+    """
+    Keys for metrics on traces view type.
+    """
+
+    TRACE_COUNT = "trace_count"
+    LATENCY = "latency"
+    INPUT_TOKENS = "input_tokens"
+    OUTPUT_TOKENS = "output_tokens"
+    TOTAL_TOKENS = "total_tokens"
+
+    @classmethod
+    def token_usage_keys(cls) -> list[str]:
+        return [cls.INPUT_TOKENS, cls.OUTPUT_TOKENS, cls.TOTAL_TOKENS]
+
+
+class TraceMetricDimensionKey:
+    """
+    Dimensions for metrics on traces view type.
+    """
+
+    TRACE_NAME = "trace_name"
+    TRACE_STATUS = "trace_status"
+
+
+class SpanMetricKey:
+    """
+    Keys for metrics on spans view type.
+    """
+
+    SPAN_COUNT = "span_count"
+    LATENCY = "latency"
+
+
+class SpanMetricDimensionKey:
+    """
+    Dimensions for metrics on spans view type.
+    """
+
+    SPAN_NAME = "span_name"
+    SPAN_TYPE = "span_type"
+    SPAN_STATUS = "span_status"
+
+
+class AssessmentMetricKey:
+    """
+    Keys for metrics on assessments view type.
+    """
+
+    ASSESSMENT_COUNT = "assessment_count"
+    ASSESSMENT_VALUE = "assessment_value"
+
+
+class AssessmentMetricDimensionKey:
+    """
+    Dimensions for metrics on assessments view type.
+    """
+
+    ASSESSMENT_NAME = "assessment_name"
+    ASSESSMENT_VALUE = "assessment_value"
+
+
+class TraceMetricSearchKey:
+    """
+    Search key for trace metrics view type.
+    VIEW_TYPE must be the prefix of the search string
+    e.g. "trace.<entity> = <value>" or "trace.<entity>.<key> = <value>"
+    """
+
+    VIEW_TYPE = "trace"
+    STATUS = "status"
+    TAG = "tag"
+    METADATA = "metadata"
+
+    @classmethod
+    def entity_to_key_requirement(cls) -> dict[str, bool]:
+        """
+        Mapping of entity to a boolean indicating if it requires a key
+        For example, "tag" requires a key: "trace.tag.<key> = <value>"
+        "status" does not require a key: "trace.status = <value>"
+        """
+        return {
+            cls.STATUS: False,
+            cls.TAG: True,
+            cls.METADATA: True,
+        }
+
+
+class SpanMetricSearchKey:
+    """
+    Search key for span metrics view type.
+    VIEW_TYPE must be the prefix of the search string
+    e.g. "span.<entity> = <value>"
+    """
+
+    VIEW_TYPE = "span"
+    NAME = "name"
+    STATUS = "status"
+    TYPE = "type"
+
+    @classmethod
+    def entity_to_key_requirement(cls) -> dict[str, bool]:
+        """
+        Mapping of entity to a boolean indicating if it requires a key
+        For example, "name" does not require a key: "span.name = <value>"
+        """
+        return {
+            cls.NAME: False,
+            cls.STATUS: False,
+            cls.TYPE: False,
+        }
+
+
+class AssessmentMetricSearchKey:
+    """
+    Search key for assessment metrics view type.
+    VIEW_TYPE must be the prefix of the search string
+    e.g. "assessment.<entity> = <value>"
+    """
+
+    VIEW_TYPE = "assessment"
+    NAME = "name"
+    TYPE = "type"
+
+    @classmethod
+    def entity_to_key_requirement(cls) -> dict[str, bool]:
+        """
+        Mapping of entity to a boolean indicating if it requires a key
+        For example, "name" does not require a key: "assessment.name = <value>"
+        """
+        return {
+            cls.NAME: False,
+            cls.TYPE: False,
+        }

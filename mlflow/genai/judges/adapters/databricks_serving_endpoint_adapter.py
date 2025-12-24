@@ -106,7 +106,7 @@ def _parse_databricks_model_response(
 def _invoke_databricks_serving_endpoint(
     *,
     model_name: str,
-    prompt: str,
+    prompt: str | list["ChatMessage"],
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
@@ -117,23 +117,35 @@ def _invoke_databricks_serving_endpoint(
     host_creds = get_databricks_host_creds()
     api_url = f"{host_creds.host}/serving-endpoints/{model_name}/invocations"
 
+    # Track whether to include response_format. If the model doesn't support structured outputs,
+    # we'll retry without it
+    include_response_format = response_format is not None
+
     # Implement retry logic with exponential backoff
     last_exception = None
     for attempt in range(num_retries + 1):
         try:
             # Build request payload
-            payload = {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    }
-                ],
-            }
+            if isinstance(prompt, str):
+                messages = [{"role": "user", "content": prompt}]
+            else:
+                from mlflow.types.llm import ChatMessage
 
-            # Add response_schema if provided
-            if response_format is not None:
-                payload["response_schema"] = response_format.model_json_schema()
+                if not isinstance(prompt, list) or (
+                    prompt and not all(isinstance(msg, ChatMessage) for msg in prompt)
+                ):
+                    prompt_type = type(prompt).__name__
+                    raise MlflowException(
+                        f"Invalid prompt type: expected str or list[ChatMessage], "
+                        f"got {prompt_type}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                messages = [{"role": msg.role, "content": msg.content} for msg in prompt]
+
+            payload = {"messages": messages}
+
+            if include_response_format:
+                payload["response_format"] = response_format.model_json_schema()
 
             # Add inference parameters if provided (e.g., temperature, top_p, max_tokens)
             if inference_params:
@@ -160,6 +172,17 @@ def _invoke_databricks_serving_endpoint(
 
         # Check HTTP status before parsing JSON
         if res.status_code in [400, 401, 403, 404]:
+            # Check if this is an error related to response_format parameter. If so, drop the
+            # parameter and retry. This mimics LiteLLM's drop_params behavior
+            if res.status_code == 400 and include_response_format and "response_format" in res.text:
+                _logger.debug(
+                    f"Model '{model_name}' may not support structured outputs (response_format). "
+                    f"Retrying without structured output enforcement. The response may not follow "
+                    "the expected format."
+                )
+                include_response_format = False
+                continue
+
             # Don't retry on bad request, unauthorized, not found, or forbidden
             raise MlflowException(
                 f"Databricks model invocation failed with status {res.status_code}: {res.text}",
@@ -276,7 +299,7 @@ class InvokeJudgeModelHelperOutput:
 def _invoke_databricks_serving_endpoint_judge(
     *,
     model_name: str,
-    prompt: str,
+    prompt: str | list["ChatMessage"],
     assessment_name: str,
     num_retries: int = 10,
     response_format: type[pydantic.BaseModel] | None = None,
@@ -332,7 +355,7 @@ class DatabricksServingEndpointAdapter(BaseJudgeAdapter):
             return False
 
         model_provider, _ = _parse_model_uri(model_uri)
-        return model_provider in {"databricks", "endpoints"} and isinstance(prompt, str)
+        return model_provider in {"databricks", "endpoints"}
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         # Show deprecation warning for legacy 'endpoints' provider

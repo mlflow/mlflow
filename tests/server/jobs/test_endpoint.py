@@ -16,7 +16,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@job(max_workers=1)
+@job(name="simple_job_fun", max_workers=1)
 def simple_job_fun(x: int, y: int, sleep_secs: int = 0) -> dict[str, Any]:
     if sleep_secs:
         time.sleep(sleep_secs)
@@ -26,7 +26,7 @@ def simple_job_fun(x: int, y: int, sleep_secs: int = 0) -> dict[str, Any]:
     }
 
 
-@job(max_workers=1)
+@job(name="job_assert_tracking_uri", max_workers=1)
 def job_assert_tracking_uri(server_url: str) -> None:
     assert mlflow.get_tracking_uri() == server_url
 
@@ -36,10 +36,10 @@ class Client:
         self.server_url = server_url
 
     def submit_job(
-        self, function_fullname: str, params: dict[str, Any], timeout: float | None = None
+        self, job_name: str, params: dict[str, Any], timeout: float | None = None
     ) -> dict[str, Any]:
         payload = {
-            "function_fullname": function_fullname,
+            "job_name": job_name,
             "params": params,
             "timeout": timeout,
         }
@@ -66,14 +66,14 @@ class Client:
 
     def search_job(
         self,
-        function_fullname: str | None = None,
+        job_name: str | None = None,
         params: dict[str, Any] | None = None,
         statuses: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         response = self.post(
             "/ajax-api/3.0/jobs/search",
             payload={
-                "function_fullname": function_fullname,
+                "job_name": job_name,
                 "params": params,
                 "statuses": statuses,
             },
@@ -107,11 +107,10 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
             **os.environ,
             "PYTHONPATH": os.path.dirname(__file__),
             "MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "true",
-            "_MLFLOW_ALLOWED_JOB_FUNCTION_LIST": (
-                "test_endpoint.simple_job_fun,invalid_format_no_module,"
-                "non_existent_module.some_function,os.non_existent_function,"
-                "test_endpoint.job_assert_tracking_uri"
+            "_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST": (
+                "test_endpoint.simple_job_fun,test_endpoint.job_assert_tracking_uri"
             ),
+            "_MLFLOW_ALLOWED_JOB_NAME_LIST": ("simple_job_fun,job_assert_tracking_uri"),
         },
         start_new_session=True,  # new session & process group
     ) as server_proc:
@@ -139,7 +138,7 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
 
 def test_job_endpoint(client: Client):
     job_id = client.submit_job(
-        function_fullname="test_endpoint.simple_job_fun",
+        job_name="simple_job_fun",
         params={"x": 3, "y": 4},
     )["job_id"]
     job_json = client.wait_job(job_id)
@@ -147,7 +146,7 @@ def test_job_endpoint(client: Client):
     job_json.pop("last_update_time")
     assert job_json == {
         "job_id": job_id,
-        "function_fullname": "test_endpoint.simple_job_fun",
+        "job_name": "simple_job_fun",
         "params": {"x": 3, "y": 4},
         "timeout": None,
         "status": "SUCCEEDED",
@@ -156,42 +155,20 @@ def test_job_endpoint(client: Client):
     }
 
 
-def test_job_endpoint_invalid_function_format(client: Client):
+def test_job_endpoint_invalid_job_name(client: Client):
     payload = {
-        "function_fullname": "invalid_format_no_module",
+        "job_name": "invalid_job_name",
         "params": {"x": 3, "y": 4},
     }
     response = client.post("/ajax-api/3.0/jobs/", payload=payload)
     assert response.status_code == 400
     error_json = response.json()
-    assert "Invalid function fullname format" in error_json["detail"]
-
-
-def test_job_endpoint_module_not_found(client: Client):
-    payload = {
-        "function_fullname": "non_existent_module.some_function",
-        "params": {"x": 3, "y": 4},
-    }
-    response = client.post("/ajax-api/3.0/jobs/", payload=payload)
-    assert response.status_code == 400
-    error_json = response.json()
-    assert "Module not found" in error_json["detail"]
-
-
-def test_job_endpoint_function_not_found(client: Client):
-    payload = {
-        "function_fullname": "os.non_existent_function",
-        "params": {"x": 3, "y": 4},
-    }
-    response = client.post("/ajax-api/3.0/jobs/", payload=payload)
-    assert response.status_code == 400
-    error_json = response.json()
-    assert "Function not found" in error_json["detail"]
+    assert "Invalid job name: invalid_job_name" in error_json["detail"]
 
 
 def test_job_endpoint_missing_parameters(client: Client):
     payload = {
-        "function_fullname": "test_endpoint.simple_job_fun",
+        "job_name": "simple_job_fun",
         "params": {"x": 3},  # Missing required parameter 'y'
     }
     response = client.post("/ajax-api/3.0/jobs/", payload=payload)
@@ -206,7 +183,7 @@ def test_job_endpoint_missing_parameters(client: Client):
 
 def test_job_tracking_uri(client: Client):
     job_id = client.submit_job(
-        function_fullname="test_endpoint.job_assert_tracking_uri",
+        job_name="job_assert_tracking_uri",
         params={"server_url": client.server_url},
     )["job_id"]
     job_json = client.wait_job(job_id)
@@ -215,22 +192,22 @@ def test_job_tracking_uri(client: Client):
 
 def test_job_endpoint_search(client: Client):
     job1_id = client.submit_job(
-        function_fullname="test_endpoint.simple_job_fun",
+        job_name="simple_job_fun",
         params={"x": 7, "y": 4},
     )["job_id"]
 
     job2_id = client.submit_job(
-        function_fullname="test_endpoint.simple_job_fun",
+        job_name="simple_job_fun",
         params={"x": 7, "y": 5},
     )["job_id"]
 
     job3_id = client.submit_job(
-        function_fullname="test_endpoint.simple_job_fun",
+        job_name="simple_job_fun",
         params={"x": 4, "y": 5},
     )["job_id"]
 
     job4_id = client.submit_job(
-        function_fullname="test_endpoint.simple_job_fun",
+        job_name="simple_job_fun",
         params={"x": 4, "y": 5, "sleep_secs": 5},
         timeout=2,
     )["job_id"]
@@ -244,51 +221,51 @@ def test_job_endpoint_search(client: Client):
         return [job_json["job_id"] for job_json in jobs]
 
     jobs = client.search_job(
-        function_fullname="test_endpoint.simple_job_fun",
+        job_name="simple_job_fun",
         params={"x": 7},
     )
     assert extract_job_ids(jobs) == [job1_id, job2_id]
 
     jobs = client.search_job(
-        function_fullname="test_endpoint.bad_fun_name",
+        job_name="bad_fun_name",
         params={"x": 7},
     )
     assert extract_job_ids(jobs) == []
 
     jobs = client.search_job(
-        function_fullname="test_endpoint.simple_job_fun",
+        job_name="simple_job_fun",
         params={"x": 7, "y": 5},
     )
     assert extract_job_ids(jobs) == [job2_id]
 
     jobs = client.search_job(
-        function_fullname="test_endpoint.simple_job_fun",
+        job_name="simple_job_fun",
         params={"y": 5},
     )
     assert extract_job_ids(jobs) == [job2_id, job3_id, job4_id]
 
     jobs = client.search_job(
-        function_fullname="test_endpoint.simple_job_fun",
+        job_name="simple_job_fun",
         params={"y": 6},
     )
     assert extract_job_ids(jobs) == []
 
     jobs = client.search_job(
-        function_fullname="test_endpoint.simple_job_fun",
+        job_name="simple_job_fun",
         params={"y": 5},
         statuses=["SUCCEEDED"],
     )
     assert extract_job_ids(jobs) == [job2_id, job3_id]
 
     jobs = client.search_job(
-        function_fullname="test_endpoint.simple_job_fun",
+        job_name="simple_job_fun",
         params={"y": 5},
         statuses=["TIMEOUT"],
     )
     assert extract_job_ids(jobs) == [job4_id]
 
     jobs = client.search_job(
-        function_fullname="test_endpoint.simple_job_fun",
+        job_name="simple_job_fun",
         params={"y": 5},
         statuses=["SUCCEEDED", "TIMEOUT"],
     )
@@ -297,7 +274,7 @@ def test_job_endpoint_search(client: Client):
     response = client.post(
         "/ajax-api/3.0/jobs/search",
         payload={
-            "function_fullname": "test_endpoint.simple_job_fun",
+            "job_name": "simple_job_fun",
             "statuses": ["BAD_STATUS"],
         },
     )

@@ -167,10 +167,6 @@ git commit -s -m "Your commit message"
 # Then check all files changed in your PR
 uv run --only-group lint pre-commit run --from-ref origin/master --to-ref HEAD
 
-# Fix any issues and amend your commit if needed
-git add <fixed files>
-git commit --amend -s
-
 # Re-run pre-commit to verify fixes
 uv run --only-group lint pre-commit run --from-ref origin/master --to-ref HEAD
 
@@ -180,11 +176,13 @@ git push origin <your-branch>
 
 This workflow ensures you only check files you've actually modified in your PR, avoiding false positives from unrelated files.
 
-**IMPORTANT**: You MUST sign all commits with DCO (Developer Certificate of Origin). Always use the `-s` flag:
+**IMPORTANT**: You MUST sign all commits with DCO (Developer Certificate of Origin). Always use the `-s` flag. When Claude Code authors or co-authors changes, include the Co-Authored-By trailer:
 
 ```bash
-# REQUIRED: Always use -s flag when committing
-git commit -s -m "Your commit message"
+# REQUIRED: Always use -s flag and include Co-Authored-By when Claude helped
+git commit -s -m "Your commit message
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
 
 # This will NOT work - missing -s flag
 # git commit -m "Your commit message"  ❌

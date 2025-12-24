@@ -1,3 +1,4 @@
+import inspect
 import logging
 import math
 from abc import abstractmethod
@@ -12,7 +13,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 import mlflow
-from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType, Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
@@ -45,12 +46,22 @@ from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTI
 from mlflow.genai.judges.prompts.fluency import FLUENCY_ASSESSMENT_NAME, FLUENCY_PROMPT
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.knowledge_retention import (
+    KNOWLEDGE_RETENTION_ASSESSMENT_NAME,
+    KNOWLEDGE_RETENTION_PROMPT,
+)
 from mlflow.genai.judges.prompts.relevance_to_query import (
     RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS,
 )
 from mlflow.genai.judges.prompts.summarization import (
     SUMMARIZATION_ASSESSMENT_NAME,
     SUMMARIZATION_PROMPT,
+)
+from mlflow.genai.judges.prompts.tool_call_correctness import (
+    TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS,
+)
+from mlflow.genai.judges.prompts.tool_call_efficiency import (
+    TOOL_CALL_EFFICIENCY_PROMPT_INSTRUCTIONS,
 )
 from mlflow.genai.judges.prompts.user_frustration import (
     USER_FRUSTRATION_ASSESSMENT_NAME,
@@ -64,22 +75,26 @@ from mlflow.genai.judges.utils import (
 )
 from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
+    Scorer,
     ScorerKind,
     SerializedScorer,
 )
 from mlflow.genai.utils.trace_utils import (
+    extract_available_tools_from_trace,
     extract_request_from_trace,
     extract_response_from_trace,
     extract_retrieval_context_from_trace,
+    extract_tools_called_from_trace,
     parse_inputs_to_str,
     parse_outputs_to_str,
     resolve_expectations_from_trace,
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
+    validate_session,
 )
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
-from mlflow.utils.uri import is_databricks_uri
 
 GENAI_CONFIG_NAME = "databricks-agent"
 
@@ -708,6 +723,161 @@ class RetrievalGroundedness(BuiltInScorer):
         return feedbacks
 
 
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class ToolCallEfficiency(BuiltInScorer):
+    """
+    ToolCallEfficiency evaluates the agent's trajectory for redundancy in tool usage,
+    such as tool calls with the same or similar arguments.
+
+    This scorer analyzes whether the agent makes redundant tool calls during execution.
+    It checks for duplicate or near-duplicate tool invocations that could be avoided
+    for more efficient task completion.
+
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "tool_call_efficiency".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ToolCallEfficiency
+
+        trace = mlflow.get_trace("<your-trace-id>")
+        feedback = ToolCallEfficiency(name="my_tool_call_efficiency")(trace=trace)
+        print(feedback)
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+
+        data = mlflow.search_traces(...)
+        result = mlflow.genai.evaluate(data=data, scorers=[ToolCallEfficiency()])
+    """
+
+    name: str = "tool_call_efficiency"
+    model: str | None = None
+    required_columns: set[str] = {"trace"}
+    description: str = (
+        "Evaluate the agent's trajectory for redundancy in tool usage, "
+        "such as tool calls with the same or similar arguments."
+    )
+
+    @property
+    def instructions(self) -> str:
+        return TOOL_CALL_EFFICIENCY_PROMPT_INSTRUCTIONS
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="trace",
+                description=(
+                    "The trace of the model's execution. The trace should contain tool call "
+                    "information across the agent's trajectory. MLflow will analyze the tool calls "
+                    "to identify any redundancy, such as duplicate or similar tool invocations."
+                ),
+            ),
+        ]
+
+    def __call__(self, *, trace: Trace) -> Feedback:
+        request = extract_request_from_trace(trace)
+        available_tools = extract_available_tools_from_trace(trace)
+        tools_called = extract_tools_called_from_trace(trace)
+
+        return judges.is_tool_call_efficient(
+            request=request,
+            tools_called=tools_called,
+            available_tools=available_tools,
+            name=self.name,
+            model=self.model,
+        )
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class ToolCallCorrectness(BuiltInScorer):
+    """
+    ToolCallCorrectness evaluates whether the tools called and the arguments they are called with
+    are reasonable given the user request.
+
+    This scorer analyzes whether the agent selects appropriate tools and provides correct arguments
+    to fulfill the user's request. It checks if the tool choices align with the user's intent and
+    if the arguments passed to each tool are reasonable.
+
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "tool_call_correctness".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ToolCallCorrectness
+
+        trace = mlflow.get_trace("<your-trace-id>")
+        feedback = ToolCallCorrectness(name="my_tool_call_correctness")(trace=trace)
+        print(feedback)
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+
+        data = mlflow.search_traces(...)
+        result = mlflow.genai.evaluate(data=data, scorers=[ToolCallCorrectness()])
+    """
+
+    name: str = "tool_call_correctness"
+    model: str | None = None
+    required_columns: set[str] = {"trace"}
+    description: str = (
+        "Evaluate whether the tools called and the arguments they are called with "
+        "are reasonable given the user request."
+    )
+
+    @property
+    def instructions(self) -> str:
+        return TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="trace",
+                description=(
+                    "The trace of the model's execution. The trace should contain tool call "
+                    "information across the agent's trajectory. MLflow will analyze the tool calls "
+                    "to verify that the selected tools and their arguments are appropriate for "
+                    "the user's request."
+                ),
+            ),
+        ]
+
+    def __call__(self, *, trace: Trace) -> Feedback:
+        request = extract_request_from_trace(trace)
+        available_tools = extract_available_tools_from_trace(trace)
+        tools_called = extract_tools_called_from_trace(trace)
+
+        return judges.is_tool_call_correct(
+            request=request,
+            tools_called=tools_called,
+            available_tools=available_tools,
+            name=self.name,
+            model=self.model,
+        )
+
+
 @format_docstring(_MODEL_API_DOC)
 class Guidelines(BuiltInScorer):
     """
@@ -1226,7 +1396,16 @@ class Safety(BuiltInScorer):
 @format_docstring(_MODEL_API_DOC)
 class Correctness(BuiltInScorer):
     """
-    Correctness ensures that the agent's responses are correct and accurate.
+    Correctness evaluates whether the model's response supports the expected facts or response.
+
+    This scorer checks if the facts specified in ``expected_response`` or ``expected_facts``
+    are supported by the model's output. It answers the question: "Does the model's response
+    contain or support all the expected facts?"
+
+    .. note::
+        This scorer checks if expected facts are **supported by** the output, not whether
+        the output is **equivalent to** the expected response. For direct equivalence
+        comparison, use the :py:class:`~mlflow.genai.scorers.Equivalence` scorer instead.
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
@@ -1290,8 +1469,8 @@ class Correctness(BuiltInScorer):
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
     description: str = (
-        "Check whether the agent's response matches the facts in expected_response or "
-        "expected_facts."
+        "Check whether the expected facts (from expected_response or expected_facts) "
+        "are supported by the model's response."
     )
 
     @property
@@ -1454,9 +1633,9 @@ class Fluency(BuiltInScorer):
     description: str = (
         "Evaluate grammatical correctness, natural flow, and linguistic quality of text."
     )
-    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+    _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
-    def _get_judge(self) -> InstructionsJudge:
+    def _get_judge(self) -> Judge:
         if self._judge is None:
             self._judge = InstructionsJudge(
                 name=self.name,
@@ -1480,7 +1659,7 @@ class Fluency(BuiltInScorer):
         outputs: Any | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        return self._get_judge()._evaluate_impl(
+        return self._get_judge()(
             outputs=outputs,
             trace=trace,
         )
@@ -1674,25 +1853,29 @@ class Equivalence(BuiltInScorer):
         return _sanitize_feedback(feedback)
 
 
-class BuiltInSessionLevelScorer(BuiltInScorer):
+class SessionLevelScorer(Judge):
     """
-    Abstract base class for built-in session-level scorers.
-    Session-level scorers evaluate entire conversation sessions rather than individual traces.
+    Base class for session-level scorers that evaluate entire conversation sessions.
+
+    Provides common functionality for session-level scorers including:
+    - Judge instance caching via _create_judge() pattern
+    - Standard __call__ signature accepting session parameter
+    - Session input field definition
+
+    This class is used by both public built-in scorers and internal implementation details.
     """
 
     required_columns: set[str] = {"trace"}
-    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+    _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
     @abstractmethod
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         """
-        Create the InstructionsJudge instance for this scorer.
+        Create the Judge instance for this scorer.
         Subclasses should implement this to configure their specific judge.
-
-        Note: Instantiate InstructionsJudge directly instead of using make_judge.
         """
 
-    def _get_judge(self) -> InstructionsJudge:
+    def _get_judge(self) -> Judge:
         """Get or create the cached judge instance."""
         if self._judge is None:
             self._judge = self._create_judge()
@@ -1710,6 +1893,25 @@ class BuiltInSessionLevelScorer(BuiltInScorer):
             ),
         ]
 
+    def _validate_kwargs(self, kwargs: dict[str, Any]) -> None:
+        """
+        Validate that no unexpected keyword arguments were passed.
+
+        Session level scorers only accept 'session' and 'expectations' parameters.
+
+        Args:
+            kwargs: Dictionary of unexpected keyword arguments.
+
+        Raises:
+            TypeError: If any unexpected keyword arguments are present.
+        """
+        if kwargs:
+            invalid_args = ", ".join(f"'{k}'" for k in kwargs.keys())
+            raise TypeError(
+                f"Session level scorers can only accept the `session` and `expectations` "
+                f"parameters. Got unexpected keyword argument(s): {invalid_args}"
+            )
+
     def __call__(
         self,
         *,
@@ -1717,13 +1919,22 @@ class BuiltInSessionLevelScorer(BuiltInScorer):
         expectations: dict[str, Any] | None = None,
         **kwargs,
     ) -> Feedback:
-        if kwargs:
-            invalid_args = ", ".join(f"'{k}'" for k in kwargs.keys())
-            raise TypeError(
-                f"Session level scorers can only accept the `session` and `expectations` "
-                f"parameters. Got unexpected keyword argument(s): {invalid_args}"
-            )
-        return self._get_judge()._evaluate_impl(session=session, expectations=expectations)
+        self._validate_kwargs(kwargs)
+        return self._get_judge()(session=session, expectations=expectations)
+
+
+class BuiltInSessionLevelScorer(BuiltInScorer, SessionLevelScorer):
+    """
+    Abstract base class for PUBLIC built-in session-level scorers.
+
+    Session-level scorers evaluate entire conversation sessions rather than individual traces.
+
+    This class is reserved for scorers that are part of the public API. Internal
+    implementation details should inherit from SessionLevelScorer directly.
+    """
+
+    # All functionality now inherited from SessionLevelScorer
+    # BuiltInScorer provides special serialization for public API
 
 
 @experimental(version="3.7.0")
@@ -1786,7 +1997,7 @@ class UserFrustration(BuiltInSessionLevelScorer):
     model: str | None = None
     description: str = "Evaluate the user's frustration state throughout the conversation."
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -1859,7 +2070,7 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
         "the conversation."
     )
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -1935,7 +2146,7 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
         "checking for harmful content and safety guideline failures."
     )
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -2009,7 +2220,7 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
         "efficient, checking for redundant calls, unnecessary calls, and poor tool selection."
     )
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -2082,7 +2293,7 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
         "a conversation, checking for persona consistency and boundary violations."
     )
 
-    def _create_judge(self) -> InstructionsJudge:
+    def _create_judge(self) -> Judge:
         return InstructionsJudge(
             name=self.name,
             instructions=self.instructions,
@@ -2095,6 +2306,215 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
     @property
     def instructions(self) -> str:
         return CONVERSATIONAL_ROLE_ADHERENCE_PROMPT
+
+
+# Internal implementation detail for KnowledgeRetention - not part of public API
+class _LastTurnKnowledgeRetention(SessionLevelScorer):
+    """
+    Internal scorer for evaluating knowledge retention in the last turn of a conversation.
+
+    This class is an implementation detail of KnowledgeRetention and should not be used directly.
+    For public API, use KnowledgeRetention instead.
+
+    Evaluates the last turn of a conversation to determine if the AI response correctly
+    retains information provided by the user in earlier turns.
+
+    Returns "yes" if retention is correct, "no" if there are retention issues.
+    """
+
+    name: str = "last_turn_knowledge_retention"
+    model: str | None = None
+    description: str = (
+        "Evaluate whether the last AI response in a conversation correctly retains information "
+        "provided by users in earlier conversation turns."
+    )
+
+    def _create_judge(self) -> Judge:
+        return InstructionsJudge(
+            name=self.name,
+            instructions=self.instructions,
+            model=self.model,
+            description=self.description,
+            feedback_value_type=Literal["yes", "no"],
+        )
+
+    @property
+    def instructions(self) -> str:
+        return KNOWLEDGE_RETENTION_PROMPT
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class KnowledgeRetention(BuiltInSessionLevelScorer):
+    """
+    KnowledgeRetention evaluates whether AI responses retain, contradict, or distort
+    information provided by users in earlier conversation turns.
+
+    This scorer analyzes each turn of a conversation to assess
+    if the AI correctly retains and uses information from previous user inputs. It
+    returns "yes" if all turns maintain correct knowledge retention, or "no" if any
+    turn shows contradiction, distortion, or problematic forgetting.
+
+    The scorer's rationale describes which specific turns had retention issues.
+
+    You can invoke the scorer directly with a session for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "knowledge_retention".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import KnowledgeRetention
+
+        # Retrieve a list of traces with the same session ID
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        assessment = KnowledgeRetention()(session=session)
+        print(assessment)
+        # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import KnowledgeRetention
+
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+        result = mlflow.genai.evaluate(data=session, scorers=[KnowledgeRetention()])
+    """
+
+    name: str = KNOWLEDGE_RETENTION_ASSESSMENT_NAME
+    model: str | None = None
+    last_turn_scorer: Scorer = pydantic.Field(default_factory=lambda: _LastTurnKnowledgeRetention())
+    description: str = (
+        "Evaluate whether the AI correctly retains information provided by users "
+        "in earlier conversation turns without forgetting, contradicting, or distorting it."
+    )
+
+    def _create_judge(self) -> Judge:
+        """
+        This method is required by BuiltInSessionLevelScorer but is not used.
+        KnowledgeRetention uses composition (delegating to last_turn_scorer)
+        rather than creating its own judge.
+        """
+        raise NotImplementedError(
+            "KnowledgeRetention uses composition with last_turn_scorer "
+            "and does not use a judge directly."
+        )
+
+    @property
+    def instructions(self) -> str:
+        """
+        This property is required by BuiltInSessionLevelScorer but is not used.
+        KnowledgeRetention uses composition (delegating to last_turn_scorer)
+        rather than using its own instructions.
+        """
+        raise NotImplementedError(
+            "KnowledgeRetention uses composition with last_turn_scorer "
+            "and does not use instructions directly."
+        )
+
+    def __call__(
+        self,
+        *,
+        session: list[Trace] | None = None,
+        expectations: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> Feedback:
+        """
+        Evaluate knowledge retention across conversation turns.
+
+        Args:
+            session: List of traces from the same conversation session.
+            expectations: Not used for this scorer.
+            **kwargs: Additional arguments (will raise TypeError if provided).
+
+        Returns:
+            A single Feedback object with value "yes" or "no", plus detailed rationale
+            describing which turns (if any) had retention issues.
+        """
+        self._validate_kwargs(kwargs)
+
+        if not session:
+            raise MlflowException(
+                "Must specify 'session' - cannot evaluate knowledge retention on empty session.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        validate_session(session)
+
+        sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
+
+        per_turn_feedbacks = [
+            self._evaluate_turn(turn_idx=turn_idx, sorted_traces=sorted_traces)
+            for turn_idx in range(len(sorted_traces))
+        ]
+
+        return self._compute_aggregate(per_turn_feedbacks)
+
+    def _evaluate_turn(
+        self,
+        turn_idx: int,
+        sorted_traces: list[Trace],
+    ) -> Feedback:
+        session_up_to_turn = sorted_traces[: turn_idx + 1]
+
+        return self.last_turn_scorer(session=session_up_to_turn)
+
+    def _format_per_turn_rationale(self, per_turn_feedbacks: list[Feedback]) -> list[str]:
+        """Format per-turn results into rationale lines."""
+        rationale_lines = []
+        for turn_idx, feedback in enumerate(per_turn_feedbacks):
+            status = "✗" if str(feedback.value) == CategoricalRating.NO else "✓"
+            turn_summary = feedback.rationale
+            rationale_lines.append(f"- Turn {turn_idx + 1}: {status} {turn_summary}")
+        return rationale_lines
+
+    def _compute_aggregate(self, per_turn_feedbacks: list[Feedback]) -> Feedback:
+        """Compute aggregate knowledge retention feedback using worst-case logic."""
+        failed_turns = [f for f in per_turn_feedbacks if str(f.value) == CategoricalRating.NO]
+        total_turns = len(per_turn_feedbacks)
+
+        rationale_lines = [f"Knowledge retention evaluation across {total_turns} turn(s):"]
+        rationale_lines.extend(self._format_per_turn_rationale(per_turn_feedbacks))
+
+        if failed_turns:
+            aggregate_value = CategoricalRating.NO
+            rationale_lines.append(
+                f"\nOverall: NO - Knowledge retention failed in {len(failed_turns)} "
+                f"out of {total_turns} turn(s)."
+            )
+        else:
+            aggregate_value = CategoricalRating.YES
+            rationale_lines.append(
+                f"\nOverall: YES - Knowledge retention successful across all {total_turns} turn(s)."
+            )
+
+        rationale = "\n".join(rationale_lines)
+
+        return Feedback(
+            name=self.name,
+            value=aggregate_value,
+            rationale=rationale,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id=self.model or get_default_model(),
+            ),
+        )
 
 
 @experimental(version="3.7.0")
@@ -2153,9 +2573,9 @@ class Completeness(BuiltInScorer):
     description: str = (
         "Evaluate whether the assistant fully addresses all user questions in a single turn."
     )
-    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+    _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
-    def _get_judge(self) -> InstructionsJudge:
+    def _get_judge(self) -> Judge:
         if self._judge is None:
             self._judge = InstructionsJudge(
                 name=self.name,
@@ -2195,7 +2615,7 @@ class Completeness(BuiltInScorer):
         outputs: Any | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        return self._get_judge()._evaluate_impl(
+        return self._get_judge()(
             inputs=inputs,
             outputs=outputs,
             trace=trace,
@@ -2255,9 +2675,9 @@ class Summarization(BuiltInScorer):
         "and does not make any assumptions not in the input, with a focus on faithfulness, "
         "coverage, and conciseness."
     )
-    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+    _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
-    def _get_judge(self) -> InstructionsJudge:
+    def _get_judge(self) -> Judge:
         if self._judge is None:
             self._judge = InstructionsJudge(
                 name=self.name,
@@ -2304,9 +2724,37 @@ class Summarization(BuiltInScorer):
         )
 
 
+def _get_all_concrete_builtin_scorers() -> list[type[BuiltInScorer]]:
+    """
+    Recursively discover all concrete (non-abstract) BuiltInScorer subclasses.
+
+    This automatically finds all scorer classes that inherit from BuiltInScorer,
+    excluding abstract base classes.
+
+    Returns:
+        List of concrete BuiltInScorer classes
+    """
+
+    def get_concrete_subclasses(base_class: type) -> list[type]:
+        """Recursively get all concrete subclasses of a base class."""
+        concrete = []
+        for subclass in base_class.__subclasses__():
+            # Only include non-abstract classes from the builtin_scorers module
+            if (
+                not inspect.isabstract(subclass)
+                and subclass.__module__ == "mlflow.genai.scorers.builtin_scorers"
+            ):
+                concrete.append(subclass)
+            # Recurse to find subclasses of subclasses
+            concrete.extend(get_concrete_subclasses(subclass))
+        return concrete
+
+    return get_concrete_subclasses(BuiltInScorer)
+
+
 def get_all_scorers() -> list[BuiltInScorer]:
     """
-    Returns a list of all built-in scorers.
+    Returns a list of all built-in scorers that can be instantiated with default parameters.
 
     Example:
 
@@ -2324,19 +2772,18 @@ def get_all_scorers() -> list[BuiltInScorer]:
         ]
         result = mlflow.genai.evaluate(data=data, scorers=get_all_scorers())
     """
-    scorers = [
-        ExpectationsGuidelines(),
-        Correctness(),
-        RelevanceToQuery(),
-        RetrievalSufficiency(),
-        RetrievalGroundedness(),
-        Equivalence(),
-        UserFrustration(),
-        ConversationCompleteness(),
-        Completeness(),
-    ]
-    if is_databricks_uri(mlflow.get_tracking_uri()):
-        scorers.extend([Safety(), RetrievalRelevance()])
+    scorer_classes = _get_all_concrete_builtin_scorers()
+    scorers = []
+
+    for scorer_class in scorer_classes:
+        try:
+            scorer = scorer_class()
+            scorers.append(scorer)
+        except (TypeError, pydantic.ValidationError):
+            _logger.debug(
+                f"Skipping scorer {scorer_class.__name__} - requires constructor arguments"
+            )
+
     return scorers
 
 

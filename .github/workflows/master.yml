@@ -65,9 +65,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3]
+        group: [1, 2, 3, 4]
         include:
-          - splits: 3
+          - splits: 4
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -131,6 +131,7 @@ jobs:
             # https://github.com/actions/virtual-environments/issues/5022
             ./tests/db/compose.sh run --rm --no-TTY $service pytest \
               tests/store/tracking/test_sqlalchemy_store.py \
+              tests/store/tracking/test_sqlalchemy_store_query_trace_metrics.py \
               tests/store/tracking/test_gateway_sql_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
               tests/db
@@ -216,9 +217,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2]
+        group: [1, 2, 3]
         include:
-          - splits: 2
+          - splits: 3
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -247,9 +248,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2]
+        group: [1]
         include:
-          - splits: 2
+          - splits: 1
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -351,9 +352,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3, 4]
+        group: [1, 2, 3]
         include:
-          - splits: 4
+          - splits: 3
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -379,12 +380,13 @@ jobs:
           # files created during tests on Windows as it keeps the DB connection open until
           # it's explicitly disposed.
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
-        run: |
           # Set Hadoop environment variables required for testing Spark integrations on Windows
-          export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
+          HADOOP_HOME: /tmp/winutils/hadoop-3.2.2
+        run: |
           export PATH=$PATH:$HADOOP_HOME/bin
-          # Run Windows tests
-          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          uv run --no-sync pytest tests \
+            --splits=${{ matrix.splits }} \
+            --group=${{ matrix.group }} \
             --ignore-flavors \
             --ignore=tests/projects \
             --ignore=tests/examples \
@@ -395,5 +397,4 @@ jobs:
             --ignore=tests/sagemaker \
             --ignore=tests/gateway \
             --ignore=tests/server/auth \
-            --ignore=tests/data/test_spark_dataset.py \
-            tests
+            --ignore=tests/data/test_spark_dataset.py

@@ -24,6 +24,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.utils.environment import _PythonEnv
+from mlflow.utils.import_hooks import register_post_import_hook
 
 if TYPE_CHECKING:
     import huey
@@ -214,7 +215,7 @@ def _exec_job_in_subproc(
 
 def _exec_job(
     job_id: str,
-    fn_fullname: str,
+    job_name: str,
     params: dict[str, Any],
     timeout: float | None,
 ) -> None:
@@ -223,6 +224,7 @@ def _exec_job(
     job_store = _get_job_store()
     job_store.start_job(job_id)
 
+    fn_fullname = get_job_fn_fullname(job_name)
     function = _load_function(fn_fullname)
     fn_metadata = function._job_fn_metadata
 
@@ -314,14 +316,15 @@ def _get_or_init_huey_instance(instance_key: str):
         return _huey_instance_map[instance_key]
 
 
-def _launch_huey_consumer(job_fn_fullname: str) -> None:
-    _logger.info(f"Starting huey consumer for job function {job_fn_fullname}")
-    job_fn = _load_function(job_fn_fullname)
+def _launch_huey_consumer(job_name: str) -> None:
+    _logger.info(f"Starting huey consumer for job function {job_name}")
+
+    fn_fullname = get_job_fn_fullname(job_name)
+    job_fn = _load_function(fn_fullname)
 
     if not hasattr(job_fn, "_job_fn_metadata"):
         raise MlflowException.invalid_parameter_value(
-            f"The job function {job_fn_fullname} is not decorated by "
-            "'mlflow.server.jobs.job_function'."
+            f"The job function {job_name} is not decorated by 'mlflow.server.jobs.job_function'."
         )
 
     max_job_parallelism = job_fn._job_fn_metadata.max_workers
@@ -331,7 +334,7 @@ def _launch_huey_consumer(job_fn_fullname: str) -> None:
             # start MLflow job runner process
             # Put it inside the loop to ensure the job runner process alive
             job_runner_proc = _start_huey_consumer_proc(
-                job_fn_fullname,
+                job_name,
                 max_job_parallelism,
             )
             job_runner_proc.wait()
@@ -340,7 +343,7 @@ def _launch_huey_consumer(job_fn_fullname: str) -> None:
     # start job runner.
     threading.Thread(
         target=_huey_consumer_thread,
-        name=f"MLflow-huey-consumer-{job_fn_fullname}-watcher",
+        name=f"MLflow-huey-consumer-{job_name}-watcher",
         daemon=False,
     ).start()
 
@@ -410,8 +413,8 @@ def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
         params = json.loads(job.params)
         timeout = job.timeout
         # enqueue job
-        _get_or_init_huey_instance(job.function_fullname).submit_task(
-            job.job_id, job.function_fullname, params, timeout
+        _get_or_init_huey_instance(job.job_name).submit_task(
+            job.job_id, job.job_name, params, timeout
         )
 
 
@@ -466,3 +469,35 @@ def _check_requirements(backend_store_uri: str | None = None) -> None:
         raise MlflowException(
             f"MLflow job backend requires a database backend store URI but got {backend_store_uri}"
         )
+
+
+# The map from job name to the job function's fullname.
+_job_name_to_fn_fullname_map = {}
+
+
+def get_job_fn_fullname(job_name: str):
+    if job_name not in _job_name_to_fn_fullname_map:
+        raise MlflowException.invalid_parameter_value(f"Invalid job name: {job_name}")
+    return _job_name_to_fn_fullname_map[job_name]
+
+
+def _build_job_name_to_fn_fullname_map():
+    from mlflow.server.jobs import _SUPPORTED_JOB_FUNCTION_LIST
+
+    for fn_fullname in set(_SUPPORTED_JOB_FUNCTION_LIST):
+        try:
+            fn_meta = _load_function(fn_fullname)._job_fn_metadata
+            if exist_fullname := _job_name_to_fn_fullname_map.get(fn_meta.name):
+                if exist_fullname != fn_fullname:
+                    _logger.warning(
+                        f"The 2 job functions {fn_fullname} and {exist_fullname} have the same "
+                        f"job name {fn_meta.name}, this is not allowed, skip loading function "
+                        f"{fn_fullname}."
+                    )
+            else:
+                _job_name_to_fn_fullname_map[fn_meta.name] = fn_fullname
+        except Exception as e:
+            _logger.warning(f"loading job function {fn_fullname} failed: {e!r}", exc_info=True)
+
+
+register_post_import_hook(lambda m: _build_job_name_to_fn_fullname_map(), __name__)
