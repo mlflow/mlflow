@@ -96,7 +96,6 @@ class FallbackConfig(_MlflowObject):
 
     strategy: FallbackStrategy | None = None
     max_attempts: int | None = None
-    model_mappings: list[GatewayEndpointModelMapping] = field(default_factory=list)
 
     def to_proto(self) -> ProtoFallbackConfig:
         proto = ProtoFallbackConfig()

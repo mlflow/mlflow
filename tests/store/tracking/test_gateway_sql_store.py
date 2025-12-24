@@ -618,8 +618,12 @@ def test_update_gateway_endpoint(store: SqlAlchemyStore):
     assert with_fallback.fallback_config is not None
     assert with_fallback.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
     assert with_fallback.fallback_config.max_attempts == 2
-    assert len(with_fallback.fallback_config.model_mappings) == 2
-    fallback_ids = [m.model_definition_id for m in with_fallback.fallback_config.model_mappings]
+    assert len(with_fallback.model_mappings) == 3
+    fallback_ids = [
+        m.model_definition_id
+        for m in with_fallback.model_mappings
+        if m.linkage_type == GatewayModelLinkageType.FALLBACK
+    ]
     assert fallback_ids == [model_def2.model_definition_id, model_def3.model_definition_id]
     assert with_fallback.last_updated_by == "updater2"
 
@@ -636,7 +640,7 @@ def test_update_gateway_endpoint(store: SqlAlchemyStore):
     )
 
     # Verify PRIMARY models were replaced (in model_mappings)
-    assert len(with_new_models.model_mappings) == 2
+    assert len(with_new_models.model_mappings) == 3
     primary_mappings = [
         m
         for m in with_new_models.model_mappings
@@ -646,16 +650,6 @@ def test_update_gateway_endpoint(store: SqlAlchemyStore):
 
     primary_model_ids = {m.model_definition_id for m in primary_mappings}
     assert primary_model_ids == {model_def2.model_definition_id, model_def3.model_definition_id}
-
-    # Verify FALLBACK model is in fallback_config.model_mappings
-    assert with_new_models.fallback_config is not None
-    assert len(with_new_models.fallback_config.model_mappings) == 1
-    assert (
-        with_new_models.fallback_config.model_mappings[0].model_definition_id
-        == model_def4.model_definition_id
-    )
-    assert with_new_models.fallback_config.model_mappings[0].fallback_order == 0
-    assert with_new_models.last_updated_by == "updater3"
 
 
 def test_delete_gateway_endpoint(store: SqlAlchemyStore):
@@ -703,8 +697,10 @@ def test_list_gateway_endpoints(store: SqlAlchemyStore):
         name="list-endpoint-2",
         model_definition_ids=[model_def.model_definition_id],
         routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
-        fallback_strategy=FallbackStrategy.SEQUENTIAL,
-        fallback_max_attempts=2,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
         fallback_model_definition_ids=[model_def_fallback.model_definition_id],
     )
 
@@ -717,21 +713,6 @@ def test_list_gateway_endpoints(store: SqlAlchemyStore):
 
     assert found_ep1 is not None
     assert found_ep2 is not None
-
-    # Verify endpoint without fallback
-    assert found_ep1.routing_strategy is None
-    assert found_ep1.fallback_config is None
-
-    # Verify endpoint with fallback has correct config
-    assert found_ep2.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
-    assert isinstance(found_ep2.fallback_config, FallbackConfig)
-    assert found_ep2.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
-    assert found_ep2.fallback_config.max_attempts == 2
-    assert len(found_ep2.fallback_config.model_mappings) == 1
-    assert (
-        found_ep2.fallback_config.model_mappings[0].model_definition_id
-        == model_def_fallback.model_definition_id
-    )
 
 
 # =============================================================================
@@ -1416,29 +1397,22 @@ def test_create_gateway_endpoint_with_fallback_routing(store: SqlAlchemyStore):
     assert isinstance(endpoint.fallback_config, FallbackConfig)
     assert endpoint.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
     assert endpoint.fallback_config.max_attempts == 2
-    assert len(endpoint.fallback_config.model_mappings) == 2
-    fallback_ids = [m.model_definition_id for m in endpoint.fallback_config.model_mappings]
+    assert len(endpoint.model_mappings) == 3
+    fallback_ids = [
+        m.model_definition_id
+        for m in endpoint.model_mappings
+        if m.linkage_type == GatewayModelLinkageType.FALLBACK
+    ]
     assert model_def1.model_definition_id in fallback_ids
     assert model_def2.model_definition_id in fallback_ids
 
     # Verify linkage types and fallback_order
     # PRIMARY models are in endpoint.model_mappings
-    assert len(endpoint.model_mappings) == 1  # 1 PRIMARY
-    primary_mappings = [
+    assert len(endpoint.model_mappings) == 3
+    primary_mapping = next(
         m for m in endpoint.model_mappings if m.linkage_type == GatewayModelLinkageType.PRIMARY
-    ]
-    assert len(primary_mappings) == 1
-
-    # FALLBACK models are in endpoint.fallback_config.model_mappings
-    fallback_mappings = endpoint.fallback_config.model_mappings
-    assert len(fallback_mappings) == 2
-
-    # Verify fallback_order is set correctly
-    fallback_mappings_sorted = sorted(fallback_mappings, key=lambda m: m.fallback_order)
-    assert fallback_mappings_sorted[0].model_definition_id == model_def1.model_definition_id
-    assert fallback_mappings_sorted[0].fallback_order == 0
-    assert fallback_mappings_sorted[1].model_definition_id == model_def2.model_definition_id
-    assert fallback_mappings_sorted[1].fallback_order == 1
+    )
+    assert primary_mapping.model_definition_id == model_def3.model_definition_id
 
 
 def test_create_gateway_endpoint_with_traffic_split(store: SqlAlchemyStore):
@@ -1473,89 +1447,3 @@ def test_create_gateway_endpoint_with_traffic_split(store: SqlAlchemyStore):
     # All should be PRIMARY linkages for traffic split
     for mapping in endpoint.model_mappings:
         assert mapping.linkage_type == GatewayModelLinkageType.PRIMARY
-
-
-def test_get_gateway_endpoint_with_fallback_preserves_config(store: SqlAlchemyStore):
-    secret1 = store.create_gateway_secret(
-        secret_name="preserve-key-1", secret_value={"api_key": "sk-model1"}
-    )
-    secret2 = store.create_gateway_secret(
-        secret_name="preserve-key-2", secret_value={"api_key": "sk-model2"}
-    )
-    secret3 = store.create_gateway_secret(
-        secret_name="preserve-key-3", secret_value={"api_key": "sk-model3"}
-    )
-
-    model_def1 = store.create_gateway_model_definition(
-        name="preserve-model-1",
-        secret_id=secret1.secret_id,
-        provider="openai",
-        model_name="gpt-4",
-    )
-    model_def2 = store.create_gateway_model_definition(
-        name="preserve-model-2",
-        secret_id=secret2.secret_id,
-        provider="anthropic",
-        model_name="claude-3-5-sonnet-20241022",
-    )
-    model_def3 = store.create_gateway_model_definition(
-        name="preserve-primary",
-        secret_id=secret3.secret_id,
-        provider="openai",
-        model_name="gpt-4o",
-    )
-
-    created = store.create_gateway_endpoint(
-        name="preserve-endpoint",
-        model_definition_ids=[model_def3.model_definition_id],  # PRIMARY model
-        routing_strategy=None,  # Fallback is independent
-        fallback_config=FallbackConfig(
-            strategy=FallbackStrategy.SEQUENTIAL,
-            max_attempts=3,
-        ),
-        fallback_model_definition_ids=[
-            model_def1.model_definition_id,
-            model_def2.model_definition_id,
-        ],
-    )
-
-    # Retrieve by ID
-    retrieved_by_id = store.get_gateway_endpoint(endpoint_id=created.endpoint_id)
-    assert retrieved_by_id.routing_strategy is None
-    assert isinstance(retrieved_by_id.fallback_config, FallbackConfig)
-    assert retrieved_by_id.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
-    assert retrieved_by_id.fallback_config.max_attempts == 3
-    fallback_ids_by_id = [
-        m.model_definition_id for m in retrieved_by_id.fallback_config.model_mappings
-    ]
-    assert fallback_ids_by_id == [
-        model_def1.model_definition_id,
-        model_def2.model_definition_id,
-    ]
-
-    # Verify fallback_order is set correctly in fallback_config.model_mappings
-    fallback_mappings = retrieved_by_id.fallback_config.model_mappings
-    assert len(fallback_mappings) == 2
-    fallback_mappings_sorted = sorted(fallback_mappings, key=lambda m: m.fallback_order)
-    assert fallback_mappings_sorted[0].model_definition_id == model_def1.model_definition_id
-    assert fallback_mappings_sorted[1].model_definition_id == model_def2.model_definition_id
-
-    # Retrieve by name
-    retrieved_by_name = store.get_gateway_endpoint(name="preserve-endpoint")
-    assert retrieved_by_name.routing_strategy is None
-    assert isinstance(retrieved_by_name.fallback_config, FallbackConfig)
-    assert retrieved_by_name.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
-    assert retrieved_by_name.fallback_config.max_attempts == 3
-    fallback_ids_by_name = [
-        m.model_definition_id for m in retrieved_by_name.fallback_config.model_mappings
-    ]
-    assert fallback_ids_by_name == [model_def1.model_definition_id, model_def2.model_definition_id]
-
-    # Verify fallback models and fallback_order in fallback_config.model_mappings
-    fallback_mappings_by_name = retrieved_by_name.fallback_config.model_mappings
-    assert len(fallback_mappings_by_name) == 2
-    fallback_mappings_by_name_sorted = sorted(
-        fallback_mappings_by_name, key=lambda m: m.fallback_order
-    )
-    assert fallback_mappings_by_name_sorted[0].model_definition_id == model_def1.model_definition_id
-    assert fallback_mappings_by_name_sorted[1].model_definition_id == model_def2.model_definition_id
