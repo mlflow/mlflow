@@ -594,7 +594,12 @@ def convert_results_to_metric_data_points(
         values = {
             col.name: row[i + num_dimensions]
             for i, col in enumerate(select_columns[num_dimensions:])
+            if row[i + num_dimensions] is not None
         }
+
+        # Skip data points with no values (all aggregations returned None)
+        if not values:
+            continue
 
         data_points.append(
             MetricDataPoint(

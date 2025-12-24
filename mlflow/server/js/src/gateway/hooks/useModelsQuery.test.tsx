@@ -4,7 +4,7 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useModelsQuery } from './useModelsQuery';
 import { GatewayApi } from '../api';
-import type { Model } from '../types';
+import type { ProviderModel } from '../types';
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -19,7 +19,7 @@ function createWrapper() {
   );
 }
 
-const mockModels: Model[] = [
+const mockModels: ProviderModel[] = [
   { model: 'gpt-4', provider: 'openai', supports_function_calling: true },
   { model: 'gpt-3.5-turbo', provider: 'openai', supports_function_calling: true },
 ];
