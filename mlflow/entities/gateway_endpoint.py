@@ -101,7 +101,8 @@ class FallbackConfig(_MlflowObject):
 
     def to_proto(self) -> ProtoFallbackConfig:
         proto = ProtoFallbackConfig()
-        proto.strategy = self.strategy.to_proto() if self.strategy else None
+        if self.strategy is not None:
+            proto.strategy = self.strategy.to_proto()
         if self.max_attempts is not None:
             proto.max_attempts = self.max_attempts
         if self.model_mappings is not None:
