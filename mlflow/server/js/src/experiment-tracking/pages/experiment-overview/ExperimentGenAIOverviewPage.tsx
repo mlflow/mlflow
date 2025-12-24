@@ -11,6 +11,7 @@ import { LazyTraceRequestsChart } from './components/LazyTraceRequestsChart';
 import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
 import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
+import { LazyTraceTokenStatsChart } from './components/LazyTraceTokenStatsChart';
 import { calculateTimeInterval } from './hooks/useTraceMetricsQuery';
 import { generateTimeBuckets } from './utils/chartUtils';
 
@@ -127,8 +128,17 @@ const ExperimentGenAIOverviewPageImpl = () => {
               <LazyTraceErrorsChart {...chartProps} />
             </div>
 
-            {/* Token Usage chart - full width */}
-            <LazyTraceTokenUsageChart {...chartProps} />
+            {/* Token Usage and Token Stats charts - side by side */}
+            <div
+              css={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                gap: theme.spacing.lg,
+              }}
+            >
+              <LazyTraceTokenUsageChart {...chartProps} />
+              <LazyTraceTokenStatsChart {...chartProps} />
+            </div>
           </div>
         </Tabs.Content>
       </Tabs.Root>
