@@ -6091,6 +6091,10 @@
     "defaultMessage": "This assessment is produced by a custom metric.",
     "description": "Custom judge assessment description"
   },
+  "lRO4km": {
+    "defaultMessage": "Quality",
+    "description": "Label for the quality tab in the experiment overview page"
+  },
   "lS7kq2": {
     "defaultMessage": "Parameters",
     "description": "Section header for the parameters in a 'group by' selector"
