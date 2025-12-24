@@ -39,3 +39,32 @@ export function getTimestampFromDataPoint(dp: MetricDataPoint): number {
   }
   return 0;
 }
+
+/**
+ * Generate all time bucket timestamps within a range
+ * @param startTimeMs - Start of time range in milliseconds
+ * @param endTimeMs - End of time range in milliseconds
+ * @param timeIntervalSeconds - Time interval in seconds for each bucket
+ * @returns Array of timestamps (in ms) for each bucket, aligned to interval boundaries
+ */
+export function generateTimeBuckets(
+  startTimeMs: number | undefined,
+  endTimeMs: number | undefined,
+  timeIntervalSeconds: number,
+): number[] {
+  if (!startTimeMs || !endTimeMs || timeIntervalSeconds <= 0) {
+    return [];
+  }
+
+  const intervalMs = timeIntervalSeconds * 1000;
+  const buckets: number[] = [];
+
+  // Align start time to the interval boundary (floor)
+  const alignedStart = Math.floor(startTimeMs / intervalMs) * intervalMs;
+
+  for (let ts = alignedStart; ts <= endTimeMs; ts += intervalMs) {
+    buckets.push(ts);
+  }
+
+  return buckets;
+}

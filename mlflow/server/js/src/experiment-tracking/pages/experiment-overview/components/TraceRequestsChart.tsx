@@ -2,9 +2,14 @@ import React, { useMemo } from 'react';
 import { useDesignSystemTheme, ChartLineIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
+import {
+  MetricViewType,
+  AggregationType,
+  TraceMetricKey,
+  TIME_BUCKET_DIMENSION_KEY,
+} from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, generateTimeBuckets } from '../utils/chartUtils';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
@@ -45,16 +50,32 @@ export const TraceRequestsChart: React.FC<OverviewChartProps> = ({
     [traceCountDataPoints],
   );
 
-  // Prepare chart data for recharts (data is already sorted by time_bucket from backend)
+  // Create a map of counts by timestamp
+  const countByTimestamp = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const dp of traceCountDataPoints) {
+      const timeBucket = dp.dimensions?.[TIME_BUCKET_DIMENSION_KEY];
+      if (timeBucket) {
+        const ts = new Date(timeBucket).getTime();
+        map.set(ts, dp.values?.[AggregationType.COUNT] || 0);
+      }
+    }
+    return map;
+  }, [traceCountDataPoints]);
+
+  // Generate all time buckets within the selected range
+  const allTimeBuckets = useMemo(
+    () => generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds),
+    [startTimeMs, endTimeMs, timeIntervalSeconds],
+  );
+
+  // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
-    return traceCountDataPoints.map((dp) => {
-      const timestampMs = getTimestampFromDataPoint(dp);
-      return {
-        name: timestampMs ? formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds) : '',
-        count: dp.values?.[AggregationType.COUNT] || 0,
-      };
-    });
-  }, [traceCountDataPoints, timeIntervalSeconds]);
+    return allTimeBuckets.map((timestampMs) => ({
+      name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
+      count: countByTimestamp.get(timestampMs) || 0,
+    }));
+  }, [allTimeBuckets, countByTimestamp, timeIntervalSeconds]);
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
