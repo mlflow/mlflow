@@ -5,10 +5,9 @@ This module provides the job function for invoking scorers on traces asynchronou
 It reuses the core scoring and logging logic from the evaluation harness for consistency.
 """
 
-import functools
 import json
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 from mlflow.entities import Trace
 from mlflow.environment_variables import (
@@ -26,58 +25,32 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.server.jobs import job
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.constant import TraceMetadataKey
-from mlflow.tracing.utils import construct_full_inputs
 
 
 @dataclass
 class ScorerFailure:
-    trace_id: str | None
     error_code: str
     error_message: str
 
 
 @dataclass
-class InvokeScorerResult:
-    trace_ids: list[str]
-    assessments: dict[str, list[Any]] = field(default_factory=dict)
+class TraceResult:
+    assessments: list[Any] = field(default_factory=list)
     failures: list[ScorerFailure] = field(default_factory=list)
 
 
-def _make_failure(trace_id: str | None, error: Exception, prefix: str = "") -> ScorerFailure:
-    msg = f"{prefix}{error}" if prefix else str(error)
-    return ScorerFailure(trace_id=trace_id, error_code=type(error).__name__, error_message=msg)
-
-
-def _translate_scorer_job_failure(
-    func: Callable[..., dict[str, Any]],
-) -> Callable[..., dict[str, Any]]:
-    """
-    Decorator that catches uncaught exceptions and converts them to failure responses.
-
-    Acts as a safety net for job-level failures (e.g., deserialization errors,
-    unexpected crashes). Per-trace error handling is still done within the
-    batch processing functions.
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs) -> dict[str, Any]:
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            arguments = construct_full_inputs(func, *args, **kwargs)
-            trace_ids = arguments.get("trace_ids", [])
-            return asdict(
-                InvokeScorerResult(
-                    trace_ids=trace_ids,
-                    failures=[_make_failure(None, e)],
-                )
-            )
-
-    return wrapper
+def _extract_failures_from_feedbacks(feedbacks: list[Any]) -> list[ScorerFailure]:
+    return [
+        ScorerFailure(
+            error_code=feedback.error.error_code,
+            error_message=feedback.error.error_message,
+        )
+        for feedback in feedbacks
+        if feedback.error
+    ]
 
 
 @job(name="invoke_scorer", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
-@_translate_scorer_job_failure
 def invoke_scorer_job(
     experiment_id: str,
     serialized_scorer: str,
@@ -97,10 +70,7 @@ def invoke_scorer_job(
         log_assessments: Whether to log assessments to the traces.
 
     Returns:
-        A dictionary containing:
-        - trace_ids: The trace IDs that were requested
-        - assessments: Dict mapping trace_id to list of assessment dictionaries
-        - failures: List of failure dictionaries with trace_id, error_code, error_message
+        Dict mapping trace_id to TraceResult (assessments and failures).
     """
     from mlflow.server.handlers import _get_tracking_store
 
@@ -115,41 +85,33 @@ def invoke_scorer_job(
     else:
         result = _run_single_turn_scorer_batch(scorer, trace_ids, tracking_store, log_assessments)
 
-    return asdict(result)
+    return {trace_id: asdict(trace_result) for trace_id, trace_result in result.items()}
 
 
 def _fetch_traces_batch(
     trace_ids: list[str],
     tracking_store: AbstractStore,
-) -> tuple[dict[str, Trace], list[ScorerFailure]]:
+) -> dict[str, Trace]:
     """
-    Fetch traces in batch and return a mapping plus failures for missing traces.
+    Fetch traces in batch and return a mapping.
 
     Args:
         trace_ids: List of trace IDs to fetch.
         tracking_store: The tracking store instance.
 
     Returns:
-        Tuple of (trace_id -> trace mapping, list of failures for missing traces).
+        Dict mapping trace_id to Trace.
 
     Raises:
-        Exception: If batch_get_traces fails (e.g., DB error).
+        MlflowException: If any trace IDs are not found.
     """
     traces = tracking_store.batch_get_traces(trace_ids)
     trace_map = {t.info.trace_id: t for t in traces}
 
-    # Detect missing traces
-    failures = [
-        ScorerFailure(
-            trace_id=trace_id,
-            error_code="TRACE_NOT_FOUND",
-            error_message=f"Trace not found: {trace_id}",
-        )
-        for trace_id in trace_ids
-        if trace_id not in trace_map
-    ]
+    if missing_ids := [tid for tid in trace_ids if tid not in trace_map]:
+        raise MlflowException(f"Traces not found: {missing_ids}")
 
-    return trace_map, failures
+    return trace_map
 
 
 def _run_session_scorer(
@@ -157,7 +119,7 @@ def _run_session_scorer(
     trace_ids: list[str],
     tracking_store: AbstractStore,
     log_assessments: bool,
-) -> InvokeScorerResult:
+) -> dict[str, TraceResult]:
     """
     Run a session-level scorer on all traces as a conversation.
 
@@ -170,16 +132,9 @@ def _run_session_scorer(
         log_assessments: Whether to log assessments to the traces.
 
     Returns:
-        Result dictionary with assessments and failures.
+        Dict mapping trace_id to TraceResult.
     """
-    trace_map, failures = _fetch_traces_batch(trace_ids, tracking_store)
-
-    # For session scorers, we need all traces - fail if any are missing
-    if failures:
-        return InvokeScorerResult(
-            trace_ids=trace_ids,
-            failures=failures,
-        )
+    trace_map = _fetch_traces_batch(trace_ids, tracking_store)
 
     # Preserve order of traces as requested
     traces = [trace_map[tid] for tid in trace_ids]
@@ -211,7 +166,8 @@ def _run_session_scorer(
         # result is {first_trace_id: [feedbacks]}
         feedbacks = result[first_trace_id]
 
-        # Log assessments if requested
+        failures = _extract_failures_from_feedbacks(feedbacks)
+
         if log_assessments and feedbacks:
             _log_assessments(
                 run_id=None,  # No MLflow run context in API path
@@ -219,15 +175,18 @@ def _run_session_scorer(
                 assessments=feedbacks,
             )
 
-        return InvokeScorerResult(
-            trace_ids=trace_ids,
-            assessments={first_trace_id: [f.to_dictionary() for f in feedbacks]},
-        )
+        return {
+            first_trace_id: TraceResult(
+                assessments=[f.to_dictionary() for f in feedbacks],
+                failures=failures,
+            )
+        }
     except Exception as e:
-        return InvokeScorerResult(
-            trace_ids=trace_ids,
-            failures=[_make_failure(first_trace_id, e)],
-        )
+        return {
+            first_trace_id: TraceResult(
+                failures=[ScorerFailure(error_code=type(e).__name__, error_message=str(e))]
+            )
+        }
 
 
 def _run_single_turn_scorer_batch(
@@ -235,7 +194,7 @@ def _run_single_turn_scorer_batch(
     trace_ids: list[str],
     tracking_store: AbstractStore,
     log_assessments: bool,
-) -> InvokeScorerResult:
+) -> dict[str, TraceResult]:
     """
     Run a single-turn scorer on each trace individually (batch processing).
 
@@ -248,11 +207,11 @@ def _run_single_turn_scorer_batch(
         log_assessments: Whether to log assessments to the traces.
 
     Returns:
-        Result dictionary with assessments and failures.
+        Dict mapping trace_id to TraceResult.
     """
-    trace_map, failures = _fetch_traces_batch(trace_ids, tracking_store)
+    trace_map = _fetch_traces_batch(trace_ids, tracking_store)
 
-    assessments_by_trace: dict[str, list[dict[str, Any]]] = {}
+    results: dict[str, TraceResult] = {}
 
     for trace_id, trace in trace_map.items():
         eval_item = EvalItem.from_trace(trace)
@@ -265,7 +224,8 @@ def _run_single_turn_scorer_batch(
                 scorers=[scorer],
             )
 
-            # Log assessments if requested
+            failures = _extract_failures_from_feedbacks(feedbacks)
+
             if log_assessments and feedbacks:
                 _log_assessments(
                     run_id=None,  # No MLflow run context in API path
@@ -273,15 +233,16 @@ def _run_single_turn_scorer_batch(
                     assessments=feedbacks,
                 )
 
-            assessments_by_trace[trace_id] = [f.to_dictionary() for f in feedbacks]
+            results[trace_id] = TraceResult(
+                assessments=[f.to_dictionary() for f in feedbacks],
+                failures=failures,
+            )
         except Exception as e:
-            failures.append(_make_failure(trace_id, e))
+            results[trace_id] = TraceResult(
+                failures=[ScorerFailure(error_code=type(e).__name__, error_message=str(e))]
+            )
 
-    return InvokeScorerResult(
-        trace_ids=trace_ids,
-        assessments=assessments_by_trace,
-        failures=failures,
-    )
+    return results
 
 
 def _group_traces_by_session_id(

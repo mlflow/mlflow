@@ -314,10 +314,10 @@ def test_invoke_scorer_basic(client: Client, experiment_with_traces):
     # Wait for all jobs and verify results
     for job_info in jobs:
         result = client.wait_job_succeeded(job_info["job_id"])["result"]
-        assert result["failures"] == []
 
         for trace_id in job_info["trace_ids"]:
-            assessment = result["assessments"][trace_id][0]
+            assert result[trace_id]["failures"] == []
+            assessment = result[trace_id]["assessments"][0]
             assert assessment["assessment_name"] == "answer_quality"
             assert assessment["feedback"]["value"] == "Yes"
 
@@ -339,11 +339,10 @@ def test_invoke_scorer_missing_trace(client: Client, experiment_with_traces):
         trace_ids=[fake_trace_id],
     )
 
-    # Job succeeds but result indicates trace not found
-    result = client.wait_job_succeeded(response["jobs"][0]["job_id"])["result"]
-    assert len(result["failures"]) > 0
-    assert result["failures"][0]["trace_id"] == fake_trace_id
-    assert result["failures"][0]["error_code"] == "TRACE_NOT_FOUND"
+    # Job fails because trace doesn't exist
+    job_result = client.wait_job(response["jobs"][0]["job_id"])
+    assert job_result["status"] == "FAILED"
+    assert "Traces not found" in job_result["result"]
 
 
 @pytest.fixture
@@ -441,9 +440,9 @@ def test_invoke_agentic_scorer(client: Client, experiment_with_agentic_trace):
     )
 
     result = client.wait_job_succeeded(response["jobs"][0]["job_id"])["result"]
-    assert result["failures"] == []
-    assert result["assessments"][trace_id][0]["assessment_name"] == "span_counter"
-    assert result["assessments"][trace_id][0]["feedback"]["value"] == "3"
+    assert result[trace_id]["failures"] == []
+    assert result[trace_id]["assessments"][0]["assessment_name"] == "span_counter"
+    assert result[trace_id]["assessments"][0]["feedback"]["value"] == "3"
 
 
 def test_invoke_conversation_scorer(client: Client, experiment_with_conversation_traces):
@@ -476,11 +475,12 @@ def test_invoke_conversation_scorer(client: Client, experiment_with_conversation
     results_by_session = {}
     for job_info in jobs:
         result = client.wait_job_succeeded(job_info["job_id"])["result"]
-        assert result["failures"] == []
         # Session-level scorers log to first trace only
-        assert len(result["assessments"]) == 1
+        first_trace_id = job_info["trace_ids"][0]
+        assert len(result) == 1
+        assert result[first_trace_id]["failures"] == []
 
-        value = list(result["assessments"].values())[0][0]["feedback"]["value"]
+        value = result[first_trace_id]["assessments"][0]["feedback"]["value"]
         if set(job_info["trace_ids"]) == set(session_1_trace_ids):
             results_by_session["session_1"] = value
         else:
@@ -517,9 +517,9 @@ def test_invoke_builtin_safety_scorer(client: Client, experiment_with_traces):
     )
 
     result = client.wait_job_succeeded(response["jobs"][0]["job_id"])["result"]
-    assert result["failures"] == []
-    assert result["assessments"][trace_id][0]["assessment_name"] == "safety"
-    assert result["assessments"][trace_id][0]["feedback"]["value"].lower() in ("yes", "no")
+    assert result[trace_id]["failures"] == []
+    assert result[trace_id]["assessments"][0]["assessment_name"] == "safety"
+    assert result[trace_id]["assessments"][0]["feedback"]["value"].lower() in ("yes", "no")
 
 
 def test_invoke_scorer_with_log_assessments(client: Client, experiment_with_traces):
@@ -544,7 +544,7 @@ def test_invoke_scorer_with_log_assessments(client: Client, experiment_with_trac
     assert job_result["status"] == "SUCCEEDED"
 
     # Get assessment ID from job result
-    assessment_id = job_result["result"]["assessments"][trace_id][0]["assessment_id"]
+    assessment_id = job_result["result"][trace_id]["assessments"][0]["assessment_id"]
 
     # Verify assessment was persisted to trace
     trace = mlflow.get_trace(trace_id)
@@ -553,7 +553,7 @@ def test_invoke_scorer_with_log_assessments(client: Client, experiment_with_trac
     assert persisted.value == "Yes"
 
 
-def test_invoke_scorer_partial_success(client: Client, experiment_with_traces):
+def test_invoke_scorer_fails_if_any_trace_missing(client: Client, experiment_with_traces):
     experiment_id, trace_ids = experiment_with_traces
     valid_trace_id = trace_ids[0]
     fake_trace_id = "tr-does-not-exist-00000000000000"
@@ -571,13 +571,7 @@ def test_invoke_scorer_partial_success(client: Client, experiment_with_traces):
         trace_ids=[valid_trace_id, fake_trace_id],
     )
 
-    # Job succeeds but result has partial failure
-    result = client.wait_job_succeeded(response["jobs"][0]["job_id"])["result"]
-    assert len(result["failures"]) > 0
-
-    # Valid trace got assessment
-    assert result["assessments"][valid_trace_id][0]["assessment_name"] == "answer_quality"
-
-    # Invalid trace recorded as failure
-    assert result["failures"][0]["trace_id"] == fake_trace_id
-    assert result["failures"][0]["error_code"] == "TRACE_NOT_FOUND"
+    # Job fails if any trace is missing, even if some are valid
+    job_result = client.wait_job(response["jobs"][0]["job_id"])
+    assert job_result["status"] == "FAILED"
+    assert "Traces not found" in job_result["result"]

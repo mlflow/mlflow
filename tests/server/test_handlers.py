@@ -2580,7 +2580,7 @@ def test_invoke_scorer_missing_trace_ids():
         assert "trace_ids" in data["message"]
 
 
-def test_invoke_scorer_submits_jobs():
+def test_invoke_scorer_submits_jobs(mock_tracking_store):
     serialized_scorer = json.dumps(
         {
             "name": "test_judge",
