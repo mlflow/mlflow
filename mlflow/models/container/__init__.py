@@ -8,8 +8,10 @@ To be executed only during the model deployment.
 import logging
 import multiprocessing
 import os
+import re
 import shutil
 import signal
+import subprocess
 import sys
 from pathlib import Path
 from subprocess import Popen, check_call
@@ -45,6 +47,24 @@ SERVING_ENVIRONMENT = "SERVING_ENVIRONMENT"
 
 
 _logger = logging.getLogger(__name__)
+
+# NB: We allow < and > since they're valid in pip version specifiers (e.g., >=1.0, <2.0),
+# but we block the pattern "< file" or "> file" which indicates shell redirection.
+_DANGEROUS_SHELL_CHARS = re.compile(r"[;|&$`(){}\\'\"\n\r]")
+_SHELL_REDIRECT_PATTERN = re.compile(r"[<>]\s+\S")
+
+
+def _validate_dependency_string(dep: str) -> None:
+    if _DANGEROUS_SHELL_CHARS.search(dep):
+        raise ValueError(
+            f"Invalid dependency string: {dep!r}. "
+            "Dependency strings must not contain shell metacharacters."
+        )
+    if _SHELL_REDIRECT_PATTERN.search(dep):
+        raise ValueError(
+            f"Invalid dependency string: {dep!r}. "
+            "Dependency strings must not contain shell redirect patterns."
+        )
 
 
 def _init(cmd, env_manager):
@@ -138,12 +158,26 @@ def _install_model_dependencies_to_env(model_path, env_manager) -> list[str]:
     env_conf = conf[mlflow.pyfunc.ENV]
 
     if env_manager == em.LOCAL:
-        # Install pip dependencies directly into the local environment
         python_env_config_path = os.path.join(model_path, env_conf[em.VIRTUALENV])
         python_env = _PythonEnv.from_yaml(python_env_config_path)
-        deps = " ".join(python_env.build_dependencies + python_env.dependencies)
-        deps = deps.replace("requirements.txt", os.path.join(model_path, "requirements.txt"))
-        if Popen(["bash", "-c", f"python -m pip install {deps}"]).wait() != 0:
+        all_deps = python_env.build_dependencies + python_env.dependencies
+
+        validated_deps = []
+        for dep in all_deps:
+            if dep == "-r requirements.txt":
+                validated_deps.extend(["-r", os.path.join(model_path, "requirements.txt")])
+            elif "requirements.txt" in dep:
+                modified_dep = dep.replace(
+                    "requirements.txt", os.path.join(model_path, "requirements.txt")
+                )
+                _validate_dependency_string(modified_dep)
+                validated_deps.append(modified_dep)
+            else:
+                _validate_dependency_string(dep)
+                validated_deps.append(dep)
+
+        result = subprocess.run(["python", "-m", "pip", "install", *validated_deps], check=False)
+        if result.returncode != 0:
             raise Exception("Failed to install model dependencies.")
         return []
 
