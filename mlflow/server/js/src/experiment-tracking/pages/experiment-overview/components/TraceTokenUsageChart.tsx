@@ -194,7 +194,7 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = ({
 
       {/* Chart */}
       <div css={{ height: 200, marginTop: theme.spacing.sm }}>
-        {chartData.length > 0 ? (
+        {inputDataPoints.length > 0 || outputDataPoints.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
               <XAxis

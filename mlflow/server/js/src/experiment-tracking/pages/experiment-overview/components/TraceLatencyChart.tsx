@@ -169,7 +169,7 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
 
       {/* Chart */}
       <div css={{ height: 200, marginTop: theme.spacing.sm }}>
-        {chartData.length > 0 ? (
+        {latencyDataPoints.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
               <XAxis
