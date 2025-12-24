@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from mlflow.entities import (
-    FallbackStrategy,
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
@@ -27,6 +26,7 @@ from mlflow.protos.service_pb2 import (
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DetachModelFromGatewayEndpoint,
+    FallbackConfig,
     GetGatewayEndpoint,
     GetGatewayModelDefinition,
     GetGatewaySecretInfo,
@@ -204,8 +204,7 @@ class RestGatewayStoreMixin:
         model_definition_ids: list[str],
         created_by: str | None = None,
         routing_strategy: RoutingStrategy | None = None,
-        fallback_strategy: FallbackStrategy | None = None,
-        fallback_max_attempts: int | None = None,
+        fallback_config: FallbackConfig | None = None,
         fallback_model_definition_ids: list[str] | None = None,
     ) -> GatewayEndpoint:
         """
@@ -216,8 +215,7 @@ class RestGatewayStoreMixin:
             model_definition_ids: List of PRIMARY model definition IDs to attach.
             created_by: Optional identifier of the user creating the endpoint.
             routing_strategy: Optional routing strategy for the endpoint.
-            fallback_strategy: Optional fallback strategy.
-            fallback_max_attempts: Optional max attempts for fallback.
+            fallback_config: Optional fallback configuration (includes strategy and max_attempts).
             fallback_model_definition_ids: Optional ordered list of FALLBACK model definition IDs.
 
         Returns:
@@ -229,8 +227,7 @@ class RestGatewayStoreMixin:
                 model_definition_ids=model_definition_ids,
                 created_by=created_by,
                 routing_strategy=routing_strategy.to_proto() if routing_strategy else None,
-                fallback_strategy=fallback_strategy.to_proto() if fallback_strategy else None,
-                fallback_max_attempts=fallback_max_attempts,
+                fallback_config=fallback_config.to_proto() if fallback_config else None,
                 fallback_model_definition_ids=fallback_model_definition_ids or [],
             )
         )
@@ -260,8 +257,7 @@ class RestGatewayStoreMixin:
         name: str | None = None,
         updated_by: str | None = None,
         routing_strategy: RoutingStrategy | None = None,
-        fallback_strategy: FallbackStrategy | None = None,
-        fallback_max_attempts: int | None = None,
+        fallback_config: FallbackConfig | None = None,
         fallback_model_definition_ids: list[str] | None = None,
         model_definition_ids: list[str] | None = None,
     ) -> GatewayEndpoint:
@@ -273,8 +269,7 @@ class RestGatewayStoreMixin:
             name: Optional new name for the endpoint.
             updated_by: Optional identifier of the user updating the endpoint.
             routing_strategy: Optional new routing strategy for the endpoint.
-            fallback_strategy: Optional fallback strategy.
-            fallback_max_attempts: Optional max attempts for fallback.
+            fallback_config: Optional fallback configuration (includes strategy and max_attempts).
             fallback_model_definition_ids: Optional ordered list of FALLBACK model definition IDs.
                 If provided, existing FALLBACK linkages will be replaced.
             model_definition_ids: Optional new list of PRIMARY model definition IDs.
@@ -289,8 +284,7 @@ class RestGatewayStoreMixin:
                 name=name,
                 updated_by=updated_by,
                 routing_strategy=routing_strategy.to_proto() if routing_strategy else None,
-                fallback_strategy=fallback_strategy.to_proto() if fallback_strategy else None,
-                fallback_max_attempts=fallback_max_attempts,
+                fallback_config=fallback_config.to_proto() if fallback_config else None,
                 fallback_model_definition_ids=fallback_model_definition_ids or [],
                 model_definition_ids=model_definition_ids or [],
             )

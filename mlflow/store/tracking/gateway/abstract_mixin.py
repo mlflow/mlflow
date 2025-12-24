@@ -216,17 +216,19 @@ class GatewayStoreMixin:
         created_by: str | None = None,
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
+        fallback_model_definition_ids: list[str] | None = None,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
 
         Args:
             name: User-friendly name for the endpoint.
-            model_definition_ids: List of model definition IDs to attach to the endpoint.
+            model_definition_ids: List of PRIMARY model definition IDs to attach to the endpoint.
                                   At least one model definition is required.
             created_by: Username of the creator.
-            routing_strategy: Routing strategy for the endpoint (e.g., "FALLBACK").
-            fallback_config: Fallback configuration (required if routing_strategy is "FALLBACK").
+            routing_strategy: Routing strategy for the endpoint.
+            fallback_config: Fallback configuration (includes strategy and max_attempts).
+            fallback_model_definition_ids: Optional ordered list of FALLBACK model definition IDs.
 
         Returns:
             Endpoint entity with model_mappings populated.
@@ -251,16 +253,24 @@ class GatewayStoreMixin:
     def update_gateway_endpoint(
         self,
         endpoint_id: str,
-        name: str,
+        name: str | None = None,
         updated_by: str | None = None,
+        routing_strategy: RoutingStrategy | None = None,
+        fallback_config: FallbackConfig | None = None,
+        fallback_model_definition_ids: list[str] | None = None,
+        model_definition_ids: list[str] | None = None,
     ) -> GatewayEndpoint:
         """
-        Update an endpoint's name.
+        Update an endpoint's configuration.
 
         Args:
             endpoint_id: ID of the endpoint to update.
-            name: New name for the endpoint.
+            name: Optional new name for the endpoint.
             updated_by: Username of the updater.
+            routing_strategy: Optional new routing strategy for the endpoint.
+            fallback_config: Optional fallback configuration (includes strategy and max_attempts).
+            fallback_model_definition_ids: Optional ordered list of FALLBACK model definition IDs.
+            model_definition_ids: Optional new list of PRIMARY model definition IDs.
 
         Returns:
             Updated Endpoint entity.

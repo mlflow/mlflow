@@ -92,7 +92,6 @@ class FallbackConfig(_MlflowObject):
     Args:
         strategy: The fallback strategy to use (e.g., FallbackStrategy.SEQUENTIAL).
         max_attempts: Maximum number of fallback models to try (None = try all).
-        model_mappings: Ordered list of model mappings for fallback.
     """
 
     strategy: FallbackStrategy | None = None
@@ -105,8 +104,6 @@ class FallbackConfig(_MlflowObject):
             proto.strategy = self.strategy.to_proto()
         if self.max_attempts is not None:
             proto.max_attempts = self.max_attempts
-        if self.model_mappings is not None:
-            proto.model_mappings.extend([m.to_proto() for m in self.model_mappings])
         return proto
 
     @classmethod
@@ -117,9 +114,6 @@ class FallbackConfig(_MlflowObject):
         return cls(
             strategy=strategy,
             max_attempts=proto.max_attempts,
-            model_mappings=[
-                GatewayEndpointModelMapping.from_proto(m) for m in proto.model_mappings
-            ],
         )
 
 

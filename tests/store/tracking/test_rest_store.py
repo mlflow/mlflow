@@ -12,6 +12,7 @@ from mlflow.entities import (
     EvaluationDataset,
     Experiment,
     ExperimentTag,
+    FallbackConfig,
     FallbackStrategy,
     GatewayResourceType,
     InputTag,
@@ -3114,17 +3115,23 @@ def test_create_gateway_endpoint():
             name="my-endpoint",
             model_definition_ids=["model-def-123"],
             routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
-            fallback_strategy=FallbackStrategy.SEQUENTIAL,
-            fallback_max_attempts=2,
+            fallback_config=FallbackConfig(
+                strategy=FallbackStrategy.SEQUENTIAL,
+                max_attempts=2,
+            ),
             fallback_model_definition_ids=["model-def-456", "model-def-789"],
         )
+        from mlflow.protos.service_pb2 import FallbackConfig as ProtoFallbackConfig
+
         body = message_to_json(
             CreateGatewayEndpoint(
                 name="my-endpoint",
                 model_definition_ids=["model-def-123"],
                 routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT.to_proto(),
-                fallback_strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
-                fallback_max_attempts=2,
+                fallback_config=ProtoFallbackConfig(
+                    strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
+                    max_attempts=2,
+                ),
                 fallback_model_definition_ids=["model-def-456", "model-def-789"],
             )
         )
@@ -3151,18 +3158,24 @@ def test_update_gateway_endpoint():
             name="updated-endpoint",
             model_definition_ids=["model-def-123", "model-def-456"],
             routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
-            fallback_strategy=FallbackStrategy.SEQUENTIAL,
-            fallback_max_attempts=3,
+            fallback_config=FallbackConfig(
+                strategy=FallbackStrategy.SEQUENTIAL,
+                max_attempts=3,
+            ),
             fallback_model_definition_ids=["model-def-fallback-1", "model-def-fallback-2"],
         )
+        from mlflow.protos.service_pb2 import FallbackConfig as ProtoFallbackConfig
+
         body = message_to_json(
             UpdateGatewayEndpoint(
                 endpoint_id="endpoint-123",
                 name="updated-endpoint",
                 model_definition_ids=["model-def-123", "model-def-456"],
                 routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT.to_proto(),
-                fallback_strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
-                fallback_max_attempts=3,
+                fallback_config=ProtoFallbackConfig(
+                    strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
+                    max_attempts=3,
+                ),
                 fallback_model_definition_ids=["model-def-fallback-1", "model-def-fallback-2"],
             )
         )

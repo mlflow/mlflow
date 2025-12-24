@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
 from mlflow.entities import (
-    FallbackStrategy,
+    FallbackConfig,
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
@@ -509,8 +509,7 @@ class SqlAlchemyGatewayStoreMixin:
         model_definition_ids: list[str],
         created_by: str | None = None,
         routing_strategy: RoutingStrategy | None = None,
-        fallback_strategy: FallbackStrategy | None = None,
-        fallback_max_attempts: int | None = None,
+        fallback_config: FallbackConfig | None = None,
         fallback_model_definition_ids: list[str] | None = None,
     ) -> GatewayEndpoint:
         """
@@ -522,8 +521,7 @@ class SqlAlchemyGatewayStoreMixin:
                                   At least one model definition is required.
             created_by: Username of the creator.
             routing_strategy: Routing strategy for the endpoint.
-            fallback_strategy: Fallback strategy (optional, independent of routing strategy).
-            fallback_max_attempts: Max attempts for fallback.
+            fallback_config: Fallback configuration (includes strategy and max_attempts).
             fallback_model_definition_ids: Ordered list of FALLBACK model definition IDs.
 
         Returns:
@@ -560,13 +558,15 @@ class SqlAlchemyGatewayStoreMixin:
             endpoint_id = f"e-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
-            # Build fallback_config_json if any fallback parameters provided
+            # Build fallback_config_json if fallback_config provided
             fallback_config_json = None
-            if fallback_strategy or fallback_max_attempts or fallback_model_definition_ids:
+            if fallback_config or fallback_model_definition_ids:
                 fallback_config_json = json.dumps(
                     {
-                        "strategy": fallback_strategy.value if fallback_strategy else None,
-                        "max_attempts": fallback_max_attempts,
+                        "strategy": fallback_config.strategy.value
+                        if fallback_config and fallback_config.strategy
+                        else None,
+                        "max_attempts": fallback_config.max_attempts if fallback_config else None,
                         "model_definition_ids": fallback_model_definition_ids or [],
                     }
                 )
@@ -656,8 +656,7 @@ class SqlAlchemyGatewayStoreMixin:
         name: str | None = None,
         updated_by: str | None = None,
         routing_strategy: RoutingStrategy | None = None,
-        fallback_strategy: FallbackStrategy | None = None,
-        fallback_max_attempts: int | None = None,
+        fallback_config: FallbackConfig | None = None,
         fallback_model_definition_ids: list[str] | None = None,
         model_definition_ids: list[str] | None = None,
     ) -> GatewayEndpoint:
@@ -669,8 +668,7 @@ class SqlAlchemyGatewayStoreMixin:
             name: Optional new name for the endpoint.
             updated_by: Optional username of the updater.
             routing_strategy: Optional new routing strategy.
-            fallback_strategy: Optional fallback strategy.
-            fallback_max_attempts: Optional max attempts for fallback.
+            fallback_config: Optional fallback configuration (includes strategy and max_attempts).
             fallback_model_definition_ids: Optional ordered list of FALLBACK model definition IDs.
                 If provided, existing FALLBACK linkages will be replaced.
             model_definition_ids: Optional new list of PRIMARY model definition IDs.
@@ -690,16 +688,14 @@ class SqlAlchemyGatewayStoreMixin:
             if routing_strategy is not None:
                 sql_endpoint.routing_strategy = routing_strategy.value
 
-            # Update fallback_config_json if any fallback parameters provided
-            if (
-                fallback_strategy is not None
-                or fallback_max_attempts is not None
-                or fallback_model_definition_ids is not None
-            ):
+            # Update fallback_config_json if fallback_config provided
+            if fallback_config is not None or fallback_model_definition_ids is not None:
                 sql_endpoint.fallback_config_json = json.dumps(
                     {
-                        "strategy": fallback_strategy.value if fallback_strategy else None,
-                        "max_attempts": fallback_max_attempts,
+                        "strategy": fallback_config.strategy.value
+                        if fallback_config and fallback_config.strategy
+                        else None,
+                        "max_attempts": fallback_config.max_attempts if fallback_config else None,
                         "model_definition_ids": fallback_model_definition_ids,
                     }
                 )

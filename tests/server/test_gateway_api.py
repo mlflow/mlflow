@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
 import mlflow
-from mlflow.entities import FallbackStrategy, RoutingStrategy
+from mlflow.entities import FallbackConfig, FallbackStrategy, RoutingStrategy
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AWSBaseConfig,
@@ -1443,8 +1443,10 @@ def test_create_fallback_provider_single_model(store: SqlAlchemyStore):
         name="test-fallback-single-endpoint",
         model_definition_ids=[model_def.model_definition_id],
         routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
-        fallback_strategy=FallbackStrategy.SEQUENTIAL,
-        fallback_max_attempts=1,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=1,
+        ),
         fallback_model_definition_ids=[model_def.model_definition_id],
     )
 
@@ -1486,8 +1488,10 @@ def test_create_fallback_provider_multiple_models(store: SqlAlchemyStore):
         name="test-fallback-multi-endpoint",
         model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
         routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
-        fallback_strategy=FallbackStrategy.SEQUENTIAL,
-        fallback_max_attempts=2,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
         fallback_model_definition_ids=[
             model_def1.model_definition_id,
             model_def2.model_definition_id,
@@ -1522,8 +1526,10 @@ def test_create_fallback_provider_max_attempts_exceeds_providers(store: SqlAlche
         name="test-fallback-max-attempts-endpoint",
         model_definition_ids=[model_def.model_definition_id],
         routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
-        fallback_strategy=FallbackStrategy.SEQUENTIAL,
-        fallback_max_attempts=10,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=10,
+        ),
         fallback_model_definition_ids=[model_def.model_definition_id],
     )
 
@@ -1562,8 +1568,10 @@ def test_create_fallback_provider_no_max_attempts(store: SqlAlchemyStore):
         name="test-fallback-no-max-endpoint",
         model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
         routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
-        fallback_strategy=FallbackStrategy.SEQUENTIAL,
-        fallback_max_attempts=None,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=None,
+        ),
         fallback_model_definition_ids=[
             model_def1.model_definition_id,
             model_def2.model_definition_id,

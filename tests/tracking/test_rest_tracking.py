@@ -32,6 +32,7 @@ from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
     Dataset,
     DatasetInput,
+    FallbackConfig,
     FallbackStrategy,
     GatewayResourceType,
     InputTag,
@@ -4293,8 +4294,10 @@ def test_create_and_get_endpoint(mlflow_client_with_secrets):
         name="test-endpoint",
         model_definition_ids=[model_def.model_definition_id],
         routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
-        fallback_strategy=FallbackStrategy.SEQUENTIAL,
-        fallback_max_attempts=2,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
         fallback_model_definition_ids=[model_def_fallback.model_definition_id],
     )
 
@@ -4354,8 +4357,10 @@ def test_update_endpoint(mlflow_client_with_secrets):
         endpoint_id=endpoint.endpoint_id,
         name="updated-name",
         routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
-        fallback_strategy=FallbackStrategy.SEQUENTIAL,
-        fallback_max_attempts=3,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=3,
+        ),
         fallback_model_definition_ids=[model_def_fallback.model_definition_id],
     )
 
@@ -4416,8 +4421,10 @@ def test_list_endpoints(mlflow_client_with_secrets):
         name="endpoint-2",
         model_definition_ids=[model_def2.model_definition_id],
         routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
-        fallback_strategy=FallbackStrategy.SEQUENTIAL,
-        fallback_max_attempts=2,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
         fallback_model_definition_ids=[model_def3.model_definition_id],
     )
 

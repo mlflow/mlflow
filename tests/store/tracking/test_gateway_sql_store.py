@@ -603,8 +603,10 @@ def test_update_gateway_endpoint(store: SqlAlchemyStore):
     with_fallback = store.update_gateway_endpoint(
         endpoint_id=created.endpoint_id,
         routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
-        fallback_strategy=FallbackStrategy.SEQUENTIAL,
-        fallback_max_attempts=2,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
         fallback_model_definition_ids=[
             model_def2.model_definition_id,
             model_def3.model_definition_id,
@@ -625,8 +627,10 @@ def test_update_gateway_endpoint(store: SqlAlchemyStore):
     with_new_models = store.update_gateway_endpoint(
         endpoint_id=created.endpoint_id,
         model_definition_ids=[model_def2.model_definition_id, model_def3.model_definition_id],
-        fallback_strategy=FallbackStrategy.SEQUENTIAL,
-        fallback_max_attempts=1,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=1,
+        ),
         fallback_model_definition_ids=[model_def4.model_definition_id],
         updated_by="updater3",
     )
@@ -1393,8 +1397,10 @@ def test_create_gateway_endpoint_with_fallback_routing(store: SqlAlchemyStore):
         model_definition_ids=[model_def3.model_definition_id],  # PRIMARY model
         created_by="test-user",
         routing_strategy=None,  # Fallback is independent of routing strategy
-        fallback_strategy=FallbackStrategy.SEQUENTIAL,
-        fallback_max_attempts=2,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
         fallback_model_definition_ids=[
             model_def1.model_definition_id,
             model_def2.model_definition_id,
@@ -1503,8 +1509,10 @@ def test_get_gateway_endpoint_with_fallback_preserves_config(store: SqlAlchemySt
         name="preserve-endpoint",
         model_definition_ids=[model_def3.model_definition_id],  # PRIMARY model
         routing_strategy=None,  # Fallback is independent
-        fallback_strategy=FallbackStrategy.SEQUENTIAL,
-        fallback_max_attempts=3,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=3,
+        ),
         fallback_model_definition_ids=[
             model_def1.model_definition_id,
             model_def2.model_definition_id,

@@ -4437,8 +4437,6 @@ message FallbackConfig {
   optional FallbackStrategy strategy = 1;
   // The max attempts for fallback routing (cannot exceed number of destinations).
   optional int32 max_attempts = 2;
-  // Ordered list of model definitions for fallback
-  repeated GatewayEndpointModelMapping model_mappings = 3;
 }
 
 message CreateGatewayEndpoint {
@@ -4450,12 +4448,10 @@ message CreateGatewayEndpoint {
   optional string created_by = 3;
   // Optional routing strategy for the endpoint
   optional RoutingStrategy routing_strategy = 4;
-  // Optional fallback strategy
-  optional FallbackStrategy fallback_strategy = 5;
-  // Optional max attempts for fallback (cannot exceed number of fallback models)
-  optional int32 fallback_max_attempts = 6;
+  // Optional fallback configuration (includes strategy, max_attempts)
+  optional FallbackConfig fallback_config = 5;
   // Optional ordered list of FALLBACK model definition IDs (order determines fallback_order)
-  repeated string fallback_model_definition_ids = 7;
+  repeated string fallback_model_definition_ids = 6;
 
   message Response {
     // The created endpoint with all model mappings
@@ -4485,12 +4481,10 @@ message UpdateGatewayEndpoint {
   repeated string model_definition_ids = 4;
   // Optional new routing strategy for the endpoint
   optional RoutingStrategy routing_strategy = 5;
-  // Optional fallback strategy
-  optional FallbackStrategy fallback_strategy = 6;
-  // Optional max attempts for fallback (cannot exceed number of fallback models)
-  optional int32 fallback_max_attempts = 7;
+  // Optional fallback configuration (includes strategy, max_attempts)
+  optional FallbackConfig fallback_config = 6;
   // Optional ordered list of FALLBACK model definition IDs (order determines fallback_order)
-  repeated string fallback_model_definition_ids = 8;
+  repeated string fallback_model_definition_ids = 7;
 
   message Response {
     // The updated endpoint
