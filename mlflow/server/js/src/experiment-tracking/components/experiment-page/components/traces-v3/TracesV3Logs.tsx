@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isEmpty as isEmptyFn } from 'lodash';
 import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
 import type {
@@ -116,13 +116,23 @@ const TracesV3LogsImpl = React.memo(
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [filters, setFilters] = useFilters();
     const queryClient = useQueryClient();
+    const prevInitialFiltersRef = useRef<TableFilter[] | undefined>();
 
-    // Apply initial filters if provided
-    useEffect(() => {
-      if (initialFilters && initialFilters.length > 0) {
+    if (initialFilters && initialFilters.length > 0) {
+      const prevFilters = prevInitialFiltersRef.current;
+      const filtersChanged =
+        !prevFilters ||
+        prevFilters.length !== initialFilters.length ||
+        prevFilters.some((f, i) => {
+          const newF = initialFilters[i];
+          return f.column !== newF.column || f.operator !== newF.operator || f.value !== newF.value;
+        });
+
+      if (filtersChanged) {
         setFilters(initialFilters);
+        prevInitialFiltersRef.current = initialFilters;
       }
-    }, [initialFilters, setFilters]);
+    }
 
     const defaultSelectedColumns = useCallback(
       (allColumns: TracesTableColumn[]) => {
