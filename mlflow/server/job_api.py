@@ -83,7 +83,7 @@ def submit_job(payload: SubmitJobPayload) -> Job:
         )
 
 
-@job_api_router.delete("/{job_id}", response_model=Job)
+@job_api_router.post("/cancel/{job_id}", response_model=Job)
 def cancel_job(job_id: str) -> Job:
     from mlflow.server.jobs import cancel_job
 

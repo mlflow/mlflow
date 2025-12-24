@@ -56,7 +56,7 @@ class Client:
         return response.json()
 
     def cancel_job(self, job_id: str) -> dict[str, Any]:
-        response = requests.delete(f"{self.server_url}/ajax-api/3.0/jobs/{job_id}")
+        response = requests.post(f"{self.server_url}/ajax-api/3.0/jobs/cancel/{job_id}")
         response.raise_for_status()
         return response.json()
 
