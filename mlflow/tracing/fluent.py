@@ -248,7 +248,10 @@ def _wrap_function(
             # we return control to the coro (in particular, so that the __exit__'s
             # of start_span and OTel's use_span can execute).
             if exc_type is not None:
-                self.coro.throw(exc_type, exc_value, traceback)
+                # Use single-arg signature for Python 3.12+ compatibility
+                if exc_value is None:
+                    exc_value = exc_type()
+                self.coro.throw(exc_value)
             self.coro.close()
 
     if inspect.iscoroutinefunction(fn):
