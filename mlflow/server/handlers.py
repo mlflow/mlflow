@@ -27,7 +27,9 @@ from mlflow.entities import (
     FallbackStrategy,
     Feedback,
     FileInfo,
+    GatewayEndpointModelConfig,
     GatewayEndpointTag,
+    GatewayModelLinkageType,
     GatewayResourceType,
     Metric,
     Param,
@@ -4055,7 +4057,7 @@ def _create_gateway_endpoint():
         schema={
             "name": [_assert_required, _assert_string],
             "created_by": [_assert_string],
-            "model_definition_ids": [_assert_required],
+            "model_configs": [_assert_required],
             "routing_strategy": [_assert_string],
         },
     )
@@ -4071,15 +4073,18 @@ def _create_gateway_endpoint():
             else None,
         )
 
+    model_configs = [
+        GatewayEndpointModelConfig.from_proto(config) for config in request_message.model_configs
+    ]
+
     endpoint = _get_tracking_store().create_gateway_endpoint(
         name=request_message.name or None,
-        model_definition_ids=list(request_message.model_definition_ids),
+        model_configs=model_configs,
         created_by=request_message.created_by or None,
         routing_strategy=RoutingStrategyEntity.from_proto(request_message.routing_strategy)
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
-        fallback_model_definition_ids=list(request_message.fallback_model_definition_ids),
     )
     response_message = CreateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4125,16 +4130,22 @@ def _update_gateway_endpoint():
             else None,
         )
 
+    # Convert proto model_configs to entity GatewayEndpointModelConfig list
+    model_configs = None
+    if request_message.model_configs:
+        model_configs = [
+            GatewayEndpointModelConfig.from_proto(config) for config in request_message.model_configs
+        ]
+
     endpoint = _get_tracking_store().update_gateway_endpoint(
         endpoint_id=request_message.endpoint_id,
         name=request_message.name or None,
-        model_definition_ids=list(request_message.model_definition_ids),
+        model_configs=model_configs,
         updated_by=request_message.updated_by or None,
         routing_strategy=RoutingStrategyEntity.from_proto(request_message.routing_strategy)
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
-        fallback_model_definition_ids=list(request_message.fallback_model_definition_ids),
     )
     response_message = UpdateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
