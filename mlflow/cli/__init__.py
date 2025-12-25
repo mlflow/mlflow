@@ -996,7 +996,7 @@ def gc(
             backend_store._hard_delete_experiment(experiment_id)
             click.echo(f"Experiment with ID {experiment_id} has been permanently deleted.")
 
-    # Clean up jobs (only when --jobs flag is set and for database backends)
+    # Clean up jobs (only when --jobs flag is set or --job-ids are given and for database backends)
     if jobs or job_ids:
         from mlflow.utils.uri import extract_db_type_from_uri
 
