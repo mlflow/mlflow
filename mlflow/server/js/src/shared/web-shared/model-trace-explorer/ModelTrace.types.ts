@@ -342,6 +342,7 @@ export type ModelTraceChatMessage = {
   content?: string | null;
   tool_calls?: ModelTraceToolCall[];
   tool_call_id?: string;
+  reasoning?: string | null;
 };
 
 // The actual chat message schema of mlflow contains string, null and content part list.

@@ -23,6 +23,8 @@ import {
   type TraceRetrievalContexts,
   type RetrievalContext,
 } from '../../utils/TraceUtils';
+import { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
+import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
 
 /**
  * Response from the chat completions API
@@ -124,40 +126,9 @@ function parseJudgeResponse(output: string | null): {
 }
 
 /**
- * Parameters for evaluating traces with custom LLM judges
- */
-export interface EvaluateChatCompletionsParams {
-  traceCount: number;
-  locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
-  judgeInstructions: string;
-  experimentId: string;
-}
-
-/**
- * Parameters for evaluating traces with built-in judges
- */
-export interface EvaluateChatAssessmentsParams {
-  traceCount: number;
-  locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
-  requestedAssessments: Array<{
-    assessment_name: string;
-    assessment_examples?: any[];
-  }>;
-  experimentId: string;
-  guidelines?: string[];
-}
-
-/**
- * Union type for all trace evaluation parameters
- */
-export type EvaluateTracesParams = EvaluateChatCompletionsParams | EvaluateChatAssessmentsParams;
-
-/**
  * Type guard to check if params are for chat completions
  */
-function isChatCompletionsParams(
-  params: EvaluateChatCompletionsParams | EvaluateChatAssessmentsParams,
-): params is EvaluateChatCompletionsParams {
+function isChatCompletionsParams(params: EvaluateTracesParams): params is EvaluateChatCompletionsParams {
   return 'judgeInstructions' in params;
 }
 
@@ -371,50 +342,26 @@ export interface EvaluateTracesState {
  * Results from both endpoints will not be cached since LLM responses are not deterministic.
  */
 export function useEvaluateTraces(): [
-  (params: EvaluateChatCompletionsParams | EvaluateChatAssessmentsParams) => Promise<JudgeEvaluationResult[]>,
+  (params: EvaluateTracesParams) => Promise<JudgeEvaluationResult[]>,
   EvaluateTracesState,
 ] {
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState<JudgeEvaluationResult[] | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const queryClient = useQueryClient();
+  const getTraceIdsForEvaluation = useGetTraceIdsForEvaluation();
 
   const evaluateTraces = useCallback(
-    async (params: EvaluateChatCompletionsParams | EvaluateChatAssessmentsParams): Promise<JudgeEvaluationResult[]> => {
+    async (params: EvaluateTracesParams): Promise<JudgeEvaluationResult[]> => {
       setIsLoading(true);
       setError(null);
       setData(null);
 
-      const { traceCount, locations, experimentId } = params;
-      const modifiedTraceCount = Math.max(traceCount, DEFAULT_TRACE_COUNT);
+      const { experimentId } = params;
 
       try {
-        const traces = await queryClient.fetchQuery({
-          queryKey: [
-            SEARCH_MLFLOW_TRACES_QUERY_KEY,
-            {
-              locations,
-              orderBy: ['timestamp DESC'],
-              pageSize: modifiedTraceCount,
-            },
-          ],
-          queryFn: ({ signal }) =>
-            searchMlflowTracesQueryFn({
-              signal,
-              locations,
-              pageSize: modifiedTraceCount,
-              limit: modifiedTraceCount,
-              orderBy: ['timestamp DESC'],
-            }),
-          staleTime: Infinity,
-          cacheTime: Infinity,
-        });
-
         // Extract trace IDs from search results
-        const traceIds = traces
-          .map((trace) => trace.trace_id)
-          .filter((id): id is string => Boolean(id))
-          .slice(0, traceCount);
+        const traceIds = await getTraceIdsForEvaluation(params);
 
         // Fetch and evaluate all traces in parallel
         // For traces with multiple retrieval spans, we create multiple results
@@ -640,7 +587,7 @@ export function useEvaluateTraces(): [
         setIsLoading(false);
       }
     },
-    [queryClient],
+    [queryClient, getTraceIdsForEvaluation],
   );
 
   const reset = useCallback(() => {

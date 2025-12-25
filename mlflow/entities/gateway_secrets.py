@@ -1,4 +1,3 @@
-import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -28,7 +27,9 @@ class GatewaySecretInfo(_MlflowObject):
     Args:
         secret_id: Unique identifier for this secret. IMMUTABLE - used in AAD for encryption.
         secret_name: User-friendly name for the secret. IMMUTABLE - used in AAD for encryption.
-        masked_value: Masked version of the secret for display (e.g., "sk-...xyz123").
+        masked_values: Masked version of the secret values for display as key-value pairs.
+            For simple API keys: ``{"api_key": "sk-...xyz123"}``.
+            For compound credentials: ``{"aws_access_key_id": "AKI...1234", ...}``.
         created_at: Timestamp (milliseconds) when the secret was created.
         last_updated_at: Timestamp (milliseconds) when the secret was last updated.
         provider: LLM provider this secret is for (e.g., "openai", "anthropic").
@@ -40,7 +41,7 @@ class GatewaySecretInfo(_MlflowObject):
 
     secret_id: str
     secret_name: str
-    masked_value: str
+    masked_values: dict[str, str]
     created_at: int
     last_updated_at: int
     provider: str | None = None
@@ -52,13 +53,13 @@ class GatewaySecretInfo(_MlflowObject):
         proto = ProtoGatewaySecretInfo()
         proto.secret_id = self.secret_id
         proto.secret_name = self.secret_name
-        proto.masked_value = self.masked_value
+        proto.masked_values.update(self.masked_values)
         proto.created_at = self.created_at
         proto.last_updated_at = self.last_updated_at
         if self.provider is not None:
             proto.provider = self.provider
         if self.auth_config is not None:
-            proto.auth_config_json = json.dumps(self.auth_config)
+            proto.auth_config.update(self.auth_config)
         if self.created_by is not None:
             proto.created_by = self.created_by
         if self.last_updated_by is not None:
@@ -67,13 +68,12 @@ class GatewaySecretInfo(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto):
-        auth_config = None
-        if proto.auth_config_json:
-            auth_config = json.loads(proto.auth_config_json)
+        # Empty map means no auth_config was provided
+        auth_config = dict(proto.auth_config) or None
         return cls(
             secret_id=proto.secret_id,
             secret_name=proto.secret_name,
-            masked_value=proto.masked_value,
+            masked_values=dict(proto.masked_values),
             created_at=proto.created_at,
             last_updated_at=proto.last_updated_at,
             provider=proto.provider or None,

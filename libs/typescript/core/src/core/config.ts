@@ -1,13 +1,7 @@
 import path from 'path';
-import fs from 'fs';
 import os from 'os';
-import { parse as parseIni } from 'ini';
 import { initializeSDK } from './provider';
-
-/**
- * Default Databricks profile name
- */
-const DEFAULT_PROFILE = 'DEFAULT';
+import { AuthProvider, createAuthProvider, isDatabricksUri } from '../auth';
 
 /**
  * Validate that a URI has a proper protocol (http or https)
@@ -48,11 +42,15 @@ export interface MLflowTracingConfig {
 
   /**
    * The Databricks host. If not provided, the host will be read from the Databricks config file.
+   * @deprecated For Databricks auth, prefer using environment variables or config profiles.
+   * The auth system will automatically resolve credentials.
    */
   host?: string;
 
   /**
    * The Databricks token. If not provided, the token will be read from the Databricks config file.
+   * @deprecated For Databricks auth, prefer using environment variables or config profiles.
+   * The auth system will automatically resolve credentials.
    */
   databricksToken?: string;
 
@@ -65,6 +63,12 @@ export interface MLflowTracingConfig {
    * The tracking server password for basic auth.
    */
   trackingServerPassword?: string;
+
+  /**
+   * Bearer token for OSS MLflow tracking servers.
+   * Can also be set via MLFLOW_TRACKING_TOKEN environment variable.
+   */
+  trackingServerToken?: string;
 }
 
 /**
@@ -81,8 +85,33 @@ export type MLflowTracingInitOptions = Partial<MLflowTracingConfig>;
 let globalConfig: MLflowTracingConfig | null = null;
 
 /**
+ * Global authentication provider
+ */
+let globalAuthProvider: AuthProvider | null = null;
+
+/**
  * Configure the MLflow tracing SDK with tracking location settings.
  * This must be called before using other tracing functions.
+ *
+ * ## Authentication
+ *
+ * ### Databricks (trackingUri = "databricks" or "databricks://profile")
+ *
+ * Authentication is handled automatically by the Databricks SDK. It supports:
+ * - Personal Access Tokens (DATABRICKS_TOKEN env var)
+ * - OAuth M2M service principals (DATABRICKS_CLIENT_ID/DATABRICKS_CLIENT_SECRET)
+ * - Azure CLI / Azure MSI / Azure Client Secret
+ * - Google Cloud credentials
+ * - Config file profiles (~/.databrickscfg)
+ *
+ * For Databricks Apps, credentials are automatically injected by the runtime.
+ *
+ * ### OSS MLflow (trackingUri = HTTP URL)
+ *
+ * Authentication is resolved in priority order:
+ * 1. Basic Auth (trackingServerUsername/Password or MLFLOW_TRACKING_USERNAME/PASSWORD)
+ * 2. Bearer Token (trackingServerToken or MLFLOW_TRACKING_TOKEN)
+ * 3. No Auth
  *
  * @param config Configuration object with trackingUri and experimentId
  *
@@ -115,12 +144,27 @@ let globalConfig: MLflowTracingConfig | null = null;
  *   databricksConfigPath: "/path/to/my/databrickscfg"
  * });
  *
- * // Option 5: Override with explicit host/token (bypasses config file)
+ * // Option 5: Override with explicit host/token (backwards compatibility)
  * init({
  *   trackingUri: "databricks",
  *   experimentId: "123456789",
  *   host: "https://my-workspace.databricks.com",
  *   databricksToken: "my-token"
+ * });
+ *
+ * // Option 6: OSS MLflow with basic auth
+ * init({
+ *   trackingUri: "http://localhost:5000",
+ *   experimentId: "123456789",
+ *   trackingServerUsername: "user",
+ *   trackingServerPassword: "pass"
+ * });
+ *
+ * // Option 7: OSS MLflow with bearer token
+ * init({
+ *   trackingUri: "http://localhost:5000",
+ *   experimentId: "123456789",
+ *   trackingServerToken: "my-token"
  * });
  *
  * // Now you can use tracing functions
@@ -163,67 +207,37 @@ export function init(config: MLflowTracingInitOptions): void {
   const databricksConfigPath =
     config.databricksConfigPath ?? path.join(os.homedir(), '.databrickscfg');
 
+  // Validate non-Databricks URIs
+  if (!isDatabricksUri(trackingUri) && !isValidHttpUri(trackingUri)) {
+    throw new Error(
+      `Invalid trackingUri: '${trackingUri}'. Must be a valid HTTP or HTTPS URL, or 'databricks' / 'databricks://<profile>'.`
+    );
+  }
+
+  // Create the authentication provider - this is the single source of truth
+  // for credential resolution. It handles env vars, config files, OAuth, etc.
+  globalAuthProvider = createAuthProvider({
+    trackingUri,
+    host: config.host,
+    databricksToken: config.databricksToken,
+    databricksConfigPath,
+    trackingServerUsername: config.trackingServerUsername,
+    trackingServerPassword: config.trackingServerPassword,
+    trackingServerToken: config.trackingServerToken
+  });
+
+  // Build effective config, populating host and databricksToken from auth provider
+  // for backwards compatibility with code that reads these properties directly
   const effectiveConfig: MLflowTracingConfig = {
     ...config,
     trackingUri,
     experimentId,
-    databricksConfigPath
+    databricksConfigPath,
+    host: globalAuthProvider.getHost(),
+    databricksToken: globalAuthProvider.getDatabricksToken()
   };
 
-  if (
-    effectiveConfig.trackingUri === 'databricks' ||
-    effectiveConfig.trackingUri?.startsWith('databricks://')
-  ) {
-    const configPathToUse = effectiveConfig.databricksConfigPath;
-
-    if (!effectiveConfig.host || !effectiveConfig.databricksToken) {
-      const envHost = process.env.DATABRICKS_HOST;
-      const envToken = process.env.DATABRICKS_TOKEN;
-
-      if (envHost && envToken) {
-        if (!effectiveConfig.host) {
-          effectiveConfig.host = envHost;
-        }
-        if (!effectiveConfig.databricksToken) {
-          effectiveConfig.databricksToken = envToken;
-        }
-      } else {
-        // Fall back to config file
-        // Determine profile name from trackingUri
-        let profile = DEFAULT_PROFILE;
-        if (effectiveConfig.trackingUri?.startsWith('databricks://')) {
-          const profilePart = effectiveConfig.trackingUri.slice('databricks://'.length);
-          if (profilePart) {
-            profile = profilePart;
-          }
-        }
-
-        try {
-          const { host, token } = readDatabricksConfig(configPathToUse ?? '', profile);
-          if (!effectiveConfig.host) {
-            effectiveConfig.host = host;
-          }
-          if (!effectiveConfig.databricksToken) {
-            effectiveConfig.databricksToken = token;
-          }
-        } catch (error) {
-          throw new Error(
-            `Failed to read Databricks configuration for profile '${profile}': ${(error as Error).message}. ` +
-              `Make sure your ${configPathToUse} file exists and contains valid credentials, or set DATABRICKS_HOST and DATABRICKS_TOKEN environment variables.`
-          );
-        }
-      }
-    }
-  } else {
-    // For self-hosted MLflow tracking server, validate and use the trackingUri as the host
-    if (!isValidHttpUri(effectiveConfig.trackingUri ?? '')) {
-      throw new Error(
-        `Invalid trackingUri: '${effectiveConfig.trackingUri}'. Must be a valid HTTP or HTTPS URL.`
-      );
-    }
-    effectiveConfig.host = effectiveConfig.trackingUri;
-  }
-
+  // Store the config
   globalConfig = { ...effectiveConfig };
 
   // Initialize SDK with new configuration
@@ -244,40 +258,23 @@ export function getConfig(): MLflowTracingConfig {
 }
 
 /**
- * Read Databricks configuration from .databrickscfg file
- * @internal This function is exported only for testing purposes
- * @param configPath Path to the Databricks config file
- * @param profile Profile name to read (defaults to 'DEFAULT')
- * @returns Object containing host and token
+ * Get the current authentication provider. Throws an error if not configured.
+ * @returns The current authentication provider
  */
-export function readDatabricksConfig(configPath: string, profile: string = DEFAULT_PROFILE) {
-  try {
-    if (!fs.existsSync(configPath)) {
-      throw new Error(`Databricks config file not found at ${configPath}`);
-    }
-
-    const configContent = fs.readFileSync(configPath, 'utf8');
-    const config = parseIni(configContent);
-
-    if (!config[profile]) {
-      throw new Error(`Profile '${profile}' not found in Databricks config file`);
-    }
-
-    const profileConfig = config[profile] as { host?: string; token?: string };
-
-    if (!profileConfig.host) {
-      throw new Error(`Host not found for profile '${profile}' in Databricks config file`);
-    }
-
-    if (!profileConfig.token) {
-      throw new Error(`Token not found for profile '${profile}' in Databricks config file`);
-    }
-
-    return {
-      host: profileConfig.host,
-      token: profileConfig.token
-    };
-  } catch (error) {
-    throw new Error(`Failed to read Databricks config: ${(error as Error).message}`);
+export function getAuthProvider(): AuthProvider {
+  if (!globalAuthProvider) {
+    throw new Error(
+      'The MLflow Tracing client is not configured. Please call init() before using tracing functions.'
+    );
   }
+  return globalAuthProvider;
+}
+
+/**
+ * Reset the global configuration. For testing purposes only.
+ * @internal
+ */
+export function resetConfig(): void {
+  globalConfig = null;
+  globalAuthProvider = null;
 }

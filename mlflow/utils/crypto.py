@@ -420,57 +420,57 @@ def _create_aad(secret_id: str, secret_name: str) -> bytes:
     return aad_str.encode("utf-8")
 
 
-def _mask_secret_value(secret_value: str | dict[str, Any]) -> str:
+def _mask_string_value(value: str) -> str:
     """
-    Generate a masked version of a secret for display purposes.
+    Generate a masked version of a single string secret for display purposes.
 
-    For strings, shows the first 3-4 characters and last 4 characters with "..." in between.
-    For dicts, returns a summary of the structure to avoid exceeding database column limits.
-    This allows users to identify secrets without exposing the full value.
+    Shows the first 3-4 characters and last 4 characters with "..." in between.
 
     Args:
-        secret_value: The plaintext secret value to mask (string or dict)
+        value: The plaintext secret string to mask
 
     Note that for strings shorter than 8 characters, this function returns "***" to avoid
     information leakage. For API keys with common prefixes (sk-, ghp_, etc.), it shows the
     prefix. The function always shows the last 4 characters to help with key identification.
-    For dicts, returns a summary like "<dict: 3 keys (api_key, username, password)>" that
-    fits within database VARCHAR(100) limits. Masked values are stored as plaintext
-    and are NOT reversible.
 
     Returns:
-        Masked string suitable for display (always returns str, even for dict inputs)
+        Masked string suitable for display
     """
-    if isinstance(secret_value, dict):
-        keys = list(secret_value.keys())
-        num_keys = len(keys)
-
-        if num_keys == 0:
-            return "<dict: empty>"
-        elif num_keys <= 3:
-            key_names = ", ".join(keys)
-        else:
-            key_names = ", ".join(keys[:3]) + f", +{num_keys - 3} more"
-
-        result = f"<dict: {num_keys} key{'s' if num_keys != 1 else ''} ({key_names})>"
-
-        if len(result) > 95:
-            result = result[:92] + "...>"
-
-        return result
-
-    if not isinstance(secret_value, str):
+    if not isinstance(value, str):
         return "***"
 
-    if len(secret_value) < 8:
+    if len(value) < 8:
         return "***"
 
-    prefix_len = 4 if secret_value.startswith(("ghp_", "gho_", "ghu_")) else 3
+    prefix_len = 3
 
-    prefix = secret_value[:prefix_len]
-    suffix = secret_value[-4:]
+    prefix = value[:prefix_len]
+    suffix = value[-4:]
 
     return f"{prefix}...{suffix}"
+
+
+def _mask_secret_value(secret_value: dict[str, str]) -> dict[str, str]:
+    """
+    Generate a masked version of a secret dict for display purposes.
+
+    Each value in the dict is masked using _mask_string_value, which shows the
+    first 3 characters and last 4 characters with "..." in between.
+
+    Args:
+        secret_value: The plaintext secret values to mask as key-value pairs.
+            For simple API keys: {"api_key": "sk-xxx..."}
+            For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}
+
+    Returns:
+        Dict with the same keys but masked values suitable for display.
+        For example: {"api_key": "sk-...xyz1234"}
+
+    Note:
+        If a value is not a string, it will be masked as "***".
+        If the input dict is empty, returns an empty dict.
+    """
+    return {key: _mask_string_value(value) for key, value in secret_value.items()}
 
 
 def _encrypt_secret(

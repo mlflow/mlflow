@@ -12,6 +12,8 @@ CREATE TABLE endpoints (
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_at BIGINT NOT NULL,
+	routing_strategy VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	fallback_config_json VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id)
 )
 
@@ -74,7 +76,7 @@ CREATE TABLE inputs (
 CREATE TABLE jobs (
 	id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	creation_time BIGINT NOT NULL,
-	function_fullname VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	job_name VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	params VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	timeout FLOAT,
 	status INTEGER NOT NULL,
@@ -100,7 +102,7 @@ CREATE TABLE secrets (
 	encrypted_value VARBINARY NOT NULL,
 	wrapped_dek VARBINARY NOT NULL,
 	kek_version INTEGER NOT NULL,
-	masked_value VARCHAR(100) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	masked_value VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	provider VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	auth_config VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
@@ -350,6 +352,8 @@ CREATE TABLE endpoint_model_mappings (
 	weight FLOAT NOT NULL,
 	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_at BIGINT NOT NULL,
+	linkage_type VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('PRIMARY') NOT NULL,
+	fallback_order INTEGER,
 	CONSTRAINT endpoint_model_mappings_pk PRIMARY KEY (mapping_id),
 	CONSTRAINT fk_endpoint_model_mappings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_endpoint_model_mappings_model_definition_id FOREIGN KEY(model_definition_id) REFERENCES model_definitions (model_definition_id)

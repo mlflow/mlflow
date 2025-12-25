@@ -46,6 +46,25 @@ class EvalItem:
     source: DatasetRecordSource | None = None
 
     @classmethod
+    def from_trace(cls, trace: Trace) -> "EvalItem":
+        """
+        Create an EvalItem from a Trace.
+
+        Args:
+            trace: The trace to create an EvalItem from.
+
+        Returns:
+            An EvalItem with the trace set and request_id from the trace.
+        """
+        return cls(
+            request_id=trace.info.trace_id,
+            inputs=None,
+            outputs=None,
+            expectations=None,
+            trace=trace,
+        )
+
+    @classmethod
     def from_dataset_row(cls, row: dict[str, Any]) -> "EvalItem":
         """
         Create an EvalItem from a row of input Pandas Dataframe row.

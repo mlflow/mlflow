@@ -86,6 +86,7 @@
     "react-vega": "^7.6.0",
     "react-virtual": "^2.10.4",
     "react-virtualized": "^9.21.2",
+    "recharts": "^2.15.0",
     "redux": "^4.1.1",
     "redux-promise-middleware": "^5.1.1",
     "redux-thunk": "^2.3.0",

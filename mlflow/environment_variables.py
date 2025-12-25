@@ -935,9 +935,9 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE = _EnvironmentVariable(
 #: set to true (default).
 #: Note: Currently only Unity Catalog table exporter supports batching. Other exporters will export
 #: spans immediately.
-#: (default: ``10``)
+#: (default: ``1`` = no batching)
 MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE = _EnvironmentVariable(
-    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", int, 10
+    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", int, 1
 )
 
 #: Maximum interval in milliseconds between two batches. When the interval is reached,
@@ -1167,6 +1167,17 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", int, 60
 )
 
+#: Specifies the maximum number of workers for async judge invocation jobs.
+#: (default: ``10``)
+MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS", int, 10
+)
+
+#: Number of traces to batch into a single scorer invocation job.
+MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE = _EnvironmentVariable(
+    "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE", int, 100
+)
+
 
 #: Specifies the maximum number of completion iterations allowed when invoking
 #: judge models. This prevents infinite loops in case of complex traces or
@@ -1188,4 +1199,11 @@ _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS = _BooleanEnvironmentVaria
 #: (default: ``None``)
 _SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID = _EnvironmentVariable(
     "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", str, None
+)
+
+
+#: Whether to enable authorization for graphQL routes in MLflow server.
+#: (default: ``True``)
+MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH", True
 )

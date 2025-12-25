@@ -117,6 +117,10 @@ def _invoke_databricks_serving_endpoint(
     host_creds = get_databricks_host_creds()
     api_url = f"{host_creds.host}/serving-endpoints/{model_name}/invocations"
 
+    # Track whether to include response_format. If the model doesn't support structured outputs,
+    # we'll retry without it
+    include_response_format = response_format is not None
+
     # Implement retry logic with exponential backoff
     last_exception = None
     for attempt in range(num_retries + 1):
@@ -140,9 +144,8 @@ def _invoke_databricks_serving_endpoint(
 
             payload = {"messages": messages}
 
-            # Add response_schema if provided
-            if response_format is not None:
-                payload["response_schema"] = response_format.model_json_schema()
+            if include_response_format:
+                payload["response_format"] = response_format.model_json_schema()
 
             # Add inference parameters if provided (e.g., temperature, top_p, max_tokens)
             if inference_params:
@@ -169,6 +172,17 @@ def _invoke_databricks_serving_endpoint(
 
         # Check HTTP status before parsing JSON
         if res.status_code in [400, 401, 403, 404]:
+            # Check if this is an error related to response_format parameter. If so, drop the
+            # parameter and retry. This mimics LiteLLM's drop_params behavior
+            if res.status_code == 400 and include_response_format and "response_format" in res.text:
+                _logger.debug(
+                    f"Model '{model_name}' may not support structured outputs (response_format). "
+                    f"Retrying without structured output enforcement. The response may not follow "
+                    "the expected format."
+                )
+                include_response_format = False
+                continue
+
             # Don't retry on bad request, unauthorized, not found, or forbidden
             raise MlflowException(
                 f"Databricks model invocation failed with status {res.status_code}: {res.text}",
