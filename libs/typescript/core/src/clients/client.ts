@@ -4,12 +4,16 @@ import {
   CreateExperiment,
   DeleteExperiment,
   GetTraceInfoV3,
+  GetTrace,
   StartTraceV3,
   SearchTracesV3
 } from './spec';
 import { getRequestHeaders, makeRequest } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
+import { getConfig } from '../core/config';
+import { Span } from '../core/entities/span';
+import { TraceTagKey, SpansLocation } from '../core/constants';
 
 /**
  * Client for MLflow tracing operations
@@ -70,12 +74,52 @@ export class MlflowClient {
 
   // === TRACE RETRIEVAL METHODS ===
   /**
-   * Get a single trace by ID
-   * Fetches both trace info and trace data from backend
-   * Corresponds to Python: client.get_trace()
+   * Get a single trace by ID.
+   *
+   * Fetches both trace info and trace data from backend. The location of span data
+   * is determined by the `mlflow.trace.spansLocation` tag:
+   * - TRACKING_STORE: Spans are fetched via the GetTrace API (proto format)
+   * - ARTIFACT_REPO: Spans are downloaded from the artifact store
+   *
    */
   async getTrace(traceId: string): Promise<Trace> {
+    // First get trace info to determine where spans are stored
     const traceInfo = await this.getTraceInfo(traceId);
+    const spansLocation = traceInfo.tags[TraceTagKey.SPANS_LOCATION];
+
+    // If spans are in tracking store, use the GetTrace API
+    if (spansLocation === SpansLocation.TRACKING_STORE) {
+      return this.getTraceFromTrackingStore(traceId, traceInfo);
+    }
+
+    // Otherwise, download from artifact store
+    return this.getTraceFromArtifactStore(traceInfo);
+  }
+
+  /**
+   * Fetch trace with spans from tracking store using GetTrace API.
+   * Used when spans are stored in the tracking store (SPANS_LOCATION = TRACKING_STORE).
+   */
+  private async getTraceFromTrackingStore(traceId: string, traceInfo: TraceInfo): Promise<Trace> {
+    const url = GetTrace.getEndpoint(this.host, traceId);
+    const response = await makeRequest<GetTrace.Response>(
+      'GET',
+      url,
+      getRequestHeaders(
+        this.databricksToken,
+        this.trackingServerUsername,
+        this.trackingServerPassword
+      )
+    );
+    const spans = (response.trace.spans || []).map((s) => Span.fromOtelProto(s));
+    return new Trace(traceInfo, new TraceData(spans));
+  }
+
+  /**
+   * Fetch trace with spans from artifact store.
+   * Used when spans are stored in artifacts (SPANS_LOCATION = ARTIFACT_REPO or not set).
+   */
+  private async getTraceFromArtifactStore(traceInfo: TraceInfo): Promise<Trace> {
     const traceData = await this.artifactsClient.downloadTraceData(traceInfo);
     return new Trace(traceInfo, traceData);
   }
@@ -157,25 +201,35 @@ export class MlflowClient {
    * Search for traces that match the given filter criteria.
    *
    * @param options - Search options
-   * @param options.experimentIds - List of experiment IDs to search over
-   * @param options.filter - Filter expression (e.g. "trace.status = 'OK'")
+   * @param options.experimentIds - List of experiment IDs to search over. If not provided,
+   *   defaults to the experiment ID set via `mlflow.init()`.
+   * @param options.filterString - Filter expression (e.g. "trace.status = 'OK'")
    * @param options.maxResults - Maximum number of traces to return (default 100, max 500)
    * @param options.orderBy - List of columns for ordering results (e.g. ["timestamp_ms DESC"])
    * @param options.pageToken - Token for pagination from a previous search
+   * @param options.includeSpans - If true, fetch full trace data including spans. Default is true.
    * @returns Object containing traces and optional next page token
    */
   async searchTraces(
     options: {
       experimentIds?: string[];
-      filter?: string;
+      filterString?: string;
       maxResults?: number;
       orderBy?: string[];
       pageToken?: string;
+      includeSpans?: boolean;
     } = {}
-  ): Promise<{ traces: TraceInfo[]; nextPageToken?: string }> {
+  ): Promise<{ traces: Trace[]; nextPageToken?: string }> {
     const url = SearchTracesV3.getEndpoint(this.host);
+    const includeSpans = options.includeSpans ?? true;
 
-    const locations: SearchTracesV3.TraceLocation[] | undefined = options.experimentIds?.map(
+    // Use provided experimentIds, or default to the experiment ID from init()
+    const experimentIds =
+      options.experimentIds && options.experimentIds.length > 0
+        ? options.experimentIds
+        : [getConfig().experimentId];
+
+    const locations: SearchTracesV3.TraceLocation[] = experimentIds.map(
       (experimentId) => ({
         type: 'MLFLOW_EXPERIMENT' as const,
         mlflow_experiment: { experiment_id: experimentId }
@@ -184,7 +238,7 @@ export class MlflowClient {
 
     const payload: SearchTracesV3.Request = {
       locations,
-      filter: options.filter,
+      filter: options.filterString,
       max_results: options.maxResults,
       order_by: options.orderBy,
       page_token: options.pageToken
@@ -201,7 +255,22 @@ export class MlflowClient {
       payload
     );
 
-    const traces = (response.traces || []).map((t) => TraceInfo.fromJson(t));
+    const traceInfos = (response.traces || []).map((t) => TraceInfo.fromJson(t));
+
+    // If includeSpans is false, return traces with empty span data
+    if (!includeSpans) {
+      return {
+        traces: traceInfos.map((info) => new Trace(info, new TraceData([]))),
+        nextPageToken: response.next_page_token
+      };
+    }
+
+    const traces = await Promise.all(
+      traceInfos.map((info) =>
+        this.getTrace(info.traceId).catch(() => new Trace(info, new TraceData([])))
+      )
+    );
+
     return {
       traces,
       nextPageToken: response.next_page_token

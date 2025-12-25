@@ -89,7 +89,7 @@ The `search_traces` API uses a SQL-like Domain Specific Language (DSL) for query
 
 Search for any contents existing in your trace.
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 ```python
@@ -107,13 +107,13 @@ mlflow.search_traces(filter_string="trace.text LIKE '%timeout%'")
 // Search for traces containing specific text
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "trace.text LIKE '%authentication error%'"
+  filterString: "trace.text LIKE '%authentication error%'"
 });
 
 // Search for multiple terms
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "trace.text LIKE '%timeout%'"
+  filterString: "trace.text LIKE '%timeout%'"
 });
 ```
 
@@ -122,7 +122,7 @@ await client.searchTraces({
 
 #### Filter by Name
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 ```python
@@ -146,19 +146,19 @@ mlflow.search_traces(filter_string="trace.name RLIKE '^(predict|inference)_[0-9]
 // Exact match
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "trace.name = 'predict'"
+  filterString: "trace.name = 'predict'"
 });
 
 // Pattern matching with LIKE
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "trace.name LIKE '%inference%'"
+  filterString: "trace.name LIKE '%inference%'"
 });
 
 // Case-insensitive pattern matching with ILIKE
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "trace.name ILIKE '%PREDICT%'"
+  filterString: "trace.name ILIKE '%PREDICT%'"
 });
 ```
 
@@ -167,7 +167,7 @@ await client.searchTraces({
 
 #### Filter by Status
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 ```python
@@ -188,19 +188,19 @@ mlflow.search_traces(filter_string="trace.status != 'OK'")
 // Get successful traces
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "trace.status = 'OK'"
+  filterString: "trace.status = 'OK'"
 });
 
 // Get failed traces
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "trace.status = 'ERROR'"
+  filterString: "trace.status = 'ERROR'"
 });
 
 // Get in-progress traces
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "trace.status != 'OK'"
+  filterString: "trace.status != 'OK'"
 });
 ```
 
@@ -209,7 +209,7 @@ await client.searchTraces({
 
 #### Filter by Execution Time
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 ```python
@@ -232,13 +232,13 @@ mlflow.search_traces(filter_string="trace.execution_time_ms = 500")
 // Find slow traces (> 1 second)
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "trace.execution_time_ms > 1000"
+  filterString: "trace.execution_time_ms > 1000"
 });
 
 // Performance range
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "trace.execution_time_ms >= 200 AND trace.execution_time_ms <= 800"
+  filterString: "trace.execution_time_ms >= 200 AND trace.execution_time_ms <= 800"
 });
 ```
 
@@ -247,7 +247,7 @@ await client.searchTraces({
 
 #### Filter by Timestamp
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 ```python
@@ -274,13 +274,13 @@ mlflow.search_traces(
 const timestamp = Date.now();
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: `trace.timestamp_ms > ${timestamp - 3600000}`
+  filterString: `trace.timestamp_ms > ${timestamp - 3600000}`
 });
 
 // Timestamp range
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: `trace.timestamp_ms >= ${timestamp - 7200000} AND trace.timestamp_ms <= ${timestamp - 3600000}`
+  filterString: `trace.timestamp_ms >= ${timestamp - 7200000} AND trace.timestamp_ms <= ${timestamp - 3600000}`
 });
 ```
 
@@ -289,7 +289,7 @@ await client.searchTraces({
 
 #### Filter by Tags
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 ```python
@@ -313,19 +313,19 @@ mlflow.search_traces(filter_string="tag.version RLIKE '^v[0-9]+\\.[0-9]+'")
 // Exact match
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "tag.model_name = 'gpt-4'"
+  filterString: "tag.model_name = 'gpt-4'"
 });
 
 // Pattern matching with LIKE (case-sensitive)
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "tag.model_name LIKE 'gpt-%'"
+  filterString: "tag.model_name LIKE 'gpt-%'"
 });
 
 // Case-insensitive pattern matching with ILIKE
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "tag.environment ILIKE '%prod%'"
+  filterString: "tag.environment ILIKE '%prod%'"
 });
 ```
 
@@ -334,7 +334,7 @@ await client.searchTraces({
 
 #### Filter by Run Association
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 ```python
@@ -349,7 +349,7 @@ mlflow.search_traces(filter_string="trace.run_id = 'run_id_123456'")
 // Find traces associated with a specific run
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "trace.run_id = 'run_id_123456'"
+  filterString: "trace.run_id = 'run_id_123456'"
 });
 ```
 
@@ -358,7 +358,7 @@ await client.searchTraces({
 
 #### Filter by Linked Prompts
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 ```python
@@ -373,7 +373,7 @@ mlflow.search_traces(filter_string='prompt = "qa-agent-system-prompt/4"')
 // Find traces using a specific prompt version
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: 'prompt = "qa-agent-system-prompt/4"'
+  filterString: 'prompt = "qa-agent-system-prompt/4"'
 });
 ```
 
@@ -386,7 +386,7 @@ The `prompt` filter only supports exact match (`=`) operator with the format `"n
 
 #### Filter by Span Attributes
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 ```python
@@ -412,19 +412,19 @@ mlflow.search_traces(filter_string="span.attributes.model_version ILIKE '%V2%'")
 // Filter by span name
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "span.name = 'llm_call'"
+  filterString: "span.name = 'llm_call'"
 });
 
 // Pattern matching on span name
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "span.name LIKE '%embedding%'"
+  filterString: "span.name LIKE '%embedding%'"
 });
 
 // Filter by span type
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "span.type = 'LLM'"
+  filterString: "span.type = 'LLM'"
 });
 ```
 
@@ -433,7 +433,7 @@ await client.searchTraces({
 
 #### Filter by Feedback
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 ```python
@@ -451,13 +451,13 @@ mlflow.search_traces(filter_string="feedback.user_comment LIKE '%helpful%'")
 // Filter by feedback ratings
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "feedback.rating = 'positive'"
+  filterString: "feedback.rating = 'positive'"
 });
 
 // Pattern matching on feedback
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "feedback.user_comment LIKE '%helpful%'"
+  filterString: "feedback.user_comment LIKE '%helpful%'"
 });
 ```
 
@@ -466,7 +466,7 @@ await client.searchTraces({
 
 #### Filter by Expectations
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 ```python
@@ -484,13 +484,13 @@ mlflow.search_traces(filter_string="expectation.label ILIKE '%success%'")
 // Filter by expectation values
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "expectation.accuracy = 'high'"
+  filterString: "expectation.accuracy = 'high'"
 });
 
 // Pattern matching on expectations
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "expectation.label ILIKE '%success%'"
+  filterString: "expectation.label ILIKE '%success%'"
 });
 ```
 
@@ -499,7 +499,7 @@ await client.searchTraces({
 
 #### Filter by End Time
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 ```python
@@ -523,13 +523,13 @@ mlflow.search_traces(
 const endTime = Date.now();
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: `trace.end_time_ms > ${endTime - 3600000}`
+  filterString: `trace.end_time_ms > ${endTime - 3600000}`
 });
 
 // Find traces that ended within a specific time range
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: `trace.end_time_ms >= ${endTime - 7200000} AND trace.end_time_ms <= ${endTime - 3600000}`
+  filterString: `trace.end_time_ms >= ${endTime - 7200000} AND trace.end_time_ms <= ${endTime - 3600000}`
 });
 ```
 
@@ -538,7 +538,7 @@ await client.searchTraces({
 
 #### Combine Multiple Conditions
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 ```python
@@ -580,25 +580,25 @@ mlflow.search_traces(
 // Complex query with tags and status
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "trace.status = 'OK' AND tag.importance = 'high'"
+  filterString: "trace.status = 'OK' AND tag.importance = 'high'"
 });
 
 // Production error analysis with execution time
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "tag.environment = 'production' AND trace.status = 'ERROR' AND trace.execution_time_ms > 500"
+  filterString: "tag.environment = 'production' AND trace.status = 'ERROR' AND trace.execution_time_ms > 500"
 });
 
 // Advanced query with span attributes and feedback
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "span.name LIKE '%llm%' AND feedback.rating = 'positive' AND trace.execution_time_ms < 1000"
+  filterString: "span.name LIKE '%llm%' AND feedback.rating = 'positive' AND trace.execution_time_ms < 1000"
 });
 
 // Search with pattern matching and time range
 await client.searchTraces({
   experimentIds: ['1'],
-  filter: "trace.name ILIKE '%inference%' AND trace.timestamp_ms > 1700000000000"
+  filterString: "trace.name ILIKE '%inference%' AND trace.timestamp_ms > 1700000000000"
 });
 ```
 
@@ -607,7 +607,7 @@ await client.searchTraces({
 
 ## Programmatic Search
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 <APILink fn="mlflow.search_traces" /> provides convenient trace search functionality:
@@ -644,7 +644,7 @@ const client = new MlflowClient({
 // Basic search
 const result = await client.searchTraces({
   experimentIds: ['1'],
-  filter: "trace.status = 'OK'"
+  filterString: "trace.status = 'OK'"
 });
 
 // Access the traces
@@ -664,7 +664,7 @@ for (const trace of result.traces) {
 
 The `search_traces` API returns a pandas DataFrame by default with the following columns:
 
-<Tabs>
+<Tabs groupId="mlflow-version">
 <TabItem value="mlflow-3" label="MLflow 3.x">
 - `trace_id` - Primary identifier
 - `trace` - Trace object
@@ -712,7 +712,7 @@ MLflow supports ordering results by the following keys:
 - `status` - Trace execution status
 - `request_id` - Trace identifier
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 ```python
@@ -746,7 +746,7 @@ const result = await client.searchTraces({
 
 ### Pagination
 
-<Tabs>
+<Tabs groupId="programming-language">
 <TabItem value="python" label="Python" default>
 
 <APILink fn="mlflow.client.MlflowClient.search_traces" /> supports pagination:
@@ -792,7 +792,7 @@ const allTraces = [];
 do {
   const result = await client.searchTraces({
     experimentIds: ['1'],
-    filter: "trace.status = 'OK'",
+    filterString: "trace.status = 'OK'",
     maxResults: 100,
     pageToken
   });

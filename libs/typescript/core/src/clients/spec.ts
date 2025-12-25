@@ -6,6 +6,7 @@
  */
 
 import type { TraceInfo } from '../core/entities/trace_info';
+import type { Span } from '../core/entities/span';
 import { ArtifactCredentialType } from './artifacts/databricks';
 
 /**
@@ -37,6 +38,22 @@ export namespace GetTraceInfoV3 {
   export interface Response {
     trace: {
       trace_info: Parameters<typeof TraceInfo.fromJson>[0];
+    };
+  }
+}
+
+/**
+ * Get a full trace with spans for a given trace ID.
+ * Used when spans are stored in the tracking store (SPANS_LOCATION = TRACKING_STORE).
+ */
+export namespace GetTrace {
+  export const getEndpoint = (host: string, traceId: string) =>
+    `${host}/api/3.0/mlflow/traces/get?trace_id=${encodeURIComponent(traceId)}`;
+
+  export interface Response {
+    trace: {
+      trace_info: Parameters<typeof TraceInfo.fromJson>[0];
+      spans?: Parameters<typeof Span.fromOtelProto>[0][];
     };
   }
 }
@@ -105,12 +122,9 @@ export namespace SearchTracesV3 {
    * TraceLocation for search request - specifies where to search for traces
    */
   export interface TraceLocation {
-    type: 'MLFLOW_EXPERIMENT' | 'INFERENCE_TABLE' | 'TRACE_LOCATION_TYPE_UNSPECIFIED';
+    type: 'MLFLOW_EXPERIMENT' | 'TRACE_LOCATION_TYPE_UNSPECIFIED';
     mlflow_experiment?: {
       experiment_id: string;
-    };
-    inference_table?: {
-      full_table_name: string;
     };
   }
 

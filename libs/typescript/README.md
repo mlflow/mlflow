@@ -112,7 +112,7 @@ const client = new MlflowClient({
 
 const result = await client.searchTraces({
   experimentIds: ['1'],
-  filter: "trace.status = 'OK'",
+  filterString: "trace.status = 'OK'",
   maxResults: 100,
   orderBy: ['timestamp_ms DESC']
 });

@@ -16,6 +16,7 @@ import {
   decodeIdFromBase64
 } from '../utils';
 import { safeJsonStringify } from '../utils/json';
+import { type ProtoSpan, decodeProtoAttributes, decodeProtoAnyValue } from '../utils/otlp';
 /**
  * MLflow Span interface
  */
@@ -227,6 +228,48 @@ export class Span implements ISpan {
 
     // Create a span that behaves like our Span class but from downloaded data
     return new Span(otelSpanData as OTelSpan, false); // false = immutable
+  }
+
+  /**
+   * Create a Span from OpenTelemetry protobuf format.
+   *
+   * The proto format is used when spans are returned from the GetTrace API
+   * for traces stored in the tracking store.
+   *
+   * @param proto - Proto-format span from the API
+   * @returns ISpan instance
+   */
+  static fromOtelProto(proto: ProtoSpan): ISpan {
+    const attributes = decodeProtoAttributes(proto.attributes);
+
+    const events = (proto.events || []).map((e) => ({
+      name: e.name,
+      time_unix_nano: BigInt(e.time_unix_nano),
+      attributes: (e.attributes || []).reduce(
+        (acc, a) => {
+          acc[a.key] = decodeProtoAnyValue(a.value);
+          return acc;
+        },
+        {} as Record<string, unknown>
+      )
+    }));
+
+    const serialized: SerializedSpan = {
+      name: proto.name,
+      trace_id: proto.trace_id,
+      span_id: proto.span_id,
+      parent_span_id: proto.parent_span_id || '',
+      start_time_unix_nano: BigInt(proto.start_time_unix_nano),
+      end_time_unix_nano: proto.end_time_unix_nano ? BigInt(proto.end_time_unix_nano) : null,
+      status: {
+        code: proto.status?.code || 'UNSET',
+        message: proto.status?.message || ''
+      },
+      attributes,
+      events
+    };
+
+    return Span.fromJson(serialized);
   }
 }
 
