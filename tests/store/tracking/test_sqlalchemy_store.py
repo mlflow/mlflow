@@ -303,19 +303,6 @@ def test_fail_on_multiple_drivers():
 
 
 @pytest.fixture
-def store(tmp_path: Path, db_uri: str) -> SqlAlchemyStore:
-    artifact_uri = tmp_path / "artifacts"
-    artifact_uri.mkdir(exist_ok=True)
-    if db_uri_env := MLFLOW_TRACKING_URI.get():
-        s = SqlAlchemyStore(db_uri_env, artifact_uri.as_uri())
-        yield s
-        _cleanup_database(s)
-    else:
-        s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
-        yield s
-
-
-@pytest.fixture
 def store_and_trace_info(store):
     exp_id = store.create_experiment("test")
     timestamp_ms = get_current_time_millis()
@@ -2785,6 +2772,74 @@ def test_search_runs_datasets(store: SqlAlchemyStore):
         run_view_type=ViewType.ACTIVE_ONLY,
     )
     assert {r.info.run_id for r in result} == {run_id3, run_id1, run_id2}
+
+
+def test_search_runs_datasets_with_param_filters(store: SqlAlchemyStore):
+    """Test that combining param/tag filters with dataset filters works correctly.
+
+    This is a regression test for https://github.com/mlflow/mlflow/pull/19498
+    where combining non-attribute filters (params, tags, metrics) with dataset
+    filters caused SQLAlchemy alias conflicts.
+    """
+    exp_id = _create_experiments(store, "test_search_runs_datasets_with_param_filters")
+    run1 = _run_factory(store, _get_run_configs(exp_id))
+    run2 = _run_factory(store, _get_run_configs(exp_id))
+
+    # Log params to runs
+    store.log_param(run1.info.run_id, Param("learning_rate", "0.01"))
+    store.log_param(run1.info.run_id, Param("batch_size", "32"))
+    store.log_param(run2.info.run_id, Param("learning_rate", "0.02"))
+
+    # Log datasets to runs
+    dataset1 = entities.Dataset(
+        name="train_data",
+        digest="digest1",
+        source_type="local",
+        source="source1",
+    )
+    train_tag = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="training")]
+    store.log_inputs(run1.info.run_id, [entities.DatasetInput(dataset1, train_tag)])
+    store.log_inputs(run2.info.run_id, [entities.DatasetInput(dataset1, train_tag)])
+
+    run_id1 = run1.info.run_id
+
+    # Test: param filter + dataset name filter
+    result = store.search_runs(
+        [exp_id],
+        filter_string="params.learning_rate = '0.01' AND dataset.name = 'train_data'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id1}
+
+    # Test: param filter + dataset context filter
+    result = store.search_runs(
+        [exp_id],
+        filter_string="params.learning_rate = '0.01' AND dataset.context = 'training'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id1}
+
+    # Test: multiple param filters + dataset filter
+    result = store.search_runs(
+        [exp_id],
+        filter_string=(
+            "params.learning_rate = '0.01' AND params.batch_size = '32' "
+            "AND dataset.name = 'train_data'"
+        ),
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id1}
+
+    # Test: param filter + multiple dataset filters
+    result = store.search_runs(
+        [exp_id],
+        filter_string=(
+            "params.learning_rate = '0.01' AND dataset.name = 'train_data' "
+            "AND dataset.context = 'training'"
+        ),
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run_id1}
 
 
 def test_search_datasets(store: SqlAlchemyStore):
@@ -10456,14 +10511,14 @@ def test_scorer_operations(store: SqlAlchemyStore):
     # Create an experiment for testing
     experiment_id = store.create_experiment("test_scorer_experiment")
 
-    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer1")
-    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer2")
-    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer3")
+    store.register_scorer(experiment_id, "accuracy_scorer", '{"data": "accuracy_scorer1"}')
+    store.register_scorer(experiment_id, "accuracy_scorer", '{"data": "accuracy_scorer2"}')
+    store.register_scorer(experiment_id, "accuracy_scorer", '{"data": "accuracy_scorer3"}')
 
-    store.register_scorer(experiment_id, "safety_scorer", "serialized_safety_scorer1")
-    store.register_scorer(experiment_id, "safety_scorer", "serialized_safety_scorer2")
+    store.register_scorer(experiment_id, "safety_scorer", '{"data": "safety_scorer1"}')
+    store.register_scorer(experiment_id, "safety_scorer", '{"data": "safety_scorer2"}')
 
-    store.register_scorer(experiment_id, "relevance_scorer", "relevance_scorer_scorer1")
+    store.register_scorer(experiment_id, "relevance_scorer", '{"data": "relevance_scorer1"}')
 
     # Step 2: Test list_scorers - should return latest version for each scorer name
     scorers = store.list_scorers(experiment_id)
@@ -10483,17 +10538,17 @@ def test_scorer_operations(store: SqlAlchemyStore):
             assert scorer.scorer_version == 3, (
                 f"Expected version 3 for accuracy_scorer, got {scorer.scorer_version}"
             )
-            assert scorer._serialized_scorer == "serialized_accuracy_scorer3"
+            assert scorer._serialized_scorer == '{"data": "accuracy_scorer3"}'
         elif scorer.scorer_name == "safety_scorer":
             assert scorer.scorer_version == 2, (
                 f"Expected version 2 for safety_scorer, got {scorer.scorer_version}"
             )
-            assert scorer._serialized_scorer == "serialized_safety_scorer2"
+            assert scorer._serialized_scorer == '{"data": "safety_scorer2"}'
         elif scorer.scorer_name == "relevance_scorer":
             assert scorer.scorer_version == 1, (
                 f"Expected version 1 for relevance_scorer, got {scorer.scorer_version}"
             )
-            assert scorer._serialized_scorer == "relevance_scorer_scorer1"
+            assert scorer._serialized_scorer == '{"data": "relevance_scorer1"}'
 
     # Test list_scorer_versions
     accuracy_scorer_versions = store.list_scorer_versions(experiment_id, "accuracy_scorer")
@@ -10503,39 +10558,39 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
     # Verify versions are ordered by version number
     assert accuracy_scorer_versions[0].scorer_version == 1
-    assert accuracy_scorer_versions[0]._serialized_scorer == "serialized_accuracy_scorer1"
+    assert accuracy_scorer_versions[0]._serialized_scorer == '{"data": "accuracy_scorer1"}'
     assert accuracy_scorer_versions[1].scorer_version == 2
-    assert accuracy_scorer_versions[1]._serialized_scorer == "serialized_accuracy_scorer2"
+    assert accuracy_scorer_versions[1]._serialized_scorer == '{"data": "accuracy_scorer2"}'
     assert accuracy_scorer_versions[2].scorer_version == 3
-    assert accuracy_scorer_versions[2]._serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_scorer_versions[2]._serialized_scorer == '{"data": "accuracy_scorer3"}'
 
     # Step 3: Test get_scorer with specific versions
     # Get accuracy_scorer version 1
     accuracy_v1 = store.get_scorer(experiment_id, "accuracy_scorer", version=1)
-    assert accuracy_v1._serialized_scorer == "serialized_accuracy_scorer1"
+    assert accuracy_v1._serialized_scorer == '{"data": "accuracy_scorer1"}'
     assert accuracy_v1.scorer_version == 1
 
     # Get accuracy_scorer version 2
     accuracy_v2 = store.get_scorer(experiment_id, "accuracy_scorer", version=2)
-    assert accuracy_v2._serialized_scorer == "serialized_accuracy_scorer2"
+    assert accuracy_v2._serialized_scorer == '{"data": "accuracy_scorer2"}'
     assert accuracy_v2.scorer_version == 2
 
     # Get accuracy_scorer version 3 (latest)
     accuracy_v3 = store.get_scorer(experiment_id, "accuracy_scorer", version=3)
-    assert accuracy_v3._serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_v3._serialized_scorer == '{"data": "accuracy_scorer3"}'
     assert accuracy_v3.scorer_version == 3
 
     # Step 4: Test get_scorer without version (should return latest)
     accuracy_latest = store.get_scorer(experiment_id, "accuracy_scorer")
-    assert accuracy_latest._serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_latest._serialized_scorer == '{"data": "accuracy_scorer3"}'
     assert accuracy_latest.scorer_version == 3
 
     safety_latest = store.get_scorer(experiment_id, "safety_scorer")
-    assert safety_latest._serialized_scorer == "serialized_safety_scorer2"
+    assert safety_latest._serialized_scorer == '{"data": "safety_scorer2"}'
     assert safety_latest.scorer_version == 2
 
     relevance_latest = store.get_scorer(experiment_id, "relevance_scorer")
-    assert relevance_latest._serialized_scorer == "relevance_scorer_scorer1"
+    assert relevance_latest._serialized_scorer == '{"data": "relevance_scorer1"}'
     assert relevance_latest.scorer_version == 1
 
     # Step 5: Test error cases for get_scorer
@@ -10561,16 +10616,16 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
     # Verify versions 2 and 3 still exist
     accuracy_v2 = store.get_scorer(experiment_id, "accuracy_scorer", version=2)
-    assert accuracy_v2._serialized_scorer == "serialized_accuracy_scorer2"
+    assert accuracy_v2._serialized_scorer == '{"data": "accuracy_scorer2"}'
     assert accuracy_v2.scorer_version == 2
 
     accuracy_v3 = store.get_scorer(experiment_id, "accuracy_scorer", version=3)
-    assert accuracy_v3._serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_v3._serialized_scorer == '{"data": "accuracy_scorer3"}'
     assert accuracy_v3.scorer_version == 3
 
     # Verify latest version still works
     accuracy_latest_after_partial_delete = store.get_scorer(experiment_id, "accuracy_scorer")
-    assert accuracy_latest_after_partial_delete._serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_latest_after_partial_delete._serialized_scorer == '{"data": "accuracy_scorer3"}'
     assert accuracy_latest_after_partial_delete.scorer_version == 3
 
     # Step 7: Test delete_scorer - delete all versions of accuracy_scorer
@@ -10582,11 +10637,11 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
     # Verify other scorers still exist
     safety_latest_after_delete = store.get_scorer(experiment_id, "safety_scorer")
-    assert safety_latest_after_delete._serialized_scorer == "serialized_safety_scorer2"
+    assert safety_latest_after_delete._serialized_scorer == '{"data": "safety_scorer2"}'
     assert safety_latest_after_delete.scorer_version == 2
 
     relevance_latest_after_delete = store.get_scorer(experiment_id, "relevance_scorer")
-    assert relevance_latest_after_delete._serialized_scorer == "relevance_scorer_scorer1"
+    assert relevance_latest_after_delete._serialized_scorer == '{"data": "relevance_scorer1"}'
     assert relevance_latest_after_delete.scorer_version == 1
 
     # Step 8: Test list_scorers after deletion
@@ -10621,9 +10676,9 @@ def test_scorer_operations(store: SqlAlchemyStore):
     )
 
     # Step 12: Test list_scorer_versions
-    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer1")
-    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer2")
-    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer3")
+    store.register_scorer(experiment_id, "accuracy_scorer", '{"data": "accuracy_scorer1"}')
+    store.register_scorer(experiment_id, "accuracy_scorer", '{"data": "accuracy_scorer2"}')
+    store.register_scorer(experiment_id, "accuracy_scorer", '{"data": "accuracy_scorer3"}')
 
     # Test list_scorer_versions for non-existent scorer
     with pytest.raises(MlflowException, match="Scorer with name 'non_existent_scorer' not found"):

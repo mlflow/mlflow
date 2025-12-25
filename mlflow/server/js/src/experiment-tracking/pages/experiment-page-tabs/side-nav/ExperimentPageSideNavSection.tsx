@@ -1,4 +1,10 @@
-import { Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import {
   COLLAPSED_CLASS_NAME,
   FULL_WIDTH_CLASS_NAME,
@@ -11,6 +17,8 @@ import { Link, useLocation, useParams } from '@mlflow/mlflow/src/common/utils/Ro
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import invariant from 'invariant';
 import { isTracesRelatedTab } from './utils';
+import { useLogTelemetryEvent } from '@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent';
+import { useMemo } from 'react';
 
 export const ExperimentPageSideNavSection = ({
   sectionKey,
@@ -24,6 +32,8 @@ export const ExperimentPageSideNavSection = ({
   const { theme } = useDesignSystemTheme();
   const { experimentId } = useParams();
   const { search } = useLocation();
+  const logTelemetryEvent = useLogTelemetryEvent();
+  const viewId = useMemo(() => crypto.randomUUID(), []);
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -73,6 +83,15 @@ export const ExperimentPageSideNavSection = ({
               pathname: Routes.getExperimentPageTabRoute(experimentId, item.tabName),
               search: preserveQueryParams ? search : undefined,
             }}
+            onClick={() =>
+              logTelemetryEvent({
+                componentId: item.componentId,
+                componentViewId: viewId,
+                componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
+                componentSubType: null,
+                eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+              })
+            }
           >
             <div
               css={{

@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
 // list of packages that contain `mlflow-tracing` in peerDependencies
-const INTEGRATION_PACKAGES = ['openai', 'anthropic', 'vercel', 'gemini'];
+const INTEGRATION_PACKAGES = ['openai', 'anthropic', 'gemini'];
 
 interface PackageJson {
   name: string;

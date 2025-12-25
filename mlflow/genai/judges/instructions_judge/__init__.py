@@ -35,9 +35,11 @@ from mlflow.genai.scorers.base import (
 )
 from mlflow.genai.utils.trace_utils import (
     resolve_conversation_from_session,
+    resolve_expectations_from_session,
     resolve_expectations_from_trace,
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
+    validate_session,
 )
 from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN, PROMPT_TEXT_DISPLAY_LIMIT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -277,35 +279,7 @@ class InstructionsJudge(Judge):
 
     def _validate_session(self, session: list[Trace]) -> None:
         """Validate that all traces in session belong to the same session."""
-        session_id_to_trace_ids: dict[str, list[str]] = {}
-        for trace in session:
-            session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
-            if session_id is None:
-                raise MlflowException(
-                    f"All traces in 'session' must have a session_id. "
-                    f"Trace {trace.info.trace_id} is missing session_id. "
-                    f"See https://mlflow.org/docs/latest/genai/tracing/track-users-sessions/ "
-                    f"for information on how to set session_id on traces.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            if session_id not in session_id_to_trace_ids:
-                session_id_to_trace_ids[session_id] = []
-            session_id_to_trace_ids[session_id].append(trace.info.trace_id)
-
-        if len(session_id_to_trace_ids) != 1:
-            session_details = "\n".join(
-                f"session_id '{sid}': trace_ids {trace_ids[:3]}"
-                + (
-                    f" and {len(trace_ids) - 3} more trace{'s' if len(trace_ids) - 3 != 1 else ''}"
-                    if len(trace_ids) > 3
-                    else ""
-                )
-                for sid, trace_ids in session_id_to_trace_ids.items()
-            )
-            raise MlflowException.invalid_parameter_value(
-                f"All traces in 'session' must belong to the same session. "
-                f"Found {len(session_id_to_trace_ids)} different session(s):\n{session_details}"
-            )
+        validate_session(session)
 
     def _warn_unused_parameters(
         self,
@@ -466,7 +440,7 @@ class InstructionsJudge(Judge):
         except Exception:
             return str(value)
 
-    def _evaluate_impl(
+    def __call__(
         self,
         *,
         inputs: Any = None,
@@ -476,24 +450,39 @@ class InstructionsJudge(Judge):
         session: list[Trace] | None = None,
     ) -> Feedback:
         """
-        Internal implementation of evaluation logic without telemetry tracking.
-
-        This method contains the core evaluation logic and is called by __call__.
-        It is intended for internal use by wrapper scorers (like Completeness)
-        to avoid double telemetry tracking when delegating to InstructionsJudge.
-
-        Users should call the scorer instance directly (e.g., scorer(...))
-        which invokes __call__ and ensures proper telemetry tracking.
+        Evaluate the provided data using the judge's instructions.
 
         Args:
-            inputs: Input data to evaluate.
-            outputs: Output data to evaluate.
-            expectations: Expected outcomes or ground truth.
-            trace: Trace object for evaluation.
-            session: List of traces from the same session.
+            inputs: Input data to evaluate. If not provided and a trace is given,
+                will be extracted from the trace's root span inputs.
+            outputs: Output data to evaluate. If not provided and a trace is given,
+                will be extracted from the trace's root span outputs.
+            expectations: Expected outcomes or ground truth. If not provided and a trace is given,
+                will be extracted from the trace's expectation assessments.
+            trace: Trace object for evaluation. When the template uses {{ inputs }}, {{ outputs }},
+                or {{ expectations }}, the values will be extracted from the trace.
+            session: List of traces from the same session. When the template uses
+                {{ conversation }}, the conversation history will be extracted from these traces.
 
         Returns:
             Evaluation results
+
+        **Note on Trace Behavior**:
+        - If template uses {{ trace }}: The trace object is passed to an agent-based judge that
+          uses tools to fetch aspects of the trace's span data. The {{ trace }} placeholder itself
+          is not replaced in the prompt - instead, the trace enables tool calling.
+        - If template uses {{ inputs }}/{{ outputs }}/{{ expectations }} alongside {{ trace }}:
+          These placeholders ARE replaced in the prompt with their values (either from the provided
+          parameters or extracted from the trace), providing additional context to the agent.
+        - If template uses {{ inputs }}/{{ outputs }}/{{ expectations }} without {{ trace }}:
+          Values are extracted from the trace parameter (if provided) as follows:
+          - inputs/outputs: From the trace's root span
+          - expectations: From the trace's expectation assessments
+
+        **Note on Session Behavior**:
+        - Traces are expected to be in the same session and exception will be raised
+          if they are not.
+        - The conversation history will be extracted from the traces in chronological order.
         """
         self._validate_parameter_types(expectations, trace, session)
 
@@ -524,6 +513,8 @@ class InstructionsJudge(Judge):
             conversation = resolve_conversation_from_session(
                 session, include_tool_calls=self._include_tool_calls_in_conversation
             )
+            if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
+                expectations = resolve_expectations_from_session(expectations, session)
 
         self._check_required_parameters(inputs, outputs, expectations, trace, conversation)
         self._warn_unused_parameters(
@@ -552,57 +543,6 @@ class InstructionsJudge(Judge):
             response_format=response_format,
             use_case=USE_CASE_AGENTIC_JUDGE,
             inference_params=self._inference_params,
-        )
-
-    def __call__(
-        self,
-        *,
-        inputs: Any = None,
-        outputs: Any = None,
-        expectations: dict[str, Any] | None = None,
-        trace: Trace | None = None,
-        session: list[Trace] | None = None,
-    ) -> Feedback:
-        """
-        Evaluate the provided data using the judge's instructions.
-
-        Args:
-            inputs: Input data to evaluate. If not provided and a trace is given,
-                will be extracted from the trace's root span inputs.
-            outputs: Output data to evaluate. If not provided and a trace is given,
-                will be extracted from the trace's root span outputs.
-            expectations: Expected outcomes or ground truth. If not provided and a trace is given,
-                will be extracted from the trace's expectation assessments.
-            trace: Trace object for evaluation. When the template uses {{ inputs }}, {{ outputs }},
-                or {{ expectations }}, the values will be extracted from the trace.
-            session: List of traces from the same session. When the template uses
-                {{ conversation }}, the conversation history will be extracted from these traces.
-
-        Returns:
-            Evaluation results
-
-        **Note on Trace Behavior**:
-        - If template uses {{ trace }}: The trace metadata is used by an agent-based judge that uses
-          tools to fetch aspects of the trace's span data. If inputs/outputs/expectations are also
-          provided, they can augment the agent's context if the template has corresponding
-          placeholders ({{ inputs }}/{{ outputs }}/{{ expectations }}). The agent will still use
-          tools to fetch span data but will have this additional context in the user prompt.
-        - If template uses {{ inputs }}/{{ outputs }}/{{ expectations }} without {{ trace }}:
-          Values are extracted from the trace, if specified, as follows:
-          - inputs/outputs: From the trace's root span
-          - expectations: From the trace's human-set expectation assessments (ground truth only)
-
-        **Note on Session Behavior**:
-        - Traces are expected to be in the same session and exception will be raised
-          if they are not.
-        - The conversation history will be extracted from the traces in chronological order.
-        """
-        return self._evaluate_impl(
-            inputs=inputs,
-            outputs=outputs,
-            expectations=expectations,
-            trace=trace,
-            session=session,
         )
 
     def _create_response_format_model(self) -> type[pydantic.BaseModel]:
@@ -800,4 +740,4 @@ class InstructionsJudge(Judge):
         return asdict(serialized_scorer)
 
 
-__all__ = ["InstructionsJudge"]
+__all__ = ["InstructionsJudge", "TraceMetadataKey"]

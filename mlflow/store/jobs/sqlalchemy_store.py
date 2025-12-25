@@ -61,12 +61,12 @@ class SqlAlchemyJobStore(AbstractJobStore):
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)
 
-    def create_job(self, function_fullname: str, params: str, timeout: float | None = None) -> Job:
+    def create_job(self, job_name: str, params: str, timeout: float | None = None) -> Job:
         """
         Create a new job with the specified function and parameters.
 
         Args:
-            function_fullname: The full name of the function to execute
+            job_name: The static job name that identifies the decorated job function
             params: The job parameters that are serialized as a JSON string
             timeout: The job execution timeout in seconds
 
@@ -80,7 +80,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job = SqlJob(
                 id=job_id,
                 creation_time=creation_time,
-                function_fullname=function_fullname,
+                job_name=job_name,
                 params=params,
                 timeout=timeout,
                 status=JobStatus.PENDING.to_int(),
@@ -92,14 +92,21 @@ class SqlAlchemyJobStore(AbstractJobStore):
             session.flush()
             return job.to_mlflow_entity()
 
-    def _update_job(self, job_id: str, new_status: JobStatus, result: str | None = None) -> None:
+    def _update_job(self, job_id: str, new_status: JobStatus, result: str | None = None) -> Job:
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
+
+            if JobStatus.is_finalized(job.status):
+                raise MlflowException(
+                    f"The Job {job_id} is already finalized with status: {job.status}, "
+                    "it can't be updated."
+                )
 
             job.status = new_status.to_int()
             if result is not None:
                 job.result = result
             job.last_update_time = get_current_time_millis()
+            return job.to_mlflow_entity()
 
     def start_job(self, job_id: str) -> None:
         """
@@ -206,7 +213,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
 
     def list_jobs(
         self,
-        function_fullname: str | None = None,
+        job_name: str | None = None,
         statuses: list[JobStatus] | None = None,
         begin_timestamp: int | None = None,
         end_timestamp: int | None = None,
@@ -216,7 +223,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         List jobs based on the provided filters.
 
         Args:
-            function_fullname: Filter by function full name (exact match)
+            job_name: Filter by job name (exact match)
             statuses: Filter by a list of job status (PENDING, RUNNING, DONE, FAILED, TIMEOUT)
             begin_timestamp: Filter jobs created after this timestamp (inclusive)
             end_timestamp: Filter jobs created before this timestamp (inclusive)
@@ -245,8 +252,8 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 query = session.query(SqlJob)
 
                 # Apply filters
-                if function_fullname is not None:
-                    query = query.filter(SqlJob.function_fullname == function_fullname)
+                if job_name is not None:
+                    query = query.filter(SqlJob.job_name == job_name)
 
                 if statuses:
                     query = query.filter(
@@ -315,3 +322,18 @@ class SqlAlchemyJobStore(AbstractJobStore):
                     f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
                 )
             return job.to_mlflow_entity()
+
+    def cancel_job(self, job_id: str) -> Job:
+        """
+        Cancel a job by its ID.
+
+        Args:
+            job_id: The ID of the job to cancel
+
+        Returns:
+            Job entity
+
+        Raises:
+            MlflowException: If job with the given ID is not found
+        """
+        return self._update_job(job_id, JobStatus.CANCELED)

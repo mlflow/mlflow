@@ -37,6 +37,8 @@ from mlflow.entities import (
     Expectation,
     Experiment,
     ExperimentTag,
+    FallbackConfig,
+    FallbackStrategy,
     Feedback,
     GatewayEndpoint,
     GatewayEndpointBinding,
@@ -48,6 +50,7 @@ from mlflow.entities import (
     InputTag,
     Metric,
     Param,
+    RoutingStrategy,
     Run,
     RunData,
     RunInfo,
@@ -2001,9 +2004,9 @@ class SqlJob(Base):
     Creation timestamp: `BigInteger`.
     """
 
-    function_fullname = Column(String(500), nullable=False)
+    job_name = Column(String(500), nullable=False)
     """
-    Function fullname: `String` (limit 500 characters).
+    Job name: `String` (limit 500 characters).
     """
 
     params = Column(Text, nullable=False)
@@ -2039,15 +2042,15 @@ class SqlJob(Base):
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
-            "index_jobs_function_status_creation_time",
-            "function_fullname",
+            "index_jobs_name_status_creation_time",
+            "job_name",
             "status",
             "creation_time",
         ),
     )
 
     def __repr__(self):
-        return f"<SqlJob ({self.id}, {self.function_fullname}, {self.status})>"
+        return f"<SqlJob ({self.id}, {self.job_name}, {self.status})>"
 
     def to_mlflow_entity(self):
         """
@@ -2062,7 +2065,7 @@ class SqlJob(Base):
         return Job(
             job_id=self.id,
             creation_time=self.creation_time,
-            function_fullname=self.function_fullname,
+            job_name=self.job_name,
             params=self.params,
             timeout=self.timeout,
             status=JobStatus.from_int(self.status),
@@ -2115,11 +2118,12 @@ class SqlGatewaySecret(Base):
     KEK version: `Integer`. Indicates which KEK version was used to wrap the DEK.
     Used for KEK rotation - allows multiple KEK versions to coexist during migration.
     """
-    masked_value = Column(String(100), nullable=False)
+    masked_value = Column(String(500), nullable=False)
     """
-    Masked secret value: `String` (limit 100 characters). Shows partial secret for identification.
-    Format: prefix (3-4 chars) + "..." + suffix (last 4 chars), e.g., "sk-...xyz123".
-    Helps users identify secrets without exposing the full value.
+    Masked secret value: `String` (limit 500 characters). JSON-serialized dict showing partial
+    secret values for identification. Format: ``{"key": "prefix...suffix"}``, e.g.,
+    ``{"api_key": "sk-...xyz123"}`` or ``{"aws_access_key_id": "AKI...1234", ...}``.
+    Helps users identify secrets without exposing the full values.
     """
     provider = Column(String(64), nullable=True)
     """
@@ -2163,10 +2167,15 @@ class SqlGatewaySecret(Base):
         return f"<SqlGatewaySecret ({self.secret_id}, {self.secret_name})>"
 
     def to_mlflow_entity(self):
+        try:
+            masked_value = json.loads(self.masked_value)
+        except (json.JSONDecodeError, TypeError):
+            masked_value = {"value": "***"}
+
         return GatewaySecretInfo(
             secret_id=self.secret_id,
             secret_name=self.secret_name,
-            masked_value=self.masked_value,
+            masked_values=masked_value,
             created_at=self.created_at,
             last_updated_at=self.last_updated_at,
             provider=self.provider,
@@ -2209,6 +2218,15 @@ class SqlGatewayEndpoint(Base):
     """
     Last update timestamp: `BigInteger`.
     """
+    routing_strategy = Column(String(64), nullable=True)
+    """
+    Routing strategy: `String` (limit 64 characters). E.g., "FALLBACK".
+    """
+    fallback_config_json = Column(Text, nullable=True)
+    """
+    Fallback configuration as JSON: `Text`. Stores FallbackConfig proto as JSON.
+    Example: {"strategy": "SEQUENTIAL", "max_attempts": 3, "model_definition_ids": ["d-1", "d-2"]}
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("endpoint_id", name="endpoints_pk"),
@@ -2219,15 +2237,34 @@ class SqlGatewayEndpoint(Base):
         return f"<SqlGatewayEndpoint ({self.endpoint_id}, {self.name})>"
 
     def to_mlflow_entity(self):
+        fallback_config = None
+        model_mappings = [m.to_mlflow_entity() for m in self.model_mappings]
+        if self.fallback_config_json:
+            try:
+                fallback_config_dict = json.loads(self.fallback_config_json)
+
+                fallback_config = FallbackConfig(
+                    strategy=FallbackStrategy(fallback_config_dict.get("strategy"))
+                    if fallback_config_dict.get("strategy")
+                    else None,
+                    max_attempts=fallback_config_dict.get("max_attempts"),
+                )
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        routing_strategy = RoutingStrategy(self.routing_strategy) if self.routing_strategy else None
+
         return GatewayEndpoint(
             endpoint_id=self.endpoint_id,
             name=self.name,
-            model_mappings=[mapping.to_mlflow_entity() for mapping in self.model_mappings],
+            model_mappings=model_mappings,
             tags=[tag.to_mlflow_entity() for tag in self.tags],
             created_at=self.created_at,
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
+            routing_strategy=routing_strategy,
+            fallback_config=fallback_config,
         )
 
 
@@ -2349,6 +2386,16 @@ class SqlGatewayEndpointModelMapping(Base):
     Routing weight: `Float`. Used for traffic distribution when endpoint has multiple models.
     Default is 1.0.
     """
+    linkage_type = Column(String(64), default="PRIMARY", nullable=False)
+    """
+    Linkage type: `String` (limit 64 characters). Specifies whether this is a PRIMARY or
+    FALLBACK linkage. Default is PRIMARY.
+    """
+    fallback_order = Column(Integer, nullable=True)
+    """
+    Fallback order: `Integer`. Specifies the order for fallback attempts.
+    NULL for PRIMARY linkages. Lower values are tried first.
+    """
     created_by = Column(String(255), nullable=True)
     """
     Creator user ID: `String` (limit 255 characters).
@@ -2374,9 +2421,10 @@ class SqlGatewayEndpointModelMapping(Base):
         Index("index_endpoint_model_mappings_endpoint_id", "endpoint_id"),
         Index("index_endpoint_model_mappings_model_definition_id", "model_definition_id"),
         Index(
-            "unique_endpoint_model_mapping",
+            "unique_endpoint_model_linkage_mapping",
             "endpoint_id",
             "model_definition_id",
+            "linkage_type",
             unique=True,
         ),
     )
@@ -2388,6 +2436,8 @@ class SqlGatewayEndpointModelMapping(Base):
         )
 
     def to_mlflow_entity(self):
+        from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
+
         model_def = None
         if self.model_definition:
             model_def = self.model_definition.to_mlflow_entity()
@@ -2397,6 +2447,8 @@ class SqlGatewayEndpointModelMapping(Base):
             model_definition_id=self.model_definition_id,
             model_definition=model_def,
             weight=self.weight,
+            linkage_type=GatewayModelLinkageType(self.linkage_type),
+            fallback_order=self.fallback_order,
             created_at=self.created_at,
             created_by=self.created_by,
         )

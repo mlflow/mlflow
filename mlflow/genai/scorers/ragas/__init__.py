@@ -29,7 +29,8 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.ragas.models import create_ragas_model
 from mlflow.genai.scorers.ragas.registry import get_metric_class, is_deterministic_metric
 from mlflow.genai.scorers.ragas.utils import (
@@ -60,10 +61,13 @@ class RagasScorer(Scorer):
 
     def __init__(
         self,
-        metric_name: str,
+        metric_name: str | None = None,
         model: str | None = None,
         **metric_kwargs,
     ):
+        if metric_name is None:
+            metric_name = self.metric_name
+
         super().__init__(name=metric_name)
         model = model or get_default_model()
         self._model = model
@@ -75,6 +79,10 @@ class RagasScorer(Scorer):
         else:
             ragas_llm = create_ragas_model(model)
             self._metric = metric_class(llm=ragas_llm, **metric_kwargs)
+
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.THIRD_PARTY
 
     def __call__(
         self,
@@ -128,7 +136,7 @@ class RagasScorer(Scorer):
 
             # RAGAS metrics may have thresholds to map to binary feedback
             threshold = getattr(self._metric, "threshold", None)
-            metadata = {"library": "ragas"}
+            metadata = {FRAMEWORK_METADATA_KEY: "ragas"}
 
             if threshold is not None:
                 metadata["threshold"] = threshold
@@ -168,6 +176,13 @@ class RagasScorer(Scorer):
                 error=e,
                 source=assessment_source,
             )
+
+    def _validate_kwargs(self, **metric_kwargs):
+        if is_deterministic_metric(self.metric_name):
+            if "model" in metric_kwargs:
+                raise MlflowException.invalid_parameter_value(
+                    f"{self.metric_name} got an unexpected keyword argument 'model'"
+                )
 
 
 @experimental(version="3.8.0")
@@ -212,7 +227,51 @@ def get_scorer(
     )
 
 
+from mlflow.genai.scorers.ragas.scorers import (
+    AspectCritic,
+    BleuScore,
+    ChrfScore,
+    ContextEntityRecall,
+    ContextPrecision,
+    ContextRecall,
+    ExactMatch,
+    FactualCorrectness,
+    Faithfulness,
+    InstanceRubrics,
+    NoiseSensitivity,
+    NonLLMContextPrecisionWithReference,
+    NonLLMContextRecall,
+    NonLLMStringSimilarity,
+    RougeScore,
+    RubricsScore,
+    StringPresence,
+    SummarizationScore,
+)
+
 __all__ = [
+    # Core classes
     "RagasScorer",
     "get_scorer",
+    # RAG metrics
+    "ContextPrecision",
+    "NonLLMContextPrecisionWithReference",
+    "ContextRecall",
+    "NonLLMContextRecall",
+    "ContextEntityRecall",
+    "NoiseSensitivity",
+    "Faithfulness",
+    # Comparison metrics
+    "FactualCorrectness",
+    "NonLLMStringSimilarity",
+    "BleuScore",
+    "ChrfScore",
+    "RougeScore",
+    "StringPresence",
+    "ExactMatch",
+    # General purpose metrics
+    "AspectCritic",
+    "RubricsScore",
+    "InstanceRubrics",
+    # Other tasks
+    "SummarizationScore",
 ]
