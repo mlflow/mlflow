@@ -12,7 +12,8 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
 import { ChartGrid } from './OverviewLayoutComponents';
-import { ChartLoadingState, ChartErrorState, ChartEmptyState, ChartContainer } from './ChartCardWrapper';
+import { ChartLoadingState, ChartErrorState, ChartEmptyState } from './ChartCardWrapper';
+import { LazyTraceAssessmentChart } from './LazyTraceAssessmentChart';
 import type { OverviewChartProps } from '../types';
 
 /**
@@ -84,6 +85,8 @@ export const AssessmentChartsSection: React.FC<OverviewChartProps> = ({
     return { assessmentNames: names.sort(), avgValuesByName: avgValues };
   }, [data?.data_points]);
 
+  const chartProps = { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets };
+
   if (isLoading) {
     return <ChartLoadingState />;
   }
@@ -129,22 +132,13 @@ export const AssessmentChartsSection: React.FC<OverviewChartProps> = ({
       {/* Assessment charts grid */}
       <ChartGrid>
         {assessmentNames.map((name, index) => (
-          // PLACEHOLDER: Render assessment charts here
-          <ChartContainer key={name}>
-            <div
-              css={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: 200,
-                color: getAssessmentColor(index),
-              }}
-            >
-              <Typography.Title level={4}>{name}</Typography.Title>
-              <Typography.Text color="secondary">Avg: {avgValuesByName.get(name)?.toFixed(2) ?? 'N/A'}</Typography.Text>
-            </div>
-          </ChartContainer>
+          <LazyTraceAssessmentChart
+            key={name}
+            {...chartProps}
+            assessmentName={name}
+            lineColor={getAssessmentColor(index)}
+            avgValue={avgValuesByName.get(name)}
+          />
         ))}
       </ChartGrid>
     </div>
