@@ -67,11 +67,21 @@ export function decodeProtoAnyValue(value: ProtoAnyValue | undefined | null): un
   }
 
   // Handle simple types
-  if (value.string_value !== undefined) return value.string_value;
-  if (value.int_value !== undefined) return value.int_value;
-  if (value.double_value !== undefined) return value.double_value;
-  if (value.bool_value !== undefined) return value.bool_value;
-  if (value.bytes_value !== undefined) return value.bytes_value;
+  if (value.string_value !== undefined) {
+    return value.string_value;
+  }
+  if (value.int_value !== undefined) {
+    return value.int_value;
+  }
+  if (value.double_value !== undefined) {
+    return value.double_value;
+  }
+  if (value.bool_value !== undefined) {
+    return value.bool_value;
+  }
+  if (value.bytes_value !== undefined) {
+    return value.bytes_value;
+  }
 
   // Handle complex types with recursion
   if (value.kvlist_value?.values) {

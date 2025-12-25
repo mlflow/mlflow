@@ -93,7 +93,7 @@ export class MlflowClient {
     const spansLocation = traceInfo.tags[TraceTagKey.SPANS_LOCATION];
 
     // If spans are in tracking store, use the GetTrace API
-    if (spansLocation === SpansLocation.TRACKING_STORE) {
+    if (spansLocation === (SpansLocation.TRACKING_STORE as string)) {
       return this.getTraceFromTrackingStore(traceId, traceInfo);
     }
 
