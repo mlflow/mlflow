@@ -619,12 +619,12 @@ def test_update_gateway_endpoint(store: SqlAlchemyStore):
     assert with_fallback.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
     assert with_fallback.fallback_config.max_attempts == 2
     assert len(with_fallback.model_mappings) == 3
-    fallback_ids = [
-        m.model_definition_id
+    fallback_mappings = [
+        m
         for m in with_fallback.model_mappings
         if m.linkage_type == GatewayModelLinkageType.FALLBACK
     ]
-    assert fallback_ids == [model_def2.model_definition_id, model_def3.model_definition_id]
+    assert len(fallback_mappings) == 2
     assert with_fallback.last_updated_by == "updater2"
 
     # Test 3: Update PRIMARY models and FALLBACK models

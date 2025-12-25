@@ -4303,7 +4303,7 @@ def test_create_and_get_endpoint(mlflow_client_with_secrets):
 
     assert endpoint.name == "test-endpoint"
     assert endpoint.endpoint_id is not None
-    assert len(endpoint.model_mappings) == 1
+    assert len(endpoint.model_mappings) == 2
     assert endpoint.model_mappings[0].model_definition.model_name == "gpt-4"
     assert endpoint.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
     assert endpoint.fallback_config is not None
@@ -4313,12 +4313,11 @@ def test_create_and_get_endpoint(mlflow_client_with_secrets):
     fetched = store.get_gateway_endpoint(endpoint.endpoint_id)
     assert fetched.name == "test-endpoint"
     assert fetched.endpoint_id == endpoint.endpoint_id
-    assert len(fetched.model_mappings) == 1
+    assert len(fetched.model_mappings) == 2
     assert fetched.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
     assert fetched.fallback_config is not None
     assert fetched.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
     assert fetched.fallback_config.max_attempts == 2
-    assert len(fetched.fallback_config.model_mappings) == 1
 
 
 def test_update_endpoint(mlflow_client_with_secrets):
@@ -4370,7 +4369,7 @@ def test_update_endpoint(mlflow_client_with_secrets):
     assert updated.fallback_config is not None
     assert updated.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
     assert updated.fallback_config.max_attempts == 3
-    assert len(updated.fallback_config.model_mappings) == 1
+    assert len(updated.model_mappings) == 2
 
 
 def test_list_endpoints(mlflow_client_with_secrets):

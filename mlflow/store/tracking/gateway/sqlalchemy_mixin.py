@@ -701,7 +701,7 @@ class SqlAlchemyGatewayStoreMixin:
                 )
 
             # Replace FALLBACK linkages if fallback_model_definition_ids provided
-            if fallback_model_definition_ids is not None:
+            if fallback_model_definition_ids:
                 # Delete existing FALLBACK linkages
                 session.query(SqlGatewayEndpointModelMapping).filter(
                     SqlGatewayEndpointModelMapping.endpoint_id == endpoint_id,
@@ -732,7 +732,7 @@ class SqlAlchemyGatewayStoreMixin:
                     session.add(sql_mapping)
 
             # Replace PRIMARY linkages if model_definition_ids provided
-            if model_definition_ids is not None:
+            if model_definition_ids:
                 # Delete existing PRIMARY linkages
                 session.query(SqlGatewayEndpointModelMapping).filter(
                     SqlGatewayEndpointModelMapping.endpoint_id == endpoint_id,
