@@ -3,6 +3,7 @@ from mlflow.entities import (
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
     GatewayModelDefinition,
+    GatewayModelLinkageType,
     GatewayResourceType,
 )
 
@@ -92,6 +93,8 @@ def test_endpoint_model_mapping_creation():
         model_definition_id="model-def-1",
         model_definition=model_def,
         weight=1,
+        linkage_type=GatewayModelLinkageType.PRIMARY,
+        fallback_order=None,
         created_at=1234567890000,
         created_by="test_user",
     )
@@ -102,6 +105,8 @@ def test_endpoint_model_mapping_creation():
     assert mapping.model_definition is not None
     assert mapping.model_definition.name == "GPT-4o"
     assert mapping.weight == 1
+    assert mapping.linkage_type == GatewayModelLinkageType.PRIMARY
+    assert mapping.fallback_order is None
     assert mapping.created_at == 1234567890000
     assert mapping.created_by == "test_user"
 
@@ -113,12 +118,16 @@ def test_endpoint_model_mapping_without_model_definition():
         model_definition_id="model-def-1",
         model_definition=None,
         weight=2,
+        linkage_type=GatewayModelLinkageType.FALLBACK,
+        fallback_order=1,
         created_at=1234567890000,
     )
 
     assert mapping.mapping_id == "mapping-123"
     assert mapping.model_definition is None
     assert mapping.weight == 2
+    assert mapping.linkage_type == GatewayModelLinkageType.FALLBACK
+    assert mapping.fallback_order == 1
     assert mapping.created_by is None
 
 
@@ -140,6 +149,8 @@ def test_endpoint_creation_full():
         model_definition_id="model-def-1",
         model_definition=model_def,
         weight=1,
+        linkage_type=GatewayModelLinkageType.PRIMARY,
+        fallback_order=None,
         created_at=1234567890000,
     )
 
@@ -207,6 +218,8 @@ def test_endpoint_with_multiple_model_mappings():
         model_definition_id="model-def-1",
         model_definition=model_def1,
         weight=1,
+        linkage_type=GatewayModelLinkageType.PRIMARY,
+        fallback_order=None,
         created_at=1234567890000,
     )
 
@@ -216,6 +229,8 @@ def test_endpoint_with_multiple_model_mappings():
         model_definition_id="model-def-2",
         model_definition=model_def2,
         weight=1,
+        linkage_type=GatewayModelLinkageType.FALLBACK,
+        fallback_order=1,
         created_at=1234567890000,
     )
 
@@ -330,6 +345,8 @@ def test_endpoint_model_mapping_proto_round_trip():
         model_definition_id="model-def-proto",
         model_definition=None,
         weight=2,
+        linkage_type=GatewayModelLinkageType.PRIMARY,
+        fallback_order=None,
         created_at=1234567890000,
         created_by="mapping_user",
     )

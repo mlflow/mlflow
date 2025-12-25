@@ -121,14 +121,21 @@ def get_resource_endpoint_configs(
                         model_name=sql_model_def.model_name,
                         secret_value=secret_value,
                         auth_config=auth_config,
+                        weight=sql_mapping.weight,
+                        linkage_type=sql_mapping.to_mlflow_entity().linkage_type,
+                        fallback_order=sql_mapping.fallback_order,
                     )
                 )
+
+            endpoint_entity = sql_endpoint.to_mlflow_entity()
 
             endpoint_configs.append(
                 GatewayEndpointConfig(
                     endpoint_id=sql_endpoint.endpoint_id,
                     endpoint_name=sql_endpoint.name,
                     models=model_configs,
+                    routing_strategy=endpoint_entity.routing_strategy,
+                    fallback_config=endpoint_entity.fallback_config,
                 )
             )
 
@@ -217,11 +224,18 @@ def get_endpoint_config(
                     auth_config=json.loads(sql_secret.auth_config)
                     if sql_secret.auth_config
                     else None,
+                    weight=sql_mapping.weight,
+                    linkage_type=sql_mapping.to_mlflow_entity().linkage_type,
+                    fallback_order=sql_mapping.fallback_order,
                 )
             )
+
+        endpoint_entity = sql_endpoint.to_mlflow_entity()
 
         return GatewayEndpointConfig(
             endpoint_id=sql_endpoint.endpoint_id,
             endpoint_name=sql_endpoint.name,
             models=model_configs,
+            routing_strategy=endpoint_entity.routing_strategy,
+            fallback_config=endpoint_entity.fallback_config,
         )

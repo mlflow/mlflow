@@ -12,6 +12,8 @@ CREATE TABLE endpoints (
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
+	routing_strategy VARCHAR(64),
+	fallback_config_json TEXT,
 	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id)
 )
 
@@ -357,6 +359,8 @@ CREATE TABLE endpoint_model_mappings (
 	weight DOUBLE PRECISION NOT NULL,
 	created_by VARCHAR(255),
 	created_at BIGINT NOT NULL,
+	linkage_type VARCHAR(64) DEFAULT 'PRIMARY'::character varying NOT NULL,
+	fallback_order INTEGER,
 	CONSTRAINT endpoint_model_mappings_pk PRIMARY KEY (mapping_id),
 	CONSTRAINT fk_endpoint_model_mappings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_endpoint_model_mappings_model_definition_id FOREIGN KEY(model_definition_id) REFERENCES model_definitions (model_definition_id)
