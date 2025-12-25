@@ -29,7 +29,6 @@ from mlflow.entities import (
     FileInfo,
     GatewayEndpointModelConfig,
     GatewayEndpointTag,
-    GatewayModelLinkageType,
     GatewayResourceType,
     Metric,
     Param,
@@ -4134,7 +4133,8 @@ def _update_gateway_endpoint():
     model_configs = None
     if request_message.model_configs:
         model_configs = [
-            GatewayEndpointModelConfig.from_proto(config) for config in request_message.model_configs
+            GatewayEndpointModelConfig.from_proto(config)
+            for config in request_message.model_configs
         ]
 
     endpoint = _get_tracking_store().update_gateway_endpoint(

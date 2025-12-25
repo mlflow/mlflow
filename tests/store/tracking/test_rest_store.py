@@ -3142,6 +3142,8 @@ def test_create_gateway_endpoint():
         )
         from mlflow.protos.service_pb2 import (
             FallbackConfig as ProtoFallbackConfig,
+        )
+        from mlflow.protos.service_pb2 import (
             GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
         )
 
@@ -3227,6 +3229,8 @@ def test_update_gateway_endpoint():
         )
         from mlflow.protos.service_pb2 import (
             FallbackConfig as ProtoFallbackConfig,
+        )
+        from mlflow.protos.service_pb2 import (
             GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
         )
 

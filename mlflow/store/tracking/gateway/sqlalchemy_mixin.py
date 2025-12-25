@@ -656,7 +656,7 @@ class SqlAlchemyGatewayStoreMixin:
             updated_by: Optional username of the updater.
             routing_strategy: Optional new routing strategy.
             fallback_config: Optional fallback configuration (includes strategy and max_attempts).
-            model_configs: Optional new list of model configurations (replaces all existing linkages).
+            model_configs: Optional new list of model configurations (replaces all linkages).
 
         Returns:
             Updated Endpoint entity.

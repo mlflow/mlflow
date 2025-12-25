@@ -268,7 +268,7 @@ class RestGatewayStoreMixin:
             updated_by: Optional identifier of the user updating the endpoint.
             routing_strategy: Optional new routing strategy for the endpoint.
             fallback_config: Optional fallback configuration (includes strategy and max_attempts).
-            model_configs: Optional new list of model configurations (replaces all existing linkages).
+            model_configs: Optional new list of model configurations (replaces all linkages).
 
         Returns:
             The updated GatewayEndpoint object.

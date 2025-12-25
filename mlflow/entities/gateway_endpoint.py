@@ -13,6 +13,9 @@ from mlflow.protos.service_pb2 import (
     GatewayEndpointBinding as ProtoGatewayEndpointBinding,
 )
 from mlflow.protos.service_pb2 import (
+    GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
+)
+from mlflow.protos.service_pb2 import (
     GatewayEndpointModelMapping as ProtoGatewayEndpointModelMapping,
 )
 from mlflow.protos.service_pb2 import (
@@ -20,9 +23,6 @@ from mlflow.protos.service_pb2 import (
 )
 from mlflow.protos.service_pb2 import GatewayModelLinkageType as ProtoGatewayModelLinkageType
 from mlflow.protos.service_pb2 import RoutingStrategy as ProtoRoutingStrategy
-from mlflow.protos.service_pb2 import (
-    GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
-)
 
 
 class GatewayResourceType(str, Enum):
