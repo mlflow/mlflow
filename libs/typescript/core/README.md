@@ -61,11 +61,11 @@ Use `MlflowClient` to search for traces programmatically:
 
 ```typescript
 import { MlflowClient } from 'mlflow-tracing';
+import { createAuthProvider } from 'mlflow-tracing/dist/auth';
 
-const client = new MlflowClient({
-  trackingUri: 'http://localhost:5000',
-  host: 'http://localhost:5000'
-});
+const trackingUri = 'http://localhost:5000';
+const authProvider = createAuthProvider({ trackingUri });
+const client = new MlflowClient({ trackingUri, authProvider });
 
 // Search traces with filter
 const result = await client.searchTraces({
@@ -75,11 +75,15 @@ const result = await client.searchTraces({
   orderBy: ['timestamp_ms DESC']
 });
 
-// Access the traces
+// Access the traces - each trace contains info (metadata) and data (spans)
 for (const trace of result.traces) {
-  console.log(trace.traceId, trace.state);
-  console.log('Request:', trace.requestPreview);
-  console.log('Response:', trace.responsePreview);
+  console.log(trace.info.traceId, trace.info.state);
+  console.log('Request:', trace.info.requestPreview);
+  console.log('Response:', trace.info.responsePreview);
+  console.log(
+    'Spans:',
+    trace.data.spans.map((s) => s.name)
+  );
 }
 
 // Pagination

@@ -16,7 +16,7 @@ import {
   decodeIdFromBase64
 } from '../utils';
 import { safeJsonStringify } from '../utils/json';
-import { type ProtoSpan, decodeProtoAttributes, decodeProtoAnyValue } from '../utils/otlp';
+import { type ProtoSpan, decodeProtoAttributes } from '../utils/otlp';
 /**
  * MLflow Span interface
  */
@@ -245,13 +245,7 @@ export class Span implements ISpan {
     const events = (proto.events || []).map((e) => ({
       name: e.name,
       time_unix_nano: BigInt(e.time_unix_nano),
-      attributes: (e.attributes || []).reduce(
-        (acc, a) => {
-          acc[a.key] = decodeProtoAnyValue(a.value);
-          return acc;
-        },
-        {} as Record<string, unknown>
-      )
+      attributes: decodeProtoAttributes(e.attributes)
     }));
 
     const serialized: SerializedSpan = {

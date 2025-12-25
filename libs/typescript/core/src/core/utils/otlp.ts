@@ -2,7 +2,7 @@
  * OTLP (OpenTelemetry Protocol) utilities for parsing proto format data.
  *
  * This module provides utilities for decoding OpenTelemetry protobuf format
- * data returned by MLflow APIs. 
+ * data returned by MLflow APIs.
  */
 
 /**
@@ -95,7 +95,9 @@ export function decodeProtoAnyValue(value: ProtoAnyValue | undefined | null): un
  * @param attributes - Array of proto key-value pairs
  * @returns Flat attributes object
  */
-export function decodeProtoAttributes(attributes: ProtoKeyValue[] | undefined): Record<string, unknown> {
+export function decodeProtoAttributes(
+  attributes: ProtoKeyValue[] | undefined
+): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   if (!attributes) {
     return result;
@@ -105,4 +107,3 @@ export function decodeProtoAttributes(attributes: ProtoKeyValue[] | undefined): 
   }
   return result;
 }
-

@@ -205,12 +205,10 @@ export class MlflowClient {
         ? options.experimentIds
         : [getConfig().experimentId];
 
-    const locations: SearchTracesV3.TraceLocation[] = experimentIds.map(
-      (experimentId) => ({
-        type: 'MLFLOW_EXPERIMENT' as const,
-        mlflow_experiment: { experiment_id: experimentId }
-      })
-    );
+    const locations: SearchTracesV3.TraceLocation[] = experimentIds.map((experimentId) => ({
+      type: 'MLFLOW_EXPERIMENT' as const,
+      mlflow_experiment: { experiment_id: experimentId }
+    }));
 
     const payload: SearchTracesV3.Request = {
       locations,

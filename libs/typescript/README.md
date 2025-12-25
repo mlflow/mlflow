@@ -144,11 +144,11 @@ Use `MlflowClient` to search for traces:
 
 ```typescript
 import { MlflowClient } from 'mlflow-tracing';
+import { createAuthProvider } from 'mlflow-tracing/dist/auth';
 
-const client = new MlflowClient({
-  trackingUri: 'http://localhost:5000',
-  host: 'http://localhost:5000'
-});
+const trackingUri = 'http://localhost:5000';
+const authProvider = createAuthProvider({ trackingUri });
+const client = new MlflowClient({ trackingUri, authProvider });
 
 const result = await client.searchTraces({
   experimentIds: ['1'],
@@ -157,8 +157,13 @@ const result = await client.searchTraces({
   orderBy: ['timestamp_ms DESC']
 });
 
+// Each trace contains info (metadata) and data (spans)
 for (const trace of result.traces) {
-  console.log(trace.traceId, trace.requestPreview, trace.responsePreview);
+  console.log(trace.info.traceId, trace.info.requestPreview, trace.info.responsePreview);
+  console.log(
+    'Spans:',
+    trace.data.spans.map((s) => s.name)
+  );
 }
 ```
 
