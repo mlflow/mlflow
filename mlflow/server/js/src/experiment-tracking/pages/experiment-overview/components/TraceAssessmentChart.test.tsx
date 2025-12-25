@@ -9,6 +9,7 @@ import {
   AggregationType,
   AssessmentMetricKey,
   AssessmentFilterKey,
+  AssessmentDimensionKey,
 } from '@databricks/web-shared/model-trace-explorer';
 
 // Mock FetchUtils
@@ -20,18 +21,36 @@ jest.mock('../../../../common/utils/FetchUtils', () => ({
 import { fetchOrFail } from '../../../../common/utils/FetchUtils';
 const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
 
-// Helper to create mock API response
+// Helper to create mock API response for a single call
 const mockApiResponse = (dataPoints: any[] | undefined) => {
   mockFetchOrFail.mockResolvedValue({
     json: () => Promise.resolve({ data_points: dataPoints }),
   } as Response);
 };
 
-// Helper to create an assessment value data point
+// Helper to mock different responses for time series and distribution queries
+const mockApiResponses = (timeSeriesData: any[], distributionData: any[]) => {
+  mockFetchOrFail
+    .mockResolvedValueOnce({
+      json: () => Promise.resolve({ data_points: timeSeriesData }),
+    } as Response)
+    .mockResolvedValueOnce({
+      json: () => Promise.resolve({ data_points: distributionData }),
+    } as Response);
+};
+
+// Helper to create an assessment value data point (for time series)
 const createAssessmentDataPoint = (timeBucket: string, avgValue: number) => ({
   metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
   dimensions: { time_bucket: timeBucket },
   values: { [AggregationType.AVG]: avgValue },
+});
+
+// Helper to create a distribution data point (for bar chart)
+const createDistributionDataPoint = (assessmentValue: string, count: number) => ({
+  metric_name: AssessmentMetricKey.ASSESSMENT_COUNT,
+  dimensions: { [AssessmentDimensionKey.ASSESSMENT_VALUE]: assessmentValue },
+  values: { [AggregationType.COUNT]: count },
 });
 
 // Mock recharts components to avoid rendering issues in tests
@@ -44,10 +63,17 @@ jest.mock('recharts', () => ({
       {children}
     </div>
   ),
+  BarChart: ({ children, data }: { children: React.ReactNode; data: any[] }) => (
+    <div data-testid="bar-chart" data-count={data?.length || 0} data-labels={data?.map((d) => d.name).join(',')}>
+      {children}
+    </div>
+  ),
   Line: ({ dataKey }: { dataKey: string }) => <div data-testid={`line-${dataKey}`} />,
+  Bar: ({ dataKey }: { dataKey: string }) => <div data-testid={`bar-${dataKey}`} />,
   XAxis: () => <div data-testid="x-axis" />,
   YAxis: () => <div data-testid="y-axis" />,
   Tooltip: () => <div data-testid="tooltip" />,
+  Legend: () => <div data-testid="legend" />,
   ReferenceLine: ({ label }: { label?: { value: string } }) => (
     <div data-testid="reference-line" data-label={label?.value} />
   ),
@@ -166,13 +192,14 @@ describe('TraceAssessmentChart', () => {
       });
     });
 
-    it('should display "Over time" label', async () => {
+    it('should display chart section labels', async () => {
       mockApiResponse(mockDataPoints);
 
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText('Over time')).toBeInTheDocument();
+        expect(screen.getByText('Total aggregate scores')).toBeInTheDocument();
+        expect(screen.getByText('Moving average over time')).toBeInTheDocument();
       });
     });
 
@@ -268,6 +295,145 @@ describe('TraceAssessmentChart', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Relevance')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('distribution chart - bucketing behavior', () => {
+    it('should NOT bucket integer values with 5 or fewer unique values', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 3.0)];
+      const distributionData = [
+        createDistributionDataPoint('1', 5),
+        createDistributionDataPoint('2', 10),
+        createDistributionDataPoint('3', 15),
+        createDistributionDataPoint('4', 8),
+        createDistributionDataPoint('5', 3),
+      ];
+
+      mockApiResponses(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        const barChart = screen.getByTestId('bar-chart');
+        expect(barChart).toBeInTheDocument();
+        // Should show individual values, not bucketed
+        expect(barChart).toHaveAttribute('data-count', '5');
+        expect(barChart).toHaveAttribute('data-labels', '1,2,3,4,5');
+      });
+    });
+
+    it('should bucket integer values with more than 5 unique values', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 5.0)];
+      const distributionData = [
+        createDistributionDataPoint('1', 5),
+        createDistributionDataPoint('2', 10),
+        createDistributionDataPoint('3', 15),
+        createDistributionDataPoint('4', 8),
+        createDistributionDataPoint('5', 3),
+        createDistributionDataPoint('6', 7),
+        createDistributionDataPoint('7', 2),
+      ];
+
+      mockApiResponses(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        const barChart = screen.getByTestId('bar-chart');
+        expect(barChart).toBeInTheDocument();
+        // Should be bucketed into 5 ranges
+        expect(barChart).toHaveAttribute('data-count', '5');
+      });
+    });
+
+    it('should bucket float values regardless of count', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.75)];
+      const distributionData = [
+        createDistributionDataPoint('0.1', 5),
+        createDistributionDataPoint('0.5', 10),
+        createDistributionDataPoint('0.9', 8),
+      ];
+
+      mockApiResponses(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        const barChart = screen.getByTestId('bar-chart');
+        expect(barChart).toBeInTheDocument();
+        // Should be bucketed into 5 ranges even with few unique values
+        expect(barChart).toHaveAttribute('data-count', '5');
+      });
+    });
+
+    it('should NOT bucket boolean values', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)];
+      const distributionData = [createDistributionDataPoint('true', 15), createDistributionDataPoint('false', 5)];
+
+      mockApiResponses(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        const barChart = screen.getByTestId('bar-chart');
+        expect(barChart).toBeInTheDocument();
+        // Should show individual values
+        expect(barChart).toHaveAttribute('data-count', '2');
+        expect(barChart).toHaveAttribute('data-labels', 'false,true');
+      });
+    });
+
+    it('should NOT bucket string values', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)];
+      const distributionData = [
+        createDistributionDataPoint('pass', 15),
+        createDistributionDataPoint('fail', 5),
+        createDistributionDataPoint('error', 2),
+      ];
+
+      mockApiResponses(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        const barChart = screen.getByTestId('bar-chart');
+        expect(barChart).toBeInTheDocument();
+        // Should show individual values sorted alphabetically
+        expect(barChart).toHaveAttribute('data-count', '3');
+        expect(barChart).toHaveAttribute('data-labels', 'error,fail,pass');
+      });
+    });
+
+    it('should render both bar chart and line chart', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)];
+      const distributionData = [createDistributionDataPoint('0.8', 10)];
+
+      mockApiResponses(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
+        expect(screen.getByTestId('line-chart')).toBeInTheDocument();
+      });
+    });
+
+    it('should display "Total aggregate scores" label for bar chart', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)];
+      const distributionData = [createDistributionDataPoint('0.8', 10)];
+
+      mockApiResponses(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Total aggregate scores')).toBeInTheDocument();
+      });
+    });
+
+    it('should display "Moving average over time" label for line chart', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)];
+      const distributionData = [createDistributionDataPoint('0.8', 10)];
+
+      mockApiResponses(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Moving average over time')).toBeInTheDocument();
       });
     });
   });

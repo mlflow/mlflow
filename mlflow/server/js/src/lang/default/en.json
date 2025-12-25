@@ -2610,6 +2610,10 @@
     "defaultMessage": "Model {number}",
     "description": "Label for traffic split model"
   },
+  "JNv3nr": {
+    "defaultMessage": "Moving average over time",
+    "description": "Label for assessment score over time chart"
+  },
   "JPd7WA": {
     "defaultMessage": "Key must be unique",
     "description": "Error message for unique key in trace tag assignment modal"
@@ -7222,6 +7226,10 @@
   "uBTAtY": {
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
+  },
+  "uHzRht": {
+    "defaultMessage": "Total aggregate scores",
+    "description": "Label for assessment score distribution chart"
   },
   "uIY1qq": {
     "defaultMessage": "Learn More",
