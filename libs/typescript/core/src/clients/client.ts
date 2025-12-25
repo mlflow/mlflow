@@ -8,7 +8,7 @@ import {
   StartTraceV3,
   SearchTracesV3
 } from './spec';
-import { getRequestHeaders, makeRequest } from './utils';
+import { makeRequest } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
 import { getConfig } from '../core/config';
@@ -106,16 +106,8 @@ export class MlflowClient {
    * Used when spans are stored in the tracking store (SPANS_LOCATION = TRACKING_STORE).
    */
   private async getTraceFromTrackingStore(traceId: string, traceInfo: TraceInfo): Promise<Trace> {
-    const url = GetTrace.getEndpoint(this.host, traceId);
-    const response = await makeRequest<GetTrace.Response>(
-      'GET',
-      url,
-      getRequestHeaders(
-        this.databricksToken,
-        this.trackingServerUsername,
-        this.trackingServerPassword
-      )
-    );
+    const url = GetTrace.getEndpoint(this.hostUrl, traceId);
+    const response = await makeRequest<GetTrace.Response>('GET', url, this.headersProvider);
     const spans = (response.trace.spans || []).map((s) => Span.fromOtelProto(s));
     return new Trace(traceInfo, new TraceData(spans));
   }
@@ -204,7 +196,7 @@ export class MlflowClient {
       includeSpans?: boolean;
     } = {}
   ): Promise<{ traces: Trace[]; nextPageToken?: string }> {
-    const url = SearchTracesV3.getEndpoint(this.host);
+    const url = SearchTracesV3.getEndpoint(this.hostUrl);
     const includeSpans = options.includeSpans ?? true;
 
     // Use provided experimentIds, or default to the experiment ID from init()
@@ -231,11 +223,7 @@ export class MlflowClient {
     const response = await makeRequest<SearchTracesV3.Response>(
       'POST',
       url,
-      getRequestHeaders(
-        this.databricksToken,
-        this.trackingServerUsername,
-        this.trackingServerPassword
-      ),
+      this.headersProvider,
       payload
     );
 
