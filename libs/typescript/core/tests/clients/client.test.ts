@@ -6,6 +6,7 @@ import { TraceState } from '../../src/core/entities/trace_state';
 import { Trace } from '../../src/core/entities/trace';
 import { TraceData } from '../../src/core/entities/trace_data';
 import { init } from '../../src/core/config';
+import { createAuthProvider } from '../../src/auth';
 import { TEST_TRACKING_URI } from '../helper';
 
 describe('MlflowClient', () => {
@@ -13,7 +14,8 @@ describe('MlflowClient', () => {
   let experimentId: string;
 
   beforeEach(async () => {
-    client = new MlflowClient({ trackingUri: TEST_TRACKING_URI, host: TEST_TRACKING_URI });
+    const authProvider = createAuthProvider({ trackingUri: TEST_TRACKING_URI });
+    client = new MlflowClient({ trackingUri: TEST_TRACKING_URI, authProvider });
 
     // Create a new experiment for each test
     const experimentName = `test-experiment-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;

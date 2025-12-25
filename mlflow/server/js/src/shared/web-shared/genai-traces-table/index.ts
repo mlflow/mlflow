@@ -31,6 +31,7 @@ export {
 } from './hooks/useMlflowTraces';
 export { getEvalTabTotalTracesLimit } from './utils/FeatureUtils';
 export { GenAITracesTableToolbar } from './GenAITracesTableToolbar';
+export { GenAiTracesTableSearchInput } from './GenAiTracesTableSearchInput';
 export { GenAITracesTableBodyContainer } from './GenAITracesTableBodyContainer';
 export { useTableColumns } from './hooks/useTableColumns';
 export { getAssessmentInfos } from './utils/AggregationUtils';

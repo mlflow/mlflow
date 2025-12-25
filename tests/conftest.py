@@ -269,23 +269,29 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
     total_duration = 0.0
 
     while need_to_run:
+        item.ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
         item.execution_count += 1
         start = time.perf_counter()
         reports = runtestprotocol(item, nextitem=nextitem, log=False)
         total_duration += time.perf_counter() - start
 
         for report in reports:
-            if should_rerun and report.when == "call" and report.failed:
-                if item.execution_count < attempts:
-                    report.outcome = "rerun"
-                    # Re-initialize the test item for the next run
-                    if hasattr(item, "_request"):
-                        item._initrequest()
-                    break
-            item.ihook.pytest_runtest_logreport(report=report)
+            if (
+                should_rerun
+                and report.when == "call"
+                and report.failed
+                and item.execution_count < attempts
+            ):
+                report.outcome = "rerun"
+                item.ihook.pytest_runtest_logreport(report=report)
+                break
+            else:
+                item.ihook.pytest_runtest_logreport(report=report)
         else:
             # No rerun needed (passed or exhausted attempts), exit the loop
             need_to_run = False
+
+        item.ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
 
     _test_results.append(
         TestResult(path=item.path, test_name=item.name, execution_time=total_duration)

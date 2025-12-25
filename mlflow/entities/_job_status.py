@@ -11,6 +11,7 @@ class JobStatus(str, Enum):
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
     TIMEOUT = "TIMEOUT"
+    CANCELED = "CANCELED"
 
     @classmethod
     def from_int(cls, status_int: int) -> "JobStatus":
@@ -45,4 +46,9 @@ class JobStatus(str, Enum):
         Determines whether or not a JobStatus is a finalized status.
         A finalized status indicates that no further status updates will occur.
         """
-        return status in [JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.TIMEOUT]
+        return status in [
+            JobStatus.SUCCEEDED,
+            JobStatus.FAILED,
+            JobStatus.TIMEOUT,
+            JobStatus.CANCELED,
+        ]

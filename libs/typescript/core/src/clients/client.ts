@@ -14,38 +14,47 @@ import { ArtifactsClient, getArtifactsClient } from './artifacts';
 import { getConfig } from '../core/config';
 import { Span } from '../core/entities/span';
 import { TraceTagKey, SpansLocation } from '../core/constants';
+import { AuthProvider, HeadersProvider } from '../auth';
 
 /**
- * Client for MLflow tracing operations
+ * Client for MLflow tracing operations.
+ *
+ * Supports multiple authentication methods:
+ * - Databricks: PAT tokens, OAuth M2M, Azure CLI/MSI, Google Cloud
+ * - OSS MLflow: Basic auth, Bearer tokens, or no auth
  */
 export class MlflowClient {
-  /** MLflow tracking server host or Databricks workspace URL */
-  private host: string;
-  /** Databricks personal access token */
-  private databricksToken?: string;
   /** Client implementation to upload/download trace data artifacts */
   private artifactsClient: ArtifactsClient;
-  /** The tracking server username for basic auth */
-  private trackingServerUsername?: string;
-  /** The tracking server password for basic auth */
-  private trackingServerPassword?: string;
 
-  constructor(options: {
-    trackingUri: string;
-    host: string;
-    databricksToken?: string;
-    trackingServerUsername?: string;
-    trackingServerPassword?: string;
-  }) {
-    this.host = options.host;
-    this.databricksToken = options.databricksToken;
-    this.trackingServerUsername = options.trackingServerUsername;
-    this.trackingServerPassword = options.trackingServerPassword;
+  /** Headers provider for authenticated requests */
+  private headersProvider: HeadersProvider;
+
+  /** Host URL for API requests */
+  private hostUrl: string;
+
+  /**
+   * Creates a new MlflowClient.
+   *
+   * @param trackingUri - The tracking URI (e.g., "databricks", "http://localhost:5000")
+   * @param authProvider - The authentication provider to get tokens for authenticated requests
+   */
+  constructor(options: { trackingUri: string; authProvider: AuthProvider }) {
+    this.headersProvider = options.authProvider.getHeadersProvider();
+    this.hostUrl = options.authProvider.getHost();
+
     this.artifactsClient = getArtifactsClient({
       trackingUri: options.trackingUri,
-      host: options.host,
-      databricksToken: options.databricksToken
+      host: this.hostUrl,
+      authProvider: options.authProvider
     });
+  }
+
+  /**
+   * Get the host URL for this client.
+   */
+  getHost(): string {
+    return this.hostUrl;
   }
 
   // === TRACE LOGGING METHODS ===
@@ -57,16 +66,12 @@ export class MlflowClient {
    * The API is indeed called at the "end" of a trace, not the "start".
    */
   async createTrace(traceInfo: TraceInfo): Promise<TraceInfo> {
-    const url = StartTraceV3.getEndpoint(this.host);
+    const url = StartTraceV3.getEndpoint(this.hostUrl);
     const payload: StartTraceV3.Request = { trace: { trace_info: traceInfo.toJson() } };
     const response = await makeRequest<StartTraceV3.Response>(
       'POST',
       url,
-      getRequestHeaders(
-        this.databricksToken,
-        this.trackingServerUsername,
-        this.trackingServerPassword
-      ),
+      this.headersProvider,
       payload
     );
     return TraceInfo.fromJson(response.trace.trace_info);
@@ -129,16 +134,8 @@ export class MlflowClient {
    * Endpoint: GET /api/3.0/mlflow/traces/{trace_id}
    */
   async getTraceInfo(traceId: string): Promise<TraceInfo> {
-    const url = GetTraceInfoV3.getEndpoint(this.host, traceId);
-    const response = await makeRequest<GetTraceInfoV3.Response>(
-      'GET',
-      url,
-      getRequestHeaders(
-        this.databricksToken,
-        this.trackingServerUsername,
-        this.trackingServerPassword
-      )
-    );
+    const url = GetTraceInfoV3.getEndpoint(this.hostUrl, traceId);
+    const response = await makeRequest<GetTraceInfoV3.Response>('GET', url, this.headersProvider);
 
     // The V3 API returns a Trace object with trace_info field
     if (response.trace?.trace_info) {
@@ -164,16 +161,12 @@ export class MlflowClient {
     artifactLocation?: string,
     tags?: Record<string, string>
   ): Promise<string> {
-    const url = CreateExperiment.getEndpoint(this.host);
+    const url = CreateExperiment.getEndpoint(this.hostUrl);
     const payload: CreateExperiment.Request = { name, artifact_location: artifactLocation, tags };
     const response = await makeRequest<CreateExperiment.Response>(
       'POST',
       url,
-      getRequestHeaders(
-        this.databricksToken,
-        this.trackingServerUsername,
-        this.trackingServerPassword
-      ),
+      this.headersProvider,
       payload
     );
     return response.experiment_id;
@@ -183,18 +176,9 @@ export class MlflowClient {
    * Delete an experiment
    */
   async deleteExperiment(experimentId: string): Promise<void> {
-    const url = DeleteExperiment.getEndpoint(this.host);
+    const url = DeleteExperiment.getEndpoint(this.hostUrl);
     const payload: DeleteExperiment.Request = { experiment_id: experimentId };
-    await makeRequest<void>(
-      'POST',
-      url,
-      getRequestHeaders(
-        this.databricksToken,
-        this.trackingServerUsername,
-        this.trackingServerPassword
-      ),
-      payload
-    );
+    await makeRequest<void>('POST', url, this.headersProvider, payload);
   }
 
   /**

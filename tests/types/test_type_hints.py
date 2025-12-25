@@ -9,7 +9,7 @@ import pytest
 from scipy.sparse import csc_matrix, csr_matrix
 
 from mlflow.exceptions import MlflowException
-from mlflow.models.utils import _enforce_schema
+from mlflow.models.utils import PyFuncOutput, _enforce_schema
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import (
     InvalidTypeHintException,
@@ -506,3 +506,22 @@ def test_convert_dataframe_to_example_format(data):
         pd.testing.assert_frame_equal(converted_data, data)
     else:
         assert converted_data == data
+
+
+def test_dict_in_pyfunc_output():
+    """
+    Ensure dict is in PyFuncOutput union.
+
+    ResponsesAgent, ChatAgent, and ChatModel all return dict[str, Any]
+    at runtime via their pyfunc wrappers. PyFuncOutput must include dict
+    to accurately reflect this behavior.
+    """
+    output_types = get_args(PyFuncOutput)
+    # Check if dict is in the union (it could be dict or dict[str, Any])
+    has_dict = any(
+        t is dict or (hasattr(t, "__origin__") and t.__origin__ is dict) for t in output_types
+    )
+    assert has_dict, (
+        f"dict must be in PyFuncOutput for ResponsesAgent/ChatAgent/ChatModel. "
+        f"Current types: {output_types}"
+    )

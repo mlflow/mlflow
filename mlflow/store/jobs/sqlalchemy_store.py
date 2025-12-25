@@ -92,14 +92,21 @@ class SqlAlchemyJobStore(AbstractJobStore):
             session.flush()
             return job.to_mlflow_entity()
 
-    def _update_job(self, job_id: str, new_status: JobStatus, result: str | None = None) -> None:
+    def _update_job(self, job_id: str, new_status: JobStatus, result: str | None = None) -> Job:
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
+
+            if JobStatus.is_finalized(job.status):
+                raise MlflowException(
+                    f"The Job {job_id} is already finalized with status: {job.status}, "
+                    "it can't be updated."
+                )
 
             job.status = new_status.to_int()
             if result is not None:
                 job.result = result
             job.last_update_time = get_current_time_millis()
+            return job.to_mlflow_entity()
 
     def start_job(self, job_id: str) -> None:
         """
@@ -315,3 +322,18 @@ class SqlAlchemyJobStore(AbstractJobStore):
                     f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
                 )
             return job.to_mlflow_entity()
+
+    def cancel_job(self, job_id: str) -> Job:
+        """
+        Cancel a job by its ID.
+
+        Args:
+            job_id: The ID of the job to cancel
+
+        Returns:
+            Job entity
+
+        Raises:
+            MlflowException: If job with the given ID is not found
+        """
+        return self._update_job(job_id, JobStatus.CANCELED)

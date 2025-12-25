@@ -2,16 +2,32 @@ import { SerializedTraceData, TraceData } from '../../core/entities/trace_data';
 import { TraceInfo } from '../../core/entities/trace_info';
 import { JSONBig } from '../../core/utils/json';
 import { GetCredentialsForTraceDataDownload, GetCredentialsForTraceDataUpload } from '../spec';
-import { getRequestHeaders, makeRequest } from '../utils';
+import { makeRequest } from '../utils';
 import { ArtifactsClient } from './base';
+import { AuthProvider, HeadersProvider } from '../../auth';
+
+/**
+ * Options for creating a DatabricksArtifactsClient.
+ */
+export interface DatabricksArtifactsClientOptions {
+  /**
+   * The Databricks workspace host URL
+   */
+  host: string;
+
+  /**
+   * Authentication provider
+   */
+  authProvider: AuthProvider;
+}
 
 export class DatabricksArtifactsClient implements ArtifactsClient {
   private host: string;
-  private databricksToken?: string;
+  private headersProvider: HeadersProvider;
 
-  constructor(options: { host: string; databricksToken?: string }) {
+  constructor(options: DatabricksArtifactsClientOptions) {
     this.host = options.host;
-    this.databricksToken = options.databricksToken;
+    this.headersProvider = options.authProvider.getHeadersProvider();
   }
 
   /**
@@ -59,7 +75,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     const response = await makeRequest<GetCredentialsForTraceDataUpload.Response>(
       'GET',
       url,
-      getRequestHeaders(this.databricksToken)
+      this.headersProvider
     );
     return response.credential_info;
   }
@@ -75,7 +91,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     const response = await makeRequest<GetCredentialsForTraceDataDownload.Response>(
       'GET',
       url,
-      getRequestHeaders(this.databricksToken)
+      this.headersProvider
     );
 
     if (response.credential_info) {

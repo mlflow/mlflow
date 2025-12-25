@@ -32,10 +32,13 @@ from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
     Dataset,
     DatasetInput,
+    FallbackConfig,
+    FallbackStrategy,
     GatewayResourceType,
     InputTag,
     Metric,
     Param,
+    RoutingStrategy,
     RunInputs,
     RunTag,
     Span,
@@ -4268,6 +4271,11 @@ def test_create_and_get_endpoint(mlflow_client_with_secrets):
         secret_value={"api_key": "sk-test-12345"},
         provider="openai",
     )
+    secret2 = store.create_gateway_secret(
+        secret_name="test-api-key-fallback",
+        secret_value={"api_key": "sk-test-67890"},
+        provider="anthropic",
+    )
 
     model_def = store.create_gateway_model_definition(
         name="test-model-def",
@@ -4275,21 +4283,41 @@ def test_create_and_get_endpoint(mlflow_client_with_secrets):
         provider="openai",
         model_name="gpt-4",
     )
+    model_def_fallback = store.create_gateway_model_definition(
+        name="test-model-def-fallback",
+        secret_id=secret2.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet",
+    )
 
     endpoint = store.create_gateway_endpoint(
         name="test-endpoint",
         model_definition_ids=[model_def.model_definition_id],
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
+        fallback_model_definition_ids=[model_def_fallback.model_definition_id],
     )
 
     assert endpoint.name == "test-endpoint"
     assert endpoint.endpoint_id is not None
-    assert len(endpoint.model_mappings) == 1
+    assert len(endpoint.model_mappings) == 2
     assert endpoint.model_mappings[0].model_definition.model_name == "gpt-4"
+    assert endpoint.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert endpoint.fallback_config is not None
+    assert endpoint.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert endpoint.fallback_config.max_attempts == 2
 
     fetched = store.get_gateway_endpoint(endpoint.endpoint_id)
     assert fetched.name == "test-endpoint"
     assert fetched.endpoint_id == endpoint.endpoint_id
-    assert len(fetched.model_mappings) == 1
+    assert len(fetched.model_mappings) == 2
+    assert fetched.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert fetched.fallback_config is not None
+    assert fetched.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert fetched.fallback_config.max_attempts == 2
 
 
 def test_update_endpoint(mlflow_client_with_secrets):
@@ -4300,12 +4328,23 @@ def test_update_endpoint(mlflow_client_with_secrets):
         secret_value={"api_key": "sk-test-67890"},
         provider="anthropic",
     )
+    secret2 = store.create_gateway_secret(
+        secret_name="test-api-key-2-fallback",
+        secret_value={"api_key": "sk-test-99999"},
+        provider="openai",
+    )
 
     model_def = store.create_gateway_model_definition(
         name="test-model-def-2",
         secret_id=secret.secret_id,
         provider="anthropic",
         model_name="claude-3-5-sonnet",
+    )
+    model_def_fallback = store.create_gateway_model_definition(
+        name="test-model-def-2-fallback",
+        secret_id=secret2.secret_id,
+        provider="openai",
+        model_name="gpt-4",
     )
 
     endpoint = store.create_gateway_endpoint(
@@ -4316,10 +4355,21 @@ def test_update_endpoint(mlflow_client_with_secrets):
     updated = store.update_gateway_endpoint(
         endpoint_id=endpoint.endpoint_id,
         name="updated-name",
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=3,
+        ),
+        fallback_model_definition_ids=[model_def_fallback.model_definition_id],
     )
 
     assert updated.endpoint_id == endpoint.endpoint_id
     assert updated.name == "updated-name"
+    assert updated.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert updated.fallback_config is not None
+    assert updated.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert updated.fallback_config.max_attempts == 3
+    assert len(updated.model_mappings) == 2
 
 
 def test_list_endpoints(mlflow_client_with_secrets):
@@ -4335,6 +4385,11 @@ def test_list_endpoints(mlflow_client_with_secrets):
         secret_value={"api_key": "sk-test-22222"},
         provider="openai",
     )
+    secret3 = store.create_gateway_secret(
+        secret_name="test-api-key-fallback-3",
+        secret_value={"api_key": "sk-test-44444"},
+        provider="anthropic",
+    )
 
     model_def1 = store.create_gateway_model_definition(
         name="test-model-def-3",
@@ -4348,14 +4403,28 @@ def test_list_endpoints(mlflow_client_with_secrets):
         provider="openai",
         model_name="gpt-3.5-turbo",
     )
+    model_def3 = store.create_gateway_model_definition(
+        name="test-model-def-fallback-3",
+        secret_id=secret3.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet",
+    )
 
+    # Create endpoint without fallback
     endpoint1 = store.create_gateway_endpoint(
         name="endpoint-1",
         model_definition_ids=[model_def1.model_definition_id],
     )
+    # Create endpoint with fallback
     endpoint2 = store.create_gateway_endpoint(
         name="endpoint-2",
         model_definition_ids=[model_def2.model_definition_id],
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
+        fallback_model_definition_ids=[model_def3.model_definition_id],
     )
 
     all_endpoints = store.list_gateway_endpoints()
@@ -4363,6 +4432,18 @@ def test_list_endpoints(mlflow_client_with_secrets):
     endpoint_ids = {e.endpoint_id for e in all_endpoints}
     assert endpoint1.endpoint_id in endpoint_ids
     assert endpoint2.endpoint_id in endpoint_ids
+
+    # Find and verify endpoints
+    found_ep1 = next(e for e in all_endpoints if e.endpoint_id == endpoint1.endpoint_id)
+    found_ep2 = next(e for e in all_endpoints if e.endpoint_id == endpoint2.endpoint_id)
+
+    assert found_ep1.routing_strategy is None
+    assert found_ep1.fallback_config is None
+
+    assert found_ep2.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert found_ep2.fallback_config is not None
+    assert found_ep2.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert found_ep2.fallback_config.max_attempts == 2
 
 
 def test_delete_endpoint(mlflow_client_with_secrets):

@@ -154,3 +154,10 @@ export const shouldDisableAssessmentsPaneOnFetchFailure = () => {
 export const shouldEnableExperimentPageSideTabs = () => {
   return true;
 };
+
+/**
+ * Determines if the Overview tab is enabled on the experiment page
+ */
+export const shouldEnableExperimentOverviewTab = () => {
+  return false;
+};

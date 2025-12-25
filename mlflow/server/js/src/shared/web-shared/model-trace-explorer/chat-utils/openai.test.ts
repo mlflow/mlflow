@@ -239,6 +239,88 @@ const MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT = [
   },
 ];
 
+// Non-streaming output with reasoning (summary with text)
+const MOCK_OPENAI_RESPONSES_OUTPUT_WITH_REASONING = {
+  id: 'resp_123',
+  object: 'response',
+  output: [
+    {
+      id: 'reasoning_001',
+      type: 'reasoning',
+      summary: [
+        { type: 'summary_text', text: 'Let me count the letters in strawberry.' },
+        { type: 'summary_text', text: 'I see: s-t-r-a-w-b-e-r-r-y. That is 3 rs.' },
+      ],
+    },
+    {
+      id: 'msg_001',
+      type: 'message',
+      role: 'assistant',
+      status: 'completed',
+      content: [{ type: 'output_text', text: 'There are 3 rs in strawberry.' }],
+    },
+  ],
+};
+
+// Non-streaming output with reasoning but no summary (encrypted reasoning)
+const MOCK_OPENAI_RESPONSES_OUTPUT_WITH_REASONING_NO_SUMMARY = {
+  id: 'resp_456',
+  object: 'response',
+  output: [
+    {
+      id: 'reasoning_002',
+      type: 'reasoning',
+      summary: null,
+      encrypted_content: 'some_encrypted_content',
+    },
+    {
+      id: 'msg_002',
+      type: 'message',
+      role: 'assistant',
+      status: 'completed',
+      content: [{ type: 'output_text', text: 'The answer is 42.' }],
+    },
+  ],
+};
+
+// Non-streaming output with reasoning followed by function call
+const MOCK_OPENAI_RESPONSES_OUTPUT_WITH_REASONING_AND_FUNCTION_CALL = {
+  id: 'resp_789',
+  object: 'response',
+  output: [
+    {
+      id: 'reasoning_003',
+      type: 'reasoning',
+      summary: [{ type: 'summary_text', text: 'I need to calculate 6 * 7 using the calculator tool.' }],
+    },
+    {
+      id: 'fc_001',
+      type: 'function_call',
+      call_id: 'call_001',
+      name: 'calculator',
+      arguments: '{"operation": "multiply", "a": 6, "b": 7}',
+    },
+  ],
+};
+
+// Streaming output with reasoning (autologged format - items are extracted)
+const MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT_WITH_REASONING = {
+  output: [
+    {
+      id: 'reasoning_004',
+      type: 'reasoning',
+      summary: [{ type: 'summary_text', text: 'Counting letters: s-t-r-a-w-b-e-r-r-y has 3 rs.' }],
+    },
+    {
+      id: 'msg_004',
+      type: 'message',
+      role: 'assistant',
+      status: 'completed',
+      content: [{ type: 'output_text', text: 'There are 3 rs in strawberry.' }],
+    },
+  ],
+};
+
 describe('normalizeConversation', () => {
   it('handles an OpenAI chat input', () => {
     expect(normalizeConversation(MOCK_OPENAI_CHAT_INPUT, 'openai')).toEqual([
@@ -306,5 +388,73 @@ describe('normalizeConversation', () => {
         content: 'What is 6*7 in Python? use your tool',
       }),
     ]);
+  });
+
+  describe('OpenAI reasoning support', () => {
+    it('handles non-streaming output with reasoning summary', () => {
+      const result = normalizeConversation(MOCK_OPENAI_RESPONSES_OUTPUT_WITH_REASONING, 'openai');
+      expect(result).toEqual([
+        expect.objectContaining({
+          role: 'assistant',
+          content: 'There are 3 rs in strawberry.',
+          reasoning: 'Let me count the letters in strawberry.\n\nI see: s-t-r-a-w-b-e-r-r-y. That is 3 rs.',
+        }),
+      ]);
+    });
+
+    it('handles non-streaming output with reasoning but no summary (encrypted)', () => {
+      const result = normalizeConversation(MOCK_OPENAI_RESPONSES_OUTPUT_WITH_REASONING_NO_SUMMARY, 'openai');
+      expect(result).toEqual([
+        expect.objectContaining({
+          role: 'assistant',
+          content: 'The answer is 42.',
+        }),
+      ]);
+      // Should NOT have reasoning field when summary is null
+      expect(result?.[0]).not.toHaveProperty('reasoning');
+    });
+
+    it('attaches reasoning to function calls', () => {
+      const result = normalizeConversation(MOCK_OPENAI_RESPONSES_OUTPUT_WITH_REASONING_AND_FUNCTION_CALL, 'openai');
+      expect(result).toEqual([
+        expect.objectContaining({
+          role: 'assistant',
+          reasoning: 'I need to calculate 6 * 7 using the calculator tool.',
+          tool_calls: [
+            expect.objectContaining({
+              id: 'call_001',
+              function: {
+                name: 'calculator',
+                arguments: expect.stringContaining('multiply'),
+              },
+            }),
+          ],
+        }),
+      ]);
+    });
+
+    it('handles streaming output with reasoning (autologged format)', () => {
+      const result = normalizeConversation(MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT_WITH_REASONING, 'openai');
+      expect(result).toEqual([
+        expect.objectContaining({
+          role: 'assistant',
+          content: 'There are 3 rs in strawberry.',
+          reasoning: 'Counting letters: s-t-r-a-w-b-e-r-r-y has 3 rs.',
+        }),
+      ]);
+    });
+
+    it('handles output without reasoning (backward compatibility)', () => {
+      // The existing MOCK_OPENAI_RESPONSES_OUTPUT has a reasoning item with empty summary
+      const result = normalizeConversation(MOCK_OPENAI_RESPONSES_OUTPUT, 'openai');
+      expect(result).toEqual([
+        expect.objectContaining({
+          role: 'assistant',
+          content: 'The capital of France is Paris.',
+        }),
+      ]);
+      // Should NOT have reasoning field when summary is empty array
+      expect(result?.[0]).not.toHaveProperty('reasoning');
+    });
   });
 });

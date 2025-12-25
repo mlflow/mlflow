@@ -77,6 +77,46 @@ import * as mlflow from 'mlflow-tracing';
 mlflow.init(); // Uses the values from the environment
 ```
 
+### Authentication
+
+For MLflow tracking servers that require authentication, the SDK supports:
+
+1. **Basic Auth** (username/password):
+
+```typescript
+mlflow.init({
+  trackingUri: 'http://localhost:5000',
+  experimentId: '123456789',
+  trackingServerUsername: 'user',
+  trackingServerPassword: 'pass'
+});
+```
+
+Or via environment variables:
+
+```bash
+export MLFLOW_TRACKING_USERNAME=user
+export MLFLOW_TRACKING_PASSWORD=pass
+```
+
+2. **Bearer Token**:
+
+```typescript
+mlflow.init({
+  trackingUri: 'http://localhost:5000',
+  experimentId: '123456789',
+  trackingServerToken: 'my-token'
+});
+```
+
+Or via environment variable:
+
+```bash
+export MLFLOW_TRACKING_TOKEN=my-token
+```
+
+3. **No authentication** (default for local development)
+
 Create a trace:
 
 ```typescript
