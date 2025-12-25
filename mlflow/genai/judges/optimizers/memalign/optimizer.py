@@ -1,7 +1,4 @@
-"""MemAlign optimizer implementation."""
-
 import logging
-import os
 from collections import OrderedDict
 from typing import Any
 
@@ -17,20 +14,15 @@ from mlflow.genai.judges.optimizers.dspy_utils import (
     create_dspy_signature,
     trace_to_dspy_example,
 )
+from mlflow.genai.judges.optimizers.memalign.utils import (
+    get_default_embedding_model,
+    load_distillation_template,
+)
 from mlflow.genai.judges.utils import get_default_model
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
-
-
-def _load_distillation_template():
-    """Load the guideline distillation template."""
-    from jinja2 import Environment, FileSystemLoader
-
-    template_dir = os.path.dirname(os.path.abspath(__file__))
-    env = Environment(loader=FileSystemLoader(template_dir))
-    return env.get_template("distillation_guidelines.txt")
 
 
 class MemoryAugmentedJudge(Judge):
@@ -54,17 +46,6 @@ class MemoryAugmentedJudge(Judge):
         embed_dim: int,
         examples: list["dspy.Example"],
     ):
-        """Initialize memory-augmented judge.
-
-        Args:
-            base_judge: Original judge to wrap
-            base_signature: DSPy signature from base judge
-            distillation_model: Model for guideline distillation
-            retrieval_k: Number of examples to retrieve
-            embedder_name: Embedding model name
-            embed_dim: Embedding dimension
-            examples: Initial DSPy examples to populate memories
-        """
         self._base_judge = base_judge
         self._base_signature = base_signature
         self._retrieval_k = retrieval_k
@@ -74,7 +55,7 @@ class MemoryAugmentedJudge(Judge):
 
         self._distillation_model = distillation_model
         self._distillation_lm = construct_dspy_lm(distillation_model)
-        self._distill_template = _load_distillation_template()
+        self._distill_template = load_distillation_template()
 
         self._semantic_memory: list[str] = []
 
@@ -92,7 +73,6 @@ class MemoryAugmentedJudge(Judge):
             self._add_examples(examples)
 
     def __call__(self, **kwargs) -> Feedback:
-        """Evaluate with memory augmentation."""
         guidelines = self._semantic_memory
         relevant_examples = self._retrieve_relevant_examples(kwargs)
 
@@ -138,10 +118,11 @@ class MemoryAugmentedJudge(Judge):
         """
         trace_ids_to_remove = {trace.info.trace_id for trace in traces}
 
-        ids_to_remove = []
-        for example_id, example in self._examples.items():
-            if hasattr(example, "_trace_id") and example._trace_id in trace_ids_to_remove:
-                ids_to_remove.append(example_id)
+        ids_to_remove = {
+            example_id
+            for example_id, example in self._examples.items()
+            if hasattr(example, "_trace_id") and example._trace_id in trace_ids_to_remove
+        }
 
         if not ids_to_remove:
             _logger.warning("No feedback records found for the provided traces")
@@ -165,7 +146,6 @@ class MemoryAugmentedJudge(Judge):
         )
 
     def _create_extended_signature(self) -> "dspy.Signature":
-        """Create extended signature with memory fields."""
         guidelines_field = dspy.InputField(
             desc=(
                 "General guidelines you should always consider when evaluating an input. "
@@ -187,7 +167,6 @@ class MemoryAugmentedJudge(Judge):
         return extended_sig.prepend("example_judgements", examples_field)
 
     def _add_examples(self, examples: list["dspy.Example"]) -> None:
-        """Add examples to memories."""
         for example in examples:
             example_id = self._next_id
             self._examples[example_id] = example
@@ -199,7 +178,6 @@ class MemoryAugmentedJudge(Judge):
         _logger.info(f"Added {len(examples)} examples to memories")
 
     def _distill_guidelines(self, examples: list["dspy.Example"]) -> None:
-        """Distill guidelines from examples using LLM."""
         if not examples:
             return
 
@@ -208,10 +186,10 @@ class MemoryAugmentedJudge(Judge):
         examples_data = []
         for example in examples:
             example_dict = {}
-            for field_name in self._base_signature.input_fields:
-                if hasattr(example, field_name):
-                    example_dict[field_name] = getattr(example, field_name)
-            for field_name in self._base_signature.output_fields:
+            all_fields = list(self._base_signature.input_fields) + list(
+                self._base_signature.output_fields
+            )
+            for field_name in all_fields:
                 if hasattr(example, field_name):
                     example_dict[field_name] = getattr(example, field_name)
             examples_data.append(example_dict)
@@ -256,7 +234,6 @@ class MemoryAugmentedJudge(Judge):
             _logger.error(f"Failed to distill guidelines: {e}")
 
     def _update_episodic_memory(self, examples: list["dspy.Example"]) -> None:
-        """Update episodic memory with embeddings."""
         corpus = []
         for example in examples:
             query_parts = []
@@ -274,7 +251,6 @@ class MemoryAugmentedJudge(Judge):
         _logger.info(f"Episodic memory now contains {len(examples)} examples")
 
     def _retrieve_relevant_examples(self, query_kwargs: dict[str, Any]) -> list["dspy.Example"]:
-        """Retrieve relevant examples from episodic memory."""
         if not self._examples or self._search is None:
             return []
 
@@ -291,7 +267,7 @@ class MemoryAugmentedJudge(Judge):
         return [example_values[i] for i in search_results_ids if 0 <= i < len(example_values)]
 
 
-@experimental(version="3.6.0")
+@experimental(version="3.9.0")
 class MemAlignOptimizer(AlignmentOptimizer):
     """MemAlign alignment optimizer using dual memory systems.
 
@@ -323,25 +299,18 @@ class MemAlignOptimizer(AlignmentOptimizer):
         self,
         distillation_model: str | None = None,
         retrieval_k: int = 5,
-        embedder_name: str = "openai/text-embedding-3-small",
+        embedder_name: str | None = None,
         embed_dim: int = 512,
         **kwargs,
     ):
-        """Initialize MemAlign optimizer.
-
-        Args:
-            distillation_model: Model for guideline distillation. If None, uses default.
-            retrieval_k: Number of examples to retrieve from episodic memory.
-            embedder_name: Embedding model name in LiteLLM format.
-            embed_dim: Embedding dimension.
-            **kwargs: Additional arguments passed to parent class
-        """
         super().__init__(**kwargs)
         self._distillation_model = (
             distillation_model if distillation_model is not None else get_default_model()
         )
         self._retrieval_k = retrieval_k
-        self._embedder_name = embedder_name
+        self._embedder_name = (
+            embedder_name if embedder_name is not None else get_default_embedding_model()
+        )
         self._embed_dim = embed_dim
 
     def align(self, judge: Judge, traces: list[Trace]) -> Judge:
