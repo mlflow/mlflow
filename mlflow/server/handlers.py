@@ -23,6 +23,8 @@ from mlflow.entities import (
     DatasetInput,
     Expectation,
     ExperimentTag,
+    FallbackConfig,
+    FallbackStrategy,
     Feedback,
     FileInfo,
     GatewayEndpointTag,
@@ -31,6 +33,9 @@ from mlflow.entities import (
     Param,
     RunTag,
     ViewType,
+)
+from mlflow.entities import (
+    RoutingStrategy as RoutingStrategyEntity,
 )
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -4048,14 +4053,33 @@ def _create_gateway_endpoint():
     request_message = _get_request_message(
         CreateGatewayEndpoint(),
         schema={
-            "name": [_assert_string],
+            "name": [_assert_required, _assert_string],
             "created_by": [_assert_string],
+            "model_definition_ids": [_assert_required],
+            "routing_strategy": [_assert_string],
         },
     )
+    # Convert proto fallback_config to entity FallbackConfig
+    fallback_config = None
+    if request_message.HasField("fallback_config"):
+        fallback_config = FallbackConfig(
+            strategy=FallbackStrategy.from_proto(request_message.fallback_config.strategy)
+            if request_message.fallback_config.HasField("strategy")
+            else None,
+            max_attempts=request_message.fallback_config.max_attempts
+            if request_message.fallback_config.HasField("max_attempts")
+            else None,
+        )
+
     endpoint = _get_tracking_store().create_gateway_endpoint(
         name=request_message.name or None,
         model_definition_ids=list(request_message.model_definition_ids),
         created_by=request_message.created_by or None,
+        routing_strategy=RoutingStrategyEntity.from_proto(request_message.routing_strategy)
+        if request_message.HasField("routing_strategy")
+        else None,
+        fallback_config=fallback_config,
+        fallback_model_definition_ids=list(request_message.fallback_model_definition_ids),
     )
     response_message = CreateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4086,12 +4110,31 @@ def _update_gateway_endpoint():
             "endpoint_id": [_assert_required, _assert_string],
             "name": [_assert_string],
             "updated_by": [_assert_string],
+            "routing_strategy": [_assert_string],
         },
     )
+    # Convert proto fallback_config to entity FallbackConfig
+    fallback_config = None
+    if request_message.HasField("fallback_config"):
+        fallback_config = FallbackConfig(
+            strategy=FallbackStrategy.from_proto(request_message.fallback_config.strategy)
+            if request_message.fallback_config.HasField("strategy")
+            else None,
+            max_attempts=request_message.fallback_config.max_attempts
+            if request_message.fallback_config.HasField("max_attempts")
+            else None,
+        )
+
     endpoint = _get_tracking_store().update_gateway_endpoint(
         endpoint_id=request_message.endpoint_id,
         name=request_message.name or None,
+        model_definition_ids=list(request_message.model_definition_ids),
         updated_by=request_message.updated_by or None,
+        routing_strategy=RoutingStrategyEntity.from_proto(request_message.routing_strategy)
+        if request_message.HasField("routing_strategy")
+        else None,
+        fallback_config=fallback_config,
+        fallback_model_definition_ids=list(request_message.fallback_model_definition_ids),
     )
     response_message = UpdateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
