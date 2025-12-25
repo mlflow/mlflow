@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -224,8 +225,10 @@ def _get_assessment_numeric_value_column(json_column: Column) -> Column:
         Column expression that extracts numeric value or NULL for non-numeric values
     """
     return case(
-        (json_column == "true", 1.0),
-        (json_column == "false", 0.0),
+        # yes / no -> 1.0 / 0.0 to support mlflow.genai.judges.CategoricalRating
+        # that is used by builtin judges
+        (json_column.in_([json.dumps(True), json.dumps("yes")]), 1.0),
+        (json_column.in_([json.dumps(False), json.dumps("no")]), 0.0),
         # Skip null, strings, lists, and dicts (JSON null/objects/arrays)
         (json_column == "null", None),
         (func.substring(json_column, 1, 1).in_(['"', "[", "{"]), None),
