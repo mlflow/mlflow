@@ -782,8 +782,8 @@ def gc(
         # Delete all jobs older than 7 days (requires --jobs flag)
         mlflow gc --jobs --older-than 7d
 
-        # Delete specific jobs by ID (requires --jobs flag)
-        mlflow gc --jobs --job-ids 'job1,job2,job3'
+        # Delete specific jobs by ID
+        mlflow gc --job-ids 'job1,job2,job3'
 
     """
     from mlflow.utils.time import get_current_time_millis
