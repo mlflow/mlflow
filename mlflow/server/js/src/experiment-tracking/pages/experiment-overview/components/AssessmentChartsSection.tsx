@@ -11,7 +11,6 @@ import {
   createAssessmentFilter,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
-import { ChartGrid } from './OverviewLayoutComponents';
 import { ChartLoadingState, ChartErrorState, ChartEmptyState } from './ChartCardWrapper';
 import { LazyTraceAssessmentChart } from './LazyTraceAssessmentChart';
 import type { OverviewChartProps } from '../types';
@@ -129,18 +128,16 @@ export const AssessmentChartsSection: React.FC<OverviewChartProps> = ({
         </Typography.Text>
       </div>
 
-      {/* Assessment charts grid */}
-      <ChartGrid>
-        {assessmentNames.map((name, index) => (
-          <LazyTraceAssessmentChart
-            key={name}
-            {...chartProps}
-            assessmentName={name}
-            lineColor={getAssessmentColor(index)}
-            avgValue={avgValuesByName.get(name)}
-          />
-        ))}
-      </ChartGrid>
+      {/* Assessment charts - one row per scorer */}
+      {assessmentNames.map((name, index) => (
+        <LazyTraceAssessmentChart
+          key={name}
+          {...chartProps}
+          assessmentName={name}
+          lineColor={getAssessmentColor(index)}
+          avgValue={avgValuesByName.get(name)}
+        />
+      ))}
     </div>
   );
 };
