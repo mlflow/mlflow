@@ -23,6 +23,8 @@ from mlflow.entities import (
     DatasetInput,
     Expectation,
     ExperimentTag,
+    FallbackConfig,
+    FallbackStrategy,
     Feedback,
     FileInfo,
     GatewayEndpointTag,
@@ -31,6 +33,9 @@ from mlflow.entities import (
     Param,
     RunTag,
     ViewType,
+)
+from mlflow.entities import (
+    RoutingStrategy as RoutingStrategyEntity,
 )
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -3946,13 +3951,11 @@ def _create_gateway_secret():
             "secret_name": [_assert_required, _assert_string],
             "secret_value": [_assert_secret_value],
             "provider": [_assert_string],
-            "auth_config_json": [_assert_string],
             "created_by": [_assert_string],
         },
     )
-    auth_config = None
-    if request_message.auth_config_json:
-        auth_config = json.loads(request_message.auth_config_json)
+    # Empty map means no auth_config was provided
+    auth_config = dict(request_message.auth_config) or None
 
     secret = _get_tracking_store().create_gateway_secret(
         secret_name=request_message.secret_name,
@@ -3988,13 +3991,11 @@ def _update_gateway_secret():
         UpdateGatewaySecret(),
         schema={
             "secret_id": [_assert_required, _assert_string],
-            "auth_config_json": [_assert_string],
             "updated_by": [_assert_string],
         },
     )
-    auth_config = None
-    if request_message.auth_config_json:
-        auth_config = json.loads(request_message.auth_config_json)
+    # Empty map means no auth_config was provided
+    auth_config = dict(request_message.auth_config) or None
 
     # Empty map means no update to secret_value
     secret_value = dict(request_message.secret_value) or None
@@ -4052,14 +4053,33 @@ def _create_gateway_endpoint():
     request_message = _get_request_message(
         CreateGatewayEndpoint(),
         schema={
-            "name": [_assert_string],
+            "name": [_assert_required, _assert_string],
             "created_by": [_assert_string],
+            "model_definition_ids": [_assert_required],
+            "routing_strategy": [_assert_string],
         },
     )
+    # Convert proto fallback_config to entity FallbackConfig
+    fallback_config = None
+    if request_message.HasField("fallback_config"):
+        fallback_config = FallbackConfig(
+            strategy=FallbackStrategy.from_proto(request_message.fallback_config.strategy)
+            if request_message.fallback_config.HasField("strategy")
+            else None,
+            max_attempts=request_message.fallback_config.max_attempts
+            if request_message.fallback_config.HasField("max_attempts")
+            else None,
+        )
+
     endpoint = _get_tracking_store().create_gateway_endpoint(
         name=request_message.name or None,
         model_definition_ids=list(request_message.model_definition_ids),
         created_by=request_message.created_by or None,
+        routing_strategy=RoutingStrategyEntity.from_proto(request_message.routing_strategy)
+        if request_message.HasField("routing_strategy")
+        else None,
+        fallback_config=fallback_config,
+        fallback_model_definition_ids=list(request_message.fallback_model_definition_ids),
     )
     response_message = CreateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4090,12 +4110,31 @@ def _update_gateway_endpoint():
             "endpoint_id": [_assert_required, _assert_string],
             "name": [_assert_string],
             "updated_by": [_assert_string],
+            "routing_strategy": [_assert_string],
         },
     )
+    # Convert proto fallback_config to entity FallbackConfig
+    fallback_config = None
+    if request_message.HasField("fallback_config"):
+        fallback_config = FallbackConfig(
+            strategy=FallbackStrategy.from_proto(request_message.fallback_config.strategy)
+            if request_message.fallback_config.HasField("strategy")
+            else None,
+            max_attempts=request_message.fallback_config.max_attempts
+            if request_message.fallback_config.HasField("max_attempts")
+            else None,
+        )
+
     endpoint = _get_tracking_store().update_gateway_endpoint(
         endpoint_id=request_message.endpoint_id,
         name=request_message.name or None,
+        model_definition_ids=list(request_message.model_definition_ids),
         updated_by=request_message.updated_by or None,
+        routing_strategy=RoutingStrategyEntity.from_proto(request_message.routing_strategy)
+        if request_message.HasField("routing_strategy")
+        else None,
+        fallback_config=fallback_config,
+        fallback_model_definition_ids=list(request_message.fallback_model_definition_ids),
     )
     response_message = UpdateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4443,7 +4482,6 @@ def _invoke_scorer_handler():
     Invoke a scorer on traces asynchronously.
 
     This is a UI-only AJAX endpoint for invoking scorers from the frontend.
-    For SDK-based invocation, use the gateway proxy route.
     """
     _validate_content_type(request, ["application/json"])
 
@@ -4451,6 +4489,7 @@ def _invoke_scorer_handler():
     experiment_id = args.get("experiment_id")
     serialized_scorer = args.get("serialized_scorer")
     trace_ids = args.get("trace_ids", [])
+    log_assessments = args.get("log_assessments", False)
 
     if not experiment_id:
         raise MlflowException(
@@ -4468,11 +4507,43 @@ def _invoke_scorer_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # TODO: Implement invoke_scorer on tracking store
-    raise MlflowException(
-        "Scorer invocation is not yet implemented",
-        error_code=databricks_pb2.NOT_IMPLEMENTED,
-    )
+    try:
+        scorer_dict = json.loads(serialized_scorer)
+    except json.JSONDecodeError as e:
+        raise MlflowException(
+            f"Invalid JSON in serialized_scorer: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    from mlflow.genai.scorers.base import Scorer
+    from mlflow.genai.scorers.job import get_trace_batches_for_scorer, invoke_scorer_job
+    from mlflow.server.jobs import submit_job
+
+    try:
+        scorer = Scorer.model_validate(scorer_dict)
+    except Exception as e:
+        raise MlflowException(
+            f"Failed to validate scorer: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    tracking_store = _get_tracking_store()
+    batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
+
+    jobs = []
+    for batch_trace_ids in batches:
+        job = submit_job(
+            function=invoke_scorer_job,
+            params={
+                "experiment_id": experiment_id,
+                "serialized_scorer": serialized_scorer,
+                "trace_ids": batch_trace_ids,
+                "log_assessments": log_assessments,
+            },
+        )
+        jobs.append({"job_id": job.job_id, "trace_ids": batch_trace_ids})
+
+    return jsonify({"jobs": jobs})
 
 
 def _get_rest_path(base_path, version=2):

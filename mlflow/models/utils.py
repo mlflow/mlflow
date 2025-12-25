@@ -108,7 +108,7 @@ PyFuncInput = Union[
     int,
     str,
 ]
-PyFuncOutput = pd.DataFrame | pd.Series | np.ndarray | list | str
+PyFuncOutput = pd.DataFrame | pd.Series | np.ndarray | list | str | dict[str, Any]
 
 if HAS_PYSPARK:
     PyFuncInput = PyFuncInput | SparkDataFrame

@@ -3,12 +3,24 @@ import { TraceInfo } from '../../../src/core/entities/trace_info';
 import { TraceData } from '../../../src/core/entities/trace_data';
 import { TraceLocationType } from '../../../src/core/entities/trace_location';
 import { TraceState } from '../../../src/core/entities/trace_state';
+import { AuthProvider } from '../../../src/auth';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 
 describe('MlflowArtifactsClient', () => {
   let client: MlflowArtifactsClient;
   let server: ReturnType<typeof setupServer>;
+  const testHost = 'http://localhost:5000';
+
+  // Create a mock AuthProvider for testing
+  const mockAuthProvider: AuthProvider = {
+    getHost: () => testHost,
+    // eslint-disable-next-line require-await, @typescript-eslint/require-await
+    getHeadersProvider: () => async () => ({
+      'Content-Type': 'application/json'
+    }),
+    getDatabricksToken: () => undefined
+  };
 
   beforeAll(() => {
     server = setupServer();
@@ -20,7 +32,7 @@ describe('MlflowArtifactsClient', () => {
   });
 
   beforeEach(() => {
-    client = new MlflowArtifactsClient({ host: 'http://localhost:5000' });
+    client = new MlflowArtifactsClient({ host: testHost, authProvider: mockAuthProvider });
   });
 
   describe('uploadTraceData', () => {

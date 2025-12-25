@@ -8,6 +8,7 @@ To be executed only during the model deployment.
 import logging
 import multiprocessing
 import os
+import shlex
 import shutil
 import signal
 import sys
@@ -138,12 +139,18 @@ def _install_model_dependencies_to_env(model_path, env_manager) -> list[str]:
     env_conf = conf[mlflow.pyfunc.ENV]
 
     if env_manager == em.LOCAL:
-        # Install pip dependencies directly into the local environment
         python_env_config_path = os.path.join(model_path, env_conf[em.VIRTUALENV])
         python_env = _PythonEnv.from_yaml(python_env_config_path)
-        deps = " ".join(python_env.build_dependencies + python_env.dependencies)
-        deps = deps.replace("requirements.txt", os.path.join(model_path, "requirements.txt"))
-        if Popen(["bash", "-c", f"python -m pip install {deps}"]).wait() != 0:
+
+        pip_args = [sys.executable, "-m", "pip", "install"]
+        for dep in python_env.build_dependencies + python_env.dependencies:
+            dep_args = shlex.split(dep)
+            for i, arg in enumerate(dep_args):
+                if arg == "requirements.txt" or arg.endswith("/requirements.txt"):
+                    dep_args[i] = os.path.join(model_path, "requirements.txt")
+            pip_args.extend(dep_args)
+
+        if Popen(pip_args).wait() != 0:
             raise Exception("Failed to install model dependencies.")
         return []
 
