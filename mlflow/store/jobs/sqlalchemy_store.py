@@ -315,3 +315,44 @@ class SqlAlchemyJobStore(AbstractJobStore):
                     f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
                 )
             return job.to_mlflow_entity()
+
+    def _delete_jobs(self, older_than: int = 0, job_ids: list[str] | None = None) -> list[str]:
+        """
+        Delete jobs based on the provided filters. Used by ``mlflow gc``.
+
+        Behavior:
+            - No filters: Deletes all jobs.
+            - Only ``older_than``: Deletes jobs older than the threshold.
+            - Only ``job_ids``: Deletes only the specified jobs.
+            - Both filters: Deletes jobs matching both conditions.
+
+        Args:
+            older_than: Time threshold in milliseconds. Jobs with creation_time
+                older than (current_time - older_than) are eligible for deletion.
+                A value of 0 disables this filter.
+            job_ids: List of specific job IDs to delete. If None, all jobs
+                (subject to older_than filter) are eligible for deletion.
+
+        Returns:
+            List of job IDs that were deleted.
+        """
+        current_time = get_current_time_millis()
+        time_threshold = current_time - older_than
+
+        with self.ManagedSessionMaker() as session:
+            query = session.query(SqlJob)
+
+            if job_ids:
+                query = query.filter(SqlJob.id.in_(job_ids))
+
+            if older_than > 0:
+                query = query.filter(SqlJob.creation_time < time_threshold)
+
+            ids_to_delete = [job.id for job in query.all()]
+
+            if ids_to_delete:
+                session.query(SqlJob).filter(SqlJob.id.in_(ids_to_delete)).delete(
+                    synchronize_session=False
+                )
+
+            return ids_to_delete
