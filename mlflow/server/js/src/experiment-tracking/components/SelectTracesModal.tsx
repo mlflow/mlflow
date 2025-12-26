@@ -1,5 +1,5 @@
 import { Modal } from '@databricks/design-system';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useParams } from '../../common/utils/RoutingUtils';
 import { TracesV3Logs } from './experiment-page/components/traces-v3/TracesV3Logs';
@@ -9,9 +9,11 @@ import { TracesTableColumn } from '../../shared/web-shared/genai-traces-table';
 export const SelectTracesModal = ({
   onClose,
   onSuccess,
+  maxTraceCount,
 }: {
   onClose?: () => void;
   onSuccess?: (traceIds: string[]) => void;
+  maxTraceCount?: number;
   customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
 }) => {
   const { experimentId } = useParams();
@@ -24,6 +26,14 @@ export const SelectTracesModal = ({
       .map(([traceId]) => traceId);
     onSuccess?.(selectedTraceIds);
   };
+
+  const isMaxTraceCountReached = useMemo(() => {
+    if (!maxTraceCount) {
+      return false;
+    }
+
+    return Object.values(rowSelection).filter((isSelected) => isSelected).length > maxTraceCount;
+  }, [maxTraceCount, rowSelection]);
 
   if (!experimentId) {
     return null;
@@ -41,7 +51,7 @@ export const SelectTracesModal = ({
       okText={<FormattedMessage defaultMessage="Select" description="Confirm button in the select traces modal" />}
       okButtonProps={{
         type: 'primary',
-        disabled: Object.values(rowSelection).every((isSelected) => !isSelected),
+        disabled: Object.values(rowSelection).every((isSelected) => !isSelected) || isMaxTraceCountReached,
       }}
       onOk={handleOk}
       cancelText={<FormattedMessage defaultMessage="Cancel" description="Cancel button in the select traces modal" />}
