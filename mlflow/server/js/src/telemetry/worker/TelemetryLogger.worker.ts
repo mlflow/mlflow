@@ -6,6 +6,7 @@ import {
 } from './types';
 import { UI_TELEMETRY_ENDPOINT } from './constants';
 import { LogQueue } from './LogQueue';
+import { generateUUID } from '../../common/utils/generateUUID';
 
 // eslint-disable-next-line no-restricted-globals
 const scope = self as any as SharedWorkerGlobalScope;
@@ -30,7 +31,7 @@ async function fetchConfig(): Promise<TelemetryConfig | null> {
 
 class TelemetryLogger {
   private config: Promise<TelemetryConfig | null> = fetchConfig();
-  private sessionId = crypto.randomUUID();
+  private sessionId = generateUUID();
   private logQueue: LogQueue = new LogQueue();
   private samplingValue: number = Math.random() * 100;
 

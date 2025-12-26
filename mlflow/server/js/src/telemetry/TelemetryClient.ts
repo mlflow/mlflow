@@ -8,6 +8,7 @@ import type { TelemetryRecord } from './worker/types';
 import { isDesignSystemEvent, TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION } from './utils';
 import { WorkerToClientMessageType, ClientToWorkerMessageType } from './worker/types';
 import { getLocalStorageItem } from '../shared/web-shared/hooks/useLocalStorage';
+import { generateUUID } from '../common/utils/generateUUID';
 
 const LOCAL_STORAGE_INSTALLATION_ID_KEY = 'mlflow-telemetry-installation-id';
 
@@ -21,7 +22,7 @@ class TelemetryClient {
     const localStorageInstallationId = localStorage.getItem(LOCAL_STORAGE_INSTALLATION_ID_KEY);
 
     if (!localStorageInstallationId) {
-      const installationId = crypto.randomUUID();
+      const installationId = generateUUID();
       localStorage.setItem(LOCAL_STORAGE_INSTALLATION_ID_KEY, installationId);
       return installationId;
     } else {
