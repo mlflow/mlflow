@@ -12,6 +12,7 @@ interface ScheduledScorerBase {
   // Whether the UI disables monitoring for this scorer. If disabled, the UI
   // will not show the form fields for monitoring (sample rate, filter string, etc.)
   disableMonitoring?: boolean;
+  isSessionLevelScorer?: boolean;
 }
 
 // LLM Template Constants
@@ -66,6 +67,7 @@ export type ScorerConfig = {
   sample_rate?: number;
   filter_string?: string;
   scorer_version?: number;
+  is_session_level_scorer?: boolean;
 };
 
 interface EvaluateChatParamsBase {
