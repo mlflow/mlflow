@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { QueryClient, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
 import { fetchOrFail, getAjaxUrl } from '../../../common/utils/FetchUtils';
 import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
@@ -14,7 +14,7 @@ import {
   extractTemplateVariables,
 } from '../../utils/evaluationUtils';
 import { searchMlflowTracesQueryFn, SEARCH_MLFLOW_TRACES_QUERY_KEY } from '@databricks/web-shared/genai-traces-table';
-import { DEFAULT_TRACE_COUNT, RETRIEVAL_ASSESSMENTS } from './constants';
+import { DEFAULT_TRACE_COUNT, RETRIEVAL_ASSESSMENTS, ScorerEvaluationScope } from './constants';
 import {
   extractInputs,
   extractOutputs,
@@ -25,6 +25,7 @@ import {
 } from '../../utils/TraceUtils';
 import { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
 import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
+import { first } from 'lodash';
 
 /**
  * Response from the chat completions API
@@ -335,6 +336,222 @@ export interface EvaluateTracesState {
   reset: () => void;
 }
 
+const evaluateSingleTrace = async ({
+  experimentId,
+  params,
+  queryClient,
+  traceId,
+}: {
+  queryClient: QueryClient;
+  traceId: string;
+  params: EvaluateTracesParams;
+  experimentId: string;
+}): Promise<JudgeEvaluationResult[]> => {
+  let fullTrace: ModelTrace | null = null;
+
+  try {
+    // Fetch trace data with React Query caching
+    fullTrace = await queryClient.fetchQuery({
+      queryKey: ['GetMlflowTraceV3', traceId],
+      queryFn: () => getMlflowTraceV3(traceId),
+      staleTime: Infinity,
+      cacheTime: Infinity,
+    });
+
+    // Route to appropriate API based on params type
+    if (isChatCompletionsParams(params)) {
+      // Custom LLM judges path
+      const { judgeInstructions } = params;
+      const { inputs, outputs, expectations } = extractFromTrace(fullTrace as ModelTrace);
+
+      // Extract template variables from instructions to filter what gets included in user prompt
+      const templateVariables = extractTemplateVariables(judgeInstructions);
+
+      if (templateVariables.includes('trace')) {
+        throw new Error('The trace variable is not supported when running the scorer on a sample of traces');
+      }
+
+      // Build prompts
+      const systemPrompt = buildSystemPrompt(judgeInstructions);
+      const userPrompt = buildUserPrompt(inputs, outputs, expectations, templateVariables);
+
+      const response = await callChatCompletions(userPrompt, systemPrompt, experimentId);
+
+      if (response.error_code || response.error_message) {
+        return [
+          {
+            trace: fullTrace,
+            results: [],
+            error: response.error_message || response.error_code || 'Unknown error',
+          },
+        ];
+      }
+
+      const { result, rationale } = parseJudgeResponse(response.output);
+      return [
+        {
+          trace: fullTrace,
+          results: [
+            {
+              result,
+              rationale,
+              error: null,
+              span_name: '',
+            },
+          ],
+          error: null,
+        },
+      ];
+    } else {
+      // Built-in judges path
+      const { requestedAssessments, guidelines } = params;
+
+      // Check if trace is valid
+      if (!fullTrace) {
+        return [
+          {
+            trace: null,
+            results: [],
+            error: 'Failed to fetch trace',
+          },
+        ];
+      }
+
+      // Extract data from trace
+      const chatRequest = extractInputs(fullTrace);
+      const chatResponse = extractOutputs(fullTrace);
+      const retrievalContexts = extractRetrievalContext(fullTrace);
+      const groundTruth = extractExpectations(fullTrace);
+
+      if (!chatRequest) {
+        return [
+          {
+            trace: fullTrace,
+            results: [],
+            error: 'No chat request found in trace',
+          },
+        ];
+      }
+
+      // Check if this is a guidelines assessment
+      const isGuidelinesAssessment =
+        requestedAssessments.length > 0 && requestedAssessments[0].assessment_name === 'guidelines';
+
+      // Check if this is a retrieval assessment (only these need per-span evaluation)
+      const assessmentName = requestedAssessments[0]?.assessment_name || '';
+      const isRetrievalAssessment = RETRIEVAL_ASSESSMENTS.includes(assessmentName as any);
+
+      // For retrieval assessments, evaluate each retrieval span separately
+      // For non-retrieval assessments, evaluate once without retrieval context
+      const retrievalSpans =
+        isRetrievalAssessment && retrievalContexts?.retrieved_documents?.length
+          ? retrievalContexts.retrieved_documents
+          : [null];
+
+      // Evaluate each retrieval span separately (or just once for non-retrieval assessments)
+      const spanResults = await Promise.all(
+        retrievalSpans.map(async (retrievalSpan) => {
+          try {
+            const response = await callChatAssessments(
+              chatRequest,
+              chatResponse,
+              retrievalSpan,
+              groundTruth,
+              guidelines || null,
+              requestedAssessments,
+              experimentId,
+              isGuidelinesAssessment,
+            );
+
+            // Check for errors in the response (both response_assessment and retrieval_assessment)
+            // Check response assessment for errors
+            const ratings = response.result?.response_assessment?.ratings;
+            if (ratings && Object.keys(ratings).length > 0) {
+              const firstRating = Object.values(ratings)[0];
+              if (firstRating?.error) {
+                // Error can be a string or an object with error_code/error_msg
+                let errorMessage: string;
+                if (typeof firstRating.error === 'string') {
+                  errorMessage = firstRating.error;
+                } else if (typeof firstRating.error === 'object' && firstRating.error !== null) {
+                  const errorObj = firstRating.error as any;
+                  errorMessage = errorObj.error_msg || errorObj.error_code || JSON.stringify(firstRating.error);
+                } else {
+                  errorMessage = 'Unknown error';
+                }
+                return {
+                  trace: fullTrace,
+                  result: null,
+                  rationale: null,
+                  error: errorMessage,
+                };
+              }
+            }
+
+            // Parse the successful response assessment
+            const { assessment_id, result, rationale } = parseAssessmentResponse(response, assessmentName);
+            return {
+              trace: fullTrace,
+              assessment_id: assessment_id || undefined,
+              result,
+              rationale,
+              error: null,
+              span_name: retrievalSpan?.span_name || '',
+            };
+          } catch (err) {
+            return {
+              trace: fullTrace,
+              result: null,
+              rationale: null,
+              error: err instanceof Error ? err.message : String(err),
+            };
+          }
+        }),
+      );
+
+      // Group all span results into a single trace result
+      // Check if all results are errors
+      const allErrors = spanResults.every((r) => r.error);
+      if (allErrors) {
+        // If all spans failed, return the first error
+        return [
+          {
+            trace: fullTrace,
+            results: [],
+            error: spanResults[0].error,
+          },
+        ];
+      }
+
+      // Filter out errors and return successful span results
+      const successfulResults = spanResults.filter((r) => !r.error);
+
+      // Return a single result with all span results
+      return [
+        {
+          trace: fullTrace,
+          results: successfulResults.map((r) => ({
+            result: r.result,
+            rationale: r.rationale,
+            error: r.error,
+            span_name: r.span_name || '',
+          })),
+          error: null,
+        },
+      ];
+    }
+  } catch (err) {
+    // Handle both fetch failures and evaluation errors for individual traces
+    return [
+      {
+        trace: fullTrace,
+        results: [],
+        error: err instanceof Error ? err.message : String(err),
+      },
+    ];
+  }
+};
+
 /**
  * React hook for evaluating judges on traces with React Query caching
  *
@@ -360,6 +577,9 @@ export function useEvaluateTraces(): [
       const { experimentId } = params;
 
       try {
+        // TODO(next PRs): Add support for session-level scoring
+        // ...
+
         // Extract trace IDs from search results
         const traceIds = await getTraceIdsForEvaluation(params);
 
@@ -367,210 +587,13 @@ export function useEvaluateTraces(): [
         // For traces with multiple retrieval spans, we create multiple results
         const evaluationResultsNested = await Promise.all(
           traceIds.map(async (traceId) => {
-            let fullTrace: ModelTrace | null = null;
-
-            try {
-              // Fetch trace data with React Query caching
-              fullTrace = await queryClient.fetchQuery({
-                queryKey: ['GetMlflowTraceV3', traceId],
-                queryFn: () => getMlflowTraceV3(traceId),
-                staleTime: Infinity,
-                cacheTime: Infinity,
-              });
-
-              // Route to appropriate API based on params type
-              if (isChatCompletionsParams(params)) {
-                // Custom LLM judges path
-                const { judgeInstructions } = params;
-                const { inputs, outputs, expectations } = extractFromTrace(fullTrace as ModelTrace);
-
-                // Extract template variables from instructions to filter what gets included in user prompt
-                const templateVariables = extractTemplateVariables(judgeInstructions);
-
-                if (templateVariables.includes('trace')) {
-                  throw new Error('The trace variable is not supported when running the scorer on a sample of traces');
-                }
-
-                // Build prompts
-                const systemPrompt = buildSystemPrompt(judgeInstructions);
-                const userPrompt = buildUserPrompt(inputs, outputs, expectations, templateVariables);
-
-                const response = await callChatCompletions(userPrompt, systemPrompt, experimentId);
-
-                if (response.error_code || response.error_message) {
-                  return [
-                    {
-                      trace: fullTrace,
-                      results: [],
-                      error: response.error_message || response.error_code || 'Unknown error',
-                    },
-                  ];
-                }
-
-                const { result, rationale } = parseJudgeResponse(response.output);
-                return [
-                  {
-                    trace: fullTrace,
-                    results: [
-                      {
-                        result,
-                        rationale,
-                        error: null,
-                        span_name: '',
-                      },
-                    ],
-                    error: null,
-                  },
-                ];
-              } else {
-                // Built-in judges path
-                const { requestedAssessments, guidelines } = params;
-
-                // Check if trace is valid
-                if (!fullTrace) {
-                  return [
-                    {
-                      trace: null,
-                      results: [],
-                      error: 'Failed to fetch trace',
-                    },
-                  ];
-                }
-
-                // Extract data from trace
-                const chatRequest = extractInputs(fullTrace);
-                const chatResponse = extractOutputs(fullTrace);
-                const retrievalContexts = extractRetrievalContext(fullTrace);
-                const groundTruth = extractExpectations(fullTrace);
-
-                if (!chatRequest) {
-                  return [
-                    {
-                      trace: fullTrace,
-                      results: [],
-                      error: 'No chat request found in trace',
-                    },
-                  ];
-                }
-
-                // Check if this is a guidelines assessment
-                const isGuidelinesAssessment =
-                  requestedAssessments.length > 0 && requestedAssessments[0].assessment_name === 'guidelines';
-
-                // Check if this is a retrieval assessment (only these need per-span evaluation)
-                const assessmentName = requestedAssessments[0]?.assessment_name || '';
-                const isRetrievalAssessment = RETRIEVAL_ASSESSMENTS.includes(assessmentName as any);
-
-                // For retrieval assessments, evaluate each retrieval span separately
-                // For non-retrieval assessments, evaluate once without retrieval context
-                const retrievalSpans =
-                  isRetrievalAssessment && retrievalContexts?.retrieved_documents?.length
-                    ? retrievalContexts.retrieved_documents
-                    : [null];
-
-                // Evaluate each retrieval span separately (or just once for non-retrieval assessments)
-                const spanResults = await Promise.all(
-                  retrievalSpans.map(async (retrievalSpan) => {
-                    try {
-                      const response = await callChatAssessments(
-                        chatRequest,
-                        chatResponse,
-                        retrievalSpan,
-                        groundTruth,
-                        guidelines || null,
-                        requestedAssessments,
-                        experimentId,
-                        isGuidelinesAssessment,
-                      );
-
-                      // Check for errors in the response (both response_assessment and retrieval_assessment)
-                      // Check response assessment for errors
-                      const ratings = response.result?.response_assessment?.ratings;
-                      if (ratings && Object.keys(ratings).length > 0) {
-                        const firstRating = Object.values(ratings)[0];
-                        if (firstRating?.error) {
-                          // Error can be a string or an object with error_code/error_msg
-                          let errorMessage: string;
-                          if (typeof firstRating.error === 'string') {
-                            errorMessage = firstRating.error;
-                          } else if (typeof firstRating.error === 'object' && firstRating.error !== null) {
-                            const errorObj = firstRating.error as any;
-                            errorMessage =
-                              errorObj.error_msg || errorObj.error_code || JSON.stringify(firstRating.error);
-                          } else {
-                            errorMessage = 'Unknown error';
-                          }
-                          return {
-                            trace: fullTrace,
-                            result: null,
-                            rationale: null,
-                            error: errorMessage,
-                          };
-                        }
-                      }
-
-                      // Parse the successful response assessment
-                      const { assessment_id, result, rationale } = parseAssessmentResponse(response, assessmentName);
-                      return {
-                        trace: fullTrace,
-                        assessment_id: assessment_id || undefined,
-                        result,
-                        rationale,
-                        error: null,
-                        span_name: retrievalSpan?.span_name || '',
-                      };
-                    } catch (err) {
-                      return {
-                        trace: fullTrace,
-                        result: null,
-                        rationale: null,
-                        error: err instanceof Error ? err.message : String(err),
-                      };
-                    }
-                  }),
-                );
-
-                // Group all span results into a single trace result
-                // Check if all results are errors
-                const allErrors = spanResults.every((r) => r.error);
-                if (allErrors) {
-                  // If all spans failed, return the first error
-                  return [
-                    {
-                      trace: fullTrace,
-                      results: [],
-                      error: spanResults[0].error,
-                    },
-                  ];
-                }
-
-                // Filter out errors and return successful span results
-                const successfulResults = spanResults.filter((r) => !r.error);
-
-                // Return a single result with all span results
-                return [
-                  {
-                    trace: fullTrace,
-                    results: successfulResults.map((r) => ({
-                      result: r.result,
-                      rationale: r.rationale,
-                      error: r.error,
-                      span_name: r.span_name || '',
-                    })),
-                    error: null,
-                  },
-                ];
-              }
-            } catch (err) {
-              // Handle both fetch failures and evaluation errors for individual traces
-              return [
-                {
-                  trace: fullTrace,
-                  results: [],
-                  error: err instanceof Error ? err.message : String(err),
-                },
-              ];
-            }
+            const result = evaluateSingleTrace({
+              experimentId,
+              params,
+              queryClient,
+              traceId,
+            });
+            return result;
           }),
         );
 
