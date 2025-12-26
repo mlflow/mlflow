@@ -1,3 +1,4 @@
+import importlib
 from functools import partial
 
 from mlflow.environment_variables import MLFLOW_REGISTRY_URI
@@ -233,14 +234,7 @@ def _get_store_registry():
     for scheme in ["http", "https"]:
         _model_registry_store_registry.register(scheme, _get_rest_store)
 
-    try:
-        import sqlalchemy  # noqa: F401
-
-        has_sqlalchemy = True
-    except ImportError:
-        has_sqlalchemy = False
-
-    if has_sqlalchemy:
+    if importlib.util.find_spec("sqlalchemy") is not None:
         for scheme in DATABASE_ENGINES:
             _model_registry_store_registry.register(scheme, _get_sqlalchemy_store)
 

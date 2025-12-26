@@ -1,3 +1,4 @@
+import importlib
 import logging
 import os
 from collections import OrderedDict
@@ -236,14 +237,7 @@ def _register_tracking_stores():
     for scheme in ["http", "https"]:
         _tracking_store_registry.register(scheme, _get_rest_store)
 
-    try:
-        import sqlalchemy  # noqa: F401
-
-        has_sqlalchemy = True
-    except ImportError:
-        has_sqlalchemy = False
-
-    if has_sqlalchemy:
+    if importlib.util.find_spec("sqlalchemy"):
         for scheme in DATABASE_ENGINES:
             _tracking_store_registry.register(scheme, _get_sqlalchemy_store)
 
