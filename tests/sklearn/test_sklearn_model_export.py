@@ -403,13 +403,12 @@ def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
 
 
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
-    sklearn_knn_model, model_path, sklearn_custom_env
+    sklearn_logreg_model, model_path, sklearn_custom_env
 ):
     mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model.model,
+        sk_model=sklearn_logreg_model.model,
         path=model_path,
         conda_env=sklearn_custom_env,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -651,17 +650,16 @@ def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environmen
 
 
 def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda_environment(
-    sklearn_knn_model, model_path
+    sklearn_logreg_model, model_path
 ):
     non_cloudpickle_serialization_formats = list(mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS)
     non_cloudpickle_serialization_formats.remove(mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
 
     for serialization_format in non_cloudpickle_serialization_formats:
         mlflow.sklearn.save_model(
-            sk_model=sklearn_knn_model.model,
+            sk_model=sklearn_logreg_model.model,
             path=model_path,
             serialization_format=serialization_format,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
         sklearn_conf = _get_flavor_configuration(
