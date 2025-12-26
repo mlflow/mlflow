@@ -1422,6 +1422,10 @@
     "defaultMessage": "{timeSince, plural, =1 {1 second} other {# seconds}} ago",
     "description": "Text for time in seconds since given date for MLflow views"
   },
+  "961sxj": {
+    "defaultMessage": "Success Rate",
+    "description": "Label for success rate statistic"
+  },
   "97xY+o": {
     "defaultMessage": "Loading endpoints...",
     "description": "Loading message for endpoints list"
@@ -6511,6 +6515,10 @@
     "defaultMessage": "Rename",
     "description": "Label for the rename run button above the experiment runs table"
   },
+  "oWtdfc": {
+    "defaultMessage": "Failed Calls",
+    "description": "Label for failed calls statistic"
+  },
   "oY+vPi": {
     "defaultMessage": "Showing all runs",
     "description": "Experiment page > compare runs > parallel chart > header > indicator for all runs shown"
@@ -7495,6 +7503,10 @@
     "defaultMessage": "Log traces",
     "description": "Home page quick action title for logging traces"
   },
+  "wvuSAK": {
+    "defaultMessage": "Total Tool Calls",
+    "description": "Label for total tool calls statistic"
+  },
   "wx0s66": {
     "defaultMessage": "Select a provider and model to configure API key",
     "description": "Message when no provider selected for API key form"
@@ -7694,6 +7706,10 @@
   "yQkV88": {
     "defaultMessage": "No endpoints are using this key",
     "description": "Gateway > Endpoints using key drawer > Empty state"
+  },
+  "yRzU8K": {
+    "defaultMessage": "Avg Latency",
+    "description": "Label for average latency statistic"
   },
   "ySno61": {
     "defaultMessage": "The code snippets below demonstrate how to make predictions using the logged model.",
