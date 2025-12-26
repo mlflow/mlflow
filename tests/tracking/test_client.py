@@ -1,6 +1,7 @@
 import json
 import os
 import pickle
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -3523,3 +3524,18 @@ def test_mlflow_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
 
         mock_get_trace.assert_called_once_with(trace_id)
         mock_batch_get_traces.assert_called_once_with([trace_id])
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" not in os.environ, reason="This test is only valid for the skinny client"
+)
+def test_skinny_without_importing_sqlalchemy() -> None:
+    from mlflow.tracking.client import MlflowClient
+
+    client = MlflowClient(
+        tracking_uri="databricks",
+        registry_uri="databricks",
+    )
+    client._tracking_client.store
+    client._get_registry_client().store
+    assert "sqlalchemy" not in sys.modules
