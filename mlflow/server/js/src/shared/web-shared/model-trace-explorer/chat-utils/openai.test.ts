@@ -239,6 +239,24 @@ const MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT = [
   },
 ];
 
+const MOCK_LITELLM_CHAT_OUTPUT_WITH_REASONING = {
+  id: 'chatcmpl-abc123',
+  choices: [
+    {
+      finish_reason: 'stop',
+      index: 0,
+      message: {
+        content: 'There are 3 rs in the word strawberry.',
+        role: 'assistant',
+        reasoning_content:
+          "Let me count the r's in strawberry.\n\ns-t-r-a-w-b-e-r-r-y\n\nI found 3 r's at positions 3, 8, and 9.",
+      },
+    },
+  ],
+  model: 'claude-sonnet-4-20250514',
+  object: 'chat.completion',
+};
+
 // Non-streaming output with reasoning (summary with text)
 const MOCK_OPENAI_RESPONSES_OUTPUT_WITH_REASONING = {
   id: 'resp_123',
@@ -353,6 +371,17 @@ describe('normalizeConversation', () => {
       expect.objectContaining({
         role: 'assistant',
         content: 'Why did the scarecrow win an award? Because he was outstanding in his field!',
+      }),
+    ]);
+  });
+
+  it('handles LiteLLM chat output with reasoning_content', () => {
+    const result = normalizeConversation(MOCK_LITELLM_CHAT_OUTPUT_WITH_REASONING, 'openai');
+    expect(result).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'There are 3 rs in the word strawberry.',
+        reasoning: expect.stringMatching(/let me count the r's in strawberry/i),
       }),
     ]);
   });

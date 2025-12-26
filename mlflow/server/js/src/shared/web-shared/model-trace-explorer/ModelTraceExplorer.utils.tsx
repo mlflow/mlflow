@@ -1071,8 +1071,12 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         if (voltAgentMessages) return voltAgentMessages;
         break;
       default:
-        // Fallback to OpenAI chat format
-        const chatMessages = normalizeOpenAIChatInput(input) ?? normalizeOpenAIChatResponse(input);
+        // Fallback to OpenAI chat format (including Responses API)
+        const chatMessages =
+          normalizeOpenAIChatInput(input) ??
+          normalizeOpenAIChatResponse(input) ??
+          normalizeOpenAIResponsesOutput(input) ??
+          normalizeOpenAIResponsesInput(input);
         if (chatMessages) return chatMessages;
         break;
     }
