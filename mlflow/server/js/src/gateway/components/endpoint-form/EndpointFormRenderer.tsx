@@ -7,13 +7,12 @@ import { ProviderSelect } from '../create-endpoint/ProviderSelect';
 import { ModelSelect } from '../create-endpoint/ModelSelect';
 import { ApiKeyConfigurator } from '../model-configuration/components/ApiKeyConfigurator';
 import { useApiKeyConfiguration } from '../model-configuration/hooks/useApiKeyConfiguration';
-import type { ApiKeyConfiguration } from '../model-configuration/types';
+import type { ApiKeyConfiguration, SecretMode } from '../model-configuration/types';
 import { formatProviderName } from '../../utils/providerUtils';
 import { LongFormSection } from '../../../common/components/long-form/LongFormSection';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { ProviderModel, SecretInfo } from '../../types';
 import { formatTokens, formatCost } from '../../utils/formatters';
-import type { SecretMode } from '../secrets/SecretConfigSection';
 
 const LONG_FORM_TITLE_WIDTH = 200;
 
