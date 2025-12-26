@@ -1,13 +1,9 @@
 """
 Phoenix (Arize) integration for MLflow.
-
 This module provides integration with Phoenix evaluators, allowing them to be used
 with MLflow's scorer interface.
-
 Example usage:
-
 .. code-block:: python
-
     from mlflow.genai.scorers.phoenix import get_scorer
 
     scorer = get_scorer("Hallucination", model="openai:/gpt-4")
@@ -31,7 +27,7 @@ from mlflow.genai.judges.utils import get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.phoenix.models import create_phoenix_model
-from mlflow.genai.scorers.phoenix.registry import get_evaluator_class, get_metric_config
+from mlflow.genai.scorers.phoenix.registry import get_evaluator_class
 from mlflow.genai.scorers.phoenix.utils import map_scorer_inputs_to_phoenix_record
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
@@ -61,11 +57,9 @@ class PhoenixScorer(Scorer):
     ):
         if metric_name is None:
             metric_name = self.metric_name
-
         super().__init__(name=metric_name)
         model = model or get_default_model()
         self._model = model
-
         phoenix_model = create_phoenix_model(model)
         evaluator_class = get_evaluator_class(metric_name)
         self._evaluator = evaluator_class(model=phoenix_model, **evaluator_kwargs)
@@ -86,7 +80,6 @@ class PhoenixScorer(Scorer):
             outputs: The output to evaluate
             expectations: Expected values and context for evaluation
             trace: MLflow trace for evaluation
-
         Returns:
             Feedback object with score, rationale, and metadata
         """
@@ -94,7 +87,6 @@ class PhoenixScorer(Scorer):
             source_type=AssessmentSourceType.LLM_JUDGE,
             source_id=self._model,
         )
-
         try:
             record = map_scorer_inputs_to_phoenix_record(
                 inputs=inputs,
@@ -102,9 +94,7 @@ class PhoenixScorer(Scorer):
                 expectations=expectations,
                 trace=trace,
             )
-
             label, score, explanation = self._evaluator.evaluate(record=record)
-
             return Feedback(
                 name=self.name,
                 value=label,
@@ -113,7 +103,6 @@ class PhoenixScorer(Scorer):
                 metadata={
                     FRAMEWORK_METADATA_KEY: "phoenix",
                     "score": score,
-                    "label": label,
                 },
             )
         except Exception as e:
@@ -141,7 +130,6 @@ def get_scorer(
 
     Returns:
         PhoenixScorer instance that can be called with MLflow's scorer interface
-
     Examples:
         >>> scorer = get_scorer("Hallucination", model="openai:/gpt-4")
         >>> feedback = scorer(
@@ -149,7 +137,6 @@ def get_scorer(
         ...     outputs="MLflow is a platform...",
         ...     expectations={"context": "MLflow is an ML platform."},
         ... )
-
         >>> scorer = get_scorer("Relevance", model="databricks")
         >>> feedback = scorer(trace=trace)
     """
@@ -170,7 +157,6 @@ class Hallucination(PhoenixScorer):
 
     Examples:
         .. code-block:: python
-
             from mlflow.genai.scorers.phoenix import Hallucination
 
             scorer = Hallucination(model="openai:/gpt-4")
@@ -194,7 +180,6 @@ class Relevance(PhoenixScorer):
 
     Examples:
         .. code-block:: python
-
             from mlflow.genai.scorers.phoenix import Relevance
 
             scorer = Relevance(model="databricks")
@@ -217,7 +202,6 @@ class Toxicity(PhoenixScorer):
 
     Examples:
         .. code-block:: python
-
             from mlflow.genai.scorers.phoenix import Toxicity
 
             scorer = Toxicity()
@@ -237,7 +221,6 @@ class QA(PhoenixScorer):
 
     Examples:
         .. code-block:: python
-
             from mlflow.genai.scorers.phoenix import QA
 
             scorer = QA(model="openai:/gpt-4o")
@@ -261,7 +244,6 @@ class Summarization(PhoenixScorer):
 
     Examples:
         .. code-block:: python
-
             from mlflow.genai.scorers.phoenix import Summarization
 
             scorer = Summarization()
@@ -284,5 +266,4 @@ __all__ = [
     "Toxicity",
     "QA",
     "Summarization",
-    "get_metric_config",
 ]

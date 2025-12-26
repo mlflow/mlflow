@@ -3,6 +3,13 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.phoenix.models import (
+    DatabricksPhoenixModel,
+    DatabricksServingEndpointPhoenixModel,
+    create_phoenix_model,
+)
+
+phoenix_evals = pytest.importorskip("phoenix.evals")
 
 
 @pytest.fixture
@@ -24,86 +31,56 @@ def mock_invoke_serving_endpoint():
 
 
 def test_databricks_phoenix_model_call(mock_call_chat_completions):
-    with patch("mlflow.genai.scorers.phoenix.models.check_phoenix_installed"):
-        from mlflow.genai.scorers.phoenix.models import DatabricksPhoenixModel
+    model = DatabricksPhoenixModel()
+    result = model("Test prompt")
 
-        model = DatabricksPhoenixModel()
-        result = model("Test prompt")
-
-        assert result == "Test output"
-        mock_call_chat_completions.assert_called_once_with(
-            user_prompt="Test prompt",
-            system_prompt="",
-        )
+    assert result == "Test output"
+    mock_call_chat_completions.assert_called_once_with(
+        user_prompt="Test prompt",
+        system_prompt="",
+    )
 
 
 def test_databricks_phoenix_model_get_model_name():
-    with patch("mlflow.genai.scorers.phoenix.models.check_phoenix_installed"):
-        from mlflow.genai.scorers.phoenix.models import DatabricksPhoenixModel
-
-        model = DatabricksPhoenixModel()
-        assert model.get_model_name() == "databricks"
+    model = DatabricksPhoenixModel()
+    assert model.get_model_name() == "databricks"
 
 
 def test_databricks_serving_endpoint_model_call(mock_invoke_serving_endpoint):
-    with patch("mlflow.genai.scorers.phoenix.models.check_phoenix_installed"):
-        from mlflow.genai.scorers.phoenix.models import DatabricksServingEndpointPhoenixModel
+    model = DatabricksServingEndpointPhoenixModel("my-endpoint")
+    result = model("Test prompt")
 
-        model = DatabricksServingEndpointPhoenixModel("my-endpoint")
-        result = model("Test prompt")
-
-        assert result == "Endpoint output"
-        mock_invoke_serving_endpoint.assert_called_once_with(
-            model_name="my-endpoint",
-            prompt="Test prompt",
-            num_retries=3,
-            response_format=None,
-        )
+    assert result == "Endpoint output"
+    mock_invoke_serving_endpoint.assert_called_once_with(
+        model_name="my-endpoint",
+        prompt="Test prompt",
+        num_retries=3,
+        response_format=None,
+    )
 
 
 def test_databricks_serving_endpoint_model_get_model_name():
-    with patch("mlflow.genai.scorers.phoenix.models.check_phoenix_installed"):
-        from mlflow.genai.scorers.phoenix.models import DatabricksServingEndpointPhoenixModel
-
-        model = DatabricksServingEndpointPhoenixModel("my-endpoint")
-        assert model.get_model_name() == "databricks:/my-endpoint"
+    model = DatabricksServingEndpointPhoenixModel("my-endpoint")
+    assert model.get_model_name() == "databricks:/my-endpoint"
 
 
 def test_create_phoenix_model_databricks():
-    with patch("mlflow.genai.scorers.phoenix.models.check_phoenix_installed"):
-        from mlflow.genai.scorers.phoenix.models import create_phoenix_model
-
-        model = create_phoenix_model("databricks")
-        assert model.__class__.__name__ == "DatabricksPhoenixModel"
-        assert model.get_model_name() == "databricks"
+    model = create_phoenix_model("databricks")
+    assert isinstance(model, DatabricksPhoenixModel)
+    assert model.get_model_name() == "databricks"
 
 
 def test_create_phoenix_model_databricks_endpoint():
-    with patch("mlflow.genai.scorers.phoenix.models.check_phoenix_installed"):
-        from mlflow.genai.scorers.phoenix.models import create_phoenix_model
-
-        model = create_phoenix_model("databricks:/my-endpoint")
-        assert model.__class__.__name__ == "DatabricksServingEndpointPhoenixModel"
-        assert model.get_model_name() == "databricks:/my-endpoint"
+    model = create_phoenix_model("databricks:/my-endpoint")
+    assert isinstance(model, DatabricksServingEndpointPhoenixModel)
+    assert model.get_model_name() == "databricks:/my-endpoint"
 
 
 def test_create_phoenix_model_openai():
-    mock_litellm = Mock()
-    mock_litellm.LiteLLMModel = Mock(return_value=Mock())
-
-    with (
-        patch("mlflow.genai.scorers.phoenix.models.check_phoenix_installed"),
-        patch.dict("sys.modules", {"phoenix.evals": mock_litellm}),
-    ):
-        from mlflow.genai.scorers.phoenix.models import create_phoenix_model
-
-        create_phoenix_model("openai:/gpt-4")
-        mock_litellm.LiteLLMModel.assert_called_once_with(model="openai/gpt-4")
+    model = create_phoenix_model("openai:/gpt-4")
+    assert isinstance(model, phoenix_evals.LiteLLMModel)
 
 
 def test_create_phoenix_model_invalid_format():
-    with patch("mlflow.genai.scorers.phoenix.models.check_phoenix_installed"):
-        from mlflow.genai.scorers.phoenix.models import create_phoenix_model
-
-        with pytest.raises(MlflowException, match="Invalid model_uri format"):
-            create_phoenix_model("gpt-4")
+    with pytest.raises(MlflowException, match="Invalid model_uri format"):
+        create_phoenix_model("gpt-4")
