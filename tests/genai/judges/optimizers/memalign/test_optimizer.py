@@ -166,19 +166,22 @@ def test_unalign_removes_traces(sample_judge, sample_traces):
         aligned_judge = optimizer.align(sample_judge, sample_traces)
 
         # Verify all examples are present
-        assert len(aligned_judge._examples) == 5
+        num_examples = len(aligned_judge._examples)
+        assert num_examples == len(sample_traces)
 
         # Unalign traces 1 and 3
         traces_to_remove = [sample_traces[1], sample_traces[3]]
         unaligned_judge = aligned_judge.unalign(traces=traces_to_remove)
 
         # Verify examples for traces 1 and 3 are removed
-        assert len(unaligned_judge._examples) == 3
+        assert len(unaligned_judge._examples) == num_examples - 2
         remaining_trace_ids = {
             ex._trace_id for ex in unaligned_judge._examples if hasattr(ex, "_trace_id")
         }
-        # Get actual trace IDs from sample_traces
-        expected_remaining = {sample_traces[i].info.trace_id for i in [0, 2, 4]}
+        # Get actual trace IDs from sample_traces - exclude indices 1 and 3
+        expected_remaining = {
+            sample_traces[i].info.trace_id for i in range(len(sample_traces)) if i not in [1, 3]
+        }
         assert remaining_trace_ids == expected_remaining
 
 

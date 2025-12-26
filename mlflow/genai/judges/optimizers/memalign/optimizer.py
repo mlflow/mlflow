@@ -51,6 +51,12 @@ class MemoryAugmentedJudge(Judge):
         embedding_dim: int = 512,
         examples: list["dspy.Example"] | None = None,
     ):
+        super().__init__(
+            name=base_judge.name,
+            description=base_judge.description,
+            aggregations=base_judge.aggregations,
+        )
+
         self._base_judge = base_judge
         self._base_signature = create_dspy_signature(base_judge)
         self._retrieval_k = retrieval_k
@@ -90,16 +96,14 @@ class MemoryAugmentedJudge(Judge):
             **kwargs,
         )
 
-        return Assessment(
+        return Feedback(
             name=self._base_judge.name,
             source=AssessmentSource(
                 source_type=AssessmentSourceType.LLM_JUDGE,
                 source_id=self._base_judge.model,
             ),
-            feedback=Feedback(
-                value=prediction.result,
-                rationale=prediction.rationale,
-            ),
+            value=prediction.result,
+            rationale=prediction.rationale,
             metadata={"retrieved_example_indices": retrieved_indices} if retrieved_indices else {},
         )
 
