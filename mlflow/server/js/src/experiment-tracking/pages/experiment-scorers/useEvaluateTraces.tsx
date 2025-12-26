@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { QueryClient, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
 import { fetchOrFail, getAjaxUrl } from '../../../common/utils/FetchUtils';
-import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTrace, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import type {
   ModelTraceLocationMlflowExperiment,
   ModelTraceLocationUcSchema,
@@ -25,7 +25,8 @@ import {
 } from '../../utils/TraceUtils';
 import { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
 import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
-import { first } from 'lodash';
+import { compact, first } from 'lodash';
+import { useGetSessionIdsForEvaluation } from './useGetSessionsForEvaluation';
 
 /**
  * Response from the chat completions API
@@ -58,11 +59,21 @@ export interface AssessmentResult {
   span_name?: string;
 }
 
-export interface JudgeEvaluationResult {
+interface TraceJudgeEvaluationResult {
   trace: ModelTrace | null;
+  // session?: { traces: (ModelTrace | null)[] };
   results: AssessmentResult[]; // Always an array, even for single-result assessments
   error: string | null;
 }
+
+interface SessionJudgeEvaluationResult {
+  sessionId: string;
+  traces: (ModelTrace | null)[];
+  results: AssessmentResult[]; // Always an array, even for single-result assessments
+  error: string | null;
+}
+
+export type JudgeEvaluationResult = TraceJudgeEvaluationResult | SessionJudgeEvaluationResult;
 
 const getMlflowTraceV3 = async (requestId: string): Promise<ModelTrace> => {
   const [traceInfoResponse, traceDataResponse] = await Promise.all([
@@ -346,7 +357,7 @@ const evaluateSingleTrace = async ({
   traceId: string;
   params: EvaluateTracesParams;
   experimentId: string;
-}): Promise<JudgeEvaluationResult[]> => {
+}): Promise<TraceJudgeEvaluationResult[]> => {
   let fullTrace: ModelTrace | null = null;
 
   try {
@@ -552,6 +563,48 @@ const evaluateSingleTrace = async ({
   }
 };
 
+const evaluateSession = async ({
+  experimentId,
+  params,
+  queryClient,
+  session,
+}: {
+  queryClient: QueryClient;
+  session: {
+    traceInfos: ModelTraceInfoV3[];
+    sessionId?: string;
+  };
+  experimentId: string;
+  params: EvaluateTracesParams;
+}): Promise<SessionJudgeEvaluationResult | null> => {
+  const { sessionId, traceInfos } = session;
+  const firstTraceInSession = first(session.traceInfos)?.trace_id;
+
+  if (!firstTraceInSession || !sessionId) {
+    return null;
+  }
+  const traceEvaluationResults = (
+    await Promise.all(
+      traceInfos.map(
+        async (traceInfo) =>
+          await evaluateSingleTrace({
+            experimentId,
+            params,
+            queryClient,
+            traceId: traceInfo.trace_id,
+          }),
+      ),
+    )
+  ).flat();
+
+  return {
+    sessionId,
+    traces: traceEvaluationResults.map((result) => result.trace),
+    results: traceEvaluationResults.map((result) => result.results).flat(),
+    error: traceEvaluationResults.some((result) => result.error) ? traceEvaluationResults[0].error : null,
+  };
+};
+
 /**
  * React hook for evaluating judges on traces with React Query caching
  *
@@ -567,6 +620,7 @@ export function useEvaluateTraces(): [
   const [error, setError] = useState<Error | null>(null);
   const queryClient = useQueryClient();
   const getTraceIdsForEvaluation = useGetTraceIdsForEvaluation();
+  const getSessionsForEvaluation = useGetSessionIdsForEvaluation();
 
   const evaluateTraces = useCallback(
     async (params: EvaluateTracesParams): Promise<JudgeEvaluationResult[]> => {
@@ -577,8 +631,29 @@ export function useEvaluateTraces(): [
       const { experimentId } = params;
 
       try {
-        // TODO(next PRs): Add support for session-level scoring
-        // ...
+        if (params.scope === ScorerEvaluationScope.SESSIONS) {
+          const sessions = await getSessionsForEvaluation(params);
+          const evaluationResults = await Promise.all(
+            sessions.map(async (session) => {
+              const firstTraceInSession = first(session.traceInfos)?.trace_id;
+
+              if (!firstTraceInSession) {
+                return null;
+              }
+              const result = await evaluateSession({
+                experimentId,
+                params,
+                queryClient,
+                session,
+              });
+
+              return result;
+            }),
+          );
+
+          setData(compact(evaluationResults));
+          return compact(evaluationResults);
+        }
 
         // Extract trace IDs from search results
         const traceIds = await getTraceIdsForEvaluation(params);
@@ -610,7 +685,7 @@ export function useEvaluateTraces(): [
         setIsLoading(false);
       }
     },
-    [queryClient, getTraceIdsForEvaluation],
+    [queryClient, getTraceIdsForEvaluation, getSessionsForEvaluation],
   );
 
   const reset = useCallback(() => {
