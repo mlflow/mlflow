@@ -9,7 +9,7 @@ import { useModelsQuery } from './useModelsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
 import GatewayRoutes from '../routes';
 import type { ProviderModel } from '../types';
-import type { SecretMode } from '../components/secrets/SecretConfigSection';
+import type { SecretMode } from '../components/model-configuration/types';
 
 export interface CreateEndpointFormData {
   name: string;
@@ -27,25 +27,17 @@ export interface CreateEndpointFormData {
 
 export interface UseCreateEndpointFormResult {
   form: ReturnType<typeof useForm<CreateEndpointFormData>>;
-  // Mutations and state
   isLoading: boolean;
   error: Error | null;
   resetErrors: () => void;
-  // Data
   existingEndpoints: ReturnType<typeof useEndpointsQuery>['data'];
   selectedModel: ProviderModel | undefined;
-  // Computed state
   isFormComplete: boolean;
-  // Handlers
   handleSubmit: (values: CreateEndpointFormData) => Promise<void>;
   handleCancel: () => void;
   handleNameBlur: () => void;
 }
 
-/**
- * Custom hook that contains all business logic for creating an endpoint.
- * Separates concerns from the renderer component for easier testing and reuse.
- */
 export function useCreateEndpointForm(): UseCreateEndpointFormResult {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -87,7 +79,6 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
     reset: resetModelDefinitionError,
   } = useCreateModelDefinitionMutation();
 
-  // Custom error state for handling special cases like secret name conflicts
   const [customError, setCustomError] = useState<Error | null>(null);
 
   const resetErrors = useCallback(() => {
@@ -105,7 +96,6 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
       let secretId = values.existingSecretId;
 
       if (values.secretMode === 'new') {
-        // Build auth_config with auth_mode included
         const authConfig: Record<string, string> = { ...values.newSecret.configFields };
         if (values.newSecret.authMode) {
           authConfig['auth_mode'] = values.newSecret.authMode;
@@ -121,7 +111,6 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
         secretId = secretResponse.secret.secret_id;
       }
 
-      // Create a model definition (auto-generate name from endpoint name and model)
       const modelDefinitionResponse = await createModelDefinition({
         name: `${values.name || 'endpoint'}-${values.modelName}`,
         secret_id: secretId,
@@ -131,7 +120,6 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
 
       const modelDefinitionId = modelDefinitionResponse.model_definition.model_definition_id;
 
-      // Create the endpoint with the model definition ID
       const endpointResponse = await createEndpoint({
         name: values.name || undefined,
         model_definition_ids: [modelDefinitionId],
@@ -139,7 +127,7 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
 
       navigate(GatewayRoutes.getEndpointDetailsRoute(endpointResponse.endpoint.endpoint_id));
     } catch {
-      // Error is captured by the mutation's error state and displayed via the Alert component
+      // Errors are captured by mutation error state
     }
   };
 
@@ -147,7 +135,6 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
     navigate(GatewayRoutes.gatewayPageRoute);
   };
 
-  // Watch form values
   const provider = form.watch('provider');
   const modelName = form.watch('modelName');
   const secretMode = form.watch('secretMode');
@@ -155,11 +142,9 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
   const newSecretName = form.watch('newSecret.name');
   const newSecretFields = form.watch('newSecret.secretFields');
 
-  // Get the selected model's full data for the summary
   const { data: models } = useModelsQuery({ provider: provider || undefined });
   const selectedModel = models?.find((m) => m.model === modelName);
 
-  // Fetch existing endpoints to check for name conflicts on blur
   const { data: existingEndpoints } = useEndpointsQuery();
 
   const handleNameBlur = () => {
@@ -172,7 +157,6 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
     }
   };
 
-  // Check if the form is complete enough to enable the Create button
   const hasSecretFieldValues = Object.values(newSecretFields || {}).some((v) => !!v);
   const isSecretConfigured = secretMode === 'existing' ? !!existingSecretId : !!newSecretName && hasSecretFieldValues;
   const isFormComplete = !!provider && !!modelName && isSecretConfigured;
