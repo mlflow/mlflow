@@ -2,11 +2,11 @@
 
 ## 3.8.1 (2025-12-26)
 
-MLflow 3.8.1 includes several major features and improvements
+MLflow 3.8.1 includes several bug fixes and documentation updates.
 
 Bug fixes:
 
-- [] Skip registering sqlalchemy store when sqlalchemy lib is not installed (#19563, @WeichenXu123)
+- [Tracking] Skip registering sqlalchemy store when sqlalchemy lib is not installed (#19563, @WeichenXu123)
 - [Models / Scoring] fix(security): prevent command injection via malicious model artifacts (#19583, @ColeMurray)
 - [Prompts] Fix prompt registration with model_config on Databricks (#19617, @TomeHirata)
 - [UI] Fix UI blank page on plain HTTP by replacing crypto.randomUUID with uuid library (#19644, @copilot-swe-agent)
