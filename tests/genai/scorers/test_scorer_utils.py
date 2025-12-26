@@ -402,3 +402,157 @@ def test_function_with_mlflow_trace_type_hint():
     assert isinstance(result, Feedback)
     assert result.value is True
     assert "test_trace_id" in result.rationale
+
+
+@pytest.mark.parametrize(
+    "expectations",
+    [None, {}, {"expected_tool_calls": []}],
+)
+def test_parse_tool_call_expectations_returns_none_for_empty(expectations):
+    from mlflow.genai.scorers.scorer_utils import parse_tool_call_expectations
+
+    assert parse_tool_call_expectations(expectations) is None
+
+
+def test_parse_tool_call_expectations_parses_dict():
+    from mlflow.genai.scorers.scorer_utils import parse_tool_call_expectations
+
+    expectations = {
+        "expected_tool_calls": [
+            {"name": "search", "arguments": {"query": "test"}},
+            {"name": "summarize"},
+        ]
+    }
+    result = parse_tool_call_expectations(expectations)
+
+    assert len(result) == 2
+    assert result[0].name == "search"
+    assert result[0].arguments == {"query": "test"}
+    assert result[1].name == "summarize"
+    assert result[1].arguments is None
+
+
+def test_parse_tool_call_expectations_parses_function_call_objects():
+    from mlflow.genai.scorers.scorer_utils import parse_tool_call_expectations
+    from mlflow.genai.utils.type import FunctionCall
+
+    expectations = {
+        "expected_tool_calls": [
+            FunctionCall(name="search", arguments={"query": "test"}),
+            FunctionCall(name="summarize"),
+        ]
+    }
+    result = parse_tool_call_expectations(expectations)
+
+    assert len(result) == 2
+    assert result[0].name == "search"
+    assert result[1].name == "summarize"
+
+
+def test_parse_tool_call_expectations_raises_for_invalid_arguments_type():
+    from mlflow.exceptions import MlflowException
+    from mlflow.genai.scorers.scorer_utils import parse_tool_call_expectations
+
+    expectations = {"expected_tool_calls": [{"name": "search", "arguments": "invalid"}]}
+
+    with pytest.raises(MlflowException, match="Arguments must be a dict"):
+        parse_tool_call_expectations(expectations)
+
+
+def test_parse_tool_call_expectations_raises_for_invalid_call_format():
+    from mlflow.exceptions import MlflowException
+    from mlflow.genai.scorers.scorer_utils import parse_tool_call_expectations
+
+    expectations = {"expected_tool_calls": ["invalid_string"]}
+
+    with pytest.raises(MlflowException, match="Invalid expected tool call format"):
+        parse_tool_call_expectations(expectations)
+
+
+def test_has_partial_tool_call_expectations_true_when_missing_args():
+    from mlflow.genai.scorers.scorer_utils import has_partial_tool_call_expectations
+    from mlflow.genai.utils.type import FunctionCall
+
+    calls = [
+        FunctionCall(name="search", arguments={"query": "test"}),
+        FunctionCall(name="summarize"),
+    ]
+    assert has_partial_tool_call_expectations(calls) is True
+
+
+def test_has_partial_tool_call_expectations_false_when_all_have_args():
+    from mlflow.genai.scorers.scorer_utils import has_partial_tool_call_expectations
+    from mlflow.genai.utils.type import FunctionCall
+
+    calls = [
+        FunctionCall(name="search", arguments={"query": "test"}),
+        FunctionCall(name="summarize", arguments={"text": "content"}),
+    ]
+    assert has_partial_tool_call_expectations(calls) is False
+
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        (None, {}),
+        ({"query": "test", "limit": 10}, {"query": "test", "limit": 10}),
+    ],
+)
+def test_normalize_tool_call_arguments(args, expected):
+    from mlflow.genai.scorers.scorer_utils import normalize_tool_call_arguments
+
+    assert normalize_tool_call_arguments(args) == expected
+
+
+def test_normalize_tool_call_arguments_raises_for_invalid_type():
+    from mlflow.exceptions import MlflowException
+    from mlflow.genai.scorers.scorer_utils import normalize_tool_call_arguments
+
+    with pytest.raises(MlflowException, match="Arguments must be a dict"):
+        normalize_tool_call_arguments("invalid")
+
+
+def test_get_tool_call_signature_name_only():
+    from mlflow.genai.scorers.scorer_utils import get_tool_call_signature
+    from mlflow.genai.utils.type import FunctionCall
+
+    call = FunctionCall(name="search", arguments={"query": "test"})
+    assert get_tool_call_signature(call, compare_arguments=False) == "search"
+
+
+def test_get_tool_call_signature_with_args():
+    from mlflow.genai.scorers.scorer_utils import get_tool_call_signature
+    from mlflow.genai.utils.type import FunctionCall
+
+    call = FunctionCall(name="search", arguments={"query": "test"})
+    sig = get_tool_call_signature(call, compare_arguments=True)
+    assert sig == 'search({"query": "test"})'
+
+
+def test_get_tool_call_signature_sorts_arguments():
+    from mlflow.genai.scorers.scorer_utils import get_tool_call_signature
+    from mlflow.genai.utils.type import FunctionCall
+
+    call1 = FunctionCall(name="search", arguments={"b": 2, "a": 1})
+    call2 = FunctionCall(name="search", arguments={"a": 1, "b": 2})
+
+    sig1 = get_tool_call_signature(call1, compare_arguments=True)
+    sig2 = get_tool_call_signature(call2, compare_arguments=True)
+    assert sig1 == sig2
+
+
+def test_get_tool_call_signature_handles_none_arguments():
+    from mlflow.genai.scorers.scorer_utils import get_tool_call_signature
+    from mlflow.genai.utils.type import FunctionCall
+
+    call = FunctionCall(name="search")
+    sig = get_tool_call_signature(call, compare_arguments=True)
+    assert sig == "search({})"
+
+
+def test_get_tool_call_signature_returns_empty_for_none_name():
+    from mlflow.genai.scorers.scorer_utils import get_tool_call_signature
+    from mlflow.genai.utils.type import FunctionCall
+
+    call = FunctionCall(name=None)
+    assert get_tool_call_signature(call, compare_arguments=False) == ""

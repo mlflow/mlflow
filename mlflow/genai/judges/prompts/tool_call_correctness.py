@@ -1,12 +1,15 @@
 import json
+from typing import TYPE_CHECKING
 
 from mlflow.genai.judges.utils.formatting_utils import (
     format_available_tools,
     format_tools_called,
 )
 from mlflow.genai.prompts.utils import format_prompt
-from mlflow.genai.utils.type import FunctionCall
-from mlflow.types.chat import ChatTool
+
+if TYPE_CHECKING:
+    from mlflow.genai.utils.type import FunctionCall
+    from mlflow.types.chat import ChatTool
 
 TOOL_CALL_CORRECTNESS_FEEDBACK_NAME = "tool_call_correctness"
 
@@ -24,7 +27,10 @@ Do not use any markdown formatting or output additional lines.
 ORDERING_INSTRUCTION_CHECK = (
     "3) Ordering\n- Consider whether the order of tool calls matches the expected order."
 )
-ORDERING_INSTRUCTION_IGNORE = "Note: The order of tool calls does not need to match exactly."
+ORDERING_INSTRUCTION_IGNORE = (
+    "Note: The order of tool calls does not need to match. You should not penalize the agent for "
+    "calling tools in a different order than the expected order."
+)
 
 # Evaluation criteria for ground-truth-free mode
 _GROUND_TRUTH_FREE_CRITERIA = """\
@@ -116,8 +122,9 @@ _PARTIAL_EXPECTATIONS_PREAMBLE = """\
 Evaluate tool call correctness by comparing tool selection against expected tool names, and
 evaluating whether arguments are reasonable.
 
-Given the user's request, the expected tool names (ground truth), and the actual tool calls made
-by the agent, evaluate whether the agent selected the correct tools and used reasonable arguments.\
+Given the user's request, the expected tool names (ground truth), the available tools (including
+their described capabilities/constraints), and the actual tool calls made by the agent, evaluate
+whether the agent selected the correct tools and used reasonable arguments.\
 """
 
 # Legacy exports for backward compatibility
@@ -133,12 +140,15 @@ TOOL_CALL_CORRECTNESS_PROMPT_OUTPUT = _OUTPUT_FORMAT
 TOOL_CALL_CORRECTNESS_PROMPT = TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS + _OUTPUT_FORMAT
 
 
-def _format_expected_calls(expected_calls: list[FunctionCall], compare_arguments: bool) -> str:
+def _format_expected_calls(expected_calls: list["FunctionCall"], compare_arguments: bool) -> str:
     lines = []
     for i, call in enumerate(expected_calls, 1):
-        if compare_arguments and call.arguments:
+        if compare_arguments:
             lines.append(f"Expected Tool Call {i}: {call.name}")
-            lines.append(f"  Arguments: {json.dumps(call.arguments)}")
+            if call.arguments:
+                lines.append(f"  Arguments: {json.dumps(call.arguments)}")
+            else:
+                lines.append("  Arguments: empty")
         else:
             lines.append(f"Expected Tool {i}: {call.name}")
     return "\n".join(lines) if lines else "No expected tool calls provided."
@@ -146,9 +156,9 @@ def _format_expected_calls(expected_calls: list[FunctionCall], compare_arguments
 
 def get_prompt(
     request: str,
-    tools_called: list[FunctionCall],
-    available_tools: list[ChatTool],
-    expected_calls: list[FunctionCall] | None = None,
+    tools_called: list["FunctionCall"],
+    available_tools: list["ChatTool"],
+    expected_calls: list["FunctionCall"] | None = None,
     compare_arguments: bool = True,
     check_order: bool = False,
 ) -> str:
@@ -190,22 +200,17 @@ def get_prompt(
 
     # With expectations mode
     expected_calls_str = _format_expected_calls(expected_calls, compare_arguments)
+    expected_section = f"<expected_tool_calls>\n{expected_calls_str}\n</expected_tool_calls>\n\n"
 
     if compare_arguments:
         preamble = _FULL_EXPECTATIONS_PREAMBLE
         criteria = format_prompt(
             _FULL_EXPECTATIONS_CRITERIA, ordering_instruction=ordering_instruction
         )
-        expected_section = (
-            f"<expected_tool_calls>\n{expected_calls_str}\n</expected_tool_calls>\n\n"
-        )
     else:
         preamble = _PARTIAL_EXPECTATIONS_PREAMBLE
         criteria = format_prompt(
             _PARTIAL_EXPECTATIONS_CRITERIA, ordering_instruction=ordering_instruction
-        )
-        expected_section = (
-            f"<expected_tool_names>\n{expected_calls_str}\n</expected_tool_names>\n\n"
         )
 
     return format_prompt(

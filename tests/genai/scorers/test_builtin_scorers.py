@@ -1891,7 +1891,7 @@ def test_tool_call_correctness_exact_match_without_expectations_raises_error(
 
 
 def test_tool_call_correctness_fuzzy_match_with_expectations(tool_call_trace_one_tool):
-    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke:
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke:
         mock_invoke.return_value = Feedback(
             name="tool_call_correctness",
             value=CategoricalRating.YES,
@@ -1911,9 +1911,12 @@ def test_tool_call_correctness_fuzzy_match_with_expectations(tool_call_trace_one
 
 
 def test_tool_call_correctness_parse_expectations_with_function_call_objects():
+    from mlflow.genai.scorers.scorer_utils import (
+        has_partial_tool_call_expectations,
+        parse_tool_call_expectations,
+    )
     from mlflow.genai.utils.type import FunctionCall
 
-    scorer = ToolCallCorrectness()
     expectations = {
         "expected_tool_calls": [
             FunctionCall(name="search", arguments={"query": "test"}),
@@ -1921,12 +1924,12 @@ def test_tool_call_correctness_parse_expectations_with_function_call_objects():
         ]
     }
 
-    expected_calls = scorer._parse_expectations(expectations)
+    expected_calls = parse_tool_call_expectations(expectations)
     assert len(expected_calls) == 2
     assert expected_calls[0].name == "search"
     assert expected_calls[0].arguments == {"query": "test"}
     assert expected_calls[1].name == "summarize"
-    assert scorer._has_partial_expectations_only(expected_calls)
+    assert has_partial_tool_call_expectations(expected_calls)
 
 
 @pytest.mark.parametrize(
@@ -1934,8 +1937,9 @@ def test_tool_call_correctness_parse_expectations_with_function_call_objects():
     [None, {}, {"expected_tool_calls": []}],
 )
 def test_tool_call_correctness_parse_expectations_empty(expectations):
-    scorer = ToolCallCorrectness()
-    expected_calls = scorer._parse_expectations(expectations)
+    from mlflow.genai.scorers.scorer_utils import parse_tool_call_expectations
+
+    expected_calls = parse_tool_call_expectations(expectations)
     assert expected_calls is None
 
 
