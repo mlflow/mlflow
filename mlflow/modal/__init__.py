@@ -33,9 +33,79 @@ DEFAULT_CPU = 1.0
 DEFAULT_TIMEOUT = 300  # seconds
 DEFAULT_CONTAINER_IDLE_TIMEOUT = 60  # seconds
 DEFAULT_ALLOW_CONCURRENT_INPUTS = 1
+DEFAULT_MIN_CONTAINERS = 0
+DEFAULT_MAX_CONTAINERS = None
+DEFAULT_SCALEDOWN_WINDOW = None
 
 # Supported GPU types
 SUPPORTED_GPUS = ["T4", "L4", "A10G", "A100", "A100-80GB", "H100"]
+
+
+def _get_model_requirements(model_path: str) -> list[str]:
+    """Extract Python requirements from an MLflow model."""
+    requirements = []
+    req_file = os.path.join(model_path, "requirements.txt")
+    if os.path.exists(req_file):
+        with open(req_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and not line.lower().startswith("mlflow"):
+                    requirements.append(line)
+        return requirements
+    conda_file = os.path.join(model_path, "conda.yaml")
+    if os.path.exists(conda_file):
+        try:
+            import yaml
+
+            with open(conda_file) as f:
+                conda_env = yaml.safe_load(f)
+            for dep in conda_env.get("dependencies", []):
+                if isinstance(dep, dict) and "pip" in dep:
+                    requirements.extend(
+                        pip_dep
+                        for pip_dep in dep["pip"]
+                        if not pip_dep.lower().startswith("mlflow")
+                    )
+                elif isinstance(dep, str) and not dep.startswith("python"):
+                    if not dep.lower().startswith("mlflow"):
+                        requirements.append(dep)
+        except Exception as e:
+            _logger.warning(f"Failed to parse conda.yaml: {e}")
+    return requirements
+
+
+def _get_model_python_version(model_path: str) -> str | None:
+    """Extract Python version from an MLflow model."""
+    conda_file = os.path.join(model_path, "conda.yaml")
+    if os.path.exists(conda_file):
+        try:
+            import yaml
+
+            with open(conda_file) as f:
+                conda_env = yaml.safe_load(f)
+            for dep in conda_env.get("dependencies", []):
+                if isinstance(dep, str) and dep.startswith("python"):
+                    version = dep.split("=")[-1].split(">")[-1].split("<")[-1]
+                    parts = version.split(".")
+                    if len(parts) >= 2:
+                        return f"{parts[0]}.{parts[1]}"
+        except Exception as e:
+            _logger.warning(f"Failed to parse Python version: {e}")
+    return None
+
+
+def _clear_volume(modal, volume_name: str) -> None:
+    """Clear Modal volume to allow redeployment."""
+    try:
+        volume = modal.Volume.from_name(volume_name)
+        for entry in volume.listdir("/"):
+            try:
+                volume.remove_file(f"/{entry.path}")
+            except Exception:
+                pass
+        _logger.info(f"Cleared volume: {volume_name}")
+    except Exception as e:
+        _logger.debug(f"Could not clear volume {volume_name}: {e}")
 
 
 def _get_preferred_deployment_flavor(model_config):
@@ -104,6 +174,7 @@ def _generate_modal_app_code(
     app_name: str,
     model_path: str,
     config: dict[str, Any],
+    model_requirements: list[str] | None = None,
 ) -> str:
     """
     Generate the Modal app Python code for serving an MLflow model.
@@ -129,6 +200,30 @@ def _generate_modal_app_code(
     # Build GPU string for Modal
     gpu_str = f'"{gpu_config}"' if gpu_config else "None"
 
+    # Build pip install string with model requirements
+    pip_packages = ["mlflow"]
+    if model_requirements:
+        pip_packages.extend(model_requirements)
+    pip_install_str = ", ".join(f'"{pkg}"' for pkg in pip_packages)
+
+    # Build scaling configuration string
+    scaling_parts = []
+    min_containers = config.get("min_containers", DEFAULT_MIN_CONTAINERS)
+    max_containers = config.get("max_containers")
+    scaledown_window = config.get("scaledown_window")
+    allow_concurrent_inputs = config.get("allow_concurrent_inputs", DEFAULT_ALLOW_CONCURRENT_INPUTS)
+
+    if min_containers is not None and min_containers > 0:
+        scaling_parts.append(f"min_containers={min_containers}")
+    if max_containers is not None:
+        scaling_parts.append(f"max_containers={max_containers}")
+    if scaledown_window is not None:
+        scaling_parts.append(f"scaledown_window={scaledown_window}")
+    if allow_concurrent_inputs != DEFAULT_ALLOW_CONCURRENT_INPUTS:
+        scaling_parts.append(f"allow_concurrent_inputs={allow_concurrent_inputs}")
+
+    scaling_str = "\n            ".join(f"{part}," for part in scaling_parts)
+
     # Build the Modal app code
     code = textwrap.dedent(f'''
         """
@@ -147,7 +242,7 @@ def _generate_modal_app_code(
         # Define the container image with MLflow dependencies
         image = (
             modal.Image.debian_slim(python_version="{python_version}")
-            .pip_install("mlflow", "pandas", "numpy", "scikit-learn")
+            .pip_install({pip_install_str})
         )
 
         @app.cls(
@@ -157,12 +252,14 @@ def _generate_modal_app_code(
             cpu={cpu},
             timeout={timeout},
             container_idle_timeout={container_idle_timeout},
+            {scaling_str}
             volumes={{MODEL_DIR: model_volume}},
         )
         class MLflowModel:
             @modal.enter()
             def load_model(self):
                 import mlflow.pyfunc
+                model_volume.reload()
                 self.model = mlflow.pyfunc.load_model(MODEL_DIR)
 
     ''')
@@ -263,7 +360,10 @@ class ModalDeploymentClient(BaseDeploymentClient):
             "max_batch_size": 8,
             "batch_wait_ms": 100,
             "allow_concurrent_inputs": DEFAULT_ALLOW_CONCURRENT_INPUTS,
-            "python_version": "3.10",
+            "min_containers": DEFAULT_MIN_CONTAINERS,
+            "max_containers": DEFAULT_MAX_CONTAINERS,
+            "scaledown_window": DEFAULT_SCALEDOWN_WINDOW,
+            "python_version": None,  # Auto-detect from model
         }
 
     def _apply_custom_config(
@@ -279,22 +379,30 @@ class ModalDeploymentClient(BaseDeploymentClient):
             "container_idle_timeout",
             "max_batch_size",
             "batch_wait_ms",
+            "min_containers",
+            "max_containers",
+            "scaledown_window",
+            "allow_concurrent_inputs",
         }
         float_fields = {"cpu"}
         bool_fields = {"enable_batching"}
 
         for key, value in custom_config.items():
             if key not in config:
+                # Allow passthrough of additional config options
+                config[key] = value
                 continue
 
-            if key in int_fields and not isinstance(value, int):
-                value = int(value)
+            if value is None:
+                config[key] = value
+            elif key in int_fields and not isinstance(value, int):
+                config[key] = int(value)
             elif key in float_fields and not isinstance(value, float):
-                value = float(value)
+                config[key] = float(value)
             elif key in bool_fields and not isinstance(value, bool):
-                value = str(value).lower() == "true"
-
-            config[key] = value
+                config[key] = str(value).lower() == "true"
+            else:
+                config[key] = value
 
         # Validate GPU if specified
         if config.get("gpu") and config["gpu"] not in SUPPORTED_GPUS:
@@ -355,35 +463,61 @@ class ModalDeploymentClient(BaseDeploymentClient):
             deployment_config = self._default_deployment_config()
             deployment_config = self._apply_custom_config(deployment_config, config)
 
+            # Auto-detect Python version from model if not specified
+            if deployment_config.get("python_version") is None:
+                detected_version = _get_model_python_version(local_model_path)
+                deployment_config["python_version"] = detected_version or "3.10"
+
+            # Get model requirements
+            model_requirements = _get_model_requirements(local_model_path)
+            if model_requirements:
+                _logger.info(f"Detected model requirements: {model_requirements}")
+
             # Generate Modal app code
-            app_code = _generate_modal_app_code(name, local_model_path, deployment_config)
+            app_code = _generate_modal_app_code(
+                name, local_model_path, deployment_config, model_requirements
+            )
 
             # Write the app code to a temporary file
             app_file = os.path.join(tmp_dir.path(), "modal_app.py")
             with open(app_file, "w") as f:
                 f.write(app_code)
 
-            # Upload model to Modal volume
-            _logger.info(f"Uploading model to Modal volume: {name}-model-volume")
-            volume = modal.Volume.from_name(f"{name}-model-volume", create_if_missing=True)
+            # Clear existing volume to allow redeployment (fixes FileExistsError)
+            volume_name = f"{name}-model-volume"
+            _clear_volume(modal, volume_name)
 
-            # Upload model files to volume
-            with volume.batch_upload() as batch:
+            # Upload model to Modal volume
+            _logger.info(f"Uploading model to Modal volume: {volume_name}")
+            volume = modal.Volume.from_name(volume_name, create_if_missing=True)
+
+            # Upload model files to volume with force=True to overwrite
+            with volume.batch_upload(force=True) as batch:
                 for root, dirs, files in os.walk(local_model_path):
                     for file in files:
                         local_file = os.path.join(root, file)
                         relative_path = os.path.relpath(local_file, local_model_path)
                         batch.put_file(local_file, f"/{relative_path}")
 
-            # Deploy the Modal app
+            # Deploy the Modal app with workspace if specified
             _logger.info(f"Deploying Modal app: {name}")
+            deploy_cmd = ["modal", "deploy", app_file]
+            if self.workspace:
+                deploy_cmd.extend(["--env", self.workspace])
+
+            # Set environment for workspace if specified
+            env = os.environ.copy()
+            if self.workspace:
+                env["MODAL_ENVIRONMENT"] = self.workspace
+
             result = subprocess.run(
-                ["modal", "deploy", app_file],
+                deploy_cmd,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
                 cwd=tmp_dir.path(),
+                env=env,
             )
 
             if result.returncode != 0:
@@ -463,8 +597,13 @@ class ModalDeploymentClient(BaseDeploymentClient):
 
         _logger.info(f"Stopping Modal app: {name}")
 
+        # Build command with workspace if specified
+        cmd = ["modal", "app", "stop", name]
+        if self.workspace:
+            cmd.extend(["--env", self.workspace])
+
         result = subprocess.run(
-            ["modal", "app", "stop", name],
+            cmd,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -475,13 +614,8 @@ class ModalDeploymentClient(BaseDeploymentClient):
         if result.returncode != 0 and "not found" not in result.stderr.lower():
             _logger.warning(f"Failed to stop Modal app {name}: {result.stderr}")
 
-        # Optionally delete the volume
-        try:
-            modal.Volume.from_name(f"{name}-model-volume")
-            # Note: Modal doesn't have a direct delete API, volume will be garbage collected
-            _logger.info(f"Volume {name}-model-volume will be garbage collected")
-        except Exception:
-            pass  # Volume may not exist
+        # Clear the volume
+        _clear_volume(modal, f"{name}-model-volume")
 
     def list_deployments(self, endpoint: str | None = None) -> list[dict[str, Any]]:
         """
@@ -493,8 +627,12 @@ class ModalDeploymentClient(BaseDeploymentClient):
         Returns:
             List of deployment dictionaries
         """
+        cmd = ["modal", "app", "list", "--json"]
+        if self.workspace:
+            cmd.extend(["--env", self.workspace])
+
         result = subprocess.run(
-            ["modal", "app", "list", "--json"],
+            cmd,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -530,8 +668,12 @@ class ModalDeploymentClient(BaseDeploymentClient):
         Returns:
             Dictionary containing deployment information
         """
+        cmd = ["modal", "app", "list", "--json"]
+        if self.workspace:
+            cmd.extend(["--env", self.workspace])
+
         result = subprocess.run(
-            ["modal", "app", "list", "--json"],
+            cmd,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -648,7 +790,19 @@ def run_local(target, name, model_uri, flavor=None, config=None):
         if config:
             deployment_config.update(config)
 
-        app_code = _generate_modal_app_code(name, local_model_path, deployment_config)
+        # Auto-detect Python version from model if not specified
+        if deployment_config.get("python_version") is None:
+            detected_version = _get_model_python_version(local_model_path)
+            deployment_config["python_version"] = detected_version or "3.10"
+
+        # Get model requirements
+        model_requirements = _get_model_requirements(local_model_path)
+        if model_requirements:
+            _logger.info(f"Detected model requirements: {model_requirements}")
+
+        app_code = _generate_modal_app_code(
+            name, local_model_path, deployment_config, model_requirements
+        )
 
         # Write app code
         app_file = os.path.join(tmp_dir.path(), "modal_app.py")
@@ -674,7 +828,7 @@ def target_help():
     Target URI Format
     -----------------
     - ``modal``: Use default workspace from Modal authentication
-    - ``modal:/workspace-name``: Use a specific workspace
+    - ``modal:/workspace-name``: Use a specific Modal environment/workspace
 
     Authentication
     --------------
@@ -686,15 +840,29 @@ def target_help():
     ---------------------
     Pass these options via the ``config`` parameter in create_deployment():
 
+    Resource Configuration:
     - ``gpu``: GPU type (T4, L4, A10G, A100, A100-80GB, H100)
     - ``memory``: Memory allocation in MB (default: 512)
     - ``cpu``: CPU cores (default: 1.0)
     - ``timeout``: Request timeout in seconds (default: 300)
+
+    Scaling Configuration:
+    - ``min_containers``: Minimum number of containers to keep warm (default: 0)
+    - ``max_containers``: Maximum number of containers to scale to (default: None)
     - ``container_idle_timeout``: Container idle timeout in seconds (default: 60)
+    - ``scaledown_window``: Time window for scale-down decisions in seconds
+    - ``allow_concurrent_inputs``: Number of concurrent inputs per container (default: 1)
+
+    Batching Configuration:
     - ``enable_batching``: Enable dynamic batching (default: False)
     - ``max_batch_size``: Maximum batch size when batching enabled (default: 8)
     - ``batch_wait_ms``: Batch wait time in milliseconds (default: 100)
-    - ``python_version``: Python version for container (default: "3.10")
+
+    Environment Configuration:
+    - ``python_version``: Python version for container (auto-detected from model, or "3.10")
+
+    Note: Model dependencies are automatically detected from the MLflow model's
+    requirements.txt or conda.yaml file and installed in the container.
 
     Example
     -------
@@ -704,13 +872,15 @@ def target_help():
 
         client = get_deploy_client("modal")
 
-        # Deploy a model with GPU and batching
+        # Deploy a model with GPU and scaling
         deployment = client.create_deployment(
             name="my-classifier",
             model_uri="runs:/abc123/model",
             config={
                 "gpu": "T4",
                 "memory": 2048,
+                "min_containers": 1,
+                "max_containers": 10,
                 "enable_batching": True,
                 "max_batch_size": 16,
             }
@@ -728,6 +898,9 @@ def target_help():
 
         # Deploy a model
         mlflow deployments create -t modal -m runs:/abc123/model --name my-model
+
+        # Deploy to a specific workspace/environment
+        mlflow deployments create -t modal:/my-workspace -m runs:/abc123/model --name my-model
 
         # List deployments
         mlflow deployments list -t modal
