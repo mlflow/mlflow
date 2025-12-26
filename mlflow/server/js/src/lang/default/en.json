@@ -4979,10 +4979,6 @@
     "defaultMessage": "Source",
     "description": "Experiment page > traces table > source column header"
   },
-  "eMbUhX": {
-    "defaultMessage": "e.g., openai, anthropic, google",
-    "description": "Placeholder for provider input"
-  },
   "eNUbaN": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for y-axis in scatter plot comparison in MLflow"
@@ -7558,6 +7554,10 @@
   "zp4MBw": {
     "defaultMessage": "Token count",
     "description": "Label for the token count section"
+  },
+  "zuEXrI": {
+    "defaultMessage": "e.g., openai, anthropic, gemini",
+    "description": "Placeholder for provider input"
   },
   "zv4Ycc": {
     "defaultMessage": "View as table",
