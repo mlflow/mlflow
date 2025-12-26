@@ -184,7 +184,6 @@ def exact_match(outputs, expectations) -> bool:
 
 MLflow provides built-in scorers for evaluating agent tool usage:
 
-- <APILink fn="mlflow.genai.scorers.ToolCallCorrectness">ToolCallCorrectness</APILink>: Evaluates if tool calls and arguments are correct for the user query
 - <APILink fn="mlflow.genai.scorers.ToolCallEfficiency">ToolCallEfficiency</APILink>: Evaluates if tool calls are efficient without redundancy
 
 These scorers automatically analyze traces to assess tool usage patterns. See the <ins>[Predefined Scorers](/genai/eval-monitor/scorers/llm-judge/predefined)</ins> guide for more details.
@@ -198,14 +197,13 @@ For custom evaluation patterns, you can create your own scorers that parse trace
 Now we are ready to run the evaluation!
 
 ```python
-from mlflow.genai.scorers import ToolCallCorrectness, ToolCallEfficiency
+from mlflow.genai.scorers import ToolCallEfficiency
 
 results = mlflow.genai.evaluate(
     data=eval_dataset,
     predict_fn=predict_fn,
     scorers=[
         exact_match,
-        ToolCallCorrectness(),
         ToolCallEfficiency(),
     ],
 )
