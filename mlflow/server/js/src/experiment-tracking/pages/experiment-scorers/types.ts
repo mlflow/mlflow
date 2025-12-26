@@ -2,6 +2,7 @@ import {
   ModelTraceLocationMlflowExperiment,
   ModelTraceLocationUcSchema,
 } from '@databricks/web-shared/model-trace-explorer';
+import { ScorerEvaluationScope } from './constants';
 
 interface ScheduledScorerBase {
   name: string;
@@ -12,6 +13,7 @@ interface ScheduledScorerBase {
   // Whether the UI disables monitoring for this scorer. If disabled, the UI
   // will not show the form fields for monitoring (sample rate, filter string, etc.)
   disableMonitoring?: boolean;
+  isSessionLevelScorer?: boolean;
 }
 
 // LLM Template Constants
@@ -66,6 +68,7 @@ export type ScorerConfig = {
   sample_rate?: number;
   filter_string?: string;
   scorer_version?: number;
+  is_session_level_scorer?: boolean;
 };
 
 interface EvaluateChatParamsBase {
@@ -73,6 +76,7 @@ interface EvaluateChatParamsBase {
   itemCount?: number;
   // Explicit list of item IDs to evaluate. Can be either trace IDs or session IDs. This is used to override the itemCount.
   itemIds?: string[];
+  scope?: ScorerEvaluationScope;
   locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   experimentId: string;
 }
