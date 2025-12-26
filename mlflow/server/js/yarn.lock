@@ -4639,6 +4639,7 @@ __metadata:
     use-clipboard-copy: "npm:^0.2.0"
     use-debounce: "npm:^10.0.4"
     use-sync-external-store: "npm:^1.2.0"
+    uuid: "npm:^10.0.0"
     wavesurfer.js: "npm:^7.8.8"
     webpack: "npm:^5.69.0"
     whatwg-fetch: "npm:^3.6.17"
@@ -34444,6 +34445,15 @@ __metadata:
   version: 3.1.0
   resolution: "uuid-browser@npm:3.1.0"
   checksum: 10c0/bfb6bcc8cc75c1adf776370c4f86d00ee5682f7315c8bccb99938e53dafae189ef6a4dc125e67abd2a2cdfaad6020690fe4cb67dbd5b39f32d3ba75fb713d807
+  languageName: node
+  linkType: hard
+
+"uuid@npm:^10.0.0":
+  version: 10.0.0
+  resolution: "uuid@npm:10.0.0"
+  bin:
+    uuid: dist/bin/uuid
+  checksum: 10c0/eab18c27fe4ab9fb9709a5d5f40119b45f2ec8314f8d4cf12ce27e4c6f4ffa4a6321dc7db6c515068fa373c075b49691ba969f0010bf37f44c37ca40cd6bf7fe
   languageName: node
   linkType: hard
 
