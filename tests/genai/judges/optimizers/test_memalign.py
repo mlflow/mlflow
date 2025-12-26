@@ -56,19 +56,19 @@ def sample_traces():
 def test_init_default_config():
     optimizer = MemAlignOptimizer()
     assert optimizer._retrieval_k == 5
-    assert optimizer._embedder_name == "openai/text-embedding-3-small"
-    assert optimizer._embed_dim == 512
+    assert optimizer._embedding_model == "openai/text-embedding-3-small"
+    assert optimizer._embedding_dim == 512
 
 
 def test_init_custom_config():
     optimizer = MemAlignOptimizer(
         distillation_model="openai:/gpt-4",
         retrieval_k=3,
-        embed_dim=256,
+        embedding_dim=256,
     )
     assert optimizer._distillation_model == "openai:/gpt-4"
     assert optimizer._retrieval_k == 3
-    assert optimizer._embed_dim == 256
+    assert optimizer._embedding_dim == 256
 
 
 def test_align_empty_traces_raises_error(sample_judge):
