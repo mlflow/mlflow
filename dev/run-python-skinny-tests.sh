@@ -44,5 +44,6 @@ pytest \
 
 python -m pip install pandas
 pytest tests/test_skinny_client_autolog_without_scipy.py
+pytest tests/test_skinny_client_without_importing_sqlalchemy.py
 
 test $err = 0
