@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.scorers.deepeval import DeepEvalScorer
 from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class TaskCompletion(DeepEvalScorer):
     """
     Evaluates whether an agent successfully completes its assigned task.
@@ -18,7 +21,7 @@ class TaskCompletion(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -35,6 +38,7 @@ class TaskCompletion(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class ToolCorrectness(DeepEvalScorer):
     """
     Evaluates whether an agent uses the correct tools for the task.
@@ -45,7 +49,7 @@ class ToolCorrectness(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -64,6 +68,7 @@ class ToolCorrectness(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class ArgumentCorrectness(DeepEvalScorer):
     """
     Evaluates whether an agent provides correct arguments when calling tools.
@@ -73,7 +78,7 @@ class ArgumentCorrectness(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -90,6 +95,7 @@ class ArgumentCorrectness(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class StepEfficiency(DeepEvalScorer):
     """
     Evaluates the efficiency of an agent's steps in completing a task.
@@ -100,7 +106,7 @@ class StepEfficiency(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -117,6 +123,7 @@ class StepEfficiency(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class PlanAdherence(DeepEvalScorer):
     """
     Evaluates whether an agent adheres to its planned approach.
@@ -127,7 +134,7 @@ class PlanAdherence(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -144,6 +151,7 @@ class PlanAdherence(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class PlanQuality(DeepEvalScorer):
     """
     Evaluates the quality of an agent's generated plan.
@@ -153,7 +161,7 @@ class PlanQuality(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:

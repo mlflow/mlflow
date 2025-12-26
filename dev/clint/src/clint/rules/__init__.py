@@ -6,6 +6,9 @@ from clint.rules.empty_notebook_cell import EmptyNotebookCell
 from clint.rules.example_syntax_error import ExampleSyntaxError
 from clint.rules.extraneous_docstring_param import ExtraneousDocstringParam
 from clint.rules.forbidden_deprecation_warning import ForbiddenDeprecationWarning
+from clint.rules.forbidden_make_judge_in_builtin_scorers import (
+    ForbiddenMakeJudgeInBuiltinScorers,
+)
 from clint.rules.forbidden_set_active_model_usage import ForbiddenSetActiveModelUsage
 from clint.rules.forbidden_top_level_import import ForbiddenTopLevelImport
 from clint.rules.forbidden_trace_ui_in_notebook import ForbiddenTraceUIInNotebook
@@ -61,9 +64,10 @@ __all__ = [
     "ExampleSyntaxError",
     "ExtraneousDocstringParam",
     "ForbiddenDeprecationWarning",
-    "GetArtifactUri",
+    "ForbiddenMakeJudgeInBuiltinScorers",
     "ForbiddenSetActiveModelUsage",
     "ForbiddenTopLevelImport",
+    "GetArtifactUri",
     "ForbiddenTraceUIInNotebook",
     "ImplicitOptional",
     "IncorrectTypeAnnotation",

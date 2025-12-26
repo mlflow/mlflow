@@ -6,6 +6,7 @@ import { SpanStatus, SpanStatusCode } from '../../src/core/entities/span_status'
 import { TraceState } from '../../src/core/entities/trace_state';
 import { convertHrTimeToMs } from '../../src/core/utils';
 import { Trace } from '../../src/core/entities/trace';
+import { createAuthProvider } from '../../src/auth';
 import { TEST_TRACKING_URI } from '../helper';
 
 describe('API', () => {
@@ -20,7 +21,8 @@ describe('API', () => {
   };
 
   beforeAll(async () => {
-    client = new MlflowClient({ trackingUri: TEST_TRACKING_URI, host: TEST_TRACKING_URI });
+    const authProvider = createAuthProvider({ trackingUri: TEST_TRACKING_URI });
+    client = new MlflowClient({ trackingUri: TEST_TRACKING_URI, authProvider });
 
     // Create a new experiment
     const experimentName = `test-experiment-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;

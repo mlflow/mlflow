@@ -67,6 +67,7 @@ from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
     PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
     PROMPT_EXPERIMENT_IDS_TAG_KEY,
+    PROMPT_MODEL_CONFIG_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_CHAT,
     PROMPT_TYPE_TAG_KEY,
@@ -131,7 +132,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_LOGGED_IMAGES,
     MLFLOW_PARENT_RUN_ID,
-    MLFLOW_PROMPT_MODEL_CONFIG,
 )
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
@@ -671,7 +671,7 @@ class MlflowClient:
                 # Validate dict by converting through PromptModelConfig
                 config_dict = PromptModelConfig.from_dict(model_config).to_dict()
 
-            tags.update({MLFLOW_PROMPT_MODEL_CONFIG: json.dumps(config_dict)})
+            tags.update({PROMPT_MODEL_CONFIG_TAG_KEY: json.dumps(config_dict)})
 
         try:
             mv: ModelVersion = registry_client.create_model_version(
@@ -5879,6 +5879,7 @@ class MlflowClient:
         description: str | None = None,
         tags: dict[str, str] | None = None,
         response_format: type[BaseModel] | dict[str, Any] | None = None,
+        model_config: "PromptModelConfig | dict[str, Any] | None" = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -5894,6 +5895,9 @@ class MlflowClient:
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured
                 outputs from LLM calls.
+            model_config: Optional PromptModelConfig object or dictionary defining the model
+                configuration (model name, parameters, etc.) to use when invoking this
+                prompt version.
 
         Returns:
             A PromptVersion object.
@@ -5914,7 +5918,12 @@ class MlflowClient:
         """
         registry_client = self._get_registry_client()
         return registry_client.create_prompt_version(
-            name, template, description, tags, response_format
+            name=name,
+            template=template,
+            description=description,
+            tags=tags,
+            response_format=response_format,
+            model_config=model_config,
         )
 
     @require_prompt_registry

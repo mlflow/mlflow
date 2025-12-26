@@ -231,7 +231,7 @@ class Feedback(Assessment):
         self,
         name: str = DEFAULT_FEEDBACK_NAME,
         value: FeedbackValueType | None = None,
-        error: Exception | AssessmentError | None = None,
+        error: Exception | AssessmentError | str | None = None,
         source: AssessmentSource | None = None,
         trace_id: str | None = None,
         metadata: dict[str, str] | None = None,
@@ -256,6 +256,17 @@ class Feedback(Assessment):
                 error_message=str(error),
                 error_code=error.__class__.__name__,
                 stack_trace=get_stacktrace(error),
+            )
+        elif isinstance(error, str):
+            # Convert string errors to AssessmentError objects
+            error = AssessmentError(
+                error_message=error,
+                error_code="ASSESSMENT_ERROR",
+            )
+        elif error is not None and not isinstance(error, AssessmentError):
+            # Handle any other unexpected types
+            raise MlflowException.invalid_parameter_value(
+                f"'error' must be an Exception, AssessmentError, or string. Got: {type(error)}"
             )
 
         super().__init__(

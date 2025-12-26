@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.scorers.deepeval import DeepEvalScorer
 from mlflow.genai.scorers.deepeval.scorers.agentic_metrics import (
     ArgumentCorrectness,
@@ -38,17 +39,19 @@ from mlflow.genai.scorers.deepeval.scorers.safety_metrics import (
     Toxicity,
 )
 from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring
 
 
 # General-purpose metrics
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class Hallucination(DeepEvalScorer):
     """
     Detects hallucinations where the LLM fabricates information not present in the context.
 
     Args:
         threshold: Maximum score threshold for passing (range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -62,13 +65,14 @@ class Hallucination(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class Summarization(DeepEvalScorer):
     """
     Evaluates the quality and accuracy of text summarization.
 
     Args:
         threshold: Minimum score threshold for passing (range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -82,6 +86,7 @@ class Summarization(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class JsonCorrectness(DeepEvalScorer):
     """
     Validates JSON output against an expected schema.
@@ -90,7 +95,7 @@ class JsonCorrectness(DeepEvalScorer):
 
     Args:
         threshold: Minimum score threshold for passing (range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -107,13 +112,14 @@ class JsonCorrectness(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class PromptAlignment(DeepEvalScorer):
     """
     Measures how well the output aligns with instructions given in the prompt.
 
     Args:
         threshold: Minimum score threshold for passing (range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -151,6 +157,7 @@ class ExactMatch(DeepEvalScorer):
         threshold: float = 0.5,
         **kwargs,
     ):
+        self._validate_kwargs(**kwargs)
         super().__init__(
             metric_name=self.metric_name,
             model=None,
@@ -183,6 +190,7 @@ class PatternMatch(DeepEvalScorer):
         threshold: float = 0.5,
         **kwargs,
     ):
+        self._validate_kwargs(**kwargs)
         super().__init__(
             metric_name=self.metric_name,
             model=None,

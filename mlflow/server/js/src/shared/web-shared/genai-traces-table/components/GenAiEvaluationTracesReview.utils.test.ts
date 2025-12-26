@@ -1,12 +1,16 @@
 import { describe, it, jest, expect } from '@jest/globals';
 
+import type { ThemeType } from '@databricks/design-system';
+import { I18nUtils } from '@databricks/i18n';
+
 import {
   autoSelectFirstNonEmptyEvaluationId,
+  getAssessmentValueLabel,
   getEvaluationResultInputTitle,
   getEvaluationResultTitle,
   stringifyValue,
 } from './GenAiEvaluationTracesReview.utils';
-import type { RunEvaluationTracesDataEntry } from '../types';
+import type { AssessmentInfo, RunEvaluationTracesDataEntry } from '../types';
 
 const buildExampleRunEvaluationTracesDataEntry = ({
   evaluationId,
@@ -212,5 +216,63 @@ describe('EvaluationsReview utils', () => {
       'request',
     );
     expect(actual).toEqual('bar');
+  });
+});
+
+describe('getAssessmentValueLabel', () => {
+  const intl = I18nUtils.createIntlWithLocale();
+  const mockTheme = {} as ThemeType;
+
+  const createMockAssessmentInfo = (dtype: AssessmentInfo['dtype']): AssessmentInfo => ({
+    name: 'test_assessment',
+    displayName: 'Test Assessment',
+    isKnown: false,
+    isOverall: false,
+    metricName: 'test_metric',
+    source: undefined,
+    isCustomMetric: false,
+    isEditable: false,
+    isRetrievalAssessment: false,
+    dtype,
+    uniqueValues: new Set(),
+    docsLink: '',
+    missingTooltip: '',
+    description: '',
+  });
+
+  it('should return "Error" for error value regardless of dtype', () => {
+    const booleanAssessment = createMockAssessmentInfo('boolean');
+    const result = getAssessmentValueLabel(intl, mockTheme, booleanAssessment, 'Error');
+    expect(result.content).toBe('Error');
+  });
+
+  it('should return "Error" for pass-fail dtype with error value', () => {
+    const passFail = createMockAssessmentInfo('pass-fail');
+    const result = getAssessmentValueLabel(intl, mockTheme, passFail, 'Error');
+    expect(result.content).toBe('Error');
+  });
+
+  it('should return "True" for boolean dtype with true value', () => {
+    const booleanAssessment = createMockAssessmentInfo('boolean');
+    const result = getAssessmentValueLabel(intl, mockTheme, booleanAssessment, true);
+    expect(result.content).toBe('True');
+  });
+
+  it('should return "False" for boolean dtype with false value', () => {
+    const booleanAssessment = createMockAssessmentInfo('boolean');
+    const result = getAssessmentValueLabel(intl, mockTheme, booleanAssessment, false);
+    expect(result.content).toBe('False');
+  });
+
+  it('should return "null" for boolean dtype with undefined value', () => {
+    const booleanAssessment = createMockAssessmentInfo('boolean');
+    const result = getAssessmentValueLabel(intl, mockTheme, booleanAssessment, undefined);
+    expect(result.content).toBe('null');
+  });
+
+  it('should return string representation for other dtypes', () => {
+    const stringAssessment = createMockAssessmentInfo('string');
+    const result = getAssessmentValueLabel(intl, mockTheme, stringAssessment, 'custom_value');
+    expect(result.content).toBe('custom_value');
   });
 });

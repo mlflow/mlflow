@@ -15,9 +15,9 @@ import os
 import time
 
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
-from mlflow.server.jobs import _ALLOWED_JOB_FUNCTION_LIST
 from mlflow.server.jobs.utils import (
     _enqueue_unfinished_jobs,
+    _job_name_to_fn_fullname_map,
     _launch_huey_consumer,
     _start_watcher_to_kill_job_runner_if_mlflow_server_dies,
 )
@@ -29,13 +29,11 @@ if __name__ == "__main__":
 
     huey_store_path = os.environ[HUEY_STORAGE_PATH_ENV_VAR]
 
-    for job_fn_fullname in _ALLOWED_JOB_FUNCTION_LIST:
+    for job_name in _job_name_to_fn_fullname_map:
         try:
-            _launch_huey_consumer(job_fn_fullname)
+            _launch_huey_consumer(job_name)
         except Exception as e:
-            logging.warning(
-                f"Launch Huey consumer for {job_fn_fullname} jobs failed, root cause: {e!r}"
-            )
+            logging.warning(f"Launch Huey consumer for {job_name} jobs failed, root cause: {e!r}")
 
     time.sleep(10)  # wait for huey consumer launching
     _enqueue_unfinished_jobs(server_up_time)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from mlflow.entities import (
@@ -13,6 +12,7 @@ from mlflow.entities import (
     GatewayModelDefinition,
     GatewayResourceType,
     GatewaySecretInfo,
+    RoutingStrategy,
 )
 from mlflow.protos.service_pb2 import (
     AttachModelToGatewayEndpoint,
@@ -20,12 +20,13 @@ from mlflow.protos.service_pb2 import (
     CreateGatewayEndpointBinding,
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
-    DeleteEndpointTag,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
+    DeleteGatewayEndpointTag,
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DetachModelFromGatewayEndpoint,
+    FallbackConfig,
     GetGatewayEndpoint,
     GetGatewayModelDefinition,
     GetGatewaySecretInfo,
@@ -33,7 +34,7 @@ from mlflow.protos.service_pb2 import (
     ListGatewayEndpoints,
     ListGatewayModelDefinitions,
     ListGatewaySecretInfos,
-    SetEndpointTag,
+    SetGatewayEndpointTag,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
@@ -74,8 +75,8 @@ class RestGatewayStoreMixin:
         CreateGatewayEndpointBinding,
         DeleteGatewayEndpointBinding,
         ListGatewayEndpointBindings,
-        SetEndpointTag,
-        DeleteEndpointTag,
+        SetGatewayEndpointTag,
+        DeleteGatewayEndpointTag,
     }
 
     # ========== Secrets Management APIs ==========
@@ -106,13 +107,12 @@ class RestGatewayStoreMixin:
         Returns:
             The created GatewaySecretInfo object with masked value.
         """
-        auth_config_json = json.dumps(auth_config) if auth_config is not None else None
         req_body = message_to_json(
             CreateGatewaySecret(
                 secret_name=secret_name,
                 secret_value=secret_value,
                 provider=provider,
-                auth_config_json=auth_config_json,
+                auth_config=auth_config or {},
                 created_by=created_by,
             )
         )
@@ -161,12 +161,11 @@ class RestGatewayStoreMixin:
         Returns:
             The updated GatewaySecretInfo object with masked value.
         """
-        auth_config_json = json.dumps(auth_config) if auth_config is not None else None
         req_body = message_to_json(
             UpdateGatewaySecret(
                 secret_id=secret_id,
                 secret_value=secret_value or {},
-                auth_config_json=auth_config_json,
+                auth_config=auth_config or {},
                 updated_by=updated_by,
             )
         )
@@ -204,14 +203,20 @@ class RestGatewayStoreMixin:
         name: str,
         model_definition_ids: list[str],
         created_by: str | None = None,
+        routing_strategy: RoutingStrategy | None = None,
+        fallback_config: FallbackConfig | None = None,
+        fallback_model_definition_ids: list[str] | None = None,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with associated model definitions.
 
         Args:
             name: Name to identify the endpoint.
-            model_definition_ids: List of model definition IDs to attach.
+            model_definition_ids: List of PRIMARY model definition IDs to attach.
             created_by: Optional identifier of the user creating the endpoint.
+            routing_strategy: Optional routing strategy for the endpoint.
+            fallback_config: Optional fallback configuration (includes strategy and max_attempts).
+            fallback_model_definition_ids: Optional ordered list of FALLBACK model definition IDs.
 
         Returns:
             The created GatewayEndpoint object with associated model mappings.
@@ -221,6 +226,9 @@ class RestGatewayStoreMixin:
                 name=name,
                 model_definition_ids=model_definition_ids,
                 created_by=created_by,
+                routing_strategy=routing_strategy.to_proto() if routing_strategy else None,
+                fallback_config=fallback_config.to_proto() if fallback_config else None,
+                fallback_model_definition_ids=fallback_model_definition_ids or [],
             )
         )
         response_proto = self._call_endpoint(CreateGatewayEndpoint, req_body)
@@ -248,14 +256,24 @@ class RestGatewayStoreMixin:
         endpoint_id: str,
         name: str | None = None,
         updated_by: str | None = None,
+        routing_strategy: RoutingStrategy | None = None,
+        fallback_config: FallbackConfig | None = None,
+        fallback_model_definition_ids: list[str] | None = None,
+        model_definition_ids: list[str] | None = None,
     ) -> GatewayEndpoint:
         """
-        Update an endpoint's metadata.
+        Update an endpoint's configuration.
 
         Args:
             endpoint_id: The unique identifier of the endpoint to update.
             name: Optional new name for the endpoint.
             updated_by: Optional identifier of the user updating the endpoint.
+            routing_strategy: Optional new routing strategy for the endpoint.
+            fallback_config: Optional fallback configuration (includes strategy and max_attempts).
+            fallback_model_definition_ids: Optional ordered list of FALLBACK model definition IDs.
+                If provided, existing FALLBACK linkages will be replaced.
+            model_definition_ids: Optional new list of PRIMARY model definition IDs.
+                If provided, existing PRIMARY linkages will be replaced.
 
         Returns:
             The updated GatewayEndpoint object.
@@ -265,6 +283,10 @@ class RestGatewayStoreMixin:
                 endpoint_id=endpoint_id,
                 name=name,
                 updated_by=updated_by,
+                routing_strategy=routing_strategy.to_proto() if routing_strategy else None,
+                fallback_config=fallback_config.to_proto() if fallback_config else None,
+                fallback_model_definition_ids=fallback_model_definition_ids or [],
+                model_definition_ids=model_definition_ids or [],
             )
         )
         response_proto = self._call_endpoint(UpdateGatewayEndpoint, req_body)
@@ -373,6 +395,7 @@ class RestGatewayStoreMixin:
         secret_id: str | None = None,
         model_name: str | None = None,
         updated_by: str | None = None,
+        provider: str | None = None,
     ) -> GatewayModelDefinition:
         """
         Update a model definition.
@@ -383,6 +406,7 @@ class RestGatewayStoreMixin:
             secret_id: Optional new secret ID.
             model_name: Optional new model name.
             updated_by: Optional identifier of the user updating the definition.
+            provider: Optional new provider.
 
         Returns:
             The updated GatewayModelDefinition object.
@@ -394,6 +418,7 @@ class RestGatewayStoreMixin:
                 secret_id=secret_id,
                 model_name=model_name,
                 updated_by=updated_by,
+                provider=provider,
             )
         )
         response_proto = self._call_endpoint(UpdateGatewayModelDefinition, req_body)
@@ -551,13 +576,13 @@ class RestGatewayStoreMixin:
             tag: GatewayEndpointTag with key and value to set.
         """
         req_body = message_to_json(
-            SetEndpointTag(
+            SetGatewayEndpointTag(
                 endpoint_id=endpoint_id,
                 key=tag.key,
                 value=tag.value,
             )
         )
-        self._call_endpoint(SetEndpointTag, req_body)
+        self._call_endpoint(SetGatewayEndpointTag, req_body)
 
     def delete_gateway_endpoint_tag(self, endpoint_id: str, key: str) -> None:
         """
@@ -568,9 +593,9 @@ class RestGatewayStoreMixin:
             key: Tag key to delete.
         """
         req_body = message_to_json(
-            DeleteEndpointTag(
+            DeleteGatewayEndpointTag(
                 endpoint_id=endpoint_id,
                 key=key,
             )
         )
-        self._call_endpoint(DeleteEndpointTag, req_body)
+        self._call_endpoint(DeleteGatewayEndpointTag, req_body)

@@ -1,6 +1,5 @@
 import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
-import TracingIntegrations from "@site/src/components/TracingIntegrations";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
@@ -54,7 +53,7 @@ MLflow Tracing empowers you throughout the end-to-end lifecycle of a machine lea
 
         Feedback are attached to traces and recorded with metadata, including user, timestamp, revisions, etc.
 
-        [Learn more →](/genai/tracing/collect-user-feedback)
+        [Learn more →](/genai/assessments/feedback)
 
         </div>
 
@@ -201,10 +200,7 @@ import mlflow
 mlflow.openai.autolog()  # or replace 'openai' with other library names, e.g., "anthropic"
 ```
 
-Click on the logos below to learn more about the individual integration:
-
-<TracingIntegrations cardGroupProps={{ cols: 5, noGap: false }} />
-<br />
+View the full list of supported libraries and detailed setup instructions on the [Integrations](/genai/tracing/integrations) page.
 
 ## Flexible and Customizable
 

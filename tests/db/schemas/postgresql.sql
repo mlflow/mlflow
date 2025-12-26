@@ -12,6 +12,8 @@ CREATE TABLE endpoints (
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
+	routing_strategy VARCHAR(64),
+	fallback_config_json TEXT,
 	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id)
 )
 
@@ -76,7 +78,7 @@ CREATE TABLE inputs (
 CREATE TABLE jobs (
 	id VARCHAR(36) NOT NULL,
 	creation_time BIGINT NOT NULL,
-	function_fullname VARCHAR(500) NOT NULL,
+	job_name VARCHAR(500) NOT NULL,
 	params TEXT NOT NULL,
 	timeout DOUBLE PRECISION,
 	status INTEGER NOT NULL,
@@ -102,7 +104,7 @@ CREATE TABLE secrets (
 	encrypted_value BYTEA NOT NULL,
 	wrapped_dek BYTEA NOT NULL,
 	kek_version INTEGER NOT NULL,
-	masked_value VARCHAR(100) NOT NULL,
+	masked_value VARCHAR(500) NOT NULL,
 	provider VARCHAR(64),
 	auth_config TEXT,
 	description TEXT,
@@ -357,6 +359,8 @@ CREATE TABLE endpoint_model_mappings (
 	weight DOUBLE PRECISION NOT NULL,
 	created_by VARCHAR(255),
 	created_at BIGINT NOT NULL,
+	linkage_type VARCHAR(64) DEFAULT 'PRIMARY'::character varying NOT NULL,
+	fallback_order INTEGER,
 	CONSTRAINT endpoint_model_mappings_pk PRIMARY KEY (mapping_id),
 	CONSTRAINT fk_endpoint_model_mappings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_endpoint_model_mappings_model_definition_id FOREIGN KEY(model_definition_id) REFERENCES model_definitions (model_definition_id)
@@ -480,6 +484,15 @@ CREATE TABLE tags (
 	run_uuid VARCHAR(32) NOT NULL,
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT tags_run_uuid_fkey FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+)
+
+
+CREATE TABLE trace_metrics (
+	request_id VARCHAR(50) NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value DOUBLE PRECISION,
+	CONSTRAINT trace_metrics_pk PRIMARY KEY (request_id, key),
+	CONSTRAINT fk_trace_metrics_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 
 

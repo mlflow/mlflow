@@ -11,9 +11,9 @@ from mlflow.entities.model_registry.prompt_version import (
     PromptVersion,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.constants import PROMPT_MODEL_CONFIG_TAG_KEY
 from mlflow.prompt.registry_utils import model_version_to_prompt_version
 from mlflow.protos.model_registry_pb2 import ModelVersionTag
-from mlflow.utils.mlflow_tags import MLFLOW_PROMPT_MODEL_CONFIG
 
 
 def test_prompt_initialization():
@@ -143,7 +143,7 @@ def test_prompt_from_model_version():
         tags=[
             ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
             ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value="Hello, {{name}}!"),
-            ModelVersionTag(key=MLFLOW_PROMPT_MODEL_CONFIG, value=model_config_json),
+            ModelVersionTag(key=PROMPT_MODEL_CONFIG_TAG_KEY, value=model_config_json),
         ],
         aliases=["alias"],
     )

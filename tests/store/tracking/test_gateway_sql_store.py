@@ -1,14 +1,19 @@
+import json
 from pathlib import Path
 
 import pytest
 
 from mlflow.entities import (
+    FallbackConfig,
+    FallbackStrategy,
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
     GatewayEndpointTag,
     GatewayModelDefinition,
+    GatewayModelLinkageType,
     GatewaySecretInfo,
+    RoutingStrategy,
 )
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
@@ -18,6 +23,14 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
+)
+from mlflow.store.tracking.dbmodels.models import (
+    SqlGatewayEndpoint,
+    SqlGatewayEndpointBinding,
+    SqlGatewayEndpointModelMapping,
+    SqlGatewayEndpointTag,
+    SqlGatewayModelDefinition,
+    SqlGatewaySecret,
 )
 from mlflow.store.tracking.gateway.config_resolver import (
     get_endpoint_config,
@@ -35,16 +48,30 @@ def set_kek_passphrase(monkeypatch):
     monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", TEST_PASSPHRASE)
 
 
+def _cleanup_database(store: SqlAlchemyStore):
+    """Clean up gateway-specific tables after each test."""
+    with store.ManagedSessionMaker() as session:
+        # Delete all rows in gateway tables in dependency order
+        for model in (
+            SqlGatewayEndpointTag,
+            SqlGatewayEndpointBinding,
+            SqlGatewayEndpointModelMapping,
+            SqlGatewayEndpoint,
+            SqlGatewayModelDefinition,
+            SqlGatewaySecret,
+        ):
+            session.query(model).delete()
+
+
 @pytest.fixture
-def store(tmp_path: Path):
+def store(tmp_path: Path, db_uri: str):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
     if db_uri_env := MLFLOW_TRACKING_URI.get():
         s = SqlAlchemyStore(db_uri_env, artifact_uri.as_uri())
         yield s
+        _cleanup_database(s)
     else:
-        db_path = tmp_path / "mlflow.db"
-        db_uri = f"sqlite:///{db_path}"
         s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
         yield s
 
@@ -67,8 +94,9 @@ def test_create_gateway_secret(store: SqlAlchemyStore):
     assert secret.secret_name == "my-api-key"
     assert secret.provider == "openai"
     assert secret.created_by == "test-user"
-    assert secret.masked_value is not None
-    assert "sk-test-123456" not in secret.masked_value
+    assert isinstance(secret.masked_values, dict)
+    assert "api_key" in secret.masked_values
+    assert "sk-test-123456" not in secret.masked_values["api_key"]
 
 
 def test_create_gateway_secret_with_auth_config(store: SqlAlchemyStore):
@@ -96,9 +124,11 @@ def test_create_gateway_secret_with_dict_value(store: SqlAlchemyStore):
 
     assert secret.secret_name == "multi-secret"
     assert secret.provider == "bedrock"
-    # Multi-key dict secrets show all keys with masked values
-    assert "aws_access_key_id:" in secret.masked_value
-    assert "aws_secret_access_key:" in secret.masked_value
+    assert isinstance(secret.masked_values, dict)
+    assert "aws_access_key_id" in secret.masked_values
+    assert "aws_secret_access_key" in secret.masked_values
+    assert "AKIA1234567890" not in secret.masked_values["aws_access_key_id"]
+    assert "secret-key-here" not in secret.masked_values["aws_secret_access_key"]
 
 
 def test_create_gateway_secret_duplicate_name_raises(store: SqlAlchemyStore):
@@ -509,24 +539,118 @@ def test_get_gateway_endpoint_requires_one_of_id_or_name(store: SqlAlchemyStore)
 
 
 def test_update_gateway_endpoint(store: SqlAlchemyStore):
-    secret = store.create_gateway_secret(
-        secret_name="upd-ep-key", secret_value={"api_key": "value"}
+    secret1 = store.create_gateway_secret(
+        secret_name="upd-ep-key1", secret_value={"api_key": "value1"}
     )
-    model_def = store.create_gateway_model_definition(
-        name="upd-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    secret2 = store.create_gateway_secret(
+        secret_name="upd-ep-key2", secret_value={"api_key": "value2"}
     )
-    created = store.create_gateway_endpoint(
-        name="update-endpoint", model_definition_ids=[model_def.model_definition_id]
+    secret3 = store.create_gateway_secret(
+        secret_name="upd-ep-key3", secret_value={"api_key": "value3"}
+    )
+    secret4 = store.create_gateway_secret(
+        secret_name="upd-ep-key4", secret_value={"api_key": "value4"}
     )
 
-    updated = store.update_gateway_endpoint(
+    model_def1 = store.create_gateway_model_definition(
+        name="upd-ep-model1",
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def2 = store.create_gateway_model_definition(
+        name="upd-ep-model2",
+        secret_id=secret2.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+    model_def3 = store.create_gateway_model_definition(
+        name="upd-ep-model3",
+        secret_id=secret3.secret_id,
+        provider="cohere",
+        model_name="command-r-plus",
+    )
+    model_def4 = store.create_gateway_model_definition(
+        name="upd-ep-model4",
+        secret_id=secret4.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+
+    # Create endpoint with model1 as PRIMARY
+    created = store.create_gateway_endpoint(
+        name="update-endpoint",
+        model_definition_ids=[model_def1.model_definition_id],
+    )
+
+    # Verify initial state
+    assert len(created.model_mappings) == 1
+    assert created.model_mappings[0].model_definition_id == model_def1.model_definition_id
+    assert created.model_mappings[0].linkage_type == GatewayModelLinkageType.PRIMARY
+    assert created.routing_strategy is None
+    assert created.fallback_config is None
+
+    # Test 1: Basic update - rename endpoint
+    renamed = store.update_gateway_endpoint(
         endpoint_id=created.endpoint_id,
         name="renamed-endpoint",
         updated_by="updater",
     )
 
-    assert updated.name == "renamed-endpoint"
-    assert updated.last_updated_by == "updater"
+    assert renamed.name == "renamed-endpoint"
+    assert renamed.last_updated_by == "updater"
+
+    # Test 2: Update with routing strategy and fallback config
+    with_fallback = store.update_gateway_endpoint(
+        endpoint_id=created.endpoint_id,
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
+        fallback_model_definition_ids=[
+            model_def2.model_definition_id,
+            model_def3.model_definition_id,
+        ],
+        updated_by="updater2",
+    )
+
+    assert with_fallback.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert with_fallback.fallback_config is not None
+    assert with_fallback.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert with_fallback.fallback_config.max_attempts == 2
+    assert len(with_fallback.model_mappings) == 3
+    fallback_mappings = [
+        m
+        for m in with_fallback.model_mappings
+        if m.linkage_type == GatewayModelLinkageType.FALLBACK
+    ]
+    assert len(fallback_mappings) == 2
+    assert with_fallback.last_updated_by == "updater2"
+
+    # Test 3: Update PRIMARY models and FALLBACK models
+    with_new_models = store.update_gateway_endpoint(
+        endpoint_id=created.endpoint_id,
+        model_definition_ids=[model_def2.model_definition_id, model_def3.model_definition_id],
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=1,
+        ),
+        fallback_model_definition_ids=[model_def4.model_definition_id],
+        updated_by="updater3",
+    )
+
+    # Verify PRIMARY models were replaced (in model_mappings)
+    assert len(with_new_models.model_mappings) == 3
+    primary_mappings = [
+        m
+        for m in with_new_models.model_mappings
+        if m.linkage_type == GatewayModelLinkageType.PRIMARY
+    ]
+    assert len(primary_mappings) == 2
+
+    primary_model_ids = {m.model_definition_id for m in primary_mappings}
+    assert primary_model_ids == {model_def2.model_definition_id, model_def3.model_definition_id}
 
 
 def test_delete_gateway_endpoint(store: SqlAlchemyStore):
@@ -550,18 +674,46 @@ def test_list_gateway_endpoints(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
         secret_name="list-ep-key", secret_value={"api_key": "value"}
     )
+    secret_fallback = store.create_gateway_secret(
+        secret_name="list-ep-fallback-key", secret_value={"api_key": "fallback-value"}
+    )
+
     model_def = store.create_gateway_model_definition(
         name="list-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
-    store.create_gateway_endpoint(
+    model_def_fallback = store.create_gateway_model_definition(
+        name="list-ep-fallback-model",
+        secret_id=secret_fallback.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+
+    # Create endpoint without fallback
+    ep1 = store.create_gateway_endpoint(
         name="list-endpoint-1", model_definition_ids=[model_def.model_definition_id]
     )
-    store.create_gateway_endpoint(
-        name="list-endpoint-2", model_definition_ids=[model_def.model_definition_id]
+
+    # Create endpoint with fallback config and routing strategy
+    ep2 = store.create_gateway_endpoint(
+        name="list-endpoint-2",
+        model_definition_ids=[model_def.model_definition_id],
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
+        fallback_model_definition_ids=[model_def_fallback.model_definition_id],
     )
 
     endpoints = store.list_gateway_endpoints()
     assert len(endpoints) >= 2
+
+    # Find our test endpoints
+    found_ep1 = next((e for e in endpoints if e.endpoint_id == ep1.endpoint_id), None)
+    found_ep2 = next((e for e in endpoints if e.endpoint_id == ep2.endpoint_id), None)
+
+    assert found_ep1 is not None
+    assert found_ep2 is not None
 
 
 # =============================================================================
@@ -949,7 +1101,7 @@ def test_get_gateway_endpoint_config(store: SqlAlchemyStore):
     )
 
     config = get_endpoint_config(
-        endpoint_id=endpoint.endpoint_id,
+        endpoint_name=endpoint.name,
         store=store,
     )
 
@@ -982,7 +1134,7 @@ def test_get_gateway_endpoint_config_with_auth_config(store: SqlAlchemyStore):
     )
 
     config = get_endpoint_config(
-        endpoint_id=endpoint.endpoint_id,
+        endpoint_name=endpoint.name,
         store=store,
     )
 
@@ -1017,7 +1169,7 @@ def test_get_gateway_endpoint_config_multiple_models(store: SqlAlchemyStore):
     )
 
     config = get_endpoint_config(
-        endpoint_id=endpoint.endpoint_id,
+        endpoint_name=endpoint.name,
         store=store,
     )
 
@@ -1031,7 +1183,7 @@ def test_get_gateway_endpoint_config_multiple_models(store: SqlAlchemyStore):
 def test_get_gateway_endpoint_config_nonexistent_endpoint_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="not found") as exc:
         get_endpoint_config(
-            endpoint_id="nonexistent-endpoint-id",
+            endpoint_name="nonexistent-endpoint",
             store=store,
         )
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -1181,3 +1333,278 @@ def test_endpoint_tags_deleted_with_endpoint(store: SqlAlchemyStore):
 
     with pytest.raises(MlflowException, match="not found"):
         store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
+
+
+# =============================================================================
+# Scorer-Endpoint Integration Tests
+# =============================================================================
+
+
+def _create_gateway_endpoint(store: SqlAlchemyStore, name: str) -> GatewayEndpoint:
+    """Helper to create a gateway endpoint for scorer tests."""
+    secret = store.create_gateway_secret(
+        secret_name=f"{name}-secret", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name=f"{name}-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    return store.create_gateway_endpoint(
+        name=name, model_definition_ids=[model_def.model_definition_id]
+    )
+
+
+def test_register_scorer_resolves_endpoint_name_to_id(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("scorer-endpoint-test")
+    endpoint = _create_gateway_endpoint(store, "test-endpoint")
+
+    serialized_scorer = json.dumps(
+        {
+            "instructions_judge_pydantic_data": {
+                "model": f"gateway:/{endpoint.name}",
+                "instructions": "Rate the response",
+            }
+        }
+    )
+
+    scorer = store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
+
+    # Internally, the scorer should have the endpoint ID stored
+    stored_data = json.loads(scorer._serialized_scorer)
+    stored_model = stored_data["instructions_judge_pydantic_data"]["model"]
+    assert stored_model == f"gateway:/{endpoint.endpoint_id}"
+
+
+def test_register_scorer_with_nonexistent_endpoint_raises(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("scorer-nonexistent-endpoint-test")
+
+    serialized_scorer = json.dumps(
+        {
+            "instructions_judge_pydantic_data": {
+                "model": "gateway:/nonexistent-endpoint",
+                "instructions": "Rate the response",
+            }
+        }
+    )
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
+
+
+def test_get_scorer_resolves_endpoint_id_to_name(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("get-scorer-endpoint-test")
+    endpoint = _create_gateway_endpoint(store, "get-test-endpoint")
+
+    serialized_scorer = json.dumps(
+        {
+            "instructions_judge_pydantic_data": {
+                "model": f"gateway:/{endpoint.name}",
+                "instructions": "Rate the response",
+            }
+        }
+    )
+
+    store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
+
+    # When retrieving, the endpoint ID should be resolved back to name
+    retrieved = store.get_scorer(experiment_id, "my-scorer")
+    retrieved_data = json.loads(retrieved._serialized_scorer)
+    retrieved_model = retrieved_data["instructions_judge_pydantic_data"]["model"]
+    assert retrieved_model == f"gateway:/{endpoint.name}"
+
+
+def test_get_scorer_with_deleted_endpoint_sets_model_to_null(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("deleted-endpoint-scorer-test")
+    endpoint = _create_gateway_endpoint(store, "to-delete-endpoint")
+
+    serialized_scorer = json.dumps(
+        {
+            "instructions_judge_pydantic_data": {
+                "model": f"gateway:/{endpoint.name}",
+                "instructions": "Rate the response",
+            }
+        }
+    )
+
+    store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
+
+    # Delete the endpoint
+    store.delete_gateway_endpoint(endpoint.endpoint_id)
+
+    # Retrieving should set model to null
+    retrieved = store.get_scorer(experiment_id, "my-scorer")
+    retrieved_data = json.loads(retrieved._serialized_scorer)
+    assert retrieved_data["instructions_judge_pydantic_data"]["model"] is None
+
+
+def test_list_scorers_batch_resolves_endpoint_ids(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("list-scorers-endpoint-test")
+    endpoint1 = _create_gateway_endpoint(store, "list-endpoint-1")
+    endpoint2 = _create_gateway_endpoint(store, "list-endpoint-2")
+
+    # Create scorers with different endpoints
+    store.register_scorer(
+        experiment_id,
+        "scorer-1",
+        json.dumps(
+            {
+                "instructions_judge_pydantic_data": {
+                    "model": f"gateway:/{endpoint1.name}",
+                    "instructions": "Rate 1",
+                }
+            }
+        ),
+    )
+    store.register_scorer(
+        experiment_id,
+        "scorer-2",
+        json.dumps(
+            {
+                "instructions_judge_pydantic_data": {
+                    "model": f"gateway:/{endpoint2.name}",
+                    "instructions": "Rate 2",
+                }
+            }
+        ),
+    )
+    store.register_scorer(
+        experiment_id,
+        "scorer-3",
+        json.dumps(
+            {
+                "instructions_judge_pydantic_data": {
+                    "model": "openai:/gpt-4",
+                    "instructions": "Rate 3",
+                }
+            }
+        ),
+    )
+
+    scorers = store.list_scorers(experiment_id)
+    assert len(scorers) == 3
+
+    # Find each scorer and verify model resolution
+    scorer_map = {s.scorer_name: s for s in scorers}
+
+    data1 = json.loads(scorer_map["scorer-1"]._serialized_scorer)
+    assert data1["instructions_judge_pydantic_data"]["model"] == f"gateway:/{endpoint1.name}"
+
+    data2 = json.loads(scorer_map["scorer-2"]._serialized_scorer)
+    assert data2["instructions_judge_pydantic_data"]["model"] == f"gateway:/{endpoint2.name}"
+
+    data3 = json.loads(scorer_map["scorer-3"]._serialized_scorer)
+    assert data3["instructions_judge_pydantic_data"]["model"] == "openai:/gpt-4"
+
+
+# =============================================================================
+# Fallback Routing Tests
+# =============================================================================
+
+
+def test_create_gateway_endpoint_with_fallback_routing(store: SqlAlchemyStore):
+    # Create secrets and model definitions
+    secret1 = store.create_gateway_secret(
+        secret_name="fallback-key-1", secret_value={"api_key": "sk-model1"}
+    )
+    secret2 = store.create_gateway_secret(
+        secret_name="fallback-key-2", secret_value={"api_key": "sk-model2"}
+    )
+
+    model_def1 = store.create_gateway_model_definition(
+        name="fallback-model-1",
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def2 = store.create_gateway_model_definition(
+        name="fallback-model-2",
+        secret_id=secret2.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+
+    # Create a third model for PRIMARY
+    secret3 = store.create_gateway_secret(
+        secret_name="primary-key", secret_value={"api_key": "sk-primary"}
+    )
+    model_def3 = store.create_gateway_model_definition(
+        name="primary-model",
+        secret_id=secret3.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+
+    # Create endpoint with fallback configuration
+    endpoint = store.create_gateway_endpoint(
+        name="fallback-endpoint",
+        model_definition_ids=[model_def3.model_definition_id],  # PRIMARY model
+        created_by="test-user",
+        routing_strategy=None,  # Fallback is independent of routing strategy
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
+        fallback_model_definition_ids=[
+            model_def1.model_definition_id,
+            model_def2.model_definition_id,
+        ],
+    )
+
+    # Verify endpoint was created with fallback config
+    assert isinstance(endpoint, GatewayEndpoint)
+    assert endpoint.endpoint_id.startswith("e-")
+    assert endpoint.name == "fallback-endpoint"
+    assert endpoint.routing_strategy is None  # No routing strategy needed for fallback
+    assert endpoint.fallback_config is not None
+    assert isinstance(endpoint.fallback_config, FallbackConfig)
+    assert endpoint.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert endpoint.fallback_config.max_attempts == 2
+    assert len(endpoint.model_mappings) == 3
+    fallback_ids = [
+        m.model_definition_id
+        for m in endpoint.model_mappings
+        if m.linkage_type == GatewayModelLinkageType.FALLBACK
+    ]
+    assert model_def1.model_definition_id in fallback_ids
+    assert model_def2.model_definition_id in fallback_ids
+
+    # Verify linkage types and fallback_order
+    # PRIMARY models are in endpoint.model_mappings
+    assert len(endpoint.model_mappings) == 3
+    primary_mapping = next(
+        m for m in endpoint.model_mappings if m.linkage_type == GatewayModelLinkageType.PRIMARY
+    )
+    assert primary_mapping.model_definition_id == model_def3.model_definition_id
+
+
+def test_create_gateway_endpoint_with_traffic_split(store: SqlAlchemyStore):
+    secret1 = store.create_gateway_secret(
+        secret_name="traffic-split-key-1", secret_value={"api_key": "sk-test1"}
+    )
+    secret2 = store.create_gateway_secret(
+        secret_name="traffic-split-key-2", secret_value={"api_key": "sk-test2"}
+    )
+
+    model_def1 = store.create_gateway_model_definition(
+        name="traffic-split-model-1",
+        secret_id=secret1.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    model_def2 = store.create_gateway_model_definition(
+        name="traffic-split-model-2",
+        secret_id=secret2.secret_id,
+        provider="openai",
+        model_name="gpt-3.5-turbo",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="traffic-split-endpoint",
+        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+    )
+
+    assert endpoint.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert len(endpoint.model_mappings) == 2
+    # All should be PRIMARY linkages for traffic split
+    for mapping in endpoint.model_mappings:
+        assert mapping.linkage_type == GatewayModelLinkageType.PRIMARY
