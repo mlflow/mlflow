@@ -13,7 +13,6 @@ def test_simulated_user_agent_generate_initial_message():
         agent = SimulatedUserAgent(
             goal="Learn about MLflow",
             persona="You are a beginner who asks curious questions.",
-            model="openai:/gpt-4o-mini",
         )
 
         message = agent.generate_message([], turn=0)
@@ -35,7 +34,6 @@ def test_simulated_user_agent_generate_followup_message():
 
         agent = SimulatedUserAgent(
             goal="Learn about MLflow",
-            model="openai:/gpt-4o-mini",
         )
 
         history = [
@@ -61,7 +59,6 @@ def test_simulated_user_agent_default_persona():
 
         agent = SimulatedUserAgent(
             goal="Learn about ML",
-            model="openai:/gpt-4o-mini",
         )
 
         message = agent.generate_message([], turn=0)
@@ -98,7 +95,6 @@ def test_conversation_simulator_basic_simulation(simple_test_case, mock_predict_
         simulator = ConversationSimulator(
             test_cases=[simple_test_case],
             max_turns=2,
-            user_model="openai:/gpt-4o-mini",
         )
 
         all_traces = simulator._simulate(mock_predict_fn)

@@ -1,3 +1,5 @@
+DEFAULT_PERSONA = "You are a helpful user having a natural conversation."
+
 INITIAL_USER_PROMPT = """{persona}
 
 Your goal in this conversation is to: {goal}

@@ -7,8 +7,10 @@ import pandas as pd
 import mlflow
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+from mlflow.genai.judges.utils import get_default_model
 from mlflow.genai.simulators.prompts import (
     CHECK_GOAL_PROMPT,
+    DEFAULT_PERSONA,
     FOLLOWUP_USER_PROMPT,
     INITIAL_USER_PROMPT,
 )
@@ -23,16 +25,42 @@ from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
-DEFAULT_PERSONA = "You are a helpful user having a natural conversation."
+_MAX_METADATA_LENGTH = 250
 
 
-def _extract_assistant_content(response: dict[str, Any]) -> str:
+def _extract_assistant_content(response: dict[str, Any]) -> str | None:
     if messages := _try_extract_messages(response):
         for msg in reversed(messages):
             if msg.get("role") == "assistant":
                 return _get_text_content_from_message(msg)
         return _get_text_content_from_message(messages[-1])
-    return ""
+    return None
+
+
+def _get_last_response(conversation_history: list[dict[str, Any]]) -> str | None:
+    if not conversation_history:
+        return None
+
+    last_msg = conversation_history[-1]
+    content = last_msg.get("content", "")
+    if isinstance(content, str) and content:
+        return content
+
+    if result := _extract_assistant_content(last_msg):
+        return result
+
+    return _format_history(conversation_history)
+
+
+def _format_history(history: list[dict[str, Any]]) -> str | None:
+    if not history:
+        return None
+    formatted = []
+    for msg in history:
+        role = msg.get("role", "unknown")
+        content = msg.get("content", "")
+        formatted.append(f"{role}: {content}")
+    return "\n".join(formatted)
 
 
 @experimental(version="3.9.0")
@@ -41,12 +69,12 @@ class SimulatedUserAgent:
         self,
         goal: str,
         persona: str | None = None,
-        model: str = "openai:/gpt-4o-mini",
+        model: str | None = None,
         **inference_params,
     ):
         self.goal = goal
         self.persona = persona or DEFAULT_PERSONA
-        self.model = model
+        self.model = model or get_default_model()
         self.inference_params = inference_params
 
     def generate_message(
@@ -57,8 +85,8 @@ class SimulatedUserAgent:
         if turn == 0:
             prompt = INITIAL_USER_PROMPT.format(persona=self.persona, goal=self.goal)
         else:
-            last_response = self._get_last_response(conversation_history)
-            history_str = self._format_history(conversation_history[:-1])
+            last_response = _get_last_response(conversation_history) or ""
+            history_str = _format_history(conversation_history[:-1]) or ""
             prompt = FOLLOWUP_USER_PROMPT.format(
                 persona=self.persona,
                 goal=self.goal,
@@ -78,31 +106,6 @@ class SimulatedUserAgent:
         )
         return response
 
-    def _get_last_response(self, conversation_history: list[dict[str, Any]]) -> str:
-        if not conversation_history:
-            return ""
-
-        last_msg = conversation_history[-1]
-        content = last_msg.get("content", "")
-        if isinstance(content, str) and content:
-            return content
-
-        result = _extract_assistant_content(last_msg)
-        if result and result.strip():
-            return result
-
-        return self._format_history(conversation_history)
-
-    def _format_history(self, history: list[dict[str, Any]]) -> str:
-        if not history:
-            return ""
-        formatted = []
-        for msg in history:
-            role = msg.get("role", "unknown")
-            content = msg.get("content", "")
-            formatted.append(f"{role}: {content}")
-        return "\n".join(formatted)
-
 
 @experimental(version="3.9.0")
 class ConversationSimulator:
@@ -110,13 +113,13 @@ class ConversationSimulator:
         self,
         test_cases: list[dict[str, Any]] | pd.DataFrame,
         max_turns: int = 10,
-        user_model: str = "openai:/gpt-4o-mini",
+        user_model: str | None = None,
         **user_llm_params,
     ):
         self.test_cases = self._normalize_test_cases(test_cases)
         self._validate_test_cases()
         self.max_turns = max_turns
-        self.user_model = user_model
+        self.user_model = user_model or get_default_model()
         self.user_llm_params = user_llm_params
 
     def _normalize_test_cases(
@@ -145,7 +148,6 @@ class ConversationSimulator:
                 _logger.error(
                     f"Failed to run conversation for test case {test_case.get('goal')}: {e}"
                 )
-                all_traces.append([])
 
         return all_traces
 
@@ -190,11 +192,11 @@ class ConversationSimulator:
                 if trace:
                     traces.append(trace)
 
-                assistant_content = _extract_assistant_content(response)
+                assistant_content = _extract_assistant_content(response) or ""
                 assistant_message = {"role": "assistant", "content": assistant_content}
                 conversation_history.append(assistant_message)
 
-                if not assistant_content or not assistant_content.strip():
+                if not assistant_content.strip():
                     _logger.info(f"Stopping conversation: empty response at turn {turn}")
                     break
 
@@ -226,8 +228,10 @@ class ConversationSimulator:
                     metadata={
                         TraceMetadataKey.TRACE_SESSION: session_id,
                         "mlflow.simulation.synthetic": "true",
-                        "mlflow.simulation.goal": goal,
-                        "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[:100],
+                        "mlflow.simulation.goal": goal[:_MAX_METADATA_LENGTH],
+                        "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[
+                            :_MAX_METADATA_LENGTH
+                        ],
                         "mlflow.simulation.turn": str(turn),
                     },
                 )
