@@ -83,28 +83,6 @@ export function buildProviderGroups(providers: string[]): {
   return { groups, ungroupedProviders };
 }
 
-export function groupProviders(providers: string[]): {
-  common: string[];
-  other: string[];
-} {
-  const commonSet = new Set<string>(COMMON_PROVIDERS);
-  const common: string[] = [];
-  const other: string[] = [];
-
-  for (const provider of providers) {
-    if (commonSet.has(provider)) {
-      common.push(provider);
-    } else {
-      other.push(provider);
-    }
-  }
-
-  common.sort((a, b) => COMMON_PROVIDERS.indexOf(a as any) - COMMON_PROVIDERS.indexOf(b as any));
-  other.sort((a, b) => a.localeCompare(b));
-
-  return { common, other };
-}
-
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
