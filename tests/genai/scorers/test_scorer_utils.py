@@ -20,7 +20,7 @@ from mlflow.genai.scorers.scorer_utils import (
 from mlflow.genai.utils.type import FunctionCall
 
 # ============================================================================
-# Happy Path Tests
+# HAPPY PATH TESTS
 # ============================================================================
 
 
@@ -138,7 +138,7 @@ return result"""
 
 
 # ============================================================================
-# Signature Parsing Tests
+# SIGNATURE PARSING TESTS
 # ============================================================================
 
 
@@ -214,7 +214,7 @@ def test_empty_signature_string():
 
 
 # ============================================================================
-# Import Namespace Tests
+# IMPORT NAMESPACE TESTS
 # ============================================================================
 
 
@@ -418,6 +418,11 @@ def test_function_with_mlflow_trace_type_hint():
     assert "test_trace_id" in result.rationale
 
 
+# ============================================================================
+# GATEWAY MODEL UTILITY TESTS
+# ============================================================================
+
+
 def test_is_gateway_model():
     assert is_gateway_model("gateway:/my-endpoint") is True
     assert is_gateway_model("openai:/gpt-4") is False
@@ -490,7 +495,7 @@ def test_update_model_in_serialized_scorer():
 
 
 # ============================================================================
-# Tool Call Helper Function Tests
+# TOOL CALL HELPER FUNCTION TESTS
 # ============================================================================
 
 
