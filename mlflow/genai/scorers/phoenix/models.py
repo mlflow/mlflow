@@ -8,16 +8,13 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     _invoke_databricks_serving_endpoint,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.genai.scorers.phoenix.utils import check_phoenix_installed
+from mlflow.genai.scorers.phoenix.utils import _NoOpRateLimiter, check_phoenix_installed
 
 
-class _NoOpRateLimiter:
-    """Minimal rate limiter stub for Phoenix compatibility."""
-
-    def __init__(self):
-        self._verbose = False
-
-
+# Phoenix has BaseModel in phoenix.evals.models.base, but it requires implementing
+# _generate_with_extra and _async_generate_with_extra abstract methods which add complexity.
+# Phoenix evaluators only require __call__ for model compatibility, so we use duck typing
+# to keep the adapters simple. This mirrors how the deepeval integration works.
 class DatabricksPhoenixModel:
     """
     Phoenix model adapter for Databricks managed judge.

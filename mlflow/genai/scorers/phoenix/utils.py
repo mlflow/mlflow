@@ -1,5 +1,3 @@
-"""Utility functions for Phoenix integration."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -14,6 +12,13 @@ from mlflow.genai.utils.trace_utils import (
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
 )
+
+
+class _NoOpRateLimiter:
+    """Minimal rate limiter stub for Phoenix model compatibility."""
+
+    def __init__(self):
+        self._verbose = False
 
 
 def check_phoenix_installed():
