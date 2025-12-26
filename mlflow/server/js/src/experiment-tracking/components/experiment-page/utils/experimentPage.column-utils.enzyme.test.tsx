@@ -1,13 +1,15 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { mount } from 'enzyme';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../constants';
-import { useRunsColumnDefinitions, UseRunsColumnDefinitionsParams } from './experimentPage.column-utils';
+import type { UseRunsColumnDefinitionsParams } from './experimentPage.column-utils';
+import { useRunsColumnDefinitions } from './experimentPage.column-utils';
 import {
   EXPERIMENT_FIELD_PREFIX_METRIC,
   EXPERIMENT_FIELD_PREFIX_PARAM,
   EXPERIMENT_FIELD_PREFIX_TAG,
   makeCanonicalSortKey,
 } from './experimentPage.common-utils';
-import { ColDef, ColGroupDef } from '@ag-grid-community/core';
+import type { ColDef, ColGroupDef } from '@ag-grid-community/core';
 import { createExperimentPageUIState } from '../models/ExperimentPageUIState';
 
 const getHookResult = (params: UseRunsColumnDefinitionsParams) => {
@@ -42,17 +44,7 @@ describe('ExperimentViewRuns column utils', () => {
   });
 
   test('it creates proper column definitions with basic attributes', () => {
-    // Add all columns to selected columns to ensure they're all included
-    const allSelectedColumns = [
-      ...MOCK_METRICS.map((key) => makeCanonicalSortKey(COLUMN_TYPES.METRICS, key)),
-      ...MOCK_PARAMS.map((key) => makeCanonicalSortKey(COLUMN_TYPES.PARAMS, key)),
-      ...MOCK_TAGS.map((key) => makeCanonicalSortKey(COLUMN_TYPES.TAGS, key)),
-    ];
-
-    const columnDefinitions = getHookResult({
-      ...MOCK_HOOK_PARAMS,
-      selectedColumns: allSelectedColumns,
-    });
+    const columnDefinitions = getHookResult(MOCK_HOOK_PARAMS);
 
     // Assert existence of regular attribute columns
     expect(columnDefinitions).toEqual(
@@ -217,14 +209,9 @@ describe('ExperimentViewRuns column utils', () => {
 
   test('remembers metric/param/tag keys even if they are not in the newly fetched set', () => {
     // Let's start with initializing the component with only one known metric key: "metric_1"
-    // and include it in the selected columns
-    const metric1Key = makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_1');
-    const metric2Key = makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_2');
-
     const hookParams: UseRunsColumnDefinitionsParams = {
       ...MOCK_HOOK_PARAMS,
       metricKeyList: ['metric_1'],
-      selectedColumns: [metric1Key],
     };
     let result: ColGroupDef[] = [];
     const Component = (props: { hookParams: UseRunsColumnDefinitionsParams }) => {
@@ -238,13 +225,9 @@ describe('ExperimentViewRuns column utils', () => {
       ['metrics.`metric_1`'],
     );
 
-    // Next, add a new set of two metrics and update selected columns
+    // Next, add a new set of two metrics
     wrapper.setProps({
-      hookParams: {
-        ...hookParams,
-        metricKeyList: ['metric_1', 'metric_2'],
-        selectedColumns: [metric1Key, metric2Key],
-      },
+      hookParams: { ...hookParams, metricKeyList: ['metric_1', 'metric_2'] },
     });
 
     // Assert two metric columns in the result set
@@ -252,13 +235,9 @@ describe('ExperimentViewRuns column utils', () => {
       ['metrics.`metric_1`', 'metrics.`metric_2`'],
     );
 
-    // Finally, retract the first metric and leave "metric_2" only, but keep both in selected columns
+    // Finally, retract the first metric and leave "metric_2" only
     wrapper.setProps({
-      hookParams: {
-        ...hookParams,
-        metricKeyList: ['metric_2'],
-        selectedColumns: [metric1Key, metric2Key],
-      },
+      hookParams: { ...hookParams, metricKeyList: ['metric_2'] },
     });
 
     // We expect previous metric column to still exist - this ensures that columns won't

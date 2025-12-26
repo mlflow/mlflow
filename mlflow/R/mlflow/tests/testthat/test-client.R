@@ -6,12 +6,12 @@ teardown({
 
 test_that("http(s) clients work as expected", {
   mlflow_clear_test_dir("mlruns")
-  with_mock(.env = "mlflow", mlflow_rest = function(..., client) {
+  with_mocked_bindings(.package = "mlflow", mlflow_rest = function(..., client) {
     args <- list(...)
     expect_true(paste(args[1:2], collapse = "/") == "experiments/search")
     list(experiments = c(1, 2, 3))
   }, {
-    with_mock(.env = "mlflow", mlflow_register_local_server = function(...) NA, {
+    with_mocked_bindings(.package = "mlflow", mlflow_register_local_server = function(...) NA, {
       env <- list(
         MLFLOW_TRACKING_USERNAME = "DonaldDuck",
         MLFLOW_TRACKING_PASSWORD = "Quack",
@@ -36,7 +36,7 @@ test_that("http(s) clients work as expected", {
         env_str_2 <- paste(client2$get_cli_env(), collapse = "|")
         expect_true(env_str == env_str_2)
       })
-      with_mock(.env = "mlflow", mlflow_server = function(...) list(server_url = "local_server"), {
+      with_mocked_bindings(.package = "mlflow", mlflow_server = function(...) list(server_url = "local_server"), {
         client3 <- mlflow:::mlflow_client()
         config <- client3$get_host_creds()
         expect_true(config$host == "local_server")
@@ -48,12 +48,12 @@ test_that("http(s) clients work as expected", {
 
 test_that("http(s) clients works with deprecated env vars", {
   mlflow_clear_test_dir("mlruns")
-  with_mock(.env = "mlflow", mlflow_rest = function(..., client) {
+  with_mocked_bindings(.package = "mlflow", mlflow_rest = function(..., client) {
     args <- list(...)
     expect_true(paste(args[1:2], collapse = "/") == "experiments/search")
     list(experiments = c(1, 2, 3))
   }, {
-    with_mock(.env = "mlflow", mlflow_register_local_server = function(...) NA, {
+    with_mocked_bindings(.package = "mlflow", mlflow_register_local_server = function(...) NA, {
       env <- list(
         MLFLOW_USERNAME = "DonaldDuck",
         MLFLOW_PASSWORD = "Quack",
@@ -84,7 +84,7 @@ test_that("http(s) clients works with deprecated env vars", {
         expect_true(env_str == env_str_2)
       })
 
-      with_mock(.env = "mlflow", mlflow_server = function(...) list(server_url = "local_server"), {
+      with_mocked_bindings(.package = "mlflow", mlflow_server = function(...) list(server_url = "local_server"), {
         client3 <- mlflow:::mlflow_client()
         config <- client3$get_host_creds()
         expect_true(config$host == "local_server")
@@ -98,7 +98,7 @@ test_that("rest call handles errors correctly", {
   mock_client <- mlflow:::new_mlflow_client_impl(get_host_creds = function() {
      mlflow:::new_mlflow_host_creds(host = "localhost")
   })
-  with_mock(.env = "httr", POST = function(...) {
+  with_mocked_bindings(.package  = "httr", POST = function(...) {
     httr:::response(
       status_code = 400,
       content = charToRaw(paste("{\"error_code\":\"INVALID_PARAMETER_VALUE\",",
@@ -117,7 +117,7 @@ test_that("rest call handles errors correctly", {
     )
   })
 
-  with_mock(.env = "httr", GET = function(...) {
+  with_mocked_bindings(.package  = "httr", GET = function(...) {
     httr:::response(
       status_code = 500,
       content = charToRaw(paste("some text."))
@@ -133,7 +133,7 @@ test_that("rest call handles errors correctly", {
     )
   })
 
-  with_mock(.env = "httr", POST = function(...) {
+  with_mocked_bindings(.package  = "httr", POST = function(...) {
     httr:::response(
       status_code = 503,
       content = as.raw(c(0, 255))

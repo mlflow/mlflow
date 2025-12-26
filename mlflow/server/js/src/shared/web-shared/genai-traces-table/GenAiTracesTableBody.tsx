@@ -1,4 +1,4 @@
-import { getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
+import { getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import type { RowSelectionState, OnChangeFn, ColumnDef, Row } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { isNil } from 'lodash';
@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Empty, SearchIcon, Spinner, Table, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 
 import { GenAITracesTableContext } from './GenAITracesTableContext';
 import { sortColumns, sortGroupedColumns } from './GenAiTracesTable.utils';
@@ -180,24 +181,27 @@ export const GenAiTracesTableBody = React.memo(
 
     const { setTable, setSelectedRowIds } = React.useContext(GenAITracesTableContext);
 
-    const table = useReactTable<EvalTraceComparisonEntry & { multiline?: boolean }>({
-      data: evaluations,
-      columns,
-      getCoreRowModel: getCoreRowModel(),
-      getSortedRowModel: getSortedRowModel(),
-      enableColumnResizing: true,
-      columnResizeMode: 'onChange',
-      enableRowSelection,
-      enableMultiSort: true,
-      state: {
-        rowSelection,
+    const table = useReactTable<EvalTraceComparisonEntry & { multiline?: boolean }>(
+      'js/packages/web-shared/src/genai-traces-table/GenAiTracesTableBody.tsx',
+      {
+        data: evaluations,
+        columns,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        enableColumnResizing: true,
+        columnResizeMode: 'onChange',
+        enableRowSelection,
+        enableMultiSort: true,
+        state: {
+          rowSelection,
+        },
+        meta: {
+          getRunColor,
+        },
+        onRowSelectionChange: setRowSelection,
+        getRowId: (row) => getRowIdFromEvaluation(row.currentRunValue),
       },
-      meta: {
-        getRunColor,
-      },
-      onRowSelectionChange: setRowSelection,
-      getRowId: (row) => getRowIdFromEvaluation(row.currentRunValue),
-    });
+    );
 
     // Need to check if rowSelection is undefined, otherwise getIsAllRowsSelected throws an error
     const allRowSelected = rowSelection !== undefined && table.getIsAllRowsSelected();

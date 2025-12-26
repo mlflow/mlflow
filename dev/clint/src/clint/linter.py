@@ -108,8 +108,7 @@ class Violation:
         return (
             # Since `Range` is 0-indexed, lineno and col_offset are incremented by 1
             f"{self.path}:{cell_loc}{self.range.shift(Position(1, 1))}: "
-            f"{self.rule.id}: {self.rule.message} "
-            f"See dev/clint/README.md for instructions on ignoring this rule ({self.rule.name})."
+            f"{self.rule.id}: {self.rule.message}"
         )
 
     def json(self) -> dict[str, str | int | None]:
@@ -385,6 +384,7 @@ class Linter(ast.NodeVisitor):
         self.resolver = Resolver()
         self.index = index
         self.ignored_rules = get_ignored_rules_for_file(path, config.per_file_ignores)
+        self.prev_stmt: ast.stmt | None = None
 
     def _check(self, range: Range, rule: rules.Rule) -> None:
         # Skip rules that are not selected in the config
@@ -438,15 +438,11 @@ class Linter(ast.NodeVisitor):
         return not self.stack
 
     def _parse_func_args(self, func: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
-        args: list[str] = []
-        for arg in func.args.posonlyargs:
-            args.append(arg.arg)
+        args: list[str] = [arg.arg for arg in func.args.posonlyargs]
 
-        for arg in func.args.args:
-            args.append(arg.arg)
+        args.extend(arg.arg for arg in func.args.args)
 
-        for arg in func.args.kwonlyargs:
-            args.append(arg.arg)
+        args.extend(arg.arg for arg in func.args.kwonlyargs)
 
         if func.args.vararg:
             args.append(func.args.vararg.arg)
@@ -488,6 +484,11 @@ class Linter(ast.NodeVisitor):
     ) -> None:
         if rule := rules.RedundantTestDocstring.check(node, self.path.name):
             self._check(Range.from_node(node), rule)
+
+    def visit(self, node: ast.AST) -> None:
+        super().visit(node)
+        if isinstance(node, ast.stmt):
+            self.prev_stmt = node
 
     def visit_Module(self, node: ast.Module) -> None:
         if rule := rules.RedundantTestDocstring.check_module(node, self.path.name):
@@ -627,6 +628,7 @@ class Linter(ast.NodeVisitor):
         self.stack.append(node)
         self._no_rst(node)
         self.visit_decorators(node.decorator_list)
+        self._check_walrus_operator(node)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
@@ -643,6 +645,7 @@ class Linter(ast.NodeVisitor):
         self.stack.append(node)
         self._no_rst(node)
         self.visit_decorators(node.decorator_list)
+        self._check_walrus_operator(node)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
@@ -702,6 +705,18 @@ class Linter(ast.NodeVisitor):
                 if alias.name.split(".")[-1] == "set_active_model":
                     self._check_forbidden_set_active_model_usage(node)
 
+        # Check for forbidden make_judge import in builtin_scorers.py
+        if self.path.name == "builtin_scorers.py" and node.module:
+            for alias in node.names:
+                if alias.name == "make_judge" and (
+                    node.module == "mlflow.genai.judges.make_judge"
+                    or node.module.endswith(".make_judge")
+                ):
+                    self._check(
+                        Range.from_node(node),
+                        rules.ForbiddenMakeJudgeInBuiltinScorers(),
+                    )
+
         self.generic_visit(node)
 
     def _check_forbidden_top_level_import(
@@ -748,6 +763,9 @@ class Linter(ast.NodeVisitor):
         if rules.ForbiddenSetActiveModelUsage.check(node, self.resolver):
             self._check(Range.from_node(node), rules.ForbiddenSetActiveModelUsage())
 
+        if rules.ForbiddenMakeJudgeInBuiltinScorers.check(node, self.resolver, self.path):
+            self._check(Range.from_node(node), rules.ForbiddenMakeJudgeInBuiltinScorers())
+
         if expr := rules.ForbiddenDeprecationWarning.check(node, self.resolver):
             self._check(Range.from_node(expr), rules.ForbiddenDeprecationWarning())
 
@@ -760,6 +778,9 @@ class Linter(ast.NodeVisitor):
         if rules.IsinstanceUnionSyntax.check(node):
             self._check(Range.from_node(node), rules.IsinstanceUnionSyntax())
 
+        if rules.SubprocessCheckCall.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.SubprocessCheckCall())
+
         if self._is_in_test() and rules.OsChdirInTest.check(node, self.resolver):
             self._check(Range.from_node(node), rules.OsChdirInTest())
 
@@ -768,6 +789,9 @@ class Linter(ast.NodeVisitor):
 
         if self._is_in_test() and rules.MockPatchDictEnviron.check(node, self.resolver):
             self._check(Range.from_node(node), rules.MockPatchDictEnviron())
+
+        if self._is_in_test() and rules.OsEnvironDeleteInTest.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.OsEnvironDeleteInTest())
 
         self.generic_visit(node)
 
@@ -794,6 +818,16 @@ class Linter(ast.NodeVisitor):
             self._check(Range.from_node(node), rules.OsEnvironDeleteInTest())
         self.generic_visit(node)
 
+    def visit_Compare(self, node: ast.Compare) -> None:
+        if rules.MajorVersionCheck.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.MajorVersionCheck())
+        self.generic_visit(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        if self.prev_stmt and rules.AssignBeforeAppend.check(node, self.prev_stmt):
+            self._check(Range.from_node(node), rules.AssignBeforeAppend())
+        self.generic_visit(node)
+
     def visit_type_annotation(self, node: ast.expr) -> None:
         visitor = TypeAnnotationVisitor(self)
         visitor.visit(node)
@@ -806,6 +840,12 @@ class Linter(ast.NodeVisitor):
             self.in_TYPE_CHECKING = True
         self.generic_visit(node)
         self.in_TYPE_CHECKING = False
+
+    def _check_walrus_operator(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        visitor = rules.WalrusOperatorVisitor()
+        visitor.visit(node)
+        for stmt in visitor.violations:
+            self._check(Range.from_node(stmt), rules.UseWalrusOperator())
 
     def visit_With(self, node: ast.With) -> None:
         # Only check in test files

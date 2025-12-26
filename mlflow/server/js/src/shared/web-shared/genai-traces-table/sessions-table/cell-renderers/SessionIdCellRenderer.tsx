@@ -11,7 +11,7 @@ export const SessionIdCellRenderer = ({ row }: { row: Row<SessionTableRow> }) =>
     <Tag
       componentId="mlflow.chat-sessions.session-id-tag"
       color="indigo"
-      css={{ maxWidth: '100%', overflow: 'hidden' }}
+      css={{ maxWidth: '100%', overflow: 'hidden', cursor: 'pointer' }}
     >
       <Typography.Text ellipsis>{sessionId}</Typography.Text>
     </Tag>

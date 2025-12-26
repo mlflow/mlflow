@@ -10,7 +10,7 @@ import {
   Popover,
   RHFControlledComponents,
   RestoreAntDDefaultClsPrefix,
-  LegacyTooltip,
+  Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { Typography } from '@databricks/design-system';
@@ -167,8 +167,8 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
           {showPopoverMessage ? (
             <UnsavedTagPopoverTrigger formValues={formValues} isLoading={isLoading} onSaveTask={saveTags} />
           ) : (
-            <LegacyTooltip
-              title={
+            <Tooltip
+              content={
                 !hasNewValues
                   ? intl.formatMessage({
                       defaultMessage: 'Please add or remove one or more tags before saving',
@@ -176,6 +176,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
                     })
                   : undefined
               }
+              componentId="mlflow.common.hooks.useeditkeyvaluetagsmodal.tooltip"
             >
               <Button
                 componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_174"
@@ -190,7 +191,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
                   description: 'Key-value tag editor modal > Manage Tag save button',
                 })}
               </Button>
-            </LegacyTooltip>
+            </Tooltip>
           )}
         </RestoreAntDDefaultClsPrefix>
       }
@@ -247,11 +248,12 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
             />
           </div>
         </div>
-        <LegacyTooltip
-          title={intl.formatMessage({
+        <Tooltip
+          content={intl.formatMessage({
             defaultMessage: 'Add tag',
             description: 'Key-value tag editor modal > Add tag button',
           })}
+          componentId="mlflow.common.hooks.useeditkeyvaluetagsmodal.add-tag-tooltip"
         >
           <Button
             componentId="codegen_mlflow_app_src_common_hooks_useeditkeyvaluetagsmodal.tsx_248"
@@ -263,7 +265,7 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
           >
             <PlusIcon />
           </Button>
-        </LegacyTooltip>
+        </Tooltip>
       </form>
       {errorMessage && <FormUI.Message type="error" message={errorMessage} />}
       <div

@@ -155,7 +155,6 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("evaluation", [sys.executable, "evaluate_with_custom_metrics.py"]),
         ("evaluation", [sys.executable, "evaluate_with_custom_metrics_comprehensive.py"]),
         ("evaluation", [sys.executable, "evaluate_with_model_validation.py"]),
-        ("diviner", [sys.executable, "train.py"]),
         ("spark_udf", [sys.executable, "spark_udf_datetime.py"]),
         ("pyfunc", [sys.executable, "train.py"]),
         ("tensorflow", [sys.executable, "train.py"]),

@@ -58,7 +58,7 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
         css={{
           position: 'relative',
           boxSizing: 'border-box',
-          height: '100%',
+          height: ROW_HEIGHT,
           borderLeft: `2px solid ${theme.colors.border}`,
           width: CONNECTOR_WIDTH,
         }}

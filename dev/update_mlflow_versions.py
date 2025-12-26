@@ -22,7 +22,7 @@ _JAVA_VERSION_FILES = Path("mlflow", "java").rglob("*.java")
 
 _JAVA_POM_XML_FILES = Path("mlflow", "java").rglob("*.xml")
 
-_JS_VERSION_FILES = [
+_TS_VERSION_FILES = [
     Path(
         "mlflow",
         "server",
@@ -30,7 +30,8 @@ _JS_VERSION_FILES = [
         "src",
         "common",
         "constants.tsx",
-    )
+    ),
+    Path("docs", "src", "constants.ts"),
 ]
 
 _R_VERSION_FILES = [Path("mlflow", "R", "mlflow", "DESCRIPTION")]
@@ -94,7 +95,7 @@ def replace_pyproject_toml(new_py_version: str, paths: list[Path]) -> None:
     )
 
 
-def replace_js(old_version: str, new_py_version: str, paths: list[Path]) -> None:
+def replace_ts(old_version: str, new_py_version: str, paths: list[Path]) -> None:
     replace_occurrences(
         files=paths,
         pattern=re.escape(old_version),
@@ -165,7 +166,7 @@ def update_versions(new_py_version: str) -> None:
 
     replace_python(old_py_version, new_py_version, _PYTHON_VERSION_FILES)
     replace_pyproject_toml(new_py_version, _PYPROJECT_TOML_FILES)
-    replace_js(old_py_version, new_py_version, _JS_VERSION_FILES)
+    replace_ts(old_py_version, new_py_version, _TS_VERSION_FILES)
     replace_java(old_py_version, new_py_version, _JAVA_VERSION_FILES)
     replace_java_pom_xml(old_py_version, new_py_version, _JAVA_POM_XML_FILES)
     replace_r(old_py_version, new_py_version, _R_VERSION_FILES)

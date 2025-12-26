@@ -243,8 +243,7 @@ def main():
     if flavor == mlflow.spark.FLAVOR_NAME:
         from mlflow.utils._spark_utils import _get_active_spark_session
 
-        spark = _get_active_spark_session()
-        if spark:
+        if spark := _get_active_spark_session():
             try:
                 spark.stop()
             except Exception:

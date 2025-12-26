@@ -644,14 +644,11 @@ class MlflowStorage(BaseStorage):
             experiment_ids=[self._experiment_id],
             filter_string=f"tags.mlflow.parentRunId='{study_id}'",
         )
-        trials = []
-        for run in runs:
-            trials.append(self.get_trial(run.info.run_id))
+        trials = [self.get_trial(run.info.run_id) for run in runs]
 
-        frozen_trials: list[FrozenTrial] = []
-        for trial in trials:
-            if states is None or trial.state in states:
-                frozen_trials.append(trial)
+        frozen_trials: list[FrozenTrial] = [
+            trial for trial in trials if states is None or trial.state in states
+        ]
         return frozen_trials
 
     def get_n_trials(self, study_id, states=None) -> int:

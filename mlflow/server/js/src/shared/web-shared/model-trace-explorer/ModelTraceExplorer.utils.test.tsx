@@ -1,3 +1,5 @@
+import { describe, expect, it } from '@jest/globals';
+
 import { ModelSpanType } from './ModelTrace.types';
 import type { ModelTraceChatMessage, ModelTraceSpanNode, RawModelTraceChatMessage } from './ModelTrace.types';
 import {
@@ -13,9 +15,12 @@ import {
   MOCK_TRACE_INFO_V2,
   MOCK_TRACE_INFO_V3,
   MOCK_V3_SPANS,
+  MOCK_V3_TRACE,
+  MOCK_ASSESSMENT,
 } from './ModelTraceExplorer.test-utils';
 import {
   parseModelTraceToTree,
+  parseModelTraceToTreeWithMultipleRoots,
   searchTree,
   searchTreeBySpanId,
   getMatchesFromSpan,
@@ -30,6 +35,7 @@ import {
   decodeSpanId,
   getDefaultActiveTab,
   getTotalTokens,
+  convertOtelAttributesToMap,
 } from './ModelTraceExplorer.utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
@@ -67,6 +73,110 @@ describe('parseTraceToTree', () => {
     });
 
     expect(rootNode).toBeNull();
+  });
+});
+
+describe('parseModelTraceToTreeWithMultipleRoots', () => {
+  it('should return empty array if the trace has no spans', () => {
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots({
+      ...MOCK_V3_TRACE,
+      data: {
+        spans: [],
+      },
+    });
+
+    expect(rootNodes).toEqual([]);
+  });
+
+  it('should return a single root node for a complete trace', () => {
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(MOCK_V3_TRACE);
+
+    expect(rootNodes).toHaveLength(1);
+    expect(rootNodes[0]).toEqual(
+      expect.objectContaining({
+        key: 'a96bcf7b57a48b3d',
+        children: [
+          expect.objectContaining({
+            key: '31323334',
+            children: [
+              expect.objectContaining({
+                key: '3132333435',
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('should return multiple root nodes for in-progress traces with multiple top-level spans', () => {
+    // Simulate an in-progress trace where root span hasn't been emitted yet
+    const inProgressTrace = {
+      ...MOCK_V3_TRACE,
+      data: {
+        spans: [
+          // Two spans without parent_span_id - simulating multiple roots
+          {
+            ...MOCK_V3_SPANS[1],
+            parent_span_id: '',
+          },
+          {
+            ...MOCK_V3_SPANS[2],
+            parent_span_id: '',
+          },
+        ],
+      },
+    };
+
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(inProgressTrace);
+
+    expect(rootNodes).toHaveLength(2);
+    expect(rootNodes[0]).toEqual(expect.objectContaining({ key: '31323334' }));
+    expect(rootNodes[1]).toEqual(expect.objectContaining({ key: '3132333435' }));
+  });
+
+  it('should treat orphaned spans as top-level nodes', () => {
+    const traceWithOrphan = {
+      ...MOCK_V3_TRACE,
+      data: {
+        spans: [
+          MOCK_V3_SPANS[0],
+          {
+            ...MOCK_V3_SPANS[1],
+            parent_span_id: 'bm9uLWV4aXN0ZW50',
+          },
+        ],
+      },
+    };
+
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(traceWithOrphan);
+
+    expect(rootNodes).toHaveLength(2);
+    expect(rootNodes[0].key).toBe('a96bcf7b57a48b3d');
+    expect(rootNodes[1].key).toBe('31323334');
+  });
+
+  it('should handle traces with only the root span', () => {
+    const singleSpanTrace = {
+      ...MOCK_V3_TRACE,
+      data: { spans: [MOCK_V3_SPANS[0]] },
+    };
+
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(singleSpanTrace);
+
+    expect(rootNodes).toHaveLength(1);
+    expect(rootNodes[0]).toEqual(expect.objectContaining({ key: 'a96bcf7b57a48b3d' }));
+  });
+
+  it('should calculate span times relative to global start time', () => {
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(MOCK_V3_TRACE);
+
+    expect(rootNodes[0].start).toBe(0);
+    expect(rootNodes[0].end).toBeGreaterThan(0);
+
+    const childSpan = rootNodes[0].children?.[0];
+    expect(childSpan?.start).toBe(0);
+    expect(childSpan?.end).toBeGreaterThan(0);
   });
 });
 
@@ -701,5 +811,168 @@ describe('getTotalTokens', () => {
     expect(
       getTotalTokens({ ...MOCK_TRACE_INFO_V3, trace_metadata: { 'mlflow.trace.tokenUsage': 'invalid' } }),
     ).toBeNull();
+  });
+});
+
+describe('convertOtelAttributesToMap', () => {
+  it('should return unchanged span if attributes do not use key-value array format', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: {
+        key1: 'value1',
+        key2: 'value2',
+      },
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+    expect(result).toEqual(modelTraceSpan);
+  });
+
+  it('should return unchanged span if attributes is empty', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: {},
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+    expect(result).toEqual(modelTraceSpan);
+  });
+
+  it('should return unchanged span if attributes is undefined', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+    expect(result).toEqual(modelTraceSpan);
+  });
+
+  it('should convert key-value array attributes to map format', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      name: 'test_span',
+      attributes: [
+        { key: 'string_attr', value: { string_value: 'test string' } },
+        { key: 'bool_attr', value: { bool_value: true } },
+        { key: 'int_attr', value: { int_value: 42 } },
+        { key: 'double_attr', value: { double_value: 3.14 } },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      name: 'test_span',
+      attributes: {
+        string_attr: 'test string',
+        bool_attr: true,
+        int_attr: 42,
+        double_attr: 3.14,
+      },
+    });
+  });
+
+  it('should convert span with key-value array attributes', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: [{ key: 'converted_attr', value: { string_value: 'converted' } }],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      attributes: {
+        converted_attr: 'converted',
+      },
+    });
+  });
+
+  it('should skip attributes without key or value', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: [
+        { key: 'valid_attr', value: { string_value: 'valid' } },
+        { key: '', value: { string_value: 'no key' } },
+        { key: 'no_value' },
+        { value: { string_value: 'no key prop' } },
+        { key: 'another_valid', value: { bool_value: false } },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      attributes: {
+        valid_attr: 'valid',
+        another_valid: false,
+      },
+    });
+  });
+
+  it('should handle unknown value types by returning the value as-is', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: [
+        { key: 'unknown_type', value: { custom_field: 'custom_value' } },
+        { key: 'primitive_value', value: 'direct_string' },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      attributes: {
+        unknown_type: { custom_field: 'custom_value' },
+        primitive_value: 'direct_string',
+      },
+    });
+  });
+
+  it('should preserve other span properties unchanged', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      parent_id: 'parent',
+      name: 'span_name',
+      start_time: '2023-01-01T00:00:00Z',
+      end_time: '2023-01-01T00:01:00Z',
+      status: 'OK',
+      attributes: [{ key: 'converted', value: { string_value: 'value' } }],
+      events: [],
+      links: [],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      parent_id: 'parent',
+      name: 'span_name',
+      start_time: '2023-01-01T00:00:00Z',
+      end_time: '2023-01-01T00:01:00Z',
+      status: 'OK',
+      attributes: {
+        converted: 'value',
+      },
+      events: [],
+      links: [],
+    });
+  });
+
+  it('should handle events with attributes', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      events: [{ attributes: [{ key: 'converted', value: { string_value: 'value' } }] }],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      events: [{ attributes: { converted: 'value' } }],
+    });
   });
 });

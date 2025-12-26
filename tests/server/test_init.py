@@ -17,7 +17,6 @@ def mock_exec_cmd():
 
 
 def test_find_app_custom_app_plugin():
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
     assert server._find_app("custom_app") == "mlflow_test_plugin.app:custom_app"
 
 
@@ -102,9 +101,24 @@ def test_build_uvicorn_command():
         "mlflow.server.fastapi_app:app",
     ]
 
+    assert server._build_uvicorn_command(
+        "", "localhost", "5000", "4", "mlflow.server.fastapi_app:app", None, is_factory=True
+    ) == [
+        sys.executable,
+        "-m",
+        "uvicorn",
+        "--host",
+        "localhost",
+        "--port",
+        "5000",
+        "--workers",
+        "4",
+        "--factory",
+        "mlflow.server.fastapi_app:app",
+    ]
+
 
 def test_build_uvicorn_command_with_env_file():
-    """Test that uvicorn command includes --env-file when provided."""
     cmd = server._build_uvicorn_command(
         uvicorn_opts=None,
         host="localhost",
@@ -126,7 +140,6 @@ def test_build_uvicorn_command_with_env_file():
 
 
 def test_run_server(mock_exec_cmd, monkeypatch):
-    """Make sure this runs."""
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="linux"):
         server._run_server(
@@ -143,7 +156,6 @@ def test_run_server(mock_exec_cmd, monkeypatch):
 
 
 def test_run_server_win32(mock_exec_cmd, monkeypatch):
-    """Make sure this runs."""
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="win32"):
         server._run_server(

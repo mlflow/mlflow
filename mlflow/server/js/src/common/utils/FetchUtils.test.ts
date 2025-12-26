@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import {
   defaultResponseParser,
   getDefaultHeadersFromCookies,

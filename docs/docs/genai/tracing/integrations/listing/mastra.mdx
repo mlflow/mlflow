@@ -3,7 +3,6 @@ sidebar_position: 6
 sidebar_label: Mastra
 ---
 
-import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
 
 # Tracing Mastra
@@ -15,7 +14,8 @@ import ImageBox from "@site/src/components/ImageBox";
 ## Step 1: Create a new Mastra agent
 
 ```bash
-npm create mastra@laster
+npm create mastra@latest
+npm install @mastra/otel-exporter
 ```
 
 This will create a new TypeScript project with a simple tool calling agent implementation.
@@ -37,6 +37,8 @@ Configure the OpenTelemetry tracer in your Mastra agent to export traces to the 
 Open the `src/mastra/index.ts` file and add the `observability` configuration to the `Mastra` agent instantiation.
 
 ```typescript
+import { OtelExporter } from "@mastra/otel-exporter";
+
 export const mastra = new Mastra({
   workflows: { weatherWorkflow },
   ...

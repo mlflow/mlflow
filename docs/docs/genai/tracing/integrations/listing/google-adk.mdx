@@ -3,7 +3,6 @@ sidebar_position: 5
 sidebar_label: Google ADK
 ---
 
-import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
 
 # Tracing Google Agent Development Kit (ADK)
@@ -36,7 +35,7 @@ Configure the OpenTelemetry tracer to export traces to the MLflow Tracking Serve
 - Set the `x-mlflow-experiment-id` header to the MLflow experiment ID. If you don't have an experiment ID, create it from Python SDK or the MLflow UI.
 
 ```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5000/v1/traces
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5000
 export OTEL_EXPORTER_OTLP_HEADERS=x-mlflow-experiment-id=123
 ```
 

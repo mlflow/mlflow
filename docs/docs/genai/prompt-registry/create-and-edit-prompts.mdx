@@ -55,7 +55,7 @@ You can initiate a new prompt in the MLflow Prompt Registry in two primary ways:
       from pydantic import BaseModel, Field
 
 
-      class ResponseFormat:
+      class ResponseFormat(BaseModel):
           summary: str = Field(..., description="Summary of the content")
 
 

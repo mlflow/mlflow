@@ -6,8 +6,9 @@ import {
   Button,
   DropdownMenu,
   GenericSkeleton,
-  ModelsIcon,
+  Icon,
   OverflowIcon,
+  Tag,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import type { UseGetExperimentQueryResultExperiment } from '../../hooks/useExperimentQuery';
@@ -15,6 +16,9 @@ import type { LoggedModelProto } from '../../types';
 import { ExperimentLoggedModelDetailsRegisterButton } from './ExperimentLoggedModelDetailsRegisterButton';
 import { ExperimentPageTabName } from '../../constants';
 import { useExperimentLoggedModelDeleteModal } from './hooks/useExperimentLoggedModelDeleteModal';
+import { LoggedModelIcon } from './assets/LoggedModelIcon';
+import { isEmpty } from 'lodash';
+import { useExperimentLoggedModelRegisteredVersions } from './hooks/useExperimentLoggedModelRegisteredVersions';
 
 export const ExperimentLoggedModelDetailsHeader = ({
   experimentId,
@@ -40,6 +44,12 @@ export const ExperimentLoggedModelDetailsHeader = ({
       navigate(Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Models));
     },
   });
+
+  const { modelVersions } = useExperimentLoggedModelRegisteredVersions({
+    loggedModels: loggedModel ? [loggedModel] : [],
+  });
+
+  const modelIsNotRegistered = isEmpty(modelVersions);
 
   const getExperimentName = () => {
     if (experiment && 'name' in experiment) {
@@ -69,10 +79,27 @@ export const ExperimentLoggedModelDetailsHeader = ({
       ) : (
         <PageHeader
           title={
-            <>
-              <ExperimentLoggedModelDetailsHeaderIcon />
-              <>{modelDisplayName}</>
-            </>
+            modelIsNotRegistered ? (
+              <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center', justifyContent: 'flex-start' }}>
+                <ExperimentLoggedModelDetailsHeaderIcon />
+                <span>{modelDisplayName}</span>
+                <Tag
+                  color="brown"
+                  componentId="mlflow.logged_model.details.not_registered_tag"
+                  css={{ marginRight: 0 }}
+                >
+                  {intl.formatMessage({
+                    defaultMessage: 'Not registered',
+                    description: 'Tag for not registered model on the logged model details page',
+                  })}
+                </Tag>
+              </div>
+            ) : (
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                <ExperimentLoggedModelDetailsHeaderIcon />
+                <span>{modelDisplayName}</span>
+              </div>
+            )
           }
           dangerouslyAppendEmotionCSS={{ h2: { display: 'flex', gap: theme.spacing.sm }, wordBreak: 'break-word' }}
           breadcrumbs={breadcrumbs}
@@ -101,6 +128,7 @@ export const ExperimentLoggedModelDetailsHeader = ({
     </div>
   );
 };
+
 const ExperimentLoggedModelDetailsHeaderIcon = () => {
   const { theme } = useDesignSystemTheme();
   return (
@@ -109,13 +137,12 @@ const ExperimentLoggedModelDetailsHeaderIcon = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: theme.colors.tagDefault,
-        width: theme.general.heightSm,
-        height: theme.general.heightSm,
-        borderRadius: theme.legacyBorders.borderRadiusMd,
+        backgroundColor: theme.colors.backgroundSecondary,
+        padding: 6,
+        borderRadius: theme.spacing.lg,
       }}
     >
-      <ModelsIcon css={{ color: theme.colors.textSecondary }} />
+      <Icon component={LoggedModelIcon} css={{ display: 'flex', color: theme.colors.textSecondary }} />
     </div>
   );
 };

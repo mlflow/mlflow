@@ -227,9 +227,7 @@ def _patched_evaluate(original, self, *args, **kwargs):
     new_kwargs["metric"] = _patch_metric(metric)
 
     args_passed_positional = list(new_kwargs.keys())[: len(args)]
-    new_args = []
-    for arg in args_passed_positional:
-        new_args.append(new_kwargs.pop(arg))
+    new_args = [new_kwargs.pop(arg) for arg in args_passed_positional]
 
     return original(self, *new_args, **new_kwargs)
 

@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { parseAssessmentSchemas } from './AssessmentSchemaContext.utils';
 import type { Assessment } from '../ModelTrace.types';
 import { MOCK_ASSESSMENT, MOCK_EXPECTATION } from '../ModelTraceExplorer.test-utils';

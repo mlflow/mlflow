@@ -10,10 +10,12 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     Computed,
+    Float,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
     Integer,
+    LargeBinary,
     PrimaryKeyConstraint,
     String,
     Text,
@@ -35,10 +37,20 @@ from mlflow.entities import (
     Expectation,
     Experiment,
     ExperimentTag,
+    FallbackConfig,
+    FallbackStrategy,
     Feedback,
+    GatewayEndpoint,
+    GatewayEndpointBinding,
+    GatewayEndpointModelMapping,
+    GatewayEndpointTag,
+    GatewayModelDefinition,
+    GatewayResourceType,
+    GatewaySecretInfo,
     InputTag,
     Metric,
     Param,
+    RoutingStrategy,
     Run,
     RunData,
     RunInfo,
@@ -266,8 +278,7 @@ class SqlRun(Base):
             tags=tags,
         )
         if not run_info.run_name:
-            run_name = _get_run_name_from_tags(tags)
-            if run_name:
+            if run_name := _get_run_name_from_tags(tags):
                 run_info._set_run_name(run_name)
 
         return Run(run_info=run_info, run_data=run_data)
@@ -800,6 +811,39 @@ class SqlTraceMetadata(Base):
     __table_args__ = (
         PrimaryKeyConstraint("request_id", "key", name="trace_request_metadata_pk"),
         Index(f"index_{__tablename__}_request_id"),
+    )
+
+
+class SqlTraceMetrics(Base):
+    __tablename__ = "trace_metrics"
+
+    request_id = Column(
+        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Request ID to which this metric belongs: *Foreign Key* into ``trace_info`` table.
+    **Corresponding to the "trace_id" in V3 format.**
+    """
+    key = Column(String(250), nullable=False)
+    """
+    Metric key: `String` (limit 250 characters). Examples: "input_tokens", "output_tokens",
+    "total_tokens", "cost", etc.
+    """
+    value = Column(sa.types.Float(precision=53), nullable=True)
+    """
+    Metric value: `Float`. Could be *null* if not available. Supports both integer values
+    (e.g., token counts) and decimal values (e.g., API costs).
+    """
+    trace_info = relationship("SqlTraceInfo", backref=backref("metrics", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
+    """
+
+    # Composite primary key: (request_id, key)
+    __table_args__ = (
+        PrimaryKeyConstraint("request_id", "key", name="trace_metrics_pk"),
+        Index(f"index_{__tablename__}_request_id", "request_id"),
     )
 
 
@@ -1960,9 +2004,9 @@ class SqlJob(Base):
     Creation timestamp: `BigInteger`.
     """
 
-    function_fullname = Column(String(500), nullable=False)
+    job_name = Column(String(500), nullable=False)
     """
-    Function fullname: `String` (limit 500 characters).
+    Job name: `String` (limit 500 characters).
     """
 
     params = Column(Text, nullable=False)
@@ -1998,15 +2042,15 @@ class SqlJob(Base):
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
-            "index_jobs_function_status_creation_time",
-            "function_fullname",
+            "index_jobs_name_status_creation_time",
+            "job_name",
             "status",
             "creation_time",
         ),
     )
 
     def __repr__(self):
-        return f"<SqlJob ({self.id}, {self.function_fullname}, {self.status})>"
+        return f"<SqlJob ({self.id}, {self.job_name}, {self.status})>"
 
     def to_mlflow_entity(self):
         """
@@ -2021,7 +2065,7 @@ class SqlJob(Base):
         return Job(
             job_id=self.id,
             creation_time=self.creation_time,
-            function_fullname=self.function_fullname,
+            job_name=self.job_name,
             params=self.params,
             timeout=self.timeout,
             status=JobStatus.from_int(self.status),
@@ -2029,3 +2073,495 @@ class SqlJob(Base):
             retry_count=self.retry_count,
             last_update_time=self.last_update_time,
         )
+
+
+class SqlGatewaySecret(Base):
+    """
+    DB model for secrets. These are recorded in the ``secrets`` table.
+    Stores encrypted credentials used by MLflow resources (e.g., LLM provider API keys).
+    """
+
+    __tablename__ = "secrets"
+
+    secret_id = Column(String(36), nullable=False)
+    """
+    Secret ID: `String` (limit 36 characters). *Primary Key* for ``secrets`` table.
+
+    NB: IMMUTABLE. This field is used as part of the AAD (Additional Authenticated Data) during
+    AES-GCM encryption. If modified, decryption will fail with authentication error. See
+    mlflow/utils/crypto.py:_create_aad() for details.
+    """
+    secret_name = Column(String(255), nullable=False)
+    """
+    Secret name: `String` (limit 255 characters). User-provided name for the secret.
+    Defined as *Unique* in table schema to prevent confusing selection of secrets in the UI.
+
+    NB: IMMUTABLE. This field is used as part of the AAD (Additional Authenticated Data) during
+    AES-GCM encryption. If modified, decryption will fail with authentication error. To "rename"
+    a secret, create a new secret with the desired name and delete the old one. See
+    mlflow/utils/crypto.py:_create_aad() for details.
+    """
+    encrypted_value = Column(LargeBinary, nullable=False)
+    """
+    Encrypted secret data: `LargeBinary`. Combined nonce (12 bytes) + AES-GCM ciphertext +
+    tag (16 bytes). The secret value is encrypted using envelope encryption with a DEK, and
+    the nonce is prepended for storage. AAD (Additional Authenticated Data) from secret_id
+    and secret_name is included during encryption to prevent ciphertext substitution attacks.
+    """
+    wrapped_dek = Column(LargeBinary, nullable=False)
+    """
+    Wrapped data encryption key: `LargeBinary`. DEK encrypted by KEK.
+    The DEK is a randomly generated 256-bit AES key used to encrypt the secret value.
+    """
+    kek_version = Column(Integer, nullable=False, default=1)
+    """
+    KEK version: `Integer`. Indicates which KEK version was used to wrap the DEK.
+    Used for KEK rotation - allows multiple KEK versions to coexist during migration.
+    """
+    masked_value = Column(String(500), nullable=False)
+    """
+    Masked secret value: `String` (limit 500 characters). JSON-serialized dict showing partial
+    secret values for identification. Format: ``{"key": "prefix...suffix"}``, e.g.,
+    ``{"api_key": "sk-...xyz123"}`` or ``{"aws_access_key_id": "AKI...1234", ...}``.
+    Helps users identify secrets without exposing the full values.
+    """
+    provider = Column(String(64), nullable=True)
+    """
+    Provider identifier: `String` (limit 64 characters). Optional.
+    E.g., "anthropic", "openai", "cohere", "vertex_ai", "bedrock", "databricks".
+    """
+    auth_config = Column(Text, nullable=True)
+    """
+    Provider authentication config: `Text` (JSON string). Non-sensitive metadata for
+    provider configuration like region, project_id, endpoint URL. Useful for UI display
+    and disambiguation. Not encrypted since it contains no secrets.
+    For multi-auth providers, includes "auth_mode" key (e.g., "access_keys", "iam_role").
+    """
+    description = Column(Text, nullable=True)
+    """
+    Secret description: `Text`. Optional user-provided description for the API key.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Last update timestamp: `BigInteger`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("secret_id", name="secrets_pk"),
+        Index("unique_secret_name", "secret_name", unique=True),
+    )
+
+    def __repr__(self):
+        return f"<SqlGatewaySecret ({self.secret_id}, {self.secret_name})>"
+
+    def to_mlflow_entity(self):
+        try:
+            masked_value = json.loads(self.masked_value)
+        except (json.JSONDecodeError, TypeError):
+            masked_value = {"value": "***"}
+
+        return GatewaySecretInfo(
+            secret_id=self.secret_id,
+            secret_name=self.secret_name,
+            masked_values=masked_value,
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            provider=self.provider,
+            auth_config=json.loads(self.auth_config) if self.auth_config else None,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+        )
+
+
+class SqlGatewayEndpoint(Base):
+    """
+    DB model for endpoints. These are recorded in ``endpoints`` table.
+    Represents LLM gateway endpoints that route requests to configured models.
+    """
+
+    __tablename__ = "endpoints"
+
+    endpoint_id = Column(String(36), nullable=False)
+    """
+    Endpoint ID: `String` (limit 36 characters). *Primary Key* for ``endpoints`` table.
+    """
+    name = Column(String(255), nullable=True)
+    """
+    Endpoint name: `String` (limit 255 characters). User-provided name for the endpoint.
+    Defined as *Unique* in table schema.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Last update timestamp: `BigInteger`.
+    """
+    routing_strategy = Column(String(64), nullable=True)
+    """
+    Routing strategy: `String` (limit 64 characters). E.g., "FALLBACK".
+    """
+    fallback_config_json = Column(Text, nullable=True)
+    """
+    Fallback configuration as JSON: `Text`. Stores FallbackConfig proto as JSON.
+    Example: {"strategy": "SEQUENTIAL", "max_attempts": 3, "model_definition_ids": ["d-1", "d-2"]}
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("endpoint_id", name="endpoints_pk"),
+        Index("unique_endpoint_name", "name", unique=True),
+    )
+
+    def __repr__(self):
+        return f"<SqlGatewayEndpoint ({self.endpoint_id}, {self.name})>"
+
+    def to_mlflow_entity(self):
+        fallback_config = None
+        model_mappings = [m.to_mlflow_entity() for m in self.model_mappings]
+        if self.fallback_config_json:
+            try:
+                fallback_config_dict = json.loads(self.fallback_config_json)
+
+                fallback_config = FallbackConfig(
+                    strategy=FallbackStrategy(fallback_config_dict.get("strategy"))
+                    if fallback_config_dict.get("strategy")
+                    else None,
+                    max_attempts=fallback_config_dict.get("max_attempts"),
+                )
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        routing_strategy = RoutingStrategy(self.routing_strategy) if self.routing_strategy else None
+
+        return GatewayEndpoint(
+            endpoint_id=self.endpoint_id,
+            name=self.name,
+            model_mappings=model_mappings,
+            tags=[tag.to_mlflow_entity() for tag in self.tags],
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            routing_strategy=routing_strategy,
+            fallback_config=fallback_config,
+        )
+
+
+class SqlGatewayModelDefinition(Base):
+    """
+    DB model for model definitions. These are recorded in ``model_definitions`` table.
+    Represents reusable LLM model configurations that can be shared across multiple endpoints.
+    """
+
+    __tablename__ = "model_definitions"
+
+    model_definition_id = Column(String(36), nullable=False)
+    """
+    Model Definition ID: `String` (limit 36 characters).
+    *Primary Key* for ``model_definitions`` table.
+    """
+    name = Column(String(255), nullable=False)
+    """
+    Model definition name: `String` (limit 255 characters). User-provided name for identification.
+    Defined as *Unique* in table schema.
+    """
+    secret_id = Column(
+        String(36), ForeignKey("secrets.secret_id", ondelete="SET NULL"), nullable=True
+    )
+    """
+    Secret ID: `String` (limit 36 characters). *Foreign Key* into ``secrets`` table.
+    References the API key/credentials for this model. Nullable to allow orphaned
+    model definitions when secrets are deleted.
+    """
+    provider = Column(String(64), nullable=False)
+    """
+    Provider identifier: `String` (limit 64 characters).
+    E.g., "anthropic", "openai", "cohere", "vertex_ai", "bedrock", "databricks".
+    """
+    model_name = Column(String(256), nullable=False)
+    """
+    Model name: `String` (limit 256 characters). Provider-specific model identifier.
+    E.g., "claude-3-5-sonnet-20241022", "gpt-4o", "command-r-plus".
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Last update timestamp: `BigInteger`.
+    """
+
+    secret = relationship("SqlGatewaySecret")
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlGatewaySecret`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("model_definition_id", name="model_definitions_pk"),
+        Index("unique_model_definition_name", "name", unique=True),
+        Index("index_model_definitions_secret_id", "secret_id"),
+        Index("index_model_definitions_provider", "provider"),
+    )
+
+    def __repr__(self):
+        return f"<SqlGatewayModelDefinition ({self.model_definition_id}, {self.name})>"
+
+    def to_mlflow_entity(self):
+        return GatewayModelDefinition(
+            model_definition_id=self.model_definition_id,
+            name=self.name,
+            secret_id=self.secret_id,
+            secret_name=self.secret.secret_name if self.secret else None,
+            provider=self.provider,
+            model_name=self.model_name,
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+        )
+
+
+class SqlGatewayEndpointModelMapping(Base):
+    """
+    DB model for endpoint-model mappings. These are recorded in ``endpoint_model_mappings`` table.
+    Junction table linking endpoints to model definitions (supports multi-model routing).
+    """
+
+    __tablename__ = "endpoint_model_mappings"
+
+    mapping_id = Column(String(36), nullable=False)
+    """
+    Mapping ID: `String` (limit 36 characters). *Primary Key* for ``endpoint_model_mappings`` table.
+    """
+    endpoint_id = Column(
+        String(36), ForeignKey("endpoints.endpoint_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Endpoint ID: `String` (limit 36 characters). *Foreign Key* into ``endpoints`` table.
+    Cascades on delete - removing an endpoint removes all its model mappings.
+    """
+    model_definition_id = Column(
+        String(36),
+        ForeignKey("model_definitions.model_definition_id"),
+        nullable=False,
+    )
+    """
+    Model Definition ID: `String` (limit 36 characters).
+    *Foreign Key* into ``model_definitions`` table.
+    Prevents deletion of a model definition that is in use (default FK behavior).
+    """
+    weight = Column(Float, default=1.0, nullable=False)
+    """
+    Routing weight: `Float`. Used for traffic distribution when endpoint has multiple models.
+    Default is 1.0.
+    """
+    linkage_type = Column(String(64), default="PRIMARY", nullable=False)
+    """
+    Linkage type: `String` (limit 64 characters). Specifies whether this is a PRIMARY or
+    FALLBACK linkage. Default is PRIMARY.
+    """
+    fallback_order = Column(Integer, nullable=True)
+    """
+    Fallback order: `Integer`. Specifies the order for fallback attempts.
+    NULL for PRIMARY linkages. Lower values are tried first.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+
+    endpoint = relationship("SqlGatewayEndpoint", backref=backref("model_mappings", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlGatewayEndpoint`.
+    """
+    model_definition = relationship("SqlGatewayModelDefinition")
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlGatewayModelDefinition`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("mapping_id", name="endpoint_model_mappings_pk"),
+        Index("index_endpoint_model_mappings_endpoint_id", "endpoint_id"),
+        Index("index_endpoint_model_mappings_model_definition_id", "model_definition_id"),
+        Index(
+            "unique_endpoint_model_linkage_mapping",
+            "endpoint_id",
+            "model_definition_id",
+            "linkage_type",
+            unique=True,
+        ),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlGatewayEndpointModelMapping ({self.mapping_id}, "
+            f"endpoint={self.endpoint_id}, model={self.model_definition_id})>"
+        )
+
+    def to_mlflow_entity(self):
+        from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
+
+        model_def = None
+        if self.model_definition:
+            model_def = self.model_definition.to_mlflow_entity()
+        return GatewayEndpointModelMapping(
+            mapping_id=self.mapping_id,
+            endpoint_id=self.endpoint_id,
+            model_definition_id=self.model_definition_id,
+            model_definition=model_def,
+            weight=self.weight,
+            linkage_type=GatewayModelLinkageType(self.linkage_type),
+            fallback_order=self.fallback_order,
+            created_at=self.created_at,
+            created_by=self.created_by,
+        )
+
+
+class SqlGatewayEndpointBinding(Base):
+    """
+    DB model for endpoint bindings. These are recorded in ``endpoint_bindings`` table.
+    Tracks which resources are bound to which endpoints (e.g., model configurations, experiments).
+    """
+
+    __tablename__ = "endpoint_bindings"
+
+    endpoint_id = Column(
+        String(36), ForeignKey("endpoints.endpoint_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Endpoint ID: `String` (limit 36 characters). *Foreign Key* into ``endpoints`` table.
+    Cascades on delete. Part of composite primary key.
+    """
+    resource_type = Column(String(50), nullable=False)
+    """
+    Resource type: `String` (limit 50 characters). Type of resource bound to the endpoint.
+    E.g., "endpoint_model", "experiment", "registered_model". Part of composite primary key.
+    """
+    resource_id = Column(String(255), nullable=False)
+    """
+    Resource ID: `String` (limit 255 characters). ID of the specific resource instance.
+    Part of composite primary key.
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Last update timestamp: `BigInteger`.
+    """
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+
+    endpoint = relationship("SqlGatewayEndpoint", backref=backref("bindings", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlGatewayEndpoint`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "endpoint_id", "resource_type", "resource_id", name="endpoint_bindings_pk"
+        ),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlGatewayEndpointBinding "
+            f"({self.endpoint_id}, {self.resource_type}, {self.resource_id})>"
+        )
+
+    def to_mlflow_entity(self):
+        return GatewayEndpointBinding(
+            endpoint_id=self.endpoint_id,
+            resource_type=GatewayResourceType(self.resource_type),
+            resource_id=self.resource_id,
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+        )
+
+
+class SqlGatewayEndpointTag(Base):
+    """
+    DB model for endpoint tags. These are recorded in ``endpoint_tags`` table.
+    Tags are key-value pairs associated with endpoints for categorization and filtering.
+    """
+
+    __tablename__ = "endpoint_tags"
+
+    key = Column(String(250), nullable=False)
+    """
+    Tag key: `String` (limit 250 characters). Part of composite *Primary Key*.
+    """
+    value = Column(String(5000), nullable=True)
+    """
+    Value associated with tag: `String` (limit 5000 characters). Could be *null*.
+    """
+    endpoint_id = Column(
+        String(36), ForeignKey("endpoints.endpoint_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Endpoint ID to which this tag belongs: *Foreign Key* into ``endpoints`` table.
+    Part of composite *Primary Key*. Cascades on delete.
+    """
+    endpoint = relationship("SqlGatewayEndpoint", backref=backref("tags", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlGatewayEndpoint`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("key", "endpoint_id", name="endpoint_tag_pk"),
+        Index("index_endpoint_tags_endpoint_id", "endpoint_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlGatewayEndpointTag({self.key}, {self.value})>"
+
+    def to_mlflow_entity(self):
+        return GatewayEndpointTag(key=self.key, value=self.value)

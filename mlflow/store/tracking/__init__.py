@@ -10,6 +10,7 @@ Several constants are used by multiple backend store implementations.
 # Also used as default location for artifacts, when not provided, in non local file based backends
 # (eg MySQL)
 DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH = "./mlruns"
+DEFAULT_TRACKING_URI = "sqlite:///mlflow.db"
 # Used for defining the artifacts uri (`--default-artifact-root`) for the tracking server when
 # configuring the server to use the option `--serve-artifacts` mode. This default can be
 # overridden by specifying an override to `--default-artifact-root` for the MLflow tracking server.
@@ -24,3 +25,4 @@ SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT = 100
 SEARCH_EVALUATION_DATASETS_MAX_RESULTS = 50
 LOAD_DATASET_RECORDS_MAX_RESULTS = 1000
 MAX_RESULTS_GET_METRIC_HISTORY = 25000
+MAX_RESULTS_QUERY_TRACE_METRICS = 1000

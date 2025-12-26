@@ -7,6 +7,7 @@ import { tracedOpenAI } from '../src';
 import { OpenAI } from 'openai';
 import { http, HttpResponse } from 'msw';
 import { openAIMswServer, useMockOpenAIServer } from '../../helpers/openaiTestHelper';
+import { createAuthProvider } from 'mlflow-tracing/src/auth';
 
 const TEST_TRACKING_URI = 'http://localhost:5000';
 
@@ -18,7 +19,8 @@ describe('tracedOpenAI', () => {
 
   beforeAll(async () => {
     // Setup MLflow client and experiment
-    client = new mlflow.MlflowClient({ trackingUri: TEST_TRACKING_URI, host: TEST_TRACKING_URI });
+    const authProvider = createAuthProvider({ trackingUri: TEST_TRACKING_URI });
+    client = new mlflow.MlflowClient({ trackingUri: TEST_TRACKING_URI, authProvider });
 
     // Create a new experiment
     const experimentName = `test-experiment-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
@@ -222,6 +224,12 @@ describe('tracedOpenAI', () => {
       expect(trace.info.state).toBe('OK');
       expect(trace.data.spans.length).toBe(1);
 
+      const tokenUsage = trace.info.tokenUsage;
+      expect(tokenUsage).toBeDefined();
+      expect(tokenUsage?.input_tokens).toBe(response.usage.prompt_tokens);
+      expect(tokenUsage?.output_tokens).toBe(0);
+      expect(tokenUsage?.total_tokens).toBe(response.usage.total_tokens);
+
       const span = trace.data.spans[0];
       expect(span.name).toBe('Embeddings');
       expect(span.spanType).toBe(mlflow.SpanType.EMBEDDING);
@@ -233,6 +241,12 @@ describe('tracedOpenAI', () => {
       expect(span.outputs).toEqual(response);
       expect(span.startTime).toBeDefined();
       expect(span.endTime).toBeDefined();
+
+      const spanTokenUsage = span.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE];
+      expect(spanTokenUsage).toBeDefined();
+      expect(spanTokenUsage[mlflow.TokenUsageKey.INPUT_TOKENS]).toBe(response.usage.prompt_tokens);
+      expect(spanTokenUsage[mlflow.TokenUsageKey.OUTPUT_TOKENS]).toBe(0);
+      expect(spanTokenUsage[mlflow.TokenUsageKey.TOTAL_TOKENS]).toBe(response.usage.total_tokens);
     });
   });
 });

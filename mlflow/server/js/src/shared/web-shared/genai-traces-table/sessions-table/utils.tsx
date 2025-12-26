@@ -5,8 +5,9 @@ import {
   type ModelTraceInfoV3,
   SESSION_ID_METADATA_KEY,
 } from '@databricks/web-shared/model-trace-explorer';
+
+import type { SessionTableRow } from './types';
 import MlflowUtils from '../utils/MlflowUtils';
-import { SessionTableRow } from './types';
 
 export const groupTracesBySession = (traces: ModelTraceInfoV3[]) => {
   const sessionIdMap: Record<string, ModelTraceInfoV3[]> = {};
@@ -51,6 +52,7 @@ export const getSessionTableRows = (experimentId: string, traces: ModelTraceInfo
         sessionDuration: calculateSessionDuration(traces),
         tokens: totalTokens,
         turns: sortedTraces.length,
+        traces: sortedTraces,
       };
     }),
   );

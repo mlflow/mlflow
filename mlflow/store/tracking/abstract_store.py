@@ -16,6 +16,12 @@ from mlflow.entities import (
     ScorerVersion,
     ViewType,
 )
+from mlflow.entities.model_registry import PromptVersion
+from mlflow.entities.trace_metrics import (
+    MetricAggregation,
+    MetricDataPoint,
+    MetricViewType,
+)
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
@@ -26,9 +32,11 @@ from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_GET_METRIC_HISTORY,
+    MAX_RESULTS_QUERY_TRACE_METRICS,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
+from mlflow.store.tracking.gateway import GatewayStoreMixin
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable, requires_sql_backend
@@ -37,7 +45,7 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 
 
 @developer_stable
-class AbstractStore:
+class AbstractStore(GatewayStoreMixin):
     """
     Abstract class for Backend Storage.
     This class defines the API interface for front ends to connect with various types of backends.
@@ -329,7 +337,23 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def batch_get_traces(self, trace_ids: list[str], location: str) -> list[Trace]:
+    def get_trace(self, trace_id: str, *, allow_partial: bool = False) -> Trace:
+        """
+        Get a trace with spans for given trace id.
+
+        Args:
+            trace_id: String id of the trace to fetch.
+            allow_partial: Whether to allow partial traces. If True, the trace will be returned
+                even if it is not fully exported yet. If False, MLflow retries and returns
+                the trace until all spans are exported or retries are exhausted. Default
+                to False.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.Trace``.
+        """
+        raise MlflowNotImplementedException()
+
+    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
         """
         Get a batch of complete traces with spans for given trace ids.
 
@@ -387,6 +411,38 @@ class AbstractStore:
             not be meaningful in such cases.
         """
         raise NotImplementedError
+
+    def query_trace_metrics(
+        self,
+        experiment_ids: list[str],
+        view_type: MetricViewType,
+        metric_name: str,
+        aggregations: list[MetricAggregation],
+        dimensions: list[str] | None = None,
+        filters: list[str] | None = None,
+        time_interval_seconds: int | None = None,
+        start_time_ms: int | None = None,
+        end_time_ms: int | None = None,
+        max_results: int = MAX_RESULTS_QUERY_TRACE_METRICS,
+        page_token: str | None = None,
+    ) -> PagedList[list[MetricDataPoint]]:
+        """
+        Query trace metrics for the given experiment ids.
+
+        Args:
+            experiment_ids: List of experiment ids to query metrics for.
+            view_type: The view type to query metrics for.
+            metric_name: The metric name to query metrics for.
+            aggregations: The aggregations to apply to the metrics.
+            dimensions: The dimensions to group metrics by.
+            filters: The filters to apply to the traces.
+            time_interval_seconds: The time interval in seconds to group traces metrics by.
+            start_time_ms: The start time to query traces metrics for.
+            end_time_ms: The end time to query traces metrics for.
+            max_results: The maximum number of traces metrics to return. Default is 1000.
+            page_token: The page token to use for pagination.
+        """
+        raise MlflowNotImplementedException()
 
     def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
@@ -1009,12 +1065,14 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_logged_model(self, model_id: str) -> LoggedModel:
+    def get_logged_model(self, model_id: str, allow_deleted: bool = False) -> LoggedModel:
         """
         Fetch the logged model with the specified ID.
 
         Args:
             model_id: ID of the model to fetch.
+            allow_deleted: If ``True``, allow fetching logged models in the deleted lifecycle
+                stage. Defaults to ``False``.
 
         Returns:
             The fetched model.
@@ -1246,6 +1304,21 @@ class AbstractStore:
         """
         raise NotImplementedError(
             f"Unlinking traces from runs is not implemented for {self.__class__.__name__}."
+        )
+
+    def link_prompts_to_trace(self, _trace_id: str, _prompt_versions: list[PromptVersion]) -> None:
+        """
+        Link multiple prompt versions to a trace by creating entity associations.
+
+        Args:
+            _trace_id: ID of the trace to link prompt versions to.
+            _prompt_versions: List of PromptVersion objects to link.
+
+        Raises:
+            NotImplementedError: If the operation is not supported by this store.
+        """
+        raise NotImplementedError(
+            f"Linking prompts to traces is not implemented for {self.__class__.__name__}."
         )
 
     def calculate_trace_filter_correlation(

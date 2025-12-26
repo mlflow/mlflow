@@ -12,7 +12,11 @@ from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge, JudgeField
-from mlflow.genai.judges.constants import _RATIONALE_FIELD_DESCRIPTION, _RESULT_FIELD_DESCRIPTION
+from mlflow.genai.judges.constants import (
+    _RATIONALE_FIELD_DESCRIPTION,
+    _RESULT_FIELD_DESCRIPTION,
+    USE_CASE_AGENTIC_JUDGE,
+)
 from mlflow.genai.judges.instructions_judge.constants import (
     INSTRUCTIONS_JUDGE_SYSTEM_PROMPT,
     INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
@@ -26,21 +30,24 @@ from mlflow.genai.judges.utils import (
 )
 from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
+    ScorerKind,
     SerializedScorer,
 )
 from mlflow.genai.utils.trace_utils import (
+    resolve_conversation_from_session,
+    resolve_expectations_from_session,
     resolve_expectations_from_trace,
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
+    validate_session,
 )
 from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN, PROMPT_TEXT_DISPLAY_LIMIT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils.annotations import experimental
+from mlflow.tracing.constant import TraceMetadataKey
 
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.4.0")
 class InstructionsJudge(Judge):
     """
     A judge that evaluates traces based on user-provided instructions.
@@ -53,11 +60,13 @@ class InstructionsJudge(Judge):
     _TEMPLATE_VARIABLE_OUTPUTS = "outputs"
     _TEMPLATE_VARIABLE_TRACE = "trace"
     _TEMPLATE_VARIABLE_EXPECTATIONS = "expectations"
+    _TEMPLATE_VARIABLE_CONVERSATION = "conversation"
     _RESERVED_INSTRUCTION_TEMPLATE_VARIABLES = [
         _TEMPLATE_VARIABLE_INPUTS,
         _TEMPLATE_VARIABLE_OUTPUTS,
         _TEMPLATE_VARIABLE_TRACE,
         _TEMPLATE_VARIABLE_EXPECTATIONS,
+        _TEMPLATE_VARIABLE_CONVERSATION,
     ]
 
     _instructions: str = PrivateAttr()
@@ -65,6 +74,9 @@ class InstructionsJudge(Judge):
     _instructions_prompt: PromptVersion = PrivateAttr()
     _ordered_template_variables: list[str] = PrivateAttr()
     _feedback_value_type: Any = PrivateAttr()
+    _generate_rationale_first: bool = PrivateAttr(default=False)
+    _include_tool_calls_in_conversation: bool = PrivateAttr(default=False)
+    _inference_params: dict[str, Any] | None = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -73,6 +85,9 @@ class InstructionsJudge(Judge):
         model: str | None = None,
         description: str | None = None,
         feedback_value_type: Any = str,
+        generate_rationale_first: bool = False,
+        include_tool_calls_in_conversation: bool = False,
+        inference_params: dict[str, Any] | None = None,
         **kwargs,
     ):
         """
@@ -86,6 +101,13 @@ class InstructionsJudge(Judge):
             feedback_value_type: Optional type for the 'value' field in the Feedback response.
                            Default is str. Supported types (FeedbackValueType): int, float,
                            str, bool, Literal types, as well as a dict and list of these types.
+            generate_rationale_first: Whether to generate rationale before the final value
+            include_tool_calls_in_conversation: If True, include tool call information from
+                           TOOL type spans when extracting conversation from session traces.
+                           Default is False for backward compatibility.
+            inference_params: Optional dictionary of inference parameters to pass to the
+                           model (e.g., temperature, top_p, max_tokens). These parameters
+                           allow fine-grained control over the model's behavior.
             kwargs: Additional configuration parameters
         """
         # TODO: Allow aggregations once we support boolean/numeric judge outputs
@@ -104,6 +126,9 @@ class InstructionsJudge(Judge):
         self._instructions = instructions
         self._model = model or get_default_model()
         self._feedback_value_type = feedback_value_type
+        self._generate_rationale_first = generate_rationale_first
+        self._include_tool_calls_in_conversation = include_tool_calls_in_conversation
+        self._inference_params = inference_params
 
         # NB: We create a dummy PromptVersion here to leverage its existing template variable
         # extraction logic. This allows us to reuse the well-tested regex patterns and variable
@@ -140,6 +165,10 @@ class InstructionsJudge(Judge):
         self._validate_instructions_template()
 
     @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.INSTRUCTIONS
+
+    @property
     def model(self) -> str:
         """Get the model for this judge."""
         return self._model
@@ -150,9 +179,19 @@ class InstructionsJudge(Judge):
         return self._instructions_prompt.variables
 
     @property
+    def is_session_level_scorer(self) -> bool:
+        """Get whether this judge is a session-level judge based on template variables."""
+        return self._TEMPLATE_VARIABLE_CONVERSATION in self.template_variables
+
+    @property
     def instructions(self) -> str:
         """Get the instructions of this judge."""
         return self._instructions
+
+    @property
+    def inference_params(self) -> dict[str, Any] | None:
+        """Get the inference parameters for this judge."""
+        return self._inference_params
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -180,7 +219,10 @@ class InstructionsJudge(Judge):
         return fields
 
     def _validate_parameter_types(
-        self, expectations: dict[str, Any] | None, trace: Trace | None
+        self,
+        expectations: dict[str, Any] | None,
+        trace: Trace | None,
+        session: list[Trace] | None,
     ) -> None:
         """Validate that parameters have correct types."""
         if expectations is not None and not isinstance(expectations, dict):
@@ -193,6 +235,19 @@ class InstructionsJudge(Judge):
                 f"'trace' must be a Trace object, got {type(trace).__name__}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if session is not None and not isinstance(session, list):
+            raise MlflowException(
+                f"'session' must be a list of Trace objects, got {type(session).__name__}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if session is not None:
+            for i, trace in enumerate(session):
+                if not isinstance(trace, Trace):
+                    raise MlflowException(
+                        f"All elements in 'session' must be Trace objects, "
+                        f"got {type(trace).__name__} at index {i}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
 
     def _check_required_parameters(
         self,
@@ -200,6 +255,7 @@ class InstructionsJudge(Judge):
         outputs: Any | None,
         expectations: dict[str, Any] | None,
         trace: Trace | None,
+        session: list[Trace] | None,
     ) -> None:
         """Check that all required parameters are provided."""
         missing_params = []
@@ -211,6 +267,8 @@ class InstructionsJudge(Judge):
             missing_params.append("expectations")
         if self._TEMPLATE_VARIABLE_TRACE in self.template_variables and trace is None:
             missing_params.append("trace")
+        if self._TEMPLATE_VARIABLE_CONVERSATION in self.template_variables and session is None:
+            missing_params.append("session")
 
         if missing_params:
             missing_str = "', '".join(missing_params)
@@ -219,12 +277,16 @@ class InstructionsJudge(Judge):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+    def _validate_session(self, session: list[Trace]) -> None:
+        """Validate that all traces in session belong to the same session."""
+        validate_session(session)
+
     def _warn_unused_parameters(
         self,
         inputs: Any | None,
         outputs: Any | None,
         expectations: dict[str, Any] | None,
-        trace: Trace | None,
+        conversation: list[dict[str, str]] | None,
     ) -> None:
         """Warn about parameters that were provided but aren't used."""
         # Don't warn about unused parameters when using trace-based evaluation
@@ -242,6 +304,11 @@ class InstructionsJudge(Judge):
             and self._TEMPLATE_VARIABLE_EXPECTATIONS not in self.template_variables
         ):
             unused_params.append("expectations")
+        if (
+            conversation is not None
+            and self._TEMPLATE_VARIABLE_CONVERSATION not in self.template_variables
+        ):
+            unused_params.append("conversation")
 
         if unused_params:
             unused_str = "', '".join(unused_params)
@@ -276,18 +343,23 @@ class InstructionsJudge(Judge):
 
     def get_output_fields(self) -> list[JudgeField]:
         """Get the output fields for this judge."""
-        return [
-            JudgeField(
-                name="result",
-                description=self.description or _RESULT_FIELD_DESCRIPTION,
-                value_type=self._feedback_value_type,
-            ),
-            JudgeField(
-                name="rationale",
-                description=_RATIONALE_FIELD_DESCRIPTION,
-                value_type=str,
-            ),
-        ]
+        # Use generic field description, not self.description, to avoid the LLM
+        # echoing the scorer's description as the assessment value
+        result_field = JudgeField(
+            name="result",
+            description=_RESULT_FIELD_DESCRIPTION,
+            value_type=self._feedback_value_type,
+        )
+        rationale_field = JudgeField(
+            name="rationale",
+            description=_RATIONALE_FIELD_DESCRIPTION,
+            value_type=str,
+        )
+        return (
+            [rationale_field, result_field]
+            if self._generate_rationale_first
+            else [result_field, rationale_field]
+        )
 
     def _format_type(self, value_type: Any) -> str:
         if value_type in (str, int, float, bool):
@@ -302,20 +374,21 @@ class InstructionsJudge(Judge):
         inputs: Any | None,
         outputs: Any | None,
         expectations: dict[str, Any] | None,
-        is_trace_based: bool,
+        conversation: list[dict[str, str]] | None,
     ) -> str:
         """Build the user message with field values."""
-        template_values = self._build_template_values(inputs, outputs, expectations)
+        template_values = self._build_template_values(inputs, outputs, expectations, conversation)
 
         field_vars = [
             var for var in self._ordered_template_variables if var != self._TEMPLATE_VARIABLE_TRACE
         ]
 
         # Build user message parts in order
-        user_message_parts = []
-        for var_name in field_vars:
-            if var_name in template_values:
-                user_message_parts.append(f"{var_name}: {template_values[var_name]}")
+        user_message_parts = [
+            f"{var_name}: {template_values[var_name]}"
+            for var_name in field_vars
+            if var_name in template_values
+        ]
 
         # Some model providers (like Anthropic) require a user message
         # (i.e. a single-message chat history with role 'system' is not supported),
@@ -327,7 +400,11 @@ class InstructionsJudge(Judge):
         )
 
     def _build_template_values(
-        self, inputs: Any | None, outputs: Any | None, expectations: dict[str, Any] | None
+        self,
+        inputs: Any | None,
+        outputs: Any | None,
+        expectations: dict[str, Any] | None,
+        conversation: list[dict[str, str]] | None,
     ) -> dict[str, str]:
         """Build dictionary of template variable values."""
         template_values = {}
@@ -346,6 +423,14 @@ class InstructionsJudge(Judge):
                 expectations
             )
 
+        if (
+            conversation is not None
+            and self._TEMPLATE_VARIABLE_CONVERSATION in self.template_variables
+        ):
+            template_values[self._TEMPLATE_VARIABLE_CONVERSATION] = self._safe_json_dumps(
+                conversation
+            )
+
         return template_values
 
     def _safe_json_dumps(self, value: Any) -> str:
@@ -362,6 +447,7 @@ class InstructionsJudge(Judge):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
+        session: list[Trace] | None = None,
     ) -> Feedback:
         """
         Evaluate the provided data using the judge's instructions.
@@ -375,23 +461,30 @@ class InstructionsJudge(Judge):
                 will be extracted from the trace's expectation assessments.
             trace: Trace object for evaluation. When the template uses {{ inputs }}, {{ outputs }},
                 or {{ expectations }}, the values will be extracted from the trace.
+            session: List of traces from the same session. When the template uses
+                {{ conversation }}, the conversation history will be extracted from these traces.
 
         Returns:
             Evaluation results
 
         **Note on Trace Behavior**:
-        - If template uses {{ trace }}: The trace metadata is used by an agent-based judge that uses
-          tools to fetch aspects of the trace's span data. If inputs/outputs/expectations are also
-          provided, they can augment the agent's context if the template has corresponding
-          placeholders ({{ inputs }}/{{ outputs }}/{{ expectations }}). The agent will still use
-          tools to fetch span data but will have this additional context in the user prompt.
+        - If template uses {{ trace }}: The trace object is passed to an agent-based judge that
+          uses tools to fetch aspects of the trace's span data. The {{ trace }} placeholder itself
+          is not replaced in the prompt - instead, the trace enables tool calling.
+        - If template uses {{ inputs }}/{{ outputs }}/{{ expectations }} alongside {{ trace }}:
+          These placeholders ARE replaced in the prompt with their values (either from the provided
+          parameters or extracted from the trace), providing additional context to the agent.
         - If template uses {{ inputs }}/{{ outputs }}/{{ expectations }} without {{ trace }}:
-          Values are extracted from the trace, if specified, as follows:
+          Values are extracted from the trace parameter (if provided) as follows:
           - inputs/outputs: From the trace's root span
-          - expectations: From the trace's human-set expectation assessments (ground truth only)
+          - expectations: From the trace's expectation assessments
 
+        **Note on Session Behavior**:
+        - Traces are expected to be in the same session and exception will be raised
+          if they are not.
+        - The conversation history will be extracted from the traces in chronological order.
         """
-        self._validate_parameter_types(expectations, trace)
+        self._validate_parameter_types(expectations, trace, session)
 
         original_inputs = inputs
         original_outputs = outputs
@@ -414,15 +507,24 @@ class InstructionsJudge(Judge):
                 extract_if_none=self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables,
             )
 
-        self._check_required_parameters(inputs, outputs, expectations, trace)
+        conversation = None
+        if session is not None and session:
+            self._validate_session(session)
+            conversation = resolve_conversation_from_session(
+                session, include_tool_calls=self._include_tool_calls_in_conversation
+            )
+            if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
+                expectations = resolve_expectations_from_session(expectations, session)
+
+        self._check_required_parameters(inputs, outputs, expectations, trace, conversation)
         self._warn_unused_parameters(
-            original_inputs, original_outputs, original_expectations, trace
+            original_inputs, original_outputs, original_expectations, conversation
         )
 
         is_trace_based = self._TEMPLATE_VARIABLE_TRACE in self.template_variables
 
         system_content = self._build_system_message(is_trace_based)
-        user_content = self._build_user_message(inputs, outputs, expectations, is_trace_based)
+        user_content = self._build_user_message(inputs, outputs, expectations, conversation)
 
         from mlflow.types.llm import ChatMessage
 
@@ -431,14 +533,7 @@ class InstructionsJudge(Judge):
             ChatMessage(role="user", content=user_content),
         ]
 
-        response_format = pydantic.create_model(
-            "ResponseFormat",
-            result=(
-                self._feedback_value_type or str,
-                pydantic.Field(description=self.description or _RESULT_FIELD_DESCRIPTION),
-            ),
-            rationale=(str, pydantic.Field(description=_RATIONALE_FIELD_DESCRIPTION)),
-        )
+        response_format = self._create_response_format_model()
 
         return invoke_judge_model(
             model_uri=self._model,
@@ -446,7 +541,21 @@ class InstructionsJudge(Judge):
             assessment_name=self.name,
             trace=trace if is_trace_based else None,
             response_format=response_format,
+            use_case=USE_CASE_AGENTIC_JUDGE,
+            inference_params=self._inference_params,
         )
+
+    def _create_response_format_model(self) -> type[pydantic.BaseModel]:
+        output_fields = self.get_output_fields()
+
+        fields = {}
+        for field in output_fields:
+            fields[field.name] = (
+                field.value_type,
+                pydantic.Field(description=field.description),
+            )
+
+        return pydantic.create_model("ResponseFormat", **fields)
 
     def _validate_model_format(self) -> None:
         """
@@ -461,15 +570,27 @@ class InstructionsJudge(Judge):
 
     def _validate_instructions_template(self) -> None:
         """
-        Validate that instructions contain at least one variable.
-
+        Validate that instruction:
+        1. contains at least one variable.
+        2. does not contain any template variables other than expectation
+           if conversation is provided.
         """
         template_vars = self.template_variables
 
         if not template_vars:
             raise MlflowException(
                 "Instructions template must contain at least one variable (e.g., {{ inputs }}, "
-                "{{ outputs }}, {{ trace }}, or {{ expectations }}).",
+                "{{ outputs }}, {{ trace }}, {{ expectations }}, or {{ conversation }}).",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if self._TEMPLATE_VARIABLE_CONVERSATION in template_vars and template_vars - {
+            self._TEMPLATE_VARIABLE_EXPECTATIONS,
+            self._TEMPLATE_VARIABLE_CONVERSATION,
+        }:
+            raise MlflowException(
+                "Instructions template must not contain any template variables "
+                "other than {{ expectations }} if {{ conversation }} is provided.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -480,10 +601,13 @@ class InstructionsJudge(Judge):
             if len(self._instructions) > PROMPT_TEXT_DISPLAY_LIMIT
             else self._instructions
         )
+        inference_params_str = (
+            f", inference_params={self._inference_params}" if self._inference_params else ""
+        )
         return (
             f"InstructionsJudge(name='{self.name}', model='{self._model}', "
             f"instructions='{instructions_preview}', "
-            f"template_variables={sorted(self.template_variables)})"
+            f"template_variables={sorted(self.template_variables)}{inference_params_str})"
         )
 
     @staticmethod
@@ -501,7 +625,7 @@ class InstructionsJudge(Judge):
         """
         model = pydantic.create_model(
             "FeedbackValueSchema",
-            result=feedback_value_type,
+            result=(feedback_value_type, ...),
         )
         return model.model_json_schema()["properties"]["result"]
 
@@ -596,11 +720,14 @@ class InstructionsJudge(Judge):
             pydantic_data["feedback_value_type"] = self._serialize_feedback_value_type(
                 self._feedback_value_type
             )
+        if self._inference_params is not None:
+            pydantic_data["inference_params"] = self._inference_params
 
         serialized_scorer = SerializedScorer(
             name=self.name,
             description=self.description,
             aggregations=self.aggregations,
+            is_session_level_scorer=self.is_session_level_scorer,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             instructions_judge_pydantic_data=pydantic_data,
@@ -613,4 +740,4 @@ class InstructionsJudge(Judge):
         return asdict(serialized_scorer)
 
 
-__all__ = ["InstructionsJudge"]
+__all__ = ["InstructionsJudge", "TraceMetadataKey"]

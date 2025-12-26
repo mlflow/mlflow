@@ -3,8 +3,9 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mlflow.entities.trace import Trace
-from mlflow.genai.judges import AlignmentOptimizer, Judge
+from mlflow.genai.judges import AlignmentOptimizer, Judge, make_judge
 from mlflow.genai.judges.base import JudgeField
+from mlflow.genai.scorers import UserFrustration
 
 
 class MockJudge(Judge):
@@ -39,14 +40,11 @@ class MockOptimizer(AlignmentOptimizer):
 
 
 def test_alignment_optimizer_abstract():
-    """Test that AlignmentOptimizer cannot be instantiated directly."""
     with pytest.raises(TypeError, match="Can't instantiate abstract class AlignmentOptimizer"):
         AlignmentOptimizer()
 
 
 def test_alignment_optimizer_align_method_required():
-    """Test that concrete classes must implement align method."""
-
     class IncompleteOptimizer(AlignmentOptimizer):
         pass
 
@@ -55,7 +53,6 @@ def test_alignment_optimizer_align_method_required():
 
 
 def test_concrete_optimizer_implementation():
-    """Test that concrete optimizer can be instantiated and used."""
     optimizer = MockOptimizer()
     judge = MockJudge(name="test_judge")
     traces = []  # Empty traces for testing
@@ -90,7 +87,6 @@ def create_mock_traces():
 
 
 def test_judge_align_method():
-    """Test the Judge.align convenience method."""
     judge = MockJudge(name="test_judge")
     optimizer = MockOptimizerWithTracking()
     # Replace the align method with a Mock to use built-in mechanisms
@@ -108,7 +104,6 @@ def test_judge_align_method():
 
 
 def test_judge_align_method_delegation():
-    """Test that Judge.align properly delegates to optimizer.align."""
     judge = MockJudge()
 
     # Create a spy optimizer that records calls
@@ -126,7 +121,6 @@ def test_judge_align_method_delegation():
 
 
 def test_judge_align_with_default_optimizer():
-    """Test that Judge.align uses default SIMBA optimizer when optimizer=None."""
     judge = MockJudge()
     traces = create_mock_traces()
 
@@ -141,3 +135,27 @@ def test_judge_align_with_default_optimizer():
     # Verify delegation to default optimizer
     mock_optimizer.align.assert_called_once_with(judge, traces)
     assert result is expected_result
+
+
+def test_session_level_scorer_alignment_raises_error():
+    traces = []
+
+    conversation_judge = make_judge(
+        name="conversation_judge",
+        instructions="Evaluate if the {{ conversation }} is productive",
+        model="openai:/gpt-4",
+    )
+    assert conversation_judge.is_session_level_scorer is True
+
+    with pytest.raises(
+        NotImplementedError, match="Alignment is not supported for session-level scorers"
+    ):
+        conversation_judge.align(traces)
+
+    user_frustration_scorer = UserFrustration()
+    assert user_frustration_scorer.is_session_level_scorer is True
+
+    with pytest.raises(
+        NotImplementedError, match="Alignment is not supported for session-level scorers"
+    ):
+        user_frustration_scorer.align(traces)

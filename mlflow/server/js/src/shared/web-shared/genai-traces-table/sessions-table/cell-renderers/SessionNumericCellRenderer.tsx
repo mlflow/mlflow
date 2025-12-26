@@ -1,6 +1,8 @@
+import type { CellContext } from '@tanstack/react-table';
+
 import { Tag } from '@databricks/design-system';
-import { CellContext } from '@tanstack/react-table';
-import { SessionTableRow } from '../types';
+
+import type { SessionTableRow } from '../types';
 
 export const SessionNumericCellRenderer = (props: CellContext<SessionTableRow, unknown>) => {
   const { cell } = props;

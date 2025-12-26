@@ -1,5 +1,5 @@
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage } from '@databricks/i18n';
 import { CodeSnippet, SnippetCopyAction } from '@databricks/web-shared/snippet';
 
 const EXAMPLE_CODE = `import mlflow

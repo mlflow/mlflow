@@ -8,7 +8,11 @@ from fastapi.encoders import jsonable_encoder
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat
-from mlflow.gateway.uc_function_utils import uc_type_to_json_schema_type
+from mlflow.gateway.uc_function_utils import (
+    _quote_identifier,
+    get_execute_function_sql_stmt,
+    uc_type_to_json_schema_type,
+)
 
 from tests.gateway.tools import (
     MockAsyncResponse,
@@ -415,3 +419,27 @@ async def test_uc_functions_user_defined_functions(monkeypatch):
             ],
             "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
+
+
+def test_quote_identifier():
+    assert _quote_identifier("catalog.schema.func") == "`catalog`.`schema`.`func`"
+    # Strips existing backticks
+    assert _quote_identifier("`catalog`.`schema`.`func`") == "`catalog`.`schema`.`func`"
+    # Handles special characters
+    assert _quote_identifier("func;DROP TABLE") == "`func;DROP TABLE`"
+    # Rejects embedded backticks
+    with pytest.raises(ValueError, match="Backticks are not allowed"):
+        _quote_identifier("func`tion")
+
+
+def test_get_execute_function_sql_stmt_quotes_function_name():
+    from databricks.sdk.service.catalog import ColumnTypeName, FunctionInfo
+
+    function = mock.Mock(spec=FunctionInfo)
+    function.full_name = "catalog.schema.func); DROP TABLE users; --"
+    function.data_type = ColumnTypeName.INT
+    function.input_params = None
+
+    result = get_execute_function_sql_stmt(function, {})
+
+    assert result.statement == "SELECT `catalog`.`schema`.`func); DROP TABLE users; --`()"

@@ -20,7 +20,7 @@ from mlflow.entities import (
     TraceData,
     TraceInfo,
 )
-from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
@@ -36,7 +36,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.destination import MlflowExperiment
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import _get_tracer, set_destination
+from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, _get_tracer, set_destination
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -1485,7 +1485,6 @@ def test_update_current_trace():
 
 
 def test_update_current_trace_with_client_request_id():
-    """Test that update_current_trace correctly handles client_request_id parameter."""
     from mlflow.tracing.trace_manager import InMemoryTraceManager
 
     # Test updating during span execution
@@ -1520,7 +1519,6 @@ def test_update_current_trace_with_client_request_id():
 
 
 def test_update_current_trace_client_request_id_overwrites():
-    """Test that client_request_id can be overwritten by subsequent calls."""
     from mlflow.tracing.trace_manager import InMemoryTraceManager
 
     with mlflow.start_span("overwrite_test") as span:
@@ -1538,7 +1536,6 @@ def test_update_current_trace_client_request_id_overwrites():
 
 
 def test_update_current_trace_client_request_id_stringification():
-    """Test that client_request_id is stringified when it's not a string."""
     from mlflow.tracing.trace_manager import InMemoryTraceManager
 
     test_cases = [
@@ -1568,8 +1565,6 @@ def test_update_current_trace_client_request_id_stringification():
 
 
 def test_update_current_trace_with_metadata():
-    """Test that update_current_trace correctly handles metadata parameter."""
-
     @mlflow.trace
     def f():
         mlflow.update_current_trace(
@@ -1655,7 +1650,6 @@ def test_update_current_trace_should_not_raise_during_model_logging():
 
 
 def test_update_current_trace_with_state():
-    """Test the state parameter in update_current_trace."""
     from mlflow.tracing.trace_manager import InMemoryTraceManager
 
     # Test with TraceState enum
@@ -1688,7 +1682,6 @@ def test_update_current_trace_with_state():
 
 
 def test_update_current_trace_state_none():
-    """Test that state=None doesn't change trace state."""
     from mlflow.tracing.trace_manager import InMemoryTraceManager
 
     with mlflow.start_span("test_span") as span:
@@ -1705,7 +1698,6 @@ def test_update_current_trace_state_none():
 
 
 def test_update_current_trace_state_validation():
-    """Test that state validation only allows OK or ERROR."""
     with mlflow.start_span("test_span"):
         # Valid states should work
         mlflow.update_current_trace(state="OK")
@@ -1740,7 +1732,6 @@ def test_update_current_trace_state_validation():
 
 
 def test_span_record_exception_with_string():
-    """Test record_exception method with string parameter."""
     with mlflow.start_span("test_span") as span:
         span.record_exception("Something went wrong")
 
@@ -1762,7 +1753,6 @@ def test_span_record_exception_with_string():
 
 
 def test_span_record_exception_with_exception():
-    """Test record_exception method with Exception parameter."""
     test_exception = ValueError("Custom error message")
 
     with mlflow.start_span("test_span") as span:
@@ -1787,7 +1777,6 @@ def test_span_record_exception_with_exception():
 
 
 def test_span_record_exception_invalid_type():
-    """Test record_exception method with invalid parameter type."""
     with mlflow.start_span("test_span") as span:
         with pytest.raises(
             MlflowException,
@@ -1797,8 +1786,6 @@ def test_span_record_exception_invalid_type():
 
 
 def test_combined_state_and_record_exception():
-    """Test using both status update and record_exception together."""
-
     @mlflow.trace
     def test_function():
         # Get current span and record exception
@@ -1829,7 +1816,6 @@ def test_combined_state_and_record_exception():
 
 
 def test_span_record_exception_no_op_span():
-    """Test that record_exception works gracefully with NoOpSpan."""
     # This should not raise an exception
     from mlflow.entities.span import NoOpSpan
 
@@ -1841,7 +1827,6 @@ def test_span_record_exception_no_op_span():
 
 
 def test_update_current_trace_state_isolation():
-    """Test that state update doesn't affect span status."""
     with mlflow.start_span("test_span") as span:
         # Set span status to OK explicitly
         span.set_status("OK")
@@ -2374,10 +2359,17 @@ async def test_set_destination_in_async_contexts(async_logging_enabled):
         assert len(traces[0].data.spans) == 2
 
 
+def test_set_destination_from_env_var_databricks_uc(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema")
+    destination = _MLFLOW_TRACE_USER_DESTINATION.get()
+    assert isinstance(destination, UCSchemaLocation)
+    assert destination.catalog_name == "catalog"
+    assert destination.schema_name == "schema"
+    assert mlflow.get_tracking_uri() == "databricks"
+
+
 @skip_when_testing_trace_sdk
 def test_traces_can_be_searched_by_span_properties(async_logging_enabled):
-    """Smoke test that traces can be searched by span name using filter_string."""
-
     @mlflow.trace(name="test_span")
     def test_function():
         return "result"

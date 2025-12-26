@@ -1,16 +1,16 @@
-import { HoverCard, ListIcon, Overflow, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
 import { useMemo } from 'react';
+
+import { HoverCard, ListIcon, Overflow, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage } from '@databricks/i18n';
+
 import { MLFLOW_INTERNAL_PREFIX, parseJSONSafe, truncateToFirstLineWithMaxLength } from './TagUtils';
 
 export const ModelTraceHeaderMetadataPill = ({
   traceMetadata,
   getTruncatedLabel = (label: string) => truncateToFirstLineWithMaxLength(label, 40),
-  getComponentId,
 }: {
   traceMetadata?: Record<string, unknown>;
   getTruncatedLabel?: (label: string) => string;
-  getComponentId: (key: string) => string;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -69,7 +69,7 @@ export const ModelTraceHeaderMetadataPill = ({
         <HoverCard
           trigger={
             <Tag
-              componentId={getComponentId('metadata-pill')}
+              componentId="shared.model-trace-explorer.header-metadata-pill"
               color="default"
               css={{ cursor: 'default', width: 'fit-content', maxWidth: '100%' }}
             >

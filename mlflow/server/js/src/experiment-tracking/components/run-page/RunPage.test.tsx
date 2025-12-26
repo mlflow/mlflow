@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { renderWithIntl, screen, waitFor, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { getExperimentApi, getRunApi, updateRunApi } from '../../actions';
@@ -94,15 +95,16 @@ describe('RunPage (legacy redux + REST API)', () => {
 
     const renderResult = renderWithIntl(
       <TestApolloProvider>
-        <QueryClientProvider client={queryClient}>
-          <MockedReduxStoreProvider state={state}>
-            <TestRouter
-              initialEntries={[`/experiment/${testExperimentId}/run/${testRunUuid}`]}
-              routes={[testRoute(<RunPage />, '/experiment/:experimentId/run/:runUuid')]}
-            />
-          </MockedReduxStoreProvider>
-        </QueryClientProvider>
-        ,
+        <DesignSystemProvider>
+          <QueryClientProvider client={queryClient}>
+            <MockedReduxStoreProvider state={state}>
+              <TestRouter
+                initialEntries={[`/experiment/${testExperimentId}/run/${testRunUuid}`]}
+                routes={[testRoute(<RunPage />, '/experiment/:experimentId/run/:runUuid')]}
+              />
+            </MockedReduxStoreProvider>
+          </QueryClientProvider>
+        </DesignSystemProvider>
       </TestApolloProvider>,
     );
 
@@ -205,6 +207,13 @@ describe('RunPage (GraphQL API)', () => {
             }),
           );
         }
+        const metric = {
+          __typename: 'MlflowMetricExtension' as const,
+          key: 'test-metric',
+          value: 100,
+          step: '1',
+          timestamp: '1000',
+        };
         return res(
           ctx.data({
             mlflowGetRun: {
@@ -215,15 +224,7 @@ describe('RunPage (GraphQL API)', () => {
                 __typename: 'MlflowRun' as any,
                 data: {
                   __typename: 'MlflowRunData',
-                  metrics: [
-                    {
-                      __typename: 'MlflowMetricExtension',
-                      key: 'test-metric',
-                      value: 100,
-                      step: '1',
-                      timestamp: '1000',
-                    },
-                  ],
+                  metrics: [metric],
                   params: [{ __typename: 'MlflowParam', key: 'test-param', value: 'test-param-value' }],
                   tags: [
                     { __typename: 'MlflowRunTag', key: 'test-tag-a', value: 'test-tag-a-value' },

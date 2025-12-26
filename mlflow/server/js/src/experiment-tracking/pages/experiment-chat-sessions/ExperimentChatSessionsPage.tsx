@@ -1,26 +1,28 @@
 import { FormattedMessage } from '@databricks/i18n';
 import ErrorUtils from '@mlflow/mlflow/src/common/utils/ErrorUtils';
-import { shouldEnableChatSessionsTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { withErrorBoundary } from '@mlflow/mlflow/src/common/utils/withErrorBoundary';
 import { TracesV3Toolbar } from '../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
 import invariant from 'invariant';
 import { useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useMemo, useState } from 'react';
-import { CUSTOM_METADATA_COLUMN_ID, GenAIChatSessionsTable } from '@databricks/web-shared/genai-traces-table';
-import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
-import { getAbsoluteStartEndTime, useMonitoringFilters } from '../../hooks/useMonitoringFilters';
 import {
+  CUSTOM_METADATA_COLUMN_ID,
+  GenAIChatSessionsTable,
   createTraceLocationForExperiment,
   createTraceLocationForUCSchema,
   useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
+import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
+import { getAbsoluteStartEndTime, useMonitoringFilters } from '../../hooks/useMonitoringFilters';
 import { SESSION_ID_METADATA_KEY, shouldUseTracesV4API } from '@databricks/web-shared/model-trace-explorer';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { getChatSessionsFilter } from './utils';
-import { ErrorBoundary } from 'react-error-boundary';
+import { ExperimentChatSessionsPageWrapper } from './ExperimentChatSessionsPageWrapper';
+import { useGetDeleteTracesAction } from '../../components/experiment-page/components/traces-v3/hooks/useGetDeleteTracesAction';
 
 const ExperimentChatSessionsPageImpl = () => {
   const { experimentId } = useParams();
+  const [searchQuery, setSearchQuery] = useState<string>('');
   invariant(experimentId, 'Experiment ID must be defined');
 
   const [monitoringFilters] = useMonitoringFilters();
@@ -52,19 +54,23 @@ const ExperimentChatSessionsPageImpl = () => {
 
   const filters = useMemo(() => getChatSessionsFilter({ sessionId: null }), []);
 
-  const { data: traces, isLoading } = useSearchMlflowTraces({
+  const {
+    data: traces,
+    isLoading,
+    isFetching,
+  } = useSearchMlflowTraces({
     locations: traceSearchLocations,
     timeRange,
     filters,
+    searchQuery,
     disabled: false,
   });
 
-  // the tab will not be added to the navbar if this is disbled, but just
-  // in case users navigate to it directly, we return an empty div to
-  // avoid displaying any in-progress work.
-  if (!shouldEnableChatSessionsTab()) {
-    return <div />;
-  }
+  const deleteTracesAction = useGetDeleteTracesAction({ traceSearchLocations });
+
+  const traceActions = {
+    deleteTracesAction,
+  };
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
@@ -72,25 +78,25 @@ const ExperimentChatSessionsPageImpl = () => {
         // prettier-ignore
         viewState="sessions"
       />
-      <GenAIChatSessionsTable experimentId={experimentId} traces={traces ?? []} isLoading={isLoading} />
+      <GenAIChatSessionsTable
+        experimentId={experimentId}
+        traces={traces ?? []}
+        isLoading={isLoading}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        traceActions={traceActions}
+      />
     </div>
   );
 };
 
 const ExperimentChatSessionsPage = () => {
   return (
-    <ErrorBoundary
-      fallback={
-        <FormattedMessage
-          defaultMessage="An error occurred while rendering chat sessions."
-          description="Generic error message for uncaught errors when rendering chat session in MLflow experiment page"
-        />
-      }
-    >
+    <ExperimentChatSessionsPageWrapper>
       <MonitoringConfigProvider>
         <ExperimentChatSessionsPageImpl />
       </MonitoringConfigProvider>
-    </ErrorBoundary>
+    </ExperimentChatSessionsPageWrapper>
   );
 };
 

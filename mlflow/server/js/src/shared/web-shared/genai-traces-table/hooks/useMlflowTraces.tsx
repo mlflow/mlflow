@@ -15,6 +15,7 @@ import {
   STATE_COLUMN_ID,
   USER_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
   TRACE_NAME_COLUMN_ID,
   SOURCE_COLUMN_ID,
   useTableColumns,
@@ -40,7 +41,7 @@ import type {
   TableFilter,
   TableFilterOptions,
 } from '../types';
-import { getAssessmentInfos } from '../utils/AggregationUtils';
+import { ERROR_KEY, getAssessmentInfos } from '../utils/AggregationUtils';
 import { filterEvaluationResults } from '../utils/EvaluationsFilterUtils';
 import {
   shouldEnableUnifiedEvalTab,
@@ -116,7 +117,6 @@ export const useMlflowTracesTableMetadata = ({
     sqlWarehouseId,
     enabled: !disabled,
   });
-
   const filteredTraces = useMemo(() => filterTracesByAssessmentSourceRunId(traces, runUuid), [traces, runUuid]);
 
   const otherFilter = createMlflowSearchFilter(otherRunUuid, timeRange);
@@ -159,6 +159,8 @@ export const useMlflowTracesTableMetadata = ({
   const tableFilterOptions = useMemo(() => {
     // Add source options
     const sourceMap = new Map<string, TableFilterOption>();
+    const promptMap = new Map<string, TableFilterOption>();
+
     filteredTraces?.forEach((trace) => {
       const traceMetadata = trace.trace_metadata;
       if (traceMetadata) {
@@ -170,10 +172,33 @@ export const useMlflowTracesTableMetadata = ({
           });
         }
       }
+
+      // Extract linked prompts from trace tags. Fetch data from backend if users
+      // want to filter by prompt not included in the current traces.
+      const tags = trace.tags;
+      if (tags && tags['mlflow.linkedPrompts']) {
+        try {
+          const linkedPrompts = JSON.parse(tags['mlflow.linkedPrompts']);
+          if (Array.isArray(linkedPrompts)) {
+            linkedPrompts.forEach((prompt: { name: string; version: string }) => {
+              const promptValue = `${prompt.name}/${prompt.version}`;
+              if (!promptMap.has(promptValue)) {
+                promptMap.set(promptValue, {
+                  value: promptValue,
+                  renderValue: () => promptValue,
+                });
+              }
+            });
+          }
+        } catch (e) {
+          // Ignore invalid JSON
+        }
+      }
     });
 
     return {
       source: Array.from(sourceMap.values()).sort((a, b) => a.value.localeCompare(b.value)),
+      prompt: Array.from(promptMap.values()).sort((a, b) => a.value.localeCompare(b.value)),
     } as TableFilterOptions;
   }, [filteredTraces]);
 
@@ -215,8 +240,16 @@ const getNetworkAndClientFilters = (
     clientFilters: TableFilter[];
   }>(
     (acc, filter) => {
-      // mlflow search api does not support assessment filters, so we need to pass them as client filters
-      if (filter.column === TracesTableColumnGroup.ASSESSMENT && assessmentsFilteredOnClientSide) {
+      // Assessment filters with undefined or 'Error' value must always be filtered client-side
+      // because the backend cannot query for absence of an assessment or error state.
+      // Note: filter.value is already converted from string 'undefined' to actual undefined by useFilters
+      const isClientOnlyAssessmentFilter =
+        filter.column === TracesTableColumnGroup.ASSESSMENT &&
+        (filter.value === undefined || filter.value === ERROR_KEY);
+
+      if (isClientOnlyAssessmentFilter) {
+        acc.clientFilters.push(filter);
+      } else if (filter.column === TracesTableColumnGroup.ASSESSMENT && assessmentsFilteredOnClientSide) {
         acc.clientFilters.push(filter);
       } else {
         acc.networkFilters.push(filter);
@@ -273,12 +306,13 @@ export const useSearchMlflowTraces = ({
   error?: NetworkRequestError;
   refetchMlflowTraces?: UseQueryResult<ModelTraceInfoV3[], NetworkRequestError>['refetch'];
 } => {
-  const usingV4APIs = locations?.some((location) => location.type === 'UC_SCHEMA') && shouldUseTracesV4API();
+  // Client-side filtering is always disabled in OSS MLflow. It is only used in Databricks.
+  const useClientSideFiltering = false;
 
-  // For APIS <=v3, filter traces by assessments or search query on the client side
-  const useClientSideFiltering = !usingV4APIs;
-
-  const { networkFilters, clientFilters } = getNetworkAndClientFilters(filters || [], useClientSideFiltering);
+  const { networkFilters, clientFilters } = useMemo(
+    () => getNetworkAndClientFilters(filters || [], useClientSideFiltering),
+    [filters, useClientSideFiltering],
+  );
 
   const filter = createMlflowSearchFilter(
     runUuid,
@@ -323,8 +357,14 @@ export const useSearchMlflowTraces = ({
   const filteredTraces: ModelTraceInfoV3[] | undefined = useMemo(() => {
     if (!evalTraceComparisonEntries) return undefined;
 
-    // If client filters are disabled or empty, return all traces.
-    if (!useClientSideFiltering || (searchQuery === '' && clientFilters?.length === 0)) {
+    const hasClientFilters = clientFilters && clientFilters.length > 0;
+    // Only apply client-side search filtering when useClientSideFiltering is true.
+    // When false, searchQuery is already applied server-side via createMlflowSearchFilter.
+    const clientSearchQuery = useClientSideFiltering ? searchQuery : undefined;
+    const hasClientSearchQuery = clientSearchQuery && clientSearchQuery !== '';
+
+    // Skip filtering if there are no client filters to apply
+    if (!hasClientFilters && !hasClientSearchQuery) {
       return evalTraceComparisonEntries.reduce<ModelTraceInfoV3[]>((acc, entry) => {
         if (entry.currentRunValue?.traceInfo) {
           acc.push(entry.currentRunValue.traceInfo);
@@ -344,7 +384,7 @@ export const useSearchMlflowTraces = ({
     const res = filterEvaluationResults(
       evalTraceComparisonEntries,
       assessmentFilters || [],
-      searchQuery,
+      clientSearchQuery,
       currentRunDisplayName,
       undefined,
     ).reduce<ModelTraceInfoV3[]>((acc, entry) => {
@@ -355,7 +395,7 @@ export const useSearchMlflowTraces = ({
     }, []);
 
     return res;
-  }, [evalTraceComparisonEntries, useClientSideFiltering, clientFilters, searchQuery, currentRunDisplayName]);
+  }, [evalTraceComparisonEntries, clientFilters, searchQuery, currentRunDisplayName, useClientSideFiltering]);
 
   const tracesFilteredBySourceRun = useMemo(
     () => filterTracesByAssessmentSourceRunId(filteredTraces, runUuid),
@@ -537,7 +577,7 @@ const useSearchMlflowTracesInner = ({
 const buildTracesFromSearchAndArtifacts = (
   artifactData: RunEvaluationTracesDataEntry[],
   searchRes: UseQueryResult<ModelTraceInfoV3[], NetworkRequestError>,
-  runUuid?: string,
+  runUuid?: string | null,
 ): {
   data: RunEvaluationTracesDataEntry[];
   shouldUseTraceV3: boolean;
@@ -574,7 +614,7 @@ const buildTracesFromSearchAndArtifacts = (
   };
 };
 
-const createMlflowSearchFilter = (
+export const createMlflowSearchFilter = (
   runUuid: string | null | undefined,
   timeRange?: { startTime?: string; endTime?: string } | null,
   networkFilters?: TableFilter[],
@@ -631,6 +671,10 @@ const createMlflowSearchFilter = (
         case LOGGED_MODEL_COLUMN_ID:
           filter.push(`request_metadata."mlflow.modelId" = '${networkFilter.value}'`);
           break;
+        // Only available in OSS
+        case LINKED_PROMPTS_COLUMN_ID:
+          filter.push(`prompt = '${networkFilter.value}'`);
+          break;
         case TRACE_NAME_COLUMN_ID:
           filter.push(`attributes.name ${networkFilter.operator} '${networkFilter.value}'`);
           break;
@@ -638,7 +682,11 @@ const createMlflowSearchFilter = (
           filter.push(`request_metadata."mlflow.source.name" ${networkFilter.operator} '${networkFilter.value}'`);
           break;
         case TracesTableColumnGroup.ASSESSMENT:
-          filter.push(`feedback.\`${networkFilter.key}\` ${networkFilter.operator} '${networkFilter.value}'`);
+          // Skip 'undefined' values - these must be filtered client-side since they represent
+          // absence of an assessment, which cannot be queried on the backend
+          if (networkFilter.value !== 'undefined') {
+            filter.push(`feedback.\`${networkFilter.key}\` ${networkFilter.operator} '${networkFilter.value}'`);
+          }
           break;
         case TracesTableColumnGroup.EXPECTATION:
           filter.push(`expectation.\`${networkFilter.key}\` ${networkFilter.operator} '${networkFilter.value}'`);
@@ -770,7 +818,7 @@ export const useMlflowTraces = (
   }
 
   return {
-    ...buildTracesFromSearchAndArtifacts(artifactData || [], searchRes, runUuid ?? undefined),
+    ...buildTracesFromSearchAndArtifacts(artifactData || [], searchRes, runUuid),
     isLoading: isArtifactLoading || (searchRes.isLoading && isTracesCallEnabled),
     refetchMlflowTraces: searchRes.refetch,
   };

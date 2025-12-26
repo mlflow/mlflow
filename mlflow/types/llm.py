@@ -826,7 +826,7 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
                     Property("content", DataType.string, False),
                     Property("name", DataType.string, False),
                     Property("refusal", DataType.string, False),
-                    Property("tool_calls",Array(Object([
+                    Property("tool_calls", Array(Object([
                         Property("id", DataType.string),
                         Property("function", Object([
                             Property("name", DataType.string),

@@ -715,3 +715,41 @@ def test_infer_pip_requirements_on_databricks_agents(tmp_path):
     assert "databricks-connect" in packages
     # pyspark should not exist because it conflicts with databricks-connect
     assert "pyspark" not in packages
+
+
+def test_capture_imported_modules_excludes_pyspark_gateway_env_vars(monkeypatch, tmp_path):
+    """
+    Test that PYSPARK_GATEWAY_PORT and PYSPARK_GATEWAY_SECRET are excluded from the
+    subprocess environment when capturing imported modules.
+
+    These env vars, if inherited by a subprocess, can cause the subprocess to connect
+    to the parent's py4j gateway. Libraries like databricks-sdk may then corrupt the
+    parent's gateway state, causing delayed py4j errors like
+    "Error while obtaining a new communication channel".
+    """
+    monkeypatch.setenv("PYSPARK_GATEWAY_PORT", "12345")
+    monkeypatch.setenv("PYSPARK_GATEWAY_SECRET", "secret123")
+
+    captured_env = {}
+
+    def mock_run_command(cmd, timeout_seconds, env):
+        captured_env.update(env)
+        raise MlflowException("Mocked - stopping before actual subprocess execution")
+
+    with (
+        mock.patch(
+            "mlflow.utils.requirements_utils._run_command",
+            side_effect=mock_run_command,
+        ) as mock_run,
+        mock.patch(
+            "mlflow.utils.requirements_utils._download_artifact_from_uri",
+            return_value=str(tmp_path),
+        ) as mock_download,
+    ):
+        with pytest.raises(MlflowException, match="Mocked"):
+            _capture_imported_modules("fake/model/path", "pyfunc")
+
+    mock_download.assert_called_once()
+    mock_run.assert_called_once()
+    assert "PYSPARK_GATEWAY_PORT" not in captured_env
+    assert "PYSPARK_GATEWAY_SECRET" not in captured_env

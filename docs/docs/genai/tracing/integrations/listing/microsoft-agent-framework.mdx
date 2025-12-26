@@ -3,7 +3,6 @@ sidebar_position: 5
 sidebar_label: Microsoft Agent Framework
 ---
 
-import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
 
 # Tracing Microsoft Agent Framework
@@ -58,6 +57,7 @@ Define and invoke the agent in a Python script like `agent.py` as usual. Microso
 
 ```python
 import asyncio
+from pydantic import Field
 from random import randint
 from typing import Annotated
 

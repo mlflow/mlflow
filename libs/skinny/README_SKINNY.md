@@ -72,7 +72,7 @@ MLflow is **the only platform that provides a unified solution for all your AI/M
         <a href="https://mlflow.org/docs/latest/llms/tracing/index.html"><strong>🔍 Tracing / Observability</strong></a>
         <br><br>
         <div>Trace the internal states of your LLM/agentic applications for debugging quality issues and monitoring performance with ease.</div><br>
-        <a href="https://mlflow.org/docs/latest/genai/tracing/quickstart/python-openai/">Getting Started →</a>
+        <a href="https://mlflow.org/docs/latest/genai/tracing/quickstart/">Getting Started →</a>
         <br><br>
     </div>
     </td>
@@ -207,7 +207,7 @@ response = OpenAI().chat.completions.create(
 )
 ```
 
-Then navigate to the "Traces" tab in the MLflow UI to find the trace records OpenAI query.
+Then navigate to the "Traces" tab in the MLflow UI to find the trace records for the OpenAI query.
 
 ### Evaluating LLMs, Prompts, and Agents ([Doc](https://mlflow.org/docs/latest/genai/eval-monitor/index.html))
 
@@ -244,7 +244,7 @@ def predict_fn(question: str) -> str:
     return response.choices[0].message.content
 
 
-# 3.Run the evaluation
+# 3. Run the evaluation
 results = mlflow.genai.evaluate(
     data=dataset,
     predict_fn=predict_fn,
@@ -261,7 +261,7 @@ Navigate to the "Evaluations" tab in the MLflow UI to find the evaluation result
 
 ### Tracking Model Training ([Doc](https://mlflow.org/docs/latest/ml/tracking/))
 
-The following examples trains a simple regression model with scikit-learn, while enabling MLflow's [autologging](https://mlflow.org/docs/latest/tracking/autolog.html) feature for experiment tracking.
+The following example trains a simple regression model with scikit-learn, while enabling MLflow's [autologging](https://mlflow.org/docs/latest/tracking/autolog.html) feature for experiment tracking.
 
 ```python
 import mlflow
@@ -282,10 +282,10 @@ rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
 rf.fit(X_train, y_train)
 ```
 
-Once the above code finishes, run the following command in a separate terminal and access the MLflow UI via the printed URL. An MLflow **Run** should be automatically created, which tracks the training dataset, hyper parameters, performance metrics, the trained model, dependencies, and even more.
+Once the above code finishes, run the following command in a separate terminal and access the MLflow UI via the printed URL. An MLflow **Run** should be automatically created, which tracks the training dataset, hyperparameters, performance metrics, the trained model, dependencies, and even more.
 
 ```
-mlflow ui
+mlflow server
 ```
 
 ## 💭 Support
@@ -330,6 +330,7 @@ MLflow is currently maintained by the following core members with significant co
 - [Daniel Lok](https://github.com/daniellok-db)
 - [Gabriel Fu](https://github.com/gabrielfu)
 - [Harutaka Kawamura](https://github.com/harupy)
+- [Joel Robin P](https://github.com/joelrobin18)
 - [Serena Ruan](https://github.com/serena-ruan)
 - [Tomu Hirata](https://github.com/TomeHirata)
 - [Weichen Xu](https://github.com/WeichenXu123)

@@ -1,3 +1,5 @@
+import { describe, expect, it } from '@jest/globals';
+
 import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
 // Mock Vercel AI input with messages format
@@ -20,21 +22,6 @@ const MOCK_VERCEL_AI_MESSAGES_INPUT = {
           text: 'I need more information. Where are you located?',
         },
       ],
-    },
-  ],
-};
-
-// Mock Vercel AI input with prompt format
-const MOCK_VERCEL_AI_PROMPT_INPUT = {
-  prompt: 'Tell me a joke',
-};
-
-// Mock Vercel AI input with string content
-const MOCK_VERCEL_AI_STRING_CONTENT_INPUT = {
-  messages: [
-    {
-      role: 'user',
-      content: 'Hello, how are you?',
     },
   ],
 };
@@ -63,38 +50,51 @@ const MOCK_VERCEL_AI_TEXT_OUTPUT = {
   text: 'This is the response from the AI',
 };
 
-// Mock Vercel AI output with response.text
-const MOCK_VERCEL_AI_RESPONSE_TEXT_OUTPUT = {
-  response: {
-    text: 'This is the response text',
-  },
-};
-
-// Mock Vercel AI output with messages
-const MOCK_VERCEL_AI_MESSAGES_OUTPUT = {
+// Mock Vercel AI input with tool call and tool result
+const MOCK_VERCEL_AI_TOOL_CALL_INPUT = {
   messages: [
     {
+      role: 'user',
+      content: [{ type: 'text', text: 'Please check the weather in Tokyo.' }],
+    },
+    {
       role: 'assistant',
-      content: 'Here is my response',
+      content: [
+        { type: 'text', text: 'Calling weather tool…' },
+        {
+          type: 'tool-call',
+          toolCallId: 'weather_tool_1',
+          toolName: 'get_weather',
+          input: '{"city":"Tokyo"}',
+          providerOptions: {},
+        },
+      ],
+    },
+    {
+      role: 'tool',
+      content: [
+        {
+          type: 'tool-result',
+          toolCallId: 'weather_tool_1',
+          toolName: 'get_weather',
+          output: { temp: 25, condition: 'Sunny' },
+        },
+      ],
     },
   ],
 };
 
-// Mock Vercel AI output with response.messages
-const MOCK_VERCEL_AI_RESPONSE_MESSAGES_OUTPUT = {
-  response: {
-    messages: [
-      {
-        role: 'assistant',
-        content: [
-          {
-            type: 'text',
-            text: 'This is a detailed response',
-          },
-        ],
-      },
-    ],
-  },
+// Mock Vercel AI output with toolCalls array
+const MOCK_VERCEL_AI_TOOL_CALLS_OUTPUT = {
+  toolCalls: [
+    {
+      type: 'tool-call',
+      toolCallId: 'calc_1',
+      toolName: 'add',
+      input: '{"a":2,"b":3}',
+      providerOptions: {},
+    },
+  ],
 };
 
 describe('normalizeConversation - Vercel AI', () => {
@@ -109,26 +109,6 @@ describe('normalizeConversation - Vercel AI', () => {
         expect.objectContaining({
           role: 'assistant',
           content: expect.stringMatching(/i need more information/i),
-        }),
-      ]);
-    });
-
-    it('should handle Vercel AI prompt input', () => {
-      const result = normalizeConversation(MOCK_VERCEL_AI_PROMPT_INPUT, 'vercel_ai');
-      expect(result).toEqual([
-        expect.objectContaining({
-          role: 'user',
-          content: 'Tell me a joke',
-        }),
-      ]);
-    });
-
-    it('should handle Vercel AI input with string content', () => {
-      const result = normalizeConversation(MOCK_VERCEL_AI_STRING_CONTENT_INPUT, 'vercel_ai');
-      expect(result).toEqual([
-        expect.objectContaining({
-          role: 'user',
-          content: 'Hello, how are you?',
         }),
       ]);
     });
@@ -155,34 +135,23 @@ describe('normalizeConversation - Vercel AI', () => {
       ]);
     });
 
-    it('should handle Vercel AI output with response.text', () => {
-      const result = normalizeConversation(MOCK_VERCEL_AI_RESPONSE_TEXT_OUTPUT, 'vercel_ai');
-      expect(result).toEqual([
-        expect.objectContaining({
-          role: 'assistant',
-          content: 'This is the response text',
-        }),
-      ]);
-    });
+    it('should handle Vercel AI output with toolCalls array', () => {
+      const result = normalizeConversation(MOCK_VERCEL_AI_TOOL_CALLS_OUTPUT, 'vercel_ai');
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(1);
 
-    it('should handle Vercel AI output with messages', () => {
-      const result = normalizeConversation(MOCK_VERCEL_AI_MESSAGES_OUTPUT, 'vercel_ai');
-      expect(result).toEqual([
-        expect.objectContaining({
-          role: 'assistant',
-          content: 'Here is my response',
-        }),
-      ]);
-    });
-
-    it('should handle Vercel AI output with response.messages', () => {
-      const result = normalizeConversation(MOCK_VERCEL_AI_RESPONSE_MESSAGES_OUTPUT, 'vercel_ai');
-      expect(result).toEqual([
-        expect.objectContaining({
-          role: 'assistant',
-          content: expect.stringMatching(/this is a detailed response/i),
-        }),
-      ]);
+      const msg = result![0] as any;
+      expect(msg.role).toBe('assistant');
+      expect(msg.content).toBe('');
+      expect(Array.isArray(msg.tool_calls)).toBe(true);
+      expect(msg.tool_calls).toHaveLength(1);
+      expect(msg.tool_calls[0].id).toBe('calc_1');
+      expect(msg.tool_calls[0].function.name).toBe('add');
+      expect(typeof msg.tool_calls[0].function.arguments).toBe('string');
+      // Arguments are stringified twice in pipeline, so parse twice to verify shape
+      const parsedOnce = JSON.parse(msg.tool_calls[0].function.arguments);
+      const parsedTwice = JSON.parse(parsedOnce);
+      expect(parsedTwice).toEqual({ a: 2, b: 3 });
     });
   });
 
@@ -197,6 +166,43 @@ describe('normalizeConversation - Vercel AI', () => {
 
     it('should return null for undefined input', () => {
       expect(normalizeConversation(undefined, 'vercel_ai')).toBeNull();
+    });
+  });
+
+  describe('Tool call cases', () => {
+    it('should handle Vercel AI input with tool-call and tool-result parts', () => {
+      const result = normalizeConversation(MOCK_VERCEL_AI_TOOL_CALL_INPUT, 'vercel_ai');
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(3);
+
+      // User message
+      expect(result![0]).toEqual(
+        expect.objectContaining({
+          role: 'user',
+          content: expect.stringContaining('Please check the weather in Tokyo.'),
+        }),
+      );
+
+      // Assistant tool call message
+      const assistantMsg: any = result![1];
+      expect(assistantMsg.role).toBe('assistant');
+      expect(String(assistantMsg.content)).toContain('Calling weather tool');
+      expect(Array.isArray(assistantMsg.tool_calls)).toBe(true);
+      expect(assistantMsg.tool_calls).toHaveLength(1);
+      expect(assistantMsg.tool_calls[0].id).toBe('weather_tool_1');
+      expect(assistantMsg.tool_calls[0].function.name).toBe('get_weather');
+      const toolArgsOnce = JSON.parse(assistantMsg.tool_calls[0].function.arguments);
+      const toolArgs = JSON.parse(toolArgsOnce);
+      expect(toolArgs).toEqual({ city: 'Tokyo' });
+
+      // Tool result message
+      expect(result![2]).toEqual(
+        expect.objectContaining({
+          role: 'tool',
+          tool_call_id: 'weather_tool_1',
+          content: expect.stringContaining('Sunny'),
+        }),
+      );
     });
   });
 });

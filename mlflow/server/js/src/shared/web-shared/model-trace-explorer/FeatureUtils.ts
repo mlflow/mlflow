@@ -23,3 +23,10 @@ export const shouldUseTracesV4API = () => {
 export const shouldEnableTracesTabLabelingSchemas = () => {
   return false;
 };
+
+/**
+ * Determines if assessments/scores should be shown in experiment chat sessions.
+ */
+export const shouldEnableAssessmentsInSessions = () => {
+  return true;
+};

@@ -136,9 +136,9 @@ export interface EvaluationsOverviewTableSort {
 
 export interface TraceActions {
   exportToEvals?: {
-    showExportTracesToDatasetsModal: boolean;
-    setShowExportTracesToDatasetsModal: (visible: boolean) => void;
-    renderExportTracesToDatasetsModal: ({
+    showExportTracesToDatasetsModal?: boolean;
+    setShowExportTracesToDatasetsModal?: (visible: boolean) => void;
+    renderExportTracesToDatasetsModal?: ({
       selectedTraceInfos,
     }: {
       selectedTraceInfos: ModelTraceInfoV3[];
@@ -181,6 +181,7 @@ export interface TableFilterOption {
 
 export interface TableFilterOptions {
   source: TableFilterOption[];
+  prompt?: TableFilterOption[];
 }
 
 export enum FilterOperator {

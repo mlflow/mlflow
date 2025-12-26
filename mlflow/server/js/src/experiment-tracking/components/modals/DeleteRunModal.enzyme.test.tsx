@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, jest, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow } from 'enzyme';
 import { DeleteRunModalImpl } from './DeleteRunModal';
@@ -80,6 +81,7 @@ describe('MyComponent', () => {
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should delete child runs when selected', (done) => {
     const deletedRunIds: any = [];
     const deleteRunApi = getMockDeleteRunApiFn(false, deletedRunIds);
@@ -92,6 +94,7 @@ describe('MyComponent', () => {
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should not duplicate already selected child runs', (done) => {
     const deletedRunIds: any = [];
     const deleteRunApi = getMockDeleteRunApiFn(false, deletedRunIds);

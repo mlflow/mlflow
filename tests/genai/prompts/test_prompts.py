@@ -1,26 +1,40 @@
-import importlib
 import json
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities.model_registry import PromptVersion
-from mlflow.environment_variables import MLFLOW_PROMPT_CACHE_MAX_SIZE
+from mlflow.entities.model_registry import PromptModelConfig, PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.prompts.utils import format_prompt
-from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY
+from mlflow.prompt.registry_utils import PromptCache, PromptCacheKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
 
 
 def join_thread_by_name_prefix(prefix: str):
     """Join any thread whose name starts with the given prefix."""
     for t in threading.enumerate():
         if t.name.startswith(prefix):
-            t.join()
+            t.join(timeout=5.0)
+            if t.is_alive():
+                raise TimeoutError(f"Thread {t.name} did not complete within timeout.")
+
+
+@pytest.fixture(autouse=True)
+def wait_for_linkage_threads_to_complete():
+    yield
+    for prefix in [
+        "link_prompt_thread",
+        "link_prompt_to_experiment_thread",
+        "link_prompts_from_exporter",
+    ]:
+        join_thread_by_name_prefix(prefix)
 
 
 def test_prompt_api_migration_warning():
@@ -86,6 +100,9 @@ def test_crud_prompts(tmp_path):
 
 
 def test_prompt_alias(tmp_path):
+    # Reset cache to ensure clean state
+    PromptCache._reset_instance()
+
     mlflow.genai.register_prompt(name="p1", template="Hi, there!")
     mlflow.genai.register_prompt(name="p1", template="Hi, {{name}}!")
 
@@ -95,18 +112,25 @@ def test_prompt_alias(tmp_path):
     assert prompt.aliases == ["production"]
 
     # Reassign alias to a different version
+    # Need to bypass cache to see the updated alias
     mlflow.genai.set_prompt_alias("p1", alias="production", version=2)
-    assert mlflow.genai.load_prompt("prompts:/p1@production").template == "Hi, {{name}}!"
+    assert (
+        mlflow.genai.load_prompt("prompts:/p1@production", cache_ttl_seconds=0).template
+        == "Hi, {{name}}!"
+    )
 
     mlflow.genai.delete_prompt_alias("p1", alias="production")
     with pytest.raises(
         MlflowException,
         match=(r"Prompt (.*) does not exist.|Prompt alias (.*) not found."),
     ):
-        mlflow.genai.load_prompt("prompts:/p1@production")
+        mlflow.genai.load_prompt("prompts:/p1@production", cache_ttl_seconds=0)
 
-    # Latest alias
-    assert mlflow.genai.load_prompt("prompts:/p1@latest").template == "Hi, {{name}}!"
+    # Latest alias - bypass cache
+    assert (
+        mlflow.genai.load_prompt("prompts:/p1@latest", cache_ttl_seconds=0).template
+        == "Hi, {{name}}!"
+    )
 
 
 def test_prompt_associate_with_run(tmp_path):
@@ -119,7 +143,7 @@ def test_prompt_associate_with_run(tmp_path):
     # Check that the prompt was linked to the run via the linkedPrompts tag
     client = MlflowClient()
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
     assert len(json.loads(linked_prompts_tag)) == 1
     assert json.loads(linked_prompts_tag)[0] == {
@@ -145,7 +169,7 @@ def test_prompt_associate_with_run(tmp_path):
                 future.result()
 
     run_data = client.get_run(run_id_2)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
     assert len(json.loads(linked_prompts_tag)) == 1
     assert json.loads(linked_prompts_tag)[0] == {
@@ -155,7 +179,6 @@ def test_prompt_associate_with_run(tmp_path):
 
 
 def test_register_chat_prompt_with_messages():
-    """Test registering chat prompts with list of message dictionaries."""
     chat_template = [
         {"role": "system", "content": "You are a {{style}} assistant."},
         {"role": "user", "content": "{{question}}"},
@@ -186,7 +209,6 @@ def test_register_prompt_with_pydantic_response_format():
 
 
 def test_register_prompt_with_dict_response_format():
-    """Test registering prompts with dictionary response format."""
     response_format = {
         "type": "object",
         "properties": {
@@ -212,7 +234,6 @@ def test_register_prompt_error_handling_invalid_chat_format():
 
 
 def test_register_and_load_chat_prompt_integration():
-    """Test that registered chat prompts can be loaded and formatted correctly."""
     chat_template = [
         {"role": "system", "content": "You are a {{style}} assistant."},
         {"role": "user", "content": "{{question}}"},
@@ -235,7 +256,6 @@ def test_register_and_load_chat_prompt_integration():
 
 
 def test_register_text_prompt_backward_compatibility():
-    """Test that text prompt registration continues to work as before."""
     prompt = mlflow.genai.register_prompt(
         name="test_text_backward",
         template="Hello {{name}}!",
@@ -248,7 +268,6 @@ def test_register_text_prompt_backward_compatibility():
 
 
 def test_register_prompt_with_tags():
-    """Test registering prompts with custom tags."""
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "{{question}}"},
@@ -257,16 +276,14 @@ def test_register_prompt_with_tags():
     prompt = mlflow.genai.register_prompt(
         name="test_with_tags",
         template=chat_template,
-        tags={"author": "test_user", "model": "gpt-4"},
+        tags={"author": "test_user", "model": "gpt-5"},
     )
 
     assert prompt.tags["author"] == "test_user"
-    assert prompt.tags["model"] == "gpt-4"
+    assert prompt.tags["model"] == "gpt-5"
 
 
 def test_register_prompt_with_complex_response_format():
-    """Test registering prompts with complex Pydantic response format."""
-
     class ComplexResponse(BaseModel):
         summary: str
         key_points: list[str]
@@ -310,7 +327,6 @@ def test_register_prompt_with_empty_chat_template():
 
 
 def test_register_prompt_with_single_message_chat():
-    """Test registering prompts with single message chat template."""
     chat_template = [{"role": "user", "content": "Hello {{name}}!"}]
 
     prompt = mlflow.genai.register_prompt(name="test_single_message", template=chat_template)
@@ -320,7 +336,6 @@ def test_register_prompt_with_single_message_chat():
 
 
 def test_register_prompt_with_multiple_variables_in_chat():
-    """Test registering prompts with multiple variables in chat messages."""
     chat_template = [
         {
             "role": "system",
@@ -340,7 +355,6 @@ def test_register_prompt_with_multiple_variables_in_chat():
 
 
 def test_register_prompt_with_mixed_content_types():
-    """Test registering prompts with mixed content types in chat messages."""
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello {{name}}!"},
@@ -354,7 +368,6 @@ def test_register_prompt_with_mixed_content_types():
 
 
 def test_register_prompt_with_nested_variables():
-    """Test registering prompts with nested variable names."""
     chat_template = [
         {
             "role": "system",
@@ -414,14 +427,11 @@ def test_set_and_delete_prompt_tag_genai():
 def test_format_prompt_with_backslashes(
     prompt_template: str, values: dict[str, str], expected: str
 ):
-    """Test that format_prompt correctly handles values containing backslashes."""
     result = format_prompt(prompt_template, **values)
     assert result == expected
 
 
 def test_load_prompt_with_link_to_model_disabled():
-    """Test load_prompt with link_to_model=False does not attempt linking."""
-
     # Register a prompt
     mlflow.genai.register_prompt(name="test_prompt", template="Hello, {{name}}!")
 
@@ -455,8 +465,6 @@ def test_load_prompt_with_link_to_model_disabled():
 
 
 def test_load_prompt_with_explicit_model_id():
-    """Test load_prompt with explicit model_id parameter."""
-
     # Register a prompt
     mlflow.genai.register_prompt(name="test_prompt", template="Hello, {{name}}!")
 
@@ -495,8 +503,6 @@ def test_load_prompt_with_explicit_model_id():
 
 
 def test_load_prompt_with_active_model_integration():
-    """Test load_prompt with active model integration using get_active_model_id."""
-
     # Register a prompt
     mlflow.genai.register_prompt(name="test_prompt", template="Hello, {{name}}!")
 
@@ -534,8 +540,6 @@ def test_load_prompt_with_active_model_integration():
 
 
 def test_load_prompt_with_no_active_model():
-    """Test load_prompt when no active model is available."""
-
     # Register a prompt
     mlflow.genai.register_prompt(name="test_prompt", template="Hello, {{name}}!")
 
@@ -553,8 +557,6 @@ def test_load_prompt_with_no_active_model():
 
 
 def test_load_prompt_linking_error_handling():
-    """Test load_prompt error handling when linking fails."""
-
     # Register a prompt
     mlflow.genai.register_prompt(name="test_prompt", template="Hello, {{name}}!")
 
@@ -573,8 +575,6 @@ def test_load_prompt_linking_error_handling():
 
 
 def test_load_prompt_explicit_model_id_overrides_active_model():
-    """Test that explicit model_id parameter overrides active model ID."""
-
     # Register a prompt
     mlflow.genai.register_prompt(name="test_prompt", template="Hello, {{name}}!")
 
@@ -624,8 +624,6 @@ def test_load_prompt_explicit_model_id_overrides_active_model():
 
 
 def test_load_prompt_with_tracing_single_prompt():
-    """Test that load_prompt properly links a single prompt to an active trace."""
-
     # Register a prompt
     mlflow.genai.register_prompt(name="test_prompt", template="Hello, {{name}}!")
 
@@ -650,24 +648,33 @@ def test_load_prompt_with_tracing_single_prompt():
     )
     client.link_prompt_versions_to_trace(trace_id=span.trace_id, prompt_versions=[prompt_version])
 
-    # Verify the prompt was linked to the trace by checking the actual trace
+    # Verify the prompt was linked to the trace by checking EntityAssociation
     trace = mlflow.get_trace(span.trace_id)
     assert trace is not None
 
-    # Check the linked prompts tag
-    linked_prompts_tag = trace.info.tags.get("mlflow.linkedPrompts")
-    assert linked_prompts_tag is not None
+    # Query EntityAssociation to verify the linkage
+    from mlflow.tracking import _get_store
 
-    # Parse the JSON tag value
-    linked_prompts = json.loads(linked_prompts_tag)
-    assert len(linked_prompts) == 1
-    assert linked_prompts[0]["name"] == "test_prompt"
-    assert linked_prompts[0]["version"] == "1"
+    store = _get_store()
+    with store.ManagedSessionMaker() as session:
+        from mlflow.entities.entity_type import EntityAssociationType
+        from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
+
+        associations = (
+            session.query(SqlEntityAssociation)
+            .filter(
+                SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                SqlEntityAssociation.source_id == span.trace_id,
+                SqlEntityAssociation.destination_type == EntityAssociationType.PROMPT_VERSION,
+            )
+            .all()
+        )
+
+        assert len(associations) == 1
+        assert associations[0].destination_id == "test_prompt/1"
 
 
 def test_load_prompt_with_tracing_multiple_prompts():
-    """Test that load_prompt properly links multiple versions of the same prompt to one trace."""
-
     # Register one prompt with multiple versions
     mlflow.genai.register_prompt(name="my_prompt", template="Hello, {{name}}!")
     mlflow.genai.register_prompt(name="my_prompt", template="Hi there, {{name}}! How are you?")
@@ -707,32 +714,37 @@ def test_load_prompt_with_tracing_multiple_prompts():
     ]
     client.link_prompt_versions_to_trace(trace_id=span.trace_id, prompt_versions=prompt_versions)
 
-    # Verify both versions were linked to the same trace by checking the actual trace
+    # Verify both versions were linked to the same trace by checking EntityAssociation
     trace = mlflow.get_trace(span.trace_id)
     assert trace is not None
 
-    # Check the linked prompts tag
-    linked_prompts_tag = trace.info.tags.get("mlflow.linkedPrompts")
-    assert linked_prompts_tag is not None
+    # Query EntityAssociation to verify the linkages
+    from mlflow.tracking import _get_store
 
-    # Parse the JSON tag value
-    linked_prompts = json.loads(linked_prompts_tag)
-    assert len(linked_prompts) == 2
+    store = _get_store()
+    with store.ManagedSessionMaker() as session:
+        from mlflow.entities.entity_type import EntityAssociationType
+        from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
 
-    # Check that both versions of the same prompt are present
-    prompt_entries = {(p["name"], p["version"]) for p in linked_prompts}
-    expected_entries = {("my_prompt", "1"), ("my_prompt", "2")}
-    assert prompt_entries == expected_entries
+        associations = (
+            session.query(SqlEntityAssociation)
+            .filter(
+                SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                SqlEntityAssociation.source_id == span.trace_id,
+                SqlEntityAssociation.destination_type == EntityAssociationType.PROMPT_VERSION,
+            )
+            .all()
+        )
 
-    # Verify we have the same prompt name but different versions
-    assert all(p["name"] == "my_prompt" for p in linked_prompts)
-    versions = {p["version"] for p in linked_prompts}
-    assert versions == {"1", "2"}
+        assert len(associations) == 2
+
+        # Check that both versions of the same prompt are present
+        prompt_ids = {assoc.destination_id for assoc in associations}
+        expected_ids = {"my_prompt/1", "my_prompt/2"}
+        assert prompt_ids == expected_ids
 
 
 def test_load_prompt_with_tracing_no_active_trace():
-    """Test that load_prompt works correctly when there's no active trace."""
-
     # Register a prompt
     mlflow.genai.register_prompt(name="no_trace_prompt", template="Hello, {{name}}!")
 
@@ -750,8 +762,6 @@ def test_load_prompt_with_tracing_no_active_trace():
 
 
 def test_load_prompt_with_tracing_nested_spans():
-    """Test that load_prompt links prompts to the same trace when using nested spans."""
-
     # Register prompts
     mlflow.genai.register_prompt(name="outer_prompt", template="Outer: {{msg}}")
     mlflow.genai.register_prompt(name="inner_prompt", template="Inner: {{msg}}")
@@ -793,26 +803,33 @@ def test_load_prompt_with_tracing_nested_spans():
     trace = mlflow.get_trace(outer_span.trace_id)
     assert trace is not None
 
-    # Check the linked prompts tag
-    linked_prompts_tag = trace.info.tags.get("mlflow.linkedPrompts")
-    assert linked_prompts_tag is not None
+    # Query EntityAssociation to verify both prompts are linked
+    from mlflow.tracking import _get_store
 
-    # Parse the JSON tag value
-    linked_prompts = json.loads(linked_prompts_tag)
-    assert len(linked_prompts) == 2
+    store = _get_store()
+    with store.ManagedSessionMaker() as session:
+        from mlflow.entities.entity_type import EntityAssociationType
+        from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
 
-    # Check that both prompts are present (order may vary)
-    prompt_names = {p["name"] for p in linked_prompts}
-    expected_names = {"outer_prompt", "inner_prompt"}
-    assert prompt_names == expected_names
+        associations = (
+            session.query(SqlEntityAssociation)
+            .filter(
+                SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                SqlEntityAssociation.source_id == outer_span.trace_id,
+                SqlEntityAssociation.destination_type == EntityAssociationType.PROMPT_VERSION,
+            )
+            .all()
+        )
 
-    # Verify all prompts have correct versions
-    for prompt in linked_prompts:
-        assert prompt["version"] == "1"
+        assert len(associations) == 2
+
+        # Check that both prompts are present (order may vary)
+        prompt_ids = {assoc.destination_id for assoc in associations}
+        expected_ids = {"outer_prompt/1", "inner_prompt/1"}
+        assert prompt_ids == expected_ids
 
 
 def test_load_prompt_caching_works():
-    """Test that prompt caching works and improves performance."""
     # Mock the client load_prompt method to count calls
     with mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load:
         # Configure mock to return a prompt
@@ -824,137 +841,106 @@ def test_load_prompt_caching_works():
         )
         mock_client_load.return_value = mock_prompt
 
-        # First call should hit the client
-        prompt1 = mlflow.genai.load_prompt("cached_prompt", version=1, link_to_model=False)
-        assert prompt1.name == "cached_prompt"
-        assert mock_client_load.call_count == 1
+    # Reset cache
+    PromptCache._reset_instance()
 
-        # Second call with same parameters should use cache (not call client again)
+    # Register prompts
+    mlflow.genai.register_prompt(name="cached_prompt", template="Hello, {{name}}!")
+    mlflow.genai.register_prompt(name="cached_prompt", template="Hi, {{name}}!")
+
+    # First call should hit the registry
+    prompt1 = mlflow.genai.load_prompt("cached_prompt", version=1, link_to_model=False)
+    assert prompt1.name == "cached_prompt"
+
+    # Second call with same parameters should use cache (not call registry again)
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
         prompt2 = mlflow.genai.load_prompt("cached_prompt", version=1, link_to_model=False)
         assert prompt2.name == "cached_prompt"
-        assert mock_client_load.call_count == 1  # Should still be 1, not 2
+        assert mock_load.call_count == 0  # Cache hit
 
-        # Call with different version should hit the client again
-        mock_client_load.return_value = PromptVersion(
-            name="cached_prompt",
-            version=2,
-            template="Hi, {{name}}!",
-            creation_timestamp=123456790,
+    # Call with different version should hit the registry again
+    prompt3 = mlflow.genai.load_prompt("cached_prompt", version=2, link_to_model=False)
+    assert prompt3.version == 2
+
+    # But subsequent calls to version 2 should use cache
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
+        prompt4 = mlflow.genai.load_prompt("cached_prompt", version=2, link_to_model=False)
+        assert prompt4.version == 2
+        assert mock_load.call_count == 0  # Cache hit
+
+
+def test_load_prompt_caching_respects_ttl_env_var():
+    # Reset cache
+    PromptCache._reset_instance()
+
+    # Register a prompt
+    mlflow.genai.register_prompt(name="ttl_test_prompt", template="Hello!")
+
+    # Load with very short TTL
+    mlflow.genai.load_prompt(
+        "ttl_test_prompt", version=1, cache_ttl_seconds=0.2, link_to_model=False
+    )
+
+    # Immediate second load should hit cache
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
+        mlflow.genai.load_prompt(
+            "ttl_test_prompt", version=1, cache_ttl_seconds=0.2, link_to_model=False
         )
-        prompt3 = mlflow.genai.load_prompt("cached_prompt", version=2, link_to_model=False)
-        assert prompt3.version == 2
-        assert mock_client_load.call_count == 2  # Should be 2 now
+        assert mock_load.call_count == 0  # Cache hit
 
+    # Wait for TTL to expire
+    time.sleep(0.2)
 
-def test_load_prompt_caching_respects_env_var():
-    """Test that prompt caching respects the MLFLOW_PROMPT_CACHE_MAX_SIZE environment variable."""
-    # Test with a small cache size
-    original_value = MLFLOW_PROMPT_CACHE_MAX_SIZE.get()
-    try:
-        # Set cache size to 1
-        MLFLOW_PROMPT_CACHE_MAX_SIZE.set(1)
-
-        # Clear any existing cache by creating a new cached function
-        # (This simulates restarting with the new env var)
-        importlib.reload(mlflow.tracking._model_registry.fluent)
-
-        # Register prompts
-        mlflow.genai.register_prompt(name="prompt_1", template="Template 1")
-        mlflow.genai.register_prompt(name="prompt_2", template="Template 2")
-
-        # Mock the client load_prompt method to count calls
-        with mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load:
-            mock_client_load.side_effect = [
-                PromptVersion(
-                    name="prompt_1",
-                    version=1,
-                    template="Template 1",
-                    creation_timestamp=1,
-                ),
-                PromptVersion(
-                    name="prompt_2",
-                    version=1,
-                    template="Template 2",
-                    creation_timestamp=2,
-                ),
-                PromptVersion(
-                    name="prompt_1",
-                    version=1,
-                    template="Template 1",
-                    creation_timestamp=1,
-                ),
-            ]
-
-            # Load first prompt - should cache it
-            mlflow.genai.load_prompt("prompt_1", version=1, link_to_model=False)
-            assert mock_client_load.call_count == 1
-
-            # Load second prompt - should evict first from cache (size=1)
-            mlflow.genai.load_prompt("prompt_2", version=1, link_to_model=False)
-            assert mock_client_load.call_count == 2
-
-            # Load first prompt again - should need to call client again (evicted from cache)
-            mlflow.genai.load_prompt("prompt_1", version=1, link_to_model=False)
-            assert mock_client_load.call_count == 3  # Called again because evicted
-
-    finally:
-        # Restore original cache size
-        if original_value is not None:
-            MLFLOW_PROMPT_CACHE_MAX_SIZE.set(original_value)
-        else:
-            MLFLOW_PROMPT_CACHE_MAX_SIZE.unset()
+    # Load after expiration should miss cache
+    prompt = mlflow.genai.load_prompt(
+        "ttl_test_prompt", version=1, cache_ttl_seconds=1, link_to_model=False
+    )
+    assert prompt is not None
+    assert prompt.template == "Hello!"
 
 
 def test_load_prompt_skip_cache_for_allow_missing_none():
-    """Test that we skip cache if allow_missing=True and the result is None."""
     # Mock the client load_prompt method to return None (prompt not found)
     with mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load:
         mock_client_load.return_value = None  # Simulate prompt not found
 
-        # First call with allow_missing=True should call the client twice
-        # (once for cached call, once for non-cached call due to `or` logic)
-        prompt1 = mlflow.genai.load_prompt(
-            "nonexistent_prompt", version=1, allow_missing=True, link_to_model=False
-        )
-        assert prompt1 is None
-        assert mock_client_load.call_count == 2  # Called twice due to `or` logic
+    # Reset cache
+    PromptCache._reset_instance()
 
-        # Second call: cached function returns None from cache, non-cached function called once
-        prompt2 = mlflow.genai.load_prompt(
-            "nonexistent_prompt", version=1, allow_missing=True, link_to_model=False
-        )
-        assert prompt2 is None
-        assert mock_client_load.call_count == 3  # One additional call (non-cached only)
+    # First call with allow_missing=True for non-existent prompt
+    prompt1 = mlflow.genai.load_prompt(
+        "nonexistent_prompt", version=1, allow_missing=True, link_to_model=False
+    )
+    assert prompt1 is None
 
-        # But if we find a prompt, the pattern will change
-        mock_prompt = PromptVersion(
-            name="nonexistent_prompt",
-            version=1,
-            template="Found!",
-            creation_timestamp=123,
-        )
-        mock_client_load.return_value = mock_prompt
+    # Now create the prompt
+    mlflow.genai.register_prompt(name="nonexistent_prompt", template="Now I exist!")
 
+    # Should find it now (None results are not cached)
+    prompt2 = mlflow.genai.load_prompt(
+        "nonexistent_prompt", version=1, allow_missing=True, link_to_model=False
+    )
+    assert prompt2 is not None
+    assert prompt2.template == "Now I exist!"
+
+    # Subsequent calls should use cache
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
         prompt3 = mlflow.genai.load_prompt(
             "nonexistent_prompt", version=1, allow_missing=True, link_to_model=False
         )
-        assert prompt3.template == "Found!"
-        assert (
-            mock_client_load.call_count == 4
-        )  # Called once for cached call (returned found prompt)
-
-        # Now this should be cached - only cached call needed since it returns a valid prompt
-        prompt4 = mlflow.genai.load_prompt(
-            "nonexistent_prompt", version=1, allow_missing=True, link_to_model=False
-        )
-        assert prompt4.template == "Found!"
-        assert (
-            mock_client_load.call_count == 5
-        )  # One more call for cached check (but no non-cached call needed)
+        assert prompt3.template == "Now I exist!"
+        assert mock_load.call_count == 0  # Cache hit
 
 
 def test_load_prompt_missing_then_created_then_found():
-    """Test loading a prompt that doesn't exist, then creating it, then loading again."""
     # First try to load a prompt that doesn't exist
     result1 = mlflow.genai.load_prompt(
         "will_be_created", version=1, allow_missing=True, link_to_model=False
@@ -984,7 +970,6 @@ def test_load_prompt_missing_then_created_then_found():
 
 
 def test_load_prompt_none_result_no_linking():
-    """Test that if prompt version is None and allow_missing=True, we don't attempt any linking."""
     # Mock only the client load_prompt method and linking methods
     with (
         mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load,
@@ -1007,45 +992,38 @@ def test_load_prompt_none_result_no_linking():
 
 
 def test_load_prompt_caching_with_different_parameters():
-    """Test that caching works correctly with different parameter combinations."""
+    # Reset cache
+    PromptCache._reset_instance()
+
     # Register a prompt
     mlflow.genai.register_prompt(name="param_test", template="Hello, {{name}}!")
 
-    with mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load:
-        mock_prompt = PromptVersion(
-            name="param_test",
-            version=1,
-            template="Hello, {{name}}!",
-            creation_timestamp=123,
-        )
-        mock_client_load.return_value = mock_prompt
+    # Load prompt - should cache it
+    mlflow.genai.load_prompt("param_test", version=1, link_to_model=False)
 
-        # Different allow_missing values should result in separate cache entries
+    # allow_missing parameter doesn't affect cache key - same prompt should be cached
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
+        # Both should hit cache regardless of allow_missing value
         mlflow.genai.load_prompt("param_test", version=1, allow_missing=False, link_to_model=False)
-        call_count_after_first = mock_client_load.call_count
-
         mlflow.genai.load_prompt("param_test", version=1, allow_missing=True, link_to_model=False)
-        call_count_after_second = mock_client_load.call_count
+        assert mock_load.call_count == 0  # Both should be cache hits
 
-        # Should be called again for different allow_missing parameter
-        assert call_count_after_second > call_count_after_first
+    # Different version should miss cache
+    mlflow.genai.register_prompt(name="param_test", template="Version 2")
+    prompt_v2 = mlflow.genai.load_prompt("param_test", version=2, link_to_model=False)
+    assert prompt_v2.version == 2
 
-        # Same parameters should use cache
-        mlflow.genai.load_prompt("param_test", version=1, allow_missing=False, link_to_model=False)
-        call_count_after_third = mock_client_load.call_count
-
-        # Cache should work - either same count or only one additional call
-        assert call_count_after_third <= call_count_after_second + 1
-
-        mlflow.genai.load_prompt("param_test", version=1, allow_missing=True, link_to_model=False)
-        call_count_after_fourth = mock_client_load.call_count
-
-        # Cache should work - either same count or only one additional call
-        assert call_count_after_fourth <= call_count_after_third + 1
+    # But then it should be cached
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
+        mlflow.genai.load_prompt("param_test", version=2, link_to_model=False)
+        assert mock_load.call_count == 0  # Cache hit
 
 
 def test_register_prompt_chat_format_integration():
-    """Test full integration of registering and using chat prompts."""
     chat_template = [
         {"role": "system", "content": "You are a {{style}} assistant."},
         {"role": "user", "content": "{{question}}"},
@@ -1085,7 +1063,6 @@ def test_register_prompt_chat_format_integration():
 
 
 def test_prompt_associate_with_run_chat_format():
-    """Test chat prompts associate with runs correctly."""
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello!"},
@@ -1099,7 +1076,7 @@ def test_prompt_associate_with_run_chat_format():
     # Verify linking
     client = MlflowClient()
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)
@@ -1130,7 +1107,6 @@ def test_register_prompt_with_pydantic_response_format():
 
 
 def test_register_prompt_with_dict_response_format():
-    """Test registering prompts with dictionary response format."""
     response_format = {
         "type": "object",
         "properties": {
@@ -1154,7 +1130,6 @@ def test_register_prompt_with_dict_response_format():
 
 
 def test_register_prompt_text_backward_compatibility():
-    """Test that text prompt registration continues to work as before."""
     # Register text prompt
     mlflow.genai.register_prompt(
         name="test_text_backward",
@@ -1174,7 +1149,6 @@ def test_register_prompt_text_backward_compatibility():
 
 
 def test_register_prompt_complex_chat_template():
-    """Test registering prompts with complex chat templates."""
     chat_template = [
         {
             "role": "system",
@@ -1241,7 +1215,6 @@ def test_register_prompt_with_empty_chat_template():
 
 
 def test_register_prompt_with_single_message_chat():
-    """Test registering prompts with single message chat template."""
     chat_template = [{"role": "user", "content": "Hello {{name}}!"}]
 
     # Register single message chat prompt
@@ -1255,7 +1228,6 @@ def test_register_prompt_with_single_message_chat():
 
 
 def test_register_prompt_with_multiple_variables_in_chat():
-    """Test registering prompts with multiple variables in chat messages."""
     chat_template = [
         {
             "role": "system",
@@ -1278,7 +1250,6 @@ def test_register_prompt_with_multiple_variables_in_chat():
 
 
 def test_register_prompt_with_mixed_content_types():
-    """Test registering prompts with mixed content types in chat messages."""
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello {{name}}!"},
@@ -1296,7 +1267,6 @@ def test_register_prompt_with_mixed_content_types():
 
 
 def test_register_prompt_with_nested_variables():
-    """Test registering prompts with nested variable names."""
     chat_template = [
         {
             "role": "system",
@@ -1319,3 +1289,658 @@ def test_register_prompt_with_nested_variables():
         "user.preferences.greeting",
     }
     assert prompt.variables == expected_variables
+
+
+def test_register_prompt_invalidates_latest_cache():
+    PromptCache._reset_instance()
+
+    # Register first version
+    mlflow.genai.register_prompt(name="latest_cache_test", template="Version 1")
+
+    # Load using @latest and cache it
+    prompt_v1 = mlflow.genai.load_prompt("prompts:/latest_cache_test@latest")
+    assert prompt_v1.template == "Version 1"
+
+    # Verify it's cached
+    cache = PromptCache.get_instance()
+    key = PromptCacheKey.from_parts("latest_cache_test", alias="latest")
+    assert cache.get(key) is not None
+
+    # Register a new version - should invalidate @latest cache
+    mlflow.genai.register_prompt(name="latest_cache_test", template="Version 2")
+
+    # Cache should be invalidated
+    assert cache.get(key) is None
+
+    # Loading @latest should now return version 2
+    prompt_v2 = mlflow.genai.load_prompt("prompts:/latest_cache_test@latest")
+    assert prompt_v2.template == "Version 2"
+    assert prompt_v2.version == 2
+
+
+def test_set_prompt_alias_invalidates_alias_cache():
+    PromptCache._reset_instance()
+
+    # Register two versions
+    mlflow.genai.register_prompt(name="alias_cache_test", template="Version 1")
+    mlflow.genai.register_prompt(name="alias_cache_test", template="Version 2")
+
+    # Set alias to version 1
+    mlflow.genai.set_prompt_alias("alias_cache_test", alias="production", version=1)
+
+    # Load using alias and cache it
+    prompt_v1 = mlflow.genai.load_prompt("prompts:/alias_cache_test@production")
+    assert prompt_v1.template == "Version 1"
+
+    # Verify it's cached
+    cache = PromptCache.get_instance()
+    key = PromptCacheKey.from_parts("alias_cache_test", alias="production")
+    assert cache.get(key) is not None
+
+    # Update alias to point to version 2 - should invalidate cache
+    mlflow.genai.set_prompt_alias("alias_cache_test", alias="production", version=2)
+
+    # Cache should be invalidated
+    assert cache.get(key) is None
+
+    # Loading @production should now return version 2
+    prompt_v2 = mlflow.genai.load_prompt("prompts:/alias_cache_test@production")
+    assert prompt_v2.template == "Version 2"
+    assert prompt_v2.version == 2
+
+
+def test_prompt_cache_hit():
+    PromptCache._reset_instance()
+    mlflow.genai.register_prompt(name="cached_prompt", template="Hello {{name}}!")
+
+    # First load - cache miss (fetch from server)
+    prompt1 = mlflow.genai.load_prompt("cached_prompt", version=1)
+
+    # Second load - cache hit (should not call registry client)
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
+        prompt2 = mlflow.genai.load_prompt("cached_prompt", version=1)
+        assert mock_load.call_count == 0
+
+    assert prompt1.template == prompt2.template
+    assert prompt1.name == prompt2.name
+
+
+def test_prompt_cache_ttl_expiration():
+    PromptCache._reset_instance()
+    mlflow.genai.register_prompt(name="expiring_prompt", template="Hello {{name}}!")
+
+    # Load with very short TTL
+    mlflow.genai.load_prompt("expiring_prompt", version=1, cache_ttl_seconds=1)
+
+    # Immediate second load should hit cache
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
+        mlflow.genai.load_prompt("expiring_prompt", version=1, cache_ttl_seconds=1)
+        assert mock_load.call_count == 0
+
+    # Wait for TTL to expire
+    time.sleep(1.1)
+
+    # Load after expiration should miss cache - need to actually fetch
+    prompt = mlflow.genai.load_prompt("expiring_prompt", version=1, cache_ttl_seconds=1)
+    assert prompt is not None
+    assert prompt.template == "Hello {{name}}!"
+
+
+def test_prompt_cache_bypass_with_zero_ttl():
+    PromptCache._reset_instance()
+    mlflow.genai.register_prompt(name="bypass_prompt", template="Hello {{name}}!")
+
+    # First load to populate cache
+    mlflow.genai.load_prompt("bypass_prompt", version=1)
+
+    # Load with TTL=0 should bypass cache even though it's cached
+    # We verify by checking that the registry is called
+    call_count = 0
+    original_get = mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version
+
+    def counting_get(self, *args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return original_get(self, *args, **kwargs)
+
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+        counting_get,
+    ):
+        mlflow.genai.load_prompt("bypass_prompt", version=1, cache_ttl_seconds=0)
+        mlflow.genai.load_prompt("bypass_prompt", version=1, cache_ttl_seconds=0)
+        mlflow.genai.load_prompt("bypass_prompt", version=1, cache_ttl_seconds=0)
+        assert call_count == 3
+
+
+def test_prompt_cache_alias_cached():
+    PromptCache._reset_instance()
+    mlflow.genai.register_prompt(name="alias_prompt", template="Version 1")
+    mlflow.genai.set_prompt_alias("alias_prompt", alias="production", version=1)
+
+    # First load by alias - cache miss
+    mlflow.genai.load_prompt("prompts:/alias_prompt@production")
+
+    # Second load by alias - cache hit
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version_by_alias",
+    ) as mock_load:
+        mlflow.genai.load_prompt("prompts:/alias_prompt@production")
+        assert mock_load.call_count == 0
+
+
+def test_prompt_cache_different_versions():
+    PromptCache._reset_instance()
+    mlflow.genai.register_prompt(name="multi_version", template="Version 1")
+    mlflow.genai.register_prompt(name="multi_version", template="Version 2")
+
+    # Load both versions
+    prompt_v1 = mlflow.genai.load_prompt("multi_version", version=1)
+    prompt_v2 = mlflow.genai.load_prompt("multi_version", version=2)
+
+    assert prompt_v1.template == "Version 1"
+    assert prompt_v2.template == "Version 2"
+
+    # Both should be cached now
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
+        mlflow.genai.load_prompt("multi_version", version=1)
+        mlflow.genai.load_prompt("multi_version", version=2)
+        assert mock_load.call_count == 0
+
+
+def test_prompt_cache_custom_ttl():
+    PromptCache._reset_instance()
+    mlflow.genai.register_prompt(name="custom_ttl_prompt", template="Hello!")
+
+    # Load with custom TTL (integer)
+    mlflow.genai.load_prompt("custom_ttl_prompt", version=1, cache_ttl_seconds=300)
+
+    # Should be cached
+    cache = PromptCache.get_instance()
+    key = PromptCacheKey.from_parts("custom_ttl_prompt", version=1)
+    cached = cache.get(key)
+    assert cached is not None
+    assert cached.template == "Hello!"
+
+    # Load with custom TTL (float)
+    mlflow.genai.register_prompt(name="custom_ttl_prompt_float", template="Hello float!")
+    mlflow.genai.load_prompt("custom_ttl_prompt_float", version=1, cache_ttl_seconds=300.5)
+
+    # Should be cached
+    key_float = PromptCacheKey.from_parts("custom_ttl_prompt_float", version=1)
+    cached_float = cache.get(key_float)
+    assert cached_float is not None
+    assert cached_float.template == "Hello float!"
+
+
+def test_prompt_cache_invalidation():
+    PromptCache._reset_instance()
+    mlflow.genai.register_prompt(name="invalidate_prompt", template="Hello!")
+
+    # Load and cache
+    mlflow.genai.load_prompt("invalidate_prompt", version=1)
+
+    # Verify it's cached
+    cache = PromptCache.get_instance()
+    key = PromptCacheKey.from_parts("invalidate_prompt", version=1)
+    assert cache.get(key) is not None
+
+    # Delete specific version from cache
+    cache.delete("invalidate_prompt", version=1)
+
+    # Should be gone
+    assert cache.get(key) is None
+
+    # Next load should fetch from server
+    prompt = mlflow.genai.load_prompt("invalidate_prompt", version=1)
+    assert prompt is not None
+    assert prompt.template == "Hello!"
+
+
+def test_prompt_cache_uri_format():
+    PromptCache._reset_instance()
+    mlflow.genai.register_prompt(name="uri_prompt", template="Hello!")
+
+    # Load using URI format
+    prompt1 = mlflow.genai.load_prompt("prompts:/uri_prompt/1")
+
+    # Should be cached
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
+        prompt2 = mlflow.genai.load_prompt("prompts:/uri_prompt/1")
+        assert mock_load.call_count == 0
+
+    assert prompt1.template == prompt2.template
+
+
+def test_prompt_cache_clear():
+    PromptCache._reset_instance()
+    mlflow.genai.register_prompt(name="clear_test_1", template="Hello 1!")
+    mlflow.genai.register_prompt(name="clear_test_2", template="Hello 2!")
+
+    # Load both
+    mlflow.genai.load_prompt("clear_test_1", version=1)
+    mlflow.genai.load_prompt("clear_test_2", version=1)
+
+    # Clear cache
+    cache = PromptCache.get_instance()
+    cache.clear()
+
+    # Both should require fetching from server
+    prompt1 = mlflow.genai.load_prompt("clear_test_1", version=1)
+    prompt2 = mlflow.genai.load_prompt("clear_test_2", version=1)
+    assert prompt1.template == "Hello 1!"
+    assert prompt2.template == "Hello 2!"
+
+
+def test_prompt_cache_env_variable(monkeypatch):
+    PromptCache._reset_instance()
+    mlflow.genai.register_prompt(name="env_var_prompt", template="Hello!")
+
+    # Set environment variable to 1 second
+    monkeypatch.setenv("MLFLOW_PROMPT_CACHE_TTL_SECONDS", "1")
+
+    # Load prompt (uses env var TTL)
+    mlflow.genai.load_prompt("env_var_prompt", version=1)
+
+    # Wait for expiration
+    time.sleep(1.1)
+
+    # Should fetch from server again
+    prompt = mlflow.genai.load_prompt("env_var_prompt", version=1)
+    assert prompt is not None
+    assert prompt.template == "Hello!"
+
+
+def test_load_prompt_links_to_experiment():
+    mlflow.genai.register_prompt(name="test_exp_link", template="Hello {{name}}!")
+    experiment = mlflow.set_experiment("test_experiment_link")
+    mlflow.genai.load_prompt("test_exp_link", version=1)
+
+    # Wait for the links to be established
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    client = MlflowClient()
+    prompt_info = client.get_prompt("test_exp_link")
+    assert experiment.experiment_id in prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY)
+
+
+def test_register_prompt_links_to_experiment():
+    experiment = mlflow.set_experiment("test_experiment_register")
+    mlflow.genai.register_prompt(name="test_exp_register", template="Greetings {{name}}!")
+
+    # Wait for the links to be established
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    client = MlflowClient()
+    prompt_info = client.get_prompt("test_exp_register")
+    assert experiment.experiment_id in prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY)
+
+
+def test_link_prompt_to_experiment_no_duplicate():
+    mlflow.genai.register_prompt(name="no_dup_prompt", template="Test {{x}}!")
+
+    experiment = mlflow.set_experiment("test_no_dup")
+
+    mlflow.genai.load_prompt("no_dup_prompt", version=1)
+    mlflow.genai.load_prompt("no_dup_prompt", version=1)
+    mlflow.genai.load_prompt("no_dup_prompt", version=1)
+
+    # Wait for the links to be established
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    client = MlflowClient()
+    prompt_info = client.get_prompt("no_dup_prompt")
+    assert experiment.experiment_id in prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY)
+
+
+def test_search_prompts_by_experiment_id():
+    experiment = mlflow.set_experiment("test_search_by_exp")
+
+    mlflow.genai.register_prompt(name="exp_prompt_1", template="Template 1: {{x}}")
+    mlflow.genai.register_prompt(name="exp_prompt_2", template="Template 2: {{y}}")
+
+    # Wait for the links to be established
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    client = MlflowClient()
+    prompts = client.search_prompts(filter_string=f'experiment_id = "{experiment.experiment_id}"')
+
+    assert len(prompts) == 2
+    prompt_names = {p.name for p in prompts}
+    assert "exp_prompt_1" in prompt_names
+    assert "exp_prompt_2" in prompt_names
+
+
+def test_search_prompts_by_experiment_id_empty():
+    experiment = mlflow.set_experiment("test_empty_exp")
+
+    client = MlflowClient()
+    prompts = client.search_prompts(filter_string=f'experiment_id = "{experiment.experiment_id}"')
+
+    assert len(prompts) == 0
+
+
+def test_search_prompts_same_prompt_multiple_experiments():
+    exp_id_1 = mlflow.create_experiment("test_multi_exp_1")
+    exp_id_2 = mlflow.create_experiment("test_multi_exp_2")
+
+    mlflow.set_experiment(experiment_id=exp_id_1)
+    mlflow.genai.register_prompt(name="shared_search_prompt", template="Shared: {{x}}")
+
+    mlflow.set_experiment(experiment_id=exp_id_2)
+    mlflow.genai.load_prompt("shared_search_prompt", version=1)
+
+    # Wait for the links to be established
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    client = MlflowClient()
+    prompts_exp1 = client.search_prompts(filter_string=f'experiment_id = "{exp_id_1}"')
+    prompts_exp2 = client.search_prompts(filter_string=f'experiment_id = "{exp_id_2}"')
+
+    assert len(prompts_exp1) == 1
+    assert prompts_exp1[0].name == "shared_search_prompt"
+
+    assert len(prompts_exp2) == 1
+    assert prompts_exp2[0].name == "shared_search_prompt"
+
+
+def test_search_prompts_with_combined_filters():
+    experiment = mlflow.set_experiment("test_combined_filters")
+
+    mlflow.genai.register_prompt(name="alpha_prompt", template="Alpha: {{x}}")
+    mlflow.genai.register_prompt(name="beta_prompt", template="Beta: {{y}}")
+    mlflow.genai.register_prompt(name="gamma_prompt", template="Gamma: {{z}}")
+
+    client = MlflowClient()
+
+    # Wait for the links to be established
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    # Test experiment_id filter combined with name filter
+    prompts = client.search_prompts(
+        filter_string=f'experiment_id = "{experiment.experiment_id}" AND name = "alpha_prompt"'
+    )
+    assert len(prompts) == 1
+    assert prompts[0].name == "alpha_prompt"
+
+    # Test experiment_id filter combined with name LIKE filter
+    prompts = client.search_prompts(
+        filter_string=f'experiment_id = "{experiment.experiment_id}" AND name LIKE "a%"'
+    )
+    assert len(prompts) == 1
+    assert prompts[0].name == "alpha_prompt"
+
+    # Test that name filter without experiment_id returns correct results
+    prompts = client.search_prompts(filter_string='name = "gamma_prompt"')
+    assert len(prompts) == 1
+    assert prompts[0].name == "gamma_prompt"
+
+
+def test_load_prompt_sets_span_attributes():
+    mlflow.genai.register_prompt(name="span_test_prompt", template="Hello, {{name}}!")
+
+    with mlflow.start_span("test_span") as span:
+        prompt = mlflow.genai.load_prompt("span_test_prompt", version=1)
+
+    linked_prompts_value = span.attributes.get(SpanAttributeKey.LINKED_PROMPTS)
+    prompt_versions = json.loads(linked_prompts_value)
+
+    assert len(prompt_versions) == 1
+    assert prompt_versions[0] == {"name": "span_test_prompt", "version": "1"}
+    assert prompt.name == "span_test_prompt"
+    assert prompt.version == 1
+
+
+def test_load_prompt_multiple_prompts_in_same_span():
+    mlflow.genai.register_prompt(name="prompt_1", template="First {{var1}}")
+    mlflow.genai.register_prompt(name="prompt_2", template="Second {{var2}}")
+
+    with mlflow.start_span("multi_prompt_span") as span:
+        prompt1 = mlflow.genai.load_prompt("prompt_1", version=1)
+        prompt2 = mlflow.genai.load_prompt("prompt_2", version=1)
+
+    linked_prompts_value = span.attributes.get(SpanAttributeKey.LINKED_PROMPTS)
+    prompt_versions = json.loads(linked_prompts_value)
+
+    assert len(prompt_versions) == 2
+    assert {"name": "prompt_1", "version": "1"} in prompt_versions
+    assert {"name": "prompt_2", "version": "1"} in prompt_versions
+    assert prompt1.name == "prompt_1"
+    assert prompt2.name == "prompt_2"
+
+
+def test_load_prompt_same_prompt_twice_in_span():
+    mlflow.genai.register_prompt(name="duplicate_test", template="Test {{var}}")
+
+    with mlflow.start_span("duplicate_span") as span:
+        mlflow.genai.load_prompt("duplicate_test", version=1)
+        mlflow.genai.load_prompt("duplicate_test", version=1)
+
+    linked_prompts_value = span.attributes.get(SpanAttributeKey.LINKED_PROMPTS)
+    prompt_versions = json.loads(linked_prompts_value)
+    assert isinstance(prompt_versions, list)
+    assert len(prompt_versions) == 1
+    assert prompt_versions[0] == {"name": "duplicate_test", "version": "1"}
+
+
+def test_register_and_load_prompt_with_model_config():
+    model_config = {
+        "model_name": "gpt-5",
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "max_tokens": 1000,
+    }
+
+    # Register a prompt with model_config
+    mlflow.genai.register_prompt(
+        name="config_prompt",
+        template="Hello, {{name}}!",
+        model_config=model_config,
+        commit_message="Prompt with model config",
+    )
+
+    # Load the prompt and verify model_config is preserved
+    prompt = mlflow.genai.load_prompt("config_prompt", version=1)
+    assert prompt.name == "config_prompt"
+    assert prompt.template == "Hello, {{name}}!"
+    assert prompt.model_config == model_config
+
+    # Register a second version without model_config
+    mlflow.genai.register_prompt(
+        name="config_prompt",
+        template="Hi, {{name}}!",
+        commit_message="No model config",
+    )
+
+    # Verify the new version has no model_config
+    prompt_v2 = mlflow.genai.load_prompt("config_prompt", version=2)
+    assert prompt_v2.model_config is None
+
+    # Verify the first version still has model_config
+    prompt_v1 = mlflow.genai.load_prompt("config_prompt", version=1)
+    assert prompt_v1.model_config == model_config
+
+
+def test_register_and_load_prompt_with_model_config_instance():
+    config = PromptModelConfig(
+        model_name="gpt-5",
+        temperature=0.6,
+        max_tokens=1500,
+        top_p=0.95,
+        extra_params={"stream": True, "n": 1},
+    )
+
+    mlflow.genai.register_prompt(
+        name="config_instance_prompt",
+        template="Summarize: {{text}}",
+        model_config=config,
+    )
+
+    prompt = mlflow.genai.load_prompt("config_instance_prompt", version=1)
+    assert prompt.model_config == {
+        "model_name": "gpt-5",
+        "temperature": 0.6,
+        "max_tokens": 1500,
+        "top_p": 0.95,
+        "stream": True,
+        "n": 1,
+    }
+
+
+def test_model_config_validation_on_register():
+    with pytest.raises(ValidationError, match="Input should be greater than or equal to 0"):
+        mlflow.genai.register_prompt(
+            name="invalid_prompt",
+            template="Test",
+            model_config=PromptModelConfig(temperature=-1.0),
+        )
+
+    with pytest.raises(ValidationError, match="Input should be greater than 0"):
+        mlflow.genai.register_prompt(
+            name="invalid_prompt",
+            template="Test",
+            model_config=PromptModelConfig(max_tokens=0),
+        )
+
+
+def test_set_prompt_model_config_with_dict():
+    # Register a prompt without model config
+    mlflow.genai.register_prompt(
+        name="test_set_config",
+        template="Hello, {{name}}!",
+        commit_message="Initial version",
+    )
+
+    # Verify no model config initially
+    prompt = mlflow.genai.load_prompt("test_set_config", version=1)
+    assert prompt.model_config is None
+
+    # Set model config using a dictionary
+    model_config = {
+        "model_name": "gpt-5",
+        "temperature": 0.7,
+        "max_tokens": 1000,
+        "top_p": 0.9,
+    }
+    mlflow.genai.set_prompt_model_config(
+        name="test_set_config", version=1, model_config=model_config
+    )
+
+    # Load and verify model config was set
+    prompt = mlflow.genai.load_prompt("test_set_config", version=1)
+    assert prompt.model_config == {
+        "model_name": "gpt-5",
+        "temperature": 0.7,
+        "max_tokens": 1000,
+        "top_p": 0.9,
+    }
+
+
+def test_set_prompt_model_config_with_instance():
+    # Register a prompt without model config
+    mlflow.genai.register_prompt(
+        name="test_set_config_instance",
+        template="Summarize: {{text}}",
+    )
+
+    # Set model config using PromptModelConfig instance
+    config = PromptModelConfig(
+        model_name="gpt-5",
+        temperature=0.5,
+        max_tokens=2000,
+        top_p=0.95,
+        extra_params={"stream": True},
+    )
+    mlflow.genai.set_prompt_model_config(
+        name="test_set_config_instance", version=1, model_config=config
+    )
+
+    # Load and verify
+    prompt = mlflow.genai.load_prompt("test_set_config_instance", version=1)
+    assert prompt.model_config == {
+        "model_name": "gpt-5",
+        "temperature": 0.5,
+        "max_tokens": 2000,
+        "top_p": 0.95,
+        "stream": True,
+    }
+
+
+def test_set_prompt_model_config_updates_existing():
+    # Register a prompt with initial model config
+    initial_config = {"model_name": "gpt-5", "temperature": 0.3}
+    mlflow.genai.register_prompt(
+        name="test_update_config",
+        template="Question: {{question}}",
+        model_config=initial_config,
+    )
+
+    # Verify initial config
+    prompt = mlflow.genai.load_prompt("test_update_config", version=1)
+    assert prompt.model_config == {
+        "model_name": "gpt-5",
+        "temperature": 0.3,
+    }
+
+    # Update to new config
+    new_config = {"model_name": "gpt-5", "temperature": 0.7, "max_tokens": 1500}
+    mlflow.genai.set_prompt_model_config(
+        name="test_update_config", version=1, model_config=new_config
+    )
+
+    # Verify config was updated
+    prompt = mlflow.genai.load_prompt("test_update_config", version=1)
+    assert prompt.model_config == {
+        "model_name": "gpt-5",
+        "temperature": 0.7,
+        "max_tokens": 1500,
+    }
+
+
+def test_set_prompt_model_config_validation():
+    mlflow.genai.register_prompt(name="test_validation", template="Test")
+
+    # Test validation with invalid temperature
+    with pytest.raises(ValidationError, match="Input should be greater than or equal to 0"):
+        mlflow.genai.set_prompt_model_config(
+            name="test_validation",
+            version=1,
+            model_config=PromptModelConfig(temperature=-1.0),
+        )
+
+    # Test validation with invalid max_tokens
+    with pytest.raises(ValidationError, match="Input should be greater than 0"):
+        mlflow.genai.set_prompt_model_config(
+            name="test_validation",
+            version=1,
+            model_config={"max_tokens": 0},
+        )
+
+
+def test_delete_prompt_model_config():
+    # Register a prompt with model config
+    model_config = {"model_name": "gpt-5", "temperature": 0.7}
+    mlflow.genai.register_prompt(
+        name="test_delete_config",
+        template="Analyze: {{data}}",
+        model_config=model_config,
+    )
+
+    # Verify model config exists
+    prompt = mlflow.genai.load_prompt("test_delete_config", version=1)
+    assert prompt.model_config is not None
+
+    # Delete model config
+    mlflow.genai.delete_prompt_model_config(name="test_delete_config", version=1)
+
+    # Verify model config was deleted
+    prompt = mlflow.genai.load_prompt("test_delete_config", version=1)
+    assert prompt.model_config is None

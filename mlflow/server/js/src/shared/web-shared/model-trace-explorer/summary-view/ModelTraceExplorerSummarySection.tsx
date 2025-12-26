@@ -1,10 +1,12 @@
+import { useState } from 'react';
+
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
 import {
   ModelTraceExplorerFieldRenderer,
   DEFAULT_MAX_VISIBLE_CHAT_MESSAGES,
 } from '../field-renderers/ModelTraceExplorerFieldRenderer';
-import { useState } from 'react';
 
 const DEFAULT_MAX_VISIBLE_ITEMS = 3;
 

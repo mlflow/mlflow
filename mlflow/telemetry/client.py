@@ -19,6 +19,7 @@ from mlflow.telemetry.constant import (
     RETRYABLE_ERRORS,
     UNRECOVERABLE_ERRORS,
 )
+from mlflow.telemetry.installation_id import get_or_create_installation_id
 from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get_source_sdk
 from mlflow.telemetry.utils import _get_config_url, _log_error, is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
@@ -27,7 +28,10 @@ from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_
 class TelemetryClient:
     def __init__(self):
         self.info = asdict(
-            TelemetryInfo(session_id=_MLFLOW_TELEMETRY_SESSION_ID.get() or uuid.uuid4().hex)
+            TelemetryInfo(
+                session_id=_MLFLOW_TELEMETRY_SESSION_ID.get() or uuid.uuid4().hex,
+                installation_id=get_or_create_installation_id(),
+            )
         )
         self._queue: Queue[list[Record]] = Queue(maxsize=MAX_QUEUE_SIZE)
         self._lock = threading.RLock()
@@ -127,6 +131,29 @@ class TelemetryClient:
             # time-based sending is handled by the consumer thread.
             if len(self._pending_records) >= self._batch_size:
                 self._send_batch()
+
+    def add_records(self, records: list[Record]):
+        if not self.is_active:
+            self.activate()
+
+        if self._is_stopped:
+            return
+
+        with self._batch_lock:
+            # Add records in chunks to ensure we never exceed batch_size
+            offset = 0
+            while offset < len(records):
+                # Calculate how many records we can add to reach batch_size
+                space_left = self._batch_size - len(self._pending_records)
+                chunk_size = min(space_left, len(records) - offset)
+
+                # Add only enough records to reach batch_size
+                self._pending_records.extend(records[offset : offset + chunk_size])
+                offset += chunk_size
+
+                # Send batch if we've reached the limit
+                if len(self._pending_records) >= self._batch_size:
+                    self._send_batch()
 
     def _send_batch(self):
         """Send the current batch of records."""

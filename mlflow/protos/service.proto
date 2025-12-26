@@ -2,24 +2,20 @@ syntax = "proto2";
 
 package mlflow;
 
-import "scalapb/scalapb.proto";
+import "assessments.proto";
 import "databricks.proto";
+import "datasets.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
-import "assessments.proto";
-import "datasets.proto";
 import "opentelemetry/proto/trace/v1/trace.proto";
+import "scalapb/scalapb.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
-option (scalapb.options) = {
-  flat_package: true,
-};
+option (scalapb.options) = {flat_package: true};
 
 service MlflowService {
-
-
   // Get metadata for an experiment.
   //
   // This endpoint will return deleted experiments, but prefers the active experiment
@@ -28,15 +24,20 @@ service MlflowService {
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if no experiment with the specified name exists.
   //
-  rpc getExperimentByName (GetExperimentByName) returns (GetExperimentByName.Response) {
+  rpc getExperimentByName(GetExperimentByName) returns (GetExperimentByName.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/experiments/get-by-name",
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Get Experiment By Name",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/experiments/get-by-name"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Experiment By Name"
     };
   }
 
@@ -47,44 +48,63 @@ service MlflowService {
   //
   // Throws ``RESOURCE_ALREADY_EXISTS`` if a experiment with the given name exists.
   //
-  rpc createExperiment (CreateExperiment) returns (CreateExperiment.Response) {
+  rpc createExperiment(CreateExperiment) returns (CreateExperiment.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/experiments/create"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Create Experiment",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/experiments/create"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Experiment"
     };
   }
 
-  rpc searchExperiments (SearchExperiments) returns (SearchExperiments.Response) {
+  rpc searchExperiments(SearchExperiments) returns (SearchExperiments.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/experiments/search"
-        since { major: 2, minor: 0 },
-      }, {
-        method: "GET",
-        path: "/mlflow/experiments/search"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Search Experiments",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/experiments/search"
+          since: {
+            major: 2
+            minor: 0
+          }
+        },
+        {
+          method: "GET"
+          path: "/mlflow/experiments/search"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Search Experiments"
     };
   }
 
   // Get metadata for an experiment. This method works on deleted experiments.
-  rpc getExperiment (GetExperiment) returns (GetExperiment.Response) {
+  rpc getExperiment(GetExperiment) returns (GetExperiment.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/experiments/get"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Get Experiment",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/experiments/get"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Experiment"
     };
     option (graphql) = {};
   }
@@ -92,15 +112,20 @@ service MlflowService {
   // Mark an experiment and associated metadata, runs, metrics, params, and tags for deletion.
   // If the experiment uses FileStore, artifacts associated with experiment are also deleted.
   //
-  rpc deleteExperiment (DeleteExperiment) returns (DeleteExperiment.Response) {
+  rpc deleteExperiment(DeleteExperiment) returns (DeleteExperiment.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/experiments/delete"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Delete Experiment",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/experiments/delete"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Experiment"
     };
   }
 
@@ -110,29 +135,39 @@ service MlflowService {
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if experiment was never created or was permanently deleted.
   //
-  rpc restoreExperiment (RestoreExperiment) returns (RestoreExperiment.Response) {
+  rpc restoreExperiment(RestoreExperiment) returns (RestoreExperiment.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/experiments/restore"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Restore Experiment",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/experiments/restore"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Restore Experiment"
     };
   }
 
   // Update experiment metadata.
   //
-  rpc updateExperiment (UpdateExperiment) returns (UpdateExperiment.Response) {
+  rpc updateExperiment(UpdateExperiment) returns (UpdateExperiment.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/experiments/update"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Update Experiment",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/experiments/update"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update Experiment"
     };
   }
 
@@ -142,14 +177,19 @@ service MlflowService {
   //
   rpc createRun(CreateRun) returns (CreateRun.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/runs/create"
-        since { major: 2, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/runs/create"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
 
-      visibility: PUBLIC,
-      rpc_doc_title: "Create Run",
+      visibility: PUBLIC
+      rpc_doc_title: "Create Run"
     };
   }
 
@@ -157,40 +197,55 @@ service MlflowService {
   //
   rpc updateRun(UpdateRun) returns (UpdateRun.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/runs/update"
-        since { major: 2, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/runs/update"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
 
-      visibility: PUBLIC,
-      rpc_doc_title: "Update Run",
+      visibility: PUBLIC
+      rpc_doc_title: "Update Run"
     };
   }
 
   // Mark a run for deletion.
   rpc deleteRun(DeleteRun) returns (DeleteRun.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/runs/delete"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Delete Run",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/runs/delete"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Run"
     };
   }
 
   // Restore a deleted run.
   rpc restoreRun(RestoreRun) returns (RestoreRun.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/runs/restore"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Restore Run",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/runs/restore"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Restore Run"
     };
   }
 
@@ -200,14 +255,19 @@ service MlflowService {
   //
   rpc logMetric(LogMetric) returns (LogMetric.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/runs/log-metric"
-        since { major: 2, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/runs/log-metric"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
 
-      visibility: PUBLIC,
-      rpc_doc_title: "Log Metric",
+      visibility: PUBLIC
+      rpc_doc_title: "Log Metric"
     };
   }
 
@@ -217,14 +277,19 @@ service MlflowService {
   //
   rpc logParam(LogParam) returns (LogParam.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/runs/log-parameter"
-        since { major: 2, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/runs/log-parameter"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
 
-      visibility: PUBLIC,
-      rpc_doc_title: "Log Param",
+      visibility: PUBLIC
+      rpc_doc_title: "Log Param"
     };
   }
 
@@ -232,14 +297,19 @@ service MlflowService {
   //
   rpc setExperimentTag(SetExperimentTag) returns (SetExperimentTag.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/experiments/set-experiment-tag"
-        since { major: 2, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/experiments/set-experiment-tag"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
 
-      visibility: PUBLIC,
-      rpc_doc_title: "Set Experiment Tag",
+      visibility: PUBLIC
+      rpc_doc_title: "Set Experiment Tag"
     };
   }
 
@@ -247,13 +317,18 @@ service MlflowService {
   //
   rpc deleteExperimentTag(DeleteExperimentTag) returns (DeleteExperimentTag.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/experiments/delete-experiment-tag",
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Delete Experiment Tag",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/experiments/delete-experiment-tag"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Experiment Tag"
     };
   }
 
@@ -262,66 +337,91 @@ service MlflowService {
   //
   rpc setTag(SetTag) returns (SetTag.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/runs/set-tag"
-        since { major: 2, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/runs/set-tag"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
 
-      visibility: PUBLIC,
-      rpc_doc_title: "Set Tag",
+      visibility: PUBLIC
+      rpc_doc_title: "Set Tag"
     };
   }
 
   // DEPRECATED. Use setTraceTagV3 instead.
   rpc setTraceTag(SetTraceTag) returns (SetTraceTag.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "PATCH",
-        path: "/mlflow/traces/{request_id}/tags"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Set Trace Tag",
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/traces/{request_id}/tags"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Set Trace Tag"
     };
   }
 
   // Set a tag on a trace. Tags are mutable and can be updated as desired.
   rpc setTraceTagV3(SetTraceTagV3) returns (SetTraceTagV3.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "PATCH",
-        path: "/mlflow/traces/{trace_id}/tags"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Set Trace Tag V3",
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/traces/{trace_id}/tags"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Set Trace Tag V3"
     };
   }
 
   // DEPRECATED. Use deleteTraceTagV3 instead.
   rpc deleteTraceTag(DeleteTraceTag) returns (DeleteTraceTag.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/traces/{request_id}/tags"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Delete Trace Tag",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/traces/{request_id}/tags"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete Trace Tag"
     };
   }
 
   // Delete a tag from a trace.
   rpc deleteTraceTagV3(DeleteTraceTagV3) returns (DeleteTraceTagV3.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/traces/{trace_id}/tags"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Delete Trace Tag V3",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/traces/{trace_id}/tags"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete Trace Tag V3"
     };
   }
 
@@ -330,30 +430,40 @@ service MlflowService {
   //
   rpc deleteTag(DeleteTag) returns (DeleteTag.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/runs/delete-tag"
-        since { major: 2, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/runs/delete-tag"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
 
-      visibility: PUBLIC,
-      rpc_doc_title: "Delete Tag",
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Tag"
     };
   }
 
   // Get metadata, metrics, params, and tags for a run. In the case where multiple metrics
   // with the same key are logged for a run, return only the value with the latest timestamp.
   // If there are multiple values with the latest timestamp, return the maximum of these values.
-  rpc getRun (GetRun) returns (GetRun.Response) {
+  rpc getRun(GetRun) returns (GetRun.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/runs/get"
-        since { major: 2, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/runs/get"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
 
-      visibility: PUBLIC,
-      rpc_doc_title: "Get Run",
+      visibility: PUBLIC
+      rpc_doc_title: "Get Run"
     };
     option (graphql) = {};
   }
@@ -361,15 +471,20 @@ service MlflowService {
   // Search for runs that satisfy expressions. Search expressions can use :ref:`mlflowMetric` and
   // :ref:`mlflowParam` keys.
   //
-  rpc searchRuns (SearchRuns) returns (SearchRuns.Response) {
+  rpc searchRuns(SearchRuns) returns (SearchRuns.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/runs/search"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Search Runs",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/runs/search"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Search Runs"
     };
     option (graphql) = {};
   }
@@ -377,42 +492,57 @@ service MlflowService {
   // List artifacts for a run. Takes an optional ``artifact_path`` prefix which if specified,
   // the response contains only artifacts with the specified prefix.
   //
-  rpc listArtifacts (ListArtifacts) returns (ListArtifacts.Response) {
+  rpc listArtifacts(ListArtifacts) returns (ListArtifacts.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/artifacts/list"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "List Artifacts",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/artifacts/list"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Artifacts"
     };
     option (graphql) = {};
   }
 
   // Get a list of all values for the specified metric for a given run.
   //
-  rpc getMetricHistory (GetMetricHistory) returns (GetMetricHistory.Response) {
+  rpc getMetricHistory(GetMetricHistory) returns (GetMetricHistory.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/metrics/get-history"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Get Metric History",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/metrics/get-history"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Metric History"
     };
   }
 
   // Retrieves the value history for a specified metric across one or more specified runs.
-  rpc getMetricHistoryBulkInterval (GetMetricHistoryBulkInterval) returns (GetMetricHistoryBulkInterval.Response) {
+  rpc getMetricHistoryBulkInterval(GetMetricHistoryBulkInterval) returns (GetMetricHistoryBulkInterval.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/metrics/get-history-bulk-interval"
-        since { major: 2, minor: 11 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/metrics/get-history-bulk-interval"
+          since: {
+            major: 2
+            minor: 11
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
     };
     option (graphql) = {};
   }
@@ -466,41 +596,56 @@ service MlflowService {
   // - Metric, param, and tag keys can be up to 250 characters in length
   // - Param and tag values can be up to 250 characters in length
   //
-  rpc logBatch (LogBatch) returns (LogBatch.Response) {
+  rpc logBatch(LogBatch) returns (LogBatch.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/runs/log-batch"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Log Batch",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/runs/log-batch"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Log Batch"
     };
   }
 
   // .. note::
   //     Experimental: This API may change or be removed in a future release without warning.
-  rpc logModel (LogModel) returns (LogModel.Response) {
+  rpc logModel(LogModel) returns (LogModel.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/runs/log-model"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Log Model",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/runs/log-model"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Log Model"
     };
   }
 
-  rpc logInputs (LogInputs) returns (LogInputs.Response) {
+  rpc logInputs(LogInputs) returns (LogInputs.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/runs/log-inputs"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Log Inputs",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/runs/log-inputs"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Log Inputs"
     };
   }
 
@@ -508,26 +653,36 @@ service MlflowService {
   //
   // .. note::
   //     Experimental: This API may change or be removed in a future release without warning.
-  rpc logOutputs (LogOutputs) returns (LogOutputs.Response) {
+  rpc logOutputs(LogOutputs) returns (LogOutputs.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/runs/outputs"
-        since {major: 2, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Log Outputs",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/runs/outputs"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Log Outputs"
     };
   }
 
   rpc searchDatasets(SearchDatasets) returns (SearchDatasets.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "mlflow/experiments/search-datasets"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
+      endpoints: [
+        {
+          method: "POST"
+          path: "mlflow/experiments/search-datasets"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
     };
     option (graphql) = {};
   }
@@ -535,81 +690,129 @@ service MlflowService {
   // Start a new trace within an experiment.
   rpc startTrace(StartTrace) returns (StartTrace.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/traces"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Start Trace",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Start Trace"
     };
   }
 
   // End a trace within an experiment.
   rpc endTrace(EndTrace) returns (EndTrace.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "PATCH",
-        path: "/mlflow/traces/{request_id}"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "End Trace",
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/traces/{request_id}"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "End Trace"
     };
   }
 
   // DEPRECATED. Use getTraceInfoV3 instead.
-  rpc getTraceInfo (GetTraceInfo) returns (GetTraceInfo.Response) {
+  rpc getTraceInfo(GetTraceInfo) returns (GetTraceInfo.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/traces/{request_id}/info"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get TraceInfo",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/traces/{request_id}/info"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get TraceInfo"
     };
   }
 
-
   // Get Trace (returning a TraceInfoV3). Differences between TraceV3 and Trace
   // are assessments and semantics of TraceLocation, which describes where the Trace is stored.
-  rpc getTraceInfoV3 (GetTraceInfoV3) returns (GetTraceInfoV3.Response) {
+  rpc getTraceInfoV3(GetTraceInfoV3) returns (GetTraceInfoV3.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/traces/{trace_id}",
-        since {major: 3, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get TraceInfo v3",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/traces/{trace_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get TraceInfo v3"
+    };
+  }
+
+  // Get trace with spans for given trace id.
+  // This API is for OSS MLflow only for traces in v3.
+  rpc getTrace(GetTrace) returns (GetTrace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/traces/get"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Trace v3"
     };
   }
 
   // Get complete traces with spans for given trace identifiers.
   // This API is for OSS MLflow only for traces in v3.
-  rpc batchGetTraces (BatchGetTraces) returns (BatchGetTraces.Response) {
+  rpc batchGetTraces(BatchGetTraces) returns (BatchGetTraces.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/traces/batchGet",
-        since {major: 3, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get Traces",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/traces/batchGet"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Traces"
     };
   }
 
   // DEPRECATED. Use searchTracesV3 instead.
-  rpc searchTraces (SearchTraces) returns (SearchTraces.Response) {
+  rpc searchTraces(SearchTraces) returns (SearchTraces.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/traces"
-        since { major: 2, minor: 0 }
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Search Traces",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/traces"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Search Traces"
     };
   }
 
@@ -620,65 +823,106 @@ service MlflowService {
     option (rpc) = {
       endpoints: [
         {
-          method: "POST",
+          method: "POST"
           path: "/mlflow/traces/search"
-          since { major: 3, minor: 0 },
+          since: {
+            major: 3
+            minor: 0
+          }
         }
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Search Traces V3",
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Search Traces V3"
     };
   }
 
   // Create a trace using the V3 API format
-  rpc startTraceV3 (StartTraceV3) returns (StartTraceV3.Response) {
+  rpc startTraceV3(StartTraceV3) returns (StartTraceV3.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/traces"
-        since { major: 3, minor: 0 }
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
     };
   }
 
   // Links traces to a run by creating internal trace input relationships.
   // This API allows associating multiple traces with runs for evaluation and labeling workflows.
-  rpc linkTracesToRun (LinkTracesToRun) returns (LinkTracesToRun.Response) {
+  rpc linkTracesToRun(LinkTracesToRun) returns (LinkTracesToRun.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/traces/link-to-run"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Link Traces to Run",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/link-to-run"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Link Traces to Run"
+    };
+  }
+
+  // Links prompt versions to a trace.
+  rpc linkPromptsToTrace(LinkPromptsToTrace) returns (LinkPromptsToTrace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/link-prompts"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Link Prompts to Trace"
     };
   }
 
   // Edge endpoint used to search for online traces from an inference table.
   rpc searchUnifiedTraceHandler(SearchUnifiedTraces) returns (SearchUnifiedTraces.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/unified-traces"
-        since {major: 2, minor: 0},
-      }],
-        visibility: PUBLIC_UNDOCUMENTED,
-        rpc_doc_title: "Search Unified Traces",
-      };
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/unified-traces"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Search Unified Traces"
+    };
   }
 
   // Edge endpoint used to retrieve for online trace from an inference table.
   rpc getOnlineTraceDetails(GetOnlineTraceDetails) returns (GetOnlineTraceDetails.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/get-online-trace-details"
-        since {major: 2, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get Online Trace Details",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/get-online-trace-details"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Online Trace Details"
     };
   }
 
@@ -687,13 +931,16 @@ service MlflowService {
     option (rpc) = {
       endpoints: [
         {
-          method: "POST",
+          method: "POST"
           path: "/mlflow/traces/delete-traces"
-          since { major: 2, minor: 0 },
+          since: {
+            major: 2
+            minor: 0
+          }
         }
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Delete Traces",
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete Traces"
     };
   }
 
@@ -702,199 +949,293 @@ service MlflowService {
   // Case 2: ``trace_ids`` may be specified for trace ID-based deletion.
   rpc deleteTracesV3(DeleteTracesV3) returns (DeleteTracesV3.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/traces/delete-traces"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Delete Traces V3",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/delete-traces"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete Traces V3"
     };
   }
 
   // Calculate the correlation (NPMI) between two trace filter conditions.
   rpc calculateTraceFilterCorrelation(CalculateTraceFilterCorrelation) returns (CalculateTraceFilterCorrelation.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/traces/calculate-filter-correlation"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Calculate Trace Filter Correlation",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/calculate-filter-correlation"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Calculate Trace Filter Correlation"
+    };
+  }
+
+  // Query aggregated metrics for traces, spans, or assessments.
+  // Supports grouping by dimensions and time-based aggregation.
+  rpc queryTraceMetrics(QueryTraceMetrics) returns (QueryTraceMetrics.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/metrics"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Query Trace Metrics"
     };
   }
 
   rpc createLoggedModel(CreateLoggedModel) returns (CreateLoggedModel.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/logged-models"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Create Logged Model",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/logged-models"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create Logged Model"
     };
   }
 
   rpc finalizeLoggedModel(FinalizeLoggedModel) returns (FinalizeLoggedModel.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "PATCH",
-        path: "/mlflow/logged-models/{model_id}"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Finalize Logged Model",
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/logged-models/{model_id}"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Finalize Logged Model"
     };
   }
 
   rpc getLoggedModel(GetLoggedModel) returns (GetLoggedModel.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/logged-models/{model_id}"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get Logged Model",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/logged-models/{model_id}"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Logged Model"
     };
   }
 
   rpc deleteLoggedModel(DeleteLoggedModel) returns (DeleteLoggedModel.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/logged-models/{model_id}"
-        since {major: 2, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Delete a Logged Model",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/logged-models/{model_id}"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete a Logged Model"
     };
   }
 
   // Search for Logged Models that satisfy specified search criteria.
-  rpc searchLoggedModels (SearchLoggedModels) returns (SearchLoggedModels.Response) {
+  rpc searchLoggedModels(SearchLoggedModels) returns (SearchLoggedModels.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/logged-models/search"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Search LoggedModels",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/logged-models/search"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Search LoggedModels"
     };
   }
 
   rpc setLoggedModelTags(SetLoggedModelTags) returns (SetLoggedModelTags.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "PATCH",
-        path: "/mlflow/logged-models/{model_id}/tags"
-        since {major: 2, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Set Logged Model Tag",
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/logged-models/{model_id}/tags"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Set Logged Model Tag"
     };
   }
 
   rpc deleteLoggedModelTag(DeleteLoggedModelTag) returns (DeleteLoggedModelTag.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/logged-models/{model_id}/tags/{tag_key}"
-        since {major: 2, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Delete Logged Model Tag",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/logged-models/{model_id}/tags/{tag_key}"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete Logged Model Tag"
     };
   }
 
   // List artifacts for a LoggedModel. Takes an optional ``artifact_path`` prefix which if specified,
   // the response contains only artifacts with the specified prefix.
-  rpc listLoggedModelArtifacts (ListLoggedModelArtifacts) returns (ListLoggedModelArtifacts.Response) {
+  rpc listLoggedModelArtifacts(ListLoggedModelArtifacts) returns (ListLoggedModelArtifacts.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/logged-models/{model_id}/artifacts/directories"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "List Artifacts for Logged Models",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/logged-models/{model_id}/artifacts/directories"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "List Artifacts for Logged Models"
     };
   }
 
   rpc LogLoggedModelParams(LogLoggedModelParamsRequest) returns (LogLoggedModelParamsRequest.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/logged-models/{model_id}/params"
-        since {major: 2, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Log Logged Model Params",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/logged-models/{model_id}/params"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Log Logged Model Params"
     };
   }
 
   rpc GetAssessment(GetAssessmentRequest) returns (GetAssessmentRequest.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
-        since {major: 3, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get Assessment",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Assessment"
     };
   }
 
   // Create an assessment associated with a trace.
   rpc createAssessment(CreateAssessment) returns (CreateAssessment.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/traces/{assessment.trace_id}/assessments"
-        since {major: 3, minor: 0},
-      }],
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/{assessment.trace_id}/assessments"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
       error_codes: [
         INVALID_PARAMETER_VALUE,
         CUSTOMER_UNAUTHORIZED,
         ALREADY_EXISTS,
         INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Create an assessment of a trace or a span within the trace",
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create an assessment of a trace or a span within the trace"
     };
   }
 
   // Update an assessment associated with a trace.
   rpc updateAssessment(UpdateAssessment) returns (UpdateAssessment.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "PATCH",
-        path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
-        since {major: 3, minor: 0},
-      }],
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
       error_codes: [
         INVALID_PARAMETER_VALUE,
         CUSTOMER_UNAUTHORIZED,
         INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Update an existing assessment on a trace.",
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Update an existing assessment on a trace."
     };
   }
 
   // Delete an assessment.
-  rpc deleteAssessment (DeleteAssessment) returns (DeleteAssessment.Response) {
+  rpc deleteAssessment(DeleteAssessment) returns (DeleteAssessment.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
-        since {major: 3, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Delete Assessment",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete Assessment"
     };
   }
 
@@ -903,150 +1244,193 @@ service MlflowService {
   // Create an evaluation dataset
   rpc createDataset(CreateDataset) returns (CreateDataset.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/datasets/create"
-        since { major: 3, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/datasets/create"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
       error_codes: [
         INVALID_PARAMETER_VALUE,
         CUSTOMER_UNAUTHORIZED,
         ALREADY_EXISTS,
         INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Create Evaluation Dataset",
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create Evaluation Dataset"
     };
   }
 
   // Get an evaluation dataset by ID
   rpc getDataset(GetDataset) returns (GetDataset.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/datasets/{dataset_id}"
-        since { major: 3, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/datasets/{dataset_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
       error_codes: [
         INVALID_PARAMETER_VALUE,
         RESOURCE_DOES_NOT_EXIST,
         INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get Evaluation Dataset",
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Evaluation Dataset"
     };
   }
 
   // Delete an evaluation dataset
   rpc deleteDataset(DeleteDataset) returns (DeleteDataset.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/datasets/{dataset_id}"
-        since { major: 3, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/datasets/{dataset_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
       error_codes: [
         INVALID_PARAMETER_VALUE,
         RESOURCE_DOES_NOT_EXIST,
         INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Delete Evaluation Dataset",
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete Evaluation Dataset"
     };
   }
 
   // Search evaluation datasets
   rpc searchEvaluationDatasets(SearchEvaluationDatasets) returns (SearchEvaluationDatasets.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/datasets/search"
-        since { major: 3, minor: 0 },
-      }, {
-        method: "GET",
-        path: "/mlflow/datasets/search"
-        since { major: 3, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/datasets/search"
+          since: {
+            major: 3
+            minor: 0
+          }
+        },
+        {
+          method: "GET"
+          path: "/mlflow/datasets/search"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
       error_codes: [
         INVALID_PARAMETER_VALUE,
         INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Search Evaluation Datasets",
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Search Evaluation Datasets"
     };
   }
-
 
   // Update evaluation dataset tags
   rpc setDatasetTags(SetDatasetTags) returns (SetDatasetTags.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "PATCH",
-        path: "/mlflow/datasets/{dataset_id}/tags"
-        since { major: 3, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/datasets/{dataset_id}/tags"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
       error_codes: [
         INVALID_PARAMETER_VALUE,
         RESOURCE_DOES_NOT_EXIST,
         INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Set Evaluation Dataset Tags",
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Set Evaluation Dataset Tags"
     };
   }
 
   // Delete an evaluation dataset tag
   rpc deleteDatasetTag(DeleteDatasetTag) returns (DeleteDatasetTag.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/datasets/{dataset_id}/tags/{key}"
-        since { major: 3, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/datasets/{dataset_id}/tags/{key}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
       error_codes: [
         INVALID_PARAMETER_VALUE,
         RESOURCE_DOES_NOT_EXIST,
         INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Delete Evaluation Dataset Tag",
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete Evaluation Dataset Tag"
     };
   }
 
   // Upsert evaluation dataset records
   rpc upsertDatasetRecords(UpsertDatasetRecords) returns (UpsertDatasetRecords.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/datasets/{dataset_id}/records"
-        since { major: 3, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/datasets/{dataset_id}/records"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
       error_codes: [
         INVALID_PARAMETER_VALUE,
         RESOURCE_DOES_NOT_EXIST,
         INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Upsert Evaluation Dataset Records",
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Upsert Evaluation Dataset Records"
     };
   }
 
   // Get experiment IDs associated with an evaluation dataset
   rpc getDatasetExperimentIds(GetDatasetExperimentIds) returns (GetDatasetExperimentIds.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/datasets/{dataset_id}/experiment-ids"
-        since { major: 3, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/datasets/{dataset_id}/experiment-ids"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
       error_codes: [
         INVALID_PARAMETER_VALUE,
         RESOURCE_DOES_NOT_EXIST,
         INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get Evaluation Dataset Experiment IDs",
-   };
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Evaluation Dataset Experiment IDs"
+    };
   }
 
   // =============================================================================
@@ -1054,85 +1438,567 @@ service MlflowService {
   // =============================================================================
 
   // Register a scorer for an experiment.
-  rpc registerScorer (RegisterScorer) returns (RegisterScorer.Response) {
+  rpc registerScorer(RegisterScorer) returns (RegisterScorer.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/scorers/register"
-        since {major: 3, minor: 0},
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Register Scorer",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/scorers/register"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Register Scorer"
     };
   }
 
   // List all scorers for an experiment.
-  rpc listScorers (ListScorers) returns (ListScorers.Response) {
+  rpc listScorers(ListScorers) returns (ListScorers.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/scorers/list"
-        since {major: 3, minor: 0},
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "List Scorers",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/scorers/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Scorers"
     };
   }
 
   // List all versions of a specific scorer for an experiment.
-  rpc listScorerVersions (ListScorerVersions) returns (ListScorerVersions.Response) {
+  rpc listScorerVersions(ListScorerVersions) returns (ListScorerVersions.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/scorers/versions"
-        since {major: 3, minor: 0},
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "List Scorer Versions",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/scorers/versions"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Scorer Versions"
     };
   }
 
   // Get a specific scorer for an experiment.
-  rpc getScorer (GetScorer) returns (GetScorer.Response) {
+  rpc getScorer(GetScorer) returns (GetScorer.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/scorers/get"
-        since {major: 3, minor: 0},
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Get Scorer",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/scorers/get"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Scorer"
     };
   }
 
   // Delete a scorer for an experiment.
-  rpc deleteScorer (DeleteScorer) returns (DeleteScorer.Response) {
+  rpc deleteScorer(DeleteScorer) returns (DeleteScorer.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/scorers/delete"
-        since {major: 3, minor: 0},
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Delete Scorer",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/scorers/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Scorer"
     };
   }
-  
+
   // Get records for an evaluation dataset
   rpc getDatasetRecords(GetDatasetRecords) returns (GetDatasetRecords.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/datasets/{dataset_id}/records"
-        since { major: 3, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/datasets/{dataset_id}/records"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
       error_codes: [
         INVALID_PARAMETER_VALUE,
         RESOURCE_DOES_NOT_EXIST,
         INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get Evaluation Dataset Records",
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Evaluation Dataset Records"
+    };
+  }
+
+  // Add a dataset to additional experiments
+  rpc addDatasetToExperiments(AddDatasetToExperiments) returns (AddDatasetToExperiments.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/datasets/{dataset_id}/add-experiments"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Add Dataset to Experiments"
+    };
+  }
+
+  // Remove a dataset from experiments
+  rpc removeDatasetFromExperiments(RemoveDatasetFromExperiments) returns (RemoveDatasetFromExperiments.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/datasets/{dataset_id}/remove-experiments"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Remove Dataset from Experiments"
+    };
+  }
+
+  // ========== Secrets Management APIs ==========
+
+  // Create a new encrypted secret for LLM provider authentication
+  rpc createGatewaySecret(CreateGatewaySecret) returns (CreateGatewaySecret.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/secrets/create"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Gateway Secret"
+    };
+  }
+
+  // Get metadata about a secret (does not include the encrypted value)
+  rpc getGatewaySecretInfo(GetGatewaySecretInfo) returns (GetGatewaySecretInfo.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/secrets/get"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Gateway Secret Info"
+    };
+  }
+
+  // Update an existing secret's value or auth configuration
+  rpc updateGatewaySecret(UpdateGatewaySecret) returns (UpdateGatewaySecret.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/secrets/update"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update Gateway Secret"
+    };
+  }
+
+  // Delete a secret
+  rpc deleteGatewaySecret(DeleteGatewaySecret) returns (DeleteGatewaySecret.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/gateway/secrets/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Gateway Secret"
+    };
+  }
+
+  // List all secrets with optional filtering by provider
+  rpc listGatewaySecretInfos(ListGatewaySecretInfos) returns (ListGatewaySecretInfos.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/secrets/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Gateway Secrets"
+    };
+  }
+
+  // ========== Endpoints Management APIs ==========
+
+  // Create a new endpoint with model configurations
+  rpc createGatewayEndpoint(CreateGatewayEndpoint) returns (CreateGatewayEndpoint.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/endpoints/create"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Gateway Endpoint"
+    };
+  }
+
+  // Get endpoint details including all model configurations
+  rpc getGatewayEndpoint(GetGatewayEndpoint) returns (GetGatewayEndpoint.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/endpoints/get"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Gateway Endpoint"
+    };
+  }
+
+  // Update an endpoint's name
+  rpc updateGatewayEndpoint(UpdateGatewayEndpoint) returns (UpdateGatewayEndpoint.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/endpoints/update"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update Gateway Endpoint"
+    };
+  }
+
+  // Delete an endpoint and all its model configurations
+  rpc deleteGatewayEndpoint(DeleteGatewayEndpoint) returns (DeleteGatewayEndpoint.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/gateway/endpoints/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Gateway Endpoint"
+    };
+  }
+
+  // List endpoints with optional filtering by provider or secret
+  rpc listGatewayEndpoints(ListGatewayEndpoints) returns (ListGatewayEndpoints.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/endpoints/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Gateway Endpoints"
+    };
+  }
+
+  // ========== Model Definitions Management APIs ==========
+
+  // Create a reusable model definition
+  rpc createGatewayModelDefinition(CreateGatewayModelDefinition) returns (CreateGatewayModelDefinition.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/model-definitions/create"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Gateway Model Definition"
+    };
+  }
+
+  // Get a model definition by ID
+  rpc getGatewayModelDefinition(GetGatewayModelDefinition) returns (GetGatewayModelDefinition.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/model-definitions/get"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Gateway Model Definition"
+    };
+  }
+
+  // List all model definitions with optional filters
+  rpc listGatewayModelDefinitions(ListGatewayModelDefinitions) returns (ListGatewayModelDefinitions.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/model-definitions/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Gateway Model Definitions"
+    };
+  }
+
+  // Update a model definition
+  rpc updateGatewayModelDefinition(UpdateGatewayModelDefinition) returns (UpdateGatewayModelDefinition.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/model-definitions/update"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update Gateway Model Definition"
+    };
+  }
+
+  // Delete a model definition (fails if in use by any endpoint)
+  rpc deleteGatewayModelDefinition(DeleteGatewayModelDefinition) returns (DeleteGatewayModelDefinition.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/gateway/model-definitions/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Gateway Model Definition"
+    };
+  }
+
+  // ========== Endpoint Model Mappings Management APIs ==========
+
+  // Attach an existing model definition to an endpoint
+  rpc attachModelToEndpoint(AttachModelToGatewayEndpoint) returns (AttachModelToGatewayEndpoint.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/endpoints/models/attach"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Attach Model to Endpoint"
+    };
+  }
+
+  // Detach a model definition from an endpoint (does not delete the model definition)
+  rpc detachModelFromEndpoint(DetachModelFromGatewayEndpoint) returns (DetachModelFromGatewayEndpoint.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/endpoints/models/detach"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Detach Model from Endpoint"
+    };
+  }
+
+  // ========== Endpoint Bindings Management APIs ==========
+
+  // Create a binding between an endpoint and an MLflow resource
+  rpc createEndpointBinding(CreateGatewayEndpointBinding) returns (CreateGatewayEndpointBinding.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/endpoints/bindings/create"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Endpoint Binding"
+    };
+  }
+
+  // Delete a binding between an endpoint and a resource
+  rpc deleteEndpointBinding(DeleteGatewayEndpointBinding) returns (DeleteGatewayEndpointBinding.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/gateway/endpoints/bindings/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Endpoint Binding"
+    };
+  }
+
+  // List all bindings for an endpoint
+  rpc listEndpointBindings(ListGatewayEndpointBindings) returns (ListGatewayEndpointBindings.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/endpoints/bindings/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Endpoint Bindings"
+    };
+  }
+
+  // Set a tag on an endpoint
+  rpc setGatewayEndpointTag(SetGatewayEndpointTag) returns (SetGatewayEndpointTag.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/endpoints/set-tag"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Gateway Set Endpoint Tag"
+    };
+  }
+
+  // Delete a tag from an endpoint
+  rpc deleteGatewayEndpointTag(DeleteGatewayEndpointTag) returns (DeleteGatewayEndpointTag.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/gateway/endpoints/delete-tag"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Gateway Delete Endpoint Tag"
     };
   }
 }
@@ -1269,8 +2135,6 @@ message RunTag {
   // The tag value.
   optional string value = 2;
 }
-
-
 
 // Tag for an experiment.
 message ExperimentTag {
@@ -1497,8 +2361,7 @@ message DeleteExperiment {
   // ID of the associated experiment.
   optional string experiment_id = 1 [(validate_required) = true];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message RestoreExperiment {
@@ -1507,8 +2370,7 @@ message RestoreExperiment {
   // ID of the associated experiment.
   optional string experiment_id = 1 [(validate_required) = true];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message UpdateExperiment {
@@ -1520,8 +2382,7 @@ message UpdateExperiment {
   // If provided, the experiment's name is changed to the new name. The new name must be unique.
   optional string new_name = 2;
 
-  message Response {
-  }
+  message Response {}
 }
 
 message CreateRun {
@@ -1593,7 +2454,6 @@ message RestoreRun {
   message Response {}
 }
 
-
 message LogMetric {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -1647,8 +2507,7 @@ message LogParam {
   // String value of the param being logged. Maximum size is 6000 bytes.
   optional string value = 3 [(validate_required) = true];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message SetExperimentTag {
@@ -1665,8 +2524,7 @@ message SetExperimentTag {
   // All storage backends are guaranteed to support key values up to 5000 bytes in size.
   optional string value = 3 [(validate_required) = true];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message DeleteExperimentTag {
@@ -1678,8 +2536,7 @@ message DeleteExperimentTag {
   // Name of the tag. Maximum size is 255 bytes. Must be provided.
   optional string key = 2 [(validate_required) = true];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message SetTag {
@@ -1700,8 +2557,7 @@ message SetTag {
   // All storage backends are guaranteed to support key values up to 5000 bytes in size.
   optional string value = 3 [(validate_required) = true];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message DeleteTag {
@@ -1713,8 +2569,7 @@ message DeleteTag {
   // Name of the tag. Maximum size is 255 bytes. Must be provided.
   optional string key = 2 [(validate_required) = true];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message GetRun {
@@ -1889,7 +2744,6 @@ message GetMetricHistoryBulkInterval {
   optional int32 max_results = 5;
 
   message Response {
-
     // List of metrics representing history of values and metadata.
     repeated MetricWithRunId metrics = 1;
   }
@@ -1908,8 +2762,7 @@ message LogBatch {
   // Tags to log. A single request can contain up to 100 tags, and up to 1000
   // metrics, params, and tags in total.
   repeated RunTag tags = 4;
-  message Response {
-  }
+  message Response {}
 }
 
 message LogModel {
@@ -1920,8 +2773,7 @@ message LogModel {
   // MLmodel file in json format.
   optional string model_json = 2;
 
-  message Response {
-  }
+  message Response {}
 }
 
 message LogInputs {
@@ -1936,8 +2788,7 @@ message LogInputs {
   // (Currently undocumented for LoggedModels private preview)
   repeated ModelInput models = 3 [(visibility) = PUBLIC_UNDOCUMENTED];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message LogOutputs {
@@ -1949,8 +2800,7 @@ message LogOutputs {
   // Model outputs from the Run.
   repeated ModelOutput models = 2;
 
-  message Response {
-  }
+  message Response {}
 }
 
 message GetExperimentByName {
@@ -1969,7 +2819,7 @@ message CreateAssessment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // The assessment to create.
-  optional assessments.Assessment assessment = 1 [(validate_required) = true];;
+  optional assessments.Assessment assessment = 1 [(validate_required) = true];
 
   message Response {
     // The created assessment.
@@ -2018,7 +2868,6 @@ message GetAssessmentRequest {
   }
 }
 
-
 // TraceInfo. Represents metadata of a trace.
 message TraceInfo {
   // Unique identifier for the trace.
@@ -2043,7 +2892,7 @@ message TraceInfo {
   repeated TraceTag tags = 7;
 }
 
-message TraceRequestMetadata{
+message TraceRequestMetadata {
   // Key identifying this metadata.
   optional string key = 1;
 
@@ -2149,6 +2998,21 @@ message BatchGetTraces {
   message Response {
     // The fetched trace information.
     repeated Trace traces = 1;
+  }
+}
+
+message GetTrace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace to fetch. Must be provided.
+  optional string trace_id = 1 [(validate_required) = true];
+
+  // Whether to allow partial traces. Default to False.
+  optional bool allow_partial = 2 [default = false];
+
+  message Response {
+    // The fetched trace including spans.
+    optional Trace trace = 1;
   }
 }
 
@@ -2314,6 +3178,111 @@ message CalculateTraceFilterCorrelation {
   }
 }
 
+// View type for metrics aggregation.
+enum MetricViewType {
+  // Aggregate at trace level.
+  TRACES = 1;
+  // Aggregate at span level.
+  SPANS = 2;
+  // Aggregate at assessment level.
+  ASSESSMENTS = 3;
+}
+
+// Aggregation type for metrics.
+enum AggregationType {
+  // Count of entities.
+  COUNT = 1;
+  // Sum of values.
+  SUM = 2;
+  // Average of values.
+  AVG = 3;
+  // Percentile aggregation (requires percentile_value parameter).
+  PERCENTILE = 4;
+  // Minimum value.
+  MIN = 5;
+  // Maximum value.
+  MAX = 6;
+}
+
+message MetricAggregation {
+  // The type of aggregation to perform.
+  optional AggregationType aggregation_type = 1;
+
+  // The percentile value to compute (0-100), required when aggregation_type is PERCENTILE.
+  // Examples: 50 (median), 75, 90, 95, 99.
+  // This field is ignored for other aggregation types.
+  optional double percentile_value = 2;
+}
+
+// Query aggregated metrics for traces, spans, or assessments.
+message QueryTraceMetrics {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Required: The experiment IDs to search traces.
+  repeated string experiment_ids = 1;
+
+  // Required: The level at which to aggregate metrics.
+  optional MetricViewType view_type = 2;
+
+  // Required: The name of the metric to query (e.g. "latency").
+  optional string metric_name = 3;
+
+  // Required: The aggregations to apply.
+  repeated MetricAggregation aggregations = 4;
+
+  // Optional: Dimensions to group metrics by. (e.g. "name", "status")
+  repeated string dimensions = 5;
+
+  // Optional: Filter expressions to apply. (e.g. `trace.status="OK"`)
+  repeated string filters = 6;
+
+  // Optional: Time interval for grouping in seconds.
+  // When set, results automatically include a time dimension grouped by
+  // the specified interval.
+  // Examples: 60 (minute), 3600 (hour), 86400 (day), 604800 (week), 2592000 (month).
+  optional int64 time_interval_seconds = 7;
+
+  // Optional: Start of time range in milliseconds since epoch.
+  // Required if time_interval_seconds is set.
+  optional int64 start_time_ms = 8;
+
+  // Optional: End of time range in milliseconds since epoch.
+  // Required if time_interval_seconds is set.
+  optional int64 end_time_ms = 9;
+
+  // Optional: Maximum number of data points to return.
+  // Default: 1000
+  optional int32 max_results = 10 [default = 1000];
+
+  // Optional: Pagination token for fetching the next page of results.
+  optional string page_token = 11;
+
+  message Response {
+    // Data points grouped by dimensions.
+    repeated MetricDataPoint data_points = 1;
+
+    // Pagination token for fetching the next page.
+    // Empty if no more results are available.
+    optional string next_page_token = 2;
+  }
+}
+
+// A single data point with dimension values and metric values.
+message MetricDataPoint {
+  // Metric name, e.g. "latency"
+  optional string metric_name = 1;
+
+  // Dimension values for this data point
+  // Keys correspond to dimensions
+  // e.g., {"status": "OK"}
+  map<string, string> dimensions = 2;
+
+  // Metric values for this data point
+  // Keys are aggregation types
+  // e.g., {"AVG": 150, "P99": 234.5}
+  map<string, double> values = 3;
+}
+
 message SetTraceTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -2328,8 +3297,7 @@ message SetTraceTag {
   // All storage backends are guaranteed to support key values up to 250 bytes in size.
   optional string value = 3;
 
-  message Response {
-  }
+  message Response {}
 }
 
 message SetTraceTagV3 {
@@ -2346,31 +3314,14 @@ message SetTraceTagV3 {
   // All storage backends are guaranteed to support key values up to 250 bytes in size.
   optional string value = 3;
 
-  message Response {
-  }
+  message Response {}
 
   // request_id has been retired
-  reserved 1;reserved "request_id";
+  reserved 1;
+  reserved "request_id";
 }
-
 
 message DeleteTraceTag {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
-  // ID of the trace from which to delete the tag.
-  optional string trace_id = 3;
-
-  // Name of the tag to delete.
-  optional string key = 2;
-
-  message Response {
-  }
-
-  // request_id has been retired
-  reserved 1;reserved "request_id";
-}
-
-message DeleteTraceTagV3 {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the trace from which to delete the tag.
@@ -2379,8 +3330,23 @@ message DeleteTraceTagV3 {
   // Name of the tag to delete.
   optional string key = 2;
 
-  message Response {
-  }
+  message Response {}
+}
+
+message DeleteTraceTagV3 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace from which to delete the tag.
+  optional string trace_id = 3;
+
+  // Name of the tag to delete.
+  optional string key = 2;
+
+  message Response {}
+
+  // request_id has been retired
+  reserved 1;
+  reserved "request_id";
 }
 
 message Trace {
@@ -2388,10 +3354,8 @@ message Trace {
   repeated opentelemetry.proto.trace.v1.Span spans = 2;
 }
 
-
 // The location where the traces was stored and produced
 message TraceLocation {
-
   enum TraceLocationType {
     TRACE_LOCATION_TYPE_UNSPECIFIED = 0;
     MLFLOW_EXPERIMENT = 1;
@@ -2483,7 +3447,6 @@ message TraceInfoV3 {
   map<string, string> tags = 11;
 }
 
-
 message StartTraceV3 {
   // The information for the trace being created.
   optional Trace trace = 1 [(validate_required) = true];
@@ -2494,7 +3457,6 @@ message StartTraceV3 {
   }
 }
 
-
 message LinkTracesToRun {
   // IDs of the traces to link to the run.
   // The maximum number of trace IDs that can be linked in a single request is 100.
@@ -2502,6 +3464,21 @@ message LinkTracesToRun {
 
   // ID of the run to link the traces to.
   optional string run_id = 2 [(validate_required) = true];
+
+  message Response {}
+}
+
+message LinkPromptsToTrace {
+  // ID of the trace to link prompt versions to.
+  optional string trace_id = 1 [(validate_required) = true];
+
+  // Prompt version references to link to the trace.
+  // Each reference contains the prompt name and version.
+  message PromptVersionRef {
+    optional string name = 1 [(validate_required) = true];
+    optional string version = 2 [(validate_required) = true];
+  }
+  repeated PromptVersionRef prompt_versions = 2;
 
   message Response {}
 }
@@ -2635,22 +3612,22 @@ message SearchLoggedModels {
   optional string page_token = 5;
 
   message OrderBy {
-      // Name of the field to order by, e.g. "metrics.accuracy".
-      optional string field_name = 1 [(validate_required) = true];
+    // Name of the field to order by, e.g. "metrics.accuracy".
+    optional string field_name = 1 [(validate_required) = true];
 
-      // Whether the order is ascending or not.
-      optional bool ascending = 2 [default = true];
+    // Whether the order is ascending or not.
+    optional bool ascending = 2 [default = true];
 
-      // If ``field_name`` refers to a metric, this field specifies the name of the dataset
-      // associated with the metric. Only metrics associated with the specified dataset name will be
-      // considered for ordering. This field may only be set if ``field_name`` refers to a metric.
-      optional string dataset_name = 3;
+    // If ``field_name`` refers to a metric, this field specifies the name of the dataset
+    // associated with the metric. Only metrics associated with the specified dataset name will be
+    // considered for ordering. This field may only be set if ``field_name`` refers to a metric.
+    optional string dataset_name = 3;
 
-      // If ``field_name`` refers to a metric, this field specifies the digest of the dataset
-      // associated with the metric. Only metrics associated with the specified dataset name
-      // and digest will be considered for ordering. This field may only be set if ``dataset_name``
-      // is also set.
-      optional string dataset_digest = 4;
+    // If ``field_name`` refers to a metric, this field specifies the digest of the dataset
+    // associated with the metric. Only metrics associated with the specified dataset name
+    // and digest will be considered for ordering. This field may only be set if ``dataset_name``
+    // is also set.
+    optional string dataset_digest = 4;
   }
 
   message Response {
@@ -2686,8 +3663,7 @@ message DeleteLoggedModelTag {
   // The tag key.
   optional string tag_key = 2 [(validate_required) = true];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message ListLoggedModelArtifacts {
@@ -2723,8 +3699,7 @@ message LogLoggedModelParamsRequest {
   // Parameters attached to the model.
   repeated LoggedModelParameter params = 2;
 
-  message Response {
-  }
+  message Response {}
 }
 
 // A LoggedModel message includes logged model attributes,
@@ -2855,31 +3830,31 @@ message SearchTracesV3 {
 
 message CreateDataset {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  
+
   // Dataset name
   optional string name = 1 [(validate_required) = true];
-  
+
   // Associated experiment IDs. If not provided, defaults to the current active experiment.
   repeated string experiment_ids = 2;
-  
+
   // Source type
   optional datasets.DatasetRecordSource.SourceType source_type = 3;
-  
+
   // Source information
   optional string source = 4;
-  
+
   // Schema information (JSON)
   optional string schema = 5;
-  
+
   // Profile information (JSON)
   optional string profile = 6;
-  
+
   // User creating the dataset
   optional string created_by = 7;
-  
+
   // Tags to set on the dataset (JSON string mapping keys to values)
   optional string tags = 8;
-  
+
   message Response {
     // The created dataset
     optional datasets.Dataset dataset = 1;
@@ -2888,17 +3863,17 @@ message CreateDataset {
 
 message GetDataset {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  
+
   // Dataset ID
   optional string dataset_id = 1 [(validate_required) = true];
-  
+
   // Optional page token for paginating records
   optional string page_token = 2;
-  
+
   message Response {
     // The dataset (without records for lazy loading)
     optional datasets.Dataset dataset = 1;
-    
+
     // Next page token if more records exist
     optional string next_page_token = 2;
   }
@@ -2906,10 +3881,10 @@ message GetDataset {
 
 message DeleteDataset {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  
+
   // Dataset ID to delete
   optional string dataset_id = 1 [(validate_required) = true];
-  
+
   message Response {
     // Empty response
   }
@@ -2917,41 +3892,40 @@ message DeleteDataset {
 
 message SearchEvaluationDatasets {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  
+
   // Associated experiment IDs to filter by
   repeated string experiment_ids = 1;
-  
+
   // Filter string for dataset names
   optional string filter_string = 2;
-  
+
   // Maximum number of results
   optional int32 max_results = 3 [default = 1000];
-  
+
   // Ordering criteria
   repeated string order_by = 4;
-  
+
   // Page token for pagination
   optional string page_token = 5;
-  
+
   message Response {
     // List of datasets (metadata only)
     repeated datasets.Dataset datasets = 1;
-    
+
     // Next page token if more results exist
     optional string next_page_token = 2;
   }
 }
 
-
 message SetDatasetTags {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  
+
   // Dataset ID to update tags for
   optional string dataset_id = 1 [(validate_required) = true];
-  
+
   // Tags to update (JSON string).
   optional string tags = 2 [(validate_required) = true];
-  
+
   message Response {
     // The updated dataset
     optional datasets.Dataset dataset = 1;
@@ -2960,33 +3934,32 @@ message SetDatasetTags {
 
 message DeleteDatasetTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  
+
   // Dataset ID to delete tag from
   optional string dataset_id = 1 [(validate_required) = true];
-  
+
   // Tag key to delete
   optional string key = 2 [(validate_required) = true];
-  
-  message Response {
-  }
+
+  message Response {}
 }
 
 message UpsertDatasetRecords {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  
+
   // Dataset ID to upsert records for
   optional string dataset_id = 1 [(validate_required) = true];
-  
+
   // Records to upsert (JSON serialized list of record dictionaries)
   optional string records = 2 [(validate_required) = true];
-  
+
   // User performing the update
   optional string updated_by = 3;
-  
+
   message Response {
     // Number of records inserted
     optional int32 inserted_count = 1;
-    
+
     // Number of records updated
     optional int32 updated_count = 2;
   }
@@ -2994,10 +3967,10 @@ message UpsertDatasetRecords {
 
 message GetDatasetExperimentIds {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  
+
   // Dataset ID to get experiment IDs for
   optional string dataset_id = 1 [(validate_required) = true];
-  
+
   message Response {
     // List of experiment IDs associated with the dataset
     repeated string experiment_ids = 1;
@@ -3006,20 +3979,20 @@ message GetDatasetExperimentIds {
 
 message GetDatasetRecords {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  
+
   // Dataset ID to get records for
   optional string dataset_id = 1 [(validate_required) = true];
-  
+
   // Optional pagination - maximum number of records to return
   optional int32 max_results = 2 [default = 1000];
-  
+
   // Optional pagination token for getting next page
   optional string page_token = 3;
-  
+
   message Response {
     // Records in the dataset (JSON serialized list)
     optional string records = 1;
-    
+
     // Pagination token for next page (if more records exist)
     optional string next_page_token = 2;
   }
@@ -3027,31 +4000,31 @@ message GetDatasetRecords {
 
 message AddDatasetToExperiments {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  
+
   // Dataset ID to add to experiments
   optional string dataset_id = 1 [(validate_required) = true];
-  
+
   // Experiment IDs to associate with the dataset
   repeated string experiment_ids = 2;
-  
+
   message Response {
     // The updated dataset with new experiment associations
-    optional Dataset dataset = 1;
+    optional datasets.Dataset dataset = 1;
   }
 }
 
 message RemoveDatasetFromExperiments {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  
+
   // Dataset ID to remove from experiments
   optional string dataset_id = 1 [(validate_required) = true];
-  
+
   // Experiment IDs to disassociate from the dataset
   repeated string experiment_ids = 2;
-  
+
   message Response {
     // The updated dataset after removing experiment associations
-    optional Dataset dataset = 1;
+    optional datasets.Dataset dataset = 1;
   }
 }
 
@@ -3161,4 +4134,478 @@ message Scorer {
   optional int64 creation_time = 5;
   // The unique identifier for the scorer.
   optional string scorer_id = 6;
+}
+
+// ========== Gateway Secrets and Endpoints Entities ==========
+
+// Secret metadata entity (does not include the decrypted secret value)
+message GatewaySecretInfo {
+  // Unique identifier for the secret (UUID)
+  optional string secret_id = 1;
+  // User-friendly name for the secret (must be unique)
+  optional string secret_name = 2;
+  // Masked version of the secret values for display as key-value pairs.
+  // For simple API keys: {"api_key": "sk-...xyz123"}
+  // For compound credentials: ``{"aws_access_key_id": "AKI...1234", "aws_secret_access_key": "***"}``
+  map<string, string> masked_values = 3;
+  // Timestamp (milliseconds since epoch) when the secret was created
+  optional int64 created_at = 4;
+  // Timestamp (milliseconds since epoch) when the secret was last updated
+  optional int64 last_updated_at = 5;
+  // LLM provider identifier (e.g., "openai", "anthropic", "cohere")
+  optional string provider = 6;
+  // User ID who created the secret
+  optional string created_by = 7;
+  // User ID who last updated the secret
+  optional string last_updated_by = 8;
+  // Provider-specific auth configuration (e.g., auth_mode, region, project_id)
+  map<string, string> auth_config = 9;
+}
+
+// Reusable model definition that can be shared across endpoints
+message GatewayModelDefinition {
+  // Unique identifier for this model definition
+  optional string model_definition_id = 1;
+  // User-friendly name for identification and reuse
+  optional string name = 2;
+  // ID of the secret containing authentication credentials
+  optional string secret_id = 3;
+  // Name of the secret for display purposes
+  optional string secret_name = 4;
+  // LLM provider (e.g., "openai", "anthropic", "cohere", "bedrock")
+  optional string provider = 5;
+  // Provider-specific model identifier (e.g., "gpt-4o", "claude-3-5-sonnet")
+  optional string model_name = 6;
+  // Timestamp (milliseconds since epoch) when the model definition was created
+  optional int64 created_at = 7;
+  // Timestamp (milliseconds since epoch) when the model definition was last updated
+  optional int64 last_updated_at = 8;
+  // User ID who created the model definition
+  optional string created_by = 9;
+  // User ID who last updated the model definition
+  optional string last_updated_by = 10;
+  // Field 11 reserved - endpoint_count removed (compute client-side from mappings)
+}
+
+// Mapping between an endpoint and a model definition
+message GatewayEndpointModelMapping {
+  // Unique identifier for this mapping
+  optional string mapping_id = 1;
+  // ID of the endpoint
+  optional string endpoint_id = 2;
+  // ID of the model definition
+  optional string model_definition_id = 3;
+  // The full model definition (populated via JOIN)
+  optional GatewayModelDefinition model_definition = 4;
+  // Routing weight for traffic distribution
+  optional float weight = 5;
+  // Timestamp (milliseconds since epoch) when the mapping was created
+  optional int64 created_at = 6;
+  // User ID who created the mapping
+  optional string created_by = 7;
+  // Type of linkage (PRIMARY, FALLBACK)
+  optional GatewayModelLinkageType linkage_type = 8;
+  // Order for fallback attempts (only for FALLBACK linkages, NULL for PRIMARY)
+  optional int32 fallback_order = 9;
+}
+
+// Endpoint entity representing an LLM gateway endpoint
+message GatewayEndpoint {
+  // Unique identifier for the endpoint
+  optional string endpoint_id = 1;
+  // User-friendly name for the endpoint
+  optional string name = 2;
+  // Timestamp (milliseconds since epoch) when the endpoint was created
+  optional int64 created_at = 3;
+  // Timestamp (milliseconds since epoch) when the endpoint was last updated
+  optional int64 last_updated_at = 4;
+  // List of model mappings bound to this endpoint
+  repeated GatewayEndpointModelMapping model_mappings = 5;
+  // User ID who created the endpoint
+  optional string created_by = 6;
+  // User ID who last updated the endpoint
+  optional string last_updated_by = 7;
+  // Tags associated with the endpoint
+  repeated GatewayEndpointTag tags = 8;
+  // Routing strategy for the endpoint
+  optional RoutingStrategy routing_strategy = 9;
+  // Fallback configuration (populated if routing_strategy is FALLBACK)
+  optional FallbackConfig fallback_config = 10;
+}
+
+// Tag associated with an endpoint
+message GatewayEndpointTag {
+  // Tag key
+  optional string key = 1;
+  // Tag value
+  optional string value = 2;
+}
+
+// Binding between an endpoint and an MLflow resource.
+// Uses composite key (endpoint_id, resource_type, resource_id) for identification.
+message GatewayEndpointBinding {
+  // ID of the endpoint this binding references
+  optional string endpoint_id = 1;
+  // Type of MLflow resource (e.g., "scorer_job")
+  optional string resource_type = 2;
+  // ID of the specific resource instance
+  optional string resource_id = 3;
+  // Timestamp (milliseconds since epoch) when the binding was created
+  optional int64 created_at = 4;
+  // Timestamp (milliseconds since epoch) when the binding was last updated
+  optional int64 last_updated_at = 5;
+  // User ID who created the binding
+  optional string created_by = 6;
+  // User ID who last updated the binding
+  optional string last_updated_by = 7;
+  // Fields 8-9 reserved - endpoint_name and model_mappings removed (join client-side)
+}
+
+// ========== Secrets API Messages ==========
+
+message CreateGatewaySecret {
+  // User-friendly name for the secret (must be unique)
+  optional string secret_name = 1;
+  // The secret value(s) to encrypt as key-value pairs.
+  // For simple API keys: {"api_key": "sk-xxx"}
+  // For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}
+  map<string, string> secret_value = 2;
+  // Optional LLM provider (e.g., "openai", "anthropic")
+  optional string provider = 3;
+  // Reserved: credential_name was removed - auth_mode is now stored in auth_config
+  reserved 4;
+  reserved "credential_name";
+  // Optional provider-specific auth configuration.
+  // For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
+  map<string, string> auth_config = 5;
+  // Username of the creator
+  optional string created_by = 6;
+
+  message Response {
+    // The created secret metadata (does not include encrypted value)
+    optional GatewaySecretInfo secret = 1;
+  }
+}
+
+message GetGatewaySecretInfo {
+  // Either secret_id or secret_name must be provided
+  optional string secret_id = 1;
+  optional string secret_name = 2;
+
+  message Response {
+    // Secret metadata (does not include encrypted value)
+    optional GatewaySecretInfo secret = 1;
+  }
+}
+
+message UpdateGatewaySecret {
+  // ID of the secret to update
+  optional string secret_id = 1;
+  // Optional new secret value(s) for key rotation as key-value pairs (empty map = no change).
+  // For simple API keys: {"api_key": "sk-xxx"}
+  // For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}
+  map<string, string> secret_value = 2;
+  // Reserved: credential_name was removed - auth_mode is now stored in auth_config
+  reserved 3;
+  reserved "credential_name";
+  // Optional new auth configuration.
+  // For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
+  map<string, string> auth_config = 4;
+  // Username of the updater
+  optional string updated_by = 5;
+
+  message Response {
+    // The updated secret metadata
+    optional GatewaySecretInfo secret = 1;
+  }
+}
+
+message DeleteGatewaySecret {
+  // ID of the secret to delete
+  optional string secret_id = 1;
+
+  message Response {}
+}
+
+message ListGatewaySecretInfos {
+  // Optional filter by provider (e.g., "openai", "anthropic")
+  optional string provider = 1;
+
+  message Response {
+    // List of secret metadata (does not include encrypted values)
+    repeated GatewaySecretInfo secrets = 1;
+  }
+}
+
+// ========== Model Definitions API Messages ==========
+
+message CreateGatewayModelDefinition {
+  // User-friendly name for the model definition (must be unique)
+  optional string name = 1;
+  // ID of the secret containing authentication credentials
+  optional string secret_id = 2;
+  // LLM provider (e.g., "openai", "anthropic")
+  optional string provider = 3;
+  // Provider-specific model identifier (e.g., "gpt-4o", "claude-3-5-sonnet")
+  optional string model_name = 4;
+  // Username of the creator
+  optional string created_by = 5;
+
+  message Response {
+    // The created model definition
+    optional GatewayModelDefinition model_definition = 1;
+  }
+}
+
+message GetGatewayModelDefinition {
+  // ID of the model definition to retrieve
+  optional string model_definition_id = 1;
+
+  message Response {
+    // The model definition
+    optional GatewayModelDefinition model_definition = 1;
+  }
+}
+
+message ListGatewayModelDefinitions {
+  // Optional filter by provider
+  optional string provider = 1;
+  // Optional filter by secret ID
+  optional string secret_id = 2;
+
+  message Response {
+    // List of model definitions
+    repeated GatewayModelDefinition model_definitions = 1;
+  }
+}
+
+message UpdateGatewayModelDefinition {
+  // ID of the model definition to update
+  optional string model_definition_id = 1;
+  // Optional new name
+  optional string name = 2;
+  // Optional new secret ID
+  optional string secret_id = 3;
+  // Optional new model name
+  optional string model_name = 4;
+  // Username of the updater
+  optional string updated_by = 5;
+  // Optional new provider
+  optional string provider = 6;
+
+  message Response {
+    // The updated model definition
+    optional GatewayModelDefinition model_definition = 1;
+  }
+}
+
+message DeleteGatewayModelDefinition {
+  // ID of the model definition to delete (fails if in use by any endpoint)
+  optional string model_definition_id = 1;
+
+  message Response {}
+}
+
+// ========== Endpoints API Messages ==========
+
+// Routing strategy for endpoints
+enum RoutingStrategy {
+  ROUTING_STRATEGY_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  // Request-based traffic split: distributes traffic based on weights
+  REQUEST_BASED_TRAFFIC_SPLIT = 1;
+}
+
+// Fallback strategy for routing (future-proof for additional strategies)
+enum FallbackStrategy {
+  FALLBACK_STRATEGY_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  // Sequential fallback: tries models in the order specified
+  SEQUENTIAL = 1;
+}
+
+// Type of linkage between endpoint and model definition
+enum GatewayModelLinkageType {
+  LINKAGE_TYPE_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  // Primary linkage: used for routing traffic
+  PRIMARY = 1;
+  // Fallback linkage: used for failover
+  FALLBACK = 2;
+}
+
+// Configuration for fallback routing
+message FallbackConfig {
+  // The fallback strategy.
+  optional FallbackStrategy strategy = 1;
+  // The max attempts for fallback routing (cannot exceed number of destinations).
+  optional int32 max_attempts = 2;
+}
+
+message CreateGatewayEndpoint {
+  // Optional user-friendly name for the endpoint
+  optional string name = 1;
+  // List of PRIMARY model definition IDs to attach to this endpoint
+  repeated string model_definition_ids = 2;
+  // Username of the creator
+  optional string created_by = 3;
+  // Optional routing strategy for the endpoint
+  optional RoutingStrategy routing_strategy = 4;
+  // Optional fallback configuration (includes strategy, max_attempts)
+  optional FallbackConfig fallback_config = 5;
+  // Optional ordered list of FALLBACK model definition IDs (order determines fallback_order)
+  repeated string fallback_model_definition_ids = 6;
+
+  message Response {
+    // The created endpoint with all model mappings
+    optional GatewayEndpoint endpoint = 1;
+  }
+}
+
+message GetGatewayEndpoint {
+  // Either endpoint_id or name must be provided
+  optional string endpoint_id = 1;
+  optional string name = 2;
+
+  message Response {
+    // The endpoint with all model configurations
+    optional GatewayEndpoint endpoint = 1;
+  }
+}
+
+message UpdateGatewayEndpoint {
+  // ID of the endpoint to update
+  optional string endpoint_id = 1;
+  // Optional new name for the endpoint
+  optional string name = 2;
+  // Username of the updater
+  optional string updated_by = 3;
+  // Optional new list of PRIMARY model definition IDs (replaces existing PRIMARY linkages)
+  repeated string model_definition_ids = 4;
+  // Optional new routing strategy for the endpoint
+  optional RoutingStrategy routing_strategy = 5;
+  // Optional fallback configuration (includes strategy, max_attempts)
+  optional FallbackConfig fallback_config = 6;
+  // Optional ordered list of FALLBACK model definition IDs (order determines fallback_order)
+  repeated string fallback_model_definition_ids = 7;
+
+  message Response {
+    // The updated endpoint
+    optional GatewayEndpoint endpoint = 1;
+  }
+}
+
+message DeleteGatewayEndpoint {
+  // ID of the endpoint to delete
+  optional string endpoint_id = 1;
+
+  message Response {}
+}
+
+message ListGatewayEndpoints {
+  // Optional filter by provider
+  optional string provider = 1;
+  // Optional filter by secret ID
+  optional string secret_id = 2;
+
+  message Response {
+    // List of endpoints with their model configurations
+    repeated GatewayEndpoint endpoints = 1;
+  }
+}
+
+// ========== Endpoint Model Mappings API Messages ==========
+
+message AttachModelToGatewayEndpoint {
+  // ID of the endpoint to attach the model to
+  optional string endpoint_id = 1;
+  // ID of the model definition to attach
+  optional string model_definition_id = 2;
+  // Optional routing weight (default 1)
+  optional float weight = 3;
+  // Username of the creator
+  optional string created_by = 4;
+
+  message Response {
+    // The created mapping
+    optional GatewayEndpointModelMapping mapping = 1;
+  }
+}
+
+message DetachModelFromGatewayEndpoint {
+  // ID of the endpoint
+  optional string endpoint_id = 1;
+  // ID of the model definition to detach
+  optional string model_definition_id = 2;
+
+  message Response {}
+}
+
+// ========== Endpoint Bindings API Messages ==========
+
+message CreateGatewayEndpointBinding {
+  // ID of the endpoint to bind
+  optional string endpoint_id = 1;
+  // Type of MLflow resource
+  optional string resource_type = 2;
+  // ID of the resource instance
+  optional string resource_id = 3;
+  // Username of the creator
+  optional string created_by = 4;
+
+  message Response {
+    // The created binding
+    optional GatewayEndpointBinding binding = 1;
+  }
+}
+
+message DeleteGatewayEndpointBinding {
+  // ID of the endpoint
+  optional string endpoint_id = 1;
+  // Type of resource bound to the endpoint
+  optional string resource_type = 2;
+  // ID of the resource
+  optional string resource_id = 3;
+
+  message Response {}
+}
+
+message ListGatewayEndpointBindings {
+  // ID of the endpoint to list bindings for
+  optional string endpoint_id = 1;
+  // Type of resource to filter bindings by (e.g., "scorer_job")
+  optional string resource_type = 2;
+  // ID of the resource to filter bindings by
+  optional string resource_id = 3;
+
+  message Response {
+    // List of bindings for the endpoint
+    repeated GatewayEndpointBinding bindings = 1;
+  }
+}
+
+message SetGatewayEndpointTag {
+  // ID of the endpoint to set tag on
+  optional string endpoint_id = 1;
+  // Tag key to set
+  optional string key = 2;
+  // Tag value to set
+  optional string value = 3;
+
+  message Response {}
+}
+
+message DeleteGatewayEndpointTag {
+  // ID of the endpoint to delete tag from
+  optional string endpoint_id = 1;
+  // Tag key to delete
+  optional string key = 2;
+
+  message Response {}
+}
+
+// ========== Secrets Configuration API Messages ==========
+
+message GetSecretsConfig {
+  message Response {
+    // Whether the server is configured to handle secrets (encryption available)
+    optional bool secrets_available = 1;
+  }
 }

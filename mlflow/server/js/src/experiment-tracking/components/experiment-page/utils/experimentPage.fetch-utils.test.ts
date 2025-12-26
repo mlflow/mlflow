@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { EXPERIMENT_LOG_MODEL_HISTORY_TAG } from './experimentPage.common-utils';
 import { fetchModelVersionsForRuns } from './experimentPage.fetch-utils';
 
@@ -21,6 +22,7 @@ describe('experiment page fetch utils', () => {
     test('it correctly constructs action for fetching model versions basing on search runs API result', () => {
       const actionCreatorMock = jest.fn();
       const dispatchMock = jest.fn();
+      // @ts-expect-error Argument of type 'Mock<UnknownFunction>' is not assignable to parameter
       fetchModelVersionsForRuns(runsDataPayload, actionCreatorMock, dispatchMock);
 
       // We're chunking by 5 runs so we expect 2 calls for sum of 10 runs

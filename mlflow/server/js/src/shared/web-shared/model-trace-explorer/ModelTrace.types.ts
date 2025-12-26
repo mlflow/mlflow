@@ -6,11 +6,6 @@ export const MLFLOW_TRACE_SCHEMA_VERSION_KEY = 'mlflow.trace_schema.version';
 export const INFERENCE_TABLE_RESPONSE_COLUMN_KEY = 'response';
 export const INFERENCE_TABLE_TRACE_COLUMN_KEY = 'trace';
 
-// Commonly-used trace metadata keys
-export const MLFLOW_TRACE_SESSION_KEY = 'mlflow.trace.session';
-export const MLFLOW_TRACE_USER_KEY = 'mlflow.trace.user';
-export const MLFLOW_TRACE_TOKEN_USAGE_KEY = 'mlflow.trace.tokenUsage';
-
 export type ModelTraceExplorerRenderMode = 'default' | 'json';
 
 export enum ModelSpanType {
@@ -347,6 +342,7 @@ export type ModelTraceChatMessage = {
   content?: string | null;
   tool_calls?: ModelTraceToolCall[];
   tool_call_id?: string;
+  reasoning?: string | null;
 };
 
 // The actual chat message schema of mlflow contains string, null and content part list.
@@ -432,6 +428,10 @@ export interface ExpectationSerializedValue {
 }
 
 export type Expectation = ExpectationValue | ExpectationSerializedValue;
+
+export interface AssessmentMetadata {
+  span_name?: string;
+}
 
 // should be aligned with `mlflow/api/proto/service.proto`
 export interface AssessmentBase {

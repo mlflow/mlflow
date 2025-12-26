@@ -171,7 +171,7 @@ export const getColumnConfig = (
             isComparing,
             theme,
             col.id,
-            (cell.table.options.meta as any)?.getRunColor,
+            (cell?.table?.options?.meta as any)?.getRunColor,
           ),
       };
     case TracesTableColumnType.ASSESSMENT:
@@ -260,6 +260,7 @@ export const getColumnConfig = (
             col.id,
             comparisonEntry,
             onChangeEvaluationId,
+            intl,
             theme,
             onTraceTagsEdit,
           );

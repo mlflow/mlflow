@@ -38,6 +38,11 @@ import { isEmpty, uniqBy } from 'lodash';
 import { RunViewLoggedModelsTable } from './overview/RunViewLoggedModelsTable';
 import { DetailsPageLayout } from '../../../common/components/details-page-layout/DetailsPageLayout';
 import { useRunDetailsPageOverviewSectionsV2 } from './hooks/useRunDetailsPageOverviewSectionsV2';
+import { RunViewDetailsMetadataBox } from './overview/RunViewDetailsMetadataBox';
+import {
+  shouldEnableRunDetailsMetadataBoxOnRunDetailsPage,
+  shouldEnableArtifactsOnRunDetailsPage,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 const EmptyValue = () => <Typography.Hint>—</Typography.Hint>;
 
@@ -103,6 +108,8 @@ export const RunViewOverview = ({
     (model) => model?.link,
   );
 
+  const shouldEnableRunDetailsMetadataBox = shouldEnableRunDetailsMetadataBoxOnRunDetailsPage();
+
   const renderPromptMetadataRow = () => {
     return (
       <DetailsOverviewMetadataRow
@@ -118,6 +125,55 @@ export const RunViewOverview = ({
   };
 
   const renderDetails = () => {
+    if (shouldEnableRunDetailsMetadataBox) {
+      return (
+        <>
+          <div
+            css={{
+              display: 'grid',
+              gridTemplateColumns: '1fr',
+              gridTemplateRows: 'auto auto',
+              gap: theme.spacing.lg,
+              width: '100%',
+              [theme.responsive.mediaQueries.xl]: {
+                gridTemplateColumns: '1fr 1fr',
+                gridTemplateRows: '1fr',
+              },
+            }}
+          >
+            <div
+              css={{
+                width: '100%',
+                [theme.responsive.mediaQueries.xl]: {
+                  gridColumn: 1,
+                },
+              }}
+            >
+              <RunViewDetailsMetadataBox
+                runUuid={runUuid}
+                runInfo={runInfo}
+                tags={tags}
+                datasets={datasets}
+                search={search}
+                onRunDataUpdated={onRunDataUpdated}
+                registeredModelVersionSummaries={registeredModelVersionSummaries}
+              />
+            </div>
+            <div
+              css={{
+                width: '100%',
+                display: 'flex',
+              }}
+            >
+              {/* eslint-disable-next-line */}
+              {/* prettier-ignore */}
+            </div>
+          </div>
+          <Spacer size="lg" />
+        </>
+      );
+    }
+
     return (
       <DetailsOverviewMetadataTable>
         <DetailsOverviewMetadataRow
@@ -151,7 +207,7 @@ export const RunViewOverview = ({
           title={
             <FormattedMessage defaultMessage="Status" description="Run page > Overview > Run status section label" />
           }
-          value={<RunViewStatusBox status={runInfo.status} />}
+          value={<RunViewStatusBox status={runInfo.status} useSpinner />}
         />
         <DetailsOverviewMetadataRow
           title={<FormattedMessage defaultMessage="Run ID" description="Run page > Overview > Run ID section label" />}
@@ -239,9 +295,8 @@ export const RunViewOverview = ({
   };
 
   const renderParams = () => {
-    return <DetailsOverviewParamsTable params={params} />;
+    return <DetailsOverviewParamsTable params={params} expandToParentContainer />;
   };
-
   const detailsSectionsV2 = useRunDetailsPageOverviewSectionsV2({
     runUuid,
     runInfo,
@@ -260,12 +315,12 @@ export const RunViewOverview = ({
       usingSidebarLayout={usingSidebarLayout}
       secondarySections={detailsSectionsV2}
     >
-      <RunViewDescriptionBox runUuid={runUuid} tags={tags} onDescriptionChanged={onRunDataUpdated} />
+      {usingSidebarLayout && (
+        <RunViewDescriptionBox runUuid={runUuid} tags={tags} onDescriptionChanged={onRunDataUpdated} />
+      )}
       {!usingSidebarLayout && (
         <>
-          <Typography.Title level={4}>
-            <FormattedMessage defaultMessage="Details" description="Run page > Overview > Details section title" />
-          </Typography.Title>
+          {/* prettier-ignore */}
           {renderDetails()}
         </>
       )}
@@ -273,11 +328,39 @@ export const RunViewOverview = ({
         // Use different grid setup for unified details page layout
         css={[
           usingSidebarLayout ? { flexDirection: 'column' } : { minHeight: 360, maxHeight: 760 },
-          { display: 'flex', gap: theme.spacing.lg, overflow: 'hidden' },
+          {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.lg,
+            overflow: 'hidden',
+            [theme.responsive.mediaQueries.xl]: {
+              flexDirection: usingSidebarLayout ? 'column' : 'row',
+            },
+          },
         ]}
       >
-        <RunViewMetricsTable latestMetrics={latestMetrics} runInfo={runInfo} loggedModels={loggedModelsV3} />
-        {renderParams()}
+        <div
+          css={{
+            display: 'flex',
+            flex: 1,
+            width: '100%',
+          }}
+        >
+          <RunViewMetricsTable
+            latestMetrics={latestMetrics}
+            runInfo={runInfo}
+            loggedModels={loggedModelsV3}
+            expandToParentContainer
+          />
+        </div>
+        <div
+          css={{
+            display: 'flex',
+            flex: 1,
+          }}
+        >
+          {renderParams()}
+        </div>
       </div>
       {containsLoggedModelsFromInputsOutputs && (
         <>

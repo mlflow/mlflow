@@ -8,9 +8,11 @@ const SEARCH_QUERY_FILTER_DEBOUNCE_MS = 400;
 export function GenAiTracesTableSearchInput({
   searchQuery,
   setSearchQuery,
+  placeholder,
 }: {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  placeholder?: string;
 }) {
   const intl = useIntl();
 
@@ -31,10 +33,13 @@ export function GenAiTracesTableSearchInput({
   return (
     <TableFilterInput
       componentId="mlflow.evaluations_review.table_ui.filter_input"
-      placeholder={intl.formatMessage({
-        defaultMessage: 'Search traces by request',
-        description: 'Placeholder text for the search input in the trace results table',
-      })}
+      placeholder={
+        placeholder ??
+        intl.formatMessage({
+          defaultMessage: 'Search traces by request',
+          description: 'Placeholder text for the search input in the trace results table',
+        })
+      }
       value={pendingUserQuery}
       onChange={(e) => setPendingUserQuery(e.target.value)}
     />

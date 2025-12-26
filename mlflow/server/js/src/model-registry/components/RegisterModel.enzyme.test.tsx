@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallowWithInjectIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
@@ -66,7 +67,7 @@ describe('RegisterModelButton', () => {
 
   describe('source URI construction', () => {
     test('should use models:/ format for logged models with model_id', async () => {
-      const createModelVersionApi = jest.fn(() => Promise.resolve({}));
+      const createModelVersionApi = jest.fn((...params: any) => Promise.resolve({}));
       const props = {
         ...minimalProps,
         runUuid: 'test-run-uuid',
@@ -101,7 +102,7 @@ describe('RegisterModelButton', () => {
     });
 
     test('should use runs:/ format for regular artifacts with run context', async () => {
-      const createModelVersionApi = jest.fn(() => Promise.resolve({}));
+      const createModelVersionApi = jest.fn((...params: any) => Promise.resolve({}));
       const props = {
         ...minimalProps,
         runUuid: 'test-run-uuid',
@@ -135,7 +136,7 @@ describe('RegisterModelButton', () => {
     });
 
     test('should fall back to absolute modelPath when no run context', async () => {
-      const createModelVersionApi = jest.fn(() => Promise.resolve({}));
+      const createModelVersionApi = jest.fn((...params: any) => Promise.resolve({}));
       const props = {
         ...minimalProps,
         modelPath: 'file:///absolute/path/to/model',

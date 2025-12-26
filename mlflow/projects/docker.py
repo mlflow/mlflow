@@ -8,6 +8,7 @@ import urllib.parse
 import urllib.request
 
 import docker
+
 from mlflow import tracking
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import ExecutionException
@@ -113,7 +114,7 @@ def _get_docker_image_uri(repository_uri, work_dir):
             repository URI is used as the prefix of the image URI.
         work_dir: Path to the working directory in which to search for a git commit hash
     """
-    repository_uri = repository_uri if repository_uri else "docker-project"
+    repository_uri = repository_uri or "docker-project"
     # Optionally include first 7 digits of git SHA in tag name, if available.
     git_commit = get_git_commit(work_dir)
     version_string = ":" + git_commit[:7] if git_commit else ""

@@ -1,4 +1,5 @@
-import { ApolloError } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
+import type { ApolloError } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
+import { isApolloError } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 
 interface CommonGraphQLApiError {
   code: string | null;
@@ -9,7 +10,7 @@ export const getGraphQLErrorMessage = (error?: CommonGraphQLApiError | ApolloErr
   if (!error) {
     return undefined;
   }
-  if (error instanceof ApolloError) {
+  if (isApolloError(error)) {
     if (error.graphQLErrors.length > 0) {
       return error.graphQLErrors.map((e) => e.message || e.toString()).join(', ');
     }

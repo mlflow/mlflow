@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, afterEach, expect, it } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 
@@ -100,8 +101,12 @@ describe('GenAITracesTableBodyContainer - integration test', () => {
       tableSort: undefined,
       filters: [],
       setFilters: jest.fn(),
-      getTrace: jest.fn().mockResolvedValue(undefined),
-      getRunColor: jest.fn().mockReturnValue('#000000'),
+      getTrace: jest
+        .fn<ComponentProps<typeof GenAITracesTableBodyContainer>['getTrace']>()
+        .mockResolvedValue(undefined),
+      getRunColor: jest
+        .fn<NonNullable<ComponentProps<typeof GenAITracesTableBodyContainer>['getRunColor']>>()
+        .mockReturnValue('#000000'),
       ...additionalProps,
     };
 
