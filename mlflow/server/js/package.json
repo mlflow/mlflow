@@ -97,6 +97,7 @@
     "use-clipboard-copy": "^0.2.0",
     "use-debounce": "^10.0.4",
     "use-sync-external-store": "^1.2.0",
+    "uuid": "^13.0.0",
     "wavesurfer.js": "^7.8.8",
     "zustand": "^4.5.6"
   },
