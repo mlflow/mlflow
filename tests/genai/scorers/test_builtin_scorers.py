@@ -44,6 +44,8 @@ from mlflow.genai.scorers.builtin_scorers import (
     get_all_scorers,
     resolve_scorer_fields,
 )
+from mlflow.genai.scorers.scorer_utils import parse_tool_call_expectations
+from mlflow.genai.utils.type import FunctionCall
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.uri import is_databricks_uri
 
@@ -1911,12 +1913,6 @@ def test_tool_call_correctness_fuzzy_match_with_expectations(tool_call_trace_one
 
 
 def test_tool_call_correctness_parse_expectations_with_function_call_objects():
-    from mlflow.genai.scorers.scorer_utils import (
-        has_partial_tool_call_expectations,
-        parse_tool_call_expectations,
-    )
-    from mlflow.genai.utils.type import FunctionCall
-
     expectations = {
         "expected_tool_calls": [
             FunctionCall(name="search", arguments={"query": "test"}),
@@ -1929,7 +1925,6 @@ def test_tool_call_correctness_parse_expectations_with_function_call_objects():
     assert expected_calls[0].name == "search"
     assert expected_calls[0].arguments == {"query": "test"}
     assert expected_calls[1].name == "summarize"
-    assert has_partial_tool_call_expectations(expected_calls)
 
 
 @pytest.mark.parametrize(
@@ -1937,8 +1932,6 @@ def test_tool_call_correctness_parse_expectations_with_function_call_objects():
     [None, {}, {"expected_tool_calls": []}],
 )
 def test_tool_call_correctness_parse_expectations_empty(expectations):
-    from mlflow.genai.scorers.scorer_utils import parse_tool_call_expectations
-
     expected_calls = parse_tool_call_expectations(expectations)
     assert expected_calls is None
 

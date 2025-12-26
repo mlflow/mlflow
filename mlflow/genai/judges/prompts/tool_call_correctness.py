@@ -140,10 +140,10 @@ TOOL_CALL_CORRECTNESS_PROMPT_OUTPUT = _OUTPUT_FORMAT
 TOOL_CALL_CORRECTNESS_PROMPT = TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS + _OUTPUT_FORMAT
 
 
-def _format_expected_calls(expected_calls: list["FunctionCall"], compare_arguments: bool) -> str:
+def _format_expected_calls(expected_calls: list["FunctionCall"], include_arguments: bool) -> str:
     lines = []
     for i, call in enumerate(expected_calls, 1):
-        if compare_arguments:
+        if include_arguments:
             lines.append(f"Expected Tool Call {i}: {call.name}")
             if call.arguments:
                 lines.append(f"  Arguments: {json.dumps(call.arguments)}")
@@ -159,7 +159,7 @@ def get_prompt(
     tools_called: list["FunctionCall"],
     available_tools: list["ChatTool"],
     expected_calls: list["FunctionCall"] | None = None,
-    compare_arguments: bool = True,
+    include_arguments: bool = True,
     check_order: bool = False,
 ) -> str:
     """
@@ -171,7 +171,7 @@ def get_prompt(
         available_tools: The set of available tools
         expected_calls: Optional list of expected tool calls for ground-truth comparison.
             If None, uses ground-truth-free evaluation.
-        compare_arguments: If True, compare both tool names and arguments (full expectations).
+        include_arguments: If True, compare both tool names and arguments (full expectations).
             If False, compare only tool names (partial expectations).
         check_order: If True, ask LLM to consider ordering of tool calls.
     """
@@ -199,10 +199,10 @@ def get_prompt(
         )
 
     # With expectations mode
-    expected_calls_str = _format_expected_calls(expected_calls, compare_arguments)
+    expected_calls_str = _format_expected_calls(expected_calls, include_arguments)
     expected_section = f"<expected_tool_calls>\n{expected_calls_str}\n</expected_tool_calls>\n\n"
 
-    if compare_arguments:
+    if include_arguments:
         preamble = _FULL_EXPECTATIONS_PREAMBLE
         criteria = format_prompt(
             _FULL_EXPECTATIONS_CRITERIA, ordering_instruction=ordering_instruction

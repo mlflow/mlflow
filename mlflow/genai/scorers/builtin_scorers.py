@@ -83,7 +83,6 @@ from mlflow.genai.scorers.base import (
 )
 from mlflow.genai.scorers.scorer_utils import (
     get_tool_call_signature,
-    has_partial_tool_call_expectations,
     normalize_tool_call_arguments,
     parse_tool_call_expectations,
 )
@@ -957,14 +956,14 @@ class ToolCallCorrectness(BuiltInScorer):
         self,
         actual_calls: list["FunctionCall"],
         expected_calls: list["FunctionCall"],
-        compare_arguments: bool,
+        include_arguments: bool,
     ) -> Feedback:
         mismatches = []
         for i, (actual, expected) in enumerate(zip(actual_calls, expected_calls)):
-            actual_sig = get_tool_call_signature(actual, compare_arguments)
-            expected_sig = get_tool_call_signature(expected, compare_arguments)
+            actual_sig = get_tool_call_signature(actual, include_arguments)
+            expected_sig = get_tool_call_signature(expected, include_arguments)
             if actual_sig != expected_sig:
-                if compare_arguments:
+                if include_arguments:
                     mismatches.append(
                         f"Position {i + 1}: expected {expected.name}("
                         f"{json.dumps(normalize_tool_call_arguments(expected.arguments))}), "
@@ -995,10 +994,10 @@ class ToolCallCorrectness(BuiltInScorer):
         self,
         actual_calls: list["FunctionCall"],
         expected_calls: list["FunctionCall"],
-        compare_arguments: bool,
+        include_arguments: bool,
     ) -> Feedback:
-        actual_set = {get_tool_call_signature(c, compare_arguments) for c in actual_calls}
-        expected_set = {get_tool_call_signature(c, compare_arguments) for c in expected_calls}
+        actual_set = {get_tool_call_signature(c, include_arguments) for c in actual_calls}
+        expected_set = {get_tool_call_signature(c, include_arguments) for c in expected_calls}
 
         if actual_set == expected_set:
             return Feedback(
@@ -1046,7 +1045,8 @@ class ToolCallCorrectness(BuiltInScorer):
                 model=self.model,
             )
 
-        compare_arguments = not has_partial_tool_call_expectations(expected_calls)
+        # Only compare arguments if all expected calls have arguments specified
+        include_arguments = not any(call.arguments is None for call in expected_calls)
 
         if self.should_exact_match:
             if len(actual_calls) != len(expected_calls):
@@ -1061,9 +1061,9 @@ class ToolCallCorrectness(BuiltInScorer):
                 )
 
             return (
-                self._evaluate_exact_ordered(actual_calls, expected_calls, compare_arguments)
+                self._evaluate_exact_ordered(actual_calls, expected_calls, include_arguments)
                 if self.should_consider_ordering
-                else self._evaluate_exact_unordered(actual_calls, expected_calls, compare_arguments)
+                else self._evaluate_exact_unordered(actual_calls, expected_calls, include_arguments)
             )
 
         return judges.is_tool_call_correct(
@@ -1071,7 +1071,7 @@ class ToolCallCorrectness(BuiltInScorer):
             tools_called=actual_calls,
             available_tools=available_tools,
             expected_tool_calls=expected_calls,
-            compare_arguments=compare_arguments,
+            include_arguments=include_arguments,
             check_order=self.should_consider_ordering,
             name=self.name,
             model=self.model,

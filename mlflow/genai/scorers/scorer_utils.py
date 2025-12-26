@@ -228,10 +228,6 @@ def parse_tool_call_expectations(
     return normalized_calls
 
 
-def has_partial_tool_call_expectations(expected_calls: list["FunctionCall"]) -> bool:
-    return any(call.arguments is None for call in expected_calls)
-
-
 def normalize_tool_call_arguments(args: dict[str, Any] | None) -> dict[str, Any]:
     if args is None:
         return {}
@@ -240,8 +236,8 @@ def normalize_tool_call_arguments(args: dict[str, Any] | None) -> dict[str, Any]
     raise MlflowException(f"Invalid arguments type: {type(args)}. Arguments must be a dict.")
 
 
-def get_tool_call_signature(call: "FunctionCall", compare_arguments: bool) -> str:
-    if compare_arguments:
+def get_tool_call_signature(call: "FunctionCall", include_arguments: bool) -> str | None:
+    if include_arguments:
         args = json.dumps(normalize_tool_call_arguments(call.arguments), sort_keys=True)
         return f"{call.name}({args})"
-    return call.name or ""
+    return call.name

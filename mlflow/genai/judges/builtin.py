@@ -494,7 +494,7 @@ def is_tool_call_correct(
     tools_called: list["FunctionCall"],
     available_tools: list["ChatTool"],
     expected_tool_calls: list["FunctionCall"] | None = None,
-    compare_arguments: bool = True,
+    include_arguments: bool = True,
     check_order: bool = False,
     name: str | None = None,
     model: str | None = None,
@@ -515,7 +515,7 @@ def is_tool_call_correct(
             Each element should be a dictionary containing the tool name and description.
         expected_tool_calls: Optional list of expected tool calls for ground-truth comparison.
             If None, uses ground-truth-free evaluation.
-        compare_arguments: If True, compare both tool names and arguments (full expectations).
+        include_arguments: If True, compare both tool names and arguments (full expectations).
             If False, compare only tool names (partial expectations). Only used when
             expected_tool_calls is provided.
         check_order: If True, ask LLM to consider ordering of tool calls.
@@ -577,7 +577,7 @@ def is_tool_call_correct(
         tools_called=tools_called,
         available_tools=available_tools,
         expected_calls=expected_tool_calls,
-        compare_arguments=compare_arguments,
+        include_arguments=include_arguments,
         check_order=check_order,
     )
     feedback = invoke_judge_model(

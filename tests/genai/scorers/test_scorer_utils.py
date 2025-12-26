@@ -11,7 +11,6 @@ from mlflow.genai.scorers.scorer_utils import (
     extract_endpoint_ref,
     extract_model_from_serialized_scorer,
     get_tool_call_signature,
-    has_partial_tool_call_expectations,
     is_gateway_model,
     normalize_tool_call_arguments,
     parse_tool_call_expectations,
@@ -19,6 +18,10 @@ from mlflow.genai.scorers.scorer_utils import (
     update_model_in_serialized_scorer,
 )
 from mlflow.genai.utils.type import FunctionCall
+
+# ============================================================================
+# Happy Path Tests
+# ============================================================================
 
 
 def test_simple_function_recreation():
@@ -134,6 +137,11 @@ return result"""
     assert result == expected
 
 
+# ============================================================================
+# Signature Parsing Tests
+# ============================================================================
+
+
 def test_empty_signature():
     source = "return 42"
     signature = "()"
@@ -203,6 +211,11 @@ def test_empty_signature_string():
 
     with pytest.raises(MlflowException, match="Invalid signature format"):
         recreate_function(source, signature, func_name)
+
+
+# ============================================================================
+# Import Namespace Tests
+# ============================================================================
 
 
 def test_function_with_unavailable_import():
@@ -476,6 +489,11 @@ def test_update_model_in_serialized_scorer():
     assert data[INSTRUCTIONS_JUDGE_PYDANTIC_DATA]["model"] == "gateway:/old-endpoint"
 
 
+# ============================================================================
+# Tool Call Helper Function Tests
+# ============================================================================
+
+
 @pytest.mark.parametrize(
     "expectations",
     [None, {}, {"expected_tool_calls": []}],
@@ -530,29 +548,6 @@ def test_parse_tool_call_expectations_raises_for_invalid_input(expectations, exp
 
 
 @pytest.mark.parametrize(
-    ("calls", "expected"),
-    [
-        (
-            [
-                FunctionCall(name="search", arguments={"query": "test"}),
-                FunctionCall(name="summarize"),
-            ],
-            True,
-        ),
-        (
-            [
-                FunctionCall(name="search", arguments={"query": "test"}),
-                FunctionCall(name="summarize", arguments={"text": "content"}),
-            ],
-            False,
-        ),
-    ],
-)
-def test_has_partial_tool_call_expectations(calls, expected):
-    assert has_partial_tool_call_expectations(calls) is expected
-
-
-@pytest.mark.parametrize(
     ("args", "expected"),
     [
         (None, {}),
@@ -569,7 +564,7 @@ def test_normalize_tool_call_arguments_raises_for_invalid_type():
 
 
 @pytest.mark.parametrize(
-    ("call", "compare_arguments", "expected"),
+    ("call", "include_arguments", "expected"),
     [
         (FunctionCall(name="search", arguments={"query": "test"}), False, "search"),
         (
@@ -578,17 +573,17 @@ def test_normalize_tool_call_arguments_raises_for_invalid_type():
             'search({"query": "test"})',
         ),
         (FunctionCall(name="search"), True, "search({})"),
-        (FunctionCall(name=None), False, ""),
+        (FunctionCall(name=None), False, None),
     ],
 )
-def test_get_tool_call_signature(call, compare_arguments, expected):
-    assert get_tool_call_signature(call, compare_arguments) == expected
+def test_get_tool_call_signature(call, include_arguments, expected):
+    assert get_tool_call_signature(call, include_arguments) == expected
 
 
 def test_get_tool_call_signature_sorts_arguments():
     call1 = FunctionCall(name="search", arguments={"b": 2, "a": 1})
     call2 = FunctionCall(name="search", arguments={"a": 1, "b": 2})
 
-    sig1 = get_tool_call_signature(call1, compare_arguments=True)
-    sig2 = get_tool_call_signature(call2, compare_arguments=True)
+    sig1 = get_tool_call_signature(call1, include_arguments=True)
+    sig2 = get_tool_call_signature(call2, include_arguments=True)
     assert sig1 == sig2
