@@ -18,6 +18,7 @@ R = TypeVar("R")
 
 _SUPPORTED_JOB_FUNCTION_LIST = [
     # Putting all supported job function fullname in the list
+    "mlflow.genai.scorers.job.invoke_scorer_job",
 ]
 
 if supported_job_function_list_env := os.environ.get("_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST"):
@@ -26,6 +27,7 @@ if supported_job_function_list_env := os.environ.get("_MLFLOW_SUPPORTED_JOB_FUNC
 
 _ALLOWED_JOB_NAME_LIST = [
     # Putting all allowed job function static name in the list
+    "invoke_scorer",
 ]
 
 if allowed_job_name_list_env := os.environ.get("_MLFLOW_ALLOWED_JOB_NAME_LIST"):
@@ -222,3 +224,20 @@ def get_job(job_id: str) -> JobEntity:
     """
     job_store = _get_job_store()
     return job_store.get_job(job_id)
+
+
+def cancel_job(job_id: str) -> JobEntity:
+    """
+    Cancel a job by its ID.
+
+    Args:
+        job_id: The ID of the job to cancel
+
+    Returns:
+        The job entity
+
+    Raises:
+        MlflowException: If job with the given ID is not found
+    """
+    job_store = _get_job_store()
+    return job_store.cancel_job(job_id)

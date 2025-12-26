@@ -438,10 +438,12 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
             - supports_vision: Whether model supports image/vision input
             - supports_reasoning: Whether model supports extended thinking (o1-style)
             - supports_prompt_caching: Whether model supports prompt caching
+            - supports_response_schema: Whether model supports structured JSON output
             - max_input_tokens: Maximum input context window size
             - max_output_tokens: Maximum output token limit
             - input_cost_per_token: Cost per input token (USD)
             - output_cost_per_token: Cost per output token (USD)
+            - deprecation_date: Date when model will be deprecated (if known)
     """
     if not _PROVIDER_BACKEND_AVAILABLE:
         raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
@@ -465,10 +467,12 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
                 "supports_vision": info.get("supports_vision", False),
                 "supports_reasoning": info.get("supports_reasoning", False),
                 "supports_prompt_caching": info.get("supports_prompt_caching", False),
+                "supports_response_schema": info.get("supports_response_schema", False),
                 "max_input_tokens": info.get("max_input_tokens"),
                 "max_output_tokens": info.get("max_output_tokens"),
                 "input_cost_per_token": info.get("input_cost_per_token"),
                 "output_cost_per_token": info.get("output_cost_per_token"),
+                "deprecation_date": info.get("deprecation_date"),
             }
         )
 

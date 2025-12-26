@@ -12,6 +12,7 @@ from mlflow.entities import (
     GatewayModelDefinition,
     GatewayResourceType,
     GatewaySecretInfo,
+    RoutingStrategy,
 )
 from mlflow.protos.service_pb2 import (
     AttachModelToGatewayEndpoint,
@@ -25,6 +26,7 @@ from mlflow.protos.service_pb2 import (
     DeleteGatewayModelDefinition,
     DeleteGatewaySecret,
     DetachModelFromGatewayEndpoint,
+    FallbackConfig,
     GetGatewayEndpoint,
     GetGatewayModelDefinition,
     GetGatewaySecretInfo,
@@ -201,14 +203,20 @@ class RestGatewayStoreMixin:
         name: str,
         model_definition_ids: list[str],
         created_by: str | None = None,
+        routing_strategy: RoutingStrategy | None = None,
+        fallback_config: FallbackConfig | None = None,
+        fallback_model_definition_ids: list[str] | None = None,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with associated model definitions.
 
         Args:
             name: Name to identify the endpoint.
-            model_definition_ids: List of model definition IDs to attach.
+            model_definition_ids: List of PRIMARY model definition IDs to attach.
             created_by: Optional identifier of the user creating the endpoint.
+            routing_strategy: Optional routing strategy for the endpoint.
+            fallback_config: Optional fallback configuration (includes strategy and max_attempts).
+            fallback_model_definition_ids: Optional ordered list of FALLBACK model definition IDs.
 
         Returns:
             The created GatewayEndpoint object with associated model mappings.
@@ -218,6 +226,9 @@ class RestGatewayStoreMixin:
                 name=name,
                 model_definition_ids=model_definition_ids,
                 created_by=created_by,
+                routing_strategy=routing_strategy.to_proto() if routing_strategy else None,
+                fallback_config=fallback_config.to_proto() if fallback_config else None,
+                fallback_model_definition_ids=fallback_model_definition_ids or [],
             )
         )
         response_proto = self._call_endpoint(CreateGatewayEndpoint, req_body)
@@ -245,14 +256,24 @@ class RestGatewayStoreMixin:
         endpoint_id: str,
         name: str | None = None,
         updated_by: str | None = None,
+        routing_strategy: RoutingStrategy | None = None,
+        fallback_config: FallbackConfig | None = None,
+        fallback_model_definition_ids: list[str] | None = None,
+        model_definition_ids: list[str] | None = None,
     ) -> GatewayEndpoint:
         """
-        Update an endpoint's metadata.
+        Update an endpoint's configuration.
 
         Args:
             endpoint_id: The unique identifier of the endpoint to update.
             name: Optional new name for the endpoint.
             updated_by: Optional identifier of the user updating the endpoint.
+            routing_strategy: Optional new routing strategy for the endpoint.
+            fallback_config: Optional fallback configuration (includes strategy and max_attempts).
+            fallback_model_definition_ids: Optional ordered list of FALLBACK model definition IDs.
+                If provided, existing FALLBACK linkages will be replaced.
+            model_definition_ids: Optional new list of PRIMARY model definition IDs.
+                If provided, existing PRIMARY linkages will be replaced.
 
         Returns:
             The updated GatewayEndpoint object.
@@ -262,6 +283,10 @@ class RestGatewayStoreMixin:
                 endpoint_id=endpoint_id,
                 name=name,
                 updated_by=updated_by,
+                routing_strategy=routing_strategy.to_proto() if routing_strategy else None,
+                fallback_config=fallback_config.to_proto() if fallback_config else None,
+                fallback_model_definition_ids=fallback_model_definition_ids or [],
+                model_definition_ids=model_definition_ids or [],
             )
         )
         response_proto = self._call_endpoint(UpdateGatewayEndpoint, req_body)

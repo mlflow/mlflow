@@ -3,11 +3,16 @@ import json
 import pytest
 
 from mlflow.entities import Assessment, Feedback, Trace
-from mlflow.genai.scorers.scorer_utils import recreate_function
-
-# ============================================================================
-# HAPPY PATH TESTS
-# ============================================================================
+from mlflow.genai.scorers.scorer_utils import (
+    BUILTIN_SCORER_PYDANTIC_DATA,
+    INSTRUCTIONS_JUDGE_PYDANTIC_DATA,
+    build_gateway_model,
+    extract_endpoint_ref,
+    extract_model_from_serialized_scorer,
+    is_gateway_model,
+    recreate_function,
+    update_model_in_serialized_scorer,
+)
 
 
 def test_simple_function_recreation():
@@ -123,11 +128,6 @@ return result"""
     assert result == expected
 
 
-# ============================================================================
-# SIGNATURE PARSING TESTS
-# ============================================================================
-
-
 def test_empty_signature():
     source = "return 42"
     signature = "()"
@@ -197,11 +197,6 @@ def test_empty_signature_string():
 
     with pytest.raises(MlflowException, match="Invalid signature format"):
         recreate_function(source, signature, func_name)
-
-
-# ============================================================================
-# IMPORT NAMESPACE TESTS
-# ============================================================================
 
 
 def test_function_with_unavailable_import():
@@ -402,6 +397,77 @@ def test_function_with_mlflow_trace_type_hint():
     assert isinstance(result, Feedback)
     assert result.value is True
     assert "test_trace_id" in result.rationale
+
+
+def test_is_gateway_model():
+    assert is_gateway_model("gateway:/my-endpoint") is True
+    assert is_gateway_model("openai:/gpt-4") is False
+    assert is_gateway_model(None) is False
+
+
+def test_extract_and_build_gateway_model():
+    assert extract_endpoint_ref("gateway:/my-endpoint") == "my-endpoint"
+    assert build_gateway_model("my-endpoint") == "gateway:/my-endpoint"
+    assert extract_endpoint_ref(build_gateway_model("test")) == "test"
+
+
+def test_extract_model_from_serialized_scorer():
+    instructions_judge_scorer = {
+        "mlflow_version": "3.3.2",
+        "serialization_version": 1,
+        "name": "quality_scorer",
+        "description": "Evaluates response quality",
+        "aggregations": [],
+        "is_session_level_scorer": False,
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+        INSTRUCTIONS_JUDGE_PYDANTIC_DATA: {
+            "instructions": "Evaluate the response quality",
+            "model": "gateway:/my-endpoint",
+        },
+    }
+    assert extract_model_from_serialized_scorer(instructions_judge_scorer) == "gateway:/my-endpoint"
+
+    builtin_scorer = {
+        "mlflow_version": "3.3.2",
+        "serialization_version": 1,
+        "name": "guidelines_scorer",
+        "description": None,
+        "aggregations": [],
+        "is_session_level_scorer": False,
+        "builtin_scorer_class": "Guidelines",
+        BUILTIN_SCORER_PYDANTIC_DATA: {
+            "name": "guidelines_scorer",
+            "required_columns": ["outputs", "inputs"],
+            "guidelines": ["Be helpful", "Be accurate"],
+            "model": "openai:/gpt-4",
+        },
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+        "instructions_judge_pydantic_data": None,
+    }
+    assert extract_model_from_serialized_scorer(builtin_scorer) == "openai:/gpt-4"
+    assert extract_model_from_serialized_scorer({}) is None
+
+
+def test_update_model_in_serialized_scorer():
+    data = {
+        "mlflow_version": "3.3.2",
+        "serialization_version": 1,
+        "name": "quality_scorer",
+        INSTRUCTIONS_JUDGE_PYDANTIC_DATA: {
+            "instructions": "Evaluate quality",
+            "model": "gateway:/old-endpoint",
+        },
+    }
+    result = update_model_in_serialized_scorer(data, "gateway:/new-endpoint")
+    assert result[INSTRUCTIONS_JUDGE_PYDANTIC_DATA]["model"] == "gateway:/new-endpoint"
+    assert result[INSTRUCTIONS_JUDGE_PYDANTIC_DATA]["instructions"] == "Evaluate quality"
+    assert data[INSTRUCTIONS_JUDGE_PYDANTIC_DATA]["model"] == "gateway:/old-endpoint"
 
 
 @pytest.mark.parametrize(
