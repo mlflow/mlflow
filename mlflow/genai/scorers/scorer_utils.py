@@ -198,14 +198,14 @@ def update_model_in_serialized_scorer(
 def parse_tool_call_expectations(
     expectations: dict[str, Any] | None,
 ) -> list["FunctionCall"] | None:
+    from mlflow.genai.utils.type import FunctionCall
+
     if not expectations or "expected_tool_calls" not in expectations:
         return None
 
     expected_tool_calls = expectations["expected_tool_calls"]
     if not expected_tool_calls:
         return None
-
-    from mlflow.genai.utils.type import FunctionCall
 
     normalized_calls = []
     for call in expected_tool_calls:

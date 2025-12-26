@@ -997,12 +997,8 @@ class ToolCallCorrectness(BuiltInScorer):
         expected_calls: list["FunctionCall"],
         compare_arguments: bool,
     ) -> Feedback:
-        actual_sigs = [get_tool_call_signature(c, compare_arguments) for c in actual_calls]
-        expected_sigs = [get_tool_call_signature(c, compare_arguments) for c in expected_calls]
-
-        # Convert to sets for comparison
-        actual_set = set(actual_sigs)
-        expected_set = set(expected_sigs)
+        actual_set = {get_tool_call_signature(c, compare_arguments) for c in actual_calls}
+        expected_set = {get_tool_call_signature(c, compare_arguments) for c in expected_calls}
 
         if actual_set == expected_set:
             return Feedback(
@@ -1064,9 +1060,11 @@ class ToolCallCorrectness(BuiltInScorer):
                     source=AssessmentSource(source_type=AssessmentSourceType.CODE),
                 )
 
-            if self.should_consider_ordering:
-                return self._evaluate_exact_ordered(actual_calls, expected_calls, compare_arguments)
-            return self._evaluate_exact_unordered(actual_calls, expected_calls, compare_arguments)
+            return (
+                self._evaluate_exact_ordered(actual_calls, expected_calls, compare_arguments)
+                if self.should_consider_ordering
+                else self._evaluate_exact_unordered(actual_calls, expected_calls, compare_arguments)
+            )
 
         return judges.is_tool_call_correct(
             request=request,
