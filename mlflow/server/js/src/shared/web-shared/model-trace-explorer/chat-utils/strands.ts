@@ -41,7 +41,9 @@ const extractTextContent = (content: unknown): string | undefined => {
   if (isString(content)) return content;
   if (!isArray(content)) return undefined;
 
-  const texts = content.filter((item) => isObject(item) && isString((item as any).text)).map((item) => (item as any).text);
+  const texts = content
+    .filter((item) => isObject(item) && isString((item as any).text))
+    .map((item) => (item as any).text);
   return texts.length > 0 ? texts.join('\n\n') : undefined;
 };
 
@@ -204,7 +206,9 @@ export const synthesizeStrandsChatMessages = (
         if (!toolSpan) continue;
 
         const output = toolSpan.outputs;
-        const resultContent = isArray(output) ? extractTextContent(output) ?? JSON.stringify(output) : String(output ?? '');
+        const resultContent = isArray(output)
+          ? extractTextContent(output) ?? JSON.stringify(output)
+          : String(output ?? '');
 
         const toolMsg = prettyPrintChatMessage({ role: 'tool', content: resultContent, tool_call_id: toolCall.id });
         if (toolMsg) messages.push(toolMsg);

@@ -223,11 +223,7 @@ describe('synthesizeStrandsChatMessages', () => {
       } as ModelTraceSpanNode,
     ];
 
-    const result = synthesizeStrandsChatMessages(
-      MOCK_STRANDS_USER_INPUT,
-      MOCK_STRANDS_PLAIN_STRING_OUTPUT,
-      children,
-    );
+    const result = synthesizeStrandsChatMessages(MOCK_STRANDS_USER_INPUT, MOCK_STRANDS_PLAIN_STRING_OUTPUT, children);
 
     expect(result).toHaveLength(4);
 
@@ -295,11 +291,9 @@ describe('synthesizeStrandsChatMessages', () => {
       children: [MOCK_CHAT_SPAN_WITH_TOOL as ModelTraceSpanNode, MOCK_TOOL_SPAN as ModelTraceSpanNode],
     };
 
-    const result = synthesizeStrandsChatMessages(
-      MOCK_STRANDS_USER_INPUT,
-      MOCK_STRANDS_PLAIN_STRING_OUTPUT,
-      [eventLoopSpan as ModelTraceSpanNode],
-    );
+    const result = synthesizeStrandsChatMessages(MOCK_STRANDS_USER_INPUT, MOCK_STRANDS_PLAIN_STRING_OUTPUT, [
+      eventLoopSpan as ModelTraceSpanNode,
+    ]);
 
     expect(result).toHaveLength(4);
     expect(result?.[1]?.tool_calls).toBeDefined();
@@ -321,11 +315,7 @@ describe('synthesizeStrandsChatMessages', () => {
       } as ModelTraceSpanNode,
     ];
 
-    const result = synthesizeStrandsChatMessages(
-      MOCK_STRANDS_USER_INPUT,
-      MOCK_STRANDS_PLAIN_STRING_OUTPUT,
-      children,
-    );
+    const result = synthesizeStrandsChatMessages(MOCK_STRANDS_USER_INPUT, MOCK_STRANDS_PLAIN_STRING_OUTPUT, children);
 
     // Should have: user, assistant with reasoning + tool calls, tool result, final assistant
     expect(result).toHaveLength(4);
@@ -404,4 +394,3 @@ describe('synthesizeStrandsChatMessages', () => {
     );
   });
 });
-
