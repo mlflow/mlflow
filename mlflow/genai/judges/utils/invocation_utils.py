@@ -27,7 +27,10 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
 )
 from mlflow.genai.judges.adapters.gateway_adapter import _invoke_via_gateway
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
-from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+from mlflow.genai.judges.constants import (
+    _DATABRICKS_AGENTIC_JUDGE_MODEL,
+    _DATABRICKS_DEFAULT_JUDGE_MODEL,
+)
 from mlflow.genai.judges.utils.parsing_utils import (
     _sanitize_justification,
     _strip_markdown_code_blocks,
@@ -224,6 +227,118 @@ def invoke_judge_model(
     return feedback
 
 
+def _invoke_databricks_structured_output(
+    messages: list["ChatMessage"],
+    output_schema: type[pydantic.BaseModel],
+    trace: "Trace | None" = None,
+) -> pydantic.BaseModel:
+    """
+    Invoke Databricks chat completions for structured output extraction.
+
+    Uses the gpt-oss-120b model via the Databricks managed RAG client for
+    agentic tool calling to examine trace spans.
+
+    Args:
+        messages: List of ChatMessage objects for the conversation.
+        output_schema: Pydantic model class defining the expected output structure.
+        trace: Optional trace object for context. When provided, enables tool
+               calling to examine trace spans.
+
+    Returns:
+        Instance of output_schema with the structured data from the LLM.
+
+    Raises:
+        MlflowException: If databricks-agents is not installed or invocation fails.
+    """
+    import litellm
+
+    from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
+    from mlflow.genai.judges.adapters.databricks_adapter import (
+        _create_litellm_message_from_databricks_response,
+        _serialize_messages_to_databricks_prompts,
+        call_chat_completions,
+    )
+    from mlflow.genai.judges.tools import list_judge_tools
+    from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
+    from mlflow.protos.databricks_pb2 import REQUEST_LIMIT_EXCEEDED
+
+    # Convert ChatMessage to litellm Messages
+    litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
+
+    # Add schema instructions to the system message
+    schema_instruction = (
+        f"\n\nYou must return your response as JSON matching this schema:\n"
+        f"{json.dumps(output_schema.model_json_schema(), indent=2)}"
+    )
+    if litellm_messages and litellm_messages[0].role == "system":
+        litellm_messages[0] = litellm.Message(
+            role="system",
+            content=litellm_messages[0].content + schema_instruction,
+        )
+    else:
+        litellm_messages.insert(
+            0,
+            litellm.Message(role="system", content=schema_instruction),
+        )
+
+    # Enable tool calling if trace is provided
+    tools = None
+    if trace is not None:
+        tools = [tool.get_definition() for tool in list_judge_tools()]
+
+    # Agentic loop: iteratively call LLM and execute tools until final answer
+    max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
+    iteration_count = 0
+
+    while True:
+        iteration_count += 1
+        if iteration_count > max_iterations:
+            raise MlflowException(
+                f"Completion iteration limit of {max_iterations} exceeded during extraction.",
+                error_code=REQUEST_LIMIT_EXCEEDED,
+            )
+
+        # Serialize messages to Databricks format
+        user_prompt, system_prompt = _serialize_messages_to_databricks_prompts(litellm_messages)
+
+        llm_result = call_chat_completions(
+            user_prompt, system_prompt or "", tools=tools, model=_DATABRICKS_AGENTIC_JUDGE_MODEL
+        )
+
+        # Parse response
+        output_json = llm_result.output_json
+        if not output_json:
+            raise MlflowException(
+                "Empty response from Databricks judge during extraction",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
+
+        # Convert response to litellm Message
+        message = _create_litellm_message_from_databricks_response(parsed_json)
+
+        # No tool calls means final answer - parse and return
+        if not message.tool_calls:
+            content = message.content
+            if content:
+                cleaned = _strip_markdown_code_blocks(content)
+                response_dict = json.loads(cleaned)
+                return output_schema(**response_dict)
+            raise MlflowException(
+                "Empty content in final response from Databricks judge",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        # Append assistant message and process tool calls
+        litellm_messages.append(message)
+        tool_response_messages = _process_tool_calls(
+            tool_calls=message.tool_calls,
+            trace=trace,
+        )
+        litellm_messages.extend(tool_response_messages)
+
+
 def get_chat_completions_with_structured_output(
     model_uri: str,
     messages: list["ChatMessage"],
@@ -238,7 +353,8 @@ def get_chat_completions_with_structured_output(
     When a trace is provided, the LLM can use tool calling to examine trace spans.
 
     Args:
-        model_uri: The model URI (e.g., "openai:/gpt-4", "anthropic:/claude-3").
+        model_uri: The model URI (e.g., "openai:/gpt-4", "anthropic:/claude-3",
+                   or "databricks" for the default Databricks judge).
         messages: List of ChatMessage objects for the conversation with the LLM.
         output_schema: Pydantic model class defining the expected output structure.
                        The LLM will be instructed to return data matching this schema.
@@ -282,6 +398,10 @@ def get_chat_completions_with_structured_output(
             print(result.inputs)  # Extracted from inner span
             print(result.outputs)  # Extracted from inner span
     """
+    # Handle Databricks default judge model
+    if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+        return _invoke_databricks_structured_output(messages, output_schema, trace)
+
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     model_provider, model_name = _parse_model_uri(model_uri)
