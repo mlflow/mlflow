@@ -198,3 +198,25 @@ export function formatCredentialFieldName(fieldName: string): string {
   };
   return formatMap[fieldName] ?? fieldName.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+const PROVIDER_FIELD_ORDER: Record<string, string[]> = {
+  databricks: ['client_id', 'client_secret', 'api_base'],
+};
+
+export function sortFieldsByProvider<T extends { name: string }>(fields: T[], provider: string): T[] {
+  const fieldOrder = PROVIDER_FIELD_ORDER[provider];
+  if (!fieldOrder) {
+    return fields;
+  }
+
+  return [...fields].sort((a, b) => {
+    const aIndex = fieldOrder.indexOf(a.name);
+    const bIndex = fieldOrder.indexOf(b.name);
+
+    if (aIndex === -1 && bIndex === -1) return 0;
+    if (aIndex === -1) return 1;
+    if (bIndex === -1) return -1;
+
+    return aIndex - bIndex;
+  });
+}
