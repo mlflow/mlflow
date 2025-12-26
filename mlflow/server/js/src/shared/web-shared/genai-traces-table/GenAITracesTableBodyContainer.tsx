@@ -1,4 +1,4 @@
-import type { RowSelectionState } from '@tanstack/react-table';
+import type { RowSelectionState, Updater } from '@tanstack/react-table';
 import React, { useState, useMemo, useCallback } from 'react';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
@@ -21,6 +21,7 @@ import type {
 import { sortAssessmentInfos } from './utils/AggregationUtils';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
 import { applyTraceInfoV3ToEvalEntry, DEFAULT_RUN_PLACEHOLDER_NAME } from './utils/TraceUtils';
+import { useGenAiTraceTableRowSelection } from './hooks/useGenAiTraceTableRowSelection';
 
 interface GenAITracesTableBodyContainerProps {
   // Experiment metadata
@@ -120,7 +121,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       [compareToTraceInfoV3],
     );
 
-    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+    const { rowSelection, setRowSelection } = useGenAiTraceTableRowSelection();
 
     // Handle assessment filter toggle
     const handleAssessmentFilterToggle = useCallback(

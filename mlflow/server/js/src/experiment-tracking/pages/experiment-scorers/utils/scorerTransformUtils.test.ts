@@ -564,6 +564,7 @@ describe('convertFormDataToScheduledScorer', () => {
         instructions: 'Evaluate the response',
         model: 'openai:/gpt-4o-mini',
         is_instructions_judge: true,
+        isSessionLevelScorer: false,
       });
     });
 
@@ -589,6 +590,7 @@ describe('convertFormDataToScheduledScorer', () => {
         instructions: 'Evaluate the response',
         model: undefined,
         is_instructions_judge: true,
+        isSessionLevelScorer: false,
       });
     });
 
@@ -616,6 +618,7 @@ describe('convertFormDataToScheduledScorer', () => {
         instructions: 'Evaluate if the response is safe.',
         model: 'openai:/gpt-4o-mini',
         is_instructions_judge: true,
+        isSessionLevelScorer: false,
       });
     });
 
@@ -641,6 +644,7 @@ describe('convertFormDataToScheduledScorer', () => {
         instructions: 'Evaluate if the response is relevant.',
         model: undefined,
         is_instructions_judge: true,
+        isSessionLevelScorer: false,
       });
     });
 
@@ -666,6 +670,7 @@ describe('convertFormDataToScheduledScorer', () => {
         instructions: undefined,
         model: undefined,
         is_instructions_judge: false,
+        isSessionLevelScorer: false,
       });
     });
 
@@ -688,6 +693,7 @@ describe('convertFormDataToScheduledScorer', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: ['Line 1', 'Line 2', 'Line 3'],
+        isSessionLevelScorer: false,
       });
     });
 

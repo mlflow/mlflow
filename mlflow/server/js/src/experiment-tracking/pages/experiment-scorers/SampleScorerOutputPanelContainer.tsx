@@ -7,8 +7,9 @@ import { useEvaluateTraces } from './useEvaluateTraces';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import { convertEvaluationResultToAssessment } from './llmScorerUtils';
 import { extractTemplateVariables } from '../../utils/evaluationUtils';
-import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING } from './constants';
+import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope } from './constants';
 import { EvaluateTracesParams, LLM_TEMPLATE } from './types';
+import { coerceToEnum } from '../../../shared/web-shared/utils';
 
 interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
@@ -27,6 +28,9 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   const llmTemplate = useWatch({ control, name: 'llmTemplate' });
   const guidelines = useWatch({ control, name: 'guidelines' });
   const scorerType = useWatch({ control, name: 'scorerType' });
+  const evaluationScopeFormValue = useWatch({ control, name: 'evaluationScope' });
+  const evaluationScope = coerceToEnum(ScorerEvaluationScope, evaluationScopeFormValue, ScorerEvaluationScope.TRACES);
+
   const { errors } = useFormState({ control });
 
   const [itemsToEvaluate, setItemsToEvaluate] = useState<Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>>({
@@ -50,6 +54,15 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     setCurrentTraceIndex(0);
   }, [llmTemplate, reset]);
 
+  // Reset evaluation config when switching evaluation scope
+  useEffect(() => {
+    reset();
+    setItemsToEvaluate({
+      itemCount: DEFAULT_TRACE_COUNT,
+      itemIds: [],
+    });
+  }, [evaluationScope, reset]);
+
   // Handle the "Run scorer" button click
   const handleRunScorer = useCallback(async () => {
     // Validate inputs based on mode
@@ -66,13 +79,14 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
     try {
       // Prepare evaluation parameters based on mode
-      const evaluationParams = isCustomMode
+      const evaluationParams: EvaluateTracesParams = isCustomMode
         ? {
             itemCount: itemsToEvaluate.itemCount,
             itemIds: itemsToEvaluate.itemIds,
             locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' as const }],
             judgeInstructions: judgeInstructions || '',
             experimentId,
+            scope: evaluationScope,
           }
         : {
             itemCount: itemsToEvaluate.itemCount,
@@ -86,6 +100,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
             ],
             experimentId,
             guidelines: guidelines ? [guidelines] : undefined,
+            scope: evaluationScope,
           };
 
       const results = await evaluateTraces(evaluationParams);
@@ -109,6 +124,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     evaluateTraces,
     experimentId,
     onScorerFinished,
+    evaluationScope,
   ]);
 
   // Navigation handlers
@@ -222,8 +238,8 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       isRunScorerDisabled={isRunScorerDisabled}
       runScorerDisabledTooltip={runScorerDisabledTooltip}
       error={error}
-      currentTraceIndex={currentTraceIndex}
-      currentTrace={currentEvalResult?.trace ?? undefined}
+      currentEvalResultIndex={currentTraceIndex}
+      currentEvalResult={currentEvalResult}
       assessments={assessments}
       handleRunScorer={handleRunScorer}
       handlePrevious={handlePrevious}

@@ -6,6 +6,11 @@ export const SCORER_FORM_MODE = {
   DISPLAY: 'display',
 } as const;
 
+export enum ScorerEvaluationScope {
+  TRACES = 'traces',
+  SESSIONS = 'sessions',
+}
+
 export type ScorerFormMode = typeof SCORER_FORM_MODE[keyof typeof SCORER_FORM_MODE];
 
 export const DEFAULT_TRACE_COUNT = 10;
