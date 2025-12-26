@@ -1306,6 +1306,10 @@
     "defaultMessage": "2. Trace your code",
     "description": "Section title introducing the tracing quickstart example"
   },
+  "8xKF+v": {
+    "defaultMessage": "Over time",
+    "description": "Label above time-series charts"
+  },
   "8xji5J": {
     "defaultMessage": "X-axis:",
     "description": "Label text for X-axis in box plot comparison in MLflow"
@@ -1329,6 +1333,10 @@
   "93iLUV": {
     "defaultMessage": "{timeSince, plural, =1 {1 second} other {# seconds}} ago",
     "description": "Text for time in seconds since given date for MLflow views"
+  },
+  "961sxj": {
+    "defaultMessage": "Success Rate",
+    "description": "Label for success rate statistic"
   },
   "97xY+o": {
     "defaultMessage": "Loading endpoints...",
@@ -1505,6 +1513,10 @@
   "AGi/De": {
     "defaultMessage": "Loading traces…",
     "description": "Loading traces message"
+  },
+  "AHaom4": {
+    "defaultMessage": "No assessments available",
+    "description": "Message shown when there are no assessments to display"
   },
   "AM8DuO": {
     "defaultMessage": "Failed",
@@ -1730,6 +1742,10 @@
     "defaultMessage": "Save",
     "description": "Tag assignment modal > Save button"
   },
+  "C83vFj": {
+    "defaultMessage": "Latency",
+    "description": "Title for the latency chart"
+  },
   "C8Jj/L": {
     "defaultMessage": "Name",
     "description": "Table header for model name"
@@ -1841,6 +1857,10 @@
   "D0jMS6": {
     "defaultMessage": "Register model",
     "description": "Label for a CTA button for registering a ML model version from a logged model"
+  },
+  "D2svqS": {
+    "defaultMessage": "overall error rate",
+    "description": "Subtitle for overall tool error rate"
   },
   "D4rcC+": {
     "defaultMessage": "Define custom instructions for LLM evaluation",
@@ -2406,6 +2426,10 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model version view page"
   },
+  "IlYdrX": {
+    "defaultMessage": "Tokens per Trace",
+    "description": "Title for the token stats chart"
+  },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
     "description": "Description of how to log traces for API calls to Google's Gemini API using MLflow autologging. This message is followed by a code example."
@@ -2461,6 +2485,10 @@
   "JNS471": {
     "defaultMessage": "No results. Try using a different keyword or adjusting your filters.",
     "description": "Models table > no results after filtering"
+  },
+  "JNv3nr": {
+    "defaultMessage": "Moving average over time",
+    "description": "Label for assessment score over time chart"
   },
   "JPd7WA": {
     "defaultMessage": "Key must be unique",
@@ -2813,6 +2841,10 @@
   "MX4ypf": {
     "defaultMessage": "Save",
     "description": "Save button for the edit model config modal"
+  },
+  "MXhKKt": {
+    "defaultMessage": "avg per trace",
+    "description": "Subtitle for average tokens per trace"
   },
   "MZNjYJ": {
     "defaultMessage": "Actions ({count})",
@@ -3393,6 +3425,10 @@
     "defaultMessage": "Dataset",
     "description": "Experiment page > group by runs control > group by dataset"
   },
+  "Rwi+VC": {
+    "defaultMessage": "avg score",
+    "description": "Subtitle for average assessment score"
+  },
   "Rx8d9z": {
     "defaultMessage": "Runs",
     "description": "Breadcrumb nav item to link to the runs tab on the parent experiment"
@@ -3544,6 +3580,10 @@
   "TKtJIK": {
     "defaultMessage": "Page not found",
     "description": "Error message shown to the user when they arrive at a non existent URL"
+  },
+  "TLHzWu": {
+    "defaultMessage": "Token Usage",
+    "description": "Title for the token usage chart"
   },
   "TPspzA": {
     "defaultMessage": "Deleting the section will permanently remove it and the charts it contains. This cannot be undone.",
@@ -4366,6 +4406,10 @@
   "a8rS4O": {
     "defaultMessage": "Delete",
     "description": "OK text for delete model modal on model view page"
+  },
+  "a9kRlY": {
+    "defaultMessage": "Tool calls",
+    "description": "Label for the tool calls tab in the experiment overview page"
   },
   "aAAHaS": {
     "defaultMessage": "Context insufficient",
@@ -5619,6 +5663,10 @@
     "defaultMessage": "Failed to load child runs",
     "description": "Run page > Overview > Child runs error"
   },
+  "k3V20c": {
+    "defaultMessage": "Scorer Insights",
+    "description": "Title for the scorer insights section in quality tab"
+  },
   "kA+QJr": {
     "defaultMessage": "Overview",
     "description": "Run details page > tab selector > overview tab"
@@ -5654,6 +5702,10 @@
   "kNTkr+": {
     "defaultMessage": "Discard",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > submit button label"
+  },
+  "kSSD9B": {
+    "defaultMessage": "No tool calls available",
+    "description": "Message shown when there are no tool calls to display"
   },
   "kTkJkb": {
     "defaultMessage": "Parallel coordinates chart does not support aggregated string values. Use other parameters or disable run grouping to continue.",
@@ -5774,6 +5826,10 @@
   "lQ2nDn": {
     "defaultMessage": "This assessment is produced by a custom metric.",
     "description": "Custom judge assessment description"
+  },
+  "lRO4km": {
+    "defaultMessage": "Quality",
+    "description": "Label for the quality tab in the experiment overview page"
   },
   "lS7kq2": {
     "defaultMessage": "Parameters",
@@ -6099,6 +6155,10 @@
     "defaultMessage": "MLflow deployment returned the following error: \"{errorMessage}\"",
     "description": "Experiment page > MLflow deployment error message"
   },
+  "o0NwZU": {
+    "defaultMessage": "Quality metrics computed by scorers.",
+    "description": "Description for the scorer insights section"
+  },
   "o21MFS": {
     "defaultMessage": "Invalid log value",
     "description": "Experiment tracking > runs charts > line chart configuration > invalid log value message"
@@ -6158,6 +6218,10 @@
   "oWPgX7": {
     "defaultMessage": "Rename",
     "description": "Label for the rename run button above the experiment runs table"
+  },
+  "oWtdfc": {
+    "defaultMessage": "Failed Calls",
+    "description": "Label for failed calls statistic"
   },
   "oY+vPi": {
     "defaultMessage": "Showing all runs",
@@ -6695,6 +6759,10 @@
     "defaultMessage": "Value",
     "description": "Run page > Overview > Metrics table > Value column header"
   },
+  "t3mHNt": {
+    "defaultMessage": "Errors",
+    "description": "Title for the errors chart"
+  },
   "tCC/M3": {
     "defaultMessage": "Create a new key if a different provider is needed.",
     "description": "Tooltip suggestion to create new key for different provider"
@@ -6786,6 +6854,10 @@
   "uBTAtY": {
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
+  },
+  "uHzRht": {
+    "defaultMessage": "Total aggregate scores",
+    "description": "Label for assessment score distribution chart"
   },
   "uIY1qq": {
     "defaultMessage": "Learn More",
@@ -7083,6 +7155,10 @@
     "defaultMessage": "Log traces",
     "description": "Home page quick action title for logging traces"
   },
+  "wvuSAK": {
+    "defaultMessage": "Total Tool Calls",
+    "description": "Label for total tool calls statistic"
+  },
   "wxq/qM": {
     "defaultMessage": "Set as baseline",
     "description": "In the run data difference comparison table, the label for an option to set particular experiment run as a baseline one - meaning other runs will be compared to it."
@@ -7262,6 +7338,10 @@
   "yQkV88": {
     "defaultMessage": "No endpoints are using this key",
     "description": "Gateway > Endpoints using key drawer > Empty state"
+  },
+  "yRzU8K": {
+    "defaultMessage": "Avg Latency",
+    "description": "Label for average latency statistic"
   },
   "ySno61": {
     "defaultMessage": "The code snippets below demonstrate how to make predictions using the logged model.",
