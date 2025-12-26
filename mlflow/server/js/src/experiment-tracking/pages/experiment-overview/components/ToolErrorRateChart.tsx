@@ -1,0 +1,174 @@
+import React, { useMemo } from 'react';
+import { WrenchIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import {
+  MetricViewType,
+  AggregationType,
+  SpanMetricKey,
+  SpanFilterKey,
+  SpanType,
+  SpanStatus,
+  SpanDimensionKey,
+  TIME_BUCKET_DIMENSION_KEY,
+  createSpanFilter,
+} from '@databricks/web-shared/model-trace-explorer';
+import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
+import {
+  ChartLoadingState,
+  ChartErrorState,
+  ChartEmptyState,
+  ChartHeader,
+  ChartContainer,
+  OverTimeLabel,
+  useChartTooltipStyle,
+  useChartXAxisProps,
+  useChartLegendFormatter,
+} from './ChartCardWrapper';
+import { formatTimestampForTraceMetrics } from '../utils/chartUtils';
+import type { OverviewChartProps } from '../types';
+
+export interface ToolErrorRateChartProps extends OverviewChartProps {
+  /** The name of the tool to display */
+  toolName: string;
+  /** Optional color for the line chart */
+  lineColor?: string;
+  /** Pre-computed overall error rate */
+  overallErrorRate: number;
+}
+
+export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({
+  experimentId,
+  startTimeMs,
+  endTimeMs,
+  timeIntervalSeconds,
+  timeBuckets,
+  toolName,
+  lineColor,
+  overallErrorRate,
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const tooltipStyle = useChartTooltipStyle();
+  const xAxisProps = useChartXAxisProps();
+  const legendFormatter = useChartLegendFormatter();
+
+  const chartLineColor = lineColor || theme.colors.red500;
+
+  // Filter for TOOL type spans with specific name
+  const toolFilters = useMemo(
+    () => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL), createSpanFilter(SpanFilterKey.NAME, toolName)],
+    [toolName],
+  );
+
+  // Query span counts grouped by status and time bucket
+  const { data, isLoading, error } = useTraceMetricsQuery({
+    experimentId,
+    startTimeMs,
+    endTimeMs,
+    viewType: MetricViewType.SPANS,
+    metricName: SpanMetricKey.SPAN_COUNT,
+    aggregations: [{ aggregation_type: AggregationType.COUNT }],
+    filters: toolFilters,
+    dimensions: [SpanDimensionKey.SPAN_STATUS],
+    timeIntervalSeconds,
+  });
+
+  const dataPoints = useMemo(() => data?.data_points || [], [data?.data_points]);
+
+  // Group data by time bucket and calculate error rate for each bucket
+  const errorRateByTimestamp = useMemo(() => {
+    const bucketData = new Map<number, { error: number; total: number }>();
+
+    for (const dp of dataPoints) {
+      const timeBucket = dp.dimensions?.[TIME_BUCKET_DIMENSION_KEY];
+      if (!timeBucket) continue;
+
+      const timestampMs = new Date(timeBucket).getTime();
+      const count = dp.values?.[AggregationType.COUNT] || 0;
+      const status = dp.dimensions?.[SpanDimensionKey.SPAN_STATUS];
+
+      if (!bucketData.has(timestampMs)) {
+        bucketData.set(timestampMs, { error: 0, total: 0 });
+      }
+
+      const bucket = bucketData.get(timestampMs)!;
+      bucket.total += count;
+      if (status === SpanStatus.ERROR) {
+        bucket.error += count;
+      }
+    }
+
+    // Convert to error rate map
+    const rateMap = new Map<number, number>();
+    for (const [ts, { error, total }] of bucketData) {
+      rateMap.set(ts, total > 0 ? (error / total) * 100 : 0);
+    }
+    return rateMap;
+  }, [dataPoints]);
+
+  // Build chart data with all time buckets
+  const chartData = useMemo(() => {
+    return timeBuckets.map((timestampMs) => ({
+      name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
+      errorRate: errorRateByTimestamp.get(timestampMs) || 0,
+    }));
+  }, [timeBuckets, errorRateByTimestamp, timeIntervalSeconds]);
+
+  // Check if we have actual data
+  const hasData = dataPoints.length > 0;
+
+  if (isLoading) {
+    return <ChartLoadingState />;
+  }
+
+  if (error) {
+    return <ChartErrorState />;
+  }
+
+  if (!hasData) {
+    return (
+      <ChartContainer>
+        <ChartHeader icon={<WrenchIcon css={{ color: chartLineColor }} />} title={toolName} />
+        <ChartEmptyState />
+      </ChartContainer>
+    );
+  }
+
+  return (
+    <ChartContainer>
+      <ChartHeader
+        icon={<WrenchIcon css={{ color: chartLineColor }} />}
+        title={toolName}
+        value={`${overallErrorRate.toFixed(2)}%`}
+        subtitle={
+          <FormattedMessage defaultMessage="overall error rate" description="Subtitle for overall tool error rate" />
+        }
+      />
+
+      <OverTimeLabel />
+
+      <div css={{ height: 200 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+            <XAxis dataKey="name" {...xAxisProps} />
+            <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} {...xAxisProps} />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+              formatter={(value: number) => [`${value.toFixed(2)}%`, 'Error Rate']}
+            />
+            <Legend iconType="plainline" formatter={legendFormatter} />
+            <Line
+              type="monotone"
+              dataKey="errorRate"
+              name="Error Rate"
+              stroke={chartLineColor}
+              strokeWidth={2}
+              dot={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </ChartContainer>
+  );
+};

@@ -1962,6 +1962,10 @@
     "defaultMessage": "Register model",
     "description": "Label for a CTA button for registering a ML model version from a logged model"
   },
+  "D2svqS": {
+    "defaultMessage": "overall error rate",
+    "description": "Subtitle for overall tool error rate"
+  },
   "D4rcC+": {
     "defaultMessage": "Define custom instructions for LLM evaluation",
     "description": "Hint for Custom template"
@@ -5986,6 +5990,10 @@
   "kNTkr+": {
     "defaultMessage": "Discard",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > submit button label"
+  },
+  "kSSD9B": {
+    "defaultMessage": "No tool calls available",
+    "description": "Message shown when there are no tool calls to display"
   },
   "kTkJkb": {
     "defaultMessage": "Parallel coordinates chart does not support aggregated string values. Use other parameters or disable run grouping to continue.",
