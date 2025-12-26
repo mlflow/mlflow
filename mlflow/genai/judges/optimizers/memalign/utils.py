@@ -46,16 +46,15 @@ def distill_guidelines(
     if not examples:
         return []
 
-    # Convert examples to dicts
     examples_data = [dict(example) for example in examples]
 
-    # Pass zip and len as globals for Jinja2 template to iterate over examples with indices
     template = Template(DISTILLATION_PROMPT_TEMPLATE)
     prompt = template.render(
         judge_instructions=judge_instructions,
         feedback_records=examples_data,
         ids=list(range(len(examples_data))),
         existing_guidelines=existing_guidelines,
+        # Pass zip and len as globals for Jinja2 template to iterate over examples with indices
         zip=zip,
         len=len,
     )

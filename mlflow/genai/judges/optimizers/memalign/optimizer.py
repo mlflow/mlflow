@@ -31,7 +31,8 @@ _logger = logging.getLogger(__name__)
 
 @experimental(version="3.9.0")
 class MemoryAugmentedJudge(Judge):
-    """A judge augmented with dual memory systems.
+    """
+    A judge augmented with dual memory systems.
 
     This judge enhances evaluation with:
     - Semantic Memory: Distilled guidelines from past feedback
@@ -60,10 +61,11 @@ class MemoryAugmentedJudge(Judge):
             distillation_model if distillation_model is not None else get_default_model()
         )
 
-        embedding_model = (
+        self._embedding_model = (
             embedding_model if embedding_model is not None else get_default_embedding_model()
         )
-        self._embedder = dspy.Embedder(embedding_model, dimensions=embedding_dim)
+        self._embedding_dim = embedding_dim
+        self._embedder = dspy.Embedder(self._embedding_model, dimensions=self._embedding_dim)
         self._search = None
 
         extended_signature = self._create_extended_signature()
@@ -123,13 +125,18 @@ class MemoryAugmentedJudge(Judge):
 
     @experimental(version="3.9.0")
     def unalign(self, traces: list[Trace]) -> "MemoryAugmentedJudge":
-        """Remove specific traces from memory and return new judge.
+        """
+        Remove specific traces from memory and return new judge.
 
         Args:
             traces: Traces to remove from memory
 
         Returns:
             A new MemoryAugmentedJudge with the traces removed
+
+        Note:
+            Guidelines are automatically redistilled from the remaining examples
+            when creating the new judge.
         """
         trace_ids_to_remove = {trace.info.trace_id for trace in traces}
 
@@ -190,7 +197,8 @@ class MemoryAugmentedJudge(Judge):
 
 @experimental(version="3.9.0")
 class MemAlignOptimizer(AlignmentOptimizer):
-    """MemAlign alignment optimizer using dual memory systems.
+    """
+    MemAlign alignment optimizer using dual memory systems.
 
     This optimizer creates a memory-augmented judge that learns from feedback
     through two complementary mechanisms:
@@ -233,7 +241,8 @@ class MemAlignOptimizer(AlignmentOptimizer):
         self._embedding_dim = embedding_dim
 
     def align(self, judge: Judge, traces: list[Trace]) -> Judge:
-        """Align judge with human feedback from traces.
+        """
+        Align judge with human feedback from traces.
 
         Args:
             judge: Judge to align
