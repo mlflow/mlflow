@@ -25,8 +25,8 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
-      type: 'doc',
-      id: 'eval-monitor/quickstart',
+      type: 'link',
+      href: '/genai/eval-monitor/quickstart/',
       label: 'Evaluate LLMs and Agents',
       className: 'sidebar-top-level-category',
     },
@@ -452,6 +452,11 @@ const sidebarsGenAI: SidebarsConfig = {
                       type: 'doc',
                       id: 'eval-monitor/scorers/third-party/deepeval',
                       label: 'DeepEval',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/ragas',
+                      label: 'RAGAS',
                     },
                   ],
                   collapsed: false,

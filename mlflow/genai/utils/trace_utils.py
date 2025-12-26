@@ -353,7 +353,7 @@ def resolve_conversation_from_session(
 def resolve_expectations_from_trace(
     expectations: dict[str, Any] | None,
     trace: Trace,
-    source: AssessmentSourceType = AssessmentSourceType.HUMAN,
+    source_type: AssessmentSourceType = AssessmentSourceType.HUMAN,
     *,
     extract_if_none: bool = True,
 ) -> dict[str, Any] | None:
@@ -363,7 +363,7 @@ def resolve_expectations_from_trace(
     Args:
         expectations: Dictionary of expected outcomes. If None, will be extracted from trace.
         trace: MLflow trace object containing the execution to evaluate.
-        source: Assessment source type to filter expectations by. Defaults to HUMAN.
+        source_type: Assessment source type to filter expectations by. Defaults to HUMAN.
         extract_if_none: If True, extract from trace when expectations is None. If False, only
                         return the provided expectations value. Defaults to True.
 
@@ -373,28 +373,71 @@ def resolve_expectations_from_trace(
     """
     if expectations is None and trace is not None and extract_if_none:
         try:
-            return extract_expectations_from_trace(trace, source=source)
+            return extract_expectations_from_trace(trace, source_type=source_type)
         except Exception as e:
             _logger.debug(f"Could not extract expectations from trace: {e}")
     return expectations
 
 
+def resolve_expectations_from_session(
+    expectations: dict[str, Any] | None,
+    session: list[Trace],
+    source_type: AssessmentSourceType = AssessmentSourceType.HUMAN,
+) -> dict[str, Any] | None:
+    """
+    Extract session-level expectations from the first trace in a session if not provided.
+
+    Args:
+        expectations: Dictionary of expected outcomes. If provided, this is returned as-is
+                     (ground truth). If None, will be extracted from session.
+        session: List of traces from the same session.
+        source_type: Assessment source type to filter expectations by. Defaults to HUMAN.
+
+    Returns:
+        The provided expectations if not None (ground truth), otherwise extracted
+        session-level expectations from the first trace, or None if extraction fails.
+    """
+    if expectations is None and session:
+        try:
+            sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
+            first_trace = sorted_traces[0]
+
+            expectation_assessments = first_trace.search_assessments(type="expectation")
+
+            expectation_assessments = [
+                exp
+                for exp in expectation_assessments
+                if exp.source
+                and exp.source.source_type == source_type
+                and exp.metadata
+                and TraceMetadataKey.TRACE_SESSION in exp.metadata
+            ]
+
+            return {exp.name: exp.expectation.value for exp in expectation_assessments} or None
+        except Exception as e:
+            _logger.debug(f"Could not extract expectations from session: {e}")
+    return expectations
+
+
 def extract_expectations_from_trace(
-    trace: Trace, source: str | None = None
+    trace: Trace,
+    source_type: str | None = None,
 ) -> dict[str, Any] | None:
     """
     Extract expectations from trace assessments.
 
     Args:
         trace: MLflow trace object
-        source: If specified, only extract expectations from the given source type.
-                Must be one of the valid AssessmentSourceType values
-                If None, extract all expectations regardless of source.
+        source_type: If specified, only extract expectations from the given source type.
+                     Must be one of the valid AssessmentSourceType values
+                     If None, extract all expectations regardless of source.
 
     Returns:
         Dictionary of expectations, or None if no expectations found
     """
-    validated_source = AssessmentSourceType._standardize(source) if source is not None else None
+    validated_source = (
+        AssessmentSourceType._standardize(source_type) if source_type is not None else None
+    )
 
     expectation_assessments = trace.search_assessments(type="expectation")
 

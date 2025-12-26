@@ -26,7 +26,13 @@ from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
-from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import (
+    AssessmentMetricSearchKey,
+    SpanMetricSearchKey,
+    TraceMetadataKey,
+    TraceMetricSearchKey,
+    TraceTagKey,
+)
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
 )
@@ -2009,6 +2015,123 @@ class SearchTraceUtils(SearchUtils):
             cls.is_span(comp["type"], comp["key"], comp["comparator"])
 
         return comp
+
+
+@dataclass
+class TraceMetricsFilter:
+    view_type: str
+    entity: str
+    key: str | None
+    comparator: str
+    value: Any
+
+
+class SearchTraceMetricsUtils(SearchTraceUtils):
+    _VALID_VIEW_TYPES_TO_ENTITIES = {
+        TraceMetricSearchKey.VIEW_TYPE: TraceMetricSearchKey.entity_to_key_requirement(),
+        SpanMetricSearchKey.VIEW_TYPE: SpanMetricSearchKey.entity_to_key_requirement(),
+        AssessmentMetricSearchKey.VIEW_TYPE: AssessmentMetricSearchKey.entity_to_key_requirement(),
+    }
+
+    @classmethod
+    def parse_search_filter(cls, filter_string: str) -> TraceMetricsFilter:
+        parsed = super().parse_search_filter(filter_string)
+        if len(parsed) != 1:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid filter: '{filter_string}'. Expected one filter clause."
+            )
+        return parsed[0]
+
+    @classmethod
+    def _process_statement(cls, statement: Statement) -> list[TraceMetricsFilter]:
+        tokens = statement.tokens
+        invalids = list(filter(cls._invalid_statement_token, tokens))
+        if len(invalids) > 0:
+            invalid_clauses = ", ".join(map(str, invalids))
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid clause(s) in filter string: {invalid_clauses}"
+            )
+        return [cls._get_comparison(t) for t in tokens if isinstance(t, Comparison)]
+
+    @classmethod
+    def _invalid_statement_token(cls, token: Token) -> bool:
+        if isinstance(token, Comparison) or token.is_whitespace:
+            return False
+        return True
+
+    @classmethod
+    def _get_identifier(cls, identifier) -> dict[str, Any]:
+        error_message = (
+            f"Invalid identifier {identifier!r}. Columns should be specified as "
+            f"'trace.<key>', 'span.<key>', 'assessment.<key>'."
+        )
+        try:
+            tokens = identifier.split(".", 2)
+            match tokens:
+                case [view_type, entity]:
+                    return cls._validate_metrics_fields(view_type, entity)
+                case [view_type, entity, key]:
+                    return cls._validate_metrics_fields(view_type, entity, key)
+                case _:
+                    raise MlflowException.invalid_parameter_value(error_message)
+        except ValueError:
+            raise MlflowException.invalid_parameter_value(error_message)
+
+    @classmethod
+    def _validate_metrics_fields(cls, view_type, entity, key=None) -> dict[str, Any]:
+        view_type = cls._trim_backticks(view_type)
+        if view_type not in cls._VALID_VIEW_TYPES_TO_ENTITIES:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid view type '{view_type}'. "
+                f"Valid values are {cls._VALID_VIEW_TYPES_TO_ENTITIES.keys()}"
+            )
+        valid_entities = cls._VALID_VIEW_TYPES_TO_ENTITIES[view_type]
+        if entity not in valid_entities:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid entity '{entity}' specified for view type '{view_type}'. "
+                f"Valid entities are {list(valid_entities.keys())}"
+            )
+        key_is_required = valid_entities[entity]
+        if key_is_required and key is None:
+            raise MlflowException.invalid_parameter_value(
+                f"Filtering by {entity} requires a key, e.g. '{view_type}.{entity}.<key> = <value>'"
+            )
+        elif not key_is_required and key is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Filtering by {entity} does not require a key, use '{view_type}.{entity}' instead"
+            )
+        key = cls._trim_backticks(cls._strip_quotes(key)) if key else None
+        return {"view_type": view_type, "entity": entity, "key": key}
+
+    @classmethod
+    def _get_value(cls, entity, key, token):
+        if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+            return cls._strip_quotes(token.value, expect_quoted_value=True)
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Expected a quoted string value for {entity} value (e.g. 'my-value'). "
+                f"Got value {token.value}",
+            )
+
+    @classmethod
+    def _get_comparison(cls, comparison: Comparison) -> TraceMetricsFilter:
+        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+        cls._validate_comparison(stripped_comparison)
+        comp = cls._get_identifier(stripped_comparison[0].value)
+        comparator = stripped_comparison[1].value
+        if comparator != "=":
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid comparator: '{comparator}', only '=' operator is supported"
+            )
+        value = cls._get_value(comp["entity"], comp["key"], stripped_comparison[2])
+
+        return TraceMetricsFilter(
+            view_type=comp["view_type"],
+            entity=comp["entity"],
+            key=comp["key"],
+            comparator=comparator,
+            value=value,
+        )
 
 
 class SearchEvaluationDatasetsUtils(SearchUtils):

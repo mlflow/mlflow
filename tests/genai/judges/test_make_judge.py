@@ -3313,6 +3313,55 @@ expectations: {
     assert user_msg.content == expected_content
 
 
+def test_conversation_with_session_level_expectations(mock_invoke_judge_model):
+    judge = make_judge(
+        name="conversation_expectations_judge",
+        instructions="Evaluate {{ conversation }} against {{ expectations }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    session_id = "test-session"
+
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"question": "What is MLflow?"})
+        span.set_outputs({"answer": "MLflow is a platform"})
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+
+    trace_id = span.trace_id
+
+    expectation = Expectation(
+        name="accuracy",
+        value="Should provide accurate information",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+        metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+    )
+    mlflow.log_assessment(trace_id=trace_id, assessment=expectation)
+
+    trace = mlflow.get_trace(trace_id)
+
+    result = judge(session=[trace])
+
+    assert isinstance(result, Feedback)
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+    user_msg = prompt[1]
+
+    expected_content = """conversation: [
+  {
+    "role": "user",
+    "content": "{'question': 'What is MLflow?'}"
+  },
+  {
+    "role": "assistant",
+    "content": "{\\"answer\\": \\"MLflow is a platform\\"}"
+  }
+]
+expectations: {
+  "accuracy": "Should provide accurate information"
+}"""
+    assert user_msg.content == expected_content
+
+
 def test_conversation_missing_session():
     judge = make_judge(
         name="conversation_judge",

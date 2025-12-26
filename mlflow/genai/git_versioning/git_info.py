@@ -36,7 +36,7 @@ class GitInfo:
 
         # Create repo object once and extract all info
         try:
-            repo = git.Repo()
+            repo = git.Repo(search_parent_directories=True)
         except git.InvalidGitRepositoryError as e:
             raise GitOperationError(f"Not in a git repository: {e}") from e
 
