@@ -97,7 +97,6 @@ class PhoenixScorer(Scorer):
 
         try:
             record = map_scorer_inputs_to_phoenix_record(
-                metric_name=self.name,
                 inputs=inputs,
                 outputs=outputs,
                 expectations=expectations,

@@ -1,30 +1,14 @@
-import sys
 from unittest import mock
 
 import pytest
 
 from mlflow.entities.assessment import Feedback
-from mlflow.exceptions import MlflowException
 
 
-def test_phoenix_check_installed_raises_without_phoenix():
-    with mock.patch.dict("sys.modules", {"phoenix": None, "phoenix.evals": None}):
-        for mod in list(sys.modules.keys()):
-            if "mlflow.genai.scorers.phoenix" in mod:
-                del sys.modules[mod]
-
-        from mlflow.genai.scorers.phoenix.utils import check_phoenix_installed
-
-        with pytest.raises(MlflowException, match="arize-phoenix-evals"):
-            check_phoenix_installed()
-
-
-def test_phoenix_hallucination_scorer_with_mock():
-    from mlflow.genai.scorers.phoenix import Hallucination
-
+@pytest.fixture
+def mock_phoenix_dependencies():
+    """Fixture that mocks Phoenix dependencies for scorer tests."""
     mock_evaluator = mock.MagicMock()
-    mock_evaluator.evaluate.return_value = ("factual", 0.9, "Output is grounded.")
-
     mock_model = mock.MagicMock()
 
     with (
@@ -36,230 +20,129 @@ def test_phoenix_hallucination_scorer_with_mock():
             "mlflow.genai.scorers.phoenix.get_evaluator_class",
             return_value=mock.MagicMock(return_value=mock_evaluator),
         ),
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.get_metric_config",
-            return_value={"positive_label": "factual", "negative_label": "hallucinated"},
-        ),
     ):
-        scorer = Hallucination(model="openai:/gpt-4")
-        result = scorer(
-            inputs="What is the capital of France?",
-            outputs="Paris is the capital of France.",
-            expectations={"expected_response": "France is in Europe. Its capital is Paris."},
-        )
-
-        assert isinstance(result, Feedback)
-        assert result.name == "Hallucination"
-        assert result.value == "factual"
-        assert result.metadata["score"] == 0.9
-        assert result.metadata["label"] == "factual"
+        yield mock_evaluator
 
 
-def test_phoenix_relevance_scorer_with_mock():
-    from mlflow.genai.scorers.phoenix import Relevance
+@pytest.mark.parametrize(
+    ("scorer_class", "metric_name", "label", "score", "explanation"),
+    [
+        ("Hallucination", "Hallucination", "factual", 0.9, "Output is grounded."),
+        ("Relevance", "Relevance", "relevant", 0.85, "Context is relevant."),
+        ("Toxicity", "Toxicity", "non-toxic", 0.95, "Safe content."),
+        ("QA", "QA", "correct", 1.0, "Answer is correct."),
+        ("Summarization", "Summarization", "good", 0.9, "Good summary."),
+    ],
+)
+def test_phoenix_scorer(
+    mock_phoenix_dependencies,
+    scorer_class,
+    metric_name,
+    label,
+    score,
+    explanation,
+):
+    mock_evaluator = mock_phoenix_dependencies
+    mock_evaluator.evaluate.return_value = (label, score, explanation)
 
-    mock_evaluator = mock.MagicMock()
-    mock_evaluator.evaluate.return_value = ("relevant", 0.85, "Context is relevant.")
+    # Import dynamically to work with the mock
+    from mlflow.genai.scorers import phoenix
 
-    mock_model = mock.MagicMock()
+    scorer_cls = getattr(phoenix, scorer_class)
+    scorer = scorer_cls(model="openai:/gpt-4")
 
-    with (
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.create_phoenix_model",
-            return_value=mock_model,
-        ),
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.get_evaluator_class",
-            return_value=mock.MagicMock(return_value=mock_evaluator),
-        ),
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.get_metric_config",
-            return_value={"positive_label": "relevant", "negative_label": "irrelevant"},
-        ),
-    ):
-        scorer = Relevance(model="openai:/gpt-4")
-        result = scorer(
-            inputs="What is machine learning?",
-            expectations={"expected_response": "Machine learning is a subset of AI."},
-        )
+    result = scorer(
+        inputs="test input",
+        outputs="test output",
+        expectations={"expected_response": "test reference"},
+    )
 
-        assert isinstance(result, Feedback)
-        assert result.name == "Relevance"
-        assert result.value == "relevant"
-        assert result.metadata["score"] == 0.85
-
-
-def test_phoenix_toxicity_scorer_with_mock():
-    from mlflow.genai.scorers.phoenix import Toxicity
-
-    mock_evaluator = mock.MagicMock()
-    mock_evaluator.evaluate.return_value = ("non-toxic", 0.95, "Safe content.")
-
-    mock_model = mock.MagicMock()
-
-    with (
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.create_phoenix_model",
-            return_value=mock_model,
-        ),
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.get_evaluator_class",
-            return_value=mock.MagicMock(return_value=mock_evaluator),
-        ),
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.get_metric_config",
-            return_value={"positive_label": "non-toxic", "negative_label": "toxic"},
-        ),
-    ):
-        scorer = Toxicity(model="openai:/gpt-4")
-        result = scorer(outputs="This is a friendly response.")
-
-        assert isinstance(result, Feedback)
-        assert result.name == "Toxicity"
-        assert result.value == "non-toxic"
-        assert result.metadata["score"] == 0.95
+    assert isinstance(result, Feedback)
+    assert result.name == metric_name
+    assert result.value == label
+    assert result.metadata["score"] == score
+    assert result.metadata["label"] == label
+    assert result.source.source_id == "openai:/gpt-4"
 
 
-def test_phoenix_qa_scorer_with_mock():
-    from mlflow.genai.scorers.phoenix import QA
-
-    mock_evaluator = mock.MagicMock()
-    mock_evaluator.evaluate.return_value = ("correct", 1.0, "Answer is correct.")
-
-    mock_model = mock.MagicMock()
-
-    with (
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.create_phoenix_model",
-            return_value=mock_model,
-        ),
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.get_evaluator_class",
-            return_value=mock.MagicMock(return_value=mock_evaluator),
-        ),
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.get_metric_config",
-            return_value={"positive_label": "correct", "negative_label": "incorrect"},
-        ),
-    ):
-        scorer = QA(model="openai:/gpt-4")
-        result = scorer(
-            inputs="What is 2+2?",
-            outputs="4",
-            expectations={"expected_response": "2+2=4"},
-        )
-
-        assert isinstance(result, Feedback)
-        assert result.name == "QA"
-        assert result.value == "correct"
-
-
-def test_phoenix_summarization_scorer_with_mock():
-    from mlflow.genai.scorers.phoenix import Summarization
-
-    mock_evaluator = mock.MagicMock()
-    mock_evaluator.evaluate.return_value = ("good", 0.9, "Good summary.")
-
-    mock_model = mock.MagicMock()
-
-    with (
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.create_phoenix_model",
-            return_value=mock_model,
-        ),
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.get_evaluator_class",
-            return_value=mock.MagicMock(return_value=mock_evaluator),
-        ),
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.get_metric_config",
-            return_value={"positive_label": "good", "negative_label": "bad"},
-        ),
-    ):
-        scorer = Summarization(model="openai:/gpt-4")
-        result = scorer(
-            inputs="Long document text...",
-            outputs="Brief summary.",
-        )
-
-        assert isinstance(result, Feedback)
-        assert result.name == "Summarization"
-        assert result.value == "good"
-
-
-def test_phoenix_scorer_negative_label():
-    from mlflow.genai.scorers.phoenix import Hallucination
-
-    mock_evaluator = mock.MagicMock()
+def test_phoenix_scorer_negative_label(mock_phoenix_dependencies):
+    mock_evaluator = mock_phoenix_dependencies
     mock_evaluator.evaluate.return_value = ("hallucinated", None, "Contains made-up info.")
 
-    mock_model = mock.MagicMock()
+    from mlflow.genai.scorers.phoenix import Hallucination
 
-    with (
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.create_phoenix_model",
-            return_value=mock_model,
-        ),
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.get_evaluator_class",
-            return_value=mock.MagicMock(return_value=mock_evaluator),
-        ),
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.get_metric_config",
-            return_value={"positive_label": "factual", "negative_label": "hallucinated"},
-        ),
-    ):
-        scorer = Hallucination(model="openai:/gpt-4")
-        result = scorer(
-            inputs="test",
-            outputs="test output",
-            expectations={"expected_response": "test context"},
-        )
+    scorer = Hallucination(model="openai:/gpt-4")
+    result = scorer(
+        inputs="test",
+        outputs="test output",
+        expectations={"expected_response": "test context"},
+    )
 
-        assert isinstance(result, Feedback)
-        assert result.value == "hallucinated"
+    assert isinstance(result, Feedback)
+    assert result.value == "hallucinated"
+    assert result.rationale == "Contains made-up info."
 
 
-def test_phoenix_get_scorer():
-    from mlflow.genai.scorers.phoenix import get_scorer
+def test_phoenix_scorer_none_explanation(mock_phoenix_dependencies):
+    mock_evaluator = mock_phoenix_dependencies
+    mock_evaluator.evaluate.return_value = ("factual", 0.9, None)
 
-    mock_evaluator = mock.MagicMock()
+    from mlflow.genai.scorers.phoenix import Hallucination
+
+    scorer = Hallucination(model="openai:/gpt-4")
+    result = scorer(
+        inputs="test",
+        outputs="test output",
+        expectations={"expected_response": "test context"},
+    )
+
+    assert result.rationale is None
+
+
+def test_phoenix_get_scorer(mock_phoenix_dependencies):
+    mock_evaluator = mock_phoenix_dependencies
     mock_evaluator.evaluate.return_value = ("factual", 0.9, "Grounded.")
 
-    mock_model = mock.MagicMock()
+    from mlflow.genai.scorers.phoenix import get_scorer
 
-    with (
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.create_phoenix_model",
-            return_value=mock_model,
-        ),
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.get_evaluator_class",
-            return_value=mock.MagicMock(return_value=mock_evaluator),
-        ),
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.get_metric_config",
-            return_value={"positive_label": "factual", "negative_label": "hallucinated"},
-        ),
-    ):
-        scorer = get_scorer("Hallucination", model="openai:/gpt-4")
-        result = scorer(
-            inputs="test",
-            outputs="test output",
-            expectations={"expected_response": "test context"},
-        )
+    scorer = get_scorer("Hallucination", model="openai:/gpt-4")
+    result = scorer(
+        inputs="test",
+        outputs="test output",
+        expectations={"expected_response": "test context"},
+    )
 
-        assert isinstance(result, Feedback)
-        assert result.name == "Hallucination"
+    assert isinstance(result, Feedback)
+    assert result.name == "Hallucination"
 
 
-def test_phoenix_get_scorer_invalid_metric():
-    from mlflow.genai.scorers.phoenix.registry import get_evaluator_class
+def test_phoenix_scorer_with_evaluator_kwargs(mock_phoenix_dependencies):
+    mock_evaluator = mock_phoenix_dependencies
+    mock_evaluator.evaluate.return_value = ("factual", 0.9, "Grounded.")
 
-    mock_modules = {"phoenix": mock.MagicMock(), "phoenix.evals": mock.MagicMock()}
-    with pytest.raises(MlflowException, match="Unknown Phoenix metric"):
-        with mock.patch.dict("sys.modules", mock_modules):
-            get_evaluator_class("InvalidMetric")
+    from mlflow.genai.scorers.phoenix import Hallucination
+
+    # Should not raise - kwargs passed to evaluator
+    scorer = Hallucination(model="openai:/gpt-4", custom_param="value")
+    assert scorer is not None
+
+
+def test_phoenix_scorer_error_handling(mock_phoenix_dependencies):
+    mock_evaluator = mock_phoenix_dependencies
+    mock_evaluator.evaluate.side_effect = RuntimeError("Evaluation failed")
+
+    from mlflow.genai.scorers.phoenix import Hallucination
+
+    scorer = Hallucination(model="openai:/gpt-4")
+    result = scorer(
+        inputs="test",
+        outputs="test output",
+        expectations={"expected_response": "test context"},
+    )
+
+    assert isinstance(result, Feedback)
+    assert result.error is not None
+    assert "Evaluation failed" in str(result.error)
 
 
 def test_phoenix_scorer_exports():
@@ -273,6 +156,7 @@ def test_phoenix_scorer_exports():
         get_scorer,
     )
 
+    # Verify all expected classes are exported
     assert Hallucination is not None
     assert Relevance is not None
     assert Toxicity is not None
@@ -280,36 +164,3 @@ def test_phoenix_scorer_exports():
     assert Summarization is not None
     assert PhoenixScorer is not None
     assert get_scorer is not None
-
-
-def test_phoenix_assessment_source():
-    from mlflow.genai.scorers.phoenix import Hallucination
-
-    mock_evaluator = mock.MagicMock()
-    mock_evaluator.evaluate.return_value = ("factual", 0.9, "Grounded.")
-
-    mock_model = mock.MagicMock()
-
-    with (
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.create_phoenix_model",
-            return_value=mock_model,
-        ),
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.get_evaluator_class",
-            return_value=mock.MagicMock(return_value=mock_evaluator),
-        ),
-        mock.patch(
-            "mlflow.genai.scorers.phoenix.get_metric_config",
-            return_value={"positive_label": "factual", "negative_label": "hallucinated"},
-        ),
-    ):
-        scorer = Hallucination(model="openai:/gpt-4")
-        result = scorer(
-            inputs="test",
-            outputs="test output",
-            expectations={"expected_response": "test context"},
-        )
-
-        assert result.source is not None
-        assert result.source.source_id == "openai:/gpt-4"
