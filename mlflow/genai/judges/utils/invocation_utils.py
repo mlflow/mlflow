@@ -115,15 +115,10 @@ def _invoke_databricks_structured_output(
     Raises:
         MlflowException: If databricks-agents is not installed or invocation fails.
     """
-    from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
     from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
-        _create_litellm_message_from_databricks_response,
-        _serialize_messages_to_databricks_prompts,
-        call_chat_completions,
+        _run_databricks_agentic_loop,
     )
-    from mlflow.genai.judges.constants import _DATABRICKS_AGENTIC_JUDGE_MODEL
-    from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
-    from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, REQUEST_LIMIT_EXCEEDED
+    from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
     # Convert ChatMessage to litellm Messages
     litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
@@ -144,67 +139,18 @@ def _invoke_databricks_structured_output(
             litellm.Message(role="system", content=schema_instruction),
         )
 
-    # Enable tool calling if trace is provided
-    tools = None
-    model = None
-    if trace is not None:
-        from mlflow.genai.judges.tools import list_judge_tools
-
-        tools = [tool.get_definition() for tool in list_judge_tools()]
-        model = _DATABRICKS_AGENTIC_JUDGE_MODEL
-
-    # Agentic loop: iteratively call LLM and execute tools until final answer
-    max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
-    iteration_count = 0
-
-    while True:
-        iteration_count += 1
-        if iteration_count > max_iterations:
-            raise MlflowException(
-                f"Completion iteration limit of {max_iterations} exceeded. "
-                f"This usually indicates the model is not powerful enough to effectively "
-                f"analyze the trace. Consider using a more intelligent/powerful model.",
-                error_code=REQUEST_LIMIT_EXCEEDED,
-            )
-
-        # Serialize messages to Databricks format
-        user_prompt, system_prompt = _serialize_messages_to_databricks_prompts(litellm_messages)
-
-        llm_result = call_chat_completions(
-            user_prompt, system_prompt, tools=tools, model=model
+    # Define callback to parse final answer into Pydantic model
+    def parse_structured_output(content: str | None) -> pydantic.BaseModel:
+        if content:
+            cleaned = _strip_markdown_code_blocks(content)
+            response_dict = json.loads(cleaned)
+            return output_schema(**response_dict)
+        raise MlflowException(
+            "Empty content in final response from Databricks judge",
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
-        # Parse response
-        output_json = llm_result.output_json
-        if not output_json:
-            raise MlflowException(
-                "Empty response from Databricks judge",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-        parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
-
-        # Convert response to litellm Message
-        message = _create_litellm_message_from_databricks_response(parsed_json)
-
-        # No tool calls means final answer - parse and return
-        if not message.tool_calls:
-            if message.content:
-                cleaned = _strip_markdown_code_blocks(message.content)
-                response_dict = json.loads(cleaned)
-                return output_schema(**response_dict)
-            raise MlflowException(
-                "Empty content in final response from Databricks judge",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-        # Append assistant message and process tool calls
-        litellm_messages.append(message)
-        tool_response_messages = _process_tool_calls(
-            tool_calls=message.tool_calls,
-            trace=trace,
-        )
-        litellm_messages.extend(tool_response_messages)
+    return _run_databricks_agentic_loop(litellm_messages, trace, parse_structured_output)
 
 
 def get_chat_completions_with_structured_output(

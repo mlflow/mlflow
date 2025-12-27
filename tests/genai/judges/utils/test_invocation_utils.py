@@ -1085,16 +1085,16 @@ def test_structured_output_schema_injection_with_existing_system_message():
     class TestSchema(BaseModel):
         outputs: str = Field(description="The outputs")
 
-    # Mock the chat completions call to capture the prompts
-    mock_llm_result = mock.Mock()
-    mock_llm_result.output_json = json.dumps({
-        "choices": [{"message": {"content": '{"outputs": "test result"}'}}]
-    })
+    captured_messages = []
+
+    def mock_loop(messages, trace, on_final_answer):
+        captured_messages.extend(messages)
+        return on_final_answer('{"outputs": "test result"}')
 
     with mock.patch(
-        "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
-        return_value=mock_llm_result,
-    ) as mock_call:
+        "mlflow.genai.judges.utils.invocation_utils._run_databricks_agentic_loop",
+        side_effect=mock_loop,
+    ):
         result = _invoke_databricks_structured_output(
             messages=[
                 ChatMessage(role="system", content="You are a helpful assistant."),
@@ -1105,12 +1105,13 @@ def test_structured_output_schema_injection_with_existing_system_message():
         )
 
     # Verify schema was appended to existing system message
-    mock_call.assert_called_once()
-    user_prompt, system_prompt = mock_call.call_args[0][:2]
-    assert system_prompt is not None
-    assert "You are a helpful assistant." in system_prompt
-    assert "You must return your response as JSON matching this schema:" in system_prompt
-    assert '"outputs"' in system_prompt
+    assert len(captured_messages) == 2
+    assert captured_messages[0].role == "system"
+    assert "You are a helpful assistant." in captured_messages[0].content
+    assert "You must return your response as JSON matching this schema:" in (
+        captured_messages[0].content
+    )
+    assert '"outputs"' in captured_messages[0].content
 
     assert isinstance(result, TestSchema)
     assert result.outputs == "test result"
@@ -1121,15 +1122,16 @@ def test_structured_output_schema_injection_without_system_message():
         inputs: str = Field(description="The inputs")
         outputs: str = Field(description="The outputs")
 
-    mock_llm_result = mock.Mock()
-    mock_llm_result.output_json = json.dumps({
-        "choices": [{"message": {"content": '{"inputs": "hello", "outputs": "world"}'}}]
-    })
+    captured_messages = []
+
+    def mock_loop(messages, trace, on_final_answer):
+        captured_messages.extend(messages)
+        return on_final_answer('{"inputs": "hello", "outputs": "world"}')
 
     with mock.patch(
-        "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
-        return_value=mock_llm_result,
-    ) as mock_call:
+        "mlflow.genai.judges.utils.invocation_utils._run_databricks_agentic_loop",
+        side_effect=mock_loop,
+    ):
         result = _invoke_databricks_structured_output(
             messages=[
                 ChatMessage(role="user", content="Extract fields from the trace"),
@@ -1139,11 +1141,13 @@ def test_structured_output_schema_injection_without_system_message():
         )
 
     # Verify schema was inserted as new system message at the beginning
-    mock_call.assert_called_once()
-    user_prompt, system_prompt = mock_call.call_args[0][:2]
-    assert system_prompt is not None
-    assert "You must return your response as JSON matching this schema:" in system_prompt
-    assert "Extract fields from the trace" in user_prompt
+    assert len(captured_messages) == 2
+    assert captured_messages[0].role == "system"
+    assert "You must return your response as JSON matching this schema:" in (
+        captured_messages[0].content
+    )
+    assert captured_messages[1].role == "user"
+    assert captured_messages[1].content == "Extract fields from the trace"
 
     assert isinstance(result, TestSchema)
     assert result.inputs == "hello"
