@@ -488,7 +488,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         if experiment is None:
             raise MlflowException(
-                f"No Experiment with id={experiment_id} exists", RESOURCE_DOES_NOT_EXIST
+                f"No Experiment with id={experiment_id_int} exists", RESOURCE_DOES_NOT_EXIST
             )
 
         return experiment
