@@ -76,26 +76,35 @@ export const EndpointsUsingKeyDrawer = ({ open, keyName, endpoints, onClose }: E
                 >
                   <Link
                     to={GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id)}
-                    css={{ fontWeight: theme.typography.typographyBoldFontWeight }}
+                    css={{
+                      color: theme.colors.actionPrimaryBackgroundDefault,
+                      textDecoration: 'none',
+                      fontWeight: theme.typography.typographyBoldFontWeight,
+                      '&:hover': {
+                        textDecoration: 'underline',
+                      },
+                    }}
                   >
                     {endpoint.name || endpoint.endpoint_id}
                   </Link>
-                  <div
-                    css={{
-                      display: 'flex',
-                      gap: theme.spacing.md,
-                      color: theme.colors.textSecondary,
-                      fontSize: theme.typography.fontSizeSm,
-                    }}
-                  >
-                    <span>
-                      <FormattedMessage
-                        defaultMessage="{count, plural, one {# model} other {# models}}"
-                        description="Gateway > Endpoints using key drawer > Model count"
-                        values={{ count: endpoint.model_mappings?.length ?? 0 }}
-                      />
-                    </span>
-                  </div>
+                  {endpoint.model_mappings && endpoint.model_mappings.length > 0 && (
+                    <div
+                      css={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: theme.spacing.xs,
+                        color: theme.colors.textSecondary,
+                        fontSize: theme.typography.fontSizeSm,
+                      }}
+                    >
+                      {endpoint.model_mappings.map((mapping, mappingIndex) => (
+                        <span key={mapping.mapping_id}>
+                          {mapping.model_definition?.model_name ?? 'Unknown model'}
+                          {mappingIndex < endpoint.model_mappings.length - 1 && ','}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <span css={{ color: theme.colors.textSecondary, fontSize: theme.typography.fontSizeSm }}>
                     <FormattedMessage
                       defaultMessage="Created {date}"

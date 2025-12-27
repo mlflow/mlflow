@@ -107,7 +107,7 @@ export const EndpointBindingsDrawer = ({ open, endpointName, bindings, onClose }
         title={
           <Typography.Title level={3} css={{ margin: 0 }}>
             <FormattedMessage
-              defaultMessage="Connected resources ({count})"
+              defaultMessage="Used by ({count})"
               description="Gateway > Endpoint bindings drawer > Title"
               values={{ count: bindings.length }}
             />
