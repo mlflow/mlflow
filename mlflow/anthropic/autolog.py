@@ -138,11 +138,17 @@ def _set_token_usage_attribute(span: LiveSpan, output: Any):
 def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
         if usage := getattr(output, "usage", None):
-            return {
+            result = {
                 TokenUsageKey.INPUT_TOKENS: usage.input_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.output_tokens,
                 TokenUsageKey.TOTAL_TOKENS: usage.input_tokens + usage.output_tokens,
             }
+            # Include Anthropic prompt caching tokens if present
+            if cache_creation := getattr(usage, "cache_creation_input_tokens", None):
+                result[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_creation
+            if cache_read := getattr(usage, "cache_read_input_tokens", None):
+                result[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read
+            return result
     except Exception as e:
         _logger.debug(f"Failed to parse token usage from output: {e}")
     return None
