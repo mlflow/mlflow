@@ -119,6 +119,10 @@
     "defaultMessage": "No traces found. Try clearing your active filters to see more traces.",
     "description": "Text displayed when no traces are found in the trace review page"
   },
+  "+pJvL0": {
+    "defaultMessage": "Over time",
+    "description": "Label above the latency chart"
+  },
   "+w9a+1": {
     "defaultMessage": "Open runs in this group in the new tab",
     "description": "Experiment page > grouped runs table > tooltip for a button that opens runs in a group in a new tab"
@@ -1786,6 +1790,10 @@
     "defaultMessage": "Save",
     "description": "Tag assignment modal > Save button"
   },
+  "C83vFj": {
+    "defaultMessage": "Latency",
+    "description": "Title for the latency chart"
+  },
   "C8Jj/L": {
     "defaultMessage": "Name",
     "description": "Table header for model name"
@@ -3033,6 +3041,10 @@
   "Nj6Ez5": {
     "defaultMessage": "Name",
     "description": "Text for name column in schema table in model version page"
+  },
+  "NkyJeV": {
+    "defaultMessage": "Over time",
+    "description": "Label above the errors chart"
   },
   "Nlm9bK": {
     "defaultMessage": "Add tags",
@@ -6886,6 +6898,10 @@
   "t0Qkuc": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Metrics table > Value column header"
+  },
+  "t3mHNt": {
+    "defaultMessage": "Errors",
+    "description": "Title for the errors chart"
   },
   "tCC/M3": {
     "defaultMessage": "Create a new key if a different provider is needed.",
