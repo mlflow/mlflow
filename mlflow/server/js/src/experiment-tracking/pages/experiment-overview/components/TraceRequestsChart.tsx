@@ -1,23 +1,25 @@
 import React, { useMemo } from 'react';
-import { useDesignSystemTheme, Typography, ChartLineIcon } from '@databricks/design-system';
+import { useDesignSystemTheme, ChartLineIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
-import { useTraceMetricsQuery, calculateTimeInterval } from '../hooks/useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from '../utils/chartUtils';
-import { ChartLoadingState, ChartErrorState, ChartEmptyState } from './ChartCardWrapper';
+import {
+  MetricViewType,
+  AggregationType,
+  TraceMetricKey,
+  TIME_BUCKET_DIMENSION_KEY,
+} from '@databricks/web-shared/model-trace-explorer';
+import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
+import { formatTimestampForTraceMetrics, generateTimeBuckets } from '../utils/chartUtils';
+import { ChartLoadingState, ChartErrorState, ChartEmptyState, ChartHeader, OverTimeLabel } from './ChartCardWrapper';
+import type { OverviewChartProps } from '../types';
 
-export interface TraceRequestsChartProps {
-  experimentId: string;
-  startTimeMs?: number;
-  endTimeMs?: number;
-}
-
-export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ experimentId, startTimeMs, endTimeMs }) => {
+export const TraceRequestsChart: React.FC<OverviewChartProps> = ({
+  experimentId,
+  startTimeMs,
+  endTimeMs,
+  timeIntervalSeconds,
+}) => {
   const { theme } = useDesignSystemTheme();
-
-  // Calculate time interval for grouping
-  const timeIntervalSeconds = calculateTimeInterval(startTimeMs, endTimeMs);
 
   // Fetch trace count metrics grouped by time bucket
   const {
@@ -42,16 +44,32 @@ export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ experime
     [traceCountDataPoints],
   );
 
-  // Prepare chart data for recharts (data is already sorted by time_bucket from backend)
+  // Create a map of counts by timestamp
+  const countByTimestamp = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const dp of traceCountDataPoints) {
+      const timeBucket = dp.dimensions?.[TIME_BUCKET_DIMENSION_KEY];
+      if (timeBucket) {
+        const ts = new Date(timeBucket).getTime();
+        map.set(ts, dp.values?.[AggregationType.COUNT] || 0);
+      }
+    }
+    return map;
+  }, [traceCountDataPoints]);
+
+  // Generate all time buckets within the selected range
+  const allTimeBuckets = useMemo(
+    () => generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds),
+    [startTimeMs, endTimeMs, timeIntervalSeconds],
+  );
+
+  // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
-    return traceCountDataPoints.map((dp) => {
-      const timestampMs = getTimestampFromDataPoint(dp);
-      return {
-        name: timestampMs ? formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds) : '',
-        count: dp.values?.[AggregationType.COUNT] || 0,
-      };
-    });
-  }, [traceCountDataPoints, timeIntervalSeconds]);
+    return allTimeBuckets.map((timestampMs) => ({
+      name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
+      count: countByTimestamp.get(timestampMs) || 0,
+    }));
+  }, [allTimeBuckets, countByTimestamp, timeIntervalSeconds]);
 
   if (isLoading) {
     return <ChartLoadingState />;
@@ -70,22 +88,16 @@ export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ experime
         backgroundColor: theme.colors.backgroundPrimary,
       }}
     >
-      {/* Chart header */}
-      <div css={{ marginBottom: theme.spacing.lg }}>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-          <ChartLineIcon css={{ color: theme.colors.textSecondary }} />
-          <Typography.Text bold>
-            <FormattedMessage defaultMessage="Requests" description="Title for the trace requests chart" />
-          </Typography.Text>
-        </div>
-        <Typography.Title level={3} css={{ margin: 0, marginTop: theme.spacing.sm, marginBottom: theme.spacing.sm }}>
-          {totalRequests.toLocaleString()}
-        </Typography.Title>
-      </div>
+      <ChartHeader
+        icon={<ChartLineIcon />}
+        title={<FormattedMessage defaultMessage="Requests" description="Title for the trace requests chart" />}
+        value={totalRequests.toLocaleString()}
+      />
+      <OverTimeLabel />
 
       {/* Chart */}
       <div css={{ height: 200 }}>
-        {chartData.length > 0 ? (
+        {traceCountDataPoints.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
               <XAxis
