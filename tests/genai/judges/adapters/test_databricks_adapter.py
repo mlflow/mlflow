@@ -12,10 +12,8 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.adapters.databricks_adapter import (
-    _run_databricks_trace_analysis_agentic_loop,
-)
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+    _run_databricks_agentic_loop,
     call_chat_completions,
 )
 from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
@@ -715,7 +713,7 @@ def test_call_chat_completions_with_use_case_not_supported(mock_databricks_rag_e
         assert result.output == "test response"
 
 
-# Tests for _run_databricks_trace_analysis_agentic_loop
+# Tests for _run_databricks_agentic_loop
 
 
 def test_agentic_loop_final_answer_without_tool_calls():
@@ -745,10 +743,10 @@ def test_agentic_loop_final_answer_without_tool_calls():
         return {"parsed": content}
 
     with mock.patch(
-        "mlflow.genai.judges.adapters.databricks_adapter.call_chat_completions",
+        "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
         return_value=mock_response,
     ) as mock_call:
-        result = _run_databricks_trace_analysis_agentic_loop(
+        result = _run_databricks_agentic_loop(
             messages=messages,
             trace=None,
             on_final_answer=callback,
@@ -819,11 +817,11 @@ def test_agentic_loop_tool_calling_loop(mock_trace):
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter.call_chat_completions",
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
             side_effect=mock_responses,
         ) as mock_call,
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter._process_tool_calls"
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._process_tool_calls"
         ) as mock_process,
     ):
         mock_process.return_value = [
@@ -835,7 +833,7 @@ def test_agentic_loop_tool_calling_loop(mock_trace):
             )
         ]
 
-        result = _run_databricks_trace_analysis_agentic_loop(
+        result = _run_databricks_agentic_loop(
             messages=messages,
             trace=mock_trace,
             on_final_answer=callback,
@@ -887,14 +885,14 @@ def test_agentic_loop_max_iteration_limit(mock_trace):
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter.call_chat_completions",
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
             return_value=mock_response,
         ) as mock_call,
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter._process_tool_calls"
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._process_tool_calls"
         ) as mock_process,
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter.MLFLOW_JUDGE_MAX_ITERATIONS"
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.MLFLOW_JUDGE_MAX_ITERATIONS"
         ) as mock_max_iter,
     ):
         mock_process.return_value = [
@@ -906,7 +904,7 @@ def test_agentic_loop_max_iteration_limit(mock_trace):
         mock_max_iter.get.return_value = 3
 
         with pytest.raises(MlflowException, match="iteration limit of 3 exceeded"):
-            _run_databricks_trace_analysis_agentic_loop(
+            _run_databricks_agentic_loop(
                 messages=messages,
                 trace=mock_trace,
                 on_final_answer=callback,
@@ -942,11 +940,11 @@ def test_agentic_loop_callback_exception_propagation():
         raise ValueError("Failed to parse response")
 
     with mock.patch(
-        "mlflow.genai.judges.adapters.databricks_adapter.call_chat_completions",
+        "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
         return_value=mock_response,
     ):
         with pytest.raises(ValueError, match="Failed to parse response"):
-            _run_databricks_trace_analysis_agentic_loop(
+            _run_databricks_agentic_loop(
                 messages=messages,
                 trace=None,
                 on_final_answer=callback,
