@@ -28,7 +28,11 @@ from mlflow.genai.judges.constants import (
 )
 from mlflow.genai.judges.tools import list_judge_tools
 from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, REQUEST_LIMIT_EXCEEDED
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INVALID_PARAMETER_VALUE,
+    REQUEST_LIMIT_EXCEEDED,
+)
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -281,7 +285,7 @@ def _run_databricks_agentic_loop(
     Run an agentic loop with Databricks chat completions.
 
     This is the shared implementation for all Databricks-based agentic workflows
-    (judges, structured output extraction, etc.). It handles the iterative
+    (judges, structured output extraction for traces). It handles the iterative
     tool-calling loop until the LLM produces a final answer.
 
     Args:
