@@ -23,6 +23,8 @@ from mlflow.entities import (
     DatasetInput,
     Expectation,
     ExperimentTag,
+    FallbackConfig,
+    FallbackStrategy,
     Feedback,
     FileInfo,
     GatewayEndpointTag,
@@ -31,6 +33,9 @@ from mlflow.entities import (
     Param,
     RunTag,
     ViewType,
+)
+from mlflow.entities import (
+    RoutingStrategy as RoutingStrategyEntity,
 )
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -43,6 +48,7 @@ from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
+from mlflow.entities.trace_metrics import MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
@@ -170,6 +176,7 @@ from mlflow.protos.service_pb2 import (
     LogOutputs,
     LogParam,
     MlflowService,
+    QueryTraceMetrics,
     RegisterScorer,
     RemoveDatasetFromExperiments,
     RestoreExperiment,
@@ -215,6 +222,7 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.telemetry import get_telemetry_client
@@ -273,6 +281,8 @@ _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
 MAX_RESULTS_PER_RUN = 2500
+# Chunk size for streaming artifact uploads and downloads (1 MB)
+ARTIFACT_STREAM_CHUNK_SIZE = 1024 * 1024
 
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
@@ -2748,7 +2758,8 @@ def _download_artifact(artifact_path):
     file_handle = open(dst, "rb")  # noqa: SIM115
 
     def stream_and_remove_file():
-        yield from file_handle
+        while chunk := file_handle.read(ARTIFACT_STREAM_CHUNK_SIZE):
+            yield chunk
         file_handle.close()
         tmp_dir.cleanup()
 
@@ -2769,11 +2780,7 @@ def _upload_artifact(artifact_path):
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, tail)
         with open(tmp_path, "wb") as f:
-            chunk_size = 1024 * 1024  # 1 MB
-            while True:
-                chunk = request.stream.read(chunk_size)
-                if len(chunk) == 0:
-                    break
+            while chunk := request.stream.read(ARTIFACT_STREAM_CHUNK_SIZE):
                 f.write(chunk)
 
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -3327,6 +3334,60 @@ def get_trace_artifact_handler() -> Response:
         download_name=TRACE_DATA_FILE_NAME,
     )
     return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _query_trace_metrics() -> Response:
+    request_message = _get_request_message(
+        QueryTraceMetrics(),
+        schema={
+            "experiment_ids": [_assert_array, _assert_required, _assert_item_type_string],
+            "view_type": [_assert_required],
+            "metric_name": [_assert_string, _assert_required],
+            "aggregations": [_assert_array, _assert_required],
+            "dimensions": [_assert_array, _assert_item_type_string],
+            "filters": [_assert_array, _assert_item_type_string],
+            "time_interval_seconds": [_assert_intlike],
+            "start_time_ms": [_assert_intlike],
+            "end_time_ms": [_assert_intlike],
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+        },
+    )
+    max_results = (
+        request_message.max_results
+        if request_message.HasField("max_results")
+        else MAX_RESULTS_QUERY_TRACE_METRICS
+    )
+    time_interval_seconds = (
+        request_message.time_interval_seconds
+        if request_message.HasField("time_interval_seconds")
+        else None
+    )
+    start_time_ms = (
+        request_message.start_time_ms if request_message.HasField("start_time_ms") else None
+    )
+    end_time_ms = request_message.end_time_ms if request_message.HasField("end_time_ms") else None
+
+    result = _get_tracking_store().query_trace_metrics(
+        experiment_ids=request_message.experiment_ids,
+        view_type=MetricViewType.from_proto(request_message.view_type),
+        metric_name=request_message.metric_name,
+        aggregations=[MetricAggregation.from_proto(agg) for agg in request_message.aggregations],
+        dimensions=request_message.dimensions or None,
+        filters=request_message.filters or None,
+        time_interval_seconds=time_interval_seconds,
+        start_time_ms=start_time_ms,
+        end_time_ms=end_time_ms,
+        max_results=max_results,
+        page_token=request_message.page_token or None,
+    )
+    response_message = QueryTraceMetrics.Response()
+    response_message.data_points.extend([dp.to_proto() for dp in result])
+    if result.token:
+        response_message.next_page_token = result.token
+    return _wrap_response(response_message)
 
 
 # Assessments API handlers
@@ -3890,13 +3951,11 @@ def _create_gateway_secret():
             "secret_name": [_assert_required, _assert_string],
             "secret_value": [_assert_secret_value],
             "provider": [_assert_string],
-            "auth_config_json": [_assert_string],
             "created_by": [_assert_string],
         },
     )
-    auth_config = None
-    if request_message.auth_config_json:
-        auth_config = json.loads(request_message.auth_config_json)
+    # Empty map means no auth_config was provided
+    auth_config = dict(request_message.auth_config) or None
 
     secret = _get_tracking_store().create_gateway_secret(
         secret_name=request_message.secret_name,
@@ -3932,13 +3991,11 @@ def _update_gateway_secret():
         UpdateGatewaySecret(),
         schema={
             "secret_id": [_assert_required, _assert_string],
-            "auth_config_json": [_assert_string],
             "updated_by": [_assert_string],
         },
     )
-    auth_config = None
-    if request_message.auth_config_json:
-        auth_config = json.loads(request_message.auth_config_json)
+    # Empty map means no auth_config was provided
+    auth_config = dict(request_message.auth_config) or None
 
     # Empty map means no update to secret_value
     secret_value = dict(request_message.secret_value) or None
@@ -3996,14 +4053,33 @@ def _create_gateway_endpoint():
     request_message = _get_request_message(
         CreateGatewayEndpoint(),
         schema={
-            "name": [_assert_string],
+            "name": [_assert_required, _assert_string],
             "created_by": [_assert_string],
+            "model_definition_ids": [_assert_required],
+            "routing_strategy": [_assert_string],
         },
     )
+    # Convert proto fallback_config to entity FallbackConfig
+    fallback_config = None
+    if request_message.HasField("fallback_config"):
+        fallback_config = FallbackConfig(
+            strategy=FallbackStrategy.from_proto(request_message.fallback_config.strategy)
+            if request_message.fallback_config.HasField("strategy")
+            else None,
+            max_attempts=request_message.fallback_config.max_attempts
+            if request_message.fallback_config.HasField("max_attempts")
+            else None,
+        )
+
     endpoint = _get_tracking_store().create_gateway_endpoint(
         name=request_message.name or None,
         model_definition_ids=list(request_message.model_definition_ids),
         created_by=request_message.created_by or None,
+        routing_strategy=RoutingStrategyEntity.from_proto(request_message.routing_strategy)
+        if request_message.HasField("routing_strategy")
+        else None,
+        fallback_config=fallback_config,
+        fallback_model_definition_ids=list(request_message.fallback_model_definition_ids),
     )
     response_message = CreateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4034,12 +4110,31 @@ def _update_gateway_endpoint():
             "endpoint_id": [_assert_required, _assert_string],
             "name": [_assert_string],
             "updated_by": [_assert_string],
+            "routing_strategy": [_assert_string],
         },
     )
+    # Convert proto fallback_config to entity FallbackConfig
+    fallback_config = None
+    if request_message.HasField("fallback_config"):
+        fallback_config = FallbackConfig(
+            strategy=FallbackStrategy.from_proto(request_message.fallback_config.strategy)
+            if request_message.fallback_config.HasField("strategy")
+            else None,
+            max_attempts=request_message.fallback_config.max_attempts
+            if request_message.fallback_config.HasField("max_attempts")
+            else None,
+        )
+
     endpoint = _get_tracking_store().update_gateway_endpoint(
         endpoint_id=request_message.endpoint_id,
         name=request_message.name or None,
+        model_definition_ids=list(request_message.model_definition_ids),
         updated_by=request_message.updated_by or None,
+        routing_strategy=RoutingStrategyEntity.from_proto(request_message.routing_strategy)
+        if request_message.HasField("routing_strategy")
+        else None,
+        fallback_config=fallback_config,
+        fallback_model_definition_ids=list(request_message.fallback_model_definition_ids),
     )
     response_message = UpdateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4387,7 +4482,6 @@ def _invoke_scorer_handler():
     Invoke a scorer on traces asynchronously.
 
     This is a UI-only AJAX endpoint for invoking scorers from the frontend.
-    For SDK-based invocation, use the gateway proxy route.
     """
     _validate_content_type(request, ["application/json"])
 
@@ -4395,6 +4489,7 @@ def _invoke_scorer_handler():
     experiment_id = args.get("experiment_id")
     serialized_scorer = args.get("serialized_scorer")
     trace_ids = args.get("trace_ids", [])
+    log_assessments = args.get("log_assessments", False)
 
     if not experiment_id:
         raise MlflowException(
@@ -4412,11 +4507,43 @@ def _invoke_scorer_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # TODO: Implement invoke_scorer on tracking store
-    raise MlflowException(
-        "Scorer invocation is not yet implemented",
-        error_code=databricks_pb2.NOT_IMPLEMENTED,
-    )
+    try:
+        scorer_dict = json.loads(serialized_scorer)
+    except json.JSONDecodeError as e:
+        raise MlflowException(
+            f"Invalid JSON in serialized_scorer: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    from mlflow.genai.scorers.base import Scorer
+    from mlflow.genai.scorers.job import get_trace_batches_for_scorer, invoke_scorer_job
+    from mlflow.server.jobs import submit_job
+
+    try:
+        scorer = Scorer.model_validate(scorer_dict)
+    except Exception as e:
+        raise MlflowException(
+            f"Failed to validate scorer: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    tracking_store = _get_tracking_store()
+    batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
+
+    jobs = []
+    for batch_trace_ids in batches:
+        job = submit_job(
+            function=invoke_scorer_job,
+            params={
+                "experiment_id": experiment_id,
+                "serialized_scorer": serialized_scorer,
+                "trace_ids": batch_trace_ids,
+                "log_assessments": log_assessments,
+            },
+        )
+        jobs.append({"job_id": job.job_id, "trace_ids": batch_trace_ids})
+
+    return jsonify({"jobs": jobs})
 
 
 def _get_rest_path(base_path, version=2):
@@ -4922,6 +5049,7 @@ HANDLERS = {
     LinkPromptsToTrace: _link_prompts_to_trace,
     BatchGetTraces: _batch_get_traces,
     GetTrace: _get_trace,
+    QueryTraceMetrics: _query_trace_metrics,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,

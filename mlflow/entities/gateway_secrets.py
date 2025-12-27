@@ -1,4 +1,3 @@
-import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -60,7 +59,7 @@ class GatewaySecretInfo(_MlflowObject):
         if self.provider is not None:
             proto.provider = self.provider
         if self.auth_config is not None:
-            proto.auth_config_json = json.dumps(self.auth_config)
+            proto.auth_config.update(self.auth_config)
         if self.created_by is not None:
             proto.created_by = self.created_by
         if self.last_updated_by is not None:
@@ -69,9 +68,8 @@ class GatewaySecretInfo(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto):
-        auth_config = None
-        if proto.auth_config_json:
-            auth_config = json.loads(proto.auth_config_json)
+        # Empty map means no auth_config was provided
+        auth_config = dict(proto.auth_config) or None
         return cls(
             secret_id=proto.secret_id,
             secret_name=proto.secret_name,

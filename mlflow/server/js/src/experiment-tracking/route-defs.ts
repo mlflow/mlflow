@@ -34,6 +34,11 @@ const getExperimentPageRouteDefs = () => {
       pageId: PageId.experimentPage,
       children: [
         {
+          path: RoutePaths.experimentPageTabOverview,
+          pageId: PageId.experimentPageTabOverview,
+          element: createLazyRouteElement(() => import('./pages/experiment-overview/ExperimentGenAIOverviewPage')),
+        },
+        {
           path: RoutePaths.experimentPageTabRuns,
           pageId: PageId.experimentPageTabRuns,
           element: createLazyRouteElement(() => import('./pages/experiment-runs/ExperimentRunsPage')),

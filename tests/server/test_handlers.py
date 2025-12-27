@@ -1,5 +1,6 @@
 import json
 import uuid
+from dataclasses import asdict
 from unittest import mock
 
 import pytest
@@ -16,6 +17,12 @@ from mlflow.entities.model_registry import (
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
+from mlflow.entities.trace_metrics import (
+    AggregationType,
+    MetricAggregation,
+    MetricDataPoint,
+    MetricViewType,
+)
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -58,6 +65,7 @@ from mlflow.protos.service_pb2 import (
     LinkPromptsToTrace,
     ListScorers,
     ListScorerVersions,
+    QueryTraceMetrics,
     RegisterScorer,
     SearchExperiments,
     SearchLoggedModels,
@@ -76,6 +84,7 @@ from mlflow.server import (
     app,
 )
 from mlflow.server.handlers import (
+    ARTIFACT_STREAM_CHUNK_SIZE,
     ModelRegistryStoreRegistryWrapper,
     TrackingStoreRegistryWrapper,
     _batch_get_traces,
@@ -97,6 +106,7 @@ from mlflow.server.handlers import (
     _delete_trace_tag,
     _delete_trace_tag_v3,
     _deprecated_search_traces_v2,
+    _download_artifact,
     _get_dataset_experiment_ids_handler,
     _get_dataset_handler,
     _get_dataset_records_handler,
@@ -114,6 +124,7 @@ from mlflow.server.handlers import (
     _list_scorers,
     _list_webhooks,
     _log_batch,
+    _query_trace_metrics,
     _register_scorer,
     _rename_registered_model,
     _search_evaluation_datasets_handler,
@@ -150,6 +161,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.telemetry.schemas import Record, Status
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
@@ -2518,7 +2530,7 @@ def test_get_provider_config_with_multiple_auth_modes():
         data = response.get_json()
 
         assert "auth_modes" in data
-        assert data["default_mode"] == "access_keys"
+        assert data["default_mode"] == "api_key"
         assert len(data["auth_modes"]) >= 2
 
         access_keys_mode = next(m for m in data["auth_modes"] if m["mode"] == "access_keys")
@@ -2545,6 +2557,120 @@ def test_litellm_not_available():
             assert response.status_code == 400
             data = response.get_json()
             assert "LiteLLM is not installed" in data["message"]
+
+
+def test_query_trace_metrics_handler(mock_get_request_message, mock_tracking_store):
+    experiment_ids = ["exp1", "exp2"]
+    metric_name = "latency"
+
+    # Create aggregation protos
+    aggregations_proto = [
+        MetricAggregation(aggregation_type=AggregationType.AVG).to_proto(),
+        MetricAggregation(
+            aggregation_type=AggregationType.PERCENTILE, percentile_value=95.0
+        ).to_proto(),
+    ]
+
+    # Create the request message
+    request_msg = QueryTraceMetrics(
+        experiment_ids=experiment_ids,
+        view_type=MetricViewType.TRACES.to_proto(),
+        metric_name=metric_name,
+        aggregations=aggregations_proto,
+        dimensions=["status", "model"],
+        filters=["status = 'OK'"],
+        time_interval_seconds=3600,
+        start_time_ms=1000000,
+        end_time_ms=2000000,
+        max_results=100,
+        page_token="token123",
+    )
+    mock_get_request_message.return_value = request_msg
+
+    # Create mock result
+    mock_data_points = [
+        MetricDataPoint(
+            metric_name="latency",
+            dimensions={"status": "OK", "model": "gpt-4"},
+            values={"AVG": 150.5, "P95.0": 200.0},
+        ),
+        MetricDataPoint(
+            metric_name="latency",
+            dimensions={"status": "ERROR", "model": "gpt-4"},
+            values={"AVG": 50.0, "P95.0": 75.0},
+        ),
+    ]
+
+    # Create a mock result object with next_page_token attribute
+    mock_result = mock.MagicMock()
+    mock_result.__iter__ = mock.MagicMock(return_value=iter(mock_data_points))
+    mock_result.token = "next_token"
+    mock_tracking_store.query_trace_metrics.return_value = mock_result
+
+    # Call the handler
+    response = _query_trace_metrics()
+
+    mock_tracking_store.query_trace_metrics.assert_called_once_with(
+        experiment_ids=experiment_ids,
+        view_type=MetricViewType.TRACES,
+        metric_name=metric_name,
+        aggregations=[
+            MetricAggregation(aggregation_type=AggregationType.AVG),
+            MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=95.0),
+        ],
+        dimensions=["status", "model"],
+        filters=["status = 'OK'"],
+        time_interval_seconds=3600,
+        start_time_ms=1000000,
+        end_time_ms=2000000,
+        max_results=100,
+        page_token="token123",
+    )
+
+    assert response is not None
+    assert response.status_code == 200
+    response_data = json.loads(response.get_data())
+    assert "data_points" in response_data
+    assert len(response_data["data_points"]) == 2
+    assert response_data["data_points"][0] == asdict(mock_data_points[0])
+    assert response_data["data_points"][1] == asdict(mock_data_points[1])
+    assert response_data["next_page_token"] == "next_token"
+
+
+def test_query_trace_metrics_handler_empty_result(mock_get_request_message, mock_tracking_store):
+    request_msg = QueryTraceMetrics(
+        experiment_ids=["exp1"],
+        view_type=MetricViewType.TRACES.to_proto(),
+        metric_name="latency",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG).to_proto()],
+    )
+    mock_get_request_message.return_value = request_msg
+
+    mock_result = mock.MagicMock()
+    mock_result.__iter__ = mock.MagicMock(return_value=iter([]))
+    mock_result.token = None
+    mock_tracking_store.query_trace_metrics.return_value = mock_result
+
+    response = _query_trace_metrics()
+
+    mock_tracking_store.query_trace_metrics.assert_called_once_with(
+        experiment_ids=["exp1"],
+        view_type=MetricViewType.TRACES,
+        metric_name="latency",
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=None,
+        filters=None,
+        time_interval_seconds=None,
+        start_time_ms=None,
+        end_time_ms=None,
+        max_results=MAX_RESULTS_QUERY_TRACE_METRICS,
+        page_token=None,
+    )
+
+    assert response is not None
+    assert response.status_code == 200
+    response_data = json.loads(response.get_data())
+    assert response_data == {}
 
 
 def test_invoke_scorer_missing_experiment_id():
@@ -2580,19 +2706,54 @@ def test_invoke_scorer_missing_trace_ids():
         assert "trace_ids" in data["message"]
 
 
-def test_invoke_scorer_not_implemented():
-    with app.test_client() as c:
-        response = c.post(
-            "/ajax-api/3.0/mlflow/scorer/invoke",
-            json={
-                "experiment_id": "123",
-                "serialized_scorer": "test",
-                "trace_ids": ["trace1", "trace2"],
+def test_invoke_scorer_submits_jobs(mock_tracking_store):
+    serialized_scorer = json.dumps(
+        {
+            "name": "test_judge",
+            "aggregations": [],
+            "description": None,
+            "is_session_level_scorer": False,
+            "mlflow_version": mlflow.__version__,
+            "serialization_version": 1,
+            "builtin_scorer_class": None,
+            "builtin_scorer_pydantic_data": None,
+            "call_source": None,
+            "call_signature": None,
+            "original_func_name": None,
+            "instructions_judge_pydantic_data": {
+                "instructions": "Test: {{ inputs }}",
+                "model": "openai:/gpt-4",
+                "feedback_value_type": {
+                    "enum": ["Yes", "No"],
+                    "title": "Result",
+                    "type": "string",
+                },
             },
-        )
-        assert response.status_code == 501
-        data = response.get_json()
-        assert "not yet implemented" in data["message"]
+        }
+    )
+
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        mock_job = mock.MagicMock()
+        mock_job.job_id = "test-job-123"
+        mock_submit.return_value = mock_job
+
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1", "trace2"],
+                },
+            )
+            assert response.status_code == 200
+            data = response.get_json()
+            assert "jobs" in data
+            assert len(data["jobs"]) == 1
+            assert data["jobs"][0]["job_id"] == "test-job-123"
+            assert data["jobs"][0]["trace_ids"] == ["trace1", "trace2"]
+
+        mock_submit.assert_called_once()
 
 
 def test_get_ui_telemetry_handler(
@@ -2811,3 +2972,47 @@ def test_post_ui_telemetry_handler_telemetry_disabled_by_env(
         # assert that no fetch happens and no client is retrieved
         mock_fetch.assert_not_called()
         mock_get_client.assert_not_called()
+
+
+def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
+    # Create a test file with binary data larger than the chunk size (2MB + 1000 bytes)
+    test_file_size = ARTIFACT_STREAM_CHUNK_SIZE * 2 + 1000
+    test_data = b"x" * test_file_size
+
+    artifact_path = "test_model/model.pkl"
+    test_file = tmp_path / "model.pkl"
+    test_file.write_bytes(test_data)
+
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+        mock.patch("mlflow.server.handlers.tempfile.TemporaryDirectory") as mock_tmp_dir,
+    ):
+        # Setup mocks
+        mock_tmp_dir_instance = mock.MagicMock()
+        mock_tmp_dir_instance.name = str(tmp_path)
+        mock_tmp_dir.return_value = mock_tmp_dir_instance
+
+        mock_artifact_repo = mock.MagicMock()
+        mock_artifact_repo.download_artifacts.return_value = str(test_file)
+        mock_repo.return_value = mock_artifact_repo
+
+        # Call the function and capture the response
+        response = _download_artifact(artifact_path)
+
+        # Extract chunks from the response by iterating over its data
+        response_chunks = list(response.response)
+
+        # Verify that data was streamed in chunks, not line by line
+        # For a 2MB+ binary file, line-by-line would produce many small chunks
+        # Chunk-based streaming should produce exactly 3 chunks (2*1MB + 1000 bytes)
+        assert len(response_chunks) == 3, f"Expected 3 chunks, got {len(response_chunks)}"
+
+        # Verify chunk sizes
+        assert len(response_chunks[0]) == ARTIFACT_STREAM_CHUNK_SIZE
+        assert len(response_chunks[1]) == ARTIFACT_STREAM_CHUNK_SIZE
+        assert len(response_chunks[2]) == 1000
+
+        # Verify that all data is correctly streamed
+        streamed_data = b"".join(response_chunks)
+        assert streamed_data == test_data
