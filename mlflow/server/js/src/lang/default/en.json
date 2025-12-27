@@ -1346,6 +1346,10 @@
     "defaultMessage": "2. Trace your code",
     "description": "Section title introducing the tracing quickstart example"
   },
+  "8xKF+v": {
+    "defaultMessage": "Over time",
+    "description": "Label above time-series charts"
+  },
   "8xji5J": {
     "defaultMessage": "X-axis:",
     "description": "Label text for X-axis in box plot comparison in MLflow"
@@ -1545,6 +1549,10 @@
   "AGi/De": {
     "defaultMessage": "Loading traces…",
     "description": "Loading traces message"
+  },
+  "AHaom4": {
+    "defaultMessage": "No assessments available",
+    "description": "Message shown when there are no assessments to display"
   },
   "AM8DuO": {
     "defaultMessage": "Failed",
@@ -1785,6 +1793,10 @@
   "C6ReUY": {
     "defaultMessage": "Save",
     "description": "Tag assignment modal > Save button"
+  },
+  "C83vFj": {
+    "defaultMessage": "Latency",
+    "description": "Title for the latency chart"
   },
   "C8Jj/L": {
     "defaultMessage": "Name",
@@ -2482,6 +2494,10 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model version view page"
   },
+  "IlYdrX": {
+    "defaultMessage": "Tokens per Trace",
+    "description": "Title for the token stats chart"
+  },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
     "description": "Description of how to log traces for API calls to Google's Gemini API using MLflow autologging. This message is followed by a code example."
@@ -2893,6 +2909,10 @@
   "MX4ypf": {
     "defaultMessage": "Save",
     "description": "Save button for the edit model config modal"
+  },
+  "MXhKKt": {
+    "defaultMessage": "avg per trace",
+    "description": "Subtitle for average tokens per trace"
   },
   "MZNjYJ": {
     "defaultMessage": "Actions ({count})",
@@ -3493,6 +3513,10 @@
     "defaultMessage": "Dataset",
     "description": "Experiment page > group by runs control > group by dataset"
   },
+  "Rwi+VC": {
+    "defaultMessage": "avg score",
+    "description": "Subtitle for average assessment score"
+  },
   "Rx8d9z": {
     "defaultMessage": "Runs",
     "description": "Breadcrumb nav item to link to the runs tab on the parent experiment"
@@ -3652,6 +3676,10 @@
   "TKtJIK": {
     "defaultMessage": "Page not found",
     "description": "Error message shown to the user when they arrive at a non existent URL"
+  },
+  "TLHzWu": {
+    "defaultMessage": "Token Usage",
+    "description": "Title for the token usage chart"
   },
   "TPspzA": {
     "defaultMessage": "Deleting the section will permanently remove it and the charts it contains. This cannot be undone.",
@@ -5795,6 +5823,10 @@
     "defaultMessage": "Failed to load child runs",
     "description": "Run page > Overview > Child runs error"
   },
+  "k3V20c": {
+    "defaultMessage": "Scorer Insights",
+    "description": "Title for the scorer insights section in quality tab"
+  },
   "kA+QJr": {
     "defaultMessage": "Overview",
     "description": "Run details page > tab selector > overview tab"
@@ -5950,6 +5982,10 @@
   "lQ2nDn": {
     "defaultMessage": "This assessment is produced by a custom metric.",
     "description": "Custom judge assessment description"
+  },
+  "lRO4km": {
+    "defaultMessage": "Quality",
+    "description": "Label for the quality tab in the experiment overview page"
   },
   "lS7kq2": {
     "defaultMessage": "Parameters",
@@ -6282,6 +6318,10 @@
   "nyHcAz": {
     "defaultMessage": "MLflow deployment returned the following error: \"{errorMessage}\"",
     "description": "Experiment page > MLflow deployment error message"
+  },
+  "o0NwZU": {
+    "defaultMessage": "Quality metrics computed by scorers.",
+    "description": "Description for the scorer insights section"
   },
   "o21MFS": {
     "defaultMessage": "Invalid log value",
@@ -6886,6 +6926,10 @@
   "t0Qkuc": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Metrics table > Value column header"
+  },
+  "t3mHNt": {
+    "defaultMessage": "Errors",
+    "description": "Title for the errors chart"
   },
   "tCC/M3": {
     "defaultMessage": "Create a new key if a different provider is needed.",
