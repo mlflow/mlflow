@@ -19,6 +19,7 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
 from mlflow.genai.judges.adapters.litellm_adapter import _MODEL_RESPONSE_FORMAT_CAPABILITIES
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.judges.utils.invocation_utils import (
+    _invoke_databricks_structured_output,
     get_chat_completions_with_structured_output,
     invoke_judge_model,
 )
@@ -984,3 +985,79 @@ def test_get_chat_completions_with_structured_output_with_trace(mock_trace):
 
     assert mock_completion.call_count == 2
     mock_invoke.assert_called_once()
+
+
+# Tests for _invoke_databricks_structured_output
+
+
+def test_structured_output_schema_injection_with_existing_system_message():
+    class TestSchema(BaseModel):
+        outputs: str = Field(description="The outputs")
+
+    captured_messages = []
+
+    def mock_loop(messages, trace, on_final_answer):
+        captured_messages.extend(messages)
+        return on_final_answer('{"outputs": "test result"}')
+
+    with mock.patch(
+        "mlflow.genai.judges.utils.invocation_utils._run_databricks_trace_analysis_agentic_loop",
+        side_effect=mock_loop,
+    ):
+        result = _invoke_databricks_structured_output(
+            messages=[
+                ChatMessage(role="system", content="You are a helpful assistant."),
+                ChatMessage(role="user", content="Extract the outputs"),
+            ],
+            output_schema=TestSchema,
+            trace=None,
+        )
+
+    # Verify schema was appended to existing system message
+    assert len(captured_messages) == 2
+    assert captured_messages[0].role == "system"
+    assert "You are a helpful assistant." in captured_messages[0].content
+    assert "You must return your response as JSON matching this schema:" in (
+        captured_messages[0].content
+    )
+    assert '"outputs"' in captured_messages[0].content
+
+    assert isinstance(result, TestSchema)
+    assert result.outputs == "test result"
+
+
+def test_structured_output_schema_injection_without_system_message():
+    class TestSchema(BaseModel):
+        inputs: str = Field(description="The inputs")
+        outputs: str = Field(description="The outputs")
+
+    captured_messages = []
+
+    def mock_loop(messages, trace, on_final_answer):
+        captured_messages.extend(messages)
+        return on_final_answer('{"inputs": "hello", "outputs": "world"}')
+
+    with mock.patch(
+        "mlflow.genai.judges.utils.invocation_utils._run_databricks_trace_analysis_agentic_loop",
+        side_effect=mock_loop,
+    ):
+        result = _invoke_databricks_structured_output(
+            messages=[
+                ChatMessage(role="user", content="Extract fields from the trace"),
+            ],
+            output_schema=TestSchema,
+            trace=None,
+        )
+
+    # Verify schema was inserted as new system message at the beginning
+    assert len(captured_messages) == 2
+    assert captured_messages[0].role == "system"
+    assert "You must return your response as JSON matching this schema:" in (
+        captured_messages[0].content
+    )
+    assert captured_messages[1].role == "user"
+    assert captured_messages[1].content == "Extract fields from the trace"
+
+    assert isinstance(result, TestSchema)
+    assert result.inputs == "hello"
+    assert result.outputs == "world"

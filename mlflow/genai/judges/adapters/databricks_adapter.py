@@ -269,17 +269,18 @@ def _serialize_messages_to_databricks_prompts(
     return user_prompt, system_prompt
 
 
-def _run_databricks_agentic_loop(
+def _run_databricks_trace_analysis_agentic_loop(
     messages: list["litellm.Message"],
     trace: "Trace | None",
     on_final_answer: Callable[[str | None], T],
 ) -> T:
     """
-    Run an agentic loop with Databricks chat completions.
+    Run an agentic loop with Databricks chat completions for trace analysis.
 
-    This is the shared implementation for all Databricks-based agentic workflows
-    (judges, structured output extraction, etc.). It handles the iterative
-    tool-calling loop until the LLM produces a final answer.
+    This is the shared implementation for Databricks-based workflows that need
+    to analyze traces (judges, structured output extraction, etc.). It handles
+    the iterative tool-calling loop, enabling the LLM to examine trace spans
+    before producing a final answer.
 
     Args:
         messages: Initial litellm Message objects for the conversation.
@@ -384,7 +385,7 @@ def _invoke_databricks_default_judge(
         def parse_judge_response(content: str | None) -> Feedback:
             return _parse_databricks_judge_response(content, assessment_name, trace)
 
-        return _run_databricks_agentic_loop(messages, trace, parse_judge_response)
+        return _run_databricks_trace_analysis_agentic_loop(messages, trace, parse_judge_response)
 
     except Exception as e:
         _logger.debug(f"Failed to invoke Databricks judge: {e}", exc_info=True)

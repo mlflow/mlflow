@@ -8,6 +8,7 @@ import traceback
 import warnings
 from typing import TYPE_CHECKING
 
+import litellm
 import pydantic
 
 if TYPE_CHECKING:
@@ -17,6 +18,9 @@ if TYPE_CHECKING:
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.adapters.databricks_adapter import (
+    _run_databricks_trace_analysis_agentic_loop,
+)
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     _invoke_databricks_default_judge,
 )
@@ -232,8 +236,8 @@ def _invoke_databricks_structured_output(
     """
     Invoke Databricks chat completions for structured output extraction.
 
-    Uses the gpt-oss-120b model via the Databricks managed RAG client for
-    agentic tool calling to examine trace spans.
+    Uses the gpt-oss-120b model via the Databricks endpoint for agentic tool calling
+    to examine trace spans.
 
     Args:
         messages: List of ChatMessage objects for the conversation.
@@ -247,10 +251,6 @@ def _invoke_databricks_structured_output(
     Raises:
         MlflowException: If databricks-agents is not installed or invocation fails.
     """
-    import litellm
-
-    from mlflow.genai.judges.adapters.databricks_adapter import _run_databricks_agentic_loop
-
     # Convert ChatMessage to litellm Messages
     litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
@@ -281,7 +281,9 @@ def _invoke_databricks_structured_output(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    return _run_databricks_agentic_loop(litellm_messages, trace, parse_structured_output)
+    return _run_databricks_trace_analysis_agentic_loop(
+        litellm_messages, trace, parse_structured_output
+    )
 
 
 def get_chat_completions_with_structured_output(
