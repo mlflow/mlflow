@@ -1,0 +1,287 @@
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { screen, waitFor } from '@testing-library/react';
+import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
+import { AssessmentChartsSection } from './AssessmentChartsSection';
+import { DesignSystemProvider } from '@databricks/design-system';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import {
+  MetricViewType,
+  AggregationType,
+  AssessmentMetricKey,
+  AssessmentFilterKey,
+  AssessmentType,
+  AssessmentDimensionKey,
+} from '@databricks/web-shared/model-trace-explorer';
+
+// Mock FetchUtils
+jest.mock('../../../../common/utils/FetchUtils', () => ({
+  fetchOrFail: jest.fn(),
+  getAjaxUrl: (url: string) => url,
+}));
+
+import { fetchOrFail } from '../../../../common/utils/FetchUtils';
+const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
+
+// Helper to create mock API response
+const mockApiResponse = (dataPoints: any[] | undefined) => {
+  mockFetchOrFail.mockResolvedValue({
+    json: () => Promise.resolve({ data_points: dataPoints }),
+  } as Response);
+};
+
+// Helper to create an assessment data point with name and avg value
+const createAssessmentDataPoint = (assessmentName: string, avgValue: number) => ({
+  metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
+  dimensions: { [AssessmentDimensionKey.ASSESSMENT_NAME]: assessmentName },
+  values: { [AggregationType.AVG]: avgValue },
+});
+
+// Mock the lazy loaded component
+jest.mock('./LazyTraceAssessmentChart', () => ({
+  LazyTraceAssessmentChart: ({
+    assessmentName,
+    avgValue,
+    lineColor,
+  }: {
+    assessmentName: string;
+    avgValue?: number;
+    lineColor?: string;
+  }) => (
+    <div data-testid={`assessment-chart-${assessmentName}`} data-avg-value={avgValue} data-line-color={lineColor}>
+      {assessmentName}
+    </div>
+  ),
+}));
+
+describe('AssessmentChartsSection', () => {
+  const testExperimentId = 'test-experiment-123';
+  const startTimeMs = new Date('2025-12-22T10:00:00Z').getTime();
+  const endTimeMs = new Date('2025-12-22T12:00:00Z').getTime();
+  const timeIntervalSeconds = 3600;
+
+  const timeBuckets = [
+    new Date('2025-12-22T10:00:00Z').getTime(),
+    new Date('2025-12-22T11:00:00Z').getTime(),
+    new Date('2025-12-22T12:00:00Z').getTime(),
+  ];
+
+  const defaultProps = {
+    experimentId: testExperimentId,
+    startTimeMs,
+    endTimeMs,
+    timeIntervalSeconds,
+    timeBuckets,
+  };
+
+  const createQueryClient = () =>
+    new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+
+  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+    const queryClient = createQueryClient();
+    return renderWithIntl(
+      <QueryClientProvider client={queryClient}>
+        <DesignSystemProvider>
+          <AssessmentChartsSection {...defaultProps} {...props} />
+        </DesignSystemProvider>
+      </QueryClientProvider>,
+    );
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockApiResponse([]);
+  });
+
+  describe('loading state', () => {
+    it('should render loading spinner while data is being fetched', async () => {
+      mockFetchOrFail.mockReturnValue(new Promise(() => {}));
+
+      renderComponent();
+
+      expect(screen.getByRole('img')).toBeInTheDocument();
+    });
+  });
+
+  describe('error state', () => {
+    it('should render error message when API call fails', async () => {
+      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Failed to load chart data')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('empty state', () => {
+    it('should render empty state when no assessments are available', async () => {
+      mockApiResponse([]);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('No assessments available')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('with data', () => {
+    const mockDataPoints = [
+      createAssessmentDataPoint('Correctness', 0.85),
+      createAssessmentDataPoint('Relevance', 0.72),
+      createAssessmentDataPoint('Fluency', 0.9),
+    ];
+
+    it('should render section header with title', async () => {
+      mockApiResponse(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Scorer Insights')).toBeInTheDocument();
+      });
+    });
+
+    it('should render section description', async () => {
+      mockApiResponse(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Quality metrics computed by scorers.')).toBeInTheDocument();
+      });
+    });
+
+    it('should render a chart for each assessment', async () => {
+      mockApiResponse(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('assessment-chart-Correctness')).toBeInTheDocument();
+        expect(screen.getByTestId('assessment-chart-Fluency')).toBeInTheDocument();
+        expect(screen.getByTestId('assessment-chart-Relevance')).toBeInTheDocument();
+      });
+    });
+
+    it('should pass avgValue to each chart', async () => {
+      mockApiResponse(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('assessment-chart-Correctness')).toHaveAttribute('data-avg-value', '0.85');
+        expect(screen.getByTestId('assessment-chart-Relevance')).toHaveAttribute('data-avg-value', '0.72');
+        expect(screen.getByTestId('assessment-chart-Fluency')).toHaveAttribute('data-avg-value', '0.9');
+      });
+    });
+
+    it('should assign different colors to each chart', async () => {
+      mockApiResponse(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        // Charts should be sorted alphabetically, so Correctness, Fluency, Relevance
+        const correctnessChart = screen.getByTestId('assessment-chart-Correctness');
+        const fluencyChart = screen.getByTestId('assessment-chart-Fluency');
+        const relevanceChart = screen.getByTestId('assessment-chart-Relevance');
+
+        // Each chart should have a lineColor attribute
+        expect(correctnessChart).toHaveAttribute('data-line-color');
+        expect(fluencyChart).toHaveAttribute('data-line-color');
+        expect(relevanceChart).toHaveAttribute('data-line-color');
+      });
+    });
+
+    it('should sort assessments alphabetically', async () => {
+      mockApiResponse([
+        createAssessmentDataPoint('Zebra', 0.5),
+        createAssessmentDataPoint('Alpha', 0.8),
+        createAssessmentDataPoint('Middle', 0.6),
+      ]);
+
+      renderComponent();
+
+      await waitFor(() => {
+        const charts = screen.getAllByTestId(/^assessment-chart-/);
+        expect(charts[0]).toHaveAttribute('data-testid', 'assessment-chart-Alpha');
+        expect(charts[1]).toHaveAttribute('data-testid', 'assessment-chart-Middle');
+        expect(charts[2]).toHaveAttribute('data-testid', 'assessment-chart-Zebra');
+      });
+    });
+  });
+
+  describe('API call parameters', () => {
+    it('should call API with correct parameters for fetching assessments', async () => {
+      renderComponent();
+
+      await waitFor(() => {
+        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
+        expect(callBody).toMatchObject({
+          experiment_ids: [testExperimentId],
+          view_type: MetricViewType.ASSESSMENTS,
+          metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
+          aggregations: [{ aggregation_type: AggregationType.AVG }],
+          dimensions: [AssessmentDimensionKey.ASSESSMENT_NAME],
+          filters: [`assessment.${AssessmentFilterKey.TYPE} = "${AssessmentType.FEEDBACK}"`],
+        });
+      });
+    });
+
+    it('should include time range in API call', async () => {
+      renderComponent();
+
+      await waitFor(() => {
+        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
+        expect(callBody.start_time_ms).toBe(startTimeMs);
+        expect(callBody.end_time_ms).toBe(endTimeMs);
+      });
+    });
+  });
+
+  describe('data extraction', () => {
+    it('should handle data points with missing assessment_name', async () => {
+      mockApiResponse([
+        createAssessmentDataPoint('ValidName', 0.8),
+        {
+          metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
+          dimensions: {}, // Missing assessment_name
+          values: { [AggregationType.AVG]: 0.5 },
+        },
+      ]);
+
+      renderComponent();
+
+      await waitFor(() => {
+        // Should only render the valid assessment
+        expect(screen.getByTestId('assessment-chart-ValidName')).toBeInTheDocument();
+        expect(screen.queryAllByTestId(/^assessment-chart-/)).toHaveLength(1);
+      });
+    });
+
+    it('should handle data points with missing avg value', async () => {
+      mockApiResponse([
+        {
+          metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
+          dimensions: { [AssessmentDimensionKey.ASSESSMENT_NAME]: 'NoAvgValue' },
+          values: {}, // Missing AVG value
+        },
+      ]);
+
+      renderComponent();
+
+      await waitFor(() => {
+        // Should not render any charts
+        expect(screen.queryAllByTestId(/^assessment-chart-/)).toHaveLength(0);
+      });
+    });
+  });
+});
