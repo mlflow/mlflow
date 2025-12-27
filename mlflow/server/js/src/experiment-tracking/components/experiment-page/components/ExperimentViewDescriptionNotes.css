@@ -1,11 +1,3 @@
-.mlflow-editable-note-actions {
-  margin-top: 16px;
-}
-
-.mlflow-editable-note-actions button + button {
-  margin-left: 16px;
-}
-
 /* Override react-mde default styles to support dark mode */
 
 /* Main editor container */
