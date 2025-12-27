@@ -67,6 +67,10 @@ interface UseTraceMetricsQueryParams {
   aggregations: MetricAggregation[];
   /** Optional: Time interval for grouping. If not provided, no time grouping is applied. */
   timeIntervalSeconds?: number;
+  /** Optional: Filter expressions to apply (e.g. `trace.status="ERROR"`) */
+  filters?: string[];
+  /** Optional: Dimensions to group metrics by (e.g. `assessment_name`) */
+  dimensions?: string[];
 }
 
 export function useTraceMetricsQuery({
@@ -77,6 +81,8 @@ export function useTraceMetricsQuery({
   metricName,
   aggregations,
   timeIntervalSeconds,
+  filters,
+  dimensions,
 }: UseTraceMetricsQueryParams) {
   const queryParams: QueryTraceMetricsRequest = {
     experiment_ids: [experimentId],
@@ -86,6 +92,8 @@ export function useTraceMetricsQuery({
     time_interval_seconds: timeIntervalSeconds,
     start_time_ms: startTimeMs,
     end_time_ms: endTimeMs,
+    filters,
+    dimensions,
   };
 
   return useQuery({
@@ -98,6 +106,8 @@ export function useTraceMetricsQuery({
       metricName,
       JSON.stringify(aggregations),
       timeIntervalSeconds,
+      JSON.stringify(filters),
+      JSON.stringify(dimensions),
     ],
     queryFn: async () => {
       const response = await queryTraceMetrics(queryParams);
