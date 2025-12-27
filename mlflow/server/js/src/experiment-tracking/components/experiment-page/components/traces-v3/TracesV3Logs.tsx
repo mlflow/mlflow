@@ -1,7 +1,12 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isEmpty as isEmptyFn } from 'lodash';
 import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
-import type { TracesTableColumn, TraceActions, GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
+import type {
+  TracesTableColumn,
+  TraceActions,
+  GetTraceFunction,
+  TableFilter,
+} from '@databricks/web-shared/genai-traces-table';
 import { shouldUseTracesV4API, useUnifiedTraceTagsModal } from '@databricks/web-shared/model-trace-explorer';
 import {
   EXECUTION_DURATION_COLUMN_ID,
@@ -62,12 +67,14 @@ const TracesV3LogsImpl = React.memo(
     timeRange,
     isLoadingExperiment,
     loggedModelId,
+    initialFilters,
   }: {
     experimentId: string;
     endpointName: string;
     timeRange?: { startTime: string | undefined; endTime: string | undefined };
     isLoadingExperiment?: boolean;
     loggedModelId?: string;
+    initialFilters?: TableFilter[];
   }) => {
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
@@ -109,6 +116,23 @@ const TracesV3LogsImpl = React.memo(
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [filters, setFilters] = useFilters();
     const queryClient = useQueryClient();
+    const prevInitialFiltersRef = useRef<TableFilter[] | undefined>();
+
+    if (initialFilters && initialFilters.length > 0) {
+      const prevFilters = prevInitialFiltersRef.current;
+      const filtersChanged =
+        !prevFilters ||
+        prevFilters.length !== initialFilters.length ||
+        prevFilters.some((f, i) => {
+          const newF = initialFilters[i];
+          return f.column !== newF.column || f.operator !== newF.operator || f.value !== newF.value;
+        });
+
+      if (filtersChanged) {
+        setFilters(initialFilters);
+        prevInitialFiltersRef.current = initialFilters;
+      }
+    }
 
     const defaultSelectedColumns = useCallback(
       (allColumns: TracesTableColumn[]) => {
