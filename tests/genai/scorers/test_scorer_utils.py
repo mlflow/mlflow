@@ -3,16 +3,21 @@ import json
 import pytest
 
 from mlflow.entities import Assessment, Feedback, Trace
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.scorer_utils import (
     BUILTIN_SCORER_PYDANTIC_DATA,
     INSTRUCTIONS_JUDGE_PYDANTIC_DATA,
     build_gateway_model,
     extract_endpoint_ref,
     extract_model_from_serialized_scorer,
+    get_tool_call_signature,
     is_gateway_model,
+    normalize_tool_call_arguments,
+    parse_tool_call_expectations,
     recreate_function,
     update_model_in_serialized_scorer,
 )
+from mlflow.genai.utils.type import FunctionCall
 
 # ============================================================================
 # HAPPY PATH TESTS
@@ -427,12 +432,10 @@ def test_is_gateway_model():
 def test_extract_and_build_gateway_model():
     assert extract_endpoint_ref("gateway:/my-endpoint") == "my-endpoint"
     assert build_gateway_model("my-endpoint") == "gateway:/my-endpoint"
-    # Roundtrip
     assert extract_endpoint_ref(build_gateway_model("test")) == "test"
 
 
 def test_extract_model_from_serialized_scorer():
-    # Instructions judge scorer
     instructions_judge_scorer = {
         "mlflow_version": "3.3.2",
         "serialization_version": 1,
@@ -452,7 +455,6 @@ def test_extract_model_from_serialized_scorer():
     }
     assert extract_model_from_serialized_scorer(instructions_judge_scorer) == "gateway:/my-endpoint"
 
-    # Builtin scorer (Guidelines)
     builtin_scorer = {
         "mlflow_version": "3.3.2",
         "serialization_version": 1,
@@ -473,8 +475,6 @@ def test_extract_model_from_serialized_scorer():
         "instructions_judge_pydantic_data": None,
     }
     assert extract_model_from_serialized_scorer(builtin_scorer) == "openai:/gpt-4"
-
-    # Empty data
     assert extract_model_from_serialized_scorer({}) is None
 
 
@@ -491,5 +491,104 @@ def test_update_model_in_serialized_scorer():
     result = update_model_in_serialized_scorer(data, "gateway:/new-endpoint")
     assert result[INSTRUCTIONS_JUDGE_PYDANTIC_DATA]["model"] == "gateway:/new-endpoint"
     assert result[INSTRUCTIONS_JUDGE_PYDANTIC_DATA]["instructions"] == "Evaluate quality"
-    # Original unchanged
     assert data[INSTRUCTIONS_JUDGE_PYDANTIC_DATA]["model"] == "gateway:/old-endpoint"
+
+
+# ============================================================================
+# TOOL CALL HELPER FUNCTION TESTS
+# ============================================================================
+
+
+@pytest.mark.parametrize(
+    "expectations",
+    [None, {}, {"expected_tool_calls": []}],
+)
+def test_parse_tool_call_expectations_returns_none_for_empty(expectations):
+    assert parse_tool_call_expectations(expectations) is None
+
+
+def test_parse_tool_call_expectations_parses_dict():
+    expectations = {
+        "expected_tool_calls": [
+            {"name": "search", "arguments": {"query": "test"}},
+            {"name": "summarize"},
+        ]
+    }
+    result = parse_tool_call_expectations(expectations)
+
+    assert len(result) == 2
+    assert result[0].name == "search"
+    assert result[0].arguments == {"query": "test"}
+    assert result[1].name == "summarize"
+    assert result[1].arguments is None
+
+
+def test_parse_tool_call_expectations_parses_function_call_objects():
+    expectations = {
+        "expected_tool_calls": [
+            FunctionCall(name="search", arguments={"query": "test"}),
+            FunctionCall(name="summarize"),
+        ]
+    }
+    result = parse_tool_call_expectations(expectations)
+
+    assert len(result) == 2
+    assert result[0].name == "search"
+    assert result[1].name == "summarize"
+
+
+@pytest.mark.parametrize(
+    ("expectations", "expected_error"),
+    [
+        (
+            {"expected_tool_calls": [{"name": "search", "arguments": "invalid"}]},
+            "Arguments must be a dict",
+        ),
+        ({"expected_tool_calls": ["invalid_string"]}, "Invalid expected tool call format"),
+    ],
+)
+def test_parse_tool_call_expectations_raises_for_invalid_input(expectations, expected_error):
+    with pytest.raises(MlflowException, match=expected_error):
+        parse_tool_call_expectations(expectations)
+
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        (None, {}),
+        ({"query": "test", "limit": 10}, {"query": "test", "limit": 10}),
+    ],
+)
+def test_normalize_tool_call_arguments(args, expected):
+    assert normalize_tool_call_arguments(args) == expected
+
+
+def test_normalize_tool_call_arguments_raises_for_invalid_type():
+    with pytest.raises(MlflowException, match="Arguments must be a dict"):
+        normalize_tool_call_arguments("invalid")
+
+
+@pytest.mark.parametrize(
+    ("call", "include_arguments", "expected"),
+    [
+        (FunctionCall(name="search", arguments={"query": "test"}), False, "search"),
+        (
+            FunctionCall(name="search", arguments={"query": "test"}),
+            True,
+            'search({"query": "test"})',
+        ),
+        (FunctionCall(name="search"), True, "search({})"),
+        (FunctionCall(name=None), False, None),
+    ],
+)
+def test_get_tool_call_signature(call, include_arguments, expected):
+    assert get_tool_call_signature(call, include_arguments) == expected
+
+
+def test_get_tool_call_signature_sorts_arguments():
+    call1 = FunctionCall(name="search", arguments={"b": 2, "a": 1})
+    call2 = FunctionCall(name="search", arguments={"a": 1, "b": 2})
+
+    sig1 = get_tool_call_signature(call1, include_arguments=True)
+    sig2 = get_tool_call_signature(call2, include_arguments=True)
+    assert sig1 == sig2

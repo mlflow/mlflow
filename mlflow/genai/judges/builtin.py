@@ -493,6 +493,9 @@ def is_tool_call_correct(
     request: str,
     tools_called: list["FunctionCall"],
     available_tools: list["ChatTool"],
+    expected_tool_calls: list["FunctionCall"] | None = None,
+    include_arguments: bool = True,
+    check_order: bool = False,
     name: str | None = None,
     model: str | None = None,
 ) -> Feedback:
@@ -501,7 +504,8 @@ def is_tool_call_correct(
     and reasonable.
 
     This judge analyzes whether the tools selected and the arguments provided to them
-    are appropriate for fulfilling the user's request.
+    are appropriate for fulfilling the user's request. Optionally, it can compare against
+    expected tool calls for ground-truth evaluation.
 
     Args:
         request: The original user request that the agent is trying to fulfill.
@@ -509,6 +513,12 @@ def is_tool_call_correct(
             Each element should be a FunctionCall object.
         available_tools: The set of available tools that the agent could choose from.
             Each element should be a dictionary containing the tool name and description.
+        expected_tool_calls: Optional list of expected tool calls for ground-truth comparison.
+            If None, uses ground-truth-free evaluation.
+        include_arguments: If True, compare both tool names and arguments (full expectations).
+            If False, compare only tool names (partial expectations). Only used when
+            expected_tool_calls is provided.
+        check_order: If True, ask LLM to consider ordering of tool calls.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
 
@@ -562,7 +572,14 @@ def is_tool_call_correct(
     model = model or get_default_model()
     assessment_name = name or TOOL_CALL_CORRECTNESS_FEEDBACK_NAME
 
-    prompt = get_prompt(request=request, tools_called=tools_called, available_tools=available_tools)
+    prompt = get_prompt(
+        request=request,
+        tools_called=tools_called,
+        available_tools=available_tools,
+        expected_calls=expected_tool_calls,
+        include_arguments=include_arguments,
+        check_order=check_order,
+    )
     feedback = invoke_judge_model(
         model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
     )
