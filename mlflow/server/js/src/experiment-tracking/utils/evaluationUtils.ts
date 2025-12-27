@@ -31,7 +31,7 @@ const FALLBACK_USER_MESSAGE = 'Follow the instructions from the first message';
 const TEMPLATE_VARIABLE_PATTERN = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*\}\}/g;
 
 // Reserved template variables that can be used in instructions
-export const TEMPLATE_VARIABLES = ['inputs', 'outputs', 'expectations', 'trace'];
+export const TEMPLATE_VARIABLES = ['inputs', 'outputs', 'expectations', 'trace', 'conversation'];
 
 /**
  * Extracts template variables from instructions string. Variables are returned in the order they first appear.

@@ -4,7 +4,7 @@ import { LLM_TEMPLATE } from './types';
 import type { FeedbackAssessment } from '@databricks/web-shared/model-trace-explorer';
 import { getModelTraceId } from '@databricks/web-shared/model-trace-explorer';
 import type { JudgeEvaluationResult } from './useEvaluateTraces';
-import { TEMPLATE_VARIABLES } from '../../utils/evaluationUtils';
+import { TEMPLATE_VARIABLES, extractTemplateVariables } from '../../utils/evaluationUtils';
 
 // Custom hook for template options
 export const useTemplateOptions = () => {
@@ -92,11 +92,12 @@ export const useTemplateOptions = () => {
  * and that at least one variable is present.
  *
  * Validation rules:
- * 1. Only 4 reserved variables are allowed: inputs, outputs, expectations, trace
+ * 1. Only 5 reserved variables are allowed: inputs, outputs, expectations, trace, conversation
  * 2. At least one template variable must be present
  * 3. Variable names are case-sensitive and must match exactly
  * 4. {{ trace }} can be combined with {{ inputs }}, {{ outputs }}, or {{ expectations }}
  *    to provide additional context to the agent-based judge
+ * 5. {{ conversation }} can ONLY be used with {{ expectations }} and nothing else
  *
  * @param value - The instructions text to validate
  * @returns true if valid, or an error message string if invalid
@@ -114,17 +115,42 @@ export const validateInstructions = (value: string | undefined): true | string =
   for (const match of matches) {
     const varName = match[1];
     if (!TEMPLATE_VARIABLES.includes(varName)) {
-      return `Invalid variable: {{ ${varName} }}. Only {{ inputs }}, {{ outputs }}, {{ expectations }}, {{ trace }} are allowed`;
+      return `Invalid variable: {{ ${varName} }}. Only {{ inputs }}, {{ outputs }}, {{ expectations }}, {{ trace }}, {{ conversation }} are allowed`;
     }
     foundVariables.add(varName);
   }
 
   // Check 2: Require at least one template variable
   if (foundVariables.size === 0) {
-    return 'Must contain at least one variable: {{ inputs }}, {{ outputs }}, {{ expectations }}, or {{ trace }}';
+    return 'Must contain at least one variable: {{ inputs }}, {{ outputs }}, {{ expectations }}, {{ trace }}, or {{ conversation }}';
+  }
+
+  // Check 3: {{ conversation }} can only be used with {{ expectations }}
+  if (foundVariables.has('conversation')) {
+    const otherVariables = [...foundVariables].filter((v) => v !== 'conversation' && v !== 'expectations');
+    if (otherVariables.length > 0) {
+      return (
+        '{{ conversation }} can only be used with {{ expectations }}. Remove {{ ' +
+        otherVariables.join(' }}, {{ ') +
+        ' }} to use {{ conversation }}'
+      );
+    }
   }
 
   return true;
+};
+
+/**
+ * Checks if the given instructions contain the conversation template variable.
+ * Used to determine if a scorer is a session-level scorer.
+ *
+ * @param instructions - The instructions text to check
+ * @returns true if the instructions contain the conversation variable
+ */
+export const hasConversationVariable = (instructions: string | undefined): boolean => {
+  if (!instructions) return false;
+  const templateVariables = extractTemplateVariables(instructions);
+  return templateVariables.includes('conversation');
 };
 
 /**

@@ -7,6 +7,7 @@ import {
   Input,
   Checkbox,
   Accordion,
+  Tooltip,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { Controller, type Control, useWatch } from 'react-hook-form';
@@ -15,9 +16,15 @@ import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './co
 interface EvaluateTracesSectionRendererProps {
   control: Control<any>;
   mode: ScorerFormMode;
+  // TODO(ML-60517): Support automatic evaluation with conversation variable (session-level scorers)
+  isSessionLevelScorer?: boolean;
 }
 
-const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps> = ({ control, mode }) => {
+const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps> = ({
+  control,
+  mode,
+  isSessionLevelScorer,
+}) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
@@ -64,23 +71,40 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
         <Controller
           name="sampleRate"
           control={control}
-          render={({ field }) => (
-            <Checkbox
-              componentId={`${COMPONENT_ID_PREFIX}.automatic-evaluation-checkbox`}
-              isChecked={isAutomaticEvaluationEnabled}
-              onChange={(checked) => {
-                // If unchecked, set sample rate to 0; if checked and currently 0, set to 100
-                field.onChange(checked ? 100 : 0);
-              }}
-              disabled={mode === SCORER_FORM_MODE.DISPLAY}
-              onClick={stopPropagationClick}
-            >
-              <FormattedMessage
-                defaultMessage="Automatically evaluate future traces using this judge"
-                description="Checkbox label for enabling automatic evaluation"
-              />
-            </Checkbox>
-          )}
+          render={({ field }) => {
+            const isCheckboxDisabled = mode === SCORER_FORM_MODE.DISPLAY || isSessionLevelScorer;
+            const checkbox = (
+              <Checkbox
+                componentId={`${COMPONENT_ID_PREFIX}.automatic-evaluation-checkbox`}
+                isChecked={isAutomaticEvaluationEnabled}
+                onChange={(checked) => {
+                  // If unchecked, set sample rate to 0; if checked and currently 0, set to 100
+                  field.onChange(checked ? 100 : 0);
+                }}
+                disabled={isCheckboxDisabled}
+                onClick={stopPropagationClick}
+              >
+                <FormattedMessage
+                  defaultMessage="Automatically evaluate future traces using this judge"
+                  description="Checkbox label for enabling automatic evaluation"
+                />
+              </Checkbox>
+            );
+            // Wrap in tooltip if disabled due to session-level scorer
+            if (isSessionLevelScorer) {
+              return (
+                <Tooltip
+                  content={intl.formatMessage({
+                    defaultMessage: 'Automatic evaluation is not supported for session-level scorers',
+                    description: 'Tooltip message when auto-evaluation is disabled for session-level scorer',
+                  })}
+                >
+                  <span css={{ display: 'inline-block' }}>{checkbox}</span>
+                </Tooltip>
+              );
+            }
+            return checkbox;
+          }}
         />
       </div>
       {/* Sample Rate and Filter String - stacked vertically (hidden when automatic evaluation is disabled) */}

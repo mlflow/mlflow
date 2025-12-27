@@ -5,7 +5,7 @@ import { useIntl } from '@databricks/i18n';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { useEvaluateTraces } from './useEvaluateTraces';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
-import { convertEvaluationResultToAssessment } from './llmScorerUtils';
+import { convertEvaluationResultToAssessment, hasConversationVariable } from './llmScorerUtils';
 import { extractTemplateVariables } from '../../utils/evaluationUtils';
 import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING } from './constants';
 import { EvaluateTracesParams, LLM_TEMPLATE } from './types';
@@ -159,13 +159,20 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     return templateVariables.includes('trace');
   }, [isCustomMode, judgeInstructions]);
 
+  // TODO(ML-60517): Support running scorer with conversation variable
+  // Check if instructions contain {{conversation}} variable (custom judges only)
+  const hasConversationVar = useMemo(() => {
+    if (!isCustomMode) return false;
+    return hasConversationVariable(judgeInstructions);
+  }, [isCustomMode, judgeInstructions]);
+
   // Determine if run scorer button should be disabled
   const hasNameError = Boolean((errors as any).name?.message);
   const hasInstructionsError = Boolean((errors as any).instructions?.message);
   const isRetrievalRelevance = llmTemplate === LLM_TEMPLATE.RETRIEVAL_RELEVANCE;
 
   const isRunScorerDisabled = isCustomMode
-    ? !judgeInstructions || hasInstructionsError || hasTraceVariable
+    ? !judgeInstructions || hasInstructionsError || hasTraceVariable || hasConversationVar
     : hasNameError || isRetrievalRelevance;
 
   // Determine tooltip message based on why the button is disabled
@@ -190,6 +197,13 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
           description: 'Tooltip message when instructions contain trace variable',
         });
       }
+      // TODO(ML-60517): Support running scorer with conversation variable
+      if (hasConversationVar) {
+        return intl.formatMessage({
+          defaultMessage: 'Running the scorer on a sample of traces is not supported for session-level scorers',
+          description: 'Tooltip message when instructions contain conversation variable (session-level scorer)',
+        });
+      }
     } else {
       // Built-in judge mode
       if (isRetrievalRelevance) {
@@ -211,6 +225,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     judgeInstructions,
     hasInstructionsError,
     hasTraceVariable,
+    hasConversationVar,
     hasNameError,
     isRetrievalRelevance,
     intl,
