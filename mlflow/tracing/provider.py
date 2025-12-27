@@ -13,7 +13,7 @@ import json
 import logging
 import os
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, ParamSpec, TypeVar
 
 from opentelemetry import context as context_api
 from opentelemetry import trace
@@ -51,6 +51,10 @@ from mlflow.utils.databricks_utils import (
 
 if TYPE_CHECKING:
     from mlflow.entities import Span
+
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 # A trace destination specified by the user via the `set_destination` function.
@@ -601,7 +605,7 @@ def enable():
     provider.once._done = True
 
 
-def trace_disabled(f):
+def trace_disabled(f: Callable[P, R]) -> Callable[P, R]:
     """
     A decorator that temporarily disables tracing for the duration of the decorated function.
 
@@ -622,7 +626,7 @@ def trace_disabled(f):
     """
 
     @functools.wraps(f)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         is_func_called = False
         result = None
         try:
