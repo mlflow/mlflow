@@ -16,10 +16,14 @@ if TYPE_CHECKING:
 from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
+from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+    _run_databricks_agentic_loop,
+)
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 from mlflow.genai.judges.adapters.utils import get_adapter
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
 
@@ -115,11 +119,6 @@ def _invoke_databricks_structured_output(
     Raises:
         MlflowException: If databricks-agents is not installed or invocation fails.
     """
-    from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
-        _run_databricks_agentic_loop,
-    )
-    from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-
     # Convert ChatMessage to litellm Messages
     litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 

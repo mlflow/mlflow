@@ -26,8 +26,9 @@ from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
 )
+from mlflow.genai.judges.tools import list_judge_tools
 from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, REQUEST_LIMIT_EXCEEDED
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, REQUEST_LIMIT_EXCEEDED
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -296,9 +297,6 @@ def _run_databricks_agentic_loop(
     Raises:
         MlflowException: If max iterations exceeded or other errors occur.
     """
-    from mlflow.genai.judges.tools import list_judge_tools
-    from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-
     # Enable tool calling if trace is provided
     tools = None
     if trace is not None:
