@@ -115,8 +115,17 @@ export interface EndpointModelMapping {
   model_definition_id: string;
   model_definition?: ModelDefinition;
   weight: number;
+  linkage_type?: string;
+  fallback_order?: number;
   created_at: number;
   created_by?: string;
+}
+
+export interface GatewayEndpointModelConfig {
+  model_definition_id: string;
+  linkage_type: string;
+  weight?: number;
+  fallback_order?: number;
 }
 
 export interface Endpoint {
@@ -127,12 +136,22 @@ export interface Endpoint {
   last_updated_at: number;
   created_by?: string;
   last_updated_by?: string;
+  routing_strategy?: string;
+  fallback_config?: {
+    strategy: string;
+    max_attempts: number;
+  };
 }
 
 export interface CreateEndpointRequest {
   name?: string;
-  model_definition_ids: string[];
+  model_configs: GatewayEndpointModelConfig[];
   created_by?: string;
+  routing_strategy?: string;
+  fallback_config?: {
+    strategy: string;
+    max_attempts: number;
+  };
 }
 
 export interface CreateEndpointResponse {
