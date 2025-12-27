@@ -39,6 +39,15 @@ def mock_trace():
     return Trace(info=trace_info, data=None)
 
 
+@pytest.fixture
+def mock_databricks_creds():
+    """Fixture for mocked Databricks credentials."""
+    creds = mock.Mock()
+    creds.host = "https://test.databricks.com"
+    creds.token = "test-token"
+    return creds
+
+
 def test_parse_databricks_model_response_valid_response() -> None:
     res_json = {
         "choices": [{"message": {"content": "This is the response"}}],
@@ -110,11 +119,9 @@ def test_parse_databricks_model_response_errors(
         _parse_databricks_model_response(res_json, headers)
 
 
-def test_invoke_databricks_serving_endpoint_successful_invocation() -> None:
-    mock_creds = mock.Mock()
-    mock_creds.host = "https://test.databricks.com"
-    mock_creds.token = "test-token"
-
+def test_invoke_databricks_serving_endpoint_successful_invocation(
+    mock_databricks_creds,
+) -> None:
     mock_response = mock.Mock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
@@ -126,7 +133,7 @@ def test_invoke_databricks_serving_endpoint_successful_invocation() -> None:
     with (
         mock.patch(
             "mlflow.utils.databricks_utils.get_databricks_host_creds",
-            return_value=mock_creds,
+            return_value=mock_databricks_creds,
         ) as mock_get_creds,
         mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
@@ -151,11 +158,9 @@ def test_invoke_databricks_serving_endpoint_successful_invocation() -> None:
 
 
 @pytest.mark.parametrize("status_code", [400, 401, 403, 404])
-def test_invoke_databricks_serving_endpoint_bad_request_error_no_retry(status_code: int) -> None:
-    mock_creds = mock.Mock()
-    mock_creds.host = "https://test.databricks.com"
-    mock_creds.token = "test-token"
-
+def test_invoke_databricks_serving_endpoint_bad_request_error_no_retry(
+    mock_databricks_creds, status_code: int
+) -> None:
     mock_response = mock.Mock()
     mock_response.status_code = status_code
     mock_response.text = f"Error {status_code}"
@@ -163,7 +168,7 @@ def test_invoke_databricks_serving_endpoint_bad_request_error_no_retry(status_co
     with (
         mock.patch(
             "mlflow.utils.databricks_utils.get_databricks_host_creds",
-            return_value=mock_creds,
+            return_value=mock_databricks_creds,
         ) as mock_get_creds,
         mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
@@ -179,11 +184,9 @@ def test_invoke_databricks_serving_endpoint_bad_request_error_no_retry(status_co
         mock_get_creds.assert_called_once()
 
 
-def test_invoke_databricks_serving_endpoint_retry_logic_with_transient_errors() -> None:
-    mock_creds = mock.Mock()
-    mock_creds.host = "https://test.databricks.com"
-    mock_creds.token = "test-token"
-
+def test_invoke_databricks_serving_endpoint_retry_logic_with_transient_errors(
+    mock_databricks_creds,
+) -> None:
     # First call fails with 500, second succeeds
     error_response = mock.Mock()
     error_response.status_code = 500
@@ -197,7 +200,7 @@ def test_invoke_databricks_serving_endpoint_retry_logic_with_transient_errors() 
     with (
         mock.patch(
             "mlflow.utils.databricks_utils.get_databricks_host_creds",
-            return_value=mock_creds,
+            return_value=mock_databricks_creds,
         ) as mock_get_creds,
         mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
@@ -218,11 +221,7 @@ def test_invoke_databricks_serving_endpoint_retry_logic_with_transient_errors() 
     assert result.response == "Success"
 
 
-def test_invoke_databricks_serving_endpoint_json_decode_error() -> None:
-    mock_creds = mock.Mock()
-    mock_creds.host = "https://test.databricks.com"
-    mock_creds.token = "test-token"
-
+def test_invoke_databricks_serving_endpoint_json_decode_error(mock_databricks_creds) -> None:
     mock_response = mock.Mock()
     mock_response.status_code = 200
     mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
@@ -230,7 +229,7 @@ def test_invoke_databricks_serving_endpoint_json_decode_error() -> None:
     with (
         mock.patch(
             "mlflow.utils.databricks_utils.get_databricks_host_creds",
-            return_value=mock_creds,
+            return_value=mock_databricks_creds,
         ) as mock_get_creds,
         mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
@@ -246,13 +245,13 @@ def test_invoke_databricks_serving_endpoint_json_decode_error() -> None:
         mock_get_creds.assert_called_once()
 
 
-def test_invoke_databricks_serving_endpoint_connection_error_with_retries() -> None:
-    mock_creds = mock.Mock()
-
+def test_invoke_databricks_serving_endpoint_connection_error_with_retries(
+    mock_databricks_creds,
+) -> None:
     with (
         mock.patch(
             "mlflow.utils.databricks_utils.get_databricks_host_creds",
-            return_value=mock_creds,
+            return_value=mock_databricks_creds,
         ) as mock_get_creds,
         mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
@@ -274,7 +273,7 @@ def test_invoke_databricks_serving_endpoint_connection_error_with_retries() -> N
         mock_get_creds.assert_called_once()
 
 
-def test_invoke_databricks_serving_endpoint_with_response_schema():
+def test_invoke_databricks_serving_endpoint_with_response_format(mock_databricks_creds):
     class ResponseFormat(BaseModel):
         result: int
         rationale: str
@@ -295,18 +294,14 @@ def test_invoke_databricks_serving_endpoint_with_response_schema():
         }
         return mock_response
 
-    # Mock Databricks host creds
-    mock_creds = mock.Mock()
-    mock_creds.host = "https://test.databricks.com"
-    mock_creds.token = "test-token"
-
     with (
         mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
             side_effect=mock_post,
         ),
         mock.patch(
-            "mlflow.utils.databricks_utils.get_databricks_host_creds", return_value=mock_creds
+            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            return_value=mock_databricks_creds,
         ),
     ):
         output = _invoke_databricks_serving_endpoint(
@@ -316,13 +311,134 @@ def test_invoke_databricks_serving_endpoint_with_response_schema():
             response_format=ResponseFormat,
         )
 
-        # Verify response_schema was included in the payload
+        # Verify response_format was included in the payload
         assert captured_payload is not None
-        assert "response_schema" in captured_payload
-        assert captured_payload["response_schema"] == ResponseFormat.model_json_schema()
+        assert "response_format" in captured_payload
+        assert captured_payload["response_format"] == ResponseFormat.model_json_schema()
 
         # Verify the response was returned correctly
         assert output.response == '{"result": 8, "rationale": "Good quality"}'
+
+
+def test_invoke_databricks_serving_endpoint_response_format_fallback(mock_databricks_creds):
+    class ResponseFormat(BaseModel):
+        result: int
+        rationale: str
+
+    call_count = 0
+    captured_payloads = []
+
+    def mock_post(*args, **kwargs):
+        nonlocal call_count
+        captured_payloads.append(kwargs.get("json"))
+        call_count += 1
+
+        mock_response = mock.Mock()
+        if call_count == 1:
+            # First call with response_format fails
+            mock_response.status_code = 400
+            mock_response.text = '{"error": "Invalid parameter: response_format is not supported"}'
+        else:
+            # Second call without response_format succeeds
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                "choices": [{"message": {"content": '{"result": 8, "rationale": "Good quality"}'}}],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+                "id": "test-request-id",
+            }
+        return mock_response
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
+            side_effect=mock_post,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            return_value=mock_databricks_creds,
+        ),
+    ):
+        output = _invoke_databricks_serving_endpoint(
+            model_name="my-endpoint",
+            prompt="Rate this",
+            num_retries=1,
+            response_format=ResponseFormat,
+        )
+
+        # Verify we made 2 calls, the first with response_format, the second without
+        assert call_count == 2
+        assert "response_format" in captured_payloads[0]
+        assert "response_format" not in captured_payloads[1]
+        assert output.response == '{"result": 8, "rationale": "Good quality"}'
+
+
+def test_invoke_databricks_serving_endpoint_with_inference_params(mock_databricks_creds) -> None:
+    captured_payload = None
+
+    def mock_post(*args, **kwargs):
+        nonlocal captured_payload
+        captured_payload = kwargs.get("json")
+
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": "Test response"}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+        }
+        mock_response.headers = {"x-request-id": "test-id"}
+        return mock_response
+
+    inference_params = {"temperature": 0.5, "max_tokens": 100, "top_p": 0.9}
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
+            side_effect=mock_post,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            return_value=mock_databricks_creds,
+        ),
+    ):
+        result = _invoke_databricks_serving_endpoint(
+            model_name="test-model",
+            prompt="test prompt",
+            num_retries=1,
+            inference_params=inference_params,
+        )
+
+        # Verify inference_params were included in the payload
+        assert captured_payload is not None
+        assert captured_payload["temperature"] == 0.5
+        assert captured_payload["max_tokens"] == 100
+        assert captured_payload["top_p"] == 0.9
+
+    assert result.response == "Test response"
+
+
+@pytest.mark.parametrize(
+    "invalid_prompt",
+    [
+        123,  # Not a string or list
+        ["not a ChatMessage", "also invalid"],  # List but not ChatMessage instances
+    ],
+)
+def test_invoke_databricks_serving_endpoint_invalid_prompt_type(
+    mock_databricks_creds, invalid_prompt
+) -> None:
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            return_value=mock_databricks_creds,
+        ),
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="Invalid prompt type: expected str or list\\[ChatMessage\\]",
+        ):
+            _invoke_databricks_serving_endpoint(
+                model_name="test-model", prompt=invalid_prompt, num_retries=0
+            )
 
 
 def test_record_success_telemetry_with_databricks_agents() -> None:

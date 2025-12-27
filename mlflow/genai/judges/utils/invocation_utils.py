@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-import traceback
-import warnings
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import litellm
 import pydantic
@@ -16,42 +14,16 @@ if TYPE_CHECKING:
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
-from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.adapters.databricks_adapter import (
-    _run_databricks_trace_analysis_agentic_loop,
-)
-from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
-    _invoke_databricks_default_judge,
-)
-from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
-    _invoke_databricks_serving_endpoint_judge,
-    _record_judge_model_usage_failure_databricks_telemetry,
-    _record_judge_model_usage_success_databricks_telemetry,
-)
-from mlflow.genai.judges.adapters.gateway_adapter import _invoke_via_gateway
+from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+from mlflow.genai.judges.adapters.utils import get_adapter
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.genai.judges.utils.parsing_utils import (
-    _sanitize_justification,
-    _strip_markdown_code_blocks,
-)
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
 from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.telemetry.utils import _is_in_databricks
-from mlflow.tracing.constant import AssessmentMetadataKey
 
 _logger = logging.getLogger(__name__)
-
-
-def _is_litellm_available() -> bool:
-    try:
-        import litellm  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
 
 
 class FieldExtraction(pydantic.BaseModel):
@@ -70,15 +42,17 @@ def invoke_judge_model(
     num_retries: int = 10,
     response_format: type[pydantic.BaseModel] | None = None,
     use_case: str | None = None,
+    inference_params: dict[str, Any] | None = None,
 ) -> Feedback:
     """
     Invoke the judge model.
 
-    Routes to the appropriate implementation based on the model URI:
-    - "databricks": Uses databricks.agents.evals library for default judge,
-                    direct API for regular endpoints
-    - LiteLLM-supported providers: Uses LiteLLM if available
-    - Native providers: Falls back to AI Gateway adapters
+    Routes to the appropriate adapter based on the model URI and configuration.
+    Uses a factory pattern to select the correct adapter:
+    - DatabricksManagedJudgeAdapter: For the default Databricks judge
+    - DatabricksServingEndpointAdapter: For Databricks serving endpoints
+    - LiteLLMAdapter: For LiteLLM-supported providers
+    - GatewayAdapter: Fallback for native providers
 
     Args:
         model_uri: The model URI.
@@ -91,6 +65,9 @@ def invoke_judge_model(
         use_case: The use case for the chat completion. Only applicable when using the
             Databricks default judge and only used if supported by the installed
             databricks-agents version.
+        inference_params: Optional dictionary of inference parameters to pass to the
+            model (e.g., temperature, top_p, max_tokens). These parameters allow
+            fine-grained control over the model's behavior during evaluation.
 
     Returns:
         Feedback object with the judge's assessment.
@@ -98,134 +75,21 @@ def invoke_judge_model(
     Raises:
         MlflowException: If the model cannot be invoked or dependencies are missing.
     """
-    if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-        return _invoke_databricks_default_judge(prompt, assessment_name, use_case=use_case)
+    adapter = get_adapter(model_uri=model_uri, prompt=prompt)
 
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
-    from mlflow.types.llm import ChatMessage
-
-    model_provider, model_name = _parse_model_uri(model_uri)
-    in_databricks = _is_in_databricks()
-
-    # Handle Databricks endpoints (not the default judge) with proper telemetry
-    if model_provider in {"databricks", "endpoints"} and isinstance(prompt, str):
-        if model_provider == "endpoints":
-            warnings.warn(
-                "The legacy provider 'endpoints' is deprecated and will be removed in a future"
-                "release. Please update your code to use the 'databricks' provider instead.",
-                FutureWarning,
-                stacklevel=2,
-            )
-        try:
-            output = _invoke_databricks_serving_endpoint_judge(
-                model_name=model_name,
-                prompt=prompt,
-                assessment_name=assessment_name,
-                num_retries=num_retries,
-                response_format=response_format,
-            )
-            feedback = output.feedback
-            feedback.trace_id = trace.info.trace_id if trace is not None else None
-
-            # Record success telemetry only when in Databricks
-            if in_databricks:
-                try:
-                    _record_judge_model_usage_success_databricks_telemetry(
-                        request_id=output.request_id,
-                        model_provider=output.model_provider,
-                        endpoint_name=output.model_name,
-                        num_prompt_tokens=output.num_prompt_tokens,
-                        num_completion_tokens=output.num_completion_tokens,
-                    )
-                except Exception as telemetry_error:
-                    _logger.debug(
-                        "Failed to record judge model usage success telemetry. Error: %s",
-                        telemetry_error,
-                        exc_info=True,
-                    )
-
-            return feedback
-
-        except Exception:
-            # Record failure telemetry only when in Databricks
-            if in_databricks:
-                try:
-                    provider = "databricks" if model_provider == "endpoints" else model_provider
-                    _record_judge_model_usage_failure_databricks_telemetry(
-                        model_provider=provider,
-                        endpoint_name=model_name,
-                        error_code="UNKNOWN",
-                        error_message=traceback.format_exc(),
-                    )
-                except Exception as telemetry_error:
-                    _logger.debug(
-                        "Failed to record judge model usage failure telemetry. Error: %s",
-                        telemetry_error,
-                        exc_info=True,
-                    )
-            raise
-
-    # Handle all other cases (including non-Databricks, ChatMessage prompts, traces)
-    messages = [ChatMessage(role="user", content=prompt)] if isinstance(prompt, str) else prompt
-    total_cost = None
-    if _is_litellm_available():
-        response, total_cost = _invoke_litellm_and_handle_tools(
-            provider=model_provider,
-            model_name=model_name,
-            messages=messages,
-            trace=trace,
-            num_retries=num_retries,
-            response_format=response_format,
-        )
-    elif trace is not None:
-        raise MlflowException(
-            "LiteLLM is required for using traces with judges. "
-            "Please install it with `pip install litellm`.",
-            error_code=BAD_REQUEST,
-        )
-    else:
-        if not isinstance(prompt, str):
-            raise MlflowException(
-                "This judge is not supported by native LLM providers. Please install "
-                "LiteLLM with `pip install litellm` to use this judge.",
-                error_code=BAD_REQUEST,
-            )
-        if response_format is not None:
-            _logger.warning(
-                "Structured output is not supported by native LLM providers. Please install "
-                "LiteLLM with `pip install litellm` to use this judge.",
-            )
-        response = _invoke_via_gateway(model_uri, model_provider, prompt)
-
-    cleaned_response = _strip_markdown_code_blocks(response)
-
-    try:
-        response_dict = json.loads(cleaned_response)
-    except json.JSONDecodeError as e:
-        raise MlflowException(
-            f"Failed to parse response from judge model. Response: {response}",
-            error_code=BAD_REQUEST,
-        ) from e
-
-    metadata = {AssessmentMetadataKey.JUDGE_COST: total_cost} if total_cost else None
-
-    feedback = Feedback(
-        name=assessment_name,
-        value=response_dict["result"],
-        rationale=_sanitize_justification(response_dict.get("rationale", "")),
-        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id=model_uri),
-        trace_id=trace.info.trace_id if trace is not None else None,
-        metadata=metadata,
+    input_params = AdapterInvocationInput(
+        model_uri=model_uri,
+        prompt=prompt,
+        assessment_name=assessment_name,
+        trace=trace,
+        num_retries=num_retries,
+        response_format=response_format,
+        use_case=use_case,
+        inference_params=inference_params,
     )
 
-    if "error" in response_dict:
-        feedback.error = response_dict["error"]
-        raise MlflowException(
-            f"Judge evaluation failed with error: {response_dict['error']}",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-    return feedback
+    output = adapter.invoke(input_params)
+    return output.feedback
 
 
 def _invoke_databricks_structured_output(
@@ -251,6 +115,16 @@ def _invoke_databricks_structured_output(
     Raises:
         MlflowException: If databricks-agents is not installed or invocation fails.
     """
+    from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
+    from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+        _create_litellm_message_from_databricks_response,
+        _serialize_messages_to_databricks_prompts,
+        call_chat_completions,
+    )
+    from mlflow.genai.judges.constants import _DATABRICKS_AGENTIC_JUDGE_MODEL
+    from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
+    from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, REQUEST_LIMIT_EXCEEDED
+
     # Convert ChatMessage to litellm Messages
     litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
@@ -270,20 +144,67 @@ def _invoke_databricks_structured_output(
             litellm.Message(role="system", content=schema_instruction),
         )
 
-    # Define callback to parse final answer into Pydantic model
-    def parse_structured_output(content: str | None) -> pydantic.BaseModel:
-        if content:
-            cleaned = _strip_markdown_code_blocks(content)
-            response_dict = json.loads(cleaned)
-            return output_schema(**response_dict)
-        raise MlflowException(
-            "Empty content in final response from Databricks judge",
-            error_code=INVALID_PARAMETER_VALUE,
+    # Enable tool calling if trace is provided
+    tools = None
+    model = None
+    if trace is not None:
+        from mlflow.genai.judges.tools import list_judge_tools
+
+        tools = [tool.get_definition() for tool in list_judge_tools()]
+        model = _DATABRICKS_AGENTIC_JUDGE_MODEL
+
+    # Agentic loop: iteratively call LLM and execute tools until final answer
+    max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
+    iteration_count = 0
+
+    while True:
+        iteration_count += 1
+        if iteration_count > max_iterations:
+            raise MlflowException(
+                f"Completion iteration limit of {max_iterations} exceeded. "
+                f"This usually indicates the model is not powerful enough to effectively "
+                f"analyze the trace. Consider using a more intelligent/powerful model.",
+                error_code=REQUEST_LIMIT_EXCEEDED,
+            )
+
+        # Serialize messages to Databricks format
+        user_prompt, system_prompt = _serialize_messages_to_databricks_prompts(litellm_messages)
+
+        llm_result = call_chat_completions(
+            user_prompt, system_prompt, tools=tools, model=model
         )
 
-    return _run_databricks_trace_analysis_agentic_loop(
-        litellm_messages, trace, parse_structured_output
-    )
+        # Parse response
+        output_json = llm_result.output_json
+        if not output_json:
+            raise MlflowException(
+                "Empty response from Databricks judge",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
+
+        # Convert response to litellm Message
+        message = _create_litellm_message_from_databricks_response(parsed_json)
+
+        # No tool calls means final answer - parse and return
+        if not message.tool_calls:
+            if message.content:
+                cleaned = _strip_markdown_code_blocks(message.content)
+                response_dict = json.loads(cleaned)
+                return output_schema(**response_dict)
+            raise MlflowException(
+                "Empty content in final response from Databricks judge",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        # Append assistant message and process tool calls
+        litellm_messages.append(message)
+        tool_response_messages = _process_tool_calls(
+            tool_calls=message.tool_calls,
+            trace=trace,
+        )
+        litellm_messages.extend(tool_response_messages)
 
 
 def get_chat_completions_with_structured_output(
@@ -292,6 +213,7 @@ def get_chat_completions_with_structured_output(
     output_schema: type[pydantic.BaseModel],
     trace: Trace | None = None,
     num_retries: int = 10,
+    inference_params: dict[str, Any] | None = None,
 ) -> pydantic.BaseModel:
     """
     Get chat completions from an LLM with structured output conforming to a Pydantic schema.
@@ -309,6 +231,8 @@ def get_chat_completions_with_structured_output(
                calling to examine trace spans.
         num_retries: Number of retries on transient failures. Defaults to 10 with
                      exponential backoff.
+        inference_params: Optional dictionary of inference parameters to pass to the
+                       model (e.g., temperature, top_p, max_tokens).
 
     Returns:
         Instance of output_schema with the structured data from the LLM.
@@ -364,6 +288,7 @@ def get_chat_completions_with_structured_output(
         trace=trace,
         num_retries=num_retries,
         response_format=output_schema,
+        inference_params=inference_params,
     )
 
     cleaned_response = _strip_markdown_code_blocks(response)

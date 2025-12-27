@@ -261,6 +261,37 @@ def test_convert_to_eval_set_without_request_and_response():
     assert transformed_data["inputs"].isna().all()
 
 
+def test_convert_to_eval_set_with_missing_root_span():
+    # Create traces
+    for _ in range(2):
+        with mlflow.start_span():
+            pass
+
+    trace_df = mlflow.search_traces()
+    trace_df = trace_df[["trace"]]
+
+    # Deserialize the trace from JSON string to Trace object
+    trace_df["trace"] = trace_df["trace"].apply(
+        lambda t: Trace.from_json(t) if isinstance(t, str) else t
+    )
+
+    # Mock _get_root_span to return None for the first trace to simulate missing root span
+    with patch.object(trace_df["trace"].iloc[0].data, "_get_root_span", return_value=None):
+        transformed_data = _convert_to_eval_set(trace_df)
+
+    # Verify inputs and outputs columns exist
+    assert "inputs" in transformed_data.columns
+    assert "outputs" in transformed_data.columns
+
+    # Verify first trace has None for inputs/outputs (missing root span)
+    assert transformed_data["inputs"].iloc[0] is None
+    assert transformed_data["outputs"].iloc[0] is None
+
+    # Verify second trace has None for inputs/outputs (normal empty span behavior)
+    assert transformed_data["inputs"].iloc[1] is None
+    assert transformed_data["outputs"].iloc[1] is None
+
+
 def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
     # Data with invalid `inputs` column
     df = spark.createDataFrame(

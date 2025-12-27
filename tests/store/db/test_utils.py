@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -168,3 +169,24 @@ def test_check_sqlite_version_too_old():
     with mock.patch("mlflow.store.db.utils.sqlite3.sqlite_version", "3.30.1"):
         with pytest.raises(MlflowException, match=r"MLflow requires SQLite"):
             utils._check_sqlite_version("sqlite:///test.db")
+
+
+def test_make_parent_dirs_if_sqlite(tmp_path: Path) -> None:
+    nested_path = tmp_path / "a" / "b" / "c" / "test.db"
+    db_uri = f"sqlite:///{nested_path}"
+
+    assert not nested_path.parent.exists()
+    utils._make_parent_dirs_if_sqlite(db_uri)
+    assert nested_path.parent.exists()
+
+
+def test_make_parent_dirs_if_sqlite_skips_memory_db() -> None:
+    # Should not raise any errors for in-memory databases
+    utils._make_parent_dirs_if_sqlite("sqlite:///:memory:")
+    utils._make_parent_dirs_if_sqlite("sqlite://")
+
+
+def test_make_parent_dirs_if_sqlite_skips_non_sqlite() -> None:
+    # Should not raise any errors for non-SQLite URIs
+    utils._make_parent_dirs_if_sqlite("postgresql://localhost/db")
+    utils._make_parent_dirs_if_sqlite("mysql://localhost/db")

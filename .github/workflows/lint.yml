@@ -89,9 +89,6 @@ jobs:
             --repo ${{ github.repository }} \
             --pr ${{ github.event.pull_request.number }}
 
-      - uses: ./.github/actions/setup-ripgrep
-        if: matrix.os == 'ubuntu-latest'
       - name: Check unused media
-        if: matrix.os == 'ubuntu-latest'
         run: |
           dev/find-unused-media.sh

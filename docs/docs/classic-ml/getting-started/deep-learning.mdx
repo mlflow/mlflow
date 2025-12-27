@@ -134,7 +134,7 @@ with mlflow.start_run() as run:
 
     for epoch in range(params["epochs"]):
         model.train()
-        train_loss = correct, total = 0, 0, 0
+        train_loss, correct, total = 0, 0, 0
 
         for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data.to(device), target.to(device)
@@ -213,7 +213,7 @@ with mlflow.start_run() as run:
 To see the results of training, you can access the MLflow UI by navigating to the URL of the Tracking Server. If you have not started one, open a new terminal and run the following command at the root of the MLflow project and access the UI at http://localhost:5000 (or the port number you specified).
 
 ```bash
-mlflow ui --port 5000
+mlflow server --port 5000
 ```
 
 When opening the site, you will see a screen similar to the following:
@@ -247,8 +247,8 @@ You can load the final model or checkpoint from MLflow using the `mlflow.pytorch
 model = mlflow.pytorch.load_model("runs:/<run_id>/final_model")
 # or load a checkpoint
 # model = mlflow.pytorch.load_model("runs:/<run_id>/checkpoint_<epoch>")
-loaded_model.to(device)
-loaded_model.eval()
+model.to(device)
+model.eval()
 
 # Resume the previous run to log test metrics
 with mlflow.start_run(run_id=run.info.run_id) as run:

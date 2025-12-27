@@ -458,6 +458,30 @@ def _validate_static_prefix(ctx, param, value):
         "Unsupported on Windows."
     ),
 )
+@click.option(
+    "--secrets-cache-ttl",
+    type=click.IntRange(10, 300),
+    default=60,
+    show_default=True,
+    help=(
+        "Server-side secrets cache time-to-live in seconds. "
+        "Controls how long decrypted secrets are cached in memory (encrypted with AES-GCM-256). "
+        "Lower values (10-30s) are more secure but impact performance. "
+        "Higher values (120-300s) improve performance but increase exposure window. "
+        "Range: 10-300 seconds."
+    ),
+)
+@click.option(
+    "--secrets-cache-max-size",
+    type=click.IntRange(1, 10000),
+    default=1000,
+    show_default=True,
+    help=(
+        "Server-side secrets cache maximum entries. "
+        "When exceeded, least recently used entries are evicted. "
+        "Range: 1-10000 entries."
+    ),
+)
 def server(
     ctx,
     backend_store_uri,
@@ -480,6 +504,8 @@ def server(
     app_name,
     dev,
     uvicorn_opts,
+    secrets_cache_ttl,
+    secrets_cache_max_size,
 ):
     """
     Run the MLflow tracking server with built-in security middleware.
@@ -554,19 +580,20 @@ def server(
 
     if not registry_store_uri:
         registry_store_uri = backend_store_uri
-        click.echo(f"Registry store URI not provided. Using {registry_store_uri}")
+        click.echo("Registry store URI not provided. Using backend store URI.")
 
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
     artifacts_only_config_validation(artifacts_only, backend_store_uri)
 
-    try:
-        initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
-    except Exception as e:
-        _logger.error("Error initializing backend store")
-        _logger.exception(e)
-        sys.exit(1)
+    if not artifacts_only:
+        try:
+            initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
+        except Exception as e:
+            _logger.error("Error initializing backend store")
+            _logger.exception(e)
+            sys.exit(1)
 
     if disable_security_middleware:
         click.echo(
@@ -613,6 +640,8 @@ def server(
             app_name=app_name,
             uvicorn_opts=uvicorn_opts,
             env_file=env_file,
+            secrets_cache_ttl=secrets_cache_ttl,
+            secrets_cache_max_size=secrets_cache_max_size,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
@@ -1013,6 +1042,11 @@ with contextlib.suppress(ImportError):
 
     cli.add_command(mlflow.gateway.cli.commands)
 
+# Add crypto CLI commands
+with contextlib.suppress(ImportError):
+    from mlflow.cli import crypto
+
+    cli.add_command(crypto.commands)
 
 if __name__ == "__main__":
     cli()

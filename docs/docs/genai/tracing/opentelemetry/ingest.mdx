@@ -103,3 +103,24 @@ docker run -d --name opentelemetry-collector \
   -v $(pwd)/opentelemetry-collector.yaml:/etc/otel/collector/config.yaml \
   otel/opentelemetry-collector
 ```
+
+## Compression
+
+Since MLflow 3.7.0, MLflow's OTLP/HTTP endpoint accepts compressed trace payloads. To enable compression, set the `OTEL_EXPORTER_OTLP_TRACES_COMPRESSION` environment variable to either `gzip` or `deflate`. Other encodings are not supported.
+
+```bash
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:5000/v1/traces
+export OTEL_EXPORTER_OTLP_TRACES_HEADERS=x-mlflow-experiment-id=123
+export OTEL_EXPORTER_OTLP_TRACES_COMPRESSION=gzip
+```
+
+When routing through the OpenTelemetry Collector, set compression on the OTLP HTTP exporter so it forwards a compressed request to MLflow:
+
+```yaml
+exporters:
+  otlphttp:
+    endpoint: ${MLFLOW_TRACKING_URI}
+    headers:
+      x-mlflow-experiment-id: ${MLFLOW_EXPERIMENT_ID}
+    compression: gzip
+```

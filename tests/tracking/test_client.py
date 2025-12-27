@@ -1,7 +1,6 @@
 import json
 import os
 import pickle
-import sys
 import time
 import uuid
 from pathlib import Path
@@ -50,7 +49,6 @@ from mlflow.exceptions import (
     MlflowTraceDataCorrupted,
     MlflowTraceDataNotFound,
 )
-from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.sqlalchemy_store import (
@@ -672,8 +670,22 @@ def test_client_delete_traces(mock_store):
     )
 
 
+@pytest.fixture
+def disable_prompt_cache():
+    from mlflow.environment_variables import (
+        MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS,
+        MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS,
+    )
+
+    MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS.set(0)
+    MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS.set(0)
+    yield
+    MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS.unset()
+    MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS.unset()
+
+
 @pytest.fixture(params=["file", "sqlalchemy"])
-def tracking_uri(request, tmp_path, monkeypatch):
+def tracking_uri(request, tmp_path, db_uri):
     """Set an MLflow Tracking URI with different type of backend."""
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
@@ -683,10 +695,7 @@ def tracking_uri(request, tmp_path, monkeypatch):
     if request.param == "file":
         tracking_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
-        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-            len("file://") :
-        ]
+        tracking_uri = db_uri
 
     # NB: MLflow tracer does not handle the change of tracking URI well,
     # so we need to reset the tracer to switch the tracking URI during testing.
@@ -2056,7 +2065,7 @@ def test_get_trace_throw_if_trace_id_is_online_trace_id():
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
-def registry_uri(request, tmp_path):
+def registry_uri(request, tmp_path, db_uri):
     """Set an MLflow Model Registry URI with different type of backend."""
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
@@ -2064,14 +2073,11 @@ def registry_uri(request, tmp_path):
     original_registry_uri = mlflow.get_registry_uri()
 
     if request.param == "file":
-        tracking_uri = tmp_path.joinpath("file").as_uri()
+        registry_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
-        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        tracking_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-            len("file://") :
-        ]
+        registry_uri = db_uri
 
-    yield tracking_uri
+    yield registry_uri
 
     # Reset tracking URI
     mlflow.set_tracking_uri(original_registry_uri)
@@ -2110,7 +2116,7 @@ def test_crud_prompts(tracking_uri):
     assert mlflow.load_prompt("does_not_exist", version=1, allow_missing=True) is None
 
 
-def test_create_prompt_with_tags_and_metadata(tracking_uri):
+def test_create_prompt_with_tags_and_metadata(tracking_uri, disable_prompt_cache):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create prompt with version-specific tags
@@ -2172,7 +2178,7 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri):
     assert prompt_v1_after_update.tags == {"author": "Alice"}  # Unchanged
 
 
-def test_create_prompt_error_handling(tracking_uri):
+def test_create_prompt_error_handling(tracking_uri, disable_prompt_cache):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Exceeds the max length
@@ -2371,12 +2377,12 @@ def test_log_and_detach_prompt(tracking_uri):
 
     # Check that initially no prompts are linked to the run
     run = client.get_run(run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is None
 
     client.link_prompt_version_to_run(run_id, "prompts:/p1/1")
     run = client.get_run(run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
     prompts = json.loads(linked_prompts_tag)
     assert len(prompts) == 1
@@ -2384,7 +2390,7 @@ def test_log_and_detach_prompt(tracking_uri):
 
     client.link_prompt_version_to_run(run_id, "prompts:/p2/1")
     run = client.get_run(run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     prompts = json.loads(linked_prompts_tag)
     assert len(prompts) == 2
     prompt_names = [p["name"] for p in prompts]
@@ -2696,7 +2702,7 @@ def test_log_batch_link_to_active_model(tracking_uri):
     }
 
 
-def test_load_prompt_with_alias_uri(tracking_uri):
+def test_load_prompt_with_alias_uri(tracking_uri, disable_prompt_cache):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Register two versions of a prompt
@@ -2836,7 +2842,7 @@ def test_link_chat_prompt_version_to_run():
 
     # Verify linking
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)
@@ -3070,7 +3076,7 @@ def test_link_prompt_with_response_format_to_run():
 
     # Verify linking
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)
@@ -3099,7 +3105,7 @@ def test_link_multiple_prompt_types_to_run():
 
     # Verify linking
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)

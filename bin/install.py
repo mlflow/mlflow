@@ -5,14 +5,17 @@ Install binary tools for MLflow development.
 # ruff: noqa: T201
 import argparse
 import gzip
+import http.client
 import json
 import platform
 import subprocess
 import tarfile
+import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+from urllib.error import HTTPError
 
 INSTALLED_VERSIONS_FILE = ".installed_versions.json"
 
@@ -125,6 +128,20 @@ TOOLS = [
             ): "https://github.com/bufbuild/buf/releases/download/v1.59.0/buf-Darwin-arm64",
         },
     ),
+    Tool(
+        name="rg",
+        version="14.1.1",
+        urls={
+            (
+                "linux",
+                "x86_64",
+            ): "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz",
+            (
+                "darwin",
+                "arm64",
+            ): "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-aarch64-apple-darwin.tar.gz",
+        },
+    ),
 ]
 
 
@@ -147,11 +164,27 @@ def get_platform_key() -> PlatformKey | None:
     return None
 
 
+def urlopen_with_retry(
+    url: str, max_retries: int = 5, base_delay: float = 1.0
+) -> http.client.HTTPResponse:
+    """Open a URL with retry logic for transient HTTP errors (e.g., 503)."""
+    for attempt in range(max_retries):
+        try:
+            return urllib.request.urlopen(url)
+        except HTTPError as e:
+            if e.code in (502, 503, 504) and attempt < max_retries - 1:
+                delay = base_delay * (2**attempt)
+                print(f"  HTTP {e.code}, retrying in {delay}s... ({attempt + 1}/{max_retries})")
+                time.sleep(delay)
+            else:
+                raise
+
+
 def extract_gzip_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
     print(f"Downloading from {url}")
     output_path = dest_dir / binary_name
 
-    with urllib.request.urlopen(url) as response:
+    with urlopen_with_retry(url) as response:
         with gzip.open(response, "rb") as gz:
             output_path.write_bytes(gz.read())
 
@@ -160,16 +193,19 @@ def extract_gzip_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
 
 def extract_tar_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
     print(f"Downloading from {url}...")
+    output_path = dest_dir / binary_name
     with (
-        urllib.request.urlopen(url) as response,
+        urlopen_with_retry(url) as response,
         tarfile.open(fileobj=response, mode="r|*") as tar,
     ):
         # Find and extract only the binary file we need
         for member in tar:
             if member.isfile() and member.name.endswith(binary_name):
                 # Extract the file content and write directly to destination
-                tar.extract(member, dest_dir)
-                return dest_dir / binary_name
+                f = tar.extractfile(member)
+                if f is not None:
+                    output_path.write_bytes(f.read())
+                    return output_path
 
     raise FileNotFoundError(f"Could not find {binary_name} in archive")
 
@@ -178,7 +214,7 @@ def download_binary_from_url(url: str, dest_dir: Path, binary_name: str) -> Path
     print(f"Downloading from {url}...")
     output_path = dest_dir / binary_name
 
-    with urllib.request.urlopen(url) as response:
+    with urlopen_with_retry(url) as response:
         output_path.write_bytes(response.read())
 
     return output_path
@@ -245,6 +281,7 @@ def save_installed_versions(dest_dir: Path, versions: dict[str, str]) -> None:
 
 
 def main() -> None:
+    all_tool_names = [t.name for t in TOOLS]
     parser = argparse.ArgumentParser(description="Install binary tools for MLflow development")
     parser.add_argument(
         "-f",
@@ -252,13 +289,32 @@ def main() -> None:
         action="store_true",
         help="Force reinstall by removing existing tools",
     )
+    parser.add_argument(
+        "tools",
+        nargs="*",
+        metavar="TOOL",
+        help=f"Tools to install (default: all). Available: {', '.join(all_tool_names)}",
+    )
     args = parser.parse_args()
+
+    # Filter tools if specific ones requested
+    if args.tools:
+        if invalid_tools := set(args.tools) - set(all_tool_names):
+            parser.error(
+                f"Unknown tools: {', '.join(sorted(invalid_tools))}. "
+                f"Available: {', '.join(all_tool_names)}"
+            )
+        tools_to_install = [t for t in TOOLS if t.name in args.tools]
+    else:
+        tools_to_install = TOOLS
 
     dest_dir = Path(__file__).resolve().parent
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     installed_versions = load_installed_versions(dest_dir)
-    outdated_tools = sorted(t.name for t in TOOLS if installed_versions.get(t.name) != t.version)
+    outdated_tools = sorted(
+        t.name for t in tools_to_install if installed_versions.get(t.name) != t.version
+    )
     force_all = args.force_reinstall
 
     if force_all:
@@ -266,9 +322,9 @@ def main() -> None:
     elif outdated_tools:
         print(f"Version changes detected for: {', '.join(outdated_tools)}")
     else:
-        print("Installing all tools to bin/ directory...")
+        print("Installing tools to bin/ directory...")
 
-    for tool in TOOLS:
+    for tool in tools_to_install:
         # Force reinstall if globally forced or if this tool's version changed
         force = force_all or tool.name in outdated_tools
         print(f"\nInstalling {tool.name}...")
@@ -276,7 +332,7 @@ def main() -> None:
         installed_versions[tool.name] = tool.version
 
     save_installed_versions(dest_dir, installed_versions)
-    print("\nAll tools installed successfully!")
+    print("\nDone!")
 
 
 if __name__ == "__main__":

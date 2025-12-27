@@ -1,4 +1,5 @@
 import uuid
+from pathlib import Path
 
 import pytest
 from opentelemetry import trace as otel_trace
@@ -13,6 +14,9 @@ import mlflow
 from mlflow.entities import SpanStatusCode
 from mlflow.entities.assessment import AssessmentSource, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.server import handlers
+from mlflow.server.fastapi_app import app
+from mlflow.server.handlers import initialize_backend_stores
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
@@ -24,19 +28,23 @@ from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.version import IS_TRACING_SDK_ONLY
 
-from tests.tracking.integration_test_utils import _init_server
+from tests.helper_functions import get_safe_port
+from tests.tracking.integration_test_utils import ServerThread
 
 if IS_TRACING_SDK_ONLY:
     pytest.skip("OTel get_trace tests require full MLflow server", allow_module_level=True)
 
 
 @pytest.fixture
-def mlflow_server(tmp_path):
-    backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
-    artifact_root = tmp_path.as_uri()
+def mlflow_server(tmp_path: Path, db_uri: str):
+    artifact_uri = tmp_path.joinpath("artifacts").as_uri()
 
-    # Use _init_server with FastAPI (which is now the default)
-    with _init_server(backend_store_uri, artifact_root) as url:
+    # Force-reset backend stores before each test
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(db_uri, default_artifact_root=artifact_uri)
+
+    with ServerThread(app, get_safe_port()) as url:
         yield url
 
 

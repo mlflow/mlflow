@@ -9,6 +9,7 @@ from packaging.version import Version
 
 from mlflow.crewai.autolog import (
     patched_class_call,
+    patched_standalone_call,
 )
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
@@ -37,8 +38,6 @@ def autolog(
             autologging. If ``False``, show all events and warnings.
     """
     # TODO: Handle asynchronous tasks and crew executions
-    # TODO: Tool calling is not supported since the interface of tool in CrewAI is
-    # changing drastically. Add patching once it's stabilized
     import crewai
 
     CREWAI_VERSION = Version(crewai.__version__)
@@ -53,6 +52,8 @@ def autolog(
             "_create_long_term_memory"
         ],
     }
+    standalone_method_map = {}
+
     if CREWAI_VERSION >= Version("0.83.0"):
         # knowledge and memory are not available before 0.83.0
         class_method_map.update(
@@ -65,22 +66,41 @@ def autolog(
         )
         if CREWAI_VERSION < Version("0.157.0"):
             class_method_map.update({"crewai.memory.UserMemory": ["save", "search"]})
+
+    # Modern Tool calling support for CrewAI >= 0.114.0
+    if CREWAI_VERSION >= Version("0.114.0"):
+        standalone_method_map.update(
+            {"crewai.agents.crew_agent_executor": ["execute_tool_and_check_finality"]}
+        )
     try:
-        for class_path, methods in class_method_map.items():
-            *module_parts, class_name = class_path.rsplit(".", 1)
-            module_path = ".".join(module_parts)
-            module = importlib.import_module(module_path)
-            cls = getattr(module, class_name)
-            for method in methods:
-                safe_patch(
-                    FLAVOR_NAME,
-                    cls,
-                    method,
-                    patched_class_call,
-                )
+        _apply_patches(standalone_method_map, _import_module, patched_standalone_call)
+        _apply_patches(class_method_map, _import_class, patched_class_call)
     except (AttributeError, ModuleNotFoundError) as e:
         _logger.error("An exception happens when applying auto-tracing to crewai. Exception: %s", e)
 
     _record_event(
         AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
     )
+
+
+def _apply_patches(target_map, resolver, patch_fn):
+    for target_path, methods in target_map.items():
+        target = resolver(target_path)
+        for method in methods:
+            safe_patch(
+                FLAVOR_NAME,
+                target,
+                method,
+                patch_fn,
+            )
+
+
+def _import_module(module_path: str):
+    return importlib.import_module(module_path)
+
+
+def _import_class(class_path: str):
+    *module_parts, class_name = class_path.rsplit(".", 1)
+    module_path = ".".join(module_parts)
+    module = importlib.import_module(module_path)
+    return getattr(module, class_name)

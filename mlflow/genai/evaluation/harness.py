@@ -11,6 +11,12 @@ from typing import Any, Callable
 
 import pandas as pd
 
+try:
+    from tqdm.auto import tqdm
+except ImportError:
+    # If tqdm is not installed, we don't show a progress bar
+    tqdm = None
+
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
@@ -18,6 +24,7 @@ from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
+    MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS,
     MLFLOW_GENAI_EVAL_MAX_WORKERS,
 )
 from mlflow.genai.evaluation import context
@@ -29,7 +36,7 @@ from mlflow.genai.evaluation.session_utils import (
 )
 from mlflow.genai.evaluation.telemetry import emit_custom_metric_event
 from mlflow.genai.evaluation.utils import (
-    complete_eval_futures_with_progress_base,
+    PGBAR_FORMAT,
     is_none_or_nan,
     make_code_type_assessment_source,
     standardize_scorer_value,
@@ -117,38 +124,79 @@ def run(
     # Classify scorers into single-turn and multi-turn
     single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
 
-    # Run single-turn evaluation
+    session_groups = group_traces_by_session(eval_items) if multi_turn_scorers else {}
+
+    total_tasks = len(eval_items) + len(session_groups)
+
     with ThreadPoolExecutor(
         max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
         thread_name_prefix="MlflowGenAIEvalHarness",
     ) as executor:
-        futures = [
+        # Submit single-turn tasks
+        single_turn_futures = {
             executor.submit(
                 _run_single,
                 eval_item=eval_item,
                 scorers=single_turn_scorers,
                 predict_fn=predict_fn,
                 run_id=run_id,
-            )
-            for eval_item in eval_items
-        ]
-        eval_results = complete_eval_futures_with_progress_base(futures)
+            ): i
+            for i, eval_item in enumerate(eval_items)
+        }
 
-    # Evaluate multi-turn scorers if present
-    if multi_turn_scorers:
-        # Group eval items by session
-        if session_groups := group_traces_by_session(eval_items):
-            # Evaluate multi-turn scorers on session groups
-            multi_turn_assessments = evaluate_session_level_scorers(
-                multi_turn_scorers, session_groups
-            )
+        # Collect results with unified progress bar
+        eval_results = [None] * len(eval_items)
+        multi_turn_assessments = {}
 
-            # Log multi-turn assessments to the first trace of each session
-            _log_multi_turn_assessments_to_traces(
-                multi_turn_assessments=multi_turn_assessments,
-                eval_results=eval_results,
-                run_id=run_id,
+        # Create progress bar for all tasks
+        progress_bar = (
+            tqdm(
+                total=total_tasks,
+                desc="Evaluating",
+                smoothing=0,
+                bar_format=PGBAR_FORMAT,
             )
+            if tqdm is not None
+            else None
+        )
+
+        try:
+            # Phase 1: Complete single-turn tasks
+            for future in as_completed(single_turn_futures):
+                idx = single_turn_futures[future]
+                eval_results[idx] = future.result()
+                if progress_bar:
+                    progress_bar.update(1)
+
+            # Phase 2: Submit and complete multi-turn tasks (after single-turn)
+            # We run multi-turn scorers after single-turn, since single-turn scorers may create new
+            # traces that are needed by multi-turn scorers.
+            if multi_turn_scorers and session_groups:
+                multi_turn_futures = [
+                    executor.submit(
+                        evaluate_session_level_scorers,
+                        session_id=session_id,
+                        session_items=session_items,
+                        multi_turn_scorers=multi_turn_scorers,
+                    )
+                    for session_id, session_items in session_groups.items()
+                ]
+
+                for future in as_completed(multi_turn_futures):
+                    session_result = future.result()
+                    multi_turn_assessments.update(session_result)
+                    if progress_bar:
+                        progress_bar.update(1)
+        finally:
+            if progress_bar:
+                progress_bar.close()
+
+    if multi_turn_assessments:
+        _log_multi_turn_assessments_to_traces(
+            multi_turn_assessments=multi_turn_assessments,
+            eval_results=eval_results,
+            run_id=run_id,
+        )
 
     # Link traces to the run if the backend support it
     batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
@@ -255,15 +303,25 @@ def _compute_eval_scores(
     eval_item: EvalItem,
     scorers: list[Scorer],
 ) -> list[Feedback]:
-    """Compute the per-eval-item scores."""
+    """Compute the per-eval-item scores.
+
+    Args:
+        eval_item: The evaluation item containing inputs, outputs, expectations, and trace.
+        scorers: List of scorer instances to run.
+
+    Returns:
+        List of Feedback objects from all scorers.
+    """
     if not scorers:
         return []
+
+    should_trace = MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get()
 
     def run_scorer(scorer):
         try:
             scorer_func = scorer.run
 
-            if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get():
+            if should_trace:
                 scorer_func = mlflow.trace(name=scorer.name, span_type=SpanType.EVALUATOR)(
                     scorer_func
                 )
@@ -290,9 +348,7 @@ def _compute_eval_scores(
             ]
 
         # Record the trace ID for the scorer function call.
-        if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get() and (
-            trace_id := mlflow.get_last_active_trace_id(thread_local=True)
-        ):
+        if should_trace and (trace_id := mlflow.get_last_active_trace_id(thread_local=True)):
             for feedback in feedbacks:
                 feedback.metadata = {
                     **(feedback.metadata or {}),
@@ -307,8 +363,10 @@ def _compute_eval_scores(
         return feedbacks
 
     # Use a thread pool to run scorers in parallel
+    # Limit concurrent scorers to prevent rate limiting errors with external LLM APIs
+    max_scorer_workers = min(len(scorers), MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS.get())
     with ThreadPoolExecutor(
-        max_workers=len(scorers),
+        max_workers=max_scorer_workers,
         thread_name_prefix="MlflowGenAIEvalScorer",
     ) as executor:
         futures = [executor.submit(run_scorer, scorer) for scorer in scorers]

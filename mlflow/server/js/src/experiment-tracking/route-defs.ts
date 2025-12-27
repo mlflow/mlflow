@@ -34,6 +34,11 @@ const getExperimentPageRouteDefs = () => {
       pageId: PageId.experimentPage,
       children: [
         {
+          path: RoutePaths.experimentPageTabOverview,
+          pageId: PageId.experimentPageTabOverview,
+          element: createLazyRouteElement(() => import('./pages/experiment-overview/ExperimentGenAIOverviewPage')),
+        },
+        {
           path: RoutePaths.experimentPageTabRuns,
           pageId: PageId.experimentPageTabRuns,
           element: createLazyRouteElement(() => import('./pages/experiment-runs/ExperimentRunsPage')),
@@ -81,6 +86,16 @@ const getExperimentPageRouteDefs = () => {
             return import('./pages/experiment-evaluation-datasets/ExperimentEvaluationDatasetsPage');
           }),
         },
+        {
+          path: RoutePaths.experimentPageTabPrompts,
+          pageId: PageId.experimentPageTabPrompts,
+          element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptsPage')),
+        },
+        {
+          path: RoutePaths.experimentPageTabPromptDetails,
+          pageId: PageId.experimentPageTabPromptDetails,
+          element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptDetailsPage')),
+        },
       ],
     },
   ];
@@ -91,6 +106,11 @@ export const getRouteDefs = () => [
     path: RoutePaths.rootRoute,
     element: createLazyRouteElement(() => import('../home/HomePage')),
     pageId: PageId.home,
+  },
+  {
+    path: RoutePaths.settingsPage,
+    element: createLazyRouteElement(() => import('../settings/SettingsPage')),
+    pageId: PageId.settingsPage,
   },
   ...getExperimentPageRouteDefs(),
   {

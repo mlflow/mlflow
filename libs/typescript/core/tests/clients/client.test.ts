@@ -3,6 +3,7 @@ import { MlflowClient } from '../../src/clients/client';
 import { TraceInfo } from '../../src/core/entities/trace_info';
 import { TraceLocationType } from '../../src/core/entities/trace_location';
 import { TraceState } from '../../src/core/entities/trace_state';
+import { createAuthProvider } from '../../src/auth';
 import { TEST_TRACKING_URI } from '../helper';
 
 describe('MlflowClient', () => {
@@ -10,7 +11,8 @@ describe('MlflowClient', () => {
   let experimentId: string;
 
   beforeEach(async () => {
-    client = new MlflowClient({ trackingUri: TEST_TRACKING_URI, host: TEST_TRACKING_URI });
+    const authProvider = createAuthProvider({ trackingUri: TEST_TRACKING_URI });
+    client = new MlflowClient({ trackingUri: TEST_TRACKING_URI, authProvider });
 
     // Create a new experiment for each test
     const experimentName = `test-experiment-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
@@ -63,8 +65,7 @@ describe('MlflowClient', () => {
       expect(createdTraceInfo.traceMetadata).toEqual({ 'meta-key': 'meta-value' });
       expect(createdTraceInfo.tags).toEqual({
         'tag-key': 'tag-value',
-        'mlflow.artifactLocation': expect.any(String),
-        'mlflow.trace.spansLocation': expect.any(String)
+        'mlflow.artifactLocation': expect.any(String)
       });
       expect(createdTraceInfo.assessments).toEqual([]);
     });

@@ -1,6 +1,7 @@
 import functools
 import inspect
 import logging
+from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Callable, Literal, TypeAlias
@@ -12,11 +13,16 @@ from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.telemetry.events import ScorerCallEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking import get_tracking_uri
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
+
+# Context variable to track if we're in a scorer call (prevents nested telemetry)
+_in_scorer_call: ContextVar[bool] = ContextVar("mlflow_scorer_call_context", default=False)
 
 # Serialization version for tracking changes to the serialization format
 _SERIALIZATION_VERSION = 1
@@ -32,6 +38,7 @@ class ScorerKind(Enum):
     DECORATOR = "decorator"
     INSTRUCTIONS = "instructions"
     GUIDELINES = "guidelines"
+    THIRD_PARTY = "third_party"
 
 
 _ALLOWED_SCORERS_FOR_REGISTRATION = [
@@ -116,6 +123,38 @@ class SerializedScorer:
             )
 
 
+def _record_scorer_call_with_context(func):
+    """Wraps a scorer's __call__ method with telemetry, but only for top-level calls.
+
+    Uses ContextVar to track nesting in a thread-safe manner. Only supports synchronous
+    functions - async scorers are not supported and will raise an exception.
+    """
+    if inspect.iscoroutinefunction(func):
+        raise TypeError(
+            f"Async scorer '__call__' methods are not supported. "
+            f"Scorer class {func.__qualname__} has an async __call__ method."
+        )
+
+    telemetry_wrapped = record_usage_event(ScorerCallEvent)(func)
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if _in_scorer_call.get():
+            # Nested call: skip telemetry, call original function
+            return func(*args, **kwargs)
+
+        # Top-level call: set context and use telemetry-wrapped version
+        token = _in_scorer_call.set(True)
+        try:
+            return telemetry_wrapped(*args, **kwargs)
+        finally:
+            # CRITICAL: Use reset(token), NOT set(False)
+            # This ensures proper context restoration
+            _in_scorer_call.reset(token)
+
+    return wrapper
+
+
 class Scorer(BaseModel):
     name: str
     aggregations: list[_AggregationType] | None = None
@@ -124,6 +163,23 @@ class Scorer(BaseModel):
     _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
     _registered_backend: str | None = PrivateAttr(default=None)
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        # Only wrap __call__ if it's defined directly in this class (cls.__dict__),
+        # not inherited from a parent. This prevents wrapping the same method multiple
+        # times in the inheritance chain.
+        if "__call__" in cls.__dict__:
+            original_call = cls.__dict__["__call__"]
+
+            # Check if it's already wrapped to avoid double-wrapping
+            if not hasattr(original_call, "_telemetry_wrapped"):
+                # Wrap with context-aware telemetry decorator
+                wrapped_call = _record_scorer_call_with_context(original_call)
+                # Mark it as wrapped to prevent double-wrapping
+                wrapped_call._telemetry_wrapped = True
+                setattr(cls, "__call__", wrapped_call)
 
     @property
     def is_session_level_scorer(self) -> bool:

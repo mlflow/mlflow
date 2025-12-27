@@ -6,15 +6,17 @@ set -euo pipefail
 #
 # Requires: git, ripgrep (rg)
 
-if ! command -v rg &> /dev/null; then
-  echo "Error: ripgrep (rg) is not installed. Please install it first." >&2
-  echo "  - macOS: brew install ripgrep" >&2
-  echo "  - Ubuntu: sudo apt install ripgrep" >&2
-  exit 1
-fi
-
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
+
+if [[ -x "$repo_root/bin/rg" ]]; then
+  rg="$repo_root/bin/rg"
+elif command -v rg &> /dev/null; then
+  rg="rg"
+else
+  echo "Error: ripgrep (rg) is not installed. Run 'python bin/install.py' first." >&2
+  exit 1
+fi
 
 tmp_images="$(mktemp)"
 tmp_image_map="$(mktemp)"
@@ -35,7 +37,7 @@ fi
 awk -F/ '{print $NF "\t" $0}' "$tmp_images" > "$tmp_image_map"
 
 # 2) Extract used basenames from entire repo
-rg -o --no-heading --no-line-number \
+"$rg" -o --no-heading --no-line-number \
   '[^"'\''[:space:]()]+\.(png|jpe?g|gif|webp|ico|avif|mp4)\b' \
   . \
   | sed 's#.*/##' \

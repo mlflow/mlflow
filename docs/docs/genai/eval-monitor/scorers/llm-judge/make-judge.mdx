@@ -158,6 +158,38 @@ Navigate to the link displayed in the console to view the evaluation results.
     ```
 
   </TabItem>
+  <TabItem value="multi-turn" label="Multi-Turn Conversation">
+    ```python
+    import mlflow
+    from typing import Literal
+
+    # Create a judge to evaluate conversation coherence
+    coherence_judge = make_judge(
+        name="conversation_coherence",
+        instructions=(
+            "Analyze the {{ conversation }} and determine if the conversation flows "
+            "logically from turn to turn. Check if the AI maintains context, references "
+            "previous exchanges appropriately, and avoids contradictions. "
+            "Rate as 'coherent', 'somewhat_coherent', or 'incoherent'."
+        ),
+        feedback_value_type=Literal["coherent", "somewhat_coherent", "incoherent"],
+        model="anthropic:/claude-opus-4-1-20250805",
+    )
+
+    # Search for traces from a specific session
+    session_traces = mlflow.search_traces(
+        experiment_ids=["<your-experiment-id>"],
+        filter_string="metadata.`mlflow.trace.session` = '<your-session-id>'",
+        return_type="list",
+    )
+
+    # Evaluate the entire conversation session
+    feedback = coherence_judge(session=session_traces)
+    print(f"Assessment: {feedback.value}")
+    print(f"Rationale: {feedback.rationale}")
+    ```
+
+  </TabItem>
 </Tabs>
 
 ## Template Format
@@ -169,10 +201,13 @@ Judge instructions use template variables to reference evaluation data. These va
 | `inputs`       | The input data provided to your AI system. Contains questions, prompts, or any data your model processes.                                                                    |
 | `outputs`      | The generated response from your AI system. The actual output that needs evaluation.                                                                                         |
 | `expectations` | Ground truth or expected outcomes. Reference answers for comparison and accuracy assessment.                                                                                 |
+| `conversation` | The conversation history between user and assistant. Used for evaluating multi-turn conversations. Only compatible with `expectations` variable.                             |
 | `trace`        | Trace is a special template variable which uses [agent-as-a-judge](/genai/eval-monitor/scorers/llm-judge/agentic-overview/). The judge has access to all parts of the trace. |
 
 :::warning[Only Reserved Variables Allowed]
-You can only use the reserved template variables shown above (`inputs`, `outputs`, `expectations`, `trace`). Custom variables like `{{ question }}` will cause validation errors. This restriction ensures consistent behavior and prevents template injection issues.
+You can only use the reserved template variables shown above (`inputs`, `outputs`, `expectations`, `conversation`, `trace`). Custom variables like `{{ question }}` will cause validation errors. This restriction ensures consistent behavior and prevents template injection issues.
+
+**Note on `conversation` variable:** The `{{ conversation }}` template variable can be used with `{{ expectations }}`, however it cannot be combined with `{{ inputs }}`, `{{ outputs }}`, or `{{ trace }}` variables. This is because conversation history provides complete context, making individual turn data redundant.
 :::
 
 ## Selecting Judge Models

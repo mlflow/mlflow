@@ -1,4 +1,3 @@
-import shutil
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -22,7 +21,6 @@ from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 
 from tests.helper_functions import get_safe_port
@@ -159,19 +157,6 @@ class ServerConfig:
     backend_type: Literal["file", "sqlalchemy"] | None = None
 
 
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    tmp_dir = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_dir / "mlflow.db"
-    backend_uri = f"sqlite:///{db_path}"
-    artifact_uri = (tmp_dir / "artifacts").as_uri()
-
-    store = SqlAlchemyStore(backend_uri, artifact_uri)
-    store.engine.dispose()
-    return db_path
-
-
 # Test with different server configurations
 # 1. local file backend
 # 2. local sqlalchemy backend
@@ -186,7 +171,7 @@ def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
     ],
     ids=["local_file", "local_sqlalchemy", "remote_file", "remote_sqlalchemy"],
 )
-def server_config(request, tmp_path: Path, cached_db: Path):
+def server_config(request, tmp_path: Path, db_uri: str):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
     config = request.param
 
@@ -194,10 +179,7 @@ def server_config(request, tmp_path: Path, cached_db: Path):
         case "file":
             backend_uri = tmp_path.joinpath("file").as_uri()
         case "sqlalchemy":
-            # Copy the cached database for this test
-            db_path = tmp_path / "mlflow.db"
-            shutil.copy(cached_db, db_path)
-            backend_uri = f"sqlite:///{db_path}"
+            backend_uri = db_uri
 
     match config.host_type:
         case "local":
@@ -642,7 +624,7 @@ def test_empty_scorers_allowed():
     data = [{"inputs": {"question": "What is MLflow?"}, "outputs": "MLflow is an ML platform"}]
 
     with mock.patch("mlflow.genai.evaluation.base._run_harness") as mock_evaluate_oss:
-        mock_evaluate_oss.return_value = mock_result
+        mock_evaluate_oss.return_value = (mock_result, {})
         result = mlflow.genai.evaluate(data=data, scorers=[])
 
     assert result is mock_result
@@ -1245,3 +1227,51 @@ def test_evaluate_dataset_mixed_traces_with_and_without_sessions():
     # The trace without session should not be scored by session-level scorer
     assert result_df["session_length/value"].notna().sum() == 1
     assert result_df["session_length/value"].dropna().iloc[0] == 2.0
+
+
+def test_max_scorer_workers_env_var(monkeypatch):
+    @scorer
+    def dummy_scorer_1(outputs):
+        return True
+
+    @scorer
+    def dummy_scorer_2(outputs):
+        return True
+
+    @scorer
+    def dummy_scorer_3(outputs):
+        return True
+
+    def _validate_scorer_max_workers(expected_max_workers, num_scorers):
+        scorers_list = [dummy_scorer_1, dummy_scorer_2, dummy_scorer_3][:num_scorers]
+        with mock.patch(
+            "mlflow.genai.evaluation.harness.ThreadPoolExecutor", wraps=ThreadPoolExecutor
+        ) as mock_executor:
+            mlflow.genai.evaluate(
+                data=[
+                    {
+                        "inputs": {"question": "What is MLflow?"},
+                        "outputs": "MLflow is a tool for ML",
+                    }
+                ],
+                scorers=scorers_list,
+            )
+            # ThreadPoolExecutor is called twice: harness loop + scorer loop
+            # The second call is for scorers
+            scorer_call = mock_executor.call_args_list[1]
+            assert scorer_call[1]["max_workers"] == expected_max_workers
+
+    # default scorer workers is 10, but limited by number of scorers (3)
+    _validate_scorer_max_workers(expected_max_workers=3, num_scorers=3)
+
+    # override scorer workers with env var (limit to 2)
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", "2")
+    _validate_scorer_max_workers(expected_max_workers=2, num_scorers=3)
+
+    # when num_scorers < max_scorer_workers, use num_scorers
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", "10")
+    _validate_scorer_max_workers(expected_max_workers=2, num_scorers=2)
+
+    # set to 1 for sequential execution
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", "1")
+    _validate_scorer_max_workers(expected_max_workers=1, num_scorers=3)

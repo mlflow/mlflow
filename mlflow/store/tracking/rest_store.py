@@ -3,6 +3,8 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
+from mlflow.entities.model_registry.prompt_version import PromptVersion
+
 if TYPE_CHECKING:
     from mlflow.entities import DatasetRecord, EvaluationDataset
 
@@ -24,6 +26,7 @@ from mlflow.entities import (
     ScorerVersion,
     ViewType,
 )
+from mlflow.exceptions import MlflowNotImplementedException
 
 # Constants for Databricks API disabled decorator
 _DATABRICKS_DATASET_API_NAME = "Evaluation dataset APIs"
@@ -35,6 +38,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_metrics import MetricAggregation, MetricDataPoint, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
@@ -80,6 +84,7 @@ from mlflow.protos.service_pb2 import (
     GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
+    LinkPromptsToTrace,
     LinkTracesToRun,
     ListScorers,
     ListScorerVersions,
@@ -91,6 +96,7 @@ from mlflow.protos.service_pb2 import (
     LogOutputs,
     LogParam,
     MlflowService,
+    QueryTraceMetrics,
     RegisterScorer,
     RemoveDatasetFromExperiments,
     RestoreExperiment,
@@ -116,14 +122,16 @@ from mlflow.protos.service_pb2 import (
     UpsertDatasetRecords,
 )
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.tracking.gateway.rest_mixin import RestGatewayStoreMixin
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 from mlflow.utils.databricks_utils import databricks_api_disabled
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
+    _V3_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
     call_endpoint,
@@ -140,7 +148,12 @@ from mlflow.utils.validation import _resolve_experiment_ids_and_locations
 _logger = logging.getLogger(__name__)
 
 
-class RestStore(AbstractStore):
+# MRO Note: RestGatewayStoreMixin must be listed before AbstractStore in the inheritance chain.
+# AbstractStore inherits from GatewayStoreMixin which defines abstract Gateway methods.
+# RestGatewayStoreMixin provides concrete implementations of those methods. For Python's MRO
+# to correctly resolve the Gateway methods to RestGatewayStoreMixin's implementations,
+# RestGatewayStoreMixin must appear first in the parent class list.
+class RestStore(RestGatewayStoreMixin, AbstractStore):
     """
     Client for a remote tracking server accessed via REST API calls
 
@@ -151,6 +164,10 @@ class RestStore(AbstractStore):
     """
 
     _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
+    _V3_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _V3_REST_API_PATH_PREFIX)
+
+    # Set of v3 APIs - includes Gateway APIs from mixin
+    _V3_APIS = RestGatewayStoreMixin._V3_GATEWAY_APIS
 
     def __init__(self, get_host_creds):
         super().__init__()
@@ -194,12 +211,15 @@ class RestStore(AbstractStore):
         retry_timeout_seconds=None,
         response_proto=None,
     ):
+        # Route v3 APIs to v3 endpoints, all others to v2 endpoints
+        method_to_info = self._V3_METHOD_TO_INFO if api in self._V3_APIS else self._METHOD_TO_INFO
+
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
             # /mlflow/traces/{trace_id}/info.
-            _, method = self._METHOD_TO_INFO[api]
+            _, method = method_to_info[api]
         else:
-            endpoint, method = self._METHOD_TO_INFO[api]
+            endpoint, method = method_to_info[api]
         response_proto = response_proto or api.Response()
         return call_endpoint(
             self.get_host_creds(),
@@ -465,10 +485,22 @@ class RestStore(AbstractStore):
 
     def get_trace(self, trace_id: str, *, allow_partial: bool = False) -> Trace:
         req_body = message_to_json(GetTrace(trace_id=trace_id, allow_partial=allow_partial))
-        response_proto = self._call_endpoint(
-            GetTrace, req_body, endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/get"
-        )
-        return Trace.from_proto(response_proto.trace)
+        try:
+            response_proto = self._call_endpoint(
+                GetTrace, req_body, endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/get"
+            )
+            return Trace.from_proto(response_proto.trace)
+        except MlflowException as e:
+            # Note: Old servers might match the route pattern /mlflow/traces/{trace_id} and
+            # interpret "get" as the trace_id parameter, we should catch this and raise
+            # NotImplementedException for downstream handling.
+            if (
+                e.error_code
+                == databricks_pb2.ErrorCode.Name(databricks_pb2.RESOURCE_DOES_NOT_EXIST)
+                and "Trace with ID 'get' not found" in e.message
+            ):
+                raise MlflowNotImplementedException()
+            raise
 
     def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
         """
@@ -614,6 +646,49 @@ class RestStore(AbstractStore):
         # Always use v2 endpoint
         req_body = message_to_json(DeleteTraceTag(key=key))
         self._call_endpoint(DeleteTraceTag, req_body, endpoint=get_trace_tag_endpoint(trace_id))
+
+    def query_trace_metrics(
+        self,
+        experiment_ids: list[str],
+        view_type: MetricViewType,
+        metric_name: str,
+        aggregations: list[MetricAggregation],
+        dimensions: list[str] | None = None,
+        filters: list[str] | None = None,
+        time_interval_seconds: int | None = None,
+        start_time_ms: int | None = None,
+        end_time_ms: int | None = None,
+        max_results: int = MAX_RESULTS_QUERY_TRACE_METRICS,
+        page_token: str | None = None,
+    ) -> PagedList[MetricDataPoint]:
+        max_results = max_results or MAX_RESULTS_QUERY_TRACE_METRICS
+        request = QueryTraceMetrics(
+            experiment_ids=experiment_ids,
+            view_type=view_type.to_proto(),
+            metric_name=metric_name,
+            aggregations=[agg.to_proto() for agg in aggregations],
+            max_results=max_results,
+        )
+        if dimensions:
+            request.dimensions.extend(dimensions)
+        if filters:
+            request.filters.extend(filters)
+        if time_interval_seconds is not None:
+            request.time_interval_seconds = time_interval_seconds
+        if start_time_ms is not None:
+            request.start_time_ms = start_time_ms
+        if end_time_ms is not None:
+            request.end_time_ms = end_time_ms
+        if page_token is not None:
+            request.page_token = page_token
+
+        req_body = message_to_json(request)
+        endpoint = f"{_V3_TRACE_REST_API_PATH_PREFIX}/metrics"
+        response_proto = self._call_endpoint(QueryTraceMetrics, req_body, endpoint)
+
+        data_points = [MetricDataPoint.from_proto(dp) for dp in response_proto.data_points]
+        token = response_proto.next_page_token or None
+        return PagedList(data_points, token)
 
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
@@ -1456,7 +1531,6 @@ class RestStore(AbstractStore):
         # DeleteDataset uses path parameter, not request body
         self._call_endpoint(DeleteDataset, None, endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}")
 
-    @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
     def search_datasets(
         self,
         experiment_ids: list[str] | None = None,
@@ -1659,6 +1733,28 @@ class RestStore(AbstractStore):
             )
         )
         self._call_endpoint(LinkTracesToRun, req_body)
+
+    def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
+        """
+        Link multiple prompt versions to a trace by creating entity associations.
+
+        Args:
+            trace_id: ID of the trace to link prompt versions to.
+            prompt_versions: List of PromptVersion objects to link.
+        """
+        # Convert PromptVersion objects to PromptVersionRef proto messages
+        prompt_refs = [
+            LinkPromptsToTrace.PromptVersionRef(name=pv.name, version=str(pv.version))
+            for pv in prompt_versions
+        ]
+
+        req_body = message_to_json(
+            LinkPromptsToTrace(
+                trace_id=trace_id,
+                prompt_versions=prompt_refs,
+            )
+        )
+        self._call_endpoint(LinkPromptsToTrace, req_body)
 
     def add_dataset_to_experiments(
         self, dataset_id: str, experiment_ids: list[str]

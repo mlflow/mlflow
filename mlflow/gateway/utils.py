@@ -10,9 +10,12 @@ import warnings
 from typing import Any, AsyncGenerator
 from urllib.parse import urlparse
 
+from fastapi import HTTPException
+
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.utils.uri import append_to_uri_path
 
 _logger = logging.getLogger(__name__)
@@ -338,3 +341,18 @@ async def make_streaming_response(resp):
         )
     else:
         return await resp
+
+
+def translate_http_exception(func):
+    """
+    Decorator for translating MLflow exceptions to HTTP exceptions
+    """
+
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except AIGatewayException as e:
+            raise HTTPException(status_code=e.status_code, detail=e.detail)
+
+    return wrapper

@@ -9,6 +9,7 @@ from mlflow.tracking.context.databricks_notebook_context import DatabricksNotebo
 from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
 from mlflow.tracking.context.default_context import DefaultRunContext
 from mlflow.tracking.context.git_context import GitRunContext
+from mlflow.tracking.context.jupyter_notebook_context import JupyterNotebookRunContext
 from mlflow.tracking.context.system_environment_context import SystemEnvironmentContext
 from mlflow.utils.plugins import get_entry_points
 
@@ -53,6 +54,7 @@ class RunContextProviderRegistry:
 _run_context_provider_registry = RunContextProviderRegistry()
 _run_context_provider_registry.register(DefaultRunContext)
 _run_context_provider_registry.register(GitRunContext)
+_run_context_provider_registry.register(JupyterNotebookRunContext)
 _run_context_provider_registry.register(DatabricksNotebookRunContext)
 _run_context_provider_registry.register(DatabricksJobRunContext)
 _run_context_provider_registry.register(DatabricksClusterRunContext)

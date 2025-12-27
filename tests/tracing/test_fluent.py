@@ -1,14 +1,12 @@
 import asyncio
 import json
 import os
-import shutil
 import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -22,7 +20,7 @@ from mlflow.entities import (
     TraceData,
     TraceInfo,
 )
-from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
@@ -38,7 +36,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.destination import MlflowExperiment
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import _get_tracer, set_destination
+from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, _get_tracer, set_destination
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -169,39 +167,6 @@ class ErroringStreamTestModel:
         if i >= 1:
             raise ValueError("Some error")
         return i
-
-
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path | None:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    if IS_TRACING_SDK_ONLY:
-        return None
-
-    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-
-    tmp_path = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_path / "mlflow.db"
-    db_uri = f"sqlite:///{db_path}"
-    artifact_uri = tmp_path / "artifacts"
-    artifact_uri.mkdir(exist_ok=True)
-    store = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
-    store.engine.dispose()
-    return db_path
-
-
-@pytest.fixture(autouse=True)
-def tracking_uri(tmp_path: Path, cached_db: Path):
-    """Copies the cached database and sets the tracking URI for each test."""
-    if IS_TRACING_SDK_ONLY:
-        yield
-        return
-
-    db_path = tmp_path / "mlflow.db"
-    shutil.copy(cached_db, db_path)
-    uri = f"sqlite:///{db_path}"
-    mlflow.set_tracking_uri(uri)
-    yield
-    mlflow.set_tracking_uri(None)
 
 
 @pytest.fixture
@@ -2392,6 +2357,15 @@ async def test_set_destination_in_async_contexts(async_logging_enabled):
         assert len(traces) == 1
         assert traces[0].info.experiment_id == exp_id
         assert len(traces[0].data.spans) == 2
+
+
+def test_set_destination_from_env_var_databricks_uc(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema")
+    destination = _MLFLOW_TRACE_USER_DESTINATION.get()
+    assert isinstance(destination, UCSchemaLocation)
+    assert destination.catalog_name == "catalog"
+    assert destination.schema_name == "schema"
+    assert mlflow.get_tracking_uri() == "databricks"
 
 
 @skip_when_testing_trace_sdk

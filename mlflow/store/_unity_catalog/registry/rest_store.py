@@ -16,9 +16,13 @@ import mlflow
 from mlflow.entities import Run
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry.prompt import Prompt
-from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.entities.model_registry.prompt_version import (
+    PromptModelConfig,
+    PromptVersion,
+)
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.prompt.constants import (
+    PROMPT_MODEL_CONFIG_TAG_KEY,
     PROMPT_TYPE_CHAT,
     PROMPT_TYPE_TAG_KEY,
     PROMPT_TYPE_TEXT,
@@ -892,10 +896,20 @@ class UcModelRegistryStore(BaseRestStore):
                     shutil.rmtree(local_model_dir)
 
     def _get_logged_model_from_model_id(self, model_id) -> LoggedModel | None:
-        # load the MLflow LoggedModel by model_id and
         if model_id is None:
             return None
-        return mlflow.get_logged_model(model_id)
+        try:
+            return mlflow.get_logged_model(model_id)
+        except MlflowException as e:
+            # model_id may be from a different workspace that's not accessible,
+            # e.g., during cross-workspace model copying
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                _logger.debug(
+                    f"Could not find logged model with ID {model_id}. "
+                    "This may occur during cross-workspace model copying."
+                )
+                return None
+            raise
 
     def _create_model_version_with_optional_signature_validation(
         self,
@@ -1487,6 +1501,7 @@ class UcModelRegistryStore(BaseRestStore):
         description: str | None = None,
         tags: dict[str, str] | None = None,
         response_format: type[BaseModel] | dict[str, Any] | None = None,
+        model_config: "PromptModelConfig | dict[str, Any] | None" = None,
     ) -> PromptVersion:
         """
         Create a new prompt version in Unity Catalog.
@@ -1507,6 +1522,14 @@ class UcModelRegistryStore(BaseRestStore):
             final_tags[RESPONSE_FORMAT_TAG_KEY] = json.dumps(
                 PromptVersion.convert_response_format_to_dict(response_format)
             )
+        if model_config:
+            # Convert ModelConfig to dict if needed
+            if isinstance(model_config, PromptModelConfig):
+                config_dict = model_config.to_dict()
+            else:
+                config_dict = model_config
+
+            final_tags[PROMPT_MODEL_CONFIG_TAG_KEY] = json.dumps(config_dict)
         if isinstance(template, str):
             final_tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_TEXT
         else:

@@ -5,7 +5,7 @@ import { postProcessSidebar, apiReferencePrefix } from './docusaurusConfigUtils'
 import tailwindPlugin from './src/plugins/tailwind-config.cjs';
 
 // ensure baseUrl always ends in `/`
-const baseUrl = (process.env.DOCS_BASE_URL ?? '/').replace(/\/?$/, '/');
+const baseUrl = (process.env.DOCS_BASE_URL ?? '/docs/latest/').replace(/\/?$/, '/');
 
 const config: Config = {
   title: 'MLflow',
@@ -377,8 +377,14 @@ const config: Config = {
             from: ['/llms/llm-tracking', '/tracing', '/llms/tracing', '/tracing/api/how-to'],
           },
           {
-            to: '/genai/tracing/quickstart/python-openai',
-            from: ['/genai/tracing/quickstart'],
+            to: '/genai/tracing/quickstart',
+            from: [
+              '/genai/tracing/quickstart/typescript-openai',
+              '/genai/tracing/quickstart/python-openai',
+              '/genai/tracing/app-instrumentation/typescript-sdk',
+              '/genai/tracing/app-instrumentation',
+              '/tracing/api',
+            ],
           },
           {
             to: '/genai/tracing/faq',
@@ -403,10 +409,6 @@ const config: Config = {
           {
             to: '/genai/tracing/app-instrumentation/manual-tracing',
             from: ['/tracing/api/manual-instrumentation'],
-          },
-          {
-            to: '/genai/tracing/app-instrumentation',
-            from: ['/tracing/api'],
           },
           {
             to: '/genai/tracing/search-traces',
@@ -593,37 +595,32 @@ const config: Config = {
             to: '/genai/flavors/llama-index/notebooks/llama_index_workflow_tutorial',
             from: ['/llms/llama-index/notebooks/llama_index_workflow_tutorial'],
           },
+          // Redirect deprecated OpenAI model logging pages to prompt registry
           {
-            to: '/genai/flavors/openai',
-            from: ['/llms/openai'],
-          },
-          {
-            to: '/genai/flavors/openai/autologging',
-            from: ['/llms/openai/autologging'],
-          },
-          {
-            to: '/genai/flavors/openai/guide',
-            from: ['/llms/openai/guide'],
-          },
-          {
-            to: '/genai/flavors/openai/notebooks',
-            from: ['/llms/openai/notebooks'],
-          },
-          {
-            to: '/genai/flavors/openai/notebooks/openai-chat-completions',
-            from: ['/llms/openai/notebooks/openai-chat-completions'],
-          },
-          {
-            to: '/genai/flavors/openai/notebooks/openai-code-helper',
-            from: ['/llms/openai/notebooks/openai-code-helper'],
-          },
-          {
-            to: '/genai/flavors/openai/notebooks/openai-embeddings-generation',
-            from: ['/llms/openai/notebooks/openai-embeddings-generation'],
-          },
-          {
-            to: '/genai/flavors/openai/notebooks/openai-quickstart',
-            from: ['/llms/openai/notebooks/openai-quickstart'],
+            to: '/genai/prompt-registry',
+            from: [
+              '/llms/openai',
+              '/llms/openai/guide',
+              '/llms/openai/guide/index',
+              '/llms/openai/autologging',
+              '/llms/openai/autologging/index',
+              '/llms/openai/notebooks',
+              '/llms/openai/notebooks/index',
+              '/llms/openai/notebooks/openai-quickstart-ipynb',
+              '/llms/openai/notebooks/openai-chat-completions-ipynb',
+              '/genai/flavors/openai',
+              '/genai/flavors/openai/index',
+              '/genai/flavors/openai/guide',
+              '/genai/flavors/openai/guide/index',
+              '/genai/flavors/openai/autologging',
+              '/genai/flavors/openai/autologging/index',
+              '/genai/flavors/openai/notebooks',
+              '/genai/flavors/openai/notebooks/index',
+              '/genai/flavors/openai/notebooks/openai-quickstart-ipynb',
+              '/genai/flavors/openai/notebooks/openai-chat-completions-ipynb',
+              '/genai/flavors/openai/notebooks/openai-code-helper-ipynb',
+              '/genai/flavors/openai/notebooks/openai-embeddings-generation-ipynb',
+            ],
           },
 
           // Evaluation and Monitoring Redirects
@@ -822,8 +819,8 @@ const config: Config = {
             from: ['/llms/sentence-transformers'],
           },
           {
-            to: '/ml/deep-learning/sentence-transformers/tutorials/',
-            from: ['/llms/sentence-transformers/tutorials'],
+            to: '/ml/deep-learning/sentence-transformers',
+            from: ['/llms/sentence-transformers/tutorials', '/ml/deep-learning/sentence-transformers/tutorials'],
           },
           {
             to: '/ml/deep-learning/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers',
@@ -844,8 +841,8 @@ const config: Config = {
             ],
           },
           {
-            to: '/ml/deep-learning/sentence-transformers/guide',
-            from: ['/llms/sentence-transformers/guide'],
+            to: '/ml/deep-learning/sentence-transformers',
+            from: ['/llms/sentence-transformers/guide', '/ml/deep-learning/sentence-transformers/guide'],
           },
           {
             to: '/ml/deep-learning/tensorflow',
