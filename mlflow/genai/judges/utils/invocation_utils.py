@@ -6,7 +6,6 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
-import litellm
 import pydantic
 
 if TYPE_CHECKING:
@@ -119,6 +118,8 @@ def _invoke_databricks_structured_output(
     Raises:
         MlflowException: If databricks-agents is not installed or invocation fails.
     """
+    import litellm
+
     # Convert ChatMessage to litellm Messages
     litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
