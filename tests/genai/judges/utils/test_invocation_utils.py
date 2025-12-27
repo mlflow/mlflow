@@ -1092,7 +1092,7 @@ def test_structured_output_schema_injection_with_existing_system_message():
         return on_final_answer('{"outputs": "test result"}')
 
     with mock.patch(
-        "mlflow.genai.judges.utils.invocation_utils._run_databricks_agentic_loop",
+        "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._run_databricks_agentic_loop",
         side_effect=mock_loop,
     ):
         result = _invoke_databricks_structured_output(
@@ -1129,7 +1129,7 @@ def test_structured_output_schema_injection_without_system_message():
         return on_final_answer('{"inputs": "hello", "outputs": "world"}')
 
     with mock.patch(
-        "mlflow.genai.judges.utils.invocation_utils._run_databricks_agentic_loop",
+        "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._run_databricks_agentic_loop",
         side_effect=mock_loop,
     ):
         result = _invoke_databricks_structured_output(
