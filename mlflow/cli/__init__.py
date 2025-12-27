@@ -779,7 +779,7 @@ def gc(
         # Combine criteria: delete runs older than 7 days in specific experiments
         mlflow gc --older-than 7d --experiment-ids 'exp1,exp2'
 
-        # Delete all jobs older than 7 days (requires --jobs flag)
+        # Delete all finalized jobs older than 7 days (requires --jobs flag)
         mlflow gc --jobs --older-than 7d
 
         # Delete specific jobs by ID
@@ -1023,7 +1023,7 @@ def gc(
                             error_code=INVALID_PARAMETER_VALUE,
                         )
 
-            deleted_job_ids = job_store._delete_jobs(older_than=time_delta, job_ids=job_ids_list)
+            deleted_job_ids = job_store.delete_jobs(older_than=time_delta, job_ids=job_ids_list)
             for job_id in deleted_job_ids:
                 click.echo(f"Job with ID {job_id} has been permanently deleted.")
 
