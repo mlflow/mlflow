@@ -612,6 +612,15 @@ def test_get_experiment(store: SqlAlchemyStore):
     assert store.get_experiment_by_name(name).experiment_id == experiment_id
 
 
+def test_get_experiment_invalid_id(store: SqlAlchemyStore):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'invalid_id'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.get_experiment("invalid_id")
+
+
 def test_search_experiments_view_type(store: SqlAlchemyStore):
     experiment_names = ["a", "b"]
     experiment_ids = _create_experiments(store, experiment_names)
