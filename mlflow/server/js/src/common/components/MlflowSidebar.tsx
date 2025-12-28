@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import {
   BeakerIcon,
   Button,
@@ -42,7 +43,7 @@ export function MlflowSidebar() {
   const { theme } = useDesignSystemTheme();
   const invalidateExperimentList = useInvalidateExperimentList();
   const navigate = useNavigate();
-  const viewId = useMemo(() => crypto.randomUUID(), []);
+  const viewId = useMemo(() => uuidv4(), []);
 
   const [showCreateExperimentModal, setShowCreateExperimentModal] = useState(false);
   const [showCreateModelModal, setShowCreateModelModal] = useState(false);

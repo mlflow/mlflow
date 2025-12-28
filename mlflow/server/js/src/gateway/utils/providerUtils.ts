@@ -83,28 +83,6 @@ export function buildProviderGroups(providers: string[]): {
   return { groups, ungroupedProviders };
 }
 
-export function groupProviders(providers: string[]): {
-  common: string[];
-  other: string[];
-} {
-  const commonSet = new Set<string>(COMMON_PROVIDERS);
-  const common: string[] = [];
-  const other: string[] = [];
-
-  for (const provider of providers) {
-    if (commonSet.has(provider)) {
-      common.push(provider);
-    } else {
-      other.push(provider);
-    }
-  }
-
-  common.sort((a, b) => COMMON_PROVIDERS.indexOf(a as any) - COMMON_PROVIDERS.indexOf(b as any));
-  other.sort((a, b) => a.localeCompare(b));
-
-  return { common, other };
-}
-
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
@@ -197,4 +175,26 @@ export function formatCredentialFieldName(fieldName: string): string {
     databricks_host: 'Databricks Host',
   };
   return formatMap[fieldName] ?? fieldName.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const PROVIDER_FIELD_ORDER: Record<string, string[]> = {
+  databricks: ['client_id', 'client_secret', 'api_base'],
+};
+
+export function sortFieldsByProvider<T extends { name: string }>(fields: T[], provider: string): T[] {
+  const fieldOrder = PROVIDER_FIELD_ORDER[provider];
+  if (!fieldOrder) {
+    return fields;
+  }
+
+  return [...fields].sort((a, b) => {
+    const aIndex = fieldOrder.indexOf(a.name);
+    const bIndex = fieldOrder.indexOf(b.name);
+
+    if (aIndex === -1 && bIndex === -1) return 0;
+    if (aIndex === -1) return 1;
+    if (bIndex === -1) return -1;
+
+    return aIndex - bIndex;
+  });
 }

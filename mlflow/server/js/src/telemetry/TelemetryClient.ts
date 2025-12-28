@@ -4,6 +4,7 @@
  * Wrapper for interacting with the TelemetryLogger SharedWorker.
  * Provides a simple API for logging telemetry events.
  */
+import { v4 as uuidv4 } from 'uuid';
 import type { TelemetryRecord } from './worker/types';
 import { isDesignSystemEvent, TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION } from './utils';
 import { WorkerToClientMessageType, ClientToWorkerMessageType } from './worker/types';
@@ -21,7 +22,7 @@ class TelemetryClient {
     const localStorageInstallationId = localStorage.getItem(LOCAL_STORAGE_INSTALLATION_ID_KEY);
 
     if (!localStorageInstallationId) {
-      const installationId = crypto.randomUUID();
+      const installationId = uuidv4();
       localStorage.setItem(LOCAL_STORAGE_INSTALLATION_ID_KEY, installationId);
       return installationId;
     } else {

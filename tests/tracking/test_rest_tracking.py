@@ -4788,8 +4788,8 @@ def test_get_provider_config(mlflow_client_with_secrets):
     assert response.status_code == 200
     data = response.json()
     assert "auth_modes" in data
-    assert data["default_mode"] == "access_keys"
-    assert len(data["auth_modes"]) >= 2  # access_keys, iam_role, session_token
+    assert data["default_mode"] == "api_key"
+    assert len(data["auth_modes"]) >= 2  # api_key, access_keys, iam_role
 
     # Check access_keys mode structure
     access_keys_mode = next(m for m in data["auth_modes"] if m["mode"] == "access_keys")

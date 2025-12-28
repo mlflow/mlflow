@@ -11,6 +11,7 @@ import { EvaluateTracesParams } from './types';
 import { isEmpty } from 'lodash';
 import { useMemo, useState } from 'react';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
+import { SelectTracesModal } from '../../components/SelectTracesModal';
 
 enum PickerOption {
   'LAST_TRACE' = '1',
@@ -57,7 +58,7 @@ export const SampleScorerTracesToEvaluatePicker = ({
     <>
       <DialogCombobox
         componentId="mlflow.experiment-scorers.form.traces-picker"
-        id="TODO"
+        id="mlflow.experiment-scorers.form.traces-picker"
         value={[itemsToEvaluateDropdownValue]}
       >
         <DialogComboboxCustomButtonTriggerWrapper>
@@ -90,13 +91,31 @@ export const SampleScorerTracesToEvaluatePicker = ({
                 <FormattedMessage {...PickerOptionsLabels[value]} />
               </DialogComboboxOptionListSelectItem>
             ))}
-            {/* TODO(next PRs): Add custom trace selection option */}
+            <DialogComboboxOptionListSelectItem
+              value={PickerOption.CUSTOM}
+              checked={itemsToEvaluateDropdownValue === PickerOption.CUSTOM}
+              onChange={() => {
+                setDisplayPickCustomTracesModal(true);
+              }}
+            >
+              <FormattedMessage {...PickerOptionsLabels[PickerOption.CUSTOM]} />
+            </DialogComboboxOptionListSelectItem>
           </DialogComboboxOptionList>
         </DialogComboboxContent>
       </DialogCombobox>
       {displayPickCustomTracesModal && (
-        // TODO(next PRs): Add custom trace selection modal
-        <div />
+        <SelectTracesModal
+          onClose={() => {
+            onItemsToEvaluateChange({ ...itemsToEvaluate });
+            setDisplayPickCustomTracesModal(false);
+          }}
+          onSuccess={(traceIds) => {
+            if (!isEmpty(traceIds)) {
+              onItemsToEvaluateChange({ itemCount: undefined, itemIds: traceIds });
+            }
+            setDisplayPickCustomTracesModal(false);
+          }}
+        />
       )}
     </>
   );

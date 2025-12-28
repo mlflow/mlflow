@@ -1,5 +1,10 @@
 import { describe, it, expect } from '@jest/globals';
-import { formatProviderName, formatAuthMethodName, formatCredentialFieldName } from './providerUtils';
+import {
+  formatProviderName,
+  formatAuthMethodName,
+  formatCredentialFieldName,
+  sortFieldsByProvider,
+} from './providerUtils';
 
 describe('providerUtils', () => {
   describe('formatProviderName', () => {
@@ -51,6 +56,54 @@ describe('providerUtils', () => {
 
     it('formats unknown credential fields with title case', () => {
       expect(formatCredentialFieldName('some_new_field')).toBe('Some New Field');
+    });
+  });
+
+  describe('sortFieldsByProvider', () => {
+    it('sorts Databricks fields in the defined order', () => {
+      const fields = [
+        { name: 'api_base', value: '' },
+        { name: 'client_id', value: '' },
+        { name: 'client_secret', value: '' },
+      ];
+      const sorted = sortFieldsByProvider(fields, 'databricks');
+      expect(sorted.map((f) => f.name)).toEqual(['client_id', 'client_secret', 'api_base']);
+    });
+
+    it('returns fields unchanged for providers without custom ordering', () => {
+      const fields = [
+        { name: 'api_key', value: '' },
+        { name: 'api_base', value: '' },
+      ];
+      const sorted = sortFieldsByProvider(fields, 'openai');
+      expect(sorted.map((f) => f.name)).toEqual(['api_key', 'api_base']);
+    });
+
+    it('puts unknown fields after known fields for Databricks', () => {
+      const fields = [
+        { name: 'unknown_field', value: '' },
+        { name: 'client_id', value: '' },
+        { name: 'api_base', value: '' },
+      ];
+      const sorted = sortFieldsByProvider(fields, 'databricks');
+      expect(sorted.map((f) => f.name)).toEqual(['client_id', 'api_base', 'unknown_field']);
+    });
+
+    it('handles empty fields array', () => {
+      const sorted = sortFieldsByProvider([], 'databricks');
+      expect(sorted).toEqual([]);
+    });
+
+    it('preserves additional properties on field objects', () => {
+      const fields = [
+        { name: 'client_secret', value: 'secret', extra: true },
+        { name: 'client_id', value: 'id', extra: false },
+      ];
+      const sorted = sortFieldsByProvider(fields, 'databricks');
+      expect(sorted).toEqual([
+        { name: 'client_id', value: 'id', extra: false },
+        { name: 'client_secret', value: 'secret', extra: true },
+      ]);
     });
   });
 });

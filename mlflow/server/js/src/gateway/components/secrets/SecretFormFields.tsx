@@ -4,9 +4,9 @@ import { GatewayInput } from '../common';
 import { useMemo, useCallback } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useProviderConfigQuery } from '../../hooks/useProviderConfigQuery';
-import { formatCredentialFieldName } from '../../utils/providerUtils';
+import { formatCredentialFieldName, sortFieldsByProvider } from '../../utils/providerUtils';
 import { SecretInput } from './SecretInput';
-import type { AuthMode, ConfigField, SecretField } from '../../types';
+import type { AuthMode } from '../../types';
 import type { SecretFormData } from './types';
 
 export interface SecretFormFieldsProps {
@@ -49,6 +49,19 @@ export const SecretFormFields = ({
   }, [authModes, value.authMode, providerConfig?.default_mode]);
 
   const effectiveAuthMode = value.authMode || selectedAuthMode?.mode || '';
+
+  const sortedFields = useMemo(() => {
+    const secretFields = (selectedAuthMode?.secret_fields ?? []).map((field) => ({
+      ...field,
+      fieldType: 'secret' as const,
+    }));
+    const configFields = (selectedAuthMode?.config_fields ?? []).map((field) => ({
+      ...field,
+      fieldType: 'config' as const,
+    }));
+    const allFields = [...secretFields, ...configFields];
+    return sortFieldsByProvider(allFields, provider);
+  }, [selectedAuthMode?.secret_fields, selectedAuthMode?.config_fields, provider]);
 
   const handleNameChange = useCallback(
     (newName: string) => {
@@ -162,43 +175,37 @@ export const SecretFormFields = ({
         </div>
       )}
 
-      {selectedAuthMode?.secret_fields?.map((field: SecretField) => (
+      {sortedFields.map((field) => (
         <div key={field.name}>
-          <FormUI.Label htmlFor={`${componentIdPrefix}.secret.${field.name}`}>
+          <FormUI.Label htmlFor={`${componentIdPrefix}.${field.fieldType}.${field.name}`}>
             {formatCredentialFieldName(field.name)}
             {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
           </FormUI.Label>
-          <SecretInput
-            id={`${componentIdPrefix}.secret.${field.name}`}
-            componentId={`${componentIdPrefix}.secret.${field.name}`}
-            value={value.secretFields[field.name] ?? ''}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => handleSecretFieldChange(field.name, e.target.value)}
-            placeholder={field.description}
-            validationState={errors?.secretFields?.[field.name] ? 'error' : undefined}
-            disabled={disabled}
-          />
-          {errors?.secretFields?.[field.name] && (
+          {field.fieldType === 'secret' ? (
+            <SecretInput
+              id={`${componentIdPrefix}.secret.${field.name}`}
+              componentId={`${componentIdPrefix}.secret.${field.name}`}
+              value={value.secretFields[field.name] ?? ''}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => handleSecretFieldChange(field.name, e.target.value)}
+              placeholder={field.description}
+              validationState={errors?.secretFields?.[field.name] ? 'error' : undefined}
+              disabled={disabled}
+            />
+          ) : (
+            <GatewayInput
+              id={`${componentIdPrefix}.config.${field.name}`}
+              componentId={`${componentIdPrefix}.config.${field.name}`}
+              value={value.configFields[field.name] ?? ''}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => handleConfigFieldChange(field.name, e.target.value)}
+              placeholder={field.description}
+              validationState={errors?.configFields?.[field.name] ? 'error' : undefined}
+              disabled={disabled}
+            />
+          )}
+          {field.fieldType === 'secret' && errors?.secretFields?.[field.name] && (
             <FormUI.Message type="error" message={errors.secretFields[field.name]} />
           )}
-        </div>
-      ))}
-
-      {selectedAuthMode?.config_fields?.map((field: ConfigField) => (
-        <div key={field.name}>
-          <FormUI.Label htmlFor={`${componentIdPrefix}.config.${field.name}`}>
-            {formatCredentialFieldName(field.name)}
-            {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
-          </FormUI.Label>
-          <GatewayInput
-            id={`${componentIdPrefix}.config.${field.name}`}
-            componentId={`${componentIdPrefix}.config.${field.name}`}
-            value={value.configFields[field.name] ?? ''}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => handleConfigFieldChange(field.name, e.target.value)}
-            placeholder={field.description}
-            validationState={errors?.configFields?.[field.name] ? 'error' : undefined}
-            disabled={disabled}
-          />
-          {errors?.configFields?.[field.name] && (
+          {field.fieldType === 'config' && errors?.configFields?.[field.name] && (
             <FormUI.Message type="error" message={errors.configFields[field.name]} />
           )}
         </div>
