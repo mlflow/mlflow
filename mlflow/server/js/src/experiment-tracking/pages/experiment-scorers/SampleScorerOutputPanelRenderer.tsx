@@ -13,9 +13,12 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 import { SimplifiedModelTraceExplorer } from '@databricks/web-shared/model-trace-explorer';
 import type { Assessment, ModelTrace } from '@databricks/web-shared/model-trace-explorer';
-import { COMPONENT_ID_PREFIX, BUTTON_VARIANT, type ButtonVariant } from './constants';
+import { COMPONENT_ID_PREFIX, BUTTON_VARIANT, type ButtonVariant, ScorerEvaluationScope } from './constants';
 import { EvaluateTracesParams } from './types';
 import { SampleScorerTracesToEvaluatePicker } from './SampleScorerTracesToEvaluatePicker';
+import { useFormContext } from 'react-hook-form';
+import { ScorerFormData } from './utils/scorerTransformUtils';
+import { coerceToEnum } from '../../../shared/web-shared/utils';
 
 /**
  * Run scorer button component.
@@ -92,6 +95,9 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
 
   // Whether we are showing a trace or the initial screen
   const isInitialScreen = !currentTrace;
+
+  const { watch } = useFormContext<ScorerFormData>();
+  const evaluationScope = coerceToEnum(ScorerEvaluationScope, watch('evaluationScope'), ScorerEvaluationScope.TRACES);
 
   return (
     <div
@@ -248,12 +254,17 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               </div>
             )}
             <Typography.Text size="lg" color="secondary" bold css={{ margin: 0, marginBottom: theme.spacing.xs }}>
-              <FormattedMessage defaultMessage="Run judge on traces" description="Title for running judge on traces" />
+              <FormattedMessage
+                defaultMessage="Run judge on {isTraces, select, true {traces} other {sessions}}"
+                description="Title for running judge on traces or sessions"
+                values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
+              />
             </Typography.Text>
             <Typography.Text color="secondary" css={{ margin: 0, marginBottom: theme.spacing.md }}>
               <FormattedMessage
-                defaultMessage="Run the judge on the selected group of traces"
-                description="Description for running judge on traces"
+                defaultMessage="Run the judge on the selected group of {isTraces, select, true {traces} other {sessions}}"
+                description="Description for running judge on traces or sessions"
+                values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
               />
             </Typography.Text>
             <Tooltip

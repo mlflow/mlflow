@@ -11,10 +11,6 @@
     "defaultMessage": "Temperature",
     "description": "Label for temperature input"
   },
-  "+1d2x/": {
-    "defaultMessage": "Run judge on traces",
-    "description": "Title for running judge on traces"
-  },
   "+1i81u": {
     "defaultMessage": "Registered At",
     "description": "Label name for registered timestamp metadata in model version page"
@@ -258,6 +254,10 @@
   "/nPZbt": {
     "defaultMessage": "{totalTokens} total tokens",
     "description": "Experiment page > artifact compare view > results table > total number of evaluated tokens"
+  },
+  "/qIHh7": {
+    "defaultMessage": "Traces",
+    "description": "Label for the scorer evaluation scope selection"
   },
   "/sk75d": {
     "defaultMessage": "Experiment not found",
@@ -950,6 +950,10 @@
     "defaultMessage": "Go back to <link>the home page.</link>",
     "description": "Default error message for error views in MLflow"
   },
+  "6AUuoS": {
+    "defaultMessage": "Run judge on {isTraces, select, true {traces} other {sessions}}",
+    "description": "Title for running judge on traces or sessions"
+  },
   "6BRlPU": {
     "defaultMessage": "Rationale",
     "description": "Field label for assessment rationale in an edit form"
@@ -1337,6 +1341,10 @@
   "8kU9Sc": {
     "defaultMessage": "No API keys found",
     "description": "Empty state title when filter returns no results"
+  },
+  "8nHnwU": {
+    "defaultMessage": "Select sessions",
+    "description": "Option for selecting custom traces"
   },
   "8qJt7/": {
     "defaultMessage": "Experimental",
@@ -3565,6 +3573,10 @@
     "defaultMessage": "Description",
     "description": "Header for the description column in the experiments table"
   },
+  "SUmLKb": {
+    "defaultMessage": "Last session",
+    "description": "Option for last session"
+  },
   "SXKt8h": {
     "defaultMessage": "Must be unique in this experiment. Cannot be changed after creation.",
     "description": "Hint text for Name section"
@@ -3600,6 +3612,10 @@
   "SnPghu": {
     "defaultMessage": "Delete sessions",
     "description": "Delete sessions action"
+  },
+  "SojbzO": {
+    "defaultMessage": "Evaluate entire sessions for conversation quality and outcomes.",
+    "description": "Hint for the scorer evaluation scope selection for sessions"
   },
   "SrV58C": {
     "defaultMessage": "Settings",
@@ -4355,6 +4371,10 @@
     "defaultMessage": "Export traces to datasets",
     "description": "Export traces to dataset modal title"
   },
+  "ZF/84G": {
+    "defaultMessage": "Use a large language model to automatically evaluate traces.",
+    "description": "Hint for the scorer evaluation scope selection for traces"
+  },
   "ZGrkWk": {
     "defaultMessage": "Perform inference via model.transform()",
     "description": "Code comment which states how we can perform SparkML inference"
@@ -4886,6 +4906,10 @@
   "cy9EfG": {
     "defaultMessage": "Attributes",
     "description": "Experiment page > group by runs control > attributes section label"
+  },
+  "d+WXp2": {
+    "defaultMessage": "Last 5 sessions",
+    "description": "Option for last 5 sessions"
   },
   "d00egE": {
     "defaultMessage": "No span with type RETRIEVER found in trace.",
@@ -5423,10 +5447,6 @@
     "defaultMessage": "User is not authorized.",
     "description": "Unauthorized (HTTP STATUS 401) generic error message"
   },
-  "guCNzD": {
-    "defaultMessage": "Run the judge on the selected group of traces",
-    "description": "Description for running judge on traces"
-  },
   "gwS08B": {
     "defaultMessage": "Back to common providers",
     "description": "Navigation back to common providers list"
@@ -5607,6 +5627,10 @@
     "defaultMessage": "Retrieval",
     "description": "Evaluation review > Retrieval section > title"
   },
+  "iQJCx6": {
+    "defaultMessage": "Select scope",
+    "description": "Label for the scorer evaluation scope/level selection (either traces or sessions)"
+  },
   "iQzwqe": {
     "defaultMessage": "Min",
     "description": "Column title for the column displaying the minimum metric values for a metric"
@@ -5698,6 +5722,10 @@
   "j7cj5r": {
     "defaultMessage": "Please log at least one table artifact containing evaluation data. <link>Learn more</link>.",
     "description": "Experiment page > artifact compare view > empty state for no evaluation tables logged > subtitle"
+  },
+  "j9F8Nt": {
+    "defaultMessage": "Last 10 sessions",
+    "description": "Option for last 10 sessions"
   },
   "jA7Y1x": {
     "defaultMessage": "Edit API key",
@@ -6427,6 +6455,10 @@
     "defaultMessage": "Are you sure you want to delete this tag？",
     "description": "Title text for confirmation pop-up to delete a tag from table\n                     in MLflow"
   },
+  "pCaE4I": {
+    "defaultMessage": "Sessions",
+    "description": "Label for the scorer evaluation scope selection"
+  },
   "pDCDkJ": {
     "defaultMessage": "Showing {visibleCount} out of {totalCount} {groupName}. Select columns to view more.",
     "description": "Tooltip for the group column header"
@@ -6458,6 +6490,10 @@
   "pVF+2s": {
     "defaultMessage": "Show less",
     "description": "Label for a link that shows less tags when clicked"
+  },
+  "pYUr49": {
+    "defaultMessage": "What do you want the scorer to evaluate?",
+    "description": "Hint for the scorer evaluation scope selection"
   },
   "paQ2Wc": {
     "defaultMessage": "Stage (deprecated)",
@@ -7438,6 +7474,10 @@
   "y56Vz9": {
     "defaultMessage": "In progress",
     "description": "Experiment page > traces table > status label > in progress"
+  },
+  "y6KMoc": {
+    "defaultMessage": "Run the judge on the selected group of {isTraces, select, true {traces} other {sessions}}",
+    "description": "Description for running judge on traces or sessions"
   },
   "y8O4PM": {
     "defaultMessage": "Retrieval Groundedness",
