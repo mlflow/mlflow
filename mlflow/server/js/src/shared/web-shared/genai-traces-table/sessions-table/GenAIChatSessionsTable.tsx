@@ -25,6 +25,7 @@ import { getSessionTableRows } from './utils';
 import type { TraceActions } from '../types';
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link, useLocation } from '../utils/RoutingUtils';
+import { useGenAiTraceTableRowSelection } from '../hooks/useGenAiTraceTableRowSelection';
 
 const columns: SessionTableColumn[] = [
   {
@@ -156,6 +157,7 @@ export const GenAIChatSessionsTable = ({
   searchQuery,
   setSearchQuery,
   traceActions,
+  enableRowSelection: enableRowSelectionProp = true,
 }: {
   experimentId: string;
   traces: ModelTraceInfoV3[];
@@ -163,18 +165,19 @@ export const GenAIChatSessionsTable = ({
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   traceActions?: TraceActions;
+  enableRowSelection?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
 
   const sessionTableRows = useMemo(() => getSessionTableRows(experimentId, traces), [experimentId, traces]);
   const [sorting, setSorting] = useState<SortingState>([{ id: 'sessionStartTime', desc: true }]);
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const { rowSelection, setRowSelection } = useGenAiTraceTableRowSelection();
   const { columnVisibility, setColumnVisibility } = useSessionsTableColumnVisibility({
     experimentId,
     columns,
   });
 
-  const enableRowSelection = Boolean(traceActions);
+  const enableRowSelection = enableRowSelectionProp || Boolean(traceActions);
 
   const table = useReactTable<SessionTableRow>({
     data: sessionTableRows,
