@@ -22,10 +22,7 @@ import yaml
 import mlflow.pyfunc
 import mlflow.utils
 from mlflow.entities.span import SpanType
-from mlflow.environment_variables import (
-    MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION,
-    MLFLOW_LOG_MODEL_COMPRESSION,
-)
+from mlflow.environment_variables import MLFLOW_LOG_MODEL_COMPRESSION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
@@ -1051,7 +1048,7 @@ def _save_model_with_class_artifacts_params(
             fetched from huggingface hub using repo_id `prajjwal1/bert-tiny` directly. If ``None``,
             no artifacts are added to the model.
         conda_env: Either a dictionary representation of a Conda environment or the path to a Conda
-            environment yaml file. If provided, this decsribes the environment this model should be
+            environment yaml file. If provided, this describes the environment this model should be
             run in. At minimum, it should specify the dependencies contained in
             :func:`get_default_conda_env()`. If ``None``, the default
             :func:`get_default_conda_env()` environment is added to the model.
@@ -1260,14 +1257,6 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
         if callable(python_model):
             python_model = _FunctionPythonModel(python_model, signature=signature)
     else:
-        if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
-            raise MlflowException(
-                "Unsafe pickle deserialization is disallowed, but this model is saved "
-                "as pickle format. To address this issue, you need to set environment variable "
-                "'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true', or save the model as "
-                "the 'model from code' artifact."
-            )
-
         warnings.warn(
             "The python model is saved by unsafe pickler, this saving format is deprecated, "
             "and will be disabled  by default in future MLflow versions. Saving python model as "

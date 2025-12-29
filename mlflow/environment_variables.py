@@ -1123,9 +1123,3 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
 #: issues with the judge's reasoning.
 #: (default: ``30``)
 MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS", int, 30)
-
-
-#: Specifies whether to allow unsafe pickle deserialization for loading model
-MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
-    "MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION", True
-)
