@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from mlflow.data import Dataset
@@ -21,6 +22,16 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from mlflow.entities.trace import Trace
+
+
+MULTITURN_INPUT_FIELDS = frozenset({"persona", "goal", "context"})
+MULTITURN_ALLOWED_COLUMNS = MULTITURN_INPUT_FIELDS | {"expectations", "tags", "source"}
+
+
+class DatasetSchemaType(Enum):
+    MULTITURN = "multiturn"
+    CUSTOM = "custom"
+    UNKNOWN = "unknown"
 
 
 class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
@@ -210,6 +221,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         Args:
             records: Records to merge. Can be:
                 - List of dictionaries with 'inputs' and optionally 'expectations' and 'tags'
+                - Multiturn format with top-level 'persona', 'goal', 'context' fields
+                - Multiturn format with 'persona', 'goal', 'context' nested inside 'inputs'
                 - DataFrame from mlflow.search_traces() - automatically parsed and converted
                 - DataFrame with 'inputs' column and optionally 'expectations' and 'tags' columns
                 - List of Trace objects
@@ -227,6 +240,13 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 # Or with standard DataFrame
                 df = pd.DataFrame([{"inputs": {"q": "What?"}, "expectations": {"a": "Answer"}}])
                 dataset.merge_records(df)
+
+                # Multiturn format with top-level fields
+                test_cases = [
+                    {"persona": "Student", "goal": "Find articles"},
+                    {"persona": "Student", "goal": "Get help", "context": {"id": "U1"}},
+                ]
+                dataset.merge_records(test_cases)
         """
         import pandas as pd
 
@@ -240,6 +260,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         else:
             record_dicts = records
 
+        record_dicts = self._normalize_multiturn_records(record_dicts)
         self._validate_record_dicts(record_dicts)
 
         self._infer_source_types(record_dicts)
@@ -247,13 +268,16 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         tracking_store = _get_store()
 
         try:
-            tracking_store.get_dataset(self.dataset_id)
+            existing_dataset = tracking_store.get_dataset(self.dataset_id)
+            self._schema = existing_dataset.schema
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
                 f"Cannot add records to dataset {self.dataset_id}: Dataset not found. "
                 f"Please verify the dataset exists and check your tracking URI is set correctly "
                 f"(currently set to: {get_tracking_uri()})."
             ) from e
+
+        self._validate_schema(record_dicts)
 
         context_tags = context_registry.resolve_tags()
         if user_tag := context_tags.get(MLFLOW_USER):
@@ -314,6 +338,142 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                     "source_type": DatasetRecordSourceType.CODE.value,
                     "source_data": {},
                 }
+
+    def _normalize_multiturn_records(
+        self, record_dicts: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """
+        Normalize records by moving top-level persona, goal, context into inputs.
+
+        {"persona": "Student", "goal": "Find articles"} becomes
+        {"inputs": {"persona": "Student", "goal": "Find articles"}}
+
+        Args:
+            record_dicts: List of record dictionaries to normalize
+
+        Returns:
+            List of normalized record dictionaries with multiturn fields inside inputs
+
+        Raises:
+            MlflowException: If record has both 'inputs' and top-level multiturn fields,
+                or contains unknown columns in multiturn format
+        """
+        normalized = []
+
+        for record in record_dicts:
+            if not (set(record.keys()) & MULTITURN_INPUT_FIELDS):
+                normalized.append(record.copy())
+                continue
+
+            if "inputs" in record:
+                raise MlflowException.invalid_parameter_value(
+                    "Cannot specify both 'inputs' and top-level multiturn fields "
+                    "(persona, goal, context). Use one or the other."
+                )
+
+            if unknown_columns := set(record.keys()) - MULTITURN_ALLOWED_COLUMNS:
+                raise MlflowException.invalid_parameter_value(
+                    f"Unknown columns in multiturn format: {list(unknown_columns)}. "
+                    "Custom fields should be placed inside 'context'."
+                )
+
+            new_record = {"inputs": {}}
+            for key, value in record.items():
+                if key in MULTITURN_INPUT_FIELDS:
+                    new_record["inputs"][key] = value
+                else:
+                    new_record[key] = value
+            normalized.append(new_record)
+
+        return normalized
+
+    def _validate_schema(self, record_dicts: list[dict[str, Any]]) -> None:
+        """
+        Validate schema consistency of new records and compatibility with existing dataset.
+
+        Args:
+            record_dicts: List of normalized record dictionaries
+
+        Raises:
+            MlflowException: If records mix multiturn/custom fields, use different schemas,
+                or are incompatible with existing dataset schema
+        """
+        batch_schema_type = None
+
+        for i, record in enumerate(record_dicts):
+            input_keys = set(record.get("inputs", {}).keys())
+
+            if not input_keys:
+                continue
+
+            record_type = self._classify_input_fields(input_keys)
+
+            if record_type == DatasetSchemaType.UNKNOWN:
+                custom_fields = input_keys - MULTITURN_INPUT_FIELDS
+                raise MlflowException.invalid_parameter_value(
+                    f"Cannot mix multiturn fields (persona, goal, context) with custom fields "
+                    f"in inputs. Found custom fields: {list(custom_fields)}. "
+                    "Custom fields should be placed inside 'context'."
+                )
+
+            if batch_schema_type is None:
+                batch_schema_type = record_type
+            elif batch_schema_type != record_type:
+                raise MlflowException.invalid_parameter_value(
+                    f"All records must use the same schema type. Record {i} uses "
+                    f"{record_type.value}, but previous use {batch_schema_type.value}."
+                )
+
+        batch_schema_type = batch_schema_type or DatasetSchemaType.UNKNOWN
+        existing_schema_type = self._get_existing_schema_type()
+
+        if DatasetSchemaType.UNKNOWN in {batch_schema_type, existing_schema_type}:
+            return
+
+        if batch_schema_type != existing_schema_type:
+            raise MlflowException.invalid_parameter_value(
+                f"New records use {batch_schema_type.value} schema, but existing dataset "
+                f"uses {existing_schema_type.value}. Cannot mix schema types."
+            )
+
+    def _get_existing_schema_type(self) -> DatasetSchemaType:
+        """
+        Get schema type from the dataset's stored schema.
+
+        Returns:
+            DatasetSchemaType based on existing records, or UNKNOWN if empty/unparseable
+        """
+        if self._schema is None:
+            return DatasetSchemaType.UNKNOWN
+        try:
+            schema = json.loads(self._schema)
+            input_keys = set(schema.get("inputs", {}).keys())
+            return self._classify_input_fields(input_keys)
+        except (json.JSONDecodeError, TypeError):
+            return DatasetSchemaType.UNKNOWN
+
+    def _classify_input_fields(self, input_keys: set[str]) -> DatasetSchemaType:
+        """
+        Classify a set of input field names into a schema type:
+        - MULTITURN: All fields are multiturn fields (persona, goal, or context)
+        - CUSTOM: No multiturn fields present
+        - UNKNOWN: Empty or mixed multiturn/custom fields (invalid)
+
+        Args:
+            input_keys: Set of field names from a record's inputs
+
+        Returns:
+            DatasetSchemaType classification for the input fields
+        """
+        if not input_keys:
+            return DatasetSchemaType.UNKNOWN
+        if not (input_keys & MULTITURN_INPUT_FIELDS) or (input_keys & MULTITURN_INPUT_FIELDS) == {
+            "context"
+        }:
+            return DatasetSchemaType.CUSTOM
+        if input_keys <= MULTITURN_INPUT_FIELDS:
+            return DatasetSchemaType.MULTITURN
+        return DatasetSchemaType.UNKNOWN
 
     def to_df(self) -> "pd.DataFrame":
         """

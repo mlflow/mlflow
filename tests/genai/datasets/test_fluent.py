@@ -2130,3 +2130,154 @@ def test_wrapper_isinstance_checks_for_dataset_interfaces(tracking_uri, experime
     assert isinstance(dataset, WrapperEvaluationDataset)
     assert not isinstance(dataset, EntityEvaluationDataset)
     assert isinstance(dataset, (WrapperEvaluationDataset, EntityEvaluationDataset))
+
+
+def test_multiturn_top_level_fields_normalized_to_inputs(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="multiturn_normalize_test",
+        experiment_id=experiments[0],
+    )
+    records = [
+        {"persona": "Graduate Student", "goal": "Find peer-reviewed articles"},
+        {"persona": "Student", "goal": "Get help with research", "context": {"user_id": "U1"}},
+        {"goal": "Just a goal without persona"},
+    ]
+    dataset.merge_records(records)
+    df = dataset.to_df()
+
+    assert len(df) == 3
+    for _, row in df.iterrows():
+        inputs = row["inputs"]
+        assert any(key in inputs for key in ["persona", "goal", "context"])
+
+
+def test_multiturn_nested_in_inputs(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="multiturn_nested_test",
+        experiment_id=experiments[0],
+    )
+    records = [
+        {"inputs": {"persona": "Student", "goal": "Find articles"}},
+        {"inputs": {"persona": "Researcher", "goal": "Review papers", "context": {"dept": "CS"}}},
+        {"inputs": {"goal": "Single goal"}, "expectations": {"output": "expected"}},
+    ]
+    dataset.merge_records(records)
+    df = dataset.to_df()
+
+    assert len(df) == 3
+    for _, row in df.iterrows():
+        inputs = row["inputs"]
+        assert any(key in inputs for key in ["persona", "goal", "context"])
+
+
+def test_multiturn_cannot_use_both_inputs_and_top_level_fields(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="multiturn_conflict_test",
+        experiment_id=experiments[0],
+    )
+    records = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "persona": "Student",
+        }
+    ]
+    with pytest.raises(MlflowException, match="Cannot specify both 'inputs' and top-level"):
+        dataset.merge_records(records)
+
+
+def test_multiturn_unknown_columns_rejected(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="multiturn_unknown_col_test",
+        experiment_id=experiments[0],
+    )
+    records = [
+        {
+            "persona": "Student",
+            "goal": "Find articles",
+            "custom_field": "value",
+        }
+    ]
+    with pytest.raises(MlflowException, match="Unknown columns in multiturn format"):
+        dataset.merge_records(records)
+
+
+def test_multiturn_inputs_cannot_mix_with_custom_fields(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="multiturn_mixed_inputs_test",
+        experiment_id=experiments[0],
+    )
+    records = [
+        {
+            "inputs": {
+                "persona": "Student",
+                "goal": "Find articles",
+                "custom_field": "value",
+            }
+        }
+    ]
+    with pytest.raises(MlflowException, match="Cannot mix multiturn fields.*with custom fields"):
+        dataset.merge_records(records)
+
+
+def test_multiturn_batch_consistency_required(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="multiturn_batch_test",
+        experiment_id=experiments[0],
+    )
+    records = [
+        {"inputs": {"persona": "Student", "goal": "Find articles"}},
+        {"inputs": {"question": "What is MLflow?"}},
+    ]
+    with pytest.raises(MlflowException, match="must use the same schema type"):
+        dataset.merge_records(records)
+
+
+def test_multiturn_schema_compatibility_with_existing_records(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="multiturn_compat_test",
+        experiment_id=experiments[0],
+    )
+    multiturn_records = [
+        {"inputs": {"persona": "Student", "goal": "Find articles"}},
+    ]
+    dataset.merge_records(multiturn_records)
+
+    custom_records = [
+        {"inputs": {"question": "What is MLflow?", "model": "gpt-4"}},
+    ]
+
+    with pytest.raises(MlflowException, match="existing dataset.*schema"):
+        dataset.merge_records(custom_records)
+
+
+def test_multiturn_with_expectations_and_tags(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="multiturn_full_test",
+        experiment_id=experiments[0],
+    )
+
+    records = [
+        {
+            "persona": "Graduate Student",
+            "goal": "Find peer-reviewed articles on machine learning",
+            "context": {"user_id": "U0001", "department": "CS"},
+            "expectations": {"expected_output": "relevant articles", "quality": "high"},
+            "tags": {"difficulty": "medium"},
+        },
+        {
+            "persona": "Librarian",
+            "goal": "Help with inter-library loan",
+            "expectations": {"expected_output": "loan information"},
+        },
+    ]
+
+    dataset.merge_records(records)
+
+    df = dataset.to_df()
+    assert len(df) == 2
+
+    grad_record = df[df["inputs"].apply(lambda x: x.get("persona") == "Graduate Student")].iloc[0]
+    assert grad_record["expectations"]["expected_output"] == "relevant articles"
+    assert grad_record["expectations"]["quality"] == "high"
+    assert grad_record["tags"]["difficulty"] == "medium"
+    assert grad_record["inputs"]["context"] == {"user_id": "U0001", "department": "CS"}
