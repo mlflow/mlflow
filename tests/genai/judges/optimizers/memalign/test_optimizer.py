@@ -236,3 +236,56 @@ def test_memory_augmented_judge_properties(sample_judge, sample_traces):
         assert sample_judge.instructions in aligned_judge.instructions
         assert "Distilled Guidelines" in aligned_judge.instructions
         assert "Guideline 1" in aligned_judge.instructions
+
+
+def test_incremental_alignment_preserves_examples(sample_judge, sample_traces):
+    with mock_apis(guidelines=["Guideline 1"]):
+        optimizer = MemAlignOptimizer()
+
+        # First alignment with 2 traces
+        judge_v2 = optimizer.align(sample_judge, sample_traces[:2])
+        assert len(judge_v2._examples) == 2
+        assert judge_v2._base_judge is sample_judge
+
+        # Second alignment with 2 more traces - should preserve previous examples
+        judge_v3 = optimizer.align(judge_v2, sample_traces[2:4])
+        assert len(judge_v3._examples) == 4
+        assert judge_v3._base_judge is sample_judge  # Should unwrap to original
+
+        # Verify all trace IDs are present
+        trace_ids_in_v3 = {ex._trace_id for ex in judge_v3._examples if hasattr(ex, "_trace_id")}
+        expected_trace_ids = {sample_traces[i].info.trace_id for i in range(4)}
+        assert trace_ids_in_v3 == expected_trace_ids
+
+
+def test_incremental_alignment_redistills_guidelines(sample_judge, sample_traces):
+    # First alignment: distills "Guideline A"
+    with mock_apis(guidelines=["Guideline A"]):
+        optimizer = MemAlignOptimizer()
+        judge_v2 = optimizer.align(sample_judge, sample_traces[:2])
+        assert len(judge_v2._semantic_memory) == 1
+        assert "Guideline A" in judge_v2._semantic_memory
+
+    # Second alignment: distills "Guideline B" from ALL examples (old + new)
+    with mock_apis(guidelines=["Guideline B"]):
+        judge_v3 = optimizer.align(judge_v2, sample_traces[2:4])
+        # Should have both old + new guidelines (re-distilled from all examples)
+        assert len(judge_v3._semantic_memory) == 2
+        assert "Guideline A" in judge_v3._semantic_memory
+        assert "Guideline B" in judge_v3._semantic_memory
+
+
+def test_unalign_redistills_guidelines(sample_judge, sample_traces):
+    # First alignment: distills "Guideline 1" and "Guideline 2"
+    with mock_apis(guidelines=["Guideline 1", "Guideline 2"]):
+        optimizer = MemAlignOptimizer()
+        aligned_judge = optimizer.align(sample_judge, sample_traces)
+        assert len(aligned_judge._semantic_memory) == 2
+
+    # Unalign some traces and redistill - should get "Guideline 3" from remaining examples
+    with mock_apis(guidelines=["Guideline 3"]):
+        traces_to_remove = [sample_traces[1], sample_traces[3]]
+        unaligned_judge = aligned_judge.unalign(traces=traces_to_remove)
+        # Should only have "Guideline 3" (redistilled from remaining examples)
+        assert len(unaligned_judge._semantic_memory) == 1
+        assert "Guideline 3" in unaligned_judge._semantic_memory

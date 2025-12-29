@@ -40,6 +40,16 @@ class MemoryAugmentedJudge(Judge):
 
     The judge maintains state across evaluations and provides the exact same
     interface as the original judge. Memories are managed internally.
+
+    Args:
+        base_judge: Base judge to augment with memory systems
+        distillation_model: Model for distilling guidelines from feedback
+        retrieval_k: Number of similar examples to retrieve from episodic memory
+        embedding_model: Model for generating embeddings for example retrieval
+        embedding_dim: Dimension of embeddings
+        examples: Initial examples to add to memory
+        inherit_guidelines: Whether to inherit guidelines from base_judge if it's a
+            MemoryAugmentedJudge. If False, guidelines are redistilled from scratch.
     """
 
     def __init__(
@@ -50,18 +60,28 @@ class MemoryAugmentedJudge(Judge):
         embedding_model: str | None = None,
         embedding_dim: int = 512,
         examples: list["dspy.Example"] | None = None,
+        inherit_guidelines: bool = True,
     ):
-        super().__init__(
-            name=base_judge.name,
-            description=base_judge.description,
-            aggregations=base_judge.aggregations,
+        effective_base_judge = (
+            base_judge._base_judge if isinstance(base_judge, MemoryAugmentedJudge) else base_judge
+        )
+        initial_guidelines = (
+            list(base_judge._semantic_memory)
+            if isinstance(base_judge, MemoryAugmentedJudge) and inherit_guidelines
+            else []
         )
 
-        self._base_judge = base_judge
-        self._base_signature = create_dspy_signature(base_judge)
+        super().__init__(
+            name=effective_base_judge.name,
+            description=effective_base_judge.description,
+            aggregations=effective_base_judge.aggregations,
+        )
+
+        self._base_judge = effective_base_judge
+        self._base_signature = create_dspy_signature(effective_base_judge)
         self._retrieval_k = retrieval_k
         self._examples: list["dspy.Example"] = []
-        self._semantic_memory: list[str] = []
+        self._semantic_memory: list[str] = initial_guidelines
 
         self._distillation_model = (
             distillation_model if distillation_model is not None else get_default_model()
@@ -76,7 +96,7 @@ class MemoryAugmentedJudge(Judge):
 
         extended_signature = self._create_extended_signature()
         self._predict_module = dspy.Predict(extended_signature)
-        self._predict_module.set_lm(construct_dspy_lm(base_judge.model))
+        self._predict_module.set_lm(construct_dspy_lm(effective_base_judge.model))
 
         if examples:
             self._add_examples(examples)
@@ -161,6 +181,7 @@ class MemoryAugmentedJudge(Judge):
             embedding_model=self._embedding_model,
             embedding_dim=self._embedding_dim,
             examples=filtered_examples,
+            inherit_guidelines=False,
         )
 
     def _create_extended_signature(self) -> "dspy.Signature":
@@ -219,6 +240,12 @@ class MemAlignOptimizer(AlignmentOptimizer):
 
     The returned judge is a MemoryAugmentedJudge that maintains memory state.
 
+    Args:
+        distillation_model: Model to use for distilling guidelines from feedback
+        retrieval_k: Number of similar examples to retrieve from episodic memory
+        embedding_model: Model for generating embeddings for example retrieval
+        embedding_dim: Dimension of embeddings
+
     Usage:
         Works with the standard Judge.align() interface - no API changes needed.
 
@@ -263,21 +290,29 @@ class MemAlignOptimizer(AlignmentOptimizer):
 
             _logger.debug(f"Starting MemAlign alignment with {len(traces)} traces")
 
-            examples = []
+            existing_examples = (
+                list(judge._examples) if isinstance(judge, MemoryAugmentedJudge) else []
+            )
+
+            new_examples = []
             for trace in traces:
                 example = trace_to_dspy_example(trace, judge)
                 if example is not None:
                     example._trace_id = trace.info.trace_id
-                    examples.append(example)
+                    new_examples.append(example)
 
-            if not examples:
+            if not new_examples:
                 raise MlflowException(
                     f"No valid feedback records found in traces. "
                     f"Ensure traces contain human assessments with name '{judge.name}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            _logger.debug(f"Created {len(examples)} feedback records from {len(traces)} traces")
+            _logger.debug(
+                f"Created {len(new_examples)} new feedback records from {len(traces)} traces"
+            )
+
+            all_examples = existing_examples + new_examples
 
             memory_judge = MemoryAugmentedJudge(
                 base_judge=judge,
@@ -285,7 +320,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 retrieval_k=self._retrieval_k,
                 embedding_model=self._embedding_model,
                 embedding_dim=self._embedding_dim,
-                examples=examples,
+                examples=all_examples,
             )
 
             _logger.debug("MemAlign alignment completed successfully")
