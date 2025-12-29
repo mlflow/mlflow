@@ -1255,9 +1255,10 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
             python_model = _FunctionPythonModel(python_model, signature=signature)
     else:
         warnings.warn(
-            "The python model is saved by unsafe pickler, this saving format is deprecated, "
-            "and will be disabled  by default in future MLflow versions. Saving python model as "
-            "the 'model from code' artifact is the recommended way.",
+            "The python model is serialized by CloudPickle, which is unsafe, "
+            "and will be disabled by default in future MLflow versions. Saving python model as "
+            "the 'model from code' artifacts is the recommended way, see "
+            "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details.",
             FutureWarning,
             stacklevel=2,
         )

@@ -2892,10 +2892,11 @@ def save_model(
         python_model:
             A file path to the PythonModel
             which defines the model from code artifact rather than serializing the model object,
-            or python_model can also be an instance
-            of a subclass of :class:`~PythonModel` or a callable object with a single
-            argument (see the examples below). The passed-in object is serialized using the
-            CloudPickle library.
+            (recommended), see https://mlflow.org/docs/latest/ml/model/models-from-code/
+            for details;
+            or an instance of a subclass of :class:`~PythonModel` or a callable object with a single
+            argument (see the examples below), the passed-in object is serialized using the
+            CloudPickle library, note that this way is unsafe.
             Any dependencies of the class should be included in one of the
             following locations:
 
@@ -3040,9 +3041,9 @@ def save_model(
     """
     if not isinstance(python_model, (Path, str)):
         warnings.warn(
-            "Saving custom python model by unsafe pickler is deprecated, and will be disabled "
-            "by default in future MLflow versions. Saving python model as the 'model from code' "
-            "artifact is the recommended way.",
+            "Passing a Python object for `python_model` will serialize it using CloudPickle, "
+            "which may be unsafe. Consider using a file path (str or Path) instead. See "
+            "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details.",
             FutureWarning,
             stacklevel=2,
         )
@@ -3438,10 +3439,11 @@ def log_model(
         python_model:
             A file path to the PythonModel
             which defines the model from code artifact rather than serializing the model object,
-            or a python_model can also be an instance
-            of a subclass of :class:`~PythonModel` or a callable object with a single
-            argument (see the examples below). The passed-in object is serialized using the
-            CloudPickle library.
+            (recommended), see https://mlflow.org/docs/latest/ml/model/models-from-code/
+            for details;
+            or an instance of a subclass of :class:`~PythonModel` or a callable object with a single
+            argument (see the examples below), the passed-in object is serialized using the
+            CloudPickle library, note that this way is unsafe.
             Any dependencies of the class should be included in one of the
             following locations:
 
