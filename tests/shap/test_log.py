@@ -33,7 +33,7 @@ def shap_model():
     return shap.Explainer(model.predict, X, algorithm="permutation")
 
 
-def get_housing_data():
+def get_test_dataset():
     X, y = load_diabetes(as_frame=True, return_X_y=True)
     return X, y
 
@@ -46,7 +46,7 @@ def test_sklearn_log_explainer():
     with mlflow.start_run() as run:
         run_id = run.info.run_id
 
-        X, y = get_housing_data()
+        X, y = get_test_dataset()
 
         model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
         model.fit(X, y)
@@ -82,7 +82,7 @@ def test_sklearn_log_explainer_self_serialization():
     with mlflow.start_run() as run:
         run_id = run.info.run_id
 
-        X, y = get_housing_data()
+        X, y = get_test_dataset()
 
         model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
         model.fit(X, y)
@@ -121,7 +121,7 @@ def test_sklearn_log_explainer_pyfunc():
     with mlflow.start_run() as run:
         run_id = run.info.run_id
 
-        X, y = get_housing_data()
+        X, y = get_test_dataset()
 
         model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
         model.fit(X, y)
@@ -162,7 +162,7 @@ def test_log_explanation_doesnt_create_autologged_run():
 
 
 def test_load_pyfunc(tmp_path):
-    X, y = get_housing_data()
+    X, y = get_test_dataset()
 
     model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
     model.fit(X, y)
@@ -396,7 +396,7 @@ def test_pyfunc_serve_and_score_njit():
     def identity_function(x):
         return x
 
-    X, y = get_housing_data()
+    X, y = get_test_dataset()
 
     reg = sklearn.ensemble.RandomForestRegressor(n_estimators=10).fit(X, y)
     model = shap.Explainer(
@@ -431,7 +431,7 @@ def test_pyfunc_serve_and_score():
     # Note: this implementation of an identify function is only compatible with versions of
     # shap <= 0.41.0. A breaking change was introduced with how numba is used with shap in version
     # 0.42.0.
-    X, y = get_housing_data()
+    X, y = get_test_dataset()
 
     reg = sklearn.ensemble.RandomForestRegressor(n_estimators=10).fit(X, y)
     model = shap.Explainer(
