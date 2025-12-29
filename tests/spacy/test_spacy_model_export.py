@@ -72,7 +72,7 @@ def spacy_model_with_data():
         textcat.add_label(cat)
 
     # Split train/test and train the model
-    train_x, train_y, test_x, _ = _get_train_test_dataset(categories)
+    train_x, train_y, test_x, _ = _get_train_test_dataset()
     train_data = list(zip(train_x, [{"cats": cats} for cats in train_y]))
 
     if IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0:
@@ -433,7 +433,7 @@ def _train_model(nlp, train_data, n_iter=5):
                 nlp.update(texts, annotations, sgd=optimizer, drop=0.2, losses=losses)
 
 
-def _get_train_test_dataset(cats_to_fetch, limit=100):
+def _get_train_test_dataset(limit=100):
     graphics_texts = [
         "The GPU renders 3D graphics with high frame rates.",
         "OpenGL provides excellent graphics rendering capabilities.",
