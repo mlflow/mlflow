@@ -46,14 +46,14 @@ export const shouldRerunExperimentUISeeding = () => false;
  * Feature flag to enable Scorers UI tab in experiment page
  */
 export const enableScorersUI = () => {
-  return false;
+  return true;
 };
 
 /**
  * Determines if running scorers feature is enabled (ability to run LLM scorers on sample traces)
  */
 export const isRunningScorersEnabled = () => {
-  return false;
+  return true;
 };
 
 /**
@@ -61,9 +61,9 @@ export const isRunningScorersEnabled = () => {
  */
 export const isEvaluatingSessionsInScorersEnabled = () => {
   if (!enableScorersUI() || !isRunningScorersEnabled()) {
-    return false;
+    return true;
   }
-  return false;
+  return true;
 };
 
 /**
