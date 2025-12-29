@@ -200,7 +200,9 @@ class MemoryAugmentedJudge(Judge):
             existing_guidelines=self._semantic_memory,
         )
         self._semantic_memory.extend(new_guidelines)
-        _logger.debug(f"Semantic memory now contains {len(self._semantic_memory)} guidelines")
+        _logger.debug(
+            f"Distilled {len(new_guidelines)} new guidelines from {len(self._examples)} examples"
+        )
 
         # Build episodic memory corpus from input fields
         corpus = []
@@ -216,8 +218,7 @@ class MemoryAugmentedJudge(Judge):
         self._search = dspy.retrievers.Embeddings(
             embedder=self._embedder, corpus=corpus, k=self._retrieval_k
         )
-
-        _logger.info(f"Added {len(examples)} examples to memories")
+        _logger.debug(f"Episodic memory corpus contains {len(corpus)} examples")
 
 
 @experimental(version="3.9.0")
@@ -323,7 +324,9 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 examples=all_examples,
             )
 
-            _logger.debug("MemAlign alignment completed successfully")
+            _logger.debug(
+                f"MemAlign alignment completed successfully. Aligned {len(new_examples)} examples."
+            )
             return memory_judge
 
         except Exception as e:
