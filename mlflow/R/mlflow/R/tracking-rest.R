@@ -5,13 +5,12 @@ mlflow_rest_path <- function(version) {
   )
 }
 
-#' @importFrom httr timeout
 mlflow_rest_timeout <- function() {
-  timeout(getOption("mlflow.rest.timeout", 60))
+  httr::timeout(getOption("mlflow.rest.timeout", 60))
 }
 
 try_parse_response_as_text <- function(response) {
-  raw_content <- content(response, type = "raw")
+  raw_content <- httr::content(response, type = "raw")
   tryCatch({
     rawToChar(raw_content)
   }, error = function(e) {
@@ -45,7 +44,6 @@ get_rest_config <- function(host_creds) {
   )
 }
 
-#' @importFrom httr GET POST add_headers config content
 mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", version = "2.0",
                          max_rate_limit_interval=60) {
   host_creds <- client$get_host_creds()
@@ -56,15 +54,15 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
     mlflow_rest_path(version),
     paste(args, collapse = "/")
   )
-  req_headers <- do.call(add_headers, rest_config$headers)
+  req_headers <- do.call(httr::add_headers, rest_config$headers)
   get_response <- switch(
     verb,
     GET = function() {
-      GET( api_url, query = query, mlflow_rest_timeout(), config = rest_config$config,
+      httr::GET( api_url, query = query, mlflow_rest_timeout(), config = rest_config$config,
            req_headers)
     },
     POST = function(){
-      POST( api_url,
+      httr::POST( api_url,
             body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
             encode = "json",
             mlflow_rest_timeout(),
@@ -107,7 +105,7 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
 
   if (response$status_code != 200) {
     message_body <- tryCatch(
-      paste(content(response, "parsed", type = "application/json"), collapse = "; "),
+      paste(httr::content(response, "parsed", type = "application/json"), collapse = "; "),
       error = function(e) {
         try_parse_response_as_text(response)
       }
@@ -122,6 +120,6 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
                  sep = "")
     stop(msg, call. = FALSE)
   }
-  text <- content(response, "text", encoding = "UTF-8")
+  text <- httr::content(response, "text", encoding = "UTF-8")
   jsonlite::fromJSON(text, simplifyVector = FALSE)
 }

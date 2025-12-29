@@ -644,6 +644,21 @@ MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZ
 #: (default: ``128``)
 MLFLOW_PROMPT_CACHE_MAX_SIZE = _EnvironmentVariable("MLFLOW_PROMPT_CACHE_MAX_SIZE", int, 128)
 
+#: Time-to-live in seconds for cached Alias-based prompts, e.g., "prompts:/name@latest", in the
+#: prompt cache. After this time, cached prompts will be considered stale and refreshed on next
+#: access. Set to 0 to disable caching entirely. (default: ``60``)
+MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS", float, 60
+)
+
+#: Time-to-live in seconds for cached version-based prompts, e.g., "prompts:/name/version", in the
+#: prompt cache. After this time, cached prompts will be considered stale and refreshed on next
+#: access. Set to 0 to disable caching entirely. (default: ``float("inf")``, infinite TTL)
+MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS", float, float("inf")
+)
+
+
 #: Private configuration option.
 #: Enables the ability to catch exceptions within MLflow evaluate for classification models
 #: where a class imbalance due to a missing target class would raise an error in the
@@ -658,6 +673,16 @@ _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
 #: for each row in the dataset passed to the `mlflow.genai.evaluate` function.
 #: (default: ``10``)
 MLFLOW_GENAI_EVAL_MAX_WORKERS = _EnvironmentVariable("MLFLOW_GENAI_EVAL_MAX_WORKERS", int, 10)
+
+#: Maximum number of concurrent scorer workers to use when running multiple scorers
+#: in parallel for each evaluation item. This helps prevent rate limiting errors when
+#: using external LLM APIs as judges. The actual number of workers will not exceed
+#: the number of scorers being used. When combined with MLFLOW_GENAI_EVAL_MAX_WORKERS,
+#: the total concurrent scorer invocations is bounded by the product of both values.
+#: Set to 1 to run scorers sequentially. (default: ``10``)
+MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS = _EnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", int, 10
+)
 
 
 #: Skip trace validation during GenAI evaluation. By default (False), MLflow will validate if
@@ -674,6 +699,11 @@ MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION = _BooleanEnvironmentVariable(
 MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
     "MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", False
 )
+
+#: Timeout in seconds for async predict functions in mlflow.genai.evaluate. When an async
+#: function is passed as predict_fn, it will be wrapped with asyncio.run() with this timeout.
+#: (default: ``300``)
+MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT = _EnvironmentVariable("MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT", int, 300)
 
 #: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
 #: a model's dependency inference. If set to True, an exception will be raised if requirements
@@ -736,7 +766,8 @@ MLFLOW_HTTP_POOL_CONNECTIONS = _EnvironmentVariable("MLFLOW_HTTP_POOL_CONNECTION
 #: By adjusting this variable, users can enhance the concurrency of HTTP requests made by MLflow.
 MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int, 10)
 
-#: Enable Unity Catalog integration for MLflow AI Gateway.
+#: (Deprecated) Enable Unity Catalog integration for MLflow AI Gateway.
+#: This feature is deprecated and will be removed in a future release.
 #: (default: ``False``)
 MLFLOW_ENABLE_UC_FUNCTIONS = _BooleanEnvironmentVariable("MLFLOW_ENABLE_UC_FUNCTIONS", False)
 
@@ -899,6 +930,25 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", int, 1000
 )
 
+#: Maximum number of spans to export in a single batch. When set to larger than 1, MLflow will
+#: export spans in batches. This must be used together with `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`
+#: set to true (default).
+#: Note: Currently only Unity Catalog table exporter supports batching. Other exporters will export
+#: spans immediately.
+#: (default: ``1`` = no batching)
+MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE = _EnvironmentVariable(
+    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", int, 1
+)
+
+#: Maximum interval in milliseconds between two batches. When the interval is reached,
+#: MLflow will export the spans in the current batch regardless of the batch size.
+#: This interval only applies when the max batch size is set to larger than 1.
+#: Note: Currently only Unity Catalog table exporter supports batching. Other exporters will export
+#: spans immediately.
+#: (default: ``5000`` = 5 seconds)
+MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS = _EnvironmentVariable(
+    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", int, 5000
+)
 
 #: Timeout seconds for retrying trace logging.
 #: (default: ``500``)
@@ -1117,9 +1167,43 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", int, 60
 )
 
+#: Specifies the maximum number of workers for async judge invocation jobs.
+#: (default: ``10``)
+MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS", int, 10
+)
+
+#: Number of traces to batch into a single scorer invocation job.
+MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE = _EnvironmentVariable(
+    "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE", int, 100
+)
+
 
 #: Specifies the maximum number of completion iterations allowed when invoking
 #: judge models. This prevents infinite loops in case of complex traces or
 #: issues with the judge's reasoning.
 #: (default: ``30``)
 MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS", int, 30)
+
+
+#: Enable automatic run resumption for Serverless GPU Compute (SGC) jobs on Databricks.
+#: When enabled, MLflow will check for the SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID job
+#: parameter and automatically resume MLflow runs associated with that Databricks job run ID.
+#: (default: ``True``)
+_MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS", True
+)
+
+#: Serverless GPU Compute (SGC) job run ID for automatic run resumption on Databricks.
+#: This is used as a fallback when the dbutils widget parameter is not available.
+#: (default: ``None``)
+_SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID = _EnvironmentVariable(
+    "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", str, None
+)
+
+
+#: Whether to enable authorization for graphQL routes in MLflow server.
+#: (default: ``True``)
+MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH", True
+)

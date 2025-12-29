@@ -41,7 +41,6 @@ def test_format_single_trace_with_result_and_rationale():
 
 
 def test_format_multiple_traces_multiple_scorers():
-    """Test formatting multiple traces with multiple scorers."""
     output_data = [
         EvalResult(
             trace_id="tr-123",
@@ -79,7 +78,6 @@ def test_format_multiple_traces_multiple_scorers():
 
 
 def test_format_long_rationale_not_truncated():
-    """Test that long rationales are displayed in full."""
     long_rationale = "x" * 150
     output_data = [
         EvalResult(
@@ -101,7 +99,6 @@ def test_format_long_rationale_not_truncated():
 
 
 def test_format_error_message_formatting():
-    """Test that error messages are formatted correctly."""
     output_data = [
         EvalResult(
             trace_id="tr-123",
@@ -122,7 +119,6 @@ def test_format_error_message_formatting():
 
 
 def test_format_na_for_missing_results():
-    """Test that N/A is shown when no result, rationale, or error."""
     output_data = [
         EvalResult(
             trace_id="tr-123",
@@ -142,7 +138,6 @@ def test_format_na_for_missing_results():
 
 
 def test_format_result_only_without_rationale():
-    """Test formatting when only result is present without rationale."""
     output_data = [
         EvalResult(
             trace_id="tr-123",
@@ -162,7 +157,6 @@ def test_format_result_only_without_rationale():
 
 
 def test_format_rationale_only_without_result():
-    """Test formatting when only rationale is present without result."""
     output_data = [
         EvalResult(
             trace_id="tr-123",
@@ -182,7 +176,6 @@ def test_format_rationale_only_without_result():
 
 
 def test_format_with_different_assessment_names():
-    """Test that assessment names from output_data are used, not scorer names."""
     # This test demonstrates that assessment names (e.g., "relevance_to_query")
     # are used in headers, not scorer class names (e.g., "RelevanceToQuery")
     output_data = [
@@ -217,7 +210,6 @@ def test_format_with_different_assessment_names():
 
 
 def test_resolve_builtin_scorer():
-    """Test resolving a built-in scorer using real scorers."""
     # Test with real built-in scorer names
     scorers = resolve_scorers(["Correctness"], "experiment_123")
 
@@ -226,7 +218,6 @@ def test_resolve_builtin_scorer():
 
 
 def test_resolve_builtin_scorer_snake_case():
-    """Test resolving a built-in scorer using snake_case name."""
     # Test with snake_case name
     scorers = resolve_scorers(["correctness"], "experiment_123")
 
@@ -235,7 +226,6 @@ def test_resolve_builtin_scorer_snake_case():
 
 
 def test_resolve_registered_scorer():
-    """Test resolving a registered scorer when not found in built-ins."""
     mock_registered = mock.Mock()
 
     with (
@@ -256,7 +246,6 @@ def test_resolve_registered_scorer():
 
 
 def test_resolve_mixed_scorers():
-    """Test resolving a mix of built-in and registered scorers."""
     # Setup built-in scorer
     mock_builtin = mock.Mock()
     mock_builtin.__class__.__name__ = "Safety"
@@ -284,7 +273,6 @@ def test_resolve_mixed_scorers():
 
 
 def test_resolve_scorer_not_found_raises_error():
-    """Test that appropriate error is raised when scorer not found."""
     with (
         mock.patch(
             "mlflow.cli.genai_eval_utils.get_all_scorers", return_value=[]
@@ -305,7 +293,6 @@ def test_resolve_scorer_not_found_raises_error():
 
 
 def test_resolve_empty_scorers_raises_error():
-    """Test that error is raised when no scorers specified."""
     with pytest.raises(click.UsageError, match="No valid scorers"):
         resolve_scorers([], "experiment_123")
 
@@ -314,7 +301,6 @@ def test_resolve_empty_scorers_raises_error():
 
 
 def test_extract_with_matching_run_id():
-    """Test extracting assessments that match the evaluation run_id."""
     results_df = pd.DataFrame(
         [
             {
@@ -349,7 +335,6 @@ def test_extract_with_matching_run_id():
 
 
 def test_extract_with_different_assessment_name():
-    """Test that assessment name is preserved as-is from results."""
     results_df = pd.DataFrame(
         [
             {
@@ -424,7 +409,6 @@ def test_extract_filter_out_assessments_with_different_run_id():
 
 
 def test_extract_no_assessments_for_run_id():
-    """Test handling when no assessments match the run_id."""
     results_df = pd.DataFrame(
         [
             {
@@ -449,7 +433,6 @@ def test_extract_no_assessments_for_run_id():
 
 
 def test_extract_multiple_assessments_from_same_run():
-    """Test extracting multiple assessments from the same evaluation run."""
     results_df = pd.DataFrame(
         [
             {
@@ -495,7 +478,6 @@ def test_extract_multiple_assessments_from_same_run():
 
 
 def test_extract_no_assessments_on_trace_shows_error():
-    """Test that error is shown when trace has no assessments at all."""
     results_df = pd.DataFrame([{"trace_id": "tr-abc123", "assessments": []}])
 
     result = extract_assessments_from_results(results_df, "run-123")

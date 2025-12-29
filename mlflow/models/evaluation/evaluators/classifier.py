@@ -93,7 +93,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
         )
 
     def _generate_model_predictions(self, model, input_df):
-        predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+        predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
         # Classifier model is guaranteed to output single column of predictions
         y_pred = self.dataset.predictions_data if model is None else predict_fn(input_df)
 
@@ -387,7 +387,7 @@ def _infer_model_type_by_labels(labels):
         return None  # Unknown
 
 
-def _extract_predict_fn_and_prodict_proba_fn(model):
+def _extract_predict_fn_and_predict_proba_fn(model):
     predict_fn = None
     predict_proba_fn = None
 

@@ -31,9 +31,7 @@ class RunData:
         self.received_tags = []
         self.received_params = []
         self.batch_count = 0
-        self.throw_exception_on_batch_number = (
-            throw_exception_on_batch_number if throw_exception_on_batch_number else []
-        )
+        self.throw_exception_on_batch_number = throw_exception_on_batch_number or []
 
     def consume_queue_data(self, run_id, metrics, tags, params):
         self.batch_count += 1
@@ -261,16 +259,15 @@ def test_async_logging_queue_pickle():
         # activate the queue and then try to pickle it
         async_logging_queue.activate()
 
-        run_operations = []
-        for val in range(0, 10):
-            run_operations.append(
-                async_logging_queue.log_batch_async(
-                    run_id=run_id,
-                    metrics=[Metric("metric", val, timestamp=time.time(), step=1)],
-                    tags=[],
-                    params=[],
-                )
+        run_operations = [
+            async_logging_queue.log_batch_async(
+                run_id=run_id,
+                metrics=[Metric("metric", val, timestamp=time.time(), step=1)],
+                tags=[],
+                params=[],
             )
+            for val in range(0, 10)
+        ]
 
         # Pickle the queue
         buffer = io.BytesIO()

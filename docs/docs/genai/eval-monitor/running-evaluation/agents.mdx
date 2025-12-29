@@ -1,8 +1,5 @@
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
 import { APILink } from "@site/src/components/APILink";
 import ImageBox from '@site/src/components/ImageBox';
-import TabsWrapper from '@site/src/components/TabsWrapper';
 import WorkflowSteps from '@site/src/components/WorkflowSteps';
 import TilesGrid from '@site/src/components/TilesGrid';
 import TileCard from '@site/src/components/TileCard';
@@ -117,82 +114,100 @@ def predict_fn(question: str) -> str:
     return Runner.run_sync(agent, question).final_output
 ```
 
+:::tip
+
+**Async Functions are Supported!**
+
+If your agent library provides an async API, you can use it directly without converting to sync. MLflow automatically detects and handles async functions:
+
+```python
+async def predict_fn(question: str) -> str:
+    result = await Runner.run(agent, question)
+    return result.final_output
+
+
+mlflow.genai.evaluate(
+    data=eval_dataset, predict_fn=predict_fn, scorers=[exact_match, uses_correct_tools]
+)
+```
+
+By default, async functions have a 5-minute timeout. Configure this using the `MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT` environment variable:
+
+```bash
+export MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT=600  # 10 minutes
+```
+
+:::
+
 ### Step 2: Create evaluation dataset
 
-Design test cases as a list of dictionaries, each with an `inputs`, `expectations`, and an optional `tags` field. We would like to evaluate the correctness of the output, but also the tool calls used by the agent.
+Design test cases as a list of dictionaries, each with an `inputs`, `expectations`, and an optional `tags` field.
 
 ```python
 eval_dataset = [
     {
         "inputs": {"task": "What is 15% of 240?"},
-        "expectations": {"answer": 36, "tool_calls": ["multiply"]},
+        "expectations": {"answer": 36},
         "tags": {"topic": "math"},
     },
     {
         "inputs": {
             "task": "I have 8 cookies and 3 friends. How many more cookies should I buy to share equally?"
         },
-        "expectations": {"answer": 1, "tool_calls": ["modular", "add"]},
+        "expectations": {"answer": 1},
         "tags": {"topic": "math"},
     },
     {
         "inputs": {
             "task": "I bought 2 shares of stock at $100 each. It's now worth $150. How much profit did I make?"
         },
-        "expectations": {"answer": 100, "tool_calls": ["add", "multiply"]},
+        "expectations": {"answer": 100},
         "tags": {"topic": "math"},
     },
 ]
 ```
 
-### Step 3: Define agent-specific scorers
+### Step 3: Define scorers
 
-Create scorers that evaluate agent-specific behaviors.
-
-:::tip
-
-MLflow's scorer can take the **Trace** from the agent execution. Trace is a powerful way to evaluate the agent's behavior precisely, not only the final output. For example, here we use the <APILink fn="mlflow.entities.Trace.search_spans">`Trace.search_spans`</APILink> method to extract the order of tool calls and compare it with the expected tool calls.
-
-For more details, see the <ins>[Evaluate Traces](/genai/eval-monitor/running-evaluation/traces)</ins> guide.
-
-:::
+We'll define a custom scorer to evaluate the correctness of the final output.
 
 ```python
-from mlflow.entities import Feedback, SpanType, Trace
 from mlflow.genai import scorer
 
 
 @scorer
 def exact_match(outputs, expectations) -> bool:
     return int(outputs) == expectations["answer"]
-
-
-@scorer
-def uses_correct_tools(trace: Trace, expectations: dict) -> Feedback:
-    """Evaluate if agent used tools appropriately"""
-    expected_tools = expectations["tool_calls"]
-
-    # Parse the trace to get the actual tool calls
-    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
-    tool_names = [span.name for span in tool_spans]
-
-    score = "yes" if tool_names == expected_tools else "no"
-    rationale = (
-        "The agent used the correct tools."
-        if tool_names == expected_tools
-        else f"The agent used the incorrect tools: {tool_names}"
-    )
-    # Return a Feedback object with the score and rationale
-    return Feedback(value=score, rationale=rationale)
 ```
+
+:::tip
+
+MLflow provides built-in scorers for evaluating agent tool usage:
+
+- <APILink fn="mlflow.genai.scorers.ToolCallCorrectness">ToolCallCorrectness</APILink>: Evaluates if tool calls and arguments are correct for the user query
+- <APILink fn="mlflow.genai.scorers.ToolCallEfficiency">ToolCallEfficiency</APILink>: Evaluates if tool calls are efficient without redundancy
+
+These scorers automatically analyze traces to assess tool usage patterns. See the <ins>[Predefined Scorers](/genai/eval-monitor/scorers/llm-judge/predefined)</ins> guide for more details.
+
+For custom evaluation patterns, you can create your own scorers that parse traces. See the <ins>[Custom Scorers](/genai/eval-monitor/scorers/custom)</ins> guide.
+
+:::
 
 ### Step 4: Run the evaluation
 
 Now we are ready to run the evaluation!
 
 ```python
+from mlflow.genai.scorers import ToolCallCorrectness, ToolCallEfficiency
+
 results = mlflow.genai.evaluate(
-    data=eval_dataset, predict_fn=predict_fn, scorers=[exact_match, uses_correct_tools]
+    data=eval_dataset,
+    predict_fn=predict_fn,
+    scorers=[
+        exact_match,
+        ToolCallCorrectness(),
+        ToolCallEfficiency(),
+    ],
 )
 ```
 

@@ -208,8 +208,7 @@ class CohereAdapter(ProviderAdapter):
 
         # remaining messages are chat history
         # we want to include only user and assistant messages
-        messages = [m for m in messages if m["role"] in ("user", "assistant")]
-        if messages:
+        if messages := [m for m in messages if m["role"] in ("user", "assistant")]:
             payload["chat_history"] = [
                 {
                     "role": "USER" if m["role"] == "user" else "CHATBOT",

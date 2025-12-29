@@ -58,7 +58,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _get_aggregate_metrics_values,
 )
 from mlflow.models.evaluation.evaluators.classifier import (
-    _extract_predict_fn_and_prodict_proba_fn,
+    _extract_predict_fn_and_predict_proba_fn,
     _gen_classifier_curve,
     _get_binary_classifier_metrics,
     _get_binary_sum_up_label_pred_prob,
@@ -247,7 +247,7 @@ def test_multi_classifier_evaluation(
 
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
-    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
     y = iris_dataset.labels_data
     y_pred = predict_fn(iris_dataset.features_data)
     y_probs = predict_proba_fn(iris_dataset.features_data)
@@ -306,7 +306,7 @@ def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
 
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
-    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
     y = iris_dataset.labels_data
     y_pred = predict_fn(iris_dataset.features_data)
     y_probs = predict_proba_fn(iris_dataset.features_data)
@@ -340,7 +340,7 @@ def test_bin_classifier_evaluation(
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
-    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
@@ -403,7 +403,7 @@ def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
     _, raw_model = _extract_raw_model(model)
-    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
@@ -522,7 +522,7 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
 
     model = mlflow.pyfunc.load_model(svm_model_uri)
 
-    predict_fn, _ = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, _ = _extract_predict_fn_and_predict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
@@ -604,7 +604,7 @@ def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
     model = mlflow.pyfunc.load_model(svm_model_uri)
 
     _, raw_model = _extract_raw_model(model)
-    predict_fn, _ = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, _ = _extract_predict_fn_and_predict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
@@ -707,7 +707,7 @@ def test_extract_raw_model_and_predict_fn(
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
     model_loader_module, raw_model = _extract_raw_model(model)
-    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
 
     assert model_loader_module == "mlflow.sklearn"
     assert isinstance(raw_model, LogisticRegression)
@@ -1961,7 +1961,8 @@ def test_custom_artifacts():
             evaluator_config={"log_model_explainability": False},  # For faster evaluation
         )
         custom_artifact = result.artifacts["custom_artifact"]
-        assert json.loads(Path(custom_artifact.uri).read_text()) == {"k": "v"}
+        path = custom_artifact.uri.removeprefix("file://")
+        assert json.loads(Path(path).read_text()) == {"k": "v"}
 
 
 def test_make_metric_name_inference():
@@ -2747,9 +2748,7 @@ def test_evaluate_no_model_type_with_custom_metric():
         from mlflow.metrics.base import standard_aggregations
 
         def word_count_eval(predictions, targets=None, metrics=None):
-            scores = []
-            for prediction in predictions:
-                scores.append(len(prediction.split(" ")))
+            scores = [len(prediction.split(" ")) for prediction in predictions]
             return MetricValue(
                 scores=scores,
                 aggregate_results=standard_aggregations(scores),
@@ -4374,7 +4373,6 @@ def test_regressor_returning_pandas_object(model_output, predictions):
 def test_classifier_evaluation_scenarios(
     data, evaluator_config, expected_metrics, expected_artifacts, description
 ):
-    """Test various classifier evaluation scenarios with different data types and configurations."""
     result = mlflow.evaluate(
         data=data,
         targets="target",
@@ -4525,7 +4523,6 @@ def test_classifier_evaluation_error_conditions(
 def test_label_validation_and_classification_type(
     data, evaluator_config, expected_binary_metrics, expected_classes, description
 ):
-    """Test label validation and binary vs multiclass classification detection."""
     result = mlflow.evaluate(
         data=data,
         targets="target",

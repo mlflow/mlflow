@@ -2,6 +2,7 @@ import React from 'react';
 import { ExperimentKind } from '../../../constants';
 import { ExperimentPageTabName } from '../../../constants';
 import {
+  ChartLineIcon,
   DatabaseIcon,
   ForkHorizontalIcon,
   GavelIcon,
@@ -13,12 +14,13 @@ import {
   UserGroupIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { shouldEnableChatSessionsTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { enableScorersUI, shouldEnableExperimentOverviewTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 export const FULL_WIDTH_CLASS_NAME = 'mlflow-experiment-page-side-nav-full';
 export const COLLAPSED_CLASS_NAME = 'mlflow-experiment-page-side-nav-collapsed';
 
 export type ExperimentPageSideNavItem = {
+  componentId: string;
   label: React.ReactNode;
   icon: React.ReactNode;
   tabName: ExperimentPageTabName;
@@ -41,6 +43,7 @@ const ExperimentPageSideNavGenAIConfig = {
       ),
       icon: <ForkHorizontalIcon />,
       tabName: ExperimentPageTabName.Traces,
+      componentId: 'mlflow.experiment-side-nav.genai.traces',
     },
   ],
   evaluation: [
@@ -53,6 +56,7 @@ const ExperimentPageSideNavGenAIConfig = {
       ),
       icon: <DatabaseIcon />,
       tabName: ExperimentPageTabName.Datasets,
+      componentId: 'mlflow.experiment-side-nav.genai.datasets',
     },
     {
       label: (
@@ -63,9 +67,21 @@ const ExperimentPageSideNavGenAIConfig = {
       ),
       icon: <PlusMinusSquareIcon />,
       tabName: ExperimentPageTabName.EvaluationRuns,
+      componentId: 'mlflow.experiment-side-nav.genai.evaluation-runs',
     },
   ],
   'prompts-versions': [
+    {
+      label: (
+        <FormattedMessage
+          defaultMessage="Prompts"
+          description="Label for the prompts tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <TextBoxIcon />,
+      tabName: ExperimentPageTabName.Prompts,
+      componentId: 'mlflow.experiment-side-nav.genai.prompts',
+    },
     {
       label: (
         <FormattedMessage
@@ -75,6 +91,7 @@ const ExperimentPageSideNavGenAIConfig = {
       ),
       icon: <ModelsIcon />,
       tabName: ExperimentPageTabName.Models,
+      componentId: 'mlflow.experiment-side-nav.genai.agent-versions',
     },
   ],
 };
@@ -87,6 +104,7 @@ const ExperimentPageSideNavCustomModelConfig = {
       ),
       icon: <ListIcon />,
       tabName: ExperimentPageTabName.Runs,
+      componentId: 'mlflow.experiment-side-nav.classic-ml.runs',
     },
     {
       label: (
@@ -97,6 +115,7 @@ const ExperimentPageSideNavCustomModelConfig = {
       ),
       icon: <ModelsIcon />,
       tabName: ExperimentPageTabName.Models,
+      componentId: 'mlflow.experiment-side-nav.classic-ml.models',
     },
     {
       label: (
@@ -107,6 +126,7 @@ const ExperimentPageSideNavCustomModelConfig = {
       ),
       icon: <ForkHorizontalIcon />,
       tabName: ExperimentPageTabName.Traces,
+      componentId: 'mlflow.experiment-side-nav.classic-ml.traces',
     },
   ],
 };
@@ -132,7 +152,7 @@ export const getExperimentPageSideNavSectionLabel = (
     case 'prompts-versions':
       return (
         <FormattedMessage
-          defaultMessage="Versions"
+          defaultMessage="Prompts & versions"
           description="Label for the versions section in the MLflow experiment navbar"
         />
       );
@@ -153,11 +173,25 @@ export const useExperimentPageSideNavConfig = ({
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT ||
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED
   ) {
-    const baseConfig = {
-      ...(hasTrainingRuns
-        ? {
-            // append training runs to top-level if they exist
-            'top-level': [
+    return {
+      'top-level': [
+        ...(shouldEnableExperimentOverviewTab()
+          ? [
+              {
+                label: (
+                  <FormattedMessage
+                    defaultMessage="Overview"
+                    description="Label for the overview tab in the MLflow experiment navbar"
+                  />
+                ),
+                icon: <ChartLineIcon />,
+                tabName: ExperimentPageTabName.Overview,
+                componentId: 'mlflow.experiment-side-nav.genai.overview',
+              },
+            ]
+          : []),
+        ...(hasTrainingRuns
+          ? [
               {
                 label: (
                   <FormattedMessage
@@ -167,18 +201,14 @@ export const useExperimentPageSideNavConfig = ({
                 ),
                 icon: <ListIcon />,
                 tabName: ExperimentPageTabName.Runs,
+                componentId: 'mlflow.experiment-side-nav.genai.training-runs',
               },
-            ],
-          }
-        : {
-            'top-level': [],
-          }),
+            ]
+          : []),
+      ],
       ...ExperimentPageSideNavGenAIConfig,
-    };
-
-    if (shouldEnableChatSessionsTab()) {
-      baseConfig.observability = [
-        ...baseConfig.observability,
+      observability: [
+        ...ExperimentPageSideNavGenAIConfig.observability,
         {
           label: (
             <FormattedMessage
@@ -188,11 +218,26 @@ export const useExperimentPageSideNavConfig = ({
           ),
           icon: <SpeechBubbleIcon />,
           tabName: ExperimentPageTabName.ChatSessions,
+          componentId: 'mlflow.experiment-side-nav.genai.chat-sessions',
         },
-      ];
-    }
-
-    return baseConfig;
+      ],
+      evaluation: enableScorersUI()
+        ? [
+            ...ExperimentPageSideNavGenAIConfig.evaluation,
+            {
+              label: (
+                <FormattedMessage
+                  defaultMessage="Judges"
+                  description="Label for the judges tab in the MLflow experiment navbar"
+                />
+              ),
+              icon: <GavelIcon />,
+              tabName: ExperimentPageTabName.Judges,
+              componentId: 'mlflow.experiment-side-nav.genai.judges',
+            },
+          ]
+        : ExperimentPageSideNavGenAIConfig.evaluation,
+    };
   }
 
   return ExperimentPageSideNavCustomModelConfig;

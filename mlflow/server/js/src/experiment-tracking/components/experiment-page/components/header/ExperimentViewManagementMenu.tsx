@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Typography } from '@databricks/design-system';
+import React, { lazy, useCallback, useMemo, useState } from 'react';
+import { Spinner, Typography } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { OverflowMenu } from '../../../../../shared/building_blocks/PageHeader';
 import type { ExperimentEntity } from '../../../../types';
@@ -56,7 +56,7 @@ export const ExperimentViewManagementMenu = ({
                       />
                     </Typography.Text>
                   ),
-                  onClick: () => setEditing(true),
+                  onClick: () => setEditing?.(true),
                 },
               ]
             : []),

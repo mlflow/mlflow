@@ -164,4 +164,4 @@ def parse_partial_token_usage_from_response(usage_data: dict[str, Any]) -> dict[
         token_usage_data[TokenUsageKey.TOTAL_TOKENS] = total_tokens
 
     # If no token usage data was found, return None. Otherwise, return the partial dictionary.
-    return token_usage_data if token_usage_data else None
+    return token_usage_data or None

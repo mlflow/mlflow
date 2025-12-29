@@ -1,5 +1,6 @@
+import { SparkleIcon, UserIcon, CodeIcon } from '@databricks/design-system';
+
 import type { Assessment } from '../ModelTrace.types';
-import { useDesignSystemTheme, Typography, SparkleIcon, UserIcon, CodeIcon } from '@databricks/design-system';
 
 export const getAssessmentValue = (assessment: Assessment) => {
   if ('feedback' in assessment && assessment.feedback) {

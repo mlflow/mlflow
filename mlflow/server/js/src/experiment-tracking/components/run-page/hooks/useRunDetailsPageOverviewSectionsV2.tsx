@@ -133,7 +133,7 @@ export const useRunDetailsPageOverviewSectionsV2 = ({
           value={<RunViewParentRunBox parentRunUuid={parentRunIdTag.value} />}
         />
       )}
-      <RunViewChildRunsBox runUuid={runUuid} experimentId={runInfo.experimentId!} />
+      <RunViewChildRunsBox runUuid={runUuid} experimentId={runInfo.experimentId ?? ''} />
       <KeyValueProperty
         keyValue={intl.formatMessage({
           defaultMessage: 'Source',

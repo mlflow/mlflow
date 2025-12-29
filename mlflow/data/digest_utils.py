@@ -67,8 +67,7 @@ def compute_numpy_digest(features, targets=None) -> str:
             hashable_elements.append(np.int64(trimmed_array.size))
 
         # hash full array dimensions
-        for x in array.shape:
-            hashable_elements.append(np.int64(x))
+        hashable_elements.extend(np.int64(x) for x in array.shape)
 
     def hash_dict_of_arrays(array_dict):
         for key in sorted(array_dict.keys()):

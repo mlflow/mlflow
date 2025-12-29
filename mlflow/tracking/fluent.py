@@ -34,6 +34,7 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
+    _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS,
     MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
@@ -53,7 +54,6 @@ from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
@@ -64,12 +64,14 @@ from mlflow.utils.autologging_utils import (
     is_testing,
 )
 from mlflow.utils.databricks_utils import (
+    get_sgc_job_run_id,
     is_in_databricks_model_serving_environment,
     is_in_databricks_runtime,
 )
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX,
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
@@ -262,6 +264,59 @@ class ActiveRun(Run):
         return exc_type is None
 
 
+def _get_sgc_job_run_id_tag_key() -> str | None:
+    """
+    Get the SGC job run ID tag key for run resumption if enabled and available.
+
+    Returns:
+        str or None: The experiment tag key for SGC resumption, or None if not applicable.
+    """
+    if not _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS.get():
+        return None
+
+    if sgc_job_run_id := get_sgc_job_run_id():
+        return f"{MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX}.{sgc_job_run_id}"
+
+    return None
+
+
+def _get_sgc_mlflow_run_id_for_resumption(
+    client, experiment_id: str | None, sgc_job_run_id_tag_key: str | None
+) -> str | None:
+    """
+    Retrieves the MLflow run ID associated with a specific SGC job run ID tag key
+    for potential run resumption.
+
+    This function searches the experiment (specified by `experiment_id`, or the
+    default if None) for an experiment tag named `sgc_job_run_id_tag_key`. If the
+    tag exists, its value (the run ID to resume) is returned; otherwise, returns None.
+
+    Args:
+        client: MlflowClient instance used to query experiment information.
+        experiment_id: The experiment ID to search, or None to use the default.
+        sgc_job_run_id_tag_key: The experiment tag key that maps the SGC job run ID
+            to an MLflow run ID.
+
+    Returns:
+        str or None: The MLflow run ID to resume, if found; otherwise None.
+    """
+    search_exp_id = experiment_id or _get_experiment_id()
+
+    try:
+        exp = client.get_experiment(search_exp_id)
+        # Check if experiment has the tag for resumption
+        if prev_mlflow_run_id := exp.tags.get(sgc_job_run_id_tag_key):
+            _logger.info(
+                f"Resuming MLflow run: {prev_mlflow_run_id} "
+                f"using SGC tag key: {sgc_job_run_id_tag_key}"
+            )
+            return prev_mlflow_run_id
+    except Exception as e:
+        _logger.debug(f"Failed to retrieve SGC run ID: {e}", exc_info=True)
+
+    return None
+
+
 def start_run(
     run_id: str | None = None,
     experiment_id: str | None = None,
@@ -388,11 +443,17 @@ def start_run(
             ).format(active_run_stack[0].info.run_id)
         )
     client = MlflowClient()
+    sgc_job_run_id_tag_key: str | None = None
     if run_id:
         existing_run_id = run_id
     elif run_id := MLFLOW_RUN_ID.get():
         existing_run_id = run_id
         del os.environ[MLFLOW_RUN_ID.name]
+    # Get SGC job run ID tag key for run resumption if applicable
+    elif sgc_job_run_id_tag_key := _get_sgc_job_run_id_tag_key():
+        existing_run_id = _get_sgc_mlflow_run_id_for_resumption(
+            client, experiment_id, sgc_job_run_id_tag_key
+        )
     else:
         existing_run_id = None
     if existing_run_id:
@@ -404,7 +465,7 @@ def start_run(
             and _active_experiment_id != active_run_obj.info.experiment_id
         ):
             raise MlflowException(
-                f"Cannot start run with ID {existing_run_id} because active run ID "
+                f"Cannot start run with ID {existing_run_id} because active experiment ID "
                 "does not match environment run ID. Make sure --experiment-name "
                 "or --experiment-id matches experiment set with "
                 "set_experiment(), or just use command-line arguments"
@@ -480,6 +541,22 @@ def start_run(
             tags=resolved_tags,
             run_name=run_name,
         )
+
+        # If SGC run resumption is enabled, set the experiment tag mapping
+        # SGC job_run_id to this run_id for future run resumption
+        if sgc_job_run_id_tag_key:
+            try:
+                client.set_experiment_tag(
+                    exp_id_for_run, sgc_job_run_id_tag_key, active_run_obj.info.run_id
+                )
+                _logger.info(
+                    f"Set experiment tag {sgc_job_run_id_tag_key} = {active_run_obj.info.run_id} "
+                    f"for SGC run resumption"
+                )
+            except Exception as e:
+                _logger.debug(
+                    f"Failed to set experiment tag for SGC resumption: {e}", exc_info=True
+                )
 
     if log_system_metrics is None:
         # If `log_system_metrics` is not specified, we will check environment variable.
@@ -792,8 +869,7 @@ def _shut_down_async_logging() -> None:
 def flush_artifact_async_logging() -> None:
     """Flush all pending artifact async logging."""
     run_id = _get_or_start_run().info.run_id
-    _artifact_repo = _get_artifact_repo(run_id)
-    if _artifact_repo:
+    if _artifact_repo := _get_artifact_repo(run_id):
         _artifact_repo.flush_async_logging()
 
 
@@ -2149,7 +2225,6 @@ def delete_experiment(experiment_id: str) -> None:
     MlflowClient().delete_experiment(experiment_id)
 
 
-@experimental(version="3.0.0")
 def initialize_logged_model(
     name: str | None = None,
     source_run_id: str | None = None,
@@ -2338,7 +2413,6 @@ def _create_logged_model(
     )
 
 
-@experimental(version="3.0.0")
 def log_model_params(params: dict[str, str], model_id: str | None = None) -> None:
     """
     Log params to the specified logged model.
@@ -2370,7 +2444,6 @@ def log_model_params(params: dict[str, str], model_id: str | None = None) -> Non
     MlflowClient().log_model_params(model_id, params)
 
 
-@experimental(version="3.0.0")
 def finalize_logged_model(
     model_id: str, status: Literal["READY", "FAILED"] | LoggedModelStatus
 ) -> LoggedModel:
@@ -2403,7 +2476,6 @@ def finalize_logged_model(
     return MlflowClient().finalize_logged_model(model_id, status)
 
 
-@experimental(version="3.0.0")
 def get_logged_model(model_id: str) -> LoggedModel:
     """
     Get a logged model by ID.
@@ -2435,7 +2507,6 @@ def get_logged_model(model_id: str) -> LoggedModel:
     return MlflowClient().get_logged_model(model_id)
 
 
-@experimental(version="3.0.0")
 def last_logged_model() -> LoggedModel | None:
     """
     Fetches the most recent logged model in the current session.
@@ -2487,7 +2558,6 @@ def search_logged_models(
 ) -> list[LoggedModel]: ...
 
 
-@experimental(version="3.0.0")
 def search_logged_models(
     experiment_ids: list[str] | None = None,
     filter_string: str | None = None,
@@ -2631,7 +2701,6 @@ def search_logged_models(
         )
 
 
-@experimental(version="3.0.0")
 def log_outputs(models: list[LoggedModelOutput] | None = None):
     """
     Log outputs, such as models, to the active run. If there is no active run, a new run will be
@@ -2916,8 +2985,7 @@ def search_runs(
         experiments = []
         for n in experiment_names:
             if n is not None:
-                experiment_by_name = get_experiment_by_name(n)
-                if experiment_by_name:
+                if experiment_by_name := get_experiment_by_name(n):
                     experiments.append(experiment_by_name)
                 else:
                     _logger.warning("Cannot retrieve experiment by name %s", n)
@@ -3035,8 +3103,7 @@ def _get_experiment_id_from_env():
     experiment_name = MLFLOW_EXPERIMENT_NAME.get()
     experiment_id = MLFLOW_EXPERIMENT_ID.get()
     if experiment_name is not None:
-        exp = MlflowClient().get_experiment_by_name(experiment_name)
-        if exp:
+        if exp := MlflowClient().get_experiment_by_name(experiment_name):
             if experiment_id and experiment_id != exp.experiment_id:
                 raise MlflowException(
                     message=f"The provided {MLFLOW_EXPERIMENT_ID} environment variable "

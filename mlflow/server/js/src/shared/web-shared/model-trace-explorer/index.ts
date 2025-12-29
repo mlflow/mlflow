@@ -17,6 +17,8 @@ export {
   tryDeserializeAttribute,
   parseTraceUri,
   getTotalTokens,
+  displayErrorNotification,
+  displaySuccessNotification,
 } from './ModelTraceExplorer.utils';
 export {
   SESSION_ID_METADATA_KEY,
@@ -25,9 +27,10 @@ export {
   TOKEN_USAGE_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
 } from './constants';
-export { shouldEnableTracesTabLabelingSchemas } from './FeatureUtils';
+export { shouldEnableTracesTabLabelingSchemas, shouldEnableAssessmentsInSessions } from './FeatureUtils';
 export { AssessmentSchemaContextProvider, type AssessmentSchema } from './contexts/AssessmentSchemaContext';
 export * from './ModelTrace.types';
+export * from './TraceMetrics.types';
 export * from './oss-notebook-renderer/mlflow-fetch-utils';
 
 export { getAssessmentValue } from './assessments-pane/utils';
@@ -36,3 +39,5 @@ export { shouldUseTracesV4API } from './FeatureUtils';
 export { useUnifiedTraceTagsModal } from './hooks/useUnifiedTraceTagsModal';
 export { ModelTraceExplorerUpdateTraceContextProvider } from './contexts/UpdateTraceContext';
 export { SingleChatTurnMessages } from './session-view/SingleChatTurnMessages';
+export { ModelTraceExplorerChatMessage } from './right-pane/ModelTraceExplorerChatMessage';
+export { SingleChatTurnAssessments } from './session-view/SingleChatTurnAssessments';

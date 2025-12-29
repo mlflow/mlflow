@@ -11,6 +11,10 @@ from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 
 _logger = logging.getLogger(__name__)
 
+GATEWAY_PROVIDER = "gateway"
+INSTRUCTIONS_JUDGE_PYDANTIC_DATA = "instructions_judge_pydantic_data"
+BUILTIN_SCORER_PYDANTIC_DATA = "builtin_scorer_pydantic_data"
+
 
 # FunctionBodyExtractor class is forked from https://github.com/unitycatalog/unitycatalog/blob/20dd3820be332ac04deec4e063099fb863eb3392/ai/core/src/unitycatalog/ai/core/utils/callable_utils.py
 class FunctionBodyExtractor(ast.NodeVisitor):
@@ -52,8 +56,7 @@ class FunctionBodyExtractor(ast.NodeVisitor):
 
         self.function_body = dedent("".join(function_body_lines)).rstrip("\n")
 
-        indents = [stmt.col_offset for stmt in body if stmt.col_offset is not None]
-        if indents:
+        if indents := [stmt.col_offset for stmt in body if stmt.col_offset is not None]:
             self.indent_unit = min(indents)
 
 
@@ -144,3 +147,45 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
 
     # Return the recreated function
     return local_namespace[func_name]
+
+
+def is_gateway_model(model: str | None) -> bool:
+    if model is None:
+        return False
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    try:
+        provider, _ = _parse_model_uri(model)
+        return provider == GATEWAY_PROVIDER
+    except MlflowException:
+        return False
+
+
+def extract_endpoint_ref(model: str) -> str:
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    _, endpoint_ref = _parse_model_uri(model)
+    return endpoint_ref
+
+
+def build_gateway_model(endpoint_ref: str) -> str:
+    return f"{GATEWAY_PROVIDER}:/{endpoint_ref}"
+
+
+def extract_model_from_serialized_scorer(serialized_data: dict[str, Any]) -> str | None:
+    if ij_data := serialized_data.get(INSTRUCTIONS_JUDGE_PYDANTIC_DATA):
+        return ij_data.get("model")
+    if bs_data := serialized_data.get(BUILTIN_SCORER_PYDANTIC_DATA):
+        return bs_data.get("model")
+    return None
+
+
+def update_model_in_serialized_scorer(
+    serialized_data: dict[str, Any], new_model: str | None
+) -> dict[str, Any]:
+    result = serialized_data.copy()
+    if ij_data := result.get(INSTRUCTIONS_JUDGE_PYDANTIC_DATA):
+        result[INSTRUCTIONS_JUDGE_PYDANTIC_DATA] = {**ij_data, "model": new_model}
+    elif bs_data := result.get(BUILTIN_SCORER_PYDANTIC_DATA):
+        result[BUILTIN_SCORER_PYDANTIC_DATA] = {**bs_data, "model": new_model}
+    return result

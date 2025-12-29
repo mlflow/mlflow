@@ -31,7 +31,3 @@ export const getEvalTabTotalTracesLimit = () => {
 export const shouldUseTracesV4API = () => {
   return false;
 };
-
-export const shouldEnableChatSessionsTab = () => {
-  return false;
-};

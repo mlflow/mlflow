@@ -121,14 +121,14 @@ export const ChatMessageCreator = ({ name }: { name: string }) => {
             />
           </Fragment>
           <RHFControlledComponents.TextArea
-            componentId={`mlflow.prompts.chat_creator.content_${index}`}
+            componentId="mlflow.prompts.chat_creator.content"
             name={`${name}.${index}.content`}
             control={control}
             autoSize={{ minRows: 1, maxRows: 6 }}
             css={{ width: '100%' }}
           />
           <Button
-            componentId={`mlflow.prompts.chat_creator.add_after_${index}`}
+            componentId="mlflow.prompts.chat_creator.add_after"
             type="tertiary"
             icon={<PlusIcon />}
             aria-label={formatMessage({
@@ -138,7 +138,7 @@ export const ChatMessageCreator = ({ name }: { name: string }) => {
             onClick={() => addMessageAfter(index)}
           />
           <Button
-            componentId={`mlflow.prompts.chat_creator.remove_${index}`}
+            componentId="mlflow.prompts.chat_creator.remove"
             type="tertiary"
             icon={<TrashIcon />}
             aria-label={formatMessage({

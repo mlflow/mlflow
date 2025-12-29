@@ -23,13 +23,28 @@ class GepaPromptOptimizer(BasePromptOptimizer):
 
     Args:
         reflection_model: Name of the model to use for reflection and optimization.
-            Format: "<provider>/<model>" or "<provider>:/<model>"
-            (e.g., "openai/gpt-4", "openai:/gpt-4o", "anthropic/claude-3-5-sonnet-20241022").
+            Format: "<provider>:/<model>"
+            (e.g., "openai:/gpt-4o", "anthropic:/claude-3-5-sonnet-20241022").
         max_metric_calls: Maximum number of evaluation calls during optimization.
             Higher values may lead to better results but increase optimization time.
             Default: 100
         display_progress_bar: Whether to show a progress bar during optimization.
             Default: False
+        gepa_kwargs: Additional keyword arguments to pass directly to
+            gepa.optimize <https://github.com/gepa-ai/gepa/blob/main/src/gepa/api.py>.
+            Useful for accessing advanced GEPA features not directly exposed
+            through MLflow's GEPA interface.
+
+            Note: Parameters already handled by MLflow's GEPA class will be overridden by the direct
+            parameters and should not be passed through gepa_kwargs. List of predefined params:
+
+            - max_metric_calls
+            - display_progress_bar
+            - seed_candidate
+            - trainset
+            - adapter
+            - reflection_lm
+            - use_mlflow
 
     Example:
 
@@ -76,10 +91,12 @@ class GepaPromptOptimizer(BasePromptOptimizer):
         reflection_model: str,
         max_metric_calls: int = 100,
         display_progress_bar: bool = False,
+        gepa_kwargs: dict[str, Any] | None = None,
     ):
         self.reflection_model = reflection_model
         self.max_metric_calls = max_metric_calls
         self.display_progress_bar = display_progress_bar
+        self.gepa_kwargs = gepa_kwargs or {}
 
     def optimize(
         self,
@@ -206,7 +223,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
 
         adapter = MlflowGEPAAdapter(eval_fn, target_prompts)
 
-        kwargs = {
+        kwargs = self.gepa_kwargs | {
             "seed_candidate": target_prompts,
             "trainset": train_data,
             "adapter": adapter,

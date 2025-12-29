@@ -13,6 +13,7 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -27,7 +28,6 @@ from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
@@ -85,6 +85,7 @@ def pytest_addoption(parser):
 def pytest_configure(config: pytest.Config):
     config.addinivalue_line("markers", "requires_ssh")
     config.addinivalue_line("markers", "notrackingurimock")
+    config.addinivalue_line("markers", "flaky: mark test as flaky to allow reruns")
     config.addinivalue_line("markers", "allow_infer_pip_requirements_fallback")
     config.addinivalue_line(
         "markers", "do_not_disable_new_import_hook_firing_if_module_already_exists"
@@ -233,12 +234,69 @@ def generate_duration_stats() -> str:
     return to_md_table(table_rows)
 
 
-@pytest.hookimpl(hookwrapper=True)
+@pytest.hookimpl(tryfirst=True)
 def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
-    start = time.perf_counter()
-    yield  # This includes setup + call + teardown
-    duration = time.perf_counter() - start
-    _test_results.append(TestResult(path=item.path, test_name=item.name, execution_time=duration))
+    """
+    Custom test protocol that tracks test duration and supports rerunning failed tests
+    marked with @pytest.mark.flaky.
+
+    This is a simplified implementation inspired by pytest-rerunfailures:
+    https://github.com/pytest-dev/pytest-rerunfailures/blob/365dc54ba3069f55a870cda2c3e1e3c33c68f326/src/pytest_rerunfailures.py#L564-L619
+
+    Usage:
+        @pytest.mark.flaky(attempts=3)
+        def test_something():
+            # Will run up to 3 times total if it keeps failing
+            ...
+
+        @pytest.mark.flaky(attempts=3, condition=sys.platform == "win32")
+        def test_windows_only_flaky():
+            ...
+    """
+    from _pytest.runner import runtestprotocol
+
+    # Check if we should enable flaky rerun logic
+    should_rerun = False
+    attempts = 1
+    if flaky_marker := item.get_closest_marker("flaky"):
+        condition = flaky_marker.kwargs.get("condition", True)
+        if condition:
+            should_rerun = True
+            attempts = flaky_marker.kwargs.get("attempts", 3)
+
+    item.execution_count = 0
+    need_to_run = True
+    total_duration = 0.0
+
+    while need_to_run:
+        item.ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
+        item.execution_count += 1
+        start = time.perf_counter()
+        reports = runtestprotocol(item, nextitem=nextitem, log=False)
+        total_duration += time.perf_counter() - start
+
+        for report in reports:
+            if (
+                should_rerun
+                and report.when == "call"
+                and report.failed
+                and item.execution_count < attempts
+            ):
+                report.outcome = "rerun"
+                item.ihook.pytest_runtest_logreport(report=report)
+                break
+            else:
+                item.ihook.pytest_runtest_logreport(report=report)
+        else:
+            # No rerun needed (passed or exhausted attempts), exit the loop
+            need_to_run = False
+
+        item.ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
+
+    _test_results.append(
+        TestResult(path=item.path, test_name=item.name, execution_time=total_duration)
+    )
+    return True  # Indicate that we handled this protocol
 
 
 def pytest_runtest_setup(item):
@@ -265,6 +323,12 @@ def fetch_pr_labels():
 @pytest.hookimpl(hookwrapper=True)
 def pytest_report_teststatus(report, config):
     outcome = yield
+
+    # Handle rerun outcome
+    if report.outcome == "rerun":
+        outcome.force_result(("rerun", "R", ("RERUN", {"yellow": True})))
+        return
+
     if report.when == "call":
         try:
             import psutil
@@ -308,7 +372,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/bedrock",
             "tests/catboost",
             "tests/crewai",
-            "tests/diviner",
             "tests/dspy",
             "tests/gemini",
             "tests/groq",
@@ -408,8 +471,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         )
 
     # If there are failed tests, display a command to run them
-    failed_test_reports = terminalreporter.stats.get("failed", [])
-    if failed_test_reports:
+    if failed_test_reports := terminalreporter.stats.get("failed", []):
         if len(failed_test_reports) <= 30:
             ids = [repr(report.nodeid) for report in failed_test_reports]
         else:
@@ -538,11 +600,10 @@ def tmp_experiment_for_tracing_sdk_test(monkeypatch):
 
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
-def tracking_uri_mock(tmp_path, request):
+def tracking_uri_mock(db_uri: str, request: pytest.FixtureRequest) -> Iterator[str | None]:
     if "notrackingurimock" not in request.keywords:
-        tracking_uri = path_to_local_sqlite_uri(tmp_path / f"{uuid.uuid4().hex}.sqlite")
-        with _use_tracking_uri(tracking_uri):
-            yield tracking_uri
+        with _use_tracking_uri(db_uri):
+            yield db_uri
     else:
         yield None
 
@@ -700,7 +761,7 @@ def clean_up_mlruns_directory(request):
             if is_windows():
                 raise
             # `shutil.rmtree` can't remove files owned by root in a docker container.
-            subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=True)
+            subprocess.check_call(["sudo", "rm", "-rf", mlruns_dir])
 
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
@@ -782,7 +843,7 @@ def serve_wheel(request, tmp_path_factory):
         # In this case, assume we're in the root of the repo.
         repo_root = "."
 
-    subprocess.run(
+    subprocess.check_call(
         [
             sys.executable,
             "-m",
@@ -793,7 +854,6 @@ def serve_wheel(request, tmp_path_factory):
             "--no-deps",
             repo_root,
         ],
-        check=True,
     )
     with subprocess.Popen(
         [
@@ -864,6 +924,67 @@ def reset_active_model_context():
 @pytest.fixture(autouse=True)
 def clean_up_telemetry_threads():
     yield
-    client = get_telemetry_client()
-    if client:
+    if client := get_telemetry_client():
         client._clean_up()
+
+
+@pytest.fixture(scope="session")
+def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """
+    Creates and caches a SQLite database to avoid repeated migrations for each test run.
+
+    This is a session-scoped fixture that creates the database once per test session.
+    Individual tests should copy this database to their own tmp_path to avoid conflicts.
+    """
+    tmp_dir = tmp_path_factory.mktemp("sqlite_db")
+    db_path = tmp_dir / "mlflow.db"
+
+    if IS_TRACING_SDK_ONLY:
+        return db_path
+
+    try:
+        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+    except ImportError:
+        return db_path
+
+    db_uri = f"sqlite:///{db_path}"
+    artifact_uri = (tmp_dir / "artifacts").as_uri()
+    store = SqlAlchemyStore(db_uri, artifact_uri)
+    store.engine.dispose()
+
+    return db_path
+
+
+@pytest.fixture
+def db_uri(cached_db: Path) -> Iterator[str]:
+    """Returns a fresh SQLite URI for each test by copying the cached database."""
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        db_path = Path(tmp_dir) / "mlflow.db"
+
+        if not IS_TRACING_SDK_ONLY and cached_db.exists():
+            shutil.copy2(cached_db, db_path)
+
+        yield f"sqlite:///{db_path}"
+
+
+@pytest.fixture(autouse=True)
+def clear_engine_map():
+    """
+    Clear the SQLAlchemy engine cache in all stores between tests.
+
+    Each SQLAlchemy store caches engines by database URI to prevent connection pool leaks.
+    This fixture clears the cache between tests to ensure test isolation and prevent
+    engines from one test affecting another.
+    """
+    try:
+        from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+        from mlflow.store.model_registry.sqlalchemy_store import (
+            SqlAlchemyStore as ModelRegistrySqlAlchemyStore,
+        )
+        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+        SqlAlchemyStore._engine_map.clear()
+        ModelRegistrySqlAlchemyStore._engine_map.clear()
+        SqlAlchemyJobStore._engine_map.clear()
+    except ImportError:
+        pass

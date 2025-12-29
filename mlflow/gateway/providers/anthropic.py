@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import AsyncIterable
+from typing import Any, AsyncIterable
 
 from mlflow.gateway.config import AnthropicConfig, EndpointConfig
 from mlflow.gateway.constants import (
@@ -9,12 +9,18 @@ from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
 )
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
+from mlflow.gateway.providers.base import (
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+)
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
 from mlflow.types.chat import Function, ToolCallDelta
 
 _logger = logging.getLogger(__name__)
+
+_ANTHROPIC_STRUCTURED_OUTPUTS_HEADER = "structured-outputs-2025-11-13"
 
 
 class AnthropicAdapter(ProviderAdapter):
@@ -46,8 +52,7 @@ class AnthropicAdapter(ProviderAdapter):
 
         # Cohere uses `system` to set the system message
         # we concatenate all system messages from the user with a newline
-        system_messages = [m for m in payload["messages"] if m["role"] == "system"]
-        if system_messages:
+        if system_messages := [m for m in payload["messages"] if m["role"] == "system"]:
             payload["system"] = "\n".join(m["content"] for m in system_messages)
 
         # remaining messages are chat history
@@ -117,6 +122,15 @@ class AnthropicAdapter(ProviderAdapter):
                 )
 
             payload["tools"] = converted_tools
+
+        # Transform response_format for Anthropic structured outputs
+        # Anthropic uses output_format with {"type": "json_schema", "schema": {...}}
+        if response_format := payload.pop("response_format", None):
+            if response_format.get("type") == "json_schema" and "json_schema" in response_format:
+                payload["output_format"] = {
+                    "type": "json_schema",
+                    "schema": response_format["json_schema"],
+                }
 
         return payload
 
@@ -322,6 +336,10 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
     NAME = "Anthropic"
     CONFIG_TYPE = AnthropicConfig
 
+    PASSTHROUGH_PROVIDER_PATHS = {
+        PassthroughAction.ANTHROPIC_MESSAGES: "messages",
+    }
+
     def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, AnthropicConfig):
@@ -343,6 +361,40 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
     def adapter_class(self) -> type[ProviderAdapter]:
         return AnthropicAdapter
 
+    def _get_headers(
+        self,
+        payload: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, str]:
+        """
+        Generate headers for Anthropic API requests.
+
+        Args:
+            payload: Request payload (used for conditional headers like anthropic-beta)
+            headers: Optional headers from client request to propagate
+
+        Returns:
+            Merged headers with provider headers taking precedence
+        """
+        result_headers = self.headers.copy()
+
+        # Add conditional beta header based on payload
+        if payload and payload.get("output_format"):
+            if payload["output_format"].get("type") == "json_schema":
+                if "anthropic-beta" not in result_headers:
+                    result_headers["anthropic-beta"] = _ANTHROPIC_STRUCTURED_OUTPUTS_HEADER
+                else:
+                    if _ANTHROPIC_STRUCTURED_OUTPUTS_HEADER not in result_headers["anthropic-beta"]:
+                        result_headers["anthropic-beta"] = (
+                            f"{result_headers['anthropic-beta']},{_ANTHROPIC_STRUCTURED_OUTPUTS_HEADER}"
+                        )
+
+        if headers:
+            # Don't override api key or version headers
+            result_headers = headers | result_headers
+
+        return result_headers
+
     def get_endpoint_url(self, route_type: str) -> str:
         if route_type == "llm/v1/chat":
             return f"{self.base_url}/messages"
@@ -358,11 +410,15 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+        payload = AnthropicAdapter.chat_streaming_to_model(payload, self.config)
+
+        headers = self._get_headers(payload)
+
         stream = send_stream_request(
-            headers=self.headers,
+            headers=headers,
             base_url=self.base_url,
             path="messages",
-            payload=AnthropicAdapter.chat_streaming_to_model(payload, self.config),
+            payload=payload,
         )
 
         indices = []
@@ -412,11 +468,15 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
+        payload = AnthropicAdapter.chat_to_model(payload, self.config)
+
+        headers = self._get_headers(payload)
+
         resp = await send_request(
-            headers=self.headers,
+            headers=headers,
             base_url=self.base_url,
             path="messages",
-            payload=AnthropicAdapter.chat_to_model(payload, self.config),
+            payload=payload,
         )
         return AnthropicAdapter.model_to_chat(resp, self.config)
 
@@ -427,7 +487,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         self.check_for_model_field(payload)
 
         resp = await send_request(
-            headers=self.headers,
+            headers=self._get_headers(payload),
             base_url=self.base_url,
             path="complete",
             payload=AnthropicAdapter.completions_to_model(payload, self.config),
@@ -448,3 +508,31 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         # ```
 
         return AnthropicAdapter.model_to_completions(resp, self.config)
+
+    async def passthrough(
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[bytes]:
+        provider_path = self._validate_passthrough_action(action)
+
+        # Add model name from config
+        payload["model"] = self.config.model.name
+
+        request_headers = self._get_headers(payload, headers)
+
+        if payload.get("stream"):
+            return send_stream_request(
+                headers=request_headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload,
+            )
+        else:
+            return await send_request(
+                headers=request_headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload,
+            )

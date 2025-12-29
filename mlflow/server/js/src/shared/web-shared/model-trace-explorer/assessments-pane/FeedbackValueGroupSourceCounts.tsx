@@ -35,7 +35,7 @@ export const FeedbackValueGroupSourceCounts = ({ feedbacks }: { feedbacks: Feedb
     <div css={{ display: 'flex', gap: theme.spacing.xs, alignItems: 'center', marginLeft: theme.spacing.xs }}>
       {Object.entries(sourceCounts).map(([sourceType, count]) => (
         <Tag
-          componentId={`shared.model-trace-explorer.feedback-source-count-${sourceType}`}
+          componentId="shared.model-trace-explorer.feedback-source-count"
           css={{
             margin: 0,
           }}

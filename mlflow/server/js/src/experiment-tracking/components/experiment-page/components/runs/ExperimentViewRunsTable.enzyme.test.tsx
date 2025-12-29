@@ -177,7 +177,7 @@ describe('ExperimentViewRunsTable', () => {
     const tagKey = 'testtag1';
     createWrapper(createLargeDatasetProps(tagKey, COLUMN_TYPES.TAGS));
 
-    const lastCall = (useRunsColumnDefinitions as jest.Mock).mock.calls.slice(-1)[0][0] as any;
+    const lastCall = jest.mocked(useRunsColumnDefinitions).mock.calls.slice(-1)[0][0] as any;
     expect(lastCall.tagKeyList).toEqual([tagKey]);
   });
 
@@ -185,7 +185,7 @@ describe('ExperimentViewRunsTable', () => {
     const metricKey = 'testmetric1';
     createWrapper(createLargeDatasetProps(metricKey, COLUMN_TYPES.METRICS));
 
-    const lastCall = (useRunsColumnDefinitions as jest.Mock).mock.calls.slice(-1)[0][0] as any;
+    const lastCall = jest.mocked(useRunsColumnDefinitions).mock.calls.slice(-1)[0][0] as any;
     expect(lastCall.metricKeyList).toEqual([metricKey]);
   });
 
@@ -193,7 +193,7 @@ describe('ExperimentViewRunsTable', () => {
     const paramKey = 'testparam1';
     createWrapper(createLargeDatasetProps(paramKey, COLUMN_TYPES.PARAMS));
 
-    const lastCall = (useRunsColumnDefinitions as jest.Mock).mock.calls.slice(-1)[0][0] as any;
+    const lastCall = jest.mocked(useRunsColumnDefinitions).mock.calls.slice(-1)[0][0] as any;
     expect(lastCall.paramKeyList).toEqual([paramKey]);
   });
 
@@ -214,7 +214,7 @@ describe('ExperimentViewRunsTable', () => {
     });
 
     // Assert that "newparam" parameter is being included in calls
-    // for new columns - but only if it's in the selected columns
+    // for new columns
     expect(useRunsColumnDefinitions).toHaveBeenCalledWith(
       expect.objectContaining({
         paramKeyList: ['p1', 'p2', 'p3', 'newparam'],
@@ -332,15 +332,6 @@ describe('ExperimentViewRunsTable', () => {
         selectedColumns: newSelectedColumns,
       }),
     });
-
-    // With the selected columns including 'params.`p1`' and 'metrics.`m1`',
-    // the filtered paramKeyList and metricKeyList should now include these values
-    expect(useRunsColumnDefinitions).toHaveBeenCalledWith(
-      expect.objectContaining({
-        paramKeyList: ['p1'],
-        metricKeyList: ['m1'],
-      }),
-    );
 
     // Assert "show more columns" CTA button not being displayed anymore
     expect(simpleExperimentsWrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(0);

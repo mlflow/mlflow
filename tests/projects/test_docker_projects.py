@@ -1,9 +1,9 @@
 import os
 from unittest import mock
 
+import docker
 import pytest
 
-import docker
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import ViewType

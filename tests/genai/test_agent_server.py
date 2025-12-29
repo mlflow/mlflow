@@ -2,6 +2,7 @@ import contextvars
 from typing import AsyncGenerator
 from unittest.mock import Mock, patch
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -133,7 +134,7 @@ def test_get_invoke_function_returns_registered():
 
 def test_decorator_preserves_function_metadata():
     @invoke()
-    def test_function_with_metadata(request):
+    def function_with_metadata(request):
         """This is a test function with documentation."""
         return {"result": "success"}
 
@@ -141,16 +142,16 @@ def test_decorator_preserves_function_metadata():
     wrapper = get_invoke_function()
 
     # Verify that functools.wraps preserved the metadata
-    assert wrapper.__name__ == "test_function_with_metadata"
+    assert wrapper.__name__ == "function_with_metadata"
     assert wrapper.__doc__ == "This is a test function with documentation."
 
     @stream()
-    async def test_stream_with_metadata(request):
+    async def stream_with_metadata(request):
         """This is a test stream function."""
         yield {"delta": {"content": "hello"}}
 
     stream_wrapper = get_stream_function()
-    assert stream_wrapper.__name__ == "test_stream_with_metadata"
+    assert stream_wrapper.__name__ == "stream_with_metadata"
     assert stream_wrapper.__doc__ == "This is a test stream function."
 
 
@@ -521,3 +522,141 @@ def test_tracing_attributes_setting():
         # Verify the span context manager was used
         mock_span_instance.__enter__.assert_called_once()
         mock_span_instance.__exit__.assert_called_once()
+
+
+def test_chat_proxy_disabled_by_default():
+    server = AgentServer()
+    assert not hasattr(server, "proxy_client")
+
+
+def test_chat_proxy_enabled():
+    server = AgentServer(enable_chat_proxy=True)
+    assert hasattr(server, "proxy_client")
+    assert server.proxy_client is not None
+    assert server.chat_proxy_timeout == 300.0
+
+
+def test_chat_proxy_custom_timeout(monkeypatch):
+    monkeypatch.setenv("CHAT_PROXY_TIMEOUT_SECONDS", "60.0")
+    server = AgentServer(enable_chat_proxy=True)
+    assert server.proxy_client is not None
+    assert server.chat_proxy_timeout == 60.0
+
+
+@pytest.mark.asyncio
+async def test_chat_proxy_forwards_unmatched_requests():
+    @invoke()
+    def test_invoke(request):
+        return {
+            "output": [
+                {
+                    "type": "message",
+                    "id": "123",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Hello"}],
+                }
+            ]
+        }
+
+    server = AgentServer("ResponsesAgent", enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    mock_response = Mock()
+    mock_response.content = b'{"chat": "response"}'
+    mock_response.status_code = 200
+    mock_response.headers = {"content-type": "application/json"}
+
+    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
+        response = client.get("/unmatched/path")
+        assert response.status_code == 200
+        assert response.content == b'{"chat": "response"}'
+        mock_request.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_chat_proxy_does_not_forward_matched_routes():
+    @invoke()
+    def test_invoke(request):
+        return {
+            "output": [
+                {
+                    "type": "message",
+                    "id": "123",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Hello"}],
+                }
+            ]
+        }
+
+    server = AgentServer("ResponsesAgent", enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    with patch.object(server.proxy_client, "request") as mock_request:
+        response = client.get("/health")
+        assert response.status_code == 200
+        assert response.json() == {"status": "healthy"}
+        mock_request.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_chat_proxy_handles_connect_error():
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    with patch.object(
+        server.proxy_client, "request", side_effect=httpx.ConnectError("Connection failed")
+    ):
+        response = client.get("/unmatched/path")
+        assert response.status_code == 503
+        assert response.text == "Service unavailable"
+
+
+@pytest.mark.asyncio
+async def test_chat_proxy_handles_general_error():
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    with patch.object(server.proxy_client, "request", side_effect=Exception("Unexpected error")):
+        response = client.get("/unmatched/path")
+        assert response.status_code == 502
+        assert "Proxy error: Unexpected error" in response.text
+
+
+@pytest.mark.asyncio
+async def test_chat_proxy_forwards_post_requests_with_body():
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    mock_response = Mock()
+    mock_response.content = b'{"result": "success"}'
+    mock_response.status_code = 200
+    mock_response.headers = {"content-type": "application/json"}
+
+    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
+        response = client.post("/chat/api", json={"message": "hello"})
+        assert response.status_code == 200
+        assert response.content == b'{"result": "success"}'
+
+        call_args = mock_request.call_args
+        assert call_args.kwargs["method"] == "POST"
+        assert call_args.kwargs["content"] is not None
+
+
+@pytest.mark.asyncio
+async def test_chat_proxy_respects_chat_app_port_env_var(monkeypatch):
+    monkeypatch.setenv("CHAT_APP_PORT", "8080")
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    mock_response = Mock()
+    mock_response.content = b"test"
+    mock_response.status_code = 200
+    mock_response.headers = {}
+
+    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
+        client.get("/test")
+        mock_request.assert_called_once()
+        call_args = mock_request.call_args
+        assert call_args.kwargs["url"] == "http://localhost:8080/test"

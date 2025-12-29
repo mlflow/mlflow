@@ -142,8 +142,6 @@ def test_http_request_with_basic_auth():
 
 
 def test_http_request_with_aws_sigv4(monkeypatch):
-    """This test requires the "requests_auth_aws_sigv4" package to be installed"""
-
     from requests_auth_aws_sigv4 import AWSSigV4
 
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "access-key")
@@ -285,8 +283,6 @@ def test_http_request_with_content_type_header():
 
 
 def test_http_request_request_headers():
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-
     from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
 
     # The test plugin's request header provider always returns False from in_context to avoid
@@ -311,8 +307,6 @@ def test_http_request_request_headers():
 
 
 def test_http_request_request_headers_default():
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-
     from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
 
     # The test plugin's request header provider always returns False from in_context to avoid
@@ -348,8 +342,6 @@ def test_http_request_request_headers_default():
 
 
 def test_http_request_request_headers_default_and_extra_header():
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-
     from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
 
     # The test plugin's request header provider always returns False from in_context to avoid
@@ -390,7 +382,6 @@ def test_http_request_request_headers_default_and_extra_header():
 
 
 def test_http_request_with_invalid_url_raise_invalid_url_exception():
-    """InvalidURL exception can be caught by a custom InvalidUrlException"""
     host_only = MlflowHostCreds("http://my-host")
 
     with pytest.raises(InvalidUrlException, match="Invalid url: http://my-host/invalid_url"):
@@ -399,7 +390,6 @@ def test_http_request_with_invalid_url_raise_invalid_url_exception():
 
 
 def test_http_request_with_invalid_url_raise_mlflow_exception():
-    """The InvalidUrlException can be caught by the MlflowException"""
     host_only = MlflowHostCreds("http://my-host")
 
     with pytest.raises(MlflowException, match="Invalid url: http://my-host/invalid_url"):
@@ -643,7 +633,6 @@ def test_suppress_databricks_retry_after_secs_warnings():
 
 
 def test_databricks_sdk_retry_on_transient_errors():
-    """Test that Databricks SDK retries on transient HTTP errors."""
     host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
 
     call_count = 0
@@ -683,7 +672,6 @@ def test_databricks_sdk_retry_on_transient_errors():
 
 
 def test_databricks_sdk_retry_max_retries_exceeded():
-    """Test that Databricks SDK stops retrying when max_retries is exceeded."""
     host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
 
     call_count = 0
@@ -715,7 +703,6 @@ def test_databricks_sdk_retry_max_retries_exceeded():
 
 
 def test_databricks_sdk_retry_timeout_exceeded():
-    """Test that Databricks SDK stops retrying when timeout is exceeded."""
     host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
 
     call_count = 0
@@ -755,7 +742,6 @@ def test_databricks_sdk_retry_timeout_exceeded():
 
 
 def test_databricks_sdk_retry_non_retryable_error():
-    """Test that Databricks SDK doesn't retry on non-retryable errors."""
     host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
 
     call_count = 0
@@ -780,7 +766,6 @@ def test_databricks_sdk_retry_non_retryable_error():
 
 
 def test_databricks_sdk_retry_backoff_calculation():
-    """Test that Databricks SDK uses correct exponential backoff timing."""
     from databricks.sdk.errors import DatabricksError
 
     from mlflow.utils.request_utils import _TRANSIENT_FAILURE_RESPONSE_CODES
@@ -817,7 +802,6 @@ def test_databricks_sdk_retry_backoff_calculation():
 
 @pytest.mark.skip
 def test_timeout_parameter_propagation_with_timeout():
-    """Test timeout parameter propagation from http_request to get_workspace_client with timeout."""
     with (
         mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
         mock.patch("databricks.sdk.config.Config") as mock_config,
@@ -845,7 +829,6 @@ def test_timeout_parameter_propagation_with_timeout():
 
 @pytest.mark.skip
 def test_timeout_parameter_propagation_without_timeout():
-    """Test timeout param propagation from http_request to get_workspace_client without timeout."""
     with (
         mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
         mock.patch("databricks.sdk.config.Config") as mock_config,
@@ -871,8 +854,6 @@ def test_timeout_parameter_propagation_without_timeout():
 
 
 def test_deployment_client_timeout_propagation(monkeypatch):
-    """Test deployment client propagates timeout to workspace client."""
-
     with (
         mock.patch("mlflow.utils.rest_utils.get_workspace_client") as mock_get_workspace_client,
         mock.patch(
