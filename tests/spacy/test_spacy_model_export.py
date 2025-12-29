@@ -10,7 +10,6 @@ import pytest
 import spacy
 import yaml
 from packaging.version import Version
-from sklearn.datasets import fetch_20newsgroups
 from spacy.util import compounding, minibatch
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -435,15 +434,40 @@ def _train_model(nlp, train_data, n_iter=5):
 
 
 def _get_train_test_dataset(cats_to_fetch, limit=100):
-    newsgroups = fetch_20newsgroups(
-        remove=("headers", "footers", "quotes"), shuffle=True, categories=cats_to_fetch
-    )
-    X = newsgroups.data[:limit]
-    y = newsgroups.target[:limit]
+    graphics_texts = [
+        "The GPU renders 3D graphics with high frame rates.",
+        "OpenGL provides excellent graphics rendering capabilities.",
+        "Computer graphics require powerful hardware acceleration.",
+        "The shader program processes vertex and fragment data.",
+        "Rasterization converts vector graphics to pixels.",
+        "Anti-aliasing smooths jagged edges in rendered images.",
+        "The graphics pipeline transforms 3D models to 2D screens.",
+        "Texture mapping adds detail to polygonal surfaces.",
+        "Ray tracing simulates realistic lighting and shadows.",
+        "The display adapter outputs high resolution graphics.",
+    ] * 5
 
-    X = [str(x) for x in X]  # Ensure all strings to unicode for python 2.7 compatibility
+    baseball_texts = [
+        "The pitcher threw a fastball at 95 miles per hour.",
+        "Home runs are exciting moments in baseball games.",
+        "The shortstop made an incredible diving catch.",
+        "Baseball season runs from spring through fall.",
+        "The batting average measures hitting performance.",
+        "Strikeouts are important for pitching statistics.",
+        "The World Series determines the champion team.",
+        "Base stealing requires speed and good timing.",
+        "The umpire called the runner out at home plate.",
+        "Relief pitchers enter the game in later innings.",
+    ] * 5
 
-    # Category 0 comp-graphic, 1 rec.sport baseball. We can threat it as a binary class.
+    X = (graphics_texts + baseball_texts)[:limit]
+    y = ([0] * len(graphics_texts) + [1] * len(baseball_texts))[:limit]
+    combined = list(zip(X, y))
+    random.shuffle(combined)
+    X, y = zip(*combined) if combined else ([], [])
+    X = list(X)
+    y = list(y)
+
     cats = [{"comp.graphics": not bool(el), "rec.sport.baseball": bool(el)} for el in y]
 
     split = int(len(X) * 0.8)
