@@ -49,6 +49,19 @@ to specify which domains can access your server. See [Security Configuration](/s
 for details.
 :::
 
+:::tip Read-only Filesystems
+When running in containers with read-only root filesystems (common in Kubernetes with `securityContext.readOnlyRootFilesystem: true`),
+use `--serve-artifacts` with `--artifacts-destination` to store artifacts remotely. The tracking server does not create
+local directories at startup when using remote artifact storage, making it compatible with read-only environments.
+
+```bash
+mlflow server \
+    --host 0.0.0.0 \
+    --backend-store-uri postgresql://user:pass@host/db \
+    --artifacts-destination s3://my-bucket
+```
+:::
+
 ## Logging to a Tracking Server \{#logging_to_a_tracking_server}
 
 Once the tracking server is started, connect your local clients by setting the `MLFLOW_TRACKING_URI` environment variable to the
