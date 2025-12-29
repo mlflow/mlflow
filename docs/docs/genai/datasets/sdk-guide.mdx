@@ -185,10 +185,10 @@ The following fields are used by the evaluation dataset abstraction to track lin
 | `created_by`        | string         | The user who created the record.                     | Automatically set when inserting or updating. |
 | `last_update_time`  | timestamp      | The time when the record was last updated.           | Automatically set when inserting or updating. |
 | `last_updated_by`   | string         | The user who last updated the record.                | Automatically set when inserting or updating. |
-| `source`            | struct         | The source of the dataset record. See [\_](#source). | Optional                                      |
+| `source`            | struct         | The source of the dataset record. See [Source field](#source-field). | Optional                                      |
 | `tags`              | dict[str, Any] | Key-value tags for the dataset record.               | Optional                                      |
 
-#### <a id="source"></a>Source field
+#### Source field
 
 The `source` field tracks where a dataset record came from. Each record can have **only one** source type.
 
