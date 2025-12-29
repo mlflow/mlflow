@@ -8,7 +8,7 @@ import shap
 import sklearn
 from numba import njit
 from packaging.version import Version
-from sklearn.datasets import fetch_california_housing, load_diabetes
+from sklearn.datasets import load_diabetes
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -34,9 +34,8 @@ def shap_model():
 
 
 def get_housing_data():
-    X, y = fetch_california_housing(as_frame=True, return_X_y=True)
-
-    return X[:1000], y[:1000]
+    X, y = load_diabetes(as_frame=True, return_X_y=True)
+    return X, y
 
 
 def test_sklearn_log_explainer():
