@@ -10,6 +10,8 @@ export interface LongFormSectionProps {
   children: ReactNode;
   /** Whether to hide the bottom border divider (default: false) */
   hideDivider?: boolean;
+  /** Whether to hide the top padding (default: false, useful for first section in embedded contexts) */
+  hideTopPadding?: boolean;
 }
 
 /**
@@ -17,7 +19,13 @@ export interface LongFormSectionProps {
  * By default, sections are separated by a horizontal divider at the bottom.
  * Responsive: stacks vertically on narrow screens.
  */
-export const LongFormSection = ({ title, titleWidth = 200, children, hideDivider = false }: LongFormSectionProps) => {
+export const LongFormSection = ({
+  title,
+  titleWidth = 200,
+  children,
+  hideDivider = false,
+  hideTopPadding = false,
+}: LongFormSectionProps) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -25,7 +33,7 @@ export const LongFormSection = ({ title, titleWidth = 200, children, hideDivider
       css={{
         display: 'flex',
         gap: 32,
-        paddingTop: theme.spacing.lg,
+        paddingTop: hideTopPadding ? 0 : theme.spacing.lg,
         paddingBottom: theme.spacing.lg,
         borderBottom: hideDivider ? 'none' : `1px solid ${theme.colors.borderDecorative}`,
         '@media (max-width: 1023px)': {
