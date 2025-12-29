@@ -248,9 +248,9 @@ def save_model(
             True, the model must implement `stream` method. If None, streamable is
             set to True if the model implements `stream` method. Default to `None`.
     """
-    with tempfile.TemporaryDirectory() as temp_dir:
-        import langchain
+    import langchain
 
+    with tempfile.TemporaryDirectory() as temp_dir:
         from mlflow.langchain._compat import import_base_retriever
 
         BaseRetriever = import_base_retriever()
