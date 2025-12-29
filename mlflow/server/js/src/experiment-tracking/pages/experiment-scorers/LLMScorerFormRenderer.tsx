@@ -24,7 +24,7 @@ import {
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
 import type { SCORER_TYPE } from './constants';
-import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
+import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE, DEFAULT_LLM_MODEL } from './constants';
 import { LLM_TEMPLATE } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
 import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
@@ -486,7 +486,7 @@ const ModelSection: React.FC<ModelSectionProps> = ({ mode, control }) => {
             componentId={`${COMPONENT_ID_PREFIX}.model-input`}
             id="mlflow-experiment-scorers-model"
             disabled={mode === SCORER_FORM_MODE.DISPLAY}
-            placeholder={mode === SCORER_FORM_MODE.DISPLAY ? '' : 'openai:/gpt-4o-mini'}
+            placeholder={mode === SCORER_FORM_MODE.DISPLAY ? '' : DEFAULT_LLM_MODEL}
             css={{ cursor: mode === SCORER_FORM_MODE.DISPLAY ? 'auto' : 'text' }}
             onClick={stopPropagationClick}
           />

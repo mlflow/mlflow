@@ -39,3 +39,5 @@ export const BUTTON_VARIANT = {
 export type ButtonVariant = typeof BUTTON_VARIANT[keyof typeof BUTTON_VARIANT];
 
 export const RETRIEVAL_ASSESSMENTS = ['groundedness', 'context_sufficiency'] as const;
+
+export const DEFAULT_LLM_MODEL = 'openai:/gpt-4o-mini';
