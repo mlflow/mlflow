@@ -338,7 +338,7 @@ def save_model(
         if Version(langchain.__version__).major >= 1:
             raise MlflowException(
                 "LangChain v1 onward only supports models-from-code, i.e., the 'lc_model' "
-                "argument value must be a path containing the `LangChain model code."
+                "argument value must be a path containing the `LangChain` model code."
             )
 
         model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)

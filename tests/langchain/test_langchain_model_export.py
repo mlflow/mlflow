@@ -1978,6 +1978,7 @@ def test_load_chain_with_model_config_overrides_saved_config(chain_path, model_c
         }
 
 
+@skip_if_v1
 @pytest.mark.parametrize("streamable", [True, False, None])
 def test_langchain_model_streamable_param_in_log_model(streamable, fake_chat_model):
     # TODO: Migrate to models-from-code
