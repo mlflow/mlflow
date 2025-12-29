@@ -2300,3 +2300,16 @@ def test_predict_with_callbacks_with_tracing(monkeypatch):
         trace_info = mock_start_trace.call_args[0][0]
         assert trace_info.client_request_id == request_id
         assert trace_info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
+
+
+@pytest.mark.skipif(not IS_LANGCHAIN_v1, reason="The test is only for langchain>=1 versions")
+def test_langchain_v1_save_model_as_pickle_error():
+    model = create_openai_runnable()
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException,
+            match="LangChain v1 onward only supports models-from-code",
+        ):
+            mlflow.langchain.log_model(
+                model, name="langchain_model", input_example={"product": "MLflow"}
+            )
