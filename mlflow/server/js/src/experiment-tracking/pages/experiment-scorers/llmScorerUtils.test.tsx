@@ -1,5 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { validateInstructions } from './llmScorerUtils';
+import { ScorerEvaluationScope } from './constants';
 
 describe('validateInstructions', () => {
   describe('Golden Path - Successful Operations', () => {
@@ -142,6 +143,162 @@ describe('validateInstructions', () => {
       const result = validateInstructions('Check {{ input123 }} with numbers');
 
       expect(result).toContain('Invalid variable: {{ input123 }}');
+    });
+  });
+
+  describe('Session Level Traces - Golden Path', () => {
+    it('should return true for valid instructions with {{ conversation }} variable', () => {
+      const result = validateInstructions(
+        'Evaluate the {{ conversation }} for completeness',
+        ScorerEvaluationScope.SESSIONS,
+      );
+
+      expect(result).toBe(true);
+    });
+
+    it('should accept {{ conversation }} without spaces ({{conversation}})', () => {
+      const result = validateInstructions(
+        'Analyze {{conversation}} for user frustration',
+        ScorerEvaluationScope.SESSIONS,
+      );
+
+      expect(result).toBe(true);
+    });
+
+    it('should accept {{ conversation }} with irregular spacing', () => {
+      const result = validateInstructions('Check {{ conversation}} quality', ScorerEvaluationScope.SESSIONS);
+
+      expect(result).toBe(true);
+    });
+
+    it('should accept {{ conversation }} with trailing space', () => {
+      const result = validateInstructions('Check {{conversation }} for issues', ScorerEvaluationScope.SESSIONS);
+
+      expect(result).toBe(true);
+    });
+
+    it('should accept {{ conversation }} used multiple times', () => {
+      const result = validateInstructions(
+        'First check {{ conversation }} for context, then analyze {{ conversation }} for retention',
+        ScorerEvaluationScope.SESSIONS,
+      );
+
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('Session Level Traces - Edge Cases', () => {
+    it('should return true for empty string in session scope', () => {
+      const result = validateInstructions('', ScorerEvaluationScope.SESSIONS);
+
+      expect(result).toBe(true);
+    });
+
+    it('should return true for undefined in session scope', () => {
+      const result = validateInstructions(undefined, ScorerEvaluationScope.SESSIONS);
+
+      expect(result).toBe(true);
+    });
+
+    it('should return true for whitespace-only string in session scope', () => {
+      const result = validateInstructions('   \n\t   ', ScorerEvaluationScope.SESSIONS);
+
+      expect(result).toBe(true);
+    });
+
+    it('should handle instructions with braces that are not template variables in session scope', () => {
+      const result = validateInstructions(
+        'Use {bracket} notation and {{ conversation }} variable',
+        ScorerEvaluationScope.SESSIONS,
+      );
+
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('Session Level Traces - Error Conditions', () => {
+    it('should reject {{ inputs }} in session scope', () => {
+      const result = validateInstructions('Check {{ inputs }} in conversation', ScorerEvaluationScope.SESSIONS);
+
+      expect(result).toBe('Invalid variable: {{ inputs }}. Only {{ conversation }} is allowed');
+    });
+
+    it('should reject {{ outputs }} in session scope', () => {
+      const result = validateInstructions('Check {{ outputs }} in conversation', ScorerEvaluationScope.SESSIONS);
+
+      expect(result).toBe('Invalid variable: {{ outputs }}. Only {{ conversation }} is allowed');
+    });
+
+    it('should reject {{ expectations }} in session scope', () => {
+      const result = validateInstructions('Check {{ expectations }} in conversation', ScorerEvaluationScope.SESSIONS);
+
+      expect(result).toBe('Invalid variable: {{ expectations }}. Only {{ conversation }} is allowed');
+    });
+
+    it('should reject {{ trace }} in session scope', () => {
+      const result = validateInstructions('Check {{ trace }} in conversation', ScorerEvaluationScope.SESSIONS);
+
+      expect(result).toBe('Invalid variable: {{ trace }}. Only {{ conversation }} is allowed');
+    });
+
+    it('should reject invalid variable names in session scope', () => {
+      const result = validateInstructions('Check {{ invalid_var }} in conversation', ScorerEvaluationScope.SESSIONS);
+
+      expect(result).toBe('Invalid variable: {{ invalid_var }}. Only {{ conversation }} is allowed');
+    });
+
+    it('should return error when no template variables present in session scope', () => {
+      const result = validateInstructions('This has no variables', ScorerEvaluationScope.SESSIONS);
+
+      expect(result).toBe('Must contain {{ conversation }} variable');
+    });
+
+    it('should reject multiple invalid trace-level variables in session scope', () => {
+      const result = validateInstructions(
+        'Check {{ inputs }} and {{ outputs }} in session',
+        ScorerEvaluationScope.SESSIONS,
+      );
+
+      expect(result).toBe('Invalid variable: {{ inputs }}. Only {{ conversation }} is allowed');
+    });
+
+    it('should reject case-sensitive variable names ({{ Conversation }})', () => {
+      const result = validateInstructions('Check {{ Conversation }} with capital C', ScorerEvaluationScope.SESSIONS);
+
+      expect(result).toBe('Invalid variable: {{ Conversation }}. Only {{ conversation }} is allowed');
+    });
+
+    it('should reject {{ conversation }} mixed with trace-level variables', () => {
+      const result = validateInstructions('Check {{ conversation }} with {{ inputs }}', ScorerEvaluationScope.SESSIONS);
+
+      // The first invalid variable found should trigger the error
+      expect(result).toBe('Invalid variable: {{ inputs }}. Only {{ conversation }} is allowed');
+    });
+  });
+
+  describe('Trace Level vs Session Level Scope', () => {
+    it('should reject {{ conversation }} in trace scope', () => {
+      const result = validateInstructions('Check {{ conversation }}', ScorerEvaluationScope.TRACES);
+
+      expect(result).toContain('Invalid variable: {{ conversation }}');
+    });
+
+    it('should accept {{ inputs }} in trace scope (explicit)', () => {
+      const result = validateInstructions('Check {{ inputs }}', ScorerEvaluationScope.TRACES);
+
+      expect(result).toBe(true);
+    });
+
+    it('should accept {{ inputs }} when scope is undefined (defaults to trace level)', () => {
+      const result = validateInstructions('Check {{ inputs }}');
+
+      expect(result).toBe(true);
+    });
+
+    it('should reject {{ conversation }} when scope is undefined (defaults to trace level)', () => {
+      const result = validateInstructions('Check {{ conversation }}');
+
+      expect(result).toContain('Invalid variable: {{ conversation }}');
     });
   });
 });

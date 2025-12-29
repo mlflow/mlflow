@@ -135,6 +135,10 @@
     "defaultMessage": "Oops!",
     "description": "Error modal title to rendering errors"
   },
+  "/3dY2h": {
+    "defaultMessage": "Evaluate the conversation between a user and an assistant '{{ conversation }}'.",
+    "description": "Placeholder text for session level instructions textarea"
+  },
   "/4Aok8": {
     "defaultMessage": "Run",
     "description": "Column header for the run name in the runs table on the logged model details page"
@@ -419,6 +423,10 @@
     "defaultMessage": "Copy",
     "description": "Button text for copy button"
   },
+  "1JiZwB": {
+    "defaultMessage": "Did the conversation fully address the user's request?",
+    "description": "Hint for ConversationCompleteness template"
+  },
   "1NeHsz": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label for the number of traces selected"
@@ -466,6 +474,10 @@
   "1jPG5D": {
     "defaultMessage": "Creator",
     "description": "Lable name for the creator under details tab on the model view page"
+  },
+  "1l/c+M": {
+    "defaultMessage": "User frustration",
+    "description": "LLM template option"
   },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
@@ -2674,6 +2686,10 @@
     "defaultMessage": "Section title loading",
     "description": "Loading skeleton label for overview page section title in Catalog Explorer"
   },
+  "KLTGMn": {
+    "defaultMessage": "Full conversation between a user and an assistant",
+    "description": "Description for conversation variable"
+  },
   "KMVqUP": {
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the registered prompts table"
@@ -3162,6 +3178,10 @@
     "defaultMessage": "Close",
     "description": "Error modal close button text"
   },
+  "OilzZP": {
+    "defaultMessage": "Conversation",
+    "description": "Label for conversation variable option"
+  },
   "OimAJb": {
     "defaultMessage": "Scatter Plot",
     "description": "Tab pane title for scatterplots on the compare runs page"
@@ -3449,6 +3469,10 @@
     "defaultMessage": "Connections",
     "description": "Section title for authentication"
   },
+  "RRvtnM": {
+    "defaultMessage": "Did the conversation avoid causing user frustration?",
+    "description": "Hint for UserFrustration template"
+  },
   "RUju4k": {
     "defaultMessage": "Charts",
     "description": "Tooltip for charts page mode toggle in evaluation runs table controls"
@@ -3516,6 +3540,10 @@
   "RyNXc+": {
     "defaultMessage": "Loading endpoint...",
     "description": "Loading message for endpoint"
+  },
+  "RySezx": {
+    "defaultMessage": "Did the assistant remember context from earlier in the conversation?",
+    "description": "Hint for KnowledgeRetention template"
   },
   "RzZVxC": {
     "defaultMessage": "An error occurred while rendering this component.",
@@ -5763,6 +5791,10 @@
     "defaultMessage": "Gateway returned the following error: \"{errorMessage}\"",
     "description": "Experiment page > gateway error message"
   },
+  "jIrCsp": {
+    "defaultMessage": "Knowledge retention",
+    "description": "LLM template option"
+  },
   "jMUqD1": {
     "defaultMessage": "Safety",
     "description": "Evaluation results > known type of evaluation result assessment > safety assessment. Used to indicate if the result is safe in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Safety: moderate\""
@@ -6650,6 +6682,10 @@
   "qr7dhT": {
     "defaultMessage": "None",
     "description": "Label for experiments with no automatically inferred experiment type"
+  },
+  "qskex0": {
+    "defaultMessage": "Conversation completeness",
+    "description": "LLM template option"
   },
   "quxZB8": {
     "defaultMessage": "Create version",
