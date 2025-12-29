@@ -289,9 +289,13 @@ class MlflowAg2Logger(BaseLogger):
         usage = getattr(output, "usage", None)
         if usage is None:
             return None
-        input_tokens = usage.prompt_tokens
-        output_tokens = usage.completion_tokens
-        total_tokens = usage.total_tokens
+        # Handle both Chat Completions API (prompt_tokens/completion_tokens) and
+        # Responses API (input_tokens/output_tokens) formats
+        input_tokens = getattr(usage, "prompt_tokens", None) or getattr(usage, "input_tokens", None)
+        output_tokens = getattr(usage, "completion_tokens", None) or getattr(
+            usage, "output_tokens", None
+        )
+        total_tokens = getattr(usage, "total_tokens", None)
         if total_tokens is None and None not in (input_tokens, output_tokens):
             total_tokens = input_tokens + output_tokens
         return {
