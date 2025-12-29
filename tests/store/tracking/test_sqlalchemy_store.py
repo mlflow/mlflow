@@ -9766,6 +9766,51 @@ def test_dataset_upsert_comprehensive(store):
     assert empty_result["updated"] == 0
 
 
+def test_dataset_delete_records(store):
+    test_prefix = "test_delete_records_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+
+    records = [
+        {"inputs": {"id": 1, "question": "What is MLflow?"}, "expectations": {"answer": "ML platform"}},
+        {"inputs": {"id": 2, "question": "What is Python?"}, "expectations": {"answer": "Programming language"}},
+        {"inputs": {"id": 3, "question": "What is Docker?"}, "expectations": {"answer": "Container platform"}},
+    ]
+    store.upsert_dataset_records(dataset.dataset_id, records)
+
+    loaded_records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert len(loaded_records) == 3
+
+    record_ids = [r.dataset_record_id for r in loaded_records]
+
+    deleted_count = store.delete_dataset_records(dataset.dataset_id, [record_ids[0]])
+    assert deleted_count == 1
+
+    remaining_records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert len(remaining_records) == 2
+
+    updated_dataset = store.get_dataset(dataset.dataset_id)
+    profile = json.loads(updated_dataset.profile)
+    assert profile["num_records"] == 2
+
+    deleted_count = store.delete_dataset_records(dataset.dataset_id, [record_ids[1], record_ids[2]])
+    assert deleted_count == 2
+
+    final_records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert len(final_records) == 0
+
+
+def test_dataset_delete_records_idempotent(store):
+    test_prefix = "test_delete_idempotent_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+
+    deleted_count = store.delete_dataset_records(dataset.dataset_id, ["nonexistent-record-id"])
+    assert deleted_count == 0
+
+
 def test_dataset_associations_and_lazy_loading(store):
     experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2", "test_exp_3"])
     created_dataset = store.create_dataset(

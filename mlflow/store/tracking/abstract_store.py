@@ -1174,6 +1174,24 @@ class AbstractStore(GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
+    def delete_dataset_records(
+        self,
+        dataset_id: str,
+        dataset_record_ids: list[str],
+    ) -> int:
+        """
+        Delete records from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_record_ids: List of record IDs to delete.
+
+        Returns:
+            The number of records deleted.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
     def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags for an evaluation dataset.

@@ -6261,6 +6261,39 @@ class MlflowClient:
         """
         self._tracking_client.delete_dataset(dataset_id)
 
+    @experimental(version="3.9.0")
+    @_disable_in_databricks()
+    def delete_dataset_records(
+        self, dataset_id: str, dataset_record_ids: list[str]
+    ) -> int:
+        """
+        Delete specific records from a dataset.
+
+        Args:
+            dataset_id: The ID of the dataset containing the records.
+            dataset_record_ids: List of record IDs to delete.
+
+        Returns:
+            The number of records deleted.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Delete specific records from a dataset
+            deleted_count = client.delete_dataset_records(
+                dataset_id="d-abc123",
+                dataset_record_ids=["dr-record1", "dr-record2"],
+            )
+            print(f"Deleted {deleted_count} records")
+        """
+        return self._tracking_client.delete_dataset_records(
+            dataset_id=dataset_id,
+            dataset_record_ids=dataset_record_ids,
+        )
+
     @experimental(version="3.4.0")
     def search_datasets(
         self,

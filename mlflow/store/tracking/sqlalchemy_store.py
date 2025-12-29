@@ -4534,6 +4534,61 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             return {"inserted": inserted_count, "updated": updated_count}
 
+    def delete_dataset_records(
+        self, dataset_id: str, dataset_record_ids: list[str]
+    ) -> int:
+        """
+        Delete records from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_record_ids: List of record IDs to delete.
+
+        Returns:
+            The number of records deleted.
+        """
+        with self.ManagedSessionMaker() as session:
+            deleted_count = (
+                session.query(SqlEvaluationDatasetRecord)
+                .filter(
+                    SqlEvaluationDatasetRecord.dataset_id == dataset_id,
+                    SqlEvaluationDatasetRecord.dataset_record_id.in_(dataset_record_ids),
+                )
+                .delete(synchronize_session=False)
+            )
+
+            if deleted_count == 0:
+                _logger.warning(
+                    f"No records found to delete for dataset {dataset_id}. "
+                    "Records may have already been deleted or never existed."
+                )
+                return 0
+
+            dataset_info = (
+                session.query(SqlEvaluationDataset.name)
+                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+                .first()
+            )
+
+            if dataset_info:
+                current_time = get_current_time_millis()
+                updated_profile = self._compute_dataset_profile(session, dataset_id)
+                new_digest = self._compute_dataset_digest(dataset_info[0], current_time)
+
+                update_fields = {
+                    "last_update_time": current_time,
+                    "digest": new_digest,
+                }
+
+                if updated_profile:
+                    update_fields["profile"] = json.dumps(updated_profile)
+
+                session.query(SqlEvaluationDataset).filter(
+                    SqlEvaluationDataset.dataset_id == dataset_id
+                ).update(update_fields)
+
+            return deleted_count
+
     def get_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
         """
         Get experiment IDs associated with an evaluation dataset.

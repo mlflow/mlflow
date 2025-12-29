@@ -121,6 +121,7 @@ from mlflow.protos.service_pb2 import (
     CreateRun,
     DeleteAssessment,
     DeleteDataset,
+    DeleteDatasetRecords,
     DeleteDatasetTag,
     DeleteExperiment,
     DeleteExperimentTag,
@@ -4873,6 +4874,26 @@ def _get_dataset_records_handler(dataset_id):
     return _wrap_response(response_message)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_dataset_records_handler(dataset_id):
+    request_message = _get_request_message(
+        DeleteDatasetRecords(),
+        schema={
+            "dataset_record_ids": [_assert_array],
+        },
+    )
+
+    deleted_count = _get_tracking_store().delete_dataset_records(
+        dataset_id=dataset_id,
+        dataset_record_ids=list(request_message.dataset_record_ids),
+    )
+
+    response_message = DeleteDatasetRecords.Response()
+    response_message.deleted_count = deleted_count
+    return _wrap_response(response_message)
+
+
 # Cache for telemetry config with 3 hour TTL
 _telemetry_config_cache = TTLCache(maxsize=1, ttl=10800)
 
@@ -4998,6 +5019,7 @@ HANDLERS = {
     UpsertDatasetRecords: _upsert_dataset_records_handler,
     GetDatasetExperimentIds: _get_dataset_experiment_ids_handler,
     GetDatasetRecords: _get_dataset_records_handler,
+    DeleteDatasetRecords: _delete_dataset_records_handler,
     AddDatasetToExperiments: _add_dataset_to_experiments_handler,
     RemoveDatasetFromExperiments: _remove_dataset_from_experiments_handler,
     # Model Registry APIs

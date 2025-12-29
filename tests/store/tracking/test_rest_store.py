@@ -70,6 +70,7 @@ from mlflow.protos.service_pb2 import (
     CreateLoggedModel,
     CreateRun,
     DeleteDataset,
+    DeleteDatasetRecords,
     DeleteDatasetTag,
     DeleteExperiment,
     DeleteGatewayEndpoint,
@@ -1866,6 +1867,57 @@ def test_upsert_evaluation_dataset_records():
             expected_json,
             endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
         )
+
+
+def test_delete_evaluation_dataset_records():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    record_ids = ["dr-record1", "dr-record2"]
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = DeleteDatasetRecords.Response()
+        response.deleted_count = 2
+        mock_call.return_value = response
+
+        result = store.delete_dataset_records(
+            dataset_id=dataset_id,
+            dataset_record_ids=record_ids,
+        )
+
+        assert result == 2
+
+        req = DeleteDatasetRecords(
+            dataset_record_ids=record_ids,
+        )
+        expected_json = message_to_json(req)
+
+        mock_call.assert_called_once_with(
+            DeleteDatasetRecords,
+            expected_json,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+        )
+
+
+def test_delete_evaluation_dataset_records_empty():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    record_ids = ["dr-nonexistent"]
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = DeleteDatasetRecords.Response()
+        response.deleted_count = 0
+        mock_call.return_value = response
+
+        result = store.delete_dataset_records(
+            dataset_id=dataset_id,
+            dataset_record_ids=record_ids,
+        )
+
+        assert result == 0
 
 
 def test_get_evaluation_dataset_experiment_ids():

@@ -59,6 +59,7 @@ from mlflow.protos.service_pb2 import (
     CreateRun,
     DeleteAssessment,
     DeleteDataset,
+    DeleteDatasetRecords,
     DeleteDatasetTag,
     DeleteExperiment,
     DeleteExperimentTag,
@@ -1595,6 +1596,31 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
             "inserted": response_proto.inserted_count,
             "updated": response_proto.updated_count,
         }
+
+    @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
+    def delete_dataset_records(
+        self, dataset_id: str, dataset_record_ids: list[str]
+    ) -> int:
+        """
+        Delete records from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_record_ids: List of record IDs to delete.
+
+        Returns:
+            The number of records deleted.
+        """
+        req = DeleteDatasetRecords(
+            dataset_record_ids=dataset_record_ids,
+        )
+        req_body = message_to_json(req)
+        response_proto = self._call_endpoint(
+            DeleteDatasetRecords,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+        )
+        return response_proto.deleted_count
 
     @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
     def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:

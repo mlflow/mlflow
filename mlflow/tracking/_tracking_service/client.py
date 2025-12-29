@@ -981,6 +981,24 @@ class TrackingServiceClient:
         """
         self.store.delete_dataset(dataset_id)
 
+    def delete_dataset_records(
+        self, dataset_id: str, dataset_record_ids: list[str]
+    ) -> int:
+        """
+        Delete specific records from a dataset.
+
+        Args:
+            dataset_id: ID of the dataset containing the records.
+            dataset_record_ids: List of record IDs to delete.
+
+        Returns:
+            The number of records deleted.
+        """
+        return self.store.delete_dataset_records(
+            dataset_id=dataset_id,
+            dataset_record_ids=dataset_record_ids,
+        )
+
     def search_datasets(
         self,
         experiment_ids: list[str] | None = None,
