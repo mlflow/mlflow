@@ -34,13 +34,11 @@ def test_distill_guidelines_with_examples():
     with patch(
         "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
     ) as mock_construct_lm:
-        # Create mock examples
         example1 = MagicMock(spec=dspy.Example)
         example1.__iter__ = lambda self: iter([("input", "test input"), ("output", "good")])
         example2 = MagicMock(spec=dspy.Example)
         example2.__iter__ = lambda self: iter([("input", "test input 2"), ("output", "bad")])
 
-        # Mock the distillation LM response
         mock_lm = MagicMock()
         mock_lm.return_value = [
             '{"guidelines": [{"guideline_text": "Be concise", "source_ids": [0, 1]}]}'

@@ -65,11 +65,9 @@ def mock_apis(guidelines=None):
         mock_lm.return_value = [f"{guidelines_json}".replace("'", '"')]
         mock_construct_lm.return_value = mock_lm
 
-        # Mock embedder
         mock_embedder = MagicMock()
         mock_embedder_class.return_value = mock_embedder
 
-        # Mock search
         mock_search = MagicMock()
         mock_embeddings_class.return_value = mock_search
 
@@ -92,16 +90,14 @@ def sample_traces():
             span.set_outputs({"outputs": f"output_{i}"})
             trace_ids.append(mlflow.get_last_active_trace_id())
 
-    # Fetch traces from backend
     traces = mlflow.search_traces(filter_string=None, return_type="list")
     traces = [t for t in traces if t.info.trace_id in trace_ids]
 
-    # Add human assessments
     for i, trace in enumerate(traces):
         assessment = Assessment(
             name="test_judge",
             source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user1"),
-            feedback=Feedback(value="yes" if i % 2 == 0 else "no", rationale=f"Reason {i}"),
+            feedback=Feedback(value="yes", rationale=f"Reason {i}"),
         )
         trace.info.assessments = [assessment]
 
@@ -141,7 +137,6 @@ def test_align_no_valid_feedback_raises_error(sample_judge):
     trace_id = mlflow.get_last_active_trace_id()
     traces = mlflow.search_traces(filter_string=None, return_type="list")
     trace = [t for t in traces if t.info.trace_id == trace_id][0]
-    # Deliberately no assessments added
 
     optimizer = MemAlignOptimizer()
     with pytest.raises(MlflowException, match="No valid feedback records found"):
@@ -169,7 +164,6 @@ def test_unalign_removes_traces(sample_judge, sample_traces):
         num_examples = len(aligned_judge._examples)
         assert num_examples == len(sample_traces)
 
-        # Unalign traces 1 and 3
         traces_to_remove = [sample_traces[1], sample_traces[3]]
         unaligned_judge = aligned_judge.unalign(traces=traces_to_remove)
 
@@ -178,11 +172,10 @@ def test_unalign_removes_traces(sample_judge, sample_traces):
         remaining_trace_ids = {
             ex._trace_id for ex in unaligned_judge._examples if hasattr(ex, "_trace_id")
         }
-        # Get actual trace IDs from sample_traces - exclude indices 1 and 3
-        expected_remaining = {
+        expected_remaining_trace_ids = {
             sample_traces[i].info.trace_id for i in range(len(sample_traces)) if i not in [1, 3]
         }
-        assert remaining_trace_ids == expected_remaining
+        assert remaining_trace_ids == expected_remaining_trace_ids
 
 
 def test_unalign_no_matching_traces_returns_same_judge(sample_judge, sample_traces):
@@ -195,8 +188,6 @@ def test_unalign_no_matching_traces_returns_same_judge(sample_judge, sample_trac
         mock_trace.info.trace_id = "trace_999"
 
         unaligned_judge = aligned_judge.unalign(traces=[mock_trace])
-
-        # Should return same judge
         assert unaligned_judge is aligned_judge
         assert len(unaligned_judge._examples) == 3
 
@@ -206,7 +197,6 @@ def test_judge_call_uses_semantic_memory(sample_judge, sample_traces):
         optimizer = MemAlignOptimizer()
         aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
 
-        # Verify semantic memory was populated
         assert len(aligned_judge._semantic_memory) == 2
         assert "Be concise" in aligned_judge._semantic_memory
         assert "Be clear" in aligned_judge._semantic_memory
@@ -228,13 +218,8 @@ def test_judge_call_retrieves_relevant_examples(sample_judge, sample_traces):
         mock_prediction.rationale = "Test rationale"
         aligned_judge._predict_module = MagicMock(return_value=mock_prediction)
 
-        # Call the judge
         assessment = aligned_judge(inputs="test input", outputs="test output")
-
-        # Verify search was called
         mocks["search"].assert_called_once()
-
-        # Verify assessment contains retrieved indices in metadata
         assert "retrieved_example_indices" in assessment.metadata
         assert assessment.metadata["retrieved_example_indices"] == [0, 2]
 
@@ -248,7 +233,6 @@ def test_memory_augmented_judge_properties(sample_judge, sample_traces):
         assert aligned_judge.model == sample_judge.model
         assert aligned_judge.get_input_fields() == sample_judge.get_input_fields()
 
-        # Instructions should include guidelines
         assert sample_judge.instructions in aligned_judge.instructions
         assert "Distilled Guidelines" in aligned_judge.instructions
         assert "Guideline 1" in aligned_judge.instructions
