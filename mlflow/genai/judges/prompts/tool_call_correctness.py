@@ -127,7 +127,7 @@ their described capabilities/constraints), and the actual tool calls made by the
 whether the agent selected the correct tools and used reasonable arguments.\
 """
 
-# Legacy exports for backward compatibility
+# Used by ToolCallCorrectness.instructions property for serialization
 TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS = (
     _GROUND_TRUTH_FREE_PREAMBLE
     + "\n\nFocus only on the choice of tools and the arguments passed to them. Do NOT judge "
@@ -136,8 +136,6 @@ TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS = (
     + "\n\n<request>\n{{request}}\n</request>\n\n<available_tools>\n{{available_tools}}\n"
     "</available_tools>\n\n<tools_called>\n{{tools_called}}\n</tools_called>"
 )
-TOOL_CALL_CORRECTNESS_PROMPT_OUTPUT = _OUTPUT_FORMAT
-TOOL_CALL_CORRECTNESS_PROMPT = TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS + _OUTPUT_FORMAT
 
 
 def _format_expected_calls(expected_calls: list["FunctionCall"], include_arguments: bool) -> str:
@@ -177,40 +175,25 @@ def get_prompt(
     """
     available_tools_str = format_available_tools(available_tools)
     tools_called_str = format_tools_called(tools_called)
-
-    if check_order:
-        ordering_instruction = ORDERING_INSTRUCTION_CHECK
-    else:
-        ordering_instruction = ORDERING_INSTRUCTION_IGNORE
+    ordering = ORDERING_INSTRUCTION_CHECK if check_order else ORDERING_INSTRUCTION_IGNORE
 
     if expected_calls is None:
-        # Ground-truth-free mode
-        criteria = format_prompt(
-            _GROUND_TRUTH_FREE_CRITERIA, ordering_instruction=ordering_instruction
-        )
-        return format_prompt(
-            _PROMPT_TEMPLATE + _OUTPUT_FORMAT,
-            preamble=_GROUND_TRUTH_FREE_PREAMBLE,
-            evaluation_criteria=criteria,
-            expected_section="",
-            request=request,
-            available_tools=available_tools_str,
-            tools_called=tools_called_str,
-        )
-
-    # With expectations mode
-    expected_calls_str = _format_expected_calls(expected_calls, include_arguments)
-    expected_section = f"<expected_tool_calls>\n{expected_calls_str}\n</expected_tool_calls>\n\n"
-
-    if include_arguments:
+        preamble = _GROUND_TRUTH_FREE_PREAMBLE
+        criteria = _GROUND_TRUTH_FREE_CRITERIA.replace("{{ordering_instruction}}", ordering)
+        expected_section = ""
+    elif include_arguments:
         preamble = _FULL_EXPECTATIONS_PREAMBLE
-        criteria = format_prompt(
-            _FULL_EXPECTATIONS_CRITERIA, ordering_instruction=ordering_instruction
+        criteria = _FULL_EXPECTATIONS_CRITERIA.replace("{{ordering_instruction}}", ordering)
+        expected_calls_str = _format_expected_calls(expected_calls, include_arguments)
+        expected_section = (
+            f"<expected_tool_calls>\n{expected_calls_str}\n</expected_tool_calls>\n\n"
         )
     else:
         preamble = _PARTIAL_EXPECTATIONS_PREAMBLE
-        criteria = format_prompt(
-            _PARTIAL_EXPECTATIONS_CRITERIA, ordering_instruction=ordering_instruction
+        criteria = _PARTIAL_EXPECTATIONS_CRITERIA.replace("{{ordering_instruction}}", ordering)
+        expected_calls_str = _format_expected_calls(expected_calls, include_arguments)
+        expected_section = (
+            f"<expected_tool_calls>\n{expected_calls_str}\n</expected_tool_calls>\n\n"
         )
 
     return format_prompt(

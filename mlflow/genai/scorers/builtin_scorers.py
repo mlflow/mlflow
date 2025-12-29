@@ -892,6 +892,13 @@ class ToolCallCorrectness(BuiltInScorer):
             should_exact_match=True,
             should_consider_ordering=True,
         )
+        expectations = {
+            "expected_tool_calls": [
+                {"name": "search", "arguments": {"query": "MLflow"}},
+                {"name": "summarize", "arguments": {"max_length": 100}},
+            ]
+        }
+        feedback = scorer(trace=trace, expectations=expectations)
     """
 
     name: str = "tool_call_correctness"
