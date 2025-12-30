@@ -491,7 +491,7 @@ def save_model(
 
         try:
             dynamic_dim = tensor_spec.shape.index(-1)
-            dynamic_shapes = ({dynamic_dim: ExportDim.DYNAMIC},)
+            dynamic_shapes = ({dynamic_dim: ExportDim("dynamic_dim")},)
         except ValueError:
             dynamic_shapes = None
 
