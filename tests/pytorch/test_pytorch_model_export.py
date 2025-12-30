@@ -1247,3 +1247,76 @@ def test_save_and_load_exported_model(sequential_model, model_path, data, sequen
     np.testing.assert_array_almost_equal(
         pyfunc_loaded.predict(input_example)[:, 0], sequential_predicted, decimal=4
     )
+
+
+def test_exported_model_infer_dynamic_dim(tmp_path):
+    class MyModule(torch.nn.Module):
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return torch.sin(x)
+
+    origin_model = MyModule()
+
+    input_example = torch.randn(3, 4, 5).numpy()
+
+    save_path1 = tmp_path / "model1"
+
+    # test exporting model with auto inferred signature,
+    # which sets the first dim (batch dim) of input data as dynamic dim.
+    mlflow.pytorch.save_model(
+        origin_model,
+        save_path1,
+        export_model=True,
+        input_example=input_example,
+    )
+
+    # Test the exported model works with test data that changes the first dim (batch dim) size.
+    loaded_model1 = mlflow.pytorch.load_model(save_path1)
+
+    test_data1 = torch.randn(6, 4, 5)
+    np.testing.assert_array_almost_equal(
+        loaded_model1(test_data1),
+        origin_model(test_data1),
+        decimal=4,
+    )
+
+    save_path2 = tmp_path / "model2"
+    # test exporting model with provided signature,
+    # which sets the second dim of input data as dynamic dim.
+    mlflow.pytorch.save_model(
+        origin_model,
+        save_path2,
+        export_model=True,
+        input_example=input_example,
+        signature=ModelSignature(
+            inputs=Schema([TensorSpec(np.dtype("float32"), (3, -1, 5))]),
+        ),
+    )
+
+    # Test the exported model works with test data that changes the second dim (batch dim) size.
+    loaded_model1 = mlflow.pytorch.load_model(save_path2)
+
+    test_data1 = torch.randn(3, 2, 5)
+    np.testing.assert_array_almost_equal(
+        loaded_model1(test_data1),
+        origin_model(test_data1),
+        decimal=4,
+    )
+
+
+@pytest.mark.parametrize("scripted_model", [False])
+def test_load_exported_model_check_device_mismatch(sequential_model, model_path):
+    mlflow.pytorch.save_model(
+        sequential_model,
+        model_path,
+        export_model=True,
+        input_example=torch.randn(3, 4).numpy(),
+    )
+
+    # test loading model to CPU works
+    mlflow.pytorch.load_model(model_path, device="cpu")
+
+    with pytest.raises(
+        MlflowException,
+        match="can't support move model parameters and buffers to different devices.",
+    ):
+        mlflow.pytorch.load_model(model_path, device="cuda")
