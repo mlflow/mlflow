@@ -19,8 +19,10 @@ from mlflow.server.security_utils import (
     is_allowed_host_header,
     is_api_endpoint,
     should_block_cors_request,
+    strip_static_prefix,
 )
 from mlflow.tracing.constant import TRACE_RENDERER_ASSET_PATH
+
 
 _logger = logging.getLogger(__name__)
 
@@ -28,23 +30,24 @@ _logger = logging.getLogger(__name__)
 class HostValidationMiddleware:
     """Middleware to validate Host headers using fnmatch patterns."""
 
-    def __init__(self, app: ASGIApp, allowed_hosts: list[str]):
+    def __init__(self, app: ASGIApp, allowed_hosts: list[str], static_prefix: str | None):
         self.app = app
         self.allowed_hosts = allowed_hosts
+        self.static_prefix = static_prefix
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
 
-        if scope["path"] in HEALTH_ENDPOINTS:
+        normalized_path = strip_static_prefix(scope["path"], self.static_prefix)
+
+        if normalized_path in HEALTH_ENDPOINTS:
             return await self.app(scope, receive, send)
 
         headers = dict(scope.get("headers", []))
         host = headers.get(b"host", b"").decode("utf-8")
 
         if not is_allowed_host_header(self.allowed_hosts, host):
-            _logger.warning(f"Rejected request with invalid Host header: {host}")
-
             async def send_403(message):
                 if message["type"] == "http.response.start":
                     message["status"] = 403
@@ -56,7 +59,6 @@ class HostValidationMiddleware:
             return
 
         return await self.app(scope, receive, send)
-
 
 class SecurityHeadersMiddleware:
     """Middleware to add security headers to all responses."""
@@ -188,4 +190,4 @@ def init_fastapi_security(app: FastAPI) -> None:
     allowed_hosts = get_allowed_hosts()
 
     if allowed_hosts and "*" not in allowed_hosts:
-        app.add_middleware(HostValidationMiddleware, allowed_hosts=allowed_hosts)
+        app.add_middleware(HostValidationMiddleware, allowed_hosts=allowed_hosts,static_prefix=app.root_path or None,)

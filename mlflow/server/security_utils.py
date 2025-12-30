@@ -23,6 +23,28 @@ STATE_CHANGING_METHODS = ["POST", "PUT", "DELETE", "PATCH"]
 # Paths exempt from host validation
 HEALTH_ENDPOINTS = ["/health", "/version"]
 
+def strip_static_prefix(path: str, static_prefix: str | None) -> str:
+    """
+    Remove the configured static prefix from the request path, if present.
+
+    Example:
+        path="/mlflow/health", static_prefix="/mlflow" -> "/health"
+    """
+    if not static_prefix:
+        return path
+
+    if not static_prefix.startswith("/"):
+        static_prefix = f"/{static_prefix}"
+
+    if path == static_prefix:
+        return "/"
+
+    if path.startswith(static_prefix + "/"):
+        return path[len(static_prefix) :]
+
+    return path
+
+
 # API path prefix for MLflow endpoints
 API_PATH_PREFIX = "/api/"
 

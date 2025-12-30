@@ -161,14 +161,15 @@ except ImportError as e:
         "validation. Please run `pip install mlflow[auth]` to install it."
     ) from e
 
+
+
 _logger = logging.getLogger(__name__)
 
 auth_config = read_auth_config()
 store = SqlAlchemyStore()
 
+from mlflow.server.auth.utils import is_unprotected_route
 
-def is_unprotected_route(path: str) -> bool:
-    return path.startswith(("/static", "/favicon.ico", "/health"))
 
 
 def make_basic_auth_response() -> Response:
@@ -859,7 +860,7 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
 
 @catch_mlflow_exception
 def _before_request():
-    if is_unprotected_route(request.path):
+    if is_unprotected_route(request.path, request.app.root_path):
         return
 
     authorization = authenticate_request()
@@ -872,11 +873,9 @@ def _before_request():
             INTERNAL_ERROR,
         )
 
-    # admins don't need to be authorized
     if sender_is_admin():
         return
 
-    # authorization
     if validator := _find_validator(request):
         if not validator():
             return make_forbidden_response()
