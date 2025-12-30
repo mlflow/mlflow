@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -10,8 +11,15 @@ import pydantic
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
+from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+    call_chat_completions,
+)
 from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     _invoke_databricks_serving_endpoint,
+)
+from mlflow.genai.judges.constants import (
+    _DATABRICKS_AGENTIC_JUDGE_MODEL,
+    _DATABRICKS_DEFAULT_JUDGE_MODEL,
 )
 from mlflow.genai.judges.utils import get_default_model
 from mlflow.genai.simulators.prompts import (
@@ -79,17 +87,30 @@ def _suppress_tracing_logging():
         fluent_logger.setLevel(original_fluent_level)
 
 
+# TODO: Refactor judges adapters to support returning raw responses, then use them here
+#       instead of reimplementing the invocation logic.
 @trace_disabled  # Suppress tracing for our LLM (e.g., user message generation, stopping condition)
 def _invoke_model(
     model_uri: str,
     messages: list["ChatMessage"],
     num_retries: int = 3,
     inference_params: dict[str, Any] | None = None,
-    response_format: type[pydantic.BaseModel] | None = None,
-) -> str | pydantic.BaseModel:
+) -> str:
     import litellm
 
+    # Use Databricks managed endpoint with agentic model for the default "databricks" URI
+    if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+        user_prompt = json.dumps([{"role": msg.role, "content": msg.content} for msg in messages])
+        result = call_chat_completions(
+            user_prompt=user_prompt,
+            system_prompt="",
+            model=_DATABRICKS_AGENTIC_JUDGE_MODEL,
+        )
+        return result.choices[0].message.content if result.choices else ""
+
     provider, model_name = _parse_model_uri(model_uri)
+
+    # Use Databricks serving endpoint for databricks:/<endpoint> URIs
     if provider in {"databricks", "endpoints"}:
         output = _invoke_databricks_serving_endpoint(
             model_name=model_name,
@@ -97,11 +118,9 @@ def _invoke_model(
             num_retries=num_retries,
             inference_params=inference_params,
         )
-        content = output.response
-        if response_format:
-            return response_format.model_validate_json(content)
-        return content
+        return output.response
 
+    # Use LiteLLM for other providers
     litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
     kwargs = {
@@ -111,15 +130,9 @@ def _invoke_model(
     }
     if inference_params:
         kwargs.update(inference_params)
-    if response_format:
-        kwargs["response_format"] = response_format
 
     response = litellm.completion(**kwargs)
-    content = response.choices[0].message.content
-
-    if response_format:
-        return response_format.model_validate_json(content)
-    return content
+    return response.choices[0].message.content
 
 
 def _get_last_response(conversation_history: list[dict[str, Any]]) -> str | None:
