@@ -185,6 +185,8 @@ def pytorch_custom_env(tmp_path):
 
 
 def _predict(model, data):
+    from torch.fx import GraphModule
+
     dataset = get_dataset(data)
     batch_size = 16
     num_workers = 4
@@ -192,7 +194,9 @@ def _predict(model, data):
         dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False, drop_last=False
     )
     predictions = np.zeros((len(dataloader.sampler),))
-    model.eval()
+
+    if not isinstance(model, GraphModule):
+        model.eval()
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
             y_preds = model(batch[0]).squeeze(dim=1).numpy()
@@ -1241,5 +1245,5 @@ def test_save_and_load_exported_model(sequential_model, model_path, data, sequen
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     np.testing.assert_array_almost_equal(
-        pyfunc_loaded.predict(data[0]).values[:, 0], sequential_predicted, decimal=4
+        pyfunc_loaded.predict(input_example)[:, 0], sequential_predicted, decimal=4
     )
