@@ -166,7 +166,7 @@ export const EndpointFormRenderer = ({
               defaultMessage: 'Name',
               description: 'Section title for endpoint name',
             })}
-            hideTopPadding={embedded}
+            css={embedded ? { paddingTop: 0 } : undefined}
           >
             <Controller
               control={form.control}

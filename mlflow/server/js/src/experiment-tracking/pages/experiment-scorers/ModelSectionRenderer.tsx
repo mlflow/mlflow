@@ -8,8 +8,8 @@ import { EndpointSelector } from '../../components/EndpointSelector';
 import {
   ModelProvider,
   getModelProvider,
-  getEndpointNameFromModel,
-  formatModelFromEndpoint,
+  getEndpointNameFromGatewayModel,
+  formatGatewayModelFromEndpoint,
 } from '../../../gateway/utils/gatewayUtils';
 import type { LLMScorerFormData } from './LLMScorerFormRenderer';
 
@@ -23,7 +23,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
   const { theme } = useDesignSystemTheme();
 
   const currentModel = useWatch({ control, name: 'model' });
-  const currentEndpointName = getEndpointNameFromModel(currentModel);
+  const currentEndpointName = getEndpointNameFromGatewayModel(currentModel);
 
   const [modelProviderState, setModelProvider] = useState<ModelProvider>(() => getModelProvider(currentModel));
   // In DISPLAY mode, always derive from the actual model value since it's read-only.
@@ -106,7 +106,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
           <div css={{ marginTop: theme.spacing.sm }} onClick={stopPropagationClick}>
             <EndpointSelector
               currentEndpointName={currentEndpointName}
-              onEndpointSelect={(endpointName) => field.onChange(formatModelFromEndpoint(endpointName))}
+              onEndpointSelect={(endpointName) => field.onChange(formatGatewayModelFromEndpoint(endpointName))}
               disabled={isReadOnly}
               componentIdPrefix={`${COMPONENT_ID_PREFIX}.endpoint`}
             />

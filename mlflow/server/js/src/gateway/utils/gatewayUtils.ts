@@ -14,17 +14,21 @@ export const getModelProvider = (model: string | undefined): ModelProvider => {
   return ModelProvider.OTHER;
 };
 
-export const getEndpointNameFromModel = (model: string | undefined): string | undefined => {
+export const getEndpointNameFromGatewayModel = (model: string | undefined): string | undefined => {
   if (model?.startsWith(GATEWAY_MODEL_PREFIX)) {
     return model.replace(GATEWAY_MODEL_PREFIX, '');
   }
   return undefined;
 };
 
-export const formatModelFromEndpoint = (endpointName: string): string => {
+export const formatGatewayModelFromEndpoint = (endpointName: string): string => {
   return `${GATEWAY_MODEL_PREFIX}${endpointName}`;
 };
 
+/**
+ * Checks if the model is a non-gateway model (i.e., openai:/gpt-4, anthropic:/claude-3-5-sonnet, etc.
+ * that doesn't use the gateway:/ prefix).
+ */
 export const isDirectModel = (model: string | undefined): boolean => {
   return Boolean(model && !model.startsWith(GATEWAY_MODEL_PREFIX));
 };

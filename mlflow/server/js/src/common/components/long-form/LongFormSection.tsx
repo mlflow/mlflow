@@ -10,8 +10,8 @@ export interface LongFormSectionProps {
   children: ReactNode;
   /** Whether to hide the bottom border divider (default: false) */
   hideDivider?: boolean;
-  /** Whether to hide the top padding (default: false, useful for first section in embedded contexts) */
-  hideTopPadding?: boolean;
+  /** Optional className for custom styling */
+  className?: string;
 }
 
 /**
@@ -24,16 +24,17 @@ export const LongFormSection = ({
   titleWidth = 200,
   children,
   hideDivider = false,
-  hideTopPadding = false,
+  className,
 }: LongFormSectionProps) => {
   const { theme } = useDesignSystemTheme();
 
   return (
     <div
+      className={className}
       css={{
         display: 'flex',
         gap: 32,
-        paddingTop: hideTopPadding ? 0 : theme.spacing.lg,
+        paddingTop: theme.spacing.lg,
         paddingBottom: theme.spacing.lg,
         borderBottom: hideDivider ? 'none' : `1px solid ${theme.colors.borderDecorative}`,
         '@media (max-width: 1023px)': {
