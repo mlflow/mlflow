@@ -1162,3 +1162,340 @@ def test_get_metric_history_bulk_interval_auth(client: MlflowClient, monkeypatch
         data = response.json()
         assert "metrics" in data
         assert len(data["metrics"]) == 2
+
+
+def test_gateway_secrets_admin_only(client, monkeypatch):
+    username, password = create_user(client.tracking_uri)
+
+    with User(username, password, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            json={
+                "secret_name": "test_secret",
+                "secret_value": {"api_key": "test-key"},
+                "provider": "openai",
+            },
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    with User(username, password, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/list",
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": "test_secret",
+            "secret_value": {"api_key": "test-key"},
+            "provider": "openai",
+        },
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+    secret_id = response.json()["secret"]["secret_id"]
+
+    with User(username, password, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/get",
+            params={"secret_id": secret_id},
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    with User(username, password, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/update",
+            json={
+                "secret_id": secret_id,
+                "secret_value": {"api_key": "new-key"},
+            },
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    with User(username, password, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": secret_id},
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    response = requests.delete(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+        json={"secret_id": secret_id},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
+
+def test_gateway_endpoints_admin_only(client, monkeypatch):
+    username, password = create_user(client.tracking_uri)
+
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": "test_secret_for_endpoint",
+            "secret_value": {"api_key": "test-key"},
+            "provider": "openai",
+        },
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+    secret_id = response.json()["secret"]["secret_id"]
+
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+        json={
+            "name": "test_model_def",
+            "secret_id": secret_id,
+            "provider": "openai",
+            "model_name": "gpt-4",
+        },
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+    model_definition_id = response.json()["model_definition"]["model_definition_id"]
+
+    with User(username, password, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            json={
+                "name": "test_endpoint",
+                "model_definition_ids": [model_definition_id],
+            },
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+        json={
+            "name": "test_endpoint",
+            "model_definition_ids": [model_definition_id],
+        },
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+    endpoint_id = response.json()["endpoint"]["endpoint_id"]
+
+    with User(username, password, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/list",
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    with User(username, password, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/get",
+            params={"endpoint_id": endpoint_id},
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    with User(username, password, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/update",
+            json={
+                "endpoint_id": endpoint_id,
+                "name": "updated_endpoint",
+            },
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    with User(username, password, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            json={"endpoint_id": endpoint_id},
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    response = requests.delete(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+        json={"endpoint_id": endpoint_id},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
+    response = requests.delete(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+        json={"model_definition_id": model_definition_id},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
+    response = requests.delete(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+        json={"secret_id": secret_id},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
+
+def test_gateway_model_definitions_admin_only(client, monkeypatch):
+    username, password = create_user(client.tracking_uri)
+
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": "test_secret_for_model_def",
+            "secret_value": {"api_key": "test-key"},
+            "provider": "openai",
+        },
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+    secret_id = response.json()["secret"]["secret_id"]
+
+    with User(username, password, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "test_model_def",
+                "secret_id": secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+        json={
+            "name": "test_model_def",
+            "secret_id": secret_id,
+            "provider": "openai",
+            "model_name": "gpt-4",
+        },
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+    model_definition_id = response.json()["model_definition"]["model_definition_id"]
+
+    with User(username, password, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/list",
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    with User(username, password, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/get",
+            params={"model_definition_id": model_definition_id},
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    with User(username, password, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/update",
+            json={
+                "model_definition_id": model_definition_id,
+                "name": "updated_model_def",
+            },
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    with User(username, password, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": model_definition_id},
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    response = requests.delete(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+        json={"model_definition_id": model_definition_id},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
+    response = requests.delete(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+        json={"secret_id": secret_id},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
+
+def test_gateway_ajax_routes_admin_only(client, monkeypatch):
+    username, password = create_user(client.tracking_uri)
+
+    with User(username, password, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/supported-providers",
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    with User(username, password, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/supported-models",
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    with User(username, password, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/provider-config",
+            params={"provider": "openai"},
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    with User(username, password, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/secrets/config",
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    response = requests.get(
+        url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/supported-providers",
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+    assert "providers" in response.json()
+
+    response = requests.get(
+        url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/secrets/config",
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+    assert "secrets_available" in response.json()
+
+
+def test_gateway_unauthenticated_access_denied(client, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
+
+    response = requests.get(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/list",
+    )
+    assert response.status_code == 401
+
+    response = requests.get(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/list",
+    )
+    assert response.status_code == 401
+
+    response = requests.get(
+        url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/list",
+    )
+    assert response.status_code == 401
+
+    response = requests.get(
+        url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/supported-providers",
+    )
+    assert response.status_code == 401

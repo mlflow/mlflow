@@ -31,3 +31,10 @@ GET_METRIC_HISTORY_BULK_INTERVAL = _get_ajax_path("/mlflow/metrics/get-history-b
 SEARCH_DATASETS = _get_ajax_path("/mlflow/experiments/search-datasets")
 CREATE_PROMPTLAB_RUN = _get_ajax_path("/mlflow/runs/create-promptlab-run")
 GATEWAY_PROXY = _get_ajax_path("/mlflow/gateway-proxy")
+
+# Gateway AJAX-only routes (admin only)
+GATEWAY_SUPPORTED_PROVIDERS = _get_ajax_path("/mlflow/gateway/supported-providers", version=3)
+GATEWAY_SUPPORTED_MODELS = _get_ajax_path("/mlflow/gateway/supported-models", version=3)
+GATEWAY_PROVIDER_CONFIG = _get_ajax_path("/mlflow/gateway/provider-config", version=3)
+GATEWAY_SECRETS_CONFIG = _get_ajax_path("/mlflow/gateway/secrets/config", version=3)
+INVOKE_SCORER = _get_ajax_path("/mlflow/scorer/invoke", version=3)
