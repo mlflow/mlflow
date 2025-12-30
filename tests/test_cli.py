@@ -319,7 +319,7 @@ def sqlite_store():
     store = SqlAlchemyStore(db_uri, "artifact_folder")
     yield (store, db_uri)
     os.remove(temp_dbfile)
-    shutil.rmtree("artifact_folder")
+    shutil.rmtree("artifact_folder", ignore_errors=True)
 
 
 @pytest.fixture
