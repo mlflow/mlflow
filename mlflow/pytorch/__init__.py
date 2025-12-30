@@ -480,7 +480,7 @@ def save_model(
             dynamic_shapes = None
 
         exported_prog = torch.export.export(
-            pytorch_model, (input_example,), dynamic_shapes=dynamic_shapes
+            pytorch_model, (torch.from_numpy(input_example),), dynamic_shapes=dynamic_shapes
         )
         model_path = os.path.join(model_data_path, _EXPORTED_TORCH_MODEL_FILE_NAME)
         torch.export.save(exported_prog, model_path)
@@ -623,7 +623,7 @@ def _load_model(path, device=None, **kwargs):
 
     if Version(torch.__version__) >= Version("1.5.0"):
         if is_exported_model:
-            pytorch_model = torch.export.load(model_path, **kwargs)
+            pytorch_model = torch.export.load(model_path, **kwargs).module()
         else:
             pytorch_model = torch.load(model_path, **kwargs)
     else:
