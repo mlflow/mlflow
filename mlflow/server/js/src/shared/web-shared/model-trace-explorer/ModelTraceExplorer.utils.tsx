@@ -149,7 +149,11 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
   }
 }
 
-export function tryDeserializeAttribute(value: string): any {
+export function tryDeserializeAttribute(value: any): any {
+  if (!isString(value)) {
+    return value;
+  }
+
   try {
     return JSON.parse(value);
   } catch (e) {
@@ -411,6 +415,21 @@ const getChatToolsFromSpan = (toolsAttributeValue: any, inputs: any): ModelTrace
   return undefined;
 };
 
+const getFirstEventAttributeValue = (events: ModelTraceEvent[] | undefined, attributeKey: string) => {
+  if (!events || events.length === 0) {
+    return undefined;
+  }
+
+  for (const event of events) {
+    const attributes = event.attributes;
+    if (attributes && !isNil(attributes[attributeKey])) {
+      return attributes[attributeKey];
+    }
+  }
+
+  return undefined;
+};
+
 export const normalizeNewSpanData = (
   span: ModelTraceSpan,
   rootStartTime: number,
@@ -420,8 +439,20 @@ export const normalizeNewSpanData = (
   traceId: string,
 ): ModelTraceSpanNode => {
   const spanType = tryDeserializeAttribute(span.attributes?.['mlflow.spanType']);
-  const inputs = tryDeserializeAttribute(span.attributes?.['mlflow.spanInputs']);
-  const outputs = tryDeserializeAttribute(span.attributes?.['mlflow.spanOutputs']);
+  let inputs = tryDeserializeAttribute(span.attributes?.['mlflow.spanInputs']);
+  let outputs = tryDeserializeAttribute(span.attributes?.['mlflow.spanOutputs']);
+
+  // OTel GenAI semantic conventions may log chat messages in span events (rather than span attributes).
+  // Populate inputs/outputs from `gen_ai.*.messages` when the MLflow-native fields are missing.
+  if (isNil(inputs)) {
+    const inputMessages = getFirstEventAttributeValue(span.events, 'gen_ai.input.messages');
+    inputs = tryDeserializeAttribute(inputMessages);
+  }
+  if (isNil(outputs)) {
+    const outputMessages = getFirstEventAttributeValue(span.events, 'gen_ai.output.messages');
+    outputs = tryDeserializeAttribute(outputMessages);
+  }
+
   const parentId = getModelTraceSpanParentId(span);
   const spanId = getModelTraceSpanId(span);
 

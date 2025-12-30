@@ -468,6 +468,36 @@ describe('normalizeNewSpanData', () => {
     expect(normalized.chatTools).toEqual(MOCK_OPENAI_CHAT_INPUT.tools);
   });
 
+  it('should populate inputs from gen_ai.input.messages event when spanInputs missing', () => {
+    const otelMessages = [
+      {
+        role: 'user',
+        parts: [{ type: 'text', content: 'What is the weather now?' }],
+      },
+    ];
+
+    const otelSpan = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.spanInputs': undefined,
+        'mlflow.spanOutputs': undefined,
+      },
+      events: [
+        {
+          name: 'gen_ai.client.inference.operation.details',
+          attributes: {
+            'gen_ai.input.messages': JSON.stringify(otelMessages),
+          },
+        },
+      ],
+    } as any;
+
+    const normalized = normalizeNewSpanData(otelSpan, 0, 0, [], {}, '');
+
+    expect(normalized.inputs).toEqual(otelMessages);
+  });
+
   it('should use mlflow.chat.messages attribute when present and properly formatted', () => {
     const chatMessages: RawModelTraceChatMessage[] = [
       {
