@@ -666,8 +666,8 @@ def _load_model(path, device=None, **kwargs):
             ):
                 if tensor.device.type != target_device_type:
                     raise MlflowException(
-                        "The saved model is exported by `torch.export` API, it can't support move "
-                        "model parameters and buffers to different devices."
+                        "The saved model is exported by `torch.export` API, it doesn't support "
+                        "moving model parameters and buffers to different devices."
                     )
         else:
             pytorch_model.to(device=device)
