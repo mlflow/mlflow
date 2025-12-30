@@ -5,12 +5,13 @@ import { useIntl } from '@databricks/i18n';
 import { type ScorerFormData } from './utils/scorerTransformUtils';
 import { useEvaluateTraces } from './useEvaluateTraces';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
-import { convertEvaluationResultToAssessment } from './llmScorerUtils';
+import { convertEvaluationResultToAssessment, getAssessmentsFromSessionEvaluation } from './llmScorerUtils';
 import { extractTemplateVariables } from '../../utils/evaluationUtils';
 import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope, SCORER_TYPE } from './constants';
 import { EvaluateTracesParams, LLM_TEMPLATE } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
+import { isSessionJudgeEvaluationResult } from './useEvaluateTraces.common';
 
 interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
@@ -43,6 +44,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
   const [evaluateTraces, { data, isLoading, error, reset }] = useEvaluateTraces({
     onScorerFinished,
+    evaluationScope,
   });
 
   // Carousel state for navigating through traces
@@ -146,6 +148,11 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
     const baseName = scorerName || llmTemplate;
 
+    // For session-level judges, get the assessments directly from the session evaluation result
+    if (isSessionJudgeEvaluationResult(currentEvalResult)) {
+      return getAssessmentsFromSessionEvaluation(currentEvalResult);
+    }
+
     // Custom judges or built-in judges with no results: single assessment
     if (isCustomMode || currentEvalResult.results.length === 0) {
       const assessment = convertEvaluationResultToAssessment(currentEvalResult, baseName);
@@ -235,8 +242,8 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       isRunScorerDisabled={isRunScorerDisabled}
       runScorerDisabledTooltip={runScorerDisabledTooltip}
       error={error}
-      currentTraceIndex={currentTraceIndex}
-      currentTrace={currentEvalResult?.trace ?? undefined}
+      currentEvalResultIndex={currentTraceIndex}
+      currentEvalResult={currentEvalResult}
       assessments={assessments}
       handleRunScorer={handleRunScorer}
       handlePrevious={handlePrevious}

@@ -1710,6 +1710,10 @@
     "defaultMessage": "Registered models",
     "description": "Run page > Overview > Run models section label"
   },
+  "BD8ZUj": {
+    "defaultMessage": "{isTraces, select, true {Trace} other {Session}} {index} of {total}",
+    "description": "Index of the current trace and total number of traces"
+  },
   "BEFBcB": {
     "defaultMessage": "We support multiple experiment types, each with its own set of features. Please select the type you'd like to use. You can change this later if needed.",
     "description": "Popover message displayed when the experiment type could not not inferred"
@@ -7434,10 +7438,6 @@
   "wxq/qM": {
     "defaultMessage": "Set as baseline",
     "description": "In the run data difference comparison table, the label for an option to set particular experiment run as a baseline one - meaning other runs will be compared to it."
-  },
-  "x/G0Ow": {
-    "defaultMessage": "Trace {index} of {total}",
-    "description": "Index of the current trace and total number of traces"
   },
   "x/YJtF": {
     "defaultMessage": "MLflow MCP server",
