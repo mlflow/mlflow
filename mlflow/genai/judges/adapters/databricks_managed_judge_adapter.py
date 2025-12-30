@@ -27,12 +27,11 @@ from mlflow.genai.judges.constants import (
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
 )
 from mlflow.genai.judges.tools import list_judge_tools
-from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
-from mlflow.protos.databricks_pb2 import (
-    BAD_REQUEST,
-    INVALID_PARAMETER_VALUE,
-    REQUEST_LIMIT_EXCEEDED,
+from mlflow.genai.judges.utils.tool_calling_utils import (
+    _process_tool_calls,
+    _raise_iteration_limit_exceeded,
 )
+from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -301,59 +300,44 @@ def _run_databricks_agentic_loop(
     Raises:
         MlflowException: If max iterations exceeded or other errors occur.
     """
-    # Enable tool calling if trace is provided
     tools = None
     if trace is not None:
         tools = [tool.get_definition() for tool in list_judge_tools()]
 
-    # Agentic loop: iteratively call LLM and execute tools until final answer
     max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
     iteration_count = 0
 
     while True:
         iteration_count += 1
         if iteration_count > max_iterations:
-            raise MlflowException(
-                f"Completion iteration limit of {max_iterations} exceeded. "
-                f"This usually indicates the model is not powerful enough to effectively "
-                f"analyze the trace. Consider using a more intelligent/powerful model. "
-                f"In rare cases, for very complex traces where a large number of completion "
-                f"iterations might be required, you can increase the number of iterations by "
-                f"modifying the {MLFLOW_JUDGE_MAX_ITERATIONS.name} environment variable.",
-                error_code=REQUEST_LIMIT_EXCEEDED,
+            _raise_iteration_limit_exceeded(max_iterations)
+
+        try:
+            user_prompt, system_prompt = _serialize_messages_to_databricks_prompts(messages)
+
+            llm_result = call_chat_completions(
+                user_prompt, system_prompt or "", tools=tools, model=_DATABRICKS_AGENTIC_JUDGE_MODEL
             )
 
-        # Serialize messages to Databricks format
-        user_prompt, system_prompt = _serialize_messages_to_databricks_prompts(messages)
+            output_json = llm_result.output_json
+            if not output_json:
+                raise MlflowException("Empty response from Databricks judge")
 
-        llm_result = call_chat_completions(
-            user_prompt, system_prompt or "", tools=tools, model=_DATABRICKS_AGENTIC_JUDGE_MODEL
-        )
+            parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
+            message = _create_litellm_message_from_databricks_response(parsed_json)
 
-        # Parse response
-        output_json = llm_result.output_json
-        if not output_json:
-            raise MlflowException(
-                "Empty response from Databricks judge",
-                error_code=INVALID_PARAMETER_VALUE,
+            if not message.tool_calls:
+                return on_final_answer(message.content)
+
+            messages.append(message)
+            tool_response_messages = _process_tool_calls(
+                tool_calls=message.tool_calls,
+                trace=trace,
             )
-
-        parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
-
-        # Convert response to litellm Message
-        message = _create_litellm_message_from_databricks_response(parsed_json)
-
-        # No tool calls means final answer - delegate to callback
-        if not message.tool_calls:
-            return on_final_answer(message.content)
-
-        # Append assistant message and process tool calls
-        messages.append(message)
-        tool_response_messages = _process_tool_calls(
-            tool_calls=message.tool_calls,
-            trace=trace,
-        )
-        messages.extend(tool_response_messages)
+            messages.extend(tool_response_messages)
+        except Exception:
+            _logger.debug("Failed during Databricks agentic loop iteration", exc_info=True)
+            raise
 
 
 def _invoke_databricks_default_judge(

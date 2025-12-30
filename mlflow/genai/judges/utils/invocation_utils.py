@@ -22,7 +22,6 @@ from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_han
 from mlflow.genai.judges.adapters.utils import get_adapter
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
 
@@ -139,16 +138,21 @@ def _invoke_databricks_structured_output(
             litellm.Message(role="system", content=schema_instruction),
         )
 
-    # Define callback to parse final answer into Pydantic model
     def parse_structured_output(content: str | None) -> pydantic.BaseModel:
-        if content:
+        if not content:
+            raise MlflowException("Empty content in final response from Databricks judge")
+        try:
             cleaned = _strip_markdown_code_blocks(content)
             response_dict = json.loads(cleaned)
             return output_schema(**response_dict)
-        raise MlflowException(
-            "Empty content in final response from Databricks judge",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"Failed to parse JSON response from Databricks judge: {e}\n\nResponse: {content}"
+            ) from e
+        except pydantic.ValidationError as e:
+            raise MlflowException(
+                f"Response does not match expected schema: {e}\n\nResponse: {content}"
+            ) from e
 
     return _run_databricks_agentic_loop(litellm_messages, trace, parse_structured_output)
 
