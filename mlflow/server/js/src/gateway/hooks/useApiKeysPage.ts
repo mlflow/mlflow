@@ -8,6 +8,7 @@ import type { SecretInfo, Endpoint, EndpointBinding, ModelDefinition } from '../
 export interface DeleteModalData {
   secret: SecretInfo;
   modelDefinitions: ModelDefinition[];
+  endpoints: Endpoint[];
   bindingCount: number;
 }
 
@@ -44,6 +45,16 @@ export function useApiKeysPage() {
       return allModelDefinitions.filter((modelDef) => modelDef.secret_id === secretId);
     },
     [allModelDefinitions],
+  );
+
+  const getEndpointsForSecret = useCallback(
+    (secretId: string): Endpoint[] => {
+      if (!allEndpoints) return [];
+      return allEndpoints.filter((endpoint) =>
+        endpoint.model_mappings?.some((mapping) => mapping.model_definition?.secret_id === secretId),
+      );
+    },
+    [allEndpoints],
   );
 
   const getBindingCountForSecret = useCallback(
@@ -101,8 +112,8 @@ export function useApiKeysPage() {
 
   // Delete modal handlers
   const handleDeleteClick = useCallback(
-    (secret: SecretInfo, modelDefinitions: ModelDefinition[], bindingCount: number) => {
-      setDeleteModalData({ secret, modelDefinitions, bindingCount });
+    (secret: SecretInfo, modelDefinitions: ModelDefinition[], endpoints: Endpoint[], bindingCount: number) => {
+      setDeleteModalData({ secret, modelDefinitions, endpoints, bindingCount });
     },
     [],
   );
@@ -110,10 +121,11 @@ export function useApiKeysPage() {
   const handleDeleteFromDrawer = useCallback(
     (secret: SecretInfo) => {
       const modelDefinitions = getModelDefinitionsForSecret(secret.secret_id);
+      const endpoints = getEndpointsForSecret(secret.secret_id);
       const bindingCount = getBindingCountForSecret(secret.secret_id);
-      setDeleteModalData({ secret, modelDefinitions, bindingCount });
+      setDeleteModalData({ secret, modelDefinitions, endpoints, bindingCount });
     },
-    [getModelDefinitionsForSecret, getBindingCountForSecret],
+    [getModelDefinitionsForSecret, getEndpointsForSecret, getBindingCountForSecret],
   );
 
   const handleDeleteModalClose = useCallback(() => {
