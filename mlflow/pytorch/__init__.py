@@ -636,7 +636,8 @@ def _load_model(path, device=None, **kwargs):
             kwargs.pop("pickle_module", None)
             pytorch_model = torch.jit.load(model_path, **kwargs)
 
-    pytorch_model.eval()
+    if not is_exported_model:
+        pytorch_model.eval()
     if device:
         if is_exported_model:
             # If the model is loaded from an exported model (pt2 format),

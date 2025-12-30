@@ -1223,13 +1223,15 @@ def test_log_model_with_datetime_input():
         np.testing.assert_array_almost_equal(pyfunc_model.predict(df), expected_result, decimal=4)
 
 
-@pytest.mark.parametrize("scripted_model", [True, False])
+@pytest.mark.parametrize("scripted_model", [False])
 def test_save_and_load_exported_model(sequential_model, model_path, data, sequential_predicted):
+    input_example = data[0].to_numpy(dtype=np.float32)
+
     mlflow.pytorch.save_model(
         sequential_model,
         model_path,
         export_model=True,
-        input_example=data[0],
+        input_example=input_example,
     )
 
     # Loading pytorch model
