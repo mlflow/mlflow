@@ -24,7 +24,7 @@ import {
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useTemplateOptions, validateInstructions, hasConversationVariable } from './llmScorerUtils';
 import type { SCORER_TYPE } from './constants';
-import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
+import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 import { LLM_TEMPLATE } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
 import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
@@ -225,6 +225,10 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
   const isInstructionsJudge = useWatch({ control, name: 'isInstructionsJudge' }) ?? false;
   const isReadOnly = mode === SCORER_FORM_MODE.DISPLAY || !isInstructionsJudge;
 
+  // Watch evaluation scope to conditionally show variables
+  const evaluationScope = useWatch({ control, name: 'evaluationScope' }) ?? ScorerEvaluationScope.TRACES;
+  const isSessionScope = evaluationScope === ScorerEvaluationScope.SESSIONS;
+
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
@@ -245,36 +249,42 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
               </Button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end">
-              <DropdownMenu.Item
-                componentId={`${COMPONENT_ID_PREFIX}.add-variable-inputs`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  appendVariable('{{ inputs }}');
-                }}
-              >
-                <FormattedMessage defaultMessage="Inputs" description="Label for inputs variable option" />
-                <DropdownMenu.HintRow>
-                  <FormattedMessage
-                    defaultMessage="Input for the trace"
-                    description="Description for inputs variable"
-                  />
-                </DropdownMenu.HintRow>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                componentId={`${COMPONENT_ID_PREFIX}.add-variable-outputs`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  appendVariable('{{ outputs }}');
-                }}
-              >
-                <FormattedMessage defaultMessage="Outputs" description="Label for outputs variable option" />
-                <DropdownMenu.HintRow>
-                  <FormattedMessage
-                    defaultMessage="Output for the trace"
-                    description="Description for outputs variable"
-                  />
-                </DropdownMenu.HintRow>
-              </DropdownMenu.Item>
+              {/* Show inputs, outputs, expectations, trace for TRACES scope */}
+              {!isSessionScope && (
+                <>
+                  <DropdownMenu.Item
+                    componentId={`${COMPONENT_ID_PREFIX}.add-variable-inputs`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      appendVariable('{{ inputs }}');
+                    }}
+                  >
+                    <FormattedMessage defaultMessage="Inputs" description="Label for inputs variable option" />
+                    <DropdownMenu.HintRow>
+                      <FormattedMessage
+                        defaultMessage="Input for the trace"
+                        description="Description for inputs variable"
+                      />
+                    </DropdownMenu.HintRow>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    componentId={`${COMPONENT_ID_PREFIX}.add-variable-outputs`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      appendVariable('{{ outputs }}');
+                    }}
+                  >
+                    <FormattedMessage defaultMessage="Outputs" description="Label for outputs variable option" />
+                    <DropdownMenu.HintRow>
+                      <FormattedMessage
+                        defaultMessage="Output for the trace"
+                        description="Description for outputs variable"
+                      />
+                    </DropdownMenu.HintRow>
+                  </DropdownMenu.Item>
+                </>
+              )}
+              {/* Show expectations for both scopes */}
               <DropdownMenu.Item
                 componentId={`${COMPONENT_ID_PREFIX}.add-variable-expectations`}
                 onClick={(e) => {
@@ -290,36 +300,42 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
                   />
                 </DropdownMenu.HintRow>
               </DropdownMenu.Item>
-              <DropdownMenu.Item
-                componentId={`${COMPONENT_ID_PREFIX}.add-variable-trace`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  appendVariable('{{ trace }}');
-                }}
-              >
-                <FormattedMessage defaultMessage="Trace" description="Label for trace variable option" />
-                <DropdownMenu.HintRow>
-                  <FormattedMessage
-                    defaultMessage="Full trace with an agent using the right part of the trace to use to judge"
-                    description="Description for trace variable"
-                  />
-                </DropdownMenu.HintRow>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                componentId={`${COMPONENT_ID_PREFIX}.add-variable-conversation`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  appendVariable('{{ conversation }}');
-                }}
-              >
-                <FormattedMessage defaultMessage="Conversation" description="Label for conversation variable option" />
-                <DropdownMenu.HintRow>
-                  <FormattedMessage
-                    defaultMessage="Full conversation history. Can only be used with expectations."
-                    description="Description for conversation variable"
-                  />
-                </DropdownMenu.HintRow>
-              </DropdownMenu.Item>
+              {/* Show trace only for TRACES scope */}
+              {!isSessionScope && (
+                <DropdownMenu.Item
+                  componentId={`${COMPONENT_ID_PREFIX}.add-variable-trace`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    appendVariable('{{ trace }}');
+                  }}
+                >
+                  <FormattedMessage defaultMessage="Trace" description="Label for trace variable option" />
+                  <DropdownMenu.HintRow>
+                    <FormattedMessage
+                      defaultMessage="Full trace with an agent using the right part of the trace to use to judge"
+                      description="Description for trace variable"
+                    />
+                  </DropdownMenu.HintRow>
+                </DropdownMenu.Item>
+              )}
+              {/* Show conversation only for SESSIONS scope */}
+              {isSessionScope && (
+                <DropdownMenu.Item
+                  componentId={`${COMPONENT_ID_PREFIX}.add-variable-conversation`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    appendVariable('{{ conversation }}');
+                  }}
+                >
+                  <FormattedMessage defaultMessage="Conversation" description="Label for conversation variable option" />
+                  <DropdownMenu.HintRow>
+                    <FormattedMessage
+                      defaultMessage="Full conversation history. Can only be used with expectations."
+                      description="Description for conversation variable"
+                    />
+                  </DropdownMenu.HintRow>
+                </DropdownMenu.Item>
+              )}
             </DropdownMenu.Content>
           </DropdownMenu.Root>
         </div>
