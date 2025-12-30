@@ -11,6 +11,7 @@ export interface DeleteConfirmationModalProps {
   itemType: string;
   componentIdPrefix: string;
   warningMessage?: React.ReactNode;
+  additionalContent?: React.ReactNode;
   requireConfirmation?: boolean;
 }
 
@@ -23,6 +24,7 @@ export const DeleteConfirmationModal = ({
   itemType,
   componentIdPrefix,
   warningMessage,
+  additionalContent,
   requireConfirmation = false,
 }: DeleteConfirmationModalProps) => {
   const { theme } = useDesignSystemTheme();
@@ -117,6 +119,8 @@ export const DeleteConfirmationModal = ({
             closable={false}
           />
         )}
+
+        {additionalContent}
 
         {requireConfirmation && (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
