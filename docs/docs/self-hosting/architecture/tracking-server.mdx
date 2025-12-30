@@ -51,7 +51,7 @@ for details.
 
 :::tip Read-only Filesystems
 When running in containers with read-only root filesystems (common in Kubernetes with `securityContext.readOnlyRootFilesystem: true`),
-use `--serve-artifacts` with `--artifacts-destination` to store artifacts remotely. The tracking server does not create
+configure remote artifact storage using `--artifacts-destination` (artifact serving is enabled by default). The tracking server does not create
 local directories at startup when using remote artifact storage, making it compatible with read-only environments.
 
 ```bash

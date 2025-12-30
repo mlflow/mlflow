@@ -4144,7 +4144,7 @@ def test_sqlalchemy_store_does_not_create_artifact_root_directory_on_init(tmp_pa
     MLflow servers to run in read-only environments (e.g., K8s containers) when artifacts are
     stored remotely and the local artifact root is never actually used.
 
-    See: https://github.com/mlflow/mlflow/issues/XXXXX
+    See: https://github.com/mlflow/mlflow/issues/19658
     """
     db_path = tmp_path / "mlflow.db"
     artifact_root = tmp_path / "artifacts"
