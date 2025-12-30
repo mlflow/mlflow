@@ -32,7 +32,45 @@ SEARCH_DATASETS = _get_ajax_path("/mlflow/experiments/search-datasets")
 CREATE_PROMPTLAB_RUN = _get_ajax_path("/mlflow/runs/create-promptlab-run")
 GATEWAY_PROXY = _get_ajax_path("/mlflow/gateway-proxy")
 
-# Gateway AJAX-only routes (admin only)
+# Gateway permission routes
+CREATE_GATEWAY_SECRET_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/secrets/permissions/create", version=3
+)
+GET_GATEWAY_SECRET_PERMISSION = _get_rest_path("/mlflow/gateway/secrets/permissions/get", version=3)
+UPDATE_GATEWAY_SECRET_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/secrets/permissions/update", version=3
+)
+DELETE_GATEWAY_SECRET_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/secrets/permissions/delete", version=3
+)
+
+CREATE_GATEWAY_ENDPOINT_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/endpoints/permissions/create", version=3
+)
+GET_GATEWAY_ENDPOINT_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/endpoints/permissions/get", version=3
+)
+UPDATE_GATEWAY_ENDPOINT_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/endpoints/permissions/update", version=3
+)
+DELETE_GATEWAY_ENDPOINT_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/endpoints/permissions/delete", version=3
+)
+
+CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/model-definitions/permissions/create", version=3
+)
+GET_GATEWAY_MODEL_DEFINITION_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/model-definitions/permissions/get", version=3
+)
+UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/model-definitions/permissions/update", version=3
+)
+DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION = _get_rest_path(
+    "/mlflow/gateway/model-definitions/permissions/delete", version=3
+)
+
+# Gateway AJAX-only routes
 GATEWAY_SUPPORTED_PROVIDERS = _get_ajax_path("/mlflow/gateway/supported-providers", version=3)
 GATEWAY_SUPPORTED_MODELS = _get_ajax_path("/mlflow/gateway/supported-models", version=3)
 GATEWAY_PROVIDER_CONFIG = _get_ajax_path("/mlflow/gateway/provider-config", version=3)
