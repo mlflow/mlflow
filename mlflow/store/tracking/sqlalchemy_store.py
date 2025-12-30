@@ -4562,28 +4562,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 return 0
 
-            dataset_info = (
-                session.query(SqlEvaluationDataset.name)
+            dataset = (
+                session.query(SqlEvaluationDataset)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
                 .first()
             )
-
-            if dataset_info:
-                current_time = get_current_time_millis()
-                updated_profile = self._compute_dataset_profile(session, dataset_id)
-                new_digest = self._compute_dataset_digest(dataset_info[0], current_time)
-
-                update_fields = {
-                    "last_update_time": current_time,
-                    "digest": new_digest,
-                }
-
-                if updated_profile:
-                    update_fields["profile"] = json.dumps(updated_profile)
-
-                session.query(SqlEvaluationDataset).filter(
-                    SqlEvaluationDataset.dataset_id == dataset_id
-                ).update(update_fields)
+            if dataset:
+                profile = json.loads(dataset.profile) if dataset.profile else {}
+                new_count = max(0, profile.get("num_records", 0) - deleted_count)
+                dataset.profile = json.dumps({"num_records": new_count} if new_count > 0 else None)
 
             return deleted_count
 
