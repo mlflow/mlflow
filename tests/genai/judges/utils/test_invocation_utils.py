@@ -1081,7 +1081,31 @@ def test_inference_params_in_tool_calling_loop(mock_trace):
 # Tests for _invoke_databricks_structured_output
 
 
-def test_structured_output_schema_injection_with_existing_system_message():
+@pytest.mark.parametrize(
+    ("input_messages", "mock_response", "has_existing_system_message"),
+    [
+        pytest.param(
+            [
+                ChatMessage(role="system", content="You are a helpful assistant."),
+                ChatMessage(role="user", content="Extract the outputs"),
+            ],
+            '{"outputs": "test result"}',
+            True,
+            id="with_existing_system_message",
+        ),
+        pytest.param(
+            [
+                ChatMessage(role="user", content="Extract the outputs"),
+            ],
+            '{"outputs": "test result"}',
+            False,
+            id="without_system_message",
+        ),
+    ],
+)
+def test_structured_output_schema_injection(
+    input_messages, mock_response, has_existing_system_message
+):
     class TestSchema(BaseModel):
         outputs: str = Field(description="The outputs")
 
@@ -1089,66 +1113,35 @@ def test_structured_output_schema_injection_with_existing_system_message():
 
     def mock_loop(messages, trace, on_final_answer):
         captured_messages.extend(messages)
-        return on_final_answer('{"outputs": "test result"}')
+        return on_final_answer(mock_response)
 
     with mock.patch(
         "mlflow.genai.judges.utils.invocation_utils._run_databricks_agentic_loop",
         side_effect=mock_loop,
     ):
         result = _invoke_databricks_structured_output(
-            messages=[
-                ChatMessage(role="system", content="You are a helpful assistant."),
-                ChatMessage(role="user", content="Extract the outputs"),
-            ],
+            messages=input_messages,
             output_schema=TestSchema,
             trace=None,
         )
 
-    # Verify schema was appended to existing system message
-    assert len(captured_messages) == 2
+    # Verify schema injection result
+    # With existing system message, schema is appended; without, a new system message is added
+    expected_message_count = len(input_messages) + (0 if has_existing_system_message else 1)
+    assert len(captured_messages) == expected_message_count
     assert captured_messages[0].role == "system"
-    assert "You are a helpful assistant." in captured_messages[0].content
     assert "You must return your response as JSON matching this schema:" in (
         captured_messages[0].content
     )
     assert '"outputs"' in captured_messages[0].content
 
+    if has_existing_system_message:
+        # Verify schema was appended to existing system message
+        assert "You are a helpful assistant." in captured_messages[0].content
+    else:
+        # Verify user message remains unchanged
+        assert captured_messages[1].role == "user"
+        assert captured_messages[1].content == "Extract the outputs"
+
     assert isinstance(result, TestSchema)
     assert result.outputs == "test result"
-
-
-def test_structured_output_schema_injection_without_system_message():
-    class TestSchema(BaseModel):
-        inputs: str = Field(description="The inputs")
-        outputs: str = Field(description="The outputs")
-
-    captured_messages = []
-
-    def mock_loop(messages, trace, on_final_answer):
-        captured_messages.extend(messages)
-        return on_final_answer('{"inputs": "hello", "outputs": "world"}')
-
-    with mock.patch(
-        "mlflow.genai.judges.utils.invocation_utils._run_databricks_agentic_loop",
-        side_effect=mock_loop,
-    ):
-        result = _invoke_databricks_structured_output(
-            messages=[
-                ChatMessage(role="user", content="Extract fields from the trace"),
-            ],
-            output_schema=TestSchema,
-            trace=None,
-        )
-
-    # Verify schema was inserted as new system message at the beginning
-    assert len(captured_messages) == 2
-    assert captured_messages[0].role == "system"
-    assert "You must return your response as JSON matching this schema:" in (
-        captured_messages[0].content
-    )
-    assert captured_messages[1].role == "user"
-    assert captured_messages[1].content == "Extract fields from the trace"
-
-    assert isinstance(result, TestSchema)
-    assert result.inputs == "hello"
-    assert result.outputs == "world"

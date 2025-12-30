@@ -849,7 +849,7 @@ def test_agentic_loop_tool_calling_loop(mock_trace):
         assert result == {"result": '{"outputs": "The answer is 42"}'}
 
 
-def test_agentic_loop_max_iteration_limit(mock_trace):
+def test_agentic_loop_max_iteration_limit(mock_trace, monkeypatch):
     # Always return tool calls (never a final answer)
     mock_response = AttrDict(
         {
@@ -883,6 +883,9 @@ def test_agentic_loop_max_iteration_limit(mock_trace):
     def callback(content):
         return content
 
+    # Set max iterations to 1 for minimal test run
+    monkeypatch.setenv("MLFLOW_JUDGE_MAX_ITERATIONS", "1")
+
     with (
         mock.patch(
             "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
@@ -891,24 +894,19 @@ def test_agentic_loop_max_iteration_limit(mock_trace):
         mock.patch(
             "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._process_tool_calls"
         ) as mock_process,
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.MLFLOW_JUDGE_MAX_ITERATIONS"
-        ) as mock_max_iter,
     ):
         mock_process.return_value = [
             litellm.Message(
                 role="tool", content="{}", tool_call_id="call_123", name="get_root_span"
             )
         ]
-        # Set max iterations to 3 for faster test
-        mock_max_iter.get.return_value = 3
 
-        with pytest.raises(MlflowException, match="iteration limit of 3 exceeded"):
+        with pytest.raises(MlflowException, match="iteration limit of 1 exceeded"):
             _run_databricks_agentic_loop(
                 messages=messages,
                 trace=mock_trace,
                 on_final_answer=callback,
             )
 
-        # Verify we hit the limit (called 3 times before raising)
-        assert mock_call.call_count == 3
+        # Verify we hit the limit (called once before raising)
+        assert mock_call.call_count == 1
