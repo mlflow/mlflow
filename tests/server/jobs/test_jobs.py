@@ -19,6 +19,7 @@ from mlflow.server.jobs import (
     _ALLOWED_JOB_NAME_LIST,
     _SUPPORTED_JOB_FUNCTION_LIST,
     TransientError,
+    cancel_job,
     get_job,
     job,
     submit_job,
@@ -625,3 +626,30 @@ def test_start_job_is_atomic(tmp_path: Path):
 
     final_job = store.get_job(job.job_id)
     assert final_job.status == JobStatus.RUNNING
+
+
+def test_cancel_job(monkeypatch, tmp_path: Path):
+    from mlflow.server.jobs.utils import is_process_alive
+
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["tests.server.jobs.test_jobs.sleep_fun"],
+        allowed_job_names=["sleep_fun"],
+    ):
+        job_tmp_path = tmp_path / "job"
+        job_tmp_path.mkdir()
+
+        job_id = submit_job(sleep_fun, {"sleep_secs": 120, "tmp_dir": str(job_tmp_path)}).job_id
+
+        while not (job_tmp_path / "pid").exists():
+            time.sleep(1)  # wait for job process starting
+
+        cancel_job(job_id)
+
+        time.sleep(5)  # wait for job process being actually killed
+        pid = int((job_tmp_path / "pid").read_text())
+        # assert canceled job process is killed.
+        assert not is_process_alive(pid)
+
+        assert get_job(job_id).status == JobStatus.CANCELED

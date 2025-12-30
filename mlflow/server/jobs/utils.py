@@ -29,6 +29,8 @@ from mlflow.utils.import_hooks import register_post_import_hook
 if TYPE_CHECKING:
     import huey
 
+    from mlflow.store.jobs.abstract_store import AbstractJobStore
+
 _logger = logging.getLogger(__name__)
 
 
@@ -127,6 +129,9 @@ def _start_huey_consumer_proc(
 _JOB_ENTRY_MODULE = "mlflow.server.jobs._job_subproc_entry"
 
 
+_JOB_STATUS_POLL_INTERVAL = 1
+
+
 def _exec_job_in_subproc(
     function_fullname: str,
     params: dict[str, Any],
@@ -134,6 +139,8 @@ def _exec_job_in_subproc(
     transient_error_classes: list[type[Exception]] | None,
     timeout: float | None,
     tmpdir: str,
+    job_store: "AbstractJobStore",
+    job_id: str,
 ) -> JobResult | None:
     """
     Executes the job function in a subprocess,
@@ -196,11 +203,21 @@ def _exec_job_in_subproc(
             "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_ClASSES_PATH": transient_error_classes_file,
         },
     ) as popen:
-        try:
-            popen.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            popen.kill()
-            return None
+        beg_time = time.time()
+        while popen.poll() is None:
+            time.sleep(_JOB_STATUS_POLL_INTERVAL)
+
+            job_status = job_store.get_job(job_id).status
+            if job_status == JobStatus.CANCELED:
+                popen.kill()
+                return None
+
+            if timeout is not None:
+                if beg_time + timeout <= time.time():
+                    # timeout
+                    popen.kill()
+                    job_store.mark_job_timed_out(job_id)
+                    return None
 
         if popen.returncode == 0:
             return JobResult.load(result_file)
@@ -236,10 +253,11 @@ def _exec_job(
             fn_metadata.transient_error_classes,
             timeout,
             tmpdir,
+            job_store,
+            job_id,
         )
 
     if job_result is None:
-        job_store.mark_job_timed_out(job_id)
         return
 
     if job_result.succeeded:

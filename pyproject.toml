@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.8.1.dev0"
+version = "3.8.2.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -516,6 +516,8 @@ filterwarnings = [
   "error::pydantic.PydanticDeprecatedSince20:tests",
   # Silence filesystem backend deprecation warnings (https://github.com/mlflow/mlflow/issues/18534)
   "ignore:The filesystem (tracking|model registry) backend.*will be deprecated:FutureWarning",
+  # Prevent deprecated generator.throw(type, value, tb) signature from being used (Python 3.12+)
+  "error:the \\(type, exc, tb\\) signature of throw\\(\\) is deprecated:DeprecationWarning",
 ]
 timeout = 1200
 
