@@ -1598,9 +1598,7 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         }
 
     @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
-    def delete_dataset_records(
-        self, dataset_id: str, dataset_record_ids: list[str]
-    ) -> int:
+    def delete_dataset_records(self, dataset_id: str, dataset_record_ids: list[str]) -> int:
         """
         Delete records from an evaluation dataset.
 

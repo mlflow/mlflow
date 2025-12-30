@@ -9773,9 +9773,18 @@ def test_dataset_delete_records(store):
     dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
 
     records = [
-        {"inputs": {"id": 1, "question": "What is MLflow?"}, "expectations": {"answer": "ML platform"}},
-        {"inputs": {"id": 2, "question": "What is Python?"}, "expectations": {"answer": "Programming language"}},
-        {"inputs": {"id": 3, "question": "What is Docker?"}, "expectations": {"answer": "Container platform"}},
+        {
+            "inputs": {"id": 1, "question": "What is MLflow?"},
+            "expectations": {"answer": "ML platform"},
+        },
+        {
+            "inputs": {"id": 2, "question": "What is Python?"},
+            "expectations": {"answer": "Programming language"},
+        },
+        {
+            "inputs": {"id": 3, "question": "What is Docker?"},
+            "expectations": {"answer": "Container platform"},
+        },
     ]
     store.upsert_dataset_records(dataset.dataset_id, records)
 

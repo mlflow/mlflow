@@ -6263,9 +6263,7 @@ class MlflowClient:
 
     @experimental(version="3.9.0")
     @_disable_in_databricks()
-    def delete_dataset_records(
-        self, dataset_id: str, dataset_record_ids: list[str]
-    ) -> int:
+    def delete_dataset_records(self, dataset_id: str, dataset_record_ids: list[str]) -> int:
         """
         Delete specific records from a dataset.
 

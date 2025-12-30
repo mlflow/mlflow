@@ -4534,9 +4534,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             return {"inserted": inserted_count, "updated": updated_count}
 
-    def delete_dataset_records(
-        self, dataset_id: str, dataset_record_ids: list[str]
-    ) -> int:
+    def delete_dataset_records(self, dataset_id: str, dataset_record_ids: list[str]) -> int:
         """
         Delete records from an evaluation dataset.
 

@@ -41,6 +41,7 @@ mlflow.client.MlflowClient.create_registered_model
 mlflow.client.MlflowClient.create_run
 mlflow.client.MlflowClient.create_webhook
 mlflow.client.MlflowClient.delete_dataset
+mlflow.client.MlflowClient.delete_dataset_records
 mlflow.client.MlflowClient.delete_dataset_tag
 mlflow.client.MlflowClient.delete_experiment
 mlflow.client.MlflowClient.delete_experiment_tag
