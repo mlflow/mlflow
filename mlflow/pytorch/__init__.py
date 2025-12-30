@@ -501,6 +501,10 @@ def save_model(
         model_path = os.path.join(model_data_path, _EXPORTED_TORCH_MODEL_FILE_NAME)
         torch.export.save(exported_prog, model_path)
     else:
+        _logger.warning(
+            "Saving pytorch model by Pickle or CloudPickle is unsafe, we recommend to set "
+            "'export_model' to True to save the pytorch model as the safe graph model format."
+        )
         # Persist the pickle module name as a file in the model's `data` directory. This is
         # necessary
         # because the `data` directory is the only available parameter to `_load_pyfunc`, and it
