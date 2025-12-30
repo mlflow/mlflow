@@ -1227,6 +1227,7 @@ def test_log_model_with_datetime_input():
         np.testing.assert_array_almost_equal(pyfunc_model.predict(df), expected_result, decimal=4)
 
 
+@pytest.mark.skipif(Version(torch.__version__).major < 2, reason="This test requires torch>=2")
 @pytest.mark.parametrize("scripted_model", [False])
 def test_save_and_load_exported_model(sequential_model, model_path, data, sequential_predicted):
     input_example = data[0].to_numpy(dtype=np.float32)
@@ -1249,6 +1250,7 @@ def test_save_and_load_exported_model(sequential_model, model_path, data, sequen
     )
 
 
+@pytest.mark.skipif(Version(torch.__version__).major < 2, reason="This test requires torch>=2")
 def test_exported_model_infer_dynamic_dim(tmp_path):
     class MyModule(torch.nn.Module):
         def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -1303,6 +1305,7 @@ def test_exported_model_infer_dynamic_dim(tmp_path):
     )
 
 
+@pytest.mark.skipif(Version(torch.__version__).major < 2, reason="This test requires torch>=2")
 @pytest.mark.parametrize("scripted_model", [False])
 def test_load_exported_model_check_device_mismatch(sequential_model, model_path):
     mlflow.pytorch.save_model(
