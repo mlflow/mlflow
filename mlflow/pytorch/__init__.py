@@ -313,6 +313,7 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        export_model=export_model,
         **kwargs,
     )
 
