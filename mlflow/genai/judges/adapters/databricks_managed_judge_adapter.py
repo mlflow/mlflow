@@ -26,7 +26,6 @@ from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
 )
-from mlflow.genai.judges.tools import list_judge_tools
 from mlflow.genai.judges.utils.tool_calling_utils import (
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
@@ -302,6 +301,8 @@ def _run_databricks_agentic_loop(
     """
     tools = None
     if trace is not None:
+        from mlflow.genai.judges.tools import list_judge_tools
+
         tools = [tool.get_definition() for tool in list_judge_tools()]
 
     max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
