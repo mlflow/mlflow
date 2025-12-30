@@ -466,7 +466,8 @@ def save_model(
 
         if isinstance(pytorch_model, torch.jit.ScriptModule):
             raise MlflowException(
-                "If the model is a `torch.jit.ScriptModule` model, `export_model` must be False"
+                "torch.export does not support `torch.jit.ScriptModule` models. "
+                "If the model is a `torch.jit.ScriptModule` model, `export_model` must be False."
             )
 
         if input_example is None or not isinstance(input_example, np.ndarray):
@@ -475,7 +476,12 @@ def save_model(
                 "must be a numpy array."
             )
 
-        if not (len(signature.inputs) == 1 and signature.inputs.is_tensor_spec()):
+        if not (
+            signature is not None
+            and signature.inputs is not None
+            and len(signature.inputs) == 1
+            and signature.inputs.is_tensor_spec()
+        ):
             raise MlflowException(
                 "If `export_model` is True, then the model input signature must contain "
                 "only one tensor spec."
@@ -650,6 +656,7 @@ def _load_model(path, device=None, **kwargs):
         pytorch_model.eval()
     if device:
         if is_exported_model:
+            target_device_type = torch.device(device).type
             # If the model is loaded from an exported model (pt2 format),
             # the model weights / buffers can't be moved across devices.
             # so we do device check instead.
@@ -657,7 +664,7 @@ def _load_model(path, device=None, **kwargs):
                 pytorch_model.parameters(),
                 pytorch_model.buffers(),
             ):
-                if tensor.device.type != device:
+                if tensor.device.type != target_device_type:
                     raise MlflowException(
                         "The saved model is exported by `torch.export` API, it can't support move "
                         "model parameters and buffers to different devices."

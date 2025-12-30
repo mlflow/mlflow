@@ -1295,12 +1295,12 @@ def test_exported_model_infer_dynamic_dim(tmp_path):
     )
 
     # Test the exported model works with test data that changes the second dim (batch dim) size.
-    loaded_model1 = mlflow.pytorch.load_model(save_path2)
+    loaded_model2 = mlflow.pytorch.load_model(save_path2)
 
-    test_data1 = torch.randn(3, 2, 5)
+    test_data2 = torch.randn(3, 2, 5)
     np.testing.assert_array_almost_equal(
-        loaded_model1(test_data1),
-        origin_model(test_data1),
+        loaded_model2(test_data2),
+        origin_model(test_data2),
         decimal=4,
     )
 
