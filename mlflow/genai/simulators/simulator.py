@@ -1,11 +1,14 @@
 import logging
 import uuid
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 import pandas as pd
 
 import mlflow
 from mlflow.entities.trace import Trace
+from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
+    _invoke_databricks_serving_endpoint,
+)
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 from mlflow.genai.judges.utils import get_default_model
 from mlflow.genai.simulators.prompts import (
@@ -20,12 +23,42 @@ from mlflow.tracing.utils.truncation import (
     _get_text_content_from_message,
     _try_extract_messages,
 )
-from mlflow.types.llm import ChatMessage
 from mlflow.utils.annotations import experimental
+
+if TYPE_CHECKING:
+    from mlflow.types.llm import ChatMessage
 
 _logger = logging.getLogger(__name__)
 
 _MAX_METADATA_LENGTH = 250
+
+
+def _invoke_model(
+    model_uri: str,
+    messages: list["ChatMessage"],
+    num_retries: int = 3,
+    inference_params: dict[str, Any] | None = None,
+) -> str:
+    provider, model_name = _parse_model_uri(model_uri)
+
+    if provider in {"databricks", "endpoints"}:
+        output = _invoke_databricks_serving_endpoint(
+            model_name=model_name,
+            prompt=messages,
+            num_retries=num_retries,
+            inference_params=inference_params,
+        )
+        return output.response
+
+    response, _ = _invoke_litellm_and_handle_tools(
+        provider=provider,
+        model_name=model_name,
+        messages=messages,
+        trace=None,
+        num_retries=num_retries,
+        inference_params=inference_params,
+    )
+    return response
 
 
 def _extract_assistant_content(response: dict[str, Any]) -> str | None:
@@ -42,7 +75,7 @@ def _get_last_response(conversation_history: list[dict[str, Any]]) -> str | None
         return None
 
     last_msg = conversation_history[-1]
-    content = last_msg.get("content", "")
+    content = last_msg.get("content")
     if isinstance(content, str) and content:
         return content
 
@@ -57,8 +90,8 @@ def _format_history(history: list[dict[str, Any]]) -> str | None:
         return None
     formatted = []
     for msg in history:
-        role = msg.get("role", "unknown")
-        content = msg.get("content", "")
+        role = msg.get("role") or "unknown"
+        content = msg.get("content") or ""
         formatted.append(f"{role}: {content}")
     return "\n".join(formatted)
 
@@ -85,26 +118,24 @@ class SimulatedUserAgent:
         if turn == 0:
             prompt = INITIAL_USER_PROMPT.format(persona=self.persona, goal=self.goal)
         else:
-            last_response = _get_last_response(conversation_history) or ""
-            history_str = _format_history(conversation_history[:-1]) or ""
+            last_response = _get_last_response(conversation_history)
+            history_str = _format_history(conversation_history[:-1])
             prompt = FOLLOWUP_USER_PROMPT.format(
                 persona=self.persona,
                 goal=self.goal,
-                conversation_history=history_str,
-                last_response=last_response,
+                conversation_history=history_str if history_str is not None else "",
+                last_response=last_response if last_response is not None else "",
             )
 
+        from mlflow.types.llm import ChatMessage
+
         messages = [ChatMessage(role="user", content=prompt)]
-        provider, model_name = _parse_model_uri(self.model)
-        response, _ = _invoke_litellm_and_handle_tools(
-            provider=provider,
-            model_name=model_name,
+        return _invoke_model(
+            model_uri=self.model,
             messages=messages,
-            trace=None,
             num_retries=3,
             inference_params=self.inference_params,
         )
-        return response
 
 
 @experimental(version="3.9.0")
@@ -192,16 +223,16 @@ class ConversationSimulator:
                 if trace:
                     traces.append(trace)
 
-                assistant_content = _extract_assistant_content(response) or ""
-                assistant_message = {"role": "assistant", "content": assistant_content}
+                assistant_content = _extract_assistant_content(response)
+                assistant_message = {"role": "assistant", "content": assistant_content or ""}
                 conversation_history.append(assistant_message)
 
-                if not assistant_content.strip():
-                    _logger.info(f"Stopping conversation: empty response at turn {turn}")
+                if not assistant_content or not assistant_content.strip():
+                    _logger.debug(f"Stopping conversation: empty response at turn {turn}")
                     break
 
                 if self._check_goal_achieved(assistant_content, goal):
-                    _logger.info(f"Stopping conversation: goal achieved at turn {turn}")
+                    _logger.debug(f"Stopping conversation: goal achieved at turn {turn}")
                     break
 
             except Exception as e:
@@ -238,7 +269,7 @@ class ConversationSimulator:
                 return predict_fn(input=input_messages, **context)
 
             response = traced_predict()
-            trace_id = mlflow.get_last_active_trace_id()
+            trace_id = mlflow.get_last_active_trace_id(thread_local=True)
             trace = mlflow.get_trace(trace_id) if trace_id else None
 
             return response, trace
@@ -249,17 +280,16 @@ class ConversationSimulator:
         if not last_response:
             return False
 
+        from mlflow.types.llm import ChatMessage
+
         eval_prompt = CHECK_GOAL_PROMPT.format(goal=goal, last_response=last_response)
 
         messages = [ChatMessage(role="user", content=eval_prompt)]
 
         try:
-            provider, model_name = _parse_model_uri(self.user_model)
-            response, _ = _invoke_litellm_and_handle_tools(
-                provider=provider,
-                model_name=model_name,
+            response = _invoke_model(
+                model_uri=self.user_model,
                 messages=messages,
-                trace=None,
                 num_retries=3,
                 inference_params={"temperature": 0.0, "max_tokens": 10},
             )
