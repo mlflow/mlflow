@@ -1368,10 +1368,10 @@ def test_register_scorer_resolves_endpoint_name_to_id(store: SqlAlchemyStore):
 
     scorer = store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
 
-    # Internally, the scorer should have the endpoint ID stored
+    # The returned scorer should have the endpoint name (resolved from ID)
     stored_data = json.loads(scorer._serialized_scorer)
     stored_model = stored_data["instructions_judge_pydantic_data"]["model"]
-    assert stored_model == f"gateway:/{endpoint.endpoint_id}"
+    assert stored_model == f"gateway:/{endpoint.name}"
 
 
 def test_register_scorer_with_nonexistent_endpoint_raises(store: SqlAlchemyStore):
