@@ -360,7 +360,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
           name="instructions"
           control={control}
           rules={{
-            validate: (value) => (isInstructionsJudge ? validateInstructions(value) : true),
+            validate: (value) => (isInstructionsJudge ? validateInstructions(value, evaluationScope) : true),
           }}
           render={({ field, fieldState }) => {
             const textArea = (

@@ -1,5 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { validateInstructions } from './llmScorerUtils';
+import { ScorerEvaluationScope } from './constants';
 
 describe('validateInstructions', () => {
   describe('Golden Path - Successful Operations', () => {
@@ -196,6 +197,79 @@ describe('validateInstructions', () => {
       );
 
       expect(result).toContain('{{ conversation }} can only be used with {{ expectations }}');
+    });
+  });
+
+  describe('Evaluation Scope Restrictions', () => {
+    it('should reject {{ conversation }} in TRACES scope', () => {
+      const result = validateInstructions(
+        'Check {{ conversation }} with {{ expectations }}',
+        ScorerEvaluationScope.TRACES,
+      );
+
+      expect(result).toBe(
+        '{{ conversation }} is only available for session-level scorers. Switch to "Sessions" scope to use this variable.',
+      );
+    });
+
+    it('should allow {{ conversation }} in SESSIONS scope', () => {
+      const result = validateInstructions(
+        'Check {{ conversation }} with {{ expectations }}',
+        ScorerEvaluationScope.SESSIONS,
+      );
+
+      expect(result).toBe(true);
+    });
+
+    it('should reject {{ inputs }} in SESSIONS scope', () => {
+      const result = validateInstructions('Check {{ inputs }} and {{ expectations }}', ScorerEvaluationScope.SESSIONS);
+
+      expect(result).toBe(
+        'Session-level scorers can only use {{ expectations }} and {{ conversation }}. Remove {{ inputs }} to evaluate sessions.',
+      );
+    });
+
+    it('should reject {{ outputs }} in SESSIONS scope', () => {
+      const result = validateInstructions(
+        'Check {{ outputs }} and {{ expectations }}',
+        ScorerEvaluationScope.SESSIONS,
+      );
+
+      expect(result).toBe(
+        'Session-level scorers can only use {{ expectations }} and {{ conversation }}. Remove {{ outputs }} to evaluate sessions.',
+      );
+    });
+
+    it('should reject {{ trace }} in SESSIONS scope', () => {
+      const result = validateInstructions('Check {{ trace }} and {{ expectations }}', ScorerEvaluationScope.SESSIONS);
+
+      expect(result).toBe(
+        'Session-level scorers can only use {{ expectations }} and {{ conversation }}. Remove {{ trace }} to evaluate sessions.',
+      );
+    });
+
+    it('should reject multiple disallowed variables in SESSIONS scope', () => {
+      const result = validateInstructions(
+        'Check {{ inputs }}, {{ outputs }}, and {{ trace }}',
+        ScorerEvaluationScope.SESSIONS,
+      );
+
+      expect(result).toContain('Session-level scorers can only use {{ expectations }} and {{ conversation }}');
+      expect(result).toContain('inputs');
+      expect(result).toContain('outputs');
+      expect(result).toContain('trace');
+    });
+
+    it('should allow {{ inputs }} in TRACES scope', () => {
+      const result = validateInstructions('Check {{ inputs }} with {{ outputs }}', ScorerEvaluationScope.TRACES);
+
+      expect(result).toBe(true);
+    });
+
+    it('should allow {{ expectations }} alone in SESSIONS scope', () => {
+      const result = validateInstructions('Check {{ expectations }}', ScorerEvaluationScope.SESSIONS);
+
+      expect(result).toBe(true);
     });
   });
 });

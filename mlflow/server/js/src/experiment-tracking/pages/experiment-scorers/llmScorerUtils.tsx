@@ -5,6 +5,7 @@ import type { FeedbackAssessment } from '@databricks/web-shared/model-trace-expl
 import { getModelTraceId } from '@databricks/web-shared/model-trace-explorer';
 import type { JudgeEvaluationResult } from './useEvaluateTraces';
 import { TEMPLATE_VARIABLES, extractTemplateVariables } from '../../utils/evaluationUtils';
+import { ScorerEvaluationScope } from './constants';
 
 // Custom hook for template options
 export const useTemplateOptions = () => {
@@ -98,11 +99,18 @@ export const useTemplateOptions = () => {
  * 4. {{ trace }} can be combined with {{ inputs }}, {{ outputs }}, or {{ expectations }}
  *    to provide additional context to the agent-based judge
  * 5. {{ conversation }} can ONLY be used with {{ expectations }} and nothing else
+ * 6. Evaluation scope restrictions:
+ *    - TRACES scope: Cannot use {{ conversation }}
+ *    - SESSIONS scope: Can only use {{ expectations }} and {{ conversation }}
  *
  * @param value - The instructions text to validate
+ * @param evaluationScope - The evaluation scope (TRACES or SESSIONS)
  * @returns true if valid, or an error message string if invalid
  */
-export const validateInstructions = (value: string | undefined): true | string => {
+export const validateInstructions = (
+  value: string | undefined,
+  evaluationScope?: ScorerEvaluationScope,
+): true | string => {
   // Allow empty values - the 'required' rule handles that separately
   if (!value || value.trim() === '') return true;
 
@@ -133,6 +141,24 @@ export const validateInstructions = (value: string | undefined): true | string =
         '{{ conversation }} can only be used with {{ expectations }}. Remove {{ ' +
         otherVariables.join(' }}, {{ ') +
         ' }} to use {{ conversation }}'
+      );
+    }
+  }
+
+  // Check 4: Evaluation scope restrictions
+  if (evaluationScope === ScorerEvaluationScope.TRACES) {
+    // TRACES scope: conversation is not allowed
+    if (foundVariables.has('conversation')) {
+      return '{{ conversation }} is only available for session-level scorers. Switch to "Sessions" scope to use this variable.';
+    }
+  } else if (evaluationScope === ScorerEvaluationScope.SESSIONS) {
+    // SESSIONS scope: only expectations and conversation are allowed
+    const disallowedVars = [...foundVariables].filter((v) => v !== 'expectations' && v !== 'conversation');
+    if (disallowedVars.length > 0) {
+      return (
+        'Session-level scorers can only use {{ expectations }} and {{ conversation }}. Remove {{ ' +
+        disallowedVars.join(' }}, {{ ') +
+        ' }} to evaluate sessions.'
       );
     }
   }
