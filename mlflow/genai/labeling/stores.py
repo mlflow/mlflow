@@ -417,7 +417,7 @@ class DatabricksLabelingStore(AbstractLabelingStore):
     ) -> LabelSchema:
         """Create a new label schema."""
         app = get_databricks_review_app()
-        return app.create_label_schema(
+        databricks_schema = app.create_label_schema(
             name=name,
             type=type,
             title=title,
@@ -426,6 +426,7 @@ class DatabricksLabelingStore(AbstractLabelingStore):
             enable_comment=enable_comment,
             overwrite=overwrite,
         )
+        return LabelSchema._from_databricks_label_schema(databricks_schema)
 
     def delete_label_schema(self, name: str) -> None:
         """Delete a label schema."""
