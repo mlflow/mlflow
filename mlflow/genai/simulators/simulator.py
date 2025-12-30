@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 import logging
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable
 
-import pandas as pd
 import pydantic
 
 import mlflow
@@ -27,6 +28,8 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 if TYPE_CHECKING:
+    from pandas import DataFrame
+
     from mlflow.types.llm import ChatMessage
 
 _logger = logging.getLogger(__name__)
@@ -57,14 +60,23 @@ class GoalCheckResult(pydantic.BaseModel):
 
 
 @contextmanager
-def _suppress_tracing_warnings():
-    tracing_logger = logging.getLogger("mlflow.tracing.fluent")
-    original_level = tracing_logger.level
-    tracing_logger.setLevel(logging.ERROR)
+def _suppress_tracing_logging():
+    # Suppress INFO logs when flushing traces from the async trace export queue.
+    async_logger = logging.getLogger("mlflow.tracing.export.async_export_queue")
+    # Suppress WARNING logs when the tracing provider is automatically traced, but used in a
+    # tracing-disabled context (e.g., generating user messages).
+    fluent_logger = logging.getLogger("mlflow.tracing.fluent")
+    original_async_level = async_logger.level
+    original_fluent_level = fluent_logger.level
+
+    async_logger.setLevel(logging.WARNING)
+    fluent_logger.setLevel(logging.ERROR)
+
     try:
         yield
     finally:
-        tracing_logger.setLevel(original_level)
+        async_logger.setLevel(original_async_level)
+        fluent_logger.setLevel(original_fluent_level)
 
 
 @trace_disabled  # Suppress tracing for our LLM (e.g., user message generation, stopping condition)
@@ -232,7 +244,7 @@ class ConversationSimulator:
 
     def __init__(
         self,
-        test_cases: list[dict[str, Any]] | pd.DataFrame,
+        test_cases: list[dict[str, Any]] | "DataFrame",
         max_turns: int = 10,
         user_model: str | None = None,
         **user_llm_params,
@@ -244,9 +256,11 @@ class ConversationSimulator:
         self.user_llm_params = user_llm_params
 
     def _normalize_test_cases(
-        self, test_cases: list[dict[str, Any]] | pd.DataFrame
+        self, test_cases: list[dict[str, Any]] | "DataFrame"
     ) -> list[dict[str, Any]]:
-        if isinstance(test_cases, pd.DataFrame):
+        from pandas import DataFrame
+
+        if isinstance(test_cases, DataFrame):
             return test_cases.to_dict("records")
         return test_cases
 
@@ -265,10 +279,13 @@ class ConversationSimulator:
         all_trace_ids: list[list[str] | None] = [None] * num_test_cases
         max_workers = min(num_test_cases, MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
 
-        with ThreadPoolExecutor(
-            max_workers=max_workers,
-            thread_name_prefix="MlflowConversationSimulator",
-        ) as executor:
+        with (
+            _suppress_tracing_logging(),
+            ThreadPoolExecutor(
+                max_workers=max_workers,
+                thread_name_prefix="MlflowConversationSimulator",
+            ) as executor,
+        ):
             futures = {
                 executor.submit(self._run_conversation, test_case, predict_fn): i
                 for i, test_case in enumerate(self.test_cases)
