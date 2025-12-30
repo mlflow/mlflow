@@ -3,7 +3,7 @@ import { IntlProvider } from '@databricks/i18n';
 import { FormProvider, useForm } from 'react-hook-form';
 import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer';
 import { useEvaluateTraces } from './useEvaluateTraces';
-import { type JudgeEvaluationResult } from './useEvaluateTraces.common';
+import { TraceJudgeEvaluationResult, type JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
@@ -29,7 +29,7 @@ function createMockTrace(traceId: string): ModelTrace {
   } as ModelTrace;
 }
 
-function createMockEvalResult(traceId: string): JudgeEvaluationResult {
+function createMockEvalResult(traceId: string): TraceJudgeEvaluationResult {
   return {
     trace: createMockTrace(traceId),
     results: [
@@ -108,7 +108,7 @@ describe('SampleScorerOutputPanelContainer', () => {
           isLoading: false,
           isRunScorerDisabled: false,
           error: null,
-          currentTraceIndex: 0,
+          currentEvalResultIndex: 0,
           totalTraces: 0,
           itemsToEvaluate: { itemCount: 10, itemIds: [] },
         }),
@@ -134,7 +134,7 @@ describe('SampleScorerOutputPanelContainer', () => {
       expect(mockedRenderer).toHaveBeenCalledWith(
         expect.objectContaining({
           totalTraces: 2,
-          currentTrace: mockResults[0].trace,
+          currentEvalResult: mockResults[0],
           assessments: expect.any(Array),
         }),
         expect.anything(),
@@ -274,7 +274,7 @@ describe('SampleScorerOutputPanelContainer', () => {
 
       expect(mockedRenderer).toHaveBeenCalledWith(
         expect.objectContaining({
-          currentTrace: undefined,
+          currentEvalResult: undefined,
           assessments: undefined,
         }),
         expect.anything(),
