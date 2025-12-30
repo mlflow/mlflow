@@ -11,6 +11,7 @@ import pydantic
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
@@ -106,7 +107,12 @@ def _invoke_model(
             system_prompt="",
             model=_DATABRICKS_AGENTIC_JUDGE_MODEL,
         )
-        return result.choices[0].message.content if result.choices else ""
+        if getattr(result, "error_code", None):
+            raise MlflowException(
+                f"Failed to get chat completions result from Databricks managed endpoint: "
+                f"[{result.error_code}] {result.error_message}"
+            )
+        return result.output
 
     provider, model_name = _parse_model_uri(model_uri)
 
@@ -368,7 +374,7 @@ class ConversationSimulator:
                     break
 
             except Exception as e:
-                _logger.error(f"Error during turn {turn}: {e}")
+                _logger.error(f"Error during turn {turn}: {e}", exc_info=True)
                 break
 
         return trace_ids
