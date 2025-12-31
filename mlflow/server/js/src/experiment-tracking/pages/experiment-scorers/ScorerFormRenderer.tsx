@@ -37,7 +37,7 @@ interface ScorerFormRendererProps {
   };
   componentError: string | null;
   handleCancel: () => void;
-  isSubmitButtonDisabled: () => boolean;
+  isSubmitDisabled: boolean;
   experimentId: string;
 }
 
@@ -162,7 +162,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
   mutation,
   componentError,
   handleCancel,
-  isSubmitButtonDisabled,
+  isSubmitDisabled,
   experimentId,
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -300,7 +300,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
           type="primary"
           htmlType="submit"
           loading={mutation.isLoading}
-          disabled={isSubmitButtonDisabled()}
+          disabled={isSubmitDisabled}
         >
           {mode === SCORER_FORM_MODE.EDIT ? (
             <FormattedMessage defaultMessage="Save" description="Save judge button text" />

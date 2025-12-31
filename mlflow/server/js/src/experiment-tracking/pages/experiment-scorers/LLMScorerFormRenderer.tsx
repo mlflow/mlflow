@@ -28,6 +28,7 @@ import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './co
 import { LLM_TEMPLATE } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
 import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
+import { ModelSectionRenderer } from './ModelSectionRenderer';
 
 // Form data type that matches LLMScorer structure
 export interface LLMScorerFormData {
@@ -38,7 +39,7 @@ export interface LLMScorerFormData {
   scorerType: typeof SCORER_TYPE.LLM;
   guidelines?: string;
   instructions?: string;
-  model?: string;
+  model: string;
   disableMonitoring?: boolean;
   isInstructionsJudge?: boolean;
 }
@@ -175,7 +176,7 @@ const NameSection: React.FC<NameSectionProps> = ({ mode, control }) => {
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
-      <FormUI.Label htmlFor="mlflow-experiment-scorers-name">
+      <FormUI.Label htmlFor="mlflow-experiment-scorers-name" required>
         <FormattedMessage defaultMessage="Name" description="Section header for optional judge name" />
       </FormUI.Label>
       <FormUI.Hint>
@@ -229,7 +230,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
     <div css={{ display: 'flex', flexDirection: 'column' }}>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <FormUI.Label htmlFor="mlflow-experiment-scorers-instructions" aria-required={isInstructionsJudge}>
+          <FormUI.Label htmlFor="mlflow-experiment-scorers-instructions" required={isInstructionsJudge}>
             <FormattedMessage defaultMessage="Instructions" description="Section header for judge instructions" />
           </FormUI.Label>
           <DropdownMenu.Root>
@@ -329,6 +330,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
           name="instructions"
           control={control}
           rules={{
+            required: isInstructionsJudge,
             validate: (value) => (isInstructionsJudge ? validateInstructions(value) : true),
           }}
           render={({ field, fieldState }) => {
@@ -366,7 +368,9 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
                 ) : (
                   textArea
                 )}
-                {fieldState.error && <FormUI.Message type="error" message={fieldState.error.message} />}
+                {fieldState.error && fieldState.error.type !== 'required' && (
+                  <FormUI.Message type="error" message={fieldState.error.message} />
+                )}
               </>
             );
           }}
@@ -399,7 +403,7 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control, se
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
-      <FormUI.Label htmlFor="mlflow-experiment-scorers-guidelines" aria-required>
+      <FormUI.Label htmlFor="mlflow-experiment-scorers-guidelines" required>
         <FormattedMessage defaultMessage="Guidelines" description="Section header for scorer guidelines" />
       </FormUI.Label>
       <FormUI.Hint>
@@ -445,57 +449,6 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control, se
   );
 };
 
-interface ModelSectionProps {
-  mode: ScorerFormMode;
-  control: Control<LLMScorerFormData>;
-}
-
-const ModelSection: React.FC<ModelSectionProps> = ({ mode, control }) => {
-  const stopPropagationClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-  };
-
-  return (
-    <div css={{ display: 'flex', flexDirection: 'column' }}>
-      <FormUI.Label htmlFor="mlflow-experiment-scorers-model">
-        <FormattedMessage defaultMessage="Model" description="Section header for model input" />
-      </FormUI.Label>
-      <FormUI.Hint>
-        <FormattedMessage
-          defaultMessage="Specify the model for LLM evaluation. Defaults to openai:/gpt-4o-mini if not set. {learnMore}"
-          description="Hint text for model input with documentation link"
-          values={{
-            learnMore: (
-              <Typography.Link
-                componentId={`${COMPONENT_ID_PREFIX}.model-learn-more-link`}
-                href="https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/#supported-models"
-                openInNewTab
-              >
-                <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
-              </Typography.Link>
-            ),
-          }}
-        />
-      </FormUI.Hint>
-      <Controller
-        name="model"
-        control={control}
-        render={({ field }) => (
-          <Input
-            {...field}
-            componentId={`${COMPONENT_ID_PREFIX}.model-input`}
-            id="mlflow-experiment-scorers-model"
-            disabled={mode === SCORER_FORM_MODE.DISPLAY}
-            placeholder={mode === SCORER_FORM_MODE.DISPLAY ? '' : 'openai:/gpt-4o-mini'}
-            css={{ cursor: mode === SCORER_FORM_MODE.DISPLAY ? 'auto' : 'text' }}
-            onClick={stopPropagationClick}
-          />
-        )}
-      />
-    </div>
-  );
-};
-
 const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, control, setValue, getValues }) => {
   const { theme } = useDesignSystemTheme();
   const selectedTemplate = useWatch({ control, name: 'llmTemplate' });
@@ -520,7 +473,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
       <NameSection mode={mode} control={control} />
       <GuidelinesSection mode={mode} control={control} selectedTemplate={selectedTemplate} />
       <InstructionsSection mode={mode} control={control} setValue={setValue} getValues={getValues} />
-      <ModelSection mode={mode} control={control} />
+      <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />
       <EvaluateTracesSectionRenderer control={control} mode={mode} />
     </div>
   );
