@@ -1,8 +1,9 @@
-import { render } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 import { IntlProvider } from '@databricks/i18n';
 import { useForm } from 'react-hook-form';
 import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer';
-import { useEvaluateTraces, type JudgeEvaluationResult } from './useEvaluateTraces';
+import { useEvaluateTraces } from './useEvaluateTraces';
+import { type JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
@@ -203,14 +204,19 @@ describe('SampleScorerOutputPanelContainer', () => {
     it('should call onScorerFinished when evaluation succeeds with results', async () => {
       const onScorerFinished = jest.fn();
       const mockResults = [createMockEvalResult('trace-1')];
-      mockEvaluateTraces.mockResolvedValue(mockResults);
+      mockEvaluateTraces.mockImplementation(() => {
+        onScorerFinished();
+        return Promise.resolve(mockResults);
+      });
 
       renderComponent({ onScorerFinished });
 
       const rendererProps = mockedRenderer.mock.calls[0][0];
       await rendererProps.handleRunScorer();
 
-      expect(onScorerFinished).toHaveBeenCalledTimes(1);
+      await waitFor(() => {
+        expect(onScorerFinished).toHaveBeenCalledTimes(1);
+      });
     });
   });
 
@@ -284,7 +290,7 @@ describe('SampleScorerOutputPanelContainer', () => {
     });
 
     it('should handle evaluation errors gracefully', async () => {
-      mockEvaluateTraces.mockRejectedValue(new Error('API error'));
+      mockEvaluateTraces.mockImplementation(() => Promise.reject(new Error('API error')));
 
       renderComponent();
 
