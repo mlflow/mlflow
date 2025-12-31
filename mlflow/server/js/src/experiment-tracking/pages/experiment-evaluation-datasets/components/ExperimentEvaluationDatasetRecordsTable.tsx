@@ -1,21 +1,41 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useGetDatasetRecords } from '../hooks/useGetDatasetRecords';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
-import { Empty, TableCell, TableHeader, TableRow, TableSkeletonRows } from '@databricks/design-system';
+import { Checkbox, Empty, TableCell, TableHeader, TableRow, TableSkeletonRows } from '@databricks/design-system';
 import { Table } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import { JsonCell } from './ExperimentEvaluationDatasetJsonCell';
 import { ExperimentEvaluationDatasetRecordsToolbar } from './ExperimentEvaluationDatasetRecordsToolbar';
 import type { EvaluationDataset, EvaluationDatasetRecord } from '../types';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
+import { useDeleteDatasetRecordsMutation } from '../hooks/useDeleteDatasetRecordsMutation';
 
 const INPUTS_COLUMN_ID = 'inputs';
 const OUTPUTS_COLUMN_ID = 'outputs';
 const EXPECTATIONS_COLUMN_ID = 'expectations';
+const SELECT_COLUMN_ID = 'select';
 
 const columns: ColumnDef<EvaluationDatasetRecord, string>[] = [
+  {
+    id: SELECT_COLUMN_ID,
+    header: ({ table }) => (
+      <Checkbox
+        componentId="mlflow.eval-dataset-records.select-all"
+        isChecked={table.getIsAllRowsSelected() ? true : table.getIsSomeRowsSelected() ? null : false}
+        onChange={(checked) => table.toggleAllRowsSelected(!!checked)}
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        componentId="mlflow.eval-dataset-records.select-row"
+        isChecked={row.getIsSelected()}
+        onChange={(checked) => row.toggleSelected(!!checked)}
+      />
+    ),
+    enableResizing: false,
+  },
   {
     id: INPUTS_COLUMN_ID,
     accessorKey: 'inputs',
@@ -45,22 +65,34 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
 
   const [rowSize, setRowSize] = useState<'sm' | 'md' | 'lg'>('md');
   const [searchFilter, setSearchFilter] = useState('');
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
+    [SELECT_COLUMN_ID]: true,
     [INPUTS_COLUMN_ID]: true,
     [OUTPUTS_COLUMN_ID]: false,
     [EXPECTATIONS_COLUMN_ID]: true,
   });
 
+  // Clear selection when switching datasets
+  useEffect(() => {
+    setRowSelection({});
+  }, [datasetId]);
+
   const {
     data: datasetRecords,
     isLoading,
     isFetching,
-    error,
     fetchNextPage,
     hasNextPage,
   } = useGetDatasetRecords({
     datasetId: datasetId ?? '',
     enabled: !!datasetId,
+  });
+
+  const { deleteDatasetRecordsMutation, isLoading: isDeleting } = useDeleteDatasetRecordsMutation({
+    onSuccess: () => {
+      setRowSelection({});
+    },
   });
 
   const fetchMoreOnBottomReached = useInfiniteScrollFetch({
@@ -104,6 +136,21 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
     }
   }, [filteredRecords.length, searchFilter, isFetching, hasNextPage, fetchNextPage, rowSize]);
 
+  const handleDeleteSelected = useCallback(() => {
+    const selectedIds = Object.keys(rowSelection).filter((id) => rowSelection[id]);
+    if (selectedIds.length > 0) {
+      deleteDatasetRecordsMutation({
+        datasetId,
+        datasetRecordIds: selectedIds,
+      });
+    }
+  }, [rowSelection, datasetId, deleteDatasetRecordsMutation]);
+
+  const selectedCount = Object.values(rowSelection).filter(Boolean).length;
+
+  // Get columns for visibility toggle (exclude select column)
+  const visibilityColumns = useMemo(() => columns.filter((col) => col.id !== SELECT_COLUMN_ID), []);
+
   const table = useReactTable(
     'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-datasets/components/ExperimentEvaluationDatasetRecordsTable.tsx',
     {
@@ -112,10 +159,14 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
       getCoreRowModel: getCoreRowModel(),
       getRowId: (row) => row.dataset_record_id,
       enableColumnResizing: false,
+      enableRowSelection: true,
+      onRowSelectionChange: setRowSelection,
       meta: { rowSize, searchFilter },
       state: {
         columnVisibility,
+        rowSelection,
       },
+      onColumnVisibilityChange: setColumnVisibility,
     },
   );
 
@@ -133,13 +184,16 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
       <ExperimentEvaluationDatasetRecordsToolbar
         dataset={dataset}
         datasetRecords={datasetRecords ?? []}
-        columns={columns}
+        columns={visibilityColumns}
         columnVisibility={columnVisibility}
         setColumnVisibility={setColumnVisibility}
         rowSize={rowSize}
         setRowSize={setRowSize}
         searchFilter={searchFilter}
         setSearchFilter={setSearchFilter}
+        selectedCount={selectedCount}
+        onDeleteSelected={handleDeleteSelected}
+        isDeleting={isDeleting}
       />
       <Table
         css={{ flex: 1 }}
@@ -157,26 +211,34 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
         onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget as HTMLDivElement)}
       >
         <TableRow isHeader>
-          {table.getLeafHeaders().map(
-            (header) =>
+          {table.getLeafHeaders().map((header) => {
+            const isSelectColumn = header.id === SELECT_COLUMN_ID;
+            return (
               header.column.getIsVisible() && (
                 <TableHeader
                   key={header.id}
                   componentId="mlflow.eval-dataset-records.column-header"
                   header={header}
                   column={header.column}
+                  style={isSelectColumn ? { flex: '0 0 32px' } : undefined}
                   css={{ position: 'sticky', top: 0, zIndex: 1 }}
                 >
                   {flexRender(header.column.columnDef.header, header.getContext())}
                 </TableHeader>
-              ),
-          )}
+              )
+            );
+          })}
         </TableRow>
         {table.getRowModel().rows.map((row) => (
           <TableRow key={row.id}>
-            {row.getVisibleCells().map((cell) => (
-              <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-            ))}
+            {row.getVisibleCells().map((cell) => {
+              const isSelectColumn = cell.column.id === SELECT_COLUMN_ID;
+              return (
+                <TableCell key={cell.id} style={isSelectColumn ? { flex: '0 0 32px' } : undefined}>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
+              );
+            })}
           </TableRow>
         ))}
         {(isLoading || isFetching) && <TableSkeletonRows table={table} />}
