@@ -238,11 +238,6 @@ def save_model(
             json.dump(model_config, f)
 
     else:
-        _logger.warning(
-            "Saving dspy model by CloudPickle is deprecated, we recommend to set "
-            "'use_dspy_model_save' to True to save dspy model by builtin `dspy.Module.save` "
-            "method."
-        )
         with open(model_path, "wb") as f:
             cloudpickle.dump(wrapped_dspy_model, f)
 
