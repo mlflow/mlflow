@@ -5,19 +5,25 @@ import { useParams } from '../../common/utils/RoutingUtils';
 import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
 import { GenAIChatSessionsTable, useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
 import { getChatSessionsFilter } from '../pages/experiment-chat-sessions/utils';
+import { TracesV3DateSelector } from './experiment-page/components/traces-v3/TracesV3DateSelector';
+import {
+  MonitoringFilters,
+  MonitoringFiltersUpdateContext,
+  useMonitoringFiltersTimeRange,
+} from '../hooks/useMonitoringFilters';
 
-export const SelectSessionsModal = ({
-  onClose,
-  onSuccess,
-  initialSessionIdsSelected = [],
-}: {
+interface SelectSessionsModalProps {
   onClose?: () => void;
-  onSuccess?: (traceIds: string[]) => void;
+  onSuccess?: (sessionIds: string[]) => void;
   initialSessionIdsSelected?: string[];
-}) => {
+}
+
+const SelectSessionsModalImpl = ({ onClose, onSuccess, initialSessionIdsSelected = [] }: SelectSessionsModalProps) => {
   const { experimentId } = useParams();
 
   const [searchQuery, setSearchQuery] = useState('');
+
+  const timeRange = useMonitoringFiltersTimeRange();
 
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>(() =>
     initialSessionIdsSelected.reduce((acc, sessionId) => {
@@ -40,7 +46,7 @@ export const SelectSessionsModal = ({
     disabled: !experimentId,
     filters,
     searchQuery,
-    // TODO (next PRs): Add time range filters
+    timeRange,
   });
 
   if (!experimentId) {
@@ -75,6 +81,8 @@ export const SelectSessionsModal = ({
             enableRowSelection
             enableLinks={false}
             empty={<EmptySessionsList />}
+            // TODO: Move date selector to the toolbar in all callsites permanently
+            toolbarAddons={<TracesV3DateSelector />}
           />
         </GenAiTraceTableRowSelectionProvider>
       </div>
@@ -95,5 +103,22 @@ const EmptySessionsList = () => {
         description={null}
       />
     </div>
+  );
+};
+
+export const SelectSessionsModal = (props: SelectSessionsModalProps) => {
+  const [monitoringFilters, setMonitoringFilters] = useState<MonitoringFilters>({
+    startTimeLabel: 'LAST_7_DAYS',
+    startTime: undefined,
+    endTime: undefined,
+  });
+  const contextValue = useMemo(
+    () => ({ params: monitoringFilters, setParams: setMonitoringFilters, disableAutomaticInitialization: true }),
+    [monitoringFilters, setMonitoringFilters],
+  );
+  return (
+    <MonitoringFiltersUpdateContext.Provider value={contextValue}>
+      <SelectSessionsModalImpl {...props} />
+    </MonitoringFiltersUpdateContext.Provider>
   );
 };
