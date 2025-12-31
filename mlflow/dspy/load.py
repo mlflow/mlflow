@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 
@@ -33,14 +34,34 @@ def _set_dependency_schema_to_tracer(model_path, callbacks):
 
 
 def _load_model(model_uri, dst_path=None):
+    import dspy
+
+    from mlflow.dspy.save import _DSPY_CONFIG_FILE_NAME, _MODEL_CONFIG_FILE_NAME
+    from mlflow.dspy.wrapper import DspyChatModelWrapper, DspyModelWrapper
+    from mlflow.transformers.llm_inference_utils import _LLM_INFERENCE_TASK_KEY
+
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     mlflow_model = Model.load(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name="dspy")
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     model_path = flavor_conf.get("model_path", _DEFAULT_MODEL_PATH)
-    with open(os.path.join(local_model_path, model_path), "rb") as f:
-        loaded_wrapper = cloudpickle.load(f)
+    task = flavor_conf.get(_LLM_INFERENCE_TASK_KEY)
+
+    if model_path.endswith(".pkl"):
+        with open(os.path.join(local_model_path, model_path), "rb") as f:
+            loaded_wrapper = cloudpickle.load(f)
+    else:
+        model = dspy.load(model_path)
+        with open(os.path.join(local_model_path, _DSPY_CONFIG_FILE_NAME)) as f:
+            dspy_settings = json.load(f)
+        with open(os.path.join(local_model_path, _MODEL_CONFIG_FILE_NAME)) as f:
+            model_config = json.load(f)
+
+        if task == "llm/v1/chat":
+            loaded_wrapper = DspyChatModelWrapper(model, dspy_settings, model_config)
+        else:
+            loaded_wrapper = DspyModelWrapper(model, dspy_settings, model_config)
 
     _set_dependency_schema_to_tracer(local_model_path, loaded_wrapper.dspy_settings["callbacks"])
     _update_active_model_id_based_on_mlflow_model(mlflow_model)

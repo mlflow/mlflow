@@ -1,5 +1,7 @@
 """Functions for saving DSPY models to MLflow."""
 
+import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -48,6 +50,10 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 _MODEL_SAVE_PATH = "model"
 _MODEL_DATA_PATH = "data"
+_MODEL_CONFIG_FILE_NAME = "model_config.json"
+_DSPY_CONFIG_FILE_NAME = "dspy_config.json"
+
+_logger = logging.getLogger(__name__)
 
 
 def get_default_pip_requirements():
@@ -85,6 +91,7 @@ def save_model(
     extra_pip_requirements: list[str] | str | None = None,
     metadata: dict[str, Any] | None = None,
     resources: str | Path | list[Resource] | None = None,
+    use_dspy_model_save: bool = True,
 ):
     """
     Save a Dspy model.
@@ -110,6 +117,8 @@ def save_model(
         metadata: {{ metadata }}
         resources: A list of model resources or a resources.yaml file containing a list of
             resources required to serve the model.
+        use_dspy_model_save: Whether to save the Dspy model by dspy builtin `dspy.Module.save`
+            method.
     """
 
     import dspy
@@ -157,7 +166,11 @@ def save_model(
     data_path = os.path.join(path, model_data_subpath)
     os.makedirs(data_path, exist_ok=True)
     # Set the model path to end with ".pkl" as we use cloudpickle for serialization.
-    model_subpath = os.path.join(model_data_subpath, _MODEL_SAVE_PATH) + ".pkl"
+    model_subpath = os.path.join(model_data_subpath, _MODEL_SAVE_PATH)
+    if use_dspy_model_save:
+        model_subpath += ".dspy"
+    else:
+        model_subpath += ".pkl"
     model_path = os.path.join(path, model_subpath)
     # Dspy has a global context `dspy.settings`, and we need to save it along with the model.
     dspy_settings = dict(dspy.settings.config)
@@ -197,8 +210,20 @@ def save_model(
         if all(spec.type == DataType.string for spec in mlflow_model.signature.outputs):
             streamable = True
 
-    with open(model_path, "wb") as f:
-        cloudpickle.dump(wrapped_dspy_model, f)
+    if use_dspy_model_save:
+        wrapped_dspy_model.model.save(model_path, save_program=True)
+        with open(os.path.join(data_path, _MODEL_CONFIG_FILE_NAME), "w") as f:
+            json.dump(model_config, f)
+        with open(os.path.join(data_path, _DSPY_CONFIG_FILE_NAME), "w") as f:
+            json.dump(dspy_settings, f)
+    else:
+        _logger.warning(
+            "Saving dspy model by CloudPickle is deprecated, we recommend to set "
+            "'use_dspy_model_save' to True to save dspy model by builtin `dspy.Module.save` "
+            "method."
+        )
+        with open(model_path, "wb") as f:
+            cloudpickle.dump(wrapped_dspy_model, f)
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
@@ -284,6 +309,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    use_dspy_model_save: bool = True,
 ):
     """
     Log a Dspy model along with metadata to MLflow.
@@ -322,6 +348,8 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        use_dspy_model_save: Whether to save the Dspy model by dspy builtin `dspy.Module.save`
+            method.
 
     .. code-block:: python
         :caption: Example
