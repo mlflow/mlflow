@@ -1013,16 +1013,6 @@ def gc(
 
             job_ids_list = job_ids.split(",") if job_ids else None
 
-            if job_ids_list:
-                for job_id in job_ids_list:
-                    try:
-                        job_store.get_job(job_id)
-                    except MlflowException:
-                        raise MlflowException(
-                            f"Job with ID {job_id} not found.",
-                            error_code=INVALID_PARAMETER_VALUE,
-                        )
-
             deleted_job_ids = job_store.delete_jobs(older_than=time_delta, job_ids=job_ids_list)
             for job_id in deleted_job_ids:
                 click.echo(f"Job with ID {job_id} has been permanently deleted.")
