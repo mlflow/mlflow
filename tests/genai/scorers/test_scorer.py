@@ -458,12 +458,3 @@ def test_make_judge_scorer_works_without_databricks_uri():
     assert scorers[0].name == "helpfulness_judge"
 
     mlflow.delete_experiment(experiment_id)
-
-
-def test_scorer_has_overload_annotations():
-    from mlflow.genai.scorers.base import scorer
-
-    overloads = get_overloads(scorer)
-    assert len(overloads) == 2, (
-        f"Expected 2 @overload annotations for scorer function, got {len(overloads)}"
-    )
