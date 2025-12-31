@@ -28,12 +28,11 @@ export const useSetInitialTimeFilter = ({
   disabled?: boolean;
 }) => {
   const [searchParams] = useSearchParams();
-  const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters();
+  const [monitoringFilters, setMonitoringFilters, disableAutomaticInitialization] = useMonitoringFilters();
 
   // Additional hook for fetching traces when there is no time range filters set in the
   // url params and no traces.
-  const shouldFetchForEmptyCheck =
-    isTracesEmpty && !isTraceMetadataLoading && !searchParams.has(START_TIME_LABEL_QUERY_PARAM_KEY);
+  const shouldFetchForEmptyCheck = isTracesEmpty && !isTraceMetadataLoading && !disableAutomaticInitialization;
 
   const { data: emptyCheckTraces, isLoading: emptyCheckLoading } = useSearchMlflowTraces({
     locations,
