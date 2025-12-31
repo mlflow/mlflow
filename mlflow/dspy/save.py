@@ -52,6 +52,7 @@ _MODEL_SAVE_PATH = "model"
 _MODEL_DATA_PATH = "data"
 _MODEL_CONFIG_FILE_NAME = "model_config.json"
 _DSPY_CONFIG_FILE_NAME = "dspy_config.json"
+_DSPY_RM_FILE_NAME = "dspy_rm.pkl"
 
 _logger = logging.getLogger(__name__)
 
@@ -213,6 +214,7 @@ def save_model(
             streamable = True
 
     if use_dspy_model_save:
+        wrapped_dspy_model.model.save(model_path, save_program=True)
 
         class CustomJSONEncoder(json.JSONEncoder):
             def default(self, obj):
@@ -224,11 +226,17 @@ def save_model(
                     }
                 return super().default(obj)
 
-        wrapped_dspy_model.model.save(model_path, save_program=True)
-        with open(os.path.join(data_path, _MODEL_CONFIG_FILE_NAME), "w") as f:
-            json.dump(model_config, f)
+        if dspy_rm := dspy_settings.pop("rm", None):
+            # TODO: delegate the saving to dspy API once dspy library supports it.
+            with open(os.path.join(data_path, _DSPY_RM_FILE_NAME), "wb") as f:
+                cloudpickle.dump(dspy_rm, f)
+
         with open(os.path.join(data_path, _DSPY_CONFIG_FILE_NAME), "w") as f:
             json.dump(dspy_settings, f, cls=CustomJSONEncoder)
+
+        with open(os.path.join(data_path, _MODEL_CONFIG_FILE_NAME), "w") as f:
+            json.dump(model_config, f)
+
     else:
         _logger.warning(
             "Saving dspy model by CloudPickle is deprecated, we recommend to set "

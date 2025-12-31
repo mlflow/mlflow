@@ -132,6 +132,7 @@ def test_save_compiled_model(dummy_model, use_dspy_model_save):
     assert loaded_model.prog.predictors()[0].demos == optimized_cot.prog.predictors()[0].demos
 
 
+@pytest.mark.parametrize("use_dspy_model_save", [True, False])
 def test_dspy_save_preserves_object_state(use_dspy_model_save):
     class GenerateAnswer(dspy.Signature):
         """Answer questions with short factoid answers."""
