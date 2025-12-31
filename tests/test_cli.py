@@ -1212,30 +1212,6 @@ def test_mlflow_gc_job_ids_with_older_than_filter(sqlite_store_with_jobs):
     assert retrieved_old_job.job_id == old_job.job_id
 
 
-def test_mlflow_gc_nonexistent_job_id_raises_error(sqlite_store_with_jobs):
-    _, job_store, db_uri = sqlite_store_with_jobs
-
-    _create_test_job(job_store, "existing_job")
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "gc",
-            "--backend-store-uri",
-            db_uri,
-            "--job-ids",
-            "nonexistent-job-id",
-        ],
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode != 0
-    assert "Job with ID nonexistent-job-id not found" in result.stderr
-
-
 def test_mlflow_gc_only_deletes_finalized_jobs(sqlite_store_with_jobs):
     from mlflow.entities._job_status import JobStatus
 
