@@ -29,6 +29,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   const llmTemplate = useWatch({ control, name: 'llmTemplate' });
   const guidelines = useWatch({ control, name: 'guidelines' });
   const scorerType = useWatch({ control, name: 'scorerType' });
+  const { resetField } = useFormContext<ScorerFormData>();
   const { errors } = useFormState({ control });
   const evaluationScopeFormValue = useWatch({ control, name: 'evaluationScope' });
   const evaluationScope = coerceToEnum(ScorerEvaluationScope, evaluationScopeFormValue, ScorerEvaluationScope.TRACES);
@@ -66,7 +67,9 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       itemCount: DEFAULT_TRACE_COUNT,
       itemIds: [],
     });
-  }, [evaluationScope, reset]);
+    resetField('instructions');
+    resetField('llmTemplate');
+  }, [evaluationScope, reset, resetField]);
 
   // Handle the "Run scorer" button click
   const handleRunScorer = useCallback(async () => {
