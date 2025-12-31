@@ -459,9 +459,9 @@ def save_model(
 
     # Save pytorch model
     if export_model:
-        if Version(torch.__version__).major < 2:
+        if Version(torch.__version__) < Version("2.4"):
             raise MlflowException(
-                "If `export_model` is set to True, `torch` package version must be >= 2"
+                "If `export_model` is set to True, `torch` package version must be >= 2.4"
             )
 
         if isinstance(pytorch_model, torch.jit.ScriptModule):
