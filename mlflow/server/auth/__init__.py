@@ -148,6 +148,7 @@ from mlflow.server.handlers import (
     catch_mlflow_exception,
     get_endpoints,
 )
+from mlflow.server.auth.utils import is_unprotected_route
 from mlflow.store.entities import PagedList
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
@@ -161,15 +162,10 @@ except ImportError as e:
         "validation. Please run `pip install mlflow[auth]` to install it."
     ) from e
 
-
-
 _logger = logging.getLogger(__name__)
 
 auth_config = read_auth_config()
 store = SqlAlchemyStore()
-
-from mlflow.server.auth.utils import is_unprotected_route
-
 
 
 def make_basic_auth_response() -> Response:

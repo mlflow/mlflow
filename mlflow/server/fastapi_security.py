@@ -23,7 +23,6 @@ from mlflow.server.security_utils import (
 )
 from mlflow.tracing.constant import TRACE_RENDERER_ASSET_PATH
 
-
 _logger = logging.getLogger(__name__)
 
 
