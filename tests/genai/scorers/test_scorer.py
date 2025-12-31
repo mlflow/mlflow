@@ -3,7 +3,6 @@ from unittest.mock import call, patch
 
 import pandas as pd
 import pytest
-from typing_extensions import get_overloads
 
 import mlflow
 from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
