@@ -1,6 +1,6 @@
 import { render, waitFor } from '@testing-library/react';
 import { IntlProvider } from '@databricks/i18n';
-import { useForm } from 'react-hook-form';
+import { FormProvider, useForm } from 'react-hook-form';
 import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer';
 import { useEvaluateTraces } from './useEvaluateTraces';
 import { type JudgeEvaluationResult } from './useEvaluateTraces.common';
@@ -51,7 +51,7 @@ interface TestWrapperProps {
 }
 
 function TestWrapper({ defaultValues, onScorerFinished }: TestWrapperProps) {
-  const { control } = useForm<ScorerFormData>({
+  const form = useForm<ScorerFormData>({
     defaultValues: {
       name: 'Test Scorer',
       instructions: 'Test instructions',
@@ -64,11 +64,13 @@ function TestWrapper({ defaultValues, onScorerFinished }: TestWrapperProps) {
 
   return (
     <IntlProvider locale="en">
-      <SampleScorerOutputPanelContainer
-        control={control}
-        experimentId={experimentId}
-        onScorerFinished={onScorerFinished}
-      />
+      <FormProvider {...form}>
+        <SampleScorerOutputPanelContainer
+          control={form.control}
+          experimentId={experimentId}
+          onScorerFinished={onScorerFinished}
+        />
+      </FormProvider>
     </IntlProvider>
   );
 }

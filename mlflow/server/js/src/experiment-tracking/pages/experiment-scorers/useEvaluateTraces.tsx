@@ -26,6 +26,7 @@ import {
 import { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
 import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
 import { getMlflowTraceV3ForEvaluation, JudgeEvaluationResult } from './useEvaluateTraces.common';
+import { useEvaluateTracesAsync } from './useEvaluateTracesAsync';
 
 /**
  * Response from the chat completions API
@@ -312,11 +313,13 @@ export interface EvaluateTracesState {
  */
 export function useEvaluateTraces({
   onScorerFinished,
+  getSerializedScorer,
 }: {
   /**
    * Callback to be called when the evaluation is finished.
    */
   onScorerFinished?: () => void;
+  getSerializedScorer?: () => string;
 } = {}): [(params: EvaluateTracesParams) => Promise<JudgeEvaluationResult[] | void>, EvaluateTracesState] {
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState<JudgeEvaluationResult[] | null>(null);
@@ -586,8 +589,10 @@ export function useEvaluateTraces({
     setIsLoading(false);
   }, []);
 
+  const [evaluateTracesAsync, asyncEvaluationState] = useEvaluateTracesAsync({ getSerializedScorer, onScorerFinished });
+
   if (usingAsyncMode) {
-    // TODO(next PRs): Return controls and state for async evaluation
+    return [evaluateTracesAsync, asyncEvaluationState] as const;
   }
 
   return [

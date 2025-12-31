@@ -33,6 +33,10 @@ interface JudgeSimplifiedAssessmentResult {
 
 export interface JudgeEvaluationResult {
   trace: ModelTrace | null;
-  results: JudgeSimplifiedAssessmentResult[]; // Always an array, even for single-result assessments
+  results: (FeedbackAssessment | JudgeSimplifiedAssessmentResult)[]; // Always an array, even for single-result assessments
   error: string | null;
 }
+
+export const isFeedbackAssessmentInJudgeEvaluationResult = (result: any): result is FeedbackAssessment => {
+  return 'assessment_name' in result;
+};
