@@ -6,8 +6,6 @@ import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/gena
 import { GenAIChatSessionsTable, useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
 import { getChatSessionsFilter } from '../pages/experiment-chat-sessions/utils';
 
-const MAX_TRACES_PER_PAGE = 500;
-
 export const SelectSessionsModal = ({
   onClose,
   onSuccess,
@@ -39,8 +37,6 @@ export const SelectSessionsModal = ({
 
   const { data: traceInfos, isLoading } = useSearchMlflowTraces({
     locations: [{ mlflow_experiment: { experiment_id: experimentId ?? '' }, type: 'MLFLOW_EXPERIMENT' as const }],
-    pageSize: MAX_TRACES_PER_PAGE,
-    limit: MAX_TRACES_PER_PAGE,
     disabled: !experimentId,
     filters,
     searchQuery,
@@ -68,18 +64,20 @@ export const SelectSessionsModal = ({
       onOk={handleOk}
       cancelText={<FormattedMessage defaultMessage="Cancel" description="Cancel button in the select sessions modal" />}
     >
-      <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
-        <GenAIChatSessionsTable
-          experimentId={experimentId}
-          traces={traceInfos ?? []}
-          isLoading={isLoading}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          enableRowSelection
-          enableLinks={false}
-          empty={<EmptySessionsList />}
-        />
-      </GenAiTraceTableRowSelectionProvider>
+      <div css={{ height: '100%', display: 'flex', overflow: 'hidden' }}>
+        <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
+          <GenAIChatSessionsTable
+            experimentId={experimentId}
+            traces={traceInfos ?? []}
+            isLoading={isLoading}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            enableRowSelection
+            enableLinks={false}
+            empty={<EmptySessionsList />}
+          />
+        </GenAiTraceTableRowSelectionProvider>
+      </div>
     </Modal>
   );
 };
