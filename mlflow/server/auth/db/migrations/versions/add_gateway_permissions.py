@@ -22,9 +22,7 @@ def upgrade() -> None:
         sa.Column("secret_id", sa.String(length=255), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("permission", sa.String(length=255), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["user_id"], ["users.id"], name="fk_gateway_secret_perm_user_id"
-        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], name="fk_gateway_secret_perm_user_id"),
         sa.UniqueConstraint("secret_id", "user_id", name="unique_secret_user"),
     )
 
@@ -34,9 +32,7 @@ def upgrade() -> None:
         sa.Column("endpoint_id", sa.String(length=255), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("permission", sa.String(length=255), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["user_id"], ["users.id"], name="fk_gateway_endpoint_perm_user_id"
-        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], name="fk_gateway_endpoint_perm_user_id"),
         sa.UniqueConstraint("endpoint_id", "user_id", name="unique_endpoint_user"),
     )
 
