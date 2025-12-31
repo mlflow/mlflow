@@ -7683,6 +7683,10 @@
     "defaultMessage": "NaN",
     "description": "Label displaying \"not-a-number\" symbol displayed on a plot UI element"
   },
+  "yM9S/n": {
+    "defaultMessage": "Please select a model to run the judge",
+    "description": "Tooltip message when model is not selected"
+  },
   "yPdr5F": {
     "defaultMessage": "Does app's response directly address the user's input?",
     "description": "Hint for RelevanceToQuery template"

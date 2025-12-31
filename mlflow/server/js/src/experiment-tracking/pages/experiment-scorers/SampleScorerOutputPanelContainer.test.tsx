@@ -59,6 +59,7 @@ function TestWrapper({ defaultValues, onScorerFinished }: TestWrapperProps) {
       llmTemplate: LLM_TEMPLATE.CUSTOM,
       sampleRate: 100,
       scorerType: 'llm',
+      model: 'provider:/some-model',
       ...defaultValues,
     },
   });
