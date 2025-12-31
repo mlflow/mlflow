@@ -91,7 +91,7 @@ def save_model(
     extra_pip_requirements: list[str] | str | None = None,
     metadata: dict[str, Any] | None = None,
     resources: str | Path | list[Resource] | None = None,
-    use_dspy_model_save: bool = True,
+    use_dspy_model_save: bool = False,
 ):
     """
     Save a Dspy model.
@@ -122,6 +122,7 @@ def save_model(
     """
 
     import dspy
+    from dspy import BaseLM
 
     from mlflow.transformers.llm_inference_utils import (
         _LLM_INFERENCE_TASK_KEY,
@@ -167,11 +168,12 @@ def save_model(
     os.makedirs(data_path, exist_ok=True)
     # Set the model path to end with ".pkl" as we use cloudpickle for serialization.
     model_subpath = os.path.join(model_data_subpath, _MODEL_SAVE_PATH)
-    if use_dspy_model_save:
-        model_subpath += ".dspy"
-    else:
-        model_subpath += ".pkl"
     model_path = os.path.join(path, model_subpath)
+
+    if use_dspy_model_save:
+        os.makedirs(model_path)
+    else:
+        model_path += ".pkl"
     # Dspy has a global context `dspy.settings`, and we need to save it along with the model.
     dspy_settings = dict(dspy.settings.config)
 
@@ -211,11 +213,22 @@ def save_model(
             streamable = True
 
     if use_dspy_model_save:
+
+        class CustomJSONEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if isinstance(obj, BaseLM):
+                    return {
+                        "__type__": "LM",
+                        "class": obj.__class__.__module__ + "." + obj.__class__.__name__,
+                        "state": obj.dump_state(),
+                    }
+                return super().default(obj)
+
         wrapped_dspy_model.model.save(model_path, save_program=True)
         with open(os.path.join(data_path, _MODEL_CONFIG_FILE_NAME), "w") as f:
             json.dump(model_config, f)
         with open(os.path.join(data_path, _DSPY_CONFIG_FILE_NAME), "w") as f:
-            json.dump(dspy_settings, f)
+            json.dump(dspy_settings, f, cls=CustomJSONEncoder)
     else:
         _logger.warning(
             "Saving dspy model by CloudPickle is deprecated, we recommend to set "
@@ -309,7 +322,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
-    use_dspy_model_save: bool = True,
+    use_dspy_model_save: bool = False,
 ):
     """
     Log a Dspy model along with metadata to MLflow.
@@ -415,4 +428,5 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        use_dspy_model_save=use_dspy_model_save,
     )

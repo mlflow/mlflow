@@ -1,3 +1,4 @@
+import importlib
 import json
 import logging
 import os
@@ -36,7 +37,7 @@ def _set_dependency_schema_to_tracer(model_path, callbacks):
 def _load_model(model_uri, dst_path=None):
     import dspy
 
-    from mlflow.dspy.save import _DSPY_CONFIG_FILE_NAME, _MODEL_CONFIG_FILE_NAME
+    from mlflow.dspy.save import _DSPY_CONFIG_FILE_NAME, _MODEL_CONFIG_FILE_NAME, _MODEL_DATA_PATH
     from mlflow.dspy.wrapper import DspyChatModelWrapper, DspyModelWrapper
     from mlflow.transformers.llm_inference_utils import _LLM_INFERENCE_TASK_KEY
 
@@ -52,10 +53,20 @@ def _load_model(model_uri, dst_path=None):
         with open(os.path.join(local_model_path, model_path), "rb") as f:
             loaded_wrapper = cloudpickle.load(f)
     else:
-        model = dspy.load(model_path)
-        with open(os.path.join(local_model_path, _DSPY_CONFIG_FILE_NAME)) as f:
-            dspy_settings = json.load(f)
-        with open(os.path.join(local_model_path, _MODEL_CONFIG_FILE_NAME)) as f:
+        model = dspy.load(os.path.join(local_model_path, model_path))
+        with open(os.path.join(local_model_path, _MODEL_DATA_PATH, _DSPY_CONFIG_FILE_NAME)) as f:
+
+            def json_loader_object_hook(d):
+                if d.get("__type__") == "LM":
+                    *module_parts, class_name = d["class"].split(".")
+                    module = importlib.import_module(".".join(module_parts))
+                    lm_class = getattr(module, class_name)
+                    state_dict = d["state"]
+                    return lm_class(**state_dict)
+                return d
+
+            dspy_settings = json.load(f, object_hook=json_loader_object_hook)
+        with open(os.path.join(local_model_path, _MODEL_DATA_PATH, _MODEL_CONFIG_FILE_NAME)) as f:
             model_config = json.load(f)
 
         if task == "llm/v1/chat":

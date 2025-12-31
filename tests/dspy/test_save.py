@@ -65,12 +65,17 @@ def reset_dspy_settings():
     dspy.settings.configure(lm=None, rm=None)
 
 
-def test_basic_save():
+@pytest.mark.parametrize("use_dspy_model_save", [True, False])
+def test_basic_save(use_dspy_model_save):
     dspy_model = CoT()
     dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
 
     with mlflow.start_run():
-        model_info = mlflow.dspy.log_model(dspy_model, name="model")
+        model_info = mlflow.dspy.log_model(
+            dspy_model,
+            name="model",
+            use_dspy_model_save=use_dspy_model_save,
+        )
 
     # Clear the lm setting to test the loading logic.
     dspy.settings.configure(lm=None)
