@@ -5365,7 +5365,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     .filter(
                         SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
-                        SearchTraceUtils._get_sql_json_comparison_func(comparator)(
+                        SearchTraceUtils._get_sql_json_comparison_func(comparator, dialect)(
                             SqlAssessments.value, value
                         ),
                     )

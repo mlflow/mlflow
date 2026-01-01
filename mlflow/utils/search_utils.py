@@ -1862,7 +1862,7 @@ class SearchTraceUtils(SearchUtils):
         return False
 
     @staticmethod
-    def _get_sql_json_comparison_func(comparator):
+    def _get_sql_json_comparison_func(comparator, dialect):
         """
         Returns a comparison function for JSON-serialized values.
 
@@ -1881,11 +1881,7 @@ class SearchTraceUtils(SearchUtils):
                 return sa.or_(column == value, column == f'"{value}"')
             elif comparator == "!=":
                 return sa.and_(column != value, column != f'"{value}"')
-            elif comparator == "LIKE":
-                return column.like(value)
-            elif comparator == "ILIKE":
-                return column.ilike(value)
-            return SearchUtils.get_comparison_func(comparator)(column, value)
+            return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(column, value)
 
         return comparison_func
 
