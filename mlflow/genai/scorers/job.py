@@ -278,7 +278,6 @@ def _group_traces_by_session_id(
     # trace_id -> (session_id, timestamp_ms)
     trace_info_cache: dict[str, tuple[str, int | None]] = {}
 
-    # Batch fetch all trace infos in a single query - much more efficient!
     trace_infos = tracking_store.batch_get_trace_infos(trace_ids)
 
     for trace_info in trace_infos:

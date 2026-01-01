@@ -11753,7 +11753,7 @@ def test_batch_get_trace_infos_with_session_metadata(store: SqlAlchemyStore) -> 
         trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
         request_time=get_current_time_millis(),
         execution_duration=100,
-        status=TraceStatus.OK,
+        state=TraceState.OK,
         trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
     )
     store.start_trace(trace_info_1)
@@ -11763,7 +11763,7 @@ def test_batch_get_trace_infos_with_session_metadata(store: SqlAlchemyStore) -> 
         trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
         request_time=get_current_time_millis(),
         execution_duration=200,
-        status=TraceStatus.OK,
+        state=TraceState.OK,
         trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
     )
     store.start_trace(trace_info_2)
