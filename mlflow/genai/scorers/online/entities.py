@@ -50,3 +50,16 @@ class OnlineScorer:
     serialized_scorer: str
     sample_rate: float
     filter_string: str | None = None
+
+
+@dataclass
+class CompletedSession:
+    """
+    Metadata about a session that has been determined complete and is eligible for online scoring.
+
+    Contains only the session ID and timestamp range, not the actual trace data.
+    """
+
+    session_id: str
+    first_trace_timestamp_ms: int
+    last_trace_timestamp_ms: int
