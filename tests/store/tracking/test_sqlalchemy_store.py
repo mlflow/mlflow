@@ -11654,7 +11654,6 @@ def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
 
 
 def test_batch_get_trace_infos_basic(store: SqlAlchemyStore) -> None:
-    """Test batch_get_trace_infos fetches metadata without loading spans."""
     experiment_id = store.create_experiment("test_batch_get_trace_infos")
     trace_id_1 = f"tr-{uuid.uuid4().hex}"
     trace_id_2 = f"tr-{uuid.uuid4().hex}"
@@ -11707,14 +11706,12 @@ def test_batch_get_trace_infos_basic(store: SqlAlchemyStore) -> None:
 
 
 def test_batch_get_trace_infos_empty(store: SqlAlchemyStore) -> None:
-    """Test batch_get_trace_infos with non-existent trace IDs."""
     trace_id = f"tr-{uuid.uuid4().hex}"
     trace_infos = store.batch_get_trace_infos([trace_id])
     assert trace_infos == []
 
 
 def test_batch_get_trace_infos_ordering(store: SqlAlchemyStore) -> None:
-    """Test batch_get_trace_infos preserves order of trace IDs."""
     experiment_id = store.create_experiment("test_batch_get_trace_infos_ordering")
     trace_ids = [f"tr-{uuid.uuid4().hex}" for _ in range(3)]
 
@@ -11743,7 +11740,6 @@ def test_batch_get_trace_infos_ordering(store: SqlAlchemyStore) -> None:
 
 
 def test_batch_get_trace_infos_with_session_metadata(store: SqlAlchemyStore) -> None:
-    """Test batch_get_trace_infos correctly fetches session metadata."""
     from mlflow.tracing.constant import TraceMetadataKey
 
     experiment_id = store.create_experiment("test_batch_get_trace_infos_session")

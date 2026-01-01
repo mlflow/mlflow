@@ -545,8 +545,7 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         trace_infos = []
         for trace_id in trace_ids:
             try:
-                trace_info = self.get_trace_info(trace_id)
-                if trace_info:
+                if trace_info := self.get_trace_info(trace_id):
                     trace_infos.append(trace_info)
             except Exception:
                 # Skip traces that can't be fetched
