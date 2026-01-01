@@ -1913,11 +1913,10 @@ class SearchTraceUtils(SearchUtils):
 
         if comparator not in ("=", "!="):
             return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)
-
-        if dialect == MYSQL:
+        elif dialect == MYSQL:
             return mysql_json_equality_inequality_comparison
-
-        return json_equality_inequality_comparison
+        else:
+            return json_equality_inequality_comparison
 
     @classmethod
     def _valid_entity_type(cls, entity_type):
