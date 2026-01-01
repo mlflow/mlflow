@@ -25,7 +25,11 @@ from mlflow.entities.trace_metrics import (
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
-    from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
+    from mlflow.genai.scorers.online.entities import (
+        CompletedSession,
+        OnlineScorer,
+        OnlineScoringConfig,
+    )
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
@@ -412,6 +416,40 @@ class AbstractStore(GatewayStoreMixin):
             not be meaningful in such cases.
         """
         raise NotImplementedError
+
+    def find_completed_sessions(
+        self,
+        experiment_id: str,
+        min_last_trace_timestamp_ms: int,
+        max_last_trace_timestamp_ms: int,
+        max_results: int | None = None,
+    ) -> list["CompletedSession"]:
+        """
+        Find completed sessions within a time window based on their last trace timestamp.
+
+        This efficiently identifies completed sessions in a single query by:
+        1. Finding all sessions with last trace in [min_last_trace_timestamp_ms,
+           max_last_trace_timestamp_ms]
+        2. Checking if each session has any traces after max_last_trace_timestamp_ms
+        3. Returning sessions with no traces after max_last_trace_timestamp_ms
+
+        Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) for
+        deterministic pagination when timestamp ties occur.
+
+        Args:
+            experiment_id: The experiment to search.
+            min_last_trace_timestamp_ms: Lower bound for session's last trace timestamp (inclusive).
+                Sessions with last trace before this time are excluded.
+            max_last_trace_timestamp_ms: Upper bound for session's last trace timestamp (inclusive).
+                Sessions with any traces after this time are excluded.
+            max_results: Maximum number of sessions to return. If None, returns all
+                matching sessions.
+
+        Returns:
+            List of CompletedSession objects sorted by (last_trace_timestamp_ms ASC,
+            session_id ASC).
+        """
+        raise NotImplementedError(self.__class__.__name__)
 
     def query_trace_metrics(
         self,
