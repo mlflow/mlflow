@@ -5,7 +5,7 @@ from unittest import mock
 import dspy
 import dspy.teleprompt
 import pytest
-from dspy.utils.dummies import DummyLM, dummy_rm
+from dspy.utils.dummies import dummy_rm
 from packaging.version import Version
 
 import mlflow
@@ -157,7 +157,9 @@ def test_dspy_save_preserves_object_state(use_dspy_model_save):
     def dummy_metric(*args, **kwargs):
         return 1.0
 
-    model = DummyLM([{"answer": answer, "reasoning": "reason"} for answer in ["4", "6", "8", "10"]])
+    model = _DummyLM(
+        [{"answer": answer, "reasoning": "reason"} for answer in ["4", "6", "8", "10"]]
+    )
     rm = dummy_rm(passages=["dummy1", "dummy2", "dummy3"])
     dspy.settings.configure(lm=model, rm=rm)
 
