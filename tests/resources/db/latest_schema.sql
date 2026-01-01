@@ -206,6 +206,21 @@ CREATE TABLE experiment_tags (
 )
 
 
+CREATE TABLE issues (
+	issue_id VARCHAR(36) NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(500) NOT NULL,
+	description TEXT,
+	state VARCHAR(20) NOT NULL,
+	creation_time BIGINT NOT NULL,
+	last_update_time BIGINT NOT NULL,
+	tags TEXT,
+	CONSTRAINT issues_pk PRIMARY KEY (issue_id),
+	CONSTRAINT fk_issues_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
+	CONSTRAINT issues_state CHECK (state IN ('draft', 'open', 'closed'))
+)
+
+
 CREATE TABLE logged_models (
 	model_id VARCHAR(36) NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -368,6 +383,18 @@ CREATE TABLE endpoint_model_mappings (
 )
 
 
+CREATE TABLE issue_comments (
+	comment_id VARCHAR(36) NOT NULL,
+	issue_id VARCHAR(36) NOT NULL,
+	content TEXT NOT NULL,
+	author VARCHAR(256),
+	creation_time BIGINT NOT NULL,
+	last_update_time BIGINT NOT NULL,
+	CONSTRAINT issue_comments_pk PRIMARY KEY (comment_id),
+	CONSTRAINT fk_issue_comments_issue_id FOREIGN KEY(issue_id) REFERENCES issues (issue_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE latest_metrics (
 	key VARCHAR(250) NOT NULL,
 	value FLOAT NOT NULL,
@@ -441,6 +468,17 @@ CREATE TABLE model_version_tags (
 	version INTEGER NOT NULL,
 	CONSTRAINT model_version_tag_pk PRIMARY KEY (key, name, version),
 	FOREIGN KEY(name, version) REFERENCES model_versions (name, version) ON UPDATE CASCADE
+)
+
+
+CREATE TABLE online_scoring_configs (
+	online_scoring_config_id VARCHAR(36) NOT NULL,
+	scorer_id VARCHAR(36) NOT NULL,
+	sample_rate FLOAT NOT NULL,
+	filter_string TEXT,
+	CONSTRAINT online_scoring_config_pk PRIMARY KEY (online_scoring_config_id),
+	CONSTRAINT fk_online_scoring_configs_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE,
+	CONSTRAINT unique_online_scoring_config_scorer_id UNIQUE (scorer_id)
 )
 
 
