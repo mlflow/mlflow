@@ -1877,9 +1877,9 @@ class SearchTraceUtils(SearchUtils):
 
         def comparison_func(column, value):
             if comparator == "=":
-                return sa.or_(column == value, column == '"' + value + '"')
+                return sa.or_(column == value, column == f'"{value}"')
             elif comparator == "!=":
-                return sa.and_(column != value, column != '"' + value + '"')
+                return sa.and_(column != value, column != f'"{value}"')
             elif comparator == "LIKE":
                 return column.like(value)
             elif comparator == "ILIKE":
