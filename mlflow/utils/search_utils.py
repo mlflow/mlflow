@@ -1867,11 +1867,12 @@ class SearchTraceUtils(SearchUtils):
         Returns a comparison function for JSON-serialized values.
 
         Assessment values are stored as JSON primitives in the database:
-          - Boolean False -> "false" (no quotes in JSON)
+          - Boolean False -> false (no quotes in JSON)
+          - Numeric value 5 -> 5 (no quotes in JSON)
           - String "yes" -> '"yes"' (WITH quotes in JSON)
 
-        For equality comparisons, we match either the raw value (for bools/numbers)
-        or the quoted value (for strings).
+        For equality comparisons, we match either the raw JSON primitive value
+        (for booleans and numeric values) or the quoted value (for strings).
         """
         import sqlalchemy as sa
 
