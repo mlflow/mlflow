@@ -12433,3 +12433,133 @@ def test_log_spans_session_id_handling(store: SqlAlchemyStore) -> None:
 
     trace_info3 = store.get_trace_info(trace_id3)
     assert TraceMetadataKey.TRACE_SESSION not in trace_info3.trace_metadata
+
+
+def test_find_completed_sessions(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_find_completed_sessions")
+
+    _create_trace(
+        store,
+        "trace_a1",
+        exp_id,
+        request_time=1000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    _create_trace(
+        store,
+        "trace_a2",
+        exp_id,
+        request_time=2000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+
+    _create_trace(
+        store,
+        "trace_b1",
+        exp_id,
+        request_time=3000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
+    )
+    _create_trace(
+        store,
+        "trace_b2",
+        exp_id,
+        request_time=4000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
+    )
+
+    _create_trace(
+        store,
+        "trace_c1",
+        exp_id,
+        request_time=5000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-c"},
+    )
+    _create_trace(
+        store,
+        "trace_c2",
+        exp_id,
+        request_time=10000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-c"},
+    )
+
+    _create_trace(store, "trace_no_session", exp_id, request_time=2500)
+
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=0,
+        max_last_trace_timestamp_ms=5000,
+    )
+
+    assert len(completed) == 2
+    session_ids = {s.session_id for s in completed}
+    assert session_ids == {"session-a", "session-b"}
+
+    session_a = next(s for s in completed if s.session_id == "session-a")
+    assert session_a.first_trace_timestamp_ms == 1000
+    assert session_a.last_trace_timestamp_ms == 2000
+
+    session_b = next(s for s in completed if s.session_id == "session-b")
+    assert session_b.first_trace_timestamp_ms == 3000
+    assert session_b.last_trace_timestamp_ms == 4000
+
+    assert completed[0].session_id == "session-a"
+    assert completed[1].session_id == "session-b"
+
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=3000,
+        max_last_trace_timestamp_ms=5000,
+    )
+    assert len(completed) == 1
+    assert completed[0].session_id == "session-b"
+
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=0,
+        max_last_trace_timestamp_ms=5000,
+        max_results=1,
+    )
+    assert len(completed) == 1
+    assert completed[0].session_id == "session-a"
+
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=0,
+        max_last_trace_timestamp_ms=5000,
+        max_results=2,
+    )
+    assert len(completed) == 2
+    assert completed[0].session_id == "session-a"
+    assert completed[1].session_id == "session-b"
+
+
+def test_find_completed_sessions_aggregates_across_all_traces(store: SqlAlchemyStore):
+    """
+    Regression test: first/last timestamps should be computed across ALL session traces,
+    not just those matching the min_last_trace_timestamp_ms filter.
+    """
+    exp_id = store.create_experiment("test_session_timestamp_aggregation")
+
+    _create_trace(
+        store,
+        "trace1",
+        exp_id,
+        request_time=1000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    _create_trace(
+        store,
+        "trace2",
+        exp_id,
+        request_time=3000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id, min_last_trace_timestamp_ms=2000, max_last_trace_timestamp_ms=4000
+    )
+
+    assert len(completed) == 1
+    assert completed[0].first_trace_timestamp_ms == 1000
+    assert completed[0].last_trace_timestamp_ms == 3000
