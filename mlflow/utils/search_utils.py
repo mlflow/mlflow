@@ -38,8 +38,7 @@ from mlflow.utils.mlflow_tags import (
 )
 
 if TYPE_CHECKING:
-    from sqlalchemy import ColumnElement
-    from sqlalchemy.sql.elements import ClauseElement
+    from sqlalchemy.sql.elements import ClauseElement, ColumnElement
 
 # MSSQL collation for case-sensitive string comparisons
 _MSSQL_CASE_SENSITIVE_COLLATION = "Japanese_Bushu_Kakusu_100_CS_AS_KS_WS"
