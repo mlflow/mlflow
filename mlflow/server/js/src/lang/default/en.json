@@ -2314,6 +2314,10 @@
     "defaultMessage": "Loading judges...",
     "description": "Loading message while fetching experiment judges"
   },
+  "Gopd1/": {
+    "defaultMessage": "Assistant",
+    "description": "Label for global Assistant button"
+  },
   "Gs+blV": {
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
@@ -6491,6 +6495,10 @@
     "defaultMessage": "Custom code judge",
     "description": "Menu item text to create a new custom code judge"
   },
+  "o6lfQF": {
+    "defaultMessage": "Ask Assistant for help",
+    "description": "Tooltip for global Ask Assistant button"
+  },
   "o7dzKo": {
     "defaultMessage": "Last Modified",
     "description": "Label name for last modified timestamp metadata in model version page"
@@ -6602,6 +6610,14 @@
   "oy2LTl": {
     "defaultMessage": "Filter",
     "description": "Label for the span filters popover in the trace explorer."
+  },
+  "p/wUKB": {
+    "defaultMessage": "MLflow Assistant",
+    "description": "Title for the global Assistant chat panel"
+  },
+  "p0O0uP": {
+    "defaultMessage": "Trace data not available",
+    "description": "Experiment page > traces data drawer > in-progress title"
   },
   "p1H1KR": {
     "defaultMessage": "Last 30 days",
