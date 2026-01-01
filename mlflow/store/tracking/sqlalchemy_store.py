@@ -3877,9 +3877,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         Get trace metadata (TraceInfo) for given trace IDs without loading spans.
 
-        This is more efficient than batch_get_traces when only metadata is needed,
-        as it avoids the expensive JOIN and loading of span data.
-
         Args:
             trace_ids: The trace IDs to get.
             location: Location of the trace. Should be None for SQLAlchemy backend.
@@ -3890,20 +3887,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         if not trace_ids:
             return []
 
-        if location is not None:
-            raise MlflowException(
-                "The 'location' parameter is not supported by the SQLAlchemy backend."
-            )
-
         order_case = case(
             {trace_id: idx for idx, trace_id in enumerate(trace_ids)},
             value=SqlTraceInfo.request_id,
         )
         with self.ManagedSessionMaker() as session:
-            # Load trace infos WITHOUT spans - much more efficient
             sql_trace_infos = (
                 session.query(SqlTraceInfo)
-                # NO joinedload - we don't want spans!
                 .filter(SqlTraceInfo.request_id.in_(trace_ids))
                 .order_by(order_case)
                 .all()

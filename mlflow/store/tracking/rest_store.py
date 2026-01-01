@@ -519,40 +519,6 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         )
         return [Trace.from_proto(proto) for proto in response_proto.traces]
 
-    def batch_get_trace_infos(
-        self, trace_ids: list[str], location: str | None = None
-    ) -> list[TraceInfo]:
-        """
-        Get trace metadata (TraceInfo) for given trace IDs without loading spans.
-
-        Args:
-            trace_ids: List of trace IDs to fetch.
-            location: Location of the trace. Should be None for OSS backend.
-
-        Returns:
-            List of TraceInfo objects for the given trace IDs.
-        """
-        if not trace_ids:
-            return []
-
-        if location is not None:
-            raise MlflowException(
-                "The 'location' parameter is not supported by the RestStore backend."
-            )
-
-        # Fetch trace infos one by one, skipping any that don't exist
-        # This is more efficient than batch_get_traces since we don't load spans
-        trace_infos = []
-        for trace_id in trace_ids:
-            try:
-                if trace_info := self.get_trace_info(trace_id):
-                    trace_infos.append(trace_info)
-            except Exception:
-                # Skip traces that can't be fetched
-                pass
-
-        return trace_infos
-
     def search_traces(
         self,
         experiment_ids: list[str] | None = None,
