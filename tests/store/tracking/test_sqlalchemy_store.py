@@ -6274,6 +6274,32 @@ def test_search_traces_with_feedback_rlike_filters(store: SqlAlchemyStore):
     assert traces[0].request_id == trace3_id
 
 
+def test_search_traces_with_metadata_is_null_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_metadata_is_null")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, trace_metadata={"env": "production", "region": "us"})
+    _create_trace(store, trace2_id, exp_id, trace_metadata={"env": "staging"})
+    _create_trace(store, trace3_id, exp_id, trace_metadata={})
+
+    traces, _ = store.search_traces([exp_id], filter_string="metadata.region IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="metadata.env IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='metadata.region IS NULL AND metadata.env = "staging"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id}
+
+
 @pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
 def test_search_traces_with_metadata_rlike_filters(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_metadata_rlike")
