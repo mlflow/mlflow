@@ -1861,6 +1861,33 @@ class SearchTraceUtils(SearchUtils):
             return True
         return False
 
+    @staticmethod
+    def _get_sql_json_comparison_func(comparator):
+        """
+        Returns a comparison function for JSON-serialized values.
+
+        Assessment values are stored as JSON primitives in the database:
+          - Boolean False -> "false" (no quotes in JSON)
+          - String "yes" -> '"yes"' (WITH quotes in JSON)
+
+        For equality comparisons, we match either the raw value (for bools/numbers)
+        or the quoted value (for strings).
+        """
+        import sqlalchemy as sa
+
+        def comparison_func(column, value):
+            if comparator == "=":
+                return sa.or_(column == value, column == '"' + value + '"')
+            elif comparator == "!=":
+                return sa.and_(column != value, column != '"' + value + '"')
+            elif comparator == "LIKE":
+                return column.like(value)
+            elif comparator == "ILIKE":
+                return column.ilike(value)
+            return SearchUtils.get_comparison_func(comparator)(column, value)
+
+        return comparison_func
+
     @classmethod
     def _valid_entity_type(cls, entity_type):
         entity_type = cls._trim_backticks(entity_type)

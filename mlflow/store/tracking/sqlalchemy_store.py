@@ -5359,15 +5359,15 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 continue
             elif SearchTraceUtils.is_assessment(key_type, key_name, comparator):
                 # Create subquery to find traces with matching feedback
-                # Filter by feedback name and check the value
+                value_filter = SearchTraceUtils._get_sql_json_comparison_func(comparator)(
+                    SqlAssessments.value, value
+                )
                 feedback_subquery = (
                     session.query(SqlAssessments.trace_id.label("request_id"))
                     .filter(
                         SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
-                        SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
-                            SqlAssessments.value, value
-                        ),
+                        value_filter,
                     )
                     .distinct()
                     .subquery()
