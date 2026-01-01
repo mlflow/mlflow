@@ -5358,8 +5358,8 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 span_filters.append(span_subquery)
                 continue
             elif SearchTraceUtils.is_assessment(key_type, key_name, comparator):
-                # Create subquery to find traces with matching assessment
-                # Filter by feedback name and check the value
+                # Create subquery to find traces with matching assessments
+                # Filter by assessment name and check the value
                 feedback_subquery = (
                     session.query(SqlAssessments.trace_id.label("request_id"))
                     .filter(
