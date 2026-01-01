@@ -78,7 +78,6 @@ async def test_completions():
                 "prompt": {
                     "text": "This is a test",
                 },
-                "temperature": 0.0,
                 "candidateCount": 1,
                 "maxOutputTokens": 1000,
                 "stopSequences": ["foobar"],
@@ -130,7 +129,6 @@ def chat_response():
         (
             {"messages": [{"role": "user", "content": "Tell me a joke"}]},
             {
-                "temperature": 0.0,
                 "candidateCount": 1,
                 "prompt": {"messages": [{"content": "Tell me a joke", "author": "user"}]},
             },
@@ -143,7 +141,6 @@ def chat_response():
                 ]
             },
             {
-                "temperature": 0.0,
                 "candidateCount": 1,
                 "prompt": {
                     "messages": [

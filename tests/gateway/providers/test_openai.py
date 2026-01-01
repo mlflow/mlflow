@@ -244,7 +244,6 @@ async def _run_test_chat_stream(resp, provider):
             "https://api.openai.com/v1/chat/completions",
             json={
                 "model": "gpt-4o-mini",
-                "temperature": 0,
                 "n": 1,
                 **payload,
             },
@@ -407,7 +406,6 @@ async def _run_test_completions(resp, provider):
             "https://api.openai.com/v1/completions",
             json={
                 "model": "gpt-4-32k",
-                "temperature": 0,
                 "n": 1,
                 "prompt": "This is a test",
             },
@@ -528,7 +526,6 @@ async def _run_test_completions_stream(resp, provider):
             "https://api.openai.com/v1/completions",
             json={
                 "model": "gpt-4-32k",
-                "temperature": 0,
                 "n": 1,
                 "prompt": "This is a test",
             },
@@ -743,7 +740,6 @@ async def test_azure_openai():
                 "/completions?api-version=2023-05-15"
             ),
             json={
-                "temperature": 0,
                 "n": 1,
                 "prompt": "This is a test",
             },
@@ -782,7 +778,6 @@ async def test_azuread_openai():
                 "/completions?api-version=2023-05-15"
             ),
             json={
-                "temperature": 0,
                 "n": 1,
                 "prompt": "This is a test",
             },
