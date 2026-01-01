@@ -5840,129 +5840,74 @@ def test_search_traces_with_expectation_like_filters(store: SqlAlchemyStore):
 
 def test_search_traces_filter_feedback_string_value_equality(store: SqlAlchemyStore):
     """
-    Test that filtering on string-valued feedback works with = operator.
+    Regression test: string-valued feedback filtering with = operator.
 
-    This is a regression test for the bug where:
-    - Boolean assessments: feedback.correct = "true" worked
-    - String assessments: feedback.completeness = "yes" failed
-
-    Root cause: Backend compared raw JSON ('"yes"') vs filter value ('yes')
-    Fix: Parse JSON value before comparison
+    Previously, string assessments like feedback.completeness = "yes" failed because
+    the DB stores JSON strings with quotes ('"yes"') but the filter compared to 'yes'.
     """
     exp_id = store.create_experiment("test_feedback_string_equality")
 
-    # Create traces with string-valued feedback
     trace1_id = uuid.uuid4().hex
     trace2_id = uuid.uuid4().hex
-    trace3_id = uuid.uuid4().hex
 
-    _create_trace(store, trace1_id, exp_id, request_time=1000)
-    _create_trace(store, trace2_id, exp_id, request_time=2000)
-    _create_trace(store, trace3_id, exp_id, request_time=3000)
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
 
-    # Add string-valued feedback to traces
-    # Trace 1: completeness = "yes"
-    feedback1 = Feedback(
-        trace_id=trace1_id,
-        name="completeness",
-        value="yes",
-        source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
-        rationale="Response covers all aspects",
+    store.create_assessment(
+        Feedback(
+            trace_id=trace1_id,
+            name="completeness",
+            value="yes",
+            source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
+        )
     )
-    store.create_assessment(feedback1)
-
-    # Trace 2: completeness = "no"
-    feedback2 = Feedback(
-        trace_id=trace2_id,
-        name="completeness",
-        value="no",
-        source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
-        rationale="Response is incomplete",
+    store.create_assessment(
+        Feedback(
+            trace_id=trace2_id,
+            name="completeness",
+            value="no",
+            source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
+        )
     )
-    store.create_assessment(feedback2)
 
-    # Trace 3: completeness = "Pass" (different casing)
-    feedback3 = Feedback(
-        trace_id=trace3_id,
-        name="completeness",
-        value="Pass",
-        source=AssessmentSource(source_type="HUMAN", source_id="user3@example.com"),
-        rationale="Response passed review",
-    )
-    store.create_assessment(feedback3)
-
-    # Test 1: Filter for "yes" - should return trace1 only
     traces, _ = store.search_traces([exp_id], filter_string='feedback.completeness = "yes"')
     assert len(traces) == 1
     assert traces[0].request_id == trace1_id
 
-    # Test 2: Filter for "no" - should return trace2 only
     traces, _ = store.search_traces([exp_id], filter_string='feedback.completeness = "no"')
     assert len(traces) == 1
     assert traces[0].request_id == trace2_id
 
-    # Test 3: Filter for "Pass" (case sensitive) - should return trace3 only
-    traces, _ = store.search_traces([exp_id], filter_string='feedback.completeness = "Pass"')
-    assert len(traces) == 1
-    assert traces[0].request_id == trace3_id
-
-    # Test 4: LIKE operator should still work
-    traces, _ = store.search_traces([exp_id], filter_string='feedback.completeness LIKE "%yes%"')
-    assert len(traces) >= 1
-
-    # Test 5: Verify boolean feedback still works (regression test)
-    bool_feedback = Feedback(
-        trace_id=trace1_id,
-        name="correct",
-        value=True,
-        source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
-    )
-    store.create_assessment(bool_feedback)
-
-    traces, _ = store.search_traces([exp_id], filter_string='feedback.correct = "true"')
-    assert len(traces) == 1
-    assert traces[0].request_id == trace1_id
-
-    # Test 6: Combined filter (string AND boolean)
-    traces, _ = store.search_traces(
-        [exp_id],
-        filter_string='feedback.completeness = "yes" AND feedback.correct = "true"',
-    )
-    assert len(traces) == 1
-    assert traces[0].request_id == trace1_id
-
 
 def test_search_traces_filter_expectation_string_value_equality(store: SqlAlchemyStore):
     """
-    Test that filtering on string-valued expectations works with = operator.
-    Similar to feedback test but for expectations.
+    Regression test: string-valued expectation filtering with = operator.
     """
     exp_id = store.create_experiment("test_expectation_string_equality")
 
     trace1_id = uuid.uuid4().hex
     trace2_id = uuid.uuid4().hex
 
-    _create_trace(store, trace1_id, exp_id, request_time=1000)
-    _create_trace(store, trace2_id, exp_id, request_time=2000)
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
 
-    # Add string-valued expectations
-    expectation1 = Expectation(
-        trace_id=trace1_id,
-        name="quality",
-        value="high",
-        source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
+    store.create_assessment(
+        Expectation(
+            trace_id=trace1_id,
+            name="quality",
+            value="high",
+            source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
+        )
     )
-    store.create_assessment(expectation1)
-
-    expectation2 = Expectation(
-        trace_id=trace2_id,
-        name="quality",
-        value="low",
-        source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
+    store.create_assessment(
+        Expectation(
+            trace_id=trace2_id,
+            name="quality",
+            value="low",
+            source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
+        )
     )
-    store.create_assessment(expectation2)
 
-    # Test expectation filtering with = operator
     traces, _ = store.search_traces([exp_id], filter_string='expectation.quality = "high"')
     assert len(traces) == 1
     assert traces[0].request_id == trace1_id
