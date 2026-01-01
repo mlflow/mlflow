@@ -7,6 +7,8 @@ from mlflow.entities.model_registry.prompt_version import PromptVersion
 
 if TYPE_CHECKING:
     from mlflow.entities import DatasetRecord, EvaluationDataset
+    from mlflow.genai.scorers.online.online_scorer import OnlineScoringConfig
+    from mlflow.genai.scorers.online.session_processor import CompletedSession
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from packaging.version import Version
@@ -1361,6 +1363,136 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
             req_body,
             endpoint="/api/3.0/mlflow/scorers/delete",
         )
+
+    def update_online_scoring_config(
+        self,
+        experiment_id: str,
+        scorer_name: str,
+        sample_rate: float,
+        filter_string: str | None = None,
+    ) -> "OnlineScoringConfig":
+        """
+        Update the online scoring configuration for a registered scorer.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            scorer_name: The scorer name.
+            sample_rate: The sampling rate (0.0 to 1.0).
+            filter_string: Optional filter expression for trace selection.
+
+        Returns:
+            The updated OnlineScoringConfig object.
+        """
+        from mlflow.genai.scorers.online.online_scorer import OnlineScoringConfig
+
+        request_body = {
+            "experiment_id": experiment_id,
+            "name": scorer_name,
+            "sample_rate": sample_rate,
+        }
+        if filter_string is not None:
+            request_body["filter_string"] = filter_string
+
+        response = http_request(
+            host_creds=self.get_host_creds(),
+            endpoint="/api/3.0/mlflow/scorers/online-config",
+            method="PUT",
+            json=request_body,
+        )
+
+        verify_rest_response(response, "/api/3.0/mlflow/scorers/online-config")
+        config_dict = response.json()["config"]
+        return OnlineScoringConfig(
+            online_scoring_config_id=config_dict["online_scoring_config_id"],
+            scorer_id=config_dict["scorer_id"],
+            sample_rate=config_dict["sample_rate"],
+            filter_string=config_dict.get("filter_string"),
+        )
+
+    def get_online_scoring_configs(self, scorer_ids: list[str]) -> dict[str, "OnlineScoringConfig"]:
+        """
+        Get online scoring configurations for multiple scorers by their IDs.
+
+        Args:
+            scorer_ids: List of scorer IDs to fetch configurations for.
+
+        Returns:
+            A dictionary mapping scorer_id to OnlineScoringConfig for scorers that
+            have configurations. Scorers without configurations are not included.
+        """
+        from mlflow.genai.scorers.online.online_scorer import OnlineScoringConfig
+
+        if not scorer_ids:
+            return {}
+
+        response = http_request(
+            host_creds=self.get_host_creds(),
+            endpoint="/api/3.0/mlflow/scorers/online-configs",
+            method="GET",
+            params=[("scorer_ids", sid) for sid in scorer_ids],
+        )
+
+        verify_rest_response(response, "/api/3.0/mlflow/scorers/online-configs")
+        configs_dict = response.json()["configs"]
+        return {
+            scorer_id: OnlineScoringConfig(
+                online_scoring_config_id=config["online_scoring_config_id"],
+                scorer_id=config["scorer_id"],
+                sample_rate=config["sample_rate"],
+                filter_string=config.get("filter_string"),
+            )
+            for scorer_id, config in configs_dict.items()
+        }
+
+    def find_completed_sessions(
+        self,
+        experiment_id: str,
+        min_last_trace_timestamp_ms: int,
+        max_last_trace_timestamp_ms: int,
+        max_results: int | None = None,
+    ) -> list["CompletedSession"]:
+        """
+        Find completed sessions based on their last trace timestamp.
+
+        Args:
+            experiment_id: The experiment to search.
+            min_last_trace_timestamp_ms: Lower bound for session's last trace timestamp (inclusive).
+                Sessions with last trace before this time are excluded.
+            max_last_trace_timestamp_ms: Upper bound for session's last trace timestamp (inclusive).
+                Sessions with any traces after this time are excluded.
+            max_results: Maximum number of sessions to return. If None, returns all
+                matching sessions.
+
+        Returns:
+            List of CompletedSession objects sorted by last_trace_timestamp_ms ASC.
+        """
+        from mlflow.genai.scorers.online.session_processor import CompletedSession
+
+        params = {
+            "experiment_id": experiment_id,
+            "min_last_trace_timestamp_ms": min_last_trace_timestamp_ms,
+            "max_last_trace_timestamp_ms": max_last_trace_timestamp_ms,
+        }
+        if max_results is not None:
+            params["max_results"] = max_results
+
+        response = http_request(
+            host_creds=self.get_host_creds(),
+            endpoint="/api/3.0/mlflow/traces/completed-sessions",
+            method="GET",
+            params=params,
+        )
+
+        verify_rest_response(response, "/api/3.0/mlflow/traces/completed-sessions")
+        sessions_list = response.json()["sessions"]
+        return [
+            CompletedSession(
+                session_id=session["session_id"],
+                first_trace_timestamp_ms=session["first_trace_timestamp_ms"],
+                last_trace_timestamp_ms=session["last_trace_timestamp_ms"],
+            )
+            for session in sessions_list
+        ]
 
     ############################################################################################
     # Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.
