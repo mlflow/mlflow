@@ -2,6 +2,8 @@
 
 import json
 import logging
+import random
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -359,3 +361,38 @@ def get_trace_batches_for_scorer(
         # For single-turn judges, batch traces into fixed-size batches
         batch_size = MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE.get()
         return [trace_ids[i : i + batch_size] for i in range(0, len(trace_ids), batch_size)]
+
+
+def run_online_scoring_scheduler() -> None:
+    """
+    Periodic task that fetches active online scorers and submits scoring jobs.
+
+    Groups scorers by experiment_id and submits two jobs per experiment:
+    1. Trace-level scoring job for single-turn scorers
+    2. Session-level scoring job for session scorers
+
+    Groups are shuffled to prevent starvation when there are limited job runners available.
+    """
+    from mlflow.server.handlers import _get_tracking_store
+
+    tracking_store = _get_tracking_store()
+    online_scorers = tracking_store.get_active_online_scorers()
+    _logger.info(f"Online scoring scheduler found {len(online_scorers)} active scorers")
+
+    scorers_by_experiment: dict[str, list[OnlineScorer]] = defaultdict(list)
+    for scorer in online_scorers:
+        scorers_by_experiment[scorer.experiment_id].append(scorer)
+
+    # Shuffle configs randomly to prevent scorer starvation when there are
+    # limited job runners available
+    experiment_groups = list(scorers_by_experiment.items())
+    random.shuffle(experiment_groups)
+    _logger.info(
+        f"Grouped into {len(experiment_groups)} experiments, submitting jobs per experiment"
+    )
+
+    for experiment_id, scorers in experiment_groups:
+        _logger.info(f"Submitting jobs for experiment {experiment_id} with {len(scorers)} scorers")
+        scorer_dicts = [asdict(scorer) for scorer in scorers]
+        run_online_trace_scorer_job(experiment_id, scorer_dicts)
+        run_online_session_scorer_job(experiment_id, scorer_dicts)
