@@ -72,7 +72,7 @@ def run_online_trace_scorer_job(
         experiment_id: The experiment ID to fetch traces from.
         online_scorers: List of OnlineScorer dicts specifying which scorers to run.
     """
-    from mlflow.genai.scorers.online.trace_processor import OnlineTraceScoringProcessor
+    from mlflow.genai.scorers.online import OnlineTraceScoringProcessor
     from mlflow.server.handlers import _get_tracking_store
 
     scorer_objects = [OnlineScorer(**scorer_dict) for scorer_dict in online_scorers]
@@ -80,6 +80,35 @@ def run_online_trace_scorer_job(
     tracking_store = _get_tracking_store()
     processor = OnlineTraceScoringProcessor.create(experiment_id, scorer_objects, tracking_store)
     processor.process_traces()
+
+
+@job(
+    name="run_online_session_scorer",
+    max_workers=MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS.get(),
+    exclusive=True,
+)
+def run_online_session_scorer_job(
+    experiment_id: str,
+    online_scorers: list[dict[str, Any]],
+) -> None:
+    """
+    Job that finds completed sessions and runs session-level scorers on them.
+
+    This job is exclusive per (experiment_id, online_scorers) combination to prevent
+    duplicate scoring of the same sessions.
+
+    Args:
+        experiment_id: The experiment ID to fetch sessions from.
+        online_scorers: List of OnlineScorer dicts specifying which scorers to run.
+    """
+    from mlflow.genai.scorers.online import OnlineSessionScoringProcessor
+    from mlflow.server.handlers import _get_tracking_store
+
+    scorer_objects = [OnlineScorer(**scorer_dict) for scorer_dict in online_scorers]
+
+    tracking_store = _get_tracking_store()
+    processor = OnlineSessionScoringProcessor.create(experiment_id, scorer_objects, tracking_store)
+    processor.process_sessions()
 
 
 @job(name="invoke_scorer", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
