@@ -6,7 +6,7 @@ import operator
 import re
 import shlex
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import sqlparse
 from packaging.version import Version
@@ -36,6 +36,10 @@ from mlflow.tracing.constant import (
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy import ColumnElement
+    from sqlalchemy.sql.elements import ClauseElement
 
 # MSSQL collation for case-sensitive string comparisons
 _MSSQL_CASE_SENSITIVE_COLLATION = "Japanese_Bushu_Kakusu_100_CS_AS_KS_WS"
@@ -1865,7 +1869,9 @@ class SearchTraceUtils(SearchUtils):
         return False
 
     @staticmethod
-    def _get_sql_json_comparison_func(comparator, dialect):
+    def _get_sql_json_comparison_func(
+        comparator: str, dialect: str
+    ) -> Callable[["ColumnElement", str], "ClauseElement"]:
         """
         Returns a comparison function for JSON-serialized values.
 
@@ -1879,7 +1885,9 @@ class SearchTraceUtils(SearchUtils):
         """
         import sqlalchemy as sa
 
-        def mysql_json_equality_inequality_comparison(column, value):
+        def mysql_json_equality_inequality_comparison(
+            column: "ColumnElement", value: str
+        ) -> "ClauseElement":
             # MySQL is case insensitive by default, so we need to use the BINARY operator
             # for case sensitive comparisons. We check both the raw value (for booleans/numbers)
             # and the quoted value (for strings).
@@ -1900,7 +1908,9 @@ class SearchTraceUtils(SearchUtils):
                 sa.bindparam("value2", value=quoted_value, unique=True),
             )
 
-        def json_equality_inequality_comparison(column, value):
+        def json_equality_inequality_comparison(
+            column: "ColumnElement", value: str
+        ) -> "ClauseElement":
             # MSSQL uses collation for case-sensitive comparisons on String columns
             if dialect == MSSQL:
                 column = column.collate(_MSSQL_CASE_SENSITIVE_COLLATION)
