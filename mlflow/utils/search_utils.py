@@ -1879,10 +1879,11 @@ class SearchTraceUtils(SearchUtils):
         """
         import sqlalchemy as sa
 
-        def mysql_json_comparison(column, value, quoted_value):
+        def mysql_json_equality_inequality_comparison(column, value):
             # MySQL is case insensitive by default, so we need to use the BINARY operator
             # for case sensitive comparisons. We check both the raw value (for booleans/numbers)
             # and the quoted value (for strings).
+            quoted_value = f'"{value}"'
             col_ref = f"{column.class_.__tablename__}.{column.key}"
             if comparator == "=":
                 template = (
@@ -1903,15 +1904,14 @@ class SearchTraceUtils(SearchUtils):
             if comparator not in ("=", "!="):
                 return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(column, value)
 
-            quoted_value = f'"{value}"'
-
             if dialect == MYSQL:
-                return mysql_json_comparison(column, value, quoted_value)
+                return mysql_json_equality_inequality_comparison(column, value)
 
             if dialect == MSSQL:
                 # MSSQL uses collation for case-sensitive comparisons on String columns
                 column = column.collate(_MSSQL_CASE_SENSITIVE_COLLATION)
 
+            quoted_value = f'"{value}"'
             if comparator == "=":
                 return sa.or_(column == value, column == quoted_value)
             else:  # !=
