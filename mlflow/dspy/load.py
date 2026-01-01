@@ -60,17 +60,16 @@ def _load_model(model_uri, dst_path=None):
     else:
         model = dspy.load(os.path.join(local_model_path, model_path))
 
+        def json_loader_object_hook(d):
+            if d.get("__type__") == "LM":
+                *module_parts, class_name = d["class"].split(".")
+                module = importlib.import_module(".".join(module_parts))
+                lm_class = getattr(module, class_name)
+                state_dict = d["state"]
+                return lm_class(**state_dict)
+            return d
+
         with open(os.path.join(local_model_path, _MODEL_DATA_PATH, _DSPY_CONFIG_FILE_NAME)) as f:
-
-            def json_loader_object_hook(d):
-                if d.get("__type__") == "LM":
-                    *module_parts, class_name = d["class"].split(".")
-                    module = importlib.import_module(".".join(module_parts))
-                    lm_class = getattr(module, class_name)
-                    state_dict = d["state"]
-                    return lm_class(**state_dict)
-                return d
-
             dspy_settings = json.load(f, object_hook=json_loader_object_hook)
 
         dspy_rm_file_path = os.path.join(local_model_path, _MODEL_DATA_PATH, _DSPY_RM_FILE_NAME)
