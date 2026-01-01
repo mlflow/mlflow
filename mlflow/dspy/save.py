@@ -167,14 +167,16 @@ def save_model(
     # Construct new data folder in existing path.
     data_path = os.path.join(path, model_data_subpath)
     os.makedirs(data_path, exist_ok=True)
-    # Set the model path to end with ".pkl" as we use cloudpickle for serialization.
     model_subpath = os.path.join(model_data_subpath, _MODEL_SAVE_PATH)
+    if not use_dspy_model_save:
+        # Set the model path to end with ".pkl" as we use cloudpickle for serialization.
+        model_subpath += ".pkl"
+
     model_path = os.path.join(path, model_subpath)
 
     if use_dspy_model_save:
         os.makedirs(model_path)
-    else:
-        model_path += ".pkl"
+
     # Dspy has a global context `dspy.settings`, and we need to save it along with the model.
     dspy_settings = dict(dspy.settings.config)
 
