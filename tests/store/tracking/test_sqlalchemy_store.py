@@ -5525,7 +5525,6 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
         source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
     )
 
-    # String-valued feedback (regression test for JSON quoting bug)
     feedback4 = Feedback(
         trace_id=trace1_id,
         name="quality",
@@ -5555,7 +5554,6 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
         source=AssessmentSource(source_type="CODE", source_id="latency_monitor"),
     )
 
-    # String-valued expectation (regression test for JSON quoting bug)
     expectation4 = Expectation(
         trace_id=trace3_id,
         name="priority",
