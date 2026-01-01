@@ -175,7 +175,7 @@ def save_model(
     model_path = os.path.join(path, model_subpath)
 
     if use_dspy_model_save:
-        os.makedirs(model_path)
+        os.makedirs(model_path, exist_ok=True)
 
     # Dspy has a global context `dspy.settings`, and we need to save it along with the model.
     dspy_settings = dict(dspy.settings.config)
