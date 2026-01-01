@@ -172,7 +172,7 @@ dev = [
   "mlflow-test-plugin",
 ]
 lint = [
-  "ruff==0.12.10",
+  "ruff==0.14.10",
   "black==23.7.0",
   "blacken-docs==1.18.0",
   "pre-commit==4.0.1",
@@ -259,7 +259,7 @@ explicit = true
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-required-version = "0.12.10"
+required-version = "0.14.10"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extend-exclude = [
