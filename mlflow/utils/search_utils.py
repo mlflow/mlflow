@@ -1900,15 +1900,9 @@ class SearchTraceUtils(SearchUtils):
                 sa.bindparam("value2", value=quoted_value, unique=True),
             )
 
-        def comparison_func(column, value):
-            if comparator not in ("=", "!="):
-                return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(column, value)
-
-            if dialect == MYSQL:
-                return mysql_json_equality_inequality_comparison(column, value)
-
+        def json_equality_inequality_comparison(column, value):
+            # MSSQL uses collation for case-sensitive comparisons on String columns
             if dialect == MSSQL:
-                # MSSQL uses collation for case-sensitive comparisons on String columns
                 column = column.collate(_MSSQL_CASE_SENSITIVE_COLLATION)
 
             quoted_value = f'"{value}"'
@@ -1917,7 +1911,13 @@ class SearchTraceUtils(SearchUtils):
             else:  # !=
                 return sa.and_(column != value, column != quoted_value)
 
-        return comparison_func
+        if comparator not in ("=", "!="):
+            return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)
+
+        if dialect == MYSQL:
+            return mysql_json_equality_inequality_comparison
+
+        return json_equality_inequality_comparison
 
     @classmethod
     def _valid_entity_type(cls, entity_type):
