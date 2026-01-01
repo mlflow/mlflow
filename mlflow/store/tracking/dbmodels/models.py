@@ -2028,16 +2028,6 @@ class SqlOnlineScoringConfig(Base):
         UniqueConstraint("scorer_id", name="unique_online_scoring_config_scorer_id"),
     )
 
-    def to_mlflow_entity(self):
-        from mlflow.genai.scorers.online.entities import OnlineScoringConfig
-
-        return OnlineScoringConfig(
-            online_scoring_config_id=self.online_scoring_config_id,
-            scorer_id=self.scorer_id,
-            sample_rate=self.sample_rate,
-            filter_string=self.filter_string,
-        )
-
     def __repr__(self):
         return (
             f"<SqlOnlineScoringConfig ({self.online_scoring_config_id}, {self.scorer_id}, "
