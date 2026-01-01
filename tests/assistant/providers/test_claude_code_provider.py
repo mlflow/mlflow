@@ -1,7 +1,6 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from pydantic import ValidationError
 
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
 from mlflow.assistant.types import EventType
@@ -23,6 +22,14 @@ class AsyncIterator:
             raise StopAsyncIteration
 
 
+@pytest.fixture(autouse=True)
+def config(tmp_path):
+    config_file = tmp_path / "config.json"
+    config_file.write_text('{"providers": {"claude_code": {"model": "claude-opus-4"}}}')
+    with patch("mlflow.assistant.config.CONFIG_PATH", config_file):
+        yield config_file
+
+
 @pytest.mark.parametrize(
     ("which_return", "expected"),
     [
@@ -37,25 +44,6 @@ def test_is_available(which_return, expected):
     ):
         provider = ClaudeCodeProvider()
         assert provider.is_available() is expected
-
-
-def test_load_config(tmp_path, monkeypatch):
-    config_file = tmp_path / "config.json"
-    config_file.write_text('{"model": "claude-opus-4"}')
-
-    monkeypatch.setattr(ClaudeCodeProvider, "config_path", config_file)
-    provider = ClaudeCodeProvider()
-    assert provider.load_config().model_dump() == {"model": "claude-opus-4", "project_path": None}
-
-
-def test_load_config_invalid_json(tmp_path, monkeypatch):
-    config_file = tmp_path / "config.json"
-    config_file.write_text("not valid json")
-
-    monkeypatch.setattr(ClaudeCodeProvider, "config_path", config_file)
-    provider = ClaudeCodeProvider()
-    with pytest.raises(ValidationError, match="1 validation error"):
-        provider.load_config()
 
 
 @pytest.mark.asyncio
