@@ -37,6 +37,9 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
 )
 
+# MSSQL collation for case-sensitive string comparisons
+_MSSQL_CASE_SENSITIVE_COLLATION = "Japanese_Bushu_Kakusu_100_CS_AS_KS_WS"
+
 
 def _convert_like_pattern_to_regex(pattern, flags=0):
     if not pattern.startswith("%"):
@@ -245,7 +248,7 @@ class SearchUtils:
             if not isinstance(column.type, sa.types.String):
                 return comparison_func(column, value)
 
-            collated = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
+            collated = column.collate(_MSSQL_CASE_SENSITIVE_COLLATION)
             return comparison_func(collated, value)
 
         def mysql_comparison_func(column, value):
@@ -1876,12 +1879,43 @@ class SearchTraceUtils(SearchUtils):
         """
         import sqlalchemy as sa
 
-        def comparison_func(column, value):
+        def mysql_json_comparison(column, value, quoted_value):
+            # MySQL is case insensitive by default, so we need to use the BINARY operator
+            # for case sensitive comparisons. We check both the raw value (for booleans/numbers)
+            # and the quoted value (for strings).
+            col_ref = f"{column.class_.__tablename__}.{column.key}"
             if comparator == "=":
-                return sa.or_(column == value, column == f'"{value}"')
-            elif comparator == "!=":
-                return sa.and_(column != value, column != f'"{value}"')
-            return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(column, value)
+                template = (
+                    f"(({col_ref} = :value1 AND BINARY {col_ref} = :value1) OR "
+                    f"({col_ref} = :value2 AND BINARY {col_ref} = :value2))"
+                )
+            else:  # !=
+                template = (
+                    f"(({col_ref} != :value1 OR BINARY {col_ref} != :value1) AND "
+                    f"({col_ref} != :value2 OR BINARY {col_ref} != :value2))"
+                )
+            return sa.text(template).bindparams(
+                sa.bindparam("value1", value=value, unique=True),
+                sa.bindparam("value2", value=quoted_value, unique=True),
+            )
+
+        def comparison_func(column, value):
+            if comparator not in ("=", "!="):
+                return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(column, value)
+
+            quoted_value = f'"{value}"'
+
+            if dialect == MYSQL:
+                return mysql_json_comparison(column, value, quoted_value)
+
+            if dialect == MSSQL:
+                # MSSQL uses collation for case-sensitive comparisons on String columns
+                column = column.collate(_MSSQL_CASE_SENSITIVE_COLLATION)
+
+            if comparator == "=":
+                return sa.or_(column == value, column == quoted_value)
+            else:  # !=
+                return sa.and_(column != value, column != quoted_value)
 
         return comparison_func
 
