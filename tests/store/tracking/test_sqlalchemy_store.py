@@ -5525,6 +5525,14 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
         source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
     )
 
+    # String-valued feedback (regression test for JSON quoting bug)
+    feedback4 = Feedback(
+        trace_id=trace1_id,
+        name="quality",
+        value="high",
+        source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
+    )
+
     # Create expectations for trace3 and trace4
     expectation1 = Expectation(
         trace_id=trace3_id,
@@ -5547,13 +5555,23 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
         source=AssessmentSource(source_type="CODE", source_id="latency_monitor"),
     )
 
+    # String-valued expectation (regression test for JSON quoting bug)
+    expectation4 = Expectation(
+        trace_id=trace3_id,
+        name="priority",
+        value="urgent",
+        source=AssessmentSource(source_type="CODE", source_id="priority_checker"),
+    )
+
     # Store assessments
     store.create_assessment(feedback1)
     store.create_assessment(feedback2)
     store.create_assessment(feedback3)
+    store.create_assessment(feedback4)
     store.create_assessment(expectation1)
     store.create_assessment(expectation2)
     store.create_assessment(expectation3)
+    store.create_assessment(expectation4)
 
     # Test: Search for traces with correctness feedback = True
     traces, _ = store.search_traces([exp_id], filter_string='feedback.correctness = "true"')
@@ -5569,6 +5587,16 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
     traces, _ = store.search_traces([exp_id], filter_string='feedback.helpfulness = "5"')
     assert len(traces) == 1
     assert traces[0].request_id == trace2_id
+
+    # Test: Search for traces with string-valued feedback
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.quality = "high"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test: Search for traces with string-valued expectation
+    traces, _ = store.search_traces([exp_id], filter_string='expectation.priority = "urgent"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
 
     # Test: Search for traces with response_length expectation = 150
     traces, _ = store.search_traces([exp_id], filter_string='expectation.response_length = "150"')
@@ -5836,85 +5864,6 @@ def test_search_traces_with_expectation_like_filters(store: SqlAlchemyStore):
     )
     assert len(traces) == 1
     assert traces[0].request_id == trace1_id
-
-
-def test_search_traces_filter_feedback_string_value_equality(store: SqlAlchemyStore):
-    """
-    Regression test: string-valued feedback filtering with = operator.
-
-    Previously, string assessments like feedback.completeness = "yes" failed because
-    the DB stores JSON strings with quotes ('"yes"') but the filter compared to 'yes'.
-    """
-    exp_id = store.create_experiment("test_feedback_string_equality")
-
-    trace1_id = uuid.uuid4().hex
-    trace2_id = uuid.uuid4().hex
-
-    _create_trace(store, trace1_id, exp_id)
-    _create_trace(store, trace2_id, exp_id)
-
-    store.create_assessment(
-        Feedback(
-            trace_id=trace1_id,
-            name="completeness",
-            value="yes",
-            source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
-        )
-    )
-    store.create_assessment(
-        Feedback(
-            trace_id=trace2_id,
-            name="completeness",
-            value="no",
-            source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
-        )
-    )
-
-    traces, _ = store.search_traces([exp_id], filter_string='feedback.completeness = "yes"')
-    assert len(traces) == 1
-    assert traces[0].request_id == trace1_id
-
-    traces, _ = store.search_traces([exp_id], filter_string='feedback.completeness = "no"')
-    assert len(traces) == 1
-    assert traces[0].request_id == trace2_id
-
-
-def test_search_traces_filter_expectation_string_value_equality(store: SqlAlchemyStore):
-    """
-    Regression test: string-valued expectation filtering with = operator.
-    """
-    exp_id = store.create_experiment("test_expectation_string_equality")
-
-    trace1_id = uuid.uuid4().hex
-    trace2_id = uuid.uuid4().hex
-
-    _create_trace(store, trace1_id, exp_id)
-    _create_trace(store, trace2_id, exp_id)
-
-    store.create_assessment(
-        Expectation(
-            trace_id=trace1_id,
-            name="quality",
-            value="high",
-            source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
-        )
-    )
-    store.create_assessment(
-        Expectation(
-            trace_id=trace2_id,
-            name="quality",
-            value="low",
-            source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
-        )
-    )
-
-    traces, _ = store.search_traces([exp_id], filter_string='expectation.quality = "high"')
-    assert len(traces) == 1
-    assert traces[0].request_id == trace1_id
-
-    traces, _ = store.search_traces([exp_id], filter_string='expectation.quality = "low"')
-    assert len(traces) == 1
-    assert traces[0].request_id == trace2_id
 
 
 def test_search_traces_with_metadata_like_filters(store: SqlAlchemyStore):
