@@ -330,7 +330,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
             return memory_judge
 
         except Exception as e:
-            _logger.error(f"MemAlign alignment failed: {e}")
+            _logger.error(f"MemAlign alignment failed: {e}", exc_info=True)
             raise MlflowException(
                 f"Alignment optimization failed: {e!s}", error_code=INTERNAL_ERROR
             ) from e
