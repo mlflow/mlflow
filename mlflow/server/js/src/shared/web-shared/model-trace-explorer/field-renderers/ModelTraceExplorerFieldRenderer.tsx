@@ -14,17 +14,21 @@ import { ModelTraceExplorerConversation } from '../right-pane/ModelTraceExplorer
 
 export const DEFAULT_MAX_VISIBLE_CHAT_MESSAGES = 3;
 
+export type ChatMessagesDisplayMode = 'all' | 'final_assistant';
+
 export const ModelTraceExplorerFieldRenderer = ({
   title,
   data,
   renderMode,
   chatMessageFormat,
+  chatMessagesDisplayMode = 'all',
   maxVisibleMessages = DEFAULT_MAX_VISIBLE_CHAT_MESSAGES,
 }: {
   title: string;
   data: string;
   renderMode: 'default' | 'json' | 'text';
   chatMessageFormat?: string;
+  chatMessagesDisplayMode?: ChatMessagesDisplayMode;
   maxVisibleMessages?: number;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -53,10 +57,20 @@ export const ModelTraceExplorerFieldRenderer = ({
     Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isRetrieverDocument);
 
   if (chatMessages && chatMessages.length > 0) {
-    const shouldTruncateMessages = chatMessages.length > maxVisibleMessages;
+    const displayedChatMessages =
+      chatMessagesDisplayMode === 'final_assistant'
+        ? (() => {
+            const lastAssistantMessage = [...chatMessages].reverse().find((msg) => msg.role === 'assistant');
+            return lastAssistantMessage ? [lastAssistantMessage] : chatMessages.slice(-1);
+          })()
+        : chatMessages;
+
+    const shouldTruncateMessages = displayedChatMessages.length > maxVisibleMessages;
     const visibleMessages =
-      messagesExpanded || !shouldTruncateMessages ? chatMessages : chatMessages.slice(-maxVisibleMessages);
-    const hiddenMessageCount = shouldTruncateMessages ? chatMessages.length - visibleMessages.length : 0;
+      messagesExpanded || !shouldTruncateMessages
+        ? displayedChatMessages
+        : displayedChatMessages.slice(-maxVisibleMessages);
+    const hiddenMessageCount = shouldTruncateMessages ? displayedChatMessages.length - visibleMessages.length : 0;
 
     return (
       <div
