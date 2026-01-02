@@ -1,9 +1,11 @@
 from unittest.mock import ANY, Mock, patch
 
 import mlflow
-from mlflow.genai.scorers import Scorer, scorer
+from mlflow.entities.gateway_endpoint import GatewayEndpoint
+from mlflow.genai.scorers import Guidelines, Scorer, scorer
 from mlflow.genai.scorers.base import ScorerSamplingConfig, ScorerStatus
 from mlflow.genai.scorers.registry import (
+    DatabricksStore,
     delete_scorer,
     get_scorer,
     list_scorer_versions,
@@ -86,8 +88,6 @@ def test_mlflow_backend_scorer_operations():
 
 
 def test_databricks_backend_scorer_operations():
-    from mlflow.genai.scorers.registry import DatabricksStore
-
     # Mock the scheduled scorer responses
     mock_scheduled_scorer = Mock()
     mock_scheduled_scorer.scorer = Mock(spec=Scorer)
@@ -160,8 +160,6 @@ def test_databricks_backend_scorer_operations():
 
 def _mock_gateway_endpoint():
     """Returns a mock GatewayEndpoint for testing."""
-    from mlflow.entities.gateway_endpoint import GatewayEndpoint
-
     return GatewayEndpoint(
         endpoint_id="test-endpoint-id",
         name="test-endpoint",
@@ -171,8 +169,6 @@ def _mock_gateway_endpoint():
 
 
 def test_mlflow_backend_online_scoring_config_operations():
-    from mlflow.genai.scorers import Guidelines
-
     experiment_id = mlflow.create_experiment("test_online_scoring_config_experiment")
     mlflow.set_experiment(experiment_id=experiment_id)
 
@@ -221,8 +217,6 @@ def test_mlflow_backend_online_scoring_config_operations():
 
 
 def test_mlflow_backend_online_scoring_config_chained_update():
-    from mlflow.genai.scorers import Guidelines
-
     with patch(
         "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.get_gateway_endpoint",
         return_value=_mock_gateway_endpoint(),
