@@ -430,6 +430,91 @@ const getFirstEventAttributeValue = (events: ModelTraceEvent[] | undefined, attr
   return undefined;
 };
 
+const OTEL_GEN_AI_INPUT_MESSAGES_KEY = 'gen_ai.input.messages';
+const OTEL_GEN_AI_OUTPUT_MESSAGES_KEY = 'gen_ai.output.messages';
+
+const maybeMoveOtelGenAiMessageField = ({
+  from,
+  to,
+  key,
+}: {
+  from: any;
+  to: any;
+  key: typeof OTEL_GEN_AI_INPUT_MESSAGES_KEY | typeof OTEL_GEN_AI_OUTPUT_MESSAGES_KEY;
+}): { from: any; to: any; moved: boolean } => {
+  if (!isObject(from) || isArray(from) || !has(from, key)) {
+    return { from, to, moved: false };
+  }
+
+  // Do not overwrite if the destination already contains this key.
+  if (isObject(to) && !isArray(to) && has(to, key)) {
+    return { from, to, moved: false };
+  }
+
+  const fromRecord = from as Record<string, any>;
+  const valueToMove = fromRecord[key];
+  const rest: Record<string, any> = { ...fromRecord };
+  delete rest[key];
+
+  const toBase = isObject(to) && !isArray(to) ? (to as Record<string, any>) : {};
+  const toRecord: Record<string, any> = { ...toBase, [key]: tryDeserializeAttribute(valueToMove) };
+
+  return { from: rest, to: toRecord, moved: true };
+};
+
+/**
+ * Some integrations nest OTEL GenAI message attributes inside a single inputs/outputs object.
+ * When both input and output messages are present, move them into their respective sections.
+ */
+const normalizeOtelGenAiMessageFields = ({
+  inputs,
+  outputs,
+}: {
+  inputs: any;
+  outputs: any;
+}): { inputs: any; outputs: any } => {
+  let nextInputs = inputs;
+  let nextOutputs = outputs;
+
+  // If output messages are incorrectly stored under inputs, move them to outputs.
+  const movedOutputs = maybeMoveOtelGenAiMessageField({
+    from: nextInputs,
+    to: nextOutputs,
+    key: OTEL_GEN_AI_OUTPUT_MESSAGES_KEY,
+  });
+  nextInputs = movedOutputs.from;
+  nextOutputs = movedOutputs.to;
+
+  // If input messages are incorrectly stored under outputs, move them to inputs.
+  const movedInputs = maybeMoveOtelGenAiMessageField({
+    from: nextOutputs,
+    to: nextInputs,
+    key: OTEL_GEN_AI_INPUT_MESSAGES_KEY,
+  });
+  nextOutputs = movedInputs.from;
+  nextInputs = movedInputs.to;
+
+  // Ensure any remaining OTEL message fields are deserialized.
+  if (isObject(nextInputs) && !isArray(nextInputs) && has(nextInputs, OTEL_GEN_AI_INPUT_MESSAGES_KEY)) {
+    const record = nextInputs as Record<string, any>;
+    nextInputs = { ...record, [OTEL_GEN_AI_INPUT_MESSAGES_KEY]: tryDeserializeAttribute(record[OTEL_GEN_AI_INPUT_MESSAGES_KEY]) };
+  }
+  if (isObject(nextInputs) && !isArray(nextInputs) && has(nextInputs, OTEL_GEN_AI_OUTPUT_MESSAGES_KEY)) {
+    const record = nextInputs as Record<string, any>;
+    nextInputs = { ...record, [OTEL_GEN_AI_OUTPUT_MESSAGES_KEY]: tryDeserializeAttribute(record[OTEL_GEN_AI_OUTPUT_MESSAGES_KEY]) };
+  }
+  if (isObject(nextOutputs) && !isArray(nextOutputs) && has(nextOutputs, OTEL_GEN_AI_INPUT_MESSAGES_KEY)) {
+    const record = nextOutputs as Record<string, any>;
+    nextOutputs = { ...record, [OTEL_GEN_AI_INPUT_MESSAGES_KEY]: tryDeserializeAttribute(record[OTEL_GEN_AI_INPUT_MESSAGES_KEY]) };
+  }
+  if (isObject(nextOutputs) && !isArray(nextOutputs) && has(nextOutputs, OTEL_GEN_AI_OUTPUT_MESSAGES_KEY)) {
+    const record = nextOutputs as Record<string, any>;
+    nextOutputs = { ...record, [OTEL_GEN_AI_OUTPUT_MESSAGES_KEY]: tryDeserializeAttribute(record[OTEL_GEN_AI_OUTPUT_MESSAGES_KEY]) };
+  }
+
+  return { inputs: nextInputs, outputs: nextOutputs };
+};
+
 export const normalizeNewSpanData = (
   span: ModelTraceSpan,
   rootStartTime: number,
@@ -442,16 +527,20 @@ export const normalizeNewSpanData = (
   let inputs = tryDeserializeAttribute(span.attributes?.['mlflow.spanInputs']);
   let outputs = tryDeserializeAttribute(span.attributes?.['mlflow.spanOutputs']);
 
-  // OTel GenAI semantic conventions may log chat messages in span events (rather than span attributes).
+  // OTel GenAI semantic conventions may log chat messages in span attributes or span events.
   // Populate inputs/outputs from `gen_ai.*.messages` when the MLflow-native fields are missing.
   if (isNil(inputs)) {
-    const inputMessages = getFirstEventAttributeValue(span.events, 'gen_ai.input.messages');
+    const inputMessages =
+      span.attributes?.['gen_ai.input.messages'] ?? getFirstEventAttributeValue(span.events, 'gen_ai.input.messages');
     inputs = tryDeserializeAttribute(inputMessages);
   }
   if (isNil(outputs)) {
-    const outputMessages = getFirstEventAttributeValue(span.events, 'gen_ai.output.messages');
+    const outputMessages =
+      span.attributes?.['gen_ai.output.messages'] ?? getFirstEventAttributeValue(span.events, 'gen_ai.output.messages');
     outputs = tryDeserializeAttribute(outputMessages);
   }
+
+  ({ inputs, outputs } = normalizeOtelGenAiMessageFields({ inputs, outputs }));
 
   const parentId = getModelTraceSpanParentId(span);
   const spanId = getModelTraceSpanId(span);
@@ -1102,8 +1191,63 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         break;
     }
 
-    if (Array.isArray(input) && input.length > 0 && input.every(isOtelGenAIChatMessage)) {
-      return compact(input.map(normalizeOtelGenAIChatMessage));
+    const tryDeserializeNestedJson = (value: unknown) => {
+      let current: unknown = value;
+
+      // At most two rounds of JSON parsing to support cases like:
+      //   "[{...}]" (a JSON string containing a JSON array)
+      for (let i = 0; i < 2; i++) {
+        if (!isString(current)) {
+          break;
+        }
+        const parsed = tryDeserializeAttribute(current);
+        if (parsed === current) {
+          break;
+        }
+        current = parsed;
+      }
+
+      return current;
+    };
+
+    const extractOtelGenAIMessages = (value: unknown): unknown[] | null => {
+      const deserialized = tryDeserializeNestedJson(value);
+
+      if (Array.isArray(deserialized) && deserialized.length > 0 && deserialized.every(isOtelGenAIChatMessage)) {
+        return deserialized;
+      }
+
+      if (isObject(deserialized) && !isArray(deserialized)) {
+        const record = deserialized as Record<string, any>;
+
+        const candidates = [
+          record[OTEL_GEN_AI_INPUT_MESSAGES_KEY],
+          record[OTEL_GEN_AI_OUTPUT_MESSAGES_KEY],
+          record.messages,
+        ];
+
+        for (const candidate of candidates) {
+          const maybeMessages = tryDeserializeNestedJson(candidate);
+          if (Array.isArray(maybeMessages) && maybeMessages.length > 0 && maybeMessages.every(isOtelGenAIChatMessage)) {
+            return maybeMessages;
+          }
+        }
+
+        const values = Object.values(record);
+        if (values.length === 1) {
+          const maybeMessages = tryDeserializeNestedJson(values[0]);
+          if (Array.isArray(maybeMessages) && maybeMessages.length > 0 && maybeMessages.every(isOtelGenAIChatMessage)) {
+            return maybeMessages;
+          }
+        }
+      }
+
+      return null;
+    };
+
+    const otelMessages = extractOtelGenAIMessages(input);
+    if (otelMessages) {
+      return compact(otelMessages.map(normalizeOtelGenAIChatMessage));
     }
 
     return null;
