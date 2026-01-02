@@ -43,6 +43,7 @@ from mlflow.genai.scheduled_scorers import (
     ScorerScheduleConfig,
 )
 from mlflow.genai.scorers import Scorer, scorer
+from mlflow.genai.simulators import ConversationSimulator
 
 __all__ = [
     "datasets",
@@ -85,4 +86,6 @@ __all__ = [
     # git model versioning
     "disable_git_model_versioning",
     "enable_git_model_versioning",
+    # conversation simulation
+    "ConversationSimulator",
 ]
