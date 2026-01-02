@@ -34,3 +34,18 @@ class OnlineScoringConfig:
         if self.filter_string is not None:
             result["filter_string"] = self.filter_string
         return result
+
+
+@dataclass
+class OnlineScorer:
+    """
+    Entity representing an active online scorer with its configuration.
+
+    Used by the online scoring infrastructure to apply scorers to traces.
+    """
+
+    name: str
+    experiment_id: str
+    serialized_scorer: str
+    sample_rate: float
+    filter_string: str | None = None

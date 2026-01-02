@@ -10746,6 +10746,11 @@ def test_update_online_scoring_config_overwrites(store: SqlAlchemyStore):
 
     assert new_config.sample_rate == 0.5
 
+    # Verify the config is persisted by fetching via get_online_scoring_configs
+    configs = store.get_online_scoring_configs([new_config.scorer_id])
+    assert new_config.scorer_id in configs
+    assert configs[new_config.scorer_id].sample_rate == 0.5
+
 
 def test_update_online_scoring_config_rejects_non_gateway_model(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_online_config_non_gateway")
