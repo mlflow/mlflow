@@ -32,24 +32,23 @@ class OnlineScorerSampler:
             self._sample_rates[scorer.name] = online_scorer.sample_rate
             self._scorers[scorer.name] = scorer
 
-    def get_filter_strings(self) -> set[str | None]:
-        """Get all unique filter strings from online scorers."""
-        return {s.filter_string for s in self._online_scorers}
+    def group_scorers_by_filter(self, session_level: bool) -> dict[str | None, list[Scorer]]:
+        """
+        Group scorers by their filter string.
 
-    def get_scorers_for_filter(
-        self, filter_string: str | None, session_level: bool
-    ) -> list[Scorer]:
-        """Get scorers matching the filter string and session level."""
-        result = []
+        Args:
+            session_level: If True, return session-level scorers. If False, return trace-level.
+
+        Returns:
+            Dictionary mapping filter_string to list of scorers with that filter.
+        """
+        result: dict[str | None, list[Scorer]] = {}
         for online_scorer in self._online_scorers:
-            scorer_dict = json.loads(online_scorer.serialized_scorer)
-            scorer = self._scorers.get(scorer_dict.get("name"))
-            if (
-                scorer
-                and online_scorer.filter_string == filter_string
-                and scorer.is_session_level_scorer == session_level
-            ):
-                result.append(scorer)
+            scorer = self._scorers.get(online_scorer.name)
+            if scorer and scorer.is_session_level_scorer == session_level:
+                if online_scorer.filter_string not in result:
+                    result[online_scorer.filter_string] = []
+                result[online_scorer.filter_string].append(scorer)
         return result
 
     def sample(self, entity_id: str, scorers: list[Scorer]) -> list[Scorer]:

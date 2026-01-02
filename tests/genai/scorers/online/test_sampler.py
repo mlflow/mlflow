@@ -21,83 +21,69 @@ def make_online_scorer(
     )
 
 
-def test_get_filter_strings_empty():
+def test_group_scorers_by_filter_empty():
     sampler = OnlineScorerSampler([])
 
-    assert sampler.get_filter_strings() == set()
+    assert sampler.group_scorers_by_filter(session_level=False) == {}
 
 
-def test_get_filter_strings_no_filters():
+def test_group_scorers_by_filter_no_filters():
     configs = [
         make_online_scorer(Completeness()),
         make_online_scorer(ConversationCompleteness()),
     ]
     sampler = OnlineScorerSampler(configs)
 
-    assert sampler.get_filter_strings() == {None}
+    trace_groups = sampler.group_scorers_by_filter(session_level=False)
+    session_groups = sampler.group_scorers_by_filter(session_level=True)
+
+    assert set(trace_groups.keys()) == {None}
+    assert [s.name for s in trace_groups[None]] == ["completeness"]
+    assert set(session_groups.keys()) == {None}
+    assert [s.name for s in session_groups[None]] == ["conversation_completeness"]
 
 
-def test_get_filter_strings_with_filters():
+def test_group_scorers_by_filter_with_filters():
     configs = [
         make_online_scorer(Completeness(), filter_string="tags.env = 'prod'"),
-        make_online_scorer(Completeness(), filter_string="tags.model = 'gpt-4'"),
-        make_online_scorer(Completeness()),
+        make_online_scorer(Completeness(name="c2"), filter_string="tags.model = 'gpt-4'"),
+        make_online_scorer(Completeness(name="c3")),
     ]
     sampler = OnlineScorerSampler(configs)
 
-    result = sampler.get_filter_strings()
+    result = sampler.group_scorers_by_filter(session_level=False)
 
-    assert result == {None, "tags.env = 'prod'", "tags.model = 'gpt-4'"}
+    assert set(result.keys()) == {None, "tags.env = 'prod'", "tags.model = 'gpt-4'"}
+    assert [s.name for s in result["tags.env = 'prod'"]] == ["completeness"]
+    assert [s.name for s in result["tags.model = 'gpt-4'"]] == ["c2"]
+    assert [s.name for s in result[None]] == ["c3"]
 
 
-def test_get_filter_strings_deduplicates():
+def test_group_scorers_by_filter_multiple_scorers_same_filter():
     configs = [
         make_online_scorer(Completeness(), filter_string="tags.env = 'prod'"),
-        make_online_scorer(ConversationCompleteness(), filter_string="tags.env = 'prod'"),
+        make_online_scorer(Completeness(name="c2"), filter_string="tags.env = 'prod'"),
     ]
     sampler = OnlineScorerSampler(configs)
 
-    assert sampler.get_filter_strings() == {"tags.env = 'prod'"}
+    result = sampler.group_scorers_by_filter(session_level=False)
+
+    assert set(result.keys()) == {"tags.env = 'prod'"}
+    assert len(result["tags.env = 'prod'"]) == 2
 
 
-def test_get_scorers_for_filter_matching():
-    s1 = Completeness()
-    s2 = ConversationCompleteness()
-    s3 = Completeness()
-    configs = [
-        make_online_scorer(s1, filter_string="tags.env = 'prod'"),
-        make_online_scorer(s2, filter_string="tags.env = 'prod'"),
-        make_online_scorer(s3, filter_string="other"),
-    ]
-    sampler = OnlineScorerSampler(configs)
-
-    result = sampler.get_scorers_for_filter("tags.env = 'prod'", session_level=False)
-
-    assert len(result) == 1
-    assert result[0].name == "completeness"
-
-
-def test_get_scorers_for_filter_no_match():
-    configs = [make_online_scorer(Completeness(), filter_string="tags.env = 'prod'")]
-    sampler = OnlineScorerSampler(configs)
-
-    result = sampler.get_scorers_for_filter("nonexistent", session_level=False)
-
-    assert result == []
-
-
-def test_get_scorers_for_filter_session_level():
+def test_group_scorers_by_filter_session_level():
     configs = [
         make_online_scorer(Completeness()),
         make_online_scorer(ConversationCompleteness()),
     ]
     sampler = OnlineScorerSampler(configs)
 
-    trace_scorers = sampler.get_scorers_for_filter(None, session_level=False)
-    session_scorers = sampler.get_scorers_for_filter(None, session_level=True)
+    trace_groups = sampler.group_scorers_by_filter(session_level=False)
+    session_groups = sampler.group_scorers_by_filter(session_level=True)
 
-    assert [s.name for s in trace_scorers] == ["completeness"]
-    assert [s.name for s in session_scorers] == ["conversation_completeness"]
+    assert [s.name for s in trace_groups[None]] == ["completeness"]
+    assert [s.name for s in session_groups[None]] == ["conversation_completeness"]
 
 
 def test_sample_all_selected_at_100_percent():
