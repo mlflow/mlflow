@@ -1624,6 +1624,19 @@ class GetDatasetRecords(_message.Message):
     page_token: str
     def __init__(self, dataset_id: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
 
+class DeleteDatasetRecords(_message.Message):
+    __slots__ = ("dataset_id", "dataset_record_ids")
+    class Response(_message.Message):
+        __slots__ = ("deleted_count",)
+        DELETED_COUNT_FIELD_NUMBER: _ClassVar[int]
+        deleted_count: int
+        def __init__(self, deleted_count: _Optional[int] = ...) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    DATASET_RECORD_IDS_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    dataset_record_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, dataset_id: _Optional[str] = ..., dataset_record_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class AddDatasetToExperiments(_message.Message):
     __slots__ = ("dataset_id", "experiment_ids")
     class Response(_message.Message):
