@@ -28,6 +28,27 @@ from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
+# Maximum tokens for embedding model input (most embedding models have this limit)
+MAX_EMBEDDING_TOKENS = 8192
+
+
+def _truncate_to_token_limit(text: str, embedding_model: str, max_tokens: int) -> str:
+    from litellm import token_counter
+
+    token_count = token_counter(model=embedding_model, text=text)
+    if token_count <= max_tokens:
+        return text
+
+    original_token_count = token_count
+    ratio = max_tokens / token_count
+    truncated = text[: int(len(text) * ratio)]
+
+    while token_counter(model=embedding_model, text=truncated) > max_tokens:
+        truncated = truncated[: int(len(truncated) * 0.95)]
+
+    _logger.debug(f"Truncated example from {original_token_count} to ~{max_tokens} tokens")
+    return truncated
+
 
 @experimental(version="3.9.0")
 class MemoryAugmentedJudge(Judge):
@@ -213,7 +234,9 @@ class MemoryAugmentedJudge(Judge):
                     value = getattr(example, field_name)
                     if value is not None:
                         query_parts.append(str(value))
-            corpus.append(" ".join(query_parts))
+            query = " ".join(query_parts)
+            query = _truncate_to_token_limit(query, self._embedding_model, MAX_EMBEDDING_TOKENS)
+            corpus.append(query)
 
         self._search = dspy.retrievers.Embeddings(
             embedder=self._embedder, corpus=corpus, k=self._retrieval_k
