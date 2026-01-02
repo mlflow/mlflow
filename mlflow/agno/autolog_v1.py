@@ -76,6 +76,8 @@ def _set_span_inputs_attributes(span: LiveSpan, instance: Any, raw_inputs: dict[
 
         if isinstance(instance, (Agent, Team)):
             span.set_attributes(_get_agent_attributes(instance))
+            # Set message format for ChatUI rendering
+            span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "agno")
             # Filter out None values from inputs because Agent/Team's
             # run method has so many optional arguments.
             span.set_inputs({k: v for k, v in raw_inputs.items() if v is not None})
@@ -104,6 +106,8 @@ def _set_span_inputs_attributes(span: LiveSpan, instance: Any, raw_inputs: dict[
         ):
             raw_inputs["messages"] = [m.to_dict() for m in messages]
             span.set_inputs(raw_inputs)
+            # Set message format for ChatUI rendering on LLM spans
+            span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "agno")
             return
     except Exception as exc:  # pragma: no cover
         _logger.debug("Unable to parse input message: %s", exc)

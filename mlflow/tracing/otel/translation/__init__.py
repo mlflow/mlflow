@@ -13,6 +13,7 @@ from typing import Any
 
 from mlflow.entities.span import Span
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.otel.translation.agno import AgnoTranslator
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
@@ -31,6 +32,7 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
     GoogleADKTranslator(),
     VercelAITranslator(),
     VoltAgentTranslator(),
+    AgnoTranslator(),
 ]
 
 
