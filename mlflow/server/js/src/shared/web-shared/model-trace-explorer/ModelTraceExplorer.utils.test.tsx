@@ -351,6 +351,26 @@ describe('normalizeConversation', () => {
       normalizeConversation({ messages: [{ role: 'assistant', tool_calls: [{ id: 'hello', type: 'yay' }] }] }),
     ).toBeNull();
   });
+
+  it('parses OTEL conversations from invalid JSON strings', () => {
+    // This payload is invalid JSON due to the unescaped quotes in `tool_call_response.response`.
+    const raw = `[
+      {"role":"assistant","parts":[{"type":"tool_call","id":"call_1","name":"get_random_destination","arguments":"{}"}]},
+      {"role":"tool","parts":[{"type":"tool_call_response","id":"call_1","response":"{"type":"function_result","call_id":"call_1","result":"Tokyo, Japan"}"}]},
+      {"role":"assistant","parts":[{"type":"text","content":"Hi!"}]}
+    ]`;
+
+    const normalized = normalizeConversation(raw, 'openai');
+    expect(normalized).toHaveLength(3);
+
+    expect(normalized?.[0]).toMatchObject({ role: 'assistant' });
+    expect(normalized?.[0]?.tool_calls?.[0]?.function?.name).toBe('get_random_destination');
+
+    expect(normalized?.[1]).toMatchObject({ role: 'tool', tool_call_id: 'call_1' });
+    expect(() => JSON.parse(normalized?.[1]?.content ?? '')).not.toThrow();
+
+    expect(normalized?.[2]).toMatchObject({ role: 'assistant', content: 'Hi!' });
+  });
 });
 
 describe('isModelTraceChatTool', () => {

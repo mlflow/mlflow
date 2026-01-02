@@ -1125,74 +1125,89 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
   // and formatting, and it's possible that we miss some edge cases. in case of an error,
   // simply return null to signify that the input is not a chat input.
   try {
-    // if the input is already in the correct format, return it
-    if (Array.isArray(input) && input.length > 0 && input.every(isRawModelTraceChatMessage)) {
-      return compact(input.map(prettyPrintChatMessage));
-    }
+    const repairOtelToolCallResponseJsonString = (raw: string): string => {
+      // Some integrations incorrectly embed a JSON object inside a JSON string without escaping quotes, e.g.
+      //   "response": "{"type": "function_result", ... }"
+      // which makes the whole payload invalid JSON.
+      //
+      // This heuristic repairs just the `tool_call_response.response` field by escaping the nested JSON.
+      if (
+        !raw.includes('"tool_call_response"') ||
+        !(raw.includes('"response": "{') || raw.includes('"response":"{'))
+      ) {
+        return raw;
+      }
 
-    switch (messageFormat) {
-      case 'langchain':
-        const langchainMessages = normalizeLangchainChatInput(input) ?? normalizeLangchainChatResult(input);
-        if (langchainMessages) return langchainMessages;
-        break;
-      case 'llamaindex':
-        const llamaIndexMessages = normalizeLlamaIndexChatInput(input) ?? normalizeLlamaIndexChatResponse(input);
-        if (llamaIndexMessages) return llamaIndexMessages;
-        break;
-      case 'openai':
-        const openAIMessages =
-          normalizeOpenAIChatInput(input) ??
-          normalizeOpenAIChatResponse(input) ??
-          normalizeOpenAIResponsesOutput(input) ??
-          normalizeOpenAIResponsesInput(input) ??
-          normalizeOpenAIResponsesStreamingOutput(input);
-        if (openAIMessages) return openAIMessages;
-        break;
-      case 'dspy':
-        const dspyMessages = normalizeDspyChatInput(input) ?? normalizeDspyChatOutput(input);
-        if (dspyMessages) return dspyMessages;
-        break;
-      case 'gemini':
-        const geminiMessages = normalizeGeminiChatInput(input) ?? normalizeGeminiChatOutput(input);
-        if (geminiMessages) return geminiMessages;
-        break;
-      case 'anthropic':
-        const anthropicMessages = normalizeAnthropicChatInput(input) ?? normalizeAnthropicChatOutput(input);
-        if (anthropicMessages) return anthropicMessages;
-        break;
-      case 'openai-agent':
-        const openAIAgentMessages = normalizeOpenAIAgentInput(input) ?? normalizeOpenAIAgentOutput(input);
-        if (openAIAgentMessages) return openAIAgentMessages;
-        break;
-      case 'autogen':
-        const autogenMessages = normalizeAutogenChatInput(input) ?? normalizeAutogenChatOutput(input);
-        if (autogenMessages) return autogenMessages;
-        break;
-      case 'bedrock':
-        const bedrockMessages = normalizeBedrockChatInput(input) ?? normalizeBedrockChatOutput(input);
-        if (bedrockMessages) return bedrockMessages;
-        break;
-      case 'vercel_ai':
-        const vercelAIMessages = normalizeVercelAIChatInput(input) ?? normalizeVercelAIChatOutput(input);
-        if (vercelAIMessages) return vercelAIMessages;
-        break;
-      case 'pydantic_ai':
-        const pydanticAIMessages = normalizePydanticAIChatInput(input) ?? normalizePydanticAIChatOutput(input);
-        if (pydanticAIMessages) return pydanticAIMessages;
-        break;
-      case 'voltagent':
-        const voltAgentMessages = normalizeVoltAgentChatInput(input) ?? normalizeVoltAgentChatOutput(input);
-        if (voltAgentMessages) return voltAgentMessages;
-        break;
-      default:
-        // Fallback to OpenAI chat format
-        const chatMessages = normalizeOpenAIChatInput(input) ?? normalizeOpenAIChatResponse(input);
-        if (chatMessages) return chatMessages;
-        break;
-    }
+      const prefixes = ['"response": "', '"response":"'];
+      let out = '';
+      let i = 0;
+
+      while (i < raw.length) {
+        const matchingPrefix = prefixes.find((prefix) => raw.startsWith(prefix, i));
+        if (matchingPrefix) {
+          out += matchingPrefix;
+          i += matchingPrefix.length;
+
+          // Only repair response values that look like an unescaped JSON object.
+          if (raw[i] !== '{') {
+            continue;
+          }
+
+          const start = i;
+          let braceDepth = 0;
+          while (i < raw.length) {
+            const ch = raw[i];
+            if (ch === '{') braceDepth++;
+            if (ch === '}') braceDepth--;
+            i++;
+            if (braceDepth === 0) {
+              break;
+            }
+          }
+
+          const jsonCandidate = raw.slice(start, i);
+          const escaped = JSON.stringify(jsonCandidate).slice(1, -1);
+          out += escaped;
+
+          // Consume the original closing quote (if present) and emit a single quote.
+          if (raw[i] === '"') {
+            i++;
+          }
+          out += '"';
+
+          continue;
+        }
+
+        out += raw[i];
+        i++;
+      }
+
+      return out;
+    };
 
     const tryDeserializeNestedJson = (value: unknown) => {
       let current: unknown = value;
+
+      const tryDeserializeAttributeLenient = (raw: unknown): unknown => {
+        if (!isString(raw)) {
+          return raw;
+        }
+
+        try {
+          return JSON.parse(raw);
+        } catch {
+          // Try to repair invalid JSON produced by malformed OTEL tool_call_response payloads.
+          const repaired = repairOtelToolCallResponseJsonString(raw);
+          if (repaired !== raw) {
+            try {
+              return JSON.parse(repaired);
+            } catch {
+              // fall through
+            }
+          }
+          return raw;
+        }
+      };
 
       // At most two rounds of JSON parsing to support cases like:
       //   "[{...}]" (a JSON string containing a JSON array)
@@ -1200,7 +1215,14 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         if (!isString(current)) {
           break;
         }
-        const parsed = tryDeserializeAttribute(current);
+
+        // Avoid parsing scalar JSON literals like `123` / `true`.
+        const trimmed = current.trimStart();
+        if (!trimmed || !['{', '[', '"'].includes(trimmed[0])) {
+          break;
+        }
+
+        const parsed = tryDeserializeAttributeLenient(current);
         if (parsed === current) {
           break;
         }
@@ -1224,6 +1246,7 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
           record[OTEL_GEN_AI_INPUT_MESSAGES_KEY],
           record[OTEL_GEN_AI_OUTPUT_MESSAGES_KEY],
           record.messages,
+          record.output,
         ];
 
         for (const candidate of candidates) {
@@ -1245,9 +1268,83 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
       return null;
     };
 
-    const otelMessages = extractOtelGenAIMessages(input);
+    const deserializedInput: any = tryDeserializeNestedJson(input);
+
+    // Always try OTEL parsing first, even if messageFormat is set to 'openai'.
+    // Otherwise, OTEL message arrays stored as JSON strings get treated as a single user message.
+    const otelMessages = extractOtelGenAIMessages(deserializedInput);
     if (otelMessages) {
       return compact(otelMessages.map(normalizeOtelGenAIChatMessage));
+    }
+
+    // if the input is already in the correct format, return it
+    if (
+      Array.isArray(deserializedInput) &&
+      deserializedInput.length > 0 &&
+      deserializedInput.every(isRawModelTraceChatMessage)
+    ) {
+      return compact(deserializedInput.map(prettyPrintChatMessage));
+    }
+
+    switch (messageFormat) {
+      case 'langchain':
+        const langchainMessages = normalizeLangchainChatInput(deserializedInput) ?? normalizeLangchainChatResult(deserializedInput);
+        if (langchainMessages) return langchainMessages;
+        break;
+      case 'llamaindex':
+        const llamaIndexMessages = normalizeLlamaIndexChatInput(deserializedInput) ?? normalizeLlamaIndexChatResponse(deserializedInput);
+        if (llamaIndexMessages) return llamaIndexMessages;
+        break;
+      case 'openai':
+        const openAIMessages =
+          normalizeOpenAIChatInput(deserializedInput) ??
+          normalizeOpenAIChatResponse(deserializedInput) ??
+          normalizeOpenAIResponsesOutput(deserializedInput) ??
+          normalizeOpenAIResponsesInput(deserializedInput) ??
+          normalizeOpenAIResponsesStreamingOutput(deserializedInput);
+        if (openAIMessages) return openAIMessages;
+        break;
+      case 'dspy':
+        const dspyMessages = normalizeDspyChatInput(deserializedInput) ?? normalizeDspyChatOutput(deserializedInput);
+        if (dspyMessages) return dspyMessages;
+        break;
+      case 'gemini':
+        const geminiMessages = normalizeGeminiChatInput(deserializedInput) ?? normalizeGeminiChatOutput(deserializedInput);
+        if (geminiMessages) return geminiMessages;
+        break;
+      case 'anthropic':
+        const anthropicMessages = normalizeAnthropicChatInput(deserializedInput) ?? normalizeAnthropicChatOutput(deserializedInput);
+        if (anthropicMessages) return anthropicMessages;
+        break;
+      case 'openai-agent':
+        const openAIAgentMessages = normalizeOpenAIAgentInput(deserializedInput) ?? normalizeOpenAIAgentOutput(deserializedInput);
+        if (openAIAgentMessages) return openAIAgentMessages;
+        break;
+      case 'autogen':
+        const autogenMessages = normalizeAutogenChatInput(deserializedInput) ?? normalizeAutogenChatOutput(deserializedInput);
+        if (autogenMessages) return autogenMessages;
+        break;
+      case 'bedrock':
+        const bedrockMessages = normalizeBedrockChatInput(deserializedInput) ?? normalizeBedrockChatOutput(deserializedInput);
+        if (bedrockMessages) return bedrockMessages;
+        break;
+      case 'vercel_ai':
+        const vercelAIMessages = normalizeVercelAIChatInput(deserializedInput) ?? normalizeVercelAIChatOutput(deserializedInput);
+        if (vercelAIMessages) return vercelAIMessages;
+        break;
+      case 'pydantic_ai':
+        const pydanticAIMessages = normalizePydanticAIChatInput(deserializedInput) ?? normalizePydanticAIChatOutput(deserializedInput);
+        if (pydanticAIMessages) return pydanticAIMessages;
+        break;
+      case 'voltagent':
+        const voltAgentMessages = normalizeVoltAgentChatInput(deserializedInput) ?? normalizeVoltAgentChatOutput(deserializedInput);
+        if (voltAgentMessages) return voltAgentMessages;
+        break;
+      default:
+        // Fallback to OpenAI chat format
+        const chatMessages = normalizeOpenAIChatInput(deserializedInput) ?? normalizeOpenAIChatResponse(deserializedInput);
+        if (chatMessages) return chatMessages;
+        break;
     }
 
     return null;
