@@ -20,25 +20,7 @@ def checkpoint_manager(mock_store):
     return OnlineTraceCheckpointManager(mock_store, "exp1")
 
 
-def test_checkpoint_to_json():
-    checkpoint = OnlineTraceScoringCheckpoint(timestamp_ms=1000, request_id="req_123")
-
-    result = checkpoint.to_json()
-
-    assert '"timestamp_ms": 1000' in result
-    assert '"request_id": "req_123"' in result
-
-
-def test_checkpoint_from_json():
-    json_str = '{"timestamp_ms": 1000, "request_id": "req_123"}'
-
-    checkpoint = OnlineTraceScoringCheckpoint.from_json(json_str)
-
-    assert checkpoint.timestamp_ms == 1000
-    assert checkpoint.request_id == "req_123"
-
-
-def test_checkpoint_roundtrip():
+def test_checkpoint_json_roundtrip():
     original = OnlineTraceScoringCheckpoint(timestamp_ms=5000, request_id="req_abc")
 
     restored = OnlineTraceScoringCheckpoint.from_json(original.to_json())
