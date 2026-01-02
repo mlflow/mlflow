@@ -39,9 +39,11 @@ class OnlineScoringConfig:
 @dataclass
 class OnlineScorer:
     """
-    Entity representing an active online scorer with its configuration.
+    Internal entity representing a serialized scorer and its online execution configuration.
 
-    Used by the online scoring infrastructure to apply scorers to traces.
+    This entity specifies how a scorer should be applied to traces in an online/real-time
+    manner, including which traces to score (via filter_string) and at what sampling rate.
+    The scorer itself is stored in serialized form for execution by the online scoring jobs.
     """
 
     name: str
