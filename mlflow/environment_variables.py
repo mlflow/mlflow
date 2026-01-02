@@ -1178,6 +1178,12 @@ MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE = _EnvironmentVariable(
     "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE", int, 100
 )
 
+#: Specifies the maximum number of workers for online scoring jobs.
+#: (default: ``5``)
+MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS", int, 5
+)
+
 
 #: Specifies the maximum number of completion iterations allowed when invoking
 #: judge models. This prevents infinite loops in case of complex traces or
