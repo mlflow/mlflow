@@ -89,4 +89,23 @@ describe('normalizeConversation (OTEL GenAI)', () => {
       }),
     );
   });
+
+  it('repairs malformed JSON strings with embedded tool response JSON', () => {
+    const brokenPayload =
+      '[{' +
+      '"role":"assistant","parts":[{"type":"tool_call","id":"call_1","name":"get_random_destination","arguments":"{}"}]' +
+      '},{' +
+      '"role":"tool","parts":[{"type":"tool_call_response","id":"call_1","response":"{"type":"function_result","call_id":"call_1","result":"Tokyo, Japan"}"}]' +
+      '},{' +
+      '"role":"assistant","parts":[{"type":"text","content":"done"}]' +
+      '}]';
+
+    const result = normalizeConversation(brokenPayload);
+
+    expect(result).toEqual([
+      expect.objectContaining({ role: 'assistant', tool_calls: expect.any(Array) }),
+      expect.objectContaining({ role: 'tool', tool_call_id: 'call_1', content: expect.stringContaining('Tokyo') }),
+      expect.objectContaining({ role: 'assistant', content: expect.stringContaining('done') }),
+    ]);
+  });
 });
