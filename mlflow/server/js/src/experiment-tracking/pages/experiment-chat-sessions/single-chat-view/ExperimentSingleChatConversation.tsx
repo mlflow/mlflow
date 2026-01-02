@@ -17,20 +17,21 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 import type { MutableRefObject } from 'react';
 import { ExperimentSingleChatIcon } from './ExperimentSingleChatIcon';
+import { noop } from 'lodash';
 
 export const ExperimentSingleChatConversation = ({
   traces,
   selectedTurnIndex,
-  setSelectedTurnIndex,
-  setSelectedTrace,
+  setSelectedTurnIndex = noop,
+  setSelectedTrace = noop,
   chatRefs,
   getAssessmentTitle,
 }: {
   traces: ModelTrace[];
   selectedTurnIndex: number | null;
-  setSelectedTurnIndex: (turnIndex: number | null) => void;
-  setSelectedTrace: (trace: ModelTrace) => void;
-  chatRefs: MutableRefObject<{ [traceId: string]: HTMLDivElement }>;
+  setSelectedTurnIndex?: (turnIndex: number | null) => void;
+  setSelectedTrace?: (trace: ModelTrace) => void;
+  chatRefs?: MutableRefObject<{ [traceId: string]: HTMLDivElement }>;
   getAssessmentTitle: (assessmentName: string) => string;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -60,7 +61,7 @@ export const ExperimentSingleChatConversation = ({
         return (
           <div
             ref={(el) => {
-              if (el) {
+              if (el && chatRefs) {
                 chatRefs.current[traceId] = el;
               }
             }}
