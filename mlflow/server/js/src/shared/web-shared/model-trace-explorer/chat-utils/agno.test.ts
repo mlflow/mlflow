@@ -286,9 +286,7 @@ describe('Agno Chat Normalization', () => {
     });
 
     it('should extract system prompt from first LLM span inputs', () => {
-      const children = [
-        createMockLLMSpan('[{"role": "assistant", "content": "Hello!"}]', MOCK_LLM_INPUTS_WITH_SYSTEM),
-      ];
+      const children = [createMockLLMSpan('[{"role": "assistant", "content": "Hello!"}]', MOCK_LLM_INPUTS_WITH_SYSTEM)];
 
       const result = synthesizeAgnoChatMessages(MOCK_AGNO_AGENT_INPUT, MOCK_AGNO_AGENT_OUTPUT, children);
 

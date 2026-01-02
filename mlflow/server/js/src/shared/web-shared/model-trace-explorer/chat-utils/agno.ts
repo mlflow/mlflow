@@ -400,7 +400,6 @@ export const synthesizeAgnoChatMessages = (
   messages.push(...inputMessages);
 
   // Process children IN ORDER (chronological execution order)
-  // This is critical: LLM1 (tool call) → TOOL (result) → LLM2 (final answer)
   // We must NOT group by type, as that breaks the conversation flow
   for (const child of children) {
     const spanType = child.type || child.attributes?.['mlflow.spanType'];
@@ -408,19 +407,12 @@ export const synthesizeAgnoChatMessages = (
     if (spanType === 'LLM') {
       // LLM span output: '[{"role":"assistant","content":"..."}]' or '[{"role":"assistant","tool_calls":[...]}]'
       const llmMessages = normalizeAgnoChatOutput(child.outputs);
-      if (llmMessages) {
-        for (const msg of llmMessages) {
-          if (msg.role === 'assistant') {
-            messages.push(msg);
-          }
-        }
-      }
+      const assistantMessages = llmMessages?.filter((msg) => msg.role === 'assistant') ?? [];
+      messages.push(...assistantMessages);
     } else if (spanType === 'TOOL') {
       // TOOL span: { attributes: { "tool.name": "get_weather" }, outputs: "72°F" }
       const toolName = (child.attributes?.['tool.name'] as string) || String(child.title || child.key);
-      const toolOutput = isObject(child.outputs)
-        ? JSON.stringify(child.outputs, null, 2)
-        : String(child.outputs || '');
+      const toolOutput = isObject(child.outputs) ? JSON.stringify(child.outputs, null, 2) : String(child.outputs || '');
       const msg = prettyPrintChatMessage({
         role: 'tool',
         content: toolOutput,
