@@ -77,7 +77,7 @@ class OnlineTraceScoringProcessor:
         Fetches traces since the last checkpoint, applies sampling to select
         scorers, runs scoring in parallel, and updates the checkpoint.
         """
-        if not self._sampler.configs:
+        if not self._sampler._online_scorers:
             _logger.info("No scorer configs provided, skipping")
             return
 
@@ -97,7 +97,7 @@ class OnlineTraceScoringProcessor:
             # Still need to advance checkpoint to avoid reprocessing the same time window
             checkpoint = OnlineTraceScoringCheckpoint(
                 timestamp_ms=time_window.max_trace_timestamp_ms,
-                request_id=None,
+                trace_id=None,
             )
             self._checkpoint_manager.persist_checkpoint(checkpoint)
             return
@@ -114,10 +114,10 @@ class OnlineTraceScoringProcessor:
         self._execute_scoring(tasks)
 
         # Find the trace with the latest timestamp to use for checkpoint
-        latest_trace = max(full_traces, key=lambda t: (t.info.timestamp_ms, t.info.request_id))
+        latest_trace = max(full_traces, key=lambda t: (t.info.timestamp_ms, t.info.trace_id))
         checkpoint = OnlineTraceScoringCheckpoint(
             timestamp_ms=latest_trace.info.timestamp_ms,
-            request_id=latest_trace.info.request_id,
+            trace_id=latest_trace.info.trace_id,
         )
         self._checkpoint_manager.persist_checkpoint(checkpoint)
 
@@ -140,16 +140,16 @@ class OnlineTraceScoringProcessor:
         """
         tasks: dict[str, TraceScoringTask] = {}
 
-        # Group by filter string to fetch matching traces in a single query per filter
-        for filter_string in self._sampler.get_filter_strings():
-            trace_scorers = self._sampler.get_scorers_for_filter(filter_string, session_level=False)
-
+        # Group scorers by filter string to fetch matching traces in a single query per filter
+        for filter_string, scorers in self._sampler.group_scorers_by_filter(
+            session_level=False
+        ).items():
             combined_filter = (
                 f"{EXCLUDE_EVAL_RUN_TRACES_FILTER} AND {filter_string}"
                 if filter_string
                 else EXCLUDE_EVAL_RUN_TRACES_FILTER
             )
-            trace_infos = self._trace_loader.fetch_trace_infos_between(
+            trace_infos = self._trace_loader.fetch_trace_infos_in_range(
                 self._experiment_id,
                 time_window.min_trace_timestamp_ms,
                 time_window.max_trace_timestamp_ms,
@@ -162,15 +162,15 @@ class OnlineTraceScoringProcessor:
                 continue
 
             # Filter out traces at checkpoint boundary that have already been processed.
-            # Traces are ordered by (timestamp_ms ASC, request_id ASC), so we filter out
-            # any traces with the checkpoint timestamp and request_id <= checkpoint.request_id.
-            if checkpoint is not None and checkpoint.request_id is not None:
+            # Traces are ordered by (timestamp_ms ASC, trace_id ASC), so we filter out
+            # any traces with the checkpoint timestamp and trace_id <= checkpoint.trace_id.
+            if checkpoint is not None and checkpoint.trace_id is not None:
                 trace_infos = [
                     t
                     for t in trace_infos
                     if not (
                         t.timestamp_ms == checkpoint.timestamp_ms
-                        and t.request_id <= checkpoint.request_id
+                        and t.trace_id <= checkpoint.trace_id
                     )
                 ]
 
@@ -178,7 +178,7 @@ class OnlineTraceScoringProcessor:
 
             for trace_info in trace_infos:
                 trace_id = trace_info.trace_id
-                if selected := self._sampler.sample(trace_id, trace_scorers):
+                if selected := self._sampler.sample(trace_id, scorers):
                     # Store just the trace_id and scorers - we'll fetch full traces later
                     if trace_id not in tasks:
                         tasks[trace_id] = TraceScoringTask(trace=None, scorers=[])
