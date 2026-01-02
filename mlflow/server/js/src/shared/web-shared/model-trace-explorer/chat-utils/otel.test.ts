@@ -23,6 +23,31 @@ describe('normalizeConversation (OTEL GenAI)', () => {
     ]);
   });
 
+  it('normalizes OTEL messages nested under gen_ai.input.messages', () => {
+    const input = [
+      {
+        role: 'system',
+        parts: [{ type: 'text', content: 'You are helpful.' }],
+      },
+      {
+        role: 'user',
+        parts: [{ type: 'text', content: 'Hello there' }],
+      },
+    ];
+
+    const resultFromString = normalizeConversation({ 'gen_ai.input.messages': JSON.stringify(input) });
+    expect(resultFromString).toEqual([
+      expect.objectContaining({ role: 'system', content: 'You are helpful.' }),
+      expect.objectContaining({ role: 'user', content: 'Hello there' }),
+    ]);
+
+    const resultFromArray = normalizeConversation({ 'gen_ai.input.messages': input });
+    expect(resultFromArray).toEqual([
+      expect.objectContaining({ role: 'system', content: 'You are helpful.' }),
+      expect.objectContaining({ role: 'user', content: 'Hello there' }),
+    ]);
+  });
+
   it('normalizes tool call request and response', () => {
     const input = [
       {

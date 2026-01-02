@@ -19,6 +19,7 @@ export {
   getTotalTokens,
   displayErrorNotification,
   displaySuccessNotification,
+  normalizeConversation,
 } from './ModelTraceExplorer.utils';
 export {
   SESSION_ID_METADATA_KEY,
@@ -40,4 +41,5 @@ export { useUnifiedTraceTagsModal } from './hooks/useUnifiedTraceTagsModal';
 export { ModelTraceExplorerUpdateTraceContextProvider } from './contexts/UpdateTraceContext';
 export { SingleChatTurnMessages } from './session-view/SingleChatTurnMessages';
 export { ModelTraceExplorerChatMessage } from './right-pane/ModelTraceExplorerChatMessage';
+export { ModelTraceExplorerConversation } from './right-pane/ModelTraceExplorerConversation';
 export { SingleChatTurnAssessments } from './session-view/SingleChatTurnAssessments';

@@ -498,6 +498,82 @@ describe('normalizeNewSpanData', () => {
     expect(normalized.inputs).toEqual(otelMessages);
   });
 
+  it('should populate inputs/outputs from gen_ai.*.messages attributes when spanInputs/spanOutputs missing', () => {
+    const inputOtelMessages = [
+      {
+        role: 'system',
+        parts: [{ type: 'text', content: 'You are helpful.' }],
+      },
+      {
+        role: 'user',
+        parts: [{ type: 'text', content: 'Hello!' }],
+      },
+    ];
+    const outputOtelMessages = [
+      {
+        role: 'assistant',
+        parts: [{ type: 'text', content: 'Hi there!' }],
+      },
+    ];
+
+    const otelSpan = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.spanInputs': undefined,
+        'mlflow.spanOutputs': undefined,
+        'gen_ai.input.messages': JSON.stringify(inputOtelMessages),
+        'gen_ai.output.messages': JSON.stringify(outputOtelMessages),
+      },
+    } as any;
+
+    const normalized = normalizeNewSpanData(otelSpan, 0, 0, [], {}, '');
+
+    expect(normalized.inputs).toEqual(inputOtelMessages);
+    expect(normalized.outputs).toEqual(outputOtelMessages);
+  });
+
+  it('should split OTEL gen_ai.*.messages embedded inside span inputs', () => {
+    const inputOtelMessages = [
+      {
+        role: 'system',
+        parts: [{ type: 'text', content: 'You are helpful.' }],
+      },
+      {
+        role: 'user',
+        parts: [{ type: 'text', content: 'Hello!' }],
+      },
+    ];
+    const outputOtelMessages = [
+      {
+        role: 'assistant',
+        parts: [{ type: 'text', content: 'Hi there!' }],
+      },
+    ];
+
+    const spanInputs = {
+      other_field: 'value',
+      'gen_ai.input.messages': JSON.stringify(inputOtelMessages),
+      'gen_ai.output.messages': JSON.stringify(outputOtelMessages),
+    };
+
+    const otelSpan = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.spanInputs': JSON.stringify(spanInputs),
+        'mlflow.spanOutputs': undefined,
+        'gen_ai.input.messages': undefined,
+        'gen_ai.output.messages': undefined,
+      },
+    } as any;
+
+    const normalized = normalizeNewSpanData(otelSpan, 0, 0, [], {}, '');
+
+    expect(normalized.inputs).toEqual({ other_field: 'value', 'gen_ai.input.messages': inputOtelMessages });
+    expect(normalized.outputs).toEqual({ 'gen_ai.output.messages': outputOtelMessages });
+  });
+
   it('should use mlflow.chat.messages attribute when present and properly formatted', () => {
     const chatMessages: RawModelTraceChatMessage[] = [
       {
