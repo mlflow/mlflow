@@ -10710,6 +10710,11 @@ def _mock_gateway_endpoint():
     )
 
 
+def _non_gateway_model_scorer_json():
+    """Returns a serialized scorer JSON that does NOT use a gateway model."""
+    return json.dumps({"instructions_judge_pydantic_data": {"model": "openai:/gpt-4"}})
+
+
 def test_get_online_scoring_configs_batch(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_batch_configs")
     with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
@@ -10888,6 +10893,38 @@ def test_get_active_online_scorers_returns_scorer_fields(store: SqlAlchemyStore)
     assert active_scorer.experiment_id == experiment_id
     assert active_scorer.sample_rate == 0.5
     assert active_scorer.filter_string == "status = 'OK'"
+
+
+def test_get_active_online_scorers_filters_non_gateway_model(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_filter_non_gateway")
+
+    # Register scorer with gateway model (version 1)
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "scorer", _gateway_model_scorer_json())
+
+    # Set up online scoring config (validation passes for version 1)
+    store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="scorer",
+        sample_rate=0.5,
+    )
+
+    # Verify scorer is returned initially (max version uses gateway model)
+    active_scorers = store.get_active_online_scorers()
+    test_scorers = [
+        s for s in active_scorers if s.name == "scorer" and s.experiment_id == experiment_id
+    ]
+    assert len(test_scorers) == 1
+
+    # Register same scorer with non-gateway model (version 2)
+    store.register_scorer(experiment_id, "scorer", _non_gateway_model_scorer_json())
+
+    # Verify scorer is NOT returned now (max version uses non-gateway model)
+    active_scorers = store.get_active_online_scorers()
+    test_scorers = [
+        s for s in active_scorers if s.name == "scorer" and s.experiment_id == experiment_id
+    ]
+    assert len(test_scorers) == 0
 
 
 def test_scorer_deletion_cascades_to_online_configs(store: SqlAlchemyStore):

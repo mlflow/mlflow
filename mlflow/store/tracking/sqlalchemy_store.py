@@ -2574,9 +2574,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 .all()
             )
 
+            # Filter to only include scorers whose max version uses a gateway model
+            gateway_results = []
+            for config, scorer, version in results:
+                serialized_data = json.loads(version.serialized_scorer)
+                model = extract_model_from_serialized_scorer(serialized_data)
+                if is_gateway_model(model):
+                    gateway_results.append((config, scorer, version))
+
             # Batch resolve gateway endpoint IDs to names
             scorers_with_resolved_endpoint = self._batch_resolve_endpoint_in_serialized_scorers(
-                [version.serialized_scorer for config, scorer, version in results]
+                [version.serialized_scorer for config, scorer, version in gateway_results]
             )
 
             return [
@@ -2588,7 +2596,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     filter_string=config.filter_string,
                 )
                 for (config, scorer, version), scorer_with_resolved_endpoint in zip(
-                    results, scorers_with_resolved_endpoint
+                    gateway_results, scorers_with_resolved_endpoint
                 )
             ]
 
