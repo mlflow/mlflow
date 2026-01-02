@@ -159,13 +159,11 @@ describe('useEvaluateTracesAsync', () => {
       setupTraceFetchHandlers(server, traces);
 
       const onScorerFinished = jest.fn();
-      const getSerializedScorer = jest.fn<() => string>().mockReturnValue(serializedScorer);
 
       const { result } = renderHook(
         () =>
           useEvaluateTracesAsync({
             onScorerFinished,
-            getSerializedScorer,
           }),
         { wrapper },
       );
@@ -183,6 +181,7 @@ describe('useEvaluateTracesAsync', () => {
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Test instructions',
+          serializedScorer,
         });
       });
 
@@ -247,13 +246,11 @@ describe('useEvaluateTracesAsync', () => {
       setupTraceFetchHandlers(server, traces);
 
       const onScorerFinished = jest.fn();
-      const getSerializedScorer = jest.fn<() => string>().mockReturnValue(serializedScorer);
 
       const { result } = renderHook(
         () =>
           useEvaluateTracesAsync({
             onScorerFinished,
-            getSerializedScorer,
           }),
         { wrapper },
       );
@@ -265,6 +262,7 @@ describe('useEvaluateTracesAsync', () => {
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Test instructions',
+          serializedScorer,
         });
       });
 
@@ -348,7 +346,6 @@ describe('useEvaluateTracesAsync', () => {
         () =>
           useEvaluateTracesAsync({
             onScorerFinished,
-            getSerializedScorer: () => serializedScorer,
           }),
         { wrapper },
       );
@@ -361,6 +358,7 @@ describe('useEvaluateTracesAsync', () => {
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Test instructions',
+          serializedScorer,
         });
       });
 
@@ -411,7 +409,7 @@ describe('useEvaluateTracesAsync', () => {
       // Setup trace fetching handlers using MSW
       setupTraceFetchHandlers(server, traces);
 
-      const { result } = renderHook(() => useEvaluateTracesAsync({ getSerializedScorer: () => serializedScorer }), {
+      const { result } = renderHook(() => useEvaluateTracesAsync({}), {
         wrapper,
       });
 
@@ -422,6 +420,7 @@ describe('useEvaluateTracesAsync', () => {
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Test',
+          serializedScorer,
         });
       });
 
@@ -463,7 +462,7 @@ describe('useEvaluateTracesAsync', () => {
       // Setup trace fetching handlers using MSW
       setupTraceFetchHandlers(server, traces);
 
-      const { result } = renderHook(() => useEvaluateTracesAsync({ getSerializedScorer: () => serializedScorer }), {
+      const { result } = renderHook(() => useEvaluateTracesAsync({}), {
         wrapper,
       });
 
@@ -475,6 +474,7 @@ describe('useEvaluateTracesAsync', () => {
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Test',
+          serializedScorer,
         });
       });
 
@@ -530,7 +530,7 @@ describe('useEvaluateTracesAsync', () => {
 
       setupTraceFetchHandlers(server, traces);
 
-      const { result } = renderHook(() => useEvaluateTracesAsync({ getSerializedScorer: () => serializedScorer }), {
+      const { result } = renderHook(() => useEvaluateTracesAsync({}), {
         wrapper,
       });
 
@@ -541,6 +541,7 @@ describe('useEvaluateTracesAsync', () => {
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Test',
+          serializedScorer,
         });
       });
 
@@ -598,7 +599,7 @@ describe('useEvaluateTracesAsync', () => {
       // Setup trace fetching handlers using MSW
       setupTraceFetchHandlers(server, traces);
 
-      const { result } = renderHook(() => useEvaluateTracesAsync({ getSerializedScorer: () => serializedScorer }), {
+      const { result } = renderHook(() => useEvaluateTracesAsync({}), {
         wrapper,
       });
 
@@ -609,6 +610,7 @@ describe('useEvaluateTracesAsync', () => {
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Test',
+          serializedScorer,
         });
       });
 

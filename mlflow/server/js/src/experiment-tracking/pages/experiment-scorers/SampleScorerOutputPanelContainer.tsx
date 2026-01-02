@@ -33,7 +33,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   const evaluationScopeFormValue = useWatch({ control, name: 'evaluationScope' });
   const evaluationScope = coerceToEnum(ScorerEvaluationScope, evaluationScopeFormValue, ScorerEvaluationScope.TRACES);
 
-  const getSerializedScorer = useGetSerializedScorerFromForm();
+  const getSerializedScorerFromForm = useGetSerializedScorerFromForm();
 
   const [itemsToEvaluate, setItemsToEvaluate] = useState<Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>>({
     itemCount: DEFAULT_TRACE_COUNT,
@@ -42,7 +42,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
   const [evaluateTraces, { data, isLoading, error, reset }] = useEvaluateTraces({
     onScorerFinished,
-    getSerializedScorer,
   });
 
   // Carousel state for navigating through traces
@@ -76,6 +75,8 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       return;
     }
 
+    const serializedScorer = getSerializedScorerFromForm();
+
     // Reset to first trace when running scorer
     setCurrentTraceIndex(0);
 
@@ -88,6 +89,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
             locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' as const }],
             judgeInstructions: judgeInstructions || '',
             experimentId,
+            serializedScorer,
           }
         : {
             itemCount: itemsToEvaluate.itemCount,
@@ -101,13 +103,23 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
             ],
             experimentId,
             guidelines: guidelines ? [guidelines] : undefined,
+            serializedScorer,
           };
 
       await evaluateTraces(evaluationParams);
     } catch (error) {
       // Error is already handled by the hook's error state
     }
-  }, [isCustomMode, judgeInstructions, llmTemplate, guidelines, itemsToEvaluate, evaluateTraces, experimentId]);
+  }, [
+    isCustomMode,
+    judgeInstructions,
+    llmTemplate,
+    guidelines,
+    itemsToEvaluate,
+    evaluateTraces,
+    experimentId,
+    getSerializedScorerFromForm,
+  ]);
 
   // Navigation handlers
   const handlePrevious = () => {

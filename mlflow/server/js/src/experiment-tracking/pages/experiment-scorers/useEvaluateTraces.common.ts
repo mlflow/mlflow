@@ -38,5 +38,5 @@ export interface JudgeEvaluationResult {
 }
 
 export const isFeedbackAssessmentInJudgeEvaluationResult = (result: any): result is FeedbackAssessment => {
-  return 'assessment_name' in result;
+  return 'assessment_name' in result && 'feedback' in result;
 };

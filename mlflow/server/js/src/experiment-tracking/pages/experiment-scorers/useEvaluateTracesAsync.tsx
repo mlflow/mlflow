@@ -22,21 +22,15 @@ type EvaluateTracesAsyncJobResult = {
   };
 };
 
-const JOB_POLLING_INTERVAL = 2500;
+const JOB_POLLING_INTERVAL = 1500;
 
 const isJobRunning = (jobData?: TrackingJobQueryResult<EvaluateTracesAsyncJobResult>): boolean => {
   return jobData?.status === TrackingJobStatus.RUNNING || jobData?.status === TrackingJobStatus.PENDING;
 };
 
-type StartEvaluationJobParams = { evaluateParams: EvaluateTracesParams; traceIds: string[]; serializedScorer: string };
+type StartEvaluationJobParams = { evaluateParams: EvaluateTracesParams; traceIds: string[] };
 type StartEvaluationJobResponse = { jobs: { job_id: string }[] };
-export const useEvaluateTracesAsync = ({
-  onScorerFinished,
-  getSerializedScorer,
-}: {
-  onScorerFinished?: () => void;
-  getSerializedScorer?: () => string;
-}) => {
+export const useEvaluateTracesAsync = ({ onScorerFinished }: { onScorerFinished?: () => void }) => {
   const queryClient = useQueryClient();
   const [currentJobsId, setCurrentJobsId] = useState<string[] | undefined>(undefined);
   const getTraceIdsForEvaluation = useGetTraceIdsForEvaluation();
@@ -69,10 +63,10 @@ export const useEvaluateTracesAsync = ({
     isLoading: isJobStarting,
     error: startEvaluationJobError,
   } = useMutation<StartEvaluationJobResponse, Error, StartEvaluationJobParams>({
-    mutationFn: async ({ evaluateParams, traceIds, serializedScorer }) => {
+    mutationFn: async ({ evaluateParams, traceIds }) => {
       const responseData = await fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/scorer/invoke`), 'POST', {
         experiment_id: evaluateParams.experimentId,
-        serialized_scorer: serializedScorer,
+        serialized_scorer: evaluateParams.serializedScorer,
         trace_ids: traceIds,
       });
       return responseData;
@@ -88,14 +82,14 @@ export const useEvaluateTracesAsync = ({
     async (params: EvaluateTracesParams) => {
       const traceIds = await getTraceIdsForEvaluation(params);
 
-      const serializedScorer = getSerializedScorer?.();
+      const serializedScorer = params.serializedScorer;
 
       if (!serializedScorer) {
-        throw new Error('Cannot build serialized scorer');
+        throw new Error('The serialized scorer is malformed');
       }
 
       // Start the evaluation job
-      startEvaluationJob({ evaluateParams: params, traceIds, serializedScorer });
+      startEvaluationJob({ evaluateParams: params, traceIds });
 
       // After the job is started, fetch all the traces in parallel
       const traces = await Promise.all(
@@ -110,7 +104,7 @@ export const useEvaluateTracesAsync = ({
       );
       setTracesData(zipObject(traceIds, traces));
     },
-    [startEvaluationJob, getTraceIdsForEvaluation, queryClient, getSerializedScorer],
+    [startEvaluationJob, getTraceIdsForEvaluation, queryClient],
   );
 
   const reset = useCallback(() => {

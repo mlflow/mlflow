@@ -200,6 +200,7 @@ describe('SampleScorerOutputPanelContainer', () => {
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions: 'Test instructions',
         experimentId,
+        serializedScorer: expect.any(String),
       });
     });
 
