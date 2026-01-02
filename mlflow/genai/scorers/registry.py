@@ -19,7 +19,7 @@ from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.uri import get_uri_scheme
 
 if TYPE_CHECKING:
-    from mlflow.genai.scorers.online.online_scorer import OnlineScoringConfig
+    from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
 
 class UnsupportedScorerStoreURIException(MlflowException):
