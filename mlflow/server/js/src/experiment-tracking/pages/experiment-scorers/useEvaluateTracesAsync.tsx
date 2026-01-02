@@ -37,13 +37,7 @@ const isJobRunning = (jobData?: TrackingJobQueryResult<EvaluateTracesAsyncJobRes
 type StartEvaluationJobParams = { evaluateParams: EvaluateTracesParams; traceIds: string[] };
 type StartEvaluationJobResponse = { jobs: { job_id: string }[] };
 
-export const useEvaluateTracesAsync = ({
-  onScorerFinished,
-  evaluationScope,
-}: {
-  onScorerFinished?: () => void;
-  evaluationScope?: ScorerEvaluationScope;
-}) => {
+export const useEvaluateTracesAsync = ({ onScorerFinished }: { onScorerFinished?: () => void }) => {
   const queryClient = useQueryClient();
   const [currentJobsId, setCurrentJobsId] = useState<string[] | undefined>(undefined);
   const getTraceIdsForEvaluation = useGetTraceIdsForEvaluation();
@@ -96,11 +90,12 @@ export const useEvaluateTracesAsync = ({
   const evaluateTracesAsync = useCallback(
     async (params: EvaluateTracesParams) => {
       let traceIds: string[];
-      if (evaluationScope === ScorerEvaluationScope.SESSIONS) {
+      if (params.evaluationScope === ScorerEvaluationScope.SESSIONS) {
         const sessions = await getSessionsForEvaluation(params);
         setSessionsData(sessions);
         traceIds = uniq(sessions.flatMap((session) => session.traceInfos.map((traceInfo) => traceInfo.trace_id)));
       } else {
+        setSessionsData(undefined);
         traceIds = await getTraceIdsForEvaluation(params);
       }
 
@@ -126,7 +121,7 @@ export const useEvaluateTracesAsync = ({
       );
       setTracesData(zipObject(traceIds, traces));
     },
-    [startEvaluationJob, getTraceIdsForEvaluation, queryClient, getSessionsForEvaluation, evaluationScope],
+    [startEvaluationJob, getTraceIdsForEvaluation, queryClient, getSessionsForEvaluation],
   );
 
   const reset = useCallback(() => {
@@ -169,10 +164,8 @@ export const useEvaluateTracesAsync = ({
       }
     }
 
-    if (evaluationScope === ScorerEvaluationScope.SESSIONS) {
-      if (!sessionsData) {
-        return null;
-      }
+    // if (params.evaluationScope === ScorerEvaluationScope.SESSIONS) {
+    if (sessionsData) {
       return sessionsData.map<SessionJudgeEvaluationResult>((session) => {
         const sessionResults: { assessments: FeedbackAssessment[]; errors: string[] } = { assessments: [], errors: [] };
         // For every trace in the session, aggregate the results into the session results
@@ -203,7 +196,7 @@ export const useEvaluateTracesAsync = ({
     });
 
     return compact(traceEvaluationResults);
-  }, [tracesData, isLoading, error, evaluationScope, jobResults, sessionsData]);
+  }, [tracesData, isLoading, error, jobResults, sessionsData]);
 
   return [evaluateTracesAsync, { data, isLoading, error, reset }] as const;
 };
