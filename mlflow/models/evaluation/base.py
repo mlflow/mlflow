@@ -1280,6 +1280,10 @@ def evaluate(
           explainability insights. Default value is 2000.
         - **explainability_kernel_link**: The kernel link function used by shap kernel explainer.
           Available values are "identity" and "logit". Default value is "identity".
+        - **shap_plot_seed**: Optional seed (integer or ``numpy.random.Generator``) that is used
+          to initialize the random number generator for SHAP summary plots when SHAP >= 0.47.0.
+          Configure this to silence NumPy RNG warnings or to make SHAP plots reproducible. When
+          not set, a fresh generator is created for every evaluation.
         - **max_classes_for_multiclass_roc_pr**:
           For multiclass classification tasks, the maximum number of classes for which to log
           the per-class ROC curve and Precision-Recall curve. If the number of classes is
