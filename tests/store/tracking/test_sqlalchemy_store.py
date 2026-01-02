@@ -10698,6 +10698,11 @@ def _gateway_model_scorer_json():
     return json.dumps({"instructions_judge_pydantic_data": {"model": "gateway:/my-endpoint"}})
 
 
+def _non_gateway_model_scorer_json():
+    """Returns a serialized scorer JSON that does NOT use a gateway model."""
+    return json.dumps({"instructions_judge_pydantic_data": {"model": "openai:/gpt-4"}})
+
+
 def _mock_gateway_endpoint():
     """Returns a mock GatewayEndpoint for testing."""
     from mlflow.entities.gateway_endpoint import GatewayEndpoint
@@ -10708,11 +10713,6 @@ def _mock_gateway_endpoint():
         created_at=0,
         last_updated_at=0,
     )
-
-
-def _non_gateway_model_scorer_json():
-    """Returns a serialized scorer JSON that does NOT use a gateway model."""
-    return json.dumps({"instructions_judge_pydantic_data": {"model": "openai:/gpt-4"}})
 
 
 def test_get_online_scoring_configs_batch(store: SqlAlchemyStore):
