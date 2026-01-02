@@ -63,7 +63,13 @@ def test_fetch_trace_infos_in_range_single_page(trace_loader, mock_store, sample
     result = trace_loader.fetch_trace_infos_in_range("exp1", 1000, 2000)
 
     assert len(result) == 5
-    mock_store.search_traces.assert_called_once()
+    mock_store.search_traces.assert_called_once_with(
+        experiment_ids=["exp1"],
+        filter_string="trace.timestamp_ms >= 1000 AND trace.timestamp_ms <= 2000",
+        max_results=100,
+        order_by=["timestamp_ms ASC", "request_id ASC"],
+        page_token=None,
+    )
 
 
 def test_fetch_trace_infos_in_range_multiple_pages(trace_loader, mock_store, sample_traces):
@@ -77,6 +83,10 @@ def test_fetch_trace_infos_in_range_multiple_pages(trace_loader, mock_store, sam
 
     assert len(result) == 5
     assert mock_store.search_traces.call_count == 3
+    calls = mock_store.search_traces.call_args_list
+    assert calls[0][1]["page_token"] is None
+    assert calls[1][1]["page_token"] == "token1"
+    assert calls[2][1]["page_token"] == "token2"
 
 
 def test_fetch_trace_infos_in_range_max_traces_limit(trace_loader, mock_store, sample_traces):
@@ -85,6 +95,7 @@ def test_fetch_trace_infos_in_range_max_traces_limit(trace_loader, mock_store, s
     result = trace_loader.fetch_trace_infos_in_range("exp1", 1000, 2000, max_traces=3)
 
     assert len(result) == 3
+    assert mock_store.search_traces.call_args[1]["max_results"] == 3
 
 
 def test_fetch_trace_infos_in_range_empty_response(trace_loader, mock_store):
@@ -93,6 +104,7 @@ def test_fetch_trace_infos_in_range_empty_response(trace_loader, mock_store):
     result = trace_loader.fetch_trace_infos_in_range("exp1", 1000, 2000)
 
     assert result == []
+    mock_store.search_traces.assert_called_once()
 
 
 def test_fetch_trace_infos_in_range_with_filter_string(trace_loader, mock_store, sample_traces):
