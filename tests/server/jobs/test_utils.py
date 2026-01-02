@@ -89,3 +89,28 @@ def test_load_function_module_not_found():
 def test_load_function_function_not_found():
     with pytest.raises(MlflowException, match="Function not found in module"):
         _load_function("os.non_exist_function")
+
+
+def test_compute_exclusive_lock_key():
+    from mlflow.server.jobs.utils import _compute_exclusive_lock_key
+
+    # Same params produce same key
+    key1 = _compute_exclusive_lock_key("job_name", {"a": 1, "b": 2})
+    key2 = _compute_exclusive_lock_key("job_name", {"a": 1, "b": 2})
+    assert key1 == key2
+
+    # Order doesn't matter for params
+    key3 = _compute_exclusive_lock_key("job_name", {"b": 2, "a": 1})
+    assert key1 == key3
+
+    # Different params produce different keys
+    key4 = _compute_exclusive_lock_key("job_name", {"a": 1, "b": 3})
+    assert key1 != key4
+
+    # Different job names produce different keys
+    key5 = _compute_exclusive_lock_key("other_job", {"a": 1, "b": 2})
+    assert key1 != key5
+
+    # Key format is job_name:hash
+    assert key1.startswith("job_name:")
+    assert key5.startswith("other_job:")
