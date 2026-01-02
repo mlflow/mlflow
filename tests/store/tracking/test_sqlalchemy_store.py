@@ -10844,6 +10844,42 @@ def test_update_online_scoring_config_validates_filter_string(store: SqlAlchemyS
         )
 
 
+def test_update_online_scoring_config_validates_sample_rate(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_sample_rate_validation")
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "test_scorer", _gateway_model_scorer_json())
+
+    # Valid sample rates should work
+    config = store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="test_scorer",
+        sample_rate=0.0,
+    )
+    assert config.sample_rate == 0.0
+
+    config = store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="test_scorer",
+        sample_rate=1.0,
+    )
+    assert config.sample_rate == 1.0
+
+    # Invalid sample rates should raise
+    with pytest.raises(MlflowException, match="sample_rate must be between 0.0 and 1.0"):
+        store.update_online_scoring_config(
+            experiment_id=experiment_id,
+            scorer_name="test_scorer",
+            sample_rate=-0.1,
+        )
+
+    with pytest.raises(MlflowException, match="sample_rate must be between 0.0 and 1.0"):
+        store.update_online_scoring_config(
+            experiment_id=experiment_id,
+            scorer_name="test_scorer",
+            sample_rate=1.1,
+        )
+
+
 def test_get_active_online_scorers_filters_by_sample_rate(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_active_configs")
     with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
