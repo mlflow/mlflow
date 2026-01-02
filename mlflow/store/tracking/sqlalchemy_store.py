@@ -5505,6 +5505,15 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     continue
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
+                # Handle IS NULL for metadata (key doesn't exist for the trace)
+                if comparator == "IS NULL":
+                    # Use NOT EXISTS to find traces where this metadata key is missing
+                    metadata_exists_subquery = session.query(SqlTraceMetadata.request_id).filter(
+                        SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
+                        SqlTraceMetadata.key == key_name,
+                    )
+                    attribute_filters.append(~metadata_exists_subquery.exists())
+                    continue
                 entity = SqlTraceMetadata
             elif SearchTraceUtils.is_span(key_type, key_name, comparator):
                 # Spans have specialized columns (name, type, status) unlike tags/metadata
