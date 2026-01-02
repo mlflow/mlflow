@@ -355,6 +355,9 @@ def translate_http_exception(func):
         except AIGatewayException as e:
             raise HTTPException(status_code=e.status_code, detail=e.detail)
         except MlflowException as e:
-            raise HTTPException(status_code=e.get_http_status_code(), detail=str(e))
+            raise HTTPException(
+                status_code=e.get_http_status_code(),
+                detail={"error_code": e.error_code, "message": e.message},
+            )
 
     return wrapper

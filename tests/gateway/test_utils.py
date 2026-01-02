@@ -148,7 +148,7 @@ def test_search_routes_token_with_invalid_token_values(index):
 async def test_translate_http_exception_handles_ai_gateway_exception():
     @translate_http_exception
     async def raise_ai_gateway_exception():
-        raise AIGatewayException("AI Gateway error", status_code=503)
+        raise AIGatewayException(status_code=503, detail="AI Gateway error")
 
     with pytest.raises(HTTPException, match="AI Gateway error") as exc_info:
         await raise_ai_gateway_exception()
@@ -167,7 +167,10 @@ async def test_translate_http_exception_handles_mlflow_exception():
         await raise_mlflow_exception()
 
     assert exc_info.value.status_code == 400
-    assert "Invalid parameter" in exc_info.value.detail
+    assert exc_info.value.detail == {
+        "error_code": "INVALID_PARAMETER_VALUE",
+        "message": "Invalid parameter",
+    }
 
 
 @pytest.mark.asyncio
