@@ -140,7 +140,7 @@ _EVALUATION_DATASETS = sa.table(
 )
 
 REVISION = "1b5f0d9ad7c1"
-PREVIOUS_REVISION = "1b49d398cd23"
+PREVIOUS_REVISION = "1bd49d398cd23"
 
 DB_URI = os.environ.get("MLFLOW_TRACKING_URI")
 USE_EXTERNAL_DB = DB_URI is not None and not DB_URI.startswith("sqlite")
