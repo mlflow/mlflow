@@ -1,21 +1,12 @@
----
-description: 'MLflow evaluation harness common usage patterns for GenAI'
-last_update:
-  date: 2025-10-28
-content_tags:
-  product_lines: AI
-  topics: ['Gen AI', 'MLflow', 'Evaluation and Monitoring']
----
-
 # MLflow evaluation examples for GenAI
 
 This page presents some common usage patterns for the evaluation harness, including data patterns and `predict_fn` patterns.
 
 ## Common data input patterns
 
-### <a id="eval-dataset"></a>Evaluate using an MLflow Evaluation Dataset (recommended)
+### Evaluate using an MLflow Evaluation Dataset (recommended)
 
-MLflow Evaluation Datasets provide versioning, lineage tracking, and integration with :re[UC] for production-ready evaluation. They are useful when you need version control and lineage tracking for your evaluation data, and when you need to convert traces to evaluation records.
+MLflow Evaluation Datasets are useful when you need version control and lineage tracking for your evaluation data, and when you need to convert traces to evaluation records.
 
 ```python
 import mlflow
@@ -23,7 +14,9 @@ from mlflow.genai.scorers import Correctness, Safety
 from my_app import agent  # Your GenAI app with tracing
 
 # Load versioned evaluation dataset
-dataset = mlflow.genai.datasets.get_dataset("catalog.schema.eval_dataset_name")
+dataset = mlflow.genai.datasets.get_dataset(
+    dataset_id="d-7f2e3a9b8c1d4e5f6a7b8c9d0e1f2a3b"
+)
 
 # Run evaluation
 results = mlflow.genai.evaluate(
@@ -33,9 +26,9 @@ results = mlflow.genai.evaluate(
 )
 ```
 
-To create datasets from traces or scratch, see [Build evaluation datasets](/mlflow3/genai/eval-monitor/build-eval-dataset.md).
+{/* To create datasets from traces or scratch, see [Build evaluation datasets](/mlflow3/genai/eval-monitor/build-eval-dataset.md). */}
 
-### <a id="eval-list-dict"></a>Evaluate using a list of dictionaries
+### Evaluate using a list of dictionaries
 
 Use a simple list of dictionaries for quick prototyping without creating a formal evaluation dataset. This is useful for quick prototyping, small datasets (fewer than 100 examples), and informal development testing.
 
@@ -74,9 +67,9 @@ results = mlflow.genai.evaluate(
 )
 ```
 
-For production, convert to an [MLflow Evaluation Dataset](/mlflow3/genai/eval-monitor/build-eval-dataset.md).
+{/* For production, convert to an [MLflow Evaluation Dataset](/mlflow3/genai/eval-monitor/build-eval-dataset.md). */}
 
-### <a id="eval-pandas-dataframe"></a>Evaluate using a Pandas DataFrame
+### Evaluate using a Pandas DataFrame
 
 Use Pandas DataFrames for evaluation when working with CSV files or existing data science workflows. This is useful for quick prototyping, small datasets (fewer than 100 examples), and informal development testing.
 
@@ -112,22 +105,19 @@ results = mlflow.genai.evaluate(
 )
 ```
 
-### <a id="eval-spark-dataframe"></a>Evaluate using a Spark DataFrame
+### Evaluate using a Spark DataFrame
 
-Use Spark DataFrames for large-scale evaluations or when data is already in Delta Lake or :re[UC]. This is useful when the data already exists in Delta Lake or :re[UC], or if you need to filter the records in an MLflow Evaluation Dataset before running the evaluation.
+Use Spark DataFrames for large-scale evaluations or if you need to filter the records in an MLflow Evaluation Dataset before running the evaluation.
 
-The DataFrame must comply with the [evaluation dataset schema](/mlflow3/genai/eval-monitor/concepts/eval-datasets.md).
+The DataFrame must comply with the [evaluation dataset schema](/genai/datasets/sdk-guide#evaluation-dataset-schema).
 
 ```python
 import mlflow
 from mlflow.genai.scorers import Safety, RelevanceToQuery
 from my_app import agent  # Your GenAI app with tracing
 
-# Load evaluation data from a Delta table in Unity Catalog
-eval_df = spark.table("catalog.schema.evaluation_data")
-
-# Or load from any Spark-compatible source
-# eval_df = spark.read.parquet("path/to/evaluation/data")
+# Load evaluation data from a Parquet file or any Spark-compatible source
+eval_df = spark.read.parquet("path/to/evaluation/data")
 
 # Run evaluation
 results = mlflow.genai.evaluate(
@@ -137,9 +127,9 @@ results = mlflow.genai.evaluate(
 )
 ```
 
-## <a id="common-patterns-predict-fn"></a>Common `predict_fn` patterns
+## Common `predict_fn` patterns
 
-### <a id="eval-app-direct"></a>Call your app directly
+### Call your app directly
 
 Pass your app directly as `predict_fn` when parameter names match your evaluation dataset keys. This is useful for apps that have parameter names that match the `inputs` in your evaluation dataset.
 
@@ -170,7 +160,7 @@ results = mlflow.genai.evaluate(
 )
 ```
 
-### <a id="eval-app-wrapper"></a>Wrap your app in a callable
+### Wrap your app in a callable
 
 If your app expects different parameter names or data structures than your evaluation dataset's `inputs`, wrap it in a callable function. This is useful when there are parameter name mismatches between your app's parameters and evaluation dataset `input` keys (for example, `user_input` vs `question`), or when data format conversions are required (for example, string to list or JSON parsing).
 
@@ -219,119 +209,7 @@ results = mlflow.genai.evaluate(
 )
 ```
 
-### <a id="eval-endpoint"></a>Evaluate a deployed endpoint
-
-Use the `to_predict_fn` function to evaluate :re[mosaic-rag-framework], Model Serving chat endpoints, and custom endpoints.
-
-This function creates a predict function that's compatible with those endpoints and automatically extracts traces from tracing-enabled endpoints for full observability.
-
-:::note
-
-The `to_predict_fn` function performs a `kwargs` pass-through directly to your endpoint. Your evaluation data must match the input format that your endpoint expects. If the formats don't match, the evaluation fails with an error message about unrecognized input keys.
-
-:::
-
-::::tabs
-
-:::tab-item[Model Serving chat]
-
-Model Serving chat endpoints require data that is formatted with the `messages` key.
-
-```python
-import mlflow
-from mlflow.genai.scorers import RelevanceToQuery
-
-# Create predict function for a chat endpoint
-predict_fn = mlflow.genai.to_predict_fn("endpoints:/my-chatbot-endpoint")
-
-# Evaluate the chat endpoint
-results = mlflow.genai.evaluate(
-    data=[
-        {"inputs": {"messages": [{"role": "user", "content": "How does MLflow work?"}]}}
-    ],
-    predict_fn=predict_fn,
-    scorers=[RelevanceToQuery()],
-)
-```
-
-:::
-
-:::tab-item[Agent Framework]
-
-Agent Framework endpoints can have different input interfaces. The following example shows an `input` key:
-
-```python
-import mlflow
-from mlflow.genai.scorers import RelevanceToQuery
-
-# Create a predict function for a Knowledge Assistant agent endpoint
-predict_fn = mlflow.genai.to_predict_fn("endpoints:/ka-56a301ab-endpoint")
-
-# Evaluate the agent endpoint
-results = mlflow.genai.evaluate(
-    data=[
-        {
-            "inputs": {
-                "input": [
-                    {
-                        "role": "user",
-                        "content": "How do I use the Models from Code feature in MLflow?",
-                    }
-                ]
-            }
-        }
-    ],
-    predict_fn=predict_fn,
-    scorers=[RelevanceToQuery()],
-)
-```
-
-:::
-
-:::tab-item[Custom endpoint]
-
-Custom endpoints might have entirely different access patterns for submitting data to them. Ensure that the `data` input format is compatible with the endpoint being used for evaluation.
-
-If your evaluation data format is incompatible with your endpoint, wrap the model's interface. A translation layer can ensure that the correct payload is submitted to the evaluation endpoint.
-
-```python
-import mlflow
-from mlflow.genai.scorers import RelevanceToQuery
-
-
-def custom_predict_fn(inputs):
-    # Transform inputs to match your endpoint's expected format
-    # For example, if your endpoint expects a 'query' key instead of 'messages'
-    transformed_inputs = {
-        "query": inputs["messages"][0]["content"],
-        "context": inputs.get("context", ""),
-    }
-
-    # Call your endpoint with the transformed data
-    original_predict_fn = mlflow.genai.to_predict_fn("endpoints:/my-custom-endpoint")
-    return original_predict_fn(transformed_inputs)
-
-
-# Use your wrapper function for evaluation
-results = mlflow.genai.evaluate(
-    data=[
-        {
-            "inputs": {
-                "messages": [{"role": "user", "content": "What is machine learning?"}],
-                "context": "technical documentation",
-            }
-        }
-    ],
-    predict_fn=custom_predict_fn,
-    scorers=[RelevanceToQuery()],
-)
-```
-
-:::
-
-::::
-
-### <a id="eval-model"></a>Evaluate a logged model
+### Evaluate a logged model
 
 Wrap logged MLflow models to translate between evaluation's named parameters and the model's single-parameter interface.
 
