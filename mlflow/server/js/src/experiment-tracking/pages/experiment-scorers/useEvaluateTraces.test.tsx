@@ -15,6 +15,12 @@ jest.mock('../../../common/utils/FetchUtils', () => ({
   fetchOrFail: jest.fn(),
 }));
 
+// Mock the feature flag to explicitly use sync mode for these tests
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
+  isEvaluatingSessionsInScorersEnabled: () => false,
+}));
+
 const mockedFetchOrFail = jest.mocked(fetchOrFail);
 
 /**
