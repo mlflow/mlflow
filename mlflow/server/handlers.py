@@ -4727,7 +4727,7 @@ def get_gateway_endpoints():
 
 
 def get_internal_online_scoring_endpoints():
-    """Returns endpoint definitions for internal online scoring APIs."""
+    """Returns endpoint definitions for internal (non public) online scoring APIs."""
     return [
         (
             _get_ajax_path("/mlflow/scorers/online-configs", version=3),
