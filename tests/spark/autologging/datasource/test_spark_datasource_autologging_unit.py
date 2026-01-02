@@ -2,7 +2,6 @@ from unittest import mock
 
 import pytest
 
-import mlflow
 import mlflow.spark
 from mlflow.exceptions import MlflowException
 from mlflow.spark.autologging import PythonSubscriber, _get_current_listener

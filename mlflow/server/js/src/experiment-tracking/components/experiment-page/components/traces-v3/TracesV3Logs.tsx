@@ -58,16 +58,20 @@ const ContextProviders = ({
 const TracesV3LogsImpl = React.memo(
   ({
     experimentId,
-    endpointName,
+    endpointName = '',
     timeRange,
     isLoadingExperiment,
     loggedModelId,
+    disableActions = false,
+    customDefaultSelectedColumns,
   }: {
     experimentId: string;
-    endpointName: string;
+    endpointName?: string;
     timeRange?: { startTime: string | undefined; endTime: string | undefined };
     isLoadingExperiment?: boolean;
     loggedModelId?: string;
+    disableActions?: boolean;
+    customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
   }) => {
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
@@ -113,7 +117,9 @@ const TracesV3LogsImpl = React.memo(
     const defaultSelectedColumns = useCallback(
       (allColumns: TracesTableColumn[]) => {
         const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(evaluatedTraces);
-
+        if (customDefaultSelectedColumns) {
+          return allColumns.filter(customDefaultSelectedColumns);
+        }
         return allColumns.filter(
           (col) =>
             col.type === TracesTableColumnType.ASSESSMENT ||
@@ -128,7 +134,7 @@ const TracesV3LogsImpl = React.memo(
             col.type === TracesTableColumnType.INTERNAL_MONITOR_REQUEST_TIME,
         );
       },
-      [evaluatedTraces],
+      [evaluatedTraces, customDefaultSelectedColumns],
     );
 
     const { selectedColumns, toggleColumns, setSelectedColumns } = useSelectedColumns(
@@ -192,6 +198,13 @@ const TracesV3LogsImpl = React.memo(
       });
 
     const traceActions: TraceActions = useMemo(() => {
+      if (disableActions) {
+        return {
+          deleteTracesAction: undefined,
+          exportToEvals: undefined,
+          editTags: undefined,
+        };
+      }
       return {
         deleteTracesAction,
         exportToEvals: {
@@ -219,6 +232,7 @@ const TracesV3LogsImpl = React.memo(
       EditTagsModalUnified,
       showEditTagsModalForTrace,
       EditTagsModal,
+      disableActions,
     ]);
 
     const countInfo = useMemo(() => {

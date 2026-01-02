@@ -3,11 +3,15 @@ from __future__ import annotations
 import inspect
 import json
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 if TYPE_CHECKING:
+    import litellm
+
     from mlflow.entities.trace import Trace
     from mlflow.types.llm import ChatMessage, ToolDefinition
+
+T = TypeVar("T")  # Generic type for agentic loop return value
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -22,8 +26,11 @@ from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
 )
-from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, REQUEST_LIMIT_EXCEEDED
+from mlflow.genai.judges.utils.tool_calling_utils import (
+    _process_tool_calls,
+    _raise_iteration_limit_exceeded,
+)
+from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -267,6 +274,73 @@ def _serialize_messages_to_databricks_prompts(
     return user_prompt, system_prompt
 
 
+def _run_databricks_agentic_loop(
+    messages: list["litellm.Message"],
+    trace: "Trace | None",
+    on_final_answer: Callable[[str | None], T],
+) -> T:
+    """
+    Run an agentic loop with Databricks chat completions.
+
+    This is the shared implementation for all Databricks-based agentic workflows
+    (judges, structured output extraction for traces). It handles the iterative
+    tool-calling loop until the LLM produces a final answer.
+
+    Args:
+        messages: Initial litellm Message objects for the conversation.
+        trace: Optional trace for tool calling. If provided, enables tool use.
+        on_final_answer: Callback to process the final LLM response content.
+            Receives the content string (or None if empty) and should return
+            the appropriate result type or raise an exception.
+
+    Returns:
+        Result from on_final_answer callback.
+
+    Raises:
+        MlflowException: If max iterations exceeded or other errors occur.
+    """
+    tools = None
+    if trace is not None:
+        from mlflow.genai.judges.tools import list_judge_tools
+
+        tools = [tool.get_definition() for tool in list_judge_tools()]
+
+    max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
+    iteration_count = 0
+
+    while True:
+        iteration_count += 1
+        if iteration_count > max_iterations:
+            _raise_iteration_limit_exceeded(max_iterations)
+
+        try:
+            user_prompt, system_prompt = _serialize_messages_to_databricks_prompts(messages)
+
+            llm_result = call_chat_completions(
+                user_prompt, system_prompt or "", tools=tools, model=_DATABRICKS_AGENTIC_JUDGE_MODEL
+            )
+
+            output_json = llm_result.output_json
+            if not output_json:
+                raise MlflowException("Empty response from Databricks judge")
+
+            parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
+            message = _create_litellm_message_from_databricks_response(parsed_json)
+
+            if not message.tool_calls:
+                return on_final_answer(message.content)
+
+            messages.append(message)
+            tool_response_messages = _process_tool_calls(
+                tool_calls=message.tool_calls,
+                trace=trace,
+            )
+            messages.extend(tool_response_messages)
+        except Exception:
+            _logger.debug("Failed during Databricks agentic loop iteration", exc_info=True)
+            raise
+
+
 def _invoke_databricks_default_judge(
     prompt: str | list["ChatMessage"],
     assessment_name: str,
@@ -301,88 +375,11 @@ def _invoke_databricks_default_judge(
         else:
             messages = [litellm.Message(role=msg.role, content=msg.content) for msg in prompt]
 
-        # Enable tool calling if trace is provided
-        tools = None
-        model = None
-        if trace is not None:
-            from mlflow.genai.judges.tools import list_judge_tools
+        # Define callback to parse final answer into Feedback
+        def parse_judge_response(content: str | None) -> Feedback:
+            return _parse_databricks_judge_response(content, assessment_name, trace)
 
-            tools = [tool.get_definition() for tool in list_judge_tools()]
-            model = _DATABRICKS_AGENTIC_JUDGE_MODEL
-
-        # Agentic loop: iteratively call LLM and execute tools until final answer
-        max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
-        iteration_count = 0
-
-        while True:
-            iteration_count += 1
-            if iteration_count > max_iterations:
-                raise MlflowException(
-                    f"Completion iteration limit of {max_iterations} exceeded. "
-                    f"This usually indicates the model is not powerful enough to effectively "
-                    f"analyze the trace. Consider using a more intelligent/powerful model. "
-                    f"In rare cases, for very complex traces where a large number of completion "
-                    f"iterations might be required, you can increase the number of iterations by "
-                    f"modifying the {MLFLOW_JUDGE_MAX_ITERATIONS.name} environment variable.",
-                    error_code=REQUEST_LIMIT_EXCEEDED,
-                )
-
-            try:
-                # Serialize messages to Databricks format
-                user_prompt, system_prompt = _serialize_messages_to_databricks_prompts(messages)
-
-                llm_result = call_chat_completions(
-                    user_prompt, system_prompt, tools=tools, model=model, use_case=use_case
-                )
-
-                # Parse response
-                output_json = llm_result.output_json
-                if not output_json:
-                    return Feedback(
-                        name=assessment_name,
-                        error="Empty response from Databricks judge",
-                        source=AssessmentSource(
-                            source_type=AssessmentSourceType.LLM_JUDGE,
-                            source_id=_DATABRICKS_DEFAULT_JUDGE_MODEL,
-                        ),
-                        trace_id=trace.info.trace_id if trace else None,
-                    )
-
-                parsed_json = (
-                    json.loads(output_json) if isinstance(output_json, str) else output_json
-                )
-
-                # Convert response to litellm Message
-                try:
-                    message = _create_litellm_message_from_databricks_response(parsed_json)
-                except ValueError as e:
-                    return Feedback(
-                        name=assessment_name,
-                        error=f"Invalid response format from Databricks judge: {e}",
-                        source=AssessmentSource(
-                            source_type=AssessmentSourceType.LLM_JUDGE,
-                            source_id=_DATABRICKS_DEFAULT_JUDGE_MODEL,
-                        ),
-                        trace_id=trace.info.trace_id if trace else None,
-                    )
-
-                # No tool calls means final answer - parse and return
-                if not message.tool_calls:
-                    return _parse_databricks_judge_response(message.content, assessment_name, trace)
-
-                # Append assistant message and process tool calls (same pattern as litellm)
-                messages.append(message)
-                tool_response_messages = _process_tool_calls(
-                    tool_calls=message.tool_calls,
-                    trace=trace,
-                )
-                messages.extend(tool_response_messages)
-
-            except Exception as e:
-                _logger.debug(
-                    f"Failed in agentic loop iteration {iteration_count}: {e}", exc_info=True
-                )
-                raise
+        return _run_databricks_agentic_loop(messages, trace, parse_judge_response)
 
     except Exception as e:
         _logger.debug(f"Failed to invoke Databricks judge: {e}", exc_info=True)

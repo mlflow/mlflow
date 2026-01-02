@@ -7,7 +7,6 @@ import pytest
 import requests
 
 import mlflow
-import mlflow.tracking._model_registry.fluent
 from mlflow import MlflowClient, register_model
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException

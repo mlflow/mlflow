@@ -9,7 +9,6 @@ import os
 import yaml
 
 import mlflow.projects.databricks
-import mlflow.utils.uri
 from mlflow import tracking
 from mlflow.entities import RunStatus
 from mlflow.exceptions import ExecutionException, MlflowException

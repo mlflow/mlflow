@@ -10,6 +10,8 @@ export interface LongFormSectionProps {
   children: ReactNode;
   /** Whether to hide the bottom border divider (default: false) */
   hideDivider?: boolean;
+  /** Optional className for custom styling */
+  className?: string;
 }
 
 /**
@@ -17,11 +19,18 @@ export interface LongFormSectionProps {
  * By default, sections are separated by a horizontal divider at the bottom.
  * Responsive: stacks vertically on narrow screens.
  */
-export const LongFormSection = ({ title, titleWidth = 200, children, hideDivider = false }: LongFormSectionProps) => {
+export const LongFormSection = ({
+  title,
+  titleWidth = 200,
+  children,
+  hideDivider = false,
+  className,
+}: LongFormSectionProps) => {
   const { theme } = useDesignSystemTheme();
 
   return (
     <div
+      className={className}
       css={{
         display: 'flex',
         gap: 32,

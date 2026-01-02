@@ -4,7 +4,6 @@ import tempfile
 
 import click
 
-import mlflow
 import mlflow.models.docker_utils
 import mlflow.sagemaker
 from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE

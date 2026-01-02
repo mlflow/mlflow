@@ -25,6 +25,7 @@ import { getSessionTableRows } from './utils';
 import type { TraceActions } from '../types';
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link, useLocation } from '../utils/RoutingUtils';
+import { useGenAiTraceTableRowSelection } from '../hooks/useGenAiTraceTableRowSelection';
 
 const columns: SessionTableColumn[] = [
   {
@@ -84,11 +85,12 @@ const columns: SessionTableColumn[] = [
 interface ExperimentEvaluationDatasetsTableRowProps {
   row: Row<SessionTableRow>;
   enableRowSelection?: boolean;
+  enableLinks?: boolean;
 }
 
 const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>> =
   React.memo(
-    ({ row, enableRowSelection }) => {
+    ({ row, enableRowSelection, enableLinks = true }) => {
       const { search } = useLocation();
       const { theme } = useDesignSystemTheme();
 
@@ -122,25 +124,29 @@ const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<Experimen
                 ...(cell.column.id === 'actions' && { paddingLeft: 0, paddingRight: 0 }),
               }}
             >
-              <Link
-                to={{
-                  pathname: MlflowUtils.getExperimentChatSessionPageRoute(
-                    row.original.experimentId,
-                    row.original.sessionId,
-                  ),
-                  search,
-                }}
-                css={{
-                  display: 'flex',
-                  width: '100%',
-                  height: '100%',
-                  alignItems: 'center',
-                  color: 'inherit',
-                  textDecoration: 'none',
-                }}
-              >
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </Link>
+              {enableLinks ? (
+                <Link
+                  to={{
+                    pathname: MlflowUtils.getExperimentChatSessionPageRoute(
+                      row.original.experimentId,
+                      row.original.sessionId,
+                    ),
+                    search,
+                  }}
+                  css={{
+                    display: 'flex',
+                    width: '100%',
+                    height: '100%',
+                    alignItems: 'center',
+                    color: 'inherit',
+                    textDecoration: 'none',
+                  }}
+                >
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </Link>
+              ) : (
+                flexRender(cell.column.columnDef.cell, cell.getContext())
+              )}
             </TableCell>
           ))}
         </TableRow>
@@ -156,6 +162,9 @@ export const GenAIChatSessionsTable = ({
   searchQuery,
   setSearchQuery,
   traceActions,
+  enableRowSelection: enableRowSelectionProp = false,
+  enableLinks = true,
+  empty,
 }: {
   experimentId: string;
   traces: ModelTraceInfoV3[];
@@ -163,18 +172,21 @@ export const GenAIChatSessionsTable = ({
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   traceActions?: TraceActions;
+  enableRowSelection?: boolean;
+  enableLinks?: boolean;
+  empty?: React.ReactElement;
 }) => {
   const { theme } = useDesignSystemTheme();
 
   const sessionTableRows = useMemo(() => getSessionTableRows(experimentId, traces), [experimentId, traces]);
   const [sorting, setSorting] = useState<SortingState>([{ id: 'sessionStartTime', desc: true }]);
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const { rowSelection, setRowSelection } = useGenAiTraceTableRowSelection();
   const { columnVisibility, setColumnVisibility } = useSessionsTableColumnVisibility({
     experimentId,
     columns,
   });
 
-  const enableRowSelection = Boolean(traceActions);
+  const enableRowSelection = enableRowSelectionProp || Boolean(traceActions);
 
   const table = useReactTable<SessionTableRow>({
     data: sessionTableRows,
@@ -212,6 +224,8 @@ export const GenAIChatSessionsTable = ({
     [rowSelection],
   );
 
+  const emptyStateElement = empty ?? <GenAIChatSessionsEmptyState />;
+
   return (
     <div
       css={{
@@ -236,7 +250,7 @@ export const GenAIChatSessionsTable = ({
       />
       <Table
         style={{ ...columnSizeVars }}
-        empty={!isLoading && sessionTableRows.length === 0 ? <GenAIChatSessionsEmptyState /> : undefined}
+        empty={!isLoading && sessionTableRows.length === 0 ? emptyStateElement : undefined}
         scrollable
         someRowsSelected={
           enableRowSelection ? table.getIsAllRowsSelected() || table.getIsSomeRowsSelected() : undefined
@@ -276,7 +290,12 @@ export const GenAIChatSessionsTable = ({
           table
             .getRowModel()
             .rows.map((row) => (
-              <ExperimentChatSessionsTableRow key={row.id} row={row} enableRowSelection={enableRowSelection} />
+              <ExperimentChatSessionsTableRow
+                key={row.id}
+                row={row}
+                enableRowSelection={enableRowSelection}
+                enableLinks={enableLinks}
+              />
             ))}
 
         {isLoading && <TableSkeletonRows table={table} />}

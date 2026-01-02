@@ -8,6 +8,8 @@ import type { ScheduledScorer, LLMScorer, CustomCodeScorer } from './types';
 import type { LLMScorerFormData } from './LLMScorerFormRenderer';
 import type { CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
 import { TEMPLATE_INSTRUCTIONS_MAP } from './prompts';
+import { ScorerFormData } from './utils/scorerTransformUtils';
+import { ScorerEvaluationScope } from './constants';
 
 export const getTypeDisplayName = (scorer: ScheduledScorer, intl: IntlShape): string => {
   if (scorer.type === 'custom-code') {
@@ -72,7 +74,7 @@ export const getStatusTag = (
  * @param scorer The ScheduledScorer to derive form values from
  * @returns Form values object suitable for react-hook-form
  */
-export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormData | CustomCodeScorerFormData => {
+export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormData | ScorerFormData => {
   // For LLM scorers, get instructions from the scorer or fall back to template defaults
   let instructions = '';
   if (scorer.type === 'llm') {
@@ -94,6 +96,7 @@ export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormD
     model: scorer.type === 'llm' ? (scorer as LLMScorer).model || '' : '',
     disableMonitoring: scorer.disableMonitoring,
     isInstructionsJudge: scorer.type === 'llm' ? (scorer as LLMScorer).is_instructions_judge : undefined,
+    evaluationScope: scorer.isSessionLevelScorer ? ScorerEvaluationScope.SESSIONS : ScorerEvaluationScope.TRACES,
   };
 };
 

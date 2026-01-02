@@ -7,8 +7,9 @@ import { useEvaluateTraces } from './useEvaluateTraces';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import { convertEvaluationResultToAssessment } from './llmScorerUtils';
 import { extractTemplateVariables } from '../../utils/evaluationUtils';
-import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING } from './constants';
+import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope } from './constants';
 import { EvaluateTracesParams, LLM_TEMPLATE } from './types';
+import { coerceToEnum } from '../../../shared/web-shared/utils';
 
 interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
@@ -28,6 +29,8 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   const guidelines = useWatch({ control, name: 'guidelines' });
   const scorerType = useWatch({ control, name: 'scorerType' });
   const { errors } = useFormState({ control });
+  const evaluationScopeFormValue = useWatch({ control, name: 'evaluationScope' });
+  const evaluationScope = coerceToEnum(ScorerEvaluationScope, evaluationScopeFormValue, ScorerEvaluationScope.TRACES);
 
   const [itemsToEvaluate, setItemsToEvaluate] = useState<Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>>({
     itemCount: DEFAULT_TRACE_COUNT,
@@ -49,6 +52,15 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     reset();
     setCurrentTraceIndex(0);
   }, [llmTemplate, reset]);
+
+  // Reset evaluation config when switching evaluation scope
+  useEffect(() => {
+    reset();
+    setItemsToEvaluate({
+      itemCount: DEFAULT_TRACE_COUNT,
+      itemIds: [],
+    });
+  }, [evaluationScope, reset]);
 
   // Handle the "Run scorer" button click
   const handleRunScorer = useCallback(async () => {

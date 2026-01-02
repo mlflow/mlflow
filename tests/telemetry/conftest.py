@@ -2,7 +2,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-import mlflow
 import mlflow.telemetry.utils
 from mlflow.telemetry.client import TelemetryClient, _set_telemetry_client, get_telemetry_client
 from mlflow.version import VERSION

@@ -25,6 +25,7 @@ from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.os import is_windows
@@ -1039,3 +1040,237 @@ def test_mlflow_gc_logged_models_mixed_time(get_store_details, request):
 
     retrieved_model = store.get_logged_model(recent_model.model_id, allow_deleted=True)
     assert retrieved_model.model_id == recent_model.model_id
+
+
+@pytest.fixture
+def sqlite_store_with_jobs():
+    fd, temp_dbfile = tempfile.mkstemp()
+    os.close(fd)
+    db_uri = f"sqlite:///{temp_dbfile}"
+    tracking_store = SqlAlchemyStore(db_uri, "artifact_folder_jobs")
+    job_store = SqlAlchemyJobStore(db_uri)
+    yield (tracking_store, job_store, db_uri)
+    os.remove(temp_dbfile)
+    if os.path.exists("artifact_folder_jobs"):
+        shutil.rmtree("artifact_folder_jobs")
+
+
+def _create_test_job(job_store, job_name="test_job", finalize=True):
+    job = job_store.create_job(job_name=job_name, params="{}")
+    if finalize:
+        job_store.start_job(job.job_id)
+        job_store.finish_job(job.job_id, result="done")
+        return job_store.get_job(job.job_id)
+    return job
+
+
+def _set_job_creation_time(job_store, job_id, creation_time_ms):
+    from mlflow.store.tracking.dbmodels.models import SqlJob
+
+    with job_store.ManagedSessionMaker() as session:
+        job = session.query(SqlJob).filter(SqlJob.id == job_id).first()
+        job.creation_time = creation_time_ms
+
+
+def test_mlflow_gc_no_jobs_deleted_without_jobs_flag(sqlite_store_with_jobs):
+    _, job_store, db_uri = sqlite_store_with_jobs
+
+    job1 = _create_test_job(job_store, "job1")
+    job2 = _create_test_job(job_store, "job2")
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            db_uri,
+        ]
+    )
+
+    retrieved_job1 = job_store.get_job(job1.job_id)
+    retrieved_job2 = job_store.get_job(job2.job_id)
+    assert retrieved_job1.job_id == job1.job_id
+    assert retrieved_job2.job_id == job2.job_id
+
+
+def test_mlflow_gc_all_jobs_deleted_with_jobs_flag(sqlite_store_with_jobs):
+    _, job_store, db_uri = sqlite_store_with_jobs
+
+    job1 = _create_test_job(job_store, "job1")
+    job2 = _create_test_job(job_store, "job2")
+    job3 = _create_test_job(job_store, "job3")
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            db_uri,
+            "--jobs",
+        ]
+    )
+
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(job1.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(job2.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(job3.job_id)
+
+
+def test_mlflow_gc_specific_jobs_deleted_with_job_ids(sqlite_store_with_jobs):
+    _, job_store, db_uri = sqlite_store_with_jobs
+
+    job1 = _create_test_job(job_store, "job1")
+    job2 = _create_test_job(job_store, "job2")
+    job3 = _create_test_job(job_store, "job3")
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            db_uri,
+            "--job-ids",
+            f"{job1.job_id},{job2.job_id}",
+        ]
+    )
+
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(job1.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(job2.job_id)
+
+    retrieved_job3 = job_store.get_job(job3.job_id)
+    assert retrieved_job3.job_id == job3.job_id
+
+
+def test_mlflow_gc_jobs_deleted_with_older_than_flag(sqlite_store_with_jobs):
+    _, job_store, db_uri = sqlite_store_with_jobs
+
+    old_job = _create_test_job(job_store, "old_job")
+    new_job = _create_test_job(job_store, "new_job")
+
+    one_hour_ago = get_current_time_millis() - (60 * 60 * 1000)
+    _set_job_creation_time(job_store, old_job.job_id, one_hour_ago)
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            db_uri,
+            "--jobs",
+            "--older-than",
+            "30m",
+        ]
+    )
+
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(old_job.job_id)
+
+    retrieved_new_job = job_store.get_job(new_job.job_id)
+    assert retrieved_new_job.job_id == new_job.job_id
+
+
+def test_mlflow_gc_job_ids_with_older_than_filter(sqlite_store_with_jobs):
+    _, job_store, db_uri = sqlite_store_with_jobs
+
+    old_job = _create_test_job(job_store, "old_job")
+    new_job = _create_test_job(job_store, "new_job")
+
+    one_hour_ago = get_current_time_millis() - (60 * 60 * 1000)
+    _set_job_creation_time(job_store, old_job.job_id, one_hour_ago)
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            db_uri,
+            "--job-ids",
+            new_job.job_id,
+            "--older-than",
+            "30m",
+        ]
+    )
+
+    retrieved_new_job = job_store.get_job(new_job.job_id)
+    assert retrieved_new_job.job_id == new_job.job_id
+
+    retrieved_old_job = job_store.get_job(old_job.job_id)
+    assert retrieved_old_job.job_id == old_job.job_id
+
+
+def test_mlflow_gc_only_deletes_finalized_jobs(sqlite_store_with_jobs):
+    from mlflow.entities._job_status import JobStatus
+
+    _, job_store, db_uri = sqlite_store_with_jobs
+
+    # Create jobs with different statuses
+    pending_job = _create_test_job(job_store, "pending_job", finalize=False)
+    assert pending_job.status == JobStatus.PENDING
+
+    running_job = _create_test_job(job_store, "running_job", finalize=False)
+    job_store.start_job(running_job.job_id)
+    running_job = job_store.get_job(running_job.job_id)
+    assert running_job.status == JobStatus.RUNNING
+
+    succeeded_job = _create_test_job(job_store, "succeeded_job", finalize=True)
+    assert succeeded_job.status == JobStatus.SUCCEEDED
+
+    failed_job = _create_test_job(job_store, "failed_job", finalize=False)
+    job_store.start_job(failed_job.job_id)
+    job_store.fail_job(failed_job.job_id, "error")
+    failed_job = job_store.get_job(failed_job.job_id)
+    assert failed_job.status == JobStatus.FAILED
+
+    timeout_job = _create_test_job(job_store, "timeout_job", finalize=False)
+    job_store.start_job(timeout_job.job_id)
+    job_store.mark_job_timed_out(timeout_job.job_id)
+    timeout_job = job_store.get_job(timeout_job.job_id)
+    assert timeout_job.status == JobStatus.TIMEOUT
+
+    canceled_job = _create_test_job(job_store, "canceled_job", finalize=False)
+    job_store.cancel_job(canceled_job.job_id)
+    canceled_job = job_store.get_job(canceled_job.job_id)
+    assert canceled_job.status == JobStatus.CANCELED
+
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            db_uri,
+            "--jobs",
+        ]
+    )
+
+    retrieved_pending = job_store.get_job(pending_job.job_id)
+    assert retrieved_pending.job_id == pending_job.job_id
+    assert retrieved_pending.status == JobStatus.PENDING
+
+    retrieved_running = job_store.get_job(running_job.job_id)
+    assert retrieved_running.job_id == running_job.job_id
+    assert retrieved_running.status == JobStatus.RUNNING
+
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(succeeded_job.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(failed_job.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(timeout_job.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(canceled_job.job_id)

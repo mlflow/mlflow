@@ -23,7 +23,6 @@ from openai.types.chat import ChatCompletionMessageToolCall
 from packaging.version import Version
 
 import mlflow
-import mlflow.tracking._tracking_service
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus

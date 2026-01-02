@@ -67,9 +67,20 @@ describe('scheduledScorersCacheUtils', () => {
         experimentId,
       ]);
 
+      // Scorers are sorted alphabetically by name (custom_scorer < guidelines_scorer)
       expect(updatedCache).toEqual({
         experimentId: '2091164207513440',
         scheduledScorers: [
+          {
+            name: 'custom_scorer',
+            sampleRate: 60, // 0.6 * 100
+            type: 'custom-code',
+            code: 'return True',
+            version: 1,
+            disableMonitoring: true,
+            originalFuncName: undefined,
+            callSignature: undefined,
+          },
           {
             name: 'guidelines_scorer',
             sampleRate: 80, // 0.8 * 100
@@ -81,16 +92,6 @@ describe('scheduledScorersCacheUtils', () => {
             disableMonitoring: true,
             is_instructions_judge: false,
             model: undefined,
-          },
-          {
-            name: 'custom_scorer',
-            sampleRate: 60, // 0.6 * 100
-            type: 'custom-code',
-            code: 'return True',
-            version: 1,
-            disableMonitoring: true,
-            originalFuncName: undefined,
-            callSignature: undefined,
           },
         ],
       });

@@ -5,7 +5,6 @@ import pytest
 from opentelemetry import trace
 
 import mlflow
-import mlflow.tracking._tracking_service
 from mlflow.entities.trace_location import MlflowExperimentLocation, UCSchemaLocation
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,

@@ -1355,7 +1355,6 @@ def _autolog(
             models is enabled.
     """
     import pandas as pd
-    import sklearn
     import sklearn.metrics
     import sklearn.model_selection
 

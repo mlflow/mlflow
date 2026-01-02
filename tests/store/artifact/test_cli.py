@@ -6,7 +6,6 @@ import pytest
 from click.testing import CliRunner
 
 import mlflow
-import mlflow.pyfunc
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.cli import _file_infos_to_json, download_artifacts
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri

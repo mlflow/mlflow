@@ -2666,7 +2666,7 @@ def test_audio_classification_pipeline(audio_classification_pipeline, with_input
     "model_name",
     [
         "tiiuae/falcon-7b",
-        "databricks/dolly-v2-7b",
+        "openai-community/gpt2",
         "PrunaAI/runwayml-stable-diffusion-v1-5-turbo-tiny-green-smashed",
     ],
 )

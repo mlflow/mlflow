@@ -21,7 +21,6 @@ import requests
 from opentelemetry import trace as trace_api
 
 import mlflow
-import mlflow.telemetry.utils
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler

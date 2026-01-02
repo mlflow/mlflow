@@ -6,11 +6,13 @@ It reuses the core scoring and logging logic from the evaluation harness for con
 """
 
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from mlflow.entities import Trace
 from mlflow.environment_variables import (
+    MLFLOW_GENAI_EVAL_MAX_WORKERS,
     MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS,
     MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE,
 )
@@ -196,9 +198,7 @@ def _run_single_turn_scorer_batch(
     log_assessments: bool,
 ) -> dict[str, TraceResult]:
     """
-    Run a single-turn scorer on each trace individually (batch processing).
-
-    Reuses _compute_eval_scores from the evaluation harness.
+    Run a single-turn scorer on each trace in parallel.
 
     Args:
         scorer: The scorer instance.
@@ -211,9 +211,7 @@ def _run_single_turn_scorer_batch(
     """
     trace_map = _fetch_traces_batch(trace_ids, tracking_store)
 
-    results: dict[str, TraceResult] = {}
-
-    for trace_id, trace in trace_map.items():
+    def process_trace(trace_id: str, trace: Trace) -> tuple[str, TraceResult]:
         eval_item = EvalItem.from_trace(trace)
 
         try:
@@ -233,14 +231,28 @@ def _run_single_turn_scorer_batch(
                     assessments=feedbacks,
                 )
 
-            results[trace_id] = TraceResult(
+            return trace_id, TraceResult(
                 assessments=[f.to_dictionary() for f in feedbacks],
                 failures=failures,
             )
         except Exception as e:
-            results[trace_id] = TraceResult(
+            return trace_id, TraceResult(
                 failures=[ScorerFailure(error_code=type(e).__name__, error_message=str(e))]
             )
+
+    max_workers = min(len(trace_map), MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
+    results: dict[str, TraceResult] = {}
+
+    with ThreadPoolExecutor(
+        max_workers=max_workers,
+        thread_name_prefix="MlflowScorerInvoke",
+    ) as executor:
+        futures = {
+            executor.submit(process_trace, tid, trace): tid for tid, trace in trace_map.items()
+        }
+        for future in as_completed(futures):
+            trace_id, result = future.result()
+            results[trace_id] = result
 
     return results
 
