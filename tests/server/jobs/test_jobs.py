@@ -765,3 +765,65 @@ def test_delete_jobs_skips_non_finalized_even_with_job_ids(tmp_path: Path):
 
     with pytest.raises(MlflowException, match=r"Job .+ not found"):
         store.get_job(succeeded_job.job_id)
+
+
+@job(name="exclusive_sleep_fun", max_workers=2, exclusive=True)
+def exclusive_sleep_fun(sleep_secs, experiment_id, tmp_dir):
+    pid_file = Path(tmp_dir) / f"pid_{experiment_id}"
+    pid_file.write_text(str(os.getpid()))
+    time.sleep(sleep_secs)
+    return experiment_id
+
+
+def test_exclusive_job_skips_duplicate(monkeypatch, tmp_path: Path):
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["tests.server.jobs.test_jobs.exclusive_sleep_fun"],
+        allowed_job_names=["exclusive_sleep_fun"],
+    ):
+        job_tmp_path = tmp_path / "job"
+        job_tmp_path.mkdir()
+
+        params = {"sleep_secs": 2, "experiment_id": "exp1", "tmp_dir": str(job_tmp_path)}
+
+        job1_id = submit_job(exclusive_sleep_fun, params).job_id
+        job2_id = submit_job(exclusive_sleep_fun, params).job_id
+
+        wait_job_finalize(job1_id)
+        wait_job_finalize(job2_id)
+
+        job1 = get_job(job1_id)
+        job2 = get_job(job2_id)
+
+        # One job succeeds, the other is canceled (skipped due to exclusive lock)
+        statuses = {job1.status, job2.status}
+        assert JobStatus.SUCCEEDED in statuses
+        assert JobStatus.CANCELED in statuses
+
+
+def test_exclusive_job_allows_different_params(monkeypatch, tmp_path: Path):
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["tests.server.jobs.test_jobs.exclusive_sleep_fun"],
+        allowed_job_names=["exclusive_sleep_fun"],
+    ):
+        job_tmp_path = tmp_path / "job"
+        job_tmp_path.mkdir()
+
+        job1_id = submit_job(
+            exclusive_sleep_fun,
+            {"sleep_secs": 2, "experiment_id": "exp1", "tmp_dir": str(job_tmp_path)},
+        ).job_id
+        job2_id = submit_job(
+            exclusive_sleep_fun,
+            {"sleep_secs": 2, "experiment_id": "exp2", "tmp_dir": str(job_tmp_path)},
+        ).job_id
+
+        wait_job_finalize(job1_id)
+        wait_job_finalize(job2_id)
+
+        # Both jobs should succeed since they have different params
+        assert get_job(job1_id).status == JobStatus.SUCCEEDED
+        assert get_job(job2_id).status == JobStatus.SUCCEEDED
