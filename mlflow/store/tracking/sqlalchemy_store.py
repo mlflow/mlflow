@@ -2474,6 +2474,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             MlflowException: If scorer is not found or does not use a gateway model.
         """
         if filter_string:
+            # Validate the filter string syntax before storing
             SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
 
         with self.ManagedSessionMaker() as session:
