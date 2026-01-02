@@ -17,7 +17,7 @@ class OnlineTraceScoringCheckpoint:
     """Checkpoint for trace-level online scoring."""
 
     timestamp_ms: int
-    request_id: str | None = None
+    trace_id: str | None = None
 
     def to_json(self) -> str:
         """Serialize checkpoint to JSON string."""
