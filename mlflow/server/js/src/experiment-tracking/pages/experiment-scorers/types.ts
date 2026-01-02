@@ -99,10 +99,10 @@ interface EvaluateChatParamsBase {
   itemCount?: number;
   // Explicit list of item IDs to evaluate. Can be either trace IDs or session IDs. This is used to override the itemCount.
   itemIds?: string[];
-  scope?: ScorerEvaluationScope;
   locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   experimentId: string;
   serializedScorer?: string;
+  evaluationScope?: ScorerEvaluationScope;
 }
 
 /**

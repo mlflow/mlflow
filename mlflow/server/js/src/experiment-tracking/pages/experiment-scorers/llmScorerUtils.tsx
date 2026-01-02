@@ -2,14 +2,15 @@ import { useMemo } from 'react';
 import { useIntl } from '@databricks/i18n';
 import { LLM_TEMPLATE, SESSION_LEVEL_LLM_TEMPLATES, TRACE_LEVEL_LLM_TEMPLATES } from './types';
 import type { FeedbackAssessment } from '@databricks/web-shared/model-trace-explorer';
-import { getModelTraceId } from '@databricks/web-shared/model-trace-explorer';
+import { getModelTraceId, isV3ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 import { SESSION_TEMPLATE_VARIABLES, TEMPLATE_VARIABLES } from '../../utils/evaluationUtils';
 import { ScorerEvaluationScope } from './constants';
 import {
   isFeedbackAssessmentInJudgeEvaluationResult,
-  SessionJudgeEvaluationResult,
-  TraceJudgeEvaluationResult,
+  isSessionJudgeEvaluationResult,
+  JudgeEvaluationResult,
 } from './useEvaluateTraces.common';
+import { first } from 'lodash';
 
 // Custom hook for template options
 export const useTemplateOptions = (scope?: ScorerEvaluationScope) => {
@@ -186,11 +187,17 @@ export const validateInstructions = (value: string | undefined, scope?: ScorerEv
  * @returns A FeedbackAssessment object containing the evaluation result or error
  */
 export const convertEvaluationResultToAssessment = (
-  evaluationResult: TraceJudgeEvaluationResult,
+  evaluationResult: JudgeEvaluationResult,
   scorerName: string,
   index?: number,
 ): FeedbackAssessment => {
-  const traceId = evaluationResult.trace ? getModelTraceId(evaluationResult.trace) : '';
+  let traceId = 'trace' in evaluationResult && evaluationResult.trace ? getModelTraceId(evaluationResult.trace) : '';
+
+  if (isSessionJudgeEvaluationResult(evaluationResult)) {
+    const info = first(evaluationResult.traces)?.info;
+    traceId = info && isV3ModelTraceInfo(info) ? info.trace_id : traceId;
+  }
+
   const now = new Date().toISOString();
 
   // Get the first result from the results array (there should only be one when converting to assessment)
@@ -225,17 +232,4 @@ export const convertEvaluationResultToAssessment = (
     rationale: firstResult?.rationale ?? undefined,
     metadata: firstResult?.span_name ? { span_name: firstResult.span_name } : undefined,
   };
-};
-
-/**
- * Extracts assessments from a session evaluation result.
- * Generates a unique assessment ID for each assessment for display purposes.
- */
-export const getAssessmentsFromSessionEvaluation = (
-  evaluationResult: SessionJudgeEvaluationResult,
-): FeedbackAssessment[] => {
-  return evaluationResult.results.map((result, index) => ({
-    ...result,
-    assessment_id: `${Date.now()}-${index}`,
-  }));
 };

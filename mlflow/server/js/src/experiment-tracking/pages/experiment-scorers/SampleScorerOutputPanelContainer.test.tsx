@@ -13,6 +13,7 @@ import { describe } from '@jest/globals';
 import { beforeEach } from '@jest/globals';
 import { it } from '@jest/globals';
 import { expect } from '@jest/globals';
+import { ScorerEvaluationScope } from './constants';
 
 jest.mock('./useEvaluateTraces');
 jest.mock('./SampleScorerOutputPanelRenderer');
@@ -195,6 +196,7 @@ describe('SampleScorerOutputPanelContainer', () => {
       rendererProps.handleRunScorer();
 
       expect(mockEvaluateTraces).toHaveBeenCalledWith({
+        evaluationScope: ScorerEvaluationScope.TRACES,
         itemCount: 10,
         itemIds: [],
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],

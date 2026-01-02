@@ -313,13 +313,11 @@ export interface EvaluateTracesState {
  */
 export function useEvaluateTraces({
   onScorerFinished,
-  evaluationScope,
 }: {
   /**
    * Callback to be called when the evaluation is finished.
    */
   onScorerFinished?: () => void;
-  evaluationScope?: ScorerEvaluationScope;
 } = {}): [(params: EvaluateTracesParams) => Promise<JudgeEvaluationResult[] | void>, EvaluateTracesState] {
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState<JudgeEvaluationResult[] | null>(null);
@@ -591,7 +589,6 @@ export function useEvaluateTraces({
 
   const [evaluateTracesAsync, asyncEvaluationState] = useEvaluateTracesAsync({
     onScorerFinished,
-    evaluationScope,
   });
 
   if (usingAsyncMode) {

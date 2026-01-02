@@ -710,14 +710,11 @@ describe('useEvaluateTracesAsync', () => {
       setupTraceFetchHandlers(server, traces);
 
       const onScorerFinished = jest.fn();
-      const getSerializedScorer = jest.fn<() => string>().mockReturnValue(serializedScorer);
 
       const { result } = renderHook(
         () =>
           useEvaluateTracesAsync({
             onScorerFinished,
-            getSerializedScorer,
-            evaluationScope: ScorerEvaluationScope.SESSIONS,
           }),
         { wrapper },
       );
@@ -730,7 +727,8 @@ describe('useEvaluateTracesAsync', () => {
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           experimentId,
           judgeInstructions: 'Evaluate the session',
-          scope: ScorerEvaluationScope.SESSIONS,
+          evaluationScope: ScorerEvaluationScope.SESSIONS,
+          serializedScorer,
         });
       });
 
