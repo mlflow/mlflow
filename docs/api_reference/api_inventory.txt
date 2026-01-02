@@ -926,6 +926,7 @@ mlflow.genai.scorers.base.Scorer
 mlflow.genai.scorers.base.ScorerSamplingConfig
 mlflow.genai.scorers.builtin_scorers.Completeness
 mlflow.genai.scorers.builtin_scorers.ConversationCompleteness
+mlflow.genai.scorers.builtin_scorers.ConversationalGuidelines
 mlflow.genai.scorers.builtin_scorers.ConversationalRoleAdherence
 mlflow.genai.scorers.builtin_scorers.ConversationalSafety
 mlflow.genai.scorers.builtin_scorers.ConversationalToolCallEfficiency
