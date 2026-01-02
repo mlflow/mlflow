@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from mlflow.data import Dataset
@@ -21,6 +22,17 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from mlflow.entities.trace import Trace
+
+
+SESSION_IDENTIFIER_FIELDS = frozenset({"goal"})
+SESSION_INPUT_FIELDS = frozenset({"persona", "goal", "context"})
+SESSION_ALLOWED_COLUMNS = SESSION_INPUT_FIELDS | {"expectations", "tags", "source"}
+
+
+class DatasetGranularity(Enum):
+    TRACE = "trace"
+    SESSION = "session"
+    UNKNOWN = "unknown"
 
 
 class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
@@ -210,6 +222,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         Args:
             records: Records to merge. Can be:
                 - List of dictionaries with 'inputs' and optionally 'expectations' and 'tags'
+                - Session format with top-level 'persona', 'goal', 'context' fields
+                - Session format with 'persona', 'goal', 'context' nested inside 'inputs'
                 - DataFrame from mlflow.search_traces() - automatically parsed and converted
                 - DataFrame with 'inputs' column and optionally 'expectations' and 'tags' columns
                 - List of Trace objects
@@ -227,6 +241,13 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 # Or with standard DataFrame
                 df = pd.DataFrame([{"inputs": {"q": "What?"}, "expectations": {"a": "Answer"}}])
                 dataset.merge_records(df)
+
+                # Session format with top-level fields
+                test_cases = [
+                    {"persona": "Student", "goal": "Find articles"},
+                    {"persona": "Student", "goal": "Get help", "context": {"id": "U1"}},
+                ]
+                dataset.merge_records(test_cases)
         """
         import pandas as pd
 
@@ -240,6 +261,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         else:
             record_dicts = records
 
+        record_dicts = self._normalize_session_records(record_dicts)
         self._validate_record_dicts(record_dicts)
 
         self._infer_source_types(record_dicts)
@@ -247,13 +269,16 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         tracking_store = _get_store()
 
         try:
-            tracking_store.get_dataset(self.dataset_id)
+            existing_dataset = tracking_store.get_dataset(self.dataset_id)
+            self._schema = existing_dataset.schema
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
                 f"Cannot add records to dataset {self.dataset_id}: Dataset not found. "
                 f"Please verify the dataset exists and check your tracking URI is set correctly "
                 f"(currently set to: {get_tracking_uri()})."
             ) from e
+
+        self._validate_schema(record_dicts)
 
         context_tags = context_registry.resolve_tags()
         if user_tag := context_tags.get(MLFLOW_USER):
@@ -314,6 +339,148 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                     "source_type": DatasetRecordSourceType.CODE.value,
                     "source_data": {},
                 }
+
+    def _normalize_session_records(
+        self, record_dicts: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """
+        Normalize records by moving top-level persona, goal, context into inputs.
+
+        {"persona": "Student", "goal": "Find articles"} becomes
+        {"inputs": {"persona": "Student", "goal": "Find articles"}}
+
+        Args:
+            record_dicts: List of record dictionaries to normalize
+
+        Returns:
+            List of normalized record dictionaries with session fields inside inputs
+
+        Raises:
+            MlflowException: If record has both 'inputs' and top-level session fields,
+                or contains unknown columns in session format
+        """
+        normalized = []
+
+        for record in record_dicts:
+            if not (set(record.keys()) & SESSION_IDENTIFIER_FIELDS):
+                normalized.append(record.copy())
+                continue
+
+            if "inputs" in record:
+                raise MlflowException.invalid_parameter_value(
+                    "Cannot specify both 'inputs' and top-level session fields "
+                    "(goal, persona, context). Use one or the other."
+                )
+
+            if unknown_columns := set(record.keys()) - SESSION_ALLOWED_COLUMNS:
+                raise MlflowException.invalid_parameter_value(
+                    f"Unknown columns in session format: {list(unknown_columns)}. "
+                    "Custom fields should be placed inside 'context'."
+                )
+
+            new_record = {"inputs": {}}
+            for key, value in record.items():
+                if key in SESSION_INPUT_FIELDS:
+                    new_record["inputs"][key] = value
+                else:
+                    new_record[key] = value
+            normalized.append(new_record)
+
+        return normalized
+
+    def _validate_schema(self, record_dicts: list[dict[str, Any]]) -> None:
+        """
+        Validate schema consistency of new records and compatibility with existing dataset.
+
+        Args:
+            record_dicts: List of normalized record dictionaries
+
+        Raises:
+            MlflowException: If records have invalid schema, inconsistent schemas within batch,
+                or are incompatible with existing dataset schema
+        """
+        granularity_counts: dict[DatasetGranularity, int] = {}
+
+        for record in record_dicts:
+            input_keys = set(record.get("inputs", {}).keys())
+            if not input_keys:
+                continue
+
+            record_type = self._classify_input_fields(input_keys)
+
+            if record_type == DatasetGranularity.UNKNOWN:
+                session_fields = input_keys & SESSION_IDENTIFIER_FIELDS
+                other_fields = input_keys - SESSION_INPUT_FIELDS
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid input schema: cannot mix session fields {list(session_fields)} "
+                    f"with other fields {list(other_fields)}. "
+                    f"Consider placing {list(other_fields)} fields inside 'context'."
+                )
+
+            granularity_counts[record_type] = granularity_counts.get(record_type, 0) + 1
+
+        if len(granularity_counts) > 1:
+            counts_str = ", ".join(
+                f"{count} records with {granularity.value} granularity"
+                for granularity, count in granularity_counts.items()
+            )
+            raise MlflowException.invalid_parameter_value(
+                f"All records must use the same granularity. Found {counts_str}."
+            )
+
+        batch_granularity = next(iter(granularity_counts), DatasetGranularity.UNKNOWN)
+        existing_granularity = self._get_existing_granularity()
+
+        if DatasetGranularity.UNKNOWN in {batch_granularity, existing_granularity}:
+            return
+
+        if batch_granularity != existing_granularity:
+            raise MlflowException.invalid_parameter_value(
+                f"New records use {batch_granularity.value} granularity, but existing "
+                f"dataset uses {existing_granularity.value}. Cannot mix granularities."
+            )
+
+    def _get_existing_granularity(self) -> DatasetGranularity:
+        """
+        Get granularity from the dataset's stored schema.
+
+        Returns:
+            DatasetGranularity based on existing records, or UNKNOWN if empty/unparseable
+        """
+        if self._schema is None:
+            return DatasetGranularity.UNKNOWN
+        try:
+            schema = json.loads(self._schema)
+            input_keys = set(schema.get("inputs", {}).keys())
+            return self._classify_input_fields(input_keys)
+        except (json.JSONDecodeError, TypeError):
+            return DatasetGranularity.UNKNOWN
+
+    def _classify_input_fields(self, input_keys: set[str]) -> DatasetGranularity:
+        """
+        Classify a set of input field names into a granularity type:
+        - SESSION: Has 'goal' field, and only session fields (persona, goal, context)
+        - TRACE: No 'goal' field present
+        - UNKNOWN: Empty or has 'goal' mixed with non-session fields
+
+        Args:
+            input_keys: Set of field names from a record's inputs
+
+        Returns:
+            DatasetGranularity classification for the input fields
+        """
+        if not input_keys:
+            return DatasetGranularity.UNKNOWN
+
+        has_session_identifier = bool(input_keys & SESSION_IDENTIFIER_FIELDS)
+
+        if not has_session_identifier:
+            return DatasetGranularity.TRACE
+
+        if input_keys <= SESSION_INPUT_FIELDS:
+            return DatasetGranularity.SESSION
+
+        return DatasetGranularity.UNKNOWN
 
     def to_df(self) -> "pd.DataFrame":
         """
