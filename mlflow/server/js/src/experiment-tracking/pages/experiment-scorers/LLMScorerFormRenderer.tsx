@@ -384,11 +384,15 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
                 rows={7}
                 placeholder={
                   isSessionLevelScorer
-                    ? intl.formatMessage({
-                        defaultMessage:
-                          "Evaluate the conversation between a user and an assistant '{{ conversation }}'.",
-                        description: 'Placeholder text for session level instructions textarea',
-                      })
+                    ? intl.formatMessage(
+                        {
+                          defaultMessage: `Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.`,
+                          description: 'Placeholder text for session level instructions textarea. {br} is a newline.',
+                        },
+                        {
+                          br: '\n',
+                        },
+                      )
                     : intl.formatMessage({
                         defaultMessage:
                           "Evaluate if the response in '{{ outputs }}' correctly answers the question in '{{ inputs }}'. The response should be accurate, complete, and professional.",
