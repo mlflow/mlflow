@@ -2164,18 +2164,18 @@ def test_multiturn_valid_formats(tracking_uri, experiments, records):
     [
         # inputs with top-level fields
         (
-            [{"inputs": {"question": "What is MLflow?"}, "persona": "Student"}],
-            "Cannot specify both 'inputs' and top-level",
+            [{"inputs": {"question": "What is MLflow?"}, "goal": "Answer question"}],
+            "Cannot specify both 'inputs' and top-level session fields",
         ),
         # Unknown top-level columns
         (
             [{"persona": "Student", "goal": "Find articles", "custom_field": "value"}],
-            "Unknown columns in multiturn format",
+            "Unknown columns in session format",
         ),
         # Mixed fields in inputs
         (
             [{"inputs": {"persona": "Student", "goal": "Find", "custom_field": "value"}}],
-            "Cannot mix multiturn fields.*with custom fields",
+            "Invalid input schema.*cannot mix session fields",
         ),
         # Inconsistent batch schema
         (
@@ -2183,7 +2183,7 @@ def test_multiturn_valid_formats(tracking_uri, experiments, records):
                 {"inputs": {"persona": "Student", "goal": "Find articles"}},
                 {"inputs": {"question": "What is MLflow?"}},
             ],
-            "must use the same schema type",
+            "must use the same granularity.*Found",
         ),
     ],
 )
@@ -2212,7 +2212,7 @@ def test_multiturn_schema_compatibility(tracking_uri, experiments, existing_reco
     dataset = create_dataset(name="multiturn_compat_test", experiment_id=experiments[0])
     dataset.merge_records(existing_records)
 
-    with pytest.raises(MlflowException, match="existing dataset.*schema"):
+    with pytest.raises(MlflowException, match="Cannot mix granularities"):
         dataset.merge_records(new_records)
 
 
