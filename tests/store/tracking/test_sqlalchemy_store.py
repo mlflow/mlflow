@@ -6299,6 +6299,21 @@ def test_search_traces_with_metadata_is_null_filter(store: SqlAlchemyStore):
     trace_ids = {t.request_id for t in traces}
     assert trace_ids == {trace2_id}
 
+    # IS NOT NULL tests
+    traces, _ = store.search_traces([exp_id], filter_string="metadata.region IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="metadata.env IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='metadata.region IS NOT NULL AND metadata.env = "production"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id}
+
 
 @pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
 def test_search_traces_with_metadata_rlike_filters(store: SqlAlchemyStore):

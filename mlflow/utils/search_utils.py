@@ -126,7 +126,34 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
             )
             continue
 
+        # IS NOT NULL (for trace metadata) - "NOT NULL" may be parsed as single token
+        if (
+            search_traces
+            and isinstance(first, Identifier)
+            and second.match(ttype=TokenType.Keyword, values=["IS"])
+            and third.ttype == TokenType.Keyword
+            and third.value.upper() == "NOT NULL"
+        ):
+            joined_tokens.append(
+                Comparison(TokenList([first, Token(TokenType.Keyword, "IS NOT NULL")]))
+            )
+            continue
+
         (_, fourth) = next(iterator, (None, None))
+
+        # IS NOT NULL (for trace metadata) - "NOT" and "NULL" as separate tokens
+        if (
+            search_traces
+            and isinstance(first, Identifier)
+            and second.match(ttype=TokenType.Keyword, values=["IS"])
+            and third.match(ttype=TokenType.Keyword, values=["NOT"])
+            and fourth is not None
+            and fourth.match(ttype=TokenType.Keyword, values=["NULL"])
+        ):
+            joined_tokens.append(
+                Comparison(TokenList([first, Token(TokenType.Keyword, "IS NOT NULL")]))
+            )
+            continue
         if fourth is None:
             joined_tokens.extend([first, second, third])
             break
@@ -1655,7 +1682,7 @@ class SearchTraceUtils(SearchUtils):
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE"}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
     VALID_SPAN_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
-    VALID_METADATA_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL"}
+    VALID_METADATA_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
 
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
     _TAG_IDENTIFIER = "tag"
@@ -2020,10 +2047,10 @@ class SearchTraceUtils(SearchUtils):
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
 
-        # Handle IS NULL (2 tokens: identifier + comparator, no value)
+        # Handle IS NULL / IS NOT NULL (2 tokens: identifier + comparator, no value)
         if len(stripped_comparison) == 2:
             comparator = stripped_comparison[1].value.upper()
-            if comparator == "IS NULL":
+            if comparator in ("IS NULL", "IS NOT NULL"):
                 comp = cls._get_identifier(
                     stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS
                 )
