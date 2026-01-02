@@ -6299,7 +6299,18 @@ def test_search_traces_with_metadata_is_null_filter(store: SqlAlchemyStore):
     trace_ids = {t.request_id for t in traces}
     assert trace_ids == {trace2_id}
 
-    # IS NOT NULL tests
+
+def test_search_traces_with_metadata_is_not_null_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_metadata_is_not_null")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, trace_metadata={"env": "production", "region": "us"})
+    _create_trace(store, trace2_id, exp_id, trace_metadata={"env": "staging"})
+    _create_trace(store, trace3_id, exp_id, trace_metadata={})
+
     traces, _ = store.search_traces([exp_id], filter_string="metadata.region IS NOT NULL")
     trace_ids = {t.request_id for t in traces}
     assert trace_ids == {trace1_id}
