@@ -96,14 +96,14 @@ uv run --extra gateway pytest tests/gateway
 
 ```bash
 # Python linting and formatting with Ruff
-uv run --only-group lint ruff check . --fix         # Lint with auto-fix
-uv run --only-group lint ruff format .              # Format code
+uv run ruff check . --fix         # Lint with auto-fix
+uv run ruff format .              # Format code
 
 # Custom MLflow linting with Clint
-uv run --only-group lint clint .                    # Run MLflow custom linter
+uv run clint .                    # Run MLflow custom linter
 
 # Check for MLflow spelling typos
-uv run --only-group lint bash dev/mlflow-typo.sh .
+uv run bash dev/mlflow-typo.sh .
 
 # JavaScript linting and formatting
 (cd mlflow/server/js && yarn lint)
@@ -165,10 +165,10 @@ See `mlflow/server/js/` for frontend development.
 git commit -s -m "Your commit message"
 
 # Then check all files changed in your PR
-uv run --only-group lint pre-commit run --from-ref origin/master --to-ref HEAD
+uv run pre-commit run --from-ref origin/master --to-ref HEAD
 
 # Re-run pre-commit to verify fixes
-uv run --only-group lint pre-commit run --from-ref origin/master --to-ref HEAD
+uv run pre-commit run --from-ref origin/master --to-ref HEAD
 
 # Only push once all checks pass
 git push origin <your-branch>
@@ -220,21 +220,21 @@ gh run watch
 The repository uses pre-commit for code quality. Install hooks with:
 
 ```bash
-uv run --only-group lint pre-commit install --install-hooks
-uv run --only-group lint pre-commit run install-bin -a -v
+uv run pre-commit install --install-hooks
+uv run pre-commit run install-bin -a -v
 ```
 
 Run pre-commit manually:
 
 ```bash
 # Run on all files
-uv run --only-group lint pre-commit run --all-files
+uv run pre-commit run --all-files
 
 # Run on specific files
-uv run --only-group lint pre-commit run --files path/to/file.py
+uv run pre-commit run --files path/to/file.py
 
 # Run a specific hook
-uv run --only-group lint pre-commit run ruff --all-files
+uv run pre-commit run ruff --all-files
 ```
 
 This runs Ruff, typos checker, and other tools automatically before commits.
