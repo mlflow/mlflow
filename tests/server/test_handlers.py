@@ -1648,9 +1648,9 @@ def test_get_online_scoring_configs_batch(mock_tracking_store):
     mock_tracking_store.get_online_scoring_configs.return_value = mock_configs
 
     with app.test_client() as c:
-        resp = c.post(
+        resp = c.get(
             "/ajax-api/3.0/mlflow/scorers/online-configs",
-            json={"scorer_ids": ["scorer-1", "scorer-2"]},
+            query_string=[("scorer_ids", "scorer-1"), ("scorer_ids", "scorer-2")],
         )
         assert resp.status_code == 200
         data = resp.get_json()
@@ -1663,22 +1663,10 @@ def test_get_online_scoring_configs_batch(mock_tracking_store):
     mock_tracking_store.get_online_scoring_configs.assert_called_once_with(["scorer-1", "scorer-2"])
 
 
-def test_get_online_scoring_configs_empty_list(mock_tracking_store):
-    mock_tracking_store.get_online_scoring_configs.return_value = {}
-
-    with app.test_client() as c:
-        resp = c.post(
-            "/ajax-api/3.0/mlflow/scorers/online-configs",
-            json={"scorer_ids": []},
-        )
-        assert resp.status_code == 400
-
-
 def test_get_online_scoring_configs_missing_param(mock_tracking_store):
     with app.test_client() as c:
-        resp = c.post(
+        resp = c.get(
             "/ajax-api/3.0/mlflow/scorers/online-configs",
-            json={},
         )
         assert resp.status_code == 400
         data = resp.get_json()
