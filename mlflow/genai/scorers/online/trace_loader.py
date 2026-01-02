@@ -33,7 +33,7 @@ class OnlineTraceLoader:
         # Preserve order, skip missing
         return [trace_map[tid] for tid in trace_ids if tid in trace_map]
 
-    def fetch_trace_infos_between(
+    def fetch_trace_infos_in_range(
         self,
         experiment_id: str,
         start_time_ms: int,
@@ -97,7 +97,7 @@ class OnlineTraceLoader:
             page_token = token
 
         _logger.info(
-            f"Fetched {len(all_trace_infos)} trace infos between {start_time_ms} and {end_time_ms}"
+            f"Fetched {len(all_trace_infos)} trace infos in range [{start_time_ms}, {end_time_ms}]"
         )
 
         return [t.info if isinstance(t, Trace) else t for t in all_trace_infos]
