@@ -4,7 +4,10 @@ from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConf
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
 from mlflow.genai.scorers.online.trace_checkpointer import OnlineTraceCheckpointManager
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
-from mlflow.genai.scorers.online.trace_processor import OnlineTraceScoringProcessor
+
+# Note: OnlineTraceScoringProcessor is intentionally not imported here to avoid
+# pulling in pandas (via EvalItem) in the skinny client. Import it directly:
+# from mlflow.genai.scorers.online.trace_processor import OnlineTraceScoringProcessor
 
 __all__ = [
     "OnlineScorer",
@@ -12,5 +15,4 @@ __all__ = [
     "OnlineScoringConfig",
     "OnlineTraceCheckpointManager",
     "OnlineTraceLoader",
-    "OnlineTraceScoringProcessor",
 ]
