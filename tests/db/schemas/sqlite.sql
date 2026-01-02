@@ -444,6 +444,17 @@ CREATE TABLE model_version_tags (
 )
 
 
+CREATE TABLE online_scoring_configs (
+	online_scoring_config_id VARCHAR(36) NOT NULL,
+	scorer_id VARCHAR(36) NOT NULL,
+	sample_rate FLOAT NOT NULL,
+	filter_string TEXT,
+	CONSTRAINT online_scoring_config_pk PRIMARY KEY (online_scoring_config_id),
+	CONSTRAINT fk_online_scoring_configs_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE,
+	CONSTRAINT unique_online_scoring_config_scorer_id UNIQUE (scorer_id)
+)
+
+
 CREATE TABLE params (
 	key VARCHAR(250) NOT NULL,
 	value VARCHAR(8000) NOT NULL,
