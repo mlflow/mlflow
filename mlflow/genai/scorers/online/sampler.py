@@ -22,31 +22,31 @@ class OnlineScorerSampler:
     - Use conditional probability: if a scorer is rejected, skip all lower-rate scorers
     """
 
-    def __init__(self, configs: list["OnlineScorer"]):
-        self.configs = configs
+    def __init__(self, online_scorers: list["OnlineScorer"]):
+        self._online_scorers = online_scorers
         self._sample_rates: dict[str, float] = {}
         self._scorers: dict[str, Scorer] = {}
-        for config in configs:
-            scorer_dict = json.loads(config.serialized_scorer)
+        for online_scorer in online_scorers:
+            scorer_dict = json.loads(online_scorer.serialized_scorer)
             scorer = Scorer.model_validate(scorer_dict)
-            self._sample_rates[scorer.name] = config.sample_rate
+            self._sample_rates[scorer.name] = online_scorer.sample_rate
             self._scorers[scorer.name] = scorer
 
     def get_filter_strings(self) -> set[str | None]:
-        """Get all unique filter strings from configs."""
-        return {c.filter_string for c in self.configs}
+        """Get all unique filter strings from online scorers."""
+        return {s.filter_string for s in self._online_scorers}
 
     def get_scorers_for_filter(
         self, filter_string: str | None, session_level: bool
     ) -> list[Scorer]:
         """Get scorers matching the filter string and session level."""
         result = []
-        for config in self.configs:
-            scorer_dict = json.loads(config.serialized_scorer)
+        for online_scorer in self._online_scorers:
+            scorer_dict = json.loads(online_scorer.serialized_scorer)
             scorer = self._scorers.get(scorer_dict.get("name"))
             if (
                 scorer
-                and config.filter_string == filter_string
+                and online_scorer.filter_string == filter_string
                 and scorer.is_session_level_scorer == session_level
             ):
                 result.append(scorer)
