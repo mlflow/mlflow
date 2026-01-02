@@ -1,11 +1,7 @@
-"""
-Huey job function for async scorer invocation.
-
-This module provides the job function for invoking scorers on traces asynchronously.
-It reuses the core scoring and logging logic from the evaluation harness for consistency.
-"""
+"""Huey job functions for async scorer invocation."""
 
 import json
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -14,6 +10,7 @@ from mlflow.entities import Trace
 from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_MAX_WORKERS,
     MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS,
+    MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS,
     MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE,
 )
 from mlflow.exceptions import MlflowException
@@ -24,9 +21,12 @@ from mlflow.genai.evaluation.session_utils import (
     get_first_trace_in_session,
 )
 from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.online import OnlineScorer, OnlineTraceScoringProcessor
 from mlflow.server.jobs import job
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.constant import TraceMetadataKey
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -50,6 +50,34 @@ def _extract_failures_from_feedbacks(feedbacks: list[Any]) -> list[ScorerFailure
         for feedback in feedbacks
         if feedback.error
     ]
+
+
+@job(
+    name="run_online_trace_scorer",
+    max_workers=MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS.get(),
+    exclusive=True,
+)
+def run_online_trace_scorer_job(
+    experiment_id: str,
+    online_scorers: list[dict[str, Any]],
+) -> None:
+    """
+    Job that fetches samples of individual traces and runs scorers on them.
+
+    This job is exclusive per (experiment_id, online_scorers) combination to prevent
+    duplicate scoring of the same traces.
+
+    Args:
+        experiment_id: The experiment ID to fetch traces from.
+        online_scorers: List of OnlineScorer dicts specifying which scorers to run.
+    """
+    from mlflow.server.handlers import _get_tracking_store
+
+    scorer_objects = [OnlineScorer(**scorer_dict) for scorer_dict in online_scorers]
+
+    tracking_store = _get_tracking_store()
+    processor = OnlineTraceScoringProcessor.create(experiment_id, scorer_objects, tracking_store)
+    processor.process_traces()
 
 
 @job(name="invoke_scorer", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
