@@ -22,7 +22,6 @@ from sqlalchemy.exc import IntegrityError
 
 import mlflow
 import mlflow.db
-import mlflow.store.db.base_sql_model
 from mlflow import entities
 from mlflow.entities import (
     AssessmentSource,

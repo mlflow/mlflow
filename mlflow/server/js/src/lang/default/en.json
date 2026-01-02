@@ -51,6 +51,10 @@
     "defaultMessage": "Step 1: Install MLflow",
     "description": "Step 1 title for custom judge creation"
   },
+  "+Njd07": {
+    "defaultMessage": "No sessions found",
+    "description": "Title for the empty sessions list in the select sessions modal"
+  },
   "+Oupsq": {
     "defaultMessage": "Start with a built-in LLM judge template or create your own.",
     "description": "Hint text for LLM template selection with documentation link"
@@ -769,6 +773,10 @@
   "4OcdLd": {
     "defaultMessage": "This version",
     "description": "Model registry > model version alias select > Indicator for alias of selected version"
+  },
+  "4PhvDM": {
+    "defaultMessage": "Select",
+    "description": "Confirm button in the select sessions modal"
   },
   "4TDvGX": {
     "defaultMessage": "edited {when} by {user}",
@@ -3541,6 +3549,10 @@
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description of error fallback component"
   },
+  "S+cwv0": {
+    "defaultMessage": "Select sessions",
+    "description": "Title for the select sessions modal"
+  },
   "S3YY1P": {
     "defaultMessage": "Span: {spanName}",
     "description": "Label for the span name in assessment metadata"
@@ -5523,6 +5535,10 @@
     "defaultMessage": "Provider",
     "description": "Secret provider label"
   },
+  "hKQs4I": {
+    "defaultMessage": "{count, plural, one {1 session selected} other {# sessions selected}}",
+    "description": "Label for the number of sessions selected"
+  },
   "hR2Zvd": {
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. Implement your scoring logic in the function body. {link}",
     "description": "Step 2 description for defining judge function"
@@ -6618,6 +6634,10 @@
   "qIsNL0": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Parameters table > Value column header"
+  },
+  "qJEdUj": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button in the select sessions modal"
   },
   "qKGnLV": {
     "defaultMessage": "Model Config:",

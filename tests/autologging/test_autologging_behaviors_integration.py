@@ -317,7 +317,6 @@ def test_autolog_globally_configured_flag_set_correctly():
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
     AUTOLOGGING_INTEGRATIONS.clear()
-    import pyspark
     import pyspark.ml  # noqa: F401
     import sklearn  # noqa: F401
 
