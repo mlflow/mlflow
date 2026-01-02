@@ -2451,71 +2451,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             return {config.scorer_id: config.to_mlflow_entity() for config in results}
 
-    def get_active_online_scorers(self) -> list["OnlineScorer"]:
-        """
-        Get all active online scorers across all experiments.
-
-        Active online scorers are those with a sample_rate greater than zero.
-        Gateway endpoint IDs in the serialized scorers are resolved to endpoint names.
-
-        Returns:
-            List of OnlineScorer entities with name, experiment_id, serialized_scorer,
-            sample_rate, and filter_string fields populated.
-        """
-        from mlflow.genai.scorers.online.entities import OnlineScorer
-
-        with self.ManagedSessionMaker() as session:
-            # Subquery to get the max version for each scorer
-            max_version_subquery = (
-                session.query(
-                    SqlScorerVersion.scorer_id,
-                    func.max(SqlScorerVersion.scorer_version).label("max_version"),
-                )
-                .group_by(SqlScorerVersion.scorer_id)
-                .subquery()
-            )
-
-            # Get all online configs with sample_rate > 0, joined with their latest version
-            results = (
-                session.query(
-                    SqlOnlineScoringConfig,
-                    SqlScorer,
-                    SqlScorerVersion,
-                )
-                .filter(SqlOnlineScoringConfig.sample_rate > 0)
-                .join(SqlScorer, SqlOnlineScoringConfig.scorer_id == SqlScorer.scorer_id)
-                .join(
-                    max_version_subquery,
-                    SqlScorer.scorer_id == max_version_subquery.c.scorer_id,
-                )
-                .join(
-                    SqlScorerVersion,
-                    and_(
-                        SqlScorerVersion.scorer_id == max_version_subquery.c.scorer_id,
-                        SqlScorerVersion.scorer_version == max_version_subquery.c.max_version,
-                    ),
-                )
-                .all()
-            )
-
-            # Batch resolve gateway endpoint IDs to names
-            scorers_with_resolved_endpoint = self._batch_resolve_endpoint_in_serialized_scorers(
-                [version.serialized_scorer for config, scorer, version in results]
-            )
-
-            return [
-                OnlineScorer(
-                    name=scorer.scorer_name,
-                    experiment_id=str(scorer.experiment_id),
-                    serialized_scorer=scorer_with_resolved_endpoint,
-                    sample_rate=config.sample_rate,
-                    filter_string=config.filter_string,
-                )
-                for (config, scorer, version), scorer_with_resolved_endpoint in zip(
-                    results, scorers_with_resolved_endpoint
-                )
-            ]
-
     def update_online_scoring_config(
         self,
         experiment_id: str,
@@ -2591,6 +2526,71 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.flush()
 
             return config.to_mlflow_entity()
+
+    def get_active_online_scorers(self) -> list["OnlineScorer"]:
+        """
+        Get all active online scorers across all experiments.
+
+        Active online scorers are those with a sample_rate greater than zero.
+        Gateway endpoint IDs in the serialized scorers are resolved to endpoint names.
+
+        Returns:
+            List of OnlineScorer entities with name, experiment_id, serialized_scorer,
+            sample_rate, and filter_string fields populated.
+        """
+        from mlflow.genai.scorers.online.entities import OnlineScorer
+
+        with self.ManagedSessionMaker() as session:
+            # Subquery to get the max version for each scorer
+            max_version_subquery = (
+                session.query(
+                    SqlScorerVersion.scorer_id,
+                    func.max(SqlScorerVersion.scorer_version).label("max_version"),
+                )
+                .group_by(SqlScorerVersion.scorer_id)
+                .subquery()
+            )
+
+            # Get all online configs with sample_rate > 0, joined with their latest version
+            results = (
+                session.query(
+                    SqlOnlineScoringConfig,
+                    SqlScorer,
+                    SqlScorerVersion,
+                )
+                .filter(SqlOnlineScoringConfig.sample_rate > 0)
+                .join(SqlScorer, SqlOnlineScoringConfig.scorer_id == SqlScorer.scorer_id)
+                .join(
+                    max_version_subquery,
+                    SqlScorer.scorer_id == max_version_subquery.c.scorer_id,
+                )
+                .join(
+                    SqlScorerVersion,
+                    and_(
+                        SqlScorerVersion.scorer_id == max_version_subquery.c.scorer_id,
+                        SqlScorerVersion.scorer_version == max_version_subquery.c.max_version,
+                    ),
+                )
+                .all()
+            )
+
+            # Batch resolve gateway endpoint IDs to names
+            scorers_with_resolved_endpoint = self._batch_resolve_endpoint_in_serialized_scorers(
+                [version.serialized_scorer for config, scorer, version in results]
+            )
+
+            return [
+                OnlineScorer(
+                    name=scorer.scorer_name,
+                    experiment_id=str(scorer.experiment_id),
+                    serialized_scorer=scorer_with_resolved_endpoint,
+                    sample_rate=config.sample_rate,
+                    filter_string=config.filter_string,
+                )
+                for (config, scorer, version), scorer_with_resolved_endpoint in zip(
+                    results, scorers_with_resolved_endpoint
+                )
+            ]
 
     def _apply_order_by_search_logged_models(
         self,
