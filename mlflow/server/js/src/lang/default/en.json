@@ -143,10 +143,6 @@
     "defaultMessage": "Oops!",
     "description": "Error modal title to rendering errors"
   },
-  "/3dY2h": {
-    "defaultMessage": "Evaluate the conversation between a user and an assistant '{{ conversation }}'.",
-    "description": "Placeholder text for session level instructions textarea"
-  },
   "/4Aok8": {
     "defaultMessage": "Run",
     "description": "Column header for the run name in the runs table on the logged model details page"
@@ -5938,6 +5934,10 @@
   "kCsAho": {
     "defaultMessage": "Correctness",
     "description": "LLM template option"
+  },
+  "kHDQiE": {
+    "defaultMessage": "Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.",
+    "description": "Placeholder text for session level instructions textarea. {br} is a newline."
   },
   "kHN/4I": {
     "defaultMessage": "Edited {timeSince} by {source}. Original value: {value}",
