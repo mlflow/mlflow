@@ -46,6 +46,7 @@ from mlflow.genai.scorers import Correctness
 Correctness(model="openai:/gpt-4o-mini")
 Correctness(model="anthropic:/claude-4-opus")
 Correctness(model="google:/gemini-2.0-flash")
+Correctness(model="bedrock:/amazon.nova-lite-v1:0")
 ```
 
 ### Supported Models
@@ -59,7 +60,29 @@ MLflow supports all major LLM providers:
 - Together AI
 - Any other providers supported by [LiteLLM](https://docs.litellm.ai/docs/providers), such as Google Gemini, xAI, Mistral, and more.
 
-To use LiteLLM integrated models, install LiteLLM by running `pip install litellm` and specify the provider and model name in the same format as natively supported providers, e.g., `gemini:/gemini-2.0-flash`.
+### Amazon Bedrock prerequisites (region + IAM)
+
+Amazon Bedrock is **region-scoped**. Before using Bedrock judge models (including Amazon Nova), make sure:
+
+- **Model access is enabled** for the target model in the same AWS Region you will call (Bedrock console → *Model access*).
+- Your environment has an AWS region configured (for example `AWS_REGION` or `AWS_DEFAULT_REGION`).
+- Your IAM role/user has permission to invoke Bedrock models (a common failure mode is `AccessDeniedException` when permissions or model access are missing).
+
+**Quick setup**
+```bash
+export AWS_REGION=us-east-1
+# or
+export AWS_DEFAULT_REGION=us-east-1
+```
+
+```python
+from mlflow.genai.scorers import Correctness
+Correctness(model="bedrock:/amazon.nova-lite-v1:0")
+```
+
+If you hit AccessDeniedException, verify both IAM permissions and that you’ve requested model access in the target region.
+
+To use LiteLLM integrated models, install LiteLLM by running pip install litellm and specify the provider and model name in the same format as natively supported providers, e.g., gemini:/gemini-2.0-flash.
 
 :::info
 
