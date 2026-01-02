@@ -27,6 +27,7 @@ _logger = logging.getLogger(__name__)
 
 _SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
+_SHAP_PLOT_RNG_MIN_VERSION = Version("0.47.0")
 
 
 def _shap_predict_fn(x, predict_fn, feature_names):
@@ -116,11 +117,19 @@ class ShapEvaluator(BuiltInEvaluator):
             )
             return
 
-        if Version(shap.__version__) < Version("0.40"):
+        shap_version = Version(shap.__version__)
+        shap_summary_plot_rng = None
+        if shap_version < Version("0.40"):
             _logger.warning(
                 "Shap package version is lower than 0.40, Skip log model explainability."
             )
             return
+        if shap_version >= _SHAP_PLOT_RNG_MIN_VERSION:
+            shap_plot_seed = self.evaluator_config.get("shap_plot_seed")
+            if isinstance(shap_plot_seed, np.random.Generator):
+                shap_summary_plot_rng = shap_plot_seed
+            else:
+                shap_summary_plot_rng = np.random.default_rng(shap_plot_seed)
 
         sample_rows = self.evaluator_config.get(
             "explainability_nsamples", _DEFAULT_SAMPLE_ROWS_FOR_SHAP
@@ -252,8 +261,12 @@ class ShapEvaluator(BuiltInEvaluator):
                 "shap_beeswarm_plot",
             )
 
+        summary_plot_kwargs = {"show": False, "color_bar": True}
+        if shap_summary_plot_rng is not None:
+            summary_plot_kwargs["rng"] = shap_summary_plot_rng
+
         def plot_summary():
-            shap.summary_plot(shap_values, show=False, color_bar=True)
+            shap.summary_plot(shap_values, **summary_plot_kwargs)
             _adjust_color_bar()
             _adjust_axis_tick()
 
