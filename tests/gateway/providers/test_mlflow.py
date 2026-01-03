@@ -289,7 +289,7 @@ async def test_chat():
             "http://127.0.0.1:4000/invocations",
             json={
                 "inputs": ["Is this a test?"],
-                "params": {"temperature": 0.0, "n": 1},
+                "params": {"n": 1},
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
