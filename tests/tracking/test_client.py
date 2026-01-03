@@ -3336,6 +3336,32 @@ def test_mlflow_client_delete_dataset_tag(mock_store):
     )
 
 
+def test_mlflow_client_delete_dataset_records(mock_store):
+    mock_store.delete_dataset_records.return_value = 2
+
+    result = MlflowClient().delete_dataset_records(
+        dataset_id="dataset_123",
+        dataset_record_ids=["record_1", "record_2"],
+    )
+
+    assert result == 2
+    mock_store.delete_dataset_records.assert_called_once_with(
+        dataset_id="dataset_123",
+        dataset_record_ids=["record_1", "record_2"],
+    )
+
+
+def test_mlflow_client_delete_dataset_records_empty(mock_store):
+    mock_store.delete_dataset_records.return_value = 0
+
+    result = MlflowClient().delete_dataset_records(
+        dataset_id="dataset_123",
+        dataset_record_ids=["nonexistent_record"],
+    )
+
+    assert result == 0
+
+
 def test_mlflow_client_add_dataset_to_experiments(mock_store):
     mock_dataset = Mock(spec=EvaluationDataset)
     mock_dataset.dataset_id = "dataset_123"

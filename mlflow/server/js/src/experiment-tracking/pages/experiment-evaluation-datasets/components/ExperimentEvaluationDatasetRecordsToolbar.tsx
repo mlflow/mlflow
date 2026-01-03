@@ -5,6 +5,8 @@ import {
   Input,
   RowsIcon,
   SearchIcon,
+  Spinner,
+  TrashIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -32,6 +34,9 @@ export const ExperimentEvaluationDatasetRecordsToolbar = ({
   setRowSize,
   searchFilter,
   setSearchFilter,
+  selectedCount,
+  onDeleteSelected,
+  isDeleting,
 }: {
   dataset: EvaluationDataset;
   datasetRecords: EvaluationDatasetRecord[];
@@ -42,6 +47,9 @@ export const ExperimentEvaluationDatasetRecordsToolbar = ({
   setRowSize: (rowSize: 'sm' | 'md' | 'lg') => void;
   searchFilter: string;
   setSearchFilter: (searchFilter: string) => void;
+  selectedCount: number;
+  onDeleteSelected: () => void;
+  isDeleting: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const datasetName = dataset?.name;
@@ -85,6 +93,22 @@ export const ExperimentEvaluationDatasetRecordsToolbar = ({
           </Typography.Text>
         </div>
         <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.xs }}>
+          {selectedCount > 0 && (
+            <Button
+              componentId="mlflow.eval-datasets.records-toolbar.delete-selected"
+              onClick={onDeleteSelected}
+              disabled={isDeleting}
+              type="primary"
+              danger
+              icon={isDeleting ? <Spinner size="small" /> : <TrashIcon />}
+            >
+              <FormattedMessage
+                defaultMessage="Delete {count} {count, plural, =1 {record} other {records}}"
+                description="Button to delete selected dataset records"
+                values={{ count: selectedCount }}
+              />
+            </Button>
+          )}
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <Button componentId="mlflow.eval-datasets.records-toolbar.row-size-toggle" icon={<RowsIcon />} />
