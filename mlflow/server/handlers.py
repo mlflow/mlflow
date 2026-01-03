@@ -4076,56 +4076,6 @@ def _update_online_scoring_config():
     return response
 
 
-def _find_completed_sessions():
-    """
-    Internal API handler for finding completed sessions for online scoring.
-    Returns sessions based on their last trace timestamp.
-    """
-    experiment_id = request.args.get("experiment_id")
-    min_last_trace_timestamp_ms = request.args.get("min_last_trace_timestamp_ms")
-    max_last_trace_timestamp_ms = request.args.get("max_last_trace_timestamp_ms")
-    max_results = request.args.get("max_results")
-
-    if not experiment_id:
-        raise MlflowException(
-            "Missing required parameter: experiment_id", error_code=INVALID_PARAMETER_VALUE
-        )
-    if min_last_trace_timestamp_ms is None:
-        raise MlflowException(
-            "Missing required parameter: min_last_trace_timestamp_ms",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-    if max_last_trace_timestamp_ms is None:
-        raise MlflowException(
-            "Missing required parameter: max_last_trace_timestamp_ms",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-    completed_sessions = _get_tracking_store().find_completed_sessions(
-        experiment_id=experiment_id,
-        min_last_trace_timestamp_ms=int(min_last_trace_timestamp_ms),
-        max_last_trace_timestamp_ms=int(max_last_trace_timestamp_ms),
-        max_results=int(max_results) if max_results is not None else None,
-    )
-
-    response = Response(mimetype="application/json")
-    response.set_data(
-        json.dumps(
-            {
-                "sessions": [
-                    {
-                        "session_id": s.session_id,
-                        "first_trace_timestamp_ms": s.first_trace_timestamp_ms,
-                        "last_trace_timestamp_ms": s.last_trace_timestamp_ms,
-                    }
-                    for s in completed_sessions
-                ]
-            }
-        )
-    )
-    return response
-
-
 # =============================================================================
 # Secrets Management Handlers
 # =============================================================================
@@ -4865,12 +4815,6 @@ def get_internal_online_scoring_endpoints():
             _get_rest_path("/mlflow/scorers/online-config", version=3),
             _update_online_scoring_config,
             ["PUT"],
-        ),
-        # No ajax equivalent needed - this is an internal API not called by the UI
-        (
-            _get_rest_path("/mlflow/traces/completed-sessions", version=3),
-            _find_completed_sessions,
-            ["GET"],
         ),
     ]
 
