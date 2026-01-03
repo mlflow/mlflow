@@ -1,23 +1,38 @@
 from mlflow.server.auth.entities import (
     ExperimentPermission,
+    GatewayEndpointPermission,
+    GatewayModelDefinitionPermission,
+    GatewaySecretPermission,
     RegisteredModelPermission,
     ScorerPermission,
     User,
 )
 from mlflow.server.auth.routes import (
     CREATE_EXPERIMENT_PERMISSION,
+    CREATE_GATEWAY_ENDPOINT_PERMISSION,
+    CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+    CREATE_GATEWAY_SECRET_PERMISSION,
     CREATE_REGISTERED_MODEL_PERMISSION,
     CREATE_SCORER_PERMISSION,
     CREATE_USER,
     DELETE_EXPERIMENT_PERMISSION,
+    DELETE_GATEWAY_ENDPOINT_PERMISSION,
+    DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+    DELETE_GATEWAY_SECRET_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
     DELETE_SCORER_PERMISSION,
     DELETE_USER,
     GET_EXPERIMENT_PERMISSION,
+    GET_GATEWAY_ENDPOINT_PERMISSION,
+    GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
+    GET_GATEWAY_SECRET_PERMISSION,
     GET_REGISTERED_MODEL_PERMISSION,
     GET_SCORER_PERMISSION,
     GET_USER,
     UPDATE_EXPERIMENT_PERMISSION,
+    UPDATE_GATEWAY_ENDPOINT_PERMISSION,
+    UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+    UPDATE_GATEWAY_SECRET_PERMISSION,
     UPDATE_REGISTERED_MODEL_PERMISSION,
     UPDATE_SCORER_PERMISSION,
     UPDATE_USER_ADMIN,
@@ -654,4 +669,232 @@ class AuthServiceClient:
                 "scorer_name": scorer_name,
                 "username": username,
             },
+        )
+
+    # Gateway secret permission methods
+
+    def create_gateway_secret_permission(self, secret_id: str, username: str, permission: str):
+        """
+        Create a permission on a gateway secret for a user.
+
+        Args:
+            secret_id: The id of the gateway secret.
+            username: The username.
+            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+                "NO_PERMISSIONS".
+
+        Returns:
+            A single :py:class:`mlflow.server.auth.entities.GatewaySecretPermission` object.
+        """
+        resp = self._request(
+            CREATE_GATEWAY_SECRET_PERMISSION,
+            "POST",
+            json={"secret_id": secret_id, "username": username, "permission": permission},
+        )
+        return GatewaySecretPermission.from_json(resp["gateway_secret_permission"])
+
+    def get_gateway_secret_permission(self, secret_id: str, username: str):
+        """
+        Get a gateway secret permission for a user.
+
+        Args:
+            secret_id: The id of the gateway secret.
+            username: The username.
+
+        Returns:
+            A single :py:class:`mlflow.server.auth.entities.GatewaySecretPermission` object.
+        """
+        resp = self._request(
+            GET_GATEWAY_SECRET_PERMISSION,
+            "GET",
+            params={"secret_id": secret_id, "username": username},
+        )
+        return GatewaySecretPermission.from_json(resp["gateway_secret_permission"])
+
+    def update_gateway_secret_permission(self, secret_id: str, username: str, permission: str):
+        """
+        Update an existing gateway secret permission for a user.
+
+        Args:
+            secret_id: The id of the gateway secret.
+            username: The username.
+            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+                "NO_PERMISSIONS".
+        """
+        self._request(
+            UPDATE_GATEWAY_SECRET_PERMISSION,
+            "PATCH",
+            json={"secret_id": secret_id, "username": username, "permission": permission},
+        )
+
+    def delete_gateway_secret_permission(self, secret_id: str, username: str):
+        """
+        Delete an existing gateway secret permission for a user.
+
+        Args:
+            secret_id: The id of the gateway secret.
+            username: The username.
+        """
+        self._request(
+            DELETE_GATEWAY_SECRET_PERMISSION,
+            "DELETE",
+            json={"secret_id": secret_id, "username": username},
+        )
+
+    # Gateway endpoint permission methods
+
+    def create_gateway_endpoint_permission(self, endpoint_id: str, username: str, permission: str):
+        """
+        Create a permission on a gateway endpoint for a user.
+
+        Args:
+            endpoint_id: The id of the gateway endpoint.
+            username: The username.
+            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+                "NO_PERMISSIONS".
+
+        Returns:
+            A single :py:class:`mlflow.server.auth.entities.GatewayEndpointPermission` object.
+        """
+        resp = self._request(
+            CREATE_GATEWAY_ENDPOINT_PERMISSION,
+            "POST",
+            json={"endpoint_id": endpoint_id, "username": username, "permission": permission},
+        )
+        return GatewayEndpointPermission.from_json(resp["gateway_endpoint_permission"])
+
+    def get_gateway_endpoint_permission(self, endpoint_id: str, username: str):
+        """
+        Get a gateway endpoint permission for a user.
+
+        Args:
+            endpoint_id: The id of the gateway endpoint.
+            username: The username.
+
+        Returns:
+            A single :py:class:`mlflow.server.auth.entities.GatewayEndpointPermission` object.
+        """
+        resp = self._request(
+            GET_GATEWAY_ENDPOINT_PERMISSION,
+            "GET",
+            params={"endpoint_id": endpoint_id, "username": username},
+        )
+        return GatewayEndpointPermission.from_json(resp["gateway_endpoint_permission"])
+
+    def update_gateway_endpoint_permission(self, endpoint_id: str, username: str, permission: str):
+        """
+        Update an existing gateway endpoint permission for a user.
+
+        Args:
+            endpoint_id: The id of the gateway endpoint.
+            username: The username.
+            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+                "NO_PERMISSIONS".
+        """
+        self._request(
+            UPDATE_GATEWAY_ENDPOINT_PERMISSION,
+            "PATCH",
+            json={"endpoint_id": endpoint_id, "username": username, "permission": permission},
+        )
+
+    def delete_gateway_endpoint_permission(self, endpoint_id: str, username: str):
+        """
+        Delete an existing gateway endpoint permission for a user.
+
+        Args:
+            endpoint_id: The id of the gateway endpoint.
+            username: The username.
+        """
+        self._request(
+            DELETE_GATEWAY_ENDPOINT_PERMISSION,
+            "DELETE",
+            json={"endpoint_id": endpoint_id, "username": username},
+        )
+
+    # Gateway model definition permission methods
+
+    def create_gateway_model_definition_permission(
+        self, model_definition_id: str, username: str, permission: str
+    ):
+        """
+        Create a permission on a gateway model definition for a user.
+
+        Args:
+            model_definition_id: The id of the gateway model definition.
+            username: The username.
+            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+                "NO_PERMISSIONS".
+
+        Returns:
+            A single :py:class:`mlflow.server.auth.entities.GatewayModelDefinitionPermission`
+            object.
+        """
+        resp = self._request(
+            CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+            "POST",
+            json={
+                "model_definition_id": model_definition_id,
+                "username": username,
+                "permission": permission,
+            },
+        )
+        return GatewayModelDefinitionPermission.from_json(
+            resp["gateway_model_definition_permission"]
+        )
+
+    def get_gateway_model_definition_permission(self, model_definition_id: str, username: str):
+        """
+        Get a gateway model definition permission for a user.
+
+        Args:
+            model_definition_id: The id of the gateway model definition.
+            username: The username.
+
+        Returns:
+            A single :py:class:`mlflow.server.auth.entities.GatewayModelDefinitionPermission`
+            object.
+        """
+        resp = self._request(
+            GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
+            "GET",
+            params={"model_definition_id": model_definition_id, "username": username},
+        )
+        return GatewayModelDefinitionPermission.from_json(
+            resp["gateway_model_definition_permission"]
+        )
+
+    def update_gateway_model_definition_permission(
+        self, model_definition_id: str, username: str, permission: str
+    ):
+        """
+        Update an existing gateway model definition permission for a user.
+
+        Args:
+            model_definition_id: The id of the gateway model definition.
+            username: The username.
+            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+                "NO_PERMISSIONS".
+        """
+        self._request(
+            UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+            "PATCH",
+            json={
+                "model_definition_id": model_definition_id,
+                "username": username,
+                "permission": permission,
+            },
+        )
+
+    def delete_gateway_model_definition_permission(self, model_definition_id: str, username: str):
+        """
+        Delete an existing gateway model definition permission for a user.
+
+        Args:
+            model_definition_id: The id of the gateway model definition.
+            username: The username.
+        """
+        self._request(
+            DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+            "DELETE",
+            json={"model_definition_id": model_definition_id, "username": username},
         )

@@ -11,12 +11,18 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.server.auth.db import utils as dbutils
 from mlflow.server.auth.db.models import (
     SqlExperimentPermission,
+    SqlGatewayEndpointPermission,
+    SqlGatewayModelDefinitionPermission,
+    SqlGatewaySecretPermission,
     SqlRegisteredModelPermission,
     SqlScorerPermission,
     SqlUser,
 )
 from mlflow.server.auth.entities import (
     ExperimentPermission,
+    GatewayEndpointPermission,
+    GatewayModelDefinitionPermission,
+    GatewaySecretPermission,
     RegisteredModelPermission,
     ScorerPermission,
     User,
@@ -353,4 +359,265 @@ class SqlAlchemyStore:
             session.query(SqlScorerPermission).filter(
                 SqlScorerPermission.experiment_id == experiment_id,
                 SqlScorerPermission.scorer_name == scorer_name,
+            ).delete()
+
+    def create_gateway_secret_permission(
+        self, secret_id: str, username: str, permission: str
+    ) -> GatewaySecretPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            try:
+                user = self._get_user(session, username=username)
+                perm = SqlGatewaySecretPermission(
+                    secret_id=secret_id, user_id=user.id, permission=permission
+                )
+                session.add(perm)
+                session.flush()
+                return perm.to_mlflow_entity()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Gateway secret permission (secret_id={secret_id}, username={username}) "
+                    f"already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+    def _get_gateway_secret_permission(
+        self, session, secret_id: str, username: str
+    ) -> SqlGatewaySecretPermission:
+        try:
+            user = self._get_user(session, username=username)
+            return (
+                session.query(SqlGatewaySecretPermission)
+                .filter(
+                    SqlGatewaySecretPermission.secret_id == secret_id,
+                    SqlGatewaySecretPermission.user_id == user.id,
+                )
+                .one()
+            )
+        except NoResultFound:
+            raise MlflowException(
+                f"Gateway secret permission with secret_id={secret_id} and "
+                f"username={username} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        except MultipleResultsFound:
+            raise MlflowException(
+                f"Found multiple gateway secret permissions with secret_id={secret_id} "
+                f"and username={username}",
+                INVALID_STATE,
+            )
+
+    def get_gateway_secret_permission(
+        self, secret_id: str, username: str
+    ) -> GatewaySecretPermission:
+        with self.ManagedSessionMaker() as session:
+            return self._get_gateway_secret_permission(
+                session, secret_id, username
+            ).to_mlflow_entity()
+
+    def list_gateway_secret_permissions(self, username: str) -> list[GatewaySecretPermission]:
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            perms = (
+                session.query(SqlGatewaySecretPermission)
+                .filter(SqlGatewaySecretPermission.user_id == user.id)
+                .all()
+            )
+            return [p.to_mlflow_entity() for p in perms]
+
+    def update_gateway_secret_permission(
+        self, secret_id: str, username: str, permission: str
+    ) -> GatewaySecretPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_gateway_secret_permission(session, secret_id, username)
+            perm.permission = permission
+            return perm.to_mlflow_entity()
+
+    def delete_gateway_secret_permission(self, secret_id: str, username: str):
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_gateway_secret_permission(session, secret_id, username)
+            session.delete(perm)
+
+    def delete_gateway_secret_permissions_for_secret(self, secret_id: str):
+        with self.ManagedSessionMaker() as session:
+            session.query(SqlGatewaySecretPermission).filter(
+                SqlGatewaySecretPermission.secret_id == secret_id,
+            ).delete()
+
+    def create_gateway_endpoint_permission(
+        self, endpoint_id: str, username: str, permission: str
+    ) -> GatewayEndpointPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            try:
+                user = self._get_user(session, username=username)
+                perm = SqlGatewayEndpointPermission(
+                    endpoint_id=endpoint_id, user_id=user.id, permission=permission
+                )
+                session.add(perm)
+                session.flush()
+                return perm.to_mlflow_entity()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Gateway endpoint permission (endpoint_id={endpoint_id}, username={username}) "
+                    f"already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+    def _get_gateway_endpoint_permission(
+        self, session, endpoint_id: str, username: str
+    ) -> SqlGatewayEndpointPermission:
+        try:
+            user = self._get_user(session, username=username)
+            return (
+                session.query(SqlGatewayEndpointPermission)
+                .filter(
+                    SqlGatewayEndpointPermission.endpoint_id == endpoint_id,
+                    SqlGatewayEndpointPermission.user_id == user.id,
+                )
+                .one()
+            )
+        except NoResultFound:
+            raise MlflowException(
+                f"Gateway endpoint permission with endpoint_id={endpoint_id} and "
+                f"username={username} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        except MultipleResultsFound:
+            raise MlflowException(
+                f"Found multiple gateway endpoint permissions with endpoint_id={endpoint_id} "
+                f"and username={username}",
+                INVALID_STATE,
+            )
+
+    def get_gateway_endpoint_permission(
+        self, endpoint_id: str, username: str
+    ) -> GatewayEndpointPermission:
+        with self.ManagedSessionMaker() as session:
+            return self._get_gateway_endpoint_permission(
+                session, endpoint_id, username
+            ).to_mlflow_entity()
+
+    def list_gateway_endpoint_permissions(self, username: str) -> list[GatewayEndpointPermission]:
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            perms = (
+                session.query(SqlGatewayEndpointPermission)
+                .filter(SqlGatewayEndpointPermission.user_id == user.id)
+                .all()
+            )
+            return [p.to_mlflow_entity() for p in perms]
+
+    def update_gateway_endpoint_permission(
+        self, endpoint_id: str, username: str, permission: str
+    ) -> GatewayEndpointPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_gateway_endpoint_permission(session, endpoint_id, username)
+            perm.permission = permission
+            return perm.to_mlflow_entity()
+
+    def delete_gateway_endpoint_permission(self, endpoint_id: str, username: str):
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_gateway_endpoint_permission(session, endpoint_id, username)
+            session.delete(perm)
+
+    def delete_gateway_endpoint_permissions_for_endpoint(self, endpoint_id: str):
+        with self.ManagedSessionMaker() as session:
+            session.query(SqlGatewayEndpointPermission).filter(
+                SqlGatewayEndpointPermission.endpoint_id == endpoint_id,
+            ).delete()
+
+    def create_gateway_model_definition_permission(
+        self, model_definition_id: str, username: str, permission: str
+    ) -> GatewayModelDefinitionPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            try:
+                user = self._get_user(session, username=username)
+                perm = SqlGatewayModelDefinitionPermission(
+                    model_definition_id=model_definition_id, user_id=user.id, permission=permission
+                )
+                session.add(perm)
+                session.flush()
+                return perm.to_mlflow_entity()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Gateway model definition permission "
+                    f"(model_definition_id={model_definition_id}, username={username}) "
+                    f"already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+    def _get_gateway_model_definition_permission(
+        self, session, model_definition_id: str, username: str
+    ) -> SqlGatewayModelDefinitionPermission:
+        try:
+            user = self._get_user(session, username=username)
+            return (
+                session.query(SqlGatewayModelDefinitionPermission)
+                .filter(
+                    SqlGatewayModelDefinitionPermission.model_definition_id == model_definition_id,
+                    SqlGatewayModelDefinitionPermission.user_id == user.id,
+                )
+                .one()
+            )
+        except NoResultFound:
+            raise MlflowException(
+                f"Gateway model definition permission with "
+                f"model_definition_id={model_definition_id} and username={username} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        except MultipleResultsFound:
+            raise MlflowException(
+                f"Found multiple gateway model definition permissions with "
+                f"model_definition_id={model_definition_id} and username={username}",
+                INVALID_STATE,
+            )
+
+    def get_gateway_model_definition_permission(
+        self, model_definition_id: str, username: str
+    ) -> GatewayModelDefinitionPermission:
+        with self.ManagedSessionMaker() as session:
+            return self._get_gateway_model_definition_permission(
+                session, model_definition_id, username
+            ).to_mlflow_entity()
+
+    def list_gateway_model_definition_permissions(
+        self, username: str
+    ) -> list[GatewayModelDefinitionPermission]:
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            perms = (
+                session.query(SqlGatewayModelDefinitionPermission)
+                .filter(SqlGatewayModelDefinitionPermission.user_id == user.id)
+                .all()
+            )
+            return [p.to_mlflow_entity() for p in perms]
+
+    def update_gateway_model_definition_permission(
+        self, model_definition_id: str, username: str, permission: str
+    ) -> GatewayModelDefinitionPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_gateway_model_definition_permission(
+                session, model_definition_id, username
+            )
+            perm.permission = permission
+            return perm.to_mlflow_entity()
+
+    def delete_gateway_model_definition_permission(self, model_definition_id: str, username: str):
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_gateway_model_definition_permission(
+                session, model_definition_id, username
+            )
+            session.delete(perm)
+
+    def delete_gateway_model_definition_permissions_for_model_definition(
+        self, model_definition_id: str
+    ):
+        with self.ManagedSessionMaker() as session:
+            session.query(SqlGatewayModelDefinitionPermission).filter(
+                SqlGatewayModelDefinitionPermission.model_definition_id == model_definition_id,
             ).delete()
