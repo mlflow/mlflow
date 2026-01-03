@@ -2731,6 +2731,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                                 SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
                             )
                             break
+
+                    # If log_spans() already populated previews, avoid overwriting them with
+                    # empty values computed during start_trace() export.
+                    if not sql_trace_info.request_preview:
+                        sql_trace_info.request_preview = db_sql_trace_info.request_preview
+                    if not sql_trace_info.response_preview:
+                        sql_trace_info.response_preview = db_sql_trace_info.response_preview
                 session.merge(sql_trace_info)
                 session.flush()
 
@@ -3731,7 +3738,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         update_dict = {}
         try:
-            if sql_trace_info.request_preview is None and (
+            if (sql_trace_info.request_preview is None or sql_trace_info.request_preview == "") and (
                 trace_inputs := span_dict.get("attributes", {}).get(SpanAttributeKey.INPUTS)
             ):
                 update_dict[SqlTraceInfo.request_preview] = _get_truncated_preview(
@@ -3739,7 +3746,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     role="user",
                 )
 
-            if sql_trace_info.response_preview is None and (
+            if (sql_trace_info.response_preview is None or sql_trace_info.response_preview == "") and (
                 trace_outputs := span_dict.get("attributes", {}).get(SpanAttributeKey.OUTPUTS)
             ):
                 update_dict[SqlTraceInfo.response_preview] = _get_truncated_preview(
