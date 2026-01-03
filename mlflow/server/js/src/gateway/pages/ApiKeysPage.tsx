@@ -150,7 +150,7 @@ const ApiKeysPage = () => {
       <DeleteApiKeyModal
         open={isDeleteModalOpen}
         secret={deleteModalData?.secret ?? null}
-        modelDefinitions={deleteModalData?.modelDefinitions ?? []}
+        endpoints={deleteModalData?.endpoints ?? []}
         onClose={handleDeleteModalClose}
         onSuccess={handleDeleteSuccess}
       />

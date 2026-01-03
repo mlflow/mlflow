@@ -13,7 +13,7 @@ import {
 import { GatewayInput } from '../common';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, UseFormReturn } from 'react-hook-form';
-import { ProviderSelect } from '../create-endpoint/ProviderSelect';
+import { ProviderSelect } from '../create-endpoint';
 import { ModelSelect } from '../create-endpoint/ModelSelect';
 import { ApiKeyConfigurator } from '../model-configuration/components/ApiKeyConfigurator';
 import { useApiKeyConfiguration } from '../model-configuration/hooks/useApiKeyConfiguration';
