@@ -3,21 +3,18 @@ import { useDesignSystemTheme, Typography, ChartLineIcon } from '@databricks/des
 import { FormattedMessage } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
-import { useTraceMetricsQuery, calculateTimeInterval } from '../hooks/useTraceMetricsQuery';
+import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from '../utils/chartUtils';
 import { ChartLoadingState, ChartErrorState, ChartEmptyState } from './ChartCardWrapper';
+import type { OverviewChartProps } from '../types';
 
-export interface TraceRequestsChartProps {
-  experimentId: string;
-  startTimeMs?: number;
-  endTimeMs?: number;
-}
-
-export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ experimentId, startTimeMs, endTimeMs }) => {
+export const TraceRequestsChart: React.FC<OverviewChartProps> = ({
+  experimentId,
+  startTimeMs,
+  endTimeMs,
+  timeIntervalSeconds,
+}) => {
   const { theme } = useDesignSystemTheme();
-
-  // Calculate time interval for grouping
-  const timeIntervalSeconds = calculateTimeInterval(startTimeMs, endTimeMs);
 
   // Fetch trace count metrics grouped by time bucket
   const {
@@ -74,7 +71,7 @@ export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ experime
       <div css={{ marginBottom: theme.spacing.lg }}>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
           <ChartLineIcon css={{ color: theme.colors.textSecondary }} />
-          <Typography.Text bold>
+          <Typography.Text bold size="lg">
             <FormattedMessage defaultMessage="Requests" description="Title for the trace requests chart" />
           </Typography.Text>
         </div>
