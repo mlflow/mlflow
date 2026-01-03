@@ -12436,8 +12436,24 @@ def test_log_spans_session_id_handling(store: SqlAlchemyStore) -> None:
 
 
 def test_find_completed_sessions(store: SqlAlchemyStore):
+    """
+    Test finding completed sessions based on their last trace timestamp.
+
+    A session is "completed" if its last trace timestamp falls within the specified
+    time window [min_last_trace_timestamp_ms, max_last_trace_timestamp_ms].
+
+    Timeline of traces created:
+        t=1000: session-a trace 1
+        t=2000: session-a trace 2 (last trace for session-a)
+        t=2500: trace with no session (should be ignored)
+        t=3000: session-b trace 1
+        t=4000: session-b trace 2 (last trace for session-b)
+        t=5000: session-c trace 1
+        t=10000: session-c trace 2 (last trace for session-c)
+    """
     exp_id = store.create_experiment("test_find_completed_sessions")
 
+    # Session A: traces at t=1000 and t=2000 (last_trace_timestamp = 2000)
     _create_trace(
         store,
         "trace_a1",
@@ -12453,6 +12469,7 @@ def test_find_completed_sessions(store: SqlAlchemyStore):
         trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
     )
 
+    # Session B: traces at t=3000 and t=4000 (last_trace_timestamp = 4000)
     _create_trace(
         store,
         "trace_b1",
@@ -12468,6 +12485,8 @@ def test_find_completed_sessions(store: SqlAlchemyStore):
         trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
     )
 
+    # Session C: traces at t=5000 and t=10000 (last_trace_timestamp = 10000)
+    # This session's last trace is AFTER our query window, so it won't be returned
     _create_trace(
         store,
         "trace_c1",
@@ -12483,8 +12502,12 @@ def test_find_completed_sessions(store: SqlAlchemyStore):
         trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-c"},
     )
 
+    # Trace without session metadata (should be ignored)
     _create_trace(store, "trace_no_session", exp_id, request_time=2500)
 
+    # Query for sessions with last_trace_timestamp in [0, 5000]
+    # Should return session-a (last=2000) and session-b (last=4000)
+    # Should NOT return session-c (last=10000, outside window)
     completed = store.find_completed_sessions(
         experiment_id=exp_id,
         min_last_trace_timestamp_ms=0,
@@ -12495,6 +12518,7 @@ def test_find_completed_sessions(store: SqlAlchemyStore):
     session_ids = {s.session_id for s in completed}
     assert session_ids == {"session-a", "session-b"}
 
+    # Verify first/last timestamps are correct for each session
     session_a = next(s for s in completed if s.session_id == "session-a")
     assert session_a.first_trace_timestamp_ms == 1000
     assert session_a.last_trace_timestamp_ms == 2000
@@ -12503,9 +12527,12 @@ def test_find_completed_sessions(store: SqlAlchemyStore):
     assert session_b.first_trace_timestamp_ms == 3000
     assert session_b.last_trace_timestamp_ms == 4000
 
+    # Results should be ordered by first_trace_timestamp ascending
     assert completed[0].session_id == "session-a"
     assert completed[1].session_id == "session-b"
 
+    # Narrower time window [3000, 5000] should only return session-b (last=4000)
+    # session-a's last trace (2000) is before min_last_trace_timestamp_ms
     completed = store.find_completed_sessions(
         experiment_id=exp_id,
         min_last_trace_timestamp_ms=3000,
@@ -12514,6 +12541,7 @@ def test_find_completed_sessions(store: SqlAlchemyStore):
     assert len(completed) == 1
     assert completed[0].session_id == "session-b"
 
+    # Test max_results pagination: limit to 1 result
     completed = store.find_completed_sessions(
         experiment_id=exp_id,
         min_last_trace_timestamp_ms=0,
@@ -12521,8 +12549,9 @@ def test_find_completed_sessions(store: SqlAlchemyStore):
         max_results=1,
     )
     assert len(completed) == 1
-    assert completed[0].session_id == "session-a"
+    assert completed[0].session_id == "session-a"  # First by first_trace_timestamp
 
+    # Test max_results pagination: limit to 2 results (all matching)
     completed = store.find_completed_sessions(
         experiment_id=exp_id,
         min_last_trace_timestamp_ms=0,
