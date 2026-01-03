@@ -1,4 +1,5 @@
 import errno
+import hashlib
 import importlib
 import inspect
 import json
@@ -230,48 +231,89 @@ def _exec_job_in_subproc(
         )
 
 
+def _compute_exclusive_lock_key(job_name: str, params: dict[str, Any]) -> str:
+    """Compute a lock key based on job name and params hash."""
+    params_json = json.dumps(params, sort_keys=True)
+    params_hash = hashlib.sha256(params_json.encode()).hexdigest()[:16]
+    return f"{job_name}:{params_hash}"
+
+
 def _exec_job(
     job_id: str,
     job_name: str,
     params: dict[str, Any],
     timeout: float | None,
+    exclusive: bool = False,
 ) -> None:
+    """
+    Execute a job in a subprocess.
+
+    Args:
+        job_id: Unique identifier for the job.
+        job_name: Name of the job function to execute.
+        params: Parameters to pass to the job function.
+        timeout: Maximum execution time in seconds, or None for no timeout.
+        exclusive: If True, only one instance of this job with the same params can run
+            at a time.
+    """
     from mlflow.server.handlers import _get_job_store
 
     job_store = _get_job_store()
-    job_store.start_job(job_id)
 
-    fn_fullname = get_job_fn_fullname(job_name)
-    function = _load_function(fn_fullname)
-    fn_metadata = function._job_fn_metadata
+    # If exclusive, acquire lock based on job_name + hash(params)
+    # If lock is already held, TaskLockedException is raised and job is skipped
+    if exclusive:
+        from huey.exceptions import TaskLockedException
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        job_result = _exec_job_in_subproc(
-            fn_metadata.fn_fullname,
-            params,
-            fn_metadata.python_env,
-            fn_metadata.transient_error_classes,
-            timeout,
-            tmpdir,
-            job_store,
-            job_id,
-        )
-
-    if job_result is None:
-        return
-
-    if job_result.succeeded:
-        job_store.finish_job(job_id, job_result.result)
-        return
-
-    if job_result.is_transient_error:
-        # For transient errors, if the retry count is less than max allowed count,
-        # trigger task retry by raising `RetryTask` exception.
-        retry_count = job_store.retry_or_fail_job(job_id, job_result.error)
-        if retry_count is not None:
-            _exponential_backoff_retry(retry_count)
+        huey_instance = _get_or_init_huey_instance(job_name).instance
+        lock_key = _compute_exclusive_lock_key(job_name, params)
+        lock = huey_instance.lock_task(lock_key)
+        try:
+            lock.acquire()
+        except TaskLockedException:
+            _logger.info(f"Skipping job {job_id} - exclusive lock {lock_key} already held")
+            job_store.cancel_job(job_id)
+            return
     else:
-        job_store.fail_job(job_id, job_result.error)
+        lock = None
+
+    try:
+        job_store.start_job(job_id)
+
+        fn_fullname = get_job_fn_fullname(job_name)
+        function = _load_function(fn_fullname)
+        fn_metadata = function._job_fn_metadata
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            job_result = _exec_job_in_subproc(
+                fn_metadata.fn_fullname,
+                params,
+                fn_metadata.python_env,
+                fn_metadata.transient_error_classes,
+                timeout,
+                tmpdir,
+                job_store,
+                job_id,
+            )
+
+        if job_result is None:
+            return
+
+        if job_result.succeeded:
+            job_store.finish_job(job_id, job_result.result)
+            return
+
+        if job_result.is_transient_error:
+            # For transient errors, if the retry count is less than max allowed count,
+            # trigger task retry by raising `RetryTask` exception.
+            retry_count = job_store.retry_or_fail_job(job_id, job_result.error)
+            if retry_count is not None:
+                _exponential_backoff_retry(retry_count)
+        else:
+            job_store.fail_job(job_id, job_result.error)
+    finally:
+        if lock is not None:
+            lock.release()
 
 
 @dataclass
@@ -430,9 +472,11 @@ def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
 
         params = json.loads(job.params)
         timeout = job.timeout
-        # enqueue job
+        # Look up exclusive flag from function metadata
+        fn_fullname = get_job_fn_fullname(job.job_name)
+        fn_metadata = _load_function(fn_fullname)._job_fn_metadata
         _get_or_init_huey_instance(job.job_name).submit_task(
-            job.job_id, job.job_name, params, timeout
+            job.job_id, job.job_name, params, timeout, fn_metadata.exclusive
         )
 
 
