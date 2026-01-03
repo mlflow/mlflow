@@ -5,6 +5,7 @@ import type {
   RunsChartsCardConfig,
   RunsChartsContourCardConfig,
   RunsChartsDifferenceCardConfig,
+  RunsChartsHistogramCardConfig,
   RunsChartsImageCardConfig,
   RunsChartsLineCardConfig,
   RunsChartsParallelCardConfig,
@@ -16,6 +17,7 @@ import { RunsChartsLineChartCard } from './RunsChartsLineChartCard';
 import { RunsChartsScatterChartCard } from './RunsChartsScatterChartCard';
 import { RunsChartsContourChartCard } from './RunsChartsContourChartCard';
 import { RunsChartsParallelChartCard } from './RunsChartsParallelChartCard';
+import { RunsChartsHistogramChartCard } from './RunsChartsHistogramChartCard';
 import type {
   RunsChartCardFullScreenProps,
   RunsChartCardReorderProps,
@@ -194,6 +196,14 @@ const RunsChartsCardRaw = ({
     return (
       <RunsChartsContourChartCard
         config={cardConfig as RunsChartsContourCardConfig}
+        chartRunData={slicedRuns}
+        {...commonChartProps}
+      />
+    );
+  } else if (cardConfig.type === RunsChartType.HISTOGRAM) {
+    return (
+      <RunsChartsHistogramChartCard
+        config={cardConfig as RunsChartsHistogramCardConfig}
         chartRunData={slicedRuns}
         {...commonChartProps}
       />
