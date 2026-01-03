@@ -17,10 +17,118 @@ export const TraceMetricKey = {
 export type TraceMetricKeyType = typeof TraceMetricKey[keyof typeof TraceMetricKey];
 
 /**
+ * Common percentile values for latency metrics
+ */
+export const P50 = 50;
+export const P90 = 90;
+export const P99 = 99;
+
+/**
+ * Get the key for accessing percentile values in the API response
+ * @param percentile - The percentile value (e.g., 50, 90, 99)
+ * @returns The key string in format "Pxx.0" (e.g., "P50.0", "P90.0", "P99.0")
+ */
+export const getPercentileKey = (percentile: number): string => `P${percentile.toFixed(1)}`;
+
+/**
  * Time bucket dimension key, included in results when time_interval_seconds is specified.
  * Applies to all view types (traces, spans, assessments).
  */
 export const TIME_BUCKET_DIMENSION_KEY = 'time_bucket';
+
+/**
+ * View type prefix for trace-level filter expressions.
+ * Based on mlflow/tracing/constant.py TraceMetricSearchKey.VIEW_TYPE
+ */
+export const TRACE_FILTER_VIEW_TYPE = 'trace';
+
+/**
+ * Search key fields for trace metrics filter expressions.
+ * Based on mlflow/tracing/constant.py TraceMetricSearchKey
+ */
+export const TraceFilterKey = {
+  /** Status field key */
+  STATUS: 'status',
+  /** Tag field key */
+  TAG: 'tag',
+  /** Metadata field key */
+  METADATA: 'metadata',
+} as const;
+
+/**
+ * Trace status values for filter expressions.
+ */
+export const TraceStatus = {
+  OK: 'OK',
+  ERROR: 'ERROR',
+} as const;
+
+/**
+ * Creates a trace filter expression string.
+ * @param field - The field to filter on (e.g., TraceFilterKey.STATUS)
+ * @param value - The value to match (e.g., TraceStatus.ERROR)
+ * @returns Filter expression string (e.g., 'trace.status = "ERROR"')
+ */
+export const createTraceFilter = (field: string, value: string): string =>
+  `${TRACE_FILTER_VIEW_TYPE}.${field} = "${value}"`;
+
+/**
+ * Keys for metrics on assessments view type.
+ * Based on mlflow/tracing/constant.py AssessmentMetricKey
+ */
+export const AssessmentMetricKey = {
+  /** Count of assessments */
+  ASSESSMENT_COUNT: 'assessment_count',
+  /** Numeric assessment value */
+  ASSESSMENT_VALUE: 'assessment_value',
+} as const;
+
+export type AssessmentMetricKeyType = typeof AssessmentMetricKey[keyof typeof AssessmentMetricKey];
+
+/**
+ * View type prefix for assessment-level filter expressions.
+ * Based on mlflow/tracing/constant.py AssessmentMetricSearchKey.VIEW_TYPE
+ */
+export const ASSESSMENT_FILTER_VIEW_TYPE = 'assessment';
+
+/**
+ * Search key fields for assessment metrics filter expressions.
+ * Based on mlflow/tracing/constant.py AssessmentMetricSearchKey
+ */
+export const AssessmentFilterKey = {
+  /** Assessment name field */
+  NAME: 'name',
+  /** Assessment type field (feedback, expectation) */
+  TYPE: 'type',
+} as const;
+
+/**
+ * Assessment type values for filter expressions.
+ */
+export const AssessmentType = {
+  FEEDBACK: 'feedback',
+  EXPECTATION: 'expectation',
+} as const;
+
+/**
+ * Creates an assessment filter expression string.
+ * @param field - The field to filter on (e.g., AssessmentFilterKey.NAME)
+ * @param value - The value to match (e.g., "Correctness")
+ * @returns Filter expression string (e.g., 'assessment.name = "Correctness"')
+ */
+export const createAssessmentFilter = (field: string, value: string): string =>
+  `${ASSESSMENT_FILTER_VIEW_TYPE}.${field} = "${value}"`;
+
+/**
+ * Dimension keys for assessment metrics.
+ * Based on mlflow/tracing/constant.py AssessmentMetricDimensionKey
+ */
+export const AssessmentDimensionKey = {
+  /** Assessment name dimension */
+  ASSESSMENT_NAME: 'assessment_name',
+  /** Assessment value dimension */
+  ASSESSMENT_VALUE: 'assessment_value',
+} as const;
 
 /**
  * The level at which to aggregate metrics.
