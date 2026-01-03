@@ -158,9 +158,9 @@ The `search_logged_models` API uses a SQL-like Domain Specific Language (DSL) fo
 ### Key Differences from search_runs:
 
 1. **Default Entity**: When no prefix is specified, the field is treated as an attribute (not a metric)
-2. **Supported Prefixes**: `metrics.`, `params.`, or no prefix for attributes
+2. **Supported Prefixes**: `metrics.`, `params.`, `tags.`, or no prefix for attributes
 3. **Dataset-Aware Metrics**: You can filter metrics based on specific datasets
-4. **No Tag Support**: Unlike `search_runs`, the `search_logged_models` API does not support filtering by tags
+
 
 ### Syntax Rules:
 
@@ -254,8 +254,23 @@ recent_models = mlflow.search_logged_models(
     experiment_ids=["1"], filter_string=f"creation_time > {last_week}"
 )
 ```
+### 5 - Searching By Tags
 
-### 5 - Dataset-Specific Metric Filtering
+Tags allow you to categorize and filter models by custom metadata. Use the `tags.` prefix to search by tag values:
+
+```python
+# Find models tagged for classification tasks
+models = mlflow.search_logged_models(
+    filter_string="tags.task = 'classification'"
+)
+
+# Find models in production environment
+models = mlflow.search_logged_models(
+    filter_string="tags.environment IN ('production', 'staging')"
+)
+```
+
+### 6 - Dataset-Specific Metric Filtering
 
 One powerful feature of `search_logged_models` is the ability to filter metrics based on specific datasets:
 
@@ -275,7 +290,7 @@ multi_dataset_models = mlflow.search_logged_models(
 )
 ```
 
-### 6 - Complex Queries
+### 7 - Complex Queries
 
 Combine multiple conditions for sophisticated model discovery:
 
