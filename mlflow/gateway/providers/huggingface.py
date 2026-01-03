@@ -58,10 +58,10 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         parameters = rename_payload_keys(payload, key_mapping)
 
         # The range of HF TGI's temperature is 0-100, but ours is 0-2, so we multiply
-        # by 50
-        payload["temperature"] = 50 * payload["temperature"]
-        # HF TGI does not support 0 temperature
-        parameters["temperature"] = max(payload["temperature"], 1e-3)
+        # by 50. HF TGI does not support 0 temperature so we use a small default.
+        if "temperature" in payload:
+            scaled_temp = 50 * payload["temperature"]
+            parameters["temperature"] = max(scaled_temp, 1e-3)
         parameters["details"] = True
         parameters["decoder_input_details"] = True
 
