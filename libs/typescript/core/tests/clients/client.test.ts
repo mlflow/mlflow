@@ -3,6 +3,9 @@ import { MlflowClient } from '../../src/clients/client';
 import { TraceInfo } from '../../src/core/entities/trace_info';
 import { TraceLocationType } from '../../src/core/entities/trace_location';
 import { TraceState } from '../../src/core/entities/trace_state';
+import { Trace } from '../../src/core/entities/trace';
+import { TraceData } from '../../src/core/entities/trace_data';
+import { init } from '../../src/core/config';
 import { createAuthProvider } from '../../src/auth';
 import { TEST_TRACKING_URI } from '../helper';
 
@@ -118,6 +121,316 @@ describe('MlflowClient', () => {
       expect(retrievedTraceInfo.traceId).toBe(traceId);
       expect(retrievedTraceInfo.state).toBe(TraceState.OK);
       expect(retrievedTraceInfo.requestTime).toBe(1000);
+    });
+  });
+
+  describe('searchTraces', () => {
+    it('should search traces in an experiment', async () => {
+      const traceId1 = randomUUID();
+      const traceId2 = randomUUID();
+
+      await client.createTrace(
+        new TraceInfo({
+          traceId: traceId1,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: { experimentId: experimentId }
+          },
+          state: TraceState.OK,
+          requestTime: Date.now() - 1000,
+          requestPreview: '{"input":"test1"}',
+          responsePreview: '{"output":"result1"}'
+        })
+      );
+
+      await client.createTrace(
+        new TraceInfo({
+          traceId: traceId2,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: { experimentId: experimentId }
+          },
+          state: TraceState.OK,
+          requestTime: Date.now(),
+          requestPreview: '{"input":"test2"}',
+          responsePreview: '{"output":"result2"}'
+        })
+      );
+
+      const result = await client.searchTraces({
+        experimentIds: [experimentId]
+      });
+
+      expect(result.traces).toBeInstanceOf(Array);
+      expect(result.traces.length).toBeGreaterThanOrEqual(2);
+
+      const foundTraceIds = result.traces.map((t) => t.info.traceId);
+      expect(foundTraceIds).toContain(traceId1);
+      expect(foundTraceIds).toContain(traceId2);
+    });
+
+    it('should search traces with filter', async () => {
+      const traceIdOk = randomUUID();
+      const traceIdError = randomUUID();
+
+      await client.createTrace(
+        new TraceInfo({
+          traceId: traceIdOk,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: { experimentId: experimentId }
+          },
+          state: TraceState.OK,
+          requestTime: Date.now()
+        })
+      );
+
+      await client.createTrace(
+        new TraceInfo({
+          traceId: traceIdError,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: { experimentId: experimentId }
+          },
+          state: TraceState.ERROR,
+          requestTime: Date.now()
+        })
+      );
+
+      const result = await client.searchTraces({
+        experimentIds: [experimentId],
+        filterString: "trace.status = 'OK'"
+      });
+
+      expect(result.traces).toBeInstanceOf(Array);
+      const foundTraceIds = result.traces.map((t) => t.info.traceId);
+      expect(foundTraceIds).toContain(traceIdOk);
+      expect(foundTraceIds).not.toContain(traceIdError);
+    });
+
+    it('should search traces with maxResults', async () => {
+      for (let i = 0; i < 3; i++) {
+        await client.createTrace(
+          new TraceInfo({
+            traceId: randomUUID(),
+            traceLocation: {
+              type: TraceLocationType.MLFLOW_EXPERIMENT,
+              mlflowExperiment: { experimentId: experimentId }
+            },
+            state: TraceState.OK,
+            requestTime: Date.now() + i
+          })
+        );
+      }
+
+      const result = await client.searchTraces({
+        experimentIds: [experimentId],
+        maxResults: 2
+      });
+
+      expect(result.traces.length).toBe(2);
+    });
+
+    it('should return empty array when no traces match', async () => {
+      const result = await client.searchTraces({
+        experimentIds: [experimentId],
+        filterString: "trace.status = 'NONEXISTENT_STATUS'"
+      });
+
+      expect(result.traces).toBeInstanceOf(Array);
+      expect(result.traces.length).toBe(0);
+    });
+
+    it('should use default experiment ID from init() when experimentIds not provided', async () => {
+      init({
+        trackingUri: TEST_TRACKING_URI,
+        experimentId: experimentId
+      });
+
+      const traceId = randomUUID();
+      await client.createTrace(
+        new TraceInfo({
+          traceId: traceId,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: { experimentId: experimentId }
+          },
+          state: TraceState.OK,
+          requestTime: Date.now(),
+          requestPreview: '{"input":"default-test"}'
+        })
+      );
+
+      const result = await client.searchTraces();
+
+      expect(result.traces).toBeInstanceOf(Array);
+      expect(result.traces.length).toBeGreaterThanOrEqual(1);
+      const foundTraceIds = result.traces.map((t) => t.info.traceId);
+      expect(foundTraceIds).toContain(traceId);
+    });
+
+    it('should use default experiment ID when experimentIds is an empty array', async () => {
+      init({
+        trackingUri: TEST_TRACKING_URI,
+        experimentId: experimentId
+      });
+
+      const traceId = randomUUID();
+      await client.createTrace(
+        new TraceInfo({
+          traceId: traceId,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: { experimentId: experimentId }
+          },
+          state: TraceState.OK,
+          requestTime: Date.now()
+        })
+      );
+
+      const result = await client.searchTraces({ experimentIds: [] });
+
+      expect(result.traces).toBeInstanceOf(Array);
+      expect(result.traces.length).toBeGreaterThanOrEqual(1);
+      const foundTraceIds = result.traces.map((t) => t.info.traceId);
+      expect(foundTraceIds).toContain(traceId);
+    });
+
+    it('should override default experiment ID when experimentIds is provided', async () => {
+      const otherExperimentName = `other-experiment-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+      const otherExperimentId = await client.createExperiment(otherExperimentName);
+
+      try {
+        init({
+          trackingUri: TEST_TRACKING_URI,
+          experimentId: experimentId
+        });
+
+        const traceIdInDefault = randomUUID();
+        const traceIdInOther = randomUUID();
+
+        await client.createTrace(
+          new TraceInfo({
+            traceId: traceIdInDefault,
+            traceLocation: {
+              type: TraceLocationType.MLFLOW_EXPERIMENT,
+              mlflowExperiment: { experimentId: experimentId }
+            },
+            state: TraceState.OK,
+            requestTime: Date.now()
+          })
+        );
+
+        await client.createTrace(
+          new TraceInfo({
+            traceId: traceIdInOther,
+            traceLocation: {
+              type: TraceLocationType.MLFLOW_EXPERIMENT,
+              mlflowExperiment: { experimentId: otherExperimentId }
+            },
+            state: TraceState.OK,
+            requestTime: Date.now()
+          })
+        );
+
+        const result = await client.searchTraces({
+          experimentIds: [otherExperimentId]
+        });
+
+        expect(result.traces).toBeInstanceOf(Array);
+        const foundTraceIds = result.traces.map((t) => t.info.traceId);
+        expect(foundTraceIds).toContain(traceIdInOther);
+        expect(foundTraceIds).not.toContain(traceIdInDefault);
+      } finally {
+        await client.deleteExperiment(otherExperimentId);
+      }
+    });
+
+    it('should return Trace objects with span data when includeSpans is true (default)', async () => {
+      const traceId = randomUUID();
+      await client.createTrace(
+        new TraceInfo({
+          traceId: traceId,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: { experimentId: experimentId }
+          },
+          state: TraceState.OK,
+          requestTime: Date.now()
+        })
+      );
+
+      const result = await client.searchTraces({
+        experimentIds: [experimentId],
+        includeSpans: true
+      });
+
+      expect(result.traces).toBeInstanceOf(Array);
+      expect(result.traces.length).toBeGreaterThanOrEqual(1);
+
+      const foundTrace = result.traces.find((t) => t.info.traceId === traceId);
+      expect(foundTrace).toBeDefined();
+      expect(foundTrace).toBeInstanceOf(Trace);
+      expect(foundTrace!.info).toBeInstanceOf(TraceInfo);
+      expect(foundTrace!.data).toBeInstanceOf(TraceData);
+      expect(foundTrace!.data.spans).toBeInstanceOf(Array);
+    });
+
+    it('should return Trace objects with empty span data when includeSpans is false', async () => {
+      const traceId = randomUUID();
+      await client.createTrace(
+        new TraceInfo({
+          traceId: traceId,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: { experimentId: experimentId }
+          },
+          state: TraceState.OK,
+          requestTime: Date.now()
+        })
+      );
+
+      const result = await client.searchTraces({
+        experimentIds: [experimentId],
+        includeSpans: false
+      });
+
+      expect(result.traces).toBeInstanceOf(Array);
+      expect(result.traces.length).toBeGreaterThanOrEqual(1);
+
+      const foundTrace = result.traces.find((t) => t.info.traceId === traceId);
+      expect(foundTrace).toBeDefined();
+      expect(foundTrace).toBeInstanceOf(Trace);
+      expect(foundTrace!.info).toBeInstanceOf(TraceInfo);
+      expect(foundTrace!.data).toBeInstanceOf(TraceData);
+      expect(foundTrace!.data.spans).toEqual([]);
+    });
+
+    it('should default to includeSpans: true when not specified', async () => {
+      const traceId = randomUUID();
+      await client.createTrace(
+        new TraceInfo({
+          traceId: traceId,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: { experimentId: experimentId }
+          },
+          state: TraceState.OK,
+          requestTime: Date.now()
+        })
+      );
+
+      const result = await client.searchTraces({
+        experimentIds: [experimentId]
+      });
+
+      expect(result.traces).toBeInstanceOf(Array);
+
+      const foundTrace = result.traces.find((t) => t.info.traceId === traceId);
+      expect(foundTrace).toBeDefined();
+      expect(foundTrace).toBeInstanceOf(Trace);
+      expect(foundTrace!.info).toBeInstanceOf(TraceInfo);
+      expect(foundTrace!.data).toBeInstanceOf(TraceData);
     });
   });
 });

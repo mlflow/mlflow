@@ -57,8 +57,18 @@ export const TraceMetadataKey = {
  * Constants for MLflow trace tag keys
  */
 export const TraceTagKey = {
-  MLFLOW_ARTIFACT_LOCATION: 'mlflow.artifactLocation'
+  MLFLOW_ARTIFACT_LOCATION: 'mlflow.artifactLocation',
+  SPANS_LOCATION: 'mlflow.trace.spansLocation'
 };
+
+/**
+ * The location of the spans in the trace.
+ * This is used to determine where the spans are stored when exporting.
+ */
+export enum SpansLocation {
+  TRACKING_STORE = 'TRACKING_STORE',
+  ARTIFACT_REPO = 'ARTIFACT_REPO'
+}
 
 /**
  * Current version of the MLflow trace schema
