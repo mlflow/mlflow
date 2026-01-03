@@ -379,6 +379,30 @@ def test_score_session_skips_when_no_applicable_scorers(
         mock_evaluate.assert_not_called()
 
 
+def test_checkpoint_advances_when_all_traces_are_from_eval_runs(
+    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store, sampler_with_scorers
+):
+    mock_tracking_store.find_completed_sessions.return_value = [
+        make_completed_session("sess-001", 500, 1000),
+        make_completed_session("sess-002", 500, 1500),
+    ]
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = []
+    processor = OnlineSessionScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+        tracking_store=mock_tracking_store,
+    )
+
+    processor.process_sessions()
+
+    mock_checkpoint_manager.persist_checkpoint.assert_called_once()
+    checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
+    assert checkpoint.timestamp_ms == 1500
+    assert checkpoint.session_id == "sess-002"
+
+
 def test_clean_up_old_assessments_removes_duplicates(
     mock_trace_loader, mock_checkpoint_manager, mock_tracking_store, sampler_with_scorers
 ):
