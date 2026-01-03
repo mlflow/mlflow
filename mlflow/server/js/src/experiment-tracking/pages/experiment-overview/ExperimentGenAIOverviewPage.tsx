@@ -8,6 +8,7 @@ import { TracesV3DateSelector } from '../../components/experiment-page/component
 import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../hooks/useMonitoringFilters';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
 import { LazyTraceRequestsChart } from './components/LazyTraceRequestsChart';
+import { calculateTimeInterval } from './hooks/useTraceMetricsQuery';
 
 enum OverviewTab {
   Usage = 'usage',
@@ -35,6 +36,12 @@ const ExperimentGenAIOverviewPageImpl = () => {
   // Convert ISO strings to milliseconds for the API
   const startTimeMs = startTime ? new Date(startTime).getTime() : undefined;
   const endTimeMs = endTime ? new Date(endTime).getTime() : undefined;
+
+  // Calculate time interval once for all charts
+  const timeIntervalSeconds = calculateTimeInterval(startTimeMs, endTimeMs);
+
+  // Common props for all chart components
+  const chartProps = { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds };
 
   return (
     <div
@@ -87,8 +94,16 @@ const ExperimentGenAIOverviewPageImpl = () => {
         </div>
 
         <Tabs.Content value={OverviewTab.Usage} css={{ flex: 1, overflowY: 'auto' }}>
-          <div css={{ padding: `${theme.spacing.sm}px 0` }}>
-            <LazyTraceRequestsChart experimentId={experimentId} startTimeMs={startTimeMs} endTimeMs={endTimeMs} />
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.lg,
+              padding: `${theme.spacing.sm}px 0`,
+            }}
+          >
+            {/* Requests chart - full width */}
+            <LazyTraceRequestsChart {...chartProps} />
           </div>
         </Tabs.Content>
       </Tabs.Root>
