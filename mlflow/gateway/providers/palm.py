@@ -53,7 +53,8 @@ class PaLMProvider(BaseProvider):
                 )
         payload = rename_payload_keys(payload, key_mapping)
         # The range of PaLM's temperature is 0-1, but ours is 0-2, so we halve it
-        payload["temperature"] = 0.5 * payload["temperature"]
+        if "temperature" in payload:
+            payload["temperature"] = 0.5 * payload["temperature"]
 
         # Replace 'role' with 'author' in payload
         for m in payload["messages"]:
@@ -125,7 +126,8 @@ class PaLMProvider(BaseProvider):
                 )
         payload = rename_payload_keys(payload, key_mapping)
         # The range of PaLM's temperature is 0-1, but ours is 0-2, so we halve it
-        payload["temperature"] = 0.5 * payload["temperature"]
+        if "temperature" in payload:
+            payload["temperature"] = 0.5 * payload["temperature"]
         payload["prompt"] = {"text": payload["prompt"]}
         resp = await self._request(
             f"{self.config.model.name}:generateText",

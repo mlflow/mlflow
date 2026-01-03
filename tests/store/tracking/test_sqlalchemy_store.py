@@ -6272,6 +6272,58 @@ def test_search_traces_with_feedback_rlike_filters(store: SqlAlchemyStore):
     assert traces[0].request_id == trace3_id
 
 
+def test_search_traces_with_metadata_is_null_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_metadata_is_null")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, trace_metadata={"env": "production", "region": "us"})
+    _create_trace(store, trace2_id, exp_id, trace_metadata={"env": "staging"})
+    _create_trace(store, trace3_id, exp_id, trace_metadata={})
+
+    traces, _ = store.search_traces([exp_id], filter_string="metadata.region IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="metadata.env IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='metadata.region IS NULL AND metadata.env = "staging"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id}
+
+
+def test_search_traces_with_metadata_is_not_null_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_metadata_is_not_null")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, trace_metadata={"env": "production", "region": "us"})
+    _create_trace(store, trace2_id, exp_id, trace_metadata={"env": "staging"})
+    _create_trace(store, trace3_id, exp_id, trace_metadata={})
+
+    traces, _ = store.search_traces([exp_id], filter_string="metadata.region IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="metadata.env IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='metadata.region IS NOT NULL AND metadata.env = "production"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id}
+
+
 @pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
 def test_search_traces_with_metadata_rlike_filters(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_metadata_rlike")
@@ -10693,6 +10745,309 @@ def test_scorer_operations(store: SqlAlchemyStore):
         store.list_scorer_versions(experiment_id, "non_existent_scorer")
 
 
+def _gateway_model_scorer_json():
+    """Returns a serialized scorer JSON that uses a gateway model."""
+    return json.dumps({"instructions_judge_pydantic_data": {"model": "gateway:/my-endpoint"}})
+
+
+def _non_gateway_model_scorer_json():
+    """Returns a serialized scorer JSON that does NOT use a gateway model."""
+    return json.dumps({"instructions_judge_pydantic_data": {"model": "openai:/gpt-4"}})
+
+
+def _mock_gateway_endpoint():
+    """Returns a mock GatewayEndpoint for testing."""
+    from mlflow.entities.gateway_endpoint import GatewayEndpoint
+
+    return GatewayEndpoint(
+        endpoint_id="test-endpoint-id",
+        name="my-endpoint",
+        created_at=0,
+        last_updated_at=0,
+    )
+
+
+def test_get_online_scoring_configs_batch(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_batch_configs")
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "scorer1", _gateway_model_scorer_json())
+        store.register_scorer(experiment_id, "scorer2", _gateway_model_scorer_json())
+        store.register_scorer(experiment_id, "scorer3", _gateway_model_scorer_json())
+
+    config1 = store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="scorer1",
+        sample_rate=0.1,
+        filter_string="status = 'OK'",
+    )
+    config2 = store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="scorer2",
+        sample_rate=0.5,
+    )
+
+    scorer_ids = [config1.scorer_id, config2.scorer_id]
+    configs = store.get_online_scoring_configs(scorer_ids)
+
+    assert len(configs) == 2
+    assert configs[config1.scorer_id].sample_rate == 0.1
+    assert configs[config1.scorer_id].filter_string == "status = 'OK'"
+    assert configs[config2.scorer_id].sample_rate == 0.5
+    assert configs[config2.scorer_id].filter_string is None
+
+
+def test_get_online_scoring_configs_empty_list(store: SqlAlchemyStore):
+    configs = store.get_online_scoring_configs([])
+    assert configs == {}
+
+
+def test_get_online_scoring_configs_nonexistent_ids(store: SqlAlchemyStore):
+    configs = store.get_online_scoring_configs(["nonexistent_id_1", "nonexistent_id_2"])
+    assert configs == {}
+
+
+def test_update_online_scoring_config_creates_config(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_online_config_create")
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "scorer", _gateway_model_scorer_json())
+
+    config = store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="scorer",
+        sample_rate=0.1,
+        filter_string="status = 'OK'",
+    )
+
+    assert config.sample_rate == 0.1
+    assert config.filter_string == "status = 'OK'"
+    assert config.online_scoring_config_id is not None
+
+
+def test_update_online_scoring_config_overwrites(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_online_config_overwrite")
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "scorer", _gateway_model_scorer_json())
+
+    store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="scorer",
+        sample_rate=0.1,
+    )
+
+    new_config = store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="scorer",
+        sample_rate=0.5,
+    )
+
+    assert new_config.sample_rate == 0.5
+
+    # Verify the config is persisted by fetching via get_online_scoring_configs
+    configs = store.get_online_scoring_configs([new_config.scorer_id])
+    assert new_config.scorer_id in configs
+    assert configs[new_config.scorer_id].sample_rate == 0.5
+
+
+def test_update_online_scoring_config_rejects_non_gateway_model(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_online_config_non_gateway")
+    non_gateway_scorer = json.dumps(
+        {"instructions_judge_pydantic_data": {"model": "openai:/gpt-4"}}
+    )
+    store.register_scorer(experiment_id, "scorer", non_gateway_scorer)
+
+    with pytest.raises(MlflowException, match="does not use a gateway model"):
+        store.update_online_scoring_config(
+            experiment_id=experiment_id,
+            scorer_name="scorer",
+            sample_rate=0.1,
+        )
+
+
+def test_update_online_scoring_config_nonexistent_scorer(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_online_config_error")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.update_online_scoring_config(
+            experiment_id=experiment_id,
+            scorer_name="nonexistent",
+            sample_rate=0.1,
+        )
+
+
+def test_update_online_scoring_config_validates_filter_string(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_filter_validation")
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "test_scorer", _gateway_model_scorer_json())
+
+    config = store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="test_scorer",
+        sample_rate=0.5,
+        filter_string="status = 'OK'",
+    )
+    assert config.filter_string == "status = 'OK'"
+
+    with pytest.raises(MlflowException, match="Invalid"):
+        store.update_online_scoring_config(
+            experiment_id=experiment_id,
+            scorer_name="test_scorer",
+            sample_rate=0.5,
+            filter_string="this is not a valid filter !!@@##",
+        )
+
+
+def test_update_online_scoring_config_validates_sample_rate(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_sample_rate_validation")
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "test_scorer", _gateway_model_scorer_json())
+
+    # Valid sample rates should work
+    config = store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="test_scorer",
+        sample_rate=0.0,
+    )
+    assert config.sample_rate == 0.0
+
+    config = store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="test_scorer",
+        sample_rate=1.0,
+    )
+    assert config.sample_rate == 1.0
+
+    # Invalid sample rates should raise
+    with pytest.raises(MlflowException, match="sample_rate must be between 0.0 and 1.0"):
+        store.update_online_scoring_config(
+            experiment_id=experiment_id,
+            scorer_name="test_scorer",
+            sample_rate=-0.1,
+        )
+
+    with pytest.raises(MlflowException, match="sample_rate must be between 0.0 and 1.0"):
+        store.update_online_scoring_config(
+            experiment_id=experiment_id,
+            scorer_name="test_scorer",
+            sample_rate=1.1,
+        )
+
+
+def test_get_active_online_scorers_filters_by_sample_rate(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_active_configs")
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "active", _gateway_model_scorer_json())
+        store.register_scorer(experiment_id, "inactive", _gateway_model_scorer_json())
+
+    store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="active",
+        sample_rate=0.1,
+    )
+    store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="inactive",
+        sample_rate=0.0,
+    )
+
+    active_scorers = store.get_active_online_scorers()
+    # Filter to only scorers we created in this test using name and experiment_id
+    test_scorers = [
+        s for s in active_scorers if s.name == "active" and s.experiment_id == experiment_id
+    ]
+
+    assert len(test_scorers) == 1
+    assert test_scorers[0].sample_rate == 0.1
+
+
+def test_get_active_online_scorers_returns_scorer_fields(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_active_configs_info")
+    scorer_json = _gateway_model_scorer_json()
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "scorer", scorer_json)
+
+    store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="scorer",
+        sample_rate=0.5,
+        filter_string="status = 'OK'",
+    )
+
+    active_scorers = store.get_active_online_scorers()
+    active_scorer = next(
+        s for s in active_scorers if s.name == "scorer" and s.experiment_id == experiment_id
+    )
+
+    assert active_scorer.name == "scorer"
+    assert active_scorer.experiment_id == experiment_id
+    assert active_scorer.sample_rate == 0.5
+    assert active_scorer.filter_string == "status = 'OK'"
+
+
+def test_get_active_online_scorers_filters_non_gateway_model(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_filter_non_gateway")
+
+    # Register scorer with gateway model (version 1)
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "scorer", _gateway_model_scorer_json())
+
+    # Set up online scoring config (validation passes for version 1)
+    store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="scorer",
+        sample_rate=0.5,
+    )
+
+    # Verify scorer is returned initially (max version uses gateway model)
+    active_scorers = store.get_active_online_scorers()
+    test_scorers = [
+        s for s in active_scorers if s.name == "scorer" and s.experiment_id == experiment_id
+    ]
+    assert len(test_scorers) == 1
+
+    # Register same scorer with non-gateway model (version 2)
+    store.register_scorer(experiment_id, "scorer", _non_gateway_model_scorer_json())
+
+    # Verify scorer is NOT returned now (max version uses non-gateway model)
+    active_scorers = store.get_active_online_scorers()
+    test_scorers = [
+        s for s in active_scorers if s.name == "scorer" and s.experiment_id == experiment_id
+    ]
+    assert len(test_scorers) == 0
+
+
+def test_scorer_deletion_cascades_to_online_configs(store: SqlAlchemyStore):
+    from mlflow.store.tracking.dbmodels.models import SqlOnlineScoringConfig
+
+    experiment_id = store.create_experiment("test_cascade_delete")
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "scorer", _gateway_model_scorer_json())
+
+    config = store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="scorer",
+        sample_rate=0.5,
+    )
+    config_id = config.online_scoring_config_id
+
+    with store.ManagedSessionMaker() as session:
+        assert (
+            session.query(SqlOnlineScoringConfig)
+            .filter_by(online_scoring_config_id=config_id)
+            .count()
+            == 1
+        )
+
+    store.delete_scorer(experiment_id, "scorer")
+
+    with store.ManagedSessionMaker() as session:
+        assert (
+            session.query(SqlOnlineScoringConfig)
+            .filter_by(online_scoring_config_id=config_id)
+            .count()
+            == 0
+        )
+
+
 def test_dataset_experiment_associations(store):
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         exp_ids = _create_experiments(
@@ -12088,3 +12443,162 @@ def test_log_spans_session_id_handling(store: SqlAlchemyStore) -> None:
 
     trace_info3 = store.get_trace_info(trace_id3)
     assert TraceMetadataKey.TRACE_SESSION not in trace_info3.trace_metadata
+
+
+def test_find_completed_sessions(store: SqlAlchemyStore):
+    """
+    Test finding completed sessions based on their last trace timestamp.
+
+    A session is "completed" if its last trace timestamp falls within the specified
+    time window [min_last_trace_timestamp_ms, max_last_trace_timestamp_ms].
+
+    Timeline of traces created:
+        t=1000: session-a trace 1
+        t=2000: session-a trace 2 (last trace for session-a)
+        t=2500: trace with no session (should be ignored)
+        t=3000: session-b trace 1
+        t=4000: session-b trace 2 (last trace for session-b)
+        t=5000: session-c trace 1
+        t=10000: session-c trace 2 (last trace for session-c)
+    """
+    exp_id = store.create_experiment("test_find_completed_sessions")
+
+    # Session A: traces at t=1000 and t=2000 (last_trace_timestamp = 2000)
+    _create_trace(
+        store,
+        "trace_a1",
+        exp_id,
+        request_time=1000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    _create_trace(
+        store,
+        "trace_a2",
+        exp_id,
+        request_time=2000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+
+    # Session B: traces at t=3000 and t=4000 (last_trace_timestamp = 4000)
+    _create_trace(
+        store,
+        "trace_b1",
+        exp_id,
+        request_time=3000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
+    )
+    _create_trace(
+        store,
+        "trace_b2",
+        exp_id,
+        request_time=4000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
+    )
+
+    # Session C: traces at t=5000 and t=10000 (last_trace_timestamp = 10000)
+    # This session's last trace is AFTER our query window, so it won't be returned
+    _create_trace(
+        store,
+        "trace_c1",
+        exp_id,
+        request_time=5000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-c"},
+    )
+    _create_trace(
+        store,
+        "trace_c2",
+        exp_id,
+        request_time=10000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-c"},
+    )
+
+    # Trace without session metadata (should be ignored)
+    _create_trace(store, "trace_no_session", exp_id, request_time=2500)
+
+    # Query for sessions with last_trace_timestamp in [0, 5000]
+    # Should return session-a (last=2000) and session-b (last=4000)
+    # Should NOT return session-c (last=10000, outside window)
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=0,
+        max_last_trace_timestamp_ms=5000,
+    )
+
+    assert len(completed) == 2
+    session_ids = {s.session_id for s in completed}
+    assert session_ids == {"session-a", "session-b"}
+
+    # Verify first/last timestamps are correct for each session
+    session_a = next(s for s in completed if s.session_id == "session-a")
+    assert session_a.first_trace_timestamp_ms == 1000
+    assert session_a.last_trace_timestamp_ms == 2000
+
+    session_b = next(s for s in completed if s.session_id == "session-b")
+    assert session_b.first_trace_timestamp_ms == 3000
+    assert session_b.last_trace_timestamp_ms == 4000
+
+    # Results should be ordered by first_trace_timestamp ascending
+    assert completed[0].session_id == "session-a"
+    assert completed[1].session_id == "session-b"
+
+    # Narrower time window [3000, 5000] should only return session-b (last=4000)
+    # session-a's last trace (2000) is before min_last_trace_timestamp_ms
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=3000,
+        max_last_trace_timestamp_ms=5000,
+    )
+    assert len(completed) == 1
+    assert completed[0].session_id == "session-b"
+
+    # Test max_results pagination: limit to 1 result
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=0,
+        max_last_trace_timestamp_ms=5000,
+        max_results=1,
+    )
+    assert len(completed) == 1
+    assert completed[0].session_id == "session-a"  # First by first_trace_timestamp
+
+    # Test max_results pagination: limit to 2 results (all matching)
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=0,
+        max_last_trace_timestamp_ms=5000,
+        max_results=2,
+    )
+    assert len(completed) == 2
+    assert completed[0].session_id == "session-a"
+    assert completed[1].session_id == "session-b"
+
+
+def test_find_completed_sessions_aggregates_across_all_traces(store: SqlAlchemyStore):
+    """
+    Regression test: first/last timestamps should be computed across ALL session traces,
+    not just those matching the min_last_trace_timestamp_ms filter.
+    """
+    exp_id = store.create_experiment("test_session_timestamp_aggregation")
+
+    _create_trace(
+        store,
+        "trace1",
+        exp_id,
+        request_time=1000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    _create_trace(
+        store,
+        "trace2",
+        exp_id,
+        request_time=3000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id, min_last_trace_timestamp_ms=2000, max_last_trace_timestamp_ms=4000
+    )
+
+    assert len(completed) == 1
+    assert completed[0].first_trace_timestamp_ms == 1000
+    assert completed[0].last_trace_timestamp_ms == 3000
