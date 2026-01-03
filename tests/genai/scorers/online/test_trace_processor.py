@@ -122,7 +122,7 @@ def test_process_traces_filters_checkpoint_boundary(
         experiment_id="exp1",
     )
 
-    with patch("mlflow.genai.scorers.online.trace_processor._compute_eval_scores") as mock_compute:
+    with patch("mlflow.genai.evaluation.harness._compute_eval_scores") as mock_compute:
         mock_compute.return_value = []
         processor.process_traces()
 
@@ -184,8 +184,8 @@ def test_process_traces_samples_and_scores(
     )
 
     with (
-        patch("mlflow.genai.scorers.online.trace_processor._compute_eval_scores") as mock_compute,
-        patch("mlflow.genai.scorers.online.trace_processor._log_assessments") as mock_log,
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores") as mock_compute,
+        patch("mlflow.genai.evaluation.harness._log_assessments") as mock_log,
     ):
         mock_compute.return_value = [MagicMock()]
         processor.process_traces()
@@ -212,7 +212,7 @@ def test_process_traces_updates_checkpoint_on_success(
         experiment_id="exp1",
     )
 
-    with patch("mlflow.genai.scorers.online.trace_processor._compute_eval_scores") as mock_compute:
+    with patch("mlflow.genai.evaluation.harness._compute_eval_scores") as mock_compute:
         mock_compute.return_value = []
         processor.process_traces()
 
@@ -240,8 +240,8 @@ def test_execute_scoring_handles_failures(
     )
 
     with (
-        patch("mlflow.genai.scorers.online.trace_processor._compute_eval_scores") as mock_compute,
-        patch("mlflow.genai.scorers.online.trace_processor._log_assessments") as mock_log,
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores") as mock_compute,
+        patch("mlflow.genai.evaluation.harness._log_assessments") as mock_log,
     ):
         mock_compute.side_effect = [Exception("Scorer failed"), [MagicMock()]]
         processor.process_traces()
