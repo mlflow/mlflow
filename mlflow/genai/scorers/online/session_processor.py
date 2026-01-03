@@ -73,7 +73,7 @@ class OnlineSessionScoringProcessor:
         applies sampling to select scorers, runs scoring in parallel (one thread per
         session), and updates the checkpoint.
         """
-        if not self._sampler.configs:
+        if not self._sampler._online_scorers:
             _logger.info("No scorer configs provided, skipping")
             return
 
@@ -209,7 +209,7 @@ class OnlineSessionScoringProcessor:
         """
         session_filter = f"metadata.`mlflow.trace.session` = '{session.session_id}'"
         combined_filter = f"{EXCLUDE_EVAL_RUN_TRACES_FILTER} AND {session_filter}"
-        trace_infos = self._trace_loader.fetch_trace_infos_between(
+        trace_infos = self._trace_loader.fetch_trace_infos_in_range(
             experiment_id=self._experiment_id,
             start_time_ms=session.first_trace_timestamp_ms,
             end_time_ms=session.last_trace_timestamp_ms,
@@ -231,10 +231,9 @@ class OnlineSessionScoringProcessor:
 
         applicable_scorers = []
         # Group scorers by filter_string to apply dense sampling separately per filter group
-        for filter_string in self._sampler.get_filter_strings():
-            session_scorers = self._sampler.get_scorers_for_filter(
-                filter_string, session_level=True
-            )
+        for filter_string, session_scorers in self._sampler.group_scorers_by_filter(
+            session_level=True
+        ).items():
             if selected := self._sampler.sample(session.session_id, session_scorers):
                 applicable_scorers.extend(selected)
 
