@@ -13,6 +13,9 @@ from mlflow.protos.service_pb2 import (
     GatewayEndpointBinding as ProtoGatewayEndpointBinding,
 )
 from mlflow.protos.service_pb2 import (
+    GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
+)
+from mlflow.protos.service_pb2 import (
     GatewayEndpointModelMapping as ProtoGatewayEndpointModelMapping,
 )
 from mlflow.protos.service_pb2 import (
@@ -113,6 +116,46 @@ class FallbackConfig(_MlflowObject):
         return cls(
             strategy=strategy,
             max_attempts=proto.max_attempts,
+        )
+
+
+@dataclass
+class GatewayEndpointModelConfig(_MlflowObject):
+    """
+    Configuration for a model attached to an endpoint.
+
+    This structured object combines all configuration needed to attach a model
+    to an endpoint, including the model definition ID, linkage type, weight,
+    and fallback order.
+
+    Args:
+        model_definition_id: ID of the model definition to attach.
+        linkage_type: Type of linkage (PRIMARY or FALLBACK).
+        weight: Routing weight for traffic distribution (default 1.0).
+        fallback_order: Order for fallback attempts (only for FALLBACK linkages, None for PRIMARY).
+    """
+
+    model_definition_id: str
+    linkage_type: GatewayModelLinkageType
+    weight: float = 1.0
+    fallback_order: int | None = None
+
+    def to_proto(self) -> ProtoGatewayEndpointModelConfig:
+        proto = ProtoGatewayEndpointModelConfig()
+        proto.model_definition_id = self.model_definition_id
+        proto.linkage_type = self.linkage_type.to_proto()
+        proto.weight = self.weight
+        if self.fallback_order is not None:
+            proto.fallback_order = self.fallback_order
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto: ProtoGatewayEndpointModelConfig) -> "GatewayEndpointModelConfig":
+        return cls(
+            model_definition_id=proto.model_definition_id,
+            linkage_type=GatewayModelLinkageType.from_proto(proto.linkage_type),
+            weight=proto.weight if proto.HasField("weight") else 1.0,
+            fallback_order=proto.fallback_order if proto.HasField("fallback_order") else None,
         )
 
 
