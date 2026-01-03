@@ -16,6 +16,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.telemetry.events import ScorerCallEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking import get_tracking_uri
+from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.uri import is_databricks_uri
 
@@ -190,11 +191,13 @@ class Scorer(BaseModel):
         """
         return False
 
+    @experimental(version="3.0.0")
     @property
     def sample_rate(self) -> float | None:
         """Get the sample rate for this scorer. Available when registered for monitoring."""
         return self._sampling_config.sample_rate if self._sampling_config else None
 
+    @experimental(version="3.0.0")
     @property
     def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
@@ -672,6 +675,7 @@ class Scorer(BaseModel):
             new_scorer._registered_backend = "tracking"
         return new_scorer
 
+    @experimental(version="3.0.0")
     def start(
         self,
         *,
@@ -717,14 +721,10 @@ class Scorer(BaseModel):
                     )
                 )
         """
-        from mlflow.genai.scorers.registry import DatabricksStore
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
-
-        if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException(
-                "Scheduling scorers is only supported by Databricks tracking URI."
-            )
+        from mlflow.genai.scorers.registry import (
+            DatabricksStore,
+            _get_scorer_store,
+        )
 
         self._check_can_be_registered()
 
@@ -734,16 +734,26 @@ class Scorer(BaseModel):
             )
 
         scorer_name = name or self.name
+        store = _get_scorer_store()
 
-        # Update the scorer on the server
-        return DatabricksStore.update_registered_scorer(
+        if isinstance(store, DatabricksStore):
+            return DatabricksStore.update_registered_scorer(
+                name=scorer_name,
+                scorer=self,
+                sample_rate=sampling_config.sample_rate,
+                filter_string=sampling_config.filter_string,
+                experiment_id=experiment_id,
+            )
+
+        return store.update_online_scoring_config(
             name=scorer_name,
             scorer=self,
+            experiment_id=experiment_id,
             sample_rate=sampling_config.sample_rate,
             filter_string=sampling_config.filter_string,
-            experiment_id=experiment_id,
         )
 
+    @experimental(version="3.0.0")
     def update(
         self,
         *,
@@ -795,28 +805,34 @@ class Scorer(BaseModel):
                 )
                 print(f"Added filter: {filtered_scorer.filter_string}")
         """
-        from mlflow.genai.scorers.registry import DatabricksStore
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
-
-        if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException(
-                "Updating scheduled scorers is only supported by Databricks tracking URI."
-            )
+        from mlflow.genai.scorers.registry import (
+            DatabricksStore,
+            _get_scorer_store,
+        )
 
         self._check_can_be_registered()
 
         scorer_name = name or self.name
+        store = _get_scorer_store()
 
-        # Update the scorer on the server
-        return DatabricksStore.update_registered_scorer(
+        if isinstance(store, DatabricksStore):
+            return DatabricksStore.update_registered_scorer(
+                name=scorer_name,
+                scorer=self,
+                sample_rate=sampling_config.sample_rate,
+                filter_string=sampling_config.filter_string,
+                experiment_id=experiment_id,
+            )
+
+        return store.update_online_scoring_config(
             name=scorer_name,
             scorer=self,
+            experiment_id=experiment_id,
             sample_rate=sampling_config.sample_rate,
             filter_string=sampling_config.filter_string,
-            experiment_id=experiment_id,
         )
 
+    @experimental(version="3.0.0")
     def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Stop registered scoring by setting sample rate to 0.
@@ -855,14 +871,6 @@ class Scorer(BaseModel):
                     sampling_config=ScorerSamplingConfig(sample_rate=0.3)
                 )
         """
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
-
-        if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException(
-                "Stopping scheduled scorers is only supported by Databricks tracking URI."
-            )
-
         self._check_can_be_registered()
 
         scorer_name = name or self.name
