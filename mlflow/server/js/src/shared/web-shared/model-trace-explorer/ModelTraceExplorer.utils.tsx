@@ -49,6 +49,8 @@ import {
   normalizeBedrockChatOutput,
   normalizeGeminiChatInput,
   normalizeGeminiChatOutput,
+  normalizeMistralChatInput,
+  normalizeMistralChatOutput,
   normalizeOpenAIChatInput,
   normalizeOpenAIChatResponse,
   normalizeOpenAIResponsesInput,
@@ -1039,6 +1041,10 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
       case 'anthropic':
         const anthropicMessages = normalizeAnthropicChatInput(input) ?? normalizeAnthropicChatOutput(input);
         if (anthropicMessages) return anthropicMessages;
+        break;
+      case 'mistral':
+        const mistralMessages = normalizeMistralChatInput(input) ?? normalizeMistralChatOutput(input);
+        if (mistralMessages) return mistralMessages;
         break;
       case 'openai-agent':
         const openAIAgentMessages = normalizeOpenAIAgentInput(input) ?? normalizeOpenAIAgentOutput(input);
