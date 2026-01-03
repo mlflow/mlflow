@@ -5,8 +5,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from mlflow.entities.assessment import Assessment
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
-from mlflow.genai.evaluation.harness import _log_assessments
-from mlflow.genai.evaluation.session_utils import evaluate_session_level_scorers
 from mlflow.genai.scorers.online.constants import (
     EXCLUDE_EVAL_RUN_TRACES_FILTER,
     MAX_SESSIONS_PER_JOB,
@@ -243,9 +241,11 @@ class OnlineSessionScoringProcessor:
         if not applicable_scorers:
             return
 
-        # Import EvalItem lazily to avoid pulling in pandas at module load time,
-        # which would break the skinny client.
+        # Import evaluation modules lazily to avoid pulling in pandas at module load
+        # time, which would break the skinny client.
         from mlflow.genai.evaluation.entities import EvalItem
+        from mlflow.genai.evaluation.harness import _log_assessments
+        from mlflow.genai.evaluation.session_utils import evaluate_session_level_scorers
 
         session_items = [EvalItem.from_trace(t) for t in full_traces]
 
