@@ -4,6 +4,61 @@ import { FormattedMessage } from 'react-intl';
 
 const DEFAULT_CHART_HEIGHT = 280;
 
+interface ChartHeaderProps {
+  /** Icon component to display before the title */
+  icon: React.ReactNode;
+  /** Chart title */
+  title: React.ReactNode;
+  /** Main value to display (e.g., "1.2K", "150 ms") */
+  value?: React.ReactNode;
+  /** Optional subtitle shown after the value */
+  subtitle?: React.ReactNode;
+}
+
+/**
+ * Common header component for chart cards with icon, title, and value
+ */
+export const ChartHeader: React.FC<ChartHeaderProps> = ({ icon, title, value, subtitle }) => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div css={{ marginBottom: theme.spacing.lg }}>
+      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+        <span css={{ color: theme.colors.textSecondary, display: 'flex' }}>{icon}</span>
+        <Typography.Text bold size="lg">
+          {title}
+        </Typography.Text>
+      </div>
+      {value !== undefined && (
+        <Typography.Title level={3} css={{ margin: 0, marginTop: theme.spacing.sm }}>
+          {value}
+          {subtitle && (
+            <>
+              {' '}
+              <Typography.Text color="secondary" css={{ fontWeight: 'normal' }}>
+                {subtitle}
+              </Typography.Text>
+            </>
+          )}
+        </Typography.Title>
+      )}
+    </div>
+  );
+};
+
+/**
+ * "Over time" label shown above time-series charts
+ */
+export const OverTimeLabel: React.FC = () => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <Typography.Text color="secondary" size="sm" css={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+      <FormattedMessage defaultMessage="Over time" description="Label above time-series charts" />
+    </Typography.Text>
+  );
+};
+
 interface ChartCardWrapperProps {
   children: React.ReactNode;
   height?: number;
@@ -96,6 +151,76 @@ export const ChartEmptyState: React.FC<ChartEmptyStateProps> = ({ height, messag
           />
         )}
       </Typography.Text>
+    </div>
+  );
+};
+
+/**
+ * Returns common tooltip style configuration for Recharts tooltips
+ */
+export function useChartTooltipStyle() {
+  const { theme } = useDesignSystemTheme();
+  return {
+    backgroundColor: theme.colors.backgroundPrimary,
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: theme.borders.borderRadiusMd,
+    fontSize: theme.typography.fontSizeSm,
+  };
+}
+
+/**
+ * Returns common XAxis props for time-series charts
+ */
+export function useChartXAxisProps() {
+  const { theme } = useDesignSystemTheme();
+  return {
+    tick: { fontSize: 10, fill: theme.colors.textSecondary, dy: theme.spacing.sm },
+    axisLine: false,
+    tickLine: false,
+    interval: 'preserveStartEnd' as const,
+  };
+}
+
+/**
+ * Returns a legend formatter function with consistent styling
+ */
+export function useChartLegendFormatter() {
+  const { theme } = useDesignSystemTheme();
+  return (value: string) => (
+    <span
+      style={{
+        color: theme.colors.textPrimary,
+        fontSize: theme.typography.fontSizeSm,
+        cursor: 'pointer',
+      }}
+    >
+      {value}
+    </span>
+  );
+}
+
+/**
+ * Props for the ChartContainer component
+ */
+interface ChartContainerProps {
+  children: React.ReactNode;
+}
+
+/**
+ * Common container styling for chart cards
+ */
+export const ChartContainer: React.FC<ChartContainerProps> = ({ children }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        padding: theme.spacing.lg,
+        backgroundColor: theme.colors.backgroundPrimary,
+      }}
+    >
+      {children}
     </div>
   );
 };
