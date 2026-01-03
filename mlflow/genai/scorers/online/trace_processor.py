@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 from mlflow.entities import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
-from mlflow.genai.evaluation.entities import EvalItem
 from mlflow.genai.evaluation.harness import _compute_eval_scores, _log_assessments
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.online.constants import EXCLUDE_EVAL_RUN_TRACES_FILTER, MAX_TRACES_PER_JOB
@@ -196,6 +195,10 @@ class OnlineTraceScoringProcessor:
         Args:
             tasks: Trace-level scoring tasks.
         """
+        # Import EvalItem lazily to avoid pulling in pandas at module load time,
+        # which would break the skinny client.
+        from mlflow.genai.evaluation.entities import EvalItem
+
         with ThreadPoolExecutor(
             max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
             thread_name_prefix="OnlineScoring",
