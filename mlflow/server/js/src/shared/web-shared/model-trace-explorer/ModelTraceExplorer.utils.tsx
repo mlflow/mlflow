@@ -1048,6 +1048,15 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         const autogenMessages = normalizeAutogenChatInput(input) ?? normalizeAutogenChatOutput(input);
         if (autogenMessages) return autogenMessages;
         break;
+      case 'ag2':
+        // AG2 with Responses API uses OpenAI Responses format for LLM calls
+        const ag2Messages =
+          normalizeOpenAIResponsesOutput(input) ??
+          normalizeOpenAIResponsesInput(input) ??
+          normalizeOpenAIChatInput(input) ??
+          normalizeOpenAIChatResponse(input);
+        if (ag2Messages) return ag2Messages;
+        break;
       case 'bedrock':
         const bedrockMessages = normalizeBedrockChatInput(input) ?? normalizeBedrockChatOutput(input);
         if (bedrockMessages) return bedrockMessages;
