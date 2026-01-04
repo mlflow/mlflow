@@ -26,6 +26,7 @@ import {
 import { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
 import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
 import { getMlflowTraceV3ForEvaluation, JudgeEvaluationResult } from './useEvaluateTraces.common';
+import { useEvaluateTracesAsync } from './useEvaluateTracesAsync';
 
 /**
  * Response from the chat completions API
@@ -586,8 +587,10 @@ export function useEvaluateTraces({
     setIsLoading(false);
   }, []);
 
+  const [evaluateTracesAsync, asyncEvaluationState] = useEvaluateTracesAsync({ onScorerFinished });
+
   if (usingAsyncMode) {
-    // TODO(next PRs): Return controls and state for async evaluation
+    return [evaluateTracesAsync, asyncEvaluationState] as const;
   }
 
   return [

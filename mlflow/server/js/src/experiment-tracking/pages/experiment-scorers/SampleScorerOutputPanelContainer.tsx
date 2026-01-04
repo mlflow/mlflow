@@ -1,15 +1,16 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type { Control } from 'react-hook-form';
-import { useWatch, useFormState } from 'react-hook-form';
+import { useWatch, useFormState, useFormContext } from 'react-hook-form';
 import { useIntl } from '@databricks/i18n';
 import { type ScorerFormData } from './utils/scorerTransformUtils';
 import { useEvaluateTraces } from './useEvaluateTraces';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import { convertEvaluationResultToAssessment } from './llmScorerUtils';
 import { extractTemplateVariables } from '../../utils/evaluationUtils';
-import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope } from './constants';
+import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope, SCORER_TYPE } from './constants';
 import { EvaluateTracesParams, LLM_TEMPLATE } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
+import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
 
 interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
@@ -31,6 +32,8 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   const { errors } = useFormState({ control });
   const evaluationScopeFormValue = useWatch({ control, name: 'evaluationScope' });
   const evaluationScope = coerceToEnum(ScorerEvaluationScope, evaluationScopeFormValue, ScorerEvaluationScope.TRACES);
+
+  const getSerializedScorerFromForm = useGetSerializedScorerFromForm();
 
   const [itemsToEvaluate, setItemsToEvaluate] = useState<Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>>({
     itemCount: DEFAULT_TRACE_COUNT,
@@ -72,6 +75,8 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       return;
     }
 
+    const serializedScorer = getSerializedScorerFromForm();
+
     // Reset to first trace when running scorer
     setCurrentTraceIndex(0);
 
@@ -84,6 +89,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
             locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' as const }],
             judgeInstructions: judgeInstructions || '',
             experimentId,
+            serializedScorer,
           }
         : {
             itemCount: itemsToEvaluate.itemCount,
@@ -97,13 +103,23 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
             ],
             experimentId,
             guidelines: guidelines ? [guidelines] : undefined,
+            serializedScorer,
           };
 
       await evaluateTraces(evaluationParams);
     } catch (error) {
       // Error is already handled by the hook's error state
     }
-  }, [isCustomMode, judgeInstructions, llmTemplate, guidelines, itemsToEvaluate, evaluateTraces, experimentId]);
+  }, [
+    isCustomMode,
+    judgeInstructions,
+    llmTemplate,
+    guidelines,
+    itemsToEvaluate,
+    evaluateTraces,
+    experimentId,
+    getSerializedScorerFromForm,
+  ]);
 
   // Navigation handlers
   const handlePrevious = () => {

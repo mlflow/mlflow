@@ -77,6 +77,7 @@ interface EvaluateChatParamsBase {
   itemIds?: string[];
   locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   experimentId: string;
+  serializedScorer?: string;
 }
 
 /**
