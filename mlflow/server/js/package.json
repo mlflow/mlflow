@@ -192,6 +192,7 @@
     "stream-browserify": "^3.0.0",
     "tsconfig-paths-webpack-plugin": "^4.0.1",
     "typescript": "^5.9.3",
+    "uuid": "^13.0.0",
     "webpack": "^5.69.0",
     "whatwg-fetch": "^3.6.17"
   },
