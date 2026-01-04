@@ -43,6 +43,13 @@ def _merge_event_attributes(events: list[dict[str, Any]] | None) -> dict[str, An
 
     We use these event attributes as a fallback source for populating MLflow's
     `mlflow.spanInputs` / `mlflow.spanOutputs`.
+
+    Args:
+        events: A list of event dictionaries, each optionally containing an "attributes"
+            mapping, or `None` if no events are available.
+
+    Returns:
+        A dictionary containing the merged attributes from all provided events.
     """
 
     merged: dict[str, Any] = {}

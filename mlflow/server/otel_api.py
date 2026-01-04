@@ -41,6 +41,19 @@ def _get_experiment_id_from_service_name(
     store,
     parsed_request: ExportTraceServiceRequest,
 ) -> str:
+    """Derive the MLflow experiment ID from the OTLP request's `service.name`.
+
+    Args:
+        store: Tracking store used to look up and create experiments.
+        parsed_request: The parsed OTLP trace export request.
+
+    Returns:
+        The experiment ID corresponding to the single `service.name` value found in the request.
+
+    Raises:
+        fastapi.HTTPException: If no `service.name` resource attribute is found in the request, or
+            if multiple distinct `service.name` values are present.
+    """
     attributes = []
     for resource_span in parsed_request.resource_spans:
         attributes.extend(resource_span.resource.attributes)
@@ -78,6 +91,21 @@ def _get_experiment_id_from_service_name(
 
 
 def _get_or_create_experiment_id(store, experiment_name: str) -> str:
+    """Return the experiment ID, creating the experiment if needed.
+
+    If the experiment does not exist, this function attempts to create it. If creation fails (e.g.
+    due to concurrent creation), it retries a lookup by name.
+
+    Args:
+        store: Tracking store used to look up and create experiments.
+        experiment_name: Name of the experiment.
+
+    Returns:
+        The experiment ID.
+
+    Raises:
+        MlflowException: If experiment creation fails and the experiment still cannot be found.
+    """
     experiment = store.get_experiment_by_name(experiment_name)
     if experiment is not None:
         return experiment.experiment_id

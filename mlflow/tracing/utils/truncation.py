@@ -135,7 +135,14 @@ def _is_message(item: Any) -> bool:
 def _get_first_message(messages: list[dict[str, Any]], role: str) -> dict[str, Any]:
     """Return first message with the given role.
 
-    If the messages don't include a message with the given role, return the first one.
+    If no message with the given role exists, return the first message.
+
+    Args:
+        messages: List of message dictionaries.
+        role: Role to search for (e.g. "user", "assistant", "system").
+
+    Returns:
+        The first message with the specified role, or the first message if no match is found.
     """
     for message in messages:
         if message.get("role") == role:
