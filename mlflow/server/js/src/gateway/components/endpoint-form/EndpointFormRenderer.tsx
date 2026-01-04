@@ -116,11 +116,11 @@ export const EndpointFormRenderer = ({
         description: 'Tooltip shown when submit button is disabled due to incomplete form',
       })
     : mode === 'edit' && !hasChanges
-    ? intl.formatMessage({
-        defaultMessage: 'No changes to save',
-        description: 'Tooltip shown when save button is disabled due to no changes',
-      })
-    : undefined;
+      ? intl.formatMessage({
+          defaultMessage: 'No changes to save',
+          description: 'Tooltip shown when save button is disabled due to no changes',
+        })
+      : undefined;
 
   return (
     <>

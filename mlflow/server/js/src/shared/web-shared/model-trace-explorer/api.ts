@@ -253,7 +253,7 @@ export const getExperimentTraceV3 = ({ traceId }: { traceId: string }) => {
   const urlWithParams = `${endpointPath}?${queryParams.toString()}`;
 
   return fetchAPI(urlWithParams, 'GET');
-}
+};
 
 /**
  * Fetch function for V4 traces.

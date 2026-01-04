@@ -10,7 +10,6 @@ import type { ModelTraceExplorerRenderMode, ModelTraceSpanNode } from '../ModelT
 import { createListFromObject, getSpanExceptionEvents } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
-import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
 
 export const SUMMARY_SPANS_MIN_WIDTH = 400;

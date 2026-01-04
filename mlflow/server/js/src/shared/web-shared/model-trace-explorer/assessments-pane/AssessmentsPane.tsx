@@ -109,13 +109,12 @@ export const AssessmentsPane = ({
       className={className}
     >
       <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        {!isInComparisonView && (
-          assessmentsTitleOverride ? (
+        {!isInComparisonView &&
+          (assessmentsTitleOverride ? (
             assessmentsTitleOverride()
           ) : (
             <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
-          )
-        )}
+          ))}
         {!isInComparisonView && setAssessmentsPaneExpanded && (
           <Tooltip
             componentId="shared.model-trace-explorer.close-assessments-pane-tooltip"

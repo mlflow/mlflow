@@ -90,7 +90,7 @@ interface ExperimentEvaluationDatasetsTableRowProps {
 
 const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>> =
   React.memo(
-    ({ row, enableRowSelection, enableLinks = true }) => {
+    function ExperimentChatSessionsTableRow({ row, enableRowSelection, enableLinks = true }) {
       const { search } = useLocation();
       const { theme } = useDesignSystemTheme();
 
@@ -109,16 +109,7 @@ const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<Experimen
             </div>
           )}
           {row.getVisibleCells().map((cell) => (
-            <Link
-              key={cell.id}
-              to={{
-                pathname: MlflowUtils.getExperimentChatSessionPageRoute(
-                  row.original.experimentId,
-                  row.original.sessionId,
-                ),
-                search,
-              }}
-            >
+            <TableCell key={cell.id}>
               {enableLinks ? (
                 <Link
                   to={{

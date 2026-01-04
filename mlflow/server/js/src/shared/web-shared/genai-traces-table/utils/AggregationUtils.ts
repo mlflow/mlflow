@@ -114,10 +114,10 @@ export function getAssessmentInfos(
         dtype = !isNil(assessment.stringValue)
           ? 'pass-fail'
           : !isNil(assessment.numericValue)
-          ? 'numeric'
-          : !isNil(assessment.booleanValue)
-          ? 'boolean'
-          : undefined;
+            ? 'numeric'
+            : !isNil(assessment.booleanValue)
+              ? 'boolean'
+              : undefined;
         // If we found an assessment with a value, use it and stop searching
         if (dtype !== undefined) {
           break;

@@ -134,8 +134,6 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   const noActionsAvailable = !hasExportAction && !hasEditTagsAction && !hasDeleteAction;
   const canCompare = selectedTraces.length >= 2 && selectedTraces.length < 4;
 
-  const canCompare = selectedTraces.length >= 2 && selectedTraces.length < 4;
-
   if (noActionsAvailable) {
     return null;
   }

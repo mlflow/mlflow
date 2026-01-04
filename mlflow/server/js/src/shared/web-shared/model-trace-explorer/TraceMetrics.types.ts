@@ -14,7 +14,7 @@ export const TraceMetricKey = {
   TOTAL_TOKENS: 'total_tokens',
 } as const;
 
-export type TraceMetricKeyType = typeof TraceMetricKey[keyof typeof TraceMetricKey];
+export type TraceMetricKeyType = (typeof TraceMetricKey)[keyof typeof TraceMetricKey];
 
 /**
  * Time bucket dimension key, included in results when time_interval_seconds is specified.

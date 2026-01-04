@@ -104,7 +104,7 @@ export const ModelTraceExplorerImpl = ({
             <ModelTraceHeaderDetails modelTraceInfo={modelTrace.info} />
             {isInComparisonView ? (
               <ModelTraceExplorerComparisonView modelTraceInfo={modelTrace.info} />
-            ) : ( 
+            ) : (
               <ModelTraceExplorerContent
                 modelTraceInfo={modelTrace.info}
                 className={className}

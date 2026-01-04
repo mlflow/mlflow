@@ -444,7 +444,7 @@ export const ProviderSelect = ({
     const getCommonProviderIndex = (item: MenuItem): number => {
       if (item.type === 'others-nav' || item.type === 'back-nav') return Infinity;
       const provider = item.type === 'group' ? item.defaultProvider : item.provider;
-      const index = COMMON_PROVIDERS.indexOf(provider as typeof COMMON_PROVIDERS[number]);
+      const index = COMMON_PROVIDERS.indexOf(provider as (typeof COMMON_PROVIDERS)[number]);
       return index === -1 ? Infinity : index;
     };
     common.sort((a, b) => getCommonProviderIndex(a) - getCommonProviderIndex(b));

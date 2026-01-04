@@ -37,10 +37,13 @@ export const SelectTracesModal = ({
   const { experimentId } = useParams();
 
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>(
-    initialTraceIdsSelected.reduce((acc, traceId) => {
-      acc[traceId] = true;
-      return acc;
-    }, {} as Record<string, boolean>),
+    initialTraceIdsSelected.reduce(
+      (acc, traceId) => {
+        acc[traceId] = true;
+        return acc;
+      },
+      {} as Record<string, boolean>,
+    ),
   );
 
   const handleOk = async () => {

@@ -7,10 +7,10 @@ import { MlflowService } from '../experiment-tracking/sdk/MlflowService';
 import type { SearchExperimentsApiResponse } from '../experiment-tracking/types';
 import { CreateExperimentModal } from '../experiment-tracking/components/modals/CreateExperimentModal';
 import { useInvalidateExperimentList } from '../experiment-tracking/components/experiment-page/hooks/useExperimentListQuery';
-import { HomePageViewStateProvider } from './HomePageViewStateContext';
 
 // Loaders and lazy imports for expensive components
 import LogTracesDrawerLoader from './components/LogTracesDrawerLoader';
+import { TelemetryInfoAlert } from '../telemetry/TelemetryInfoAlert';
 const GetStarted = React.lazy(() => import('./components/GetStarted'));
 const DiscoverNews = React.lazy(() => import('./components/DiscoverNews'));
 const ExperimentsHomeView = React.lazy(() => import('./components/ExperimentsHomeView'));
@@ -95,11 +95,5 @@ const HomePageSectionSkeleton = () => {
     </div>
   );
 };
-
-const HomePage = () => (
-  <HomePageViewStateProvider>
-    <HomePageContent />
-  </HomePageViewStateProvider>
-);
 
 export default HomePage;
