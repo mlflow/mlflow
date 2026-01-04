@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
 import { fetchOrFail } from '../../../common/utils/FetchUtils';
@@ -14,7 +14,7 @@ import {
   extractTemplateVariables,
 } from '../../utils/evaluationUtils';
 import { searchMlflowTracesQueryFn, SEARCH_MLFLOW_TRACES_QUERY_KEY } from '@databricks/web-shared/genai-traces-table';
-import { DEFAULT_TRACE_COUNT, RETRIEVAL_ASSESSMENTS } from './constants';
+import { DEFAULT_TRACE_COUNT, RETRIEVAL_ASSESSMENTS, ScorerEvaluationScope } from './constants';
 import {
   extractInputs,
   extractOutputs,
@@ -25,6 +25,8 @@ import {
 } from '../../utils/TraceUtils';
 import { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
 import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
+import { getMlflowTraceV3ForEvaluation, JudgeEvaluationResult } from './useEvaluateTraces.common';
+import { useEvaluateTracesAsync } from './useEvaluateTracesAsync';
 
 /**
  * Response from the chat completions API
@@ -328,18 +330,33 @@ export interface EvaluateTracesState {
  * Supports both custom LLM judges (via chat-completions) and built-in judges (via chat-assessments).
  * Results from both endpoints will not be cached since LLM responses are not deterministic.
  */
-export function useEvaluateTraces(): [
-  (params: EvaluateTracesParams) => Promise<JudgeEvaluationResult[]>,
-  EvaluateTracesState,
-] {
+export function useEvaluateTraces({
+  onScorerFinished,
+}: {
+  /**
+   * Callback to be called when the evaluation is finished.
+   */
+  onScorerFinished?: () => void;
+} = {}): [(params: EvaluateTracesParams) => Promise<JudgeEvaluationResult[] | void>, EvaluateTracesState] {
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState<JudgeEvaluationResult[] | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const queryClient = useQueryClient();
   const getTraceIdsForEvaluation = useGetTraceIdsForEvaluation();
+  const invocationCounterRef = useRef(0);
 
-  const evaluateTraces = useCallback(
+  /**
+   * Enables asynchronous evaluation. If enabled, the evaluation will be done as a
+   * queued job on the server and the results will be polled for asynchronously.
+   */
+  const usingAsyncMode = isEvaluatingSessionsInScorersEnabled();
+
+  const evaluateTracesSync = useCallback(
     async (params: EvaluateTracesParams): Promise<JudgeEvaluationResult[]> => {
+      // Track this invocation to ensure only the latest one calls onScorerFinished
+      invocationCounterRef.current += 1;
+      const currentInvocationId = invocationCounterRef.current;
+
       setIsLoading(true);
       setError(null);
       setData(null);
@@ -565,6 +582,12 @@ export function useEvaluateTraces(): [
         const evaluationResults: JudgeEvaluationResult[] = evaluationResultsNested.flat();
 
         setData(evaluationResults);
+
+        // Only call onScorerFinished if this is still the latest invocation
+        if (currentInvocationId === invocationCounterRef.current && onScorerFinished) {
+          onScorerFinished();
+        }
+
         return evaluationResults;
       } catch (err) {
         const errorObj = err instanceof Error ? err : new Error(String(err));
@@ -574,7 +597,7 @@ export function useEvaluateTraces(): [
         setIsLoading(false);
       }
     },
-    [queryClient, getTraceIdsForEvaluation],
+    [queryClient, getTraceIdsForEvaluation, onScorerFinished],
   );
 
   const reset = useCallback(() => {
@@ -583,8 +606,14 @@ export function useEvaluateTraces(): [
     setIsLoading(false);
   }, []);
 
+  const [evaluateTracesAsync, asyncEvaluationState] = useEvaluateTracesAsync({ onScorerFinished });
+
+  if (usingAsyncMode) {
+    return [evaluateTracesAsync, asyncEvaluationState] as const;
+  }
+
   return [
-    evaluateTraces,
+    evaluateTracesSync,
     {
       data,
       isLoading,
