@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import type { Control } from 'react-hook-form';
 import { useWatch, useFormState } from 'react-hook-form';
 import { useIntl } from '@databricks/i18n';
-import type { ScorerFormData } from './utils/scorerTransformUtils';
+import { type ScorerFormData } from './utils/scorerTransformUtils';
 import { useEvaluateTraces } from './useEvaluateTraces';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import { convertEvaluationResultToAssessment } from './llmScorerUtils';
@@ -36,7 +36,10 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     itemCount: DEFAULT_TRACE_COUNT,
     itemIds: [],
   });
-  const [evaluateTraces, { data, isLoading, error, reset }] = useEvaluateTraces();
+
+  const [evaluateTraces, { data, isLoading, error, reset }] = useEvaluateTraces({
+    onScorerFinished,
+  });
 
   // Carousel state for navigating through traces
   const [currentTraceIndex, setCurrentTraceIndex] = useState(0);
@@ -69,10 +72,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       return;
     }
 
-    // Increment request ID and save for this request
-    requestIdRef.current += 1;
-    const thisRequestId = requestIdRef.current;
-
     // Reset to first trace when running scorer
     setCurrentTraceIndex(0);
 
@@ -100,28 +99,11 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
             guidelines: guidelines ? [guidelines] : undefined,
           };
 
-      const results = await evaluateTraces(evaluationParams);
-
-      // Check if results are still current (user hasn't changed settings)
-      if (thisRequestId === requestIdRef.current) {
-        // Call onScorerFinished after successful evaluation
-        if (results && results.length > 0) {
-          onScorerFinished?.();
-        }
-      }
+      await evaluateTraces(evaluationParams);
     } catch (error) {
       // Error is already handled by the hook's error state
     }
-  }, [
-    isCustomMode,
-    judgeInstructions,
-    llmTemplate,
-    guidelines,
-    itemsToEvaluate,
-    evaluateTraces,
-    experimentId,
-    onScorerFinished,
-  ]);
+  }, [isCustomMode, judgeInstructions, llmTemplate, guidelines, itemsToEvaluate, evaluateTraces, experimentId]);
 
   // Navigation handlers
   const handlePrevious = () => {

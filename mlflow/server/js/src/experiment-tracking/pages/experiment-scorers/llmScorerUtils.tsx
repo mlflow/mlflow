@@ -3,7 +3,7 @@ import { useIntl } from '@databricks/i18n';
 import { LLM_TEMPLATE } from './types';
 import type { FeedbackAssessment } from '@databricks/web-shared/model-trace-explorer';
 import { getModelTraceId } from '@databricks/web-shared/model-trace-explorer';
-import type { JudgeEvaluationResult } from './useEvaluateTraces';
+import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { TEMPLATE_VARIABLES } from '../../utils/evaluationUtils';
 
 // Custom hook for template options
