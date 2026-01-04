@@ -163,8 +163,6 @@ git commit -s -m "Your commit message"
 git push origin <your-branch>
 ```
 
-This workflow ensures you only check files you've actually modified in your PR, avoiding false positives from unrelated files.
-
 **IMPORTANT**: You MUST sign all commits with DCO (Developer Certificate of Origin). Always use the `-s` flag. When Claude Code authors or co-authors changes, include the Co-Authored-By trailer:
 
 ```bash
