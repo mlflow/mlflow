@@ -90,8 +90,6 @@ uv run --extra gateway pytest tests/gateway
 (cd mlflow/server/js && yarn test)
 ```
 
-**IMPORTANT**: `uv` may fail initially because the environment has not been set up yet. Follow the instructions to set up the environment and then rerun `uv` as needed.
-
 ### Code Quality
 
 ```bash
