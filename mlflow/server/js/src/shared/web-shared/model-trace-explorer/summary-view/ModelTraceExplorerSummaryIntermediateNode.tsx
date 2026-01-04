@@ -168,6 +168,7 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
                       data={value}
                       renderMode={renderMode}
                       chatMessageFormat={chatMessageFormat}
+                      chatMessagesDisplayMode="final_assistant"
                     />
                   ))}
                 </div>

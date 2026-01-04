@@ -1,4 +1,6 @@
 import pytest
+from typing import Any, cast
+
 from opentelemetry import trace as otel_trace
 
 import mlflow
@@ -25,7 +27,9 @@ def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatc
         root_span.add_event("event1", attributes={"key2": "value2"})
 
         # Active span id should be set
-        assert mlflow.get_current_active_span().span_id == encode_span_id(root_span.context.span_id)
+        active_span = mlflow.get_current_active_span()
+        assert active_span is not None
+        assert active_span.span_id == encode_span_id(root_span.get_span_context().span_id)
 
         with mlflow.start_span("mlflow_span") as mlflow_span:
             mlflow_span.set_inputs({"text": "hello"})
@@ -44,8 +48,12 @@ def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatc
     assert trace.info.trace_id == mlflow.get_last_active_trace_id()
     assert trace.info.experiment_id == experiment_id
     assert trace.info.status == TraceState.OK
-    assert trace.info.request_time == root_span.start_time // 1_000_000
-    assert trace.info.execution_duration == (root_span.end_time - root_span.start_time) // 1_000_000
+
+    otel_root_span = cast(Any, root_span)
+    assert trace.info.request_time == otel_root_span.start_time // 1_000_000
+    end_time_ns = cast(int, mlflow_span.end_time_ns)
+    assert trace.info.execution_duration == (end_time_ns - mlflow_span.start_time_ns) // 1_000_000
+
     assert trace.info.request_preview == ""
     assert trace.info.response_preview == ""
 
@@ -68,6 +76,42 @@ def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatc
     assert spans[2].events == []
     assert spans[2].parent_id == spans[1].span_id
     assert spans[2].status.status_code == SpanStatusCode.OK
+
+
+@pytest.mark.skipif(is_windows(), reason="Skipping as this is flaky on Windows")
+def test_otel_root_span_preview_from_genai_operation_details_event(monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+
+    experiment_id = mlflow.set_experiment("test_experiment").experiment_id
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id))
+
+    otel_tracer = otel_trace.get_tracer(__name__)
+
+    input_messages = (
+        '[{"role": "user", "parts": [{"type": "text", "content": "hello"}]}]'
+    )
+    output_messages = (
+        '[{"role": "assistant", "parts": [{"type": "text", "content": "world"}]}]'
+    )
+
+    with otel_tracer.start_as_current_span("chat") as root_span:
+        root_span.set_attribute("gen_ai.operation.name", "chat")
+        root_span.add_event(
+            "gen_ai.client.inference.operation.details",
+            attributes={"gen_ai.input.messages": input_messages},
+        )
+        root_span.add_event(
+            "gen_ai.client.inference.operation.details",
+            attributes={"gen_ai.output.messages": output_messages},
+        )
+        root_span.set_status(otel_trace.Status(otel_trace.StatusCode.OK))
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    assert trace.info.request_preview == "hello"
+    assert trace.info.response_preview == "world"
 
 
 @pytest.mark.skipif(is_windows(), reason="Skipping as this is flaky on Windows")
@@ -97,10 +141,8 @@ def test_mlflow_and_opentelemetry_unified_tracing_with_mlflow_root_span(monkeypa
     assert trace.info.experiment_id == experiment_id
     assert trace.info.status == TraceState.OK
     assert trace.info.request_time == mlflow_span.start_time_ns // 1_000_000
-    assert (
-        trace.info.execution_duration
-        == (mlflow_span.end_time_ns - mlflow_span.start_time_ns) // 1_000_000
-    )
+    end_time_ns = cast(int, mlflow_span.end_time_ns)
+    assert trace.info.execution_duration == (end_time_ns - mlflow_span.start_time_ns) // 1_000_000
     assert trace.info.request_preview == '{"text": "hello"}'
     assert trace.info.response_preview == '{"text": "world"}'
 
@@ -144,10 +186,8 @@ def test_mlflow_and_opentelemetry_isolated_tracing(monkeypatch):
     assert trace.info.trace_id.startswith("tr-")  # trace ID should be in MLflow format
     assert trace.info.status == TraceState.OK
     assert trace.info.request_time == mlflow_span.start_time_ns // 1_000_000
-    assert (
-        trace.info.execution_duration
-        == (mlflow_span.end_time_ns - mlflow_span.start_time_ns) // 1_000_000
-    )
+    end_time_ns = cast(int, mlflow_span.end_time_ns)
+    assert trace.info.execution_duration == (end_time_ns - mlflow_span.start_time_ns) // 1_000_000
     assert trace.info.request_preview == '{"text": "hello"}'
     assert trace.info.response_preview == '{"text": "world"}'
 

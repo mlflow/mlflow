@@ -107,6 +107,7 @@ export const ModelTraceExplorerSummarySpans = ({
         data={outputList}
         renderMode={renderMode}
         chatMessageFormat={chatMessageFormat ?? 'openai'}
+        chatMessagesDisplayMode="final_assistant"
       />
     </div>
   );

@@ -34,6 +34,25 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
 ]
 
 
+def _merge_event_attributes(events: list[dict[str, Any]] | None) -> dict[str, Any]:
+    """Merge event attributes into a single dict.
+
+    Some OTEL instrumentations (incl. GenAI semconv) emit inputs/outputs as event attributes
+    (e.g. on `gen_ai.client.inference.operation.details`) because span attributes cannot
+    reliably store complex nested structures.
+
+    We use these event attributes as a fallback source for populating MLflow's
+    `mlflow.spanInputs` / `mlflow.spanOutputs`.
+    """
+
+    merged: dict[str, Any] = {}
+    for event in events or []:
+        attrs = event.get("attributes")
+        if isinstance(attrs, dict):
+            merged.update(attrs)
+    return merged
+
+
 def translate_span_when_storing(span: Span) -> dict[str, Any]:
     """
     Apply attributes translations to a span's dictionary when storing.
@@ -55,24 +74,30 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     span_dict = span.to_dict()
     attributes = sanitize_attributes(span_dict.get("attributes", {}))
 
+    # Some instrumentations emit semconv attributes on span events. Use them as a fallback source
+    # for translation, but avoid persisting them as span attributes.
+    translation_attributes = {**_merge_event_attributes(span_dict.get("events")), **attributes}
+
     # Translate inputs and outputs
-    if SpanAttributeKey.INPUTS not in attributes and (input_value := _get_input_value(attributes)):
+    if SpanAttributeKey.INPUTS not in attributes and (
+        input_value := _get_input_value(translation_attributes)
+    ):
         attributes[SpanAttributeKey.INPUTS] = input_value
 
     if SpanAttributeKey.OUTPUTS not in attributes and (
-        output_value := _get_output_value(attributes)
+        output_value := _get_output_value(translation_attributes)
     ):
         attributes[SpanAttributeKey.OUTPUTS] = output_value
 
     # Translate token usage
     if SpanAttributeKey.CHAT_USAGE not in attributes and (
-        token_usage := _get_token_usage(attributes)
+        token_usage := _get_token_usage(translation_attributes)
     ):
         attributes[SpanAttributeKey.CHAT_USAGE] = dump_span_attribute_value(token_usage)
 
     # Set message format for chat UI rendering
     if SpanAttributeKey.MESSAGE_FORMAT not in attributes and (
-        message_format := _get_message_format(attributes)
+        message_format := _get_message_format(translation_attributes)
     ):
         attributes[SpanAttributeKey.MESSAGE_FORMAT] = dump_span_attribute_value(message_format)
 
@@ -80,7 +105,7 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     return span_dict
 
 
-def _get_token_usage(attributes: dict[str, Any]) -> dict[str, Any]:
+def _get_token_usage(attributes: dict[str, Any]) -> dict[str, Any] | None:
     """
     Get token usage from various OTEL semantic conventions.
     """
@@ -194,39 +219,47 @@ def translate_loaded_span(span_dict: dict[str, Any]) -> dict[str, Any]:
 
 def update_token_usage(
     current_token_usage: str | dict[str, Any], new_token_usage: str | dict[str, Any]
-) -> str | dict[str, Any]:
-    """
-    Update current token usage in-place by adding the new token usage.
+) -> dict[str, Any]:
+    """Update current token usage by adding a new token usage object."""
 
-    Args:
-        current_token_usage: Current token usage, dictionary or JSON string
-        new_token_usage: New token usage, dictionary or JSON string
-
-    Returns:
-        Updated token usage dictionary or JSON string
-    """
     try:
+        current: dict[str, Any]
+        new: dict[str, Any]
+
         if isinstance(current_token_usage, str):
-            current_token_usage = json.loads(current_token_usage) or {}
+            parsed = json.loads(current_token_usage) or {}
+            current = parsed if isinstance(parsed, dict) else {}
+        elif isinstance(current_token_usage, dict):
+            current = current_token_usage
+        else:
+            current = {}
+
         if isinstance(new_token_usage, str):
-            new_token_usage = json.loads(new_token_usage) or {}
-        if new_token_usage:
-            for key in [
-                TokenUsageKey.INPUT_TOKENS,
-                TokenUsageKey.OUTPUT_TOKENS,
-                TokenUsageKey.TOTAL_TOKENS,
-            ]:
-                current_token_usage[key] = current_token_usage.get(key, 0) + new_token_usage.get(
-                    key, 0
-                )
+            parsed = json.loads(new_token_usage) or {}
+            new = parsed if isinstance(parsed, dict) else {}
+        elif isinstance(new_token_usage, dict):
+            new = new_token_usage
+        else:
+            new = {}
+
+        for key in [
+            TokenUsageKey.INPUT_TOKENS,
+            TokenUsageKey.OUTPUT_TOKENS,
+            TokenUsageKey.TOTAL_TOKENS,
+        ]:
+            current[key] = current.get(key, 0) + new.get(key, 0)
+
+        return current
     except Exception:
         _logger.debug(
             f"Failed to update token usage with current_token_usage: {current_token_usage}, "
             f"new_token_usage: {new_token_usage}",
             exc_info=True,
         )
-
-    return current_token_usage
+        # Best-effort fallback
+        if isinstance(current_token_usage, dict):
+            return current_token_usage
+        return {}
 
 
 def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:

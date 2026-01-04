@@ -13,7 +13,7 @@ type OtelBasePart = { type: string } & Record<string, unknown>;
 type OtelTextPart = OtelBasePart & { type: 'text'; content: string };
 
 type OtelToolCallRequestPart = OtelBasePart & {
-  type: 'tool_call';
+  type: 'tool_call' | 'function_call';
   id?: string | null;
   name: string;
   arguments?: unknown;
@@ -38,7 +38,8 @@ const isOtelTextPart = (obj: unknown): obj is OtelTextPart => {
 };
 
 const isOtelToolCallRequestPart = (obj: unknown): obj is OtelToolCallRequestPart => {
-  if (!isObject(obj) || get(obj, 'type') !== 'tool_call') return false;
+  const type = get(obj, 'type');
+  if (!isObject(obj) || !(type === 'tool_call' || type === 'function_call')) return false;
   if (!isString(get(obj, 'name'))) return false;
   const id = get(obj, 'id');
   return isNil(id) || isString(id);

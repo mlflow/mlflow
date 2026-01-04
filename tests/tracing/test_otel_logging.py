@@ -141,10 +141,8 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypa
     )
 
 
-def test_otel_endpoint_requires_experiment_id_header(mlflow_server: str):
-    """
-    Test that the OTel endpoint requires experiment ID header.
-    """
+def test_otel_endpoint_requires_experiment_id_header_or_service_name(mlflow_server: str):
+    """Test that the OTel endpoint requires an experiment ID or `service.name`."""
     # Create protobuf request
     span = OTelProtoSpan()
     span.trace_id = bytes.fromhex("0000000000000002" + "0" * 16)
@@ -235,9 +233,7 @@ def test_missing_required_span_fields_returns_422(mlflow_server: str):
 
 
 def test_missing_experiment_id_header_returns_422(mlflow_server: str):
-    """
-    Test that missing experiment ID header returns HTTP 422 (FastAPI validation error).
-    """
+    """Test that missing experiment routing info returns HTTP 422."""
     # Create valid protobuf request
     span = OTelProtoSpan()
     span.trace_id = bytes.fromhex("0000000000000003" + "0" * 16)
@@ -267,6 +263,100 @@ def test_missing_experiment_id_header_returns_422(mlflow_server: str):
     )
 
     assert response.status_code == 422
+
+
+def test_otel_endpoint_infers_experiment_from_service_name_when_header_missing(
+    mlflow_server: str, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING", "false")
+    mlflow.set_tracking_uri(mlflow_server)
+
+    service_name = "otel-infer-experiment"
+    experiment = mlflow.set_experiment(service_name)
+    experiment_id = experiment.experiment_id
+
+    resource = OTelSDKResource.create({"service.name": service_name})
+    tracer_provider = TracerProvider(resource=resource)
+
+    exporter = OTLPSpanExporter(
+        endpoint=f"{mlflow_server}/v1/traces",
+        headers={},
+        timeout=10,
+    )
+
+    span_processor = SimpleSpanProcessor(exporter)
+    tracer_provider.add_span_processor(span_processor)
+
+    # Reset the global tracer provider
+    otel_trace._TRACER_PROVIDER_SET_ONCE = Once()
+    otel_trace._TRACER_PROVIDER = None
+    otel_trace.set_tracer_provider(tracer_provider)
+
+    tracer = otel_trace.get_tracer(__name__)
+    with tracer.start_as_current_span("otel-no-header-span") as span:
+        span.set_attribute("test.attribute", "value")
+
+    time.sleep(0.5)
+
+    traces = []
+    for _ in range(30):
+        traces = mlflow.search_traces(
+            experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        )
+        if len(traces) > 0:
+            break
+        time.sleep(1)
+
+    assert len(traces) > 0
+
+
+def test_otel_endpoint_creates_experiment_from_service_name_when_header_missing(
+    mlflow_server: str, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING", "false")
+    mlflow.set_tracking_uri(mlflow_server)
+
+    service_name = "otel-auto-create-experiment"
+    assert mlflow.get_experiment_by_name(service_name) is None
+
+    resource = OTelSDKResource.create({"service.name": service_name})
+    tracer_provider = TracerProvider(resource=resource)
+
+    exporter = OTLPSpanExporter(
+        endpoint=f"{mlflow_server}/v1/traces",
+        headers={},
+        timeout=10,
+    )
+
+    span_processor = SimpleSpanProcessor(exporter)
+    tracer_provider.add_span_processor(span_processor)
+
+    # Reset the global tracer provider
+    otel_trace._TRACER_PROVIDER_SET_ONCE = Once()
+    otel_trace._TRACER_PROVIDER = None
+    otel_trace.set_tracer_provider(tracer_provider)
+
+    tracer = otel_trace.get_tracer(__name__)
+    with tracer.start_as_current_span("otel-create-experiment-span"):
+        pass
+
+    time.sleep(0.5)
+
+    created_experiment = mlflow.get_experiment_by_name(service_name)
+    assert created_experiment is not None
+
+    traces = []
+    for _ in range(30):
+        traces = mlflow.search_traces(
+            experiment_ids=[created_experiment.experiment_id],
+            include_spans=False,
+            return_type="list",
+        )
+        if len(traces) > 0:
+            break
+        time.sleep(1)
+
+    assert len(traces) > 0
 
 
 def test_invalid_content_type_returns_400(mlflow_server: str):
