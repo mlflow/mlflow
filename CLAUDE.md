@@ -159,12 +159,6 @@ See `mlflow/server/js/` for frontend development.
 # Make your commit first (with DCO sign-off)
 git commit -s -m "Your commit message"
 
-# Then check all files changed in your PR
-uv run pre-commit run --from-ref origin/master --to-ref HEAD
-
-# Re-run pre-commit to verify fixes
-uv run pre-commit run --from-ref origin/master --to-ref HEAD
-
 # Only push once all checks pass
 git push origin <your-branch>
 ```
