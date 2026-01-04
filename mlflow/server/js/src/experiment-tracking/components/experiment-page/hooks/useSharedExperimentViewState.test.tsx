@@ -54,7 +54,7 @@ const getTestExperiment = async (isCompressed: boolean) => {
 describe('useSharedExperimentViewState', () => {
   const uiStateSetterMock = jest.fn();
   const updateSearchFacetsMock = jest.fn();
-  const navigateMock = jest.fn();
+  const navigateMock = jest.fn<ReturnType<typeof useNavigate>>();
 
   const renderHookWithIntl = (hook: () => ReturnType<typeof useSharedExperimentViewState>) => {
     return renderHook(hook, { wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider> });

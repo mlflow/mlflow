@@ -109,19 +109,14 @@ const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<Experimen
             </div>
           )}
           {row.getVisibleCells().map((cell) => (
-            <TableCell
+            <Link
               key={cell.id}
-              css={{
-                backgroundColor: 'transparent',
-                flex: `calc(var(--col-${cell.column.id}-size) / 100)`,
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'center',
-                '> span:first-of-type': {
-                  padding: `${theme.spacing.xs}px 0px`,
-                  width: '100%',
-                },
-                ...(cell.column.id === 'actions' && { paddingLeft: 0, paddingRight: 0 }),
+              to={{
+                pathname: MlflowUtils.getExperimentChatSessionPageRoute(
+                  row.original.experimentId,
+                  row.original.sessionId,
+                ),
+                search,
               }}
             >
               {enableLinks ? (
@@ -152,7 +147,9 @@ const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<Experimen
         </TableRow>
       );
     },
-    () => false,
+    function ExperimentChatSessionsTableRow() {
+      return false;
+    },
   );
 
 export const GenAIChatSessionsTable = ({

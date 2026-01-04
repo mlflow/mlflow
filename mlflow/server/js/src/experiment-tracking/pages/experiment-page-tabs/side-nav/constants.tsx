@@ -45,6 +45,16 @@ const ExperimentPageSideNavGenAIConfig = {
       tabName: ExperimentPageTabName.Traces,
       componentId: 'mlflow.experiment-side-nav.genai.traces',
     },
+    {
+      label: (
+        <FormattedMessage
+          defaultMessage="Sessions"
+          description="Label for the chat sessions tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <SpeechBubbleIcon />,
+      tabName: ExperimentPageTabName.ChatSessions,
+    },
   ],
   evaluation: [
     {
@@ -133,6 +143,7 @@ const ExperimentPageSideNavCustomModelConfig = {
 
 export const getExperimentPageSideNavSectionLabel = (
   section: ExperimentPageSideNavSectionKey,
+  items: ExperimentPageSideNavItem[],
 ): React.ReactNode | undefined => {
   switch (section) {
     case 'observability':

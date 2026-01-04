@@ -7,6 +7,9 @@ import {
   type ModelTraceInfoV3,
   type Assessment,
   type ExpectationAssessment,
+  TracesServiceV4,
+  TracesServiceV3,
+  isV4TraceId,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
   getSpansLocation,
@@ -14,13 +17,11 @@ import {
 } from '../../shared/web-shared/genai-traces-table/utils/TraceUtils';
 import { getExperimentTraceV3 } from '../../shared/web-shared/model-trace-explorer/api';
 
-/**
- * Fetches trace information and data for a given trace ID.
- *
- * @param traceId - The ID of the trace to fetch
- * @returns Promise resolving to ModelTrace object or undefined if trace cannot be fetched
- */
-export async function getTrace(traceId?: string, traceInfo?: ModelTrace['info']): Promise<ModelTrace | undefined> {
+export async function getTrace(
+  traceId?: string,
+  traceInfo?: ModelTrace['info'],
+  // prettier-ignore
+): Promise<ModelTrace | undefined> {
   if (!traceId) {
     return undefined;
   }
@@ -38,17 +39,21 @@ export async function getTrace(traceId?: string, traceInfo?: ModelTrace['info'])
       };
     }
   }
-  const [traceInfoResponse, traceData] = await Promise.all([
-    MlflowService.getExperimentTraceInfoV3(traceId),
-    MlflowService.getExperimentTraceData(traceId),
-  ]);
 
-  return traceData
-    ? {
-        info: traceInfoResponse?.trace?.trace_info || {},
-        data: traceData,
-      }
-    : undefined;
+  // v4 trace ID
+  if (isV4TraceId(traceId)) {
+    // prettier-ignore
+    return TracesServiceV4.getTraceV4(
+      traceId,
+    );
+  }
+
+  // v3 trace ID
+  if (traceId.startsWith('tr-')) {
+    return TracesServiceV3.getTraceV3(traceId);
+  }
+
+  return getTraceLegacy(traceId);
 }
 
 /**
@@ -123,8 +128,8 @@ function extractFieldFromSpan(
   }
 
   // V3 format or V2 with attributes - check attributes
-  if (rootSpan.attributes?.[v3AttributeKey] !== undefined) {
-    return ensureString(rootSpan.attributes[v3AttributeKey]);
+  if (getSpanAttribute(rootSpan.attributes, v3AttributeKey) !== undefined) {
+    return ensureString(getSpanAttribute(rootSpan.attributes, v3AttributeKey));
   }
 
   return null;

@@ -216,14 +216,14 @@ export function getAssessmentInfos(
           assessmentName in KnownEvaluationResultAssessmentValueDescription
             ? intl.formatMessage(KnownEvaluationResultAssessmentValueDescription[assessmentName])
             : assessment?.source?.sourceType === 'HUMAN'
-            ? intl.formatMessage({
-                defaultMessage: 'This assessment is produced by a human judge.',
-                description: 'Human judge assessment description',
-              })
-            : intl.formatMessage({
-                defaultMessage: 'This assessment is produced by a custom metric.',
-                description: 'Custom judge assessment description',
-              });
+              ? intl.formatMessage({
+                  defaultMessage: 'This assessment is produced by a human judge.',
+                  description: 'Human judge assessment description',
+                })
+              : intl.formatMessage({
+                  defaultMessage: 'This assessment is produced by a custom metric.',
+                  description: 'Custom judge assessment description',
+                });
 
         const uniqueValues = new Set<AssessmentValueType>();
         // If no assessments exist for this name, add undefined to track missing assessments

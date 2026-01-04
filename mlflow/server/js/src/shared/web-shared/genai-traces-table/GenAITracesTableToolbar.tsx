@@ -8,6 +8,8 @@ import {
   Tooltip,
   Spinner,
   WarningIcon,
+  Button,
+  RefreshIcon,
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 
@@ -75,9 +77,12 @@ interface GenAITracesTableToolbarProps {
   // available in the new APIs. this param is somewhat confusingly named
   // in OSS, since the "new APIs" still use the v3 prefixes
   usesV4APIs?: boolean;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITracesTableToolbarProps>> = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (props: GenAITracesTableToolbarProps) => {
     const {
       searchQuery,
@@ -99,8 +104,11 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       isMetadataLoading,
       usesV4APIs,
       metadataError,
+      onRefresh,
+      isRefreshing,
     } = props;
     const { theme } = useDesignSystemTheme();
+    const intl = useIntl();
 
     const onSortChange = useCallback(
       (sortOption, orderByAsc) => {
@@ -155,7 +163,32 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             metadataError={metadataError}
           />
           {traceActions && (
-            <GenAITracesTableActions experimentId={experimentId} traceActions={traceActions} traceInfos={traceInfos} />
+            <GenAITracesTableActions
+              experimentId={experimentId}
+              traceActions={traceActions}
+              traceInfos={traceInfos}
+              // prettier-ignore
+            />
+          )}
+          {onRefresh && (
+            <Tooltip
+              componentId="mlflow.traces-table.refresh-button.tooltip"
+              content={intl.formatMessage({
+                defaultMessage: 'Refresh traces',
+                description: 'Tooltip for the refresh traces button in the traces table toolbar',
+              })}
+            >
+              <Button
+                componentId="mlflow.traces-table.refresh-button"
+                icon={<RefreshIcon />}
+                onClick={onRefresh}
+                loading={isRefreshing}
+                aria-label={intl.formatMessage({
+                  defaultMessage: 'Refresh traces',
+                  description: 'Aria label for the refresh traces button in the traces table toolbar',
+                })}
+              />
+            </Tooltip>
           )}
         </TableFilterLayout>
         <SampledInfoBadge countInfo={countInfo} />

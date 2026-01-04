@@ -53,6 +53,7 @@ const createTooltipTemplate = () =>
  * set of experiments runs
  */
 export const RunsScatterPlot = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     runsData,
     xAxis,

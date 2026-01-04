@@ -58,10 +58,14 @@ export const AssessmentsPane = ({
   assessments,
   traceId,
   activeSpanId,
+  className,
+  assessmentsTitleOverride,
 }: {
   assessments: Assessment[];
   traceId: string;
   activeSpanId?: string;
+  className?: string;
+  assessmentsTitleOverride?: (count?: number) => JSX.Element;
 }) => {
   const reconstructAssessments = useTraceCachedActions((state) => state.reconstructAssessments);
   const cachedActions = useTraceCachedActions((state) => state.assessmentActions[traceId]);
@@ -102,12 +106,15 @@ export const AssessmentsPane = ({
         width: '100%',
         boxSizing: 'border-box',
       }}
+      className={className}
     >
       <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         {!isInComparisonView && (
-          <Typography.Text bold>
+          assessmentsTitleOverride ? (
+            assessmentsTitleOverride()
+          ) : (
             <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
-          </Typography.Text>
+          )
         )}
         {!isInComparisonView && setAssessmentsPaneExpanded && (
           <Tooltip

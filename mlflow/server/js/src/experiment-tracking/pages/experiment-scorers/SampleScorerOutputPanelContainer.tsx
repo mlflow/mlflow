@@ -15,12 +15,14 @@ interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
   experimentId: string;
   onScorerFinished?: () => void;
+  isSessionLevelScorer?: boolean;
 }
 
 const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContainerProps> = ({
   control,
   experimentId,
   onScorerFinished,
+  isSessionLevelScorer,
 }) => {
   const intl = useIntl();
   const judgeInstructions = useWatch({ control, name: 'instructions' });
@@ -176,12 +178,22 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   const hasInstructionsError = Boolean((errors as any).instructions?.message);
   const isRetrievalRelevance = llmTemplate === LLM_TEMPLATE.RETRIEVAL_RELEVANCE;
 
-  const isRunScorerDisabled = isCustomMode
-    ? !judgeInstructions || hasInstructionsError || hasTraceVariable
-    : hasNameError || isRetrievalRelevance;
+  const isRunScorerDisabled =
+    isSessionLevelScorer ||
+    (isCustomMode
+      ? !judgeInstructions || hasInstructionsError || hasTraceVariable
+      : hasNameError || isRetrievalRelevance);
 
   // Determine tooltip message based on why the button is disabled
   const runScorerDisabledTooltip = useMemo(() => {
+    // Check session-level scorer first (highest priority)
+    if (isSessionLevelScorer) {
+      return intl.formatMessage({
+        defaultMessage: 'Session-level scorers cannot be run on individual traces',
+        description: 'Tooltip message when scorer is session-level',
+      });
+    }
+
     if (isCustomMode) {
       // Custom judge mode
       if (!judgeInstructions) {
@@ -219,6 +231,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     }
     return undefined;
   }, [
+    isSessionLevelScorer,
     isCustomMode,
     judgeInstructions,
     hasInstructionsError,

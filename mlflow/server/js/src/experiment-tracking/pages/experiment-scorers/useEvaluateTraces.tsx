@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
-import { fetchOrFail, getAjaxUrl } from '../../../common/utils/FetchUtils';
-import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
+import { fetchOrFail } from '../../../common/utils/FetchUtils';
+import { TracesServiceV3, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import type {
   ModelTraceLocationMlflowExperiment,
   ModelTraceLocationUcSchema,
@@ -62,19 +62,6 @@ export interface JudgeEvaluationResult {
   results: AssessmentResult[]; // Always an array, even for single-result assessments
   error: string | null;
 }
-
-const getMlflowTraceV3 = async (requestId: string): Promise<ModelTrace> => {
-  const [traceInfoResponse, traceDataResponse] = await Promise.all([
-    fetchOrFail(getAjaxUrl(`ajax-api/3.0/mlflow/traces/${requestId}`)),
-    fetchOrFail(getAjaxUrl(`ajax-api/3.0/mlflow/get-trace-artifact?request_id=${requestId}`)),
-  ]);
-  const [traceInfo, traceData] = await Promise.all([traceInfoResponse.json(), traceDataResponse.json()]);
-
-  return {
-    info: traceInfo?.trace?.trace_info || {},
-    data: traceData,
-  } as ModelTrace;
-};
 
 async function callChatCompletions(
   userPrompt: string,
@@ -373,7 +360,7 @@ export function useEvaluateTraces(): [
               // Fetch trace data with React Query caching
               fullTrace = await queryClient.fetchQuery({
                 queryKey: ['GetMlflowTraceV3', traceId],
-                queryFn: () => getMlflowTraceV3(traceId),
+                queryFn: () => TracesServiceV3.getTraceV3(traceId),
                 staleTime: Infinity,
                 cacheTime: Infinity,
               });
@@ -659,7 +646,7 @@ export function usePrefetchTraces({ traceCount, locations }: PrefetchTracesParam
           traceIds.map((traceId) =>
             queryClient.prefetchQuery({
               queryKey: ['GetMlflowTraceV3', traceId],
-              queryFn: () => getMlflowTraceV3(traceId),
+              queryFn: () => TracesServiceV3.getTraceV3(traceId),
               staleTime: Infinity,
               cacheTime: Infinity,
             }),

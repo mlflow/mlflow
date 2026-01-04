@@ -106,7 +106,7 @@ describe('PromoteModelButton', () => {
     );
 
     // Mock the useNavigate hook
-    const mockNavigate = jest.fn();
+    const mockNavigate = jest.fn<ReturnType<typeof useNavigate>>();
     jest.mocked(useNavigate).mockReturnValue(mockNavigate);
 
     // Render the component with pre-populated redux state that already has a registered model entity
@@ -161,7 +161,7 @@ describe('PromoteModelButton', () => {
       .mockReturnValue(Promise.resolve(mockRegisteredModelDetailed('modelB')));
 
     // Mock the useNavigate hook
-    const mockNavigate = jest.fn();
+    const mockNavigate = jest.fn<ReturnType<typeof useNavigate>>();
     jest.mocked(useNavigate).mockReturnValue(mockNavigate);
 
     renderComponent({

@@ -77,10 +77,13 @@ export const useTemplateOptions = () => {
 
   const displayMap = useMemo(
     () =>
-      templateOptions.reduce((map, option) => {
-        map[option.value] = option.label;
-        return map;
-      }, {} as Record<string, string>),
+      templateOptions.reduce(
+        (map, option) => {
+          map[option.value] = option.label;
+          return map;
+        },
+        {} as Record<string, string>,
+      ),
     [templateOptions],
   );
 

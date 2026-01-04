@@ -87,7 +87,7 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
         <Button
           type="primary"
           icon={<PlusIcon />}
-          componentId={`${COMPONENT_ID_PREFIX}.new-scorer-button`}
+          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_experimentscorerscontentcontainer_90"
           onClick={handleNewScorerClick}
         >
           <FormattedMessage defaultMessage="New judge" description="Button text to create a new judge" />

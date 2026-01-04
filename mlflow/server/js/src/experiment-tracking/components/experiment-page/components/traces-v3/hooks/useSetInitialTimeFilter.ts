@@ -53,11 +53,14 @@ export const useSetInitialTimeFilter = ({
     // Since traces are sorted in descending order (newest first), the oldest trace is the last one while newest is the first one
     const oldestTrace = emptyCheckTraces[emptyCheckTraces.length - 1];
 
-    setMonitoringFilters({
-      startTimeLabel: 'CUSTOM',
-      startTime: oldestTrace.request_time,
-      endTime: new Date().toISOString(),
-    });
+    setMonitoringFilters(
+      {
+        startTimeLabel: 'CUSTOM',
+        startTime: oldestTrace.request_time,
+        endTime: new Date().toISOString(),
+      },
+      true,
+    );
   }
 
   // Return loading state so component can show loading skeleton

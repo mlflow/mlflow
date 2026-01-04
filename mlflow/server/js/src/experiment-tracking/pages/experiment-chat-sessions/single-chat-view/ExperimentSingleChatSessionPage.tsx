@@ -14,6 +14,7 @@ import { useParams, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingU
 import invariant from 'invariant';
 import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import { ExperimentSingleChatSessionScoreResults } from './ExperimentSingleChatSessionScoreResults';
 import { TracesV3Toolbar } from '../../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
 import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import {
@@ -21,6 +22,7 @@ import {
   isV3ModelTraceInfo,
   ModelTraceExplorer,
   ModelTraceExplorerUpdateTraceContextProvider,
+  shouldEnableAssessmentsInSessions,
   shouldUseTracesV4API,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
@@ -35,6 +37,8 @@ import {
 } from './ExperimentSingleChatConversation';
 import { Drawer, useDesignSystemTheme } from '@databricks/design-system';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../constants';
+import { useExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
+import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessionMetrics';
 
 const ContextProviders = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
@@ -58,9 +62,6 @@ const ExperimentSingleChatSessionPageImpl = () => {
 
   const { loading: isLoadingExperiment } = useGetExperimentQuery({
     experimentId,
-    options: {
-      fetchPolicy: 'cache-only',
-    },
   });
 
   const traceSearchLocations = useMemo(
@@ -85,6 +86,8 @@ const ExperimentSingleChatSessionPageImpl = () => {
     return traceInfos?.sort((a, b) => new Date(a.request_time).getTime() - new Date(b.request_time).getTime());
   }, [traceInfos]);
 
+  const chatSessionMetrics = useExperimentSingleChatMetrics({ traceInfos: sortedTraceInfos });
+
   const getTrace = getTraceV3;
   const getAssessmentTitle = useCallback((assessmentName: string) => assessmentName, []);
   const {
@@ -107,66 +110,80 @@ const ExperimentSingleChatSessionPageImpl = () => {
   }, [selectedTraceIdFromUrl, traces, isLoadingTraceDatas]);
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <TracesV3Toolbar
-        // prettier-ignore
-        viewState="single-chat-session"
-        sessionId={sessionId}
-      />
-      {isLoadingTraceDatas || isLoadingTraceInfos ? (
-        <div css={{ display: 'flex', flex: 1, minHeight: 0 }}>
-          <ExperimentSingleChatSessionSidebarSkeleton />
-          <ExperimentSingleChatConversationSkeleton />
-        </div>
-      ) : (
-        <div css={{ display: 'flex', flex: 1, minHeight: 0 }}>
-          <ExperimentSingleChatSessionSidebar
-            traces={traces ?? []}
-            selectedTurnIndex={selectedTurnIndex}
-            setSelectedTurnIndex={setSelectedTurnIndex}
-            setSelectedTrace={setSelectedTrace}
-            chatRefs={chatRefs}
-          />
-          <ExperimentSingleChatConversation
-            traces={traces ?? []}
-            selectedTurnIndex={selectedTurnIndex}
-            setSelectedTurnIndex={setSelectedTurnIndex}
-            setSelectedTrace={setSelectedTrace}
-            chatRefs={chatRefs}
-            getAssessmentTitle={getAssessmentTitle}
-          />
-        </div>
-      )}
-      <Drawer.Root
-        open={selectedTrace !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedTrace(null);
+    <ContextProviders // prettier-ignore
+    >
+      <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        <TracesV3Toolbar
+          // prettier-ignore
+          viewState="single-chat-session"
+          sessionId={sessionId}
+          css={
+            shouldEnableAssessmentsInSessions()
+              ? {
+                  borderBottom: 'none',
+                }
+              : undefined
           }
-        }}
-      >
-        <Drawer.Content
-          componentId="mlflow.experiment.chat-session.trace-drawer"
-          title={selectedTrace ? getModelTraceId(selectedTrace) : ''}
-          width="90vw"
-          expandContentToFullHeight
+        />
+
+        {shouldEnableAssessmentsInSessions() && (
+          <ExperimentSingleChatSessionMetrics chatSessionMetrics={chatSessionMetrics} />
+        )}
+        {isLoadingTraceDatas || isLoadingTraceInfos ? (
+          <div css={{ display: 'flex', flex: 1, minHeight: 0 }}>
+            <ExperimentSingleChatSessionSidebarSkeleton />
+            <ExperimentSingleChatConversationSkeleton />
+          </div>
+        ) : (
+          <div css={{ display: 'flex', flex: 1, minHeight: 0 }}>
+            <ExperimentSingleChatSessionSidebar
+              traces={traces ?? []}
+              selectedTurnIndex={selectedTurnIndex}
+              setSelectedTurnIndex={setSelectedTurnIndex}
+              setSelectedTrace={setSelectedTrace}
+              chatRefs={chatRefs}
+            />
+            <ExperimentSingleChatConversation
+              traces={traces ?? []}
+              selectedTurnIndex={selectedTurnIndex}
+              setSelectedTurnIndex={setSelectedTurnIndex}
+              setSelectedTrace={setSelectedTrace}
+              chatRefs={chatRefs}
+              getAssessmentTitle={getAssessmentTitle}
+            />
+            {shouldEnableAssessmentsInSessions() && (
+              <ExperimentSingleChatSessionScoreResults traces={traces ?? []} sessionId={sessionId} />
+            )}
+          </div>
+        )}
+        <Drawer.Root
+          open={selectedTrace !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedTrace(null);
+            }
+          }}
         >
-          <div
-            css={{
-              height: '100%',
-              marginLeft: -theme.spacing.lg,
-              marginRight: -theme.spacing.lg,
-              marginBottom: -theme.spacing.lg,
-            }}
+          <Drawer.Content
+            componentId="mlflow.experiment.chat-session.trace-drawer"
+            title={selectedTrace ? getModelTraceId(selectedTrace) : ''}
+            width="90vw"
+            expandContentToFullHeight
           >
-            <ContextProviders // prettier-ignore
+            <div
+              css={{
+                height: '100%',
+                marginLeft: -theme.spacing.lg,
+                marginRight: -theme.spacing.lg,
+                marginBottom: -theme.spacing.lg,
+              }}
             >
               {selectedTrace && <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />}
-            </ContextProviders>
-          </div>
-        </Drawer.Content>
-      </Drawer.Root>
-    </div>
+            </div>
+          </Drawer.Content>
+        </Drawer.Root>
+      </div>
+    </ContextProviders>
   );
 };
 

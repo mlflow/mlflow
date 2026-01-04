@@ -15,6 +15,7 @@ jest.mock('../../../common/utils/FetchUtils', () => ({
 }));
 
 const mockedFetchOrFail = jest.mocked(fetchOrFail);
+const server = setupServer();
 
 /**
  * Helper to setup fetchOrFail mocks for trace fetching, chat completions, and chat assessments
@@ -25,6 +26,18 @@ function setupMocks(
   chatCompletionsHandler?: (url: string, options?: any) => Promise<any>,
   chatAssessmentsHandler?: (url: string, options?: any) => Promise<any>,
 ) {
+  server.use(
+    rest.get('/ajax-api/3.0/mlflow/traces/:requestId', (req, res, ctx) => {
+      return res(ctx.json({ trace: { trace_info: traces.get(req.params['requestId'].toString())?.info } }));
+    }),
+  );
+
+  server.use(
+    rest.get('/ajax-api/3.0/mlflow/get-trace-artifact', (req, res, ctx) => {
+      return res(ctx.json(traces.get(req.url.searchParams.get('request_id')?.toString() ?? '')?.data));
+    }),
+  );
+
   mockedFetchOrFail.mockImplementation((url: RequestInfo | URL, options?: any) => {
     const urlString = typeof url === 'string' ? url : url.toString();
 
@@ -102,7 +115,6 @@ function setupSearchTracesHandler(server: ReturnType<typeof setupServer>, traces
 }
 
 describe('useEvaluateTraces', () => {
-  const server = setupServer();
   let queryClient: QueryClient;
   let wrapper: React.ComponentType<{ children: React.ReactNode }>;
 
@@ -690,7 +702,11 @@ describe('useEvaluateTraces', () => {
       // Setup search to return trace info, but individual trace fetching to fail
       const traces = new Map([[traceId, mockTrace]]);
       setupSearchTracesHandler(server, traces);
-      mockedFetchOrFail.mockRejectedValue(new Error('Trace not found'));
+      server.use(
+        rest.get('/ajax-api/3.0/mlflow/traces/:requestId', (req, res, ctx) => {
+          return res(ctx.status(404), ctx.json({ message: 'Trace not found' }));
+        }),
+      );
 
       const { result } = renderHook(() => useEvaluateTraces(), { wrapper });
       const [evaluateTraces] = result.current;
@@ -764,7 +780,11 @@ describe('useEvaluateTraces', () => {
       // Setup search to return trace info, but individual trace fetching to fail
       const traces = new Map([[traceId, mockTrace]]);
       setupSearchTracesHandler(server, traces);
-      mockedFetchOrFail.mockRejectedValue(new Error('Network failure'));
+      server.use(
+        rest.get('/ajax-api/3.0/mlflow/traces/:requestId', (req, res, ctx) => {
+          return res(ctx.status(500), ctx.json({ message: 'Network failure' }));
+        }),
+      );
 
       const { result } = renderHook(() => useEvaluateTraces(), { wrapper });
       const [evaluateTraces] = result.current;
@@ -804,7 +824,11 @@ describe('useEvaluateTraces', () => {
       // Setup search to return trace infos, but individual trace fetching to fail
       const traces = new Map(mockTraces.map((trace) => [(trace.info as any).trace_id, trace]));
       setupSearchTracesHandler(server, traces);
-      mockedFetchOrFail.mockRejectedValue(new Error('All traces unavailable'));
+      server.use(
+        rest.get('/ajax-api/3.0/mlflow/traces/:requestId', (req, res, ctx) => {
+          return res(ctx.status(500), ctx.json({ message: 'All traces unavailable' }));
+        }),
+      );
 
       const { result } = renderHook(() => useEvaluateTraces(), { wrapper });
       const [evaluateTraces] = result.current;
