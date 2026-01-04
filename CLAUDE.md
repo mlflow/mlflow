@@ -110,9 +110,6 @@ uv run bash dev/mlflow-typo.sh .
 
 # Type checking
 (cd mlflow/server/js && yarn type-check)
-
-# Run all checks
-(cd mlflow/server/js && yarn check-all)
 ```
 
 ### Special Testing
@@ -187,12 +184,6 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 Commits without DCO sign-off will be rejected by CI.
-
-**Frontend Changes**: If your PR touches any code in `mlflow/server/js/`, you MUST run `yarn check-all` before committing:
-
-```bash
-(cd mlflow/server/js && yarn check-all)
-```
 
 ### Creating Pull Requests
 
