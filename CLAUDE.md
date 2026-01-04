@@ -153,7 +153,7 @@ See `mlflow/server/js/` for frontend development.
 
 ### Committing Changes
 
-**IMPORTANT**: After making your commits, run pre-commit hooks on your PR changes to ensure code quality:
+**IMPORTANT**: After making your commits, run pre-commit hooks on your PR changes to ensure code quality. See the [Pre-commit Hooks](#pre-commit-hooks) section for setup and usage details.
 
 ```bash
 # Make your commit first (with DCO sign-off)
