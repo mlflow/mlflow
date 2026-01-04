@@ -153,23 +153,15 @@ See `mlflow/server/js/` for frontend development.
 
 ### Committing Changes
 
-**IMPORTANT**: After making your commits, run pre-commit hooks on your PR changes to ensure code quality:
+**IMPORTANT**: Before committing, run pre-commit hooks to ensure code quality. See the [Pre-commit Hooks](#pre-commit-hooks) section for setup and usage details.
 
 ```bash
-# Make your commit first (with DCO sign-off)
+# Commit with DCO sign-off
 git commit -s -m "Your commit message"
 
-# Then check all files changed in your PR
-uv run pre-commit run --from-ref origin/master --to-ref HEAD
-
-# Re-run pre-commit to verify fixes
-uv run pre-commit run --from-ref origin/master --to-ref HEAD
-
-# Only push once all checks pass
+# Push your changes
 git push origin <your-branch>
 ```
-
-This workflow ensures you only check files you've actually modified in your PR, avoiding false positives from unrelated files.
 
 **IMPORTANT**: You MUST sign all commits with DCO (Developer Certificate of Origin). Always use the `-s` flag. When Claude Code authors or co-authors changes, include the Co-Authored-By trailer:
 
