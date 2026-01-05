@@ -25,8 +25,8 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import AsyncIterator
 from dataclasses import asdict, dataclass
-from datetime import datetime
 from typing import Any
 
 import aiohttp
@@ -169,25 +169,48 @@ async def get_failed_jobs(
     return [job for job in all_jobs if job.get("conclusion") == "failure"]
 
 
-async def get_job_logs(session: aiohttp.ClientSession, job_id: int, repo: str) -> str:
+TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z ?")
+
+
+def to_seconds(line: str) -> str:
+    """Extract timestamp truncated to seconds precision."""
+    return line[:19]  # "2026-01-05T07:17:56.1234567Z ..." -> "2026-01-05T07:17:56"
+
+
+def strip_timestamp(line: str) -> str:
+    """Remove timestamp prefix from a log line."""
+    return TIMESTAMP_PATTERN.sub("", line)
+
+
+async def iter_job_logs(
+    session: aiohttp.ClientSession,
+    job_id: int,
+    repo: str,
+    started_at: str,
+    completed_at: str,
+):
+    """Yield log lines filtered by time range."""
     url = f"{GITHUB_API_BASE}/repos/{repo}/actions/jobs/{job_id}/logs"
     async with session.get(url, allow_redirects=True) as response:
         response.raise_for_status()
-        return await response.text()
+
+        start_secs = to_seconds(started_at)
+        end_secs = to_seconds(completed_at)
+        in_range = False
+
+        async for line in response.content:
+            line = line.decode("utf-8").rstrip("\r\n")
+            if TIMESTAMP_PATTERN.match(line):
+                ts_secs = to_seconds(line)
+                if ts_secs > end_secs:
+                    return  # Past end time, stop reading
+                in_range = ts_secs >= start_secs
+            if in_range:
+                yield line
 
 
 ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
-TIMESTAMP_STRIP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z ?", re.MULTILINE)
 PYTEST_SECTION_PATTERN = re.compile(r"^={6,} (.+?) ={6,}$")
-
-
-def strip_ansi(logs: str) -> str:
-    return ANSI_PATTERN.sub("", logs)
-
-
-def strip_timestamps(logs: str) -> str:
-    return TIMESTAMP_STRIP_PATTERN.sub("", logs)
-
 
 # Pytest sections to skip (not useful for failure analysis)
 PYTEST_SKIP_SECTIONS = {
@@ -198,46 +221,22 @@ PYTEST_SKIP_SECTIONS = {
 }
 
 
-def filter_pytest_sections(logs: str) -> str:
-    """Remove noisy pytest sections like 'test session starts'."""
-    lines = logs.split("\n")
+async def compact_logs(lines: AsyncIterator[str]) -> str:
+    """Clean logs: strip timestamps, ANSI colors, and filter noisy pytest sections."""
     result: list[str] = []
-    skip = False
+    skip_section = False
 
-    for line in lines:
+    async for line in lines:
+        line = strip_timestamp(line)
+        line = ANSI_PATTERN.sub("", line)
         if match := PYTEST_SECTION_PATTERN.match(line.strip()):
             section_name = match.group(1).strip().lower()
-            skip = any(name in section_name for name in PYTEST_SKIP_SECTIONS)
-        if not skip:
+            skip_section = any(name in section_name for name in PYTEST_SKIP_SECTIONS)
+        if not skip_section:
             result.append(line)
 
-    return "\n".join(result)
-
-
-def compact_logs(
-    raw_logs: str,
-    *,
-    started_at: str | None = None,
-    completed_at: str | None = None,
-) -> str:
-    """Clean logs and remove noise."""
-    # 1. Strip ANSI colors
-    logs = strip_ansi(raw_logs)
-    original_tokens = count_tokens(strip_timestamps(logs))
-
-    # 2. Filter by time range (before stripping timestamps)
-    if started_at and completed_at:
-        logs = filter_by_time_range(logs, started_at, completed_at)
-
-    # 3. Strip timestamps
-    logs = strip_timestamps(logs)
-
-    # 4. Filter pytest sections
-    logs = filter_pytest_sections(logs)
-
-    final_tokens = count_tokens(logs)
-    log(f"Compacted logs: {original_tokens:,} -> {final_tokens:,} tokens")
-
+    logs = "\n".join(result)
+    log(f"Compacted logs: {count_tokens(logs):,} tokens")
     return logs
 
 
@@ -248,41 +247,6 @@ def get_failed_step(job_details: dict[str, Any]) -> dict[str, Any] | None:
         if step.get("conclusion") == "failure":
             return step
     return None
-
-
-TIMESTAMP_EXTRACT_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)")
-MICROSECOND_TRUNCATE_PATTERN = re.compile(r"(\.\d{6})\d+Z$")
-
-
-def parse_timestamp(ts: str) -> datetime:
-    # Truncate to 6 digits for microseconds (Python %f limit)
-    ts = MICROSECOND_TRUNCATE_PATTERN.sub(r"\1Z", ts)
-    for fmt in ("%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ"):
-        try:
-            return datetime.strptime(ts, fmt)
-        except ValueError:
-            continue
-    raise ValueError(f"Cannot parse timestamp: {ts}")
-
-
-def filter_by_time_range(logs: str, started_at: str, completed_at: str) -> str:
-    """Filter logs to only include lines within the given time range."""
-    start_time = parse_timestamp(started_at)
-    end_time = parse_timestamp(completed_at)
-    filtered_lines: list[str] = []
-    in_range = False
-
-    for line in logs.split("\n"):
-        if match := TIMESTAMP_EXTRACT_PATTERN.match(line):
-            try:
-                line_time = parse_timestamp(match.group(1))
-                in_range = start_time <= line_time <= end_time
-            except ValueError:
-                pass  # Keep previous in_range state
-        if in_range:
-            filtered_lines.append(line)
-
-    return "\n".join(filtered_lines)
 
 
 JOB_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)/job/(\d+)")
@@ -465,14 +429,16 @@ async def summarize_single_job(
     failed_step = get_failed_step(job_details)
 
     log(f"Fetching logs for '{workflow_name} / {job_name}'")
-    raw_logs = await get_job_logs(session, job_id, repo)
-
-    cleaned_logs = compact_logs(
-        raw_logs,
-        started_at=failed_step.get("started_at") if failed_step else None,
-        completed_at=failed_step.get("completed_at") if failed_step else None,
+    cleaned_logs = await compact_logs(
+        iter_job_logs(
+            session,
+            job_id,
+            repo,
+            started_at=failed_step["started_at"],
+            completed_at=failed_step["completed_at"],
+        )
     )
-    failed_step_name = failed_step.get("name") if failed_step else None
+    failed_step_name = failed_step.get("name")
 
     result = await summarize_logs(client, cleaned_logs, workflow_name, job_name, model)
     truncated_logs, _ = truncate_logs(cleaned_logs)
