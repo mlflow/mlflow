@@ -401,13 +401,13 @@ class ConversationSimulator:
     ) -> tuple[dict[str, Any], str | None]:
         # NB: We trace the predict_fn call to add session and simulation metadata to the trace.
         #     This adds a new root span to the trace, with the same inputs and outputs as the
-        #     predict_fn call.
+        #     predict_fn call. The goal/persona/turn metadata is used for trace comparison UI
+        #     since message content may differ between simulation runs.
         @mlflow.trace(name=f"simulation_turn_{turn}", span_type="CHAIN")
         def traced_predict(input: list[dict[str, Any]], **context):
             mlflow.update_current_trace(
                 metadata={
                     TraceMetadataKey.TRACE_SESSION: trace_session_id,
-                    "mlflow.simulation.synthetic": "true",
                     "mlflow.simulation.goal": goal[:_MAX_METADATA_LENGTH],
                     "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[
                         :_MAX_METADATA_LENGTH
