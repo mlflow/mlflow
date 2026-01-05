@@ -2516,9 +2516,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 scorer_obj = Scorer.model_validate(serialized_data)
                 if scorer_obj.is_session_level_scorer and filter_string:
                     raise MlflowException(
-                        f"Cannot apply filter to scorer '{scorer_name}' because it evaluates "
-                        "entire conversation sessions. Filters only work with scorers that "
-                        "evaluate individual traces.",
+                        f"Filter is not supported for scorer '{scorer_name}' because this scorer "
+                        "evaluates entire conversation sessions. Filters are currently only "
+                        "supported for scorers that evaluate individual traces.",
                         INVALID_PARAMETER_VALUE,
                     )
 
