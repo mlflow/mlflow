@@ -1,10 +1,10 @@
-from sklearn.datasets import fetch_california_housing
+from sklearn.datasets import load_diabetes
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 
 import mlflow
 
-california_housing_data = fetch_california_housing()
+california_housing_data = load_diabetes()
 
 X_train, X_test, y_train, y_test = train_test_split(
     california_housing_data.data, california_housing_data.target, test_size=0.33, random_state=42
