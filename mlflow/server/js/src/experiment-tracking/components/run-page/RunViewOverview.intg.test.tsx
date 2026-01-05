@@ -25,7 +25,6 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import type { LoggedModelProto } from '../../types';
 import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 import { ExperimentKind, MLFLOW_LINKED_PROMPTS_TAG } from '../../constants';
-import { MlflowRunStatus } from '@mlflow/mlflow/src/graphql/generated_graphql';
 
 jest.mock('../../../common/components/Prompt', () => ({
   Prompt: jest.fn(() => <div />),

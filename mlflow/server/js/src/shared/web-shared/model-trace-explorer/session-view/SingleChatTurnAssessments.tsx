@@ -72,8 +72,9 @@ export const SingleChatTurnAssessments = ({
     >
       <Overflow
         noMargin
-        visibleItemsCount={ASSESSMENT_DISPLAY_LIMIT}
         css={{ gap: theme.spacing.sm, width: '100%', minWidth: 0, maxWidth: '100%' }}
+        // @ts-ignore - i'm not sure why this is not detected as a valid prop
+        visibleItemsCount={ASSESSMENT_DISPLAY_LIMIT}
       >
         {assessmentGroups.map((assessments) => {
           // In this preview, we only show the most recent assessment for each assessment name

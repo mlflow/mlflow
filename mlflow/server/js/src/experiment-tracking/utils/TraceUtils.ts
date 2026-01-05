@@ -16,6 +16,7 @@ import {
   TRACKING_STORE_SPANS_LOCATION,
 } from '../../shared/web-shared/genai-traces-table/utils/TraceUtils';
 import { getExperimentTraceV3 } from '../../shared/web-shared/model-trace-explorer/api';
+import { getSpanAttribute } from '@databricks/web-shared/genai-traces-table';
 
 export async function getTrace(
   traceId?: string,

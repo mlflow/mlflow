@@ -7,6 +7,7 @@ import type { Assessment, FeedbackAssessment, ModelTraceInfoV3 } from '@databric
 import { TracesServiceV4, getAssessmentValue } from '@databricks/web-shared/model-trace-explorer';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
+import { useGenAiTraceEvaluationArtifacts } from './useGenAiTraceEvaluationArtifacts';
 import {
   createMlflowSearchFilter,
   invalidateMlflowSearchTracesCache,

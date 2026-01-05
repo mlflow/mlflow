@@ -657,17 +657,17 @@ describe('applyTraceInfoV3ToEvalEntry', () => {
     const result = applyTraceInfoV3ToEvalEntry([evalEntry]);
 
     // Trace-level expectation should be in targets
-    expect(result[0].targets.traceLevelExpectation).toBe('Should be included');
+    expect(result[0].targets['traceLevelExpectation']).toBe('Should be included');
 
     // Session-level expectation should NOT be in targets
-    expect(result[0].targets.sessionLevelExpectation).toBeUndefined();
+    expect(result[0].targets['sessionLevelExpectation']).toBeUndefined();
 
     // Trace-level feedback should be in responseAssessmentsByName
-    expect(result[0].responseAssessmentsByName.traceLevelFeedback).toHaveLength(1);
-    expect(result[0].responseAssessmentsByName.traceLevelFeedback[0].stringValue).toBe('good');
+    expect(result[0].responseAssessmentsByName['traceLevelFeedback']).toHaveLength(1);
+    expect(result[0].responseAssessmentsByName['traceLevelFeedback'][0].stringValue).toBe('good');
 
     // Session-level feedback should NOT be in responseAssessmentsByName
-    expect(result[0].responseAssessmentsByName.sessionLevelFeedback).toBeUndefined();
+    expect(result[0].responseAssessmentsByName['sessionLevelFeedback']).toBeUndefined();
 
     // Trace-level overall assessment should be present
     expect(result[0].overallAssessments).toHaveLength(1);

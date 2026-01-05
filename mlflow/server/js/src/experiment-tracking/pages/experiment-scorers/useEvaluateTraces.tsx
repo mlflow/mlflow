@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
-import { fetchOrFail } from '../../../common/utils/FetchUtils';
+import { isEvaluatingSessionsInScorersEnabled, isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
+import { fetchOrFail, getAjaxUrl } from '../../../common/utils/FetchUtils';
 import { TracesServiceV3, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import type {
   ModelTraceLocationMlflowExperiment,
@@ -57,12 +57,6 @@ export interface AssessmentResult {
   rationale: string | null;
   error: string | null;
   span_name?: string;
-}
-
-export interface JudgeEvaluationResult {
-  trace: ModelTrace | null;
-  results: AssessmentResult[]; // Always an array, even for single-result assessments
-  error: string | null;
 }
 
 async function callChatCompletions(

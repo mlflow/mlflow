@@ -36,6 +36,7 @@ import type {
   TableFilterOption,
   EvaluationsOverviewTableSort,
   AssessmentFilter,
+  RunEvaluationTracesDataEntry,
   TableFilter,
   TableFilterOptions,
 } from '../types';

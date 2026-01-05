@@ -54,6 +54,7 @@ const ExperimentPageSideNavGenAIConfig = {
       ),
       icon: <SpeechBubbleIcon />,
       tabName: ExperimentPageTabName.ChatSessions,
+      componentId: 'mlflow.experiment-side-nav.genai.sessions',
     },
   ],
   evaluation: [

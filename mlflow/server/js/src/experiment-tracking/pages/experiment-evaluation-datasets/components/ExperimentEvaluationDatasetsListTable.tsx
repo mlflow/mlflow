@@ -112,11 +112,11 @@ const ExperimentEvaluationDatasetsTableRow: React.FC<
   React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>
 > = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
-  ({ row, isActive, setSelectedDataset }) => {
+  ({ row, isActive, onSelectDataset }) => {
     const { theme } = useDesignSystemTheme();
 
     return (
-      <TableRow key={row.id} className="eval-datasets-table-row" onClick={() => setSelectedDataset(row.original)}>
+      <TableRow key={row.id} className="eval-datasets-table-row" onClick={() => onSelectDataset(row.original)}>
         {row.getVisibleCells().map((cell) => (
           <TableCell
             key={cell.id}

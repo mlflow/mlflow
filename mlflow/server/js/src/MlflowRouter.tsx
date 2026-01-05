@@ -85,7 +85,6 @@ export const MlflowRouter = () => {
       ...getExperimentTrackingRouteDefs(),
       ...getModelRegistryRouteDefs(),
       ...getGatewayRouteDefs(),
-      landingRoute,
       ...getCommonRouteDefs(),
     ],
     [],

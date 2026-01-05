@@ -56,6 +56,16 @@ export const isRunningScorersEnabled = () => {
 };
 
 /**
+ * Determines if running scorers feature is enabled (ability to run LLM scorers on sample traces)
+ */
+export const isEvaluatingSessionsInScorersEnabled = () => {
+  if (!enableScorersUI() || !isRunningScorersEnabled()) {
+    return false;
+  }
+  return false;
+};
+
+/**
  * Determines if the new prompts tab on DB platform is enabled.
  */
 export const shouldEnablePromptsTabOnDBPlatform = () => false;
@@ -134,4 +144,11 @@ export const shouldEnableArtifactsOnRunDetailsPage = () => {
 
 export const shouldEnableExperimentPageSideTabs = () => {
   return true;
+};
+
+/**
+ * Determines if the Overview tab is enabled on the experiment page
+ */
+export const shouldEnableExperimentOverviewTab = () => {
+  return false;
 };
