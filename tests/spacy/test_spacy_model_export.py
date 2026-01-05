@@ -12,7 +12,6 @@ import tarfile
 from urllib.request import urlretrieve
 import yaml
 from packaging.version import Version
-from sklearn.datasets import fetch_20newsgroups
 from spacy.util import compounding, minibatch
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -445,7 +444,8 @@ def _get_train_test_dataset(cats_to_fetch, tmp_path, limit=100):
     urlretrieve("https://kdd.ics.uci.edu/databases/20newsgroups/20_newsgroups.tar.gz", data_path)
 
     extracted_path = os.path.join(tmp_path, "extracted")
-    tarfile.open(data_path).extractall(extracted_path)
+    with tarfile.open(data_path) as tar:
+        tar.extractall(extracted_path)
 
     newsgroups = load_files(
         os.path.join(extracted_path, "20_newsgroups"),
