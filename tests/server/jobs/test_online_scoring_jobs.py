@@ -73,18 +73,19 @@ def test_scheduler_submits_jobs_via_submit_job():
     from mlflow.genai.scorers.job import run_online_scoring_scheduler
     from mlflow.genai.scorers.online.entities import OnlineScorer
 
-    # Create mock online scorers
+    # Create mock online scorers with properly serialized scorer data
+    completeness = Completeness()
     mock_scorer1 = OnlineScorer(
         name="completeness",
         experiment_id="exp1",
-        serialized_scorer='{"name": "completeness"}',
+        serialized_scorer=json.dumps(completeness.model_dump()),
         sample_rate=1.0,
         filter_string=None,
     )
     mock_scorer2 = OnlineScorer(
         name="relevance",
         experiment_id="exp2",
-        serialized_scorer='{"name": "relevance"}',
+        serialized_scorer=json.dumps(completeness.model_dump()),
         sample_rate=0.5,
         filter_string=None,
     )
@@ -98,25 +99,19 @@ def test_scheduler_submits_jobs_via_submit_job():
     ):
         run_online_scoring_scheduler()
 
-        # Verify submit_job was called for both experiments (2 experiments x 2 job types = 4 calls)
-        assert mock_submit_job.call_count == 4
+        # Both scorers are trace-level, so only trace jobs should be submitted (2 experiments)
+        assert mock_submit_job.call_count == 2
 
         # Verify correct job functions and parameters were passed
-        from mlflow.genai.scorers.job import (
-            run_online_session_scorer_job,
-            run_online_trace_scorer_job,
-        )
+        from mlflow.genai.scorers.job import run_online_trace_scorer_job
 
         call_args_list = mock_submit_job.call_args_list
         trace_scorer_calls = [
             call for call in call_args_list if call[0][0] == run_online_trace_scorer_job
         ]
-        session_scorer_calls = [
-            call for call in call_args_list if call[0][0] == run_online_session_scorer_job
-        ]
 
+        # Both calls should be for trace scoring jobs
         assert len(trace_scorer_calls) == 2
-        assert len(session_scorer_calls) == 2
 
         # Verify experiment IDs are present in the calls
         exp_ids_in_calls = {call[0][1]["experiment_id"] for call in call_args_list}

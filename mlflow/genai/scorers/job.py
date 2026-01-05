@@ -415,14 +415,37 @@ def run_online_scoring_scheduler() -> None:
     )
 
     for experiment_id, scorers in experiment_groups:
-        _logger.info(f"Submitting jobs for experiment {experiment_id} with {len(scorers)} scorers")
-        scorer_dicts = [asdict(scorer) for scorer in scorers]
+        # Separate scorers by type
+        session_level_scorers = []
+        trace_level_scorers = []
 
-        submit_job(
-            run_online_trace_scorer_job,
-            {"experiment_id": experiment_id, "online_scorers": scorer_dicts},
-        )
-        submit_job(
-            run_online_session_scorer_job,
-            {"experiment_id": experiment_id, "online_scorers": scorer_dicts},
-        )
+        for scorer in scorers:
+            scorer_dict = json.loads(scorer.serialized_scorer)
+            scorer_obj = Scorer.model_validate(scorer_dict)
+            if scorer_obj.is_session_level_scorer:
+                session_level_scorers.append(scorer)
+            else:
+                trace_level_scorers.append(scorer)
+
+        # Only submit jobs for scorer types that exist
+        if trace_level_scorers:
+            _logger.info(
+                f"Submitting trace scoring job for experiment {experiment_id} "
+                f"with {len(trace_level_scorers)} scorers"
+            )
+            trace_scorer_dicts = [asdict(scorer) for scorer in trace_level_scorers]
+            submit_job(
+                run_online_trace_scorer_job,
+                {"experiment_id": experiment_id, "online_scorers": trace_scorer_dicts},
+            )
+
+        if session_level_scorers:
+            _logger.info(
+                f"Submitting session scoring job for experiment {experiment_id} "
+                f"with {len(session_level_scorers)} scorers"
+            )
+            session_scorer_dicts = [asdict(scorer) for scorer in session_level_scorers]
+            submit_job(
+                run_online_session_scorer_job,
+                {"experiment_id": experiment_id, "online_scorers": session_scorer_dicts},
+            )
