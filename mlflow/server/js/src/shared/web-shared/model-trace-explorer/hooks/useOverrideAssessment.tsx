@@ -1,10 +1,11 @@
-import { omit } from 'lodash';
+import { isObject, omit } from 'lodash';
 
 import { useIntl } from '@databricks/i18n';
 import { getUser } from '@databricks/web-shared/global-settings';
 import { useMutation, useQueryClient } from '@databricks/web-shared/query-client';
 
 import { invalidateMlflowSearchTracesCache } from './invalidateMlflowSearchTracesCache';
+import { useTraceCachedActions } from './useTraceCachedActions';
 import { shouldUseTracesV4API } from '../FeatureUtils';
 import type { Assessment, Expectation, Feedback } from '../ModelTrace.types';
 import {
@@ -31,6 +32,8 @@ export const useOverrideAssessment = ({
   const intl = useIntl();
   const queryClient = useQueryClient();
 
+  const logCachedUpdateAction = useTraceCachedActions((state) => state.logAddedAssessment);
+  const logCachedDeleteAction = useTraceCachedActions((state) => state.logRemovedAssessment);
   const updateTraceVariables = useModelTraceExplorerUpdateTraceContext();
 
   const { mutate: overrideAssessmentMutation, isLoading } = useMutation({
@@ -86,8 +89,15 @@ export const useOverrideAssessment = ({
       );
       onError?.(error);
     },
-    onSuccess: () => {
+    onSuccess: (updatedAssessment: CreateAssessmentV4Response | CreateAssessmentV3Response, variables) => {
+      if (shouldUseTracesV4API() && isObject(updatedAssessment)) {
+        const assessment = 'assessment' in updatedAssessment ? updatedAssessment.assessment : updatedAssessment;
+        assessment.overriddenAssessment = variables.oldAssessment;
+        logCachedUpdateAction(traceId, assessment);
+        logCachedDeleteAction(traceId, variables.oldAssessment);
+      }
       queryClient.invalidateQueries({ queryKey: [FETCH_TRACE_INFO_QUERY_KEY, traceId] });
+      updateTraceVariables.invalidateTraceQuery?.(traceId);
       invalidateMlflowSearchTracesCache({ queryClient });
       onSuccess?.();
     },

@@ -13,7 +13,7 @@ import json
 import logging
 import os
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, ParamSpec, TypeVar
 
 from opentelemetry import context as context_api
 from opentelemetry import trace
@@ -51,6 +51,10 @@ from mlflow.utils.databricks_utils import (
 
 if TYPE_CHECKING:
     from mlflow.entities import Span
+
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 # A trace destination specified by the user via the `set_destination` function.
@@ -430,29 +434,12 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
 
     processors = []
 
-    if should_use_otlp_exporter():
-        from mlflow.tracing.processor.otel import OtelSpanProcessor
-
-        exporter = get_otlp_exporter()
-        otel_processor = OtelSpanProcessor(
-            span_exporter=exporter,
-            # Only export metrics from the Otel processor if dual export is not enabled. Otherwise,
-            # both Otel and MLflow processors will export metrics, causing duplication
-            export_metrics=should_export_otlp_metrics()
-            and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get(),
-        )
-        processors.append(otel_processor)
-
-        if not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get():
-            return processors
-
     # TODO: Update this logic to pluggable registry where
     #  1. Partners can implement span processor/exporter and destination class.
     #  2. They can register their implementation to the registry via entry points.
     #  3. MLflow will pick the implementation based on given destination id.
-    trace_destination = _MLFLOW_TRACE_USER_DESTINATION.get()
-    if trace_destination:
-        # in PrPr, users must set the destination to UCSchemaLocation to export traces to UC
+    if trace_destination := _MLFLOW_TRACE_USER_DESTINATION.get():
+        # In PrPr, users must set the destination to UCSchemaLocation to export traces to UC
         if isinstance(trace_destination, UCSchemaLocation):
             from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
             from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
@@ -460,18 +447,52 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             exporter = DatabricksUCTableSpanExporter(tracking_uri=mlflow.get_tracking_uri())
             processor = DatabricksUCTableSpanProcessor(span_exporter=exporter)
             processors.append(processor)
-        elif isinstance(trace_destination, (MlflowExperimentLocation)):
+
+        elif isinstance(trace_destination, MlflowExperimentLocation):
             if is_in_databricks_model_serving_environment():
                 _logger.info(
-                    "Traces will be sent to the destination set by `mlflow.tracing.set_destination`"
-                    " API. To enable saving traces to both MLflow experiment and inference table, "
-                    "remove this API call from your model and set `MLFLOW_EXPERIMENT_ID` env var "
-                    "instead."
+                    "Traces will be sent to the destination set by "
+                    "`mlflow.tracing.set_destination` API. To enable saving traces to "
+                    "both MLflow experiment and inference table, remove this API call "
+                    "from your model and set `MLFLOW_EXPERIMENT_ID` env var instead."
                 )
             processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
             processors.append(processor)
-    elif is_in_databricks_model_serving_environment():
+
+        # Trace destination has highest precedence; definitely ignore defaults
+        # Ignore OTLP (unless dual export is set and we should use OTLP)
+        if not (should_use_otlp_exporter() and MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()):
+            return processors
+
+    # If no explicit trace destination OR we passed the dual exporter check, honor OTLP
+    # configuration.
+    if should_use_otlp_exporter():
+        from mlflow.tracing.processor.otel import OtelSpanProcessor
+
+        exporter = get_otlp_exporter()
+        otel_processor = OtelSpanProcessor(
+            span_exporter=exporter,
+            # Only export metrics from the Otel processor if dual export is not enabled.
+            # Otherwise, both Otel and MLflow processors will export metrics, causing
+            # duplication.
+            export_metrics=should_export_otlp_metrics()
+            and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get(),
+        )
+        processors.append(otel_processor)
+
+        # We have now added the OTLP processor.
+        # If dual export is not set, return.
+        # If dual export is set AND we have already added a set_destination processor, return.
+        # If dual export is set but no set_destination processor added, skip return and go
+        # to default processing to catch the default processor, if present.
+        if (not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()) or any(
+            not isinstance(p, OtelSpanProcessor) for p in processors
+        ):
+            return processors
+    # Finally, default MLflow-based processors (inference table in serving, else tracking URI).
+    if is_in_databricks_model_serving_environment():
         if not is_mlflow_tracing_enabled_in_model_serving():
+            # May still return an OTLP processor from above, or nothing at all.
             return processors
 
         from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
@@ -584,7 +605,7 @@ def enable():
     provider.once._done = True
 
 
-def trace_disabled(f):
+def trace_disabled(f: Callable[P, R]) -> Callable[P, R]:
     """
     A decorator that temporarily disables tracing for the duration of the decorated function.
 
@@ -605,7 +626,7 @@ def trace_disabled(f):
     """
 
     @functools.wraps(f)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         is_func_called = False
         result = None
         try:

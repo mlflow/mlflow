@@ -1,6 +1,6 @@
 {
   "name": "mlflow-tracing",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "TypeScript implementation of MLflow Tracing SDK for LLM observability",
   "repository": {
     "type": "git",
@@ -35,6 +35,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@databricks/sdk-experimental": "0.15.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-node": "^0.201.1",
     "fast-safe-stringify": "^2.1.1",

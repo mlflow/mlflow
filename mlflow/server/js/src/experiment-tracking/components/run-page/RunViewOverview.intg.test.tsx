@@ -8,6 +8,7 @@ import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { cloneDeep, merge } from 'lodash';
 import userEvent from '@testing-library/user-event';
 import { setTagApi } from '../../actions';
+import type { UseGetRunQueryDataResponse } from './hooks/useGetRunQuery';
 import { useGetRunQuery } from './hooks/useGetRunQuery';
 import { usePromptVersionsForRunQuery } from '../../pages/prompts/hooks/usePromptVersionsForRunQuery';
 import { NOTE_CONTENT_TAG } from '../../utils/NoteUtils';
@@ -41,6 +42,7 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableRunDetailsMetadataBoxOnRunDetailsPage: jest.fn(() => false),
   shouldEnableArtifactsOnRunDetailsPage: jest.fn(() => false),
+  shouldEnableGraphQLRunDetailsPage: jest.fn(() => true),
 }));
 
 const testPromptName = 'test-prompt';
@@ -315,12 +317,18 @@ describe('RunViewOverview integration', () => {
     const testParentRunUuid = 'test-parent-run-uuid';
     const testParentRunName = 'Test parent run name';
 
-    (useGetRunQuery as jest.Mock).mockReturnValue({
-      data: { info: { runName: testParentRunName, runUuid: testParentRunUuid, experimentId: testExperimentId } },
+    jest.mocked(useGetRunQuery).mockReturnValue({
+      data: {
+        info: {
+          runName: testParentRunName,
+          runUuid: testParentRunUuid,
+          experimentId: testExperimentId,
+        },
+      } as UseGetRunQueryDataResponse,
       loading: false,
       apolloError: undefined,
       apiError: undefined,
-      refetchRun: jest.fn(),
+      refetchRun: jest.fn() as any,
     });
 
     const { container } = renderComponent({

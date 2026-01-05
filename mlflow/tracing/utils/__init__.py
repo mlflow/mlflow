@@ -274,8 +274,7 @@ def maybe_get_request_id(is_evaluate=False) -> str | None:
 
 
 def maybe_get_dependencies_schemas() -> dict[str, Any] | None:
-    context = _try_get_prediction_context()
-    if context:
+    if context := _try_get_prediction_context():
         return context.dependencies_schemas
 
 
@@ -550,7 +549,12 @@ def update_trace_state_from_span_conditionally(trace, root_span):
     # If the trace state is anything else, it means the user explicitly set it
     # and we should preserve it
     if trace.info.state == TraceState.IN_PROGRESS:
-        trace.info.state = TraceState.from_otel_status(root_span.status)
+        state = TraceState.from_otel_status(root_span.status)
+        # If the root span is created by the native OpenTelemetry SDK, the status code can be UNSET
+        # (default value when an otel span is ended). Override it to OK here to avoid backend error.
+        if state == TraceState.STATE_UNSPECIFIED:
+            state = TraceState.OK
+        trace.info.state = state
 
 
 def get_experiment_id_for_trace(span: OTelReadableSpan) -> str:

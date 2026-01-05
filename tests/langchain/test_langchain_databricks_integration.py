@@ -2,10 +2,12 @@
 from typing import Generator
 from unittest import mock
 
+import langchain
 import pytest
-from langchain.prompts import PromptTemplate
-from langchain.schema.output_parser import StrOutputParser
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import PromptTemplate
 from openai.types.chat.chat_completion import ChatCompletion
+from packaging.version import Version
 
 import mlflow
 
@@ -54,26 +56,13 @@ def model_path(tmp_path):
     return tmp_path / "model"
 
 
+# TODO: Remove this once databricks-langchain supports v1
+@pytest.mark.skipif(
+    Version(langchain.__version__).major >= 1,
+    reason="databricks-langchain does not support v1 yet",
+)
 def test_save_and_load_chat_databricks(model_path):
     from databricks_langchain import ChatDatabricks
-
-    llm = ChatDatabricks(endpoint="databricks-meta-llama-3-70b-instruct")
-    prompt = PromptTemplate.from_template("What is {product}?")
-    chain = prompt | llm | StrOutputParser()
-
-    mlflow.langchain.save_model(chain, path=model_path)
-
-    loaded_model = mlflow.langchain.load_model(model_path)
-    assert loaded_model == chain
-
-    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_path)
-    prediction = loaded_pyfunc_model.predict([{"product": "MLflow"}])
-    assert prediction == ["What is MLflow?"]
-
-
-def test_save_and_load_chat_databricks_legacy(model_path):
-    # Test saving and loading the community version of ChatDatabricks
-    from langchain.chat_models import ChatDatabricks
 
     llm = ChatDatabricks(endpoint="databricks-meta-llama-3-70b-instruct")
     prompt = PromptTemplate.from_template("What is {product}?")

@@ -7,7 +7,6 @@ import pytest
 import requests
 
 import mlflow
-import mlflow.tracking._model_registry.fluent
 from mlflow import MlflowClient, register_model
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
@@ -255,7 +254,6 @@ def mock_dbr_version():
 
 
 def test_register_model_with_env_pack(tmp_path, mock_dbr_version):
-    """Test that register_model correctly integrates with environment packing functionality."""
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()
@@ -366,7 +364,6 @@ def test_register_model_with_env_pack_config(tmp_path, install_deps):
 
 
 def test_register_model_with_env_pack_staging_failure(tmp_path, mock_dbr_version):
-    """Test that register_model handles staging failure gracefully."""
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()

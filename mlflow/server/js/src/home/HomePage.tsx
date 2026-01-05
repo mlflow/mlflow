@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Header, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, Header, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '../common/components/ScrollablePageWrapper';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
@@ -11,13 +11,13 @@ import { GetStarted } from './components/GetStarted';
 import { ExperimentsHomeView } from './components/ExperimentsHomeView';
 import { DiscoverNews } from './components/DiscoverNews';
 import { LogTracesDrawer } from './components/LogTracesDrawer';
-import { HomePageViewStateProvider } from './HomePageViewStateContext';
+import { TelemetryInfoAlert } from '../telemetry/TelemetryInfoAlert';
 
 type ExperimentQueryKey = ['home', 'recent-experiments'];
 
 const RECENT_EXPERIMENTS_QUERY_KEY: ExperimentQueryKey = ['home', 'recent-experiments'];
 
-const HomePageContent = () => {
+const HomePage = () => {
   const { theme } = useDesignSystemTheme();
   const invalidateExperiments = useInvalidateExperimentList();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -57,6 +57,7 @@ const HomePageContent = () => {
       }}
     >
       <Header title={<FormattedMessage defaultMessage="Welcome to MLflow" description="Home page hero title" />} />
+      <TelemetryInfoAlert />
       <GetStarted />
       <ExperimentsHomeView
         experiments={experiments}
@@ -76,11 +77,5 @@ const HomePageContent = () => {
     </ScrollablePageWrapper>
   );
 };
-
-const HomePage = () => (
-  <HomePageViewStateProvider>
-    <HomePageContent />
-  </HomePageViewStateProvider>
-);
 
 export default HomePage;

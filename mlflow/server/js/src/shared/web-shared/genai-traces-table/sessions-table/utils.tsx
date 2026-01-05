@@ -52,6 +52,7 @@ export const getSessionTableRows = (experimentId: string, traces: ModelTraceInfo
         sessionDuration: calculateSessionDuration(traces),
         tokens: totalTokens,
         turns: sortedTraces.length,
+        traces: sortedTraces,
       };
     }),
   );

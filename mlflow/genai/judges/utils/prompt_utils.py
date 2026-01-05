@@ -44,9 +44,7 @@ def add_output_format_instructions(prompt: str, output_fields: list["JudgeField"
     Returns:
         The prompt with output format instructions appended
     """
-    json_format_lines = []
-    for field in output_fields:
-        json_format_lines.append(f'    "{field.name}": "{field.description}"')
+    json_format_lines = [f'    "{field.name}": "{field.description}"' for field in output_fields]
 
     json_format = "{\n" + ",\n".join(json_format_lines) + "\n}"
 

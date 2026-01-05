@@ -3,7 +3,8 @@ sidebar_position: 0
 sidebar_label: Overview
 ---
 
-import ImageBox from "@site/src/components/ImageBox";
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { CardGroup, SmallLogoCard } from "@site/src/components/Card";
@@ -75,7 +76,7 @@ MLflow provides comprehensive experiment tracking, model management, and deploym
 
 ## Why MLflow for Traditional ML?
 
-<ImageBox src="/images/traditional-ml-ui.gif" alt="Hyper Parameter Optimization with scikit-learn" />
+<video src={useBaseUrl("/images/traditional-ml-ui.mp4")} controls loop autoPlay muted aria-label="Hyper Parameter Optimization with scikit-learn" />
 
 <FeatureHighlights features={[
   {

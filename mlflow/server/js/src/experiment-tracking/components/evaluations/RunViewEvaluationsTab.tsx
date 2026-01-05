@@ -52,8 +52,9 @@ import { isV3ModelTraceInfo, type ModelTraceInfoV3 } from '@databricks/web-share
 import type { UseGetRunQueryResponseExperiment } from '../run-page/hooks/useGetRunQuery';
 import type { ExperimentEntity } from '../../types';
 import { useGetDeleteTracesAction } from '../experiment-page/components/traces-v3/hooks/useGetDeleteTracesAction';
+// eslint-disable-next-line no-useless-rename -- renaming due to copybara transformation
+import { useExportTracesToDatasetModal as useExportTracesToDatasetModal } from '../../pages/experiment-evaluation-datasets/hooks/useExportTracesToDatasetModal';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
-import { useExportTracesToDatasetModal } from '../../pages/experiment-evaluation-datasets/hooks/useExportTracesToDatasetModal';
 
 const ContextProviders = ({
   children,
@@ -188,6 +189,7 @@ const RunViewEvaluationsTabInner = ({
   });
 
   const deleteTracesAction = useGetDeleteTracesAction({ traceSearchLocations: traceLocations });
+  // TODO: Unify export action between managed and OSS
   const { showExportTracesToDatasetsModal, setShowExportTracesToDatasetsModal, renderExportTracesToDatasetsModal } =
     useExportTracesToDatasetModal({
       experimentId,
@@ -197,10 +199,11 @@ const RunViewEvaluationsTabInner = ({
     return {
       deleteTracesAction,
       exportToEvals: {
-        showExportTracesToDatasetsModal,
-        setShowExportTracesToDatasetsModal,
-        renderExportTracesToDatasetsModal,
+        showExportTracesToDatasetsModal: showExportTracesToDatasetsModal,
+        setShowExportTracesToDatasetsModal: setShowExportTracesToDatasetsModal,
+        renderExportTracesToDatasetsModal: renderExportTracesToDatasetsModal,
       },
+      // Enable unified tags modal if V4 APIs is enabled
       editTags: {
         showEditTagsModalForTrace,
         EditTagsModal,
@@ -399,7 +402,7 @@ const useGetCompareToData = (params: {
 
   const { data: runData, loading: runDetailsLoading } = useSearchRunsQuery({
     experimentIds: [experimentId],
-    filter: `attributes.runId = "${compareToRunUuid}"`,
+    filter: `attributes.run_id = "${compareToRunUuid}"`,
     disabled: isNil(compareToRunUuid),
   });
 

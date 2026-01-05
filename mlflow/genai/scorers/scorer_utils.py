@@ -2,14 +2,22 @@
 
 import ast
 import inspect
+import json
 import logging
 import re
 from textwrap import dedent
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 
+if TYPE_CHECKING:
+    from mlflow.genai.utils.type import FunctionCall
+
 _logger = logging.getLogger(__name__)
+
+GATEWAY_PROVIDER = "gateway"
+INSTRUCTIONS_JUDGE_PYDANTIC_DATA = "instructions_judge_pydantic_data"
+BUILTIN_SCORER_PYDANTIC_DATA = "builtin_scorer_pydantic_data"
 
 
 # FunctionBodyExtractor class is forked from https://github.com/unitycatalog/unitycatalog/blob/20dd3820be332ac04deec4e063099fb863eb3392/ai/core/src/unitycatalog/ai/core/utils/callable_utils.py
@@ -52,8 +60,7 @@ class FunctionBodyExtractor(ast.NodeVisitor):
 
         self.function_body = dedent("".join(function_body_lines)).rstrip("\n")
 
-        indents = [stmt.col_offset for stmt in body if stmt.col_offset is not None]
-        if indents:
+        if indents := [stmt.col_offset for stmt in body if stmt.col_offset is not None]:
             self.indent_unit = min(indents)
 
 
@@ -144,3 +151,93 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
 
     # Return the recreated function
     return local_namespace[func_name]
+
+
+def is_gateway_model(model: str | None) -> bool:
+    if model is None:
+        return False
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    try:
+        provider, _ = _parse_model_uri(model)
+        return provider == GATEWAY_PROVIDER
+    except MlflowException:
+        return False
+
+
+def extract_endpoint_ref(model: str) -> str:
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    _, endpoint_ref = _parse_model_uri(model)
+    return endpoint_ref
+
+
+def build_gateway_model(endpoint_ref: str) -> str:
+    return f"{GATEWAY_PROVIDER}:/{endpoint_ref}"
+
+
+def extract_model_from_serialized_scorer(serialized_data: dict[str, Any]) -> str | None:
+    if ij_data := serialized_data.get(INSTRUCTIONS_JUDGE_PYDANTIC_DATA):
+        return ij_data.get("model")
+    if bs_data := serialized_data.get(BUILTIN_SCORER_PYDANTIC_DATA):
+        return bs_data.get("model")
+    return None
+
+
+def update_model_in_serialized_scorer(
+    serialized_data: dict[str, Any], new_model: str | None
+) -> dict[str, Any]:
+    result = serialized_data.copy()
+    if ij_data := result.get(INSTRUCTIONS_JUDGE_PYDANTIC_DATA):
+        result[INSTRUCTIONS_JUDGE_PYDANTIC_DATA] = {**ij_data, "model": new_model}
+    elif bs_data := result.get(BUILTIN_SCORER_PYDANTIC_DATA):
+        result[BUILTIN_SCORER_PYDANTIC_DATA] = {**bs_data, "model": new_model}
+    return result
+
+
+def parse_tool_call_expectations(
+    expectations: dict[str, Any] | None,
+) -> list["FunctionCall"] | None:
+    from mlflow.genai.utils.type import FunctionCall
+
+    if not expectations or "expected_tool_calls" not in expectations:
+        return None
+
+    expected_tool_calls = expectations["expected_tool_calls"]
+    if not expected_tool_calls:
+        return None
+
+    normalized_calls = []
+    for call in expected_tool_calls:
+        if isinstance(call, FunctionCall):
+            normalized_calls.append(call)
+        elif isinstance(call, dict):
+            name = call.get("name")
+            arguments = call.get("arguments")
+            if arguments is not None and not isinstance(arguments, dict):
+                raise MlflowException(
+                    f"Invalid arguments type: {type(arguments)}. Arguments must be a dict."
+                )
+            normalized_calls.append(FunctionCall(name=name, arguments=arguments))
+        else:
+            raise MlflowException(
+                f"Invalid expected tool call format: {type(call)}. "
+                "Expected dict with 'name' and optional 'arguments', or FunctionCall object."
+            )
+
+    return normalized_calls
+
+
+def normalize_tool_call_arguments(args: dict[str, Any] | None) -> dict[str, Any]:
+    if args is None:
+        return {}
+    if isinstance(args, dict):
+        return args
+    raise MlflowException(f"Invalid arguments type: {type(args)}. Arguments must be a dict.")
+
+
+def get_tool_call_signature(call: "FunctionCall", include_arguments: bool) -> str | None:
+    if include_arguments:
+        args = json.dumps(normalize_tool_call_arguments(call.arguments), sort_keys=True)
+        return f"{call.name}({args})"
+    return call.name

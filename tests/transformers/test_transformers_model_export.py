@@ -626,6 +626,28 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
+def test_transformers_log_model_with_prompt_template_sets_return_full_text_false(
+    text_generation_pipeline,
+):
+    artifact_path = "text_generation_with_prompt_template"
+    prompt_template = "User: {prompt}"
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            text_generation_pipeline,
+            name=artifact_path,
+            prompt_template=prompt_template,
+        )
+
+    model_path = pathlib.Path(_download_artifact_from_uri(model_info.model_uri))
+    mlmodel = Model.load(str(model_path.joinpath("MLmodel")))
+
+    pyfunc_flavor = mlmodel.flavors["python_function"]
+    config = pyfunc_flavor.get("config")
+
+    assert config.get("return_full_text") is False
+
+
 def test_transformers_save_persists_requirements_in_mlflow_directory(
     small_qa_pipeline, model_path, transformers_custom_env
 ):
@@ -2644,7 +2666,7 @@ def test_audio_classification_pipeline(audio_classification_pipeline, with_input
     "model_name",
     [
         "tiiuae/falcon-7b",
-        "databricks/dolly-v2-7b",
+        "openai-community/gpt2",
         "PrunaAI/runwayml-stable-diffusion-v1-5-turbo-tiny-green-smashed",
     ],
 )

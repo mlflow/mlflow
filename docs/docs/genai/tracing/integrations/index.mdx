@@ -1,3 +1,5 @@
+import TracingIntegrations from "@site/src/components/TracingIntegrations";
+
 # Auto Tracing Integrations
 
 MLflow Tracing is integrated with 20+ popular Generative AI libraries and frameworks, offering **one-line automatic tracing** experience. This allows you to gain immediate observability into your GenAI applications with minimal setup.
@@ -11,13 +13,25 @@ MLflow's automatic tracing provides:
 
 Click any integration below to get started with detailed setup instructions.
 
-import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TracingIntegrations from "@site/src/components/TracingIntegrations";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
+## OpenTelemetry
 
-<TracingIntegrations cardGroupProps={{ isSmall: true }} categorized={true} />
+<TracingIntegrations category="OpenTelemetry" cardGroupProps={{ isSmall: true, cols: 3 }} />
+
+## Agent Frameworks (Python)
+
+<TracingIntegrations category="Agent Frameworks (Python)" cardGroupProps={{ isSmall: true, cols: 3 }} />
+
+## Agent Frameworks (TypeScript)
+
+<TracingIntegrations category="Agent Frameworks (TypeScript)" cardGroupProps={{ isSmall: true, cols: 3 }} />
+
+## Model Providers
+
+<TracingIntegrations category="Model Providers" cardGroupProps={{ isSmall: true, cols: 3 }} />
+
+## Tools
+
+<TracingIntegrations category="Tools" cardGroupProps={{ isSmall: true, cols: 3 }} />
 <br />
 
 :::info Missing an Integration?

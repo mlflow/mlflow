@@ -16,6 +16,10 @@ CREATE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/p
 GET_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/get")
 UPDATE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/update")
 DELETE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/delete")
+CREATE_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/create", version=3)
+GET_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/get", version=3)
+UPDATE_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/update", version=3)
+DELETE_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/delete", version=3)
 
 # Flask routes (not part of Protobuf API)
 GET_ARTIFACT = _add_static_prefix("/get-artifact")

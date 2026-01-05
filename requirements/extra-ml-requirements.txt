@@ -1,8 +1,7 @@
 ## This file describes extra ML library dependencies that you, as an end user,
 ## must install in order to use various MLflow Python modules.
 # Required by mlflow.spacy
-# TODO: Remove `<3.8` once we bump the minimim supported python version of MLflow to 3.9.
-spacy>=3.3.0,<3.8
+spacy>=3.3.0
 # Required by mlflow.tensorflow
 tensorflow>=2.10.0; platform_system!="Darwin" or platform_machine!="arm64"
 tensorflow-macos>=2.10.0; platform_system=="Darwin" and platform_machine=="arm64"
@@ -26,7 +25,7 @@ onnxruntime
 onnxscript
 tf2onnx
 # Required by mlflow.spark and using Delta with MLflow Tracking datasets
-pyspark
+pyspark<4.1.0
 # Required by mlflow.paddle
 paddlepaddle
 # Required by mlflow.prophet
@@ -64,6 +63,7 @@ llama_index
 llama-index-agent-openai
 # Required by mlflow.langchain
 langchain
+langchain-openai
 # Required by mlflow.sentence_transformers
 sentence-transformers
 # Required by mlflow.anthropic

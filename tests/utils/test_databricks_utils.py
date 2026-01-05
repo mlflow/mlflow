@@ -18,12 +18,14 @@ from mlflow.utils import databricks_utils
 from mlflow.utils.databricks_utils import (
     DatabricksConfigProvider,
     DatabricksRuntimeVersion,
+    _NoDbutilsError,
     check_databricks_secret_scope_access,
     get_databricks_host_creds,
     get_databricks_runtime_major_minor_version,
     get_databricks_workspace_client_config,
     get_dbconnect_udf_sandbox_info,
     get_mlflow_credential_context_by_run_id,
+    get_sgc_job_run_id,
     get_workspace_info_from_databricks_secrets,
     get_workspace_info_from_dbutils,
     get_workspace_url,
@@ -727,7 +729,6 @@ def test_databricks_runtime_version_parse(
     expected_major,
     expected_minor,
 ):
-    """Test that DatabricksRuntimeVersion.parse() correctly parses version strings."""
     version = DatabricksRuntimeVersion.parse(version_str)
     assert version.is_client_image == expected_is_client
     assert version.major == expected_major
@@ -748,7 +749,6 @@ def test_databricks_runtime_version_parse_default(
     expected_major,
     expected_minor,
 ):
-    """Test that DatabricksRuntimeVersion.parse() works without arguments."""
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", env_version)
     version = DatabricksRuntimeVersion.parse()
     assert version.is_client_image == expected_is_client
@@ -775,7 +775,6 @@ def test_databricks_runtime_version_parse_default_no_env(monkeypatch):
     ],
 )
 def test_databricks_runtime_version_parse_invalid(invalid_version):
-    """Test that DatabricksRuntimeVersion.parse() raises error for invalid version strings."""
     with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
         DatabricksRuntimeVersion.parse(invalid_version)
 
@@ -865,3 +864,95 @@ def test_get_databricks_workspace_client_config_client_creation_error():
     ):
         with pytest.raises(Exception, match="Client creation failed"):
             get_databricks_workspace_client_config("databricks://profile")
+
+
+def test_get_sgc_job_run_id_success(monkeypatch):
+    monkeypatch.delenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", raising=False)
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.return_value = "test_job_run_id_12345"
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result == "test_job_run_id_12345"
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_get_sgc_job_run_id_no_dbutils(monkeypatch):
+    monkeypatch.delenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", raising=False)
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", side_effect=_NoDbutilsError()):
+        result = get_sgc_job_run_id()
+        assert result is None
+
+
+def test_get_sgc_job_run_id_no_dbutils_with_env_var(monkeypatch):
+    monkeypatch.setenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", "env_job_run_id_456")
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", side_effect=_NoDbutilsError()):
+        result = get_sgc_job_run_id()
+        assert result == "env_job_run_id_456"
+
+
+def test_get_sgc_job_run_id_value_error(monkeypatch):
+    monkeypatch.delenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", raising=False)
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.side_effect = ValueError("Widget not found")
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result is None
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_get_sgc_job_run_id_value_error_with_env_var(monkeypatch):
+    monkeypatch.setenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", "env_job_run_id_789")
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.side_effect = ValueError("Widget not found")
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result == "env_job_run_id_789"
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_get_sgc_job_run_id_empty_widget_with_env_var(monkeypatch):
+    monkeypatch.setenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", "env_job_run_id_999")
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.return_value = ""
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result == "env_job_run_id_999"
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_get_sgc_job_run_id_none_widget_with_env_var(monkeypatch):
+    monkeypatch.setenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", "env_job_run_id_111")
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.return_value = None
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result == "env_job_run_id_111"
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_get_sgc_job_run_id_widget_takes_precedence_over_env_var(monkeypatch):
+    monkeypatch.setenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", "env_job_run_id_222")
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.return_value = "widget_job_run_id_333"
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result == "widget_job_run_id_333"
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )

@@ -34,10 +34,8 @@ import subprocess
 
 def main(new_version: str, remote: str, dry_run: bool = False):
     release_tag = f"v{new_version}"
-    subprocess.run(["git", "tag", release_tag], check=True)
-    subprocess.run(
-        ["git", "push", remote, release_tag, *(["--dry-run"] if dry_run else [])], check=True
-    )
+    subprocess.check_call(["git", "tag", release_tag])
+    subprocess.check_call(["git", "push", remote, release_tag, *(["--dry-run"] if dry_run else [])])
 
 
 if __name__ == "__main__":

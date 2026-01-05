@@ -3,7 +3,8 @@ sidebar_position: 0
 sidebar_label: Overview
 ---
 
-import ImageBox from "@site/src/components/ImageBox";
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
@@ -69,7 +70,7 @@ MLflow provides comprehensive experiment tracking, model management, and deploym
 
 ## Why MLflow for Deep Learning?
 
-<ImageBox src="/images/deep-learning/dl-run-comparison.gif" alt="Deep Learning Training Comparison" />
+<video src={useBaseUrl("/images/deep-learning/dl-run-comparison.mp4")} controls loop autoPlay muted aria-label="Deep Learning Training Comparison" />
 
 <FeatureHighlights features={[
   {

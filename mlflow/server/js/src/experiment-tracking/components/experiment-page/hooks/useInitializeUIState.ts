@@ -7,7 +7,6 @@ import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selec
 import type { UseExperimentsResult } from './useExperiments';
 import { useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 import { expandedEvaluationRunRowsUIStateInitializer } from '../utils/expandedRunsViewStateInitializer';
-import { shouldRerunExperimentUISeeding } from '../../../../common/utils/FeatureUtils';
 
 // prettier-ignore
 const uiStateInitializers = [
@@ -114,11 +113,6 @@ export const useInitializeUIState = (
 
       if (experimentHash === newHash && isSeeded) {
         // Do not re-seed if the hash is the same, as we don't expect changes in the UI state
-        return;
-      }
-
-      if (isSeeded && !shouldRerunExperimentUISeeding()) {
-        // Do not re-seed if the feature is not enabled
         return;
       }
 

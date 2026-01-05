@@ -12,12 +12,11 @@ export const PromptsListFilters = ({
   return (
     <TableFilterLayout>
       <TableFilterInput
-        placeholder="Search prompts by name"
+        placeholder="Search prompts by name or tags"
         componentId="mlflow.prompts.list.search"
         value={searchFilter}
         onChange={(e) => onSearchFilterChange(e.target.value)}
-        // TODO: Add this back once we support searching with tags
-        // suffix={<ModelSearchInputHelpTooltip exampleEntityName="my-prompt-name" />}
+        suffix={<ModelSearchInputHelpTooltip exampleEntityName="my-prompt-name" />}
       />
     </TableFilterLayout>
   );

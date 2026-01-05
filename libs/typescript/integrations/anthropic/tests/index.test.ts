@@ -8,6 +8,7 @@ import { tracedAnthropic } from '../src';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { anthropicMockHandlers } from './mockAnthropicServer';
+import { createAuthProvider } from 'mlflow-tracing/src/auth';
 
 const TEST_TRACKING_URI = 'http://localhost:5000';
 
@@ -20,7 +21,8 @@ describe('tracedAnthropic', () => {
     server = setupServer(...anthropicMockHandlers);
     server.listen();
 
-    client = new mlflow.MlflowClient({ trackingUri: TEST_TRACKING_URI, host: TEST_TRACKING_URI });
+    const authProvider = createAuthProvider({ trackingUri: TEST_TRACKING_URI });
+    client = new mlflow.MlflowClient({ trackingUri: TEST_TRACKING_URI, authProvider });
 
     const experimentName = `anthropic-test-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     experimentId = await client.createExperiment(experimentName);

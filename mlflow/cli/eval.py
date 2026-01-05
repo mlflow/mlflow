@@ -95,7 +95,7 @@ def evaluate_traces(
     except Exception as e:
         raise click.UsageError(f"Evaluation failed: {e}")
 
-    results_df = results.tables["eval_results"]
+    results_df = results.result_df
     output_data = extract_assessments_from_results(results_df, evaluation_run_id)
 
     if output_format == "json":

@@ -334,6 +334,12 @@ def _capture_imported_modules(model_uri, flavor, record_full_module=False, extra
         # See: ``https://github.com/mlflow/mlflow/issues/6905`` for context on minio configuration
         # resolution in a subprocess based on PATH entries.
         main_env["PATH"] = "/usr/sbin:/sbin:" + main_env["PATH"]
+        # Clear py4j gateway env vars to prevent the subprocess from connecting to the parent's
+        # py4j gateway. If these are inherited, libraries like databricks-sdk may attempt to use
+        # them, which can corrupt the parent process's py4j connection state and cause errors
+        # like "Error while obtaining a new communication channel" after the subprocess exits.
+        main_env.pop("PYSPARK_GATEWAY_PORT", None)
+        main_env.pop("PYSPARK_GATEWAY_SECRET", None)
         # Add databricks env, for langchain models loading we might need CLI configurations
         if is_in_databricks_runtime():
             main_env.update(get_databricks_env_vars(mlflow.get_tracking_uri()))
@@ -573,8 +579,7 @@ def _get_pinned_requirement(req_str, version=None, module=None):
     package = req.name
     if version is None:
         version_raw = _get_installed_version(package, module)
-        local_version_label = _get_local_version_label(version_raw)
-        if local_version_label:
+        if local_version_label := _get_local_version_label(version_raw):
             version = _strip_local_version_label(version_raw)
             if not (is_in_databricks_runtime() and package in ("torch", "torchvision")):
                 msg = (
@@ -600,7 +605,7 @@ class _MismatchedPackageInfo(NamedTuple):
     requirement: str
 
     def __str__(self):
-        current_status = self.installed_version if self.installed_version else "uninstalled"
+        current_status = self.installed_version or "uninstalled"
         return f"{self.package_name} (current: {current_status}, required: {self.requirement})"
 
 

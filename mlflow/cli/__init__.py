@@ -24,9 +24,16 @@ from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT
 from mlflow.exceptions import InvalidUrlException, MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.tracking import DEFAULT_ARTIFACTS_URI, DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.tracking import (
+    DEFAULT_ARTIFACTS_URI,
+    DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+)
 from mlflow.tracking import _get_store
-from mlflow.tracking._tracking_service.utils import is_tracking_uri_set, set_tracking_uri
+from mlflow.tracking._tracking_service.utils import (
+    _get_default_tracking_uri,
+    is_tracking_uri_set,
+    set_tracking_uri,
+)
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.os import is_windows
@@ -350,7 +357,7 @@ def _validate_static_prefix(ctx, param, value):
     "--backend-store-uri",
     envvar="MLFLOW_BACKEND_STORE_URI",
     metavar="PATH",
-    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    default=None,
     help="URI to which to persist experiment and run data. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
@@ -451,6 +458,30 @@ def _validate_static_prefix(ctx, param, value):
         "Unsupported on Windows."
     ),
 )
+@click.option(
+    "--secrets-cache-ttl",
+    type=click.IntRange(10, 300),
+    default=60,
+    show_default=True,
+    help=(
+        "Server-side secrets cache time-to-live in seconds. "
+        "Controls how long decrypted secrets are cached in memory (encrypted with AES-GCM-256). "
+        "Lower values (10-30s) are more secure but impact performance. "
+        "Higher values (120-300s) improve performance but increase exposure window. "
+        "Range: 10-300 seconds."
+    ),
+)
+@click.option(
+    "--secrets-cache-max-size",
+    type=click.IntRange(1, 10000),
+    default=1000,
+    show_default=True,
+    help=(
+        "Server-side secrets cache maximum entries. "
+        "When exceeded, least recently used entries are evicted. "
+        "Range: 1-10000 entries."
+    ),
+)
 def server(
     ctx,
     backend_store_uri,
@@ -473,6 +504,8 @@ def server(
     app_name,
     dev,
     uvicorn_opts,
+    secrets_cache_ttl,
+    secrets_cache_max_size,
 ):
     """
     Run the MLflow tracking server with built-in security middleware.
@@ -541,25 +574,26 @@ def server(
         if x_frame_options:
             os.environ["MLFLOW_SERVER_X_FRAME_OPTIONS"] = x_frame_options
 
-    # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
-        backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        backend_store_uri = _get_default_tracking_uri()
+        click.echo(f"Backend store URI not provided. Using {backend_store_uri}")
 
-    # the default setting of registry_store_uri is same as backend_store_uri
     if not registry_store_uri:
         registry_store_uri = backend_store_uri
+        click.echo("Registry store URI not provided. Using backend store URI.")
 
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
     artifacts_only_config_validation(artifacts_only, backend_store_uri)
 
-    try:
-        initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
-    except Exception as e:
-        _logger.error("Error initializing backend store")
-        _logger.exception(e)
-        sys.exit(1)
+    if not artifacts_only:
+        try:
+            initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
+        except Exception as e:
+            _logger.error("Error initializing backend store")
+            _logger.exception(e)
+            sys.exit(1)
 
     if disable_security_middleware:
         click.echo(
@@ -606,6 +640,8 @@ def server(
             app_name=app_name,
             uvicorn_opts=uvicorn_opts,
             env_file=env_file,
+            secrets_cache_ttl=secrets_cache_ttl,
+            secrets_cache_max_size=secrets_cache_max_size,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
@@ -623,7 +659,7 @@ def server(
 @click.option(
     "--backend-store-uri",
     metavar="PATH",
-    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    default=None,
     help="URI of the backend store from which to delete runs. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
@@ -657,11 +693,43 @@ def server(
     "experiments in the `deleted` lifecycle stage.",
 )
 @click.option(
+    "--logged-model-ids",
+    default=None,
+    help="Optional comma separated list of logged model IDs to be permanently deleted."
+    " If logged model IDs are not specified, data is removed for all logged models in the `deleted`"
+    " lifecycle stage.",
+)
+@click.option(
+    "--jobs",
+    is_flag=True,
+    default=False,
+    help="Enable job cleanup. Without this flag, no jobs will be deleted."
+    " When enabled, all jobs are deleted unless filtered by --older-than or --job-ids."
+    " This option only works with database backends.",
+)
+@click.option(
+    "--job-ids",
+    default=None,
+    help="Optional comma separated list of job IDs to be permanently deleted."
+    " Can be used with or without --jobs flag."
+    " If --older-than is also specified, only jobs matching both filters are deleted.",
+)
+@click.option(
     "--tracking-uri",
     default=os.environ.get("MLFLOW_TRACKING_URI"),
     help="Tracking URI to use for deleting 'deleted' runs e.g. http://127.0.0.1:8080",
 )
-def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment_ids, tracking_uri):
+def gc(
+    older_than,
+    backend_store_uri,
+    artifacts_destination,
+    run_ids,
+    experiment_ids,
+    logged_model_ids,
+    jobs,
+    job_ids,
+    tracking_uri,
+):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
@@ -685,6 +753,8 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
       files, etc.)
     - **Experiment metadata**: When deleting experiments, removes the experiment record and
       all associated data
+    - **Job records**: When using the --jobs flag, removes historical job records from the
+      jobs table
 
     .. note::
 
@@ -709,11 +779,18 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
         # Combine criteria: delete runs older than 7 days in specific experiments
         mlflow gc --older-than 7d --experiment-ids 'exp1,exp2'
 
+        # Delete all finalized jobs older than 7 days (requires --jobs flag)
+        mlflow gc --jobs --older-than 7d
+
+        # Delete specific jobs by ID
+        mlflow gc --job-ids 'job1,job2,job3'
+
     """
     from mlflow.utils.time import get_current_time_millis
 
     backend_store = _get_store(backend_store_uri, artifacts_destination)
     skip_experiments = False
+    skip_logged_models = False
     if not hasattr(backend_store, "_hard_delete_run"):
         raise MlflowException(
             "This cli can only be used with a backend that allows hard-deleting runs"
@@ -727,6 +804,15 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
             stacklevel=2,
         )
         skip_experiments = True
+
+    if not hasattr(backend_store, "_hard_delete_logged_model"):
+        warnings.warn(
+            "The specified backend does not allow hard-deleting logged models. Logged models"
+            " will be skipped.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        skip_logged_models = True
 
     time_delta = 0
 
@@ -756,6 +842,19 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
 
     deleted_run_ids_older_than = backend_store._get_deleted_runs(older_than=time_delta)
     run_ids = run_ids.split(",") if run_ids else deleted_run_ids_older_than
+
+    deleted_logged_model_ids = (
+        backend_store._get_deleted_logged_models() if not skip_logged_models else []
+    )
+
+    deleted_logged_model_ids_older_than = (
+        backend_store._get_deleted_logged_models(older_than=time_delta)
+        if not skip_logged_models
+        else []
+    )
+    logged_model_ids = (
+        logged_model_ids.split(",") if logged_model_ids else deleted_logged_model_ids_older_than
+    )
 
     time_threshold = get_current_time_millis() - time_delta
     if not skip_experiments:
@@ -833,6 +932,7 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
                 error_code=INVALID_PARAMETER_VALUE,
             )
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
+
         try:
             artifact_repo.delete_artifacts()
         except InvalidUrlException as iue:
@@ -851,13 +951,71 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
                     fg="yellow",
                 ),
             )
+
         backend_store._hard_delete_run(run_id)
         click.echo(f"Run with ID {run_id} has been permanently deleted.")
+
+    if not skip_logged_models:
+        for model_id in set(logged_model_ids):
+            if model_id not in deleted_logged_model_ids:
+                raise MlflowException(
+                    f"Logged model {model_id} is not in `deleted` lifecycle stage. "
+                    "Only logged models in `deleted` lifecycle stage can be deleted."
+                )
+            if older_than and model_id not in deleted_logged_model_ids_older_than:
+                raise MlflowException(
+                    f"Logged model {model_id} is not older than the required age. "
+                    f"Only logged models older than {older_than} can be deleted.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            logged_model = backend_store.get_logged_model(model_id, allow_deleted=True)
+            artifact_repo = get_artifact_repository(logged_model.artifact_location)
+            try:
+                artifact_repo.delete_artifacts()
+            except InvalidUrlException as iue:
+                click.echo(
+                    click.style(
+                        f"An exception {iue!r} was raised during the deletion of a model artifact",
+                        fg="yellow",
+                    )
+                )
+                click.echo(
+                    click.style(
+                        f"Unable to resolve the provided artifact URL: '{artifact_repo}'. "
+                        "The gc process will continue and bypass artifact deletion. "
+                        "Please ensure that the artifact exists "
+                        "and consider manually deleting any unused artifacts. ",
+                        fg="yellow",
+                    ),
+                )
+            backend_store._hard_delete_logged_model(model_id)
+            click.echo(f"Logged model with ID {model_id} has been permanently deleted.")
 
     if not skip_experiments:
         for experiment_id in experiment_ids:
             backend_store._hard_delete_experiment(experiment_id)
             click.echo(f"Experiment with ID {experiment_id} has been permanently deleted.")
+
+    # Clean up jobs (only when --jobs flag is set or --job-ids are given and for database backends)
+    if jobs or job_ids:
+        from mlflow.utils.uri import extract_db_type_from_uri
+
+        store_uri = backend_store_uri or os.environ.get("MLFLOW_BACKEND_STORE_URI")
+        try:
+            extract_db_type_from_uri(store_uri)
+        except MlflowException:
+            # Not a database backend - skip job cleanup silently
+            pass
+        else:
+            from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+
+            job_store = SqlAlchemyJobStore(store_uri)
+
+            job_ids_list = job_ids.split(",") if job_ids else None
+
+            deleted_job_ids = job_store.delete_jobs(older_than=time_delta, job_ids=job_ids_list)
+            for job_id in deleted_job_ids:
+                click.echo(f"Job with ID {job_id} has been permanently deleted.")
 
 
 @cli.command(short_help="Prints out useful information for debugging issues with MLflow.")
@@ -930,6 +1088,11 @@ with contextlib.suppress(ImportError):
 
     cli.add_command(mlflow.gateway.cli.commands)
 
+# Add crypto CLI commands
+with contextlib.suppress(ImportError):
+    from mlflow.cli import crypto
+
+    cli.add_command(crypto.commands)
 
 if __name__ == "__main__":
     cli()

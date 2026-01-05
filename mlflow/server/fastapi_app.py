@@ -12,6 +12,7 @@ from flask import Flask
 
 from mlflow.server import app as flask_app
 from mlflow.server.fastapi_security import init_fastapi_security
+from mlflow.server.gateway_api import gateway_router
 from mlflow.server.job_api import job_api_router
 from mlflow.server.otel_api import otel_router
 from mlflow.version import VERSION
@@ -44,6 +45,10 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     fastapi_app.include_router(otel_router)
 
     fastapi_app.include_router(job_api_router)
+
+    # Include Gateway API router for database-backed endpoints
+    # This provides /gateway/{endpoint_name}/mlflow/invocations routes
+    fastapi_app.include_router(gateway_router)
 
     # Mount the entire Flask application at the root path
     # This ensures compatibility with existing APIs

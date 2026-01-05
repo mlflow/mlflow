@@ -4,16 +4,16 @@ sidebar_label: LangGraph
 toc_max_heading_level: 2
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing LangGraph🦜🕸️
 
-![LangChain Tracing via autolog](/images/llms/tracing/langgraph-tracing.gif)
+<video src={useBaseUrl("/images/llms/tracing/langgraph-tracing.mp4")} controls loop autoPlay muted aria-label="LangGraph Tracing via autolog" />
 
 [LangGraph](https://www.langchain.com/langgraph) is an open-source library for building stateful, multi-actor applications with LLMs, used to create agent and multi-agent workflows.
 
@@ -284,6 +284,22 @@ def code_check(state: GraphState):
 This way, the span for the `check_code` node will have child spans, which record whether the each validation fails or not, with their exception details.
 
 ![LangGraph Child Span](/images/llms/tracing/langgraph-child-span.png)
+
+:::info Async Context Propagation
+When using async methods like `ainvoke()` with manual `@mlflow.trace` decorators inside LangGraph nodes or tools, enable inline tracer execution to ensure proper context propagation:
+
+```python
+mlflow.langchain.autolog(run_tracer_inline=True)
+```
+
+This ensures that manually traced spans are properly nested within the autolog trace hierarchy. Without this setting, manual spans may appear as separate traces in async scenarios.
+
+:::warning
+When `run_tracer_inline=True` is enabled, avoid calling multiple graph invocations sequentially within the same async function, as this may cause traces to merge unexpectedly. If you need to make multiple sequential invocations, either:
+
+- Wrap each invocation in a separate async task
+- Use the default `run_tracer_inline=False` if you don't need manual tracing integration
+  :::
 
 ## Thread ID Tracking
 

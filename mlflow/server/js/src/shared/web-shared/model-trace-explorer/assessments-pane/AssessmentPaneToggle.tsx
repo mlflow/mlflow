@@ -4,8 +4,12 @@ import { FormattedMessage } from '@databricks/i18n';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 
 export const AssessmentPaneToggle = () => {
-  const { assessmentsPaneExpanded, setAssessmentsPaneExpanded, assessmentsPaneEnabled } =
+  const { assessmentsPaneExpanded, setAssessmentsPaneExpanded, assessmentsPaneEnabled, isInComparisonView } =
     useModelTraceExplorerViewState();
+
+  if (isInComparisonView) {
+    return null;
+  }
 
   return (
     <SegmentedControlGroup

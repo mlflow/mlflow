@@ -103,9 +103,7 @@ def infer_type_from_value(value: Any, model_name: str = "Output") -> type:
     elif isinstance(value, list):
         if not value:
             return list[Any]
-        element_types = set()
-        for item in value:
-            element_types.add(infer_type_from_value(item))
+        element_types = {infer_type_from_value(item) for item in value}
         return list[functools.reduce(lambda x, y: x | y, element_types)]
     elif isinstance(value, dict):
         fields = {k: (infer_type_from_value(v, model_name=k), ...) for k, v in value.items()}

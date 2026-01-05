@@ -8,6 +8,11 @@ import {
   type Assessment,
   type ExpectationAssessment,
 } from '@databricks/web-shared/model-trace-explorer';
+import {
+  getSpansLocation,
+  TRACKING_STORE_SPANS_LOCATION,
+} from '../../shared/web-shared/genai-traces-table/utils/TraceUtils';
+import { getExperimentTraceV3 } from '../../shared/web-shared/model-trace-explorer/api';
 
 /**
  * Fetches trace information and data for a given trace ID.
@@ -20,6 +25,19 @@ export async function getTrace(traceId?: string, traceInfo?: ModelTrace['info'])
     return undefined;
   }
 
+  // Check spans location tag to decide the source of span data
+  // If spans are in the tracking store, use V3 get-trace (allow_partial=true)
+  // Otherwise, fall back to artifact route. Currently, tracking store tag is
+  // only set when the backend is OSS SQLAlchemyStore.
+  if (getSpansLocation(traceInfo as ModelTraceInfoV3) === TRACKING_STORE_SPANS_LOCATION) {
+    const traceResp = await getExperimentTraceV3({ traceId });
+    if (traceResp?.trace && traceResp.trace.data) {
+      return {
+        info: traceResp.trace.trace_info || {},
+        data: traceResp.trace.data,
+      };
+    }
+  }
   const [traceInfoResponse, traceData] = await Promise.all([
     MlflowService.getExperimentTraceInfoV3(traceId),
     MlflowService.getExperimentTraceData(traceId),

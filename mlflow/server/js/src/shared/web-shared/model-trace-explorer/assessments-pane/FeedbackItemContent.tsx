@@ -74,7 +74,7 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
             <FormattedMessage defaultMessage="Feedback" description="Label for the value of an feedback assessment" />
           </Typography.Text>
           <div css={{ display: 'flex', gap: theme.spacing.xs }}>
-            <AssessmentDisplayValue jsonValue={JSON.stringify(value)} />
+            <AssessmentDisplayValue jsonValue={JSON.stringify(value)} assessmentName={feedback.assessment_name} />
             {feedback.overriddenAssessment && (
               <>
                 <span onClick={() => setIsHistoryModalVisible(true)}>

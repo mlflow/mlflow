@@ -7,6 +7,7 @@ import { map } from 'lodash';
 // Maps experiment page route paths to enumerated tab names
 const ExperimentPageRoutePathToTabNameMap = map(
   {
+    [RoutePaths.experimentPageTabOverview]: ExperimentPageTabName.Overview,
     [RoutePaths.experimentPageTabRuns]: ExperimentPageTabName.Runs,
     [RoutePaths.experimentPageTabTraces]: ExperimentPageTabName.Traces,
     [RoutePaths.experimentPageTabModels]: ExperimentPageTabName.Models,
@@ -14,6 +15,10 @@ const ExperimentPageRoutePathToTabNameMap = map(
     [RoutePaths.experimentPageTabDatasets]: ExperimentPageTabName.Datasets,
     [RoutePaths.experimentPageTabChatSessions]: ExperimentPageTabName.ChatSessions,
     [RoutePaths.experimentPageTabSingleChatSession]: ExperimentPageTabName.SingleChatSession,
+    [RoutePaths.experimentPageTabScorers]: ExperimentPageTabName.Judges,
+    // OSS experiment prompt page routes
+    [RoutePaths.experimentPageTabPrompts]: ExperimentPageTabName.Prompts,
+    [RoutePaths.experimentPageTabPromptDetails]: ExperimentPageTabName.Prompts,
   },
   (tabName, routePath) => ({ routePath, tabName }),
 );

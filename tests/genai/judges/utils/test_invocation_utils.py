@@ -19,6 +19,7 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
 from mlflow.genai.judges.adapters.litellm_adapter import _MODEL_RESPONSE_FORMAT_CAPABILITIES
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.judges.utils.invocation_utils import (
+    _invoke_databricks_structured_output,
     get_chat_completions_with_structured_output,
     invoke_judge_model,
 )
@@ -148,7 +149,7 @@ def test_invoke_judge_model_successful_with_native_provider():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_litellm_available", return_value=False
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available", return_value=False
         ),
         mock.patch(
             "mlflow.metrics.genai.model_utils.score_model_on_payload", return_value=mock_response
@@ -163,6 +164,7 @@ def test_invoke_judge_model_successful_with_native_provider():
     mock_score_model_on_payload.assert_called_once_with(
         model_uri="openai:/gpt-4",
         payload="Evaluate this response",
+        eval_parameters=None,
         endpoint_type="llm/v1/chat",
     )
 
@@ -176,9 +178,9 @@ def test_invoke_judge_model_successful_with_native_provider():
 
 
 def test_invoke_judge_model_with_unsupported_provider():
-    with pytest.raises(MlflowException, match=r"LiteLLM is required for using 'unsupported' LLM"):
+    with pytest.raises(MlflowException, match=r"No suitable adapter found"):
         with mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_litellm_available", return_value=False
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available", return_value=False
         ):
             invoke_judge_model(
                 model_uri="unsupported:/model", prompt="Test prompt", assessment_name="test"
@@ -188,7 +190,7 @@ def test_invoke_judge_model_with_unsupported_provider():
 def test_invoke_judge_model_with_trace_requires_litellm(mock_trace):
     with pytest.raises(MlflowException, match=r"LiteLLM is required for using traces with judges"):
         with mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_litellm_available", return_value=False
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available", return_value=False
         ):
             invoke_judge_model(
                 model_uri="openai:/gpt-4",
@@ -424,10 +426,6 @@ def test_invoke_judge_model_databricks_success_not_in_databricks(
 ) -> None:
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
-            return_value=False,
-        ) as mock_in_db,
-        mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             return_value=InvokeDatabricksModelOutput(
                 response='{"result": "yes", "rationale": "Good response"}',
@@ -436,6 +434,9 @@ def test_invoke_judge_model_databricks_success_not_in_databricks(
                 num_completion_tokens=5,
             ),
         ) as mock_invoke_db,
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_success_databricks_telemetry"
+        ) as mock_success_telemetry,
     ):
         kwargs = {
             "model_uri": model_uri,
@@ -452,8 +453,9 @@ def test_invoke_judge_model_databricks_success_not_in_databricks(
             prompt="Test prompt",
             num_retries=10,
             response_format=None,
+            inference_params=None,
         )
-        mock_in_db.assert_called_once()
+        mock_success_telemetry.assert_called_once()
 
     assert feedback.name == "test_assessment"
     assert feedback.value == CategoricalRating.YES
@@ -475,10 +477,6 @@ def test_invoke_judge_model_databricks_success_in_databricks(
 ) -> None:
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
-            return_value=True,
-        ) as mock_in_db,
-        mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             return_value=InvokeDatabricksModelOutput(
                 response='{"result": "no", "rationale": "Bad response"}',
@@ -488,7 +486,7 @@ def test_invoke_judge_model_databricks_success_in_databricks(
             ),
         ) as mock_invoke_db,
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._record_judge_model_usage_success_databricks_telemetry"
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_success_databricks_telemetry"
         ) as mock_success_telemetry,
     ):
         feedback = invoke_judge_model(
@@ -510,8 +508,8 @@ def test_invoke_judge_model_databricks_success_in_databricks(
             prompt="Test prompt",
             num_retries=10,
             response_format=None,
+            inference_params=None,
         )
-        mock_in_db.assert_called_once()
 
     assert feedback.value == CategoricalRating.NO
     assert feedback.rationale == "Bad response"
@@ -542,7 +540,11 @@ def test_invoke_judge_model_databricks_source_id(model_uri: str) -> None:
         "test-model" if model_uri.startswith("databricks") else "databricks-gpt-oss-120b"
     )
     mock_invoke_db.assert_called_once_with(
-        model_name=expected_model_name, prompt="Test prompt", num_retries=10, response_format=None
+        model_name=expected_model_name,
+        prompt="Test prompt",
+        num_retries=10,
+        response_format=None,
+        inference_params=None,
     )
     assert feedback.source.source_id == f"databricks:/{expected_model_name}"
 
@@ -559,15 +561,11 @@ def test_invoke_judge_model_databricks_failure_in_databricks(
 ) -> None:
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
-            return_value=True,
-        ) as mock_in_db,
-        mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             side_effect=MlflowException("Model invocation failed"),
         ) as mock_invoke_db,
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._record_judge_model_usage_failure_databricks_telemetry"
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_failure_databricks_telemetry"
         ) as mock_failure_telemetry,
     ):
         with pytest.raises(MlflowException, match="Model invocation failed"):
@@ -589,8 +587,8 @@ def test_invoke_judge_model_databricks_failure_in_databricks(
             prompt="Test prompt",
             num_retries=10,
             response_format=None,
+            inference_params=None,
         )
-        mock_in_db.assert_called_once()
 
         # Verify error message contains the traceback
         call_args = mock_failure_telemetry.call_args[1]
@@ -609,10 +607,6 @@ def test_invoke_judge_model_databricks_telemetry_error_handling(
 ) -> None:
     with (
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
-            return_value=True,
-        ) as mock_in_db,
-        mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             return_value=InvokeDatabricksModelOutput(
                 response='{"result": "yes", "rationale": "Good"}',
@@ -622,7 +616,7 @@ def test_invoke_judge_model_databricks_telemetry_error_handling(
             ),
         ) as mock_invoke_db,
         mock.patch(
-            "mlflow.genai.judges.utils.invocation_utils._record_judge_model_usage_success_databricks_telemetry",
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._record_judge_model_usage_success_databricks_telemetry",
             side_effect=Exception("Telemetry failed"),
         ) as mock_success_telemetry,
     ):
@@ -645,8 +639,8 @@ def test_invoke_judge_model_databricks_telemetry_error_handling(
             prompt="Test prompt",
             num_retries=10,
             response_format=None,
+            inference_params=None,
         )
-        mock_in_db.assert_called_once()
 
     assert feedback.value == CategoricalRating.YES
     assert feedback.rationale == "Good"
@@ -984,3 +978,170 @@ def test_get_chat_completions_with_structured_output_with_trace(mock_trace):
 
     assert mock_completion.call_count == 2
     mock_invoke.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "inference_params",
+    [
+        None,
+        {"temperature": 0},
+        {"temperature": 0.5, "max_tokens": 100},
+        {"temperature": 0.5, "top_p": 0.9, "max_tokens": 500, "presence_penalty": 0.1},
+    ],
+)
+def test_invoke_judge_model_with_inference_params(mock_response, inference_params):
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        feedback = invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt="Evaluate this",
+            assessment_name="test",
+            inference_params=inference_params,
+        )
+
+    assert feedback.name == "test"
+    call_kwargs = mock_litellm.call_args.kwargs
+
+    if inference_params:
+        for key, value in inference_params.items():
+            assert call_kwargs[key] == value
+    else:
+        assert "temperature" not in call_kwargs
+
+
+def test_get_chat_completions_with_inference_params():
+    class OutputSchema(BaseModel):
+        result: str
+
+    mock_response_obj = ModelResponse(choices=[{"message": {"content": '{"result": "pass"}'}}])
+
+    inference_params = {"temperature": 0.1}
+
+    with mock.patch("litellm.completion", return_value=mock_response_obj) as mock_litellm:
+        result = get_chat_completions_with_structured_output(
+            model_uri="openai:/gpt-4",
+            messages=[ChatMessage(role="user", content="Test")],
+            output_schema=OutputSchema,
+            inference_params=inference_params,
+        )
+
+    assert result.result == "pass"
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["temperature"] == 0.1
+
+
+def test_inference_params_in_tool_calling_loop(mock_trace):
+    inference_params = {"temperature": 0.2}
+
+    tool_call_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "id": "call_1",
+                            "function": {"name": "get_trace_info", "arguments": "{}"},
+                        }
+                    ],
+                    "content": None,
+                }
+            }
+        ]
+    )
+
+    final_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "OK"}'}}]
+    )
+
+    with (
+        mock.patch(
+            "litellm.completion", side_effect=[tool_call_response, final_response]
+        ) as mock_litellm,
+        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
+        mock.patch("mlflow.genai.judges.tools.registry._judge_tool_registry.invoke") as mock_invoke,
+    ):
+        mock_tool = mock.Mock()
+        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_trace_info"}
+        mock_list_tools.return_value = [mock_tool]
+        mock_invoke.return_value = {"result": "info"}
+
+        invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt="Evaluate",
+            assessment_name="test",
+            trace=mock_trace,
+            inference_params=inference_params,
+        )
+
+    # Both calls should have temperature set
+    assert mock_litellm.call_count == 2
+    for call in mock_litellm.call_args_list:
+        assert call.kwargs["temperature"] == 0.2
+
+
+# Tests for _invoke_databricks_structured_output
+
+
+@pytest.mark.parametrize(
+    ("input_messages", "mock_response", "has_existing_system_message"),
+    [
+        pytest.param(
+            [
+                ChatMessage(role="system", content="You are a helpful assistant."),
+                ChatMessage(role="user", content="Extract the outputs"),
+            ],
+            '{"outputs": "test result"}',
+            True,
+            id="with_existing_system_message",
+        ),
+        pytest.param(
+            [
+                ChatMessage(role="user", content="Extract the outputs"),
+            ],
+            '{"outputs": "test result"}',
+            False,
+            id="without_system_message",
+        ),
+    ],
+)
+def test_structured_output_schema_injection(
+    input_messages, mock_response, has_existing_system_message
+):
+    class TestSchema(BaseModel):
+        outputs: str = Field(description="The outputs")
+
+    captured_messages = []
+
+    def mock_loop(messages, trace, on_final_answer):
+        captured_messages.extend(messages)
+        return on_final_answer(mock_response)
+
+    with mock.patch(
+        "mlflow.genai.judges.utils.invocation_utils._run_databricks_agentic_loop",
+        side_effect=mock_loop,
+    ):
+        result = _invoke_databricks_structured_output(
+            messages=input_messages,
+            output_schema=TestSchema,
+            trace=None,
+        )
+
+    # Verify schema injection result
+    # With existing system message, schema is appended; without, a new system message is added
+    expected_message_count = len(input_messages) + (0 if has_existing_system_message else 1)
+    assert len(captured_messages) == expected_message_count
+    assert captured_messages[0].role == "system"
+    assert "You must return your response as JSON matching this schema:" in (
+        captured_messages[0].content
+    )
+    assert '"outputs"' in captured_messages[0].content
+
+    if has_existing_system_message:
+        # Verify schema was appended to existing system message
+        assert "You are a helpful assistant." in captured_messages[0].content
+    else:
+        # Verify user message remains unchanged
+        assert captured_messages[1].role == "user"
+        assert captured_messages[1].content == "Extract the outputs"
+
+    assert isinstance(result, TestSchema)
+    assert result.outputs == "test result"

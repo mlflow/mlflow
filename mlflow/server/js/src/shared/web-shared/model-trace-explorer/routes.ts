@@ -1,5 +1,5 @@
 /**
- * This file contains a subset of mlflow/web/js/src/experiment-tracking/routes.tsx to be used in the model-trace-explorer.
+ * This file contains a subset of mlflow/server/js/src/experiment-tracking/routes.tsx to be used in the model-trace-explorer.
  */
 import { createMLflowRoutePath, generatePath } from './RoutingUtils';
 

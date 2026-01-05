@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { renderWithIntl, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
+import { createMLflowRoutePath, MemoryRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { RunViewChildRunsBox } from './RunViewChildRunsBox';
 import { MlflowService } from '../../../sdk/MlflowService';
@@ -55,7 +55,7 @@ describe('RunViewChildRunsBox', () => {
     expect(await screen.findByText('Child runs')).toBeInTheDocument();
 
     const link = await screen.findByRole('link', { name: 'Child run 1' });
-    expect(link).toHaveAttribute('href', `/experiments/${experimentId}/runs/child-1`);
+    expect(link).toHaveAttribute('href', createMLflowRoutePath(`/experiments/${experimentId}/runs/child-1`));
     expect(screen.queryByText('Child runs loading')).not.toBeInTheDocument();
   });
 
