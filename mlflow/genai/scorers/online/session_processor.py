@@ -132,11 +132,22 @@ class OnlineSessionScoringProcessor:
         Returns:
             List of completed sessions to process, filtered by checkpoint boundary
         """
+        # If all session-level scorers share the same filter_string, pass it to
+        # find_completed_sessions to filter sessions by their first trace
+        session_scorers_by_filter = self._sampler.group_scorers_by_filter(session_level=True)
+        unique_filters = set(session_scorers_by_filter.keys())
+
+        # Use filter if all session scorers have the same non-None filter
+        filter_string = None
+        if len(unique_filters) == 1 and None not in unique_filters:
+            filter_string = next(iter(unique_filters))
+
         completed_sessions = self._tracking_store.find_completed_sessions(
             experiment_id=self._experiment_id,
             min_last_trace_timestamp_ms=time_window.min_last_trace_timestamp_ms,
             max_last_trace_timestamp_ms=time_window.max_last_trace_timestamp_ms,
             max_results=MAX_SESSIONS_PER_JOB,
+            filter_string=filter_string,
         )
 
         # Filter out sessions at checkpoint boundary that have already been processed.

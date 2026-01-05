@@ -477,3 +477,79 @@ def test_clean_up_old_assessments_preserves_different_sessions(
         processor.process_sessions()
 
         mock_tracking_store.delete_assessment.assert_not_called()
+
+
+def test_fetch_sessions_passes_filter_when_all_scorers_share_same_filter(
+    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store
+):
+    configs = [
+        make_online_scorer(ConversationCompleteness(), filter_string="tag.env = 'prod'"),
+    ]
+    sampler = OnlineScorerSampler(configs)
+    mock_tracking_store.find_completed_sessions.return_value = []
+    processor = OnlineSessionScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler,
+        experiment_id="exp1",
+        tracking_store=mock_tracking_store,
+    )
+
+    processor.process_sessions()
+
+    call_kwargs = mock_tracking_store.find_completed_sessions.call_args[1]
+    assert call_kwargs["filter_string"] == "tag.env = 'prod'"
+
+
+def test_fetch_sessions_no_filter_when_scorers_have_different_filters(
+    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store
+):
+    scorer1 = ConversationCompleteness()
+    scorer1.name = "scorer1"
+    scorer2 = ConversationCompleteness()
+    scorer2.name = "scorer2"
+    configs = [
+        make_online_scorer(scorer1, filter_string="tag.env = 'prod'"),
+        make_online_scorer(scorer2, filter_string="tag.env = 'dev'"),
+    ]
+    sampler = OnlineScorerSampler(configs)
+    mock_tracking_store.find_completed_sessions.return_value = []
+    processor = OnlineSessionScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler,
+        experiment_id="exp1",
+        tracking_store=mock_tracking_store,
+    )
+
+    processor.process_sessions()
+
+    call_kwargs = mock_tracking_store.find_completed_sessions.call_args[1]
+    assert call_kwargs["filter_string"] is None
+
+
+def test_fetch_sessions_no_filter_when_any_scorer_has_no_filter(
+    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store
+):
+    scorer1 = ConversationCompleteness()
+    scorer1.name = "scorer1"
+    scorer2 = ConversationCompleteness()
+    scorer2.name = "scorer2"
+    configs = [
+        make_online_scorer(scorer1, filter_string="tag.env = 'prod'"),
+        make_online_scorer(scorer2, filter_string=None),
+    ]
+    sampler = OnlineScorerSampler(configs)
+    mock_tracking_store.find_completed_sessions.return_value = []
+    processor = OnlineSessionScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler,
+        experiment_id="exp1",
+        tracking_store=mock_tracking_store,
+    )
+
+    processor.process_sessions()
+
+    call_kwargs = mock_tracking_store.find_completed_sessions.call_args[1]
+    assert call_kwargs["filter_string"] is None
