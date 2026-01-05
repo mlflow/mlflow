@@ -433,7 +433,7 @@ def _train_model(nlp, train_data, n_iter=5):
                 nlp.update(texts, annotations, sgd=optimizer, drop=0.2, losses=losses)
 
 
-def _get_train_test_dataset(limit=100):
+def _get_train_test_dataset():
     graphics_texts = [
         "The GPU renders 3D graphics with high frame rates.",
         "OpenGL provides excellent graphics rendering capabilities.",
@@ -460,8 +460,8 @@ def _get_train_test_dataset(limit=100):
         "Relief pitchers enter the game in later innings.",
     ] * 5
 
-    X = (graphics_texts + baseball_texts)[:limit]
-    y = ([0] * len(graphics_texts) + [1] * len(baseball_texts))[:limit]
+    X = graphics_texts + baseball_texts
+    y = [0] * len(graphics_texts) + [1] * len(baseball_texts)
     combined = list(zip(X, y))
     random.shuffle(combined)
     X, y = zip(*combined) if combined else ([], [])
