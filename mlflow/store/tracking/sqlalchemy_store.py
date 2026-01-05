@@ -3066,7 +3066,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
             )
 
-            # Apply trace filters using shared helper
             stmt = self._apply_trace_filter_clauses(
                 stmt, attribute_filters, non_attribute_filters, span_filters, run_id_filter
             )
@@ -3200,7 +3199,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     SqlTraceInfo.request_id == filtered_first_trace_metadata.request_id,
                 )
 
-                # Apply trace filters using shared helper
                 filtered_trace_query = self._apply_trace_filter_clauses(
                     filtered_trace_query,
                     attribute_filters,
