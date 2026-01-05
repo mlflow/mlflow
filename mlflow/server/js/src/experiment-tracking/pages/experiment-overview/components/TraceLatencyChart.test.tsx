@@ -14,9 +14,6 @@ import {
   getPercentileKey,
 } from '@databricks/web-shared/model-trace-explorer';
 
-// Mock recharts components to avoid rendering issues in tests
-jest.mock('recharts', () => require('../utils/testUtils').mockRechartsComponents);
-
 // Mock FetchUtils
 jest.mock('../../../../common/utils/FetchUtils', () => ({
   fetchOrFail: jest.fn(),

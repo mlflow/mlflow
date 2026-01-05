@@ -7,9 +7,6 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MemoryRouter, Route, Routes } from '../../../common/utils/RoutingUtils';
 
-// Mock recharts to avoid rendering issues
-jest.mock('recharts', () => require('./utils/testUtils').mockRechartsComponents);
-
 // Mock FetchUtils
 jest.mock('../../../common/utils/FetchUtils', () => ({
   fetchOrFail: jest.fn(),
