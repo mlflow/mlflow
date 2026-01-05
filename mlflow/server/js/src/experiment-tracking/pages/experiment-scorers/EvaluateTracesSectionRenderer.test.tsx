@@ -35,8 +35,8 @@ describe('EvaluateTracesSectionRenderer', () => {
     });
   });
 
-  describe('Filter box visibility for session-level scorers', () => {
-    it('should hide filter input when evaluationScope is SESSIONS', () => {
+  describe('Filter box for different evaluation scopes', () => {
+    it('should show filter input with session-specific help text when evaluationScope is SESSIONS', () => {
       render(
         <TestWrapper
           defaultValues={{
@@ -46,10 +46,13 @@ describe('EvaluateTracesSectionRenderer', () => {
         />,
       );
 
-      expect(screen.queryByText(/Filter string/i)).not.toBeInTheDocument();
+      expect(screen.getByText(/Filter string/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Filter applies to the first trace in each session/i),
+      ).toBeInTheDocument();
     });
 
-    it('should show filter input when evaluationScope is TRACES', () => {
+    it('should show filter input with trace-specific help text when evaluationScope is TRACES', () => {
       render(
         <TestWrapper
           defaultValues={{
@@ -60,6 +63,7 @@ describe('EvaluateTracesSectionRenderer', () => {
       );
 
       expect(screen.getByText(/Filter string/i)).toBeInTheDocument();
+      expect(screen.getByText(/Only run on traces matching this filter/i)).toBeInTheDocument();
     });
   });
 
