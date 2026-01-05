@@ -77,7 +77,7 @@ def get_github_token(cli_token: str | None = None) -> str:
             token = subprocess.check_output(["gh", "auth", "token"], text=True).strip()
             log("Using token from 'gh auth token'")
         except (subprocess.CalledProcessError, FileNotFoundError):
-            log("Error: GITHUB_TOKEN is required (--github-token, env var, or gh auth)")
+            log("Error: GITHUB_TOKEN is required (--github-token, env var, or 'gh auth token')")
             sys.exit(1)
     return token
 
@@ -278,7 +278,7 @@ def filter_by_time_range(logs: str, started_at: str, completed_at: str) -> str:
                 line_time = parse_timestamp(match.group(1))
                 in_range = start_time <= line_time <= end_time
             except ValueError:
-                continue
+                pass  # Keep previous in_range state
         if in_range:
             filtered_lines.append(line)
 
@@ -305,7 +305,7 @@ def build_failed_job(repo: str, run: dict[str, Any], job: dict[str, Any]) -> Fai
 
 # Rough cost: ~$0.02/job (gpt-4.1-nano), ~$0.08/job (gpt-4.1-mini)
 MAX_LOG_TOKENS = 200_000
-ENCODING = tiktoken.encoding_for_model("gpt-4.1")
+tokenizer = tiktoken.encoding_for_model("gpt-4.1")
 
 # Pricing per 1M tokens (input, cached, output)
 # https://platform.openai.com/docs/pricing (as of 2025/01/05, may change)
@@ -316,16 +316,16 @@ MODEL_PRICING = {
 
 
 def count_tokens(text: str) -> int:
-    return len(ENCODING.encode(text))
+    return len(tokenizer.encode(text))
 
 
 def truncate_logs(logs: str, max_tokens: int = MAX_LOG_TOKENS) -> tuple[str, bool]:
     """Truncate logs to fit within token limit, keeping the end (where errors are)."""
-    tokens = ENCODING.encode(logs)
+    tokens = tokenizer.encode(logs)
     if len(tokens) <= max_tokens:
         return logs, False
 
-    return ENCODING.decode(tokens[-max_tokens:]), True
+    return tokenizer.decode(tokens[-max_tokens:]), True
 
 
 def compute_cost(
