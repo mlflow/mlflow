@@ -127,3 +127,18 @@ export function generateTimeBuckets(
 
   return buckets;
 }
+
+/**
+ * Format token count in human-readable format
+ * @param count - Token count to format
+ * @returns Formatted string (e.g., "1.5M", "2.50K", "500")
+ */
+export function formatTokenCount(count: number): string {
+  if (count >= 1_000_000) {
+    return `${(count / 1_000_000).toFixed(2)}M`;
+  }
+  if (count >= 1_000) {
+    return `${(count / 1_000).toFixed(2)}K`;
+  }
+  return count.toLocaleString();
+}
