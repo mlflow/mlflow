@@ -68,7 +68,6 @@ from mlflow.entities.trace_metrics import (
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException, MlflowTracingException
-from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.scorer_utils import (
     build_gateway_model,
@@ -2510,15 +2509,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
             if latest_version is not None and sample_rate > 0:
                 serialized_data = json.loads(latest_version.serialized_scorer)
-
-                scorer_obj = Scorer.model_validate(serialized_data)
-                if scorer_obj.is_session_level_scorer and filter_string:
-                    raise MlflowException(
-                        f"Filter is not supported for scorer '{scorer_name}' because this scorer "
-                        "evaluates entire conversation sessions. Filters are currently only "
-                        "supported for scorers that evaluate individual traces.",
-                        INVALID_PARAMETER_VALUE,
-                    )
 
                 model = extract_model_from_serialized_scorer(serialized_data)
                 if not is_gateway_model(model):
