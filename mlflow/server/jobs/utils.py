@@ -350,12 +350,24 @@ def _get_or_init_huey_instance(instance_key: str):
 
     class JsonSerializer(Serializer):
         def serialize(self, data):
-            return json.dumps(data._asdict(), cls=CustomJSONEncoder).encode("utf-8")
+            # Huey passes two types of data through the serializer:
+            # 1. Message objects (task data) - have ._asdict() method
+            # 2. Plain data (e.g., lock values like '1') - no ._asdict() method
+            # We need to handle both cases for exclusive job locks to work.
+            data_dict = data._asdict() if hasattr(data, "_asdict") else data
+            return json.dumps(data_dict, cls=CustomJSONEncoder).encode("utf-8")
 
         def deserialize(self, data):
             from huey.registry import Message
 
-            return Message(**json.loads(data.decode("utf-8"), object_hook=json_loader_object_hook))
+            decoded = json.loads(data.decode("utf-8"), object_hook=json_loader_object_hook)
+            # Message objects have specific structure: {"id": ..., "name": ..., ...}
+            # Only reconstruct as Message when that structure exists.
+            # Plain data (like lock values) should be returned as-is.
+            if isinstance(decoded, dict) and "id" in decoded and "name" in decoded:
+                return Message(**decoded)
+            else:
+                return decoded
 
     with _huey_instance_map_lock:
         if instance_key not in _huey_instance_map:

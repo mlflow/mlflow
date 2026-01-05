@@ -768,7 +768,7 @@ def test_delete_jobs_skips_non_finalized_even_with_job_ids(tmp_path: Path):
 
 
 @job(name="exclusive_sleep_fun", max_workers=2, exclusive=True)
-def exclusive_sleep_fun(sleep_secs, experiment_id, tmp_dir):
+def exclusive_sleep_fun(sleep_secs: int, experiment_id: str, tmp_dir: str):
     pid_file = Path(tmp_dir) / f"pid_{experiment_id}"
     pid_file.write_text(str(os.getpid()))
     time.sleep(sleep_secs)
