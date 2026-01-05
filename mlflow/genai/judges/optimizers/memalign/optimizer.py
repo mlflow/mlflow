@@ -1,7 +1,5 @@
 import logging
-
-import dspy
-import dspy.retrievers
+from typing import TYPE_CHECKING
 
 from mlflow.entities.assessment import Assessment, AssessmentSource, Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
@@ -25,16 +23,59 @@ from mlflow.genai.judges.optimizers.memalign.utils import (
 from mlflow.genai.judges.utils import get_default_model
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring
+
+if TYPE_CHECKING:
+    import dspy
 
 _logger = logging.getLogger(__name__)
 
+_MODEL_API_DOC = {
+    "reflection_lm": """Model to use for distilling guidelines from feedback.
+Supported formats:
+
+* `"databricks"` for Databricks-native integration
+* `"databricks:/<endpoint-name>"` or `"endpoints:/<endpoint-name>"` for
+  Databricks model serving endpoints
+* `<provider>:/<model-name>` for other providers (e.g.,
+  `"openai:/gpt-4o-mini"`, `"anthropic:/claude-3.5-sonnet-20240620"`)
+
+MLflow natively supports `["openai", "anthropic", "bedrock", "mistral"]`,
+and more providers are supported through
+`LiteLLM <https://docs.litellm.ai/docs/providers>`_.
+
+Default model depends on the tracking URI setup:
+
+* Databricks: `databricks`
+* Otherwise: `openai:/gpt-4o-mini`.
+""",
+    "embedding_model": """Model to use for generating embeddings for
+example retrieval. Must be a form of `<provider>/<model-name>`, such as
+`"openai/text-embedding-3-small"`. Supported providers include OpenAI and
+others via LiteLLM. Default: `"openai/text-embedding-3-small"`.
+""",
+}
 # Maximum tokens for embedding model input (most embedding models have this limit)
-MAX_EMBEDDING_TOKENS = 8192
+_MAX_EMBEDDING_TOKENS = 8192
 
 
-def _truncate_to_token_limit(text: str, embedding_model: str, max_tokens: int) -> str:
+def _get_max_tokens_for_model(embedding_model: str) -> int:
+    """Get maximum token limit for embedding model."""
+    try:
+        from litellm import get_max_tokens
+
+        max_tokens = get_max_tokens(embedding_model)
+        if max_tokens is not None:
+            return max_tokens
+    except Exception as e:
+        _logger.debug(f"Error getting max tokens for model {embedding_model}: {e}", exc_info=True)
+    return _MAX_EMBEDDING_TOKENS
+
+
+def _truncate_to_token_limit(text: str, embedding_model: str) -> str:
     from litellm import token_counter
 
+    max_tokens = _get_max_tokens_for_model(embedding_model)
     token_count = token_counter(model=embedding_model, text=text)
     if token_count <= max_tokens:
         return text
@@ -51,6 +92,7 @@ def _truncate_to_token_limit(text: str, embedding_model: str, max_tokens: int) -
 
 
 @experimental(version="3.9.0")
+@format_docstring(_MODEL_API_DOC)
 class MemoryAugmentedJudge(Judge):
     """
     A judge augmented with dual memory systems.
@@ -64,9 +106,9 @@ class MemoryAugmentedJudge(Judge):
 
     Args:
         base_judge: Base judge to augment with memory systems
-        distillation_model: Model for distilling guidelines from feedback
+        reflection_lm: {{ reflection_lm }}
         retrieval_k: Number of similar examples to retrieve from episodic memory
-        embedding_model: Model for generating embeddings for example retrieval
+        embedding_model: {{ embedding_model }}
         embedding_dim: Dimension of embeddings
         examples: Initial examples to add to memory
         inherit_guidelines: Whether to inherit guidelines from base_judge if it's a
@@ -76,13 +118,15 @@ class MemoryAugmentedJudge(Judge):
     def __init__(
         self,
         base_judge: Judge,
-        distillation_model: str | None = None,
+        reflection_lm: str | None = None,
         retrieval_k: int = 5,
         embedding_model: str | None = None,
         embedding_dim: int = 512,
         examples: list["dspy.Example"] | None = None,
         inherit_guidelines: bool = True,
     ):
+        import dspy
+
         effective_base_judge = (
             base_judge._base_judge if isinstance(base_judge, MemoryAugmentedJudge) else base_judge
         )
@@ -104,9 +148,7 @@ class MemoryAugmentedJudge(Judge):
         self._examples: list["dspy.Example"] = []
         self._semantic_memory: list[str] = initial_guidelines
 
-        self._distillation_model = (
-            distillation_model if distillation_model is not None else get_default_model()
-        )
+        self._reflection_lm = reflection_lm if reflection_lm is not None else get_default_model()
 
         self._embedding_model = (
             embedding_model if embedding_model is not None else get_default_embedding_model()
@@ -173,15 +215,28 @@ class MemoryAugmentedJudge(Judge):
         """
         Remove specific traces from memory and return new judge.
 
+        This method allows you to selectively remove feedback examples from the judge's
+        memory systems. This is useful when you want to:
+
+        - Remove incorrect or low-quality feedback that negatively impacts performance
+        - Update the judge in case your evaluation criteria change
+        - Remove feedback from specific users or time periods
+
+        The returned judge will have guidelines automatically redistributed from the
+        remaining examples, ensuring the semantic memory reflects only the retained feedback.
+
         Args:
-            traces: Traces to remove from memory
+            traces: Traces containing feedback to remove from memory. Only traces with
+                feedback matching this judge's name will be removed.
 
         Returns:
-            A new MemoryAugmentedJudge with the traces removed
+            A new MemoryAugmentedJudge with the specified traces removed from memory.
 
-        Note:
-            Guidelines are automatically redistilled from the remaining examples
-            when creating the new judge.
+        Example:
+            .. code-block:: python
+                aligned_judge = judge.align(traces=all_traces, optimizer=optimizer)
+                aligned_judge_v2 = aligned_judge.unalign(traces=bad_traces)
+                # The judge now only reflects feedback from `set(all_traces) - set(bad_traces)`
         """
         trace_ids_to_remove = {trace.info.trace_id for trace in traces}
 
@@ -197,7 +252,7 @@ class MemoryAugmentedJudge(Judge):
 
         return MemoryAugmentedJudge(
             base_judge=self._base_judge,
-            distillation_model=self._distillation_model,
+            reflection_lm=self._reflection_lm,
             retrieval_k=self._retrieval_k,
             embedding_model=self._embedding_model,
             embedding_dim=self._embedding_dim,
@@ -210,6 +265,8 @@ class MemoryAugmentedJudge(Judge):
         return extended_sig.prepend("example_judgements", create_examples_field())
 
     def _add_examples(self, examples: list["dspy.Example"]) -> None:
+        import dspy.retrievers
+
         self._examples.extend(examples)
 
         # Distill new guidelines from all examples
@@ -217,7 +274,7 @@ class MemoryAugmentedJudge(Judge):
             examples=self._examples,
             signature=self._base_signature,
             judge_instructions=self._base_judge.instructions,
-            distillation_model=self._distillation_model,
+            reflection_lm=self._reflection_lm,
             existing_guidelines=self._semantic_memory,
         )
         self._semantic_memory.extend(new_guidelines)
@@ -235,7 +292,7 @@ class MemoryAugmentedJudge(Judge):
                     if value is not None:
                         query_parts.append(str(value))
             query = " ".join(query_parts)
-            query = _truncate_to_token_limit(query, self._embedding_model, MAX_EMBEDDING_TOKENS)
+            query = _truncate_to_token_limit(query, self._embedding_model)
             corpus.append(query)
 
         self._search = dspy.retrievers.Embeddings(
@@ -245,6 +302,7 @@ class MemoryAugmentedJudge(Judge):
 
 
 @experimental(version="3.9.0")
+@format_docstring(_MODEL_API_DOC)
 class MemAlignOptimizer(AlignmentOptimizer):
     """
     MemAlign alignment optimizer using dual memory systems.
@@ -265,30 +323,32 @@ class MemAlignOptimizer(AlignmentOptimizer):
     The returned judge is a MemoryAugmentedJudge that maintains memory state.
 
     Args:
-        distillation_model: Model to use for distilling guidelines from feedback
+        reflection_lm: {{ reflection_lm }}
         retrieval_k: Number of similar examples to retrieve from episodic memory
-        embedding_model: Model for generating embeddings for example retrieval
+        embedding_model: {{ embedding_model }}
         embedding_dim: Dimension of embeddings
 
-    Usage:
-        Works with the standard Judge.align() interface - no API changes needed.
+    Example:
+        .. code-block:: python
 
-        >>> judge = make_judge(name="quality", instructions="...", model="openai:/gpt-4")
-        >>> optimizer = MemAlignOptimizer(distillation_model="openai:/gpt-4", retrieval_k=3)
-        >>> optimized_judge = judge.align(traces=traces, optimizer=optimizer)
-        >>> result = optimized_judge(inputs={...}, outputs={...})
+            judge = make_judge(name="quality", instructions="...", model="openai:/gpt-4")
+            optimizer = MemAlignOptimizer(
+                reflection_lm="openai:/gpt-4o-mini",
+                retrieval_k=3,
+                embedding_model="openai/text-embedding-3-small",
+            )
+            optimized_judge = judge.align(traces=traces, optimizer=optimizer)
+            result = optimized_judge(inputs={...}, outputs={...})
     """
 
     def __init__(
         self,
-        distillation_model: str | None = None,
+        reflection_lm: str | None = None,
         retrieval_k: int = 5,
         embedding_model: str | None = None,
         embedding_dim: int = 512,
     ):
-        self._distillation_model = (
-            distillation_model if distillation_model is not None else get_default_model()
-        )
+        self._reflection_lm = reflection_lm if reflection_lm is not None else get_default_model()
         self._retrieval_k = retrieval_k
         self._embedding_model = (
             embedding_model if embedding_model is not None else get_default_embedding_model()
@@ -340,7 +400,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
 
             memory_judge = MemoryAugmentedJudge(
                 base_judge=judge,
-                distillation_model=self._distillation_model,
+                reflection_lm=self._reflection_lm,
                 retrieval_k=self._retrieval_k,
                 embedding_model=self._embedding_model,
                 embedding_dim=self._embedding_dim,

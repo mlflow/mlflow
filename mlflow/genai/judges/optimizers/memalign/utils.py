@@ -28,7 +28,7 @@ def distill_guidelines(
     examples: list["dspy.Example"],
     signature: "dspy.Signature",
     judge_instructions: str,
-    distillation_model: str,
+    reflection_lm: str,
     existing_guidelines: list[str],
 ) -> list[str]:
     """Distill general guidelines from feedback examples.
@@ -37,7 +37,7 @@ def distill_guidelines(
         examples: List of DSPy examples containing feedback
         signature: DSPy signature defining input/output fields
         judge_instructions: Original judge instructions
-        distillation_model: Model to use for distillation
+        reflection_lm: Model to use for distillation
         existing_guidelines: Previously distilled guidelines
 
     Returns:
@@ -60,7 +60,7 @@ def distill_guidelines(
     )
 
     try:
-        distillation_lm = construct_dspy_lm(distillation_model)
+        distillation_lm = construct_dspy_lm(reflection_lm)
         response = distillation_lm(
             messages=[{"role": "user", "content": prompt}],
             response_format=Guidelines,

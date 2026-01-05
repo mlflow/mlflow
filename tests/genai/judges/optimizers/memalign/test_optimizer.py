@@ -113,11 +113,11 @@ def test_init_default_config():
 
 def test_init_custom_config():
     optimizer = MemAlignOptimizer(
-        distillation_model="openai:/gpt-4",
+        reflection_lm="openai:/gpt-4",
         retrieval_k=3,
         embedding_dim=256,
     )
-    assert optimizer._distillation_model == "openai:/gpt-4"
+    assert optimizer._reflection_lm == "openai:/gpt-4"
     assert optimizer._retrieval_k == 3
     assert optimizer._embedding_dim == 256
 

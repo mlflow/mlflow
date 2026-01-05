@@ -23,7 +23,7 @@ def test_distill_guidelines_empty_examples():
             examples=[],
             signature=signature,
             judge_instructions="Test instructions",
-            distillation_model="openai:/gpt-4",
+            reflection_lm="openai:/gpt-4",
             existing_guidelines=[],
         )
         assert result == []
@@ -51,7 +51,7 @@ def test_distill_guidelines_with_examples():
             examples=[example1, example2],
             signature=signature,
             judge_instructions="Evaluate quality",
-            distillation_model="openai:/gpt-4",
+            reflection_lm="openai:/gpt-4",
             existing_guidelines=[],
         )
 
@@ -79,7 +79,7 @@ def test_distill_guidelines_filters_existing():
             examples=[example1],
             signature=signature,
             judge_instructions="Evaluate quality",
-            distillation_model="openai:/gpt-4",
+            reflection_lm="openai:/gpt-4",
             existing_guidelines=["Be concise"],
         )
 
@@ -104,7 +104,7 @@ def test_distill_guidelines_handles_error():
             examples=[example1],
             signature=signature,
             judge_instructions="Evaluate quality",
-            distillation_model="openai:/gpt-4",
+            reflection_lm="openai:/gpt-4",
             existing_guidelines=[],
         )
 
