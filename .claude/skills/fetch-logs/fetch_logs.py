@@ -6,7 +6,7 @@ Usage:
     uv run fetch_logs.py list <owner/repo> <pr_number>
 
     # Fetch logs for specific jobs (outputs JSON)
-    uv run fetch_logs.py fetch-logs <job_url> [job_url ...]
+    uv run fetch_logs.py fetch <job_url> [job_url ...]
 """
 # /// script
 # dependencies = [
@@ -358,9 +358,9 @@ def main():
     list_parser.add_argument("--github-token", help="GitHub token (or set GITHUB_TOKEN)")
     list_parser.set_defaults(func=cmd_list)
 
-    # fetch-logs subcommand
+    # fetch subcommand
     fetch_logs_parser = subparsers.add_parser(
-        "fetch-logs", help="Fetch logs for jobs by URL (outputs JSON)"
+        "fetch", help="Fetch logs for jobs by URL (outputs JSON)"
     )
     fetch_logs_parser.add_argument("job_urls", nargs="+", help="GitHub Actions job URLs")
     fetch_logs_parser.add_argument("--github-token", help="GitHub token (or set GITHUB_TOKEN)")

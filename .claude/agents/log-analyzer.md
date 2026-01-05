@@ -15,10 +15,15 @@ Analyze the provided CI logs and produce a concise failure summary.
 
 ## Instructions
 
-1. Identify the **root cause** of the failure
-2. Extract **specific error messages** (assertion errors, exceptions, stack traces)
-3. For pytest failures, include **full test names** (e.g., `tests/test_foo.py::test_bar`)
-4. Include relevant **log snippets** that show the error context
+1. Fetch failed jobs using the fetch-logs skill:
+   ```bash
+   uv run .claude/skills/fetch-logs/fetch_logs.py list mlflow/mlflow <pr_number>
+   uv run .claude/skills/fetch-logs/fetch_logs.py fetch <job_url>
+   ```
+2. Identify the **root cause** of the failure
+3. Extract **specific error messages** (assertion errors, exceptions, stack traces)
+4. For pytest failures, include **full test names** (e.g., `tests/test_foo.py::test_bar`)
+5. Include relevant **log snippets** that show the error context
 
 ## Output Format
 

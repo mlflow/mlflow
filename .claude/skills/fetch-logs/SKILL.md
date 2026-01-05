@@ -32,12 +32,12 @@ Output:
 }
 ```
 
-### fetch-logs
+### fetch
 
 Fetch cleaned logs for jobs by URL. Outputs JSON.
 
 ```bash
-uv run .claude/skills/fetch-logs/fetch_logs.py fetch-logs <job_url> [job_url ...]
+uv run .claude/skills/fetch-logs/fetch_logs.py fetch <job_url> [job_url ...]
 ```
 
 Output:
@@ -63,6 +63,6 @@ Output:
 uv run .claude/skills/fetch-logs/fetch_logs.py list mlflow/mlflow 19601
 
 # Fetch logs for all failed jobs
-uv run .claude/skills/fetch-logs/fetch_logs.py fetch-logs \
+uv run .claude/skills/fetch-logs/fetch_logs.py fetch \
   $(uv run .claude/skills/fetch-logs/fetch_logs.py list mlflow/mlflow 19601 | jq -r '.failed_jobs[].job_url')
 ```
