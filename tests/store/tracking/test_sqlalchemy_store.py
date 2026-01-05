@@ -11653,6 +11653,91 @@ def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
     assert trace3.info.token_usage is None
 
 
+def test_batch_get_trace_infos_basic(store: SqlAlchemyStore) -> None:
+    from mlflow.tracing.constant import TraceMetadataKey
+
+    experiment_id = store.create_experiment("test_batch_get_trace_infos")
+    trace_id_1 = f"tr-{uuid.uuid4().hex}"
+    trace_id_2 = f"tr-{uuid.uuid4().hex}"
+    session_id = "session-123"
+
+    # Create traces with session metadata
+    trace_info_1 = TraceInfo(
+        trace_id=trace_id_1,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceState.OK,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+    )
+    store.start_trace(trace_info_1)
+
+    trace_info_2 = TraceInfo(
+        trace_id=trace_id_2,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        execution_duration=200,
+        state=TraceState.OK,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+    )
+    store.start_trace(trace_info_2)
+
+    # Batch fetch trace infos
+    trace_infos = store.batch_get_trace_infos([trace_id_1, trace_id_2])
+
+    assert len(trace_infos) == 2
+    trace_infos_by_id = {ti.trace_id: ti for ti in trace_infos}
+
+    # Verify we got the trace infos
+    assert trace_id_1 in trace_infos_by_id
+    assert trace_id_2 in trace_infos_by_id
+
+    # Verify metadata is present
+    ti1 = trace_infos_by_id[trace_id_1]
+    assert ti1.trace_id == trace_id_1
+    assert ti1.timestamp_ms is not None
+    assert ti1.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == session_id
+
+    ti2 = trace_infos_by_id[trace_id_2]
+    assert ti2.trace_id == trace_id_2
+    assert ti2.timestamp_ms is not None
+    assert ti2.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == session_id
+
+
+def test_batch_get_trace_infos_empty(store: SqlAlchemyStore) -> None:
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_infos = store.batch_get_trace_infos([trace_id])
+    assert trace_infos == []
+
+
+def test_batch_get_trace_infos_ordering(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_batch_get_trace_infos_ordering")
+    trace_ids = [f"tr-{uuid.uuid4().hex}" for _ in range(3)]
+
+    # Create traces in reverse order
+    for i, trace_id in enumerate(reversed(trace_ids)):
+        spans = [
+            create_test_span(
+                trace_id=trace_id,
+                name=f"span_{i}",
+                span_id=100 + i,
+                status=trace_api.StatusCode.OK,
+                start_ns=1_000_000_000 + i * 1_000_000_000,
+                end_ns=2_000_000_000 + i * 1_000_000_000,
+                trace_num=12345 + i,
+            ),
+        ]
+        store.log_spans(experiment_id, spans)
+
+    # Fetch in original order
+    trace_infos = store.batch_get_trace_infos(trace_ids)
+
+    # Verify order is preserved
+    assert len(trace_infos) == 3
+    for i, trace_info in enumerate(trace_infos):
+        assert trace_info.trace_id == trace_ids[i]
+
+
 def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_start_trace_metrics")
     trace_id = f"tr-{uuid.uuid4().hex}"
