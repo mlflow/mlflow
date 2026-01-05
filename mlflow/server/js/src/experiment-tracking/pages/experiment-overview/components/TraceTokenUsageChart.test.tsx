@@ -57,25 +57,6 @@ const createTotalTokensDataPoint = (sum: number) => ({
   values: { [AggregationType.SUM]: sum },
 });
 
-// Mock recharts components to avoid rendering issues in tests
-jest.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="responsive-container">{children}</div>
-  ),
-  AreaChart: ({ children, data }: { children: React.ReactNode; data: any[] }) => (
-    <div data-testid="area-chart" data-count={data?.length || 0}>
-      {children}
-    </div>
-  ),
-  Area: ({ name, dataKey }: { name: string; dataKey: string }) => (
-    <div data-testid={`area-${dataKey}`} data-name={name} />
-  ),
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-  Legend: () => <div data-testid="legend" />,
-}));
-
 describe('TraceTokenUsageChart', () => {
   const testExperimentId = 'test-experiment-123';
   // Use fixed timestamps for predictable bucket generation
