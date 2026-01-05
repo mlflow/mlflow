@@ -129,3 +129,60 @@ export async function deleteScheduledScorers(experimentId: string, scorerNames?:
     .then((res) => res.json())
     .catch(catchNetworkErrorIfExists);
 }
+
+/**
+ * Type for online scoring config
+ */
+export interface OnlineScoringConfig {
+  sample_rate: number;
+  filter_string?: string;
+}
+
+/**
+ * Get online scoring configurations for a list of scorer IDs
+ */
+export async function getOnlineScoringConfigs(
+  scorerIds: string[],
+): Promise<{ configs: Record<string, OnlineScoringConfig> }> {
+  const params = new URLSearchParams();
+  scorerIds.forEach((id) => params.append('scorer_ids', id));
+  return fetchOrFail(getAjaxUrl(`ajax-api/3.0/mlflow/scorers/online-configs?${params.toString()}`))
+    .then((res) => res.json())
+    .catch(catchNetworkErrorIfExists);
+}
+
+/**
+ * Update online scoring configuration for a scorer
+ * This sets the sample_rate and filter_string for automatic trace evaluation
+ */
+export async function updateOnlineScoringConfig(
+  experimentId: string,
+  scorerName: string,
+  sampleRate: number,
+  filterString?: string,
+): Promise<{ config: OnlineScoringConfig }> {
+  const url = getAjaxUrl('ajax-api/3.0/mlflow/scorers/online-config');
+  // eslint-disable-next-line no-restricted-globals -- Need direct fetch for proper error handling
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      experiment_id: experimentId,
+      name: scorerName,
+      sample_rate: sampleRate,
+      filter_string: filterString || null,
+    }),
+  });
+
+  if (!response.ok) {
+    // Extract error message from response body
+    const body = await response.json().catch(() => ({}));
+    const errorMessage = body?.message || body?.error_code || `Request failed with status ${response.status}`;
+    const error = new Error(errorMessage);
+    throw error;
+  }
+
+  return response.json();
+}
