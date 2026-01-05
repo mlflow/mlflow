@@ -1,7 +1,8 @@
 import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
-import { useEvaluateTraces, type JudgeEvaluationResult } from './useEvaluateTraces';
+import { useEvaluateTraces } from './useEvaluateTraces';
+import { type JudgeEvaluationResult } from './useEvaluateTraces.common';
 import type { ModelTrace, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { SEARCH_MLFLOW_TRACES_QUERY_KEY } from '@databricks/web-shared/genai-traces-table';
 import { fetchOrFail } from '../../../common/utils/FetchUtils';
@@ -12,6 +13,12 @@ import { rest } from 'msw';
 jest.mock('../../../common/utils/FetchUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FetchUtils')>('../../../common/utils/FetchUtils'),
   fetchOrFail: jest.fn(),
+}));
+
+// Mock the feature flag to explicitly use sync mode for these tests
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
+  isEvaluatingSessionsInScorersEnabled: () => false,
 }));
 
 const mockedFetchOrFail = jest.mocked(fetchOrFail);
@@ -181,7 +188,7 @@ describe('useEvaluateTraces', () => {
       expect(state.error).toBeNull();
 
       const evaluationResults = await evaluateTraces({
-        traceCount: 1,
+        itemCount: 1,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions,
         experimentId,
@@ -276,14 +283,14 @@ describe('useEvaluateTraces', () => {
       const [evaluateTraces] = result.current;
 
       const evaluationResults = await evaluateTraces({
-        traceCount: traceIds.length,
+        itemCount: traceIds.length,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions,
         experimentId,
       });
 
       expect(evaluationResults).toHaveLength(3);
-      evaluationResults.forEach((evalResult, index) => {
+      evaluationResults?.forEach((evalResult, index) => {
         expect(evalResult).toEqual({
           trace: mockTraces[index],
           results: [
@@ -351,7 +358,7 @@ describe('useEvaluateTraces', () => {
       const [evaluateTraces] = result.current;
 
       const evaluationResults = await evaluateTraces({
-        traceCount: 1,
+        itemCount: 1,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions,
         experimentId,
@@ -404,7 +411,7 @@ describe('useEvaluateTraces', () => {
 
       // First call - should fetch from API
       await evaluateTraces({
-        traceCount: 1,
+        itemCount: 1,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions,
         experimentId,
@@ -415,7 +422,7 @@ describe('useEvaluateTraces', () => {
       // Second call with same traceId - traces should use cache, so no additional trace API calls
       // but chat completions will be called again (not cached by design)
       await evaluateTraces({
-        traceCount: 1,
+        itemCount: 1,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions,
         experimentId,
@@ -456,7 +463,7 @@ describe('useEvaluateTraces', () => {
       const [evaluateTraces] = result.current;
 
       const evaluationResults = await evaluateTraces({
-        traceCount: 1,
+        itemCount: 1,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions,
         experimentId,
@@ -490,7 +497,7 @@ describe('useEvaluateTraces', () => {
       const [evaluateTraces] = result.current;
 
       const evaluationResults = await evaluateTraces({
-        traceCount: 0,
+        itemCount: 0,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions,
         experimentId,
@@ -527,7 +534,7 @@ describe('useEvaluateTraces', () => {
       const [evaluateTraces] = result.current;
 
       const evaluationResults = await evaluateTraces({
-        traceCount: 1,
+        itemCount: 1,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions,
         experimentId,
@@ -583,7 +590,7 @@ describe('useEvaluateTraces', () => {
       const [evaluateTraces] = result.current;
 
       const evaluationResults = await evaluateTraces({
-        traceCount: traceIds.length,
+        itemCount: traceIds.length,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions,
         experimentId,
@@ -592,7 +599,7 @@ describe('useEvaluateTraces', () => {
       expect(evaluationResults).toHaveLength(3);
 
       // First trace should succeed
-      expect(evaluationResults[0]).toEqual({
+      expect(evaluationResults?.[0]).toEqual({
         trace: mockTraces[0],
         results: [
           {
@@ -606,14 +613,14 @@ describe('useEvaluateTraces', () => {
       });
 
       // Second trace should have error
-      expect(evaluationResults[1]).toEqual({
+      expect(evaluationResults?.[1]).toEqual({
         trace: mockTraces[1],
         results: [],
         error: 'Network error',
       });
 
       // Third trace should succeed
-      expect(evaluationResults[2]).toEqual({
+      expect(evaluationResults?.[2]).toEqual({
         trace: mockTraces[2],
         results: [
           {
@@ -657,7 +664,7 @@ describe('useEvaluateTraces', () => {
       const [evaluateTraces] = result.current;
 
       const evaluationResults = await evaluateTraces({
-        traceCount: 1,
+        itemCount: 1,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions,
         experimentId,
@@ -696,7 +703,7 @@ describe('useEvaluateTraces', () => {
       const [evaluateTraces] = result.current;
 
       const evaluationResults = await evaluateTraces({
-        traceCount: 1,
+        itemCount: 1,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions,
         experimentId,
@@ -736,7 +743,7 @@ describe('useEvaluateTraces', () => {
       const [evaluateTraces] = result.current;
 
       const evaluationResults = await evaluateTraces({
-        traceCount: 1,
+        itemCount: 1,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions,
         experimentId,
@@ -770,7 +777,7 @@ describe('useEvaluateTraces', () => {
       const [evaluateTraces] = result.current;
 
       const evaluationResults = await evaluateTraces({
-        traceCount: 1,
+        itemCount: 1,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions,
         experimentId,
@@ -810,7 +817,7 @@ describe('useEvaluateTraces', () => {
       const [evaluateTraces] = result.current;
 
       const evaluationResults = await evaluateTraces({
-        traceCount: traceIds.length,
+        itemCount: traceIds.length,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions,
         experimentId,
@@ -890,7 +897,7 @@ describe('useEvaluateTraces', () => {
         const [evaluateTraces] = result.current;
 
         const evaluationResults = await evaluateTraces({
-          traceCount: 1,
+          itemCount: 1,
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           requestedAssessments,
           experimentId,
@@ -980,14 +987,14 @@ describe('useEvaluateTraces', () => {
         const [evaluateTraces] = result.current;
 
         const evaluationResults = await evaluateTraces({
-          traceCount: traceIds.length,
+          itemCount: traceIds.length,
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           requestedAssessments,
           experimentId,
         });
 
         expect(evaluationResults).toHaveLength(2);
-        evaluationResults.forEach((evalResult, index) => {
+        evaluationResults?.forEach((evalResult, index) => {
           expect(evalResult).toEqual({
             trace: mockTraces[index],
             results: [
@@ -1071,7 +1078,7 @@ describe('useEvaluateTraces', () => {
         const [evaluateTraces] = result.current;
 
         await evaluateTraces({
-          traceCount: 1,
+          itemCount: 1,
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           requestedAssessments,
           experimentId,
@@ -1116,7 +1123,7 @@ describe('useEvaluateTraces', () => {
         const [evaluateTraces] = result.current;
 
         const evaluationResults = await evaluateTraces({
-          traceCount: 1,
+          itemCount: 1,
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           requestedAssessments,
           experimentId,
@@ -1182,7 +1189,7 @@ describe('useEvaluateTraces', () => {
         const [evaluateTraces] = result.current;
 
         const evaluationResults = await evaluateTraces({
-          traceCount: 1,
+          itemCount: 1,
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           requestedAssessments,
           experimentId,
@@ -1208,7 +1215,7 @@ describe('useEvaluateTraces', () => {
         const [evaluateTraces] = result.current;
 
         const evaluationResults = await evaluateTraces({
-          traceCount: 0,
+          itemCount: 0,
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           requestedAssessments,
           experimentId,
@@ -1253,7 +1260,7 @@ describe('useEvaluateTraces', () => {
         const [evaluateTraces] = result.current;
 
         const evaluationResults = await evaluateTraces({
-          traceCount: 1,
+          itemCount: 1,
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           requestedAssessments,
           experimentId,
@@ -1323,14 +1330,14 @@ describe('useEvaluateTraces', () => {
         const [evaluateTraces] = result.current;
 
         const evaluationResults = await evaluateTraces({
-          traceCount: traceIds.length,
+          itemCount: traceIds.length,
           locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
           requestedAssessments,
           experimentId,
         });
 
         expect(evaluationResults).toHaveLength(2);
-        expect(evaluationResults[0]).toEqual({
+        expect(evaluationResults?.[0]).toEqual({
           trace: mockTraces[0],
           results: [
             {
@@ -1342,7 +1349,7 @@ describe('useEvaluateTraces', () => {
           ],
           error: null,
         });
-        expect(evaluationResults[1]).toEqual({
+        expect(evaluationResults?.[1]).toEqual({
           trace: mockTraces[1],
           results: [],
           error: 'Assessment failed',

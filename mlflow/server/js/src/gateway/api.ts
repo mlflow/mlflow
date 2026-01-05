@@ -28,6 +28,7 @@ import type {
   CreateEndpointBindingRequest,
   CreateEndpointBindingResponse,
   ListEndpointBindingsResponse,
+  SecretsConfigResponse,
 } from './types';
 
 const defaultErrorHandler = async ({
@@ -286,5 +287,13 @@ export const GatewayApi = {
       relativeUrl,
       error: defaultErrorHandler,
     }) as Promise<ListEndpointBindingsResponse>;
+  },
+
+  // Configuration
+  getSecretsConfig: () => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/secrets/config',
+      error: defaultErrorHandler,
+    }) as Promise<SecretsConfigResponse>;
   },
 };

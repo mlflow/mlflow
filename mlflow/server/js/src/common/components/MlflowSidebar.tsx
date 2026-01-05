@@ -1,7 +1,8 @@
+import { v4 as uuidv4 } from 'uuid';
 import {
   BeakerIcon,
   Button,
-  DatabaseIcon,
+  CloudModelIcon,
   DropdownMenu,
   GearIcon,
   HomeIcon,
@@ -42,7 +43,7 @@ export function MlflowSidebar() {
   const { theme } = useDesignSystemTheme();
   const invalidateExperimentList = useInvalidateExperimentList();
   const navigate = useNavigate();
-  const viewId = useMemo(() => crypto.randomUUID(), []);
+  const viewId = useMemo(() => uuidv4(), []);
 
   const [showCreateExperimentModal, setShowCreateExperimentModal] = useState(false);
   const [showCreateModelModal, setShowCreateModelModal] = useState(false);
@@ -124,11 +125,11 @@ export function MlflowSidebar() {
     },
     {
       key: 'gateway',
-      icon: <DatabaseIcon />,
+      icon: <CloudModelIcon />,
       linkProps: {
         to: GatewayRoutes.gatewayPageRoute,
         isActive: isGatewayActive,
-        children: <FormattedMessage defaultMessage="Gateway" description="Sidebar link for gateway configuration" />,
+        children: <FormattedMessage defaultMessage="AI Gateway" description="Sidebar link for gateway configuration" />,
       },
       componentId: 'mlflow.sidebar.gateway_tab_link',
     },

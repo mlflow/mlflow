@@ -65,6 +65,22 @@ class LoggedModelStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     LOGGED_MODEL_PENDING: _ClassVar[LoggedModelStatus]
     LOGGED_MODEL_READY: _ClassVar[LoggedModelStatus]
     LOGGED_MODEL_UPLOAD_FAILED: _ClassVar[LoggedModelStatus]
+
+class RoutingStrategy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    ROUTING_STRATEGY_UNSPECIFIED: _ClassVar[RoutingStrategy]
+    REQUEST_BASED_TRAFFIC_SPLIT: _ClassVar[RoutingStrategy]
+
+class FallbackStrategy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    FALLBACK_STRATEGY_UNSPECIFIED: _ClassVar[FallbackStrategy]
+    SEQUENTIAL: _ClassVar[FallbackStrategy]
+
+class GatewayModelLinkageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    LINKAGE_TYPE_UNSPECIFIED: _ClassVar[GatewayModelLinkageType]
+    PRIMARY: _ClassVar[GatewayModelLinkageType]
+    FALLBACK: _ClassVar[GatewayModelLinkageType]
 ACTIVE_ONLY: ViewType
 DELETED_ONLY: ViewType
 ALL: ViewType
@@ -95,6 +111,13 @@ LOGGED_MODEL_STATUS_UNSPECIFIED: LoggedModelStatus
 LOGGED_MODEL_PENDING: LoggedModelStatus
 LOGGED_MODEL_READY: LoggedModelStatus
 LOGGED_MODEL_UPLOAD_FAILED: LoggedModelStatus
+ROUTING_STRATEGY_UNSPECIFIED: RoutingStrategy
+REQUEST_BASED_TRAFFIC_SPLIT: RoutingStrategy
+FALLBACK_STRATEGY_UNSPECIFIED: FallbackStrategy
+SEQUENTIAL: FallbackStrategy
+LINKAGE_TYPE_UNSPECIFIED: GatewayModelLinkageType
+PRIMARY: GatewayModelLinkageType
+FALLBACK: GatewayModelLinkageType
 
 class Metric(_message.Message):
     __slots__ = ("key", "value", "timestamp", "step", "dataset_name", "dataset_digest", "model_id", "run_id")
@@ -1781,7 +1804,7 @@ class GatewayModelDefinition(_message.Message):
     def __init__(self, model_definition_id: _Optional[str] = ..., name: _Optional[str] = ..., secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ..., provider: _Optional[str] = ..., model_name: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ...) -> None: ...
 
 class GatewayEndpointModelMapping(_message.Message):
-    __slots__ = ("mapping_id", "endpoint_id", "model_definition_id", "model_definition", "weight", "created_at", "created_by")
+    __slots__ = ("mapping_id", "endpoint_id", "model_definition_id", "model_definition", "weight", "created_at", "created_by", "linkage_type", "fallback_order")
     MAPPING_ID_FIELD_NUMBER: _ClassVar[int]
     ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
     MODEL_DEFINITION_ID_FIELD_NUMBER: _ClassVar[int]
@@ -1789,6 +1812,8 @@ class GatewayEndpointModelMapping(_message.Message):
     WEIGHT_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    LINKAGE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    FALLBACK_ORDER_FIELD_NUMBER: _ClassVar[int]
     mapping_id: str
     endpoint_id: str
     model_definition_id: str
@@ -1796,10 +1821,12 @@ class GatewayEndpointModelMapping(_message.Message):
     weight: float
     created_at: int
     created_by: str
-    def __init__(self, mapping_id: _Optional[str] = ..., endpoint_id: _Optional[str] = ..., model_definition_id: _Optional[str] = ..., model_definition: _Optional[_Union[GatewayModelDefinition, _Mapping]] = ..., weight: _Optional[float] = ..., created_at: _Optional[int] = ..., created_by: _Optional[str] = ...) -> None: ...
+    linkage_type: GatewayModelLinkageType
+    fallback_order: int
+    def __init__(self, mapping_id: _Optional[str] = ..., endpoint_id: _Optional[str] = ..., model_definition_id: _Optional[str] = ..., model_definition: _Optional[_Union[GatewayModelDefinition, _Mapping]] = ..., weight: _Optional[float] = ..., created_at: _Optional[int] = ..., created_by: _Optional[str] = ..., linkage_type: _Optional[_Union[GatewayModelLinkageType, str]] = ..., fallback_order: _Optional[int] = ...) -> None: ...
 
 class GatewayEndpoint(_message.Message):
-    __slots__ = ("endpoint_id", "name", "created_at", "last_updated_at", "model_mappings", "created_by", "last_updated_by", "tags")
+    __slots__ = ("endpoint_id", "name", "created_at", "last_updated_at", "model_mappings", "created_by", "last_updated_by", "tags", "routing_strategy", "fallback_config")
     ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
@@ -1808,6 +1835,8 @@ class GatewayEndpoint(_message.Message):
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
+    ROUTING_STRATEGY_FIELD_NUMBER: _ClassVar[int]
+    FALLBACK_CONFIG_FIELD_NUMBER: _ClassVar[int]
     endpoint_id: str
     name: str
     created_at: int
@@ -1816,7 +1845,9 @@ class GatewayEndpoint(_message.Message):
     created_by: str
     last_updated_by: str
     tags: _containers.RepeatedCompositeFieldContainer[GatewayEndpointTag]
-    def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., model_mappings: _Optional[_Iterable[_Union[GatewayEndpointModelMapping, _Mapping]]] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[GatewayEndpointTag, _Mapping]]] = ...) -> None: ...
+    routing_strategy: RoutingStrategy
+    fallback_config: FallbackConfig
+    def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., model_mappings: _Optional[_Iterable[_Union[GatewayEndpointModelMapping, _Mapping]]] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[GatewayEndpointTag, _Mapping]]] = ..., routing_strategy: _Optional[_Union[RoutingStrategy, str]] = ..., fallback_config: _Optional[_Union[FallbackConfig, _Mapping]] = ...) -> None: ...
 
 class GatewayEndpointTag(_message.Message):
     __slots__ = ("key", "value")
@@ -2014,20 +2045,44 @@ class DeleteGatewayModelDefinition(_message.Message):
     model_definition_id: str
     def __init__(self, model_definition_id: _Optional[str] = ...) -> None: ...
 
+class FallbackConfig(_message.Message):
+    __slots__ = ("strategy", "max_attempts")
+    STRATEGY_FIELD_NUMBER: _ClassVar[int]
+    MAX_ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
+    strategy: FallbackStrategy
+    max_attempts: int
+    def __init__(self, strategy: _Optional[_Union[FallbackStrategy, str]] = ..., max_attempts: _Optional[int] = ...) -> None: ...
+
+class GatewayEndpointModelConfig(_message.Message):
+    __slots__ = ("model_definition_id", "linkage_type", "weight", "fallback_order")
+    MODEL_DEFINITION_ID_FIELD_NUMBER: _ClassVar[int]
+    LINKAGE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    WEIGHT_FIELD_NUMBER: _ClassVar[int]
+    FALLBACK_ORDER_FIELD_NUMBER: _ClassVar[int]
+    model_definition_id: str
+    linkage_type: GatewayModelLinkageType
+    weight: float
+    fallback_order: int
+    def __init__(self, model_definition_id: _Optional[str] = ..., linkage_type: _Optional[_Union[GatewayModelLinkageType, str]] = ..., weight: _Optional[float] = ..., fallback_order: _Optional[int] = ...) -> None: ...
+
 class CreateGatewayEndpoint(_message.Message):
-    __slots__ = ("name", "model_definition_ids", "created_by")
+    __slots__ = ("name", "model_configs", "created_by", "routing_strategy", "fallback_config")
     class Response(_message.Message):
         __slots__ = ("endpoint",)
         ENDPOINT_FIELD_NUMBER: _ClassVar[int]
         endpoint: GatewayEndpoint
         def __init__(self, endpoint: _Optional[_Union[GatewayEndpoint, _Mapping]] = ...) -> None: ...
     NAME_FIELD_NUMBER: _ClassVar[int]
-    MODEL_DEFINITION_IDS_FIELD_NUMBER: _ClassVar[int]
+    MODEL_CONFIGS_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    ROUTING_STRATEGY_FIELD_NUMBER: _ClassVar[int]
+    FALLBACK_CONFIG_FIELD_NUMBER: _ClassVar[int]
     name: str
-    model_definition_ids: _containers.RepeatedScalarFieldContainer[str]
+    model_configs: _containers.RepeatedCompositeFieldContainer[GatewayEndpointModelConfig]
     created_by: str
-    def __init__(self, name: _Optional[str] = ..., model_definition_ids: _Optional[_Iterable[str]] = ..., created_by: _Optional[str] = ...) -> None: ...
+    routing_strategy: RoutingStrategy
+    fallback_config: FallbackConfig
+    def __init__(self, name: _Optional[str] = ..., model_configs: _Optional[_Iterable[_Union[GatewayEndpointModelConfig, _Mapping]]] = ..., created_by: _Optional[str] = ..., routing_strategy: _Optional[_Union[RoutingStrategy, str]] = ..., fallback_config: _Optional[_Union[FallbackConfig, _Mapping]] = ...) -> None: ...
 
 class GetGatewayEndpoint(_message.Message):
     __slots__ = ("endpoint_id", "name")
@@ -2043,7 +2098,7 @@ class GetGatewayEndpoint(_message.Message):
     def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
 class UpdateGatewayEndpoint(_message.Message):
-    __slots__ = ("endpoint_id", "name", "updated_by")
+    __slots__ = ("endpoint_id", "name", "updated_by", "model_configs", "routing_strategy", "fallback_config")
     class Response(_message.Message):
         __slots__ = ("endpoint",)
         ENDPOINT_FIELD_NUMBER: _ClassVar[int]
@@ -2052,10 +2107,16 @@ class UpdateGatewayEndpoint(_message.Message):
     ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    MODEL_CONFIGS_FIELD_NUMBER: _ClassVar[int]
+    ROUTING_STRATEGY_FIELD_NUMBER: _ClassVar[int]
+    FALLBACK_CONFIG_FIELD_NUMBER: _ClassVar[int]
     endpoint_id: str
     name: str
     updated_by: str
-    def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ..., updated_by: _Optional[str] = ...) -> None: ...
+    model_configs: _containers.RepeatedCompositeFieldContainer[GatewayEndpointModelConfig]
+    routing_strategy: RoutingStrategy
+    fallback_config: FallbackConfig
+    def __init__(self, endpoint_id: _Optional[str] = ..., name: _Optional[str] = ..., updated_by: _Optional[str] = ..., model_configs: _Optional[_Iterable[_Union[GatewayEndpointModelConfig, _Mapping]]] = ..., routing_strategy: _Optional[_Union[RoutingStrategy, str]] = ..., fallback_config: _Optional[_Union[FallbackConfig, _Mapping]] = ...) -> None: ...
 
 class DeleteGatewayEndpoint(_message.Message):
     __slots__ = ("endpoint_id",)
@@ -2080,21 +2141,19 @@ class ListGatewayEndpoints(_message.Message):
     def __init__(self, provider: _Optional[str] = ..., secret_id: _Optional[str] = ...) -> None: ...
 
 class AttachModelToGatewayEndpoint(_message.Message):
-    __slots__ = ("endpoint_id", "model_definition_id", "weight", "created_by")
+    __slots__ = ("endpoint_id", "model_config", "created_by")
     class Response(_message.Message):
         __slots__ = ("mapping",)
         MAPPING_FIELD_NUMBER: _ClassVar[int]
         mapping: GatewayEndpointModelMapping
         def __init__(self, mapping: _Optional[_Union[GatewayEndpointModelMapping, _Mapping]] = ...) -> None: ...
     ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
-    MODEL_DEFINITION_ID_FIELD_NUMBER: _ClassVar[int]
-    WEIGHT_FIELD_NUMBER: _ClassVar[int]
+    MODEL_CONFIG_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     endpoint_id: str
-    model_definition_id: str
-    weight: float
+    model_config: GatewayEndpointModelConfig
     created_by: str
-    def __init__(self, endpoint_id: _Optional[str] = ..., model_definition_id: _Optional[str] = ..., weight: _Optional[float] = ..., created_by: _Optional[str] = ...) -> None: ...
+    def __init__(self, endpoint_id: _Optional[str] = ..., model_config: _Optional[_Union[GatewayEndpointModelConfig, _Mapping]] = ..., created_by: _Optional[str] = ...) -> None: ...
 
 class DetachModelFromGatewayEndpoint(_message.Message):
     __slots__ = ("endpoint_id", "model_definition_id")

@@ -37,8 +37,8 @@ const PromptFilteredTracesViewImpl = ({
     };
   }, [monitoringConfig.dateNow, monitoringFilters]);
 
-  // Create initial filters for the prompt
-  const initialFilters = useMemo(() => {
+  // Create additional filters for the prompt (fixed, non-removable by user)
+  const additionalFilters = useMemo(() => {
     return [
       {
         column: 'prompt',
@@ -64,7 +64,7 @@ const PromptFilteredTracesViewImpl = ({
           experimentId={experimentId || ''}
           endpointName={''}
           timeRange={timeRange}
-          initialFilters={initialFilters}
+          additionalFilters={additionalFilters}
         />
       )}
     </div>

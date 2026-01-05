@@ -3,16 +3,17 @@ import {
   TypeaheadComboboxInput,
   TypeaheadComboboxMenu,
   TypeaheadComboboxMenuItem,
-  TypeaheadComboboxSectionHeader,
   useComboboxState,
   useDesignSystemTheme,
   FormUI,
   Spinner,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useProvidersQuery } from '../../hooks/useProvidersQuery';
-import { groupProviders, formatProviderName } from '../../utils/providerUtils';
-import { useMemo, useCallback, useState } from 'react';
+import { formatProviderName, buildProviderGroups, COMMON_PROVIDERS } from '../../utils/providerUtils';
+import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 
 interface ProviderSelectProps {
   value: string;
@@ -22,130 +23,244 @@ interface ProviderSelectProps {
   componentIdPrefix?: string;
 }
 
-interface ProviderItem {
-  provider: string;
+type MenuItem = ProviderGroupItem | ProviderItem | OthersNavigationItem | BackNavigationItem;
+
+interface ProviderGroupItem {
+  type: 'group';
+  groupId: string;
   displayName: string;
-  group: 'common' | 'other';
+  defaultProvider: string;
+  providers: string[];
 }
 
+interface ProviderItem {
+  type: 'provider';
+  provider: string;
+  displayName: string;
+  isLiteLLM?: boolean;
+}
+
+interface OthersNavigationItem {
+  type: 'others-nav';
+  displayName: string;
+  count: number;
+}
+
+interface BackNavigationItem {
+  type: 'back-nav';
+  displayName: string;
+  returnTo: 'common' | 'litellm';
+}
+
+interface GroupViewMode {
+  type: 'group';
+  group: ProviderGroupItem;
+}
+
+type ViewMode = 'common' | 'litellm' | GroupViewMode;
+
 interface ProviderSelectComboboxProps {
-  providerItems: ProviderItem[];
-  value: string;
-  onChange: (provider: string) => void;
+  commonItems: MenuItem[];
+  litellmItems: MenuItem[];
+  otherProvidersCount: number;
+  selectedProvider: string;
+  onSelectProvider: (provider: string) => void;
   disabled?: boolean;
   error?: string;
   componentIdPrefix: string;
 }
 
 const ProviderSelectCombobox = ({
-  providerItems,
-  value,
-  onChange,
+  commonItems,
+  litellmItems,
+  otherProvidersCount,
+  selectedProvider,
+  onSelectProvider,
   disabled,
   error,
   componentIdPrefix,
 }: ProviderSelectComboboxProps) => {
   const intl = useIntl();
-  const [filteredItems, setFilteredItems] = useState<(ProviderItem | null)[]>(providerItems);
+  const { theme } = useDesignSystemTheme();
+  const [viewMode, setViewMode] = useState<ViewMode>('common');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const selectedItem = useMemo(() => {
-    return providerItems.find((item) => item.provider === value) ?? null;
-  }, [providerItems, value]);
-
-  const handleChange = useCallback(
-    (item: ProviderItem | null) => {
-      onChange(item?.provider ?? '');
-    },
-    [onChange],
+  const othersNavItem: OthersNavigationItem = useMemo(
+    () => ({
+      type: 'others-nav',
+      displayName: intl.formatMessage(
+        {
+          defaultMessage: 'LiteLLM ({count} providers)',
+          description: 'Navigation to LiteLLM providers',
+        },
+        { count: otherProvidersCount },
+      ),
+      count: otherProvidersCount,
+    }),
+    [intl, otherProvidersCount],
   );
 
-  const deferredFormOnChange = useCallback(
-    (item: ProviderItem | null) => {
-      setTimeout(() => handleChange(item), 0);
-    },
-    [handleChange],
+  const backToCommonNavItem: BackNavigationItem = useMemo(
+    () => ({
+      type: 'back-nav',
+      displayName: intl.formatMessage({
+        defaultMessage: 'Back to common providers',
+        description: 'Navigation back to common providers list',
+      }),
+      returnTo: 'common',
+    }),
+    [intl],
   );
 
-  const comboboxState = useComboboxState<ProviderItem | null>({
+  const displayItems = useMemo((): MenuItem[] => {
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+
+      const matchingCommon: MenuItem[] = [];
+      for (const item of commonItems) {
+        if (item.type === 'others-nav' || item.type === 'back-nav') continue;
+
+        if (item.type === 'group') {
+          const matchingProviders = item.providers.filter((p) => formatProviderName(p).toLowerCase().includes(query));
+          for (const provider of matchingProviders) {
+            matchingCommon.push({
+              type: 'provider',
+              provider,
+              displayName: formatProviderName(provider),
+            });
+          }
+        } else if (item.displayName.toLowerCase().includes(query)) {
+          matchingCommon.push(item);
+        }
+      }
+
+      const matchingLiteLLM = litellmItems.filter((item) => {
+        if (item.type === 'others-nav' || item.type === 'back-nav') return false;
+        return item.displayName.toLowerCase().includes(query);
+      });
+
+      if (matchingLiteLLM.length > 0 && matchingCommon.length === 0) {
+        return [backToCommonNavItem, ...matchingLiteLLM];
+      } else if (matchingLiteLLM.length > 0) {
+        const litellmSection: OthersNavigationItem = {
+          type: 'others-nav',
+          displayName: intl.formatMessage(
+            {
+              defaultMessage: 'LiteLLM ({count} matches)',
+              description: 'Navigation showing matching LiteLLM providers',
+            },
+            { count: matchingLiteLLM.length },
+          ),
+          count: matchingLiteLLM.length,
+        };
+        return [...matchingCommon, litellmSection, ...matchingLiteLLM];
+      }
+      return matchingCommon;
+    }
+
+    if (viewMode === 'litellm') {
+      return [backToCommonNavItem, ...litellmItems];
+    }
+    if (typeof viewMode === 'object' && viewMode.type === 'group') {
+      const groupProviderItems: ProviderItem[] = viewMode.group.providers.map((provider) => ({
+        type: 'provider',
+        provider,
+        displayName: formatProviderName(provider),
+      }));
+      return [backToCommonNavItem, ...groupProviderItems];
+    }
+    return otherProvidersCount > 0 ? [...commonItems, othersNavItem] : commonItems;
+  }, [searchQuery, viewMode, commonItems, litellmItems, othersNavItem, backToCommonNavItem, otherProvidersCount, intl]);
+
+  const selectedDisplayName = useMemo(() => {
+    if (!selectedProvider) return '';
+    for (const item of [...commonItems, ...litellmItems]) {
+      if (item.type === 'provider' && item.provider === selectedProvider) {
+        return item.displayName;
+      }
+      if (item.type === 'group' && item.providers.includes(selectedProvider)) {
+        return formatProviderName(selectedProvider);
+      }
+    }
+    return formatProviderName(selectedProvider);
+  }, [selectedProvider, commonItems, litellmItems]);
+
+  const allItems = useMemo(() => [...commonItems, ...litellmItems], [commonItems, litellmItems]);
+
+  const setItemsNoop = useCallback(() => {}, []);
+
+  const handleInputValueChange = useCallback((val: React.SetStateAction<string>) => {
+    if (typeof val === 'string') {
+      setSearchQuery(val.toLowerCase());
+    }
+  }, []);
+
+  const customMatcher = useCallback((): boolean => {
+    return true;
+  }, []);
+
+  const handleMenuSelection = useCallback(
+    (item: MenuItem | null) => {
+      if (!item) {
+        onSelectProvider('');
+        setSearchQuery('');
+        setViewMode('common');
+        return;
+      }
+
+      if (item.type === 'others-nav' || item.type === 'back-nav' || item.type === 'group') {
+        return;
+      }
+
+      onSelectProvider(item.provider);
+      setSearchQuery('');
+      setViewMode('common');
+    },
+    [onSelectProvider],
+  );
+
+  const comboboxState = useComboboxState<MenuItem | null>({
     componentId: componentIdPrefix,
-    allItems: providerItems,
-    items: filteredItems,
-    setItems: setFilteredItems,
+    allItems: allItems,
+    items: displayItems,
+    setItems: setItemsNoop,
+    setInputValue: handleInputValueChange,
     multiSelect: false,
-    itemToString: (item) => item?.displayName ?? '',
-    matcher: (item, query) => {
-      if (!item) return false;
-      const lowerQuery = query.toLowerCase();
-      return item.displayName.toLowerCase().includes(lowerQuery) || item.provider.toLowerCase().includes(lowerQuery);
+    itemToString: (item) => {
+      if (!item) return '';
+      return item.displayName;
     },
-    formValue: selectedItem,
-    formOnChange: deferredFormOnChange,
-    initialInputValue: selectedItem?.displayName ?? '',
+    matcher: customMatcher,
+    formValue: null,
+    formOnChange: handleMenuSelection,
+    initialInputValue: selectedDisplayName,
   });
 
-  const handleFocus = useCallback(() => {
-    if (selectedItem) {
+  const prevIsOpenRef = useRef(comboboxState.isOpen);
+  useEffect(() => {
+    const wasOpen = prevIsOpenRef.current;
+    const isOpen = comboboxState.isOpen;
+    prevIsOpenRef.current = isOpen;
+
+    if (isOpen && !wasOpen) {
+      setSearchQuery('');
+      setViewMode('common');
       comboboxState.setInputValue('');
-      onChange('');
     }
-  }, [selectedItem, comboboxState, onChange]);
+  }, [comboboxState.isOpen, comboboxState]);
 
-  const groupedItems = useMemo(() => {
-    const validItems = filteredItems.filter((item): item is ProviderItem => item !== null);
-    const common = validItems.filter((item) => item.group === 'common');
-    const other = validItems.filter((item) => item.group === 'other');
-    return { common, other };
-  }, [filteredItems]);
+  useEffect(() => {
+    if (!comboboxState.isOpen) {
+      comboboxState.setInputValue(selectedDisplayName);
+    }
+  }, [selectedDisplayName, comboboxState.isOpen, comboboxState]);
 
-  const menuItems = useMemo(() => {
-    const commonOffset = 0;
-    const otherOffset = groupedItems.common.length;
-
-    return [
-      ...(groupedItems.common.length > 0
-        ? [
-            <TypeaheadComboboxSectionHeader key="common-header">
-              {intl.formatMessage({
-                defaultMessage: 'Common Providers',
-                description: 'Section header for common providers',
-              })}
-            </TypeaheadComboboxSectionHeader>,
-            ...groupedItems.common.map((item, idx) => (
-              <TypeaheadComboboxMenuItem
-                key={item.provider}
-                item={item}
-                index={commonOffset + idx}
-                comboboxState={comboboxState}
-                data-testid={`${componentIdPrefix}.option.${item.provider}`}
-              >
-                {item.displayName}
-              </TypeaheadComboboxMenuItem>
-            )),
-          ]
-        : []),
-      ...(groupedItems.other.length > 0
-        ? [
-            <TypeaheadComboboxSectionHeader key="other-header">
-              {intl.formatMessage({
-                defaultMessage: 'Other Providers',
-                description: 'Section header for other providers',
-              })}
-            </TypeaheadComboboxSectionHeader>,
-            ...groupedItems.other.map((item, idx) => (
-              <TypeaheadComboboxMenuItem
-                key={item.provider}
-                item={item}
-                index={otherOffset + idx}
-                comboboxState={comboboxState}
-                data-testid={`${componentIdPrefix}.option.${item.provider}`}
-              >
-                {item.displayName}
-              </TypeaheadComboboxMenuItem>
-            )),
-          ]
-        : []),
-    ];
-  }, [groupedItems, comboboxState, intl, componentIdPrefix]);
+  const getItemKey = (item: MenuItem) => {
+    if (item.type === 'group') return `group-${item.groupId}`;
+    if (item.type === 'others-nav') return 'others-nav';
+    if (item.type === 'back-nav') return 'back-nav';
+    return `provider-${item.provider}`;
+  };
 
   return (
     <>
@@ -156,15 +271,115 @@ const ProviderSelectCombobox = ({
             description: 'Placeholder for provider search input',
           })}
           comboboxState={comboboxState}
-          formOnChange={handleChange}
           validationState={error ? 'error' : undefined}
           disabled={disabled}
-          allowClear
           showComboboxToggleButton
-          onFocus={handleFocus}
+          allowClear={false}
         />
         <TypeaheadComboboxMenu comboboxState={comboboxState} matchTriggerWidth minWidth={300}>
-          {menuItems}
+          {displayItems.map((item, index) => {
+            if (item.type === 'others-nav') {
+              return (
+                <TypeaheadComboboxMenuItem
+                  key={getItemKey(item)}
+                  item={item}
+                  index={index}
+                  comboboxState={comboboxState}
+                  data-testid={`${componentIdPrefix}.option.others-nav`}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setViewMode('litellm');
+                  }}
+                >
+                  <div
+                    css={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      width: '100%',
+                      color: theme.colors.textSecondary,
+                    }}
+                  >
+                    <span>{item.displayName}</span>
+                    <ChevronRightIcon css={{ marginLeft: theme.spacing.sm }} />
+                  </div>
+                </TypeaheadComboboxMenuItem>
+              );
+            }
+
+            if (item.type === 'back-nav') {
+              return (
+                <TypeaheadComboboxMenuItem
+                  key={getItemKey(item)}
+                  item={item}
+                  index={index}
+                  comboboxState={comboboxState}
+                  data-testid={`${componentIdPrefix}.option.back-nav`}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setViewMode(item.returnTo);
+                  }}
+                >
+                  <div
+                    css={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: theme.colors.textSecondary,
+                      borderBottom: `1px solid ${theme.colors.borderDecorative}`,
+                      paddingBottom: theme.spacing.xs,
+                      marginBottom: theme.spacing.xs,
+                    }}
+                  >
+                    <ChevronLeftIcon css={{ marginRight: theme.spacing.sm }} />
+                    <span>{item.displayName}</span>
+                  </div>
+                </TypeaheadComboboxMenuItem>
+              );
+            }
+
+            if (item.type === 'group') {
+              return (
+                <TypeaheadComboboxMenuItem
+                  key={getItemKey(item)}
+                  item={item}
+                  index={index}
+                  comboboxState={comboboxState}
+                  data-testid={`${componentIdPrefix}.option.${getItemKey(item)}`}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setViewMode({ type: 'group', group: item });
+                  }}
+                >
+                  <div
+                    css={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      width: '100%',
+                    }}
+                  >
+                    <span>{item.displayName}</span>
+                    <ChevronRightIcon css={{ marginLeft: theme.spacing.sm, color: theme.colors.textSecondary }} />
+                  </div>
+                </TypeaheadComboboxMenuItem>
+              );
+            }
+
+            return (
+              <TypeaheadComboboxMenuItem
+                key={getItemKey(item)}
+                item={item}
+                index={index}
+                comboboxState={comboboxState}
+                data-testid={`${componentIdPrefix}.option.${getItemKey(item)}`}
+              >
+                {item.displayName}
+              </TypeaheadComboboxMenuItem>
+            );
+          })}
         </TypeaheadComboboxMenu>
       </TypeaheadComboboxRoot>
       {error && <FormUI.Message type="error" message={error} />}
@@ -182,27 +397,82 @@ export const ProviderSelect = ({
   const { theme } = useDesignSystemTheme();
   const { data: providers, isLoading } = useProvidersQuery();
 
-  const allProviderItems = useMemo((): ProviderItem[] => {
-    if (!providers) return [];
+  const { commonItems, litellmItems, otherProviders } = useMemo(() => {
+    if (!providers)
+      return {
+        commonItems: [] as MenuItem[],
+        litellmItems: [] as MenuItem[],
+        otherProviders: [] as string[],
+      };
 
-    const { common, other } = groupProviders(providers);
+    const { groups, ungroupedProviders } = buildProviderGroups(providers);
+    const commonSet = new Set<string>(COMMON_PROVIDERS);
 
-    const commonItems: ProviderItem[] = common.map((p) => ({
-      provider: p,
-      displayName: formatProviderName(p),
-      group: 'common' as const,
+    const commonUngrouped: string[] = [];
+    const otherUngrouped: string[] = [];
+    for (const provider of ungroupedProviders) {
+      if (commonSet.has(provider)) {
+        commonUngrouped.push(provider);
+      } else {
+        otherUngrouped.push(provider);
+      }
+    }
+
+    const common: MenuItem[] = [];
+
+    for (const group of groups) {
+      const isCommonGroup = group.groupId === 'openai_azure' || group.groupId === 'vertex_ai';
+      if (isCommonGroup) {
+        common.push({
+          type: 'group',
+          groupId: group.groupId,
+          displayName: group.displayName,
+          defaultProvider: group.defaultProvider,
+          providers: group.providers,
+        });
+      }
+    }
+
+    for (const provider of commonUngrouped) {
+      common.push({
+        type: 'provider',
+        provider,
+        displayName: formatProviderName(provider),
+      });
+    }
+
+    const getCommonProviderIndex = (item: MenuItem): number => {
+      if (item.type === 'others-nav' || item.type === 'back-nav') return Infinity;
+      const provider = item.type === 'group' ? item.defaultProvider : item.provider;
+      const index = COMMON_PROVIDERS.indexOf(provider as typeof COMMON_PROVIDERS[number]);
+      return index === -1 ? Infinity : index;
+    };
+    common.sort((a, b) => getCommonProviderIndex(a) - getCommonProviderIndex(b));
+
+    otherUngrouped.sort((a, b) => formatProviderName(a).localeCompare(formatProviderName(b)));
+
+    const litellm: MenuItem[] = otherUngrouped.map((provider) => ({
+      type: 'provider',
+      provider,
+      displayName: formatProviderName(provider),
+      isLiteLLM: true,
     }));
 
-    const otherItems: ProviderItem[] = other.map((p) => ({
-      provider: p,
-      displayName: formatProviderName(p),
-      group: 'other' as const,
-    }));
-
-    return [...commonItems, ...otherItems];
+    return {
+      commonItems: common,
+      litellmItems: litellm,
+      otherProviders: otherUngrouped,
+    };
   }, [providers]);
 
-  if (isLoading || allProviderItems.length === 0) {
+  const handleSelectProvider = useCallback(
+    (provider: string) => {
+      onChange(provider);
+    },
+    [onChange],
+  );
+
+  if (isLoading || commonItems.length === 0) {
     return (
       <div>
         <FormUI.Label htmlFor={componentIdPrefix}>
@@ -222,9 +492,11 @@ export const ProviderSelect = ({
         <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
       </FormUI.Label>
       <ProviderSelectCombobox
-        providerItems={allProviderItems}
-        value={value}
-        onChange={onChange}
+        commonItems={commonItems}
+        litellmItems={litellmItems}
+        otherProvidersCount={otherProviders.length}
+        selectedProvider={value}
+        onSelectProvider={handleSelectProvider}
         disabled={disabled}
         error={error}
         componentIdPrefix={componentIdPrefix}

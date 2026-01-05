@@ -5,6 +5,7 @@ import { ExperimentKind, ExperimentPageTabName } from '../../../constants';
 import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
 import { getExperimentKindFromTags } from '../../../utils/ExperimentKindUtils';
 import { coerceToEnum } from '@databricks/web-shared/utils';
+import { shouldEnableExperimentOverviewTab } from '../../../../common/utils/FeatureUtils';
 
 /**
  * This hook navigates user to the appropriate tab in the experiment page based on the experiment kind.
@@ -46,9 +47,9 @@ export const useNavigateToExperimentPageTab = ({
     // By default, we navigate to the Runs tab
     let targetTab = ExperimentPageTabName.Runs;
 
-    // For GENAI_DEVELOPMENT, we navigate to the Traces tab.
+    // For GENAI_DEVELOPMENT, we navigate to the Overview tab if enabled, otherwise Traces tab.
     if (experimentKind === ExperimentKind.GENAI_DEVELOPMENT) {
-      targetTab = ExperimentPageTabName.Traces;
+      targetTab = shouldEnableExperimentOverviewTab() ? ExperimentPageTabName.Overview : ExperimentPageTabName.Traces;
     }
 
     navigate(Routes.getExperimentPageTabRoute(experimentId, targetTab), { replace: true });

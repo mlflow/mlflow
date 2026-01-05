@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { isEmpty as isEmptyFn } from 'lodash';
 import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
 import type {
@@ -63,18 +63,24 @@ const ContextProviders = ({
 const TracesV3LogsImpl = React.memo(
   ({
     experimentId,
-    endpointName,
+    endpointName = '',
     timeRange,
     isLoadingExperiment,
     loggedModelId,
-    initialFilters,
+    additionalFilters,
+    disableActions = false,
+    customDefaultSelectedColumns,
+    toolbarAddons,
   }: {
     experimentId: string;
-    endpointName: string;
+    endpointName?: string;
     timeRange?: { startTime: string | undefined; endTime: string | undefined };
     isLoadingExperiment?: boolean;
     loggedModelId?: string;
-    initialFilters?: TableFilter[];
+    additionalFilters?: TableFilter[];
+    disableActions?: boolean;
+    customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
+    toolbarAddons?: React.ReactNode;
   }) => {
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
@@ -116,28 +122,20 @@ const TracesV3LogsImpl = React.memo(
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [filters, setFilters] = useFilters();
     const queryClient = useQueryClient();
-    const prevInitialFiltersRef = useRef<TableFilter[] | undefined>();
 
-    if (initialFilters && initialFilters.length > 0) {
-      const prevFilters = prevInitialFiltersRef.current;
-      const filtersChanged =
-        !prevFilters ||
-        prevFilters.length !== initialFilters.length ||
-        prevFilters.some((f, i) => {
-          const newF = initialFilters[i];
-          return f.column !== newF.column || f.operator !== newF.operator || f.value !== newF.value;
-        });
-
-      if (filtersChanged) {
-        setFilters(initialFilters);
-        prevInitialFiltersRef.current = initialFilters;
+    const combinedFilters = useMemo(() => {
+      if (!additionalFilters || additionalFilters.length === 0) {
+        return filters;
       }
-    }
+      return [...additionalFilters, ...filters];
+    }, [additionalFilters, filters]);
 
     const defaultSelectedColumns = useCallback(
       (allColumns: TracesTableColumn[]) => {
         const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(evaluatedTraces);
-
+        if (customDefaultSelectedColumns) {
+          return allColumns.filter(customDefaultSelectedColumns);
+        }
         return allColumns.filter(
           (col) =>
             col.type === TracesTableColumnType.ASSESSMENT ||
@@ -152,7 +150,7 @@ const TracesV3LogsImpl = React.memo(
             col.type === TracesTableColumnType.INTERNAL_MONITOR_REQUEST_TIME,
         );
       },
-      [evaluatedTraces],
+      [evaluatedTraces, customDefaultSelectedColumns],
     );
 
     const { selectedColumns, toggleColumns, setSelectedColumns } = useSelectedColumns(
@@ -185,7 +183,7 @@ const TracesV3LogsImpl = React.memo(
       locations: traceSearchLocations,
       currentRunDisplayName: endpointName,
       searchQuery,
-      filters,
+      filters: combinedFilters,
       timeRange,
       filterByLoggedModelId: loggedModelId,
       tableSort,
@@ -216,6 +214,13 @@ const TracesV3LogsImpl = React.memo(
       });
 
     const traceActions: TraceActions = useMemo(() => {
+      if (disableActions) {
+        return {
+          deleteTracesAction: undefined,
+          exportToEvals: undefined,
+          editTags: undefined,
+        };
+      }
       return {
         deleteTracesAction,
         exportToEvals: {
@@ -243,6 +248,7 @@ const TracesV3LogsImpl = React.memo(
       EditTagsModalUnified,
       showEditTagsModalForTrace,
       EditTagsModal,
+      disableActions,
     ]);
 
     const countInfo = useMemo(() => {
@@ -376,6 +382,7 @@ const TracesV3LogsImpl = React.memo(
             isMetadataLoading={isMetadataLoading}
             metadataError={metadataError}
             usesV4APIs={usesV4APIs}
+            addons={toolbarAddons}
           />
           {renderMainContent()}
         </div>

@@ -2,6 +2,7 @@ import json
 from typing import Any
 from unittest import mock
 
+import litellm
 import pytest
 import requests
 from pydantic import BaseModel
@@ -12,6 +13,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+    _run_databricks_agentic_loop,
     call_chat_completions,
 )
 from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
@@ -709,3 +711,202 @@ def test_call_chat_completions_with_use_case_not_supported(mock_databricks_rag_e
         )
 
         assert result.output == "test response"
+
+
+# Tests for _run_databricks_agentic_loop
+
+
+def test_agentic_loop_final_answer_without_tool_calls():
+    # Mock response with no tool calls (final answer)
+    mock_response = AttrDict(
+        {
+            "output_json": json.dumps(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": '{"result": "yes", "rationale": "Looks good"}',
+                            }
+                        }
+                    ]
+                }
+            )
+        }
+    )
+
+    messages = [litellm.Message(role="user", content="Test prompt")]
+    callback_called_with = []
+
+    def callback(content):
+        callback_called_with.append(content)
+        return {"parsed": content}
+
+    with mock.patch(
+        "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
+        return_value=mock_response,
+    ) as mock_call:
+        result = _run_databricks_agentic_loop(
+            messages=messages,
+            trace=None,
+            on_final_answer=callback,
+        )
+
+        # Verify callback was called with the content
+        assert len(callback_called_with) == 1
+        assert callback_called_with[0] == '{"result": "yes", "rationale": "Looks good"}'
+        assert result == {"parsed": '{"result": "yes", "rationale": "Looks good"}'}
+
+        # Verify call_chat_completions was called once (no loop)
+        assert mock_call.call_count == 1
+
+
+def test_agentic_loop_tool_calling_loop(mock_trace):
+    # First response has tool calls, second response is final answer
+    mock_responses = [
+        # First call: LLM requests tool call
+        AttrDict(
+            {
+                "output_json": json.dumps(
+                    {
+                        "choices": [
+                            {
+                                "message": {
+                                    "role": "assistant",
+                                    "content": None,
+                                    "tool_calls": [
+                                        {
+                                            "id": "call_123",
+                                            "type": "function",
+                                            "function": {
+                                                "name": "get_root_span",
+                                                "arguments": "{}",
+                                            },
+                                        }
+                                    ],
+                                }
+                            }
+                        ]
+                    }
+                )
+            }
+        ),
+        # Second call: LLM returns final answer
+        AttrDict(
+            {
+                "output_json": json.dumps(
+                    {
+                        "choices": [
+                            {
+                                "message": {
+                                    "role": "assistant",
+                                    "content": '{"outputs": "The answer is 42"}',
+                                }
+                            }
+                        ]
+                    }
+                )
+            }
+        ),
+    ]
+
+    messages = [litellm.Message(role="user", content="Extract outputs")]
+
+    def callback(content):
+        return {"result": content}
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
+            side_effect=mock_responses,
+        ) as mock_call,
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._process_tool_calls"
+        ) as mock_process,
+    ):
+        mock_process.return_value = [
+            litellm.Message(
+                role="tool",
+                content='{"name": "root_span", "inputs": null}',
+                tool_call_id="call_123",
+                name="get_root_span",
+            )
+        ]
+
+        result = _run_databricks_agentic_loop(
+            messages=messages,
+            trace=mock_trace,
+            on_final_answer=callback,
+        )
+
+        # Verify we looped twice
+        assert mock_call.call_count == 2
+
+        # Verify tool calls were processed
+        mock_process.assert_called_once()
+
+        # Verify final result
+        assert result == {"result": '{"outputs": "The answer is 42"}'}
+
+
+def test_agentic_loop_max_iteration_limit(mock_trace, monkeypatch):
+    # Always return tool calls (never a final answer)
+    mock_response = AttrDict(
+        {
+            "output_json": json.dumps(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": None,
+                                "tool_calls": [
+                                    {
+                                        "id": "call_123",
+                                        "type": "function",
+                                        "function": {
+                                            "name": "get_root_span",
+                                            "arguments": "{}",
+                                        },
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                }
+            )
+        }
+    )
+
+    messages = [litellm.Message(role="user", content="Extract outputs")]
+
+    def callback(content):
+        return content
+
+    # Set max iterations to 1 for minimal test run
+    monkeypatch.setenv("MLFLOW_JUDGE_MAX_ITERATIONS", "1")
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
+            return_value=mock_response,
+        ) as mock_call,
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._process_tool_calls"
+        ) as mock_process,
+    ):
+        mock_process.return_value = [
+            litellm.Message(
+                role="tool", content="{}", tool_call_id="call_123", name="get_root_span"
+            )
+        ]
+
+        with pytest.raises(MlflowException, match="iteration limit of 1 exceeded"):
+            _run_databricks_agentic_loop(
+                messages=messages,
+                trace=mock_trace,
+                on_final_answer=callback,
+            )
+
+        # Verify we hit the limit (called once before raising)
+        assert mock_call.call_count == 1

@@ -1,17 +1,19 @@
-import { render } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 import { IntlProvider } from '@databricks/i18n';
-import { useForm } from 'react-hook-form';
+import { FormProvider, useForm } from 'react-hook-form';
 import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer';
-import { useEvaluateTraces, type JudgeEvaluationResult, type EvaluateTracesParams } from './useEvaluateTraces';
+import { useEvaluateTraces } from './useEvaluateTraces';
+import { TraceJudgeEvaluationResult, type JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
-import { LLM_TEMPLATE } from './types';
+import { LLM_TEMPLATE, type EvaluateTracesParams } from './types';
 import { jest } from '@jest/globals';
 import { describe } from '@jest/globals';
 import { beforeEach } from '@jest/globals';
 import { it } from '@jest/globals';
 import { expect } from '@jest/globals';
+import { ScorerEvaluationScope } from './constants';
 
 jest.mock('./useEvaluateTraces');
 jest.mock('./SampleScorerOutputPanelRenderer');
@@ -28,7 +30,7 @@ function createMockTrace(traceId: string): ModelTrace {
   } as ModelTrace;
 }
 
-function createMockEvalResult(traceId: string): JudgeEvaluationResult {
+function createMockEvalResult(traceId: string): TraceJudgeEvaluationResult {
   return {
     trace: createMockTrace(traceId),
     results: [
@@ -50,7 +52,7 @@ interface TestWrapperProps {
 }
 
 function TestWrapper({ defaultValues, onScorerFinished }: TestWrapperProps) {
-  const { control } = useForm<ScorerFormData>({
+  const form = useForm<ScorerFormData>({
     defaultValues: {
       name: 'Test Scorer',
       instructions: 'Test instructions',
@@ -63,11 +65,13 @@ function TestWrapper({ defaultValues, onScorerFinished }: TestWrapperProps) {
 
   return (
     <IntlProvider locale="en">
-      <SampleScorerOutputPanelContainer
-        control={control}
-        experimentId={experimentId}
-        onScorerFinished={onScorerFinished}
-      />
+      <FormProvider {...form}>
+        <SampleScorerOutputPanelContainer
+          control={form.control}
+          experimentId={experimentId}
+          onScorerFinished={onScorerFinished}
+        />
+      </FormProvider>
     </IntlProvider>
   );
 }
@@ -105,9 +109,9 @@ describe('SampleScorerOutputPanelContainer', () => {
           isLoading: false,
           isRunScorerDisabled: false,
           error: null,
-          currentTraceIndex: 0,
+          currentEvalResultIndex: 0,
           totalTraces: 0,
-          tracesCount: 10,
+          itemsToEvaluate: { itemCount: 10, itemIds: [] },
         }),
         expect.anything(),
       );
@@ -131,7 +135,7 @@ describe('SampleScorerOutputPanelContainer', () => {
       expect(mockedRenderer).toHaveBeenCalledWith(
         expect.objectContaining({
           totalTraces: 2,
-          currentTrace: mockResults[0].trace,
+          currentEvalResult: mockResults[0],
           assessments: expect.any(Array),
         }),
         expect.anything(),
@@ -192,24 +196,32 @@ describe('SampleScorerOutputPanelContainer', () => {
       rendererProps.handleRunScorer();
 
       expect(mockEvaluateTraces).toHaveBeenCalledWith({
-        traceCount: 10,
+        evaluationScope: ScorerEvaluationScope.TRACES,
+        itemCount: 10,
+        itemIds: [],
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions: 'Test instructions',
         experimentId,
+        serializedScorer: expect.any(String),
       });
     });
 
     it('should call onScorerFinished when evaluation succeeds with results', async () => {
       const onScorerFinished = jest.fn();
       const mockResults = [createMockEvalResult('trace-1')];
-      mockEvaluateTraces.mockResolvedValue(mockResults);
+      mockEvaluateTraces.mockImplementation(() => {
+        onScorerFinished();
+        return Promise.resolve(mockResults);
+      });
 
       renderComponent({ onScorerFinished });
 
       const rendererProps = mockedRenderer.mock.calls[0][0];
       await rendererProps.handleRunScorer();
 
-      expect(onScorerFinished).toHaveBeenCalledTimes(1);
+      await waitFor(() => {
+        expect(onScorerFinished).toHaveBeenCalledTimes(1);
+      });
     });
   });
 
@@ -264,7 +276,7 @@ describe('SampleScorerOutputPanelContainer', () => {
 
       expect(mockedRenderer).toHaveBeenCalledWith(
         expect.objectContaining({
-          currentTrace: undefined,
+          currentEvalResult: undefined,
           assessments: undefined,
         }),
         expect.anything(),
@@ -283,7 +295,7 @@ describe('SampleScorerOutputPanelContainer', () => {
     });
 
     it('should handle evaluation errors gracefully', async () => {
-      mockEvaluateTraces.mockRejectedValue(new Error('API error'));
+      mockEvaluateTraces.mockImplementation(() => Promise.reject(new Error('API error')));
 
       renderComponent();
 
