@@ -389,3 +389,208 @@ Ready to improve your GenAI testing? Start with these resources:
     containerHeight={64}
   />
 </TilesGrid>
+
+# Building MLflow evaluation datasets
+
+To systematically test and improve a GenAI application, you use an evaluation dataset. An evaluation dataset is a selected set of example inputs — either labeled (with known expected outputs) or unlabeled (without ground-truth answers). Evaluation datasets help you improve your app's performance in the following ways:
+
+- Improve quality by testing fixes against known problematic examples from production.
+- Prevent regressions. Create a "golden set" of examples that must always work correctly.
+- Compare app versions. Test different prompts, models, or app logic against the same data.
+- Target specific features. Build specialized datasets for safety, domain knowledge, or edge cases.
+- Validate the app across different environments as part of LLMOps.
+
+MLflow evaluation datasets are stored in :re[UC], which provides built-in versioning, lineage, sharing, and governance.
+
+## Requirements
+
+To create an evaluation dataset, you must have `CREATE TABLE` permissions on a :re[UC] schema.
+
+## How to build an evaluation dataset
+
+There are 3 ways to create an evaluation dataset:
+
+- [Creating a dataset from existing traces](#creating-a-dataset-from-existing-traces): If you have already captured traces from a GenAI application, you can use them to create an evaluation dataset based on real-world scenarios.
+- [Importing a dataset or building a dataset from scratch](#building-a-dataset-from-scratch): Use an existing dataset or build an evaluation dataset from scratch. This is useful for quick prototyping or for targeted testing of specific features.
+- [Seeding an evaluation dataset with synthetic data](#seeding-an-evaluation-dataset-with-synthetic-data): Databricks can automatically generate a representative evaluation set from your documents, allowing you to quickly evaluate your agent with good coverage of test cases.
+
+This page describes how to create an MLflow evaluation dataset. You can also use other types of datasets, such as Pandas DataFrames or a list of dictionaries, to get started quickly. See [\_](/mlflow3/genai/eval-monitor/eval-examples.md) for examples.
+
+## Step 1: Create a dataset
+
+The first step is to create an MLflow-managed evaluation dataset. MLflow-managed evaluation datasets track changes over time and maintain links to individual evaluation results.
+
+::::tabs
+:::tab-item[Using the UI]
+
+Follow the recording below to use the UI to create an evaluation dataset
+
+![Create evaluation dataset using the UI](https://assets.docs.databricks.com/_static/images/mlflow3-genai/new-images/create-dataset-alone.gif)
+
+:::
+:::tab-item[Using the SDK]
+
+Create an evaluation dataset programmatically by searching for traces and adding them to the dataset.
+
+```python
+import mlflow
+import mlflow.genai.datasets
+import time
+from databricks.connect import DatabricksSession
+
+# 0. If you are using a local development environment, connect to Serverless Spark which powers MLflow's evaluation dataset service
+spark = DatabricksSession.builder.remote(serverless=True).getOrCreate()
+
+# 1. Create an evaluation dataset
+
+# Replace with a Unity Catalog schema where you have CREATE TABLE permission
+uc_schema = "workspace.default"
+# This table will be created in the above UC schema
+evaluation_dataset_table_name = "email_generation_eval"
+
+eval_dataset = mlflow.genai.datasets.create_dataset(
+    name=f"{uc_schema}.{evaluation_dataset_table_name}",
+)
+print(f"Created evaluation dataset: {uc_schema}.{evaluation_dataset_table_name}")
+```
+
+:::
+::::
+
+## Step 2: Add records to your dataset
+
+### <a id="creating-a-dataset-from-existing-traces"></a>Approach 1: Create from existing traces
+
+One of the most effective ways to build a relevant evaluation dataset is by curating examples directly from your application's historical interactions captured by MLflow Tracing. You can create datasets from traces using either the MLflow Monitoring UI or the SDK.
+
+::::tabs
+:::tab-item[Using the UI]
+
+Follow the recording below to use the UI to add existing production traces to the dataset
+
+![trace](https://assets.docs.databricks.com/_static/images/mlflow3-genai/new-images/eval-dataset-add-traces.gif)
+
+:::
+:::tab-item[Using the SDK]
+
+Programmatically search for traces and then add them to the dataset. Refer to the [query traces](/mlflow3/genai/tracing/observe-with-traces/query-via-sdk.md#search-api) reference page for details on how to use filters in `search_traces()`. You can use filters to identify traces by success, failure, use in production, or other properties.
+
+```python
+import mlflow
+
+# 2. Search for traces
+traces = mlflow.search_traces(
+    filter_string="attributes.status = 'OK' AND tags.environment = 'production'",
+    order_by=["attributes.timestamp_ms DESC"],
+    max_results=10,
+)
+
+print(f"Found {len(traces)} successful traces")
+
+# 3. Add the traces to the evaluation dataset
+eval_dataset = eval_dataset.merge_records(traces)
+print(f"Added {len(traces)} records to evaluation dataset")
+
+# Preview the dataset
+df = eval_dataset.to_df()
+print(f"\nDataset preview:")
+print(f"Total records: {len(df)}")
+print("\nSample record:")
+sample = df.iloc[0]
+print(f"Inputs: {sample['inputs']}")
+```
+
+:::
+::::
+
+### <a id="creating-a-dataset-from-domain-expert-feedback"></a>Approach 2: Create from domain expert labels
+
+Leverage feedback from domain experts captured in MLflow Labeling Sessions to enrich your evaluation datasets with ground truth labels. Before doing these steps, follow the [collect domain expert feedback](/mlflow3/genai/human-feedback/expert-feedback/label-existing-traces.md) guide to create a labeling session.
+
+```python
+import mlflow.genai.labeling as labeling
+
+# Get a labeling sessions
+all_sessions = labeling.get_labeling_sessions()
+print(f"Found {len(all_sessions)} sessions")
+
+for session in all_sessions:
+    print(f"- {session.name} (ID: {session.labeling_session_id})")
+    print(f"  Assigned users: {session.assigned_users}")
+
+# Sync from the labeling session to the dataset
+
+all_sessions[0].sync(dataset_name=f"{uc_schema}.{evaluation_dataset_table_name}")
+```
+
+### <a id="building-a-dataset-from-scratch"></a>Approach 3: Build from scratch or import existing
+
+You can import an existing dataset or curate examples from scratch. Your data must match (or be transformed to match) the [evaluation dataset schema](/mlflow3/genai/eval-monitor/concepts/eval-datasets.md).
+
+```python
+# Define comprehensive test cases
+evaluation_examples = [
+    {
+        "inputs": {"question": "What is MLflow?"},
+        "expected": {
+            "expected_response": "MLflow is an open source platform for managing the end-to-end machine learning lifecycle.",
+            "expected_facts": [
+                "open source platform",
+                "manages ML lifecycle",
+                "experiment tracking",
+                "model deployment",
+            ],
+        },
+    },
+]
+
+eval_dataset = eval_dataset.merge_records(evaluation_examples)
+```
+
+### <a id="seeding-an-evaluation-dataset-with-synthetic-data"></a>Approach 4: Seed using synthetic data
+
+Generating synthetic data can expand your testing efforts by quickly creating diverse inputs and covering edge cases. See [\_](/generative-ai/agent-evaluation/synthesize-evaluation-set.md).
+
+## Step 3: Update existing datasets
+
+```python
+import mlflow.genai.datasets
+import pandas as pd
+
+# Load existing dataset
+dataset = mlflow.genai.datasets.get_dataset(name="catalog.schema.eval_dataset")
+
+# Add new test cases
+new_cases = [
+    {
+        "inputs": {"question": "What are MLflow models?"},
+        "expectations": {
+            "expected_facts": ["model packaging", "deployment", "registry"],
+            "min_response_length": 100,
+        },
+    }
+]
+
+# Merge new cases
+dataset = dataset.merge_records(new_cases)
+```
+
+## Limitations
+
+- [Customer Managed Keys (CMK)](/security/keys/customer-managed-keys.md) are not supported.
+- Maximum of 2,000 rows per evaluation dataset.
+- Maximum of 20 expectations per dataset record.
+
+If you need any of these limitations relaxed for your use case, contact your Databricks representative.
+
+## Next steps
+
+- [Evaluate your app](/mlflow3/genai/eval-monitor/evaluate-app.md) - Use your newly created dataset for evaluation
+- [Create custom scorers](/mlflow3/genai/eval-monitor/custom-scorers.md) - Build scorers to evaluate against ground truth
+
+## Reference guides
+
+- [Evaluation datasets](/mlflow3/genai/eval-monitor/concepts/eval-datasets.md) - Deep dive into dataset structure and capabilities
+- [Evaluation harness](/mlflow3/genai/eval-monitor/concepts/eval-harness.md) - Learn how [`mlflow.genai.evaluate()`](https://mlflow.org/docs/latest/api_reference/python_api/mlflow.genai.html#mlflow.genai.evaluate) uses your datasets
+- [Tracing data model](/mlflow3/genai/tracing/data-model.md) - Understand traces as a source for evaluation datasets
+- [Scorers](/mlflow3/genai/eval-monitor/concepts/scorers.md) - Applies each scorer to evaluate the quality of outputs from running the new app against evaluation dataset
