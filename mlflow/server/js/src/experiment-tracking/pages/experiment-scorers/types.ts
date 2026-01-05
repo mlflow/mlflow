@@ -2,6 +2,7 @@ import {
   ModelTraceLocationMlflowExperiment,
   ModelTraceLocationUcSchema,
 } from '@databricks/web-shared/model-trace-explorer';
+import { ScorerEvaluationScope } from './constants';
 
 interface ScheduledScorerBase {
   name: string;
@@ -101,6 +102,7 @@ interface EvaluateChatParamsBase {
   locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   experimentId: string;
   serializedScorer?: string;
+  evaluationScope?: ScorerEvaluationScope;
 }
 
 /**

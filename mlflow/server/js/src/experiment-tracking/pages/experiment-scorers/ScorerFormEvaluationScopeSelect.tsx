@@ -2,10 +2,12 @@ import { FormUI, Radio, RHFControlledComponents, Spacer } from '@databricks/desi
 import { useFormContext } from 'react-hook-form';
 import { ScorerFormData } from './utils/scorerTransformUtils';
 import { FormattedMessage } from 'react-intl';
-import { ScorerEvaluationScope } from './constants';
+import { SCORER_FORM_MODE, ScorerEvaluationScope, ScorerFormMode } from './constants';
 
-export const ScorerFormEvaluationScopeSelect = () => {
+export const ScorerFormEvaluationScopeSelect = ({ mode }: { mode: ScorerFormMode }) => {
   const { control } = useFormContext<ScorerFormData>();
+
+  const isEditMode = mode === SCORER_FORM_MODE.EDIT;
 
   return (
     <>
@@ -26,6 +28,7 @@ export const ScorerFormEvaluationScopeSelect = () => {
         id="mlflow.experiment-scorers.form.scope-select"
         control={control}
         name="evaluationScope"
+        disabled={isEditMode}
       >
         <Radio value={ScorerEvaluationScope.TRACES}>
           <FormattedMessage defaultMessage="Traces" description="Label for the scorer evaluation scope selection" />

@@ -11,6 +11,7 @@ import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluation
 import { EvaluateTracesParams, LLM_TEMPLATE } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
+import { JudgeEvaluationResult } from './useEvaluateTraces.common';
 
 interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
@@ -93,6 +94,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
             judgeInstructions: judgeInstructions || '',
             experimentId,
             serializedScorer,
+            evaluationScope,
           }
         : {
             itemCount: itemsToEvaluate.itemCount,
@@ -107,6 +109,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
             experimentId,
             guidelines: guidelines ? [guidelines] : undefined,
             serializedScorer,
+            evaluationScope,
           };
 
       await evaluateTraces(evaluationParams);
@@ -119,6 +122,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     llmTemplate,
     guidelines,
     itemsToEvaluate,
+    evaluationScope,
     evaluateTraces,
     experimentId,
     getSerializedScorerFromForm,
@@ -158,7 +162,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
         {
           ...currentEvalResult,
           results: [result],
-        },
+        } as JudgeEvaluationResult,
         baseName,
         index,
       );
@@ -235,8 +239,8 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       isRunScorerDisabled={isRunScorerDisabled}
       runScorerDisabledTooltip={runScorerDisabledTooltip}
       error={error}
-      currentTraceIndex={currentTraceIndex}
-      currentTrace={currentEvalResult?.trace ?? undefined}
+      currentEvalResultIndex={currentTraceIndex}
+      currentEvalResult={currentEvalResult}
       assessments={assessments}
       handleRunScorer={handleRunScorer}
       handlePrevious={handlePrevious}
