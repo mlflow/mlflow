@@ -38,12 +38,12 @@ def test_create_ragas_model_databricks_serving_endpoint():
 
 def test_create_ragas_model_openai():
     model = create_ragas_model("openai:/gpt-4")
-    assert model.__class__.__name__ == "LiteLLMStructuredLLM"
+    assert model.__class__.__name__ == "MlflowLiteLLM"
 
 
 def test_create_ragas_model_with_provider_no_slash():
     model = create_ragas_model("openai:gpt-4")
-    assert model.__class__.__name__ == "LiteLLMStructuredLLM"
+    assert model.__class__.__name__ == "MlflowLiteLLM"
 
 
 def test_create_ragas_model_rejects_model_name_only():

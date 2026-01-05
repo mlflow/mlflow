@@ -167,7 +167,7 @@ class Faithfulness(RagasScorer):
     metric_name: ClassVar[str] = "Faithfulness"
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class ResponseRelevancy(RagasScorer):
     """
@@ -197,7 +197,7 @@ class ResponseRelevancy(RagasScorer):
     metric_name: ClassVar[str] = "ResponseRelevancy"
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class SemanticSimilarity(RagasScorer):
     """

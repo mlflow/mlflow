@@ -61,7 +61,7 @@ class AspectCritic(RagasScorer):
     metric_name: ClassVar[str] = "AspectCritic"
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class DiscreteMetric(RagasScorer):
     """
@@ -205,7 +205,7 @@ class SummarizationScore(RagasScorer):
     metric_name: ClassVar[str] = "SummarizationScore"
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class AnswerAccuracy(RagasScorer):
     """
@@ -227,7 +227,7 @@ class AnswerAccuracy(RagasScorer):
     metric_name: ClassVar[str] = "AnswerAccuracy"
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class ContextRelevance(RagasScorer):
     """
@@ -249,7 +249,7 @@ class ContextRelevance(RagasScorer):
     metric_name: ClassVar[str] = "ContextRelevance"
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class ResponseGroundedness(RagasScorer):
     """
