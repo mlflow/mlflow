@@ -123,6 +123,10 @@
     "defaultMessage": "No traces found. Try clearing your active filters to see more traces.",
     "description": "Text displayed when no traces are found in the trace review page"
   },
+  "+pJvL0": {
+    "defaultMessage": "Over time",
+    "description": "Label above the latency chart"
+  },
   "+w9a+1": {
     "defaultMessage": "Open runs in this group in the new tab",
     "description": "Experiment page > grouped runs table > tooltip for a button that opens runs in a group in a new tab"
@@ -423,6 +427,10 @@
     "defaultMessage": "Copy",
     "description": "Button text for copy button"
   },
+  "1JiZwB": {
+    "defaultMessage": "Did the conversation fully address the user's request?",
+    "description": "Hint for ConversationCompleteness template"
+  },
   "1NeHsz": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label for the number of traces selected"
@@ -470,6 +478,10 @@
   "1jPG5D": {
     "defaultMessage": "Creator",
     "description": "Lable name for the creator under details tab on the model view page"
+  },
+  "1l/c+M": {
+    "defaultMessage": "User frustration",
+    "description": "LLM template option"
   },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
@@ -1826,6 +1838,10 @@
     "defaultMessage": "Save",
     "description": "Tag assignment modal > Save button"
   },
+  "C83vFj": {
+    "defaultMessage": "Latency",
+    "description": "Title for the latency chart"
+  },
   "C8Jj/L": {
     "defaultMessage": "Name",
     "description": "Table header for model name"
@@ -2698,6 +2714,10 @@
     "defaultMessage": "Section title loading",
     "description": "Loading skeleton label for overview page section title in Catalog Explorer"
   },
+  "KLTGMn": {
+    "defaultMessage": "Full conversation between a user and an assistant",
+    "description": "Description for conversation variable"
+  },
   "KMVqUP": {
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the registered prompts table"
@@ -3190,6 +3210,10 @@
     "defaultMessage": "Close",
     "description": "Error modal close button text"
   },
+  "OilzZP": {
+    "defaultMessage": "Conversation",
+    "description": "Label for conversation variable option"
+  },
   "OimAJb": {
     "defaultMessage": "Scatter Plot",
     "description": "Tab pane title for scatterplots on the compare runs page"
@@ -3477,6 +3501,10 @@
     "defaultMessage": "Connections",
     "description": "Section title for authentication"
   },
+  "RRvtnM": {
+    "defaultMessage": "Did the conversation avoid causing user frustration?",
+    "description": "Hint for UserFrustration template"
+  },
   "RUju4k": {
     "defaultMessage": "Charts",
     "description": "Tooltip for charts page mode toggle in evaluation runs table controls"
@@ -3544,6 +3572,10 @@
   "RyNXc+": {
     "defaultMessage": "Loading endpoint...",
     "description": "Loading message for endpoint"
+  },
+  "RySezx": {
+    "defaultMessage": "Did the assistant remember context from earlier in the conversation?",
+    "description": "Hint for KnowledgeRetention template"
   },
   "RzZVxC": {
     "defaultMessage": "An error occurred while rendering this component.",
@@ -5795,6 +5827,10 @@
     "defaultMessage": "Gateway returned the following error: \"{errorMessage}\"",
     "description": "Experiment page > gateway error message"
   },
+  "jIrCsp": {
+    "defaultMessage": "Knowledge retention",
+    "description": "LLM template option"
+  },
   "jMUqD1": {
     "defaultMessage": "Safety",
     "description": "Evaluation results > known type of evaluation result assessment > safety assessment. Used to indicate if the result is safe in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Safety: moderate\""
@@ -5898,6 +5934,10 @@
   "kCsAho": {
     "defaultMessage": "Correctness",
     "description": "LLM template option"
+  },
+  "kHDQiE": {
+    "defaultMessage": "Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.",
+    "description": "Placeholder text for session level instructions textarea. {br} is a newline."
   },
   "kHN/4I": {
     "defaultMessage": "Edited {timeSince} by {source}. Original value: {value}",
@@ -6690,6 +6730,10 @@
   "qr7dhT": {
     "defaultMessage": "None",
     "description": "Label for experiments with no automatically inferred experiment type"
+  },
+  "qskex0": {
+    "defaultMessage": "Conversation completeness",
+    "description": "LLM template option"
   },
   "quxZB8": {
     "defaultMessage": "Create version",

@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import type { Control, UseFormSetValue, UseFormGetValues } from 'react-hook-form';
-import { Controller, useWatch } from 'react-hook-form';
+import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import {
   useDesignSystemTheme,
   Typography,
@@ -23,7 +23,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
-import type { SCORER_TYPE } from './constants';
+import { type SCORER_TYPE, ScorerEvaluationScope } from './constants';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
 import { LLM_TEMPLATE } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
@@ -42,6 +42,7 @@ export interface LLMScorerFormData {
   model: string;
   disableMonitoring?: boolean;
   isInstructionsJudge?: boolean;
+  evaluationScope?: ScorerEvaluationScope;
 }
 
 interface LLMScorerFormRendererProps {
@@ -60,8 +61,10 @@ interface LLMTemplateSectionProps {
 
 const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, setValue, currentTemplate }) => {
   const { theme } = useDesignSystemTheme();
+  const { watch } = useFormContext<LLMScorerFormData>();
+  const scope = watch('evaluationScope');
   const intl = useIntl();
-  const { templateOptions, displayMap } = useTemplateOptions();
+  const { templateOptions, displayMap } = useTemplateOptions(scope);
 
   const stopPropagationClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -213,6 +216,8 @@ interface InstructionsSectionProps {
 
 const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control, setValue, getValues }) => {
   const intl = useIntl();
+  const { watch } = useFormContext<LLMScorerFormData>();
+  const scope = watch('evaluationScope');
 
   const stopPropagationClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -225,6 +230,103 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
 
   const isInstructionsJudge = useWatch({ control, name: 'isInstructionsJudge' }) ?? false;
   const isReadOnly = mode === SCORER_FORM_MODE.DISPLAY || !isInstructionsJudge;
+  const isSessionLevelScorer = scope === ScorerEvaluationScope.SESSIONS;
+
+  const traceLevelTemplateVariables = (
+    <>
+      <DropdownMenu.Item
+        componentId={`${COMPONENT_ID_PREFIX}.add-variable-inputs`}
+        onClick={(e) => {
+          e.stopPropagation();
+          appendVariable('{{ inputs }}');
+        }}
+      >
+        <FormattedMessage defaultMessage="Inputs" description="Label for inputs variable option" />
+        <DropdownMenu.HintRow>
+          <FormattedMessage defaultMessage="Input for the trace" description="Description for inputs variable" />
+        </DropdownMenu.HintRow>
+      </DropdownMenu.Item>
+      <DropdownMenu.Item
+        componentId={`${COMPONENT_ID_PREFIX}.add-variable-outputs`}
+        onClick={(e) => {
+          e.stopPropagation();
+          appendVariable('{{ outputs }}');
+        }}
+      >
+        <FormattedMessage defaultMessage="Outputs" description="Label for outputs variable option" />
+        <DropdownMenu.HintRow>
+          <FormattedMessage defaultMessage="Output for the trace" description="Description for outputs variable" />
+        </DropdownMenu.HintRow>
+      </DropdownMenu.Item>
+      <DropdownMenu.Item
+        componentId={`${COMPONENT_ID_PREFIX}.add-variable-expectations`}
+        onClick={(e) => {
+          e.stopPropagation();
+          appendVariable('{{ expectations }}');
+        }}
+      >
+        <FormattedMessage defaultMessage="Expectations" description="Label for expectations variable option" />
+        <DropdownMenu.HintRow>
+          <FormattedMessage
+            defaultMessage="Expectations added for a trace"
+            description="Description for expectations variable"
+          />
+        </DropdownMenu.HintRow>
+      </DropdownMenu.Item>
+      <DropdownMenu.Item
+        componentId={`${COMPONENT_ID_PREFIX}.add-variable-trace`}
+        onClick={(e) => {
+          e.stopPropagation();
+          appendVariable('{{ trace }}');
+        }}
+      >
+        <FormattedMessage defaultMessage="Trace" description="Label for trace variable option" />
+        <DropdownMenu.HintRow>
+          <FormattedMessage
+            defaultMessage="Full trace with an agent using the right part of the trace to use to judge"
+            description="Description for trace variable"
+          />
+        </DropdownMenu.HintRow>
+      </DropdownMenu.Item>
+    </>
+  );
+
+  const sessionLevelTemplateVariables = (
+    <>
+      <DropdownMenu.Item
+        componentId={`${COMPONENT_ID_PREFIX}.add-variable-conversation`}
+        onClick={(e) => {
+          e.stopPropagation();
+          appendVariable('{{ conversation }}');
+        }}
+      >
+        <FormattedMessage defaultMessage="Conversation" description="Label for conversation variable option" />
+        <DropdownMenu.HintRow>
+          <FormattedMessage
+            defaultMessage="Full conversation between a user and an assistant"
+            description="Description for conversation variable"
+          />
+        </DropdownMenu.HintRow>
+      </DropdownMenu.Item>
+      <DropdownMenu.Item
+        componentId={`${COMPONENT_ID_PREFIX}.add-variable-expectations`}
+        onClick={(e) => {
+          e.stopPropagation();
+          appendVariable('{{ expectations }}');
+        }}
+      >
+        <FormattedMessage defaultMessage="Expectations" description="Label for expectations variable option" />
+        <DropdownMenu.HintRow>
+          <FormattedMessage
+            defaultMessage="Expectations added for a trace"
+            description="Description for expectations variable"
+          />
+        </DropdownMenu.HintRow>
+      </DropdownMenu.Item>
+    </>
+  );
+
+  const templateVariables = isSessionLevelScorer ? sessionLevelTemplateVariables : traceLevelTemplateVariables;
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
@@ -245,68 +347,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
                 <FormattedMessage defaultMessage="Add variable" description="Button text for adding variables" />
               </Button>
             </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="end">
-              <DropdownMenu.Item
-                componentId={`${COMPONENT_ID_PREFIX}.add-variable-inputs`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  appendVariable('{{ inputs }}');
-                }}
-              >
-                <FormattedMessage defaultMessage="Inputs" description="Label for inputs variable option" />
-                <DropdownMenu.HintRow>
-                  <FormattedMessage
-                    defaultMessage="Input for the trace"
-                    description="Description for inputs variable"
-                  />
-                </DropdownMenu.HintRow>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                componentId={`${COMPONENT_ID_PREFIX}.add-variable-outputs`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  appendVariable('{{ outputs }}');
-                }}
-              >
-                <FormattedMessage defaultMessage="Outputs" description="Label for outputs variable option" />
-                <DropdownMenu.HintRow>
-                  <FormattedMessage
-                    defaultMessage="Output for the trace"
-                    description="Description for outputs variable"
-                  />
-                </DropdownMenu.HintRow>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                componentId={`${COMPONENT_ID_PREFIX}.add-variable-expectations`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  appendVariable('{{ expectations }}');
-                }}
-              >
-                <FormattedMessage defaultMessage="Expectations" description="Label for expectations variable option" />
-                <DropdownMenu.HintRow>
-                  <FormattedMessage
-                    defaultMessage="Expectations added for a trace"
-                    description="Description for expectations variable"
-                  />
-                </DropdownMenu.HintRow>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                componentId={`${COMPONENT_ID_PREFIX}.add-variable-trace`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  appendVariable('{{ trace }}');
-                }}
-              >
-                <FormattedMessage defaultMessage="Trace" description="Label for trace variable option" />
-                <DropdownMenu.HintRow>
-                  <FormattedMessage
-                    defaultMessage="Full trace with an agent using the right part of the trace to use to judge"
-                    description="Description for trace variable"
-                  />
-                </DropdownMenu.HintRow>
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
+            <DropdownMenu.Content align="end">{templateVariables}</DropdownMenu.Content>
           </DropdownMenu.Root>
         </div>
         <FormUI.Hint>
@@ -331,7 +372,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
           control={control}
           rules={{
             required: isInstructionsJudge,
-            validate: (value) => (isInstructionsJudge ? validateInstructions(value) : true),
+            validate: (value) => (isInstructionsJudge ? validateInstructions(value, scope) : true),
           }}
           render={({ field, fieldState }) => {
             const textArea = (
@@ -341,11 +382,23 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
                 id="mlflow-experiment-scorers-instructions"
                 readOnly={isReadOnly}
                 rows={7}
-                placeholder={intl.formatMessage({
-                  defaultMessage:
-                    "Evaluate if the response in '{{ outputs }}' correctly answers the question in '{{ inputs }}'. The response should be accurate, complete, and professional.",
-                  description: 'Example placeholder text for instructions textarea',
-                })}
+                placeholder={
+                  isSessionLevelScorer
+                    ? intl.formatMessage(
+                        {
+                          defaultMessage: `Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.`,
+                          description: 'Placeholder text for session level instructions textarea. {br} is a newline.',
+                        },
+                        {
+                          br: '\n',
+                        },
+                      )
+                    : intl.formatMessage({
+                        defaultMessage:
+                          "Evaluate if the response in '{{ outputs }}' correctly answers the question in '{{ inputs }}'. The response should be accurate, complete, and professional.",
+                        description: 'Example placeholder text for instructions textarea',
+                      })
+                }
                 css={{ resize: 'vertical', cursor: isReadOnly ? 'auto' : 'text' }}
                 onClick={stopPropagationClick}
               />

@@ -57,6 +57,39 @@ jest.mock('./telemetry/TelemetryClient', () => ({
   },
 }));
 
+// Mock recharts components to avoid rendering issues in tests
+jest.mock('recharts', () => ({
+  ResponsiveContainer: ({ children }) => <div data-testid="responsive-container">{children}</div>,
+  LineChart: ({ children, data }) => (
+    <div data-testid="line-chart" data-count={data?.length || 0}>
+      {children}
+    </div>
+  ),
+  BarChart: ({ children, data }) => (
+    <div data-testid="bar-chart" data-count={data?.length || 0}>
+      {children}
+    </div>
+  ),
+  ComposedChart: ({ children, data }) => (
+    <div data-testid="composed-chart" data-count={data?.length || 0}>
+      {children}
+    </div>
+  ),
+  AreaChart: ({ children, data }) => (
+    <div data-testid="area-chart" data-count={data?.length || 0}>
+      {children}
+    </div>
+  ),
+  Line: ({ name }) => <div data-testid={name ? `line-${name}` : 'line'} />,
+  Bar: ({ name }) => <div data-testid={name ? `bar-${name}` : 'bar'} />,
+  Area: ({ name }) => <div data-testid={name ? `area-${name}` : 'area'} />,
+  XAxis: () => <div data-testid="x-axis" />,
+  YAxis: () => <div data-testid="y-axis" />,
+  Tooltip: () => <div data-testid="tooltip" />,
+  Legend: () => <div data-testid="legend" />,
+  ReferenceLine: ({ label }) => <div data-testid="reference-line" data-label={label?.value} />,
+}));
+
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: jest.fn((query) => ({
