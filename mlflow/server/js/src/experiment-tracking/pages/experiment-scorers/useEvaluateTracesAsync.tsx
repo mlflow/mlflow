@@ -164,7 +164,6 @@ export const useEvaluateTracesAsync = ({ onScorerFinished }: { onScorerFinished?
       }
     }
 
-    // if (params.evaluationScope === ScorerEvaluationScope.SESSIONS) {
     if (sessionsData) {
       return sessionsData.map<SessionJudgeEvaluationResult>((session) => {
         const sessionResults: { assessments: FeedbackAssessment[]; errors: string[] } = { assessments: [], errors: [] };
