@@ -180,7 +180,7 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
 
       {/* Chart */}
       <div css={{ height: 200, marginTop: theme.spacing.sm }}>
-        {chartData.length > 0 ? (
+        {totalDataPoints.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <XAxis

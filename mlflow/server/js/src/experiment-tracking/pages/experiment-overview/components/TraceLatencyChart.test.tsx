@@ -123,14 +123,13 @@ describe('TraceLatencyChart', () => {
   });
 
   describe('empty data state', () => {
-    it('should render chart with zeros when no data points are returned', async () => {
+    it('should render empty state when no data points are returned', async () => {
       mockApiResponses([], []);
 
       renderComponent();
 
-      // Chart should still render with all time buckets (filled with zeros)
       await waitFor(() => {
-        expect(screen.getByTestId('line-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();
       });
     });
 

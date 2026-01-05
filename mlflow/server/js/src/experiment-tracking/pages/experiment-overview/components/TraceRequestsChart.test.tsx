@@ -93,18 +93,14 @@ describe('TraceRequestsChart', () => {
   });
 
   describe('empty data state', () => {
-    it('should render chart with zeros when no data points are returned', async () => {
+    it('should render empty state when no data points are returned', async () => {
       mockApiResponse([]);
 
       renderComponent();
 
-      // Chart should still render with all time buckets (filled with zeros)
       await waitFor(() => {
-        expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();
       });
-
-      // Total should be 0
-      expect(screen.getByText('0')).toBeInTheDocument();
     });
 
     it('should render empty state when time range is not provided', async () => {
