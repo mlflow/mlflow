@@ -306,8 +306,7 @@ class GatewayStoreMixin:
     def attach_model_to_endpoint(
         self,
         endpoint_id: str,
-        model_definition_id: str,
-        weight: float = 1.0,
+        model_config: GatewayEndpointModelConfig,
         created_by: str | None = None,
     ) -> GatewayEndpointModelMapping:
         """
@@ -315,8 +314,7 @@ class GatewayStoreMixin:
 
         Args:
             endpoint_id: ID of the endpoint to attach the model to.
-            model_definition_id: ID of the model definition to attach.
-            weight: Routing weight for traffic distribution (default 1.0).
+            model_config: Configuration for the model including ID, linkage type, weight, and fallback order.
             created_by: Username of the creator.
 
         Returns:

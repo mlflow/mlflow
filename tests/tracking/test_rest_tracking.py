@@ -4608,7 +4608,11 @@ def test_attach_detach_model_to_endpoint(mlflow_client_with_secrets):
 
     mapping = store.attach_model_to_endpoint(
         endpoint_id=endpoint.endpoint_id,
-        model_definition_id=model_def2.model_definition_id,
+        model_config=GatewayEndpointModelConfig(
+            model_definition_id=model_def2.model_definition_id,
+            linkage_type=GatewayModelLinkageType.PRIMARY,
+            weight=1.0,
+        ),
     )
 
     assert mapping.endpoint_id == endpoint.endpoint_id
@@ -4760,7 +4764,11 @@ def test_secrets_and_endpoints_integration(mlflow_client_with_secrets):
 
     mapping = store.attach_model_to_endpoint(
         endpoint_id=endpoint.endpoint_id,
-        model_definition_id=model_def2.model_definition_id,
+        model_config=GatewayEndpointModelConfig(
+            model_definition_id=model_def2.model_definition_id,
+            linkage_type=GatewayModelLinkageType.PRIMARY,
+            weight=1.0,
+        ),
     )
 
     binding = store.create_endpoint_binding(

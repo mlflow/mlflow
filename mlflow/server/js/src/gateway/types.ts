@@ -166,6 +166,12 @@ export interface UpdateEndpointRequest {
   endpoint_id: string;
   name?: string;
   updated_by?: string;
+  routing_strategy?: string;
+  fallback_config?: {
+    strategy: string;
+    max_attempts: number;
+  };
+  model_configs?: GatewayEndpointModelConfig[];
 }
 
 export interface UpdateEndpointResponse {
@@ -213,8 +219,7 @@ export interface UpdateModelDefinitionResponse {
 // Attach/Detach Model to Endpoint
 export interface AttachModelToEndpointRequest {
   endpoint_id: string;
-  model_definition_id: string;
-  weight?: number;
+  model_config: GatewayEndpointModelConfig;
   created_by?: string;
 }
 

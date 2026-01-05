@@ -3381,13 +3381,24 @@ def test_attach_model_to_gateway_endpoint():
     with mock_http_request() as mock_http:
         store.attach_model_to_endpoint(
             endpoint_id="endpoint-123",
-            model_definition_id="model-def-456",
+            model_config=GatewayEndpointModelConfig(
+                model_definition_id="model-def-456",
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
         )
+        from mlflow.protos.service_pb2 import (
+            GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
+        )
+
         body = message_to_json(
             AttachModelToGatewayEndpoint(
                 endpoint_id="endpoint-123",
-                model_definition_id="model-def-456",
-                weight=1,
+                model_config=ProtoGatewayEndpointModelConfig(
+                    model_definition_id="model-def-456",
+                    linkage_type=GatewayModelLinkageType.PRIMARY.to_proto(),
+                    weight=1.0,
+                ),
             )
         )
         _verify_requests(

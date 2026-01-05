@@ -2141,21 +2141,19 @@ class ListGatewayEndpoints(_message.Message):
     def __init__(self, provider: _Optional[str] = ..., secret_id: _Optional[str] = ...) -> None: ...
 
 class AttachModelToGatewayEndpoint(_message.Message):
-    __slots__ = ("endpoint_id", "model_definition_id", "weight", "created_by")
+    __slots__ = ("endpoint_id", "model_config", "created_by")
     class Response(_message.Message):
         __slots__ = ("mapping",)
         MAPPING_FIELD_NUMBER: _ClassVar[int]
         mapping: GatewayEndpointModelMapping
         def __init__(self, mapping: _Optional[_Union[GatewayEndpointModelMapping, _Mapping]] = ...) -> None: ...
     ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
-    MODEL_DEFINITION_ID_FIELD_NUMBER: _ClassVar[int]
-    WEIGHT_FIELD_NUMBER: _ClassVar[int]
+    MODEL_CONFIG_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     endpoint_id: str
-    model_definition_id: str
-    weight: float
+    model_config: GatewayEndpointModelConfig
     created_by: str
-    def __init__(self, endpoint_id: _Optional[str] = ..., model_definition_id: _Optional[str] = ..., weight: _Optional[float] = ..., created_by: _Optional[str] = ...) -> None: ...
+    def __init__(self, endpoint_id: _Optional[str] = ..., model_config: _Optional[_Union[GatewayEndpointModelConfig, _Mapping]] = ..., created_by: _Optional[str] = ...) -> None: ...
 
 class DetachModelFromGatewayEndpoint(_message.Message):
     __slots__ = ("endpoint_id", "model_definition_id")

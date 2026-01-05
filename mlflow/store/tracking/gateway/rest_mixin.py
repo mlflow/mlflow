@@ -437,8 +437,7 @@ class RestGatewayStoreMixin:
     def attach_model_to_endpoint(
         self,
         endpoint_id: str,
-        model_definition_id: str,
-        weight: float = 1.0,
+        model_config: GatewayEndpointModelConfig,
         created_by: str | None = None,
     ) -> GatewayEndpointModelMapping:
         """
@@ -446,8 +445,7 @@ class RestGatewayStoreMixin:
 
         Args:
             endpoint_id: The unique identifier of the endpoint.
-            model_definition_id: The unique identifier of the model definition.
-            weight: Optional routing weight (default 1).
+            model_config: Configuration for the model including ID, linkage type, weight, and fallback order.
             created_by: Optional identifier of the user creating the mapping.
 
         Returns:
@@ -456,8 +454,7 @@ class RestGatewayStoreMixin:
         req_body = message_to_json(
             AttachModelToGatewayEndpoint(
                 endpoint_id=endpoint_id,
-                model_definition_id=model_definition_id,
-                weight=weight,
+                model_config=model_config.to_proto(),
                 created_by=created_by,
             )
         )

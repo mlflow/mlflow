@@ -4203,7 +4203,7 @@ message GatewayEndpointModelMapping {
   optional int64 created_at = 6;
   // User ID who created the mapping
   optional string created_by = 7;
-  // Type of linkage (PRIMARY, FALLBACK)
+  // Type of linkage
   optional GatewayModelLinkageType linkage_type = 8;
   // Order for fallback attempts (only for FALLBACK linkages, NULL for PRIMARY)
   optional int32 fallback_order = 9;
@@ -4443,9 +4443,9 @@ message FallbackConfig {
 message GatewayEndpointModelConfig {
   // ID of the model definition
   optional string model_definition_id = 1;
-  // Type of linkage (PRIMARY, FALLBACK)
+  // Type of linkage
   optional GatewayModelLinkageType linkage_type = 2;
-  // Routing weight for traffic distribution (default 1.0)
+  // Routing weight for traffic distribution
   optional float weight = 3;
   // Order for fallback attempts (only for FALLBACK linkages, NULL for PRIMARY)
   optional int32 fallback_order = 4;
@@ -4454,7 +4454,7 @@ message GatewayEndpointModelConfig {
 message CreateGatewayEndpoint {
   // Optional user-friendly name for the endpoint
   optional string name = 1;
-  // List of model configurations including model_definition_id, weight, linkage_type, and fallback_order
+  // List of model configurations
   repeated GatewayEndpointModelConfig model_configs = 2;
   // Username of the creator
   optional string created_by = 3;
@@ -4524,12 +4524,10 @@ message ListGatewayEndpoints {
 message AttachModelToGatewayEndpoint {
   // ID of the endpoint to attach the model to
   optional string endpoint_id = 1;
-  // ID of the model definition to attach
-  optional string model_definition_id = 2;
-  // Optional routing weight (default 1)
-  optional float weight = 3;
+  // Configuration for the model to attach
+  optional GatewayEndpointModelConfig model_config = 2;
   // Username of the creator
-  optional string created_by = 4;
+  optional string created_by = 3;
 
   message Response {
     // The created mapping

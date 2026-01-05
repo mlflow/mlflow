@@ -4302,14 +4302,16 @@ def _attach_model_to_gateway_endpoint():
         AttachModelToGatewayEndpoint(),
         schema={
             "endpoint_id": [_assert_required, _assert_string],
-            "model_definition_id": [_assert_required, _assert_string],
+            "model_config": [_assert_required],
             "created_by": [_assert_string],
         },
     )
+
+    model_config = GatewayEndpointModelConfig.from_proto(request_message.model_config)
+
     mapping = _get_tracking_store().attach_model_to_endpoint(
         endpoint_id=request_message.endpoint_id,
-        model_definition_id=request_message.model_definition_id,
-        weight=request_message.weight or 1,
+        model_config=model_config,
         created_by=request_message.created_by or None,
     )
     response_message = AttachModelToGatewayEndpoint.Response()

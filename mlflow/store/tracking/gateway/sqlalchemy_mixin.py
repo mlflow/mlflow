@@ -19,6 +19,7 @@ from mlflow.entities import (
     GatewaySecretInfo,
     RoutingStrategy,
 )
+from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -517,9 +518,8 @@ class SqlAlchemyGatewayStoreMixin:
 
         Args:
             name: User-friendly name for the endpoint.
-            model_configs: List of model configurations specifying model_definition_id,
-                          linkage_type, weight, and fallback_order for each model.
-                          At least one model configuration is required.
+            model_configs: List of model configurations for each model.
+                          At least one model configuration with PRIMARY linkage type is required.
             created_by: Username of the creator.
             routing_strategy: Routing strategy for the endpoint.
             fallback_config: Fallback configuration (includes strategy and max_attempts).
@@ -560,7 +560,7 @@ class SqlAlchemyGatewayStoreMixin:
             fallback_model_def_ids = [
                 config.model_definition_id
                 for config in model_configs
-                if config.linkage_type.value == "FALLBACK"
+                if config.linkage_type == GatewayModelLinkageType.FALLBACK
             ]
             fallback_config_json = None
             if fallback_config or fallback_model_def_ids:
@@ -707,7 +707,7 @@ class SqlAlchemyGatewayStoreMixin:
                 fallback_model_def_ids = [
                     config.model_definition_id
                     for config in model_configs
-                    if config.linkage_type.value == "FALLBACK"
+                    if config.linkage_type == GatewayModelLinkageType.FALLBACK
                 ]
                 sql_endpoint.fallback_config_json = json.dumps(
                     {
@@ -800,9 +800,7 @@ class SqlAlchemyGatewayStoreMixin:
     def attach_model_to_endpoint(
         self,
         endpoint_id: str,
-        model_definition_id: str,
-        weight: float = 1.0,
-        linkage_type: str = "PRIMARY",
+        model_config: GatewayEndpointModelConfig,
         created_by: str | None = None,
     ) -> GatewayEndpointModelMapping:
         """
@@ -810,9 +808,7 @@ class SqlAlchemyGatewayStoreMixin:
 
         Args:
             endpoint_id: ID of the endpoint to attach the model to.
-            model_definition_id: ID of the model definition to attach.
-            weight: Routing weight for traffic distribution (default 1.0).
-            linkage_type: Type of linkage - "PRIMARY" or "FALLBACK" (default "PRIMARY").
+            model_config: Configuration for the model including ID, linkage type, weight, and fallback order.
             created_by: Username of the creator.
 
         Returns:
@@ -830,7 +826,7 @@ class SqlAlchemyGatewayStoreMixin:
             self._get_entity_or_raise(
                 session,
                 SqlGatewayModelDefinition,
-                {"model_definition_id": model_definition_id},
+                {"model_definition_id": model_config.model_definition_id},
                 "GatewayModelDefinition",
             )
 
@@ -840,9 +836,10 @@ class SqlAlchemyGatewayStoreMixin:
             sql_mapping = SqlGatewayEndpointModelMapping(
                 mapping_id=mapping_id,
                 endpoint_id=endpoint_id,
-                model_definition_id=model_definition_id,
-                weight=weight,
-                linkage_type=linkage_type,
+                model_definition_id=model_config.model_definition_id,
+                weight=model_config.weight,
+                linkage_type=model_config.linkage_type.value,
+                fallback_order=model_config.fallback_order,
                 created_at=current_time,
                 created_by=created_by,
             )
@@ -856,7 +853,7 @@ class SqlAlchemyGatewayStoreMixin:
                 session.flush()
             except IntegrityError as e:
                 raise MlflowException(
-                    f"Model definition '{model_definition_id}' is already attached to "
+                    f"Model definition '{model_config.model_definition_id}' is already attached to "
                     f"endpoint '{endpoint_id}'",
                     error_code=RESOURCE_ALREADY_EXISTS,
                 ) from e

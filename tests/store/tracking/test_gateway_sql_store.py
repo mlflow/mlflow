@@ -846,8 +846,11 @@ def test_attach_model_to_gateway_endpoint(store: SqlAlchemyStore):
 
     mapping = store.attach_model_to_endpoint(
         endpoint_id=endpoint.endpoint_id,
-        model_definition_id=model_def2.model_definition_id,
-        weight=2.0,
+        model_config=GatewayEndpointModelConfig(
+            model_definition_id=model_def2.model_definition_id,
+            linkage_type=GatewayModelLinkageType.PRIMARY,
+            weight=2.0,
+        ),
         created_by="attacher",
     )
 
@@ -882,7 +885,11 @@ def test_attach_duplicate_model_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="already attached") as exc:
         store.attach_model_to_endpoint(
             endpoint_id=endpoint.endpoint_id,
-            model_definition_id=model_def.model_definition_id,
+            model_config=GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
         )
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
 
