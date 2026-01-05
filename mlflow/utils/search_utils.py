@@ -1880,7 +1880,7 @@ class SearchTraceUtils(SearchUtils):
           - String "yes" -> '"yes"' (WITH quotes in JSON)
 
         For equality comparisons, we match either the raw JSON primitive value
-        (for booleans and numeric values) or the quoted value (for strings).
+        (for booleans and numeric values) or the JSON-serialized value (for strings).
         """
         import sqlalchemy as sa
 
@@ -1889,22 +1889,18 @@ class SearchTraceUtils(SearchUtils):
         ) -> "ClauseElement":
             # MySQL is case insensitive by default, so we need to use the BINARY operator
             # for case sensitive comparisons. We check both the raw value (for booleans/numbers)
-            # and the quoted value (for strings).
-            quoted_value = f'"{value}"'
+            # and the JSON-serialized value (for strings).
+            json_string_value = json.dumps(value)
             col_ref = f"{column.class_.__tablename__}.{column.key}"
-            if comparator == "=":
-                template = (
-                    f"(({col_ref} = :value1 AND BINARY {col_ref} = :value1) OR "
-                    f"({col_ref} = :value2 AND BINARY {col_ref} = :value2))"
-                )
-            else:  # !=
-                template = (
-                    f"(({col_ref} != :value1 OR BINARY {col_ref} != :value1) AND "
-                    f"({col_ref} != :value2 OR BINARY {col_ref} != :value2))"
-                )
+            template = (
+                f"(({col_ref} = :value1 AND BINARY {col_ref} = :value1) OR "
+                f"({col_ref} = :value2 AND BINARY {col_ref} = :value2))"
+            )
+            if comparator == "!=":
+                template = f"NOT {template}"
             return sa.text(template).bindparams(
                 sa.bindparam("value1", value=value, unique=True),
-                sa.bindparam("value2", value=quoted_value, unique=True),
+                sa.bindparam("value2", value=json_string_value, unique=True),
             )
 
         def json_equality_inequality_comparison(
@@ -1914,11 +1910,11 @@ class SearchTraceUtils(SearchUtils):
             if dialect == MSSQL:
                 column = column.collate(_MSSQL_CASE_SENSITIVE_COLLATION)
 
-            quoted_value = f'"{value}"'
-            if comparator == "=":
-                return sa.or_(column == value, column == quoted_value)
-            else:  # !=
-                return sa.and_(column != value, column != quoted_value)
+            json_string_value = json.dumps(value)
+            clause = sa.or_(column == value, column == json_string_value)
+            if comparator == "!=":
+                clause = sa.not_(clause)
+            return clause
 
         if comparator not in ("=", "!="):
             return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)
