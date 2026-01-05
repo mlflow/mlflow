@@ -275,20 +275,20 @@ all_records = dataset.records
 df = dataset.to_df()
 print(df.head())
 
-# Serialize to dictionary (e.g., for JSON export)
+# Serialize to a dictionary (e.g., for JSON export)
 dataset_dict = dataset.to_dict()
 
-# View dataset schema (auto-computed from records)
+# View dataset schema (inferred from the records)
 print(dataset.schema)
 
 # View dataset profile (statistics)
 print(dataset.profile)
 
 # Get record count
-print(f"Total records: {len(dataset.records)}")
+print(f"Total number of records: {len(dataset.records)}")
 ```
 
-To reconstruct a dataset from a serialized dictionary:
+To recreate a dataset from a serialized dictionary:
 
 ```python
 from mlflow.genai.datasets import EvaluationDataset
