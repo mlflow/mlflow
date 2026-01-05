@@ -10904,7 +10904,7 @@ def test_update_online_scoring_config_rejects_filter_for_session_scorer(store: S
 
     # Session-level scorer with filter should raise
     with pytest.raises(
-        MlflowException, match="session-level scorer.*filter_string is not supported"
+        MlflowException, match="Cannot apply filter.*evaluates entire conversation sessions"
     ):
         store.update_online_scoring_config(
             experiment_id=experiment_id,
