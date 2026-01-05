@@ -37,7 +37,12 @@ export const useCreateScheduledScorerMutation = () => {
       // Also update the online scoring config (sample_rate, filter_string)
       // Convert from percentage (0-100) to decimal (0-1) for the API
       const sampleRateDecimal = (scheduledScorer.sampleRate ?? 0) / 100;
-      await updateOnlineScoringConfig(experimentId, scheduledScorer.name, sampleRateDecimal, scheduledScorer.filterString);
+      await updateOnlineScoringConfig(
+        experimentId,
+        scheduledScorer.name,
+        sampleRateDecimal,
+        scheduledScorer.filterString,
+      );
 
       // Convert the register response to ScorerConfig and add online config fields
       const createdScorerConfig = convertRegisterScorerResponseToConfig(registerResponse);
