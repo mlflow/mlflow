@@ -87,25 +87,7 @@ class OnlineSessionScoringProcessor:
             f"{time_window.max_last_trace_timestamp_ms}]"
         )
 
-        completed_sessions = self._tracking_store.find_completed_sessions(
-            experiment_id=self._experiment_id,
-            min_last_trace_timestamp_ms=time_window.min_last_trace_timestamp_ms,
-            max_last_trace_timestamp_ms=time_window.max_last_trace_timestamp_ms,
-            max_results=MAX_SESSIONS_PER_JOB,
-        )
-
-        # Filter out sessions at checkpoint boundary that have already been processed.
-        # Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC), so we filter
-        # out any sessions with the checkpoint timestamp and session_id <= checkpoint.session_id.
-        if checkpoint is not None and checkpoint.session_id is not None:
-            completed_sessions = [
-                s
-                for s in completed_sessions
-                if not (
-                    s.last_trace_timestamp_ms == checkpoint.timestamp_ms
-                    and s.session_id <= checkpoint.session_id
-                )
-            ]
+        completed_sessions = self._fetch_and_filter_completed_sessions(time_window, checkpoint)
 
         if not completed_sessions:
             _logger.info("No completed sessions found, skipping")
@@ -130,6 +112,44 @@ class OnlineSessionScoringProcessor:
         self._checkpoint_manager.persist_checkpoint(checkpoint)
 
         _logger.info(f"Online session scoring completed for experiment {self._experiment_id}")
+
+    def _fetch_and_filter_completed_sessions(
+        self, time_window, checkpoint
+    ) -> list[CompletedSession]:
+        """
+        Fetch completed sessions in the time window and filter out already-processed sessions.
+
+        Sessions at the checkpoint boundary are filtered based on session_id to avoid
+        reprocessing sessions that were already scored in a previous run.
+
+        Args:
+            time_window: Time window with min/max last trace timestamps
+            checkpoint: Current checkpoint with timestamp and session_id
+
+        Returns:
+            List of completed sessions to process, filtered by checkpoint boundary
+        """
+        completed_sessions = self._tracking_store.find_completed_sessions(
+            experiment_id=self._experiment_id,
+            min_last_trace_timestamp_ms=time_window.min_last_trace_timestamp_ms,
+            max_last_trace_timestamp_ms=time_window.max_last_trace_timestamp_ms,
+            max_results=MAX_SESSIONS_PER_JOB,
+        )
+
+        # Filter out sessions at checkpoint boundary that have already been processed.
+        # Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC), so we filter
+        # out any sessions with the checkpoint timestamp and session_id <= checkpoint.session_id.
+        if checkpoint is not None and checkpoint.session_id is not None:
+            completed_sessions = [
+                s
+                for s in completed_sessions
+                if not (
+                    s.last_trace_timestamp_ms == checkpoint.timestamp_ms
+                    and s.session_id <= checkpoint.session_id
+                )
+            ]
+
+        return completed_sessions
 
     def _clean_up_old_assessments(
         self, trace, session_id: str, new_assessments: list[Assessment]
