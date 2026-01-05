@@ -3211,13 +3211,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         self,
         session: Session,
         experiment_id: str,
-        candidate_sessions: Subquery,
-        filtered_sessions: Subquery | None,
+        sessions: Subquery,
     ) -> Subquery:
         """
-        Build subquery aggregating first/last trace timestamps for candidate sessions.
-
-        If filtered_sessions provided, only includes sessions that passed the filter.
+        Build subquery aggregating first/last trace timestamps for sessions.
         """
         session_metadata = aliased(SqlTraceMetadata)
         stats_query = (
@@ -3232,17 +3229,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 & (session_metadata.key == TraceMetadataKey.TRACE_SESSION),
             )
             .join(
-                candidate_sessions,
-                session_metadata.value == candidate_sessions.c.session_id,
+                sessions,
+                session_metadata.value == sessions.c.session_id,
             )
         )
-
-        # If filter was provided, only include sessions where first trace matched
-        if filtered_sessions is not None:
-            stats_query = stats_query.join(
-                filtered_sessions,
-                session_metadata.value == filtered_sessions.c.session_id,
-            )
 
         return (
             stats_query.filter(SqlTraceInfo.experiment_id == experiment_id)
@@ -3367,8 +3357,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             sessions_with_stats = self._build_session_stats_subquery(
                 session=session,
                 experiment_id=experiment_id,
-                candidate_sessions=candidate_sessions,
-                filtered_sessions=filtered_sessions,
+                sessions=(
+                    filtered_sessions if filtered_sessions is not None else candidate_sessions
+                ),
             )
 
             sessions_with_recent_traces = self._build_sessions_with_recent_traces_subquery(
