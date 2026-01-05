@@ -103,7 +103,7 @@ describe('useGetScheduledScorers', () => {
             guidelines: ['Test guideline 1', 'Test guideline 2'],
             sampleRate: undefined, // Not included in MLflowScorer
             version: 1,
-            disableMonitoring: true,
+            disableMonitoring: false,
             is_instructions_judge: false,
             model: undefined,
           },
@@ -115,7 +115,7 @@ describe('useGetScheduledScorers', () => {
             originalFuncName: 'my_scorer',
             sampleRate: undefined,
             version: 1,
-            disableMonitoring: true,
+            disableMonitoring: false,
           },
         ],
       });
