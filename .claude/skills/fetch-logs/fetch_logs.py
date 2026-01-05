@@ -9,7 +9,6 @@ Usage:
     uv run fetch_logs.py fetch-logs <job_url> [job_url ...]
 """
 # /// script
-# requires-python = ">=3.10"
 # dependencies = [
 #     "aiohttp",
 # ]
