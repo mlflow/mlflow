@@ -23,7 +23,12 @@ from mlflow.genai.evaluation.session_utils import (
     get_first_trace_in_session,
 )
 from mlflow.genai.scorers.base import Scorer
-from mlflow.genai.scorers.online import OnlineScorer
+from mlflow.genai.scorers.online import (
+    OnlineScorer,
+    OnlineSessionScoringProcessor,
+    OnlineTraceScoringProcessor,
+)
+from mlflow.server.handlers import _get_tracking_store
 from mlflow.server.jobs import job
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.constant import TraceMetadataKey
@@ -73,9 +78,6 @@ def run_online_trace_scorer_job(
         experiment_id: The experiment ID to fetch traces from.
         online_scorers: List of OnlineScorer dicts specifying which scorers to run.
     """
-    from mlflow.genai.scorers.online import OnlineTraceScoringProcessor
-    from mlflow.server.handlers import _get_tracking_store
-
     scorer_objects = [OnlineScorer(**scorer_dict) for scorer_dict in online_scorers]
 
     tracking_store = _get_tracking_store()
@@ -102,9 +104,6 @@ def run_online_session_scorer_job(
         experiment_id: The experiment ID to fetch sessions from.
         online_scorers: List of OnlineScorer dicts specifying which scorers to run.
     """
-    from mlflow.genai.scorers.online import OnlineSessionScoringProcessor
-    from mlflow.server.handlers import _get_tracking_store
-
     scorer_objects = [OnlineScorer(**scorer_dict) for scorer_dict in online_scorers]
 
     tracking_store = _get_tracking_store()
@@ -134,8 +133,6 @@ def invoke_scorer_job(
     Returns:
         Dict mapping trace_id to TraceResult (assessments and failures).
     """
-    from mlflow.server.handlers import _get_tracking_store
-
     # Deserialize scorer
     scorer_dict = json.loads(serialized_scorer)
     scorer = Scorer.model_validate(scorer_dict)
@@ -401,8 +398,6 @@ def run_online_scoring_scheduler() -> None:
 
     Groups are shuffled to prevent starvation when there are limited job runners available.
     """
-    from mlflow.server.handlers import _get_tracking_store
-
     tracking_store = _get_tracking_store()
     online_scorers = tracking_store.get_active_online_scorers()
     _logger.info(f"Online scoring scheduler found {len(online_scorers)} active scorers")

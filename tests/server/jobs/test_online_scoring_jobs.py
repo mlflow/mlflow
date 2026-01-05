@@ -28,7 +28,7 @@ def test_run_online_trace_scorer_job_calls_processor():
     mock_tracking_store = MagicMock()
 
     with (
-        patch("mlflow.server.handlers._get_tracking_store", return_value=mock_tracking_store),
+        patch("mlflow.genai.scorers.job._get_tracking_store", return_value=mock_tracking_store),
         patch(
             "mlflow.genai.scorers.online.trace_processor.OnlineTraceScoringProcessor.create",
             return_value=mock_processor,
@@ -52,7 +52,7 @@ def test_run_online_session_scorer_job_calls_processor():
     mock_tracking_store = MagicMock()
 
     with (
-        patch("mlflow.server.handlers._get_tracking_store", return_value=mock_tracking_store),
+        patch("mlflow.genai.scorers.job._get_tracking_store", return_value=mock_tracking_store),
         patch(
             "mlflow.genai.scorers.online.session_processor.OnlineSessionScoringProcessor.create",
             return_value=mock_processor,
@@ -93,7 +93,7 @@ def test_scheduler_submits_jobs_via_submit_job():
     mock_tracking_store.get_active_online_scorers.return_value = [mock_scorer1, mock_scorer2]
 
     with (
-        patch("mlflow.server.handlers._get_tracking_store", return_value=mock_tracking_store),
+        patch("mlflow.genai.scorers.job._get_tracking_store", return_value=mock_tracking_store),
         patch("mlflow.server.jobs.submit_job") as mock_submit_job,
     ):
         run_online_scoring_scheduler()
