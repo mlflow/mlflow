@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useDesignSystemTheme } from '@databricks/design-system';
+import { useDesignSystemTheme, LightningIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import {
@@ -9,16 +9,15 @@ import {
   TIME_BUCKET_DIMENSION_KEY,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
-import { ChartLoadingState, ChartErrorState, ChartEmptyState, ChartHeader, OverTimeLabel } from './ChartCardWrapper';
+import {
+  OverviewChartLoadingState,
+  OverviewChartErrorState,
+  OverviewChartEmptyState,
+  OverviewChartHeader,
+  OverviewChartTimeLabel,
+} from './OverviewChartComponents';
 import { formatTimestampForTraceMetrics, generateTimeBuckets } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
-
-// Icon component for token usage (lightning bolt style)
-const TokenIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-    <path d="M8.5 1L3 9h4.5v6L13 7H8.5V1z" />
-  </svg>
-);
 
 /**
  * Format token count in human-readable format (K, M)
@@ -168,11 +167,11 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = ({
   };
 
   if (isLoading) {
-    return <ChartLoadingState />;
+    return <OverviewChartLoadingState />;
   }
 
   if (error) {
-    return <ChartErrorState />;
+    return <OverviewChartErrorState />;
   }
 
   return (
@@ -184,14 +183,14 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = ({
         backgroundColor: theme.colors.backgroundPrimary,
       }}
     >
-      <ChartHeader
-        icon={<TokenIcon />}
+      <OverviewChartHeader
+        icon={<LightningIcon />}
         title={<FormattedMessage defaultMessage="Token Usage" description="Title for the token usage chart" />}
         value={formatTokenCount(totalTokens)}
         subtitle={`(${formatTokenCount(totalInputTokens)} input, ${formatTokenCount(totalOutputTokens)} output)`}
       />
 
-      <OverTimeLabel />
+      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: 200, marginTop: theme.spacing.sm }}>
@@ -259,7 +258,7 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = ({
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-          <ChartEmptyState />
+          <OverviewChartEmptyState />
         )}
       </div>
     </div>
