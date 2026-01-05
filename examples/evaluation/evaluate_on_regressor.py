@@ -4,10 +4,10 @@ from sklearn.model_selection import train_test_split
 
 import mlflow
 
-california_housing_data = load_diabetes()
+diabetes_dataset = load_diabetes()
 
 X_train, X_test, y_train, y_test = train_test_split(
-    california_housing_data.data, california_housing_data.target, test_size=0.33, random_state=42
+    diabetes_dataset.data, diabetes_dataset.target, test_size=0.33, random_state=42
 )
 
 with mlflow.start_run() as run:
@@ -20,7 +20,7 @@ with mlflow.start_run() as run:
         targets=y_test,
         model_type="regressor",
         evaluators="default",
-        feature_names=california_housing_data.feature_names,
+        feature_names=diabetes_dataset.feature_names,
         evaluator_config={"explainability_nsamples": 1000},
     )
 
