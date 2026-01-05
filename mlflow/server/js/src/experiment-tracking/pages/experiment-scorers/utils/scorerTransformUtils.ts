@@ -37,7 +37,7 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
     // Convert from backend float (0-1) to frontend percentage (0-100)
     sampleRate: config.sample_rate !== undefined ? config.sample_rate * 100 : undefined,
     version: config.scorer_version,
-    disableMonitoring: true,
+    disableMonitoring: false,
   };
 
   // Only add filterString if it has a value
