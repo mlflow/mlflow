@@ -3104,6 +3104,223 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             return trace_infos, next_token
 
+    def _build_candidate_sessions_subquery(
+        self,
+        session: Session,
+        experiment_id: str,
+        min_last_trace_timestamp_ms: int,
+    ) -> Subquery:
+        """
+        Build subquery for sessions with at least one trace in the time window.
+
+        This optimization avoids aggregating stats for sessions with no traces in the window.
+        """
+        candidate_metadata = aliased(SqlTraceMetadata)
+        return (
+            session.query(candidate_metadata.value.label("session_id"))
+            .join(
+                SqlTraceInfo,
+                (SqlTraceInfo.request_id == candidate_metadata.request_id)
+                & (candidate_metadata.key == TraceMetadataKey.TRACE_SESSION),
+            )
+            .filter(
+                SqlTraceInfo.experiment_id == experiment_id,
+                SqlTraceInfo.timestamp_ms >= min_last_trace_timestamp_ms,
+            )
+            .distinct()
+            .subquery()
+        )
+
+    def _build_first_trace_filter_subquery(
+        self,
+        session: Session,
+        experiment_id: str,
+        filter_string: str | None,
+        candidate_sessions: Subquery,
+    ) -> Subquery | None:
+        """
+        Build subquery for sessions whose first trace matches the filter.
+
+        Returns None if no filter_string provided.
+        """
+        if not filter_string:
+            return None
+
+        # Parse the filter string to get filter clauses
+        attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
+            _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
+        )
+
+        # Subquery: first trace timestamp for each session
+        first_trace_metadata = aliased(SqlTraceMetadata)
+        first_traces = (
+            session.query(
+                first_trace_metadata.value.label("session_id"),
+                func.min(SqlTraceInfo.timestamp_ms).label("first_timestamp"),
+            )
+            .join(
+                SqlTraceInfo,
+                SqlTraceInfo.request_id == first_trace_metadata.request_id,
+            )
+            .join(
+                candidate_sessions,
+                first_trace_metadata.value == candidate_sessions.c.session_id,
+            )
+            .filter(
+                SqlTraceInfo.experiment_id == experiment_id,
+                first_trace_metadata.key == TraceMetadataKey.TRACE_SESSION,
+            )
+            .group_by(first_trace_metadata.value)
+            .subquery()
+        )
+
+        # Subquery: filter first traces using the parsed filter
+        filtered_first_trace_metadata = aliased(SqlTraceMetadata)
+        filtered_trace_query = session.query(
+            filtered_first_trace_metadata.value.label("session_id")
+        ).join(
+            SqlTraceInfo,
+            SqlTraceInfo.request_id == filtered_first_trace_metadata.request_id,
+        )
+
+        filtered_trace_query = self._apply_trace_filter_clauses(
+            filtered_trace_query,
+            attribute_filters,
+            non_attribute_filters,
+            span_filters,
+            run_id_filter,
+        )
+
+        # Join with first_traces to match only the first trace in each session
+        filtered_trace_query = filtered_trace_query.join(
+            first_traces,
+            (filtered_first_trace_metadata.value == first_traces.c.session_id)
+            & (SqlTraceInfo.timestamp_ms == first_traces.c.first_timestamp),
+        )
+
+        # Apply session-specific filters
+        return (
+            filtered_trace_query.filter(
+                SqlTraceInfo.experiment_id == experiment_id,
+                filtered_first_trace_metadata.key == TraceMetadataKey.TRACE_SESSION,
+            )
+            .distinct()
+            .subquery()
+        )
+
+    def _build_session_stats_subquery(
+        self,
+        session: Session,
+        experiment_id: str,
+        candidate_sessions: Subquery,
+        filtered_sessions: Subquery | None,
+    ) -> Subquery:
+        """
+        Build subquery aggregating first/last trace timestamps for candidate sessions.
+
+        If filtered_sessions provided, only includes sessions that passed the filter.
+        """
+        session_metadata = aliased(SqlTraceMetadata)
+        stats_query = (
+            session.query(
+                session_metadata.value.label("session_id"),
+                func.min(SqlTraceInfo.timestamp_ms).label("first_trace_timestamp_ms"),
+                func.max(SqlTraceInfo.timestamp_ms).label("last_trace_timestamp_ms"),
+            )
+            .join(
+                session_metadata,
+                (SqlTraceInfo.request_id == session_metadata.request_id)
+                & (session_metadata.key == TraceMetadataKey.TRACE_SESSION),
+            )
+            .join(
+                candidate_sessions,
+                session_metadata.value == candidate_sessions.c.session_id,
+            )
+        )
+
+        # If filter was provided, only include sessions where first trace matched
+        if filtered_sessions is not None:
+            stats_query = stats_query.join(
+                filtered_sessions,
+                session_metadata.value == filtered_sessions.c.session_id,
+            )
+
+        return (
+            stats_query.filter(SqlTraceInfo.experiment_id == experiment_id)
+            .group_by(session_metadata.value)
+            .subquery()
+        )
+
+    def _build_sessions_with_recent_traces_subquery(
+        self,
+        session: Session,
+        experiment_id: str,
+        max_last_trace_timestamp_ms: int,
+    ) -> Subquery:
+        """
+        Build subquery for sessions with traces after the cutoff timestamp.
+
+        These sessions are NOT completed yet.
+        """
+        recent_session_metadata = aliased(SqlTraceMetadata)
+        return (
+            session.query(recent_session_metadata.value.label("session_id"))
+            .select_from(SqlTraceInfo)
+            .join(
+                recent_session_metadata,
+                (SqlTraceInfo.request_id == recent_session_metadata.request_id)
+                & (recent_session_metadata.key == TraceMetadataKey.TRACE_SESSION),
+            )
+            .filter(
+                SqlTraceInfo.experiment_id == experiment_id,
+                SqlTraceInfo.timestamp_ms > max_last_trace_timestamp_ms,
+            )
+            .distinct()
+            .subquery()
+        )
+
+    def _build_completed_sessions_query(
+        self,
+        session: Session,
+        sessions_with_stats: Subquery,
+        sessions_with_recent_traces: Subquery,
+        max_last_trace_timestamp_ms: int,
+        max_results: int | None,
+    ) -> Query:
+        """
+        Build main query for completed sessions.
+
+        Returns sessions in time window WITHOUT recent traces, ordered by
+        (last_trace_timestamp_ms ASC, session_id ASC) for deterministic pagination.
+        """
+        query = (
+            session.query(
+                sessions_with_stats.c.session_id,
+                sessions_with_stats.c.first_trace_timestamp_ms,
+                sessions_with_stats.c.last_trace_timestamp_ms,
+            )
+            .outerjoin(
+                sessions_with_recent_traces,
+                sessions_with_stats.c.session_id == sessions_with_recent_traces.c.session_id,
+            )
+            .filter(
+                sessions_with_recent_traces.c.session_id.is_(None),
+                sessions_with_stats.c.last_trace_timestamp_ms <= max_last_trace_timestamp_ms,
+            )
+            .order_by(
+                sessions_with_stats.c.last_trace_timestamp_ms.asc(),
+                # Use session_id as tiebreaker for deterministic ordering when multiple
+                # sessions have the same timestamp. This ensures checkpoint resume works
+                # correctly when max_results is hit in the middle of a timestamp group.
+                sessions_with_stats.c.session_id.asc(),
+            )
+        )
+
+        if max_results is not None:
+            query = query.limit(max_results)
+
+        return query
+
     def find_completed_sessions(
         self,
         experiment_id: str,
@@ -3135,173 +3352,29 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session_id ASC).
         """
         with self.ManagedSessionMaker() as session:
-            # Alias for the session metadata join
-            session_metadata = aliased(SqlTraceMetadata)
-            # Alias for the recent traces metadata join
-            recent_session_metadata = aliased(SqlTraceMetadata)
-
-            # Subquery: candidate sessions (sessions with at least one trace in the time window)
-            # This optimization avoids aggregating stats for sessions with no traces in the window
-            candidate_metadata = aliased(SqlTraceMetadata)
-            candidate_sessions = (
-                session.query(candidate_metadata.value.label("session_id"))
-                .join(
-                    SqlTraceInfo,
-                    (SqlTraceInfo.request_id == candidate_metadata.request_id)
-                    & (candidate_metadata.key == TraceMetadataKey.TRACE_SESSION),
-                )
-                .filter(
-                    SqlTraceInfo.experiment_id == experiment_id,
-                    SqlTraceInfo.timestamp_ms >= min_last_trace_timestamp_ms,
-                )
-                .distinct()
-                .subquery()
+            candidate_sessions = self._build_candidate_sessions_subquery(
+                session, experiment_id, min_last_trace_timestamp_ms
             )
 
-            # If filter_string is provided, filter sessions by their first trace
-            if filter_string:
-                # Parse the filter string to get filter clauses
-                attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
-                    _get_filter_clauses_for_search_traces(
-                        filter_string, session, self._get_dialect()
-                    )
-                )
-
-                # Subquery: first trace request_id for each session
-                first_trace_metadata = aliased(SqlTraceMetadata)
-                first_traces = (
-                    session.query(
-                        first_trace_metadata.value.label("session_id"),
-                        func.min(SqlTraceInfo.timestamp_ms).label("first_timestamp"),
-                    )
-                    .join(
-                        SqlTraceInfo,
-                        SqlTraceInfo.request_id == first_trace_metadata.request_id,
-                    )
-                    .join(
-                        candidate_sessions,
-                        first_trace_metadata.value == candidate_sessions.c.session_id,
-                    )
-                    .filter(
-                        SqlTraceInfo.experiment_id == experiment_id,
-                        first_trace_metadata.key == TraceMetadataKey.TRACE_SESSION,
-                    )
-                    .group_by(first_trace_metadata.value)
-                    .subquery()
-                )
-
-                # Subquery: filter first traces using the parsed filter
-                filtered_first_trace_metadata = aliased(SqlTraceMetadata)
-                filtered_trace_query = session.query(
-                    filtered_first_trace_metadata.value.label("session_id")
-                ).join(
-                    SqlTraceInfo,
-                    SqlTraceInfo.request_id == filtered_first_trace_metadata.request_id,
-                )
-
-                filtered_trace_query = self._apply_trace_filter_clauses(
-                    filtered_trace_query,
-                    attribute_filters,
-                    non_attribute_filters,
-                    span_filters,
-                    run_id_filter,
-                )
-
-                # Join with first_traces to match only the first trace in each session
-                filtered_trace_query = filtered_trace_query.join(
-                    first_traces,
-                    (filtered_first_trace_metadata.value == first_traces.c.session_id)
-                    & (SqlTraceInfo.timestamp_ms == first_traces.c.first_timestamp),
-                )
-
-                # Apply session-specific filters
-                filtered_sessions = (
-                    filtered_trace_query.filter(
-                        SqlTraceInfo.experiment_id == experiment_id,
-                        filtered_first_trace_metadata.key == TraceMetadataKey.TRACE_SESSION,
-                    )
-                    .distinct()
-                    .subquery()
-                )
-            else:
-                filtered_sessions = None
-
-            # Subquery: aggregated stats for candidate sessions (across ALL their traces)
-            stats_query = (
-                session.query(
-                    session_metadata.value.label("session_id"),
-                    func.min(SqlTraceInfo.timestamp_ms).label("first_trace_timestamp_ms"),
-                    func.max(SqlTraceInfo.timestamp_ms).label("last_trace_timestamp_ms"),
-                )
-                .join(
-                    session_metadata,
-                    (SqlTraceInfo.request_id == session_metadata.request_id)
-                    & (session_metadata.key == TraceMetadataKey.TRACE_SESSION),
-                )
-                .join(
-                    candidate_sessions,
-                    session_metadata.value == candidate_sessions.c.session_id,
-                )
+            filtered_sessions = self._build_first_trace_filter_subquery(
+                session, experiment_id, filter_string, candidate_sessions
             )
 
-            # If filter was provided, only include sessions where first trace matched
-            if filtered_sessions is not None:
-                stats_query = stats_query.join(
-                    filtered_sessions,
-                    session_metadata.value == filtered_sessions.c.session_id,
-                )
-
-            sessions_with_stats = (
-                stats_query.filter(SqlTraceInfo.experiment_id == experiment_id)
-                .group_by(session_metadata.value)
-                .subquery()
+            sessions_with_stats = self._build_session_stats_subquery(
+                session, experiment_id, candidate_sessions, filtered_sessions
             )
 
-            # Subquery: sessions with traces after the cutoff
-            # Start from trace_info (filtered by timestamp) for efficiency, then join to metadata
-            sessions_with_recent_traces = (
-                session.query(recent_session_metadata.value.label("session_id"))
-                .select_from(SqlTraceInfo)
-                .join(
-                    recent_session_metadata,
-                    (SqlTraceInfo.request_id == recent_session_metadata.request_id)
-                    & (recent_session_metadata.key == TraceMetadataKey.TRACE_SESSION),
-                )
-                .filter(
-                    SqlTraceInfo.experiment_id == experiment_id,
-                    SqlTraceInfo.timestamp_ms > max_last_trace_timestamp_ms,
-                )
-                .distinct()
-                .subquery()
+            sessions_with_recent_traces = self._build_sessions_with_recent_traces_subquery(
+                session, experiment_id, max_last_trace_timestamp_ms
             )
 
-            # Main query: sessions in timestamp window WITHOUT recent traces
-            # Order by timestamp then session_id for deterministic tiebreaking
-            query = (
-                session.query(
-                    sessions_with_stats.c.session_id,
-                    sessions_with_stats.c.first_trace_timestamp_ms,
-                    sessions_with_stats.c.last_trace_timestamp_ms,
-                )
-                .outerjoin(
-                    sessions_with_recent_traces,
-                    sessions_with_stats.c.session_id == sessions_with_recent_traces.c.session_id,
-                )
-                .filter(
-                    sessions_with_recent_traces.c.session_id.is_(None),
-                    sessions_with_stats.c.last_trace_timestamp_ms <= max_last_trace_timestamp_ms,
-                )
-                .order_by(
-                    sessions_with_stats.c.last_trace_timestamp_ms.asc(),
-                    # Use session_id as tiebreaker for deterministic ordering when multiple
-                    # sessions have the same timestamp. This ensures checkpoint resume works
-                    # correctly when max_results is hit in the middle of a timestamp group.
-                    sessions_with_stats.c.session_id.asc(),
-                )
+            query = self._build_completed_sessions_query(
+                session,
+                sessions_with_stats,
+                sessions_with_recent_traces,
+                max_last_trace_timestamp_ms,
+                max_results,
             )
-
-            if max_results is not None:
-                query = query.limit(max_results)
 
             results = query.all()
 
