@@ -862,10 +862,6 @@
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
   },
-  "5Jg2dq": {
-    "defaultMessage": "Last 10 traces",
-    "description": "Option for last 10 traces"
-  },
   "5Mzn2b": {
     "defaultMessage": "Creator",
     "description": "Label name for creator metadata in model version page"
@@ -3661,10 +3657,6 @@
     "defaultMessage": "Last session",
     "description": "Option for last session"
   },
-  "SXKt8h": {
-    "defaultMessage": "Must be unique in this experiment. Cannot be changed after creation.",
-    "description": "Hint text for Name section"
-  },
   "SZj964": {
     "defaultMessage": "Copy S3 URI to clipboard",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
@@ -4282,10 +4274,6 @@
   "Xs1oJm": {
     "defaultMessage": "Search metric charts",
     "description": "Run page > Charts tab > Filter metric charts input > placeholder"
-  },
-  "XutL+P": {
-    "defaultMessage": "Last 5 traces",
-    "description": "Option for last 5 traces"
   },
   "Xuz/xh": {
     "defaultMessage": "Models",
@@ -4990,10 +4978,6 @@
   "cy9EfG": {
     "defaultMessage": "Attributes",
     "description": "Experiment page > group by runs control > attributes section label"
-  },
-  "d+WXp2": {
-    "defaultMessage": "Last 5 sessions",
-    "description": "Option for last 5 sessions"
   },
   "d00egE": {
     "defaultMessage": "No span with type RETRIEVER found in trace.",
@@ -5814,10 +5798,6 @@
   "j7cj5r": {
     "defaultMessage": "Please log at least one table artifact containing evaluation data. <link>Learn more</link>.",
     "description": "Experiment page > artifact compare view > empty state for no evaluation tables logged > subtitle"
-  },
-  "j9F8Nt": {
-    "defaultMessage": "Last 10 sessions",
-    "description": "Option for last 10 sessions"
   },
   "jA7Y1x": {
     "defaultMessage": "Edit API key",
@@ -6710,6 +6690,10 @@
   "qNCHNh": {
     "defaultMessage": "Select model",
     "description": "Model selector modal title"
+  },
+  "qNaoD5": {
+    "defaultMessage": "Cannot be changed after creation.",
+    "description": "Hint text for Name section"
   },
   "qNtagt": {
     "defaultMessage": "Track and compare versions of your GenAI app",
