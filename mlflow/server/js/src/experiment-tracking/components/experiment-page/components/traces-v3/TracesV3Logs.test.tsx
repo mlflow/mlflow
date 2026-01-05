@@ -482,10 +482,11 @@ describe('TracesV3Logs', () => {
     );
   });
 
-  describe('Initial filters', () => {
-    it('should apply initial filters when provided', async () => {
+  describe('Additional filters', () => {
+    it('should combine additional filters with user filters', async () => {
+      const userFilters = [{ column: 'status', operator: FilterOperator.EQUALS, value: 'success' }];
       const setFiltersMock = jest.fn();
-      jest.mocked(useFilters).mockReturnValue([[], setFiltersMock]);
+      jest.mocked(useFilters).mockReturnValue([userFilters, setFiltersMock]);
 
       jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
         assessmentInfos: [],
@@ -503,21 +504,26 @@ describe('TracesV3Logs', () => {
         isInitialTimeFilterLoading: false,
       });
 
-      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+      const searchTracesMock = jest.fn().mockReturnValue({
         data: [],
         isLoading: false,
         isFetching: false,
         error: null,
       } as any);
+      jest.mocked(useSearchMlflowTraces).mockImplementation(searchTracesMock as any);
 
-      const initialFilters = [{ column: 'prompt', operator: FilterOperator.EQUALS, value: 'test-prompt/1' }];
+      const additionalFilters = [{ column: 'prompt', operator: FilterOperator.EQUALS, value: 'test-prompt/1' }];
 
-      renderComponent({ initialFilters });
+      renderComponent({ additionalFilters });
       await waitForRoutesToBeRendered();
 
-      // Should have called setFilters with initialFilters
+      // Should have called useSearchMlflowTraces with combined filters (additionalFilters + userFilters)
       await waitFor(() => {
-        expect(setFiltersMock).toHaveBeenCalledWith(initialFilters);
+        expect(searchTracesMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            filters: [...additionalFilters, ...userFilters],
+          }),
+        );
       });
     });
   });
