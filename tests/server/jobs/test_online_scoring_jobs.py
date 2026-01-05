@@ -4,7 +4,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from mlflow.genai.judges import make_judge
 from mlflow.genai.scorers.builtin_scorers import Completeness
+from mlflow.genai.scorers.job import (
+    run_online_scoring_scheduler,
+    run_online_session_scorer_job,
+    run_online_trace_scorer_job,
+)
+from mlflow.genai.scorers.online.entities import OnlineScorer
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -22,8 +29,6 @@ def make_online_scorer_dict(scorer, sample_rate: float = 1.0):
 
 
 def test_run_online_trace_scorer_job_calls_processor():
-    from mlflow.genai.scorers.job import run_online_trace_scorer_job
-
     mock_processor = MagicMock()
     mock_tracking_store = MagicMock()
 
@@ -46,8 +51,6 @@ def test_run_online_trace_scorer_job_calls_processor():
 
 
 def test_run_online_session_scorer_job_calls_processor():
-    from mlflow.genai.scorers.job import run_online_session_scorer_job
-
     mock_processor = MagicMock()
     mock_tracking_store = MagicMock()
 
@@ -70,10 +73,6 @@ def test_run_online_session_scorer_job_calls_processor():
 
 
 def test_scheduler_submits_jobs_via_submit_job():
-    from mlflow.genai.judges import make_judge
-    from mlflow.genai.scorers.job import run_online_scoring_scheduler
-    from mlflow.genai.scorers.online.entities import OnlineScorer
-
     # Create trace-level scorers (2)
     trace_scorer = Completeness()
 
@@ -124,11 +123,6 @@ def test_scheduler_submits_jobs_via_submit_job():
         assert mock_submit_job.call_count == 2
 
         # Verify correct job functions and parameters were passed
-        from mlflow.genai.scorers.job import (
-            run_online_session_scorer_job,
-            run_online_trace_scorer_job,
-        )
-
         call_args_list = mock_submit_job.call_args_list
         trace_scorer_calls = [
             call for call in call_args_list if call[0][0] == run_online_trace_scorer_job
