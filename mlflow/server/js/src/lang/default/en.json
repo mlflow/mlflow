@@ -3749,6 +3749,10 @@
     "defaultMessage": "Page not found",
     "description": "Error message shown to the user when they arrive at a non existent URL"
   },
+  "TLHzWu": {
+    "defaultMessage": "Token Usage",
+    "description": "Title for the token usage chart"
+  },
   "TPspzA": {
     "defaultMessage": "Deleting the section will permanently remove it and the charts it contains. This cannot be undone.",
     "description": "Experiment page > compare runs > chart section > delete section warning message"

@@ -10,6 +10,7 @@ import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMo
 import { LazyTraceRequestsChart } from './components/LazyTraceRequestsChart';
 import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
 import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
+import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
 import { calculateTimeInterval } from './hooks/useTraceMetricsQuery';
 
 enum OverviewTab {
@@ -118,6 +119,9 @@ const ExperimentGenAIOverviewPageImpl = () => {
               <LazyTraceLatencyChart {...chartProps} />
               <LazyTraceErrorsChart {...chartProps} />
             </div>
+
+            {/* Token Usage chart - full width */}
+            <LazyTraceTokenUsageChart {...chartProps} />
           </div>
         </Tabs.Content>
       </Tabs.Root>
