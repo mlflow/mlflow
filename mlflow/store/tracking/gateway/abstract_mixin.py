@@ -314,7 +314,7 @@ class GatewayStoreMixin:
 
         Args:
             endpoint_id: ID of the endpoint to attach the model to.
-            model_config: Configuration for the model including ID, linkage type, weight, and fallback order.
+            model_config: Configuration for the model to attach.
             created_by: Username of the creator.
 
         Returns:

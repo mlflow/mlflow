@@ -1611,7 +1611,14 @@ def _create_gateway_endpoint(store: SqlAlchemyStore, name: str) -> GatewayEndpoi
         name=f"{name}-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     return store.create_gateway_endpoint(
-        name=name, model_definition_ids=[model_def.model_definition_id]
+        name=name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
 

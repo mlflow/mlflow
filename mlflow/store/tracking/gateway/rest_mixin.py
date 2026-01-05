@@ -445,7 +445,7 @@ class RestGatewayStoreMixin:
 
         Args:
             endpoint_id: The unique identifier of the endpoint.
-            model_config: Configuration for the model including ID, linkage type, weight, and fallback order.
+            model_config: Configuration for the model to attach.
             created_by: Optional identifier of the user creating the mapping.
 
         Returns:
