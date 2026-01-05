@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useDesignSystemTheme, Typography, DangerIcon } from '@databricks/design-system';
+import { useDesignSystemTheme, DangerIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
 import {
@@ -13,7 +13,13 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from '../utils/chartUtils';
-import { ChartLoadingState, ChartErrorState, ChartEmptyState } from './ChartCardWrapper';
+import {
+  OverviewChartLoadingState,
+  OverviewChartErrorState,
+  OverviewChartEmptyState,
+  OverviewChartHeader,
+  OverviewChartTimeLabel,
+} from './OverviewChartComponents';
 import type { OverviewChartProps } from '../types';
 
 // Filter to get only error traces
@@ -130,11 +136,11 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
   };
 
   if (isLoading) {
-    return <ChartLoadingState />;
+    return <OverviewChartLoadingState />;
   }
 
   if (error) {
-    return <ChartErrorState />;
+    return <OverviewChartErrorState />;
   }
 
   return (
@@ -146,26 +152,14 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
         backgroundColor: theme.colors.backgroundPrimary,
       }}
     >
-      {/* Chart header */}
-      <div css={{ marginBottom: theme.spacing.lg }}>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-          <DangerIcon css={{ color: theme.colors.textSecondary }} />
-          <Typography.Text bold size="lg">
-            <FormattedMessage defaultMessage="Errors" description="Title for the errors chart" />
-          </Typography.Text>
-        </div>
-        <Typography.Title level={3} css={{ margin: 0, marginTop: theme.spacing.sm }}>
-          {totalErrors.toLocaleString()}{' '}
-          <Typography.Text color="secondary" css={{ fontWeight: 'normal' }}>
-            (Overall error rate: {overallErrorRate.toFixed(1)}%)
-          </Typography.Text>
-        </Typography.Title>
-      </div>
+      <OverviewChartHeader
+        icon={<DangerIcon />}
+        title={<FormattedMessage defaultMessage="Errors" description="Title for the errors chart" />}
+        value={totalErrors.toLocaleString()}
+        subtitle={`(Overall error rate: ${overallErrorRate.toFixed(1)}%)`}
+      />
 
-      {/* "Over time" label */}
-      <Typography.Text color="secondary" size="sm" css={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-        <FormattedMessage defaultMessage="Over time" description="Label above the errors chart" />
-      </Typography.Text>
+      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: 200, marginTop: theme.spacing.sm }}>
@@ -250,7 +244,7 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
             </ComposedChart>
           </ResponsiveContainer>
         ) : (
-          <ChartEmptyState />
+          <OverviewChartEmptyState />
         )}
       </div>
     </div>
