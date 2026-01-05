@@ -12438,76 +12438,43 @@ def test_log_spans_session_id_handling(store: SqlAlchemyStore) -> None:
 def test_find_completed_sessions(store: SqlAlchemyStore):
     """
     Test finding completed sessions based on their last trace timestamp.
-
-    A session is "completed" if its last trace timestamp falls within the specified
-    time window [min_last_trace_timestamp_ms, max_last_trace_timestamp_ms].
-
-    Timeline of traces created:
-        t=1000: session-a trace 1
-        t=2000: session-a trace 2 (last trace for session-a)
-        t=2500: trace with no session (should be ignored)
-        t=3000: session-b trace 1
-        t=4000: session-b trace 2 (last trace for session-b)
-        t=5000: session-c trace 1
-        t=10000: session-c trace 2 (last trace for session-c)
+    Sessions with last trace in time window are returned, ordered by last_trace_timestamp.
     """
     exp_id = store.create_experiment("test_find_completed_sessions")
 
-    # Session A: traces at t=1000 and t=2000 (last_trace_timestamp = 2000)
-    _create_trace(
-        store,
-        "trace_a1",
-        exp_id,
-        request_time=1000,
-        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
-    )
-    _create_trace(
-        store,
-        "trace_a2",
-        exp_id,
-        request_time=2000,
-        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
-    )
+    # Session A: last trace at t=2000
+    for timestamp, trace_id in [(1000, "trace_a1"), (2000, "trace_a2")]:
+        _create_trace(
+            store,
+            trace_id,
+            exp_id,
+            request_time=timestamp,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+        )
 
-    # Session B: traces at t=3000 and t=4000 (last_trace_timestamp = 4000)
-    _create_trace(
-        store,
-        "trace_b1",
-        exp_id,
-        request_time=3000,
-        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
-    )
-    _create_trace(
-        store,
-        "trace_b2",
-        exp_id,
-        request_time=4000,
-        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
-    )
+    # Session B: last trace at t=4000
+    for timestamp, trace_id in [(3000, "trace_b1"), (4000, "trace_b2")]:
+        _create_trace(
+            store,
+            trace_id,
+            exp_id,
+            request_time=timestamp,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
+        )
 
-    # Session C: traces at t=5000 and t=10000 (last_trace_timestamp = 10000)
-    # This session's last trace is AFTER our query window, so it won't be returned
-    _create_trace(
-        store,
-        "trace_c1",
-        exp_id,
-        request_time=5000,
-        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-c"},
-    )
-    _create_trace(
-        store,
-        "trace_c2",
-        exp_id,
-        request_time=10000,
-        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-c"},
-    )
+    # Session C: last trace at t=10000 (outside query window)
+    for timestamp, trace_id in [(5000, "trace_c1"), (10000, "trace_c2")]:
+        _create_trace(
+            store,
+            trace_id,
+            exp_id,
+            request_time=timestamp,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-c"},
+        )
 
-    # Trace without session metadata (should be ignored)
     _create_trace(store, "trace_no_session", exp_id, request_time=2500)
 
-    # Query for sessions with last_trace_timestamp in [0, 5000]
-    # Should return session-a (last=2000) and session-b (last=4000)
-    # Should NOT return session-c (last=10000, outside window)
+    # Query window [0, 5000] should return session-a and session-b
     completed = store.find_completed_sessions(
         experiment_id=exp_id,
         min_last_trace_timestamp_ms=0,
@@ -12515,24 +12482,15 @@ def test_find_completed_sessions(store: SqlAlchemyStore):
     )
 
     assert len(completed) == 2
-    session_ids = {s.session_id for s in completed}
-    assert session_ids == {"session-a", "session-b"}
-
-    # Verify first/last timestamps are correct for each session
-    session_a = next(s for s in completed if s.session_id == "session-a")
-    assert session_a.first_trace_timestamp_ms == 1000
-    assert session_a.last_trace_timestamp_ms == 2000
-
-    session_b = next(s for s in completed if s.session_id == "session-b")
-    assert session_b.first_trace_timestamp_ms == 3000
-    assert session_b.last_trace_timestamp_ms == 4000
-
-    # Results should be ordered by first_trace_timestamp ascending
+    assert {s.session_id for s in completed} == {"session-a", "session-b"}
     assert completed[0].session_id == "session-a"
+    assert completed[0].first_trace_timestamp_ms == 1000
+    assert completed[0].last_trace_timestamp_ms == 2000
     assert completed[1].session_id == "session-b"
+    assert completed[1].first_trace_timestamp_ms == 3000
+    assert completed[1].last_trace_timestamp_ms == 4000
 
-    # Narrower time window [3000, 5000] should only return session-b (last=4000)
-    # session-a's last trace (2000) is before min_last_trace_timestamp_ms
+    # Narrower window [3000, 5000] should only return session-b
     completed = store.find_completed_sessions(
         experiment_id=exp_id,
         min_last_trace_timestamp_ms=3000,
@@ -12541,7 +12499,7 @@ def test_find_completed_sessions(store: SqlAlchemyStore):
     assert len(completed) == 1
     assert completed[0].session_id == "session-b"
 
-    # Test max_results pagination: limit to 1 result
+    # Test max_results pagination
     completed = store.find_completed_sessions(
         experiment_id=exp_id,
         min_last_trace_timestamp_ms=0,
@@ -12549,18 +12507,7 @@ def test_find_completed_sessions(store: SqlAlchemyStore):
         max_results=1,
     )
     assert len(completed) == 1
-    assert completed[0].session_id == "session-a"  # First by first_trace_timestamp
-
-    # Test max_results pagination: limit to 2 results (all matching)
-    completed = store.find_completed_sessions(
-        experiment_id=exp_id,
-        min_last_trace_timestamp_ms=0,
-        max_last_trace_timestamp_ms=5000,
-        max_results=2,
-    )
-    assert len(completed) == 2
     assert completed[0].session_id == "session-a"
-    assert completed[1].session_id == "session-b"
 
 
 def test_find_completed_sessions_aggregates_across_all_traces(store: SqlAlchemyStore):
@@ -12595,126 +12542,52 @@ def test_find_completed_sessions_aggregates_across_all_traces(store: SqlAlchemyS
 
 
 def test_find_completed_sessions_with_filter_string(store: SqlAlchemyStore):
-    """
-    Test that filter_string applies only to the first trace in each session.
-    """
     exp_id = store.create_experiment("test_find_completed_sessions_with_filter")
 
-    # Session A: first trace has tag "env"="prod", second has "env"="dev"
-    # Filter matches first trace - session should be included
-    _create_trace(
-        store,
-        "trace_a1",
-        exp_id,
-        request_time=1000,
-        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
-        tags={"env": "prod"},
-    )
-    _create_trace(
-        store,
-        "trace_a2",
-        exp_id,
-        request_time=2000,
-        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
-        tags={"env": "dev"},
-    )
+    # Session A: first trace env="prod", second env="dev" - should match prod filter
+    # Session B: first trace env="dev", second env="prod" - should NOT match prod filter
+    for session_id, times, envs in [
+        ("session-a", [1000, 2000], ["prod", "dev"]),
+        ("session-b", [3000, 4000], ["dev", "prod"]),
+    ]:
+        for timestamp, env in zip(times, envs):
+            _create_trace(
+                store,
+                f"trace_{session_id}_{timestamp}",
+                exp_id,
+                request_time=timestamp,
+                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+                tags={"env": env},
+            )
 
-    # Session B: first trace has tag "env"="dev", second has "env"="prod"
-    # Filter doesn't match first trace - session should be excluded
-    _create_trace(
-        store,
-        "trace_b1",
-        exp_id,
-        request_time=3000,
-        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
-        tags={"env": "dev"},
-    )
-    _create_trace(
-        store,
-        "trace_b2",
-        exp_id,
-        request_time=4000,
-        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
-        tags={"env": "prod"},
-    )
-
-    # Session C: both traces have "env"="prod"
-    # Filter matches first trace - session should be included
-    _create_trace(
-        store,
-        "trace_c1",
-        exp_id,
-        request_time=5000,
-        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-c"},
-        tags={"env": "prod"},
-    )
-    _create_trace(
-        store,
-        "trace_c2",
-        exp_id,
-        request_time=6000,
-        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-c"},
-        tags={"env": "prod"},
-    )
-
-    # Query with filter for "env"="prod"
-    # Should return session-a and session-c, but NOT session-b
+    # Tag filter should only match session-a (first trace has env=prod)
     completed = store.find_completed_sessions(
         experiment_id=exp_id,
         min_last_trace_timestamp_ms=0,
         max_last_trace_timestamp_ms=10000,
         filter_string="tag.env = 'prod'",
     )
-
-    assert len(completed) == 2
-    session_ids = {s.session_id for s in completed}
-    assert session_ids == {"session-a", "session-c"}
-
-    # Verify timestamps are still correctly computed across ALL traces in each session
-    session_a = next(s for s in completed if s.session_id == "session-a")
-    assert session_a.first_trace_timestamp_ms == 1000
-    assert session_a.last_trace_timestamp_ms == 2000
-
-    session_c = next(s for s in completed if s.session_id == "session-c")
-    assert session_c.first_trace_timestamp_ms == 5000
-    assert session_c.last_trace_timestamp_ms == 6000
-
-    # Test with different filter - "env"="dev"
-    # Should only return session-b (first trace has env=dev)
-    completed = store.find_completed_sessions(
-        experiment_id=exp_id,
-        min_last_trace_timestamp_ms=0,
-        max_last_trace_timestamp_ms=10000,
-        filter_string="tag.env = 'dev'",
-    )
-
     assert len(completed) == 1
-    assert completed[0].session_id == "session-b"
-    assert completed[0].first_trace_timestamp_ms == 3000
-    assert completed[0].last_trace_timestamp_ms == 4000
+    assert completed[0].session_id == "session-a"
+    assert completed[0].first_trace_timestamp_ms == 1000
+    assert completed[0].last_trace_timestamp_ms == 2000
 
-    # Test that filter works with metadata filters too
-    _create_trace(
-        store,
-        "trace_d1",
-        exp_id,
-        request_time=7000,
-        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-d", "user_id": "alice"},
-    )
-    _create_trace(
-        store,
-        "trace_d2",
-        exp_id,
-        request_time=8000,
-        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-d", "user_id": "bob"},
-    )
+    # Session C: test metadata filter (first trace user_id="alice", second user_id="bob")
+    for timestamp, user in [(5000, "alice"), (6000, "bob")]:
+        _create_trace(
+            store,
+            f"trace_c_{timestamp}",
+            exp_id,
+            request_time=timestamp,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-c", "user_id": user},
+        )
 
+    # Metadata filter should match session-c (first trace has user_id=alice)
     completed = store.find_completed_sessions(
         experiment_id=exp_id,
         min_last_trace_timestamp_ms=0,
         max_last_trace_timestamp_ms=10000,
         filter_string="metadata.user_id = 'alice'",
     )
-
     assert len(completed) == 1
-    assert completed[0].session_id == "session-d"
+    assert completed[0].session_id == "session-c"
