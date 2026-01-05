@@ -29,7 +29,7 @@ from mlflow.genai.scorers.online import (
     OnlineTraceScoringProcessor,
 )
 from mlflow.server.handlers import _get_tracking_store
-from mlflow.server.jobs import job
+from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.constant import TraceMetadataKey
 
@@ -417,7 +417,6 @@ def run_online_scoring_scheduler() -> None:
     for experiment_id, scorers in experiment_groups:
         _logger.info(f"Submitting jobs for experiment {experiment_id} with {len(scorers)} scorers")
         scorer_dicts = [asdict(scorer) for scorer in scorers]
-        from mlflow.server.jobs import submit_job
 
         submit_job(
             run_online_trace_scorer_job,

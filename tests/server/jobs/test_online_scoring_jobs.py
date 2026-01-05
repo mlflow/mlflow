@@ -94,7 +94,7 @@ def test_scheduler_submits_jobs_via_submit_job():
 
     with (
         patch("mlflow.genai.scorers.job._get_tracking_store", return_value=mock_tracking_store),
-        patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        patch("mlflow.genai.scorers.job.submit_job") as mock_submit_job,
     ):
         run_online_scoring_scheduler()
 
