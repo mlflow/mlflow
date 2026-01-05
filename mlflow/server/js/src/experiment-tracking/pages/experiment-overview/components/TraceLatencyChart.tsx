@@ -10,6 +10,7 @@ import {
   P90,
   P99,
   getPercentileKey,
+  TIME_BUCKET_DIMENSION_KEY,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
 import {
@@ -19,7 +20,7 @@ import {
   OverviewChartHeader,
   OverviewChartTimeLabel,
 } from './OverviewChartComponents';
-import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, generateTimeBuckets } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
 
 /**
@@ -80,18 +81,41 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
   // Extract overall average latency from the response (undefined if not available)
   const avgLatency = avgLatencyData?.data_points?.[0]?.values?.[AggregationType.AVG];
 
-  // Prepare chart data for recharts
+  // Create a map of latency values by timestamp
+  const latencyByTimestamp = useMemo(() => {
+    const map = new Map<number, { p50: number; p90: number; p99: number }>();
+    for (const dp of latencyDataPoints) {
+      const timeBucket = dp.dimensions?.[TIME_BUCKET_DIMENSION_KEY];
+      if (timeBucket) {
+        const ts = new Date(timeBucket).getTime();
+        map.set(ts, {
+          p50: dp.values?.[getPercentileKey(P50)] || 0,
+          p90: dp.values?.[getPercentileKey(P90)] || 0,
+          p99: dp.values?.[getPercentileKey(P99)] || 0,
+        });
+      }
+    }
+    return map;
+  }, [latencyDataPoints]);
+
+  // Generate all time buckets within the selected range
+  const allTimeBuckets = useMemo(
+    () => generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds),
+    [startTimeMs, endTimeMs, timeIntervalSeconds],
+  );
+
+  // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
-    return latencyDataPoints.map((dp) => {
-      const timestampMs = getTimestampFromDataPoint(dp);
+    return allTimeBuckets.map((timestampMs) => {
+      const latency = latencyByTimestamp.get(timestampMs);
       return {
-        name: timestampMs ? formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds) : '',
-        p50: dp.values?.[getPercentileKey(P50)] || 0,
-        p90: dp.values?.[getPercentileKey(P90)] || 0,
-        p99: dp.values?.[getPercentileKey(P99)] || 0,
+        name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
+        p50: latency?.p50 || 0,
+        p90: latency?.p90 || 0,
+        p99: latency?.p99 || 0,
       };
     });
-  }, [latencyDataPoints, timeIntervalSeconds]);
+  }, [allTimeBuckets, latencyByTimestamp, timeIntervalSeconds]);
 
   // Track hovered legend item (null means none hovered, show all)
   const [hoveredLine, setHoveredLine] = useState<string | null>(null);
