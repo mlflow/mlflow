@@ -8,6 +8,8 @@ from unittest import mock
 import pandas as pd
 import pytest
 import spacy
+import tarfile
+from urllib.request import urlretrieve
 import yaml
 from packaging.version import Version
 from sklearn.datasets import fetch_20newsgroups
@@ -49,7 +51,7 @@ IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = spacy_version >= Version("3.0.0"
 
 
 @pytest.fixture(scope="module")
-def spacy_model_with_data():
+def spacy_model_with_data(tmp_path_factory):
     # Creating blank model and setting up the spaCy pipeline
     nlp = spacy.blank("en")
     if IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0:
@@ -67,13 +69,13 @@ def spacy_model_with_data():
         )
         nlp.add_pipe(textcat, last=True)
 
-    # Training the model to recognize between computer graphics and baseball in 20newsgroups dataset
-    categories = ["comp.graphics", "rec.sport.baseball"]
-    for cat in categories:
+    cats_to_fetch = ["comp.graphics", "rec.sport.baseball"]
+
+    for cat in cats_to_fetch:
         textcat.add_label(cat)
 
     # Split train/test and train the model
-    train_x, train_y, test_x, _ = _get_train_test_dataset(categories)
+    train_x, train_y, test_x, _ = _get_train_test_dataset(cats_to_fetch, tmp_path_factory.mktemp("data"))
     train_data = list(zip(train_x, [{"cats": cats} for cats in train_y]))
 
     if IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0:
@@ -434,10 +436,24 @@ def _train_model(nlp, train_data, n_iter=5):
                 nlp.update(texts, annotations, sgd=optimizer, drop=0.2, losses=losses)
 
 
-def _get_train_test_dataset(cats_to_fetch, limit=100):
-    newsgroups = fetch_20newsgroups(
-        remove=("headers", "footers", "quotes"), shuffle=True, categories=cats_to_fetch
+
+def _get_train_test_dataset(cats_to_fetch, tmp_path, limit=100):
+    from sklearn.datasets import load_files
+
+    # Training the model to recognize between computer graphics and baseball in 20newsgroups dataset
+    data_path = os.path.join(tmp_path, "20_newsgroups.tar.gz")
+    urlretrieve("https://kdd.ics.uci.edu/databases/20newsgroups/20_newsgroups.tar.gz", data_path)
+
+    extracted_path = os.path.join(tmp_path, "extracted")
+    tarfile.open(data_path).extractall(extracted_path)
+
+    newsgroups = load_files(
+        os.path.join(extracted_path, "20_newsgroups"),
+        encoding='latin1',
+        shuffle=True,
+        categories=cats_to_fetch,
     )
+
     X = newsgroups.data[:limit]
     y = newsgroups.target[:limit]
 
