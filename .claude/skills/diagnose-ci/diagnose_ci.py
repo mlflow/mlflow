@@ -39,10 +39,7 @@ GITHUB_API_BASE = "https://api.github.com"
 @dataclass
 class FailedJob:
     workflow_name: str
-    run_id: int
-    run_url: str
     job_name: str
-    job_id: int
     job_url: str
 
 
@@ -50,7 +47,7 @@ class FailedJob:
 class JobSummary:
     workflow_name: str
     job_name: str
-    run_url: str
+    job_url: str
     failed_step: str | None
     input_tokens: int
     output_tokens: int
@@ -300,10 +297,7 @@ def parse_job_url(url: str) -> tuple[str, int, int]:
 def build_failed_job(repo: str, run: dict[str, Any], job: dict[str, Any]) -> FailedJob:
     return FailedJob(
         workflow_name=run.get("name", "Unknown workflow"),
-        run_id=run["id"],
-        run_url=run.get("html_url", ""),
         job_name=job.get("name", "Unknown job"),
-        job_id=job["id"],
         job_url=f"https://github.com/{repo}/actions/runs/{run['id']}/job/{job['id']}",
     )
 
@@ -463,7 +457,6 @@ async def summarize_single_job(
 
     workflow_name = run_details.get("name", "Unknown workflow")
     job_name = job_details.get("name", "Unknown job")
-    run_url = run_details.get("html_url", "")
     failed_step = get_failed_step(job_details)
 
     log(f"Fetching logs for '{workflow_name} / {job_name}'")
@@ -480,7 +473,7 @@ async def summarize_single_job(
     return JobSummary(
         workflow_name=workflow_name,
         job_name=job_name,
-        run_url=run_url,
+        job_url=job_url,
         failed_step=failed_step_name,
         input_tokens=result.input_tokens,
         output_tokens=result.output_tokens,
@@ -511,7 +504,7 @@ async def cmd_summarize_async(
         print()
         if job.failed_step:
             print(f"**Failed step:** {job.failed_step}")
-        print(f"**URL:** {job.run_url}")
+        print(f"**URL:** {job.job_url}")
         truncated_note = " (truncated)" if job.truncated else ""
         print(f"**Tokens:** {job.input_tokens:,} in, {job.output_tokens:,} out{truncated_note}")
         print(f"**Cost:** ${job.cost:.4f}")
