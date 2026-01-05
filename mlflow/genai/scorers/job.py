@@ -23,8 +23,13 @@ from mlflow.genai.evaluation.session_utils import (
     get_first_trace_in_session,
 )
 from mlflow.genai.scorers.base import Scorer
-from mlflow.genai.scorers.online import OnlineScorer
-from mlflow.server.jobs import job
+from mlflow.genai.scorers.online import (
+    OnlineScorer,
+    OnlineSessionScoringProcessor,
+    OnlineTraceScoringProcessor,
+)
+from mlflow.server.handlers import _get_tracking_store
+from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.constant import TraceMetadataKey
 
@@ -57,7 +62,7 @@ def _extract_failures_from_feedbacks(feedbacks: list[Any]) -> list[ScorerFailure
 @job(
     name="run_online_trace_scorer",
     max_workers=MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS.get(),
-    exclusive=["experiment_id"],
+    exclusive=True,
 )
 def run_online_trace_scorer_job(
     experiment_id: str,
@@ -66,22 +71,44 @@ def run_online_trace_scorer_job(
     """
     Job that fetches samples of individual traces and runs scorers on them.
 
-    This job is exclusive per experiment_id to prevent duplicate scoring of the same
-    experiment. Multiple jobs with different scorers for the same experiment will not
-    run simultaneously, ensuring consistent checkpoint management.
+    This job is exclusive per (experiment_id, online_scorers) combination to prevent
+    duplicate scoring of the same traces.
 
     Args:
         experiment_id: The experiment ID to fetch traces from.
         online_scorers: List of OnlineScorer dicts specifying which scorers to run.
     """
-    from mlflow.genai.scorers.online.trace_processor import OnlineTraceScoringProcessor
-    from mlflow.server.handlers import _get_tracking_store
-
     scorer_objects = [OnlineScorer(**scorer_dict) for scorer_dict in online_scorers]
 
     tracking_store = _get_tracking_store()
     processor = OnlineTraceScoringProcessor.create(experiment_id, scorer_objects, tracking_store)
     processor.process_traces()
+
+
+@job(
+    name="run_online_session_scorer",
+    max_workers=MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS.get(),
+    exclusive=True,
+)
+def run_online_session_scorer_job(
+    experiment_id: str,
+    online_scorers: list[dict[str, Any]],
+) -> None:
+    """
+    Job that finds completed sessions and runs session-level scorers on them.
+
+    This job is exclusive per (experiment_id, online_scorers) combination to prevent
+    duplicate scoring of the same sessions.
+
+    Args:
+        experiment_id: The experiment ID to fetch sessions from.
+        online_scorers: List of OnlineScorer dicts specifying which scorers to run.
+    """
+    scorer_objects = [OnlineScorer(**scorer_dict) for scorer_dict in online_scorers]
+
+    tracking_store = _get_tracking_store()
+    processor = OnlineSessionScoringProcessor.create(experiment_id, scorer_objects, tracking_store)
+    processor.process_sessions()
 
 
 @job(name="invoke_scorer", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
@@ -106,8 +133,6 @@ def invoke_scorer_job(
     Returns:
         Dict mapping trace_id to TraceResult (assessments and failures).
     """
-    from mlflow.server.handlers import _get_tracking_store
-
     # Deserialize scorer
     scorer_dict = json.loads(serialized_scorer)
     scorer = Scorer.model_validate(scorer_dict)
@@ -373,15 +398,13 @@ def run_online_scoring_scheduler() -> None:
 
     Groups are shuffled to prevent starvation when there are limited job runners available.
     """
-    from mlflow.server.handlers import _get_tracking_store
-
     tracking_store = _get_tracking_store()
     online_scorers = tracking_store.get_active_online_scorers()
     _logger.info(f"Online scoring scheduler found {len(online_scorers)} active scorers")
 
     scorers_by_experiment: dict[str, list[OnlineScorer]] = defaultdict(list)
     for scorer in online_scorers:
-        scorers_by_experiment[scorer.experiment_id].append(scorer)
+        scorers_by_experiment[scorer.online_config.experiment_id].append(scorer)
 
     # Shuffle configs randomly to prevent scorer starvation when there are
     # limited job runners available
@@ -392,7 +415,37 @@ def run_online_scoring_scheduler() -> None:
     )
 
     for experiment_id, scorers in experiment_groups:
-        _logger.info(f"Submitting jobs for experiment {experiment_id} with {len(scorers)} scorers")
-        scorer_dicts = [asdict(scorer) for scorer in scorers]
-        run_online_trace_scorer_job(experiment_id, scorer_dicts)
-        run_online_session_scorer_job(experiment_id, scorer_dicts)
+        # Separate scorers by type
+        session_level_scorers = []
+        trace_level_scorers = []
+
+        for scorer in scorers:
+            scorer_dict = json.loads(scorer.serialized_scorer)
+            scorer_obj = Scorer.model_validate(scorer_dict)
+            if scorer_obj.is_session_level_scorer:
+                session_level_scorers.append(scorer)
+            else:
+                trace_level_scorers.append(scorer)
+
+        # Only submit jobs for scorer types that exist
+        if trace_level_scorers:
+            _logger.info(
+                f"Submitting trace scoring job for experiment {experiment_id} "
+                f"with {len(trace_level_scorers)} scorers"
+            )
+            trace_scorer_dicts = [asdict(scorer) for scorer in trace_level_scorers]
+            submit_job(
+                run_online_trace_scorer_job,
+                {"experiment_id": experiment_id, "online_scorers": trace_scorer_dicts},
+            )
+
+        if session_level_scorers:
+            _logger.info(
+                f"Submitting session scoring job for experiment {experiment_id} "
+                f"with {len(session_level_scorers)} scorers"
+            )
+            session_scorer_dicts = [asdict(scorer) for scorer in session_level_scorers]
+            submit_job(
+                run_online_session_scorer_job,
+                {"experiment_id": experiment_id, "online_scorers": session_scorer_dicts},
+            )
