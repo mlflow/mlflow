@@ -14,6 +14,7 @@ from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
 from mlflow.genai.scorers.online.session_checkpointer import (
     OnlineSessionCheckpointManager,
     OnlineSessionScoringCheckpoint,
+    OnlineSessionScoringTimeWindow,
 )
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -114,7 +115,9 @@ class OnlineSessionScoringProcessor:
         _logger.info(f"Online session scoring completed for experiment {self._experiment_id}")
 
     def _fetch_and_filter_completed_sessions(
-        self, time_window, checkpoint
+        self,
+        time_window: OnlineSessionScoringTimeWindow,
+        checkpoint: OnlineSessionScoringCheckpoint | None,
     ) -> list[CompletedSession]:
         """
         Fetch completed sessions in the time window and filter out already-processed sessions.
