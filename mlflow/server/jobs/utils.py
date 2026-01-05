@@ -260,8 +260,9 @@ def _exec_job(
 
     job_store = _get_job_store()
 
-    # If exclusive, acquire lock based on job_name + hash(params)
-    # If lock is already held, TaskLockedException is raised and job is skipped
+    # If exclusive, check if we can acquire the lock
+    # If lock is already held, skip this job
+    lock = None
     if exclusive:
         from huey.exceptions import TaskLockedException
 
@@ -274,8 +275,6 @@ def _exec_job(
             _logger.info(f"Skipping job {job_id} - exclusive lock {lock_key} already held")
             job_store.cancel_job(job_id)
             return
-    else:
-        lock = None
 
     try:
         job_store.start_job(job_id)
@@ -350,12 +349,19 @@ def _get_or_init_huey_instance(instance_key: str):
 
     class JsonSerializer(Serializer):
         def serialize(self, data):
-            return json.dumps(data._asdict(), cls=CustomJSONEncoder).encode("utf-8")
+            # Handle both Message objects (which have _asdict) and plain data (like lock values)
+            data_dict = data._asdict() if hasattr(data, "_asdict") else data
+            return json.dumps(data_dict, cls=CustomJSONEncoder).encode("utf-8")
 
         def deserialize(self, data):
             from huey.registry import Message
 
-            return Message(**json.loads(data.decode("utf-8"), object_hook=json_loader_object_hook))
+            decoded = json.loads(data.decode("utf-8"), object_hook=json_loader_object_hook)
+            # If it's a dict with Message fields, reconstruct Message
+            if isinstance(decoded, dict) and "id" in decoded and "name" in decoded:
+                return Message(**decoded)
+            # Otherwise return the raw data (for locks, etc.)
+            return decoded
 
     with _huey_instance_map_lock:
         if instance_key not in _huey_instance_map:
