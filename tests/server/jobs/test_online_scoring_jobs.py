@@ -70,28 +70,49 @@ def test_run_online_session_scorer_job_calls_processor():
 
 
 def test_scheduler_submits_jobs_via_submit_job():
+    from mlflow.genai.judges import make_judge
     from mlflow.genai.scorers.job import run_online_scoring_scheduler
     from mlflow.genai.scorers.online.entities import OnlineScorer
 
-    # Create mock online scorers with properly serialized scorer data
-    completeness = Completeness()
+    # Create trace-level scorers (2)
+    trace_scorer = Completeness()
+
+    # Create session-level scorer (1) using make_judge with {{ conversation }}
+    session_scorer = make_judge(
+        name="conversation_judge",
+        instructions="Evaluate {{ conversation }} for quality",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
     mock_scorer1 = OnlineScorer(
         name="completeness",
         experiment_id="exp1",
-        serialized_scorer=json.dumps(completeness.model_dump()),
+        serialized_scorer=json.dumps(trace_scorer.model_dump()),
         sample_rate=1.0,
         filter_string=None,
     )
     mock_scorer2 = OnlineScorer(
         name="relevance",
-        experiment_id="exp2",
-        serialized_scorer=json.dumps(completeness.model_dump()),
-        sample_rate=0.5,
+        experiment_id="exp1",
+        serialized_scorer=json.dumps(trace_scorer.model_dump()),
+        sample_rate=1.0,
+        filter_string=None,
+    )
+    mock_scorer3 = OnlineScorer(
+        name="conversation_judge",
+        experiment_id="exp1",
+        serialized_scorer=json.dumps(session_scorer.model_dump()),
+        sample_rate=1.0,
         filter_string=None,
     )
 
     mock_tracking_store = MagicMock()
-    mock_tracking_store.get_active_online_scorers.return_value = [mock_scorer1, mock_scorer2]
+    mock_tracking_store.get_active_online_scorers.return_value = [
+        mock_scorer1,
+        mock_scorer2,
+        mock_scorer3,
+    ]
 
     with (
         patch("mlflow.genai.scorers.job._get_tracking_store", return_value=mock_tracking_store),
@@ -99,20 +120,33 @@ def test_scheduler_submits_jobs_via_submit_job():
     ):
         run_online_scoring_scheduler()
 
-        # Both scorers are trace-level, so only trace jobs should be submitted (2 experiments)
+        # Should submit both trace and session jobs for exp1
         assert mock_submit_job.call_count == 2
 
         # Verify correct job functions and parameters were passed
-        from mlflow.genai.scorers.job import run_online_trace_scorer_job
+        from mlflow.genai.scorers.job import (
+            run_online_session_scorer_job,
+            run_online_trace_scorer_job,
+        )
 
         call_args_list = mock_submit_job.call_args_list
         trace_scorer_calls = [
             call for call in call_args_list if call[0][0] == run_online_trace_scorer_job
         ]
+        session_scorer_calls = [
+            call for call in call_args_list if call[0][0] == run_online_session_scorer_job
+        ]
 
-        # Both calls should be for trace scoring jobs
-        assert len(trace_scorer_calls) == 2
+        # Should have 1 trace job and 1 session job
+        assert len(trace_scorer_calls) == 1
+        assert len(session_scorer_calls) == 1
 
-        # Verify experiment IDs are present in the calls
-        exp_ids_in_calls = {call[0][1]["experiment_id"] for call in call_args_list}
-        assert exp_ids_in_calls == {"exp1", "exp2"}
+        # Verify trace job has 2 scorers
+        trace_params = trace_scorer_calls[0].args[1]
+        assert len(trace_params["online_scorers"]) == 2
+        assert trace_params["experiment_id"] == "exp1"
+
+        # Verify session job has 1 scorer
+        session_params = session_scorer_calls[0].args[1]
+        assert len(session_params["online_scorers"]) == 1
+        assert session_params["experiment_id"] == "exp1"
