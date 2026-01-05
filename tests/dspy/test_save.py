@@ -75,6 +75,9 @@ def reset_dspy_settings():
 
 @pytest.mark.parametrize("use_dspy_model_save", [True, False])
 def test_basic_save(use_dspy_model_save):
+    if use_dspy_model_save and _DSPY_VERSION <= Version("2.6.0"):
+        pytest.skip("'use_dspy_model_save' = True does not support dspy <= 2.6.0")
+
     dspy_model = CoT()
     dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
 
