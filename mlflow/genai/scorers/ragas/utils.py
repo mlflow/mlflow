@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from typing import Any
 
+from ragas.dataset_schema import MultiTurnSample, SingleTurnSample
+from ragas.messages import AIMessage, HumanMessage, ToolCall
+
 from mlflow.entities.trace import Trace
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
+    extract_tools_called_from_trace,
     parse_inputs_to_str,
     parse_outputs_to_str,
+    resolve_expectations_from_session,
     resolve_expectations_from_trace,
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
@@ -18,21 +23,48 @@ def map_scorer_inputs_to_ragas_sample(
     outputs: Any = None,
     expectations: dict[str, Any] | None = None,
     trace: Trace | None = None,
+    session: list[Trace] | None = None,
+    is_agentic: bool = False,
 ):
     """
-    Convert MLflow scorer inputs to RAGAS SingleTurnSample format.
+    Convert MLflow scorer inputs to RAGAS sample format.
+
+    For single-turn metrics, returns a SingleTurnSample.
+    For agentic/multi-turn metrics, returns a MultiTurnSample.
 
     Args:
         inputs: The input to evaluate
         outputs: The output to evaluate
         expectations: Expected values and context for evaluation
         trace: MLflow trace for evaluation
+        session: List of MLflow traces for multi-turn evaluation
+        is_agentic: Whether the metric is agentic
 
     Returns:
-        RAGAS SingleTurnSample object
+        RAGAS SingleTurnSample or MultiTurnSample object
     """
-    from ragas.dataset_schema import SingleTurnSample
 
+    if is_agentic:
+        return _create_multi_turn_sample(
+            expectations=expectations,
+            trace=trace,
+            session=session,
+        )
+
+    return _create_single_turn_sample(
+        inputs=inputs,
+        outputs=outputs,
+        expectations=expectations,
+        trace=trace,
+    )
+
+
+def _create_single_turn_sample(
+    inputs: Any = None,
+    outputs: Any = None,
+    expectations: dict[str, Any] | None = None,
+    trace: Trace | None = None,
+):
     if trace:
         inputs = resolve_inputs_from_trace(inputs, trace)
         outputs = resolve_outputs_from_trace(outputs, trace)
@@ -63,6 +95,149 @@ def map_scorer_inputs_to_ragas_sample(
         reference_contexts=retrieved_contexts or None,
         rubrics=rubrics,
     )
+
+
+def _create_multi_turn_sample(
+    expectations: dict[str, Any] | None = None,
+    trace: Trace | None = None,
+    session: list[Trace] | None = None,
+):
+    if session:
+        messages = map_session_to_ragas_messages(session, include_tool_calls=True)
+        expectations = resolve_expectations_from_session(expectations, session)
+    elif trace is not None:
+        messages = map_trace_to_ragas_messages(trace, include_tool_calls=True)
+        expectations = resolve_expectations_from_trace(expectations, trace)
+    else:
+        messages = []
+
+    reference_tool_calls = extract_reference_tool_calls_from_expectations(expectations)
+
+    reference = None
+    reference_topics = None
+    if expectations and "expected_output" in expectations:
+        reference = str(expectations["expected_output"])
+    if expectations and "reference_topics" in expectations:
+        reference_topics = expectations["reference_topics"]
+
+    return MultiTurnSample(
+        user_input=messages,
+        reference=reference,
+        reference_tool_calls=reference_tool_calls,
+        reference_topics=reference_topics or [],
+    )
+
+
+def map_session_to_ragas_messages(
+    session: list[Trace],
+    *,
+    include_tool_calls: bool = True,
+) -> list[HumanMessage | AIMessage]:
+    """
+    Convert MLflow session (list of traces) to RAGAS message format.
+
+    This converts MLflow traces into RAGAS HumanMessage, AIMessage
+    objects suitable for agentic metrics evaluation.
+
+    Args:
+        session: List of traces from the same session in chronological order.
+        include_tool_calls: If True, include tool call information from TOOL spans.
+
+    Returns:
+        List of RAGAS message objects (HumanMessage, AIMessage).
+    """
+
+    messages = []
+
+    for trace in session:
+        messages.extend(map_trace_to_ragas_messages(trace, include_tool_calls=include_tool_calls))
+
+    return messages
+
+
+def map_trace_to_ragas_messages(
+    trace: Trace,
+    *,
+    include_tool_calls: bool = True,
+) -> list[HumanMessage | AIMessage]:
+    """
+    Convert a single MLflow trace to RAGAS message format.
+
+    This converts an MLflow trace into RAGAS HumanMessage, AIMessage
+    objects suitable for agentic metrics evaluation.
+
+    Args:
+        trace: A single Trace object.
+        include_tool_calls: If True, include tool call information from TOOL spans.
+
+    Returns:
+        List of RAGAS message objects (HumanMessage, AIMessage).
+    """
+
+    messages = []
+
+    if inputs := resolve_inputs_from_trace(None, trace):
+        user_content = parse_inputs_to_str(inputs)
+        if user_content and user_content.strip():
+            messages.append(HumanMessage(content=user_content))
+
+    tool_calls = []
+    if include_tool_calls:
+        if tools_called := extract_tools_called_from_trace(trace):
+            tool_calls.extend(
+                ToolCall(name=tool.name or "", args=tool.arguments or {}) for tool in tools_called
+            )
+
+    if outputs := resolve_outputs_from_trace(None, trace):
+        assistant_content = parse_outputs_to_str(outputs)
+        if assistant_content and assistant_content.strip():
+            messages.append(
+                AIMessage(
+                    content=assistant_content,
+                    tool_calls=tool_calls,
+                )
+            )
+
+    return messages
+
+
+def extract_reference_tool_calls_from_expectations(
+    expectations: dict[str, Any] | None,
+) -> list[ToolCall] | None:
+    """
+    Extract reference tool calls from expectations dict.
+
+    Args:
+        expectations: Expectations dict that may contain 'expected_tool_calls'.
+
+    Returns:
+        List of RAGAS ToolCall objects, or None if no tool calls are found.
+    """
+    if not expectations or "expected_tool_calls" not in expectations:
+        return None
+
+    expected_tool_calls = expectations["expected_tool_calls"]
+    if not isinstance(expected_tool_calls, list):
+        return None
+
+    reference_tool_calls = []
+    for tc in expected_tool_calls:
+        if isinstance(tc, dict):
+            reference_tool_calls.append(
+                ToolCall(
+                    name=tc.get("name", ""),
+                    args=tc.get("arguments", tc.get("args", {})),
+                )
+            )
+        elif hasattr(tc, "name") and hasattr(tc, "args"):
+            reference_tool_calls.append(
+                ToolCall(
+                    name=tc.name,
+                    args=tc.args if hasattr(tc, "args") else {},
+                )
+            )
+
+    return reference_tool_calls or None
 
 
 def create_mlflow_error_message_from_ragas_param(ragas_param: str, metric_name: str) -> str:

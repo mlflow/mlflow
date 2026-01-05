@@ -16,6 +16,32 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 
 
+class MlflowLiteLLM(LiteLLMStructuredLLM):
+    """
+    Wrapper adding generate_text/agenerate_text to LiteLLMStructuredLLM.
+
+    Nvidia metrics require generate_text/agenerate_text methods.
+    """
+
+    def generate_text(self, prompt: str, **kwargs) -> str:
+        if hasattr(prompt, "to_string"):
+            prompt = prompt.to_string()
+        elif not isinstance(prompt, str):
+            prompt = str(prompt)
+
+        response = litellm.completion(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            **self.model_args,
+        )
+        return response.choices[0].message.content
+
+    async def agenerate_text(self, prompt: str, **kwargs):
+        text = self.generate_text(prompt, **kwargs)
+        generation = Generation(text=text)
+        return LLMResult(generations=[[generation]])
+
+
 class DatabricksRagasLLM(BaseRagasLLM):
     """
     RAGAS LLM adapter for Databricks managed judge.
@@ -111,7 +137,7 @@ def create_ragas_model(model_uri: str):
         provider, model_name = model_uri.split(":", 1)
         model_name = model_name.removeprefix("/")
         client = instructor.from_litellm(litellm.completion)
-        return LiteLLMStructuredLLM(
+        return MlflowLiteLLM(
             client=client,
             model=f"{provider}/{model_name}",
             provider=provider,

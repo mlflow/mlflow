@@ -14,22 +14,27 @@ _METRIC_REGISTRY = {
     "NonLLMContextRecall": ("ragas.metrics.NonLLMContextRecall", True),
     "ContextEntityRecall": ("ragas.metrics.ContextEntityRecall", False),
     "NoiseSensitivity": ("ragas.metrics.NoiseSensitivity", False),
-    # TODO: ResponseRelevancy requires embeddings model instead of LLM
-    # "ResponseRelevancy": ("ragas.metrics.ResponseRelevancy", False),
+    "ResponseRelevancy": ("ragas.metrics.ResponseRelevancy", False),
     "Faithfulness": ("ragas.metrics.Faithfulness", False),
-    # TODO: Nvidia Metrics not yet supported
-    # "AnswerAccuracy": ("ragas.metrics.AnswerAccuracy", False),
-    # "ContextRelevance": ("ragas.metrics.ContextRelevance", False),
-    # "ResponseGroundedness": ("ragas.metrics.ResponseGroundedness", False),
-    # TODO: Agents or Tool Use Cases metrics not yet supported
-    # "TopicAdherence": ("ragas.metrics.TopicAdherence", False),
-    # "ToolCallAccuracy": ("ragas.metrics.ToolCallAccuracy", False),
-    # "ToolCallF1": ("ragas.metrics.ToolCallF1", False),
-    # "AgentGoalAccuracy": ("ragas.metrics.AgentGoalAccuracy", False),
+    # Nvidia Metrics
+    "AnswerAccuracy": ("ragas.metrics.AnswerAccuracy", False),
+    "ContextRelevance": ("ragas.metrics.ContextRelevance", False),
+    "ResponseGroundedness": ("ragas.metrics.ResponseGroundedness", False),
+    # Agents or Tool Use Cases
+    "TopicAdherence": ("ragas.metrics.TopicAdherenceScore", False),
+    "ToolCallAccuracy": ("ragas.metrics.ToolCallAccuracy", True),
+    "ToolCallF1": ("ragas.metrics.ToolCallF1", True),
+    "AgentGoalAccuracyWithReference": (
+        "ragas.metrics.AgentGoalAccuracyWithReference",
+        False,
+    ),
+    "AgentGoalAccuracyWithoutReference": (
+        "ragas.metrics.AgentGoalAccuracyWithoutReference",
+        False,
+    ),
     # Natural Language Comparison
     "FactualCorrectness": ("ragas.metrics.FactualCorrectness", False),
-    # TODO: SemanticSimilarity requires embeddings model instead of LLM
-    # "SemanticSimilarity": ("ragas.metrics.SemanticSimilarity", False),
+    "SemanticSimilarity": ("ragas.metrics.SemanticSimilarity", False),
     "NonLLMStringSimilarity": ("ragas.metrics.NonLLMStringSimilarity", True),
     "BleuScore": ("ragas.metrics.BleuScore", True),
     "ChrfScore": ("ragas.metrics.ChrfScore", True),
@@ -41,8 +46,7 @@ _METRIC_REGISTRY = {
     # "SQLSemanticEquivalence": ("ragas.metrics.SQLSemanticEquivalence", False),
     # General Purpose
     "AspectCritic": ("ragas.metrics.AspectCritic", False),
-    # TODO: DiscreteMetric not yet supported
-    # "DiscreteMetric": ("ragas.metrics.DiscreteMetric", False),
+    "DiscreteMetric": ("ragas.metrics.DiscreteMetric", False),
     "RubricsScore": ("ragas.metrics.RubricsScore", False),
     "InstanceRubrics": ("ragas.metrics.InstanceRubrics", False),
     # Other Tasks
@@ -85,3 +89,26 @@ def is_deterministic_metric(metric_name: str) -> bool:
     _, is_deterministic = _METRIC_REGISTRY[metric_name]
 
     return is_deterministic
+
+
+def no_llm_required_in_metric_constructor(metric_name: str) -> bool:
+    metrics = {"DiscreteMetric"}
+
+    return metric_name in metrics
+
+
+def metric_requires_only_embeddings(metric_name: str) -> bool:
+    metrics = {"SemanticSimilarity"}
+
+    return metric_name in metrics
+
+
+def is_agentic_metric(metric_name: str) -> bool:
+    agentic_metrics = {
+        "TopicAdherence",
+        "ToolCallAccuracy",
+        "ToolCallF1",
+        "AgentGoalAccuracyWithReference",
+        "AgentGoalAccuracyWithoutReference",
+    }
+    return metric_name in agentic_metrics

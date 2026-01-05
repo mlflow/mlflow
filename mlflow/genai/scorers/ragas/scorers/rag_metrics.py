@@ -165,3 +165,60 @@ class Faithfulness(RagasScorer):
     """
 
     metric_name: ClassVar[str] = "Faithfulness"
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class ResponseRelevancy(RagasScorer):
+    """
+    Evaluates how relevant the response is to the input question.
+
+    Note: This metric requires embeddings.
+
+    Args:
+        model: {{ model }}
+        embeddings: Embeddings for computing relevancy
+        **metric_kwargs: Additional metric-specific parameters
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.scorers.ragas import ResponseRelevancy
+            from ragas.embeddings.base import embedding_factory
+
+            embeddings = embedding_factory("openai", model="text-embedding-3-small")
+            scorer = ResponseRelevancy(embeddings=embeddings)
+            feedback = scorer(
+                inputs="What is MLflow?",
+                outputs="MLflow is an open-source platform for managing ML workflows.",
+            )
+    """
+
+    metric_name: ClassVar[str] = "ResponseRelevancy"
+
+
+@experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
+class SemanticSimilarity(RagasScorer):
+    """
+    Evaluates the semantic similarity between the output and expected output.
+
+    Note: This metric requires embeddings
+
+    Args:
+        model: {{ model }}
+        embeddings: Embeddings for computing similarity
+        **metric_kwargs: Additional metric-specific parameters
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.scorers.ragas import SemanticSimilarity
+            from ragas.embeddings.base import embedding_factory
+
+            embeddings = embedding_factory("openai", model="text-embedding-3-small")
+            scorer = SemanticSimilarity(embeddings=embeddings)
+            feedback = scorer(trace=trace)
+    """
+
+    metric_name: ClassVar[str] = "SemanticSimilarity"
