@@ -2,7 +2,7 @@ import React from 'react';
 import { useDesignSystemTheme, Typography, FormUI, Slider, Input, Checkbox } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { Controller, type Control, useWatch } from 'react-hook-form';
-import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
+import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 
 interface EvaluateTracesSectionRendererProps {
   control: Control<any>;
@@ -22,8 +22,13 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
     control,
     name: 'disableMonitoring',
   });
+  const evaluationScope = useWatch({
+    control,
+    name: 'evaluationScope',
+  });
 
   const isAutomaticEvaluationEnabled = sampleRate > 0;
+  const isSessionLevelScorer = evaluationScope === ScorerEvaluationScope.SESSIONS;
 
   const stopPropagationClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -135,61 +140,63 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
             />
           </div>
 
-          {/* Filter String Input */}
-          <div css={sectionStyles}>
-            <FormUI.Label htmlFor="mlflow-experiment-scorers-filter-string">
-              <FormattedMessage
-                defaultMessage="Filter string (optional)"
-                description="Section header for filter string"
-              />
-            </FormUI.Label>
-            <FormUI.Hint>
-              <FormattedMessage
-                defaultMessage="Only run on traces matching this filter; leave blank to run on all. Uses MLflow {link}."
-                description="Hint text for filter string input"
-                values={{
-                  link: (
-                    <Typography.Link
-                      componentId={`${COMPONENT_ID_PREFIX}.search-traces-syntax-link`}
-                      href="https://mlflow.org/docs/latest/genai/tracing/search-traces/"
-                      openInNewTab
-                    >
-                      {intl.formatMessage({
-                        defaultMessage: 'search_traces syntax',
-                        description: 'Link text for search traces documentation',
-                      })}
-                    </Typography.Link>
-                  ),
-                }}
-              />
-            </FormUI.Hint>
-            <Controller
-              name="filterString"
-              control={control}
-              render={({ field }) => (
-                <Input
-                  {...field}
-                  componentId={`${COMPONENT_ID_PREFIX}.filter-string-input`}
-                  id="mlflow-experiment-scorers-filter-string"
-                  readOnly={mode === SCORER_FORM_MODE.DISPLAY}
-                  placeholder={
-                    mode === SCORER_FORM_MODE.EDIT || mode === SCORER_FORM_MODE.CREATE
-                      ? intl.formatMessage({
-                          defaultMessage: "trace.status = 'OK'",
-                          description: 'Placeholder example for filter string input',
-                        })
-                      : undefined
-                  }
-                  css={{
-                    cursor: mode === SCORER_FORM_MODE.EDIT || mode === SCORER_FORM_MODE.CREATE ? 'text' : 'auto',
-                    width: '100%',
-                    maxWidth: '400px',
-                  }}
-                  onClick={stopPropagationClick}
+          {/* Filter String Input - hidden for session-level scorers */}
+          {!isSessionLevelScorer && (
+            <div css={sectionStyles}>
+              <FormUI.Label htmlFor="mlflow-experiment-scorers-filter-string">
+                <FormattedMessage
+                  defaultMessage="Filter string (optional)"
+                  description="Section header for filter string"
                 />
-              )}
-            />
-          </div>
+              </FormUI.Label>
+              <FormUI.Hint>
+                <FormattedMessage
+                  defaultMessage="Only run on traces matching this filter; leave blank to run on all. Uses MLflow {link}."
+                  description="Hint text for filter string input"
+                  values={{
+                    link: (
+                      <Typography.Link
+                        componentId={`${COMPONENT_ID_PREFIX}.search-traces-syntax-link`}
+                        href="https://mlflow.org/docs/latest/genai/tracing/search-traces/"
+                        openInNewTab
+                      >
+                        {intl.formatMessage({
+                          defaultMessage: 'search_traces syntax',
+                          description: 'Link text for search traces documentation',
+                        })}
+                      </Typography.Link>
+                    ),
+                  }}
+                />
+              </FormUI.Hint>
+              <Controller
+                name="filterString"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    componentId={`${COMPONENT_ID_PREFIX}.filter-string-input`}
+                    id="mlflow-experiment-scorers-filter-string"
+                    readOnly={mode === SCORER_FORM_MODE.DISPLAY}
+                    placeholder={
+                      mode === SCORER_FORM_MODE.EDIT || mode === SCORER_FORM_MODE.CREATE
+                        ? intl.formatMessage({
+                            defaultMessage: "trace.status = 'OK'",
+                            description: 'Placeholder example for filter string input',
+                          })
+                        : undefined
+                    }
+                    css={{
+                      cursor: mode === SCORER_FORM_MODE.EDIT || mode === SCORER_FORM_MODE.CREATE ? 'text' : 'auto',
+                      width: '100%',
+                      maxWidth: '400px',
+                    }}
+                    onClick={stopPropagationClick}
+                  />
+                )}
+              />
+            </div>
+          )}
         </>
       )}
     </>
