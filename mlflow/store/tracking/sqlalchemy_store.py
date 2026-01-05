@@ -3352,27 +3352,37 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             candidate_sessions = self._build_candidate_sessions_subquery(
-                session, experiment_id, min_last_trace_timestamp_ms
+                session=session,
+                experiment_id=experiment_id,
+                min_last_trace_timestamp_ms=min_last_trace_timestamp_ms,
             )
 
             filtered_sessions = self._build_first_trace_filter_subquery(
-                session, experiment_id, filter_string, candidate_sessions
+                session=session,
+                experiment_id=experiment_id,
+                filter_string=filter_string,
+                candidate_sessions=candidate_sessions,
             )
 
             sessions_with_stats = self._build_session_stats_subquery(
-                session, experiment_id, candidate_sessions, filtered_sessions
+                session=session,
+                experiment_id=experiment_id,
+                candidate_sessions=candidate_sessions,
+                filtered_sessions=filtered_sessions,
             )
 
             sessions_with_recent_traces = self._build_sessions_with_recent_traces_subquery(
-                session, experiment_id, max_last_trace_timestamp_ms
+                session=session,
+                experiment_id=experiment_id,
+                max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
             )
 
             query = self._build_completed_sessions_query(
-                session,
-                sessions_with_stats,
-                sessions_with_recent_traces,
-                max_last_trace_timestamp_ms,
-                max_results,
+                session=session,
+                sessions_with_stats=sessions_with_stats,
+                sessions_with_recent_traces=sessions_with_recent_traces,
+                max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
+                max_results=max_results,
             )
 
             results = query.all()
