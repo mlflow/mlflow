@@ -20,8 +20,12 @@ import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
 from sqlalchemy import and_, case, exists, func, or_, sql
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.future import select
-from sqlalchemy.orm import Session, aliased, joinedload
+from sqlalchemy.future import Select, select
+from sqlalchemy.orm import Query, Session, aliased, joinedload
+from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.selectable import Subquery
+
+_SqlAlchemyStatement = TypeVar("_SqlAlchemyStatement", Select, Query)
 
 import mlflow.store.db.utils
 from mlflow.entities import (
@@ -2963,6 +2967,64 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
         return sql_trace_info
 
+    def _apply_trace_filter_clauses(
+        self,
+        statement: _SqlAlchemyStatement,
+        attribute_filters: list[ColumnElement],
+        non_attribute_filters: list[Subquery],
+        span_filters: list[Subquery],
+        run_id_filter: str | None,
+    ) -> _SqlAlchemyStatement:
+        """
+        Apply trace filter clauses to a SQLAlchemy statement.
+
+        This helper consolidates the logic for applying trace filters that is shared
+        between search_traces() and find_completed_sessions().
+
+        Args:
+            statement: SQLAlchemy statement (Select or Query) to apply filters to
+            attribute_filters: List of attribute filter conditions (e.g., WHERE clauses)
+            non_attribute_filters: List of subqueries for tag/metadata filters to join
+            span_filters: List of subqueries for span filters to join
+            run_id_filter: Optional run_id to filter by
+
+        Returns:
+            Modified statement with all filters applied (same type as input)
+        """
+        # Apply non-attribute filters (tags and metadata)
+        for non_attr_filter in non_attribute_filters:
+            statement = statement.join(non_attr_filter)
+
+        # Apply span filters
+        for span_filter in span_filters:
+            statement = statement.join(
+                span_filter, SqlTraceInfo.request_id == span_filter.c.request_id
+            )
+
+        # Build filter conditions starting with attribute filters
+        filter_conditions = [*attribute_filters]
+
+        # Handle run_id filter if present
+        if run_id_filter:
+            linked_trace_exists = exists().where(
+                (SqlEntityAssociation.source_id == SqlTraceInfo.request_id)
+                & (SqlEntityAssociation.source_type == EntityAssociationType.TRACE)
+                & (SqlEntityAssociation.destination_type == EntityAssociationType.RUN)
+                & (SqlEntityAssociation.destination_id == run_id_filter)
+            )
+            metadata_exists = exists().where(
+                (SqlTraceMetadata.request_id == SqlTraceInfo.request_id)
+                & (SqlTraceMetadata.key == TraceMetadataKey.SOURCE_RUN)
+                & (SqlTraceMetadata.value == run_id_filter)
+            )
+            filter_conditions.append(or_(linked_trace_exists, metadata_exists))
+
+        # Apply all filter conditions
+        if filter_conditions:
+            statement = statement.filter(*filter_conditions)
+
+        return statement
+
     def search_traces(
         self,
         experiment_ids: list[str] | None = None,
@@ -3004,30 +3066,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
             )
 
-            # Apply non-attribute filters (tags and metadata)
-            for non_attr_filter in non_attribute_filters:
-                stmt = stmt.join(non_attr_filter)
-
-            # Apply span filters with explicit join condition
-            for span_filter in span_filters:
-                stmt = stmt.join(span_filter, SqlTraceInfo.request_id == span_filter.c.request_id)
-
-            # If run_id filter is present, we need to handle it specially to include linked traces
-            if run_id_filter:
-                # Create a subquery to check if a trace is linked to the run via entity associations
-                linked_trace_exists = exists().where(
-                    (SqlEntityAssociation.source_id == SqlTraceInfo.request_id)
-                    & (SqlEntityAssociation.source_type == EntityAssociationType.TRACE)
-                    & (SqlEntityAssociation.destination_type == EntityAssociationType.RUN)
-                    & (SqlEntityAssociation.destination_id == run_id_filter)
-                )
-
-                # Create a subquery to check if trace has run_id in metadata
-                metadata_exists = exists().where(
-                    (SqlTraceMetadata.request_id == SqlTraceInfo.request_id)
-                    & (SqlTraceMetadata.key == TraceMetadataKey.SOURCE_RUN)
-                    & (SqlTraceMetadata.value == run_id_filter)
-                )
+            # Apply trace filters using shared helper
+            stmt = self._apply_trace_filter_clauses(
+                stmt, attribute_filters, non_attribute_filters, span_filters, run_id_filter
+            )
 
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
@@ -3038,21 +3080,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
             locations = [int(e) for e in locations]
 
-            # Build the filter conditions
-            filter_conditions = [
-                SqlTraceInfo.experiment_id.in_(locations),
-                *attribute_filters,
-            ]
-
-            # If run_id filter is present, add OR condition for linked traces
-            if run_id_filter:
-                filter_conditions.append(
-                    or_(
-                        linked_trace_exists,  # Trace is linked via entity associations
-                        metadata_exists,  # Trace has run_id in metadata
-                    )
-                )
-
             stmt = (
                 # NB: We don't need to distinct the results of joins because of the fact that
                 #   the right tables of the joins are unique on the join key, trace_id.
@@ -3061,7 +3088,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 #   trace_id is unique in those tables.
                 #   Be careful when changing the query building logic, as it may break this
                 #   uniqueness property and require deduplication, which can be expensive.
-                stmt.filter(*filter_conditions)
+                stmt.filter(SqlTraceInfo.experiment_id.in_(locations))
                 .order_by(*parsed_orderby)
                 .offset(offset)
                 .limit(max_results)
@@ -3173,15 +3200,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     SqlTraceInfo.request_id == filtered_first_trace_metadata.request_id,
                 )
 
-                # Apply non-attribute filters (tags and metadata)
-                for non_attr_filter in non_attribute_filters:
-                    filtered_trace_query = filtered_trace_query.join(non_attr_filter)
-
-                # Apply span filters
-                for span_filter in span_filters:
-                    filtered_trace_query = filtered_trace_query.join(
-                        span_filter, SqlTraceInfo.request_id == span_filter.c.request_id
-                    )
+                # Apply trace filters using shared helper
+                filtered_trace_query = self._apply_trace_filter_clauses(
+                    filtered_trace_query,
+                    attribute_filters,
+                    non_attribute_filters,
+                    span_filters,
+                    run_id_filter,
+                )
 
                 # Join with first_traces to match only the first trace in each session
                 filtered_trace_query = filtered_trace_query.join(
@@ -3190,32 +3216,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     & (SqlTraceInfo.timestamp_ms == first_traces.c.first_timestamp),
                 )
 
-                # Apply attribute filters
-                filter_conditions = [
-                    SqlTraceInfo.experiment_id == experiment_id,
-                    filtered_first_trace_metadata.key == TraceMetadataKey.TRACE_SESSION,
-                    *attribute_filters,
-                ]
-
-                # Handle run_id filter if present
-                if run_id_filter:
-                    from sqlalchemy import exists
-
-                    linked_trace_exists = exists().where(
-                        (SqlEntityAssociation.source_id == SqlTraceInfo.request_id)
-                        & (SqlEntityAssociation.source_type == EntityAssociationType.TRACE)
-                        & (SqlEntityAssociation.destination_type == EntityAssociationType.RUN)
-                        & (SqlEntityAssociation.destination_id == run_id_filter)
-                    )
-                    metadata_exists = exists().where(
-                        (SqlTraceMetadata.request_id == SqlTraceInfo.request_id)
-                        & (SqlTraceMetadata.key == TraceMetadataKey.SOURCE_RUN)
-                        & (SqlTraceMetadata.value == run_id_filter)
-                    )
-                    filter_conditions.append(linked_trace_exists | metadata_exists)
-
+                # Apply session-specific filters
                 filtered_sessions = (
-                    filtered_trace_query.filter(*filter_conditions).distinct().subquery()
+                    filtered_trace_query.filter(
+                        SqlTraceInfo.experiment_id == experiment_id,
+                        filtered_first_trace_metadata.key == TraceMetadataKey.TRACE_SESSION,
+                    )
+                    .distinct()
+                    .subquery()
                 )
             else:
                 filtered_sessions = None
