@@ -144,9 +144,9 @@ def test_process_sessions_filters_checkpoint_boundary(
         processor.process_sessions()
 
         assert mock_score.call_count == 2
-        scored_sessions = [call[0][0] for call in mock_score.call_args_list]
-        assert scored_sessions[0].session_id == "sess-003"
-        assert scored_sessions[1].session_id == "sess-004"
+        scored_tasks = [call[0][0] for call in mock_score.call_args_list]
+        assert scored_tasks[0].session.session_id == "sess-003"
+        assert scored_tasks[1].session.session_id == "sess-004"
 
 
 def test_session_rescored_when_new_trace_added_after_checkpoint(
@@ -501,7 +501,7 @@ def test_fetch_sessions_passes_filter_when_all_scorers_share_same_filter(
     assert call_kwargs["filter_string"] == "tag.env = 'prod'"
 
 
-def test_fetch_sessions_no_filter_when_scorers_have_different_filters(
+def test_fetch_sessions_calls_once_per_filter_when_scorers_have_different_filters(
     mock_trace_loader, mock_checkpoint_manager, mock_tracking_store
 ):
     scorer1 = ConversationCompleteness()
@@ -524,11 +524,16 @@ def test_fetch_sessions_no_filter_when_scorers_have_different_filters(
 
     processor.process_sessions()
 
-    call_kwargs = mock_tracking_store.find_completed_sessions.call_args[1]
-    assert call_kwargs["filter_string"] is None
+    # Should call find_completed_sessions twice, once for each filter
+    assert mock_tracking_store.find_completed_sessions.call_count == 2
+    filter_strings = [
+        call[1]["filter_string"]
+        for call in mock_tracking_store.find_completed_sessions.call_args_list
+    ]
+    assert set(filter_strings) == {"tag.env = 'prod'", "tag.env = 'dev'"}
 
 
-def test_fetch_sessions_no_filter_when_any_scorer_has_no_filter(
+def test_fetch_sessions_calls_once_per_filter_when_any_scorer_has_no_filter(
     mock_trace_loader, mock_checkpoint_manager, mock_tracking_store
 ):
     scorer1 = ConversationCompleteness()
@@ -551,5 +556,10 @@ def test_fetch_sessions_no_filter_when_any_scorer_has_no_filter(
 
     processor.process_sessions()
 
-    call_kwargs = mock_tracking_store.find_completed_sessions.call_args[1]
-    assert call_kwargs["filter_string"] is None
+    # Should call find_completed_sessions twice, once with filter and once with None
+    assert mock_tracking_store.find_completed_sessions.call_count == 2
+    filter_strings = [
+        call[1]["filter_string"]
+        for call in mock_tracking_store.find_completed_sessions.call_args_list
+    ]
+    assert set(filter_strings) == {"tag.env = 'prod'", None}
