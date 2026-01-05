@@ -6,6 +6,8 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 
+// Mock recharts components to avoid rendering issues in tests
+jest.mock('recharts', () => require('../utils/testUtils').mockRechartsComponents);
 // Mock FetchUtils
 jest.mock('../../../../common/utils/FetchUtils', () => ({
   fetchOrFail: jest.fn(),
@@ -46,27 +48,6 @@ const createTotalCountDataPoint = (timeBucket: string, count: number) => ({
   dimensions: { time_bucket: timeBucket },
   values: { [AggregationType.COUNT]: count },
 });
-
-// Mock recharts components to avoid rendering issues in tests
-jest.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="responsive-container">{children}</div>
-  ),
-  ComposedChart: ({ children, data }: { children: React.ReactNode; data: any[] }) => (
-    <div data-testid="composed-chart" data-count={data?.length || 0}>
-      {children}
-    </div>
-  ),
-  Bar: ({ name }: { name: string }) => <div data-testid={`bar-${name}`} />,
-  Line: ({ name }: { name: string }) => <div data-testid={`line-${name}`} />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-  Legend: () => <div data-testid="legend" />,
-  ReferenceLine: ({ label }: { label?: { value: string } }) => (
-    <div data-testid="reference-line" data-label={label?.value} />
-  ),
-}));
 
 describe('TraceErrorsChart', () => {
   const testExperimentId = 'test-experiment-123';
