@@ -2,9 +2,11 @@
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
 
 from mlflow.entities.assessment import Assessment
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
+from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.online.constants import (
     EXCLUDE_EVAL_RUN_TRACES_FILTER,
     MAX_SESSIONS_PER_JOB,
@@ -21,6 +23,14 @@ from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.constant import AssessmentMetadataKey
 
 _logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SessionScoringTask:
+    """A task to score a single session with multiple scorers."""
+
+    session: CompletedSession
+    scorers: list[Scorer] = field(default_factory=list)
 
 
 class OnlineSessionScoringProcessor:
@@ -88,9 +98,9 @@ class OnlineSessionScoringProcessor:
             f"{time_window.max_last_trace_timestamp_ms}]"
         )
 
-        completed_sessions = self._fetch_and_filter_completed_sessions(time_window, checkpoint)
+        session_tasks = self._fetch_and_filter_completed_sessions(time_window, checkpoint)
 
-        if not completed_sessions:
+        if not session_tasks:
             _logger.info("No completed sessions found, skipping")
             # Still need to advance checkpoint to avoid reprocessing the same time window
             checkpoint = OnlineSessionScoringCheckpoint(
@@ -100,15 +110,15 @@ class OnlineSessionScoringProcessor:
             self._checkpoint_manager.persist_checkpoint(checkpoint)
             return
 
-        _logger.info(f"Found {len(completed_sessions)} completed sessions for scoring")
+        _logger.info(f"Found {len(session_tasks)} completed sessions for scoring")
 
-        self._execute_session_scoring(completed_sessions)
+        self._execute_session_scoring(session_tasks)
 
         # Update checkpoint to last processed session
-        latest_session = completed_sessions[-1]
+        latest_task = session_tasks[-1]
         checkpoint = OnlineSessionScoringCheckpoint(
-            timestamp_ms=latest_session.last_trace_timestamp_ms,
-            session_id=latest_session.session_id,
+            timestamp_ms=latest_task.session.last_trace_timestamp_ms,
+            session_id=latest_task.session.session_id,
         )
         self._checkpoint_manager.persist_checkpoint(checkpoint)
 
@@ -118,9 +128,12 @@ class OnlineSessionScoringProcessor:
         self,
         time_window: OnlineSessionScoringTimeWindow,
         checkpoint: OnlineSessionScoringCheckpoint | None,
-    ) -> list[CompletedSession]:
+    ) -> list[SessionScoringTask]:
         """
-        Fetch completed sessions in the time window and filter out already-processed sessions.
+        Fetch completed sessions and create scoring tasks with applicable scorers.
+
+        Fetches sessions separately for each unique filter_string used by session-level scorers,
+        creating tasks that track which scorers should run on each session based on filter match.
 
         Sessions at the checkpoint boundary are filtered based on session_id to avoid
         reprocessing sessions that were already scored in a previous run.
@@ -130,40 +143,48 @@ class OnlineSessionScoringProcessor:
             checkpoint: Current checkpoint with timestamp and session_id
 
         Returns:
-            List of completed sessions to process, filtered by checkpoint boundary
+            List of SessionScoringTask objects, each containing a session and applicable scorers
         """
-        # If all session-level scorers share the same filter_string, pass it to
-        # find_completed_sessions to filter sessions by their first trace
+        # Group session-level scorers by their filter_string
         session_scorers_by_filter = self._sampler.group_scorers_by_filter(session_level=True)
-        unique_filters = set(session_scorers_by_filter.keys())
 
-        # Use filter if all session scorers have the same non-None filter
-        filter_string = None
-        if len(unique_filters) == 1 and None not in unique_filters:
-            filter_string = next(iter(unique_filters))
+        # Fetch completed sessions for each filter group and build tasks
+        tasks = {}
+        for filter_string, scorers in session_scorers_by_filter.items():
+            sessions = self._tracking_store.find_completed_sessions(
+                experiment_id=self._experiment_id,
+                min_last_trace_timestamp_ms=time_window.min_last_trace_timestamp_ms,
+                max_last_trace_timestamp_ms=time_window.max_last_trace_timestamp_ms,
+                max_results=MAX_SESSIONS_PER_JOB,
+                filter_string=filter_string,
+            )
+            # For each session that matches this filter, add applicable scorers
+            for session in sessions:
+                # Apply sampling to select which scorers from this filter group should run
+                if selected := self._sampler.sample(session.session_id, scorers):
+                    if session.session_id not in tasks:
+                        tasks[session.session_id] = SessionScoringTask(session=session, scorers=[])
+                    tasks[session.session_id].scorers.extend(selected)
 
-        completed_sessions = self._tracking_store.find_completed_sessions(
-            experiment_id=self._experiment_id,
-            min_last_trace_timestamp_ms=time_window.min_last_trace_timestamp_ms,
-            max_last_trace_timestamp_ms=time_window.max_last_trace_timestamp_ms,
-            max_results=MAX_SESSIONS_PER_JOB,
-            filter_string=filter_string,
+        # Sort tasks by (last_trace_timestamp_ms ASC, session_id ASC) for deterministic ordering
+        sorted_tasks = sorted(
+            tasks.values(),
+            key=lambda t: (t.session.last_trace_timestamp_ms, t.session.session_id),
         )
 
-        # Filter out sessions at checkpoint boundary that have already been processed.
-        # Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC), so we filter
-        # out any sessions with the checkpoint timestamp and session_id <= checkpoint.session_id.
+        # Filter out sessions at checkpoint boundary that have already been processed
         if checkpoint is not None and checkpoint.session_id is not None:
-            completed_sessions = [
-                s
-                for s in completed_sessions
+            sorted_tasks = [
+                task
+                for task in sorted_tasks
                 if not (
-                    s.last_trace_timestamp_ms == checkpoint.timestamp_ms
-                    and s.session_id <= checkpoint.session_id
+                    task.session.last_trace_timestamp_ms == checkpoint.timestamp_ms
+                    and task.session.session_id <= checkpoint.session_id
                 )
             ]
 
-        return completed_sessions
+        # Respect max_results limit
+        return sorted_tasks[:MAX_SESSIONS_PER_JOB]
 
     def _clean_up_old_assessments(
         self, trace, session_id: str, new_assessments: list[Assessment]
@@ -202,7 +223,7 @@ class OnlineSessionScoringProcessor:
                     f"(name={assessment.name}, session={session_id})"
                 )
 
-    def _execute_session_scoring(self, sessions: list[CompletedSession]) -> None:
+    def _execute_session_scoring(self, tasks: list[SessionScoringTask]) -> None:
         """
         Execute session-level scoring tasks in parallel.
 
@@ -210,37 +231,38 @@ class OnlineSessionScoringProcessor:
         scorers on that session.
 
         Args:
-            sessions: List of CompletedSession objects to score.
+            tasks: List of SessionScoringTask objects containing sessions and their scorers.
         """
         with ThreadPoolExecutor(
             max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
             thread_name_prefix="SessionScoring",
         ) as executor:
             futures = {}
-            for session in sessions:
-                future = executor.submit(self._score_session, session)
-                futures[future] = session
+            for task in tasks:
+                future = executor.submit(self._score_session, task)
+                futures[future] = task
 
             for future in as_completed(futures):
-                session = futures[future]
+                task = futures[future]
                 try:
                     future.result()
                 except Exception as e:
                     _logger.warning(
-                        f"Failed to score session {session.session_id}: {e}",
+                        f"Failed to score session {task.session.session_id}: {e}",
                         exc_info=True,
                     )
 
-    def _score_session(self, session: CompletedSession) -> None:
+    def _score_session(self, task: SessionScoringTask) -> None:
         """
-        Score a single session by loading its traces and applying all scorers.
+        Score a single session by loading its traces and applying pre-selected scorers.
 
-        This method runs in a worker thread. It fetches all traces for the session,
-        applies sampling to select scorers, and runs the selected scorers.
+        This method runs in a worker thread. It fetches all traces for the session
+        and runs the scorers that were already selected during task creation.
 
         Args:
-            session: The CompletedSession to score.
+            task: The SessionScoringTask containing the session and applicable scorers.
         """
+        session = task.session
         session_filter = f"metadata.`mlflow.trace.session` = '{session.session_id}'"
         combined_filter = f"{EXCLUDE_EVAL_RUN_TRACES_FILTER} AND {session_filter}"
         trace_infos = self._trace_loader.fetch_trace_infos_in_range(
@@ -263,15 +285,8 @@ class OnlineSessionScoringProcessor:
 
         full_traces.sort(key=lambda t: t.info.timestamp_ms)
 
-        applicable_scorers = []
-        # Group scorers by filter_string to apply dense sampling separately per filter group
-        for filter_string, session_scorers in self._sampler.group_scorers_by_filter(
-            session_level=True
-        ).items():
-            if selected := self._sampler.sample(session.session_id, session_scorers):
-                applicable_scorers.extend(selected)
-
-        if not applicable_scorers:
+        # Use the scorers from the task (already sampled during task creation)
+        if not task.scorers:
             return
 
         # Import evaluation modules lazily to avoid pulling in pandas at module load
@@ -286,7 +301,7 @@ class OnlineSessionScoringProcessor:
             result = evaluate_session_level_scorers(
                 session_id=session.session_id,
                 session_items=session_items,
-                multi_turn_scorers=applicable_scorers,
+                multi_turn_scorers=task.scorers,
             )
 
             for trace_id, feedbacks in result.items():
