@@ -172,14 +172,9 @@ async def get_failed_jobs(
 TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z ?")
 
 
-def to_seconds(line: str) -> str:
-    """Extract timestamp truncated to seconds precision."""
-    return line[:19]  # "2026-01-05T07:17:56.1234567Z ..." -> "2026-01-05T07:17:56"
-
-
-def strip_timestamp(line: str) -> str:
-    """Remove timestamp prefix from a log line."""
-    return TIMESTAMP_PATTERN.sub("", line)
+def to_seconds(ts: str) -> str:
+    """Truncate timestamp to seconds precision for comparison."""
+    return ts[:19]  # "2026-01-05T07:17:56.1234567Z" -> "2026-01-05T07:17:56"
 
 
 async def iter_job_logs(
@@ -205,6 +200,7 @@ async def iter_job_logs(
                 if ts_secs > end_secs:
                     return  # Past end time, stop reading
                 in_range = ts_secs >= start_secs
+                line = line.split(" ", 1)[1]  # strip timestamp
             if in_range:
                 yield line
 
@@ -227,7 +223,6 @@ async def compact_logs(lines: AsyncIterator[str]) -> str:
     skip_section = False
 
     async for line in lines:
-        line = strip_timestamp(line)
         line = ANSI_PATTERN.sub("", line)
         if match := PYTEST_SECTION_PATTERN.match(line.strip()):
             section_name = match.group(1).strip().lower()
