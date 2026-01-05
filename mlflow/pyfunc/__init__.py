@@ -1074,6 +1074,7 @@ def load_model(
     suppress_warnings: bool = False,
     dst_path: str | None = None,
     model_config: str | Path | dict[str, Any] | None = None,
+    **kwargs: Any,
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -1106,6 +1107,7 @@ def load_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
+        kwargs: Additional keyword arguments directly passed to `_load_pyfunc`
     """
 
     lineage_header_info = None
@@ -1165,9 +1167,11 @@ def load_model(
 
     try:
         if model_config:
-            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, model_config)
+            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(
+                data_path, model_config, **kwargs
+            )
         else:
-            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+            model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, **kwargs)
     except ModuleNotFoundError as e:
         # This error message is particularly for the case when the error is caused by module
         # "databricks.feature_store.mlflow_model". But depending on the environment, the offending
