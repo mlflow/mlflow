@@ -183,10 +183,7 @@ const NameSection: React.FC<NameSectionProps> = ({ mode, control }) => {
         <FormattedMessage defaultMessage="Name" description="Section header for optional judge name" />
       </FormUI.Label>
       <FormUI.Hint>
-        <FormattedMessage
-          defaultMessage="Must be unique in this experiment. Cannot be changed after creation."
-          description="Hint text for Name section"
-        />
+        <FormattedMessage defaultMessage="Cannot be changed after creation." description="Hint text for Name section" />
       </FormUI.Hint>
       <Controller
         name="name"
