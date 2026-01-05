@@ -34,13 +34,22 @@ describe('TraceRequestsChart', () => {
   // Use fixed timestamps for predictable bucket generation
   const startTimeMs = new Date('2025-12-22T10:00:00Z').getTime();
   const endTimeMs = new Date('2025-12-22T12:00:00Z').getTime(); // 2 hours = 3 buckets with 1hr interval
+  const timeIntervalSeconds = 3600; // 1 hour
+
+  // Pre-computed time buckets for the test range
+  const timeBuckets = [
+    new Date('2025-12-22T10:00:00Z').getTime(),
+    new Date('2025-12-22T11:00:00Z').getTime(),
+    new Date('2025-12-22T12:00:00Z').getTime(),
+  ];
 
   // Default props reused across tests
   const defaultProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
-    timeIntervalSeconds: 3600, // 1 hour
+    timeIntervalSeconds,
+    timeBuckets,
   };
 
   const createQueryClient = () =>
@@ -106,7 +115,7 @@ describe('TraceRequestsChart', () => {
     it('should render empty state when time range is not provided', async () => {
       mockApiResponse([]);
 
-      renderComponent({ startTimeMs: undefined, endTimeMs: undefined });
+      renderComponent({ startTimeMs: undefined, endTimeMs: undefined, timeBuckets: [] });
 
       await waitFor(() => {
         expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();

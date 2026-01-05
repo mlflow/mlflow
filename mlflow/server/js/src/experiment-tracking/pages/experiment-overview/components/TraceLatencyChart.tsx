@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useDesignSystemTheme, ClockIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
@@ -10,7 +10,6 @@ import {
   P90,
   P99,
   getPercentileKey,
-  TIME_BUCKET_DIMENSION_KEY,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
 import {
@@ -18,9 +17,13 @@ import {
   OverviewChartErrorState,
   OverviewChartEmptyState,
   OverviewChartHeader,
+  OverviewChartContainer,
   OverviewChartTimeLabel,
+  useChartTooltipStyle,
+  useChartXAxisProps,
+  useChartLegendFormatter,
 } from './OverviewChartComponents';
-import { formatTimestampForTraceMetrics, generateTimeBuckets } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, useLegendHighlight, useTimestampValueMap } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
 
 /**
@@ -38,8 +41,13 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
   startTimeMs,
   endTimeMs,
   timeIntervalSeconds,
+  timeBuckets,
 }) => {
   const { theme } = useDesignSystemTheme();
+  const tooltipStyle = useChartTooltipStyle();
+  const xAxisProps = useChartXAxisProps();
+  const legendFormatter = useChartLegendFormatter();
+  const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
 
   // Fetch latency metrics with p50, p90, p99 aggregations grouped by time
   const {
@@ -82,31 +90,19 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
   const avgLatency = avgLatencyData?.data_points?.[0]?.values?.[AggregationType.AVG];
 
   // Create a map of latency values by timestamp
-  const latencyByTimestamp = useMemo(() => {
-    const map = new Map<number, { p50: number; p90: number; p99: number }>();
-    for (const dp of latencyDataPoints) {
-      const timeBucket = dp.dimensions?.[TIME_BUCKET_DIMENSION_KEY];
-      if (timeBucket) {
-        const ts = new Date(timeBucket).getTime();
-        map.set(ts, {
-          p50: dp.values?.[getPercentileKey(P50)] || 0,
-          p90: dp.values?.[getPercentileKey(P90)] || 0,
-          p99: dp.values?.[getPercentileKey(P99)] || 0,
-        });
-      }
-    }
-    return map;
-  }, [latencyDataPoints]);
-
-  // Generate all time buckets within the selected range
-  const allTimeBuckets = useMemo(
-    () => generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds),
-    [startTimeMs, endTimeMs, timeIntervalSeconds],
+  const latencyExtractor = useCallback(
+    (dp: { values?: Record<string, number> }) => ({
+      p50: dp.values?.[getPercentileKey(P50)] || 0,
+      p90: dp.values?.[getPercentileKey(P90)] || 0,
+      p99: dp.values?.[getPercentileKey(P99)] || 0,
+    }),
+    [],
   );
+  const latencyByTimestamp = useTimestampValueMap(latencyDataPoints, latencyExtractor);
 
   // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
-    return allTimeBuckets.map((timestampMs) => {
+    return timeBuckets.map((timestampMs) => {
       const latency = latencyByTimestamp.get(timestampMs);
       return {
         name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
@@ -115,31 +111,13 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
         p99: latency?.p99 || 0,
       };
     });
-  }, [allTimeBuckets, latencyByTimestamp, timeIntervalSeconds]);
-
-  // Track hovered legend item (null means none hovered, show all)
-  const [hoveredLine, setHoveredLine] = useState<string | null>(null);
+  }, [timeBuckets, latencyByTimestamp, timeIntervalSeconds]);
 
   // Line colors
   const lineColors = {
     p50: theme.colors.blue300,
     p90: theme.colors.blue500,
     p99: theme.colors.yellow500,
-  };
-
-  // Get opacity for a line based on hover state
-  const getLineOpacity = (lineKey: string) => {
-    if (hoveredLine === null) return 1;
-    return hoveredLine === lineKey ? 1 : 0.2;
-  };
-
-  // Handle legend hover
-  const handleLegendMouseEnter = (data: { value: string }) => {
-    setHoveredLine(data.value);
-  };
-
-  const handleLegendMouseLeave = () => {
-    setHoveredLine(null);
   };
 
   if (isLoading) {
@@ -151,14 +129,7 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
   }
 
   return (
-    <div
-      css={{
-        border: `1px solid ${theme.colors.border}`,
-        borderRadius: theme.borders.borderRadiusMd,
-        padding: theme.spacing.lg,
-        backgroundColor: theme.colors.backgroundPrimary,
-      }}
-    >
+    <OverviewChartContainer>
       <OverviewChartHeader
         icon={<ClockIcon />}
         title={<FormattedMessage defaultMessage="Latency" description="Title for the latency chart" />}
@@ -172,21 +143,10 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
         {latencyDataPoints.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
-              <XAxis
-                dataKey="name"
-                tick={{ fontSize: 10, fill: theme.colors.textSecondary, dy: theme.spacing.sm }}
-                axisLine={false}
-                tickLine={false}
-                interval="preserveStartEnd"
-              />
+              <XAxis dataKey="name" {...xAxisProps} />
               <YAxis hide />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: theme.colors.backgroundPrimary,
-                  border: `1px solid ${theme.colors.border}`,
-                  borderRadius: theme.borders.borderRadiusMd,
-                  fontSize: 12,
-                }}
+                contentStyle={tooltipStyle}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
                 formatter={(value: number, name: string) => [formatLatency(value), name]}
               />
@@ -197,7 +157,7 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
                 strokeWidth={2}
                 dot={false}
                 name="p50"
-                strokeOpacity={getLineOpacity('p50')}
+                strokeOpacity={getOpacity('p50')}
               />
               <Line
                 type="monotone"
@@ -206,7 +166,7 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
                 strokeWidth={2}
                 dot={false}
                 name="p90"
-                strokeOpacity={getLineOpacity('p90')}
+                strokeOpacity={getOpacity('p90')}
               />
               <Line
                 type="monotone"
@@ -215,7 +175,7 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
                 strokeWidth={2}
                 dot={false}
                 name="p99"
-                strokeOpacity={getLineOpacity('p99')}
+                strokeOpacity={getOpacity('p99')}
               />
               {avgLatency !== undefined && (
                 <ReferenceLine
@@ -236,17 +196,7 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
                 height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={(value) => (
-                  <span
-                    style={{
-                      color: theme.colors.textPrimary,
-                      fontSize: theme.typography.fontSizeSm,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {value}
-                  </span>
-                )}
+                formatter={legendFormatter}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -254,6 +204,6 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
           <OverviewChartEmptyState />
         )}
       </div>
-    </div>
+    </OverviewChartContainer>
   );
 };
