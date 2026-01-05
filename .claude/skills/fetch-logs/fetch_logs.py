@@ -1,19 +1,17 @@
 """
-Diagnose GitHub Action run failures.
+Fetch logs from failed GitHub Action jobs.
 
 Usage:
     # List failed jobs for a PR (outputs JSON)
-    uv run diagnose_ci.py list <owner/repo> <pr_number>
+    uv run fetch_logs.py list <owner/repo> <pr_number>
 
-    # Summarize a specific job by URL (outputs Markdown)
-    OPENAI_API_KEY=... uv run diagnose_ci.py summarize <job_url>
+    # Fetch logs for specific jobs (outputs JSON)
+    uv run fetch_logs.py fetch-logs <job_url> [job_url ...]
 """
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
 #     "aiohttp",
-#     "openai",
-#     "tiktoken",
 # ]
 # ///
 # ruff: noqa: T201
@@ -30,8 +28,6 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 import aiohttp
-import tiktoken
-from openai import AsyncOpenAI
 
 GITHUB_API_BASE = "https://api.github.com"
 
@@ -44,26 +40,12 @@ class FailedJob:
 
 
 @dataclass
-class JobSummary:
+class JobLogs:
     workflow_name: str
     job_name: str
     job_url: str
     failed_step: str | None
-    input_tokens: int
-    output_tokens: int
-    cost: float
-    truncated: bool
-    summary: str
-    logs: str | None = None
-
-
-@dataclass
-class SummaryResult:
-    summary: str
-    input_tokens: int
-    output_tokens: int
-    cost: float
-    truncated: bool
+    logs: str
 
 
 def log(msg: str) -> None:
@@ -80,14 +62,6 @@ def get_github_token(cli_token: str | None = None) -> str:
             log("Error: GITHUB_TOKEN is required (--github-token, env var, or 'gh auth token')")
             sys.exit(1)
     return token
-
-
-def get_openai_api_key(cli_key: str | None = None) -> str:
-    key = cli_key or os.environ.get("OPENAI_API_KEY")
-    if not key:
-        log("Error: OPENAI_API_KEY is required (--openai-api-key or env var)")
-        sys.exit(1)
-    return key
 
 
 def get_headers(token: str) -> dict[str, str]:
@@ -231,7 +205,7 @@ async def compact_logs(lines: AsyncIterator[str]) -> str:
             result.append(line)
 
     logs = "\n".join(result)
-    log(f"Compacted logs: {count_tokens(logs):,} tokens")
+    log(f"Compacted logs: {len(logs):,} chars")
     return logs
 
 
@@ -259,93 +233,6 @@ def build_failed_job(repo: str, run: dict[str, Any], job: dict[str, Any]) -> Fai
         workflow_name=run.get("name", "Unknown workflow"),
         job_name=job.get("name", "Unknown job"),
         job_url=f"https://github.com/{repo}/actions/runs/{run['id']}/job/{job['id']}",
-    )
-
-
-# Rough cost: ~$0.02/job (gpt-4.1-nano), ~$0.08/job (gpt-4.1-mini)
-MAX_LOG_TOKENS = 200_000
-tokenizer = tiktoken.encoding_for_model("gpt-4.1")
-
-# Pricing per 1M tokens (input, cached, output)
-# https://platform.openai.com/docs/pricing (as of 2025/01/05, may change)
-MODEL_PRICING = {
-    "gpt-4.1-nano": (0.10, 0.025, 0.40),
-    "gpt-4.1-mini": (0.40, 0.10, 1.60),
-}
-
-
-def count_tokens(text: str) -> int:
-    return len(tokenizer.encode(text))
-
-
-def truncate_logs(logs: str, max_tokens: int = MAX_LOG_TOKENS) -> tuple[str, bool]:
-    """Truncate logs to fit within token limit, keeping the end (where errors are)."""
-    tokens = tokenizer.encode(logs)
-    if len(tokens) <= max_tokens:
-        return logs, False
-
-    return tokenizer.decode(tokens[-max_tokens:]), True
-
-
-def compute_cost(
-    model: str, prompt_tokens: int, cached_tokens: int, completion_tokens: int
-) -> float:
-    """Compute cost in dollars based on model pricing."""
-    input_price, cached_price, output_price = MODEL_PRICING[model]
-    uncached_tokens = prompt_tokens - cached_tokens
-    return (
-        uncached_tokens * input_price
-        + cached_tokens * cached_price
-        + completion_tokens * output_price
-    ) / 1_000_000
-
-
-async def summarize_logs(
-    client: AsyncOpenAI,
-    logs: str,
-    workflow_name: str,
-    job_name: str,
-    model: str = "gpt-4.1-mini",
-) -> SummaryResult:
-    logs, truncated = truncate_logs(logs)
-    if truncated:
-        log(f"Logs truncated to ~{MAX_LOG_TOKENS:,} tokens")
-
-    prompt = f"""Analyze the following GitHub Actions failure logs and provide a concise summary.
-
-Workflow: {workflow_name}
-Job: {job_name}
-
-Focus on:
-1. The root cause of the failure
-2. The specific error messages
-3. Include relevant log snippets (e.g., assertion errors, stack traces)
-4. For pytest failures, include full test names if available (e.g., tests/test_foo.py::test_bar)
-
-Logs:
-{logs}
-
-Provide a clear summary in 1-2 short paragraphs in Markdown format."""
-
-    log(f"Sending {count_tokens(prompt):,} tokens to OpenAI")
-    response = await client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=4096,
-    )
-    usage = response.usage
-    cached_tokens = getattr(usage.prompt_tokens_details, "cached_tokens", 0) or 0
-    cost = compute_cost(model, usage.prompt_tokens, cached_tokens, usage.completion_tokens)
-    log(
-        f"Response: {usage.prompt_tokens:,} in ({cached_tokens:,} cached), "
-        f"{usage.completion_tokens:,} out, ${cost:.4f}"
-    )
-    return SummaryResult(
-        summary=response.choices[0].message.content,
-        input_tokens=usage.prompt_tokens,
-        output_tokens=usage.completion_tokens,
-        cost=cost,
-        truncated=truncated,
     )
 
 
@@ -394,7 +281,7 @@ def cmd_list(args: argparse.Namespace) -> None:
 
 
 # ============================================================================
-# Subcommand: summarize
+# Subcommand: fetch-logs
 # ============================================================================
 
 
@@ -406,13 +293,10 @@ async def get_run_details(session: aiohttp.ClientSession, repo: str, run_id: int
     return await api_get(session, f"/repos/{repo}/actions/runs/{run_id}")
 
 
-async def summarize_single_job(
+async def fetch_single_job_logs(
     session: aiohttp.ClientSession,
-    client: AsyncOpenAI,
     job_url: str,
-    model: str,
-    verbose: bool = False,
-) -> JobSummary:
+) -> JobLogs:
     repo, run_id, job_id = parse_job_url(job_url)
     log(f"Fetching job {job_id} from {repo}")
 
@@ -435,66 +319,28 @@ async def summarize_single_job(
     )
     failed_step_name = failed_step.get("name")
 
-    result = await summarize_logs(client, cleaned_logs, workflow_name, job_name, model)
-    truncated_logs, _ = truncate_logs(cleaned_logs)
-    return JobSummary(
+    return JobLogs(
         workflow_name=workflow_name,
         job_name=job_name,
         job_url=job_url,
         failed_step=failed_step_name,
-        input_tokens=result.input_tokens,
-        output_tokens=result.output_tokens,
-        cost=result.cost,
-        truncated=result.truncated,
-        summary=result.summary,
-        logs=truncated_logs if verbose else None,
+        logs=cleaned_logs,
     )
 
 
-async def cmd_summarize_async(
-    job_urls: list[str],
-    model: str,
-    github_token: str,
-    openai_api_key: str,
-    verbose: bool = False,
-) -> None:
-    log(f"Summarizing {len(job_urls)} job(s) with {model}")
-
-    client = AsyncOpenAI(api_key=openai_api_key)
+async def cmd_fetch_logs_async(job_urls: list[str], github_token: str) -> None:
+    log(f"Fetching logs for {len(job_urls)} job(s)")
 
     async with aiohttp.ClientSession(headers=get_headers(github_token)) as session:
-        results = await asyncio.gather(
-            *[summarize_single_job(session, client, url, model, verbose) for url in job_urls]
-        )
+        results = await asyncio.gather(*[fetch_single_job_logs(session, url) for url in job_urls])
 
-    for i, job in enumerate(results):
-        if i > 0:
-            print("\n---\n")
-        print(f"# {job.workflow_name} - {job.job_name}")
-        print()
-        if job.failed_step:
-            print(f"**Failed step:** {job.failed_step}")
-        print(f"**URL:** {job.job_url}")
-        truncated_note = " (truncated)" if job.truncated else ""
-        print(f"**Tokens:** {job.input_tokens:,} in, {job.output_tokens:,} out{truncated_note}")
-        print(f"**Cost:** ${job.cost:.4f}")
-        print()
-        print(job.summary)
-        if job.logs:
-            print()
-            print("## Logs")
-            print()
-            print("```")
-            print(job.logs)
-            print("```")
+    output = {"jobs": [asdict(job) for job in results]}
+    print(json.dumps(output, indent=2))
 
 
-def cmd_summarize(args: argparse.Namespace) -> None:
+def cmd_fetch_logs(args: argparse.Namespace) -> None:
     github_token = get_github_token(args.github_token)
-    openai_api_key = get_openai_api_key(args.openai_api_key)
-    asyncio.run(
-        cmd_summarize_async(args.job_urls, args.model, github_token, openai_api_key, args.verbose)
-    )
+    asyncio.run(cmd_fetch_logs_async(args.job_urls, github_token))
 
 
 # ============================================================================
@@ -503,9 +349,7 @@ def cmd_summarize(args: argparse.Namespace) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Summarize GitHub Action failures for a pull request"
-    )
+    parser = argparse.ArgumentParser(description="Fetch logs from failed GitHub Action jobs")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # list subcommand
@@ -515,24 +359,13 @@ def main():
     list_parser.add_argument("--github-token", help="GitHub token (or set GITHUB_TOKEN)")
     list_parser.set_defaults(func=cmd_list)
 
-    # summarize subcommand
-    summarize_parser = subparsers.add_parser(
-        "summarize", help="Summarize jobs by URL (outputs Markdown)"
+    # fetch-logs subcommand
+    fetch_logs_parser = subparsers.add_parser(
+        "fetch-logs", help="Fetch logs for jobs by URL (outputs JSON)"
     )
-    summarize_parser.add_argument("job_urls", nargs="+", help="GitHub Actions job URLs")
-    summarize_parser.add_argument(
-        "--model",
-        "-m",
-        default="gpt-4.1-mini",
-        choices=["gpt-4.1-nano", "gpt-4.1-mini"],
-        help="OpenAI model (default: gpt-4.1-mini)",
-    )
-    summarize_parser.add_argument("--github-token", help="GitHub token (or set GITHUB_TOKEN)")
-    summarize_parser.add_argument("--openai-api-key", help="OpenAI API key (or set OPENAI_API_KEY)")
-    summarize_parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Include logs in the output"
-    )
-    summarize_parser.set_defaults(func=cmd_summarize)
+    fetch_logs_parser.add_argument("job_urls", nargs="+", help="GitHub Actions job URLs")
+    fetch_logs_parser.add_argument("--github-token", help="GitHub token (or set GITHUB_TOKEN)")
+    fetch_logs_parser.set_defaults(func=cmd_fetch_logs)
 
     args = parser.parse_args()
     args.func(args)
