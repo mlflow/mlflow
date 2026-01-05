@@ -393,5 +393,13 @@ def run_online_scoring_scheduler() -> None:
     for experiment_id, scorers in experiment_groups:
         _logger.info(f"Submitting jobs for experiment {experiment_id} with {len(scorers)} scorers")
         scorer_dicts = [asdict(scorer) for scorer in scorers]
-        run_online_trace_scorer_job(experiment_id, scorer_dicts)
-        run_online_session_scorer_job(experiment_id, scorer_dicts)
+        from mlflow.server.jobs import submit_job
+
+        submit_job(
+            run_online_trace_scorer_job,
+            {"experiment_id": experiment_id, "online_scorers": scorer_dicts},
+        )
+        submit_job(
+            run_online_session_scorer_job,
+            {"experiment_id": experiment_id, "online_scorers": scorer_dicts},
+        )
