@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback } from 'react';
-import { useDesignSystemTheme } from '@databricks/design-system';
+import { useDesignSystemTheme, BarChartIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
 import {
@@ -13,38 +13,23 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
 import {
-  ChartLoadingState,
-  ChartErrorState,
-  ChartEmptyState,
-  ChartHeader,
-  OverTimeLabel,
-  ChartContainer,
+  OverviewChartLoadingState,
+  OverviewChartErrorState,
+  OverviewChartEmptyState,
+  OverviewChartHeader,
+  OverviewChartTimeLabel,
+  OverviewChartContainer,
   useChartTooltipStyle,
   useChartXAxisProps,
   useChartLegendFormatter,
-} from './ChartCardWrapper';
-import { formatTimestampForTraceMetrics, useLegendHighlight, useTimestampValueMap } from '../utils/chartUtils';
+} from './OverviewChartComponents';
+import {
+  formatTimestampForTraceMetrics,
+  formatTokenCount,
+  useLegendHighlight,
+  useTimestampValueMap,
+} from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
-
-// Icon component for token stats (bar chart style)
-const TokenStatsIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-    <path d="M2 12h2V6H2v6zm4 0h2V4H6v8zm4 0h2V2h-2v10zm4 0h2V8h-2v4z" />
-  </svg>
-);
-
-/**
- * Format token count in human-readable format
- */
-function formatTokenCount(count: number): string {
-  if (count >= 1_000_000) {
-    return `${(count / 1_000_000).toFixed(2)}M`;
-  }
-  if (count >= 1_000) {
-    return `${(count / 1_000).toFixed(2)}K`;
-  }
-  return count.toLocaleString();
-}
 
 export const TraceTokenStatsChart: React.FC<OverviewChartProps> = ({
   experimentId,
@@ -131,17 +116,17 @@ export const TraceTokenStatsChart: React.FC<OverviewChartProps> = ({
   };
 
   if (isLoading) {
-    return <ChartLoadingState />;
+    return <OverviewChartLoadingState />;
   }
 
   if (error) {
-    return <ChartErrorState />;
+    return <OverviewChartErrorState />;
   }
 
   return (
-    <ChartContainer>
-      <ChartHeader
-        icon={<TokenStatsIcon />}
+    <OverviewChartContainer>
+      <OverviewChartHeader
+        icon={<BarChartIcon />}
         title={<FormattedMessage defaultMessage="Tokens per Trace" description="Title for the token stats chart" />}
         value={avgTokens !== undefined ? formatTokenCount(Math.round(avgTokens)) : undefined}
         subtitle={
@@ -151,7 +136,7 @@ export const TraceTokenStatsChart: React.FC<OverviewChartProps> = ({
         }
       />
 
-      <OverTimeLabel />
+      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: 200, marginTop: theme.spacing.sm }}>
@@ -216,9 +201,9 @@ export const TraceTokenStatsChart: React.FC<OverviewChartProps> = ({
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <ChartEmptyState />
+          <OverviewChartEmptyState />
         )}
       </div>
-    </ChartContainer>
+    </OverviewChartContainer>
   );
 };

@@ -15,21 +15,13 @@ import {
   useChartXAxisProps,
   useChartLegendFormatter,
 } from './OverviewChartComponents';
-import { formatTimestampForTraceMetrics, useLegendHighlight, useTimestampValueMap } from '../utils/chartUtils';
+import {
+  formatTimestampForTraceMetrics,
+  formatTokenCount,
+  useLegendHighlight,
+  useTimestampValueMap,
+} from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
-
-/**
- * Format token count in human-readable format (K, M)
- */
-function formatTokenCount(count: number): string {
-  if (count >= 1_000_000) {
-    return `${(count / 1_000_000).toFixed(2)}M`;
-  }
-  if (count >= 1_000) {
-    return `${(count / 1_000).toFixed(2)}K`;
-  }
-  return count.toLocaleString();
-}
 
 export const TraceTokenUsageChart: React.FC<OverviewChartProps> = ({
   experimentId,
