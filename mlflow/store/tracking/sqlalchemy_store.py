@@ -18,12 +18,11 @@ _T = TypeVar("_T")
 import sqlalchemy
 import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import and_, case, exists, func, or_, sql
+from sqlalchemy import and_, case, exists, func, or_, select, sql
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.future import Select, select
 from sqlalchemy.orm import Query, Session, aliased, joinedload
 from sqlalchemy.sql.elements import ColumnElement
-from sqlalchemy.sql.selectable import Subquery
+from sqlalchemy.sql.selectable import Select, Subquery
 
 _SqlAlchemyStatement = TypeVar("_SqlAlchemyStatement", Select, Query)
 
