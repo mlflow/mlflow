@@ -94,3 +94,12 @@ export type GetDatasetRecords = {
   // Optional pagination token for getting next page
   page_token?: string;
 };
+
+export type DeleteDatasetRecordsPayload = {
+  datasetId: string;
+  datasetRecordIds: string[];
+};
+
+export type DeleteDatasetRecordsResponse = {
+  deleted_count: number;
+};
