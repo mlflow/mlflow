@@ -68,6 +68,7 @@ from mlflow.entities.trace_metrics import (
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException, MlflowTracingException
+from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.scorer_utils import (
     build_gateway_model,
@@ -2500,7 +2501,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-            # Get the latest scorer version to validate it uses a gateway model
+            # Get the latest scorer version to validate online scoring compatibility
             latest_version = (
                 session.query(SqlScorerVersion)
                 .filter(SqlScorerVersion.scorer_id == scorer.scorer_id)
@@ -2509,9 +2510,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
             if latest_version is not None and sample_rate > 0:
                 serialized_data = json.loads(latest_version.serialized_scorer)
-
-                # Check if this is a session-level scorer
-                from mlflow.genai.scorers.base import Scorer
 
                 scorer_obj = Scorer.model_validate(serialized_data)
                 if scorer_obj.is_session_level_scorer and filter_string:
