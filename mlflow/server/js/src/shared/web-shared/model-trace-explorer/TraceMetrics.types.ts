@@ -37,6 +37,42 @@ export const getPercentileKey = (percentile: number): string => `P${percentile.t
 export const TIME_BUCKET_DIMENSION_KEY = 'time_bucket';
 
 /**
+ * View type prefix for trace-level filter expressions.
+ * Based on mlflow/tracing/constant.py TraceMetricSearchKey.VIEW_TYPE
+ */
+export const TRACE_FILTER_VIEW_TYPE = 'trace';
+
+/**
+ * Search key fields for trace metrics filter expressions.
+ * Based on mlflow/tracing/constant.py TraceMetricSearchKey
+ */
+export const TraceFilterKey = {
+  /** Status field key */
+  STATUS: 'status',
+  /** Tag field key */
+  TAG: 'tag',
+  /** Metadata field key */
+  METADATA: 'metadata',
+} as const;
+
+/**
+ * Trace status values for filter expressions.
+ */
+export const TraceStatus = {
+  OK: 'OK',
+  ERROR: 'ERROR',
+} as const;
+
+/**
+ * Creates a trace filter expression string.
+ * @param field - The field to filter on (e.g., TraceFilterKey.STATUS)
+ * @param value - The value to match (e.g., TraceStatus.ERROR)
+ * @returns Filter expression string (e.g., 'trace.status = "ERROR"')
+ */
+export const createTraceFilter = (field: string, value: string): string =>
+  `${TRACE_FILTER_VIEW_TYPE}.${field} = "${value}"`;
+
+/**
  * The level at which to aggregate metrics.
  */
 export enum MetricViewType {
