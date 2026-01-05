@@ -2612,6 +2612,11 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         "in earlier conversation turns without forgetting, contradicting, or distorting it."
     )
 
+    def model_post_init(self, __context: Any) -> None:
+        """Propagate model parameter to the inner last_turn_scorer after initialization."""
+        if self.model is not None:
+            self.last_turn_scorer.model = self.model
+
     def _create_judge(self) -> Judge:
         """
         This method is required by BuiltInSessionLevelScorer but is not used.
