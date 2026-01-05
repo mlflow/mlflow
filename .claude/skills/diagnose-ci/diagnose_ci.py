@@ -346,7 +346,7 @@ async def summarize_logs(
     logs: str,
     workflow_name: str,
     job_name: str,
-    model: str = "gpt-4.1-nano",
+    model: str = "gpt-4.1-mini",
 ) -> SummaryResult:
     logs, truncated = truncate_logs(logs)
     if truncated:
