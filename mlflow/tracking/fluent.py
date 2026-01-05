@@ -1640,7 +1640,7 @@ def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: str | None 
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.9.0")
 def log_stream(
     stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str, run_id: str | None = None
 ) -> None:

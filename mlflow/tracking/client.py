@@ -2813,7 +2813,7 @@ class MlflowClient:
                     # Stringify objects that can't be JSON-serialized
                     json.dump(dictionary, f, indent=2, default=str)
 
-    @experimental(version="3.8.0")
+    @experimental(version="3.9.0")
     def log_stream(
         self, run_id: str, stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str
     ) -> None:
