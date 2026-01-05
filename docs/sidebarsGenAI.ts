@@ -31,6 +31,12 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
+      type: 'doc',
+      id: 'getting-started/try-assistant',
+      label: 'Try MLflow Assistant',
+      className: 'sidebar-top-level-category',
+    },
+    {
       type: 'html',
       value: '<b>Core Components</b>',
       defaultStyle: true,
