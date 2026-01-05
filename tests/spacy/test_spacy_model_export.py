@@ -1,15 +1,15 @@
 import json
 import os
 import random
+import tarfile
 from pathlib import Path
 from typing import Any, NamedTuple
 from unittest import mock
+from urllib.request import urlretrieve
 
 import pandas as pd
 import pytest
 import spacy
-import tarfile
-from urllib.request import urlretrieve
 import yaml
 from packaging.version import Version
 from spacy.util import compounding, minibatch
@@ -74,7 +74,9 @@ def spacy_model_with_data(tmp_path_factory):
         textcat.add_label(cat)
 
     # Split train/test and train the model
-    train_x, train_y, test_x, _ = _get_train_test_dataset(cats_to_fetch, tmp_path_factory.mktemp("data"))
+    train_x, train_y, test_x, _ = _get_train_test_dataset(
+        cats_to_fetch, tmp_path_factory.mktemp("data")
+    )
     train_data = list(zip(train_x, [{"cats": cats} for cats in train_y]))
 
     if IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0:
@@ -435,7 +437,6 @@ def _train_model(nlp, train_data, n_iter=5):
                 nlp.update(texts, annotations, sgd=optimizer, drop=0.2, losses=losses)
 
 
-
 def _get_train_test_dataset(cats_to_fetch, tmp_path, limit=100):
     from sklearn.datasets import load_files
 
@@ -449,7 +450,7 @@ def _get_train_test_dataset(cats_to_fetch, tmp_path, limit=100):
 
     newsgroups = load_files(
         os.path.join(extracted_path, "20_newsgroups"),
-        encoding='latin1',
+        encoding="latin1",
         shuffle=True,
         categories=cats_to_fetch,
     )
