@@ -82,7 +82,7 @@ jest.mock('recharts', () => ({
   ),
   Line: ({ name }) => <div data-testid={name ? `line-${name}` : 'line'} />,
   Bar: ({ name }) => <div data-testid={name ? `bar-${name}` : 'bar'} />,
-  Area: ({ name }) => <div data-testid={name ? `area-${name}` : 'area'} />,
+  Area: ({ name, dataKey }) => <div data-testid={`area-${dataKey}`} data-name={name} />,
   XAxis: () => <div data-testid="x-axis" />,
   YAxis: () => <div data-testid="y-axis" />,
   Tooltip: () => <div data-testid="tooltip" />,

@@ -121,7 +121,13 @@ export function useCreateEndpointForm({
 
       const endpointResponse = await createEndpoint({
         name: values.name || undefined,
-        model_definition_ids: [modelDefinitionId],
+        model_configs: [
+          {
+            model_definition_id: modelDefinitionId,
+            linkage_type: 'PRIMARY',
+            weight: 1.0,
+          },
+        ],
       });
 
       onSuccess?.(endpointResponse.endpoint);
