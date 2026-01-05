@@ -136,7 +136,8 @@ def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
     span = _get_tracer(__name__).start_span(name, attributes=attributes)
 
-    if experiment_id and getattr(span, "_parent", None):
+    should_be_root_span = name == "abatch"
+    if experiment_id and getattr(span, "_parent", None) and not should_be_root_span:
         _logger.warning(
             "The `experiment_id` parameter can only be used for root spans, but the span "
             f"`{name}` is not a root span. The specified value `{experiment_id}` will be ignored."
@@ -178,7 +179,8 @@ def start_detached_span(
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
     span = tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
 
-    if experiment_id and getattr(span, "_parent", None):
+    should_be_root_span = name == "abatch"
+    if experiment_id and getattr(span, "_parent", None) and not should_be_root_span:
         _logger.warning(
             "The `experiment_id` parameter can only be used for root spans, but the span "
             f"`{name}` is not a root span. The specified value `{experiment_id}` will be ignored."

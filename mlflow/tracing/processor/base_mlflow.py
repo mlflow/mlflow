@@ -69,16 +69,17 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
                 is obtained from the global context, it won't be passed here so we should not rely
                 on it.
         """
+        should_be_root_span = span.name == "abatch"
         trace_id = self._trace_manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
 
-        if not trace_id and span.parent is not None:
+        if not trace_id and span.parent is not None and not should_be_root_span:
             _logger.debug(
                 "Received a non-root span but the trace ID is not found."
                 "The trace has likely been halted due to a timeout expiration."
             )
             return
 
-        if span.parent is None:
+        if span.parent is None or should_be_root_span:
             trace_info = self._start_trace(span)
             if trace_info is None:
                 return
@@ -100,6 +101,7 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
             self.record_metrics_for_span(span)
 
         trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+        should_be_root_span = span.name == "abatch"
 
         # Acquire lock before accessing and modifying trace data to prevent race conditions
         # during concurrent span endings. This ensures span name deduplication happens
@@ -107,7 +109,7 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         with self._deduplication_lock:
             with self._trace_manager.get_trace(trace_id) as trace:
                 if trace is not None:
-                    if span._parent is None:
+                    if span._parent is None or should_be_root_span:
                         self._update_trace_info(trace, span)
                 else:
                     _logger.debug(f"Trace data with request ID {trace_id} not found.")
