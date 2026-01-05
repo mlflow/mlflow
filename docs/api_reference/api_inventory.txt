@@ -920,6 +920,7 @@ mlflow.genai.scorers.Summarization.model_post_init
 mlflow.genai.scorers.ToolCallCorrectness
 mlflow.genai.scorers.ToolCallCorrectness.get_input_fields
 mlflow.genai.scorers.ToolCallCorrectness.model_post_init
+mlflow.genai.scorers.ToolCallCorrectness.validate_columns
 mlflow.genai.scorers.ToolCallEfficiency
 mlflow.genai.scorers.ToolCallEfficiency.get_input_fields
 mlflow.genai.scorers.ToolCallEfficiency.model_post_init

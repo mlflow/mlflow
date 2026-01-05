@@ -94,7 +94,6 @@ if not IS_TRACING_SDK_ONLY:
 
 
 if TYPE_CHECKING:
-    import matplotlib
     import matplotlib.figure
     import numpy
     import pandas

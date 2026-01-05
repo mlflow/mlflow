@@ -1,7 +1,7 @@
 Type: Package
 Package: mlflow
 Title: Interface to 'MLflow'
-Version: 3.8.1
+Version: 3.8.2
 Authors@R: 
     c(person(given = "Ben",
              family = "Wilson",

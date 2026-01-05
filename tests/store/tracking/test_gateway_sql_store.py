@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -1594,6 +1595,166 @@ def test_endpoint_tags_deleted_with_endpoint(store: SqlAlchemyStore):
 
     with pytest.raises(MlflowException, match="not found"):
         store.get_gateway_endpoint(endpoint_id=endpoint.endpoint_id)
+
+
+# =============================================================================
+# Scorer-Endpoint Integration Tests
+# =============================================================================
+
+
+def _create_gateway_endpoint(store: SqlAlchemyStore, name: str) -> GatewayEndpoint:
+    """Helper to create a gateway endpoint for scorer tests."""
+    secret = store.create_gateway_secret(
+        secret_name=f"{name}-secret", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name=f"{name}-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    return store.create_gateway_endpoint(
+        name=name, model_definition_ids=[model_def.model_definition_id]
+    )
+
+
+def test_register_scorer_resolves_endpoint_name_to_id(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("scorer-endpoint-test")
+    endpoint = _create_gateway_endpoint(store, "test-endpoint")
+
+    serialized_scorer = json.dumps(
+        {
+            "instructions_judge_pydantic_data": {
+                "model": f"gateway:/{endpoint.name}",
+                "instructions": "Rate the response",
+            }
+        }
+    )
+
+    scorer = store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
+
+    # The returned scorer should have the endpoint name (resolved from ID)
+    stored_data = json.loads(scorer._serialized_scorer)
+    stored_model = stored_data["instructions_judge_pydantic_data"]["model"]
+    assert stored_model == f"gateway:/{endpoint.name}"
+
+
+def test_register_scorer_with_nonexistent_endpoint_raises(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("scorer-nonexistent-endpoint-test")
+
+    serialized_scorer = json.dumps(
+        {
+            "instructions_judge_pydantic_data": {
+                "model": "gateway:/nonexistent-endpoint",
+                "instructions": "Rate the response",
+            }
+        }
+    )
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
+
+
+def test_get_scorer_resolves_endpoint_id_to_name(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("get-scorer-endpoint-test")
+    endpoint = _create_gateway_endpoint(store, "get-test-endpoint")
+
+    serialized_scorer = json.dumps(
+        {
+            "instructions_judge_pydantic_data": {
+                "model": f"gateway:/{endpoint.name}",
+                "instructions": "Rate the response",
+            }
+        }
+    )
+
+    store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
+
+    # When retrieving, the endpoint ID should be resolved back to name
+    retrieved = store.get_scorer(experiment_id, "my-scorer")
+    retrieved_data = json.loads(retrieved._serialized_scorer)
+    retrieved_model = retrieved_data["instructions_judge_pydantic_data"]["model"]
+    assert retrieved_model == f"gateway:/{endpoint.name}"
+
+
+def test_get_scorer_with_deleted_endpoint_sets_model_to_null(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("deleted-endpoint-scorer-test")
+    endpoint = _create_gateway_endpoint(store, "to-delete-endpoint")
+
+    serialized_scorer = json.dumps(
+        {
+            "instructions_judge_pydantic_data": {
+                "model": f"gateway:/{endpoint.name}",
+                "instructions": "Rate the response",
+            }
+        }
+    )
+
+    store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
+
+    # Delete the endpoint
+    store.delete_gateway_endpoint(endpoint.endpoint_id)
+
+    # Retrieving should set model to null
+    retrieved = store.get_scorer(experiment_id, "my-scorer")
+    retrieved_data = json.loads(retrieved._serialized_scorer)
+    assert retrieved_data["instructions_judge_pydantic_data"]["model"] is None
+
+
+def test_list_scorers_batch_resolves_endpoint_ids(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("list-scorers-endpoint-test")
+    endpoint1 = _create_gateway_endpoint(store, "list-endpoint-1")
+    endpoint2 = _create_gateway_endpoint(store, "list-endpoint-2")
+
+    # Create scorers with different endpoints
+    store.register_scorer(
+        experiment_id,
+        "scorer-1",
+        json.dumps(
+            {
+                "instructions_judge_pydantic_data": {
+                    "model": f"gateway:/{endpoint1.name}",
+                    "instructions": "Rate 1",
+                }
+            }
+        ),
+    )
+    store.register_scorer(
+        experiment_id,
+        "scorer-2",
+        json.dumps(
+            {
+                "instructions_judge_pydantic_data": {
+                    "model": f"gateway:/{endpoint2.name}",
+                    "instructions": "Rate 2",
+                }
+            }
+        ),
+    )
+    store.register_scorer(
+        experiment_id,
+        "scorer-3",
+        json.dumps(
+            {
+                "instructions_judge_pydantic_data": {
+                    "model": "openai:/gpt-4",
+                    "instructions": "Rate 3",
+                }
+            }
+        ),
+    )
+
+    scorers = store.list_scorers(experiment_id)
+    assert len(scorers) == 3
+
+    # Find each scorer and verify model resolution
+    scorer_map = {s.scorer_name: s for s in scorers}
+
+    data1 = json.loads(scorer_map["scorer-1"]._serialized_scorer)
+    assert data1["instructions_judge_pydantic_data"]["model"] == f"gateway:/{endpoint1.name}"
+
+    data2 = json.loads(scorer_map["scorer-2"]._serialized_scorer)
+    assert data2["instructions_judge_pydantic_data"]["model"] == f"gateway:/{endpoint2.name}"
+
+    data3 = json.loads(scorer_map["scorer-3"]._serialized_scorer)
+    assert data3["instructions_judge_pydantic_data"]["model"] == "openai:/gpt-4"
 
 
 # =============================================================================

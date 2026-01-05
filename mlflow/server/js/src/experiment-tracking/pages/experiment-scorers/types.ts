@@ -12,19 +12,43 @@ interface ScheduledScorerBase {
   // Whether the UI disables monitoring for this scorer. If disabled, the UI
   // will not show the form fields for monitoring (sample rate, filter string, etc.)
   disableMonitoring?: boolean;
+  isSessionLevelScorer?: boolean;
 }
 
 // LLM Template Constants
-export const LLM_TEMPLATE = {
-  CORRECTNESS: 'Correctness',
-  GUIDELINES: 'Guidelines',
-  RELEVANCE_TO_QUERY: 'RelevanceToQuery',
-  RETRIEVAL_GROUNDEDNESS: 'RetrievalGroundedness',
-  RETRIEVAL_RELEVANCE: 'RetrievalRelevance',
-  RETRIEVAL_SUFFICIENCY: 'RetrievalSufficiency',
-  SAFETY: 'Safety',
-  CUSTOM: 'Custom',
-} as const;
+export enum LLM_TEMPLATE {
+  CORRECTNESS = 'Correctness',
+  GUIDELINES = 'Guidelines',
+  RELEVANCE_TO_QUERY = 'RelevanceToQuery',
+  RETRIEVAL_GROUNDEDNESS = 'RetrievalGroundedness',
+  RETRIEVAL_RELEVANCE = 'RetrievalRelevance',
+  RETRIEVAL_SUFFICIENCY = 'RetrievalSufficiency',
+  SAFETY = 'Safety',
+  CUSTOM = 'Custom',
+
+  // Session-level templates:
+  CONVERSATION_COMPLETENESS = 'ConversationCompleteness',
+  KNOWLEDGE_RETENTION = 'KnowledgeRetention',
+  USER_FRUSTRATION = 'UserFrustration',
+}
+
+export const TRACE_LEVEL_LLM_TEMPLATES = [
+  LLM_TEMPLATE.CORRECTNESS,
+  LLM_TEMPLATE.GUIDELINES,
+  LLM_TEMPLATE.RELEVANCE_TO_QUERY,
+  LLM_TEMPLATE.RETRIEVAL_GROUNDEDNESS,
+  LLM_TEMPLATE.RETRIEVAL_RELEVANCE,
+  LLM_TEMPLATE.RETRIEVAL_SUFFICIENCY,
+  LLM_TEMPLATE.SAFETY,
+  LLM_TEMPLATE.CUSTOM,
+];
+
+export const SESSION_LEVEL_LLM_TEMPLATES = [
+  LLM_TEMPLATE.CONVERSATION_COMPLETENESS,
+  LLM_TEMPLATE.KNOWLEDGE_RETENTION,
+  LLM_TEMPLATE.USER_FRUSTRATION,
+  LLM_TEMPLATE.CUSTOM,
+];
 
 export type LLMTemplate =
   | 'Correctness'
@@ -66,6 +90,7 @@ export type ScorerConfig = {
   sample_rate?: number;
   filter_string?: string;
   scorer_version?: number;
+  is_session_level_scorer?: boolean;
 };
 
 interface EvaluateChatParamsBase {
@@ -75,6 +100,7 @@ interface EvaluateChatParamsBase {
   itemIds?: string[];
   locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   experimentId: string;
+  serializedScorer?: string;
 }
 
 /**

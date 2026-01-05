@@ -19,7 +19,6 @@ import pandas as pd
 import yaml
 
 import mlflow.pyfunc
-import mlflow.utils
 from mlflow.entities.span import SpanType
 from mlflow.environment_variables import MLFLOW_LOG_MODEL_COMPRESSION
 from mlflow.exceptions import MlflowException

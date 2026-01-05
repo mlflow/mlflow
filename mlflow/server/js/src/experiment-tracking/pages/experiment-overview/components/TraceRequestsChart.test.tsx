@@ -15,26 +15,32 @@ jest.mock('../../../../common/utils/FetchUtils', () => ({
 import { fetchOrFail } from '../../../../common/utils/FetchUtils';
 const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
 
-// Mock recharts components to avoid rendering issues in tests
-jest.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="responsive-container">{children}</div>
-  ),
-  BarChart: ({ children, data }: { children: React.ReactNode; data: any[] }) => (
-    <div data-testid="bar-chart" data-count={data?.length || 0}>
-      {children}
-    </div>
-  ),
-  Bar: () => <div data-testid="bar" />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-}));
+// Helper to create mock API response
+const mockApiResponse = (dataPoints: any[] | undefined) => {
+  mockFetchOrFail.mockResolvedValue({
+    json: () => Promise.resolve({ data_points: dataPoints }),
+  } as Response);
+};
+
+// Helper to create a single data point
+const createTraceCountDataPoint = (timeBucket: string, count: number) => ({
+  metric_name: TraceMetricKey.TRACE_COUNT,
+  dimensions: { time_bucket: timeBucket },
+  values: { [AggregationType.COUNT]: count },
+});
 
 describe('TraceRequestsChart', () => {
   const testExperimentId = 'test-experiment-123';
   const now = Date.now();
   const oneHourAgo = now - 60 * 60 * 1000;
+
+  // Default props reused across tests
+  const defaultProps = {
+    experimentId: testExperimentId,
+    startTimeMs: oneHourAgo,
+    endTimeMs: now,
+    timeIntervalSeconds: 3600, // 1 hour
+  };
 
   const createQueryClient = () =>
     new QueryClient({
@@ -45,12 +51,12 @@ describe('TraceRequestsChart', () => {
       },
     });
 
-  const renderComponent = (props: { experimentId: string; startTimeMs?: number; endTimeMs?: number }) => {
+  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
     const queryClient = createQueryClient();
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <TraceRequestsChart {...props} />
+          <TraceRequestsChart {...defaultProps} {...props} />
         </DesignSystemProvider>
       </QueryClientProvider>,
     );
@@ -58,10 +64,7 @@ describe('TraceRequestsChart', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Mock fetchOrFail to return a response with json() method
-    mockFetchOrFail.mockResolvedValue({
-      json: () => Promise.resolve({ data_points: [] }),
-    } as Response);
+    mockApiResponse([]);
   });
 
   describe('loading state', () => {
@@ -69,11 +72,7 @@ describe('TraceRequestsChart', () => {
       // Create a promise that never resolves to keep the component in loading state
       mockFetchOrFail.mockReturnValue(new Promise(() => {}));
 
-      renderComponent({
-        experimentId: testExperimentId,
-        startTimeMs: oneHourAgo,
-        endTimeMs: now,
-      });
+      renderComponent();
 
       // Check for spinner (loading state)
       expect(screen.getByRole('img')).toBeInTheDocument();
@@ -84,11 +83,7 @@ describe('TraceRequestsChart', () => {
     it('should render error message when API call fails', async () => {
       mockFetchOrFail.mockRejectedValue(new Error('API Error'));
 
-      renderComponent({
-        experimentId: testExperimentId,
-        startTimeMs: oneHourAgo,
-        endTimeMs: now,
-      });
+      renderComponent();
 
       await waitFor(() => {
         expect(screen.getByText('Failed to load chart data')).toBeInTheDocument();
@@ -98,15 +93,9 @@ describe('TraceRequestsChart', () => {
 
   describe('empty data state', () => {
     it('should render empty state message when no data points are returned', async () => {
-      mockFetchOrFail.mockResolvedValue({
-        json: () => Promise.resolve({ data_points: [] }),
-      } as Response);
+      mockApiResponse([]);
 
-      renderComponent({
-        experimentId: testExperimentId,
-        startTimeMs: oneHourAgo,
-        endTimeMs: now,
-      });
+      renderComponent();
 
       await waitFor(() => {
         expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();
@@ -114,16 +103,9 @@ describe('TraceRequestsChart', () => {
     });
 
     it('should render empty state when data_points is undefined', async () => {
-      // Cast to simulate edge case where API might return malformed response
-      mockFetchOrFail.mockResolvedValue({
-        json: () => Promise.resolve({ data_points: undefined }),
-      } as Response);
+      mockApiResponse(undefined);
 
-      renderComponent({
-        experimentId: testExperimentId,
-        startTimeMs: oneHourAgo,
-        endTimeMs: now,
-      });
+      renderComponent();
 
       await waitFor(() => {
         expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();
@@ -133,33 +115,15 @@ describe('TraceRequestsChart', () => {
 
   describe('with data', () => {
     const mockDataPoints = [
-      {
-        metric_name: TraceMetricKey.TRACE_COUNT,
-        dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
-        values: { [AggregationType.COUNT]: 42 },
-      },
-      {
-        metric_name: TraceMetricKey.TRACE_COUNT,
-        dimensions: { time_bucket: '2025-12-22T11:00:00Z' },
-        values: { [AggregationType.COUNT]: 58 },
-      },
-      {
-        metric_name: TraceMetricKey.TRACE_COUNT,
-        dimensions: { time_bucket: '2025-12-22T12:00:00Z' },
-        values: { [AggregationType.COUNT]: 100 },
-      },
+      createTraceCountDataPoint('2025-12-22T10:00:00Z', 42),
+      createTraceCountDataPoint('2025-12-22T11:00:00Z', 58),
+      createTraceCountDataPoint('2025-12-22T12:00:00Z', 100),
     ];
 
     it('should render chart with data points', async () => {
-      mockFetchOrFail.mockResolvedValue({
-        json: () => Promise.resolve({ data_points: mockDataPoints }),
-      } as Response);
+      mockApiResponse(mockDataPoints);
 
-      renderComponent({
-        experimentId: testExperimentId,
-        startTimeMs: oneHourAgo,
-        endTimeMs: now,
-      });
+      renderComponent();
 
       await waitFor(() => {
         expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
@@ -170,15 +134,9 @@ describe('TraceRequestsChart', () => {
     });
 
     it('should display the total request count', async () => {
-      mockFetchOrFail.mockResolvedValue({
-        json: () => Promise.resolve({ data_points: mockDataPoints }),
-      } as Response);
+      mockApiResponse(mockDataPoints);
 
-      renderComponent({
-        experimentId: testExperimentId,
-        startTimeMs: oneHourAgo,
-        endTimeMs: now,
-      });
+      renderComponent();
 
       // Total should be 42 + 58 + 100 = 200
       await waitFor(() => {
@@ -187,15 +145,9 @@ describe('TraceRequestsChart', () => {
     });
 
     it('should display the "Requests" title', async () => {
-      mockFetchOrFail.mockResolvedValue({
-        json: () => Promise.resolve({ data_points: mockDataPoints }),
-      } as Response);
+      mockApiResponse(mockDataPoints);
 
-      renderComponent({
-        experimentId: testExperimentId,
-        startTimeMs: oneHourAgo,
-        endTimeMs: now,
-      });
+      renderComponent();
 
       await waitFor(() => {
         expect(screen.getByText('Requests')).toBeInTheDocument();
@@ -203,24 +155,9 @@ describe('TraceRequestsChart', () => {
     });
 
     it('should format large numbers with locale formatting', async () => {
-      mockFetchOrFail.mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            data_points: [
-              {
-                metric_name: TraceMetricKey.TRACE_COUNT,
-                dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
-                values: { [AggregationType.COUNT]: 1234567 },
-              },
-            ],
-          }),
-      } as Response);
+      mockApiResponse([createTraceCountDataPoint('2025-12-22T10:00:00Z', 1234567)]);
 
-      renderComponent({
-        experimentId: testExperimentId,
-        startTimeMs: oneHourAgo,
-        endTimeMs: now,
-      });
+      renderComponent();
 
       await waitFor(() => {
         // Check for locale-formatted number (1,234,567 in US locale)
@@ -231,14 +168,7 @@ describe('TraceRequestsChart', () => {
 
   describe('API call parameters', () => {
     it('should call fetchOrFail with correct parameters', async () => {
-      const startTimeMs = oneHourAgo;
-      const endTimeMs = now;
-
-      renderComponent({
-        experimentId: testExperimentId,
-        startTimeMs,
-        endTimeMs,
-      });
+      renderComponent();
 
       await waitFor(() => {
         expect(mockFetchOrFail).toHaveBeenCalledWith(
@@ -254,80 +184,46 @@ describe('TraceRequestsChart', () => {
       });
     });
 
-    it('should calculate appropriate time interval for 1-hour range', async () => {
-      const endTimeMs = Date.now();
-      const startTimeMs = endTimeMs - 60 * 60 * 1000; // 1 hour
-
-      renderComponent({
-        experimentId: testExperimentId,
-        startTimeMs,
-        endTimeMs,
-      });
+    it('should use provided time interval', async () => {
+      renderComponent({ timeIntervalSeconds: 60 });
 
       await waitFor(() => {
         const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.time_interval_seconds).toBe(60); // MINUTE_IN_SECONDS
+        expect(callBody.time_interval_seconds).toBe(60);
       });
     });
 
-    it('should calculate appropriate time interval for 24-hour range', async () => {
-      const endTimeMs = Date.now();
-      const startTimeMs = endTimeMs - 12 * 60 * 60 * 1000; // 12 hours
-
-      renderComponent({
-        experimentId: testExperimentId,
-        startTimeMs,
-        endTimeMs,
-      });
+    it('should use provided time interval for hourly grouping', async () => {
+      renderComponent({ timeIntervalSeconds: 3600 });
 
       await waitFor(() => {
         const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.time_interval_seconds).toBe(3600); // HOUR_IN_SECONDS
+        expect(callBody.time_interval_seconds).toBe(3600);
       });
     });
 
-    it('should calculate appropriate time interval for 7-day range', async () => {
-      const endTimeMs = Date.now();
-      const startTimeMs = endTimeMs - 7 * 24 * 60 * 60 * 1000; // 7 days
-
-      renderComponent({
-        experimentId: testExperimentId,
-        startTimeMs,
-        endTimeMs,
-      });
+    it('should use provided time interval for daily grouping', async () => {
+      renderComponent({ timeIntervalSeconds: 86400 });
 
       await waitFor(() => {
         const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.time_interval_seconds).toBe(86400); // DAY_IN_SECONDS
+        expect(callBody.time_interval_seconds).toBe(86400);
       });
     });
   });
 
   describe('data transformation', () => {
     it('should handle data points with missing values gracefully', async () => {
-      mockFetchOrFail.mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            data_points: [
-              {
-                metric_name: TraceMetricKey.TRACE_COUNT,
-                dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
-                values: {}, // Missing COUNT value
-              },
-              {
-                metric_name: TraceMetricKey.TRACE_COUNT,
-                dimensions: { time_bucket: '2025-12-22T11:00:00Z' },
-                values: { [AggregationType.COUNT]: 50 },
-              },
-            ],
-          }),
-      } as Response);
+      mockApiResponse([
+        {
+          metric_name: TraceMetricKey.TRACE_COUNT,
+          dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
+          values: {}, // Missing COUNT value
+        },
+        createTraceCountDataPoint('2025-12-22T11:00:00Z', 50),
+      ]);
 
-      renderComponent({
-        experimentId: testExperimentId,
-        startTimeMs: oneHourAgo,
-        endTimeMs: now,
-      });
+      renderComponent();
 
       // Should still render and show total of 50 (0 + 50)
       await waitFor(() => {
@@ -336,24 +232,15 @@ describe('TraceRequestsChart', () => {
     });
 
     it('should handle data points with missing time_bucket', async () => {
-      mockFetchOrFail.mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            data_points: [
-              {
-                metric_name: TraceMetricKey.TRACE_COUNT,
-                dimensions: {}, // Missing time_bucket
-                values: { [AggregationType.COUNT]: 25 },
-              },
-            ],
-          }),
-      } as Response);
+      mockApiResponse([
+        {
+          metric_name: TraceMetricKey.TRACE_COUNT,
+          dimensions: {}, // Missing time_bucket
+          values: { [AggregationType.COUNT]: 25 },
+        },
+      ]);
 
-      renderComponent({
-        experimentId: testExperimentId,
-        startTimeMs: oneHourAgo,
-        endTimeMs: now,
-      });
+      renderComponent();
 
       // Should still render with the count
       await waitFor(() => {

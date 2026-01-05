@@ -9,7 +9,7 @@ import {
 } from 'react-hook-form';
 import { useDesignSystemTheme, Button, FormUI, Alert, Radio, Tag } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import { isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
+import { isEvaluatingSessionsInScorersEnabled, isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
 import {
   ModelTraceExplorerResizablePane,
   type ModelTraceExplorerResizablePaneRef,
@@ -21,6 +21,7 @@ import type { ScheduledScorer } from './types';
 import { getTypeDisplayName, getTypeIcon } from './scorerCardUtils';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, type ScorerFormMode } from './constants';
+import { ScorerFormEvaluationScopeSelect } from './ScorerFormEvaluationScopeSelect';
 
 interface ScorerFormRendererProps {
   mode: ScorerFormMode;
@@ -36,7 +37,7 @@ interface ScorerFormRendererProps {
   };
   componentError: string | null;
   handleCancel: () => void;
-  isSubmitButtonDisabled: () => boolean;
+  isSubmitDisabled: boolean;
   experimentId: string;
 }
 
@@ -68,6 +69,11 @@ const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
 
   return (
     <>
+      {isEvaluatingSessionsInScorersEnabled() && (
+        <div>
+          <ScorerFormEvaluationScopeSelect />
+        </div>
+      )}
       {/* Scorer Type Selection - only show in create mode */}
       {mode === SCORER_FORM_MODE.CREATE && (
         <div>
@@ -156,7 +162,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
   mutation,
   componentError,
   handleCancel,
-  isSubmitButtonDisabled,
+  isSubmitDisabled,
   experimentId,
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -294,7 +300,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
           type="primary"
           htmlType="submit"
           loading={mutation.isLoading}
-          disabled={isSubmitButtonDisabled()}
+          disabled={isSubmitDisabled}
         >
           {mode === SCORER_FORM_MODE.EDIT ? (
             <FormattedMessage defaultMessage="Save" description="Save judge button text" />
