@@ -30,7 +30,6 @@ from mlflow.genai.simulators.prompts import (
     INITIAL_USER_PROMPT,
 )
 from mlflow.genai.utils.trace_utils import parse_outputs_to_str
-from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import trace_disabled
 from mlflow.utils.annotations import experimental
@@ -46,15 +45,21 @@ _logger = logging.getLogger(__name__)
 _MAX_METADATA_LENGTH = 250
 
 _MODEL_API_DOC = {
-    "user_model": """User model to use for generating user messages. Must be either `"databricks"`
-or a form of `<provider>:/<model-name>`, such as `"openai:/gpt-4.1-mini"`,
-`"anthropic:/claude-3.5-sonnet-20240620"`. MLflow natively supports
-`["openai", "anthropic", "bedrock", "mistral"]`, and more providers are supported
-through `LiteLLM <https://docs.litellm.ai/docs/providers>`_.
+    "model": """Model to use for generating user messages. Must be one of:
+
+* `"databricks"` - Uses the Databricks managed LLM endpoint
+* `"databricks:/<endpoint-name>"` - Uses a Databricks model serving endpoint \
+(e.g., `"databricks:/databricks-claude-sonnet-4-5"`)
+* `"<provider>:/<model-name>"` - Uses LiteLLM (e.g., `"openai:/gpt-4.1-mini"`, \
+`"anthropic:/claude-3.5-sonnet-20240620"`)
+
+MLflow natively supports `["openai", "anthropic", "bedrock", "mistral"]`, and more \
+providers are supported through `LiteLLM <https://docs.litellm.ai/docs/providers>`_.
+
 Default model depends on the tracking URI setup:
 
-* Databricks: `databricks`
-* Otherwise: `openai:/gpt-4.1-mini`.
+* Databricks: `"databricks"`
+* Otherwise: `"openai:/gpt-4.1-mini"`
 """,
 }
 
@@ -98,6 +103,8 @@ def _invoke_model(
     inference_params: dict[str, Any] | None = None,
 ) -> str:
     import litellm
+
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     # Use Databricks managed endpoint with agentic model for the default "databricks" URI
     if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
@@ -168,6 +175,7 @@ def _format_history(history: list[dict[str, Any]]) -> str | None:
     return "\n".join(formatted)
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.9.0")
 class SimulatedUserAgent:
     """
@@ -180,8 +188,7 @@ class SimulatedUserAgent:
         goal: The objective the simulated user is trying to achieve in the conversation.
         persona: Description of the user's personality and background. If None, uses a
             default helpful user persona.
-        model: Model URI for generating messages (e.g., "openai:/gpt-4o-mini").
-            If None, uses the default model.
+        model: {{ model }}
         **inference_params: Additional parameters passed to the LLM (e.g., temperature).
     """
 
@@ -236,16 +243,19 @@ class ConversationSimulator:
     various user goals and personas.
 
     Args:
-        test_cases: List of test case dictionaries or DataFrame. Each test case must have a
-            "goal" field describing what the simulated user wants to achieve. Optional fields:
-            - "persona": Custom persona for the simulated user
-            - "context": Dict of additional kwargs to pass to predict_fn
+        test_cases: List of test case dictionaries or DataFrame with the following fields:
+
+            - "goal": Describing what the simulated user wants to achieve.
+            - "persona" (optional): Custom persona for the simulated user.
+            - "context" (optional): Dict of additional kwargs to pass to predict_fn.
+
         max_turns: Maximum number of conversation turns before stopping. Default is 10.
-        user_model: {{ user_model }}
+        user_model: {{ model }}
         **user_llm_params: Additional parameters passed to the simulated user's LLM calls.
 
     Example:
         .. code-block:: python
+
             from mlflow.genai.simulators import ConversationSimulator
 
             simulator = ConversationSimulator(
@@ -392,7 +402,7 @@ class ConversationSimulator:
         # NB: We trace the predict_fn call to add session and simulation metadata to the trace.
         #     This adds a new root span to the trace, with the same inputs and outputs as the
         #     predict_fn call.
-        @mlflow.trace(name=f"simulation_turn_{turn}")
+        @mlflow.trace(name=f"simulation_turn_{turn}", span_type="CHAIN")
         def traced_predict(input: list[dict[str, Any]], **context):
             mlflow.update_current_trace(
                 metadata={
