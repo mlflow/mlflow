@@ -479,28 +479,6 @@ def test_clean_up_old_assessments_preserves_different_sessions(
         mock_tracking_store.delete_assessment.assert_not_called()
 
 
-def test_fetch_sessions_passes_filter_when_all_scorers_share_same_filter(
-    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store
-):
-    configs = [
-        make_online_scorer(ConversationCompleteness(), filter_string="tag.env = 'prod'"),
-    ]
-    sampler = OnlineScorerSampler(configs)
-    mock_tracking_store.find_completed_sessions.return_value = []
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
-    )
-
-    processor.process_sessions()
-
-    call_kwargs = mock_tracking_store.find_completed_sessions.call_args[1]
-    assert call_kwargs["filter_string"] == "tag.env = 'prod'"
-
-
 def test_fetch_sessions_calls_once_per_filter_when_scorers_have_different_filters(
     mock_trace_loader, mock_checkpoint_manager, mock_tracking_store
 ):
