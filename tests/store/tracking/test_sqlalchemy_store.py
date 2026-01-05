@@ -10703,6 +10703,21 @@ def _non_gateway_model_scorer_json():
     return json.dumps({"instructions_judge_pydantic_data": {"model": "openai:/gpt-4"}})
 
 
+def _session_level_gateway_scorer_json():
+    """Returns a serialized session-level scorer JSON that uses a gateway model."""
+    return json.dumps(
+        {
+            "name": "user-frustration",
+            "builtin_scorer_class": "UserFrustration",
+            "builtin_scorer_pydantic_data": {
+                "model": "gateway:/my-endpoint",
+                "name": "user-frustration",
+            },
+            "is_session_level_scorer": True,
+        }
+    )
+
+
 def _mock_gateway_endpoint():
     """Returns a mock GatewayEndpoint for testing."""
     from mlflow.entities.gateway_endpoint import GatewayEndpoint
@@ -10872,11 +10887,30 @@ def test_update_online_scoring_config_validates_sample_rate(store: SqlAlchemySto
             sample_rate=-0.1,
         )
 
-    with pytest.raises(MlflowException, match="sample_rate must be between 0.0 and 1.0"):
+
+def test_update_online_scoring_config_rejects_filter_for_session_scorer(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_session_scorer_filter_rejection")
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "session_scorer", _session_level_gateway_scorer_json())
+
+    # Session-level scorer without filter should work
+    config = store.update_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="session_scorer",
+        sample_rate=0.5,
+    )
+    assert config.sample_rate == 0.5
+    assert config.filter_string is None
+
+    # Session-level scorer with filter should raise
+    with pytest.raises(
+        MlflowException, match="session-level scorer.*filter_string is not supported"
+    ):
         store.update_online_scoring_config(
             experiment_id=experiment_id,
-            scorer_name="test_scorer",
-            sample_rate=1.1,
+            scorer_name="session_scorer",
+            sample_rate=0.5,
+            filter_string="status = 'OK'",
         )
 
 

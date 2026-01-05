@@ -2509,6 +2509,19 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
             if latest_version is not None and sample_rate > 0:
                 serialized_data = json.loads(latest_version.serialized_scorer)
+
+                # Check if this is a session-level scorer
+                from mlflow.genai.scorers.base import Scorer
+
+                scorer_obj = Scorer.model_validate(serialized_data)
+                if scorer_obj.is_session_level_scorer and filter_string:
+                    raise MlflowException(
+                        f"Scorer '{scorer_name}' is a session-level scorer. "
+                        "filter_string is not supported for session-level scorers as they "
+                        "operate on entire sessions, not individual traces.",
+                        INVALID_PARAMETER_VALUE,
+                    )
+
                 model = extract_model_from_serialized_scorer(serialized_data)
                 if not is_gateway_model(model):
                     raise MlflowException(
