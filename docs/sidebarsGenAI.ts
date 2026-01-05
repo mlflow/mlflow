@@ -25,8 +25,8 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
-      type: 'doc',
-      id: 'eval-monitor/quickstart',
+      type: 'link',
+      href: '/genai/eval-monitor/quickstart/',
       label: 'Evaluate LLMs and Agents',
       className: 'sidebar-top-level-category',
     },

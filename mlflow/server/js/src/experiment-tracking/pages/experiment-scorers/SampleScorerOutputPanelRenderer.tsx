@@ -2,8 +2,6 @@ import React from 'react';
 import {
   useDesignSystemTheme,
   Typography,
-  SimpleSelect,
-  SimpleSelectOption,
   Button,
   PlayCircleFillIcon,
   LoadingState,
@@ -15,7 +13,12 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 import { SimplifiedModelTraceExplorer } from '@databricks/web-shared/model-trace-explorer';
 import type { Assessment, ModelTrace } from '@databricks/web-shared/model-trace-explorer';
-import { COMPONENT_ID_PREFIX, BUTTON_VARIANT, type ButtonVariant } from './constants';
+import { COMPONENT_ID_PREFIX, BUTTON_VARIANT, type ButtonVariant, ScorerEvaluationScope } from './constants';
+import { EvaluateTracesParams } from './types';
+import { SampleScorerTracesToEvaluatePicker } from './SampleScorerTracesToEvaluatePicker';
+import { useFormContext } from 'react-hook-form';
+import { ScorerFormData } from './utils/scorerTransformUtils';
+import { coerceToEnum } from '../../../shared/web-shared/utils';
 
 /**
  * Run scorer button component.
@@ -69,8 +72,8 @@ interface SampleScorerOutputPanelRendererProps {
   handlePrevious: () => void;
   handleNext: () => void;
   totalTraces: number;
-  tracesCount: number;
-  onTracesCountChange: (count: number) => void;
+  itemsToEvaluate: Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>;
+  onItemsToEvaluateChange: (itemsToEvaluate: Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>) => void;
 }
 
 const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererProps> = ({
@@ -85,13 +88,16 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
   handlePrevious,
   handleNext,
   totalTraces,
-  tracesCount,
-  onTracesCountChange,
+  itemsToEvaluate,
+  onItemsToEvaluateChange,
 }) => {
   const { theme } = useDesignSystemTheme();
 
   // Whether we are showing a trace or the initial screen
   const isInitialScreen = !currentTrace;
+
+  const { watch } = useFormContext<ScorerFormData>();
+  const evaluationScope = coerceToEnum(ScorerEvaluationScope, watch('evaluationScope'), ScorerEvaluationScope.TRACES);
 
   return (
     <div
@@ -119,23 +125,10 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
           <FormattedMessage defaultMessage="Sample judge output" description="Title for sample judge output panel" />
         </Typography.Text>
         <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-          <SimpleSelect
-            componentId={`${COMPONENT_ID_PREFIX}.sample-output-traces-select`}
-            id="sample-output-traces-select"
-            value={String(tracesCount)}
-            onChange={({ target }) => onTracesCountChange(Number(target.value))}
-            triggerSize="small"
-          >
-            <SimpleSelectOption value="1">
-              <FormattedMessage defaultMessage="Last trace" description="Option for last trace" />
-            </SimpleSelectOption>
-            <SimpleSelectOption value="5">
-              <FormattedMessage defaultMessage="Last 5 traces" description="Option for last 5 traces" />
-            </SimpleSelectOption>
-            <SimpleSelectOption value="10">
-              <FormattedMessage defaultMessage="Last 10 traces" description="Option for last 10 traces" />
-            </SimpleSelectOption>
-          </SimpleSelect>
+          <SampleScorerTracesToEvaluatePicker
+            itemsToEvaluate={itemsToEvaluate}
+            onItemsToEvaluateChange={onItemsToEvaluateChange}
+          />
           {!isInitialScreen && (
             <Tooltip
               componentId={`${COMPONENT_ID_PREFIX}.rerun-scorer-button-tooltip`}
@@ -168,6 +161,7 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               flexDirection: 'column',
               padding: theme.spacing.md,
               gap: theme.spacing.xs,
+              flex: 1,
             }}
           >
             {/* Carousel controls and trace info */}
@@ -179,6 +173,13 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               }}
             >
               <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+                <Typography.Text size="sm" color="secondary">
+                  <FormattedMessage
+                    defaultMessage="Trace {index} of {total}"
+                    description="Index of the current trace and total number of traces"
+                    values={{ index: currentTraceIndex + 1, total: totalTraces }}
+                  />
+                </Typography.Text>
                 <Button
                   componentId={`${COMPONENT_ID_PREFIX}.previous-trace-button`}
                   size="small"
@@ -253,12 +254,17 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               </div>
             )}
             <Typography.Text size="lg" color="secondary" bold css={{ margin: 0, marginBottom: theme.spacing.xs }}>
-              <FormattedMessage defaultMessage="Run judge on traces" description="Title for running judge on traces" />
+              <FormattedMessage
+                defaultMessage="Run judge on {isTraces, select, true {traces} other {sessions}}"
+                description="Title for running judge on traces or sessions"
+                values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
+              />
             </Typography.Text>
             <Typography.Text color="secondary" css={{ margin: 0, marginBottom: theme.spacing.md }}>
               <FormattedMessage
-                defaultMessage="Run the judge on the selected group of traces"
-                description="Description for running judge on traces"
+                defaultMessage="Run the judge on the selected group of {isTraces, select, true {traces} other {sessions}}"
+                description="Description for running judge on traces or sessions"
+                values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
               />
             </Typography.Text>
             <Tooltip

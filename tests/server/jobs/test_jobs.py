@@ -19,6 +19,7 @@ from mlflow.server.jobs import (
     _ALLOWED_JOB_NAME_LIST,
     _SUPPORTED_JOB_FUNCTION_LIST,
     TransientError,
+    cancel_job,
     get_job,
     job,
     submit_job,
@@ -625,3 +626,142 @@ def test_start_job_is_atomic(tmp_path: Path):
 
     final_job = store.get_job(job.job_id)
     assert final_job.status == JobStatus.RUNNING
+
+
+def test_cancel_job(monkeypatch, tmp_path: Path):
+    from mlflow.server.jobs.utils import is_process_alive
+
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["tests.server.jobs.test_jobs.sleep_fun"],
+        allowed_job_names=["sleep_fun"],
+    ):
+        job_tmp_path = tmp_path / "job"
+        job_tmp_path.mkdir()
+
+        job_id = submit_job(sleep_fun, {"sleep_secs": 120, "tmp_dir": str(job_tmp_path)}).job_id
+
+        while not (job_tmp_path / "pid").exists():
+            time.sleep(1)  # wait for job process starting
+
+        cancel_job(job_id)
+
+        time.sleep(5)  # wait for job process being actually killed
+        pid = int((job_tmp_path / "pid").read_text())
+        # assert canceled job process is killed.
+        assert not is_process_alive(pid)
+
+        assert get_job(job_id).status == JobStatus.CANCELED
+
+
+def test_delete_jobs_only_deletes_finalized(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    pending_job = store.create_job("pending_job", "{}")
+    assert pending_job.status == JobStatus.PENDING
+
+    running_job = store.create_job("running_job", "{}")
+    store.start_job(running_job.job_id)
+    running_job = store.get_job(running_job.job_id)
+    assert running_job.status == JobStatus.RUNNING
+
+    succeeded_job = store.create_job("succeeded_job", "{}")
+    store.start_job(succeeded_job.job_id)
+    store.finish_job(succeeded_job.job_id, "result")
+    succeeded_job = store.get_job(succeeded_job.job_id)
+    assert succeeded_job.status == JobStatus.SUCCEEDED
+
+    failed_job = store.create_job("failed_job", "{}")
+    store.start_job(failed_job.job_id)
+    store.fail_job(failed_job.job_id, "error")
+    failed_job = store.get_job(failed_job.job_id)
+    assert failed_job.status == JobStatus.FAILED
+
+    timeout_job = store.create_job("timeout_job", "{}")
+    store.start_job(timeout_job.job_id)
+    store.mark_job_timed_out(timeout_job.job_id)
+    timeout_job = store.get_job(timeout_job.job_id)
+    assert timeout_job.status == JobStatus.TIMEOUT
+
+    canceled_job = store.create_job("canceled_job", "{}")
+    store.cancel_job(canceled_job.job_id)
+    canceled_job = store.get_job(canceled_job.job_id)
+    assert canceled_job.status == JobStatus.CANCELED
+
+    deleted_ids = store.delete_jobs()
+
+    # Should only delete finalized jobs
+    assert len(deleted_ids) == 4
+    assert succeeded_job.job_id in deleted_ids
+    assert failed_job.job_id in deleted_ids
+    assert timeout_job.job_id in deleted_ids
+    assert canceled_job.job_id in deleted_ids
+
+    # Non-finalized jobs should still exist
+    assert store.get_job(pending_job.job_id).status == JobStatus.PENDING
+    assert store.get_job(running_job.job_id).status == JobStatus.RUNNING
+
+    # Finalized jobs should be deleted
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        store.get_job(succeeded_job.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        store.get_job(failed_job.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        store.get_job(timeout_job.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        store.get_job(canceled_job.job_id)
+
+
+def test_delete_jobs_with_job_ids_filter(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job1 = store.create_job("job1", "{}")
+    store.start_job(job1.job_id)
+    store.finish_job(job1.job_id, "result")
+
+    job2 = store.create_job("job2", "{}")
+    store.start_job(job2.job_id)
+    store.finish_job(job2.job_id, "result")
+
+    job3 = store.create_job("job3", "{}")
+    store.start_job(job3.job_id)
+    store.finish_job(job3.job_id, "result")
+
+    deleted_ids = store.delete_jobs(job_ids=[job1.job_id, job2.job_id])
+
+    assert len(deleted_ids) == 2
+    assert job1.job_id in deleted_ids
+    assert job2.job_id in deleted_ids
+
+    assert store.get_job(job3.job_id).status == JobStatus.SUCCEEDED
+
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        store.get_job(job1.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        store.get_job(job2.job_id)
+
+
+def test_delete_jobs_skips_non_finalized_even_with_job_ids(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    pending_job = store.create_job("pending_job", "{}")
+    assert pending_job.status == JobStatus.PENDING
+
+    succeeded_job = store.create_job("succeeded_job", "{}")
+    store.start_job(succeeded_job.job_id)
+    store.finish_job(succeeded_job.job_id, "result")
+    assert store.get_job(succeeded_job.job_id).status == JobStatus.SUCCEEDED
+
+    deleted_ids = store.delete_jobs(job_ids=[pending_job.job_id, succeeded_job.job_id])
+
+    assert len(deleted_ids) == 1
+    assert succeeded_job.job_id in deleted_ids
+
+    assert store.get_job(pending_job.job_id).status == JobStatus.PENDING
+
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        store.get_job(succeeded_job.job_id)

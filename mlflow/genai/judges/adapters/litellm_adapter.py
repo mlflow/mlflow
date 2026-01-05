@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
+from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
@@ -27,8 +27,10 @@ from mlflow.genai.judges.utils.parsing_utils import (
     _sanitize_justification,
     _strip_markdown_code_blocks,
 )
-from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
-from mlflow.protos.databricks_pb2 import REQUEST_LIMIT_EXCEEDED
+from mlflow.genai.judges.utils.tool_calling_utils import (
+    _process_tool_calls,
+    _raise_iteration_limit_exceeded,
+)
 from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.tracking import get_tracking_uri
 from mlflow.utils.uri import append_to_uri_path, is_http_uri
@@ -212,7 +214,12 @@ def _invoke_litellm_and_handle_tools(
 
     # Construct model URI and gateway params
     if provider == "gateway":
-        tracking_uri = get_tracking_uri()
+        # MLFLOW_GATEWAY_URI takes precedence over tracking URI for gateway routing.
+        # This is needed for async job workers: the job infrastructure passes the HTTP
+        # tracking URI (e.g., http://127.0.0.1:5000) to workers, but _get_tracking_store()
+        # overwrites MLFLOW_TRACKING_URI with the backend store URI (e.g., sqlite://).
+        # Job workers set MLFLOW_GATEWAY_URI to preserve the HTTP URI for gateway calls.
+        tracking_uri = MLFLOW_GATEWAY_URI.get() or get_tracking_uri()
 
         # Validate that tracking URI is a valid HTTP(S) URL for gateway
         if not is_http_uri(tracking_uri):
@@ -267,15 +274,7 @@ def _invoke_litellm_and_handle_tools(
     while True:
         iteration_count += 1
         if iteration_count > max_iterations:
-            raise MlflowException(
-                f"Completion iteration limit of {max_iterations} exceeded. "
-                f"This usually indicates the model is not powerful enough to effectively "
-                f"analyze the trace. Consider using a more intelligent/powerful model. "
-                f"In rare cases, for very complex traces where a large number of completion "
-                f"iterations might be required, you can increase the number of iterations by "
-                f"modifying the {MLFLOW_JUDGE_MAX_ITERATIONS.name} environment variable.",
-                error_code=REQUEST_LIMIT_EXCEEDED,
-            )
+            _raise_iteration_limit_exceeded(max_iterations)
         try:
             try:
                 response = _invoke_litellm(

@@ -3,7 +3,7 @@ import { useIntl } from '@databricks/i18n';
 import { LLM_TEMPLATE } from './types';
 import type { FeedbackAssessment } from '@databricks/web-shared/model-trace-explorer';
 import { getModelTraceId } from '@databricks/web-shared/model-trace-explorer';
-import type { JudgeEvaluationResult } from './useEvaluateTraces';
+import { isFeedbackAssessmentInJudgeEvaluationResult, type JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { TEMPLATE_VARIABLES } from '../../utils/evaluationUtils';
 
 // Custom hook for template options
@@ -145,6 +145,11 @@ export const convertEvaluationResultToAssessment = (
 
   // Get the first result from the results array (there should only be one when converting to assessment)
   const firstResult = evaluationResult.results[0];
+
+  // If the evaluation result is already an assessment, return it with trace ID attached and assessment ID generated
+  if (firstResult && isFeedbackAssessmentInJudgeEvaluationResult(firstResult)) {
+    return { ...firstResult, trace_id: traceId, assessment_id: `${Date.now()}-${index}` };
+  }
 
   return {
     assessment_id: `${Date.now()}`,

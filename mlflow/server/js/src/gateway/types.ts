@@ -2,10 +2,19 @@ export interface Provider {
   name: string;
 }
 
-export interface Model {
+export interface ProviderModel {
   model: string;
   provider: string;
   supports_function_calling: boolean;
+  supports_vision?: boolean;
+  supports_reasoning?: boolean;
+  supports_prompt_caching?: boolean;
+  supports_response_schema?: boolean;
+  max_input_tokens?: number;
+  max_output_tokens?: number;
+  input_cost_per_token?: number;
+  output_cost_per_token?: number;
+  deprecation_date?: string;
 }
 
 export interface SecretField {
@@ -40,49 +49,50 @@ export interface ProvidersResponse {
 }
 
 export interface ModelsResponse {
-  models: Model[];
+  models: ProviderModel[];
 }
 
-export interface Secret {
+export interface SecretInfo {
   secret_id: string;
   secret_name: string;
+  masked_values: Record<string, string>;
   provider?: string;
-  auth_config?: Record<string, any>;
+  auth_config?: Record<string, string>;
   created_at: number;
-  updated_at: number;
+  last_updated_at: number;
   created_by?: string;
-  updated_by?: string;
+  last_updated_by?: string;
 }
 
 export interface CreateSecretRequest {
   secret_name: string;
-  secret_value: string;
+  secret_value: Record<string, string>;
   provider?: string;
-  auth_config_json?: string;
+  auth_config?: Record<string, string>;
   created_by?: string;
 }
 
-export interface CreateSecretResponse {
-  secret: Secret;
+export interface CreateSecretInfoResponse {
+  secret: SecretInfo;
 }
 
-export interface GetSecretResponse {
-  secret: Secret;
+export interface GetSecretInfoResponse {
+  secret: SecretInfo;
 }
 
 export interface UpdateSecretRequest {
   secret_id: string;
-  secret_value: string;
-  auth_config_json?: string;
+  secret_value: Record<string, string>;
+  auth_config?: Record<string, string>;
   updated_by?: string;
 }
 
-export interface UpdateSecretResponse {
-  secret: Secret;
+export interface UpdateSecretInfoResponse {
+  secret: SecretInfo;
 }
 
-export interface ListSecretsResponse {
-  secrets: Secret[];
+export interface ListSecretInfosResponse {
+  secrets: SecretInfo[];
 }
 
 export interface ModelDefinition {
@@ -198,16 +208,23 @@ export interface DetachModelFromEndpointRequest {
   model_definition_id: string;
 }
 
+export type ResourceType = 'scorer_job';
+
 export interface EndpointBinding {
-  binding_id: string;
   endpoint_id: string;
-  experiment_id: string;
+  resource_type: ResourceType;
+  resource_id: string;
   created_at: number;
+  last_updated_at?: number;
+  created_by?: string;
+  last_updated_by?: string;
 }
 
 export interface CreateEndpointBindingRequest {
   endpoint_id: string;
-  experiment_id: string;
+  resource_type: ResourceType;
+  resource_id: string;
+  created_by?: string;
 }
 
 export interface CreateEndpointBindingResponse {
@@ -216,4 +233,9 @@ export interface CreateEndpointBindingResponse {
 
 export interface ListEndpointBindingsResponse {
   bindings: EndpointBinding[];
+}
+
+export interface SecretsConfigResponse {
+  secrets_available: boolean;
+  using_default_passphrase: boolean;
 }

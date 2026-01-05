@@ -4,12 +4,15 @@ import type { ScheduledScorer, LLMScorer, CustomCodeScorer, ScorerConfig, LLMTem
 import { LLM_TEMPLATE } from '../types';
 import type { LLMScorerFormData } from '../LLMScorerFormRenderer';
 import type { CustomCodeScorerFormData } from '../CustomCodeScorerFormRenderer';
-import type { ScorerType } from '../constants';
+import { ScorerEvaluationScope, type ScorerType } from '../constants';
 import type { RegisterScorerResponse, MLflowScorer } from '../api';
+import { isEvaluatingSessionsInScorersEnabled } from '../../../../common/utils/FeatureUtils';
+import { isUndefined } from 'lodash';
 
 // Union type for all form data - combines both form interfaces
 export type ScorerFormData = (LLMScorerFormData | CustomCodeScorerFormData) & {
   scorerType: ScorerType;
+  evaluationScope?: ScorerEvaluationScope;
 };
 
 // Local error class for scorer transformation issues
@@ -44,6 +47,10 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
 
   try {
     const serializedData = JSON.parse(config.serialized_scorer);
+
+    if (isEvaluatingSessionsInScorersEnabled() && serializedData.is_session_level_scorer) {
+      baseFields.isSessionLevelScorer = true;
+    }
 
     // Determine scorer type based on the serialized data
     if (serializedData.instructions_judge_pydantic_data) {
@@ -130,10 +137,18 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
   }
 
   // Common base for all serialized scorers
-  const baseSerializedScorer = {
+  const baseSerializedScorer: {
+    mlflow_version: string;
+    serialization_version: number;
+    is_session_level_scorer?: boolean;
+  } = {
     mlflow_version: '3.3.2+ui', // Valid PyPI version with local version identifier to distinguish scorers created from UI
     serialization_version: 1,
   };
+
+  if (isEvaluatingSessionsInScorersEnabled() && !isUndefined(scorer.isSessionLevelScorer)) {
+    baseSerializedScorer.is_session_level_scorer = scorer.isSessionLevelScorer;
+  }
 
   // Build serialized_scorer based on scorer type
   if (scorer.type === 'llm') {
@@ -267,6 +282,7 @@ export function convertFormDataToScheduledScorer(
       sampleRate: formData.sampleRate,
       filterString: formData.filterString || '',
       type: formData.scorerType,
+      isSessionLevelScorer: formData.evaluationScope === ScorerEvaluationScope.SESSIONS,
     } as ScheduledScorer;
 
     if (formData.scorerType === 'llm') {

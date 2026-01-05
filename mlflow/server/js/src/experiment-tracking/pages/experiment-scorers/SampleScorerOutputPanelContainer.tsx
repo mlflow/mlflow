@@ -1,14 +1,16 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type { Control } from 'react-hook-form';
-import { useWatch, useFormState } from 'react-hook-form';
+import { useWatch, useFormState, useFormContext } from 'react-hook-form';
 import { useIntl } from '@databricks/i18n';
-import type { ScorerFormData } from './utils/scorerTransformUtils';
+import { type ScorerFormData } from './utils/scorerTransformUtils';
 import { useEvaluateTraces } from './useEvaluateTraces';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import { convertEvaluationResultToAssessment } from './llmScorerUtils';
 import { extractTemplateVariables } from '../../utils/evaluationUtils';
-import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING } from './constants';
-import { LLM_TEMPLATE } from './types';
+import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope, SCORER_TYPE } from './constants';
+import { EvaluateTracesParams, LLM_TEMPLATE } from './types';
+import { coerceToEnum } from '../../../shared/web-shared/utils';
+import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
 
 interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
@@ -28,9 +30,19 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   const guidelines = useWatch({ control, name: 'guidelines' });
   const scorerType = useWatch({ control, name: 'scorerType' });
   const { errors } = useFormState({ control });
+  const evaluationScopeFormValue = useWatch({ control, name: 'evaluationScope' });
+  const evaluationScope = coerceToEnum(ScorerEvaluationScope, evaluationScopeFormValue, ScorerEvaluationScope.TRACES);
 
-  const [tracesCount, setTracesCount] = useState(DEFAULT_TRACE_COUNT);
-  const [evaluateTraces, { data, isLoading, error, reset }] = useEvaluateTraces();
+  const getSerializedScorerFromForm = useGetSerializedScorerFromForm();
+
+  const [itemsToEvaluate, setItemsToEvaluate] = useState<Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>>({
+    itemCount: DEFAULT_TRACE_COUNT,
+    itemIds: [],
+  });
+
+  const [evaluateTraces, { data, isLoading, error, reset }] = useEvaluateTraces({
+    onScorerFinished,
+  });
 
   // Carousel state for navigating through traces
   const [currentTraceIndex, setCurrentTraceIndex] = useState(0);
@@ -47,6 +59,15 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     setCurrentTraceIndex(0);
   }, [llmTemplate, reset]);
 
+  // Reset evaluation config when switching evaluation scope
+  useEffect(() => {
+    reset();
+    setItemsToEvaluate({
+      itemCount: DEFAULT_TRACE_COUNT,
+      itemIds: [],
+    });
+  }, [evaluationScope, reset]);
+
   // Handle the "Run scorer" button click
   const handleRunScorer = useCallback(async () => {
     // Validate inputs based on mode
@@ -54,9 +75,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       return;
     }
 
-    // Increment request ID and save for this request
-    requestIdRef.current += 1;
-    const thisRequestId = requestIdRef.current;
+    const serializedScorer = getSerializedScorerFromForm();
 
     // Reset to first trace when running scorer
     setCurrentTraceIndex(0);
@@ -65,13 +84,16 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       // Prepare evaluation parameters based on mode
       const evaluationParams = isCustomMode
         ? {
-            traceCount: tracesCount,
+            itemCount: itemsToEvaluate.itemCount,
+            itemIds: itemsToEvaluate.itemIds,
             locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' as const }],
             judgeInstructions: judgeInstructions || '',
             experimentId,
+            serializedScorer,
           }
         : {
-            traceCount: tracesCount,
+            itemCount: itemsToEvaluate.itemCount,
+            itemIds: itemsToEvaluate.itemIds,
             locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' as const }],
             requestedAssessments: [
               {
@@ -81,17 +103,10 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
             ],
             experimentId,
             guidelines: guidelines ? [guidelines] : undefined,
+            serializedScorer,
           };
 
-      const results = await evaluateTraces(evaluationParams);
-
-      // Check if results are still current (user hasn't changed settings)
-      if (thisRequestId === requestIdRef.current) {
-        // Call onScorerFinished after successful evaluation
-        if (results && results.length > 0) {
-          onScorerFinished?.();
-        }
-      }
+      await evaluateTraces(evaluationParams);
     } catch (error) {
       // Error is already handled by the hook's error state
     }
@@ -100,10 +115,10 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     judgeInstructions,
     llmTemplate,
     guidelines,
-    tracesCount,
+    itemsToEvaluate,
     evaluateTraces,
     experimentId,
-    onScorerFinished,
+    getSerializedScorerFromForm,
   ]);
 
   // Navigation handlers
@@ -224,8 +239,8 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       handlePrevious={handlePrevious}
       handleNext={handleNext}
       totalTraces={data?.length ?? 0}
-      tracesCount={tracesCount}
-      onTracesCountChange={setTracesCount}
+      itemsToEvaluate={itemsToEvaluate}
+      onItemsToEvaluateChange={setItemsToEvaluate}
     />
   );
 };
