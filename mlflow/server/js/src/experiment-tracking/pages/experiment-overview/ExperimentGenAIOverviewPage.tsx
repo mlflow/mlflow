@@ -9,7 +9,11 @@ import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../hooks/useMo
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
 import { LazyTraceRequestsChart } from './components/LazyTraceRequestsChart';
 import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
+import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
+import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
+import { LazyTraceTokenStatsChart } from './components/LazyTraceTokenStatsChart';
 import { calculateTimeInterval } from './hooks/useTraceMetricsQuery';
+import { generateTimeBuckets } from './utils/chartUtils';
 
 enum OverviewTab {
   Usage = 'usage',
@@ -41,8 +45,14 @@ const ExperimentGenAIOverviewPageImpl = () => {
   // Calculate time interval once for all charts
   const timeIntervalSeconds = calculateTimeInterval(startTimeMs, endTimeMs);
 
+  // Generate all time buckets once for all charts
+  const timeBuckets = useMemo(
+    () => generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds),
+    [startTimeMs, endTimeMs, timeIntervalSeconds],
+  );
+
   // Common props for all chart components
-  const chartProps = { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds };
+  const chartProps = { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets };
 
   return (
     <div
@@ -106,7 +116,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
             {/* Requests chart - full width */}
             <LazyTraceRequestsChart {...chartProps} />
 
-            {/* Latency chart*/}
+            {/* Latency and Errors charts - side by side */}
             <div
               css={{
                 display: 'grid',
@@ -115,6 +125,19 @@ const ExperimentGenAIOverviewPageImpl = () => {
               }}
             >
               <LazyTraceLatencyChart {...chartProps} />
+              <LazyTraceErrorsChart {...chartProps} />
+            </div>
+
+            {/* Token Usage and Token Stats charts - side by side */}
+            <div
+              css={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                gap: theme.spacing.lg,
+              }}
+            >
+              <LazyTraceTokenUsageChart {...chartProps} />
+              <LazyTraceTokenStatsChart {...chartProps} />
             </div>
           </div>
         </Tabs.Content>

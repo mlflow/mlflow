@@ -367,6 +367,9 @@ mlflow.entities.GatewayEndpoint.to_proto
 mlflow.entities.GatewayEndpointBinding
 mlflow.entities.GatewayEndpointBinding.from_proto
 mlflow.entities.GatewayEndpointBinding.to_proto
+mlflow.entities.GatewayEndpointModelConfig
+mlflow.entities.GatewayEndpointModelConfig.from_proto
+mlflow.entities.GatewayEndpointModelConfig.to_proto
 mlflow.entities.GatewayEndpointModelMapping
 mlflow.entities.GatewayEndpointModelMapping.from_proto
 mlflow.entities.GatewayEndpointModelMapping.to_proto
@@ -581,6 +584,7 @@ mlflow.entities.gateway_endpoint.FallbackConfig
 mlflow.entities.gateway_endpoint.FallbackStrategy
 mlflow.entities.gateway_endpoint.GatewayEndpoint
 mlflow.entities.gateway_endpoint.GatewayEndpointBinding
+mlflow.entities.gateway_endpoint.GatewayEndpointModelConfig
 mlflow.entities.gateway_endpoint.GatewayEndpointModelMapping
 mlflow.entities.gateway_endpoint.GatewayEndpointTag
 mlflow.entities.gateway_endpoint.GatewayModelDefinition

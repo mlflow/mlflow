@@ -75,6 +75,9 @@ interface GenAITracesTableToolbarProps {
   // available in the new APIs. this param is somewhat confusingly named
   // in OSS, since the "new APIs" still use the v3 prefixes
   usesV4APIs?: boolean;
+
+  // Additional elements to render in the toolbar
+  addons?: React.ReactNode;
 }
 
 export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITracesTableToolbarProps>> = React.memo(
@@ -99,6 +102,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       isMetadataLoading,
       usesV4APIs,
       metadataError,
+      addons,
     } = props;
     const { theme } = useDesignSystemTheme();
 
@@ -157,6 +161,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
           {traceActions && (
             <GenAITracesTableActions experimentId={experimentId} traceActions={traceActions} traceInfos={traceInfos} />
           )}
+          {addons}
         </TableFilterLayout>
         <SampledInfoBadge countInfo={countInfo} />
       </div>

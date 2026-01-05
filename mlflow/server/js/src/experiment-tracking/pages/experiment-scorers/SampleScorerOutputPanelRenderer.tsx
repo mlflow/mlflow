@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   useDesignSystemTheme,
   Typography,
@@ -19,6 +19,10 @@ import { SampleScorerTracesToEvaluatePicker } from './SampleScorerTracesToEvalua
 import { useFormContext } from 'react-hook-form';
 import { ScorerFormData } from './utils/scorerTransformUtils';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
+import { ExperimentSingleChatConversation } from '../experiment-chat-sessions/single-chat-view/ExperimentSingleChatConversation';
+import { SimplifiedAssessmentView } from '../../../shared/web-shared/model-trace-explorer/right-pane/SimplifiedAssessmentView';
+import { compact } from 'lodash';
+import { isSessionJudgeEvaluationResult, JudgeEvaluationResult } from './useEvaluateTraces.common';
 
 /**
  * Run scorer button component.
@@ -65,8 +69,8 @@ interface SampleScorerOutputPanelRendererProps {
   isRunScorerDisabled: boolean;
   runScorerDisabledTooltip?: string;
   error: Error | null;
-  currentTraceIndex: number;
-  currentTrace: ModelTrace | undefined;
+  currentEvalResultIndex: number;
+  currentEvalResult?: JudgeEvaluationResult;
   assessments: Assessment[] | undefined;
   handleRunScorer: () => Promise<void>;
   handlePrevious: () => void;
@@ -81,8 +85,8 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
   isRunScorerDisabled,
   runScorerDisabledTooltip,
   error,
-  currentTraceIndex,
-  currentTrace,
+  currentEvalResultIndex,
+  currentEvalResult,
   assessments,
   handleRunScorer,
   handlePrevious,
@@ -94,10 +98,45 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
   const { theme } = useDesignSystemTheme();
 
   // Whether we are showing a trace or the initial screen
-  const isInitialScreen = !currentTrace;
+  const isInitialScreen = !currentEvalResult;
 
   const { watch } = useFormContext<ScorerFormData>();
   const evaluationScope = coerceToEnum(ScorerEvaluationScope, watch('evaluationScope'), ScorerEvaluationScope.TRACES);
+
+  // For session-level judges, get the traces from the current evaluation result
+  const currentSessionTraces = useMemo(() => {
+    if (!currentEvalResult || !isSessionJudgeEvaluationResult(currentEvalResult)) {
+      return [];
+    }
+    return compact(currentEvalResult.traces?.map((trace) => trace));
+  }, [currentEvalResult]);
+
+  // Render the current evaluation result, either a trace or a chat session
+  const renderCurrentEvaluationResult = () => {
+    if (!currentEvalResult) {
+      return null;
+    }
+    if (isSessionJudgeEvaluationResult(currentEvalResult)) {
+      return (
+        <div css={{ display: 'flex', gap: theme.spacing.md, paddingBottom: theme.spacing.md }}>
+          <div css={{ flex: 1 }}>
+            <ExperimentSingleChatConversation
+              traces={currentSessionTraces}
+              selectedTurnIndex={null}
+              getAssessmentTitle={(assessmentName) => assessmentName}
+            />
+          </div>
+          <div css={{ flex: 1 }}>
+            <SimplifiedAssessmentView assessments={assessments ?? []} />
+          </div>
+        </div>
+      );
+    }
+    if (!currentEvalResult.trace) {
+      return null;
+    }
+    return <SimplifiedModelTraceExplorer modelTrace={currentEvalResult.trace} assessments={assessments ?? []} />;
+  };
 
   return (
     <div
@@ -154,7 +193,7 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
           overflowY: 'auto',
         }}
       >
-        {!isInitialScreen && currentTrace ? (
+        {!isInitialScreen && currentEvalResult ? (
           <div
             css={{
               display: 'flex',
@@ -175,16 +214,20 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
                 <Typography.Text size="sm" color="secondary">
                   <FormattedMessage
-                    defaultMessage="Trace {index} of {total}"
+                    defaultMessage="{isTraces, select, true {Trace} other {Session}} {index} of {total}"
                     description="Index of the current trace and total number of traces"
-                    values={{ index: currentTraceIndex + 1, total: totalTraces }}
+                    values={{
+                      index: currentEvalResultIndex + 1,
+                      total: totalTraces,
+                      isTraces: evaluationScope === ScorerEvaluationScope.TRACES,
+                    }}
                   />
                 </Typography.Text>
                 <Button
                   componentId={`${COMPONENT_ID_PREFIX}.previous-trace-button`}
                   size="small"
                   onClick={handlePrevious}
-                  disabled={currentTraceIndex === 0}
+                  disabled={currentEvalResultIndex === 0}
                 >
                   <ChevronLeftIcon />
                   <FormattedMessage defaultMessage="Previous" description="Button text for previous trace" />
@@ -193,7 +236,7 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
                   componentId={`${COMPONENT_ID_PREFIX}.next-trace-button`}
                   size="small"
                   onClick={handleNext}
-                  disabled={currentTraceIndex === totalTraces - 1}
+                  disabled={currentEvalResultIndex === totalTraces - 1}
                 >
                   <FormattedMessage defaultMessage="Next" description="Button text for next trace" />
                   <ChevronRightIcon />
@@ -201,9 +244,7 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               </div>
             </div>
 
-            <div css={{ height: '600px' }}>
-              <SimplifiedModelTraceExplorer modelTrace={currentTrace} assessments={assessments ?? []} />
-            </div>
+            <div css={{ height: '600px' }}>{renderCurrentEvaluationResult()}</div>
           </div>
         ) : error ? (
           <div

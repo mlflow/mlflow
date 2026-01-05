@@ -31,15 +31,25 @@ const createTraceCountDataPoint = (timeBucket: string, count: number) => ({
 
 describe('TraceRequestsChart', () => {
   const testExperimentId = 'test-experiment-123';
-  const now = Date.now();
-  const oneHourAgo = now - 60 * 60 * 1000;
+  // Use fixed timestamps for predictable bucket generation
+  const startTimeMs = new Date('2025-12-22T10:00:00Z').getTime();
+  const endTimeMs = new Date('2025-12-22T12:00:00Z').getTime(); // 2 hours = 3 buckets with 1hr interval
+  const timeIntervalSeconds = 3600; // 1 hour
+
+  // Pre-computed time buckets for the test range
+  const timeBuckets = [
+    new Date('2025-12-22T10:00:00Z').getTime(),
+    new Date('2025-12-22T11:00:00Z').getTime(),
+    new Date('2025-12-22T12:00:00Z').getTime(),
+  ];
 
   // Default props reused across tests
   const defaultProps = {
     experimentId: testExperimentId,
-    startTimeMs: oneHourAgo,
-    endTimeMs: now,
-    timeIntervalSeconds: 3600, // 1 hour
+    startTimeMs,
+    endTimeMs,
+    timeIntervalSeconds,
+    timeBuckets,
   };
 
   const createQueryClient = () =>
@@ -92,7 +102,7 @@ describe('TraceRequestsChart', () => {
   });
 
   describe('empty data state', () => {
-    it('should render empty state message when no data points are returned', async () => {
+    it('should render empty state when no data points are returned', async () => {
       mockApiResponse([]);
 
       renderComponent();
@@ -102,10 +112,10 @@ describe('TraceRequestsChart', () => {
       });
     });
 
-    it('should render empty state when data_points is undefined', async () => {
-      mockApiResponse(undefined);
+    it('should render empty state when time range is not provided', async () => {
+      mockApiResponse([]);
 
-      renderComponent();
+      renderComponent({ startTimeMs: undefined, endTimeMs: undefined, timeBuckets: [] });
 
       await waitFor(() => {
         expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();
@@ -120,7 +130,7 @@ describe('TraceRequestsChart', () => {
       createTraceCountDataPoint('2025-12-22T12:00:00Z', 100),
     ];
 
-    it('should render chart with data points', async () => {
+    it('should render chart with all time buckets', async () => {
       mockApiResponse(mockDataPoints);
 
       renderComponent();
@@ -129,7 +139,7 @@ describe('TraceRequestsChart', () => {
         expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
       });
 
-      // Verify the bar chart has the correct number of data points
+      // Verify the bar chart has all 3 time buckets
       expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
     });
 
@@ -163,6 +173,21 @@ describe('TraceRequestsChart', () => {
         // Check for locale-formatted number (1,234,567 in US locale)
         expect(screen.getByText('1,234,567')).toBeInTheDocument();
       });
+    });
+
+    it('should fill missing time buckets with zeros', async () => {
+      // Only provide data for one time bucket
+      mockApiResponse([createTraceCountDataPoint('2025-12-22T10:00:00Z', 100)]);
+
+      renderComponent();
+
+      // Chart should still show all 3 time buckets
+      await waitFor(() => {
+        expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
+      });
+
+      // Total should only count the one data point
+      expect(screen.getByText('100')).toBeInTheDocument();
     });
   });
 
@@ -218,34 +243,37 @@ describe('TraceRequestsChart', () => {
         {
           metric_name: TraceMetricKey.TRACE_COUNT,
           dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
-          values: {}, // Missing COUNT value
+          values: {}, // Missing COUNT value - will be treated as 0
         },
         createTraceCountDataPoint('2025-12-22T11:00:00Z', 50),
       ]);
 
       renderComponent();
 
-      // Should still render and show total of 50 (0 + 50)
+      // Should still render with all time buckets and show total of 50 (0 + 50)
       await waitFor(() => {
-        expect(screen.getByText('50')).toBeInTheDocument();
+        expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
       });
+      expect(screen.getByText('50')).toBeInTheDocument();
     });
 
     it('should handle data points with missing time_bucket', async () => {
       mockApiResponse([
         {
           metric_name: TraceMetricKey.TRACE_COUNT,
-          dimensions: {}, // Missing time_bucket
+          dimensions: {}, // Missing time_bucket - won't be mapped to any bucket
           values: { [AggregationType.COUNT]: 25 },
         },
       ]);
 
       renderComponent();
 
-      // Should still render with the count
+      // Should still render with all time buckets (all with 0 values in chart, but total still counts)
       await waitFor(() => {
-        expect(screen.getByText('25')).toBeInTheDocument();
+        expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
       });
+      // Total count still includes the data point
+      expect(screen.getByText('25')).toBeInTheDocument();
     });
   });
 });
