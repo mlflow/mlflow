@@ -14,6 +14,9 @@ import {
   getPercentileKey,
 } from '@databricks/web-shared/model-trace-explorer';
 
+// Mock recharts components to avoid rendering issues in tests
+jest.mock('recharts', () => require('../utils/testUtils').mockRechartsComponents);
+
 // Mock FetchUtils
 jest.mock('../../../../common/utils/FetchUtils', () => ({
   fetchOrFail: jest.fn(),
@@ -58,26 +61,6 @@ const createAvgLatencyDataPoint = (avg: number) => ({
   dimensions: {},
   values: { [AggregationType.AVG]: avg },
 });
-
-// Mock recharts components to avoid rendering issues in tests
-jest.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="responsive-container">{children}</div>
-  ),
-  LineChart: ({ children, data }: { children: React.ReactNode; data: any[] }) => (
-    <div data-testid="line-chart" data-count={data?.length || 0}>
-      {children}
-    </div>
-  ),
-  Line: ({ name }: { name: string }) => <div data-testid={`line-${name}`} />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-  Legend: () => <div data-testid="legend" />,
-  ReferenceLine: ({ label }: { label?: { value: string } }) => (
-    <div data-testid="reference-line" data-label={label?.value} />
-  ),
-}));
 
 describe('TraceLatencyChart', () => {
   const testExperimentId = 'test-experiment-123';

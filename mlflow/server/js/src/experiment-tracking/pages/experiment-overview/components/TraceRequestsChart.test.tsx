@@ -6,6 +6,9 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 
+// Mock recharts components to avoid rendering issues in tests
+jest.mock('recharts', () => require('../utils/testUtils').mockRechartsComponents);
+
 // Mock FetchUtils
 jest.mock('../../../../common/utils/FetchUtils', () => ({
   fetchOrFail: jest.fn(),
@@ -28,22 +31,6 @@ const createTraceCountDataPoint = (timeBucket: string, count: number) => ({
   dimensions: { time_bucket: timeBucket },
   values: { [AggregationType.COUNT]: count },
 });
-
-// Mock recharts components to avoid rendering issues in tests
-jest.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="responsive-container">{children}</div>
-  ),
-  BarChart: ({ children, data }: { children: React.ReactNode; data: any[] }) => (
-    <div data-testid="bar-chart" data-count={data?.length || 0}>
-      {children}
-    </div>
-  ),
-  Bar: () => <div data-testid="bar" />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-}));
 
 describe('TraceRequestsChart', () => {
   const testExperimentId = 'test-experiment-123';

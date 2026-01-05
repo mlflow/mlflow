@@ -7,6 +7,9 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MemoryRouter, Route, Routes } from '../../../common/utils/RoutingUtils';
 
+// Mock recharts to avoid rendering issues
+jest.mock('recharts', () => require('./utils/testUtils').mockRechartsComponents);
+
 // Mock FetchUtils
 jest.mock('../../../common/utils/FetchUtils', () => ({
   fetchOrFail: jest.fn(),
@@ -15,22 +18,6 @@ jest.mock('../../../common/utils/FetchUtils', () => ({
 
 import { fetchOrFail } from '../../../common/utils/FetchUtils';
 const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
-
-// Mock recharts to avoid rendering issues
-jest.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="responsive-container">{children}</div>
-  ),
-  BarChart: ({ children, data }: { children: React.ReactNode; data: any[] }) => (
-    <div data-testid="bar-chart" data-count={data?.length || 0}>
-      {children}
-    </div>
-  ),
-  Bar: () => <div data-testid="bar" />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-}));
 
 describe('ExperimentGenAIOverviewPage', () => {
   const testExperimentId = 'test-experiment-456';
