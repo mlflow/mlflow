@@ -17,6 +17,20 @@ export const TraceMetricKey = {
 export type TraceMetricKeyType = typeof TraceMetricKey[keyof typeof TraceMetricKey];
 
 /**
+ * Common percentile values for latency metrics
+ */
+export const P50 = 50;
+export const P90 = 90;
+export const P99 = 99;
+
+/**
+ * Get the key for accessing percentile values in the API response
+ * @param percentile - The percentile value (e.g., 50, 90, 99)
+ * @returns The key string in format "Pxx.0" (e.g., "P50.0", "P90.0", "P99.0")
+ */
+export const getPercentileKey = (percentile: number): string => `P${percentile.toFixed(1)}`;
+
+/**
  * Time bucket dimension key, included in results when time_interval_seconds is specified.
  * Applies to all view types (traces, spans, assessments).
  */
