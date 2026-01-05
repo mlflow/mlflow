@@ -161,7 +161,7 @@ def _get_last_response(conversation_history: list[dict[str, Any]]) -> str | None
     if result and result.strip():
         return result
 
-    return _format_history(conversation_history)
+    return str(last_msg)
 
 
 def _format_history(history: list[dict[str, Any]]) -> str | None:
@@ -305,7 +305,7 @@ class ConversationSimulator:
 
     def _simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list[str]]:
         num_test_cases = len(self.test_cases)
-        all_trace_ids: list[list[str] | None] = [None] * num_test_cases
+        all_trace_ids: list[list[str]] = [[] for _ in range(num_test_cases)]
         max_workers = min(num_test_cases, MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
 
         with (
@@ -324,15 +324,13 @@ class ConversationSimulator:
                 idx = futures[future]
                 test_case = self.test_cases[idx]
                 try:
-                    trace_ids = future.result()
-                    all_trace_ids[idx] = trace_ids
+                    all_trace_ids[idx] = future.result()
                 except Exception as e:
                     _logger.error(
                         f"Failed to run conversation for test case {test_case.get('goal')}: {e}"
                     )
-                    all_trace_ids[idx] = []
 
-        return [ids for ids in all_trace_ids if ids is not None]
+        return all_trace_ids
 
     def _run_conversation(
         self, test_case: dict[str, Any], predict_fn: Callable[..., dict[str, Any]]
@@ -379,7 +377,7 @@ class ConversationSimulator:
                     _logger.debug(f"Stopping conversation: empty response at turn {turn}")
                     break
                 conversation_history.append({"role": "assistant", "content": assistant_content})
-                if self._check_goal_achieved(assistant_content, goal):
+                if self._check_goal_achieved(conversation_history, assistant_content, goal):
                     _logger.debug(f"Stopping conversation: goal achieved at turn {turn}")
                     break
 
@@ -420,10 +418,20 @@ class ConversationSimulator:
         response = traced_predict(input=input_messages, **context)
         return response, mlflow.get_last_active_trace_id(thread_local=True)
 
-    def _check_goal_achieved(self, last_response: str, goal: str) -> bool:
+    def _check_goal_achieved(
+        self,
+        conversation_history: list[dict[str, Any]],
+        last_response: str,
+        goal: str,
+    ) -> bool:
         from mlflow.types.llm import ChatMessage
 
-        eval_prompt = CHECK_GOAL_PROMPT.format(goal=goal, last_response=last_response)
+        history_str = _format_history(conversation_history)
+        eval_prompt = CHECK_GOAL_PROMPT.format(
+            goal=goal,
+            conversation_history=history_str if history_str is not None else "",
+            last_response=last_response,
+        )
         messages = [ChatMessage(role="user", content=eval_prompt)]
 
         try:

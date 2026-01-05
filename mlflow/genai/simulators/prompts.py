@@ -24,6 +24,9 @@ realistic user."""
 
 CHECK_GOAL_PROMPT = """A user has the following goal: {goal}
 
+Conversation so far:
+{conversation_history}
+
 The assistant just responded with: {last_response}
 
 Has the user's goal been FULLY and COMPLETELY achieved? The goal should only be considered \
