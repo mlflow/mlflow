@@ -9,5 +9,6 @@ export const getRouteDefs = () => [
     path: createMLflowRoutePath('/*'),
     element: createRouteElement(PageNotFoundView),
     pageId: 'mlflow.common.not-found',
+    handle: { title: 'Page Not Found' },
   },
 ];

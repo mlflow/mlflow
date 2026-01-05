@@ -12,6 +12,7 @@ import {
 } from './common/utils/RoutingUtils';
 import { MlflowHeader } from './common/components/MlflowHeader';
 import { useDarkThemeContext } from './common/contexts/DarkThemeContext';
+import { useDocumentTitle } from './common/hooks/useDocumentTitle';
 
 // Route definition imports:
 import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tracking/route-defs';
@@ -26,6 +27,7 @@ import { MlflowSidebar } from './common/components/MlflowSidebar';
  */
 const MlflowRootRoute = () => {
   useInitializeExperimentRunColors();
+  useDocumentTitle();
 
   const [showSidebar, setShowSidebar] = useState(true);
   const { theme } = useDesignSystemTheme();

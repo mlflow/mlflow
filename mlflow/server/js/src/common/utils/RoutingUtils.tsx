@@ -21,6 +21,7 @@ import {
   useLocation as useLocationDirect,
   useParams as useParamsDirect,
   useSearchParams as useSearchParamsDirect,
+  useMatches as useMatchesDirect,
   createHashRouter,
   RouterProvider,
   Routes,
@@ -46,6 +47,8 @@ const useParams = useParamsDirect;
 
 const useNavigate = useNavigateDirect;
 
+const useMatches = useMatchesDirect;
+
 const Outlet = OutletDirect;
 
 const Link = LinkDirect;
@@ -64,6 +67,7 @@ export {
   useLocation,
   useParams,
   useSearchParams,
+  useMatches,
   generatePath,
   matchPath,
   Route,
