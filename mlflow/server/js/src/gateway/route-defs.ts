@@ -7,26 +7,31 @@ export const getGatewayRouteDefs = () => {
       path: GatewayRoutePaths.gatewayPage,
       element: createLazyRouteElement(() => import('./pages/GatewayPage')),
       pageId: GatewayPageId.gatewayPage,
+      handle: { title: 'AI Gateway' },
       children: [
         {
           path: 'api-keys',
           element: createLazyRouteElement(() => import('./pages/ApiKeysPage')),
           pageId: GatewayPageId.apiKeysPage,
+          handle: { title: 'API Keys' },
         },
         {
           path: 'endpoints/create',
           element: createLazyRouteElement(() => import('./pages/CreateEndpointPage')),
           pageId: GatewayPageId.createEndpointPage,
+          handle: { title: 'Create Endpoint' },
         },
         {
           path: 'endpoints/:endpointId',
           element: createLazyRouteElement(() => import('./pages/EndpointDetailsPage')),
           pageId: GatewayPageId.endpointDetailsPage,
+          handle: { title: 'Endpoint Details' },
         },
         {
           path: 'endpoints/:endpointId/edit',
           element: createLazyRouteElement(() => import('./pages/EditEndpointPage')),
           pageId: GatewayPageId.editEndpointPage,
+          handle: { title: 'Edit Endpoint' },
         },
       ],
     },
