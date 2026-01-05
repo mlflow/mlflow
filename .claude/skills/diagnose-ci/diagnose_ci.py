@@ -54,6 +54,7 @@ class JobSummary:
     cost: float
     truncated: bool
     summary: str
+    logs: str | None = None
 
 
 @dataclass
@@ -176,7 +177,7 @@ async def get_job_logs(session: aiohttp.ClientSession, job_id: int, repo: str) -
 
 
 ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
-TIMESTAMP_STRIP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z\s*", re.MULTILINE)
+TIMESTAMP_STRIP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z ?", re.MULTILINE)
 PYTEST_SECTION_PATTERN = re.compile(r"^={6,} (.+?) ={6,}$")
 
 
@@ -447,7 +448,11 @@ async def get_run_details(session: aiohttp.ClientSession, repo: str, run_id: int
 
 
 async def summarize_single_job(
-    session: aiohttp.ClientSession, client: AsyncOpenAI, job_url: str, model: str
+    session: aiohttp.ClientSession,
+    client: AsyncOpenAI,
+    job_url: str,
+    model: str,
+    verbose: bool = False,
 ) -> JobSummary:
     repo, run_id, job_id = parse_job_url(job_url)
     log(f"Fetching job {job_id} from {repo}")
@@ -460,16 +465,17 @@ async def summarize_single_job(
     failed_step = get_failed_step(job_details)
 
     log(f"Fetching logs for '{workflow_name} / {job_name}'")
-    logs = await get_job_logs(session, job_id, repo)
+    raw_logs = await get_job_logs(session, job_id, repo)
 
     cleaned_logs = compact_logs(
-        logs,
+        raw_logs,
         started_at=failed_step.get("started_at") if failed_step else None,
         completed_at=failed_step.get("completed_at") if failed_step else None,
     )
     failed_step_name = failed_step.get("name") if failed_step else None
 
     result = await summarize_logs(client, cleaned_logs, workflow_name, job_name, model)
+    truncated_logs, _ = truncate_logs(cleaned_logs)
     return JobSummary(
         workflow_name=workflow_name,
         job_name=job_name,
@@ -480,11 +486,16 @@ async def summarize_single_job(
         cost=result.cost,
         truncated=result.truncated,
         summary=result.summary,
+        logs=truncated_logs if verbose else None,
     )
 
 
 async def cmd_summarize_async(
-    job_urls: list[str], model: str, github_token: str, openai_api_key: str
+    job_urls: list[str],
+    model: str,
+    github_token: str,
+    openai_api_key: str,
+    verbose: bool = False,
 ) -> None:
     log(f"Summarizing {len(job_urls)} job(s) with {model}")
 
@@ -492,12 +503,10 @@ async def cmd_summarize_async(
 
     async with aiohttp.ClientSession(headers=get_headers(github_token)) as session:
         results = await asyncio.gather(
-            *[summarize_single_job(session, client, url, model) for url in job_urls]
+            *[summarize_single_job(session, client, url, model, verbose) for url in job_urls]
         )
 
-    total_cost = 0.0
     for i, job in enumerate(results):
-        total_cost += job.cost
         if i > 0:
             print("\n---\n")
         print(f"# {job.workflow_name} - {job.job_name}")
@@ -510,15 +519,21 @@ async def cmd_summarize_async(
         print(f"**Cost:** ${job.cost:.4f}")
         print()
         print(job.summary)
-
-    if len(results) > 1:
-        print(f"\n**Total cost:** ${total_cost:.4f}")
+        if job.logs:
+            print()
+            print("## Logs")
+            print()
+            print("```")
+            print(job.logs)
+            print("```")
 
 
 def cmd_summarize(args: argparse.Namespace) -> None:
     github_token = get_github_token(args.github_token)
     openai_api_key = get_openai_api_key(args.openai_api_key)
-    asyncio.run(cmd_summarize_async(args.job_urls, args.model, github_token, openai_api_key))
+    asyncio.run(
+        cmd_summarize_async(args.job_urls, args.model, github_token, openai_api_key, args.verbose)
+    )
 
 
 # ============================================================================
@@ -553,6 +568,9 @@ def main():
     )
     summarize_parser.add_argument("--github-token", help="GitHub token (or set GITHUB_TOKEN)")
     summarize_parser.add_argument("--openai-api-key", help="OpenAI API key (or set OPENAI_API_KEY)")
+    summarize_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Include logs in the output"
+    )
     summarize_parser.set_defaults(func=cmd_summarize)
 
     args = parser.parse_args()

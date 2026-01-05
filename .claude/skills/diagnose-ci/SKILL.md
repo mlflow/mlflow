@@ -29,12 +29,13 @@ uv run .claude/skills/diagnose-ci/diagnose_ci.py list <owner/repo> <pr_number>
 Summarizes one or more jobs by URL. Outputs Markdown.
 
 ```bash
-uv run .claude/skills/diagnose-ci/diagnose_ci.py summarize [--model MODEL] <job_url> [job_url ...]
+uv run .claude/skills/diagnose-ci/diagnose_ci.py summarize [--model MODEL] [--verbose] <job_url> [job_url ...]
 ```
 
 Options:
 
 - `--model`, `-m`: OpenAI model: `gpt-4.1-mini` (default) or `gpt-4.1-nano`
+- `--verbose`, `-v`: Include the (truncated) logs in the output for verification
 
 ## Examples
 
