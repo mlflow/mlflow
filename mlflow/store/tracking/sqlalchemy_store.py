@@ -3103,6 +3103,83 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             return trace_infos, next_token
 
+    def find_completed_sessions(
+        self,
+        experiment_id: str,
+        min_last_trace_timestamp_ms: int,
+        max_last_trace_timestamp_ms: int,
+        max_results: int | None = None,
+        filter_string: str | None = None,
+    ) -> list[CompletedSession]:
+        """
+        Find completed sessions based on their last trace timestamp.
+
+        Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) for
+        deterministic pagination when timestamp ties occur.
+
+        Args:
+            experiment_id: The experiment to search.
+            min_last_trace_timestamp_ms: Lower bound for session's last trace timestamp (inclusive).
+                Sessions with last trace before this time are excluded.
+            max_last_trace_timestamp_ms: Upper bound for session's last trace timestamp (inclusive).
+                Sessions with any traces after this time are excluded.
+            max_results: Maximum number of sessions to return. If None, returns all
+                matching sessions.
+            filter_string: Optional search filter string to apply to the first trace
+                in each session. Only sessions whose first trace matches this filter
+                will be returned.
+
+        Returns:
+            List of CompletedSession objects sorted by (last_trace_timestamp_ms ASC,
+            session_id ASC).
+        """
+        with self.ManagedSessionMaker() as session:
+            candidate_sessions = self._build_candidate_sessions_subquery(
+                session=session,
+                experiment_id=experiment_id,
+                min_last_trace_timestamp_ms=min_last_trace_timestamp_ms,
+            )
+
+            filtered_sessions = self._build_first_trace_filter_subquery(
+                session=session,
+                experiment_id=experiment_id,
+                filter_string=filter_string,
+                candidate_sessions=candidate_sessions,
+            )
+
+            sessions_with_stats = self._build_session_stats_subquery(
+                session=session,
+                experiment_id=experiment_id,
+                sessions=(
+                    filtered_sessions if filtered_sessions is not None else candidate_sessions
+                ),
+            )
+
+            sessions_with_recent_traces = self._build_sessions_with_recent_traces_subquery(
+                session=session,
+                experiment_id=experiment_id,
+                max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
+            )
+
+            query = self._build_completed_sessions_query(
+                session=session,
+                sessions_with_stats=sessions_with_stats,
+                sessions_with_recent_traces=sessions_with_recent_traces,
+                max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
+                max_results=max_results,
+            )
+
+            results = query.all()
+
+            return [
+                CompletedSession(
+                    session_id=row.session_id,
+                    first_trace_timestamp_ms=row.first_trace_timestamp_ms,
+                    last_trace_timestamp_ms=row.last_trace_timestamp_ms,
+                )
+                for row in results
+            ]
+
     def _build_candidate_sessions_subquery(
         self,
         session: Session,
@@ -3309,83 +3386,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             query = query.limit(max_results)
 
         return query
-
-    def find_completed_sessions(
-        self,
-        experiment_id: str,
-        min_last_trace_timestamp_ms: int,
-        max_last_trace_timestamp_ms: int,
-        max_results: int | None = None,
-        filter_string: str | None = None,
-    ) -> list[CompletedSession]:
-        """
-        Find completed sessions based on their last trace timestamp.
-
-        Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) for
-        deterministic pagination when timestamp ties occur.
-
-        Args:
-            experiment_id: The experiment to search.
-            min_last_trace_timestamp_ms: Lower bound for session's last trace timestamp (inclusive).
-                Sessions with last trace before this time are excluded.
-            max_last_trace_timestamp_ms: Upper bound for session's last trace timestamp (inclusive).
-                Sessions with any traces after this time are excluded.
-            max_results: Maximum number of sessions to return. If None, returns all
-                matching sessions.
-            filter_string: Optional search filter string to apply to the first trace
-                in each session. Only sessions whose first trace matches this filter
-                will be returned.
-
-        Returns:
-            List of CompletedSession objects sorted by (last_trace_timestamp_ms ASC,
-            session_id ASC).
-        """
-        with self.ManagedSessionMaker() as session:
-            candidate_sessions = self._build_candidate_sessions_subquery(
-                session=session,
-                experiment_id=experiment_id,
-                min_last_trace_timestamp_ms=min_last_trace_timestamp_ms,
-            )
-
-            filtered_sessions = self._build_first_trace_filter_subquery(
-                session=session,
-                experiment_id=experiment_id,
-                filter_string=filter_string,
-                candidate_sessions=candidate_sessions,
-            )
-
-            sessions_with_stats = self._build_session_stats_subquery(
-                session=session,
-                experiment_id=experiment_id,
-                sessions=(
-                    filtered_sessions if filtered_sessions is not None else candidate_sessions
-                ),
-            )
-
-            sessions_with_recent_traces = self._build_sessions_with_recent_traces_subquery(
-                session=session,
-                experiment_id=experiment_id,
-                max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
-            )
-
-            query = self._build_completed_sessions_query(
-                session=session,
-                sessions_with_stats=sessions_with_stats,
-                sessions_with_recent_traces=sessions_with_recent_traces,
-                max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
-                max_results=max_results,
-            )
-
-            results = query.all()
-
-            return [
-                CompletedSession(
-                    session_id=row.session_id,
-                    first_trace_timestamp_ms=row.first_trace_timestamp_ms,
-                    last_trace_timestamp_ms=row.last_trace_timestamp_ms,
-                )
-                for row in results
-            ]
 
     def _validate_max_results_param(self, max_results: int, allow_null=False):
         if (not allow_null and max_results is None) or max_results < 1:
