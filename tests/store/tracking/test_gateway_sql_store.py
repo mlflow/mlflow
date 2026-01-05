@@ -56,7 +56,6 @@ def _cleanup_database(store: SqlAlchemyStore):
         for model in (
             SqlGatewayEndpointTag,
             SqlGatewayEndpointBinding,
-            GatewayEndpointModelConfig,
             SqlGatewayEndpointModelMapping,
             SqlGatewayEndpoint,
             SqlGatewayModelDefinition,
