@@ -64,6 +64,7 @@ const TracesV3LogsImpl = React.memo(
     loggedModelId,
     disableActions = false,
     customDefaultSelectedColumns,
+    toolbarAddons,
   }: {
     experimentId: string;
     endpointName?: string;
@@ -72,6 +73,7 @@ const TracesV3LogsImpl = React.memo(
     loggedModelId?: string;
     disableActions?: boolean;
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
+    toolbarAddons?: React.ReactNode;
   }) => {
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
@@ -359,6 +361,7 @@ const TracesV3LogsImpl = React.memo(
             isMetadataLoading={isMetadataLoading}
             metadataError={metadataError}
             usesV4APIs={usesV4APIs}
+            addons={toolbarAddons}
           />
           {renderMainContent()}
         </div>

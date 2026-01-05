@@ -71,7 +71,7 @@ const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
     <>
       {isEvaluatingSessionsInScorersEnabled() && (
         <div>
-          <ScorerFormEvaluationScopeSelect />
+          <ScorerFormEvaluationScopeSelect mode={mode} />
         </div>
       )}
       {/* Scorer Type Selection - only show in create mode */}

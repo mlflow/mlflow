@@ -79,6 +79,9 @@ interface GenAITracesTableToolbarProps {
   usesV4APIs?: boolean;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+
+  // Additional elements to render in the toolbar
+  addons?: React.ReactNode;
 }
 
 export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITracesTableToolbarProps>> = React.memo(
@@ -106,6 +109,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       metadataError,
       onRefresh,
       isRefreshing,
+      addons,
     } = props;
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
@@ -190,6 +194,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
               />
             </Tooltip>
           )}
+          {addons}
         </TableFilterLayout>
         <SampledInfoBadge countInfo={countInfo} />
       </div>

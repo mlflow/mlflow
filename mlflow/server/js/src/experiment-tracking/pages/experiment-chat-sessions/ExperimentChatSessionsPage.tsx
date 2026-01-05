@@ -14,8 +14,8 @@ import {
 } from '@databricks/web-shared/genai-traces-table';
 import type { GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
-import { getAbsoluteStartEndTime, useMonitoringFilters } from '../../hooks/useMonitoringFilters';
-import { shouldUseTracesV4API, isV3ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
+import { useMonitoringFiltersTimeRange } from '../../hooks/useMonitoringFilters';
+import { SESSION_ID_METADATA_KEY, shouldUseTracesV4API } from '@databricks/web-shared/model-trace-explorer';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { getChatSessionsFilter } from './utils';
 import { ExperimentChatSessionsPageWrapper } from './ExperimentChatSessionsPageWrapper';
@@ -27,19 +27,12 @@ const ExperimentChatSessionsPageImpl = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   invariant(experimentId, 'Experiment ID must be defined');
 
-  const [monitoringFilters] = useMonitoringFilters();
   const monitoringConfig = useMonitoringConfig();
   const { loading: isLoadingExperiment } = useGetExperimentQuery({
     experimentId,
   });
 
-  const timeRange = useMemo(() => {
-    const { startTime, endTime } = getAbsoluteStartEndTime(monitoringConfig.dateNow, monitoringFilters);
-    return {
-      startTime: startTime ? new Date(startTime).getTime().toString() : undefined,
-      endTime: endTime ? new Date(endTime).getTime().toString() : undefined,
-    };
-  }, [monitoringConfig.dateNow, monitoringFilters]);
+  const timeRange = useMonitoringFiltersTimeRange(monitoringConfig.dateNow);
 
   const traceSearchLocations = useMemo(
     () => {

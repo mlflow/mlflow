@@ -1,16 +1,22 @@
 import { fetchAPI, getAjaxUrl } from '../../../common/utils/FetchUtils';
 import { useMutation, useQueryClient } from '../../../common/utils/reactQueryHooks';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FeedbackAssessment, isV3ModelTraceInfo, ModelTrace } from '../../../shared/web-shared/model-trace-explorer';
+import { FeedbackAssessment, ModelTrace } from '../../../shared/web-shared/model-trace-explorer';
 import { EvaluateTracesParams } from './types';
 import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
-import { getMlflowTraceV3ForEvaluation, JudgeEvaluationResult } from './useEvaluateTraces.common';
+import {
+  getMlflowTraceV3ForEvaluation,
+  JudgeEvaluationResult,
+  SessionJudgeEvaluationResult,
+} from './useEvaluateTraces.common';
 import {
   TrackingJobQueryResult,
   TrackingJobStatus,
   useGetTrackingServerJobStatus,
 } from '../../../common/hooks/useGetTrackingServerJobStatus';
-import { compact, zipObject } from 'lodash';
+import { compact, uniq, zipObject } from 'lodash';
+import { SessionForEvaluation, useGetSessionsForEvaluation } from './useGetSessionsForEvaluation';
+import { ScorerEvaluationScope } from './constants';
 
 type EvaluateTracesAsyncJobResult = {
   [traceId: string]: {
@@ -30,13 +36,16 @@ const isJobRunning = (jobData?: TrackingJobQueryResult<EvaluateTracesAsyncJobRes
 
 type StartEvaluationJobParams = { evaluateParams: EvaluateTracesParams; traceIds: string[] };
 type StartEvaluationJobResponse = { jobs: { job_id: string }[] };
+
 export const useEvaluateTracesAsync = ({ onScorerFinished }: { onScorerFinished?: () => void }) => {
   const queryClient = useQueryClient();
   const [currentJobsId, setCurrentJobsId] = useState<string[] | undefined>(undefined);
   const getTraceIdsForEvaluation = useGetTraceIdsForEvaluation();
+  const getSessionsForEvaluation = useGetSessionsForEvaluation();
 
   const [tracesData, setTracesData] = useState<Record<string, ModelTrace> | undefined>();
   const lastFinishedJobsIdRef = useRef<string[] | undefined>(undefined);
+  const [sessionsData, setSessionsData] = useState<SessionForEvaluation[] | undefined>();
 
   const { jobResults, areJobsRunning } = useGetTrackingServerJobStatus<EvaluateTracesAsyncJobResult>(currentJobsId, {
     enabled: Boolean(currentJobsId),
@@ -80,7 +89,15 @@ export const useEvaluateTracesAsync = ({ onScorerFinished }: { onScorerFinished?
 
   const evaluateTracesAsync = useCallback(
     async (params: EvaluateTracesParams) => {
-      const traceIds = await getTraceIdsForEvaluation(params);
+      let traceIds: string[];
+      if (params.evaluationScope === ScorerEvaluationScope.SESSIONS) {
+        const sessions = await getSessionsForEvaluation(params);
+        setSessionsData(sessions);
+        traceIds = uniq(sessions.flatMap((session) => session.traceInfos.map((traceInfo) => traceInfo.trace_id)));
+      } else {
+        setSessionsData(undefined);
+        traceIds = await getTraceIdsForEvaluation(params);
+      }
 
       const serializedScorer = params.serializedScorer;
 
@@ -104,13 +121,14 @@ export const useEvaluateTracesAsync = ({ onScorerFinished }: { onScorerFinished?
       );
       setTracesData(zipObject(traceIds, traces));
     },
-    [startEvaluationJob, getTraceIdsForEvaluation, queryClient],
+    [startEvaluationJob, getTraceIdsForEvaluation, queryClient, getSessionsForEvaluation],
   );
 
   const reset = useCallback(() => {
     setCurrentJobsId(undefined);
     setTracesData(undefined);
     lastFinishedJobsIdRef.current = undefined;
+    setSessionsData(undefined);
   }, []);
 
   const error = useMemo(() => {
@@ -146,7 +164,27 @@ export const useEvaluateTracesAsync = ({ onScorerFinished }: { onScorerFinished?
       }
     }
 
-    const evaluationResults = Object.entries(tracesData).map(([traceId, trace]) => {
+    if (sessionsData) {
+      return sessionsData.map<SessionJudgeEvaluationResult>((session) => {
+        const sessionResults: { assessments: FeedbackAssessment[]; errors: string[] } = { assessments: [], errors: [] };
+        // For every trace in the session, aggregate the results into the session results
+        for (const traceInfo of session.traceInfos) {
+          const traceId = traceInfo.trace_id;
+          const traceResults = aggregatedJobResults[traceId];
+          sessionResults.assessments.push(...(traceResults?.assessments ?? []));
+          sessionResults.errors.push(...(traceResults?.failures?.map((failure) => failure.error_message) ?? []));
+        }
+
+        return {
+          sessionId: session.sessionId ?? '',
+          results: sessionResults.assessments,
+          traces: compact(session.traceInfos.map((traceInfo) => tracesData[traceInfo.trace_id] ?? null)),
+          error: sessionResults.errors.join(', ') || null,
+        };
+      });
+    }
+
+    const traceEvaluationResults = Object.entries(tracesData).map(([traceId, trace]) => {
       const results = aggregatedJobResults[traceId]?.assessments ?? [];
       const failureString = aggregatedJobResults[traceId]?.failures?.map((failure) => failure.error_message).join(', ');
       return {
@@ -156,8 +194,8 @@ export const useEvaluateTracesAsync = ({ onScorerFinished }: { onScorerFinished?
       };
     });
 
-    return compact(evaluationResults);
-  }, [jobResults, isLoading, tracesData, error]);
+    return compact(traceEvaluationResults);
+  }, [tracesData, isLoading, error, jobResults, sessionsData]);
 
   return [evaluateTracesAsync, { data, isLoading, error, reset }] as const;
 };
