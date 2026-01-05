@@ -146,6 +146,7 @@ def serve_upload_artifact():
 # and render them in the Trace UI. The request body should contain the request_id
 # of the trace.
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/get-trace-artifact"), methods=["GET"])
+@app.route(_add_static_prefix("/ajax-api/3.0/mlflow/get-trace-artifact"), methods=["GET"])
 def serve_get_trace_artifact():
     return get_trace_artifact_handler()
 
@@ -451,17 +452,22 @@ def _run_server(
     )
 
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        from mlflow.environment_variables import MLFLOW_TRACKING_URI
+        from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI
         from mlflow.server.jobs.utils import _launch_job_runner
 
-        _launch_job_runner(
-            {
-                **env_map,
-                # Set tracking URI environment variable for job runner
-                # so that all job processes inherits it.
-                MLFLOW_TRACKING_URI.name: f"http://{host}:{port}",
-            },
-            server_proc.pid,
-        )
+        server_uri = f"http://{host}:{port}"
+        job_env = {
+            **env_map,
+            # Set tracking URI environment variable for job runner
+            # so that all job processes inherit it.
+            MLFLOW_TRACKING_URI.name: server_uri,
+        }
+        # Set gateway URI for job workers if not already set. Jobs may call
+        # _get_tracking_store() which overwrites MLFLOW_TRACKING_URI with the backend
+        # store URI (e.g., sqlite://). MLFLOW_GATEWAY_URI preserves the HTTP URI for
+        # gateway routing (e.g., judge LLM calls via /gateway/mlflow/v1/).
+        if not MLFLOW_GATEWAY_URI.is_set():
+            job_env[MLFLOW_GATEWAY_URI.name] = server_uri
+        _launch_job_runner(job_env, server_proc.pid)
 
     server_proc.wait()

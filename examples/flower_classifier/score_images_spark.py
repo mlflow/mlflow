@@ -16,7 +16,6 @@ import pandas as pd
 import pyspark
 from pyspark.sql.types import ArrayType, Row, StringType, StructField, StructType
 
-import mlflow
 import mlflow.pyfunc
 from mlflow.utils import cli_args
 

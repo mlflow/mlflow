@@ -22,7 +22,6 @@ from sqlalchemy.exc import IntegrityError
 
 import mlflow
 import mlflow.db
-import mlflow.store.db.base_sql_model
 from mlflow import entities
 from mlflow.entities import (
     AssessmentSource,
@@ -610,6 +609,15 @@ def test_get_experiment(store: SqlAlchemyStore):
 
     store.delete_experiment(experiment_id)
     assert store.get_experiment_by_name(name).experiment_id == experiment_id
+
+
+def test_get_experiment_invalid_id(store: SqlAlchemyStore):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'invalid_id'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.get_experiment("invalid_id")
 
 
 def test_search_experiments_view_type(store: SqlAlchemyStore):
@@ -10511,14 +10519,14 @@ def test_scorer_operations(store: SqlAlchemyStore):
     # Create an experiment for testing
     experiment_id = store.create_experiment("test_scorer_experiment")
 
-    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer1")
-    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer2")
-    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer3")
+    store.register_scorer(experiment_id, "accuracy_scorer", '{"data": "accuracy_scorer1"}')
+    store.register_scorer(experiment_id, "accuracy_scorer", '{"data": "accuracy_scorer2"}')
+    store.register_scorer(experiment_id, "accuracy_scorer", '{"data": "accuracy_scorer3"}')
 
-    store.register_scorer(experiment_id, "safety_scorer", "serialized_safety_scorer1")
-    store.register_scorer(experiment_id, "safety_scorer", "serialized_safety_scorer2")
+    store.register_scorer(experiment_id, "safety_scorer", '{"data": "safety_scorer1"}')
+    store.register_scorer(experiment_id, "safety_scorer", '{"data": "safety_scorer2"}')
 
-    store.register_scorer(experiment_id, "relevance_scorer", "relevance_scorer_scorer1")
+    store.register_scorer(experiment_id, "relevance_scorer", '{"data": "relevance_scorer1"}')
 
     # Step 2: Test list_scorers - should return latest version for each scorer name
     scorers = store.list_scorers(experiment_id)
@@ -10538,17 +10546,17 @@ def test_scorer_operations(store: SqlAlchemyStore):
             assert scorer.scorer_version == 3, (
                 f"Expected version 3 for accuracy_scorer, got {scorer.scorer_version}"
             )
-            assert scorer._serialized_scorer == "serialized_accuracy_scorer3"
+            assert scorer._serialized_scorer == '{"data": "accuracy_scorer3"}'
         elif scorer.scorer_name == "safety_scorer":
             assert scorer.scorer_version == 2, (
                 f"Expected version 2 for safety_scorer, got {scorer.scorer_version}"
             )
-            assert scorer._serialized_scorer == "serialized_safety_scorer2"
+            assert scorer._serialized_scorer == '{"data": "safety_scorer2"}'
         elif scorer.scorer_name == "relevance_scorer":
             assert scorer.scorer_version == 1, (
                 f"Expected version 1 for relevance_scorer, got {scorer.scorer_version}"
             )
-            assert scorer._serialized_scorer == "relevance_scorer_scorer1"
+            assert scorer._serialized_scorer == '{"data": "relevance_scorer1"}'
 
     # Test list_scorer_versions
     accuracy_scorer_versions = store.list_scorer_versions(experiment_id, "accuracy_scorer")
@@ -10558,39 +10566,39 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
     # Verify versions are ordered by version number
     assert accuracy_scorer_versions[0].scorer_version == 1
-    assert accuracy_scorer_versions[0]._serialized_scorer == "serialized_accuracy_scorer1"
+    assert accuracy_scorer_versions[0]._serialized_scorer == '{"data": "accuracy_scorer1"}'
     assert accuracy_scorer_versions[1].scorer_version == 2
-    assert accuracy_scorer_versions[1]._serialized_scorer == "serialized_accuracy_scorer2"
+    assert accuracy_scorer_versions[1]._serialized_scorer == '{"data": "accuracy_scorer2"}'
     assert accuracy_scorer_versions[2].scorer_version == 3
-    assert accuracy_scorer_versions[2]._serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_scorer_versions[2]._serialized_scorer == '{"data": "accuracy_scorer3"}'
 
     # Step 3: Test get_scorer with specific versions
     # Get accuracy_scorer version 1
     accuracy_v1 = store.get_scorer(experiment_id, "accuracy_scorer", version=1)
-    assert accuracy_v1._serialized_scorer == "serialized_accuracy_scorer1"
+    assert accuracy_v1._serialized_scorer == '{"data": "accuracy_scorer1"}'
     assert accuracy_v1.scorer_version == 1
 
     # Get accuracy_scorer version 2
     accuracy_v2 = store.get_scorer(experiment_id, "accuracy_scorer", version=2)
-    assert accuracy_v2._serialized_scorer == "serialized_accuracy_scorer2"
+    assert accuracy_v2._serialized_scorer == '{"data": "accuracy_scorer2"}'
     assert accuracy_v2.scorer_version == 2
 
     # Get accuracy_scorer version 3 (latest)
     accuracy_v3 = store.get_scorer(experiment_id, "accuracy_scorer", version=3)
-    assert accuracy_v3._serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_v3._serialized_scorer == '{"data": "accuracy_scorer3"}'
     assert accuracy_v3.scorer_version == 3
 
     # Step 4: Test get_scorer without version (should return latest)
     accuracy_latest = store.get_scorer(experiment_id, "accuracy_scorer")
-    assert accuracy_latest._serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_latest._serialized_scorer == '{"data": "accuracy_scorer3"}'
     assert accuracy_latest.scorer_version == 3
 
     safety_latest = store.get_scorer(experiment_id, "safety_scorer")
-    assert safety_latest._serialized_scorer == "serialized_safety_scorer2"
+    assert safety_latest._serialized_scorer == '{"data": "safety_scorer2"}'
     assert safety_latest.scorer_version == 2
 
     relevance_latest = store.get_scorer(experiment_id, "relevance_scorer")
-    assert relevance_latest._serialized_scorer == "relevance_scorer_scorer1"
+    assert relevance_latest._serialized_scorer == '{"data": "relevance_scorer1"}'
     assert relevance_latest.scorer_version == 1
 
     # Step 5: Test error cases for get_scorer
@@ -10616,16 +10624,16 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
     # Verify versions 2 and 3 still exist
     accuracy_v2 = store.get_scorer(experiment_id, "accuracy_scorer", version=2)
-    assert accuracy_v2._serialized_scorer == "serialized_accuracy_scorer2"
+    assert accuracy_v2._serialized_scorer == '{"data": "accuracy_scorer2"}'
     assert accuracy_v2.scorer_version == 2
 
     accuracy_v3 = store.get_scorer(experiment_id, "accuracy_scorer", version=3)
-    assert accuracy_v3._serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_v3._serialized_scorer == '{"data": "accuracy_scorer3"}'
     assert accuracy_v3.scorer_version == 3
 
     # Verify latest version still works
     accuracy_latest_after_partial_delete = store.get_scorer(experiment_id, "accuracy_scorer")
-    assert accuracy_latest_after_partial_delete._serialized_scorer == "serialized_accuracy_scorer3"
+    assert accuracy_latest_after_partial_delete._serialized_scorer == '{"data": "accuracy_scorer3"}'
     assert accuracy_latest_after_partial_delete.scorer_version == 3
 
     # Step 7: Test delete_scorer - delete all versions of accuracy_scorer
@@ -10637,11 +10645,11 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
     # Verify other scorers still exist
     safety_latest_after_delete = store.get_scorer(experiment_id, "safety_scorer")
-    assert safety_latest_after_delete._serialized_scorer == "serialized_safety_scorer2"
+    assert safety_latest_after_delete._serialized_scorer == '{"data": "safety_scorer2"}'
     assert safety_latest_after_delete.scorer_version == 2
 
     relevance_latest_after_delete = store.get_scorer(experiment_id, "relevance_scorer")
-    assert relevance_latest_after_delete._serialized_scorer == "relevance_scorer_scorer1"
+    assert relevance_latest_after_delete._serialized_scorer == '{"data": "relevance_scorer1"}'
     assert relevance_latest_after_delete.scorer_version == 1
 
     # Step 8: Test list_scorers after deletion
@@ -10676,9 +10684,9 @@ def test_scorer_operations(store: SqlAlchemyStore):
     )
 
     # Step 12: Test list_scorer_versions
-    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer1")
-    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer2")
-    store.register_scorer(experiment_id, "accuracy_scorer", "serialized_accuracy_scorer3")
+    store.register_scorer(experiment_id, "accuracy_scorer", '{"data": "accuracy_scorer1"}')
+    store.register_scorer(experiment_id, "accuracy_scorer", '{"data": "accuracy_scorer2"}')
+    store.register_scorer(experiment_id, "accuracy_scorer", '{"data": "accuracy_scorer3"}')
 
     # Test list_scorer_versions for non-existent scorer
     with pytest.raises(MlflowException, match="Scorer with name 'non_existent_scorer' not found"):
@@ -11643,6 +11651,91 @@ def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
 
     trace3 = traces_by_id[trace_id_3]
     assert trace3.info.token_usage is None
+
+
+def test_batch_get_trace_infos_basic(store: SqlAlchemyStore) -> None:
+    from mlflow.tracing.constant import TraceMetadataKey
+
+    experiment_id = store.create_experiment("test_batch_get_trace_infos")
+    trace_id_1 = f"tr-{uuid.uuid4().hex}"
+    trace_id_2 = f"tr-{uuid.uuid4().hex}"
+    session_id = "session-123"
+
+    # Create traces with session metadata
+    trace_info_1 = TraceInfo(
+        trace_id=trace_id_1,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceState.OK,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+    )
+    store.start_trace(trace_info_1)
+
+    trace_info_2 = TraceInfo(
+        trace_id=trace_id_2,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        execution_duration=200,
+        state=TraceState.OK,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+    )
+    store.start_trace(trace_info_2)
+
+    # Batch fetch trace infos
+    trace_infos = store.batch_get_trace_infos([trace_id_1, trace_id_2])
+
+    assert len(trace_infos) == 2
+    trace_infos_by_id = {ti.trace_id: ti for ti in trace_infos}
+
+    # Verify we got the trace infos
+    assert trace_id_1 in trace_infos_by_id
+    assert trace_id_2 in trace_infos_by_id
+
+    # Verify metadata is present
+    ti1 = trace_infos_by_id[trace_id_1]
+    assert ti1.trace_id == trace_id_1
+    assert ti1.timestamp_ms is not None
+    assert ti1.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == session_id
+
+    ti2 = trace_infos_by_id[trace_id_2]
+    assert ti2.trace_id == trace_id_2
+    assert ti2.timestamp_ms is not None
+    assert ti2.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == session_id
+
+
+def test_batch_get_trace_infos_empty(store: SqlAlchemyStore) -> None:
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_infos = store.batch_get_trace_infos([trace_id])
+    assert trace_infos == []
+
+
+def test_batch_get_trace_infos_ordering(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_batch_get_trace_infos_ordering")
+    trace_ids = [f"tr-{uuid.uuid4().hex}" for _ in range(3)]
+
+    # Create traces in reverse order
+    for i, trace_id in enumerate(reversed(trace_ids)):
+        spans = [
+            create_test_span(
+                trace_id=trace_id,
+                name=f"span_{i}",
+                span_id=100 + i,
+                status=trace_api.StatusCode.OK,
+                start_ns=1_000_000_000 + i * 1_000_000_000,
+                end_ns=2_000_000_000 + i * 1_000_000_000,
+                trace_num=12345 + i,
+            ),
+        ]
+        store.log_spans(experiment_id, spans)
+
+    # Fetch in original order
+    trace_infos = store.batch_get_trace_infos(trace_ids)
+
+    # Verify order is preserved
+    assert len(trace_infos) == 3
+    for i, trace_info in enumerate(trace_infos):
+        assert trace_info.trace_id == trace_ids[i]
 
 
 def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:

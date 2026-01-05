@@ -16,7 +16,6 @@ from prophet import Prophet
 import mlflow
 import mlflow.prophet
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-import mlflow.utils
 from mlflow import pyfunc
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example, load_serving_example

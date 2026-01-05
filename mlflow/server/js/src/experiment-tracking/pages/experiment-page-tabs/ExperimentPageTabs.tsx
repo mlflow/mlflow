@@ -8,7 +8,10 @@ import { useExperimentReduxStoreCompat } from '../../hooks/useExperimentReduxSto
 import { ExperimentPageHeaderWithDescription } from '../../components/experiment-page/components/ExperimentPageHeaderWithDescription';
 import { coerceToEnum } from '@databricks/web-shared/utils';
 import { ExperimentKind, ExperimentPageTabName } from '../../constants';
-import { shouldEnableExperimentPageSideTabs } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import {
+  shouldEnableExperimentPageSideTabs,
+  shouldEnableExperimentOverviewTab,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useUpdateExperimentKind } from '../../components/experiment-page/hooks/useUpdateExperimentKind';
 import { ExperimentViewHeaderKindSelector } from '../../components/experiment-page/components/header/ExperimentViewHeaderKindSelector';
 import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
@@ -105,8 +108,11 @@ const ExperimentPageTabsImpl = () => {
               onSettled: () => {
                 dismiss();
                 if (kind === ExperimentKind.GENAI_DEVELOPMENT) {
-                  // If the experiment kind is GENAI_DEVELOPMENT, we want to navigate to the Traces tab
-                  navigate(Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Traces), {
+                  // If the experiment kind is GENAI_DEVELOPMENT, navigate to Overview tab if enabled, otherwise Traces
+                  const targetTab = shouldEnableExperimentOverviewTab()
+                    ? ExperimentPageTabName.Overview
+                    : ExperimentPageTabName.Traces;
+                  navigate(Routes.getExperimentPageTabRoute(experimentId, targetTab), {
                     replace: true,
                   });
                 }

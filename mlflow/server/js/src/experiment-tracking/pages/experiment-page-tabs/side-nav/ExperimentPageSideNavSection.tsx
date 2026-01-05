@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import {
   DesignSystemEventProviderAnalyticsEventTypes,
   DesignSystemEventProviderComponentTypes,
@@ -33,7 +34,7 @@ export const ExperimentPageSideNavSection = ({
   const { experimentId } = useParams();
   const { search } = useLocation();
   const logTelemetryEvent = useLogTelemetryEvent();
-  const viewId = useMemo(() => crypto.randomUUID(), []);
+  const viewId = useMemo(() => uuidv4(), []);
 
   invariant(experimentId, 'Experiment ID must be defined');
 
