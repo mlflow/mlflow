@@ -12,7 +12,13 @@ import {
   getPercentileKey,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
-import { ChartLoadingState, ChartErrorState, ChartEmptyState, ChartHeader, OverTimeLabel } from './ChartCardWrapper';
+import {
+  OverviewChartLoadingState,
+  OverviewChartErrorState,
+  OverviewChartEmptyState,
+  OverviewChartHeader,
+  OverviewChartTimeLabel,
+} from './OverviewChartComponents';
 import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
 
@@ -113,11 +119,11 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
   };
 
   if (isLoading) {
-    return <ChartLoadingState />;
+    return <OverviewChartLoadingState />;
   }
 
   if (error) {
-    return <ChartErrorState />;
+    return <OverviewChartErrorState />;
   }
 
   return (
@@ -129,13 +135,13 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
         backgroundColor: theme.colors.backgroundPrimary,
       }}
     >
-      <ChartHeader
+      <OverviewChartHeader
         icon={<ClockIcon />}
         title={<FormattedMessage defaultMessage="Latency" description="Title for the latency chart" />}
         value={avgLatency !== undefined ? formatLatency(avgLatency) : undefined}
       />
 
-      <OverTimeLabel />
+      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: 200, marginTop: theme.spacing.sm }}>
@@ -221,7 +227,7 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <ChartEmptyState />
+          <OverviewChartEmptyState />
         )}
       </div>
     </div>

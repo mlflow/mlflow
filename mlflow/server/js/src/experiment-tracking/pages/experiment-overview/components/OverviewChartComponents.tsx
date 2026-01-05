@@ -4,7 +4,7 @@ import { FormattedMessage } from 'react-intl';
 
 const DEFAULT_CHART_HEIGHT = 280;
 
-interface ChartHeaderProps {
+interface OverviewChartHeaderProps {
   /** Icon component to display before the title */
   icon: React.ReactNode;
   /** Chart title */
@@ -16,9 +16,9 @@ interface ChartHeaderProps {
 }
 
 /**
- * Common header component for chart cards with icon, title, and value
+ * Common header component for overview chart cards with icon, title, and value
  */
-export const ChartHeader: React.FC<ChartHeaderProps> = ({ icon, title, value, subtitle }) => {
+export const OverviewChartHeader: React.FC<OverviewChartHeaderProps> = ({ icon, title, value, subtitle }) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -47,9 +47,9 @@ export const ChartHeader: React.FC<ChartHeaderProps> = ({ icon, title, value, su
 };
 
 /**
- * "Over time" label shown above time-series charts
+ * "Over time" label shown above time-series charts in overview
  */
-export const OverTimeLabel: React.FC = () => {
+export const OverviewChartTimeLabel: React.FC = () => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -59,15 +59,15 @@ export const OverTimeLabel: React.FC = () => {
   );
 };
 
-interface ChartCardWrapperProps {
+interface OverviewChartCardProps {
   children: React.ReactNode;
   height?: number;
 }
 
 /**
- * Common wrapper for chart cards with consistent styling
+ * Common wrapper for overview chart cards with consistent styling
  */
-export const ChartCardWrapper: React.FC<ChartCardWrapperProps> = ({ children, height = DEFAULT_CHART_HEIGHT }) => {
+export const OverviewChartCard: React.FC<OverviewChartCardProps> = ({ children, height = DEFAULT_CHART_HEIGHT }) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -87,32 +87,32 @@ export const ChartCardWrapper: React.FC<ChartCardWrapperProps> = ({ children, he
   );
 };
 
-interface ChartLoadingStateProps {
+interface OverviewChartLoadingStateProps {
   height?: number;
 }
 
 /**
- * Loading state for chart cards
+ * Loading state for overview chart cards
  */
-export const ChartLoadingState: React.FC<ChartLoadingStateProps> = ({ height }) => {
+export const OverviewChartLoadingState: React.FC<OverviewChartLoadingStateProps> = ({ height }) => {
   return (
-    <ChartCardWrapper height={height}>
+    <OverviewChartCard height={height}>
       <Spinner />
-    </ChartCardWrapper>
+    </OverviewChartCard>
   );
 };
 
-interface ChartErrorStateProps {
+interface OverviewChartErrorStateProps {
   height?: number;
   message?: React.ReactNode;
 }
 
 /**
- * Error state for chart cards
+ * Error state for overview chart cards
  */
-export const ChartErrorState: React.FC<ChartErrorStateProps> = ({ height, message }) => {
+export const OverviewChartErrorState: React.FC<OverviewChartErrorStateProps> = ({ height, message }) => {
   return (
-    <ChartCardWrapper height={height}>
+    <OverviewChartCard height={height}>
       <Typography.Text color="error">
         {message || (
           <FormattedMessage
@@ -121,19 +121,19 @@ export const ChartErrorState: React.FC<ChartErrorStateProps> = ({ height, messag
           />
         )}
       </Typography.Text>
-    </ChartCardWrapper>
+    </OverviewChartCard>
   );
 };
 
-interface ChartEmptyStateProps {
+interface OverviewChartEmptyStateProps {
   height?: number;
   message?: React.ReactNode;
 }
 
 /**
- * Empty state for chart cards when no data is available
+ * Empty state for overview chart cards when no data is available
  */
-export const ChartEmptyState: React.FC<ChartEmptyStateProps> = ({ height, message }) => {
+export const OverviewChartEmptyState: React.FC<OverviewChartEmptyStateProps> = ({ height, message }) => {
   return (
     <div
       css={{

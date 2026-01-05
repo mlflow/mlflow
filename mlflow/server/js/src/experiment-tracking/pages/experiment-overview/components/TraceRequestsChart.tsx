@@ -5,7 +5,13 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from '../utils/chartUtils';
-import { ChartLoadingState, ChartErrorState, ChartEmptyState, ChartHeader, OverTimeLabel } from './ChartCardWrapper';
+import {
+  OverviewChartLoadingState,
+  OverviewChartErrorState,
+  OverviewChartEmptyState,
+  OverviewChartHeader,
+  OverviewChartTimeLabel,
+} from './OverviewChartComponents';
 import type { OverviewChartProps } from '../types';
 
 export const TraceRequestsChart: React.FC<OverviewChartProps> = ({
@@ -51,11 +57,11 @@ export const TraceRequestsChart: React.FC<OverviewChartProps> = ({
   }, [traceCountDataPoints, timeIntervalSeconds]);
 
   if (isLoading) {
-    return <ChartLoadingState />;
+    return <OverviewChartLoadingState />;
   }
 
   if (error) {
-    return <ChartErrorState />;
+    return <OverviewChartErrorState />;
   }
 
   return (
@@ -67,12 +73,12 @@ export const TraceRequestsChart: React.FC<OverviewChartProps> = ({
         backgroundColor: theme.colors.backgroundPrimary,
       }}
     >
-      <ChartHeader
+      <OverviewChartHeader
         icon={<ChartLineIcon />}
         title={<FormattedMessage defaultMessage="Requests" description="Title for the trace requests chart" />}
         value={totalRequests.toLocaleString()}
       />
-      <OverTimeLabel />
+      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: 200 }}>
@@ -100,7 +106,7 @@ export const TraceRequestsChart: React.FC<OverviewChartProps> = ({
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <ChartEmptyState />
+          <OverviewChartEmptyState />
         )}
       </div>
     </div>

@@ -13,7 +13,13 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from '../utils/chartUtils';
-import { ChartLoadingState, ChartErrorState, ChartEmptyState, ChartHeader, OverTimeLabel } from './ChartCardWrapper';
+import {
+  OverviewChartLoadingState,
+  OverviewChartErrorState,
+  OverviewChartEmptyState,
+  OverviewChartHeader,
+  OverviewChartTimeLabel,
+} from './OverviewChartComponents';
 import type { OverviewChartProps } from '../types';
 
 // Filter to get only error traces
@@ -130,11 +136,11 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
   };
 
   if (isLoading) {
-    return <ChartLoadingState />;
+    return <OverviewChartLoadingState />;
   }
 
   if (error) {
-    return <ChartErrorState />;
+    return <OverviewChartErrorState />;
   }
 
   return (
@@ -146,14 +152,14 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
         backgroundColor: theme.colors.backgroundPrimary,
       }}
     >
-      <ChartHeader
+      <OverviewChartHeader
         icon={<DangerIcon />}
         title={<FormattedMessage defaultMessage="Errors" description="Title for the errors chart" />}
         value={totalErrors.toLocaleString()}
         subtitle={`(Overall error rate: ${overallErrorRate.toFixed(1)}%)`}
       />
 
-      <OverTimeLabel />
+      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: 200, marginTop: theme.spacing.sm }}>
@@ -238,7 +244,7 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = ({
             </ComposedChart>
           </ResponsiveContainer>
         ) : (
-          <ChartEmptyState />
+          <OverviewChartEmptyState />
         )}
       </div>
     </div>
