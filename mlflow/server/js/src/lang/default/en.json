@@ -2810,6 +2810,10 @@
     "defaultMessage": "Please fix the validation errors",
     "description": "Tooltip message when there are validation errors"
   },
+  "L8czct": {
+    "defaultMessage": "Latency Comparison",
+    "description": "Title for the tool latency comparison chart"
+  },
   "LED2z5": {
     "defaultMessage": "To disable or enable this display, call {disableFunction} or {enableFunction} and re-run the cell",
     "description": "Content in an info popover that instructs the user on how to disable the display. The disable and enable functions are code snippets with the real function names"
