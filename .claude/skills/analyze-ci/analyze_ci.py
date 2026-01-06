@@ -9,6 +9,7 @@ Usage:
 # dependencies = [
 #     "aiohttp",
 #     "tiktoken",
+#     "typing_extensions",
 #     "claude-agent-sdk",
 # ]
 # ///
@@ -34,8 +35,8 @@ from claude_agent_sdk import (
     TextBlock,
     query,
 )
+from typing_extensions import Self
 
-GITHUB_API_BASE = "https://api.github.com"
 MAX_LOG_TOKENS = 100_000
 
 
@@ -71,81 +72,84 @@ def get_github_token(cli_token: str | None = None) -> str:
     return token
 
 
-def get_headers(token: str) -> dict[str, str]:
-    return {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
+class GitHubClient:
+    """Async GitHub API client."""
 
-
-async def api_get(
-    session: aiohttp.ClientSession,
-    endpoint: str,
-    params: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    url = f"{GITHUB_API_BASE}{endpoint}"
-    async with session.get(url, params=params) as response:
-        response.raise_for_status()
-        return await response.json()
-
-
-async def get_pr_details(
-    session: aiohttp.ClientSession, pr_number: int, repo: str
-) -> dict[str, Any]:
-    return await api_get(session, f"/repos/{repo}/pulls/{pr_number}")
-
-
-async def get_workflow_runs(
-    session: aiohttp.ClientSession,
-    repo: str,
-    head_sha: str,
-    status: str = "completed",
-) -> AsyncIterator[dict[str, Any]]:
-    page = 1
-    per_page = 100
-
-    while True:
-        params = {
-            "head_sha": head_sha,
-            "status": status,
-            "per_page": per_page,
-            "page": page,
+    def __init__(self, token: str, base_url: str = "https://api.github.com") -> None:
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
         }
-        result = await api_get(session, f"/repos/{repo}/actions/runs", params)
-        runs = result.get("workflow_runs", [])
-        if not runs:
-            break
+        self._session = aiohttp.ClientSession(base_url=base_url, headers=headers)
 
-        for run in runs:
-            yield run
-        page += 1
+    async def __aenter__(self) -> Self:
+        return self
 
-        if len(runs) < per_page:
-            break
+    async def __aexit__(self, *_: Any) -> None:
+        await self._session.close()
 
+    async def get(self, endpoint: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        async with self._session.get(endpoint, params=params) as response:
+            response.raise_for_status()
+            return await response.json()
 
-async def get_failed_jobs(
-    session: aiohttp.ClientSession, run_id: int, repo: str
-) -> list[dict[str, Any]]:
-    all_jobs: list[dict[str, Any]] = []
-    page = 1
-    per_page = 100
+    async def get_raw(self, endpoint: str) -> aiohttp.ClientResponse:
+        return await self._session.get(endpoint, allow_redirects=True)
 
-    while True:
-        params = {"per_page": per_page, "page": page}
-        result = await api_get(session, f"/repos/{repo}/actions/runs/{run_id}/jobs", params)
-        jobs = result.get("jobs", [])
-        if not jobs:
-            break
+    async def get_pr_details(self, repo: str, pr_number: int) -> dict[str, Any]:
+        return await self.get(f"/repos/{repo}/pulls/{pr_number}")
 
-        all_jobs.extend(jobs)
-        page += 1
+    async def get_workflow_runs(
+        self, repo: str, head_sha: str, status: str = "completed"
+    ) -> AsyncIterator[dict[str, Any]]:
+        page = 1
+        per_page = 100
 
-        if len(jobs) < per_page:
-            break
+        while True:
+            params = {
+                "head_sha": head_sha,
+                "status": status,
+                "per_page": per_page,
+                "page": page,
+            }
+            result = await self.get(f"/repos/{repo}/actions/runs", params)
+            runs = result.get("workflow_runs", [])
+            if not runs:
+                break
 
-    return [job for job in all_jobs if job.get("conclusion") == "failure"]
+            for run in runs:
+                yield run
+            page += 1
+
+            if len(runs) < per_page:
+                break
+
+    async def get_failed_jobs(self, repo: str, run_id: int) -> list[dict[str, Any]]:
+        all_jobs: list[dict[str, Any]] = []
+        page = 1
+        per_page = 100
+
+        while True:
+            params = {"per_page": per_page, "page": page}
+            result = await self.get(f"/repos/{repo}/actions/runs/{run_id}/jobs", params)
+            jobs = result.get("jobs", [])
+            if not jobs:
+                break
+
+            all_jobs.extend(jobs)
+            page += 1
+
+            if len(jobs) < per_page:
+                break
+
+        return [job for job in all_jobs if job.get("conclusion") == "failure"]
+
+    async def get_job_details(self, repo: str, job_id: int) -> dict[str, Any]:
+        return await self.get(f"/repos/{repo}/actions/jobs/{job_id}")
+
+    async def get_run_details(self, repo: str, run_id: int) -> dict[str, Any]:
+        return await self.get(f"/repos/{repo}/actions/runs/{run_id}")
 
 
 TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z ?")
@@ -157,15 +161,14 @@ def to_seconds(ts: str) -> str:
 
 
 async def iter_job_logs(
-    session: aiohttp.ClientSession,
-    job_id: int,
+    client: GitHubClient,
     repo: str,
+    job_id: int,
     started_at: str,
     completed_at: str,
 ) -> AsyncIterator[str]:
     """Yield log lines filtered by time range."""
-    url = f"{GITHUB_API_BASE}/repos/{repo}/actions/jobs/{job_id}/logs"
-    async with session.get(url, allow_redirects=True) as response:
+    async with await client.get_raw(f"/repos/{repo}/actions/jobs/{job_id}/logs") as response:
         response.raise_for_status()
 
         # ISO 8601 timestamps are lexicographically sortable, so we can compare as strings
@@ -251,26 +254,18 @@ class JobRun:
     def job_url(self) -> str:
         return f"https://github.com/{self.repo}/actions/runs/{self.run_id}/job/{self.job_id}"
 
-    async def get_job_details(self, session: aiohttp.ClientSession) -> dict[str, Any]:
-        return await api_get(session, f"/repos/{self.repo}/actions/jobs/{self.job_id}")
 
-    async def get_run_details(self, session: aiohttp.ClientSession) -> dict[str, Any]:
-        return await api_get(session, f"/repos/{self.repo}/actions/runs/{self.run_id}")
-
-
-async def get_failed_jobs_from_pr(
-    session: aiohttp.ClientSession, repo: str, pr_number: int
-) -> list[JobRun]:
+async def get_failed_jobs_from_pr(client: GitHubClient, repo: str, pr_number: int) -> list[JobRun]:
     log(f"Fetching https://github.com/{repo}/pull/{pr_number}")
-    pr_details = await get_pr_details(session, pr_number, repo)
+    pr_details = await client.get_pr_details(repo, pr_number)
     head_sha = pr_details["head"]["sha"]
     log(f"PR head SHA: {head_sha[:8]}")
 
-    runs = get_workflow_runs(session, repo, head_sha)
+    runs = client.get_workflow_runs(repo, head_sha)
     failed_runs = [r async for r in runs if r.get("conclusion") == "failure"]
     log(f"Found {len(failed_runs)} failed workflow run(s)")
 
-    failed_jobs_tasks = [get_failed_jobs(session, run["id"], repo) for run in failed_runs]
+    failed_jobs_tasks = [client.get_failed_jobs(repo, run["id"]) for run in failed_runs]
     failed_jobs_results = await asyncio.gather(*failed_jobs_tasks)
 
     run_job_pairs = [
@@ -281,14 +276,14 @@ async def get_failed_jobs_from_pr(
     return [JobRun(repo, run["id"], job["id"]) for run, job in run_job_pairs]
 
 
-async def resolve_urls(session: aiohttp.ClientSession, urls: list[str]) -> list[JobRun]:
+async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[JobRun]:
     job_runs: list[JobRun] = []
 
     for url in urls:
         if match := JOB_URL_PATTERN.search(url):
             job_runs.append(JobRun(match.group(1), int(match.group(2)), int(match.group(3))))
         elif match := PR_URL_PATTERN.search(url):
-            jobs = await get_failed_jobs_from_pr(session, match.group(1), int(match.group(2)))
+            jobs = await get_failed_jobs_from_pr(client, match.group(1), int(match.group(2)))
             job_runs.extend(jobs)
         else:
             log(f"Error: Invalid URL: {url}")
@@ -299,11 +294,11 @@ async def resolve_urls(session: aiohttp.ClientSession, urls: list[str]) -> list[
     return job_runs
 
 
-async def fetch_single_job_logs(session: aiohttp.ClientSession, job: JobRun) -> JobLogs:
+async def fetch_single_job_logs(client: GitHubClient, job: JobRun) -> JobLogs:
     log(f"Fetching job {job.job_id} from {job.repo}")
 
-    job_details = await job.get_job_details(session)
-    run_details = await job.get_run_details(session)
+    job_details = await client.get_job_details(job.repo, job.job_id)
+    run_details = await client.get_run_details(job.repo, job.run_id)
 
     workflow_name = run_details.get("name", "Unknown workflow")
     job_name = job_details.get("name", "Unknown job")
@@ -314,9 +309,9 @@ async def fetch_single_job_logs(session: aiohttp.ClientSession, job: JobRun) -> 
     log(f"Fetching logs for '{workflow_name} / {job_name}'")
     cleaned_logs = await compact_logs(
         iter_job_logs(
-            session,
-            job.job_id,
+            client,
             job.repo,
+            job.job_id,
             started_at=failed_step["started_at"],
             completed_at=failed_step["completed_at"],
         )
@@ -421,9 +416,9 @@ async def analyze_with_claude(jobs: list[JobLogs], debug: bool = False) -> str:
 
 
 async def cmd_analyze_async(urls: list[str], github_token: str, debug: bool = False) -> None:
-    async with aiohttp.ClientSession(headers=get_headers(github_token)) as session:
+    async with GitHubClient(github_token) as client:
         # Resolve URLs to job targets
-        jobs = await resolve_urls(session, urls)
+        jobs = await resolve_urls(client, urls)
 
         if not jobs:
             log("No failed jobs found")
@@ -431,7 +426,7 @@ async def cmd_analyze_async(urls: list[str], github_token: str, debug: bool = Fa
 
         # Fetch logs for all jobs
         log(f"Fetching logs for {len(jobs)} job(s)")
-        results = await asyncio.gather(*[fetch_single_job_logs(session, job) for job in jobs])
+        results = await asyncio.gather(*[fetch_single_job_logs(client, job) for job in jobs])
 
     # Analyze with Claude
     log("Analyzing logs with Claude...")
