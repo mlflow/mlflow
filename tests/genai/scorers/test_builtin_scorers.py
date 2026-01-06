@@ -16,6 +16,7 @@ from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
     Completeness,
+    ConversationalGuidelines,
     ConversationalRoleAdherence,
     ConversationalSafety,
     ConversationalToolCallEfficiency,
@@ -1979,6 +1980,102 @@ def test_conversational_role_adherence_instructions():
     instructions = scorer.instructions
     assert "role" in instructions.lower()
     assert "persona" in instructions.lower() or "boundaries" in instructions.lower()
+
+
+@pytest.mark.parametrize(
+    "guidelines",
+    [
+        "The assistant must respond professionally",
+        ["The assistant must respond professionally", "The assistant must be helpful"],
+    ],
+)
+def test_conversational_guidelines_with_session(guidelines):
+    session_id = "test_session_guidelines"
+    traces = []
+    for i, (question, answer) in enumerate(
+        [
+            ("What are your hours?", "We are open 9am-5pm Monday through Friday."),
+            ("Can I get a refund?", "Yes, we offer refunds within 30 days of purchase."),
+        ]
+    ):
+        with mlflow.start_span(name=f"turn_{i}") as span:
+            span.set_inputs({"question": question})
+            span.set_outputs(answer)
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name="conversational_guidelines",
+            value="yes",
+            rationale="Evaluation complete.",
+        ),
+    ) as mock_invoke_judge:
+        scorer = ConversationalGuidelines(guidelines=guidelines)
+        result = scorer(session=traces)
+
+        assert result.name == "conversational_guidelines"
+        assert result.value == "yes"
+        mock_invoke_judge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "expected_name"),
+    [
+        (None, None, "conversational_guidelines"),
+        ("custom_guidelines_check", "openai:/gpt-4", "custom_guidelines_check"),
+    ],
+)
+def test_conversational_guidelines_with_custom_name_and_model(name, model, expected_name):
+    session_id = "test_session_guidelines_custom"
+    traces = []
+    with mlflow.start_span(name="test_turn") as span:
+        span.set_inputs({"question": "Test question"})
+        span.set_outputs("Test response")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name=expected_name, value="yes", rationale="Guidelines followed"),
+    ) as mock_invoke_judge:
+        kwargs = {"guidelines": ["Respond politely"]}
+        if name:
+            kwargs["name"] = name
+        if model:
+            kwargs["model"] = model
+        scorer = ConversationalGuidelines(**kwargs)
+        result = scorer(session=traces)
+
+        assert result.name == expected_name
+        assert result.value == "yes"
+        assert result.rationale == "Guidelines followed"
+        mock_invoke_judge.assert_called_once()
+
+
+def test_conversational_guidelines_get_input_fields():
+    scorer = ConversationalGuidelines(guidelines=["Test guideline"])
+    fields = scorer.get_input_fields()
+    field_names = [field.name for field in fields]
+    assert field_names == ["session"]
+
+
+def test_conversational_guidelines_instructions():
+    scorer = ConversationalGuidelines(
+        guidelines=["The assistant must respond in English", "The assistant must be polite"]
+    )
+    instructions = scorer.instructions
+    assert "conversation" in instructions.lower()
+    assert "guideline" in instructions.lower()
+    assert "The assistant must respond in English" in instructions
+    assert "The assistant must be polite" in instructions
+
+
+def test_conversational_guidelines_single_guideline_string():
+    scorer = ConversationalGuidelines(guidelines="Single guideline as string")
+    instructions = scorer.instructions
+    assert "Single guideline as string" in instructions
 
 
 def _create_test_trace_with_session(
