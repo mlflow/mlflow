@@ -9,7 +9,7 @@ import {
   AggregationType,
   AssessmentMetricKey,
   AssessmentFilterKey,
-  AssessmentType,
+  AssessmentTypeValue,
   AssessmentDimensionKey,
 } from '@databricks/web-shared/model-trace-explorer';
 
@@ -197,7 +197,7 @@ describe('AssessmentChartsSection', () => {
           metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
           aggregations: [{ aggregation_type: AggregationType.AVG }],
           dimensions: [AssessmentDimensionKey.ASSESSMENT_NAME],
-          filters: [`assessment.${AssessmentFilterKey.TYPE} = "${AssessmentType.FEEDBACK}"`],
+          filters: [`assessment.${AssessmentFilterKey.TYPE} = "${AssessmentTypeValue.FEEDBACK}"`],
         });
       });
     });
