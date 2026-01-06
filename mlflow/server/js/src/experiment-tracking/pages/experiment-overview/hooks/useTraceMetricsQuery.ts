@@ -104,10 +104,10 @@ export function useTraceMetricsQuery({
       endTimeMs,
       viewType,
       metricName,
-      JSON.stringify(aggregations),
+      aggregations,
       timeIntervalSeconds,
-      JSON.stringify(filters),
-      JSON.stringify(dimensions),
+      filters,
+      dimensions,
     ],
     queryFn: async () => {
       const response = await queryTraceMetrics(queryParams);
