@@ -88,12 +88,35 @@ def _tar(root_path: Path, tar_path: Path) -> tarfile.TarFile:
     return tar
 
 
+@contextmanager
+def _get_source_artifacts(
+    model_uri: str, local_model_path: str | None = None
+) -> Generator[Path, None, None]:
+    """
+    Get source artifacts and handle cleanup of downloads.
+    Does not mutate local_model_path contents if provided.
+
+    Args:
+        model_uri: The URI of the model to package.
+        local_model_path: Optional local path to model artifacts.
+
+    Yields:
+        Path: The path to the source artifacts directory.
+    """
+    source_dir = Path(local_model_path or download_artifacts(artifact_uri=model_uri))
+
+    yield source_dir
+
+    if not local_model_path:
+        shutil.rmtree(source_dir)
+
 # TODO: Check pip requirements using uv instead.
 @contextmanager
 def pack_env_for_databricks_model_serving(
     model_uri: str,
     *,
     enforce_pip_requirements: bool = False,
+    local_model_path: str | None = None,
 ) -> Generator[str, None, None]:
     """
     Generate Databricks artifacts for fast deployment.
@@ -101,6 +124,7 @@ def pack_env_for_databricks_model_serving(
     Args:
         model_uri: The URI of the model to package.
         enforce_pip_requirements: Whether to enforce pip requirements installation.
+        local_model_path: Optional local path to model artifacts. If provided, pack the local artifacts instead of downloading.
 
     Yields:
         str: The path to the local artifacts directory containing the model artifacts and
@@ -118,16 +142,12 @@ def pack_env_for_databricks_model_serving(
             f"Serving. Current version: {dbr_version}"
         )
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # Download model artifacts. Keep this separate from temp_dir to avoid noise in packaged
-        # artifacts.
-        local_artifacts_dir = Path(download_artifacts(artifact_uri=model_uri))
-
+    with _get_source_artifacts(model_uri, local_model_path) as source_artifacts_dir:
         # Check runtime version consistency
         # We read the MLmodel file directly instead of using Model.to_dict() because to_dict() adds
         # the current runtime version via get_databricks_runtime_version(), which would prevent us
         # from detecting runtime version mismatches.
-        mlmodel_path = local_artifacts_dir / MLMODEL_FILE_NAME
+        mlmodel_path = source_artifacts_dir / MLMODEL_FILE_NAME
         with open(mlmodel_path) as f:
             model_dict = yaml.safe_load(f)
         if "databricks_runtime" not in model_dict:
@@ -146,6 +166,12 @@ def pack_env_for_databricks_model_serving(
                 f"(major version {current_runtime.major})"
             )
 
+        # Check that _databricks directory does not exist in source
+        if (source_artifacts_dir / _ARTIFACT_PATH).exists():
+            raise ValueError(
+                f"Source artifacts contain a '{_ARTIFACT_PATH}' directory and is not eligible for use with env_pack."
+            )
+
         if enforce_pip_requirements:
             eprint("Installing model requirements...")
             try:
@@ -156,7 +182,7 @@ def pack_env_for_databricks_model_serving(
                         "pip",
                         "install",
                         "-r",
-                        str(local_artifacts_dir / _REQUIREMENTS_FILE_NAME),
+                        str(source_artifacts_dir / _REQUIREMENTS_FILE_NAME),
                     ],
                     check=True,
                     stdout=subprocess.PIPE,
@@ -168,16 +194,16 @@ def pack_env_for_databricks_model_serving(
                 eprint(e.stdout)
                 raise
 
-        # Package model artifacts and env into temp_dir/_databricks
-        temp_artifacts_dir = Path(temp_dir) / _ARTIFACT_PATH
-        temp_artifacts_dir.mkdir(exist_ok=False)
-        _tar(local_artifacts_dir, temp_artifacts_dir / _MODEL_VERSION_TAR)
-        _tar(Path(sys.prefix), temp_artifacts_dir / _MODEL_ENVIRONMENT_TAR)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            packaged_model_dir = Path(temp_dir)
+            
+            # Copy source artifacts to packaged_model_dir
+            shutil.copytree(source_artifacts_dir, packaged_model_dir)
 
-        # Remove existing _databricks directory if present (e.g., from previous registration)
-        target_path = local_artifacts_dir / _ARTIFACT_PATH
-        if target_path.exists():
-            shutil.rmtree(target_path)
-        shutil.move(str(temp_artifacts_dir), local_artifacts_dir)
+            # Package model artifacts and env into packaged_model_dir/_databricks
+            packaged_artifacts_dir = packaged_model_dir / _ARTIFACT_PATH
+            packaged_artifacts_dir.mkdir(exist_ok=True)
+            _tar(source_artifacts_dir, packaged_artifacts_dir / _MODEL_VERSION_TAR)
+            _tar(Path(sys.prefix), packaged_artifacts_dir / _MODEL_ENVIRONMENT_TAR)
 
-        yield str(local_artifacts_dir)
+            yield str(packaged_model_dir)
