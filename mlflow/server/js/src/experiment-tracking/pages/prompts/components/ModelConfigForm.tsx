@@ -12,13 +12,10 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useMemo, useEffect, useRef, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useFormContext, Controller } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useProvidersQuery } from '../../../../gateway/hooks/useProvidersQuery';
-import { useModelsQuery } from '../../../../gateway/hooks/useModelsQuery';
-
-const PRIORITY_PROVIDERS = ['openai', 'anthropic', 'gemini', 'databricks'];
+import { useProviderModelData } from '../hooks/useProviderModelData';
 
 export const ModelConfigForm = () => {
   const { theme } = useDesignSystemTheme();
@@ -40,30 +37,15 @@ export const ModelConfigForm = () => {
     return (errors?.['modelConfig'] as any)?.[name];
   };
 
-  // Fetch providers and models
-  const { data: providersData, isLoading: providersLoading } = useProvidersQuery();
   const selectedProvider = watch(getFieldName('provider'));
-  const providerForQuery = selectedProvider === '' ? undefined : selectedProvider;
-  const { data: models, isLoading: modelsLoading } = useModelsQuery({
-    provider: providerForQuery,
-  });
+  const handleProviderChange = useCallback(() => {
+    setValue(getFieldName('modelName'), '');
+  }, [setValue, getFieldName]);
 
-  // Sort providers with priority ones first, then alphabetically
-  const providers = useMemo(() => {
-    if (!providersData) return undefined;
-    const priority = PRIORITY_PROVIDERS.filter((p) => providersData.includes(p));
-    const others = providersData.filter((p) => !PRIORITY_PROVIDERS.includes(p)).sort();
-    return [...priority, ...others];
-  }, [providersData]);
-
-  // Track previous provider to clear model name when provider changes
-  const prevProviderRef = useRef(selectedProvider);
-  useEffect(() => {
-    if (prevProviderRef.current !== undefined && prevProviderRef.current !== selectedProvider) {
-      setValue(getFieldName('modelName'), '');
-    }
-    prevProviderRef.current = selectedProvider;
-  }, [selectedProvider, setValue, getFieldName]);
+  const { providers, providersLoading, models, modelsLoading } = useProviderModelData(
+    selectedProvider,
+    handleProviderChange,
+  );
 
   return (
     <div
