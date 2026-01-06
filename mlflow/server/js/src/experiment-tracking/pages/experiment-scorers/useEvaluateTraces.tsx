@@ -587,7 +587,9 @@ export function useEvaluateTraces({
     setIsLoading(false);
   }, []);
 
-  const [evaluateTracesAsync, asyncEvaluationState] = useEvaluateTracesAsync({ onScorerFinished });
+  const [evaluateTracesAsync, asyncEvaluationState] = useEvaluateTracesAsync({
+    onScorerFinished,
+  });
 
   if (usingAsyncMode) {
     return [evaluateTracesAsync, asyncEvaluationState] as const;

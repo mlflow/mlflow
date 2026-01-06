@@ -40,6 +40,8 @@ import { useEditModelConfigModal } from './hooks/useEditModelConfigModal';
 import type { ThunkDispatch } from '../../../redux-types';
 import { setModelVersionAliasesApi } from '../../../model-registry/actions';
 import { ExperimentPageTabName } from '../../constants';
+import { PromptFilteredTracesView } from './components/PromptFilteredTracesView';
+import { ForkHorizontalIcon } from '@databricks/design-system';
 
 const getAliasesModalTitle = (version: string) => (
   <FormattedMessage
@@ -91,15 +93,24 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
     onSuccess: refetch,
   });
 
-  const { setCompareMode, setPreviewMode, switchSides, viewState, setSelectedVersion, setComparedVersion } =
-    usePromptDetailsPageViewState(promptDetailsData);
+  const {
+    setCompareMode,
+    setPreviewMode,
+    setTracesMode,
+    switchSides,
+    viewState,
+    setSelectedVersion,
+    setComparedVersion,
+  } = usePromptDetailsPageViewState(promptDetailsData);
 
   const { mode } = viewState;
 
   const isEmptyVersions = !isLoading && !promptDetailsData?.versions.length;
 
   const showPreviewPane =
-    !isLoading && !isEmptyVersions && [PromptVersionsTableMode.PREVIEW, PromptVersionsTableMode.COMPARE].includes(mode);
+    !isLoading &&
+    !isEmptyVersions &&
+    [PromptVersionsTableMode.PREVIEW, PromptVersionsTableMode.COMPARE, PromptVersionsTableMode.TRACES].includes(mode);
 
   const selectedVersionEntity = promptDetailsData?.versions.find(
     ({ version }) => version === viewState.selectedVersion,
@@ -230,6 +241,19 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
                   />
                 </div>
               </SegmentedControlButton>
+              <SegmentedControlButton
+                disabled={!experimentId}
+                value={PromptVersionsTableMode.TRACES}
+                onClick={() => setTracesMode()}
+              >
+                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                  <ForkHorizontalIcon />
+                  <FormattedMessage
+                    defaultMessage="Traces"
+                    description="Label for the traces mode on the registered prompt details page"
+                  />
+                </div>
+              </SegmentedControlButton>
             </SegmentedControlGroup>
           </div>
           <Spacer shrinks={false} size="sm" />
@@ -278,6 +302,9 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
                   registeredPrompt={promptDetailsData?.prompt}
                   aliasesByVersion={aliasesByVersion}
                 />
+              )}
+              {mode === PromptVersionsTableMode.TRACES && (
+                <PromptFilteredTracesView promptVersion={selectedVersionEntity} experimentId={experimentId} />
               )}
             </div>
           </div>

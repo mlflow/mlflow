@@ -1,0 +1,226 @@
+import React from 'react';
+import { Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
+
+const DEFAULT_CHART_HEIGHT = 280;
+
+interface OverviewChartHeaderProps {
+  /** Icon component to display before the title */
+  icon: React.ReactNode;
+  /** Chart title */
+  title: React.ReactNode;
+  /** Main value to display (e.g., "1.2K", "150 ms") */
+  value?: React.ReactNode;
+  /** Optional subtitle shown after the value */
+  subtitle?: React.ReactNode;
+}
+
+/**
+ * Common header component for overview chart cards with icon, title, and value
+ */
+export const OverviewChartHeader: React.FC<OverviewChartHeaderProps> = ({ icon, title, value, subtitle }) => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div css={{ marginBottom: theme.spacing.lg }}>
+      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+        <span css={{ color: theme.colors.textSecondary, display: 'flex' }}>{icon}</span>
+        <Typography.Text bold size="lg">
+          {title}
+        </Typography.Text>
+      </div>
+      {value !== undefined && (
+        <Typography.Title level={3} css={{ margin: 0, marginTop: theme.spacing.sm }}>
+          {value}
+          {subtitle && (
+            <>
+              {' '}
+              <Typography.Text color="secondary" css={{ fontWeight: 'normal' }}>
+                {subtitle}
+              </Typography.Text>
+            </>
+          )}
+        </Typography.Title>
+      )}
+    </div>
+  );
+};
+
+/**
+ * "Over time" label shown above time-series charts in overview
+ */
+export const OverviewChartTimeLabel: React.FC = () => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <Typography.Text color="secondary" size="sm" css={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+      <FormattedMessage defaultMessage="Over time" description="Label above time-series charts" />
+    </Typography.Text>
+  );
+};
+
+interface OverviewChartCardProps {
+  children: React.ReactNode;
+  height?: number;
+}
+
+/**
+ * Common wrapper for overview chart cards with consistent styling
+ */
+export const OverviewChartCard: React.FC<OverviewChartCardProps> = ({ children, height = DEFAULT_CHART_HEIGHT }) => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div
+      css={{
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        padding: theme.spacing.lg,
+        height,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
+interface OverviewChartLoadingStateProps {
+  height?: number;
+}
+
+/**
+ * Loading state for overview chart cards
+ */
+export const OverviewChartLoadingState: React.FC<OverviewChartLoadingStateProps> = ({ height }) => {
+  return (
+    <OverviewChartCard height={height}>
+      <Spinner />
+    </OverviewChartCard>
+  );
+};
+
+interface OverviewChartErrorStateProps {
+  height?: number;
+  message?: React.ReactNode;
+}
+
+/**
+ * Error state for overview chart cards
+ */
+export const OverviewChartErrorState: React.FC<OverviewChartErrorStateProps> = ({ height, message }) => {
+  return (
+    <OverviewChartCard height={height}>
+      <Typography.Text color="error">
+        {message || (
+          <FormattedMessage
+            defaultMessage="Failed to load chart data"
+            description="Error message when chart fails to load"
+          />
+        )}
+      </Typography.Text>
+    </OverviewChartCard>
+  );
+};
+
+interface OverviewChartEmptyStateProps {
+  height?: number;
+  message?: React.ReactNode;
+}
+
+/**
+ * Empty state for overview chart cards when no data is available
+ */
+export const OverviewChartEmptyState: React.FC<OverviewChartEmptyStateProps> = ({ height, message }) => {
+  return (
+    <div
+      css={{
+        height: height || '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Typography.Text color="secondary">
+        {message || (
+          <FormattedMessage
+            defaultMessage="No data available for the selected time range"
+            description="Message shown when there is no data to display in the chart"
+          />
+        )}
+      </Typography.Text>
+    </div>
+  );
+};
+
+/**
+ * Returns common tooltip style configuration for Recharts tooltips
+ */
+export function useChartTooltipStyle() {
+  const { theme } = useDesignSystemTheme();
+  return {
+    backgroundColor: theme.colors.backgroundPrimary,
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: theme.borders.borderRadiusMd,
+    fontSize: theme.typography.fontSizeSm,
+  };
+}
+
+/**
+ * Returns common XAxis props for time-series charts
+ */
+export function useChartXAxisProps() {
+  const { theme } = useDesignSystemTheme();
+  return {
+    tick: { fontSize: 10, fill: theme.colors.textSecondary, dy: theme.spacing.sm },
+    axisLine: false,
+    tickLine: false,
+    interval: 'preserveStartEnd' as const,
+  };
+}
+
+/**
+ * Returns a legend formatter function with consistent styling
+ */
+export function useChartLegendFormatter() {
+  const { theme } = useDesignSystemTheme();
+  return (value: string) => (
+    <span
+      style={{
+        color: theme.colors.textPrimary,
+        fontSize: theme.typography.fontSizeSm,
+        cursor: 'pointer',
+      }}
+    >
+      {value}
+    </span>
+  );
+}
+
+/**
+ * Props for the OverviewChartContainer component
+ */
+interface OverviewChartContainerProps {
+  children: React.ReactNode;
+}
+
+/**
+ * Common container styling for overview chart cards
+ */
+export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ children }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        padding: theme.spacing.lg,
+        backgroundColor: theme.colors.backgroundPrimary,
+      }}
+    >
+      {children}
+    </div>
+  );
+};

@@ -423,6 +423,10 @@
     "defaultMessage": "Copy",
     "description": "Button text for copy button"
   },
+  "1JiZwB": {
+    "defaultMessage": "Did the conversation fully address the user's request?",
+    "description": "Hint for ConversationCompleteness template"
+  },
   "1NeHsz": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label for the number of traces selected"
@@ -470,6 +474,10 @@
   "1jPG5D": {
     "defaultMessage": "Creator",
     "description": "Lable name for the creator under details tab on the model view page"
+  },
+  "1l/c+M": {
+    "defaultMessage": "User frustration",
+    "description": "LLM template option"
   },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
@@ -854,10 +862,6 @@
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
   },
-  "5Jg2dq": {
-    "defaultMessage": "Last 10 traces",
-    "description": "Option for last 10 traces"
-  },
   "5Mzn2b": {
     "defaultMessage": "Creator",
     "description": "Label name for creator metadata in model version page"
@@ -1166,6 +1170,10 @@
     "defaultMessage": "Tags",
     "description": "Label for the tags section"
   },
+  "7MxBYq": {
+    "defaultMessage": "Traces",
+    "description": "Label for the traces mode on the registered prompt details page"
+  },
   "7NKkk1": {
     "defaultMessage": "Save",
     "description": "Modal button text to save the changes to rename the experiment run name"
@@ -1377,6 +1385,10 @@
   "8wnmuq": {
     "defaultMessage": "2. Trace your code",
     "description": "Section title introducing the tracing quickstart example"
+  },
+  "8xKF+v": {
+    "defaultMessage": "Over time",
+    "description": "Label above time-series charts"
   },
   "8xji5J": {
     "defaultMessage": "X-axis:",
@@ -1698,6 +1710,10 @@
     "defaultMessage": "Registered models",
     "description": "Run page > Overview > Run models section label"
   },
+  "BD8ZUj": {
+    "defaultMessage": "{isTraces, select, true {Trace} other {Session}} {index} of {total}",
+    "description": "Index of the current trace and total number of traces"
+  },
   "BEFBcB": {
     "defaultMessage": "We support multiple experiment types, each with its own set of features. Please select the type you'd like to use. You can change this later if needed.",
     "description": "Popover message displayed when the experiment type could not not inferred"
@@ -1825,6 +1841,10 @@
   "C6ReUY": {
     "defaultMessage": "Save",
     "description": "Tag assignment modal > Save button"
+  },
+  "C83vFj": {
+    "defaultMessage": "Latency",
+    "description": "Title for the latency chart"
   },
   "C8Jj/L": {
     "defaultMessage": "Name",
@@ -2522,6 +2542,10 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model version view page"
   },
+  "IlYdrX": {
+    "defaultMessage": "Tokens per Trace",
+    "description": "Title for the token stats chart"
+  },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
     "description": "Description of how to log traces for API calls to Google's Gemini API using MLflow autologging. This message is followed by a code example."
@@ -2697,6 +2721,10 @@
   "KJqjTs": {
     "defaultMessage": "Section title loading",
     "description": "Loading skeleton label for overview page section title in Catalog Explorer"
+  },
+  "KLTGMn": {
+    "defaultMessage": "Full conversation between a user and an assistant",
+    "description": "Description for conversation variable"
   },
   "KMVqUP": {
     "defaultMessage": "Tags",
@@ -2937,6 +2965,10 @@
   "MX4ypf": {
     "defaultMessage": "Save",
     "description": "Save button for the edit model config modal"
+  },
+  "MXhKKt": {
+    "defaultMessage": "avg per trace",
+    "description": "Subtitle for average tokens per trace"
   },
   "MZNjYJ": {
     "defaultMessage": "Actions ({count})",
@@ -3189,6 +3221,10 @@
   "OfLABN": {
     "defaultMessage": "Close",
     "description": "Error modal close button text"
+  },
+  "OilzZP": {
+    "defaultMessage": "Conversation",
+    "description": "Label for conversation variable option"
   },
   "OimAJb": {
     "defaultMessage": "Scatter Plot",
@@ -3477,6 +3513,10 @@
     "defaultMessage": "Connections",
     "description": "Section title for authentication"
   },
+  "RRvtnM": {
+    "defaultMessage": "Did the conversation avoid causing user frustration?",
+    "description": "Hint for UserFrustration template"
+  },
   "RUju4k": {
     "defaultMessage": "Charts",
     "description": "Tooltip for charts page mode toggle in evaluation runs table controls"
@@ -3544,6 +3584,10 @@
   "RyNXc+": {
     "defaultMessage": "Loading endpoint...",
     "description": "Loading message for endpoint"
+  },
+  "RySezx": {
+    "defaultMessage": "Did the assistant remember context from earlier in the conversation?",
+    "description": "Hint for KnowledgeRetention template"
   },
   "RzZVxC": {
     "defaultMessage": "An error occurred while rendering this component.",
@@ -3617,10 +3661,6 @@
     "defaultMessage": "Last session",
     "description": "Option for last session"
   },
-  "SXKt8h": {
-    "defaultMessage": "Must be unique in this experiment. Cannot be changed after creation.",
-    "description": "Hint text for Name section"
-  },
   "SZj964": {
     "defaultMessage": "Copy S3 URI to clipboard",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
@@ -3636,6 +3676,10 @@
   "SbMdmm": {
     "defaultMessage": "{spanName} was called",
     "description": "Label for an intermediate node in the trace explorer summary view, indicating that a span/function was called in the course of execution."
+  },
+  "Sd7sQi": {
+    "defaultMessage": "Traces are only available for experiment-scoped prompts.",
+    "description": "Message when prompt is not experiment-scoped"
   },
   "Shv28w": {
     "defaultMessage": "Save",
@@ -3712,6 +3756,10 @@
   "TKtJIK": {
     "defaultMessage": "Page not found",
     "description": "Error message shown to the user when they arrive at a non existent URL"
+  },
+  "TLHzWu": {
+    "defaultMessage": "Token Usage",
+    "description": "Title for the token usage chart"
   },
   "TPspzA": {
     "defaultMessage": "Deleting the section will permanently remove it and the charts it contains. This cannot be undone.",
@@ -4235,10 +4283,6 @@
     "defaultMessage": "Search metric charts",
     "description": "Run page > Charts tab > Filter metric charts input > placeholder"
   },
-  "XutL+P": {
-    "defaultMessage": "Last 5 traces",
-    "description": "Option for last 5 traces"
-  },
   "Xuz/xh": {
     "defaultMessage": "Models",
     "description": "Sidebar link for models tab"
@@ -4595,6 +4639,10 @@
     "defaultMessage": "Time (Relative)",
     "description": "Radio button option to choose the time relative control option for the X-axis for metric graph on the experiment runs"
   },
+  "aO2NFe": {
+    "defaultMessage": "No prompt version selected. Select a prompt version to view associated traces.",
+    "description": "Empty state message when no prompt version is selected"
+  },
   "aOW396": {
     "defaultMessage": "{timeSince, plural, =1 {1 hour} other {# hours}} ago",
     "description": "Text for time in hours since given date for MLflow views"
@@ -4942,10 +4990,6 @@
   "cy9EfG": {
     "defaultMessage": "Attributes",
     "description": "Experiment page > group by runs control > attributes section label"
-  },
-  "d+WXp2": {
-    "defaultMessage": "Last 5 sessions",
-    "description": "Option for last 5 sessions"
   },
   "d00egE": {
     "defaultMessage": "No span with type RETRIEVER found in trace.",
@@ -5767,10 +5811,6 @@
     "defaultMessage": "Please log at least one table artifact containing evaluation data. <link>Learn more</link>.",
     "description": "Experiment page > artifact compare view > empty state for no evaluation tables logged > subtitle"
   },
-  "j9F8Nt": {
-    "defaultMessage": "Last 10 sessions",
-    "description": "Option for last 10 sessions"
-  },
   "jA7Y1x": {
     "defaultMessage": "Edit API key",
     "description": "Gateway > API keys list > Edit API key button aria label"
@@ -5794,6 +5834,10 @@
   "jI22Qu": {
     "defaultMessage": "Gateway returned the following error: \"{errorMessage}\"",
     "description": "Experiment page > gateway error message"
+  },
+  "jIrCsp": {
+    "defaultMessage": "Knowledge retention",
+    "description": "LLM template option"
   },
   "jMUqD1": {
     "defaultMessage": "Safety",
@@ -5898,6 +5942,10 @@
   "kCsAho": {
     "defaultMessage": "Correctness",
     "description": "LLM template option"
+  },
+  "kHDQiE": {
+    "defaultMessage": "Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.",
+    "description": "Placeholder text for session level instructions textarea. {br} is a newline."
   },
   "kHN/4I": {
     "defaultMessage": "Edited {timeSince} by {source}. Original value: {value}",
@@ -6034,6 +6082,10 @@
   "lQ2nDn": {
     "defaultMessage": "This assessment is produced by a custom metric.",
     "description": "Custom judge assessment description"
+  },
+  "lRO4km": {
+    "defaultMessage": "Quality",
+    "description": "Label for the quality tab in the experiment overview page"
   },
   "lS7kq2": {
     "defaultMessage": "Parameters",
@@ -6655,6 +6707,10 @@
     "defaultMessage": "Select model",
     "description": "Model selector modal title"
   },
+  "qNaoD5": {
+    "defaultMessage": "Cannot be changed after creation.",
+    "description": "Hint text for Name section"
+  },
   "qNtagt": {
     "defaultMessage": "Track and compare versions of your GenAI app",
     "description": "Empty state title displayed when no models are logged in the genai logged models list page"
@@ -6690,6 +6746,10 @@
   "qr7dhT": {
     "defaultMessage": "None",
     "description": "Label for experiments with no automatically inferred experiment type"
+  },
+  "qskex0": {
+    "defaultMessage": "Conversation completeness",
+    "description": "LLM template option"
   },
   "quxZB8": {
     "defaultMessage": "Create version",
@@ -6990,6 +7050,10 @@
   "t0Qkuc": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Metrics table > Value column header"
+  },
+  "t3mHNt": {
+    "defaultMessage": "Errors",
+    "description": "Title for the errors chart"
   },
   "tCC/M3": {
     "defaultMessage": "Create a new key if a different provider is needed.",
@@ -7390,10 +7454,6 @@
   "wxq/qM": {
     "defaultMessage": "Set as baseline",
     "description": "In the run data difference comparison table, the label for an option to set particular experiment run as a baseline one - meaning other runs will be compared to it."
-  },
-  "x/G0Ow": {
-    "defaultMessage": "Trace {index} of {total}",
-    "description": "Index of the current trace and total number of traces"
   },
   "x/YJtF": {
     "defaultMessage": "MLflow MCP server",

@@ -215,6 +215,9 @@ def generate_duration_stats() -> str:
     if not rows:
         return ""
 
+    # Limit to top 30 files
+    rows = rows[:30]
+
     # Prepare data for markdown table (headers + data rows)
     table_rows = [["Rank", "File", "Duration", "Tests", "Min", "Max", "Avg"]]
     for idx, (path, dur, count, min_, max_, avg_) in enumerate(rows, 1):

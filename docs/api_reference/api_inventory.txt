@@ -107,6 +107,7 @@ mlflow.client.MlflowClient.log_model_artifacts
 mlflow.client.MlflowClient.log_model_params
 mlflow.client.MlflowClient.log_outputs
 mlflow.client.MlflowClient.log_param
+mlflow.client.MlflowClient.log_stream
 mlflow.client.MlflowClient.log_table
 mlflow.client.MlflowClient.log_text
 mlflow.client.MlflowClient.parse_prompt_uri
@@ -366,6 +367,9 @@ mlflow.entities.GatewayEndpoint.to_proto
 mlflow.entities.GatewayEndpointBinding
 mlflow.entities.GatewayEndpointBinding.from_proto
 mlflow.entities.GatewayEndpointBinding.to_proto
+mlflow.entities.GatewayEndpointModelConfig
+mlflow.entities.GatewayEndpointModelConfig.from_proto
+mlflow.entities.GatewayEndpointModelConfig.to_proto
 mlflow.entities.GatewayEndpointModelMapping
 mlflow.entities.GatewayEndpointModelMapping.from_proto
 mlflow.entities.GatewayEndpointModelMapping.to_proto
@@ -580,6 +584,7 @@ mlflow.entities.gateway_endpoint.FallbackConfig
 mlflow.entities.gateway_endpoint.FallbackStrategy
 mlflow.entities.gateway_endpoint.GatewayEndpoint
 mlflow.entities.gateway_endpoint.GatewayEndpointBinding
+mlflow.entities.gateway_endpoint.GatewayEndpointModelConfig
 mlflow.entities.gateway_endpoint.GatewayEndpointModelMapping
 mlflow.entities.gateway_endpoint.GatewayEndpointTag
 mlflow.entities.gateway_endpoint.GatewayModelDefinition
@@ -1183,6 +1188,7 @@ mlflow.log_model_params
 mlflow.log_outputs
 mlflow.log_param
 mlflow.log_params
+mlflow.log_stream
 mlflow.log_table
 mlflow.log_text
 mlflow.log_trace
