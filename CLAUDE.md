@@ -165,6 +165,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 git push origin <your-branch>
 ```
 
+**Note:** Include the `Co-Authored-By: Claude <noreply@anthropic.com>` trailer when Claude Code authors or co-authors changes.
+
 ### Creating Pull Requests
 
 Follow [the PR template](./.github/pull_request_template.md) when creating pull requests. Remove any unused checkboxes from the template to keep your PR clean and focused.
