@@ -3947,7 +3947,7 @@ def _get_online_scoring_configs():
         scorer_ids: List of scorer IDs to fetch configurations for.
 
     Returns:
-        JSON response containing a mapping of scorer_id to configuration.
+        JSON response containing a list of configurations.
     """
     scorer_ids = request.args.getlist("scorer_ids")
 
@@ -3959,7 +3959,7 @@ def _get_online_scoring_configs():
     configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
 
     response = Response(mimetype="application/json")
-    response.set_data(json.dumps({"configs": {c.scorer_id: c.to_dict() for c in configs}}))
+    response.set_data(json.dumps({"configs": [c.to_dict() for c in configs]}))
     return response
 
 

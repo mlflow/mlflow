@@ -1657,10 +1657,13 @@ def test_get_online_scoring_configs_batch(mock_tracking_store):
         assert resp.status_code == 200
         data = resp.get_json()
         assert "configs" in data
-        assert data["configs"]["scorer-1"]["sample_rate"] == 0.5
-        assert data["configs"]["scorer-1"]["filter_string"] == "status = 'OK'"
-        assert data["configs"]["scorer-2"]["sample_rate"] == 0.8
-        assert data["configs"]["scorer-2"].get("filter_string") is None
+        assert isinstance(data["configs"], list)
+        assert len(data["configs"]) == 2
+        configs_by_id = {c["scorer_id"]: c for c in data["configs"]}
+        assert configs_by_id["scorer-1"]["sample_rate"] == 0.5
+        assert configs_by_id["scorer-1"]["filter_string"] == "status = 'OK'"
+        assert configs_by_id["scorer-2"]["sample_rate"] == 0.8
+        assert configs_by_id["scorer-2"].get("filter_string") is None
 
     mock_tracking_store.get_online_scoring_configs.assert_called_once_with(["scorer-1", "scorer-2"])
 
