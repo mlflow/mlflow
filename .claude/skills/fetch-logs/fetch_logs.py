@@ -223,22 +223,68 @@ def get_failed_step(job_details: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
-JOB_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)/job/(\d+)")
+# ============================================================================
+# Analyze targets
+# ============================================================================
+
 PR_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/pull/(\d+)")
+JOB_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)/job/(\d+)")
 
 
-def parse_job_url(url: str) -> tuple[str, int, int]:
-    """Parse a GitHub Actions job URL and return (repo, run_id, job_id)."""
-    if not (match := JOB_URL_PATTERN.search(url)):
-        raise ValueError(f"Invalid job URL: {url}")
-    return match.group(1), int(match.group(2)), int(match.group(3))
+@dataclass
+class JobRun:
+    """A GitHub Actions job to analyze."""
+
+    repo: str
+    run_id: int
+    job_id: int
+
+    @property
+    def job_url(self) -> str:
+        return f"https://github.com/{self.repo}/actions/runs/{self.run_id}/job/{self.job_id}"
 
 
-def parse_pr_url(url: str) -> tuple[str, int] | None:
-    """Parse a GitHub PR URL and return (repo, pr_number), or None if not a PR URL."""
-    if match := PR_URL_PATTERN.search(url):
-        return match.group(1), int(match.group(2))
-    return None
+async def get_failed_jobs_from_pr(
+    session: aiohttp.ClientSession, repo: str, pr_number: int
+) -> list[JobRun]:
+    """Fetch failed job targets from a PR."""
+    log(f"Fetching https://github.com/{repo}/pull/{pr_number}")
+    pr_details = await get_pr_details(session, pr_number, repo)
+    head_sha = pr_details["head"]["sha"]
+    log(f"PR head SHA: {head_sha[:8]}")
+
+    runs = get_workflow_runs(session, repo, head_sha)
+    failed_runs = [r async for r in runs if r.get("conclusion") == "failure"]
+    log(f"Found {len(failed_runs)} failed workflow run(s)")
+
+    failed_jobs_tasks = [get_failed_jobs(session, run["id"], repo) for run in failed_runs]
+    failed_jobs_results = await asyncio.gather(*failed_jobs_tasks)
+
+    run_job_pairs = [
+        (run, job) for run, jobs in zip(failed_runs, failed_jobs_results) for job in jobs
+    ]
+    log(f"Found {len(run_job_pairs)} failed job(s)")
+
+    return [JobRun(repo, run["id"], job["id"]) for run, job in run_job_pairs]
+
+
+async def resolve_urls(session: aiohttp.ClientSession, urls: list[str]) -> list[JobRun]:
+    """Resolve URLs into job targets."""
+    targets: list[JobRun] = []
+
+    for url in urls:
+        if match := JOB_URL_PATTERN.search(url):
+            targets.append(JobRun(match.group(1), int(match.group(2)), int(match.group(3))))
+        elif match := PR_URL_PATTERN.search(url):
+            jobs = await get_failed_jobs_from_pr(session, match.group(1), int(match.group(2)))
+            targets.extend(jobs)
+        else:
+            log(f"Error: Invalid URL: {url}")
+            log("Expected PR URL (github.com/owner/repo/pull/123)")
+            log("Or job URL (github.com/owner/repo/actions/runs/123/job/456)")
+            sys.exit(1)
+
+    return targets
 
 
 # ============================================================================
@@ -256,13 +302,12 @@ async def get_run_details(session: aiohttp.ClientSession, repo: str, run_id: int
 
 async def fetch_single_job_logs(
     session: aiohttp.ClientSession,
-    job_url: str,
+    job: JobRun,
 ) -> JobLogs:
-    repo, run_id, job_id = parse_job_url(job_url)
-    log(f"Fetching job {job_id} from {repo}")
+    log(f"Fetching job {job.job_id} from {job.repo}")
 
-    job_details = await get_job_details(session, repo, job_id)
-    run_details = await get_run_details(session, repo, run_id)
+    job_details = await get_job_details(session, job.repo, job.job_id)
+    run_details = await get_run_details(session, job.repo, job.run_id)
 
     workflow_name = run_details.get("name", "Unknown workflow")
     job_name = job_details.get("name", "Unknown job")
@@ -272,8 +317,8 @@ async def fetch_single_job_logs(
     cleaned_logs = await compact_logs(
         iter_job_logs(
             session,
-            job_id,
-            repo,
+            job.job_id,
+            job.repo,
             started_at=failed_step["started_at"],
             completed_at=failed_step["completed_at"],
         )
@@ -284,7 +329,7 @@ async def fetch_single_job_logs(
     return JobLogs(
         workflow_name=workflow_name,
         job_name=job_name,
-        job_url=job_url,
+        job_url=job.job_url,
         failed_step=failed_step_name,
         logs=truncated_logs,
     )
@@ -359,56 +404,18 @@ async def analyze_with_claude(jobs: list[JobLogs]) -> str:
     return ("\n\n" + "=" * 80 + "\n\n").join(results)
 
 
-async def get_failed_job_urls_for_pr(
-    session: aiohttp.ClientSession,
-    repo: str,
-    pr_number: int,
-) -> list[str]:
-    """Get all failed job URLs for a PR."""
-    log(f"Fetching https://github.com/{repo}/pull/{pr_number}")
-    pr_details = await get_pr_details(session, pr_number, repo)
-    head_sha = pr_details["head"]["sha"]
-    log(f"PR head SHA: {head_sha[:8]}")
-
-    runs = get_workflow_runs(session, repo, head_sha)
-    failed_runs = [r async for r in runs if r.get("conclusion") == "failure"]
-    log(f"Found {len(failed_runs)} failed workflow run(s)")
-
-    failed_jobs_tasks = [get_failed_jobs(session, run["id"], repo) for run in failed_runs]
-    failed_jobs_results = await asyncio.gather(*failed_jobs_tasks)
-
-    run_job_pairs = [
-        (run, job) for run, jobs in zip(failed_runs, failed_jobs_results) for job in jobs
-    ]
-    log(f"Found {len(run_job_pairs)} failed job(s)")
-
-    return [
-        f"https://github.com/{repo}/actions/runs/{run['id']}/job/{job['id']}"
-        for run, job in run_job_pairs
-    ]
-
-
-async def cmd_analyze_async(
-    pr_infos: list[tuple[str, int]] | None,
-    job_urls: list[str] | None,
-    github_token: str,
-) -> None:
+async def cmd_analyze_async(urls: list[str], github_token: str) -> None:
     async with aiohttp.ClientSession(headers=get_headers(github_token)) as session:
-        # If PRs provided, list failed jobs for each
-        if pr_infos:
-            all_job_urls = []
-            for repo, pr_number in pr_infos:
-                urls = await get_failed_job_urls_for_pr(session, repo, pr_number)
-                all_job_urls.extend(urls)
-            job_urls = all_job_urls
+        # Resolve URLs to job targets
+        jobs = await resolve_urls(session, urls)
 
-        if not job_urls:
+        if not jobs:
             log("No failed jobs found")
             return
 
         # Fetch logs for all jobs
-        log(f"Fetching logs for {len(job_urls)} job(s)")
-        results = await asyncio.gather(*[fetch_single_job_logs(session, url) for url in job_urls])
+        log(f"Fetching logs for {len(jobs)} job(s)")
+        results = await asyncio.gather(*[fetch_single_job_logs(session, job) for job in jobs])
 
     # Analyze with Claude
     log("Analyzing logs with Claude...")
@@ -421,32 +428,6 @@ async def cmd_analyze_async(
 # ============================================================================
 
 
-def validate_urls(urls: list[str]) -> tuple[str, list[tuple[str, int]] | list[str]]:
-    """Validate URLs and return ("pr", [(repo, pr_number), ...]) or ("job", job_urls)."""
-    first_url = urls[0]
-
-    # Check if first URL is a PR URL
-    if parse_pr_url(first_url):
-        pr_infos = []
-        for url in urls:
-            if pr_info := parse_pr_url(url):
-                pr_infos.append(pr_info)
-            else:
-                log(f"Error: Mixed URL types. Expected PR URL: {url}")
-                sys.exit(1)
-        return ("pr", pr_infos)
-
-    # Validate all URLs are job URLs
-    for url in urls:
-        if not JOB_URL_PATTERN.search(url):
-            log(f"Error: Invalid URL: {url}")
-            log("Expected PR URL (github.com/owner/repo/pull/123)")
-            log("Or job URL (github.com/owner/repo/actions/runs/123/job/456)")
-            sys.exit(1)
-
-    return ("job", urls)
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Fetch and analyze logs from failed GitHub Action jobs"
@@ -457,24 +438,7 @@ def main():
     args = parser.parse_args()
     github_token = get_github_token(args.github_token)
 
-    url_type, url_info = validate_urls(args.urls)
-
-    if url_type == "pr":
-        asyncio.run(
-            cmd_analyze_async(
-                pr_infos=url_info,
-                job_urls=None,
-                github_token=github_token,
-            )
-        )
-    else:
-        asyncio.run(
-            cmd_analyze_async(
-                pr_infos=None,
-                job_urls=url_info,
-                github_token=github_token,
-            )
-        )
+    asyncio.run(cmd_analyze_async(args.urls, github_token))
 
 
 if __name__ == "__main__":
