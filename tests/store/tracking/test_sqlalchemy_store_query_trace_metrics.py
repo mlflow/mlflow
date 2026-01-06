@@ -19,6 +19,7 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_metrics import AggregationType, MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges import CategoricalRating
 from mlflow.store.db.db_types import POSTGRES
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import (
@@ -2901,6 +2902,55 @@ def test_query_assessment_value_with_boolean_values(store: SqlAlchemyStore):
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
         "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "correctness"},
         "values": {"AVG": pytest.approx(3 / 4, abs=0.01)},
+    }
+
+
+def test_query_assessment_value_with_yes_no_string_values(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_value_with_yes_no")
+
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    assessments_data = [
+        ("quality", CategoricalRating.YES),
+        ("quality", CategoricalRating.YES),
+        ("quality", CategoricalRating.NO),
+        ("quality", CategoricalRating.YES),
+        ("quality", CategoricalRating.UNKNOWN),
+    ]
+
+    for name, value in assessments_data:
+        assessment = Feedback(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+        store.create_assessment(assessment)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_VALUE,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=[AssessmentMetricDimensionKey.ASSESSMENT_NAME],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
+        "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "quality"},
+        "values": {"AVG": pytest.approx(0.75, abs=0.01)},
     }
 
 

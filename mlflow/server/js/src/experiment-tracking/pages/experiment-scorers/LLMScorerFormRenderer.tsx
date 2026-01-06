@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import type { Control, UseFormSetValue, UseFormGetValues } from 'react-hook-form';
-import { Controller, useWatch } from 'react-hook-form';
+import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import {
   useDesignSystemTheme,
   Typography,
@@ -23,11 +23,12 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
-import type { SCORER_TYPE } from './constants';
+import { type SCORER_TYPE, ScorerEvaluationScope } from './constants';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
 import { LLM_TEMPLATE } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
 import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
+import { ModelSectionRenderer } from './ModelSectionRenderer';
 
 // Form data type that matches LLMScorer structure
 export interface LLMScorerFormData {
@@ -38,9 +39,10 @@ export interface LLMScorerFormData {
   scorerType: typeof SCORER_TYPE.LLM;
   guidelines?: string;
   instructions?: string;
-  model?: string;
+  model: string;
   disableMonitoring?: boolean;
   isInstructionsJudge?: boolean;
+  evaluationScope?: ScorerEvaluationScope;
 }
 
 interface LLMScorerFormRendererProps {
@@ -59,8 +61,10 @@ interface LLMTemplateSectionProps {
 
 const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, setValue, currentTemplate }) => {
   const { theme } = useDesignSystemTheme();
+  const { watch } = useFormContext<LLMScorerFormData>();
+  const scope = watch('evaluationScope');
   const intl = useIntl();
-  const { templateOptions, displayMap } = useTemplateOptions();
+  const { templateOptions, displayMap } = useTemplateOptions(scope);
 
   const stopPropagationClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -175,14 +179,11 @@ const NameSection: React.FC<NameSectionProps> = ({ mode, control }) => {
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
-      <FormUI.Label htmlFor="mlflow-experiment-scorers-name">
+      <FormUI.Label htmlFor="mlflow-experiment-scorers-name" required>
         <FormattedMessage defaultMessage="Name" description="Section header for optional judge name" />
       </FormUI.Label>
       <FormUI.Hint>
-        <FormattedMessage
-          defaultMessage="Must be unique in this experiment. Cannot be changed after creation."
-          description="Hint text for Name section"
-        />
+        <FormattedMessage defaultMessage="Cannot be changed after creation." description="Hint text for Name section" />
       </FormUI.Hint>
       <Controller
         name="name"
@@ -212,6 +213,8 @@ interface InstructionsSectionProps {
 
 const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control, setValue, getValues }) => {
   const intl = useIntl();
+  const { watch } = useFormContext<LLMScorerFormData>();
+  const scope = watch('evaluationScope');
 
   const stopPropagationClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -224,12 +227,109 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
 
   const isInstructionsJudge = useWatch({ control, name: 'isInstructionsJudge' }) ?? false;
   const isReadOnly = mode === SCORER_FORM_MODE.DISPLAY || !isInstructionsJudge;
+  const isSessionLevelScorer = scope === ScorerEvaluationScope.SESSIONS;
+
+  const traceLevelTemplateVariables = (
+    <>
+      <DropdownMenu.Item
+        componentId={`${COMPONENT_ID_PREFIX}.add-variable-inputs`}
+        onClick={(e) => {
+          e.stopPropagation();
+          appendVariable('{{ inputs }}');
+        }}
+      >
+        <FormattedMessage defaultMessage="Inputs" description="Label for inputs variable option" />
+        <DropdownMenu.HintRow>
+          <FormattedMessage defaultMessage="Input for the trace" description="Description for inputs variable" />
+        </DropdownMenu.HintRow>
+      </DropdownMenu.Item>
+      <DropdownMenu.Item
+        componentId={`${COMPONENT_ID_PREFIX}.add-variable-outputs`}
+        onClick={(e) => {
+          e.stopPropagation();
+          appendVariable('{{ outputs }}');
+        }}
+      >
+        <FormattedMessage defaultMessage="Outputs" description="Label for outputs variable option" />
+        <DropdownMenu.HintRow>
+          <FormattedMessage defaultMessage="Output for the trace" description="Description for outputs variable" />
+        </DropdownMenu.HintRow>
+      </DropdownMenu.Item>
+      <DropdownMenu.Item
+        componentId={`${COMPONENT_ID_PREFIX}.add-variable-expectations`}
+        onClick={(e) => {
+          e.stopPropagation();
+          appendVariable('{{ expectations }}');
+        }}
+      >
+        <FormattedMessage defaultMessage="Expectations" description="Label for expectations variable option" />
+        <DropdownMenu.HintRow>
+          <FormattedMessage
+            defaultMessage="Expectations added for a trace"
+            description="Description for expectations variable"
+          />
+        </DropdownMenu.HintRow>
+      </DropdownMenu.Item>
+      <DropdownMenu.Item
+        componentId={`${COMPONENT_ID_PREFIX}.add-variable-trace`}
+        onClick={(e) => {
+          e.stopPropagation();
+          appendVariable('{{ trace }}');
+        }}
+      >
+        <FormattedMessage defaultMessage="Trace" description="Label for trace variable option" />
+        <DropdownMenu.HintRow>
+          <FormattedMessage
+            defaultMessage="Full trace with an agent using the right part of the trace to use to judge"
+            description="Description for trace variable"
+          />
+        </DropdownMenu.HintRow>
+      </DropdownMenu.Item>
+    </>
+  );
+
+  const sessionLevelTemplateVariables = (
+    <>
+      <DropdownMenu.Item
+        componentId={`${COMPONENT_ID_PREFIX}.add-variable-conversation`}
+        onClick={(e) => {
+          e.stopPropagation();
+          appendVariable('{{ conversation }}');
+        }}
+      >
+        <FormattedMessage defaultMessage="Conversation" description="Label for conversation variable option" />
+        <DropdownMenu.HintRow>
+          <FormattedMessage
+            defaultMessage="Full conversation between a user and an assistant"
+            description="Description for conversation variable"
+          />
+        </DropdownMenu.HintRow>
+      </DropdownMenu.Item>
+      <DropdownMenu.Item
+        componentId={`${COMPONENT_ID_PREFIX}.add-variable-expectations`}
+        onClick={(e) => {
+          e.stopPropagation();
+          appendVariable('{{ expectations }}');
+        }}
+      >
+        <FormattedMessage defaultMessage="Expectations" description="Label for expectations variable option" />
+        <DropdownMenu.HintRow>
+          <FormattedMessage
+            defaultMessage="Expectations added for a trace"
+            description="Description for expectations variable"
+          />
+        </DropdownMenu.HintRow>
+      </DropdownMenu.Item>
+    </>
+  );
+
+  const templateVariables = isSessionLevelScorer ? sessionLevelTemplateVariables : traceLevelTemplateVariables;
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <FormUI.Label htmlFor="mlflow-experiment-scorers-instructions" aria-required={isInstructionsJudge}>
+          <FormUI.Label htmlFor="mlflow-experiment-scorers-instructions" required={isInstructionsJudge}>
             <FormattedMessage defaultMessage="Instructions" description="Section header for judge instructions" />
           </FormUI.Label>
           <DropdownMenu.Root>
@@ -244,68 +344,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
                 <FormattedMessage defaultMessage="Add variable" description="Button text for adding variables" />
               </Button>
             </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="end">
-              <DropdownMenu.Item
-                componentId={`${COMPONENT_ID_PREFIX}.add-variable-inputs`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  appendVariable('{{ inputs }}');
-                }}
-              >
-                <FormattedMessage defaultMessage="Inputs" description="Label for inputs variable option" />
-                <DropdownMenu.HintRow>
-                  <FormattedMessage
-                    defaultMessage="Input for the trace"
-                    description="Description for inputs variable"
-                  />
-                </DropdownMenu.HintRow>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                componentId={`${COMPONENT_ID_PREFIX}.add-variable-outputs`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  appendVariable('{{ outputs }}');
-                }}
-              >
-                <FormattedMessage defaultMessage="Outputs" description="Label for outputs variable option" />
-                <DropdownMenu.HintRow>
-                  <FormattedMessage
-                    defaultMessage="Output for the trace"
-                    description="Description for outputs variable"
-                  />
-                </DropdownMenu.HintRow>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                componentId={`${COMPONENT_ID_PREFIX}.add-variable-expectations`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  appendVariable('{{ expectations }}');
-                }}
-              >
-                <FormattedMessage defaultMessage="Expectations" description="Label for expectations variable option" />
-                <DropdownMenu.HintRow>
-                  <FormattedMessage
-                    defaultMessage="Expectations added for a trace"
-                    description="Description for expectations variable"
-                  />
-                </DropdownMenu.HintRow>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                componentId={`${COMPONENT_ID_PREFIX}.add-variable-trace`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  appendVariable('{{ trace }}');
-                }}
-              >
-                <FormattedMessage defaultMessage="Trace" description="Label for trace variable option" />
-                <DropdownMenu.HintRow>
-                  <FormattedMessage
-                    defaultMessage="Full trace with an agent using the right part of the trace to use to judge"
-                    description="Description for trace variable"
-                  />
-                </DropdownMenu.HintRow>
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
+            <DropdownMenu.Content align="end">{templateVariables}</DropdownMenu.Content>
           </DropdownMenu.Root>
         </div>
         <FormUI.Hint>
@@ -329,7 +368,8 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
           name="instructions"
           control={control}
           rules={{
-            validate: (value) => (isInstructionsJudge ? validateInstructions(value) : true),
+            required: isInstructionsJudge,
+            validate: (value) => (isInstructionsJudge ? validateInstructions(value, scope) : true),
           }}
           render={({ field, fieldState }) => {
             const textArea = (
@@ -339,11 +379,23 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
                 id="mlflow-experiment-scorers-instructions"
                 readOnly={isReadOnly}
                 rows={7}
-                placeholder={intl.formatMessage({
-                  defaultMessage:
-                    "Evaluate if the response in '{{ outputs }}' correctly answers the question in '{{ inputs }}'. The response should be accurate, complete, and professional.",
-                  description: 'Example placeholder text for instructions textarea',
-                })}
+                placeholder={
+                  isSessionLevelScorer
+                    ? intl.formatMessage(
+                        {
+                          defaultMessage: `Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.`,
+                          description: 'Placeholder text for session level instructions textarea. {br} is a newline.',
+                        },
+                        {
+                          br: '\n',
+                        },
+                      )
+                    : intl.formatMessage({
+                        defaultMessage:
+                          "Evaluate if the response in '{{ outputs }}' correctly answers the question in '{{ inputs }}'. The response should be accurate, complete, and professional.",
+                        description: 'Example placeholder text for instructions textarea',
+                      })
+                }
                 css={{ resize: 'vertical', cursor: isReadOnly ? 'auto' : 'text' }}
                 onClick={stopPropagationClick}
               />
@@ -366,7 +418,9 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
                 ) : (
                   textArea
                 )}
-                {fieldState.error && <FormUI.Message type="error" message={fieldState.error.message} />}
+                {fieldState.error && fieldState.error.type !== 'required' && (
+                  <FormUI.Message type="error" message={fieldState.error.message} />
+                )}
               </>
             );
           }}
@@ -399,7 +453,7 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control, se
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
-      <FormUI.Label htmlFor="mlflow-experiment-scorers-guidelines" aria-required>
+      <FormUI.Label htmlFor="mlflow-experiment-scorers-guidelines" required>
         <FormattedMessage defaultMessage="Guidelines" description="Section header for scorer guidelines" />
       </FormUI.Label>
       <FormUI.Hint>
@@ -445,57 +499,6 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control, se
   );
 };
 
-interface ModelSectionProps {
-  mode: ScorerFormMode;
-  control: Control<LLMScorerFormData>;
-}
-
-const ModelSection: React.FC<ModelSectionProps> = ({ mode, control }) => {
-  const stopPropagationClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-  };
-
-  return (
-    <div css={{ display: 'flex', flexDirection: 'column' }}>
-      <FormUI.Label htmlFor="mlflow-experiment-scorers-model">
-        <FormattedMessage defaultMessage="Model" description="Section header for model input" />
-      </FormUI.Label>
-      <FormUI.Hint>
-        <FormattedMessage
-          defaultMessage="Specify the model for LLM evaluation. Defaults to openai:/gpt-4o-mini if not set. {learnMore}"
-          description="Hint text for model input with documentation link"
-          values={{
-            learnMore: (
-              <Typography.Link
-                componentId={`${COMPONENT_ID_PREFIX}.model-learn-more-link`}
-                href="https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/#supported-models"
-                openInNewTab
-              >
-                <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
-              </Typography.Link>
-            ),
-          }}
-        />
-      </FormUI.Hint>
-      <Controller
-        name="model"
-        control={control}
-        render={({ field }) => (
-          <Input
-            {...field}
-            componentId={`${COMPONENT_ID_PREFIX}.model-input`}
-            id="mlflow-experiment-scorers-model"
-            disabled={mode === SCORER_FORM_MODE.DISPLAY}
-            placeholder={mode === SCORER_FORM_MODE.DISPLAY ? '' : 'openai:/gpt-4o-mini'}
-            css={{ cursor: mode === SCORER_FORM_MODE.DISPLAY ? 'auto' : 'text' }}
-            onClick={stopPropagationClick}
-          />
-        )}
-      />
-    </div>
-  );
-};
-
 const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, control, setValue, getValues }) => {
   const { theme } = useDesignSystemTheme();
   const selectedTemplate = useWatch({ control, name: 'llmTemplate' });
@@ -520,7 +523,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
       <NameSection mode={mode} control={control} />
       <GuidelinesSection mode={mode} control={control} selectedTemplate={selectedTemplate} />
       <InstructionsSection mode={mode} control={control} setValue={setValue} getValues={getValues} />
-      <ModelSection mode={mode} control={control} />
+      <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />
       <EvaluateTracesSectionRenderer control={control} mode={mode} />
     </div>
   );

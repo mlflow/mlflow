@@ -369,6 +369,24 @@ class AbstractStore(GatewayStoreMixin):
         # TODO: ensure NotImplementedError can be translated to 501 error code in mlflow server
         raise MlflowNotImplementedException()
 
+    def batch_get_trace_infos(
+        self, trace_ids: list[str], location: str | None = None
+    ) -> list[TraceInfo]:
+        """
+        Get trace metadata (TraceInfo) for given trace IDs without loading spans.
+
+        This is more efficient than batch_get_traces when only metadata is needed,
+        as it avoids loading potentially large span data.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+            location: Location of the trace. For example, "catalog.schema" for UC schema.
+
+        Returns:
+            List of TraceInfo objects containing only metadata (no spans).
+        """
+        raise MlflowNotImplementedException()
+
     def get_online_trace_details(
         self,
         trace_id: str,

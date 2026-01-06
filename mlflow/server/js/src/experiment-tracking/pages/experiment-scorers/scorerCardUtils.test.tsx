@@ -2,6 +2,7 @@ import { describe, it, expect } from '@jest/globals';
 import { getFormValuesFromScorer } from './scorerCardUtils';
 import type { LLMScorer, CustomCodeScorer } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP } from './prompts';
+import { ScorerEvaluationScope } from './constants';
 
 describe('scorerCardUtils', () => {
   describe('getFormValuesFromScorer', () => {
@@ -33,6 +34,7 @@ describe('scorerCardUtils', () => {
           model: '',
           disableMonitoring: undefined,
           isInstructionsJudge: undefined,
+          evaluationScope: ScorerEvaluationScope.TRACES,
         });
       });
 
@@ -62,6 +64,7 @@ describe('scorerCardUtils', () => {
           instructions: '',
           filterString: 'model_name == "gpt-4"',
           model: '',
+          evaluationScope: ScorerEvaluationScope.TRACES,
         });
       });
 
@@ -86,6 +89,7 @@ describe('scorerCardUtils', () => {
           instructions: '',
           filterString: '',
           model: '',
+          evaluationScope: ScorerEvaluationScope.TRACES,
         });
       });
 
@@ -113,6 +117,7 @@ describe('scorerCardUtils', () => {
           instructions: '',
           filterString: '',
           model: '',
+          evaluationScope: ScorerEvaluationScope.TRACES,
         });
       });
     });

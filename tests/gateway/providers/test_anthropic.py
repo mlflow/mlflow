@@ -111,7 +111,6 @@ async def test_completions_with_default_max_tokens():
             "https://api.anthropic.com/v1/complete",
             json={
                 "model": "claude-instant-1",
-                "temperature": 0.0,
                 "max_tokens_to_sample": 8192,
                 "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             },

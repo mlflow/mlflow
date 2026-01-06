@@ -98,7 +98,6 @@ async def test_completions():
             json={
                 "inputs": "This is a test",
                 "parameters": {
-                    "temperature": 0.001,
                     "max_new_tokens": 1000,
                     "details": True,
                     "decoder_input_details": True,
