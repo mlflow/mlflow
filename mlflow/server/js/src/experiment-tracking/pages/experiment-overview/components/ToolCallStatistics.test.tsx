@@ -177,7 +177,7 @@ describe('ToolCallStatistics', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText('5.0K')).toBeInTheDocument();
+        expect(screen.getByText('5.00K')).toBeInTheDocument();
       });
     });
 
