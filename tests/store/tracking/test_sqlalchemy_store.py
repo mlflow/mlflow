@@ -10837,7 +10837,7 @@ def test_update_online_scoring_config_validates_filter_string(store: SqlAlchemyS
     )
     assert config.filter_string == "status = 'OK'"
 
-    with pytest.raises(MlflowException, match="Invalid"):
+    with pytest.raises(MlflowException, match="Invalid filter"):
         store.update_online_scoring_config(
             experiment_id=experiment_id,
             scorer_name="test_scorer",
