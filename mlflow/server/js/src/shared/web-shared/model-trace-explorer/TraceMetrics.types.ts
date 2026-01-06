@@ -130,14 +130,12 @@ export enum AssessmentDimensionKey {
  * Keys for metrics on spans view type.
  * Based on mlflow/tracing/constant.py SpanMetricKey
  */
-export const SpanMetricKey = {
+export enum SpanMetricKey {
   /** Count of spans */
-  SPAN_COUNT: 'span_count',
+  SPAN_COUNT = 'span_count',
   /** Span latency in milliseconds */
-  LATENCY: 'latency',
-} as const;
-
-export type SpanMetricKeyType = typeof SpanMetricKey[keyof typeof SpanMetricKey];
+  LATENCY = 'latency',
+}
 
 /**
  * View type prefix for span-level filter expressions.
@@ -149,45 +147,45 @@ export const SPAN_FILTER_VIEW_TYPE = 'span';
  * Search key fields for span metrics filter expressions.
  * Based on mlflow/tracing/constant.py SpanMetricSearchKey
  */
-export const SpanFilterKey = {
+export enum SpanFilterKey {
   /** Span name field */
-  NAME: 'name',
+  NAME = 'name',
   /** Span status field (OK, ERROR) */
-  STATUS: 'status',
+  STATUS = 'status',
   /** Span type field (LLM, TOOL, AGENT, etc.) */
-  TYPE: 'type',
-} as const;
+  TYPE = 'type',
+}
 
 /**
  * Span type values for filter expressions.
  * Based on mlflow/entities/span.py SpanType
  */
-export const SpanType = {
-  LLM: 'LLM',
-  CHAIN: 'CHAIN',
-  AGENT: 'AGENT',
-  TOOL: 'TOOL',
-  CHAT_MODEL: 'CHAT_MODEL',
-  RETRIEVER: 'RETRIEVER',
-  PARSER: 'PARSER',
-  EMBEDDING: 'EMBEDDING',
-  RERANKER: 'RERANKER',
-  MEMORY: 'MEMORY',
-  UNKNOWN: 'UNKNOWN',
-  WORKFLOW: 'WORKFLOW',
-  TASK: 'TASK',
-  GUARDRAIL: 'GUARDRAIL',
-  EVALUATOR: 'EVALUATOR',
-} as const;
+export enum SpanType {
+  LLM = 'LLM',
+  CHAIN = 'CHAIN',
+  AGENT = 'AGENT',
+  TOOL = 'TOOL',
+  CHAT_MODEL = 'CHAT_MODEL',
+  RETRIEVER = 'RETRIEVER',
+  PARSER = 'PARSER',
+  EMBEDDING = 'EMBEDDING',
+  RERANKER = 'RERANKER',
+  MEMORY = 'MEMORY',
+  UNKNOWN = 'UNKNOWN',
+  WORKFLOW = 'WORKFLOW',
+  TASK = 'TASK',
+  GUARDRAIL = 'GUARDRAIL',
+  EVALUATOR = 'EVALUATOR',
+}
 
 /**
  * Span status values for filter expressions.
  */
-export const SpanStatus = {
-  OK: 'OK',
-  ERROR: 'ERROR',
-  UNSET: 'UNSET',
-} as const;
+export enum SpanStatus {
+  OK = 'OK',
+  ERROR = 'ERROR',
+  UNSET = 'UNSET',
+}
 
 /**
  * Creates a span filter expression string.
@@ -195,21 +193,21 @@ export const SpanStatus = {
  * @param value - The value to match (e.g., SpanType.TOOL)
  * @returns Filter expression string (e.g., 'span.type = "TOOL"')
  */
-export const createSpanFilter = (field: string, value: string): string =>
+export const createSpanFilter = (field: SpanFilterKey, value: string): string =>
   `${SPAN_FILTER_VIEW_TYPE}.${field} = "${value}"`;
 
 /**
  * Dimension keys for span metrics.
  * Based on mlflow/tracing/constant.py SpanMetricDimensionKey
  */
-export const SpanDimensionKey = {
+export enum SpanDimensionKey {
   /** Span name dimension */
-  SPAN_NAME: 'span_name',
+  SPAN_NAME = 'span_name',
   /** Span type dimension */
-  SPAN_TYPE: 'span_type',
+  SPAN_TYPE = 'span_type',
   /** Span status dimension */
-  SPAN_STATUS: 'span_status',
-} as const;
+  SPAN_STATUS = 'span_status',
+}
 
 /**
  * The level at which to aggregate metrics.
