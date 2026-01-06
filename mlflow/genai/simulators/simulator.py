@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable
@@ -137,7 +138,10 @@ def _invoke_model(
     if inference_params:
         kwargs.update(inference_params)
 
-    response = litellm.completion(**kwargs)
+    # Suppress Pydantic serialization warnings from litellm's response objects
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
+        response = litellm.completion(**kwargs)
     return response.choices[0].message.content
 
 
@@ -235,29 +239,55 @@ class ConversationSimulator:
     Each conversation is traced in MLflow, allowing you to evaluate how your agent handles
     various user goals and personas.
 
+    The predict function passed to the simulator must follow the OpenAI Responses API format
+    (https://platform.openai.com/docs/api-reference/responses):
+
+    - It must accept an ``input`` parameter containing the conversation history
+      as a list of message dictionaries (e.g., ``[{"role": "user", "content": "..."}]``)
+    - It may accept additional keyword arguments from the test case's ``context`` field
+    - It should return a response (the assistant's message content will be extracted)
+
     Args:
         test_cases: List of test case dictionaries or DataFrame. Each test case must have a
             "goal" field describing what the simulated user wants to achieve. Optional fields:
+
             - "persona": Custom persona for the simulated user
             - "context": Dict of additional kwargs to pass to predict_fn
+
         max_turns: Maximum number of conversation turns before stopping. Default is 10.
         user_model: {{ user_model }}
         **user_llm_params: Additional parameters passed to the simulated user's LLM calls.
 
     Example:
         .. code-block:: python
+
+            import mlflow
             from mlflow.genai.simulators import ConversationSimulator
+            from mlflow.genai.scorers import Safety
+
+
+            def predict_fn(input: list[dict], **kwargs) -> dict:
+                # input is the conversation history
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=input,
+                )
+                return response
+
 
             simulator = ConversationSimulator(
                 test_cases=[
-                    {"goal": "Learn about MLflow tracking", "persona": "A beginner data scientist"},
-                    {
-                        "goal": "Debug a model deployment issue",
-                        "persona": "An experienced ML engineer",
-                    },
+                    {"goal": "Learn about MLflow tracking", "persona": "A beginner"},
+                    {"goal": "Debug deployment issue", "context": {"user_id": "123"}},
                 ],
                 max_turns=5,
-                user_model="openai:/gpt-4o-mini",
+            )
+
+            # Use with mlflow.genai.evaluate
+            mlflow.genai.evaluate(
+                data=simulator,
+                predict_fn=predict_fn,
+                scorers=[Safety()],
             )
     """
 
