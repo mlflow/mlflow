@@ -404,7 +404,7 @@ def run_online_scoring_scheduler() -> None:
 
     scorers_by_experiment: dict[str, list[OnlineScorer]] = defaultdict(list)
     for scorer in online_scorers:
-        scorers_by_experiment[scorer.experiment_id].append(scorer)
+        scorers_by_experiment[scorer.online_config.experiment_id].append(scorer)
 
     # Shuffle configs randomly to prevent scorer starvation when there are
     # limited job runners available
