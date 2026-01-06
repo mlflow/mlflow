@@ -25,7 +25,7 @@ _SHOWN_TRACE_MESSAGE_BEFORE = False
 
 
 @contextlib.contextmanager
-# @autologging_conf_lock
+@autologging_conf_lock
 def configure_autologging_for_evaluation(enable_tracing: bool = True):
     """
     Temporarily override the autologging configuration for all flavors during the model evaluation.
@@ -42,11 +42,7 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
     # autologging, therefore, we snapshot the current configuration to restore it later.
     global_config_snapshot = AUTOLOGGING_INTEGRATIONS.copy()
 
-    print(
-        f"[DEBUG] configure_autologging: Starting flavor iteration, total flavors: {len(FLAVOR_TO_MODULE_NAME)}"
-    )
     for flavor in FLAVOR_TO_MODULE_NAME:
-        print(f"[DEBUG] configure_autologging: Processing flavor: {flavor}")
         if not is_autolog_supported(flavor):
             continue
 
@@ -91,22 +87,15 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
 
         module = FLAVOR_TO_MODULE_NAME[flavor]
         try:
-            print(f"[DEBUG] configure_autologging: Registering hooks for module: {module}")
             original_import_hooks[module] = get_post_import_hooks(module)
             new_import_hooks[module] = _setup_autolog
             register_post_import_hook(_setup_autolog, module, overwrite=True)
-            print(
-                f"[DEBUG] configure_autologging: Successfully registered hooks for module: {module}"
-            )
         except Exception:
             _logger.debug(f"Failed to register post-import hook for {flavor}.", exc_info=True)
 
-    print("[DEBUG] configure_autologging: Finished flavor iteration, about to yield")
     try:
         yield
-        print("[DEBUG] configure_autologging: Yielded back from context manager")
     finally:
-        print("[DEBUG] configure_autologging: Entering finally block")
         # Remove post-import hooks and patches the are registered during the evaluation.
         for module, hooks in new_import_hooks.items():
             # Restore original post-import hooks if any. Note that we don't use

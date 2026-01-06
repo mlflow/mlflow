@@ -226,7 +226,8 @@ def optimize_prompts(
 def _build_eval_fn(
     predict_fn: Callable[..., Any],
     metric_fn: Callable[
-        [dict[str, Any], dict[str, Any], dict[str, Any], Trace | None], tuple[float, dict[str, str]]
+        [dict[str, Any], dict[str, Any], dict[str, Any], Trace | None],
+        tuple[float, dict[str, str]],
     ],
 ) -> Callable[[dict[str, str], list[dict[str, Any]]], list[EvaluationResultRecord]]:
     """
@@ -265,18 +266,23 @@ def _build_eval_fn(
             eval_request_id = str(uuid.uuid4())
             # set prediction context to retrieve the trace by the request id,
             # and set is_evaluate to True to disable async trace logging
-            with set_prediction_context(Context(request_id=eval_request_id, is_evaluate=True)):
+            with set_prediction_context(
+                Context(request_id=eval_request_id, is_evaluate=True)
+            ):
                 try:
-                    print(f"GEEZ inputs IN _run_single: {inputs}")
                     program_outputs = predict_fn(inputs)
-                    print(f"program_outputs: {program_outputs}")
                 except Exception as e:
-                    program_outputs = f"Failed to invoke the predict_fn with {inputs}: {e}"
+                    program_outputs = (
+                        f"Failed to invoke the predict_fn with {inputs}: {e}"
+                    )
 
             trace = mlflow.get_trace(eval_request_id, silent=True)
             # Use metric function created from scorers
             score, rationales = metric_fn(
-                inputs=inputs, outputs=program_outputs, expectations=expectations, trace=trace
+                inputs=inputs,
+                outputs=program_outputs,
+                expectations=expectations,
+                trace=trace,
             )
             return EvaluationResultRecord(
                 inputs=inputs,

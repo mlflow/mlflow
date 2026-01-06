@@ -355,6 +355,10 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         initial_score = self._compute_aggregate_score(baseline_results)
         _logger.info(f"Baseline score: {initial_score:.4f}")
 
+        # Log baseline score at step 0 if tracking is enabled
+        if enable_tracking:
+            mlflow.log_metric("score", initial_score, step=0)
+
         best_prompts = target_prompts.copy()
         best_score = initial_score
         best_results = baseline_results
@@ -404,7 +408,9 @@ class MetaPromptOptimizer(BasePromptOptimizer):
 
                 # Log iteration metrics if tracking is enabled
                 if enable_tracking:
-                    mlflow.log_metric(f"iteration_{i + 1}_score", new_score, step=i + 1)
+                    mlflow.log_metric("score", new_score, step=i + 1)
+                    # Log intermediate prompts as artifacts
+                    self._log_prompts_as_artifact(improved_prompts, iteration=i + 1)
 
                 # Check if improved
                 if new_score > best_score:
@@ -416,7 +422,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
 
                     # Log improvement metric if tracking is enabled
                     if enable_tracking:
-                        mlflow.log_metric(f"iteration_{i + 1}_improvement", improvement, step=i + 1)
+                        mlflow.log_metric("improvement", improvement, step=i + 1)
                 else:
                     _logger.info("No improvement, keeping previous best")
 
@@ -484,6 +490,25 @@ class MetaPromptOptimizer(BasePromptOptimizer):
                 raise MlflowException(msg)
 
         return True
+
+    def _log_prompts_as_artifact(self, prompts: dict[str, str], iteration: int):
+        """
+        Log intermediate prompts as MLflow artifacts.
+
+        Args:
+            prompts: Dict mapping prompt_name -> template
+            iteration: Current iteration number
+        """
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for prompt_name, template in prompts.items():
+                # Create a filename that includes iteration and prompt name
+                filename = f"iteration_{iteration:02d}_{prompt_name}.txt"
+                filepath = f"{tmpdir}/{filename}"
+                with open(filepath, "w") as f:
+                    f.write(template)
+                mlflow.log_artifact(filepath, artifact_path="intermediate_prompts")
 
     def _sample_examples(
         self,
