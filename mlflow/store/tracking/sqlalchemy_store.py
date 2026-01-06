@@ -2549,8 +2549,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             List of OnlineScorer entities with name, experiment_id, serialized_scorer,
             sample_rate, and filter_string fields populated.
         """
-        from mlflow.genai.scorers.online.entities import OnlineScorer
-
         with self.ManagedSessionMaker() as session:
             # Subquery to get the max version for each scorer
             max_version_subquery = (
