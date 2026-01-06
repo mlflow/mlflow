@@ -41,13 +41,11 @@ class OnlineScorer:
     """
     Internal entity representing a serialized scorer and its online execution configuration.
 
-    This entity specifies how a scorer should be applied to traces in an online/real-time
-    manner, including which traces to score (via filter_string) and at what sampling rate.
-    The scorer itself is stored in serialized form for execution by the online scoring jobs.
+    This entity combines the scorer's executable form (name and serialized_scorer) with
+    its configuration (OnlineScoringConfig) that specifies how it should be applied to
+    traces in an online/real-time manner.
     """
 
     name: str
-    experiment_id: str
     serialized_scorer: str
-    sample_rate: float
-    filter_string: str | None = None
+    online_config: OnlineScoringConfig

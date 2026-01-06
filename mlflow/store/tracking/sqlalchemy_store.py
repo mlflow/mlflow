@@ -2598,10 +2598,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             return [
                 OnlineScorer(
                     name=scorer.scorer_name,
-                    experiment_id=str(config.experiment_id),
                     serialized_scorer=scorer_with_resolved_endpoint,
-                    sample_rate=config.sample_rate,
-                    filter_string=config.filter_string,
+                    online_config=config.to_mlflow_entity(),
                 )
                 for (config, scorer, version), scorer_with_resolved_endpoint in zip(
                     gateway_results, scorers_with_resolved_endpoint
