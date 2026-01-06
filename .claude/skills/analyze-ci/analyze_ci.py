@@ -131,10 +131,10 @@ class GitHubClient:
         async for run in self.paginate(f"/repos/{repo}/actions/runs", "workflow_runs", params):
             yield run
 
-    async def get_failed_jobs(self, repo: str, run_id: int) -> list[dict[str, Any]]:
+    async def get_jobs(self, repo: str, run_id: int) -> AsyncIterator[dict[str, Any]]:
         endpoint = f"/repos/{repo}/actions/runs/{run_id}/jobs"
-        jobs = [job async for job in self.paginate(endpoint, "jobs")]
-        return [job for job in jobs if job.get("conclusion") == "failure"]
+        async for job in self.paginate(endpoint, "jobs"):
+            yield job
 
     async def get_job_details(self, repo: str, job_id: int) -> dict[str, Any]:
         return await self.get(f"/repos/{repo}/actions/jobs/{job_id}")
@@ -256,8 +256,10 @@ async def get_failed_jobs_from_pr(client: GitHubClient, repo: str, pr_number: in
     failed_runs = [r async for r in runs if r.get("conclusion") == "failure"]
     log(f"Found {len(failed_runs)} failed workflow run(s)")
 
-    failed_jobs_tasks = [client.get_failed_jobs(repo, run["id"]) for run in failed_runs]
-    failed_jobs_results = await asyncio.gather(*failed_jobs_tasks)
+    async def failed_jobs(run_id: int) -> list[dict[str, Any]]:
+        return [j async for j in client.get_jobs(repo, run_id) if j.get("conclusion") == "failure"]
+
+    failed_jobs_results = await asyncio.gather(*[failed_jobs(run["id"]) for run in failed_runs])
 
     run_job_pairs = [
         (run, job) for run, jobs in zip(failed_runs, failed_jobs_results) for job in jobs
