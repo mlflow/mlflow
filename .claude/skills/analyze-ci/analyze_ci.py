@@ -236,10 +236,6 @@ def get_failed_step(job_details: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
-# ============================================================================
-# Analyze targets
-# ============================================================================
-
 PR_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/pull/(\d+)")
 JOB_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)/job/(\d+)")
 
@@ -285,21 +281,21 @@ async def get_failed_jobs_from_pr(
 
 
 async def resolve_urls(session: aiohttp.ClientSession, urls: list[str]) -> list[JobRun]:
-    targets: list[JobRun] = []
+    job_runs: list[JobRun] = []
 
     for url in urls:
         if match := JOB_URL_PATTERN.search(url):
-            targets.append(JobRun(match.group(1), int(match.group(2)), int(match.group(3))))
+            job_runs.append(JobRun(match.group(1), int(match.group(2)), int(match.group(3))))
         elif match := PR_URL_PATTERN.search(url):
             jobs = await get_failed_jobs_from_pr(session, match.group(1), int(match.group(2)))
-            targets.extend(jobs)
+            job_runs.extend(jobs)
         else:
             log(f"Error: Invalid URL: {url}")
             log("Expected PR URL (github.com/owner/repo/pull/123)")
             log("Or job URL (github.com/owner/repo/actions/runs/123/job/456)")
             sys.exit(1)
 
-    return targets
+    return job_runs
 
 
 async def fetch_single_job_logs(session: aiohttp.ClientSession, job: JobRun) -> JobLogs:
