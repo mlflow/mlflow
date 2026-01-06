@@ -755,6 +755,14 @@ const config: Config = {
               '/genai/governance/ai-gateway/usage',
             ],
           },
+          {
+            to: '/genai/governance/ai-gateway',
+            from: [
+              '/llms/deployments/uc_integration',
+              '/genai/governance/unity-catalog',
+              '/genai/governance/ai-gateway/integration',
+            ],
+          },
 
           // Traditional ML and Core MLflow Redirects
           {

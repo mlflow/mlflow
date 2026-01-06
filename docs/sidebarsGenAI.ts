@@ -622,7 +622,6 @@ const sidebarsGenAI: SidebarsConfig = {
       label: 'AI Gateway',
       className: 'sidebar-top-level-category',
       items: [
-        // TODO: Add redirects for paths that are no longer available in the new docs
         {
           type: 'category',
           label: 'YAML-based (Legacy)',
