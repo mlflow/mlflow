@@ -15,16 +15,16 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
 import {
-  ChartLoadingState,
-  ChartErrorState,
-  ChartEmptyState,
-  ChartHeader,
-  ChartContainer,
-  OverTimeLabel,
+  OverviewChartLoadingState,
+  OverviewChartErrorState,
+  OverviewChartEmptyState,
+  OverviewChartHeader,
+  OverviewChartContainer,
+  OverviewChartTimeLabel,
   useChartTooltipStyle,
   useChartXAxisProps,
   useChartLegendFormatter,
-} from './ChartCardWrapper';
+} from './OverviewChartComponents';
 import { formatTimestampForTraceMetrics } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
 
@@ -118,25 +118,25 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({
   const hasData = dataPoints.length > 0;
 
   if (isLoading) {
-    return <ChartLoadingState />;
+    return <OverviewChartLoadingState />;
   }
 
   if (error) {
-    return <ChartErrorState />;
+    return <OverviewChartErrorState />;
   }
 
   if (!hasData) {
     return (
-      <ChartContainer>
-        <ChartHeader icon={<WrenchIcon css={{ color: chartLineColor }} />} title={toolName} />
-        <ChartEmptyState />
-      </ChartContainer>
+      <OverviewChartContainer>
+        <OverviewChartHeader icon={<WrenchIcon css={{ color: chartLineColor }} />} title={toolName} />
+        <OverviewChartEmptyState />
+      </OverviewChartContainer>
     );
   }
 
   return (
-    <ChartContainer>
-      <ChartHeader
+    <OverviewChartContainer>
+      <OverviewChartHeader
         icon={<WrenchIcon css={{ color: chartLineColor }} />}
         title={toolName}
         value={`${overallErrorRate.toFixed(2)}%`}
@@ -145,7 +145,7 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({
         }
       />
 
-      <OverTimeLabel />
+      <OverviewChartTimeLabel />
 
       <div css={{ height: 200 }}>
         <ResponsiveContainer width="100%" height="100%">
@@ -169,6 +169,6 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({
           </LineChart>
         </ResponsiveContainer>
       </div>
-    </ChartContainer>
+    </OverviewChartContainer>
   );
 };
