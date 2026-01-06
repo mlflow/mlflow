@@ -431,6 +431,7 @@ def test_invoke_databricks_serving_endpoint_response_schema_fallback(mock_databr
         assert "response_format" not in captured_payloads[1]
         assert output.response == '{"result": 8, "rationale": "Good quality"}'
 
+
 def test_invoke_databricks_serving_endpoint_with_inference_params(mock_databricks_creds) -> None:
     captured_payload = None
 
