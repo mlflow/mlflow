@@ -21,9 +21,6 @@ uv run .claude/skills/analyze-ci/analyze_ci.py <pr_url>
 
 # Analyze specific job URLs directly
 uv run .claude/skills/analyze-ci/analyze_ci.py <job_url> [job_url ...]
-
-# Mix PR and job URLs
-uv run .claude/skills/analyze-ci/analyze_ci.py <pr_url> <job_url> ...
 ```
 
 Output: A concise failure summary with root cause, error messages, test names, and relevant log snippets.
@@ -35,6 +32,5 @@ Output: A concise failure summary with root cause, error messages, test names, a
 uv run .claude/skills/analyze-ci/analyze_ci.py https://github.com/mlflow/mlflow/pull/19601
 
 # Analyze specific job URLs directly
-uv run .claude/skills/analyze-ci/analyze_ci.py \
-  "https://github.com/mlflow/mlflow/actions/runs/12345/job/67890"
+uv run .claude/skills/analyze-ci/analyze_ci.py https://github.com/mlflow/mlflow/actions/runs/12345/job/67890
 ```

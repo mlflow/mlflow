@@ -2,9 +2,8 @@
 Fetch and analyze logs from failed GitHub Action jobs.
 
 Usage:
-    # Analyze CI failures (fetch logs and summarize with Claude)
-    uv run fetch_logs.py <pr_url>
-    uv run fetch_logs.py <job_url> [job_url ...]
+    uv run .claude/skills/analyze-ci/analyze_ci.py <pr_url>
+    uv run .claude/skills/analyze-ci/analyze_ci.py <job_url> [job_url ...]
 """
 # /// script
 # dependencies = [
@@ -215,7 +214,6 @@ def truncate_logs(logs: str, max_tokens: int = MAX_LOG_TOKENS) -> str:
 
 
 def get_failed_step(job_details: dict[str, Any]) -> dict[str, Any] | None:
-    """Get the first failed step from job details."""
     steps = job_details.get("steps", [])
     for step in steps:
         if step.get("conclusion") == "failure":
@@ -233,8 +231,6 @@ JOB_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)/job/
 
 @dataclass
 class JobRun:
-    """A GitHub Actions job to analyze."""
-
     repo: str
     run_id: int
     job_id: int
@@ -243,11 +239,16 @@ class JobRun:
     def job_url(self) -> str:
         return f"https://github.com/{self.repo}/actions/runs/{self.run_id}/job/{self.job_id}"
 
+    async def get_job_details(self, session: aiohttp.ClientSession) -> dict[str, Any]:
+        return await api_get(session, f"/repos/{self.repo}/actions/jobs/{self.job_id}")
+
+    async def get_run_details(self, session: aiohttp.ClientSession) -> dict[str, Any]:
+        return await api_get(session, f"/repos/{self.repo}/actions/runs/{self.run_id}")
+
 
 async def get_failed_jobs_from_pr(
     session: aiohttp.ClientSession, repo: str, pr_number: int
 ) -> list[JobRun]:
-    """Fetch failed job targets from a PR."""
     log(f"Fetching https://github.com/{repo}/pull/{pr_number}")
     pr_details = await get_pr_details(session, pr_number, repo)
     head_sha = pr_details["head"]["sha"]
@@ -269,7 +270,6 @@ async def get_failed_jobs_from_pr(
 
 
 async def resolve_urls(session: aiohttp.ClientSession, urls: list[str]) -> list[JobRun]:
-    """Resolve URLs into job targets."""
     targets: list[JobRun] = []
 
     for url in urls:
@@ -287,27 +287,11 @@ async def resolve_urls(session: aiohttp.ClientSession, urls: list[str]) -> list[
     return targets
 
 
-# ============================================================================
-# Helpers for fetching job logs
-# ============================================================================
-
-
-async def get_job_details(session: aiohttp.ClientSession, repo: str, job_id: int) -> dict[str, Any]:
-    return await api_get(session, f"/repos/{repo}/actions/jobs/{job_id}")
-
-
-async def get_run_details(session: aiohttp.ClientSession, repo: str, run_id: int) -> dict[str, Any]:
-    return await api_get(session, f"/repos/{repo}/actions/runs/{run_id}")
-
-
-async def fetch_single_job_logs(
-    session: aiohttp.ClientSession,
-    job: JobRun,
-) -> JobLogs:
+async def fetch_single_job_logs(session: aiohttp.ClientSession, job: JobRun) -> JobLogs:
     log(f"Fetching job {job.job_id} from {job.repo}")
 
-    job_details = await get_job_details(session, job.repo, job.job_id)
-    run_details = await get_run_details(session, job.repo, job.run_id)
+    job_details = await job.get_job_details(session)
+    run_details = await job.get_run_details(session)
 
     workflow_name = run_details.get("name", "Unknown workflow")
     job_name = job_details.get("name", "Unknown job")
@@ -335,10 +319,6 @@ async def fetch_single_job_logs(
     )
 
 
-# ============================================================================
-# Subcommand: analyze
-# ============================================================================
-
 ANALYZE_SYSTEM_PROMPT = """\
 You are a CI failure analyzer. Analyze the provided CI logs and produce a concise failure summary.
 
@@ -360,7 +340,6 @@ URL: <job_url>
 
 
 def format_single_job_for_analysis(job: JobLogs) -> str:
-    """Format a single job's logs for Claude analysis."""
     parts = [
         f"## {job.workflow_name} / {job.job_name}",
         f"URL: {job.job_url}",
@@ -374,7 +353,6 @@ def format_single_job_for_analysis(job: JobLogs) -> str:
 
 
 async def analyze_single_job(job: JobLogs) -> str:
-    """Analyze a single job's logs with Claude."""
     from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, TextBlock, query
 
     formatted_logs = format_single_job_for_analysis(job)
@@ -421,11 +399,6 @@ async def cmd_analyze_async(urls: list[str], github_token: str) -> None:
     log("Analyzing logs with Claude...")
     summary = await analyze_with_claude(results)
     print(summary)
-
-
-# ============================================================================
-# Main
-# ============================================================================
 
 
 def main():
