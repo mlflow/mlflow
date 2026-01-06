@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,7 +12,7 @@ from mlflow.genai.scorers.job import (
     run_online_session_scorer_job,
     run_online_trace_scorer_job,
 )
-from mlflow.genai.scorers.online.entities import OnlineScorer
+from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -21,10 +22,14 @@ pytestmark = pytest.mark.skipif(
 def make_online_scorer_dict(scorer, sample_rate: float = 1.0):
     return {
         "name": scorer.name,
-        "experiment_id": "exp1",
         "serialized_scorer": json.dumps(scorer.model_dump()),
-        "sample_rate": sample_rate,
-        "filter_string": None,
+        "online_config": {
+            "online_scoring_config_id": uuid.uuid4().hex,
+            "scorer_id": uuid.uuid4().hex,
+            "sample_rate": sample_rate,
+            "experiment_id": "exp1",
+            "filter_string": None,
+        },
     }
 
 
@@ -84,26 +89,42 @@ def test_scheduler_submits_jobs_via_submit_job():
         model="openai:/gpt-4",
     )
 
+    config1 = OnlineScoringConfig(
+        online_scoring_config_id=uuid.uuid4().hex,
+        scorer_id=uuid.uuid4().hex,
+        sample_rate=1.0,
+        experiment_id="exp1",
+        filter_string=None,
+    )
+    config2 = OnlineScoringConfig(
+        online_scoring_config_id=uuid.uuid4().hex,
+        scorer_id=uuid.uuid4().hex,
+        sample_rate=1.0,
+        experiment_id="exp1",
+        filter_string=None,
+    )
+    config3 = OnlineScoringConfig(
+        online_scoring_config_id=uuid.uuid4().hex,
+        scorer_id=uuid.uuid4().hex,
+        sample_rate=1.0,
+        experiment_id="exp1",
+        filter_string=None,
+    )
+
     mock_scorer1 = OnlineScorer(
         name="completeness",
-        experiment_id="exp1",
         serialized_scorer=json.dumps(trace_scorer.model_dump()),
-        sample_rate=1.0,
-        filter_string=None,
+        online_config=config1,
     )
     mock_scorer2 = OnlineScorer(
         name="relevance",
-        experiment_id="exp1",
         serialized_scorer=json.dumps(trace_scorer.model_dump()),
-        sample_rate=1.0,
-        filter_string=None,
+        online_config=config2,
     )
     mock_scorer3 = OnlineScorer(
         name="conversation_judge",
-        experiment_id="exp1",
         serialized_scorer=json.dumps(session_scorer.model_dump()),
-        sample_rate=1.0,
-        filter_string=None,
+        online_config=config3,
     )
 
     mock_tracking_store = MagicMock()
