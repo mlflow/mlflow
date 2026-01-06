@@ -83,7 +83,7 @@ async def api_get(
     session: aiohttp.ClientSession,
     endpoint: str,
     params: dict[str, Any] | None = None,
-) -> dict[str, Any] | list[Any]:
+) -> dict[str, Any]:
     url = f"{GITHUB_API_BASE}{endpoint}"
     async with session.get(url, params=params) as response:
         response.raise_for_status()
@@ -162,7 +162,7 @@ async def iter_job_logs(
     repo: str,
     started_at: str,
     completed_at: str,
-):
+) -> AsyncIterator[str]:
     """Yield log lines filtered by time range."""
     url = f"{GITHUB_API_BASE}/repos/{repo}/actions/jobs/{job_id}/logs"
     async with session.get(url, allow_redirects=True) as response:
@@ -308,6 +308,8 @@ async def fetch_single_job_logs(session: aiohttp.ClientSession, job: JobRun) -> 
     workflow_name = run_details.get("name", "Unknown workflow")
     job_name = job_details.get("name", "Unknown job")
     failed_step = get_failed_step(job_details)
+    if not failed_step:
+        raise ValueError(f"No failed step found for job {job.job_id}")
 
     log(f"Fetching logs for '{workflow_name} / {job_name}'")
     cleaned_logs = await compact_logs(
@@ -437,7 +439,7 @@ async def cmd_analyze_async(urls: list[str], github_token: str, debug: bool = Fa
     print(summary)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Fetch and analyze logs from failed GitHub Action jobs"
     )
