@@ -6,6 +6,7 @@ import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
+import { Layers, ChartBar, Target } from "lucide-react";
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Building MLflow evaluation datasets
@@ -47,11 +48,11 @@ Follow these steps to use the UI to create a dataset from existing traces.
 1. In the table, click on the name of your experiment to open it.
 1. In the left sidebar, click **Traces**.
 
-<ImageBox src="/images/genai/traces-tab.png" alt="Traces tab in sidebar" />
+    <ImageBox src="/images/genai/traces-tab.png" alt="Traces tab in sidebar" />
 
 1. Use the checkboxes to the left of the trace list to select traces to export to your dataset. To select all traces, click the box next to **Trace ID**.
 
-   <video src={useBaseUrl("/images/genai/select-traces.mp4")} controls loop autoPlay muted aria-label="Selecting traces for eval dataset" />
+    <video src={useBaseUrl("/images/genai/select-traces.mp4")} controls loop autoPlay muted aria-label="Selecting traces for eval dataset" />
 
 1. Click **Actions**. From the drop-down menu, select **Add to evaluation dataset**.
 1. The **Add traces to evaluation dataset** dialog appears.
@@ -75,20 +76,20 @@ Follow these steps to use the SDK to create a dataset.
 ### Step 1. Create the dataset
 
 ```python
-import mlflow
-import mlflow.genai.datasets
+from mlflow.genai.datasets import create_dataset, set_dataset_tags
 
-# 1. Create an evaluation dataset
-evaluation_dataset_table_name = "email_generation_eval"
-
-eval_dataset = mlflow.genai.datasets.create_dataset(evaluation_dataset_table_name)
-print(f"Created evaluation dataset: {evaluation_dataset_table_name}")
+# Create your evaluation dataset
+dataset = create_dataset(
+    name="production_validation_set",
+    experiment_id=["0"],  # "0" is the default experiment
+    tags={"team": "ml-platform", "stage": "validation"},
+)
 
 # Optionally, add additional tags to your dataset.
 # Tags can be used to search for datasets with search_datasets API
-mlflow.genai.datasets.set_dataset_tags(
-    dataset_id=eval_dataset.dataset_id,
-    tags={"environment": "production", "validation_version": "1.3"},
+set_dataset_tags(
+    dataset_id=dataset.dataset_id,
+    tags={"environment": "dev", "validation_version": "1.3"},
 )
 ```
 
@@ -109,7 +110,7 @@ import mlflow
 
 # 2. Search for traces
 traces = mlflow.search_traces(
-    filter_string="attributes.status = 'OK' AND tags.environment = 'production'",
+    filter_string="attributes.name = 'chat_completion' AND tags.environment = 'production'",
     order_by=["attributes.timestamp_ms DESC"],
     max_results=10,
 )
@@ -187,28 +188,95 @@ Once you've identified representative traces, add them to your dataset using the
 
 </TabItem>
 
-<TabItem value="build-from-scratch" label="Build from scratch or import existing">
+<TabItem value="from-dicts" label="From Dictionaries">
 
-You can import an existing dataset or curate examples from scratch. Your data must match (or be transformed to match) the [evaluation dataset schema](/genai/datasets/sdk-guide#evaluation-dataset-schema).
+You can curate examples from scratch. Your data must match (or be transformed to match) the [evaluation dataset schema](/genai/concepts/evaluation-datasets#record-structure).
 
 ```python
-# Define comprehensive test cases
-evaluation_examples = [
+import mlflow
+
+# Define test cases with expected outputs (ground truth)
+test_cases = [
     {
-        "inputs": {"question": "What is MLflow?"},
-        "expected": {
-            "expected_response": "MLflow is an open source platform for managing the end-to-end machine learning lifecycle.",
-            "expected_facts": [
-                "open source platform",
-                "manages ML lifecycle",
-                "experiment tracking",
-                "model deployment",
-            ],
+        "inputs": {
+            "question": "How do I reset my password?",
+            "context": "user_support",
+        },
+        "expectations": {
+            "expected_answer": (
+                "To reset your password, click 'Forgot Password' on the login page, "
+                "enter your email, and follow the link sent to your inbox"
+            ),
+            "must_contain_steps": True,
+            "expected_tone": "helpful",
+        },
+    },
+    {
+        "inputs": {
+            "question": "What are your refund policies?",
+            "context": "customer_service",
+        },
+        "expectations": {
+            "expected_answer": (
+                "We offer full refunds within 30 days of purchase. "
+                "Refunds after 30 days are subject to approval."
+            ),
+            "must_include_timeframe": True,
+            "must_mention_exceptions": True,
         },
     },
 ]
 
-eval_dataset = eval_dataset.merge_records(evaluation_examples)
+dataset.merge_records(test_cases)
+```
+
+</TabItem>
+
+<TabItem value="from-pandas" label="From DataFrame">
+
+You can curate examples from scratch. Your data must match (or be transformed to match) the [evaluation dataset schema](/genai/concepts/evaluation-datasets#record-structure).
+
+```python
+import pandas as pd
+
+# Create DataFrame with inputs and expectations (ground truth)
+df = pd.DataFrame(
+    [
+        {
+            "inputs": {
+                "question": "What is MLflow?",
+                "domain": "general",
+            },
+            "expectations": {
+                "expected_answer": "MLflow is an open-source platform for ML",
+                "must_mention": ["tracking", "experiments", "models"],
+            },
+        },
+        {
+            "inputs": {
+                "question": "How do I track experiments?",
+                "domain": "technical",
+            },
+            "expectations": {
+                "expected_answer": "Use mlflow.start_run() and mlflow.log_params()",
+                "must_mention": ["log_params", "log_metrics"],
+            },
+        },
+        {
+            "inputs": {
+                "question": "Explain model versioning",
+                "domain": "technical",
+            },
+            "expectations": {
+                "expected_answer": "Model Registry provides versioning",
+                "must_mention": ["Model Registry", "versions"],
+            },
+        },
+    ]
+)
+
+# Add records from DataFrame
+dataset.merge_records(df)
 ```
 
 </TabItem>
@@ -231,7 +299,7 @@ Use the UI to add records to an existing evaluation dataset.
    1. In the sidebar at left, click **Datasets**.
    1. Click on the name of the dataset in the list.
 
-<ImageBox src="images/genai/datasets-tab.png" alt="Datasets tab in sidebar" />
+        <ImageBox src="images/genai/datasets-tab.png" alt="Datasets tab in sidebar" />
 
 1. Click **Add record**. A new row appears with generic content.
 1. Edit the new row directly to enter the input and expectations for the new record. Optionally, set any tags for the new record.
@@ -275,10 +343,37 @@ dataset = dataset.merge_records(new_cases)
 - Maximum of 2000 rows per evaluation dataset.
 - Maximum of 20 expectations per dataset record.
 
-<!--
-## Next steps
 
-- [Evaluate your app](/mlflow3/genai/eval-monitor/evaluate-app.md) - Use your newly created dataset for evaluation
-- [Create custom judges](/mlflow3/genai/eval-monitor/custom-judge/create-custom-judge.md) - Build custom LLM judges to evaluate your application outputs
-- [Align judges with feedback](/mlflow3/genai/eval-monitor/align-judges.md) - Continuously improve your evaluations by aligning judges with expert feedback
-- [Query traces via SDK](/mlflow3/genai/tracing/observe-with-traces/query-via-sdk.md) - Advanced programmatic trace analysis for dataset selection -->
+## Next Steps
+
+Ready to improve your GenAI testing? Start with these resources:
+
+<TilesGrid>
+  <TileCard
+    icon={Layers}
+    iconSize={48}
+    title="Dataset Structure"
+    description="Understand how evaluation datasets organize test inputs, expectations, and metadata"
+    href="/genai/concepts/evaluation-datasets"
+    linkText="Learn the concepts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Target}
+    iconSize={48}
+    title="Setting Expectations"
+    description="Learn how to define ground truth and expected outputs for your AI system"
+    href="/genai/assessments/expectations"
+    linkText="Define expectations →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={ChartBar}
+    iconSize={48}
+    title="Evaluation Framework"
+    description="Run systematic evaluations using your datasets with automated scorers"
+    href="/genai/eval-monitor"
+    linkText="Learn evaluation →"
+    containerHeight={64}
+  />
+</TilesGrid>
