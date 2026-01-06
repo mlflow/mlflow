@@ -267,7 +267,9 @@ def _build_eval_fn(
             # and set is_evaluate to True to disable async trace logging
             with set_prediction_context(Context(request_id=eval_request_id, is_evaluate=True)):
                 try:
+                    print(f"GEEZ inputs IN _run_single: {inputs}")
                     program_outputs = predict_fn(inputs)
+                    print(f"program_outputs: {program_outputs}")
                 except Exception as e:
                     program_outputs = f"Failed to invoke the predict_fn with {inputs}: {e}"
 
