@@ -105,7 +105,7 @@ class GitHubClient:
         per_page: int = 100,
     ) -> AsyncIterator[dict[str, Any]]:
         page = 1
-        params = {**(params or {}), "per_page": per_page}
+        params = (params or {}) | {"per_page": per_page}
 
         while True:
             params["page"] = page
