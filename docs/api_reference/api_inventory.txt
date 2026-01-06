@@ -107,6 +107,7 @@ mlflow.client.MlflowClient.log_model_artifacts
 mlflow.client.MlflowClient.log_model_params
 mlflow.client.MlflowClient.log_outputs
 mlflow.client.MlflowClient.log_param
+mlflow.client.MlflowClient.log_stream
 mlflow.client.MlflowClient.log_table
 mlflow.client.MlflowClient.log_text
 mlflow.client.MlflowClient.parse_prompt_uri
@@ -1187,6 +1188,7 @@ mlflow.log_model_params
 mlflow.log_outputs
 mlflow.log_param
 mlflow.log_params
+mlflow.log_stream
 mlflow.log_table
 mlflow.log_text
 mlflow.log_trace
