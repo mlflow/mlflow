@@ -32,7 +32,6 @@ import tiktoken
 
 GITHUB_API_BASE = "https://api.github.com"
 MAX_LOG_TOKENS = 100_000
-tokenizer = tiktoken.encoding_for_model("gpt-4o")
 
 
 @dataclass
@@ -212,14 +211,15 @@ async def compact_logs(lines: AsyncIterator[str]) -> str:
     return logs
 
 
-def truncate_logs(logs: str, max_tokens: int = MAX_LOG_TOKENS) -> tuple[str, bool]:
+def truncate_logs(logs: str, max_tokens: int = MAX_LOG_TOKENS) -> str:
     """Truncate logs to fit within token limit, keeping the end (where errors are)."""
+    tokenizer = tiktoken.get_encoding("p50k_base")
     tokens = tokenizer.encode(logs)
     if len(tokens) <= max_tokens:
-        return logs, False
+        return logs
     log(f"Truncating logs from {len(tokens):,} to {max_tokens:,} tokens")
     truncated = tokenizer.decode(tokens[-max_tokens:])
-    return f"(showing last {max_tokens:,} tokens)\n{truncated}", True
+    return f"(showing last {max_tokens:,} tokens)\n{truncated}"
 
 
 def get_failed_step(job_details: dict[str, Any]) -> dict[str, Any] | None:
@@ -330,7 +330,7 @@ async def fetch_single_job_logs(
             completed_at=failed_step["completed_at"],
         )
     )
-    truncated_logs, _ = truncate_logs(cleaned_logs)
+    truncated_logs = truncate_logs(cleaned_logs)
     failed_step_name = failed_step.get("name")
 
     return JobLogs(
