@@ -415,6 +415,13 @@ export const ExperimentViewRunsTable = React.memo(
                 onGridSizeChanged={({ api }) => gridSizeHandler(api)}
                 onCellMouseOver={cellMouseOverHandler}
                 onCellMouseOut={cellMouseOutHandler}
+                maxBlocksInCache={20} // Increased from 10
+                cacheBlockSize={100}
+                maxConcurrentDatasourceRequests={2} // Increased from 1
+                immutableData // Added for better performance
+                getRowNodeId={(data) => data.rowUuid} // Added for better row identification
+                suppressPropertyNamesCheck // Added to reduce overhead
+                suppressAnimationFrame // Added to reduce rendering overhead
               />
             </ExperimentViewRunsTableHeaderContextProvider>
             {displayAddColumnsCTA && (

@@ -23,7 +23,6 @@ export const useDeleteTracesMutation = () => {
         chunks.push(traceRequestIds.slice(i, i + 100));
       }
 
-
       // Make parallel calls for each chunk
       const deletePromises = chunks.map((chunk) => MlflowService.deleteTracesV3(experimentId, chunk));
 

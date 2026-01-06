@@ -378,6 +378,8 @@ export const RunViewOverview = ({
         </>
       )}
       {!usingSidebarLayout && <Spacer />}
+      {/* Add a spacer so the page doesn't jump when searching params / metrics */}
+      <div css={{ height: 500 }} />
     </DetailsPageLayout>
   );
 };

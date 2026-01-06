@@ -100,7 +100,7 @@ export const PromptsListTable = ({
     columns,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row, index) => row.name ?? index.toString(),
-    meta: { onEditTags } satisfies PromptsTableMetadata,
+    meta: { onEditTags, experimentId } satisfies PromptsTableMetadata,
   });
 
   const getEmptyState = () => {
