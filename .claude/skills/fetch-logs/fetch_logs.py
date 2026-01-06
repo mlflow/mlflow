@@ -96,8 +96,7 @@ async def get_workflow_runs(
     repo: str,
     head_sha: str,
     status: str = "completed",
-) -> list[dict[str, Any]]:
-    all_runs: list[dict[str, Any]] = []
+) -> AsyncIterator[dict[str, Any]]:
     page = 1
     per_page = 100
 
@@ -113,13 +112,12 @@ async def get_workflow_runs(
         if not runs:
             break
 
-        all_runs.extend(runs)
+        for run in runs:
+            yield run
         page += 1
 
         if len(runs) < per_page:
             break
-
-    return all_runs
 
 
 async def get_failed_jobs(
@@ -213,6 +211,8 @@ async def compact_logs(lines: AsyncIterator[str]) -> str:
 
 def truncate_logs(logs: str, max_tokens: int = MAX_LOG_TOKENS) -> str:
     """Truncate logs to fit within token limit, keeping the end (where errors are)."""
+    # Note: tiktoken token count is an estimation and may differ slightly from
+    # the official token count API
     tokenizer = tiktoken.get_encoding("p50k_base")
     tokens = tokenizer.encode(logs)
     if len(tokens) <= max_tokens:
@@ -262,8 +262,8 @@ async def cmd_list_async(repo: str, pr_number: int, github_token: str) -> None:
         head_sha = pr_details["head"]["sha"]
         log(f"PR head SHA: {head_sha[:8]}")
 
-        runs = await get_workflow_runs(session, repo, head_sha)
-        failed_runs = [run for run in runs if run.get("conclusion") == "failure"]
+        runs = get_workflow_runs(session, repo, head_sha)
+        failed_runs = [r async for r in runs if r.get("conclusion") == "failure"]
         log(f"Found {len(failed_runs)} failed workflow run(s)")
 
         failed_jobs_tasks = [get_failed_jobs(session, run["id"], repo) for run in failed_runs]
