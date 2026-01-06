@@ -862,10 +862,6 @@
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
   },
-  "5Jg2dq": {
-    "defaultMessage": "Last 10 traces",
-    "description": "Option for last 10 traces"
-  },
   "5Mzn2b": {
     "defaultMessage": "Creator",
     "description": "Label name for creator metadata in model version page"
@@ -1173,6 +1169,10 @@
   "7KPJii": {
     "defaultMessage": "Tags",
     "description": "Label for the tags section"
+  },
+  "7MxBYq": {
+    "defaultMessage": "Traces",
+    "description": "Label for the traces mode on the registered prompt details page"
   },
   "7NKkk1": {
     "defaultMessage": "Save",
@@ -3661,10 +3661,6 @@
     "defaultMessage": "Last session",
     "description": "Option for last session"
   },
-  "SXKt8h": {
-    "defaultMessage": "Must be unique in this experiment. Cannot be changed after creation.",
-    "description": "Hint text for Name section"
-  },
   "SZj964": {
     "defaultMessage": "Copy S3 URI to clipboard",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
@@ -3680,6 +3676,10 @@
   "SbMdmm": {
     "defaultMessage": "{spanName} was called",
     "description": "Label for an intermediate node in the trace explorer summary view, indicating that a span/function was called in the course of execution."
+  },
+  "Sd7sQi": {
+    "defaultMessage": "Traces are only available for experiment-scoped prompts.",
+    "description": "Message when prompt is not experiment-scoped"
   },
   "Shv28w": {
     "defaultMessage": "Save",
@@ -4283,10 +4283,6 @@
     "defaultMessage": "Search metric charts",
     "description": "Run page > Charts tab > Filter metric charts input > placeholder"
   },
-  "XutL+P": {
-    "defaultMessage": "Last 5 traces",
-    "description": "Option for last 5 traces"
-  },
   "Xuz/xh": {
     "defaultMessage": "Models",
     "description": "Sidebar link for models tab"
@@ -4643,6 +4639,10 @@
     "defaultMessage": "Time (Relative)",
     "description": "Radio button option to choose the time relative control option for the X-axis for metric graph on the experiment runs"
   },
+  "aO2NFe": {
+    "defaultMessage": "No prompt version selected. Select a prompt version to view associated traces.",
+    "description": "Empty state message when no prompt version is selected"
+  },
   "aOW396": {
     "defaultMessage": "{timeSince, plural, =1 {1 hour} other {# hours}} ago",
     "description": "Text for time in hours since given date for MLflow views"
@@ -4990,10 +4990,6 @@
   "cy9EfG": {
     "defaultMessage": "Attributes",
     "description": "Experiment page > group by runs control > attributes section label"
-  },
-  "d+WXp2": {
-    "defaultMessage": "Last 5 sessions",
-    "description": "Option for last 5 sessions"
   },
   "d00egE": {
     "defaultMessage": "No span with type RETRIEVER found in trace.",
@@ -5815,10 +5811,6 @@
     "defaultMessage": "Please log at least one table artifact containing evaluation data. <link>Learn more</link>.",
     "description": "Experiment page > artifact compare view > empty state for no evaluation tables logged > subtitle"
   },
-  "j9F8Nt": {
-    "defaultMessage": "Last 10 sessions",
-    "description": "Option for last 10 sessions"
-  },
   "jA7Y1x": {
     "defaultMessage": "Edit API key",
     "description": "Gateway > API keys list > Edit API key button aria label"
@@ -6090,6 +6082,10 @@
   "lQ2nDn": {
     "defaultMessage": "This assessment is produced by a custom metric.",
     "description": "Custom judge assessment description"
+  },
+  "lRO4km": {
+    "defaultMessage": "Quality",
+    "description": "Label for the quality tab in the experiment overview page"
   },
   "lS7kq2": {
     "defaultMessage": "Parameters",
@@ -6710,6 +6706,10 @@
   "qNCHNh": {
     "defaultMessage": "Select model",
     "description": "Model selector modal title"
+  },
+  "qNaoD5": {
+    "defaultMessage": "Cannot be changed after creation.",
+    "description": "Hint text for Name section"
   },
   "qNtagt": {
     "defaultMessage": "Track and compare versions of your GenAI app",
