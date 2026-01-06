@@ -153,29 +153,20 @@ See `mlflow/server/js/` for frontend development.
 
 ### Committing Changes
 
-**IMPORTANT**: Before committing, run pre-commit hooks to ensure code quality. See the [Pre-commit Hooks](#pre-commit-hooks) section for setup and usage details.
+All commits MUST be signed with DCO (Developer Certificate of Origin) using the `-s` flag, otherwise CI will reject them. Run pre-commit hooks before committing (see [Pre-commit Hooks](#pre-commit-hooks)).
 
 ```bash
-# Commit with DCO sign-off
+# Commit with required DCO sign-off
 git commit -s -m "Your commit message"
 
-# Push your changes
-git push origin <your-branch>
-```
-
-**IMPORTANT**: You MUST sign all commits with DCO (Developer Certificate of Origin). Always use the `-s` flag. When Claude Code authors or co-authors changes, include the Co-Authored-By trailer:
-
-```bash
-# REQUIRED: Always use -s flag and include Co-Authored-By when Claude helped
+# If Claude Code helped, add Co-Authored-By trailer
 git commit -s -m "Your commit message
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
-# This will NOT work - missing -s flag
-# git commit -m "Your commit message"  ❌
+# Push your changes
+git push origin <your-branch>
 ```
-
-Commits without DCO sign-off will be rejected by CI.
 
 ### Creating Pull Requests
 
