@@ -21,6 +21,7 @@ class OnlineScoringConfig:
     online_scoring_config_id: str
     scorer_id: str
     sample_rate: float
+    experiment_id: str
     filter_string: str | None = None
 
     def to_dict(self) -> dict[str, str | float]:
@@ -28,6 +29,7 @@ class OnlineScoringConfig:
             "online_scoring_config_id": self.online_scoring_config_id,
             "scorer_id": self.scorer_id,
             "sample_rate": self.sample_rate,
+            "experiment_id": self.experiment_id,
         }
         if self.filter_string is not None:
             result["filter_string"] = self.filter_string

@@ -2012,6 +2012,12 @@ class SqlOnlineScoringConfig(Base):
     Sample rate for online scoring: `Float` (double precision).
     Value between 0 and 1 representing the fraction of traces to sample.
     """
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Experiment ID: `Integer`. *Foreign Key* into ``experiments`` table.
+    """
     filter_string = Column(Text, nullable=True)
     """
     Filter string for online scoring: `Text`. Optional filter expression to select traces.
@@ -2025,13 +2031,12 @@ class SqlOnlineScoringConfig(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("online_scoring_config_id", name="online_scoring_config_pk"),
-        UniqueConstraint("scorer_id", name="unique_online_scoring_config_scorer_id"),
     )
 
     def __repr__(self):
         return (
             f"<SqlOnlineScoringConfig ({self.online_scoring_config_id}, {self.scorer_id}, "
-            f"{self.sample_rate}, {self.filter_string})>"
+            f"{self.sample_rate}, {self.experiment_id}, {self.filter_string})>"
         )
 
     def to_mlflow_entity(self) -> OnlineScoringConfig:
@@ -2045,6 +2050,7 @@ class SqlOnlineScoringConfig(Base):
             online_scoring_config_id=self.online_scoring_config_id,
             scorer_id=self.scorer_id,
             sample_rate=self.sample_rate,
+            experiment_id=str(self.experiment_id),
             filter_string=self.filter_string,
         )
 
