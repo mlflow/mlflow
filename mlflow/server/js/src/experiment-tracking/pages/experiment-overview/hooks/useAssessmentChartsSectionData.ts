@@ -4,7 +4,7 @@ import {
   AggregationType,
   AssessmentMetricKey,
   AssessmentFilterKey,
-  AssessmentType,
+  AssessmentTypeValue,
   AssessmentDimensionKey,
   createAssessmentFilter,
 } from '@databricks/web-shared/model-trace-explorer';
@@ -37,7 +37,7 @@ export function useAssessmentChartsSectionData({
   endTimeMs,
 }: Pick<OverviewChartProps, 'experimentId' | 'startTimeMs' | 'endTimeMs'>): UseAssessmentChartsSectionDataResult {
   // Filter for feedback assessments only
-  const filters = useMemo(() => [createAssessmentFilter(AssessmentFilterKey.TYPE, AssessmentType.FEEDBACK)], []);
+  const filters = useMemo(() => [createAssessmentFilter(AssessmentFilterKey.TYPE, AssessmentTypeValue.FEEDBACK)], []);
 
   // Query assessments grouped by assessment_name to get the list and average values
   const { data, isLoading, error } = useTraceMetricsQuery({
