@@ -1,0 +1,48 @@
+on:
+  push:
+    branches:
+      - feature/infra
+
+    paths-ignore:
+      - "**/README.md"
+      - "terraform/**"
+      - "terragrunt/**"
+
+name: Uploading Image to dev
+
+jobs:
+  upload_to_ecr:
+    name: Deploy to dev
+    # if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_REGION: us-west-2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::${{secrets.AWS_ACC_ID_DEV}}:role/GitHubAction-AssumeRoleWithAction
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: nuodata-dev-mlflow-repo
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          aws ssm put-parameter --name nuodata-dev-mlflow-img-ver --value $IMAGE_TAG --type String --overwrite
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f nuodata/Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
