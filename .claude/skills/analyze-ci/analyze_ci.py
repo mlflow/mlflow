@@ -168,6 +168,7 @@ async def iter_job_logs(
     async with session.get(url, allow_redirects=True) as response:
         response.raise_for_status()
 
+        # ISO 8601 timestamps are lexicographically sortable, so we can compare as strings
         start_secs = to_seconds(started_at)
         end_secs = to_seconds(completed_at)
         in_range = False
