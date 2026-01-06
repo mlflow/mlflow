@@ -10738,20 +10738,21 @@ def test_get_online_scoring_configs_batch(store: SqlAlchemyStore):
     configs = store.get_online_scoring_configs(scorer_ids)
 
     assert len(configs) == 2
-    assert configs[config1.scorer_id].sample_rate == 0.1
-    assert configs[config1.scorer_id].filter_string == "status = 'OK'"
-    assert configs[config2.scorer_id].sample_rate == 0.5
-    assert configs[config2.scorer_id].filter_string is None
+    configs_by_id = {c.scorer_id: c for c in configs}
+    assert configs_by_id[config1.scorer_id].sample_rate == 0.1
+    assert configs_by_id[config1.scorer_id].filter_string == "status = 'OK'"
+    assert configs_by_id[config2.scorer_id].sample_rate == 0.5
+    assert configs_by_id[config2.scorer_id].filter_string is None
 
 
 def test_get_online_scoring_configs_empty_list(store: SqlAlchemyStore):
     configs = store.get_online_scoring_configs([])
-    assert configs == {}
+    assert configs == []
 
 
 def test_get_online_scoring_configs_nonexistent_ids(store: SqlAlchemyStore):
     configs = store.get_online_scoring_configs(["nonexistent_id_1", "nonexistent_id_2"])
-    assert configs == {}
+    assert configs == []
 
 
 def test_update_online_scoring_config_creates_config(store: SqlAlchemyStore):
@@ -10792,8 +10793,9 @@ def test_update_online_scoring_config_overwrites(store: SqlAlchemyStore):
 
     # Verify the config is persisted by fetching via get_online_scoring_configs
     configs = store.get_online_scoring_configs([new_config.scorer_id])
-    assert new_config.scorer_id in configs
-    assert configs[new_config.scorer_id].sample_rate == 0.5
+    assert len(configs) == 1
+    assert configs[0].scorer_id == new_config.scorer_id
+    assert configs[0].sample_rate == 0.5
 
 
 def test_update_online_scoring_config_rejects_non_gateway_model(store: SqlAlchemyStore):

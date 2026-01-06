@@ -1459,16 +1459,19 @@ class AbstractStore(GatewayStoreMixin):
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_online_scoring_configs(self, scorer_ids: list[str]) -> dict[str, "OnlineScoringConfig"]:
+    def get_online_scoring_configs(self, scorer_ids: list[str]) -> list["OnlineScoringConfig"]:
         """
         Get online scoring configurations for multiple scorers by their IDs.
+
+        A single scorer can have multiple configurations (e.g., running in different
+        experiments or with different filter strings).
 
         Args:
             scorer_ids: List of scorer IDs to fetch configurations for.
 
         Returns:
-            A dictionary mapping scorer_id to OnlineScoringConfig for scorers that
-            have configurations. Scorers without configurations are not included.
+            A list of OnlineScoringConfig objects for the specified scorers.
+            Scorers without configurations are not included.
         """
         raise NotImplementedError(self.__class__.__name__)
 

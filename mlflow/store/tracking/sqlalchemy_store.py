@@ -2428,19 +2428,22 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 for i, sv in enumerate(sql_scorer_versions)
             ]
 
-    def get_online_scoring_configs(self, scorer_ids: list[str]) -> dict[str, OnlineScoringConfig]:
+    def get_online_scoring_configs(self, scorer_ids: list[str]) -> list[OnlineScoringConfig]:
         """
         Get online scoring configurations for multiple scorers by their IDs.
+
+        A single scorer can have multiple configurations (e.g., running in different
+        experiments or with different filter strings).
 
         Args:
             scorer_ids: List of scorer IDs to fetch configurations for.
 
         Returns:
-            A dictionary mapping scorer_id to OnlineScoringConfig for scorers that
-            have configurations. Scorers without configurations are not included.
+            A list of OnlineScoringConfig objects for the specified scorers.
+            Scorers without configurations are not included.
         """
         if not scorer_ids:
-            return {}
+            return []
 
         with self.ManagedSessionMaker() as session:
             results = (
@@ -2449,7 +2452,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 .all()
             )
 
-            return {config.scorer_id: config.to_mlflow_entity() for config in results}
+            return [config.to_mlflow_entity() for config in results]
 
     def update_online_scoring_config(
         self,
