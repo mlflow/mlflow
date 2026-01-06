@@ -2031,7 +2031,7 @@ class SqlOnlineScoringConfig(Base):
     def __repr__(self):
         return (
             f"<SqlOnlineScoringConfig ({self.online_scoring_config_id}, {self.scorer_id}, "
-            f"{self.sample_rate})>"
+            f"{self.sample_rate}, {self.filter_string})>"
         )
 
     def to_mlflow_entity(self) -> OnlineScoringConfig:

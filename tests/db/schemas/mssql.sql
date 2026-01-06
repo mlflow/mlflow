@@ -438,7 +438,7 @@ CREATE TABLE online_scoring_configs (
 	online_scoring_config_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	scorer_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	sample_rate FLOAT NOT NULL,
-	filter_string VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	filter_string TEXT COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT online_scoring_config_pk PRIMARY KEY (online_scoring_config_id),
 	CONSTRAINT fk_online_scoring_configs_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
 )

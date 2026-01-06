@@ -24,7 +24,6 @@ class OnlineScoringConfig:
     filter_string: str | None = None
 
     def to_dict(self) -> dict[str, str | float]:
-        """Convert the entity to a dictionary for JSON serialization."""
         result: dict[str, str | float] = {
             "online_scoring_config_id": self.online_scoring_config_id,
             "scorer_id": self.scorer_id,
