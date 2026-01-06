@@ -1,9 +1,9 @@
-import React, { useMemo, useCallback } from 'react';
-import { useDesignSystemTheme } from '@databricks/design-system';
+import React from 'react';
 import { useToolCallChartsSectionData } from '../hooks/useToolCallChartsSectionData';
 import { OverviewChartLoadingState, OverviewChartErrorState } from './OverviewChartComponents';
 import { ChartGrid } from './OverviewLayoutComponents';
 import { LazyToolErrorRateChart } from './LazyToolErrorRateChart';
+import { useToolColors } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
 
 /**
@@ -16,7 +16,7 @@ export const ToolCallChartsSection: React.FC<OverviewChartProps> = ({
   timeIntervalSeconds,
   timeBuckets,
 }) => {
-  const { theme } = useDesignSystemTheme();
+  const { getToolColor } = useToolColors();
 
   // Fetch and process tool call data using the custom hook
   const { toolNames, errorRateByTool, isLoading, error, hasData } = useToolCallChartsSectionData({
@@ -24,24 +24,6 @@ export const ToolCallChartsSection: React.FC<OverviewChartProps> = ({
     startTimeMs,
     endTimeMs,
   });
-
-  // Color palette using design system colors
-  const toolColors = useMemo(
-    () => [
-      theme.colors.blue500,
-      theme.colors.green500,
-      theme.colors.red500,
-      theme.colors.yellow500,
-      theme.colors.blue300,
-      theme.colors.green300,
-      theme.colors.red300,
-      theme.colors.yellow300,
-    ],
-    [theme],
-  );
-
-  // Get a color for a tool based on its index
-  const getToolColor = useCallback((index: number): string => toolColors[index % toolColors.length], [toolColors]);
 
   if (isLoading) {
     return <OverviewChartLoadingState />;

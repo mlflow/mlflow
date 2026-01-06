@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React from 'react';
 import { ChartLineIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -14,7 +14,7 @@ import {
   useChartXAxisProps,
   useChartLegendFormatter,
 } from './OverviewChartComponents';
-import { formatCount, useLegendHighlight } from '../utils/chartUtils';
+import { formatCount, useLegendHighlight, useToolColors } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
 
 /**
@@ -27,27 +27,10 @@ export const ToolUsageChart: React.FC<OverviewChartProps> = (props) => {
   const xAxisProps = useChartXAxisProps();
   const legendFormatter = useChartLegendFormatter();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight(0.8, 0.2);
+  const { getToolColor } = useToolColors();
 
   // Fetch and process tool usage chart data
   const { chartData, toolNames, isLoading, error, hasData } = useToolUsageChartData(props);
-
-  // Color palette for tools
-  const toolColors = useMemo(
-    () => [
-      theme.colors.blue500,
-      theme.colors.green500,
-      theme.colors.yellow500,
-      theme.colors.red500,
-      theme.colors.blue300,
-      theme.colors.green300,
-      theme.colors.yellow300,
-      theme.colors.red300,
-    ],
-    [theme],
-  );
-
-  // Get a color for a tool based on its index
-  const getToolColor = useCallback((index: number): string => toolColors[index % toolColors.length], [toolColors]);
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
