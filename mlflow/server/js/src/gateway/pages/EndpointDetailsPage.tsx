@@ -152,23 +152,96 @@ const EndpointDetailsPage = () => {
                     width: '100%',
                   }}
                 >
-                  <div css={{ width: '100%' }}>
-                    <Typography.Text bold color="secondary" css={{ marginBottom: theme.spacing.xs, display: 'block' }}>
-                      <FormattedMessage defaultMessage="Models" description="Models section label" />
-                    </Typography.Text>
-                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, width: '100%' }}>
-                      {endpoint.model_mappings.map((mapping: EndpointModelMapping) => (
-                        <ModelCard
-                          key={mapping.mapping_id}
-                          modelDefinition={mapping.model_definition}
-                          modelMetadata={modelsData?.find(
-                            (m: ProviderModel) => m.model === mapping.model_definition?.model_name,
-                          )}
-                          onKeyClick={handleKeyClick}
-                        />
-                      ))}
-                    </div>
-                  </div>
+                  {(() => {
+                    const primaryModels = endpoint.model_mappings.filter((m) => m.linkage_type === 'PRIMARY');
+                    const fallbackModels = endpoint.model_mappings
+                      .filter((m) => m.linkage_type === 'FALLBACK')
+                      .sort((a, b) => (a.fallback_order ?? 0) - (b.fallback_order ?? 0));
+                    const hasTrafficSplit = endpoint.routing_strategy === 'REQUEST_BASED_TRAFFIC_SPLIT';
+                    const totalWeight = primaryModels.reduce((sum, m) => sum + (m.weight ?? 0), 0);
+
+                    return (
+                      <>
+                        {primaryModels.length > 0 && (
+                          <div css={{ width: '100%' }}>
+                            <Typography.Text
+                              bold
+                              color="secondary"
+                              css={{ marginBottom: theme.spacing.xs, display: 'block' }}
+                            >
+                              {hasTrafficSplit ? (
+                                <FormattedMessage defaultMessage="Traffic Split" description="Traffic split section label" />
+                              ) : (
+                                <FormattedMessage defaultMessage="Models" description="Models section label" />
+                              )}
+                            </Typography.Text>
+                            {hasTrafficSplit && (
+                              <Typography.Text
+                                color="secondary"
+                                css={{ fontSize: theme.typography.fontSizeSm, marginBottom: theme.spacing.sm, display: 'block' }}
+                              >
+                                <FormattedMessage
+                                  defaultMessage="Traffic is distributed across models based on configured weights"
+                                  description="Traffic split description"
+                                />
+                              </Typography.Text>
+                            )}
+                            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, width: '100%' }}>
+                              {primaryModels.map((mapping: EndpointModelMapping) => {
+                                const weightPercent =
+                                  totalWeight > 0 ? ((mapping.weight ?? 0) / totalWeight) * 100 : 100 / primaryModels.length;
+                                return (
+                                  <ModelCard
+                                    key={mapping.mapping_id}
+                                    modelDefinition={mapping.model_definition}
+                                    modelMetadata={modelsData?.find(
+                                      (m: ProviderModel) => m.model === mapping.model_definition?.model_name,
+                                    )}
+                                    onKeyClick={handleKeyClick}
+                                    weight={hasTrafficSplit ? weightPercent : undefined}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {fallbackModels.length > 0 && (
+                          <div css={{ width: '100%' }}>
+                            <Typography.Text
+                              bold
+                              color="secondary"
+                              css={{ marginBottom: theme.spacing.xs, display: 'block' }}
+                            >
+                              <FormattedMessage defaultMessage="Fallback Models" description="Fallback models section label" />
+                            </Typography.Text>
+                            <Typography.Text
+                              color="secondary"
+                              css={{ fontSize: theme.typography.fontSizeSm, marginBottom: theme.spacing.sm, display: 'block' }}
+                            >
+                              <FormattedMessage
+                                defaultMessage="Models will be attempted in order if the primary model(s) fail"
+                                description="Fallback models description"
+                              />
+                            </Typography.Text>
+                            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, width: '100%' }}>
+                              {fallbackModels.map((mapping: EndpointModelMapping, idx: number) => (
+                                <ModelCard
+                                  key={mapping.mapping_id}
+                                  modelDefinition={mapping.model_definition}
+                                  modelMetadata={modelsData?.find(
+                                    (m: ProviderModel) => m.model === mapping.model_definition?.model_name,
+                                  )}
+                                  onKeyClick={handleKeyClick}
+                                  fallbackOrder={idx + 1}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               ) : (
                 <Typography.Text color="secondary">
