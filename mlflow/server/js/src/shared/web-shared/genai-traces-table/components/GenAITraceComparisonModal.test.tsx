@@ -86,6 +86,7 @@ describe('GenAITraceComparisonModal', () => {
       expect.objectContaining({
         modelTraces: [resolvedTrace1, resolvedTrace2],
       }),
+      {},
     );
   });
 });
