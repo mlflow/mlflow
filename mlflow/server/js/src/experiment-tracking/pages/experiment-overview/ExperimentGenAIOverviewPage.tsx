@@ -153,7 +153,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
             {/* Tool call statistics */}
             <ToolCallStatistics experimentId={experimentId} startTimeMs={startTimeMs} endTimeMs={endTimeMs} />
 
-            {/* Tool success rate charts - dynamically rendered based on available tools */}
+            {/* Tool error rate charts - dynamically rendered based on available tools */}
             <ToolCallChartsSection {...chartProps} />
           </TabContentContainer>
         </Tabs.Content>
