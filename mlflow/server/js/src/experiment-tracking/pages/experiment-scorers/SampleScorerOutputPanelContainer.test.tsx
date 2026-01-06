@@ -111,7 +111,7 @@ describe('SampleScorerOutputPanelContainer', () => {
           error: null,
           currentEvalResultIndex: 0,
           totalTraces: 0,
-          itemsToEvaluate: { itemCount: 10, itemIds: [] },
+          itemsToEvaluate: { itemCount: 1, itemIds: [] },
         }),
         expect.anything(),
       );
@@ -197,7 +197,7 @@ describe('SampleScorerOutputPanelContainer', () => {
 
       expect(mockEvaluateTraces).toHaveBeenCalledWith({
         evaluationScope: ScorerEvaluationScope.TRACES,
-        itemCount: 10,
+        itemCount: 1,
         itemIds: [],
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions: 'Test instructions',

@@ -16,10 +16,14 @@ const getProductionMonitoringDocUrl = () => {
 };
 
 interface ScorerEmptyStateRendererProps {
-  onAddScorerClick: () => void;
+  onAddLLMScorerClick: () => void;
+  onAddCustomCodeScorerClick: () => void;
 }
 
-const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({ onAddScorerClick }) => {
+const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({
+  onAddLLMScorerClick,
+  onAddCustomCodeScorerClick,
+}) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -65,13 +69,29 @@ const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({ onA
           </div>
         }
         button={
-          <Button
-            icon={<PlusIcon />}
-            componentId={`${COMPONENT_ID_PREFIX}.empty-state-add-scorer-button`}
-            onClick={onAddScorerClick}
-          >
-            <FormattedMessage defaultMessage="New judge" description="Button text to add a judge from empty state" />
-          </Button>
+          <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+            <Button
+              type="primary"
+              icon={<PlusIcon />}
+              componentId={`${COMPONENT_ID_PREFIX}.empty-state-add-llm-scorer-button`}
+              onClick={onAddLLMScorerClick}
+            >
+              <FormattedMessage
+                defaultMessage="New LLM judge"
+                description="Button text to add an LLM judge from empty state"
+              />
+            </Button>
+            <Button
+              icon={<PlusIcon />}
+              componentId={`${COMPONENT_ID_PREFIX}.empty-state-add-custom-code-scorer-button`}
+              onClick={onAddCustomCodeScorerClick}
+            >
+              <FormattedMessage
+                defaultMessage="New custom code judge"
+                description="Button text to add a custom code judge from empty state"
+              />
+            </Button>
+          </div>
         }
       />
     </div>

@@ -2,13 +2,19 @@ import { LLM_TEMPLATE } from './types';
 
 /**
  * Set of templates that have editable instructions.
- * These are templates expressed using only supported variables (inputs, outputs, expectations, trace).
+ * These are templates expressed using only supported template variables:
+ * - Trace-level: inputs, outputs, expectations, trace
+ * - Session-level: conversation, expectations
  * Other templates use Python-specific variables and should be read-only in the UI.
  */
 export const EDITABLE_TEMPLATES: Set<string> = new Set([
   LLM_TEMPLATE.RELEVANCE_TO_QUERY,
   LLM_TEMPLATE.SAFETY,
   LLM_TEMPLATE.CUSTOM,
+  // Session-level templates
+  LLM_TEMPLATE.CONVERSATION_COMPLETENESS,
+  LLM_TEMPLATE.KNOWLEDGE_RETENTION,
+  LLM_TEMPLATE.USER_FRUSTRATION,
 ]);
 
 /**

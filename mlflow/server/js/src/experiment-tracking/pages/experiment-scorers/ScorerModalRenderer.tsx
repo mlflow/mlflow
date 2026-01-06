@@ -6,6 +6,7 @@ import ScorerFormCreateContainer from './ScorerFormCreateContainer';
 import ScorerFormEditContainer from './ScorerFormEditContainer';
 import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, type ScorerFormMode } from './constants';
 import type { ScheduledScorer } from './types';
+import type { ScorerFormData } from './utils/scorerTransformUtils';
 
 interface ScorerModalRendererProps {
   experimentId: string;
@@ -13,6 +14,7 @@ interface ScorerModalRendererProps {
   onClose: () => void;
   mode: ScorerFormMode;
   existingScorer?: ScheduledScorer;
+  initialScorerType?: ScorerFormData['scorerType'];
 }
 
 const ScorerModalRenderer: React.FC<ScorerModalRendererProps> = ({
@@ -21,6 +23,7 @@ const ScorerModalRenderer: React.FC<ScorerModalRendererProps> = ({
   onClose,
   mode,
   existingScorer,
+  initialScorerType,
 }) => {
   const isRunningScorersFeatureEnabled = isRunningScorersEnabled();
 
@@ -30,8 +33,13 @@ const ScorerModalRenderer: React.FC<ScorerModalRendererProps> = ({
       title={
         mode === SCORER_FORM_MODE.EDIT ? (
           <FormattedMessage defaultMessage="Edit judge" description="Title for edit judge modal" />
+        ) : initialScorerType === 'custom-code' ? (
+          <FormattedMessage
+            defaultMessage="Create custom code judge"
+            description="Title for new custom code judge modal"
+          />
         ) : (
-          <FormattedMessage defaultMessage="Create judge" description="Title for new judge modal" />
+          <FormattedMessage defaultMessage="Create LLM judge" description="Title for new LLM judge modal" />
         )
       }
       visible={visible}
@@ -58,7 +66,11 @@ const ScorerModalRenderer: React.FC<ScorerModalRendererProps> = ({
       {mode === SCORER_FORM_MODE.EDIT && existingScorer ? (
         <ScorerFormEditContainer experimentId={experimentId} onClose={onClose} existingScorer={existingScorer} />
       ) : (
-        <ScorerFormCreateContainer experimentId={experimentId} onClose={onClose} />
+        <ScorerFormCreateContainer
+          experimentId={experimentId}
+          onClose={onClose}
+          initialScorerType={initialScorerType}
+        />
       )}
     </Modal>
   );
