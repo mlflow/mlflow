@@ -631,7 +631,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
             app_name,
             pretrained_model.model_uri,
             region_name,
-            {**environment_variables, **proxy_variables},
+            environment_variables | proxy_variables,
             config=[f"env={json.dumps(override_environment_variables)}"],
         )
     else:
@@ -645,7 +645,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
             app_name,
             pretrained_model.model_uri,
             region_name,
-            {**environment_variables, **proxy_variables},
+            environment_variables | proxy_variables,
             config=[f"env={json.dumps(override_environment_variables)}"],
         )
 
@@ -799,7 +799,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
             app_name,
             model_s3_uri,
             region_name,
-            {**environment_variables, **proxy_variables},
+            environment_variables | proxy_variables,
         )
     else:
         proxy_variables = {
@@ -812,7 +812,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
             app_name,
             model_s3_uri,
             region_name,
-            {**environment_variables, **proxy_variables},
+            environment_variables | proxy_variables,
         )
 
     region_name = sagemaker_client.meta.region_name
