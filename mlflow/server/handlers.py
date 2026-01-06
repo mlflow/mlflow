@@ -793,6 +793,7 @@ def catch_mlflow_exception(func):
             response = Response(mimetype="application/json")
             response.set_data(e.serialize_as_json())
             response.status_code = e.get_http_status_code()
+            response.headers.update(e.json_kwargs.get("headers", {}))
             return response
 
     return wrapper
