@@ -299,15 +299,6 @@ jobs:
           pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
             --ignore tests/genai/optimize --ignore tests/genai/prompts
 
-      - name: Run Tests with Local Spark Session
-        run: |
-          # databricks-agents installs databricks-connect that blocks us from running spark-related
-          # tests with local spark session. To work around this, we run skipped tests after
-          # uninstalling databricks-connect.
-          pip uninstall -y databricks-connect pyspark
-          pip install pyspark
-          pytest tests/genai/evaluate/test_utils.py
-
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest

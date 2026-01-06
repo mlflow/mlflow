@@ -634,10 +634,6 @@ langchain:
           # required for testing legacy modules
           "langchain-classic",
         ]
-    pre_test: |
-      # Installing both pyspark and databricks-connect causes a conflict
-      pip uninstall -y databricks-connect
-      pip install --no-deps --force-reinstall pyspark
     run: |
       # Some dependencies above includes 'mlflow-skinny' but not full 'mlflow', such as databricks-vectorsearch.
       # This causes installation of mlflow-skinny from stable version, while 'mlflow' points to the dev version,
@@ -663,10 +659,6 @@ langchain:
           "langchain-openai>=0.2.0",
         ]
       ">= 1.0.0": ["langchain-classic"]
-    pre_test: |
-      # Installing both pyspark and databricks-connect causes a conflict
-      pip uninstall -y databricks-connect
-      pip install --no-deps --force-reinstall pyspark
     run: |
       pytest tests/langchain/test_langchain_autolog.py
 
