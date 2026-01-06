@@ -219,20 +219,6 @@ export const useExperimentPageSideNavConfig = ({
           : []),
       ],
       ...ExperimentPageSideNavGenAIConfig,
-      observability: [
-        ...ExperimentPageSideNavGenAIConfig.observability,
-        {
-          label: (
-            <FormattedMessage
-              defaultMessage="Sessions"
-              description="Label for the chat sessions tab in the MLflow experiment navbar"
-            />
-          ),
-          icon: <SpeechBubbleIcon />,
-          tabName: ExperimentPageTabName.ChatSessions,
-          componentId: 'mlflow.experiment-side-nav.genai.chat-sessions',
-        },
-      ],
       evaluation: enableScorersUI()
         ? [
             ...ExperimentPageSideNavGenAIConfig.evaluation,
