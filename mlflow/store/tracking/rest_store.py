@@ -1408,21 +1408,24 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
             filter_string=config_dict.get("filter_string"),
         )
 
-    def get_online_scoring_configs(self, scorer_ids: list[str]) -> dict[str, "OnlineScoringConfig"]:
+    def get_online_scoring_configs(self, scorer_ids: list[str]) -> list["OnlineScoringConfig"]:
         """
         Get online scoring configurations for multiple scorers by their IDs.
+
+        A single scorer can have multiple configurations (e.g., running in different
+        experiments or with different filter strings).
 
         Args:
             scorer_ids: List of scorer IDs to fetch configurations for.
 
         Returns:
-            A dictionary mapping scorer_id to OnlineScoringConfig for scorers that
-            have configurations. Scorers without configurations are not included.
+            A list of OnlineScoringConfig objects for the specified scorers.
+            Scorers without configurations are not included.
         """
         from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
         if not scorer_ids:
-            return {}
+            return []
 
         response = http_request(
             host_creds=self.get_host_creds(),
@@ -1433,15 +1436,16 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
 
         verify_rest_response(response, "/api/3.0/mlflow/scorers/online-configs")
         configs_dict = response.json()["configs"]
-        return {
-            scorer_id: OnlineScoringConfig(
+        return [
+            OnlineScoringConfig(
                 online_scoring_config_id=config["online_scoring_config_id"],
                 scorer_id=config["scorer_id"],
                 sample_rate=config["sample_rate"],
                 filter_string=config.get("filter_string"),
+                experiment_id=config["experiment_id"],
             )
-            for scorer_id, config in configs_dict.items()
-        }
+            for config in configs_dict.values()
+        ]
 
     ############################################################################################
     # Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.
