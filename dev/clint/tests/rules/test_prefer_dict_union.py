@@ -37,6 +37,7 @@ def test_flag(index_path: Path, code: str) -> None:
         pytest.param("{**data[0], **other}", id="subscript_access"),
         pytest.param('{**configs, **{"key": "value"}}', id="dict_literal_unpack"),
         pytest.param("{**func(), **other}", id="function_call"),
+        pytest.param("{**a,\n**b}", id="multi_line"),
     ],
 )
 def test_no_flag(index_path: Path, code: str) -> None:

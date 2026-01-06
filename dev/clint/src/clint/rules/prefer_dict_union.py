@@ -38,9 +38,14 @@ class PreferDictUnion(Rule):
         - {**a}  # Single unpack
         - {**a, "key": value}  # Mixed with literal keys
         - {**data[0], **b}, {**func(), **b}  # Complex expressions
+        - {**a,\n**b}  # Multi-line dicts
         """
         # Need at least 2 elements for a merge
         if len(node.keys) < 2:
+            return False
+
+        # Skip multi-line dicts
+        if node.end_lineno and node.end_lineno > node.lineno:
             return False
 
         # All keys must be None (indicating dictionary unpacking with **)
