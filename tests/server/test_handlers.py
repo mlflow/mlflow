@@ -1632,19 +1632,21 @@ def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_s
 def test_get_online_scoring_configs_batch(mock_tracking_store):
     from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
-    mock_configs = {
-        "scorer-1": OnlineScoringConfig(
+    mock_configs = [
+        OnlineScoringConfig(
             online_scoring_config_id="cfg-1",
             scorer_id="scorer-1",
             sample_rate=0.5,
             filter_string="status = 'OK'",
+            experiment_id="exp1",
         ),
-        "scorer-2": OnlineScoringConfig(
+        OnlineScoringConfig(
             online_scoring_config_id="cfg-2",
             scorer_id="scorer-2",
             sample_rate=0.8,
+            experiment_id="exp1",
         ),
-    }
+    ]
     mock_tracking_store.get_online_scoring_configs.return_value = mock_configs
 
     with app.test_client() as c:

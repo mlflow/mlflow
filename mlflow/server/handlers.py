@@ -3959,7 +3959,7 @@ def _get_online_scoring_configs():
     configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
 
     response = Response(mimetype="application/json")
-    response.set_data(json.dumps({"configs": {k: v.to_dict() for k, v in configs.items()}}))
+    response.set_data(json.dumps({"configs": {c.scorer_id: c.to_dict() for c in configs}}))
     return response
 
 
