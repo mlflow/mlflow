@@ -76,6 +76,12 @@ const createBuckets = (values: string[], numBuckets = 5): { min: number; max: nu
 
   const min = Math.min(...numericValues);
   const max = Math.max(...numericValues);
+
+  // Handle edge case where all values are identical
+  if (min === max) {
+    return [{ min, max, label: min.toFixed(2) }];
+  }
+
   const range = max - min;
   const bucketSize = range / numBuckets;
 
@@ -95,7 +101,9 @@ const createBuckets = (values: string[], numBuckets = 5): { min: number; max: nu
  */
 const getBucketIndex = (value: number, buckets: { min: number; max: number }[]): number => {
   for (let i = 0; i < buckets.length; i++) {
-    if (value >= buckets[i].min && value <= buckets[i].max) {
+    const isLastBucket = i === buckets.length - 1;
+    // Use [min, max) for all buckets except the last one which is [min, max]
+    if (value >= buckets[i].min && (isLastBucket ? value <= buckets[i].max : value < buckets[i].max)) {
       return i;
     }
   }
