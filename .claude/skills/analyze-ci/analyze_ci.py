@@ -2,7 +2,7 @@
 Fetch and analyze logs from failed GitHub Action jobs.
 
 Usage:
-    uv run .claude/skills/analyze-ci/analyze_ci.py <pr_url>  [pr_url ...]
+    uv run .claude/skills/analyze-ci/analyze_ci.py <pr_url> [pr_url ...]
     uv run .claude/skills/analyze-ci/analyze_ci.py <job_url> [job_url ...]
 """
 # /// script
