@@ -16,6 +16,7 @@ Usage:
 
 import argparse
 import asyncio
+import json
 import os
 import re
 import subprocess
@@ -26,7 +27,13 @@ from typing import Any
 
 import aiohttp
 import tiktoken
-from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, TextBlock, query
+from claude_agent_sdk import (
+    AssistantMessage,
+    ClaudeAgentOptions,
+    ResultMessage,
+    TextBlock,
+    query,
+)
 
 GITHUB_API_BASE = "https://api.github.com"
 MAX_LOG_TOKENS = 100_000
@@ -39,6 +46,13 @@ class JobLogs:
     job_url: str
     failed_step: str | None
     logs: str
+
+
+@dataclass
+class AnalysisResult:
+    text: str
+    total_cost_usd: float | None
+    usage: dict[str, Any] | None
 
 
 def log(msg: str) -> None:
@@ -353,7 +367,7 @@ def format_single_job_for_analysis(job: JobLogs) -> str:
     return "\n".join(parts)
 
 
-async def analyze_single_job(job: JobLogs) -> str:
+async def analyze_single_job(job: JobLogs) -> AnalysisResult:
     formatted_logs = format_single_job_for_analysis(job)
     prompt = f"Analyze this CI failure:\n\n{formatted_logs}"
 
@@ -363,25 +377,51 @@ async def analyze_single_job(job: JobLogs) -> str:
         model="haiku",
     )
 
-    result: list[str] = []
+    text_parts: list[str] = []
+    total_cost_usd: float | None = None
+    usage: dict[str, Any] | None = None
+
     async for message in query(prompt=prompt, options=options):
         match message:
             case AssistantMessage(content=content):
                 for block in content:
                     match block:
                         case TextBlock(text=text):
-                            result.append(text)
-    return "".join(result)
+                            text_parts.append(text)
+            case ResultMessage(total_cost_usd=cost, usage=u):
+                total_cost_usd = cost
+                usage = u
+
+    return AnalysisResult(
+        text="".join(text_parts),
+        total_cost_usd=total_cost_usd,
+        usage=usage,
+    )
 
 
-async def analyze_with_claude(jobs: list[JobLogs]) -> str:
+def format_result(result: AnalysisResult, debug: bool = False) -> str:
+    """Format analysis result, optionally with usage JSON."""
+    if not debug:
+        return result.text
+
+    filtered_usage = None
+    if result.usage:
+        filtered_usage = {k: v for k, v in result.usage.items() if "tokens" in k}
+    usage_data = {"total_cost_usd": result.total_cost_usd, "usage": filtered_usage}
+    usage_json = json.dumps(usage_data, indent=2)
+    return f"{result.text}\n\n```json\n{usage_json}\n```"
+
+
+async def analyze_with_claude(jobs: list[JobLogs], debug: bool = False) -> str:
     """Analyze each job in parallel to speed up processing."""
     log(f"Analyzing {len(jobs)} job(s) in parallel...")
     results = await asyncio.gather(*[analyze_single_job(job) for job in jobs])
-    return ("\n\n" + "=" * 80 + "\n\n").join(results)
+
+    separator = "\n\n" + "=" * 80 + "\n\n"
+    return separator.join(format_result(r, debug) for r in results)
 
 
-async def cmd_analyze_async(urls: list[str], github_token: str) -> None:
+async def cmd_analyze_async(urls: list[str], github_token: str, debug: bool = False) -> None:
     async with aiohttp.ClientSession(headers=get_headers(github_token)) as session:
         # Resolve URLs to job targets
         jobs = await resolve_urls(session, urls)
@@ -396,7 +436,7 @@ async def cmd_analyze_async(urls: list[str], github_token: str) -> None:
 
     # Analyze with Claude
     log("Analyzing logs with Claude...")
-    summary = await analyze_with_claude(results)
+    summary = await analyze_with_claude(results, debug)
     print(summary)
 
 
@@ -406,11 +446,12 @@ def main():
     )
     parser.add_argument("urls", nargs="+", help="PR URL or job URL(s) to analyze")
     parser.add_argument("--github-token", help="GitHub token (or set GITHUB_TOKEN)")
+    parser.add_argument("--debug", action="store_true", help="Show token and cost info")
 
     args = parser.parse_args()
     github_token = get_github_token(args.github_token)
 
-    asyncio.run(cmd_analyze_async(args.urls, github_token))
+    asyncio.run(cmd_analyze_async(args.urls, github_token, args.debug))
 
 
 if __name__ == "__main__":
