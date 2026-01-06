@@ -5524,6 +5524,13 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
         source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
     )
 
+    feedback4 = Feedback(
+        trace_id=trace1_id,
+        name="quality",
+        value="high",
+        source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
+    )
+
     # Create expectations for trace3 and trace4
     expectation1 = Expectation(
         trace_id=trace3_id,
@@ -5546,13 +5553,22 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
         source=AssessmentSource(source_type="CODE", source_id="latency_monitor"),
     )
 
+    expectation4 = Expectation(
+        trace_id=trace3_id,
+        name="priority",
+        value="urgent",
+        source=AssessmentSource(source_type="CODE", source_id="priority_checker"),
+    )
+
     # Store assessments
     store.create_assessment(feedback1)
     store.create_assessment(feedback2)
     store.create_assessment(feedback3)
+    store.create_assessment(feedback4)
     store.create_assessment(expectation1)
     store.create_assessment(expectation2)
     store.create_assessment(expectation3)
+    store.create_assessment(expectation4)
 
     # Test: Search for traces with correctness feedback = True
     traces, _ = store.search_traces([exp_id], filter_string='feedback.correctness = "true"')
@@ -5569,6 +5585,11 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
     assert len(traces) == 1
     assert traces[0].request_id == trace2_id
 
+    # Test: Search for traces with string-valued feedback
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.quality = "high"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
     # Test: Search for traces with response_length expectation = 150
     traces, _ = store.search_traces([exp_id], filter_string='expectation.response_length = "150"')
     assert len(traces) == 1
@@ -5583,6 +5604,11 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
     traces, _ = store.search_traces([exp_id], filter_string='expectation.latency_ms = "1000"')
     assert len(traces) == 1
     assert traces[0].request_id == trace4_id
+
+    # Test: Search for traces with string-valued expectation
+    traces, _ = store.search_traces([exp_id], filter_string='expectation.priority = "urgent"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
 
     # Test: Combined filter with AND - trace with multiple expectations
     traces, _ = store.search_traces(
