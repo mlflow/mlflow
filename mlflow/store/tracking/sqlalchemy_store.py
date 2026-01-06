@@ -2527,6 +2527,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 online_scoring_config_id=uuid.uuid4().hex,
                 scorer_id=scorer.scorer_id,
                 sample_rate=sample_rate,
+                experiment_id=int(experiment_id),
                 filter_string=filter_string,
             )
             session.add(config)
@@ -2597,7 +2598,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             return [
                 OnlineScorer(
                     name=scorer.scorer_name,
-                    experiment_id=str(scorer.experiment_id),
+                    experiment_id=str(config.experiment_id),
                     serialized_scorer=scorer_with_resolved_endpoint,
                     sample_rate=config.sample_rate,
                     filter_string=config.filter_string,
