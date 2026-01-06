@@ -125,9 +125,16 @@ class GitHubClient:
         return await self.get(f"/repos/{repo}/pulls/{pr_number}")
 
     async def get_workflow_runs(
-        self, repo: str, head_sha: str, status: str = "all"
+        self,
+        repo: str,
+        head_sha: str | None = None,
+        status: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
-        params = {"head_sha": head_sha, "status": status}
+        params: dict[str, Any] = {}
+        if head_sha:
+            params["head_sha"] = head_sha
+        if status:
+            params["status"] = status
         async for run in self.paginate(f"/repos/{repo}/actions/runs", "workflow_runs", params):
             yield run
 
