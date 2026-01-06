@@ -1,4 +1,5 @@
 import json
+import uuid
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -6,7 +7,7 @@ import pytest
 from mlflow.entities import Trace, TraceData, TraceInfo
 from mlflow.entities.assessment import Assessment
 from mlflow.genai.scorers.builtin_scorers import ConversationCompleteness
-from mlflow.genai.scorers.online.entities import CompletedSession, OnlineScorer
+from mlflow.genai.scorers.online.entities import CompletedSession, OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
 from mlflow.genai.scorers.online.session_checkpointer import (
     OnlineSessionCheckpointManager,
@@ -19,12 +20,17 @@ from mlflow.tracing.constant import AssessmentMetadataKey
 
 
 def make_online_scorer(scorer, sample_rate: float = 1.0, filter_string: str | None = None):
+    config = OnlineScoringConfig(
+        online_scoring_config_id=uuid.uuid4().hex,
+        scorer_id=uuid.uuid4().hex,
+        sample_rate=sample_rate,
+        experiment_id="exp1",
+        filter_string=filter_string,
+    )
     return OnlineScorer(
         name=scorer.name,
-        experiment_id="exp1",
         serialized_scorer=json.dumps(scorer.model_dump()),
-        sample_rate=sample_rate,
-        filter_string=filter_string,
+        online_config=config,
     )
 
 
