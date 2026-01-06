@@ -1,3 +1,4 @@
+import copy
 import inspect
 import json
 import logging
@@ -2611,6 +2612,13 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         "Evaluate whether the AI correctly retains information provided by users "
         "in earlier conversation turns without forgetting, contradicting, or distorting it."
     )
+
+    def model_post_init(self, __context: Any) -> None:
+        """Propagate model parameter to the inner last_turn_scorer after initialization."""
+        if self.model is not None:
+            # Make a copy to avoid mutating the caller's scorer
+            self.last_turn_scorer = copy.deepcopy(self.last_turn_scorer)
+            self.last_turn_scorer.model = self.model
 
     def _create_judge(self) -> Judge:
         """

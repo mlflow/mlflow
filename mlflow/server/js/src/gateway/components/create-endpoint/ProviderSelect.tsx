@@ -9,6 +9,7 @@ import {
   Spinner,
   ChevronLeftIcon,
   ChevronRightIcon,
+  Alert,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useProvidersQuery } from '../../hooks/useProvidersQuery';
@@ -247,13 +248,13 @@ const ProviderSelectCombobox = ({
       setViewMode('common');
       comboboxState.setInputValue('');
     }
-  }, [comboboxState.isOpen, comboboxState]);
+  }, [comboboxState.isOpen, comboboxState.setInputValue]);
 
   useEffect(() => {
     if (!comboboxState.isOpen) {
       comboboxState.setInputValue(selectedDisplayName);
     }
-  }, [selectedDisplayName, comboboxState.isOpen, comboboxState]);
+  }, [selectedDisplayName, comboboxState.isOpen, comboboxState.setInputValue]);
 
   const getItemKey = (item: MenuItem) => {
     if (item.type === 'group') return `group-${item.groupId}`;
@@ -395,7 +396,7 @@ export const ProviderSelect = ({
   componentIdPrefix = 'mlflow.gateway.provider-select',
 }: ProviderSelectProps) => {
   const { theme } = useDesignSystemTheme();
-  const { data: providers, isLoading } = useProvidersQuery();
+  const { data: providers, isLoading, error: queryError } = useProvidersQuery();
 
   const { commonItems, litellmItems, otherProviders } = useMemo(() => {
     if (!providers)
@@ -471,6 +472,22 @@ export const ProviderSelect = ({
     },
     [onChange],
   );
+
+  if (queryError) {
+    return (
+      <div>
+        <FormUI.Label htmlFor={componentIdPrefix}>
+          <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
+        </FormUI.Label>
+        <Alert
+          componentId={`${componentIdPrefix}.error`}
+          type="error"
+          message={queryError.message}
+          css={{ marginTop: theme.spacing.xs }}
+        />
+      </div>
+    );
+  }
 
   if (isLoading || commonItems.length === 0) {
     return (
