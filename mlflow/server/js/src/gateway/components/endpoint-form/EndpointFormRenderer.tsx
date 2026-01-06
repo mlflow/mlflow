@@ -44,6 +44,8 @@ export interface EndpointFormRendererProps {
   onNameBlur: () => void;
   /** Component ID prefix for telemetry */
   componentIdPrefix?: string;
+  /** When true, adapts layout for use inside containers like modals */
+  embedded?: boolean;
 }
 
 /**
@@ -68,6 +70,7 @@ export const EndpointFormRenderer = ({
   onCancel,
   onNameBlur,
   componentIdPrefix = `mlflow.gateway.${mode}-endpoint`,
+  embedded = false,
 }: EndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -122,7 +125,7 @@ export const EndpointFormRenderer = ({
   return (
     <>
       {error && (
-        <div css={{ padding: `0 ${theme.spacing.md}px` }}>
+        <div css={{ padding: embedded ? 0 : `0 ${theme.spacing.md}px` }}>
           <Alert
             componentId={`${componentIdPrefix}.error`}
             closable={false}
@@ -138,7 +141,7 @@ export const EndpointFormRenderer = ({
           flex: 1,
           display: 'flex',
           gap: theme.spacing.md,
-          padding: `0 ${theme.spacing.md}px`,
+          padding: embedded ? 0 : `0 ${theme.spacing.md}px`,
           overflow: 'auto',
           '@media (max-width: 1023px)': {
             flexDirection: 'column',
@@ -163,6 +166,7 @@ export const EndpointFormRenderer = ({
               defaultMessage: 'Name',
               description: 'Section title for endpoint name',
             })}
+            css={embedded ? { paddingTop: 0 } : undefined}
           >
             <Controller
               control={form.control}
@@ -342,7 +346,7 @@ export const EndpointFormRenderer = ({
           display: 'flex',
           justifyContent: 'flex-end',
           gap: theme.spacing.sm,
-          padding: theme.spacing.md,
+          padding: embedded ? `${theme.spacing.md}px 0 0 0` : theme.spacing.md,
           borderTop: `1px solid ${theme.colors.border}`,
           flexShrink: 0,
         }}

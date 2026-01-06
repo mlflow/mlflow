@@ -15,11 +15,10 @@ import { SelectTracesModal } from '../../components/SelectTracesModal';
 import { ScorerFormData } from './utils/scorerTransformUtils';
 import { useFormContext } from 'react-hook-form';
 import { ScorerEvaluationScope } from './constants';
+import { SelectSessionsModal } from '../../components/SelectSessionsModal';
 
 enum PickerOption {
   'LAST_TRACE_OR_SESSION' = '1',
-  'LAST_5_TRACES_OR_SESSIONS' = '5',
-  'LAST_10_TRACES_OR_SESSIONS' = '10',
   'CUSTOM' = 'custom',
 }
 
@@ -27,14 +26,6 @@ const PickerOptionsLabelsForTraces = {
   [PickerOption.LAST_TRACE_OR_SESSION]: defineMessage({
     defaultMessage: 'Last trace',
     description: 'Option for last trace',
-  }),
-  [PickerOption.LAST_5_TRACES_OR_SESSIONS]: defineMessage({
-    defaultMessage: 'Last 5 traces',
-    description: 'Option for last 5 traces',
-  }),
-  [PickerOption.LAST_10_TRACES_OR_SESSIONS]: defineMessage({
-    defaultMessage: 'Last 10 traces',
-    description: 'Option for last 10 traces',
   }),
   [PickerOption.CUSTOM]: defineMessage({
     defaultMessage: 'Select traces',
@@ -46,14 +37,6 @@ const PickerOptionsLabelsForSessions = {
   [PickerOption.LAST_TRACE_OR_SESSION]: defineMessage({
     defaultMessage: 'Last session',
     description: 'Option for last session',
-  }),
-  [PickerOption.LAST_5_TRACES_OR_SESSIONS]: defineMessage({
-    defaultMessage: 'Last 5 sessions',
-    description: 'Option for last 5 sessions',
-  }),
-  [PickerOption.LAST_10_TRACES_OR_SESSIONS]: defineMessage({
-    defaultMessage: 'Last 10 sessions',
-    description: 'Option for last 10 sessions',
   }),
   [PickerOption.CUSTOM]: defineMessage({
     defaultMessage: 'Select sessions',
@@ -80,7 +63,7 @@ export const SampleScorerTracesToEvaluatePicker = ({
     if (!isEmpty(itemsToEvaluate.itemIds)) {
       return PickerOption.CUSTOM;
     }
-    return coerceToEnum(PickerOption, String(itemsToEvaluate.itemCount), PickerOption.LAST_10_TRACES_OR_SESSIONS);
+    return coerceToEnum(PickerOption, String(itemsToEvaluate.itemCount), PickerOption.LAST_TRACE_OR_SESSION);
   }, [itemsToEvaluate]);
 
   return (
@@ -97,11 +80,19 @@ export const SampleScorerTracesToEvaluatePicker = ({
             endIcon={<ChevronDownIcon />}
           >
             {itemsToEvaluateDropdownValue === PickerOption.CUSTOM ? (
-              <FormattedMessage
-                defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
-                description="Label for the number of traces selected"
-                values={{ count: itemsToEvaluate.itemIds?.length }}
-              />
+              evaluationScope === ScorerEvaluationScope.TRACES ? (
+                <FormattedMessage
+                  defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
+                  description="Label for the number of traces selected"
+                  values={{ count: itemsToEvaluate.itemIds?.length }}
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="{count, plural, one {1 session selected} other {# sessions selected}}"
+                  description="Label for the number of sessions selected"
+                  values={{ count: itemsToEvaluate.itemIds?.length }}
+                />
+              )
             ) : (
               <FormattedMessage {...PickerOptionsLabels[itemsToEvaluateDropdownValue]} />
             )}
@@ -109,21 +100,15 @@ export const SampleScorerTracesToEvaluatePicker = ({
         </DialogComboboxCustomButtonTriggerWrapper>
         <DialogComboboxContent align="end">
           <DialogComboboxOptionList>
-            {[
-              PickerOption.LAST_TRACE_OR_SESSION,
-              PickerOption.LAST_5_TRACES_OR_SESSIONS,
-              PickerOption.LAST_10_TRACES_OR_SESSIONS,
-            ].map((value) => (
-              <DialogComboboxOptionListSelectItem
-                value={value}
-                checked={itemsToEvaluateDropdownValue === value}
-                onChange={() => {
-                  onItemsToEvaluateChange({ itemCount: Number(value), itemIds: undefined });
-                }}
-              >
-                <FormattedMessage {...PickerOptionsLabels[value]} />
-              </DialogComboboxOptionListSelectItem>
-            ))}
+            <DialogComboboxOptionListSelectItem
+              value={PickerOption.LAST_TRACE_OR_SESSION}
+              checked={itemsToEvaluateDropdownValue === PickerOption.LAST_TRACE_OR_SESSION}
+              onChange={() => {
+                onItemsToEvaluateChange({ itemCount: Number(PickerOption.LAST_TRACE_OR_SESSION), itemIds: undefined });
+              }}
+            >
+              <FormattedMessage {...PickerOptionsLabels[PickerOption.LAST_TRACE_OR_SESSION]} />
+            </DialogComboboxOptionListSelectItem>
             <DialogComboboxOptionListSelectItem
               value={PickerOption.CUSTOM}
               checked={itemsToEvaluateDropdownValue === PickerOption.CUSTOM}
@@ -136,7 +121,7 @@ export const SampleScorerTracesToEvaluatePicker = ({
           </DialogComboboxOptionList>
         </DialogComboboxContent>
       </DialogCombobox>
-      {displayPickCustomTracesModal && (
+      {displayPickCustomTracesModal && evaluationScope === ScorerEvaluationScope.TRACES && (
         <SelectTracesModal
           onClose={() => {
             onItemsToEvaluateChange({ ...itemsToEvaluate });
@@ -149,6 +134,21 @@ export const SampleScorerTracesToEvaluatePicker = ({
             setDisplayPickCustomTracesModal(false);
           }}
           initialTraceIdsSelected={itemsToEvaluate.itemIds}
+        />
+      )}
+      {displayPickCustomTracesModal && evaluationScope === ScorerEvaluationScope.SESSIONS && (
+        <SelectSessionsModal
+          onClose={() => {
+            onItemsToEvaluateChange({ ...itemsToEvaluate });
+            setDisplayPickCustomTracesModal(false);
+          }}
+          onSuccess={(traceIds) => {
+            if (!isEmpty(traceIds)) {
+              onItemsToEvaluateChange({ itemCount: undefined, itemIds: traceIds });
+            }
+            setDisplayPickCustomTracesModal(false);
+          }}
+          initialSessionIdsSelected={itemsToEvaluate.itemIds}
         />
       )}
     </>

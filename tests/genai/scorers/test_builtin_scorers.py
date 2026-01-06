@@ -2182,6 +2182,24 @@ def test_knowledge_retention_empty_session():
         scorer(session=[])
 
 
+def test_knowledge_retention_model_propagation():
+    # When model is specified, it should propagate
+    scorer = KnowledgeRetention(model="custom-model")
+    assert scorer.last_turn_scorer.model == "custom-model"
+
+    # When model is None (default), last_turn_scorer keeps its default
+    scorer_default = KnowledgeRetention()
+    assert scorer_default.last_turn_scorer.model is None
+
+    # When custom last_turn_scorer is provided with model override,
+    # the original scorer should NOT be mutated (we make a copy)
+    custom_scorer = Mock(spec=Scorer)
+    custom_scorer.model = None
+    kr = KnowledgeRetention(model="override-model", last_turn_scorer=custom_scorer)
+    assert custom_scorer.model is None  # original unchanged
+    assert kr.last_turn_scorer.model == "override-model"  # copy has new model
+
+
 def test_session_level_scorer_with_invalid_kwargs():
     scorer = UserFrustration()
 

@@ -37,7 +37,7 @@ interface ScorerFormRendererProps {
   };
   componentError: string | null;
   handleCancel: () => void;
-  isSubmitButtonDisabled: () => boolean;
+  isSubmitDisabled: boolean;
   experimentId: string;
 }
 
@@ -71,7 +71,7 @@ const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
     <>
       {isEvaluatingSessionsInScorersEnabled() && (
         <div>
-          <ScorerFormEvaluationScopeSelect />
+          <ScorerFormEvaluationScopeSelect mode={mode} />
         </div>
       )}
       {/* Scorer Type Selection - only show in create mode */}
@@ -162,7 +162,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
   mutation,
   componentError,
   handleCancel,
-  isSubmitButtonDisabled,
+  isSubmitDisabled,
   experimentId,
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -300,7 +300,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
           type="primary"
           htmlType="submit"
           loading={mutation.isLoading}
-          disabled={isSubmitButtonDisabled()}
+          disabled={isSubmitDisabled}
         >
           {mode === SCORER_FORM_MODE.EDIT ? (
             <FormattedMessage defaultMessage="Save" description="Save judge button text" />

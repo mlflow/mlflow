@@ -16,7 +16,6 @@ from pathlib import Path
 from subprocess import Popen, check_call
 
 import mlflow
-import mlflow.version
 from mlflow import pyfunc
 from mlflow.environment_variables import MLFLOW_DISABLE_ENV_CREATION
 from mlflow.models import Model

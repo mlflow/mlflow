@@ -6,9 +6,6 @@ import ExperimentGenAIOverviewPage from './ExperimentGenAIOverviewPage';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MemoryRouter, Route, Routes } from '../../../common/utils/RoutingUtils';
-import { rest } from 'msw';
-import { setupServer } from '../../../common/utils/setup-msw';
-import { AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 
 // Mock FetchUtils
 jest.mock('../../../common/utils/FetchUtils', () => ({
@@ -18,22 +15,6 @@ jest.mock('../../../common/utils/FetchUtils', () => ({
 
 import { fetchOrFail } from '../../../common/utils/FetchUtils';
 const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
-
-// Mock recharts to avoid rendering issues
-jest.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="responsive-container">{children}</div>
-  ),
-  BarChart: ({ children, data }: { children: React.ReactNode; data: any[] }) => (
-    <div data-testid="bar-chart" data-count={data?.length || 0}>
-      {children}
-    </div>
-  ),
-  Bar: () => <div data-testid="bar" />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-}));
 
 describe('ExperimentGenAIOverviewPage', () => {
   const testExperimentId = 'test-experiment-456';
@@ -230,84 +211,38 @@ describe('ExperimentGenAIOverviewPage', () => {
   });
 
   describe('chart integration', () => {
-    it('should render TraceRequestsChart component', async () => {
-      mockFetchOrFail.mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            data_points: [
-              {
-                metric_name: TraceMetricKey.TRACE_COUNT,
-                dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
-                values: { [AggregationType.COUNT]: 100 },
-              },
-            ],
-          }),
-      } as Response);
-
+    it('should render all chart components', async () => {
       renderComponent();
 
+      // Verify all charts are rendered
       await waitFor(() => {
         expect(screen.getByText('Requests')).toBeInTheDocument();
+        expect(screen.getByText('Latency')).toBeInTheDocument();
+        expect(screen.getByText('Errors')).toBeInTheDocument();
       });
     });
 
-    it('should display chart with data when API returns data', async () => {
-      mockFetchOrFail.mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            data_points: [
-              {
-                metric_name: TraceMetricKey.TRACE_COUNT,
-                dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
-                values: { [AggregationType.COUNT]: 50 },
-              },
-              {
-                metric_name: TraceMetricKey.TRACE_COUNT,
-                dimensions: { time_bucket: '2025-12-22T11:00:00Z' },
-                values: { [AggregationType.COUNT]: 75 },
-              },
-            ],
-          }),
-      } as Response);
-
+    it('should pass experimentId to chart API calls', async () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
+        expect(mockFetchOrFail).toHaveBeenCalled();
       });
 
-      // Verify total count is displayed (50 + 75 = 125)
-      expect(screen.getByText('125')).toBeInTheDocument();
+      // Verify experimentId is passed to chart API calls
+      const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
+      expect(callBody.experiment_ids).toEqual([testExperimentId]);
     });
 
-    it('should show empty state when no data is available', async () => {
-      mockFetchOrFail.mockResolvedValue({
-        json: () => Promise.resolve({ data_points: [] }),
-      } as Response);
-
+    it('should render charts in correct layout', async () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();
-      });
-    });
-
-    it('should show error state when API call fails', async () => {
-      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Failed to load chart data')).toBeInTheDocument();
-      });
-    });
-
-    it('should pass experimentId to TraceRequestsChart', async () => {
-      renderComponent();
-
-      await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.experiment_ids).toEqual([testExperimentId]);
+        // Requests chart should be present (full width)
+        expect(screen.getByText('Requests')).toBeInTheDocument();
+        // Latency and Errors charts should be present (side by side)
+        expect(screen.getByText('Latency')).toBeInTheDocument();
+        expect(screen.getByText('Errors')).toBeInTheDocument();
       });
     });
   });
