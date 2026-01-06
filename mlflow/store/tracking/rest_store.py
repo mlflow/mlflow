@@ -1435,7 +1435,7 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         )
 
         verify_rest_response(response, "/api/3.0/mlflow/scorers/online-configs")
-        configs_dict = response.json()["configs"]
+        configs_list = response.json()["configs"]
         return [
             OnlineScoringConfig(
                 online_scoring_config_id=config["online_scoring_config_id"],
@@ -1444,7 +1444,7 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
                 filter_string=config.get("filter_string"),
                 experiment_id=config["experiment_id"],
             )
-            for config in configs_dict.values()
+            for config in configs_list
         ]
 
     ############################################################################################
