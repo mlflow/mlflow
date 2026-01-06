@@ -1,68 +1,37 @@
 ---
 name: fetch-logs
-description: Fetch logs from failed GitHub Action jobs for a pull request.
+description: Fetch and analyze logs from failed GitHub Action jobs for a pull request.
 allowed-tools:
   - Bash
 ---
 
-# Fetch CI Logs
+# Fetch and Analyze CI Logs
 
-This skill fetches logs from failed GitHub Action jobs.
+This skill fetches logs from failed GitHub Action jobs and analyzes them using Claude.
 
 ## Prerequisites
 
 - **GitHub Token**: Auto-detected via `gh auth token`, or set `GITHUB_TOKEN` env var
 
-## Commands
-
-### list
-
-List failed jobs for a PR. Outputs JSON.
+## Usage
 
 ```bash
-uv run .claude/skills/fetch-logs/fetch_logs.py list <owner/repo> <pr_number>
+# Analyze all failed jobs in a PR
+uv run .claude/skills/fetch-logs/fetch_logs.py <pr_url>
+
+# Analyze specific job URLs directly
+uv run .claude/skills/fetch-logs/fetch_logs.py <job_url> [job_url ...]
 ```
 
-Output:
+Output: A concise failure summary with root cause, error messages, test names, and relevant log snippets.
 
-```json
-{
-  "pr": { "number": 123, "title": "...", "url": "..." },
-  "failed_jobs": [{ "workflow_name": "...", "job_name": "...", "job_url": "..." }]
-}
-```
-
-### fetch
-
-Fetch cleaned logs for jobs by URL. Outputs JSON.
+## Examples
 
 ```bash
-uv run .claude/skills/fetch-logs/fetch_logs.py fetch <job_url> [job_url ...]
-```
+# Analyze CI failures for a PR
+uv run .claude/skills/fetch-logs/fetch_logs.py https://github.com/mlflow/mlflow/pull/19601
 
-Output:
-
-```json
-{
-  "jobs": [
-    {
-      "workflow_name": "...",
-      "job_name": "...",
-      "job_url": "...",
-      "failed_step": "...",
-      "logs": "..."
-    }
-  ]
-}
-```
-
-## Example
-
-```bash
-# List failed jobs for a PR
-uv run .claude/skills/fetch-logs/fetch_logs.py list mlflow/mlflow 19601
-
-# Fetch logs for all failed jobs
-uv run .claude/skills/fetch-logs/fetch_logs.py fetch \
-  $(uv run .claude/skills/fetch-logs/fetch_logs.py list mlflow/mlflow 19601 | jq -r '.failed_jobs[].job_url')
+# Analyze specific job URLs directly
+uv run .claude/skills/fetch-logs/fetch_logs.py \
+  "https://github.com/mlflow/mlflow/actions/runs/12345/job/67890"
 ```
