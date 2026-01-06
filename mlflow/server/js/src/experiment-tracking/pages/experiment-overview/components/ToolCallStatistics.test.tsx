@@ -220,6 +220,44 @@ describe('ToolCallStatistics', () => {
     });
   });
 
+  describe('error state', () => {
+    it('should render error state when API call fails', async () => {
+      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Failed to load chart data')).toBeInTheDocument();
+      });
+    });
+
+    it('should render error state when first API call (counts) fails', async () => {
+      mockFetchOrFail.mockRejectedValueOnce(new Error('Counts API Error')).mockResolvedValueOnce({
+        json: () => Promise.resolve({ data_points: [createLatencyDataPoint(100)] }),
+      } as Response);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Failed to load chart data')).toBeInTheDocument();
+      });
+    });
+
+    it('should render error state when second API call (latency) fails', async () => {
+      mockFetchOrFail
+        .mockResolvedValueOnce({
+          json: () => Promise.resolve({ data_points: [createCountByStatusDataPoint('OK', 100)] }),
+        } as Response)
+        .mockRejectedValueOnce(new Error('Latency API Error'));
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Failed to load chart data')).toBeInTheDocument();
+      });
+    });
+  });
+
   describe('API call parameters', () => {
     it('should call API with correct parameters for counts query', async () => {
       mockApiResponses([], []);

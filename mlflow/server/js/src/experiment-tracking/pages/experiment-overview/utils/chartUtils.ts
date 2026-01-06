@@ -144,7 +144,8 @@ export function formatCount(count: number): string {
 }
 
 /**
- * Formats latency in seconds to a human-readable string
+ * Formats latency in milliseconds to a human-readable string
+ * @param ms - Latency in milliseconds
  */
 export function formatLatency(ms: number): string {
   if (ms < 1000) {
