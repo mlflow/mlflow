@@ -97,53 +97,44 @@ class GitHubClient:
     async def get_raw(self, endpoint: str) -> aiohttp.ClientResponse:
         return await self._session.get(endpoint, allow_redirects=True)
 
+    async def paginate(
+        self,
+        endpoint: str,
+        key: str,
+        params: dict[str, Any] | None = None,
+        per_page: int = 100,
+    ) -> AsyncIterator[dict[str, Any]]:
+        page = 1
+        params = {**(params or {}), "per_page": per_page}
+
+        while True:
+            params["page"] = page
+            result = await self.get(endpoint, params)
+            items = result.get(key, [])
+            if not items:
+                break
+
+            for item in items:
+                yield item
+
+            if len(items) < per_page:
+                break
+            page += 1
+
     async def get_pr_details(self, repo: str, pr_number: int) -> dict[str, Any]:
         return await self.get(f"/repos/{repo}/pulls/{pr_number}")
 
     async def get_workflow_runs(
         self, repo: str, head_sha: str, status: str = "completed"
     ) -> AsyncIterator[dict[str, Any]]:
-        page = 1
-        per_page = 100
-
-        while True:
-            params = {
-                "head_sha": head_sha,
-                "status": status,
-                "per_page": per_page,
-                "page": page,
-            }
-            result = await self.get(f"/repos/{repo}/actions/runs", params)
-            runs = result.get("workflow_runs", [])
-            if not runs:
-                break
-
-            for run in runs:
-                yield run
-            page += 1
-
-            if len(runs) < per_page:
-                break
+        params = {"head_sha": head_sha, "status": status}
+        async for run in self.paginate(f"/repos/{repo}/actions/runs", "workflow_runs", params):
+            yield run
 
     async def get_failed_jobs(self, repo: str, run_id: int) -> list[dict[str, Any]]:
-        all_jobs: list[dict[str, Any]] = []
-        page = 1
-        per_page = 100
-
-        while True:
-            params = {"per_page": per_page, "page": page}
-            result = await self.get(f"/repos/{repo}/actions/runs/{run_id}/jobs", params)
-            jobs = result.get("jobs", [])
-            if not jobs:
-                break
-
-            all_jobs.extend(jobs)
-            page += 1
-
-            if len(jobs) < per_page:
-                break
-
-        return [job for job in all_jobs if job.get("conclusion") == "failure"]
+        endpoint = f"/repos/{repo}/actions/runs/{run_id}/jobs"
+        jobs = [job async for job in self.paginate(endpoint, "jobs")]
+        return [job for job in jobs if job.get("conclusion") == "failure"]
 
     async def get_job_details(self, repo: str, job_id: int) -> dict[str, Any]:
         return await self.get(f"/repos/{repo}/actions/jobs/{job_id}")
