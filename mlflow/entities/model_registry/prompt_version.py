@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-
 from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
@@ -17,9 +16,9 @@ from mlflow.prompt.constants import (
     PROMPT_TEXT_DISPLAY_LIMIT,
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_JINJA2,
     PROMPT_TYPE_TAG_KEY,
     PROMPT_TYPE_TEXT,
-    PROMPT_TYPE_JINJA2,
     RESPONSE_FORMAT_TAG_KEY,
 )
 
@@ -208,7 +207,6 @@ class PromptVersion(_ModelRegistryEntity):
 
         # Determine prompt type and set it
         if isinstance(template, list) and len(template) > 0:
-            # Chat prompt
             try:
                 for msg in template:
                     ChatMessage.model_validate(msg)
@@ -216,19 +214,26 @@ class PromptVersion(_ModelRegistryEntity):
                 raise ValueError("Template must be a list of dicts with role and content") from e
             self._prompt_type = PROMPT_TYPE_CHAT
             tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_CHAT
+        elif isinstance(template, str):
+            # Detect Jinja2 by checking for control flow syntax ({% %})
+            # Note: {{ }} is also used in plain text templates, so we only check {% %}
+            if "{%" in template and "%}" in template:
+                self._prompt_type = PROMPT_TYPE_JINJA2
+                tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_JINJA2
+            else:
+                self._prompt_type = PROMPT_TYPE_TEXT
+                tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_TEXT
+        elif isinstance(template, list) and len(template) == 0:
+            # Empty list is treated as text prompt for backward compatibility
+            self._prompt_type = PROMPT_TYPE_TEXT
+            tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_TEXT
         else:
-            if isinstance(template, str):
-                if ("{%" in template and "%}" in template) or (
-                    "{{" in template and "}}" in template
-                ):
-                    self._prompt_type = PROMPT_TYPE_JINJA2
-                else:
-                    self._prompt_type = PROMPT_TYPE_TEXT
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid template type: expected str or list, got {type(template)}"
+            )
 
         # Store template text as a tag
-        tags[PROMPT_TEXT_TAG_KEY] = (
-            template if isinstance(template, str) else json.dumps(template)
-        )
+        tags[PROMPT_TEXT_TAG_KEY] = template if isinstance(template, str) else json.dumps(template)
         tags[IS_PROMPT_TAG_KEY] = "true"
 
         if response_format:
@@ -269,9 +274,7 @@ class PromptVersion(_ModelRegistryEntity):
                 if len(message) > PROMPT_TEXT_DISPLAY_LIMIT
                 else message
             )
-        return (
-            f"PromptVersion(name={self.name}, version={self.version}, template={text})"
-        )
+        return f"PromptVersion(name={self.name}, version={self.version}, template={text})"
 
     # Core PromptVersion properties
     @property
@@ -381,9 +384,7 @@ class PromptVersion(_ModelRegistryEntity):
         """
         Return the version-level tags.
         """
-        return {
-            key: value for key, value in self._tags.items() if not _is_reserved_tag(key)
-        }
+        return {key: value for key, value in self._tags.items() if not _is_reserved_tag(key)}
 
     @property
     def uri(self) -> str:
@@ -457,64 +458,99 @@ class PromptVersion(_ModelRegistryEntity):
         allow_partial: bool = False,
         use_jinja_sandbox: bool = True,
         **kwargs,
-    ):
+    ) -> PromptVersion | str | list[dict[str, Any]]:
         """
         Format the template with the given keyword arguments.
-        By default, it raises an error if there are missing variables.
+        By default, it raises an error if there are missing variables. To format
+        the prompt partially, set `allow_partial=True`.
 
-        Jinja2 templates:
-        - If prompt_type is jinja2, the template string is rendered using
-        SandboxedEnvironment by default.
-        - Use `use_jinja_sandbox=False` to render using unrestricted Environment.
+        Example:
+
+        .. code-block:: python
+
+            # Text prompt formatting
+            prompt = PromptVersion("my-prompt", 1, "Hello, {{title}} {{name}}!")
+            formatted = prompt.format(title="Ms", name="Alice")
+            print(formatted)
+            # Output: "Hello, Ms Alice!"
+
+            # Chat prompt formatting
+            chat_prompt = PromptVersion(
+                "assistant",
+                1,
+                [
+                    {"role": "system", "content": "You are a {{style}} assistant."},
+                    {"role": "user", "content": "{{question}}"},
+                ],
+            )
+            formatted = chat_prompt.format(style="friendly", question="How are you?")
+            print(formatted)
+            # Output: [{"role": "system", "content": "You are a friendly assistant."},
+            #          {"role": "user", "content": "How are you?"}]
+
+            # Partial formatting
+            formatted = prompt.format(title="Ms", allow_partial=True)
+            print(formatted)
+            # Output: PromptVersion(name=my-prompt, version=1, template="Hello, Ms {{name}}!")
+
+            # Jinja2 template formatting (with conditionals and loops)
+            jinja_prompt = PromptVersion(
+                "jinja-prompt",
+                1,
+                "Hello {% if name %}{{ name }}{% else %}Guest{% endif %}!",
+            )
+            formatted = jinja_prompt.format(name="Alice")
+            print(formatted)
+            # Output: "Hello Alice!"
+
+
+        Args:
+            allow_partial: If True, allow partial formatting of the prompt text.
+                If False, raise an error if there are missing variables.
+            use_jinja_sandbox: If True (default), use Jinja2's SandboxedEnvironment
+                for safe rendering. Set to False to use unrestricted Environment.
+                Only applies to Jinja2 templates (those containing {% %} syntax).
+            kwargs: Keyword arguments to replace the variables in the template.
         """
         from mlflow.genai.prompts.utils import format_prompt
 
-        template = self.template
         input_keys = set(kwargs.keys())
 
-        # 1) CHAT PROMPT (list of dicts)
-        if isinstance(template, list):
-            # MLflow original behavior — must not be modified
-            formatted = []
-            for msg in template:
-                formatted.append({
-                    "role": msg["role"],
-                    "content": format_prompt(msg.get("content"), **kwargs),
-                })
-            return formatted
+        # Jinja2 template rendering
+        if self._prompt_type == PROMPT_TYPE_JINJA2:
+            from jinja2 import Environment, Undefined
+            from jinja2.sandbox import SandboxedEnvironment
 
-        # 2) STRING PROMPT (text or Jinja2)
-        elif isinstance(template, str):
+            env_cls = SandboxedEnvironment if use_jinja_sandbox else Environment
+            env = env_cls(undefined=Undefined)
+            tmpl = env.from_string(self.template)
+            return tmpl.render(**kwargs)
 
-            # Jinja2 rendering
-            if self._prompt_type == PROMPT_TYPE_JINJA2:
-                from jinja2 import Environment
-                from jinja2.sandbox import SandboxedEnvironment
-                from jinja2 import Undefined
+        # Text prompt formatting
+        if self.is_text_prompt:
+            template = format_prompt(self.template, **kwargs)
+        else:
+            # For chat prompts, we need to handle JSON properly
+            # Instead of working with JSON strings, work with the Python objects directly
+            template = [
+                {
+                    "role": message["role"],
+                    "content": format_prompt(message.get("content"), **kwargs),
+                }
+                for message in self.template
+            ]
 
-                env_cls = SandboxedEnvironment if use_jinja_sandbox else Environment
-                env = env_cls(undefined=Undefined)
-
-                tmpl = env.from_string(template)
-                return tmpl.render(**kwargs)
-
-            # Plain text formatting
-            formatted = format_prompt(template, **kwargs)
-
-            # Check missing variables
-            missing_keys = self.variables - input_keys
-
-            if missing_keys and not allow_partial:
+        if missing_keys := self.variables - input_keys:
+            if not allow_partial:
                 raise MlflowException.invalid_parameter_value(
-                    f"Missing variables: {missing_keys}. "
-                    "To partially format the prompt, set `allow_partial=True`."
+                    f"Missing variables: {missing_keys}. To partially format the prompt, "
+                    "set `allow_partial=True`."
                 )
-
-            if missing_keys and allow_partial:
+            else:
                 return PromptVersion(
                     name=self.name,
                     version=int(self.version),
-                    template=formatted,
+                    template=template,
                     response_format=self.response_format,
                     model_config=self.model_config,
                     commit_message=self.commit_message,
@@ -524,11 +560,4 @@ class PromptVersion(_ModelRegistryEntity):
                     last_updated_timestamp=self.last_updated_timestamp,
                     user_id=self.user_id,
                 )
-
-            return formatted
-
-        # 3) INVALID TEMPLATE TYPE → RAISE ERROR
-        else:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid template type: expected str or list, got {type(template)}"
-            )
+        return template

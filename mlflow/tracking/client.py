@@ -653,24 +653,30 @@ class MlflowClient:
 
         if isinstance(template, list):
             # Chat prompt
-            tags.update({
-                PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_CHAT,
-                PROMPT_TEXT_TAG_KEY: json.dumps(template),
-            })
+            tags.update(
+                {
+                    PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_CHAT,
+                    PROMPT_TEXT_TAG_KEY: json.dumps(template),
+                }
+            )
 
         elif isinstance(template, str):
             # Jinja2 detection
             if "{%" in template and "%}" in template:
-                tags.update({
-                    PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_JINJA2,
-                    PROMPT_TEXT_TAG_KEY: template,
-                })
+                tags.update(
+                    {
+                        PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_JINJA2,
+                        PROMPT_TEXT_TAG_KEY: template,
+                    }
+                )
             else:
                 # Plain text prompt
-                tags.update({
-                    PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_TEXT,
-                    PROMPT_TEXT_TAG_KEY: template,
-                })
+                tags.update(
+                    {
+                        PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_TEXT,
+                        PROMPT_TEXT_TAG_KEY: template,
+                    }
+                )
 
         else:
             # Unexpected template type → must raise error!!
