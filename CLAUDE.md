@@ -155,9 +155,9 @@ See `mlflow/server/js/` for frontend development.
 
 When committing changes:
 
-- **DCO sign-off**: All commits MUST use the `-s` flag (otherwise CI will reject them)
-- **Co-Authored-By trailer**: Include when Claude Code authors or co-authors changes
-- **Pre-commit hooks**: Run before committing (see [Pre-commit Hooks](#pre-commit-hooks))
+- DCO sign-off: All commits MUST use the `-s` flag (otherwise CI will reject them)
+- Co-Authored-By trailer: Include when Claude Code authors or co-authors changes
+- Pre-commit hooks: Run before committing (see [Pre-commit Hooks](#pre-commit-hooks))
 
 ```bash
 # Commit with required DCO sign-off
