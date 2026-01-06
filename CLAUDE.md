@@ -153,9 +153,11 @@ See `mlflow/server/js/` for frontend development.
 
 ### Committing Changes
 
-All commits MUST be signed with DCO (Developer Certificate of Origin) using the `-s` flag, otherwise CI will reject them. Run pre-commit hooks before committing (see [Pre-commit Hooks](#pre-commit-hooks)).
+When committing changes:
 
-**Note:** Include the `Co-Authored-By: Claude <noreply@anthropic.com>` trailer when Claude Code authors or co-authors changes.
+- **DCO sign-off**: All commits MUST use the `-s` flag (otherwise CI will reject them)
+- **Co-Authored-By trailer**: Include when Claude Code authors or co-authors changes
+- **Pre-commit hooks**: Run before committing (see [Pre-commit Hooks](#pre-commit-hooks))
 
 ```bash
 # Commit with required DCO sign-off
