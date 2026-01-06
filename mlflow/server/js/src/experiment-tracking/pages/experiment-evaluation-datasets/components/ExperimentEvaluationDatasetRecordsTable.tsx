@@ -44,6 +44,7 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
   const datasetId = dataset.dataset_id;
 
   const [rowSize, setRowSize] = useState<'sm' | 'md' | 'lg'>('md');
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   const [searchFilter, setSearchFilter] = useState('');
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
     [INPUTS_COLUMN_ID]: true,
@@ -116,6 +117,13 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
       state: {
         columnVisibility,
       },
+      enableRowSelection: true,
+        state: {
+          columnVisibility,
+          rowSelection,
+      },
+      onRowSelectionChange: setRowSelection,
+
     },
   );
 
@@ -140,6 +148,9 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
         setRowSize={setRowSize}
         searchFilter={searchFilter}
         setSearchFilter={setSearchFilter}
+        rowSelection={rowSelection}
+        setRowSelection={setRowSelection}
+        table={table}
       />
       <Table
         css={{ flex: 1 }}

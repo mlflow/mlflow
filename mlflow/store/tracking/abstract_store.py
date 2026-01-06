@@ -1261,6 +1261,29 @@ class AbstractStore(GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
+    def delete_dataset_records(
+        self,
+        dataset_id: str,
+        dataset_record_ids: list[str],
+        deleted_by: str | None = None,
+    ) -> int:
+        """
+        Delete dataset records by their IDs.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_record_ids: List of record IDs to delete.
+            deleted_by: Optional user who is performing the deletion.
+
+        Returns:
+            Number of records deleted.
+
+        Raises:
+            MlflowException: If dataset not found or invalid parameters.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
     def add_dataset_to_experiments(
         self, dataset_id: str, experiment_ids: list[str]
     ) -> "EvaluationDataset":
