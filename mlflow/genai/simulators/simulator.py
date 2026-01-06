@@ -43,6 +43,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 _MAX_METADATA_LENGTH = 250
+_EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context"}
 
 _MODEL_API_DOC = {
     "model": """Model to use for generating user messages. Must be one of:
@@ -302,6 +303,17 @@ class ConversationSimulator:
         ]
         if missing_goal_indices:
             raise ValueError(f"Test cases at indices {missing_goal_indices} must have 'goal' field")
+
+        indices_with_extra_keys = [
+            i
+            for i, test_case in enumerate(self.test_cases)
+            if set(test_case.keys()) - _EXPECTED_TEST_CASE_KEYS
+        ]
+        if indices_with_extra_keys:
+            _logger.warning(
+                f"Test cases at indices {indices_with_extra_keys} contain unexpected keys "
+                f"which will be ignored. Expected keys: {_EXPECTED_TEST_CASE_KEYS}."
+            )
 
     def _simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list[str]]:
         num_test_cases = len(self.test_cases)
