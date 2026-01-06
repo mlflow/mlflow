@@ -1,9 +1,10 @@
 import json
+import uuid
 
 import pytest
 
 from mlflow.genai.scorers.builtin_scorers import Completeness, ConversationCompleteness
-from mlflow.genai.scorers.online.entities import OnlineScorer
+from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
 
 
@@ -12,12 +13,17 @@ def make_online_scorer(
     sample_rate: float = 1.0,
     filter_string: str | None = None,
 ) -> OnlineScorer:
+    config = OnlineScoringConfig(
+        online_scoring_config_id=uuid.uuid4().hex,
+        scorer_id=uuid.uuid4().hex,
+        sample_rate=sample_rate,
+        experiment_id="exp1",
+        filter_string=filter_string,
+    )
     return OnlineScorer(
         name=scorer.name,
-        experiment_id="exp1",
         serialized_scorer=json.dumps(scorer.model_dump()),
-        sample_rate=sample_rate,
-        filter_string=filter_string,
+        online_config=config,
     )
 
 
