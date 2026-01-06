@@ -2,7 +2,7 @@
 
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Settings, Book, Home } from "lucide-react";
+import { Settings, Book, Home, Wrench } from "lucide-react";
 
 Learn how to query your AI Gateway endpoints, integrate with applications, and leverage different APIs and tools.
 
@@ -286,24 +286,24 @@ except requests.RequestException as e:
 
 <TilesGrid>
   <TileCard
-    icon={Settings}
-    title="Integration Guide"
-    description="Integrate with applications, frameworks, and production systems"
-    href="/genai/governance/ai-gateway/integration"
-    linkText="Learn integrations →"
-  />
-  <TileCard
     icon={Book}
-    title="Tutorial"
-    description="Complete step-by-step walkthrough from setup to deployment"
+    title="Gateway Overview"
+    description="Return to the AI Gateway overview page"
     href="/genai/governance/ai-gateway"
-    linkText="Follow tutorial →"
+    linkText="View overview →"
   />
   <TileCard
     icon={Home}
     title="Configuration Guide"
     description="Learn how to configure providers and advanced settings"
-    href="/genai/governance/ai-gateway/configuration"
+    href="/genai/governance/ai-gateway/legacy/configuration"
     linkText="Configure providers →"
+  />
+  <TileCard
+    icon={Wrench}
+    title="Setup Guide"
+    description="Get started with installation and environment setup"
+    href="/genai/governance/ai-gateway/legacy/setup"
+    linkText="View setup →"
   />
 </TilesGrid>
