@@ -30,12 +30,12 @@ When the user requests to analyze CI failures, fetch the logs and produce a conc
 
 ## Output Format
 
-Provide a clear summary in 1-2 short paragraphs. Be concise and actionable.
-
-Example:
+Provide a clear summary in 1-2 short paragraphs in markdown format.
 
 ```
-The job failed due to a test failure in `tests/tracking/test_client.py::test_log_metric`.
-The assertion `assert response.status_code == 200` failed because the server returned
-a 500 error with message "Database connection timeout".
+Failed job: <workflow name> / <job name>
+Failed step: <name>
+URL: <job_url>
+
+<concise failure summary with root cause, error messages, test names, and log snippets>
 ```
