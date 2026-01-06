@@ -7,10 +7,10 @@ Usage:
 """
 # /// script
 # dependencies = [
-#     "aiohttp",
-#     "tiktoken",
-#     "typing_extensions",
-#     "claude-agent-sdk",
+#   "aiohttp",
+#   "tiktoken",
+#   "typing_extensions",
+#   "claude-agent-sdk",
 # ]
 # ///
 # ruff: noqa: T201
