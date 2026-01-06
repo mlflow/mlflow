@@ -417,7 +417,7 @@ async def analyze_with_claude(jobs: list[JobLogs], debug: bool = False) -> str:
     log(f"Analyzing {len(jobs)} job(s) in parallel...")
     results = await asyncio.gather(*[analyze_single_job(job) for job in jobs])
 
-    separator = "\n\n" + "=" * 80 + "\n\n"
+    separator = "\n\n---\n\n"
     return separator.join(format_result(r, debug) for r in results)
 
 
