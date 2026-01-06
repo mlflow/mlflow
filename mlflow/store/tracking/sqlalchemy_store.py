@@ -2593,7 +2593,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # Batch resolve gateway endpoint IDs to names
             scorers_with_resolved_endpoint = self._batch_resolve_endpoint_in_serialized_scorers(
-                [version.serialized_scorer for config, scorer, version in gateway_results]
+                [version.serialized_scorer for _, _, version in gateway_results]
             )
 
             return [
@@ -2602,7 +2602,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     serialized_scorer=scorer_with_resolved_endpoint,
                     online_config=config.to_mlflow_entity(),
                 )
-                for (config, scorer, version), scorer_with_resolved_endpoint in zip(
+                for (config, scorer, _), scorer_with_resolved_endpoint in zip(
                     gateway_results, scorers_with_resolved_endpoint
                 )
             ]
