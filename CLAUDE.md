@@ -156,10 +156,7 @@ See `mlflow/server/js/` for frontend development.
 All commits MUST be signed with DCO (Developer Certificate of Origin) using the `-s` flag, otherwise CI will reject them. Run pre-commit hooks before committing (see [Pre-commit Hooks](#pre-commit-hooks)).
 
 ```bash
-# Commit with required DCO sign-off
-git commit -s -m "Your commit message"
-
-# If Claude Code helped, add Co-Authored-By trailer
+# Commit with required DCO sign-off (add Co-Authored-By if Claude Code helped)
 git commit -s -m "Your commit message
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
