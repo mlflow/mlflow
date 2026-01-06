@@ -26,6 +26,7 @@ from typing import Any
 
 import aiohttp
 import tiktoken
+from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, TextBlock, query
 
 GITHUB_API_BASE = "https://api.github.com"
 MAX_LOG_TOKENS = 100_000
@@ -353,8 +354,6 @@ def format_single_job_for_analysis(job: JobLogs) -> str:
 
 
 async def analyze_single_job(job: JobLogs) -> str:
-    from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, TextBlock, query
-
     formatted_logs = format_single_job_for_analysis(job)
     prompt = f"Analyze this CI failure:\n\n{formatted_logs}"
 
