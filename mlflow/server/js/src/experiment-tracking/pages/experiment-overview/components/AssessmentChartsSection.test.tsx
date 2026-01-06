@@ -22,6 +22,23 @@ const createAssessmentDataPoint = (assessmentName: string, avgValue: number) => 
   values: { [AggregationType.AVG]: avgValue },
 });
 
+// Mock the lazy loaded component
+jest.mock('./LazyTraceAssessmentChart', () => ({
+  LazyTraceAssessmentChart: ({
+    assessmentName,
+    avgValue,
+    lineColor,
+  }: {
+    assessmentName: string;
+    avgValue?: number;
+    lineColor?: string;
+  }) => (
+    <div data-testid={`assessment-chart-${assessmentName}`} data-avg-value={avgValue} data-line-color={lineColor}>
+      {assessmentName}
+    </div>
+  ),
+}));
+
 describe('AssessmentChartsSection', () => {
   const testExperimentId = 'test-experiment-123';
   const startTimeMs = new Date('2025-12-22T10:00:00Z').getTime();
@@ -149,28 +166,45 @@ describe('AssessmentChartsSection', () => {
       });
     });
 
-    it('should render a placeholder for each assessment', async () => {
+    it('should render a chart for each assessment', async () => {
       setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
       await waitFor(() => {
-        // Placeholders show the assessment names
-        expect(screen.getByText('Correctness')).toBeInTheDocument();
-        expect(screen.getByText('Fluency')).toBeInTheDocument();
-        expect(screen.getByText('Relevance')).toBeInTheDocument();
+        expect(screen.getByTestId('assessment-chart-Correctness')).toBeInTheDocument();
+        expect(screen.getByTestId('assessment-chart-Fluency')).toBeInTheDocument();
+        expect(screen.getByTestId('assessment-chart-Relevance')).toBeInTheDocument();
       });
     });
 
-    it('should display average values for each assessment', async () => {
+    it('should pass avgValue to each chart', async () => {
       setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText('Avg: 0.85')).toBeInTheDocument();
-        expect(screen.getByText('Avg: 0.72')).toBeInTheDocument();
-        expect(screen.getByText('Avg: 0.90')).toBeInTheDocument();
+        expect(screen.getByTestId('assessment-chart-Correctness')).toHaveAttribute('data-avg-value', '0.85');
+        expect(screen.getByTestId('assessment-chart-Relevance')).toHaveAttribute('data-avg-value', '0.72');
+        expect(screen.getByTestId('assessment-chart-Fluency')).toHaveAttribute('data-avg-value', '0.9');
+      });
+    });
+
+    it('should assign different colors to each chart', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        // Charts should be sorted alphabetically, so Correctness, Fluency, Relevance
+        const correctnessChart = screen.getByTestId('assessment-chart-Correctness');
+        const fluencyChart = screen.getByTestId('assessment-chart-Fluency');
+        const relevanceChart = screen.getByTestId('assessment-chart-Relevance');
+
+        // Each chart should have a lineColor attribute
+        expect(correctnessChart).toHaveAttribute('data-line-color');
+        expect(fluencyChart).toHaveAttribute('data-line-color');
+        expect(relevanceChart).toHaveAttribute('data-line-color');
       });
     });
 
@@ -184,10 +218,10 @@ describe('AssessmentChartsSection', () => {
       renderComponent();
 
       await waitFor(() => {
-        // Check that all assessments are rendered
-        expect(screen.getByText('Alpha')).toBeInTheDocument();
-        expect(screen.getByText('Middle')).toBeInTheDocument();
-        expect(screen.getByText('Zebra')).toBeInTheDocument();
+        const charts = screen.getAllByTestId(/^assessment-chart-/);
+        expect(charts[0]).toHaveAttribute('data-testid', 'assessment-chart-Alpha');
+        expect(charts[1]).toHaveAttribute('data-testid', 'assessment-chart-Middle');
+        expect(charts[2]).toHaveAttribute('data-testid', 'assessment-chart-Zebra');
       });
     });
   });
@@ -251,8 +285,25 @@ describe('AssessmentChartsSection', () => {
 
       await waitFor(() => {
         // Should only render the valid assessment
-        expect(screen.getByText('ValidName')).toBeInTheDocument();
-        expect(screen.getByText('Avg: 0.80')).toBeInTheDocument();
+        expect(screen.getByTestId('assessment-chart-ValidName')).toBeInTheDocument();
+        expect(screen.queryAllByTestId(/^assessment-chart-/)).toHaveLength(1);
+      });
+    });
+
+    it('should handle data points with missing avg value', async () => {
+      setupTraceMetricsHandler([
+        {
+          metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
+          dimensions: { [AssessmentDimensionKey.ASSESSMENT_NAME]: 'NoAvgValue' },
+          values: {}, // Missing AVG value
+        },
+      ]);
+
+      renderComponent();
+
+      await waitFor(() => {
+        // Should not render any charts
+        expect(screen.queryAllByTestId(/^assessment-chart-/)).toHaveLength(0);
       });
     });
   });
