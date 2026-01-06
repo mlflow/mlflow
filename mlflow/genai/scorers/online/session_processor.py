@@ -262,6 +262,15 @@ class OnlineSessionScoringProcessor:
         Args:
             task: The SessionScoringTask containing the session and applicable scorers.
         """
+        # Import evaluation modules lazily to avoid pulling in pandas at module load
+        # time, which would break the skinny client.
+        from mlflow.genai.evaluation.entities import EvalItem
+        from mlflow.genai.evaluation.harness import _log_assessments
+        from mlflow.genai.evaluation.session_utils import evaluate_session_level_scorers
+
+        if not task.scorers:
+            return
+
         session = task.session
         session_filter = f"metadata.`mlflow.trace.session` = '{session.session_id}'"
         combined_filter = f"{EXCLUDE_EVAL_RUN_TRACES_FILTER} AND {session_filter}"
@@ -284,15 +293,6 @@ class OnlineSessionScoringProcessor:
             return
 
         full_traces.sort(key=lambda t: t.info.timestamp_ms)
-
-        # Import evaluation modules lazily to avoid pulling in pandas at module load
-        # time, which would break the skinny client.
-        from mlflow.genai.evaluation.entities import EvalItem
-        from mlflow.genai.evaluation.harness import _log_assessments
-        from mlflow.genai.evaluation.session_utils import evaluate_session_level_scorers
-
-        if not task.scorers:
-            return
 
         session_items = [EvalItem.from_trace(t) for t in full_traces]
 
