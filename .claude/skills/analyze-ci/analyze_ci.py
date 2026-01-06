@@ -8,9 +8,9 @@ Usage:
 # /// script
 # dependencies = [
 #   "aiohttp",
+#   "claude-agent-sdk",
 #   "tiktoken",
 #   "typing_extensions",
-#   "claude-agent-sdk",
 # ]
 # ///
 # ruff: noqa: T201
