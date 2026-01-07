@@ -390,6 +390,8 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                         )
 
         if headers:
+            headers.pop("host", None)
+            headers.pop("content-length", None)
             # Don't override api key or version headers
             result_headers = headers | result_headers
 

@@ -641,6 +641,8 @@ class GeminiProvider(BaseProvider):
         result_headers = self.headers.copy()
 
         if headers:
+            headers.pop("host", None)
+            headers.pop("content-length", None)
             # Don't override api key header
             result_headers = headers | result_headers
 
@@ -780,7 +782,7 @@ class GeminiProvider(BaseProvider):
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[bytes]:
         provider_path = self._validate_passthrough_action(action)
-        provider_path = provider_path.format(model=self.config.model.name)
+        provider_path = provider_path.format(model=self.config.model.name.replace("gemini/", ""))
 
         request_headers = self._get_headers(payload, headers)
 

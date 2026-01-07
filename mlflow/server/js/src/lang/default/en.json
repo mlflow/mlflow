@@ -43,6 +43,10 @@
     "defaultMessage": "Rename Run",
     "description": "Modal title to rename the experiment run name"
   },
+  "+HgSTK": {
+    "defaultMessage": "Use these code examples to call your endpoint. Choose between unified APIs for seamless model switching or passthrough APIs for provider-specific features.",
+    "description": "Endpoint usage modal description"
+  },
   "+LLlvi": {
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
@@ -190,6 +194,10 @@
   "/QYbzP": {
     "defaultMessage": "Time (wall)",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use wall time axis in all charts"
+  },
+  "/Sa51w": {
+    "defaultMessage": "Query endpoint",
+    "description": "Endpoint usage modal title"
   },
   "/T979r": {
     "defaultMessage": "Evaluations",
@@ -474,6 +482,10 @@
   "1l/c+M": {
     "defaultMessage": "User frustration",
     "description": "LLM template option"
+  },
+  "1wdK0N": {
+    "defaultMessage": "Anthropic Passthrough",
+    "description": "Anthropic passthrough section title"
   },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
@@ -1165,6 +1177,10 @@
   "7KPJii": {
     "defaultMessage": "Tags",
     "description": "Label for the tags section"
+  },
+  "7MWbDM": {
+    "defaultMessage": "Direct access to Google's Gemini API. Note: endpoint name is part of the URL path.",
+    "description": "Gemini passthrough description"
   },
   "7MxBYq": {
     "defaultMessage": "Traces",
@@ -3745,6 +3761,10 @@
     "defaultMessage": "Token Usage",
     "description": "Title for the token usage chart"
   },
+  "TPbCHS": {
+    "defaultMessage": "Google Gemini Passthrough",
+    "description": "Gemini passthrough section title"
+  },
   "TPspzA": {
     "defaultMessage": "Deleting the section will permanently remove it and the charts it contains. This cannot be undone.",
     "description": "Experiment page > compare runs > chart section > delete section warning message"
@@ -3803,6 +3823,10 @@
   "TlFUsN": {
     "defaultMessage": "Tags",
     "description": "Title text for the tags section on the model versions view page"
+  },
+  "TlS4PC": {
+    "defaultMessage": "Direct access to OpenAI-specific features and parameters.",
+    "description": "OpenAI passthrough description"
   },
   "TlVXcS": {
     "defaultMessage": "Cancel",
@@ -4271,6 +4295,10 @@
     "defaultMessage": "Request error",
     "description": "Error state title displayed in the logged models list page"
   },
+  "Xn0LxG": {
+    "defaultMessage": "Direct access to Anthropic's Messages API with Claude-specific features.",
+    "description": "Anthropic passthrough description"
+  },
   "Xs1oJm": {
     "defaultMessage": "Search metric charts",
     "description": "Run page > Charts tab > Filter metric charts input > placeholder"
@@ -4310,6 +4338,10 @@
   "Y6gWro": {
     "defaultMessage": "The correctness LLM judge gives a binary evaluation and written rationale on whether the agent's generated response is factually accurate and semantically similar to the provided ground-truth response or grading notes.",
     "description": "Evaluation results > known type of evaluation result assessment > description of correctness assessment."
+  },
+  "Y7AIKR": {
+    "defaultMessage": "MLflow Invocations API",
+    "description": "MLflow invocations API section title"
   },
   "Y7DzTT": {
     "defaultMessage": "Input",
@@ -5015,6 +5047,10 @@
     "defaultMessage": "Tool",
     "description": "Display text for the 'tool' role in a GenAI chat message."
   },
+  "dQawRm": {
+    "defaultMessage": "Passthrough APIs",
+    "description": "Passthrough APIs tab title"
+  },
   "dTLq6E": {
     "defaultMessage": "expand {title}",
     "description": "Common component > collapsible section > alternative label when collapsed"
@@ -5054,6 +5090,10 @@
   "dqfOjO": {
     "defaultMessage": "You cannot select rows when comparing runs",
     "description": "Tooltip message for the select button when comparing runs"
+  },
+  "dsPsxG": {
+    "defaultMessage": "OpenAI-Compatible Chat Completions API",
+    "description": "OpenAI compatible API section title"
   },
   "dt3hj5": {
     "defaultMessage": "Add tags",
@@ -5527,6 +5567,10 @@
     "defaultMessage": "Fallback Model {order}",
     "description": "Label for fallback model"
   },
+  "hDWN6z": {
+    "defaultMessage": "OpenAI Passthrough",
+    "description": "OpenAI passthrough section title"
+  },
   "hFlaPP": {
     "defaultMessage": "System metrics",
     "description": "Run details page > tab selector > Model metrics tab"
@@ -5582,6 +5626,10 @@
   "hg+bcy": {
     "defaultMessage": "Enable telemetry",
     "description": "Enable telemetry settings title"
+  },
+  "hjAgZ8": {
+    "defaultMessage": "Unified OpenAI compatible API for model invocations. Set the endpoint name as the model parameter.",
+    "description": "OpenAI compatible API description"
   },
   "hkXDZn": {
     "defaultMessage": "MLflow allows you associate traces with users and chat sessions. This is useful for analyzing multi-turn conversations, enabling you to inspect what happened at each step. Copy the code snippet below to generate a sample trace, or visit the documentation for a more in-depth example.",
@@ -7111,6 +7159,10 @@
     "defaultMessage": "Okay",
     "description": "Experiment page > new notebook run modal > okay button label"
   },
+  "tv0qk9": {
+    "defaultMessage": "Native MLflow API for model invocations. Supports seamless model switching and advanced routing.",
+    "description": "MLflow invocations API description"
+  },
   "tx3aAM": {
     "defaultMessage": "Add tag",
     "description": "Key-value tag editor modal > Add tag button"
@@ -7302,6 +7354,10 @@
   "vmiE+n": {
     "defaultMessage": "Add description",
     "description": "Run page > Overview > Description section > Add description button"
+  },
+  "vwD2zW": {
+    "defaultMessage": "Unified APIs",
+    "description": "Unified APIs tab title"
   },
   "vwDBPr": {
     "defaultMessage": "The run containing the dataset could not be found.",
@@ -7618,6 +7674,10 @@
   "yL9JKm": {
     "defaultMessage": "NaN",
     "description": "Label displaying \"not-a-number\" symbol displayed on a plot UI element"
+  },
+  "yLAJ6r": {
+    "defaultMessage": "Use",
+    "description": "Use endpoint button"
   },
   "yM9S/n": {
     "defaultMessage": "Please select a model to run the judge",
