@@ -202,14 +202,14 @@ export function useChartLegendFormatter() {
 /**
  * Props for the OverviewChartContainer component
  */
-interface OverviewChartContainerProps {
+interface OverviewChartContainerProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
 }
 
 /**
  * Common container styling for overview chart cards
  */
-export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ children }) => {
+export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ children, ...rest }) => {
   const { theme } = useDesignSystemTheme();
   return (
     <div
@@ -219,6 +219,7 @@ export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ 
         padding: theme.spacing.lg,
         backgroundColor: theme.colors.backgroundPrimary,
       }}
+      {...rest}
     >
       {children}
     </div>
