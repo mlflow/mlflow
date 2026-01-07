@@ -1,5 +1,5 @@
 import React from 'react';
-import { Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { TableSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 const DEFAULT_CHART_HEIGHT = 280;
@@ -94,11 +94,28 @@ interface OverviewChartLoadingStateProps {
 /**
  * Loading state for overview chart cards
  */
-export const OverviewChartLoadingState: React.FC<OverviewChartLoadingStateProps> = ({ height }) => {
+export const OverviewChartLoadingState: React.FC<OverviewChartLoadingStateProps> = ({
+  height = DEFAULT_CHART_HEIGHT,
+}) => {
+  const { theme } = useDesignSystemTheme();
   return (
-    <OverviewChartCard height={height}>
-      <Spinner />
-    </OverviewChartCard>
+    <div
+      css={{
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        padding: theme.spacing.lg,
+        height,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: theme.spacing.md,
+      }}
+    >
+      <TitleSkeleton css={{ width: 120 }} />
+      <TitleSkeleton css={{ width: 80 }} />
+      <div css={{ flex: 1 }}>
+        <TableSkeleton lines={4} />
+      </div>
+    </div>
   );
 };
 
