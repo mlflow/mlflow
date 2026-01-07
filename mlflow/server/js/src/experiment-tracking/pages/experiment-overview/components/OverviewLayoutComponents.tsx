@@ -1,5 +1,5 @@
 import React from 'react';
-import { Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 /**
  * Props for the StatCard component
@@ -50,7 +50,7 @@ export const StatCard: React.FC<StatCardProps> = ({ icon, iconColor, iconBgColor
       </div>
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
         {isLoading ? (
-          <Spinner size="small" />
+          <TitleSkeleton css={{ width: '60%' }} />
         ) : (
           <Typography.Title level={2} css={{ margin: 0 }}>
             {value}

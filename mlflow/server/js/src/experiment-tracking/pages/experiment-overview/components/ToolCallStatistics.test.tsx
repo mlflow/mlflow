@@ -82,7 +82,7 @@ describe('ToolCallStatistics', () => {
   });
 
   describe('loading state', () => {
-    it('should render loading spinners while data is being fetched', () => {
+    it('should render loading skeletons while data is being fetched', () => {
       server.use(
         rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
@@ -91,9 +91,16 @@ describe('ToolCallStatistics', () => {
 
       renderComponent();
 
-      // Should show spinners (4 stat cards, each with a spinner)
-      const spinners = screen.getAllByRole('img');
-      expect(spinners.length).toBeGreaterThanOrEqual(1);
+      // Should show stat card labels but values should be replaced with skeletons
+      expect(screen.getByText('Total Tool Calls')).toBeInTheDocument();
+      expect(screen.getByText('Success Rate')).toBeInTheDocument();
+      expect(screen.getByText('Avg Latency')).toBeInTheDocument();
+      expect(screen.getByText('Failed Calls')).toBeInTheDocument();
+
+      // Values should not be displayed during loading (replaced with skeletons)
+      expect(screen.queryByText('0')).not.toBeInTheDocument();
+      expect(screen.queryByText('0.00%')).not.toBeInTheDocument();
+      expect(screen.queryByText('0.00ms')).not.toBeInTheDocument();
     });
   });
 
