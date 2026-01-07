@@ -160,7 +160,7 @@ export const ModelConfigForm = () => {
                     css={{ width: '100%' }}
                     allowClear
                     placeholder={intl.formatMessage({
-                      defaultMessage: 'e.g., gpt-4, claude-3-opus',
+                      defaultMessage: 'e.g., gpt-5.2, claude-4.5-opus',
                       description: 'Placeholder for model name input',
                     })}
                     withInlineLabel={false}
