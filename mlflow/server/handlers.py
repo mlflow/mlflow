@@ -3997,7 +3997,7 @@ def _update_online_scoring_config():
             "Missing required parameter: sample_rate", error_code=INVALID_PARAMETER_VALUE
         )
 
-    config = _get_tracking_store().update_online_scoring_config(
+    config = _get_tracking_store().upsert_online_scoring_config(
         experiment_id=experiment_id,
         scorer_name=name,
         sample_rate=float(sample_rate),
