@@ -1962,6 +1962,10 @@
     "defaultMessage": "Register model",
     "description": "Label for a CTA button for registering a ML model version from a logged model"
   },
+  "D2svqS": {
+    "defaultMessage": "overall error rate",
+    "description": "Subtitle for overall tool error rate"
+  },
   "D4rcC+": {
     "defaultMessage": "Define custom instructions for LLM evaluation",
     "description": "Hint for Custom template"
