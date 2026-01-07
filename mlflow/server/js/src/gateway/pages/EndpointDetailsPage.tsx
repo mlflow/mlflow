@@ -170,7 +170,10 @@ const EndpointDetailsPage = () => {
                               css={{ marginBottom: theme.spacing.xs, display: 'block' }}
                             >
                               {hasTrafficSplit ? (
-                                <FormattedMessage defaultMessage="Traffic Split" description="Traffic split section label" />
+                                <FormattedMessage
+                                  defaultMessage="Traffic Split"
+                                  description="Traffic split section label"
+                                />
                               ) : (
                                 <FormattedMessage defaultMessage="Models" description="Models section label" />
                               )}
@@ -178,7 +181,11 @@ const EndpointDetailsPage = () => {
                             {hasTrafficSplit && (
                               <Typography.Text
                                 color="secondary"
-                                css={{ fontSize: theme.typography.fontSizeSm, marginBottom: theme.spacing.sm, display: 'block' }}
+                                css={{
+                                  fontSize: theme.typography.fontSizeSm,
+                                  marginBottom: theme.spacing.sm,
+                                  display: 'block',
+                                }}
                               >
                                 <FormattedMessage
                                   defaultMessage="Traffic is distributed across models based on configured weights"
@@ -186,10 +193,16 @@ const EndpointDetailsPage = () => {
                                 />
                               </Typography.Text>
                             )}
-                            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, width: '100%' }}>
+                            <div
+                              css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, width: '100%' }}
+                            >
                               {primaryModels.map((mapping: EndpointModelMapping) => {
                                 const weightPercent =
-                                  totalWeight > 0 ? ((mapping.weight ?? 0) / totalWeight) * 100 : 100 / primaryModels.length;
+                                  totalWeight > 0
+                                    ? ((mapping.weight ?? 0) / totalWeight) * 100
+                                    : primaryModels.length > 0
+                                    ? 100 / primaryModels.length
+                                    : 0;
                                 return (
                                   <ModelCard
                                     key={mapping.mapping_id}
@@ -213,18 +226,27 @@ const EndpointDetailsPage = () => {
                               color="secondary"
                               css={{ marginBottom: theme.spacing.xs, display: 'block' }}
                             >
-                              <FormattedMessage defaultMessage="Fallback Models" description="Fallback models section label" />
+                              <FormattedMessage
+                                defaultMessage="Fallback Models"
+                                description="Fallback models section label"
+                              />
                             </Typography.Text>
                             <Typography.Text
                               color="secondary"
-                              css={{ fontSize: theme.typography.fontSizeSm, marginBottom: theme.spacing.sm, display: 'block' }}
+                              css={{
+                                fontSize: theme.typography.fontSizeSm,
+                                marginBottom: theme.spacing.sm,
+                                display: 'block',
+                              }}
                             >
                               <FormattedMessage
                                 defaultMessage="Models will be attempted in order if the primary model(s) fail"
                                 description="Fallback models description"
                               />
                             </Typography.Text>
-                            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, width: '100%' }}>
+                            <div
+                              css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, width: '100%' }}
+                            >
                               {fallbackModels.map((mapping: EndpointModelMapping, idx: number) => (
                                 <ModelCard
                                   key={mapping.mapping_id}
