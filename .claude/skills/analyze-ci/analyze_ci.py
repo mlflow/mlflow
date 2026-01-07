@@ -406,7 +406,7 @@ def format_result(result: AnalysisResult, debug: bool = False) -> str:
     return f"{result.text}\n\n```json\n{usage_json}\n```"
 
 
-async def analyze_with_claude(jobs: list[JobLogs], debug: bool = False) -> str:
+async def analyze_jobs(jobs: list[JobLogs], debug: bool = False) -> str:
     """Analyze each job in parallel to speed up processing."""
     log(f"Analyzing {len(jobs)} job(s) in parallel...")
     results = await asyncio.gather(*[analyze_single_job(job) for job in jobs])
@@ -428,9 +428,9 @@ async def cmd_analyze_async(urls: list[str], github_token: str, debug: bool = Fa
         log(f"Fetching logs for {len(jobs)} job(s)")
         results = await asyncio.gather(*[fetch_single_job_logs(client, job) for job in jobs])
 
-    # Analyze with Claude
-    log("Analyzing logs with Claude...")
-    summary = await analyze_with_claude(results, debug)
+    # Analyze logs
+    log("Analyzing logs...")
+    summary = await analyze_jobs(results, debug)
     print(summary)
 
 
