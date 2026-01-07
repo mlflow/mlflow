@@ -4158,11 +4158,12 @@ def test_sqlalchemy_store_does_not_create_artifact_root_directory_on_init(tmp_pa
 
 def test_sqlalchemy_store_creates_artifact_directory_on_log_artifact(tmp_path):
     from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+    from mlflow.utils.file_utils import path_to_local_file_uri
 
     db_path = tmp_path / "mlflow.db"
     artifact_root = tmp_path / "artifacts"
 
-    store = SqlAlchemyStore(f"sqlite:///{db_path}", str(artifact_root))
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", path_to_local_file_uri(str(artifact_root)))
     exp_id = store.create_experiment("test")
     run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="run")
 
