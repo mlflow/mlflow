@@ -696,7 +696,7 @@ def _get_request_json(flask_request=request):
     return flask_request.get_json(force=True, silent=True)
 
 
-def _get_normalized_request_json(flask_request=request):
+def _get_normalized_request_json(flask_request=request) -> dict[str, Any]:
     """
     Get request JSON with normalization for legacy clients.
 
@@ -720,7 +720,11 @@ def _get_normalized_request_json(flask_request=request):
     return request_json
 
 
-def _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded):
+def _validate_request_json_with_schema(
+    request_json: dict[str, Any],
+    schema: dict[str, list[Any]] | None,
+    proto_parsing_succeeded: bool | None,
+) -> None:
     """
     Validate request JSON against a schema without requiring protobuf messages.
 
