@@ -770,10 +770,6 @@
     "defaultMessage": "Add/Edit alias for model version {version}",
     "description": "Model registry > model version alias editor > Title of the update alias modal"
   },
-  "4MSEHr": {
-    "defaultMessage": "LiteLLM ({count} providers)",
-    "description": "Navigation to LiteLLM providers"
-  },
   "4NEPlV": {
     "defaultMessage": "Scatter Plot",
     "description": "Tab text for scatter plot on the model comparison page"
@@ -2354,6 +2350,10 @@
     "defaultMessage": "Show diff only",
     "description": "Toggle text that determines whether to show diff only in the model\n                      comparison page"
   },
+  "H0gTxe": {
+    "defaultMessage": "Select a Provider",
+    "description": "Modal title for provider selection"
+  },
   "H2UIIZ": {
     "defaultMessage": "null",
     "description": "Null value in the evaluations table."
@@ -3109,6 +3109,10 @@
   "Nj6Ez5": {
     "defaultMessage": "Name",
     "description": "Text for name column in schema table in model version page"
+  },
+  "NjV5NM": {
+    "defaultMessage": "Search providers...",
+    "description": "Search placeholder in provider modal"
   },
   "Nlm9bK": {
     "defaultMessage": "Add tags",
@@ -4123,6 +4127,10 @@
   "WHf+VX": {
     "defaultMessage": "Please enter a name",
     "description": "Error message for empty assessment name in a creation form"
+  },
+  "WImn+W": {
+    "defaultMessage": "LiteLLM ({count} providers)",
+    "description": "Link to open modal with all LiteLLM providers"
   },
   "WJF+wY": {
     "defaultMessage": "Z-axis:",
@@ -5271,10 +5279,6 @@
     "defaultMessage": "Ready.",
     "description": "Default status message for model versions that are ready"
   },
-  "f3Jrpu": {
-    "defaultMessage": "LiteLLM ({count} matches)",
-    "description": "Navigation showing matching LiteLLM providers"
-  },
   "f4CfIz": {
     "defaultMessage": "(edited)",
     "description": "Link text in an edited assessment that allows the user to click to see the previous value"
@@ -5530,10 +5534,6 @@
   "gqfk5C": {
     "defaultMessage": "User is not authorized.",
     "description": "Unauthorized (HTTP STATUS 401) generic error message"
-  },
-  "gwS08B": {
-    "defaultMessage": "Back to common providers",
-    "description": "Navigation back to common providers list"
   },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
@@ -7127,6 +7127,10 @@
     "defaultMessage": "No dataset",
     "description": "Label for the metrics column group header that are not grouped by dataset"
   },
+  "trW0O+": {
+    "defaultMessage": "Back to providers",
+    "description": "Navigation back to main provider list"
+  },
   "ttyLD4": {
     "defaultMessage": "Okay",
     "description": "Experiment page > new notebook run modal > okay button label"
@@ -7530,6 +7534,10 @@
   "xVBx+a": {
     "defaultMessage": "Next",
     "description": "Button text for next trace"
+  },
+  "xWcxhf": {
+    "defaultMessage": "No items found",
+    "description": "Message shown when no items match the search"
   },
   "xYBwQl": {
     "defaultMessage": "Log traces",
