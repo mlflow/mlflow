@@ -3,7 +3,7 @@ import type { PredefinedError } from '@databricks/web-shared/errors';
 import type { ScheduledScorer, ScorerConfig } from '../types';
 import { transformScheduledScorer, convertRegisterScorerResponseToConfig } from '../utils/scorerTransformUtils';
 import { updateScheduledScorersCache } from './scheduledScorersCacheUtils';
-import { registerScorer, type RegisterScorerResponse } from '../api';
+import { registerScorer, updateOnlineScoringConfig, type RegisterScorerResponse } from '../api';
 
 // Define request and response types based on monitoring_service.proto
 export type CreateScheduledScorersRequest = {
@@ -34,8 +34,20 @@ export const useCreateScheduledScorerMutation = () => {
       // Register the single scorer using the register endpoint
       const registerResponse: RegisterScorerResponse = await registerScorer(experimentId, scorerConfig);
 
-      // Convert the register response to ScorerConfig
+      // Also update the online scoring config (sample_rate, filter_string)
+      // Convert from percentage (0-100) to decimal (0-1) for the API
+      const sampleRateDecimal = (scheduledScorer.sampleRate ?? 0) / 100;
+      await updateOnlineScoringConfig(
+        experimentId,
+        scheduledScorer.name,
+        sampleRateDecimal,
+        scheduledScorer.filterString,
+      );
+
+      // Convert the register response to ScorerConfig and add online config fields
       const createdScorerConfig = convertRegisterScorerResponseToConfig(registerResponse);
+      createdScorerConfig.sample_rate = sampleRateDecimal;
+      createdScorerConfig.filter_string = scheduledScorer.filterString;
 
       return {
         experiment_id: experimentId,

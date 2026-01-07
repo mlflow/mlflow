@@ -30,7 +30,7 @@ const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({ e
       filterString: '',
       llmTemplate: 'Custom',
       model: '',
-      disableMonitoring: true,
+      disableMonitoring: false,
       isInstructionsJudge: true, // Custom template is an instructions judge
       evaluationScope: ScorerEvaluationScope.TRACES,
     },

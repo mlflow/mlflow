@@ -1,11 +1,9 @@
-"""
-Huey job function for async scorer invocation.
-
-This module provides the job function for invoking scorers on traces asynchronously.
-It reuses the core scoring and logging logic from the evaluation harness for consistency.
-"""
+"""Huey job functions for async scorer invocation."""
 
 import json
+import logging
+import random
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -14,6 +12,7 @@ from mlflow.entities import Trace
 from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_MAX_WORKERS,
     MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS,
+    MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS,
     MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE,
 )
 from mlflow.exceptions import MlflowException
@@ -24,9 +23,17 @@ from mlflow.genai.evaluation.session_utils import (
     get_first_trace_in_session,
 )
 from mlflow.genai.scorers.base import Scorer
-from mlflow.server.jobs import job
+from mlflow.genai.scorers.online import (
+    OnlineScorer,
+    OnlineSessionScoringProcessor,
+    OnlineTraceScoringProcessor,
+)
+from mlflow.server.handlers import _get_tracking_store
+from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.constant import TraceMetadataKey
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -52,6 +59,58 @@ def _extract_failures_from_feedbacks(feedbacks: list[Any]) -> list[ScorerFailure
     ]
 
 
+@job(
+    name="run_online_trace_scorer",
+    max_workers=MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS.get(),
+    exclusive=True,
+)
+def run_online_trace_scorer_job(
+    experiment_id: str,
+    online_scorers: list[dict[str, Any]],
+) -> None:
+    """
+    Job that fetches samples of individual traces and runs scorers on them.
+
+    This job is exclusive per (experiment_id, online_scorers) combination to prevent
+    duplicate scoring of the same traces.
+
+    Args:
+        experiment_id: The experiment ID to fetch traces from.
+        online_scorers: List of OnlineScorer dicts specifying which scorers to run.
+    """
+    scorer_objects = [OnlineScorer(**scorer_dict) for scorer_dict in online_scorers]
+
+    tracking_store = _get_tracking_store()
+    processor = OnlineTraceScoringProcessor.create(experiment_id, scorer_objects, tracking_store)
+    processor.process_traces()
+
+
+@job(
+    name="run_online_session_scorer",
+    max_workers=MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS.get(),
+    exclusive=True,
+)
+def run_online_session_scorer_job(
+    experiment_id: str,
+    online_scorers: list[dict[str, Any]],
+) -> None:
+    """
+    Job that finds completed sessions and runs session-level scorers on them.
+
+    This job is exclusive per (experiment_id, online_scorers) combination to prevent
+    duplicate scoring of the same sessions.
+
+    Args:
+        experiment_id: The experiment ID to fetch sessions from.
+        online_scorers: List of OnlineScorer dicts specifying which scorers to run.
+    """
+    scorer_objects = [OnlineScorer(**scorer_dict) for scorer_dict in online_scorers]
+
+    tracking_store = _get_tracking_store()
+    processor = OnlineSessionScoringProcessor.create(experiment_id, scorer_objects, tracking_store)
+    processor.process_sessions()
+
+
 @job(name="invoke_scorer", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
 def invoke_scorer_job(
     experiment_id: str,
@@ -74,8 +133,6 @@ def invoke_scorer_job(
     Returns:
         Dict mapping trace_id to TraceResult (assessments and failures).
     """
-    from mlflow.server.handlers import _get_tracking_store
-
     # Deserialize scorer
     scorer_dict = json.loads(serialized_scorer)
     scorer = Scorer.model_validate(scorer_dict)
@@ -326,3 +383,66 @@ def get_trace_batches_for_scorer(
         # For single-turn judges, batch traces into fixed-size batches
         batch_size = MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE.get()
         return [trace_ids[i : i + batch_size] for i in range(0, len(trace_ids), batch_size)]
+
+
+def run_online_scoring_scheduler() -> None:
+    """
+    Periodic task that fetches active online scorers and submits scoring jobs.
+
+    Groups scorers by experiment_id and submits two jobs per experiment:
+    1. Trace-level scoring job for single-turn scorers
+    2. Session-level scoring job for session scorers
+
+    Groups are shuffled to prevent starvation when there are limited job runners available.
+    """
+    tracking_store = _get_tracking_store()
+    online_scorers = tracking_store.get_active_online_scorers()
+    _logger.info(f"Online scoring scheduler found {len(online_scorers)} active scorers")
+
+    scorers_by_experiment: dict[str, list[OnlineScorer]] = defaultdict(list)
+    for scorer in online_scorers:
+        scorers_by_experiment[scorer.online_config.experiment_id].append(scorer)
+
+    # Shuffle configs randomly to prevent scorer starvation when there are
+    # limited job runners available
+    experiment_groups = list(scorers_by_experiment.items())
+    random.shuffle(experiment_groups)
+    _logger.info(
+        f"Grouped into {len(experiment_groups)} experiments, submitting jobs per experiment"
+    )
+
+    for experiment_id, scorers in experiment_groups:
+        # Separate scorers by type
+        session_level_scorers = []
+        trace_level_scorers = []
+
+        for scorer in scorers:
+            scorer_dict = json.loads(scorer.serialized_scorer)
+            scorer_obj = Scorer.model_validate(scorer_dict)
+            if scorer_obj.is_session_level_scorer:
+                session_level_scorers.append(scorer)
+            else:
+                trace_level_scorers.append(scorer)
+
+        # Only submit jobs for scorer types that exist
+        if trace_level_scorers:
+            _logger.info(
+                f"Submitting trace scoring job for experiment {experiment_id} "
+                f"with {len(trace_level_scorers)} scorers"
+            )
+            trace_scorer_dicts = [asdict(scorer) for scorer in trace_level_scorers]
+            submit_job(
+                run_online_trace_scorer_job,
+                {"experiment_id": experiment_id, "online_scorers": trace_scorer_dicts},
+            )
+
+        if session_level_scorers:
+            _logger.info(
+                f"Submitting session scoring job for experiment {experiment_id} "
+                f"with {len(session_level_scorers)} scorers"
+            )
+            session_scorer_dicts = [asdict(scorer) for scorer in session_level_scorers]
+            submit_job(
+                run_online_session_scorer_job,
+                {"experiment_id": experiment_id, "online_scorers": session_scorer_dicts},
+            )
