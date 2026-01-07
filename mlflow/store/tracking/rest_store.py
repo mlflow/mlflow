@@ -1402,6 +1402,8 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
 
         verify_rest_response(response, endpoint)
         try:
+            # Import locally to avoid circular import:
+            # rest_store → mlflow.genai → mlflow.data → dbfs_artifact_repo → RestStore
             from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
             config_dict = response.json()["config"]
@@ -1445,6 +1447,8 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         endpoint = "/api/3.0/mlflow/scorers/online-configs"
         verify_rest_response(response, endpoint)
         try:
+            # Import locally to avoid circular import:
+            # rest_store → mlflow.genai → mlflow.data → dbfs_artifact_repo → RestStore
             from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
             configs_list = response.json()["configs"]
