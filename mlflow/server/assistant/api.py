@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from mlflow.server.assistant.providers.claude_code import ClaudeCodeProvider
+from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
 
 # Hardcoded provider for now
 _provider = ClaudeCodeProvider()

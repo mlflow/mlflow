@@ -5,13 +5,13 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
+from mlflow.assistant.providers.base import AssistantProvider
 from mlflow.server.assistant.api import (
     SESSION_DIR,
     _require_localhost,
     _validate_session_id,
     assistant_router,
 )
-from mlflow.server.assistant.providers.base import AssistantProvider
 
 
 class MockProvider(AssistantProvider):

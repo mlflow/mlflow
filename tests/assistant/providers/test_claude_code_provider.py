@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from mlflow.server.assistant.providers.claude_code import ClaudeCodeProvider
+from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
 
 
 class AsyncIterator:
@@ -30,7 +30,7 @@ class AsyncIterator:
 )
 def test_is_available(which_return, expected):
     with patch(
-        "mlflow.server.assistant.providers.claude_code.shutil.which",
+        "mlflow.assistant.providers.claude_code.shutil.which",
         return_value=which_return,
     ):
         provider = ClaudeCodeProvider()
@@ -53,9 +53,7 @@ def test_load_config(tmp_path, file_content, expected_config, monkeypatch):
     if file_content is not None:
         config_file.write_text(file_content)
 
-    monkeypatch.setattr(
-        "mlflow.server.assistant.providers.claude_code.CLAUDE_CONFIG_FILE", config_file
-    )
+    monkeypatch.setattr("mlflow.assistant.providers.claude_code.CLAUDE_CONFIG_FILE", config_file)
     provider = ClaudeCodeProvider()
     assert provider.load_config() == expected_config
 
@@ -63,7 +61,7 @@ def test_load_config(tmp_path, file_content, expected_config, monkeypatch):
 @pytest.mark.asyncio
 async def test_run_yields_error_when_claude_not_found():
     with patch(
-        "mlflow.server.assistant.providers.claude_code.shutil.which",
+        "mlflow.assistant.providers.claude_code.shutil.which",
         return_value=None,
     ):
         provider = ClaudeCodeProvider()
@@ -85,11 +83,11 @@ async def test_run_builds_correct_command():
 
     with (
         patch(
-            "mlflow.server.assistant.providers.claude_code.shutil.which",
+            "mlflow.assistant.providers.claude_code.shutil.which",
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.server.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
             return_value=mock_process,
         ) as mock_exec,
     ):
@@ -124,11 +122,11 @@ async def test_run_streams_assistant_messages():
 
     with (
         patch(
-            "mlflow.server.assistant.providers.claude_code.shutil.which",
+            "mlflow.assistant.providers.claude_code.shutil.which",
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.server.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
             return_value=mock_process,
         ),
     ):
@@ -153,11 +151,11 @@ async def test_run_handles_process_error():
 
     with (
         patch(
-            "mlflow.server.assistant.providers.claude_code.shutil.which",
+            "mlflow.assistant.providers.claude_code.shutil.which",
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.server.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
             return_value=mock_process,
         ),
     ):
@@ -179,11 +177,11 @@ async def test_run_passes_session_id_for_resume():
 
     with (
         patch(
-            "mlflow.server.assistant.providers.claude_code.shutil.which",
+            "mlflow.assistant.providers.claude_code.shutil.which",
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.server.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
             return_value=mock_process,
         ) as mock_exec,
     ):
@@ -213,11 +211,11 @@ async def test_run_handles_non_json_output():
 
     with (
         patch(
-            "mlflow.server.assistant.providers.claude_code.shutil.which",
+            "mlflow.assistant.providers.claude_code.shutil.which",
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.server.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
             return_value=mock_process,
         ),
     ):
@@ -245,11 +243,11 @@ async def test_run_handles_error_message_type():
 
     with (
         patch(
-            "mlflow.server.assistant.providers.claude_code.shutil.which",
+            "mlflow.assistant.providers.claude_code.shutil.which",
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.server.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
             return_value=mock_process,
         ),
     ):
