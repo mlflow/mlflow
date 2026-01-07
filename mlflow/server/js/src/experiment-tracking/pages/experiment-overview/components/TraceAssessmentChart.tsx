@@ -67,13 +67,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
   const chartLineColor = lineColor || theme.colors.green500;
 
   // Fetch and process all chart data using the custom hook
-  const {
-    chartData: timeSeriesChartData,
-    distributionChartData,
-    isLoading,
-    error,
-    hasData,
-  } = useTraceAssessmentChartData({
+  const { timeSeriesChartData, distributionChartData, isLoading, error, hasData } = useTraceAssessmentChartData({
     ...chartProps,
     assessmentName,
   });
