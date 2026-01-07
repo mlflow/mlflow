@@ -512,7 +512,7 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
             continue
 
         # Model names sometimes include the provider prefix, e.g. "gemini/gemini-2.5-flash"
-        if model_name.startswith(f"{provider}/"):
+        if provider and model_name.startswith(f"{provider}/"):
             model_name = model_name.removeprefix(f"{provider}/")
 
         models.append(
