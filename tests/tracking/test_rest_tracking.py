@@ -4059,7 +4059,7 @@ def test_online_scoring_config(mlflow_client_with_secrets):
         name="test-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="test-endpoint", model_definition_id=model_def.model_definition_id
+        name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
     )
 
     scorer_data = {"instructions_judge_pydantic_data": {"model": f"gateway:/{endpoint.name}"}}
