@@ -2591,21 +2591,38 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 if is_gateway_model(model):
                     gateway_results.append((config, scorer, version))
 
-            # Batch resolve gateway endpoint IDs to names
-            scorers_with_resolved_endpoint = self._batch_resolve_endpoint_in_serialized_scorers(
-                [version.serialized_scorer for _, _, version in gateway_results]
-            )
-
+            # Resolve gateway endpoint IDs to names
             return [
                 OnlineScorer(
                     name=scorer.scorer_name,
-                    serialized_scorer=scorer_with_resolved_endpoint,
+                    serialized_scorer=self._resolve_endpoint_in_serialized_scorer(
+                        version.serialized_scorer
+                    ),
                     online_config=config.to_mlflow_entity(),
                 )
-                for (config, scorer, _), scorer_with_resolved_endpoint in zip(
-                    gateway_results, scorers_with_resolved_endpoint
-                )
+                for config, scorer, version in gateway_results
             ]
+
+    def _resolve_endpoint_in_serialized_scorer(self, serialized_scorer: str) -> str:
+        """
+        Resolve gateway endpoint ID to name in a serialized scorer string.
+
+        Args:
+            serialized_scorer: Serialized scorer JSON string.
+
+        Returns:
+            Serialized scorer JSON string with resolved endpoint name.
+        """
+        serialized_data = json.loads(serialized_scorer)
+        model = extract_model_from_serialized_scorer(serialized_data)
+
+        if is_gateway_model(model):
+            endpoint_id = extract_endpoint_ref(model)
+            if endpoint := self.get_gateway_endpoint(endpoint_id):
+                new_model = build_gateway_model(endpoint.name)
+                serialized_data = update_model_in_serialized_scorer(serialized_data, new_model)
+
+        return json.dumps(serialized_data)
 
     def _apply_order_by_search_logged_models(
         self,
