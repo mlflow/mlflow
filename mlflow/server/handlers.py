@@ -793,6 +793,8 @@ def catch_mlflow_exception(func):
             response = Response(mimetype="application/json")
             response.set_data(e.serialize_as_json())
             response.status_code = e.get_http_status_code()
+            if response.status_code >= 500:
+                _logger.debug(f"Error in {func.__name__}: {e}", exc_info=True)
             return response
 
     return wrapper
