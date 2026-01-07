@@ -40,8 +40,18 @@ import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../constants';
 import { useExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
 import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessionMetrics';
 
-const ContextProviders = ({ children }: { children: React.ReactNode }) => {
-  return <>{children}</>;
+const ContextProviders = ({
+  children,
+  invalidateTraceQuery,
+}: {
+  children: React.ReactNode;
+  invalidateTraceQuery?: (traceId?: string) => void;
+}) => {
+  return (
+    <ModelTraceExplorerUpdateTraceContextProvider invalidateTraceQuery={invalidateTraceQuery}>
+      {children}
+    </ModelTraceExplorerUpdateTraceContextProvider>
+  );
 };
 
 const ExperimentSingleChatSessionPageImpl = () => {
@@ -111,6 +121,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
 
   return (
     <ContextProviders // prettier-ignore
+      invalidateTraceQuery={invalidateSingleTraceQuery}
     >
       <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         <TracesV3Toolbar
