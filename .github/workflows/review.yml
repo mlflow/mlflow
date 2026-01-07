@@ -7,7 +7,8 @@ on:
     paths:
       - .github/workflows/review.yml
       - .claude/commands/pr-review.md
-      - dev/mcps/review.py
+      - .claude/skills/fetch-diff/**
+      - .claude/skills/review-comment/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -80,13 +81,7 @@ jobs:
       - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb # v6.1.0
       - name: Install Claude CLI
         run: |
-          npm install -g @anthropic-ai/claude-code@2.0.24
-
-      - name: Set up MCP servers
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          claude mcp add review --env "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" -- uv run --no-project dev/mcps/review.py
+          npm install -g @anthropic-ai/claude-code@latest
 
       - name: Extract optional prompt from comment
         if: github.event_name == 'issue_comment'
