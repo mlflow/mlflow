@@ -2456,6 +2456,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
     def upsert_online_scoring_config(
         self,
+        experiment_id: str,
         scorer_name: str,
         sample_rate: float,
         filter_string: str | None = None,
@@ -2463,9 +2464,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         Create or update online scoring configuration for a scorer.
 
-        The experiment_id is automatically determined from the scorer's registration.
-
         Args:
+            experiment_id: The ID of the experiment containing the scorer.
             scorer_name: The scorer name.
             sample_rate: The sampling rate (0.0 to 1.0).
             filter_string: Optional filter expression for trace selection.
@@ -2486,17 +2486,22 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
 
         with self.ManagedSessionMaker() as session:
-            scorer = session.query(SqlScorer).filter(SqlScorer.scorer_name == scorer_name).first()
-            if scorer is None:
-                raise MlflowException(
-                    f"Scorer with name '{scorer_name}' not found.",
-                    RESOURCE_DOES_NOT_EXIST,
-                )
-
-            # Get experiment_id from the scorer's registration
-            experiment_id = str(scorer.experiment_id)
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
+
+            scorer = (
+                session.query(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment.experiment_id,
+                    SqlScorer.scorer_name == scorer_name,
+                )
+                .first()
+            )
+            if scorer is None:
+                raise MlflowException(
+                    f"Scorer with name '{scorer_name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
 
             # Get the latest scorer version to validate online scoring compatibility
             latest_version = (

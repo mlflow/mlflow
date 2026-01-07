@@ -1437,6 +1437,7 @@ class AbstractStore(GatewayStoreMixin):
 
     def upsert_online_scoring_config(
         self,
+        experiment_id: str,
         scorer_name: str,
         sample_rate: float,
         filter_string: str | None = None,
@@ -1444,9 +1445,8 @@ class AbstractStore(GatewayStoreMixin):
         """
         Create or update online scoring configuration for a scorer.
 
-        The experiment_id is automatically determined from the scorer's registration.
-
         Args:
+            experiment_id: The experiment ID.
             scorer_name: The scorer name.
             sample_rate: The sampling rate (0.0 to 1.0).
             filter_string: Optional filter expression for trace selection.
