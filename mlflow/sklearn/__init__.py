@@ -266,7 +266,7 @@ def save_model(
                 "Unsafe pickle deserialization is disallowed, Please set 'serialization_format' "
                 "parameter to 'skops', or set "
                 "environment variable 'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true' "
-                "to allow unsafe pickler."
+                "to allow unsafe deserialization."
             )
         warnings.warn(
             "Saving sklearn model by unsafe pickler is deprecated, and will be disabled "
