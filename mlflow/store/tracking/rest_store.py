@@ -1387,7 +1387,6 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
         endpoint = "/api/3.0/mlflow/scorers/online-config"
-
         request_body = {
             "experiment_id": experiment_id,
             "name": scorer_name,
