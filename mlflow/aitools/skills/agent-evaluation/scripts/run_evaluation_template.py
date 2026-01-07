@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Generate a template script for running agent evaluation.
 

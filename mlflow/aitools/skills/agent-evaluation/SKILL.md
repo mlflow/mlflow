@@ -21,6 +21,7 @@ Comprehensive guide for evaluating GenAI agents with MLflow. Use this skill for 
 **Setup (prerequisite)**: Install MLflow 3.8+, configure environment, integrate tracing
 
 **Evaluation workflow in 4 steps**:
+
 1. **Understand**: Run agent, inspect traces, understand purpose
 2. **Define**: Select/create scorers for quality criteria
 3. **Dataset**: ALWAYS discover existing datasets first, only create new if needed
@@ -48,6 +49,7 @@ This ensures commands run in the correct environment with proper dependencies.
 4. Do not use WebSearch - use WebFetch with llms.txt first
 
 **This applies to all steps**, especially:
+
 - Dataset creation (read GenAI dataset docs from llms.txt)
 - Scorer registration (check MLflow docs for scorer APIs)
 - Evaluation execution (understand mlflow.genai.evaluate API)
@@ -74,6 +76,7 @@ Before evaluation, complete these three setup steps:
 ⚠️ **Tracing must work before evaluation.** If tracing fails, stop and troubleshoot.
 
 **Checkpoint - verify before proceeding:**
+
 - [ ] MLflow >=3.8.0 installed
 - [ ] MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID set
 - [ ] Autolog enabled and @mlflow.trace decorators added
@@ -105,15 +108,18 @@ Before evaluation, complete these three setup steps:
 **ALWAYS discover existing datasets first** to prevent duplicate work:
 
 1. **Run dataset discovery** (mandatory):
+
    ```bash
    uv run python scripts/list_datasets.py
    ```
 
 2. **Present findings to user**:
+
    - Show all discovered datasets with their characteristics (size, topics covered)
    - If datasets found, highlight most relevant options based on agent type
 
 3. **Ask user about existing datasets**:
+
    - "I found [N] existing evaluation dataset(s). Do you want to use one of these? (y/n)"
    - If yes: Ask which dataset to use and record the dataset name
    - If no: Proceed to step 4
@@ -131,12 +137,15 @@ Before evaluation, complete these three setup steps:
 ### Step 4: Run Evaluation
 
 1. Generate traces:
+
    ```bash
    uv run python scripts/run_evaluation_template.py
    ```
+
    Review and execute the generated script.
 
 2. Apply scorers:
+
    ```bash
    uv run mlflow traces evaluate \
      --trace-ids <comma_separated_trace_ids> \
@@ -159,15 +168,19 @@ This skill includes scripts and reference documentation to support the evaluatio
 Executable automation for common operations:
 
 **Validation Scripts:**
+
 - **validate_environment.py**: Environment validation (mlflow doctor + custom checks)
+
   - **Use**: Pre-flight check before starting
   - Checks MLflow version, env vars, connectivity
 
 - **validate_auth.py**: Authentication testing
+
   - **Use**: Before expensive operations
   - Tests Databricks/local auth, LLM provider
 
 - **validate_tracing_static.py**: Static tracing validation (NO auth needed)
+
   - **Use**: Step 3.4 Stage 1
   - Code analysis only - fast validation
 
@@ -176,12 +189,15 @@ Executable automation for common operations:
   - Runs agent to verify traces are captured
 
 **Setup & Configuration:**
+
 - **setup_mlflow.py**: Interactive environment configuration
   - **Use**: Step 2 (Configure Environment)
   - Handles tracking URI and experiment ID setup
 
 **Dataset Management:**
+
 - **list_datasets.py**: Dataset discovery and comparison
+
   - **Use**: Step 3 - MANDATORY first step
   - Lists, compares, recommends datasets with diversity metrics
   - Always run before considering dataset creation
@@ -192,7 +208,9 @@ Executable automation for common operations:
   - **IMPORTANT**: Generated code uses `mlflow.genai.datasets` APIs and prompts you to inspect agent function signature to match parameters exactly
 
 **Evaluation:**
+
 - **run_evaluation_template.py**: Evaluation execution code generator
+
   - **Use**: Step 4.1 (Generate Traces)
   - Generates evaluation script using `mlflow.genai.evaluate()`
   - **IMPORTANT**: Loads dataset using `mlflow.genai.datasets.search_datasets()` - never manually recreates data
@@ -206,26 +224,31 @@ Executable automation for common operations:
 Detailed guides loaded as needed:
 
 - **setup-guide.md** (~180 lines)
+
   - **When to read**: During Setup (before evaluation)
   - **Covers**: MLflow installation, environment configuration, tracing integration
   - Complete setup instructions with checkpoints
 
 - **tracing-integration.md** (~450 lines)
+
   - **When to read**: During Step 3 of Setup (Integrate Tracing)
   - **Covers**: Autolog, decorators, session tracking, verification
   - Complete implementation guide with code examples
 
 - **dataset-preparation.md** (~320 lines)
+
   - **When to read**: During Evaluation Step 3 (Prepare Dataset)
   - **Covers**: Dataset schema, APIs, creation, Unity Catalog
   - Full workflow with Databricks considerations
 
 - **scorers.md** (~430 lines)
+
   - **When to read**: During Evaluation Step 2 (Define Scorers)
   - **Covers**: Built-in vs custom, registration, testing, design patterns
   - Comprehensive scorer guide
 
 - **scorers-constraints.md** (~150 lines)
+
   - **When to read**: When registering custom scorers with CLI
   - **Covers**: Template variable constraints, yes/no format, common mistakes
   - Critical CLI requirements and examples

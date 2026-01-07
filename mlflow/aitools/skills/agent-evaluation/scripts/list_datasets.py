@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 List and compare MLflow evaluation datasets in an experiment.
 
@@ -44,7 +43,10 @@ def parse_arguments():
         "--non-interactive", action="store_true", help="List without interactive selection"
     )
     parser.add_argument(
-        "--timeout", type=int, default=30, help="Timeout in seconds for dataset search (default: 30)"
+        "--timeout",
+        type=int,
+        default=30,
+        help="Timeout in seconds for dataset search (default: 30)",
     )
     parser.add_argument(
         "--detailed", action="store_true", help="Include detailed diversity analysis (slower)"
@@ -131,7 +133,7 @@ def main():
     datasets = []
     try:
         # Set up timeout (Unix only)
-        if hasattr(signal, 'SIGALRM'):
+        if hasattr(signal, "SIGALRM"):
             signal.signal(signal.SIGALRM, timeout_handler)
             signal.alarm(args.timeout)
 
@@ -149,7 +151,7 @@ def main():
             datasets = client.search_datasets(experiment_ids=[experiment_id])
 
     except Exception as e:
-        if hasattr(signal, 'SIGALRM'):
+        if hasattr(signal, "SIGALRM"):
             signal.alarm(0)  # Cancel timeout
         print(f"✗ Error searching datasets: {e}")
         sys.exit(1)

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Analyze MLflow evaluation results and generate actionable insights.
 

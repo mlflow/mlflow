@@ -17,11 +17,13 @@ The MLflow CLI for registering LLM judges has specific requirements. Follow thes
 If you use `{{trace}}` in your instructions, it MUST be the ONLY variable.
 
 **Cannot mix {{trace}} with:**
+
 - ❌ `{{inputs}}`
 - ❌ `{{outputs}}`
 - ❌ `{{expectations}}`
 
 **Example - Correct:**
+
 ```bash
 uv run mlflow scorers register-llm-judge \
   -n "ToolUsage" \
@@ -29,6 +31,7 @@ uv run mlflow scorers register-llm-judge \
 ```
 
 **Example - Wrong:**
+
 ```bash
 uv run mlflow scorers register-llm-judge \
   -n "ToolUsage" \
@@ -38,6 +41,7 @@ uv run mlflow scorers register-llm-judge \
 **Why this constraint exists:**
 
 The `{{trace}}` variable contains everything:
+
 - Input parameters (same as {{inputs}})
 - Output responses (same as {{outputs}})
 - All intermediate steps
@@ -49,12 +53,14 @@ Since it includes inputs and outputs already, MLflow doesn't allow redundant var
 **When to use {{trace}} vs {{inputs}}/{{outputs}}:**
 
 Use `{{trace}}` when evaluating:
+
 - ✅ Tool selection/usage
 - ✅ Execution flow
 - ✅ Intermediate reasoning
 - ✅ Multi-step processes
 
 Use `{{inputs}}`/`{{outputs}}` when evaluating:
+
 - ✅ Final input/output quality only
 - ✅ Response relevance
 - ✅ Answer correctness
@@ -64,16 +70,19 @@ Use `{{inputs}}`/`{{outputs}}` when evaluating:
 ⚠️ **Use "yes"/"no" NOT "pass"/"fail"**
 
 **Correct return values:**
+
 - "yes" = criteria met
 - "no" = criteria not met
 
 **Wrong return values:**
+
 - "pass"/"fail"
 - "true"/"false"
 - "passed"/"failed"
 - "1"/"0"
 
 **Example - Correct:**
+
 ```bash
 uv run mlflow scorers register-llm-judge \
   -n "QualityCheck" \
@@ -81,6 +90,7 @@ uv run mlflow scorers register-llm-judge \
 ```
 
 **Example - Wrong:**
+
 ```bash
 uv run mlflow scorers register-llm-judge \
   -n "QualityCheck" \
@@ -94,17 +104,20 @@ The MLflow CLI expects binary yes/no format for consistency with LLM judge patte
 ## Constraint 3: Instructions Must Include Template Variable
 
 Instructions must contain at least one template variable:
+
 - `{{ inputs }}` - Evaluation inputs
 - `{{ outputs }}` - Agent outputs
 - `{{ expectations }}` - Ground truth (optional)
 - `{{ trace }}` - Complete execution trace
 
 **Example - Wrong (no variables):**
+
 ```bash
 -i "Evaluate the quality. Return yes or no."  # ❌ Missing variable!
 ```
 
 **Example - Correct:**
+
 ```bash
 -i "Evaluate if {{ outputs }} is high quality. Return yes or no."  # ✅ Has variable
 ```
@@ -132,14 +145,17 @@ uv run mlflow scorers register-llm-judge \
 ## Common Mistakes
 
 1. **Mixing {{trace}} with {{inputs}} or {{outputs}}**
+
    - Error: "Cannot use trace variable with other variables"
    - Fix: Use only {{trace}} or only {{inputs}}/{{outputs}}
 
 2. **Using "pass"/"fail" instead of "yes"/"no"**
+
    - Result: Scorer may not work correctly with evaluation
    - Fix: Always use "yes"/"no" format
 
 3. **Missing template variables**
+
    - Error: "Instructions must contain at least one variable"
    - Fix: Include {{ outputs }}, {{ inputs }}, or {{ trace }}
 

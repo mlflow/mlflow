@@ -53,6 +53,7 @@ uv run mlflow experiments search --view all
 ```
 
 After reviewing results:
+
 - If suitable experiments exist → Ask user which one to use
 - If no experiments exist → Ask user what name for new experiment
 
@@ -100,6 +101,7 @@ Add autolog for your agent's library (LangChain, LangGraph, OpenAI, etc.):
 
 ```python
 import mlflow
+
 mlflow.langchain.autolog()  # Place in __init__.py before agent imports
 ```
 
@@ -109,6 +111,7 @@ Decorate all entry point functions:
 
 ```python
 import mlflow
+
 
 @mlflow.trace  # <-- ADD THIS
 def run_agent(query: str, llm_provider: LLMProvider) -> str:
@@ -152,6 +155,7 @@ grep -B 2 "@mlflow.trace" src/
 ```
 
 Verify you see:
+
 - ✓ Autolog import and call (e.g., `mlflow.langchain.autolog()`)
 - ✓ `@mlflow.trace` decorator before agent entry point functions
 
@@ -166,11 +170,13 @@ uv run python -c "import mlflow; trace_id = mlflow.get_last_active_trace_id(); p
 ```
 
 If no trace is captured, stop and work with user to fix:
+
 - MLflow tracing integration
 - Authentication issues
 - LLM configuration problems
 
 **Checkpoint - verify before proceeding:**
+
 - [ ] Autolog present and called before agent imports
 - [ ] @mlflow.trace decorators on entry points
 - [ ] Test run creates a trace (trace ID is not None)

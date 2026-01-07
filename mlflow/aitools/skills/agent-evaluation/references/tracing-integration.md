@@ -16,6 +16,7 @@ Complete guide for integrating MLflow tracing with your agent.
 **CRITICAL**: The agent needs to be integrated with MLflow tracing. DO NOT MOVE FORWARD IF TRACING DOES NOT WORK.
 
 MLflow tracing requires **BOTH** autolog and decorators to capture complete traces:
+
 - **Autolog**: Captures internal library calls (LangChain, LangGraph, OpenAI, etc.)
 - **@mlflow.trace decorator**: Captures the top-level function call as a span
 
@@ -30,6 +31,7 @@ If the agent uses a popular library (e.g., LangGraph, LangChain, Strands), enabl
 ### Identify Library
 
 Determine which library your agent uses:
+
 - LangChain
 - LangGraph
 - OpenAI
@@ -40,20 +42,25 @@ Determine which library your agent uses:
 Add the appropriate autolog call based on your library. Consult MLflow documentation for the exact call:
 
 **LangChain/LangGraph:**
+
 ```python
 import mlflow
+
 mlflow.langchain.autolog()
 ```
 
 **OpenAI:**
+
 ```python
 import mlflow
+
 mlflow.openai.autolog()
 ```
 
 ### Placement
 
 Place the autolog call in your initialization code, typically in:
+
 - `main.py`
 - `__init__.py`
 - Application startup code
@@ -61,6 +68,7 @@ Place the autolog call in your initialization code, typically in:
 **IMPORTANT**: Call autolog **before** importing or initializing the agent library.
 
 **Example** (`src/myagent/__init__.py`):
+
 ```python
 import mlflow
 
@@ -76,11 +84,13 @@ __all__ = ["run_agent", "stream_agent"]
 ### Verification
 
 Check that the autolog call is present:
+
 ```bash
 grep -r "mlflow.*autolog" src/
 ```
 
 You should see output like:
+
 ```
 src/myagent/__init__.py:mlflow.langchain.autolog()
 ```
@@ -92,6 +102,7 @@ src/myagent/__init__.py:mlflow.langchain.autolog()
 ### What are Entry Points?
 
 Entry points are the main functions that serve as the interface to your agent. These are typically:
+
 - `run_agent()`
 - `stream_agent()`
 - `handle_request()`
@@ -103,6 +114,7 @@ Entry points are the main functions that serve as the interface to your agent. T
 
 1. **Read the codebase** to find functions that external code calls to invoke the agent
 2. **Look for functions that**:
+
    - Accept user queries or requests
    - Return agent responses
    - Are exported in `__all__`
@@ -118,6 +130,7 @@ Entry points are the main functions that serve as the interface to your agent. T
 For **EACH** entry point function:
 
 1. **Import mlflow** at the top of the file:
+
    ```python
    import mlflow
    ```
@@ -131,9 +144,11 @@ For **EACH** entry point function:
    ```
 
 **Complete Example:**
+
 ```python
 import mlflow
 from .llm import LLMProvider
+
 
 @mlflow.trace  # <-- ADD THIS
 def run_agent(query: str, llm_provider: LLMProvider) -> str:
@@ -141,6 +156,7 @@ def run_agent(query: str, llm_provider: LLMProvider) -> str:
     # Agent implementation
     result = agent.invoke({"query": query})
     return result["output"]
+
 
 @mlflow.trace  # <-- ADD THIS TOO
 def stream_agent(query: str, llm_provider: LLMProvider):
@@ -159,6 +175,7 @@ grep -B 2 "def run_agent\|def stream_agent\|def handle_request" src/*/agent/*.py
 ```
 
 **Expected output:**
+
 ```
 src/myagent/agent/graph.py--@mlflow.trace
 src/myagent/agent/graph.py-def run_agent(query: str, llm_provider: LLMProvider) -> str:
@@ -176,6 +193,7 @@ You should see `@mlflow.trace` above each entry point function.
 ### When to Use Session Tracking
 
 Use session tracking if your agent:
+
 - Supports multi-turn conversations
 - Maintains chat history
 - Has a session or conversation ID in its interface
@@ -192,6 +210,7 @@ grep -r "session_id\|session_ID\|conversation_id" src/
 ```
 
 Look for:
+
 - Function parameters named `session_id`, `conversation_id`, etc.
 - Session state in agent configuration or state classes
 - Chat/conversation modes that maintain context
@@ -206,11 +225,10 @@ If session_id exists in the code but **NOT** in traces, add session tracking to 
 import mlflow
 import uuid
 
+
 @mlflow.trace
 def run_agent(
-    query: str,
-    llm_provider: LLMProvider,
-    session_id: str | None = None
+    query: str, llm_provider: LLMProvider, session_id: str | None = None
 ) -> str:
     # Generate session_id if not provided
     if session_id is None:
@@ -227,6 +245,7 @@ def run_agent(
 ```
 
 **Key points**:
+
 1. Add `session_id` parameter (optional, with default)
 2. Generate session_id if not provided (for backward compatibility)
 3. Get the active trace ID with `mlflow.get_last_active_trace_id()`
@@ -275,6 +294,7 @@ uv run python .claude/skills/agent-evaluation/scripts/validate_tracing.py
 ```
 
 This script will:
+
 - Check environment variables
 - Verify autolog is enabled
 - Find entry points and check decorators
@@ -288,6 +308,7 @@ This script will:
 If you prefer manual verification:
 
 1. **Invoke the agent** with a sample input:
+
    ```python
    import mlflow
    from myagent import run_agent
@@ -298,6 +319,7 @@ If you prefer manual verification:
    ```
 
 2. **Retrieve the trace**:
+
    ```python
    from mlflow import MlflowClient
 
@@ -314,6 +336,7 @@ If you prefer manual verification:
    ```
 
 **Expected structure**:
+
 - **Top-level span**: Your function name (e.g., "run_agent") - from `@mlflow.trace`
 - **Child spans**: Library operations (e.g., "LangChain", "Agent", "Tool") - from autolog
 - **Nested spans**: Individual operations (LLM calls, tool calls, etc.)
@@ -330,8 +353,9 @@ def print_trace_hierarchy(spans, indent=0):
     for span in spans:
         prefix = "  " * indent
         print(f"{prefix}- {span.name} ({span.span_type})")
-        if hasattr(span, 'spans') and span.spans:
+        if hasattr(span, "spans") and span.spans:
             print_trace_hierarchy(span.spans, indent + 1)
+
 
 # Print the hierarchy
 print("Trace structure:")
@@ -341,6 +365,7 @@ print_trace_hierarchy(trace.data.spans)
 ### Example Output
 
 **Good - Complete hierarchy:**
+
 ```
 Trace structure:
 - run_agent (FUNCTION)
@@ -352,6 +377,7 @@ Trace structure:
 ```
 
 **Bad - Missing library spans:**
+
 ```
 Trace structure:
 - run_agent (FUNCTION)
@@ -359,6 +385,7 @@ Trace structure:
 ```
 
 **Bad - Missing top-level span:**
+
 ```
 Trace structure:
 - LangChainRunnableSequence (CHAIN)
@@ -375,11 +402,13 @@ Trace structure:
 - [ ] Session ID is captured in traces (if agent supports sessions/conversations)
 
 Run the validation script to verify:
+
 ```bash
 uv run python .claude/skills/agent-evaluation/scripts/validate_tracing.py
 ```
 
 Expected output:
+
 ```
 ============================================================
 Validation Report
@@ -399,6 +428,7 @@ You can proceed with evaluation.
 **Symptoms**: No library spans in trace, only top-level function span
 
 **Solutions**:
+
 1. Verify autolog call is before agent imports
 2. Check correct library is specified (`langchain`, not `langgraph` if using LangChain)
 3. Ensure library is actually installed: `pip list | grep langchain`
@@ -409,6 +439,7 @@ You can proceed with evaluation.
 **Symptoms**: Library spans present but no function span
 
 **Solutions**:
+
 1. Verify `@mlflow.trace` decorator is present above function
 2. Check decorator is `@mlflow.trace` not `@trace`
 3. Ensure `mlflow` is imported in the file
@@ -419,6 +450,7 @@ You can proceed with evaluation.
 **Symptoms**: `mlflow.get_last_active_trace_id()` returns None
 
 **Solutions**:
+
 1. Check `MLFLOW_TRACKING_URI` is set
 2. Check `MLFLOW_EXPERIMENT_ID` is set
 3. Verify MLflow server is running (if using local server)
@@ -430,6 +462,7 @@ You can proceed with evaluation.
 **Symptoms**: Trace exists but no session_id tag
 
 **Solutions**:
+
 1. Verify `mlflow.get_last_active_trace_id()` is called early in function
 2. Ensure `mlflow.set_trace_tag()` is called immediately after
 3. Check trace_id is not None before setting tag
@@ -440,6 +473,7 @@ You can proceed with evaluation.
 **Symptoms**: `ModuleNotFoundError` when importing agent
 
 **Solutions**:
+
 1. Install agent package: `pip install -e .` from project root
 2. Verify you're in correct virtual environment
 3. Check package is installed: `pip list | grep <package>`

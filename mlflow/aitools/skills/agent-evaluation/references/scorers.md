@@ -15,6 +15,7 @@ Complete guide for selecting and creating scorers to evaluate agent quality.
 ### What are Scorers?
 
 Scorers (also called "judges" or "LLM-as-a-judge") are evaluation criteria that assess the quality of agent responses. They:
+
 - Take agent inputs and outputs as input
 - Apply quality criteria (relevance, accuracy, completeness, etc.)
 - Return a score or pass/fail judgment
@@ -23,12 +24,14 @@ Scorers (also called "judges" or "LLM-as-a-judge") are evaluation criteria that 
 ### Types of Scorers
 
 **1. Reference-Free Scorers**
+
 - Don't require ground truth or expected outputs
 - Judge quality based on the query and response alone
 - Examples: Relevance, Completeness, Clarity
 - **Easiest to use** - work with any dataset
 
 **2. Ground-Truth Scorers**
+
 - Require expected outputs in the dataset
 - Compare agent response to ground truth
 - Examples: Factual Accuracy, Answer Correctness
@@ -37,6 +40,7 @@ Scorers (also called "judges" or "LLM-as-a-judge") are evaluation criteria that 
 ### LLM-as-a-Judge Pattern
 
 Modern scorers use an LLM to judge quality:
+
 1. Scorer receives query and response
 2. LLM is given evaluation instructions
 3. LLM judges whether criteria is met
@@ -65,6 +69,7 @@ uv run mlflow scorers list --experiment-id $MLFLOW_EXPERIMENT_ID
 ```
 
 Output shows:
+
 - Scorer names
 - Whether they're built-in or custom
 - Registration details
@@ -76,14 +81,17 @@ Use `uv run mlflow scorers list -b` to see the complete list of available built-
 **Common categories include:**
 
 **Reference-free scorers** (judge without ground truth):
+
 - Relevance, Completeness, Coherence, Clarity
 - Use for: All agents, no expected outputs needed
 
 **Ground-truth scorers** (require expected outputs):
+
 - Answer Correctness, Faithfulness, Accuracy
 - Use for: When you have known correct answers in dataset
 
 **Context-based scorers** (require context/documents):
+
 - Groundedness, Citation Quality
 - Use for: RAG systems, knowledge base agents
 
@@ -92,16 +100,19 @@ Use `uv run mlflow scorers list -b` to see the complete list of available built-
 **CRITICAL**: Built-in scorers make assumptions about trace structure.
 
 Before using a built-in scorer:
+
 1. **Read its documentation** to understand required inputs
 2. **Check trace structure** matches expectations
 3. **Verify it works** with a test trace before full evaluation
 
 **Example issue**:
+
 - Scorer expects `context` field in trace
 - Your agent doesn't provide `context`
 - Scorer fails or returns null
 
 **Solution**:
+
 - Read scorer docs carefully
 - Test on single trace first
 - Create custom scorer if built-in doesn't match your structure
@@ -120,6 +131,7 @@ scorer.register(experiment_id=os.getenv("MLFLOW_EXPERIMENT_ID"))
 ```
 
 **Benefits of registration**:
+
 - Shows up in `mlflow scorers list --experiment-id <id>`
 - Keeps all evaluation criteria in one place
 - Makes it clear what scorers are being used for the experiment
@@ -127,6 +139,7 @@ scorer.register(experiment_id=os.getenv("MLFLOW_EXPERIMENT_ID"))
 ## Custom Scorer Design
 
 Create custom scorers when:
+
 - Built-in scorers don't match your criteria
 - You need domain-specific evaluation
 - Your agent has unique requirements
@@ -137,9 +150,11 @@ Create custom scorers when:
 ⚠️ **The MLflow CLI has specific requirements for custom scorers.**
 
 Before creating custom scorers, read the complete constraints guide:
+
 - See `references/scorers-constraints.md` for detailed requirements
 
 **Key constraints:**
+
 1. `{{trace}}` variable cannot be mixed with `{{inputs}}` or `{{outputs}}`
 2. CLI requires "yes"/"no" return values (not "pass"/"fail")
 3. Instructions must include at least one template variable
@@ -153,6 +168,7 @@ Before creating custom scorers, read the complete constraints guide:
 What specific aspect of quality are you judging?
 
 **Examples**:
+
 - "Response uses appropriate tools for the query"
 - "Response is factually accurate based on available data"
 - "Response follows the expected format"
@@ -163,6 +179,7 @@ What specific aspect of quality are you judging?
 What information does the scorer need?
 
 **Common inputs**:
+
 - `query`: The user's question
 - `response`: The agent's answer
 - `trace`: Full trace with tool calls, LLM calls, etc.
@@ -300,6 +317,7 @@ registered_scorer = scorer.register(experiment_id="your_experiment_id")
 ```
 
 **When to use make_judge()**:
+
 - Need programmatic control
 - Complex scorer logic
 - Integration with existing code
@@ -310,17 +328,20 @@ registered_scorer = scorer.register(experiment_id="your_experiment_id")
 ### Best Practices
 
 **1. Use default model** unless you have specific needs:
+
 - Default is usually sufficient and cost-effective
 - Specify model only for specialized evaluation
 
 **2. Register both built-in and custom scorers for version control and team collaboration**
 
 **3. Test before full evaluation**:
+
 - Test on single trace first
 - Verify output format is correct
 - Check that instructions are clear
 
 **4. Version your scorers**:
+
 - Include version in name if criteria change: `ToolUsageAppropriate_v2`
 - Document what changed between versions
 
@@ -344,19 +365,23 @@ uv run mlflow traces evaluate \
 ### Verify Scorer Behavior
 
 **Check 1: No Errors**
+
 - Scorer executes without errors
 - No null or empty outputs
 
 **Check 2: Output Format**
+
 - For yes/no: Returns "yes" or "no"
 - For numeric: Returns number in expected range
 
 **Check 3: Makes Sense**
+
 - Review the trace
 - Manually judge if scorer output is reasonable
 - If scorer is wrong, refine instructions
 
 **Check 4: Trace Coverage**
+
 - Test on diverse traces (different query types)
 - Ensure scorer handles all cases
 - Check edge cases

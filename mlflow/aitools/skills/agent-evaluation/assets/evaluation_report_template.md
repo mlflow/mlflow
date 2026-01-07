@@ -12,12 +12,14 @@
 ## Evaluation Setup
 
 **Configuration**:
+
 - **Tracking URI**: [URI]
 - **Experiment ID**: [ID]
 - **Dataset**: [Name] ([N] queries)
 - **MLflow Version**: [version]
 
 **Scorers Used**:
+
 1. **[Scorer 1 Name]**: [Brief description of what it evaluates]
 2. **[Scorer 2 Name]**: [Brief description]
 3. **[Scorer 3 Name]**: [Brief description]
@@ -27,12 +29,12 @@
 
 ### Overall Performance
 
-| Scorer | Pass Rate | Passed/Total | Grade |
-|--------|-----------|--------------|-------|
-| [Scorer 1] | [X]% | [Y]/[Z] | [A/B/C/F] |
-| [Scorer 2] | [X]% | [Y]/[Z] | [A/B/C/F] |
-| [Scorer 3] | [X]% | [Y]/[Z] | [A/B/C/F] |
-| **Overall Average** | **[X]%** | **-** | **[Grade]** |
+| Scorer              | Pass Rate | Passed/Total | Grade       |
+| ------------------- | --------- | ------------ | ----------- |
+| [Scorer 1]          | [X]%      | [Y]/[Z]      | [A/B/C/F]   |
+| [Scorer 2]          | [X]%      | [Y]/[Z]      | [A/B/C/F]   |
+| [Scorer 3]          | [X]%      | [Y]/[Z]      | [A/B/C/F]   |
+| **Overall Average** | **[X]%**  | **-**        | **[Grade]** |
 
 **Grading Scale**: A (90-100%), B (80-89%), C (70-79%), D (60-69%), F (<60%)
 
@@ -52,15 +54,19 @@
 **Grade**: [A/B/C/D/F]
 
 **Strengths**:
+
 - [What worked well - specific examples]
 - [Another strength]
 
 **Issues**:
+
 - [What didn't work - specific examples]
 - [Another issue]
 
 **Example Failures**:
+
 1. **Query**: "[failing query]"
+
    - **Issue**: [Why it failed]
    - **Trace**: [trace_id or link]
 
@@ -85,6 +91,7 @@
 **Frequency**: [N queries affected] ([X]% of failures)
 
 **Affected Queries**:
+
 - "[example query 1]"
 - "[example query 2]"
 - "[example query 3]"
@@ -106,6 +113,7 @@
 ### Immediate Actions (High Priority)
 
 1. **[Action Item 1]**
+
    - **Issue**: [What problem this addresses]
    - **Expected Impact**: [What will improve]
    - **Effort**: [Low/Medium/High]
@@ -118,6 +126,7 @@
 ### Short-Term Improvements (Medium Priority)
 
 1. **[Action Item 3]**
+
    - **Issue**: [What problem this addresses]
    - **Expected Impact**: [What will improve]
    - **Effort**: [Low/Medium/High]
@@ -138,11 +147,13 @@
 **Diversity**: [High/Medium/Low]
 
 **Query Distribution**:
+
 - Short queries (<10 words): [N] ([X]%)
 - Medium queries (10-20 words): [N] ([X]%)
 - Long queries (>20 words): [N] ([X]%)
 
 **Coverage Assessment**:
+
 - ✓ [Covered capability 1]
 - ✓ [Covered capability 2]
 - ✗ [Missing capability 1] - **Consider adding queries for this**

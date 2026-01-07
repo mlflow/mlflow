@@ -78,14 +78,10 @@ def test_python_script_syntax(script_path: Path):
 
 def test_all_scripts_summary():
     """
-    Summary test that prints all discovered scripts.
+    Summary test that verifies script discovery.
 
-    This test always passes but provides visibility into what scripts are being tested.
+    This test always passes and tracks the number of discovered scripts.
     """
     scripts = discover_python_scripts()
-    skills_dir = get_skills_directory()
-
-    print(f"\n\nDiscovered {len(scripts)} Python script(s) in mlflow/aitools/skills:")
-    for script in scripts:
-        rel_path = script.relative_to(skills_dir)
-        print(f"  - {rel_path}")
+    # Assert we have scripts to ensure the discovery mechanism is working
+    assert len(scripts) > 0, "No Python scripts discovered in mlflow/aitools/skills"

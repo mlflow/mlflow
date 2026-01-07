@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Validate MLflow tracing by running the agent (RUNTIME VALIDATION).
 

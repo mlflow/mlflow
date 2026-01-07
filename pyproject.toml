@@ -436,6 +436,14 @@ example-rules = [
 ]
 # Multi-assign has better readability in this example.
 "docs/docs/classic-ml/getting-started/deep-learning.mdx" = ["multi-assign"]
+# Skills scripts are examples for coding agents, not production code
+"mlflow/aitools/skills/*/scripts/*.py" = [
+  "walrus-operator",
+  "parameterized-generics",
+  "mlflow-cli-subprocess",
+  "builtin-import-location",
+]
+"mlflow/aitools/skills/*/references/*.md" = ["syntax-error"]
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]

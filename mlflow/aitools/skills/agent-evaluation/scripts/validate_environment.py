@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Validate MLflow environment setup for agent evaluation.
 

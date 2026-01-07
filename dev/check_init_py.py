@@ -39,7 +39,15 @@ def main() -> int:
     if not python_files:
         return 0
 
+    # Directories to exclude from __init__.py check (e.g., skills for coding agents)
+    excluded_dirs = {Path("mlflow/aitools/skills")}
+
     python_dirs = {p for f in python_files for p in f.parents if p != Path(".")}
+    # Filter out excluded directories and their subdirectories
+    python_dirs = {
+        d for d in python_dirs if not any(d.is_relative_to(excl) for excl in excluded_dirs)
+    }
+
     if missing_init_files := [d for d in python_dirs if not (d / "__init__.py").exists()]:
         print("Error: The following directories contain Python files but lack __init__.py:")
         for d in sorted(missing_init_files):

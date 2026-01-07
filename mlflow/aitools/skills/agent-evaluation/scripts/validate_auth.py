@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Validate authentication for agent evaluation.
 
@@ -67,7 +66,7 @@ def check_databricks_auth():
                     api_client = ApiClient()
 
                     # Check if api_client is properly initialized
-                    if api_client is None or not hasattr(api_client, 'host'):
+                    if api_client is None or not hasattr(api_client, "host"):
                         print("  ✗ Databricks CLI profile not configured")
                         print()
                         return ["Run: databricks auth login --profile DEFAULT"]
@@ -79,6 +78,7 @@ def check_databricks_auth():
 
             # Test with MLflow client
             from mlflow import MlflowClient
+
             client = MlflowClient()
             client.search_experiments(max_results=1)
             print("  ✓ Databricks profile authenticated")
