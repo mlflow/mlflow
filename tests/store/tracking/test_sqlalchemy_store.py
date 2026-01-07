@@ -41,6 +41,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.dataset_record import DatasetRecord
+from mlflow.entities.gateway_endpoint import GatewayEndpoint
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
@@ -88,6 +89,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlLoggedModelParam,
     SqlLoggedModelTag,
     SqlMetric,
+    SqlOnlineScoringConfig,
     SqlParam,
     SqlRun,
     SqlSpan,
@@ -10705,8 +10707,6 @@ def _non_gateway_model_scorer_json():
 
 def _mock_gateway_endpoint():
     """Returns a mock GatewayEndpoint for testing."""
-    from mlflow.entities.gateway_endpoint import GatewayEndpoint
-
     return GatewayEndpoint(
         endpoint_id="test-endpoint-id",
         name="my-endpoint",
@@ -10959,8 +10959,6 @@ def test_get_active_online_scorers_filters_non_gateway_model(store: SqlAlchemySt
 
 
 def test_scorer_deletion_cascades_to_online_configs(store: SqlAlchemyStore):
-    from mlflow.store.tracking.dbmodels.models import SqlOnlineScoringConfig
-
     experiment_id = store.create_experiment("test_cascade_delete")
     with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
         store.register_scorer(experiment_id, "scorer", _gateway_model_scorer_json())
