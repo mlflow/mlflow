@@ -720,49 +720,26 @@ def _validate_request_json_with_schema(request_json, schema, proto_parsing_succe
             )
 
 
-def _get_validated_flask_request_json(flask_request=request, schema=None):
+def _get_normalized_request_json(flask_request=request):
     """
-    Get and validate request data without protobuf parsing.
+    Get request JSON with normalization for legacy clients.
 
-    This is an alternative to _get_request_message for endpoints that don't
-    use protobuf message definitions. Supports both GET and POST/PUT requests.
+    Handles double-encoded JSON strings from older clients and empty request bodies.
 
     Args:
         flask_request: The Flask request object.
-        schema: Dictionary mapping parameter names to lists of validation functions.
 
     Returns:
-        The validated request data as a dictionary.
-
-    Raises:
-        MlflowException: If validation fails.
+        The request data as a dictionary (empty dict if no body).
     """
-    if flask_request.method == "GET" and flask_request.args:
-        # Extract query parameters for GET requests
+    request_json = _get_request_json(flask_request)
+
+    # Older clients may post their JSON double-encoded as strings
+    if is_string_type(request_json):
+        request_json = json.loads(request_json)
+
+    if request_json is None:
         request_json = {}
-        schema = schema or {}
-        for key in flask_request.args:
-            # Get all values for this key (supports repeated parameters)
-            values = flask_request.args.getlist(key)
-            # Check if this field is a list type by looking for _assert_array validator
-            is_list_type = _assert_array in schema.get(key, [])
-            # If list type, always keep as list; otherwise use scalar if only one value
-            request_json[key] = (
-                values if is_list_type else (values[0] if len(values) == 1 else values)
-            )
-    else:
-        # Extract JSON body for POST/PUT requests
-        request_json = _get_request_json(flask_request)
-
-        # Older clients may post their JSON double-encoded as strings
-        if is_string_type(request_json):
-            request_json = json.loads(request_json)
-
-        # If request doesn't have json body then assume it's empty
-        if request_json is None:
-            request_json = {}
-
-    _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded=None)
 
     return request_json
 
@@ -798,18 +775,7 @@ def _get_request_message(request_message, flask_request=request, schema=None):
                     value = value.lower() == "true"
                 request_json[field.name] = value
     else:
-        request_json = _get_request_json(flask_request)
-
-        # Older clients may post their JSON double-encoded as strings, so the get_json
-        # above actually converts it to a string. Therefore, we check this condition
-        # (which we can tell for sure because any proper request should be a dictionary),
-        # and decode it a second time.
-        if is_string_type(request_json):
-            request_json = json.loads(request_json)
-
-        # If request doesn't have json body then assume it's empty.
-        if request_json is None:
-            request_json = {}
+        request_json = _get_normalized_request_json(flask_request)
 
     proto_parsing_succeeded = True
     try:
@@ -820,6 +786,44 @@ def _get_request_message(request_message, flask_request=request, schema=None):
     _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded)
 
     return request_message
+
+
+def _get_validated_flask_request_json(flask_request=request, schema=None):
+    """
+    Get and validate request data without protobuf parsing.
+
+    This is an alternative to _get_request_message for endpoints that don't
+    use protobuf message definitions. Supports both GET and POST/PUT requests.
+
+    Args:
+        flask_request: The Flask request object.
+        schema: Dictionary mapping parameter names to lists of validation functions.
+
+    Returns:
+        The validated request data as a dictionary.
+
+    Raises:
+        MlflowException: If validation fails.
+    """
+    if flask_request.method == "GET" and flask_request.args:
+        # Extract query parameters for GET requests
+        request_json = {}
+        schema = schema or {}
+        for key in flask_request.args:
+            # Get all values for this key (supports repeated parameters)
+            values = flask_request.args.getlist(key)
+            # Check if this field is a list type by looking for _assert_array validator
+            is_list_type = _assert_array in schema.get(key, [])
+            # If list type, always keep as list; otherwise use scalar if only one value
+            request_json[key] = (
+                values if is_list_type else (values[0] if len(values) == 1 else values)
+            )
+    else:
+        request_json = _get_normalized_request_json(flask_request)
+
+    _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded=None)
+
+    return request_json
 
 
 def _response_with_file_attachment_headers(file_path, response):
