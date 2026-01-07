@@ -12,6 +12,7 @@ import { EvaluateTracesParams, LLM_TEMPLATE } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
 import { JudgeEvaluationResult } from './useEvaluateTraces.common';
+import { isEvaluatingSessionsInScorersEnabled } from '../../../common/utils/FeatureUtils';
 
 interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
@@ -192,7 +193,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       });
     }
 
-    if (isSessionLevelScorer) {
+    if (!isEvaluatingSessionsInScorersEnabled() && isSessionLevelScorer) {
       return intl.formatMessage({
         defaultMessage: 'Session-level scorers cannot be run on individual traces',
         description: 'Tooltip message when scorer is session-level',
