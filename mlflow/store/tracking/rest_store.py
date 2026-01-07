@@ -1383,9 +1383,6 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         Returns:
             The created or updated OnlineScoringConfig object.
         """
-        # Import locally to avoid circular import of RestStore
-        from mlflow.genai.scorers.online.entities import OnlineScoringConfig
-
         endpoint = "/api/3.0/mlflow/scorers/online-config"
         request_body = {
             "name": scorer_name,
@@ -1402,20 +1399,7 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         )
 
         verify_rest_response(response, endpoint)
-        try:
-            config_dict = response.json()["config"]
-            return OnlineScoringConfig(
-                online_scoring_config_id=config_dict["online_scoring_config_id"],
-                scorer_id=config_dict["scorer_id"],
-                sample_rate=config_dict["sample_rate"],
-                filter_string=config_dict.get("filter_string"),
-                experiment_id=config_dict["experiment_id"],
-            )
-        except (KeyError, TypeError, ValueError) as e:
-            raise MlflowException(
-                f"Unexpected malformed response from {endpoint}: {e}",
-                error_code=INTERNAL_ERROR,
-            ) from e
+        return self._parse_online_scoring_config_from_response(response, endpoint)
 
     def get_online_scoring_configs(self, scorer_ids: list[str]) -> list["OnlineScoringConfig"]:
         """
@@ -1458,6 +1442,38 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
                 )
                 for config in configs_list
             ]
+        except (KeyError, TypeError, ValueError) as e:
+            raise MlflowException(
+                f"Unexpected malformed response from {endpoint}: {e}",
+                error_code=INTERNAL_ERROR,
+            ) from e
+
+    def _parse_online_scoring_config_from_response(self, response, endpoint: str):
+        """
+        Parse an OnlineScoringConfig from an HTTP response.
+
+        Args:
+            response: The HTTP response object.
+            endpoint: The API endpoint for error reporting.
+
+        Returns:
+            An OnlineScoringConfig instance.
+
+        Raises:
+            MlflowException: If the response is malformed.
+        """
+        # Import locally to avoid circular import of RestStore
+        from mlflow.genai.scorers.online.entities import OnlineScoringConfig
+
+        try:
+            config_dict = response.json()["config"]
+            return OnlineScoringConfig(
+                online_scoring_config_id=config_dict["online_scoring_config_id"],
+                scorer_id=config_dict["scorer_id"],
+                sample_rate=config_dict["sample_rate"],
+                filter_string=config_dict.get("filter_string"),
+                experiment_id=config_dict["experiment_id"],
+            )
         except (KeyError, TypeError, ValueError) as e:
             raise MlflowException(
                 f"Unexpected malformed response from {endpoint}: {e}",
