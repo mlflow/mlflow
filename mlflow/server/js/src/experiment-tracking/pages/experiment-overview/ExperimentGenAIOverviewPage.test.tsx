@@ -280,4 +280,160 @@ describe('ExperimentGenAIOverviewPage', () => {
       });
     });
   });
+
+  describe('chart search filtering', () => {
+    it('should filter charts by search query in Usage tab', async () => {
+      const user = userEvent.setup();
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Requests')).toBeInTheDocument();
+        expect(screen.getByText('Latency')).toBeInTheDocument();
+        expect(screen.getByText('Errors')).toBeInTheDocument();
+      });
+
+      // Search for "Requests"
+      const searchInput = screen.getByPlaceholderText('Search charts');
+      await user.type(searchInput, 'Requests');
+
+      await waitFor(() => {
+        expect(screen.getByText('Requests')).toBeInTheDocument();
+        expect(screen.queryByText('Latency')).not.toBeInTheDocument();
+        expect(screen.queryByText('Errors')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should filter charts case-insensitively', async () => {
+      const user = userEvent.setup();
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Latency')).toBeInTheDocument();
+      });
+
+      const searchInput = screen.getByPlaceholderText('Search charts');
+      await user.type(searchInput, 'latency');
+
+      await waitFor(() => {
+        expect(screen.getByText('Latency')).toBeInTheDocument();
+        expect(screen.queryByText('Requests')).not.toBeInTheDocument();
+        expect(screen.queryByText('Errors')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should support partial matching', async () => {
+      const user = userEvent.setup();
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Requests')).toBeInTheDocument();
+      });
+
+      const searchInput = screen.getByPlaceholderText('Search charts');
+      await user.type(searchInput, 'Token');
+
+      await waitFor(() => {
+        // Both Token Usage and Tokens per Trace should be visible
+        expect(screen.getByText('Token Usage')).toBeInTheDocument();
+        expect(screen.getByText('Tokens per Trace')).toBeInTheDocument();
+        // Others should be hidden
+        expect(screen.queryByText('Requests')).not.toBeInTheDocument();
+        expect(screen.queryByText('Latency')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should show all charts when search query is empty', async () => {
+      const user = userEvent.setup();
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Requests')).toBeInTheDocument();
+      });
+
+      // Type and then clear search
+      const searchInput = screen.getByPlaceholderText('Search charts');
+      await user.type(searchInput, 'Requests');
+
+      await waitFor(() => {
+        expect(screen.queryByText('Latency')).not.toBeInTheDocument();
+      });
+
+      await user.clear(searchInput);
+
+      await waitFor(() => {
+        expect(screen.getByText('Requests')).toBeInTheDocument();
+        expect(screen.getByText('Latency')).toBeInTheDocument();
+        expect(screen.getByText('Errors')).toBeInTheDocument();
+      });
+    });
+
+    it('should filter charts in Tool calls tab', async () => {
+      const user = userEvent.setup();
+      renderComponent();
+
+      // Switch to Tool calls tab
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: 'Tool calls' })).toBeInTheDocument();
+      });
+      await user.click(screen.getByRole('tab', { name: 'Tool calls' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Tool Usage Over Time')).toBeInTheDocument();
+        expect(screen.getByText('Latency Comparison')).toBeInTheDocument();
+      });
+
+      // Search for "Usage"
+      const searchInput = screen.getByPlaceholderText('Search charts');
+      await user.type(searchInput, 'Usage');
+
+      await waitFor(() => {
+        expect(screen.getByText('Tool Usage Over Time')).toBeInTheDocument();
+        expect(screen.queryByText('Latency Comparison')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should filter Tool Performance Summary in Tool calls tab', async () => {
+      const user = userEvent.setup();
+      renderComponent();
+
+      // Switch to Tool calls tab
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: 'Tool calls' })).toBeInTheDocument();
+      });
+      await user.click(screen.getByRole('tab', { name: 'Tool calls' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Tool Performance Summary')).toBeInTheDocument();
+      });
+
+      // Search for "Performance"
+      const searchInput = screen.getByPlaceholderText('Search charts');
+      await user.type(searchInput, 'Performance');
+
+      await waitFor(() => {
+        expect(screen.getByText('Tool Performance Summary')).toBeInTheDocument();
+        expect(screen.queryByText('Tool Usage Over Time')).not.toBeInTheDocument();
+        expect(screen.queryByText('Latency Comparison')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should hide all charts when search query has no matches', async () => {
+      const user = userEvent.setup();
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Requests')).toBeInTheDocument();
+      });
+
+      const searchInput = screen.getByPlaceholderText('Search charts');
+      await user.type(searchInput, 'nonexistent chart xyz');
+
+      await waitFor(() => {
+        expect(screen.queryByText('Requests')).not.toBeInTheDocument();
+        expect(screen.queryByText('Latency')).not.toBeInTheDocument();
+        expect(screen.queryByText('Errors')).not.toBeInTheDocument();
+        expect(screen.queryByText('Token Usage')).not.toBeInTheDocument();
+      });
+    });
+  });
 });
