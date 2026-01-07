@@ -337,11 +337,11 @@ class OpenAIProvider(BaseProvider):
         result_headers = self.headers.copy()
 
         if headers:
-            sanitized_headers = headers.copy()
-            sanitized_headers.pop("host", None)
-            sanitized_headers.pop("content-length", None)
+            client_headers = headers.copy()
+            client_headers.pop("host", None)
+            client_headers.pop("content-length", None)
             # Don't override api key or organization headers
-            result_headers = sanitized_headers | result_headers
+            result_headers = client_headers | result_headers
 
         return result_headers
 
