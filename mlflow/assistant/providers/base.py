@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Callable
 
 from pydantic import BaseModel
 
@@ -24,7 +24,22 @@ class AssistantProvider(ABC):
     @property
     @abstractmethod
     def name(self) -> str:
-        """Return the provider name."""
+        """Return the provider identifier (e.g., 'claude_code')."""
+
+    @property
+    @abstractmethod
+    def display_name(self) -> str:
+        """Return the human-readable provider name (e.g., 'Claude Code')."""
+
+    @property
+    @abstractmethod
+    def description(self) -> str:
+        """Return a short description of the provider."""
+
+    @property
+    @abstractmethod
+    def config_path(self) -> Path:
+        """Return the path to the provider's config file."""
 
     @abstractmethod
     def is_available(self) -> bool:
@@ -36,6 +51,17 @@ class AssistantProvider(ABC):
 
         Returns:
             ProviderConfig subclass with validated configuration.
+        """
+
+    def check_connection(self, echo: Callable[[str], None] = print) -> None:
+        """
+        Check if the provider is properly configured and can connect.
+
+        Args:
+            echo: Function to print status messages. Defaults to print().
+
+        Raises:
+            RuntimeError: If the provider is not accessible.
         """
 
     @abstractmethod
