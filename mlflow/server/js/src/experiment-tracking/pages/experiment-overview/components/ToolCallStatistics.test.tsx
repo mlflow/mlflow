@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { screen, waitFor, act } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
 import { ToolCallStatistics } from './ToolCallStatistics';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -12,22 +12,8 @@ import {
   SpanType,
   SpanDimensionKey,
 } from '@databricks/web-shared/model-trace-explorer';
-
-// Mock FetchUtils
-jest.mock('../../../../common/utils/FetchUtils', () => ({
-  fetchOrFail: jest.fn(),
-  getAjaxUrl: (url: string) => url,
-}));
-
-import { fetchOrFail } from '../../../../common/utils/FetchUtils';
-const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
-
-// Helper to create mock API response
-const mockApiResponse = (dataPoints: any[] | undefined) => {
-  mockFetchOrFail.mockResolvedValue({
-    json: () => Promise.resolve({ data_points: dataPoints }),
-  } as Response);
-};
+import { setupServer } from '../../../../common/utils/setup-msw';
+import { rest } from 'msw';
 
 // Helper to create a count data point grouped by status
 const createCountByStatusDataPoint = (status: string, count: number) => ({
@@ -43,17 +29,6 @@ const createLatencyDataPoint = (avgLatency: number) => ({
   values: { [AggregationType.AVG]: avgLatency },
 });
 
-// Helper to mock both API calls (counts by status + latency)
-const mockApiResponses = (countDataPoints: any[], latencyDataPoints: any[]) => {
-  mockFetchOrFail
-    .mockResolvedValueOnce({
-      json: () => Promise.resolve({ data_points: countDataPoints }),
-    } as Response)
-    .mockResolvedValueOnce({
-      json: () => Promise.resolve({ data_points: latencyDataPoints }),
-    } as Response);
-};
-
 describe('ToolCallStatistics', () => {
   const testExperimentId = 'test-experiment-123';
   const startTimeMs = new Date('2025-12-22T10:00:00Z').getTime();
@@ -64,6 +39,8 @@ describe('ToolCallStatistics', () => {
     startTimeMs,
     endTimeMs,
   };
+
+  const server = setupServer();
 
   const createQueryClient = () =>
     new QueryClient({
@@ -85,13 +62,32 @@ describe('ToolCallStatistics', () => {
     );
   };
 
+  // Helper to setup MSW handler that returns different responses based on metric_name
+  const setupTraceMetricsHandler = (countDataPoints: any[], latencyDataPoints: any[]) => {
+    server.use(
+      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        const body = await req.json();
+        if (body.metric_name === SpanMetricKey.LATENCY) {
+          return res(ctx.json({ data_points: latencyDataPoints }));
+        }
+        return res(ctx.json({ data_points: countDataPoints }));
+      }),
+    );
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
+    // Default: return empty data points
+    setupTraceMetricsHandler([], []);
   });
 
   describe('loading state', () => {
     it('should render loading spinners while data is being fetched', () => {
-      mockFetchOrFail.mockReturnValue(new Promise(() => {})); // Never resolve
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.delay('infinite'));
+        }),
+      );
 
       renderComponent();
 
@@ -105,7 +101,7 @@ describe('ToolCallStatistics', () => {
     it('should render all four stat cards', async () => {
       const countData = [createCountByStatusDataPoint('OK', 100), createCountByStatusDataPoint('ERROR', 5)];
       const latencyData = [createLatencyDataPoint(250)];
-      mockApiResponses(countData, latencyData);
+      setupTraceMetricsHandler(countData, latencyData);
 
       renderComponent();
 
@@ -119,7 +115,7 @@ describe('ToolCallStatistics', () => {
 
     it('should display correct total count', async () => {
       const countData = [createCountByStatusDataPoint('OK', 100), createCountByStatusDataPoint('ERROR', 5)];
-      mockApiResponses(countData, [createLatencyDataPoint(0)]);
+      setupTraceMetricsHandler(countData, [createLatencyDataPoint(0)]);
 
       renderComponent();
 
@@ -130,7 +126,7 @@ describe('ToolCallStatistics', () => {
 
     it('should display correct success rate', async () => {
       const countData = [createCountByStatusDataPoint('OK', 95), createCountByStatusDataPoint('ERROR', 5)];
-      mockApiResponses(countData, [createLatencyDataPoint(0)]);
+      setupTraceMetricsHandler(countData, [createLatencyDataPoint(0)]);
 
       renderComponent();
 
@@ -141,7 +137,7 @@ describe('ToolCallStatistics', () => {
 
     it('should display correct failed count', async () => {
       const countData = [createCountByStatusDataPoint('OK', 90), createCountByStatusDataPoint('ERROR', 10)];
-      mockApiResponses(countData, [createLatencyDataPoint(0)]);
+      setupTraceMetricsHandler(countData, [createLatencyDataPoint(0)]);
 
       renderComponent();
 
@@ -151,7 +147,7 @@ describe('ToolCallStatistics', () => {
     });
 
     it('should display latency in milliseconds when < 1000ms', async () => {
-      mockApiResponses([createCountByStatusDataPoint('OK', 100)], [createLatencyDataPoint(250.5)]);
+      setupTraceMetricsHandler([createCountByStatusDataPoint('OK', 100)], [createLatencyDataPoint(250.5)]);
 
       renderComponent();
 
@@ -161,7 +157,7 @@ describe('ToolCallStatistics', () => {
     });
 
     it('should display latency in seconds when >= 1000ms', async () => {
-      mockApiResponses([createCountByStatusDataPoint('OK', 100)], [createLatencyDataPoint(1500)]);
+      setupTraceMetricsHandler([createCountByStatusDataPoint('OK', 100)], [createLatencyDataPoint(1500)]);
 
       renderComponent();
 
@@ -172,7 +168,7 @@ describe('ToolCallStatistics', () => {
 
     it('should format large numbers with K suffix', async () => {
       const countData = [createCountByStatusDataPoint('OK', 5000)];
-      mockApiResponses(countData, [createLatencyDataPoint(0)]);
+      setupTraceMetricsHandler(countData, [createLatencyDataPoint(0)]);
 
       renderComponent();
 
@@ -187,7 +183,7 @@ describe('ToolCallStatistics', () => {
         createCountByStatusDataPoint('ERROR', 15),
         createCountByStatusDataPoint('UNSET', 5),
       ];
-      mockApiResponses(countData, [createLatencyDataPoint(0)]);
+      setupTraceMetricsHandler(countData, [createLatencyDataPoint(0)]);
 
       renderComponent();
 
@@ -204,8 +200,7 @@ describe('ToolCallStatistics', () => {
 
   describe('empty data', () => {
     it('should display zeros when no data is returned', async () => {
-      mockApiResponses([], []);
-
+      // Default handler already returns empty arrays
       renderComponent();
 
       await waitFor(() => {
@@ -222,7 +217,11 @@ describe('ToolCallStatistics', () => {
 
   describe('error state', () => {
     it('should render error state when API call fails', async () => {
-      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.status(500), ctx.json({ error: 'API Error' }));
+        }),
+      );
 
       renderComponent();
 
@@ -231,10 +230,16 @@ describe('ToolCallStatistics', () => {
       });
     });
 
-    it('should render error state when first API call (counts) fails', async () => {
-      mockFetchOrFail.mockRejectedValueOnce(new Error('Counts API Error')).mockResolvedValueOnce({
-        json: () => Promise.resolve({ data_points: [createLatencyDataPoint(100)] }),
-      } as Response);
+    it('should render error state when counts API call fails', async () => {
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          if (body.metric_name === SpanMetricKey.LATENCY) {
+            return res(ctx.json({ data_points: [createLatencyDataPoint(100)] }));
+          }
+          return res(ctx.status(500), ctx.json({ error: 'Counts API Error' }));
+        }),
+      );
 
       renderComponent();
 
@@ -243,12 +248,16 @@ describe('ToolCallStatistics', () => {
       });
     });
 
-    it('should render error state when second API call (latency) fails', async () => {
-      mockFetchOrFail
-        .mockResolvedValueOnce({
-          json: () => Promise.resolve({ data_points: [createCountByStatusDataPoint('OK', 100)] }),
-        } as Response)
-        .mockRejectedValueOnce(new Error('Latency API Error'));
+    it('should render error state when latency API call fails', async () => {
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          if (body.metric_name === SpanMetricKey.LATENCY) {
+            return res(ctx.status(500), ctx.json({ error: 'Latency API Error' }));
+          }
+          return res(ctx.json({ data_points: [createCountByStatusDataPoint('OK', 100)] }));
+        }),
+      );
 
       renderComponent();
 
@@ -260,17 +269,25 @@ describe('ToolCallStatistics', () => {
 
   describe('API call parameters', () => {
     it('should call API with correct parameters for counts query', async () => {
-      mockApiResponses([], []);
+      let capturedCountsBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          if (body.metric_name === SpanMetricKey.SPAN_COUNT) {
+            capturedCountsBody = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
 
       renderComponent();
 
       await waitFor(() => {
-        expect(mockFetchOrFail).toHaveBeenCalled();
+        expect(capturedCountsBody).not.toBeNull();
       });
 
-      // First call should be for counts grouped by status
-      const firstCallBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-      expect(firstCallBody).toMatchObject({
+      expect(capturedCountsBody).toMatchObject({
         experiment_ids: [testExperimentId],
         view_type: MetricViewType.SPANS,
         metric_name: SpanMetricKey.SPAN_COUNT,
@@ -281,17 +298,25 @@ describe('ToolCallStatistics', () => {
     });
 
     it('should call API with correct parameters for latency query', async () => {
-      mockApiResponses([], []);
+      let capturedLatencyBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          if (body.metric_name === SpanMetricKey.LATENCY) {
+            capturedLatencyBody = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
 
       renderComponent();
 
       await waitFor(() => {
-        expect(mockFetchOrFail).toHaveBeenCalledTimes(2);
+        expect(capturedLatencyBody).not.toBeNull();
       });
 
-      // Second call should be for latency
-      const secondCallBody = JSON.parse((mockFetchOrFail.mock.calls[1]?.[1] as any)?.body || '{}');
-      expect(secondCallBody).toMatchObject({
+      expect(capturedLatencyBody).toMatchObject({
         experiment_ids: [testExperimentId],
         view_type: MetricViewType.SPANS,
         metric_name: SpanMetricKey.LATENCY,
@@ -301,17 +326,26 @@ describe('ToolCallStatistics', () => {
     });
 
     it('should include time range in API calls', async () => {
-      mockApiResponses([], []);
+      let capturedBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          if (!capturedBody) {
+            capturedBody = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
 
       renderComponent();
 
       await waitFor(() => {
-        expect(mockFetchOrFail).toHaveBeenCalled();
+        expect(capturedBody).not.toBeNull();
       });
 
-      const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-      expect(callBody.start_time_ms).toBe(startTimeMs);
-      expect(callBody.end_time_ms).toBe(endTimeMs);
+      expect(capturedBody.start_time_ms).toBe(startTimeMs);
+      expect(capturedBody.end_time_ms).toBe(endTimeMs);
     });
   });
 });
