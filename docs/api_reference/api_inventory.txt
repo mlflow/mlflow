@@ -739,6 +739,7 @@ mlflow.gateway.get_gateway_uri
 mlflow.gateway.set_gateway_uri
 mlflow.gemini.autolog
 mlflow.genai.Agent
+mlflow.genai.ConversationSimulator
 mlflow.genai.LabelingSession
 mlflow.genai.LabelingSession.add_dataset
 mlflow.genai.LabelingSession.add_traces
@@ -1111,6 +1112,7 @@ mlflow.genai.set_prompt_alias
 mlflow.genai.set_prompt_model_config
 mlflow.genai.set_prompt_tag
 mlflow.genai.set_prompt_version_tag
+mlflow.genai.simulators.simulator.ConversationSimulator
 mlflow.genai.to_predict_fn
 mlflow.get_active_model_id
 mlflow.get_active_trace_id
