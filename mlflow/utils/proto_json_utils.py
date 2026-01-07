@@ -648,7 +648,9 @@ def parse_tf_serving_input(inp_dict, schema=None):
     if "signature_name" in inp_dict:
         raise MlflowInvalidInputException('"signature_name" parameter is currently not supported')
 
-    if not (list(inp_dict.keys()) == ["instances"] or list(inp_dict.keys()) == ["inputs"]):
+    # Allow optional "params" key alongside data keys (for MLServer compatibility)
+    data_keys = set(inp_dict.keys()) - {"params"}
+    if data_keys not in ({"instances"}, {"inputs"}):
         raise MlflowInvalidInputException(
             'One of "instances" and "inputs" must be specified (not both or any other keys).'
             f"Received: {list(inp_dict.keys())}"
