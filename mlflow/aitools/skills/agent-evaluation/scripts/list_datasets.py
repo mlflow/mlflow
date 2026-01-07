@@ -26,7 +26,6 @@ from mlflow.genai.datasets import get_dataset
 
 class TimeoutError(Exception):
     """Custom timeout exception."""
-    pass
 
 
 def timeout_handler(signum, frame):

@@ -71,8 +71,7 @@ def find_agent_module():
             if path.name != "__init__.py":
                 module_parts.append(path.stem)
 
-            module_name = ".".join(module_parts)
-            return module_name
+            return ".".join(module_parts)
 
     return None
 
@@ -203,7 +202,7 @@ def find_all_public_functions(module_name: str) -> list[str]:
         return []
 
 
-def select_entry_point(module_name: str, specified_entry_point: str = None) -> str | None:
+def select_entry_point(module_name: str, specified_entry_point: str | None = None) -> str | None:
     """Select entry point through various methods."""
 
     # Method 1: Use specified entry point
@@ -316,10 +315,10 @@ def run_test_query(
         try:
             # Try different call signatures
             try:
-                response = entry_point(test_query, session_id=test_session_id)
+                entry_point(test_query, session_id=test_session_id)
             except TypeError:
                 try:
-                    response = entry_point(test_query)
+                    entry_point(test_query)
                 except TypeError:
                     # Might need LLM provider or other args
                     print(f"  ⚠ Could not call {entry_point_name} with simple args")
@@ -340,9 +339,7 @@ def run_test_query(
 
             # Get trace details
             client = MlflowClient()
-            trace = client.get_trace(trace_id)
-
-            return trace
+            return client.get_trace(trace_id)
 
         except Exception as e:
             print(f"  ✗ Error executing agent: {e}")

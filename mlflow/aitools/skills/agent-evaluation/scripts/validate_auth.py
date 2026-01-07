@@ -80,7 +80,7 @@ def check_databricks_auth():
             # Test with MLflow client
             from mlflow import MlflowClient
             client = MlflowClient()
-            experiments = client.search_experiments(max_results=1)
+            client.search_experiments(max_results=1)
             print("  ✓ Databricks profile authenticated")
             print()
             return []
@@ -99,7 +99,7 @@ def check_databricks_auth():
         from mlflow import MlflowClient
 
         client = MlflowClient()
-        experiments = client.search_experiments(max_results=1)
+        client.search_experiments(max_results=1)
 
         print("  ✓ Databricks token valid")
         print()

@@ -81,7 +81,7 @@ def generate_evaluation_code(
 ) -> str:
     """Generate Python code for running evaluation."""
 
-    code = f'''#!/usr/bin/env python3
+    return f'''#!/usr/bin/env python3
 """
 Run agent on evaluation dataset and collect traces.
 
@@ -219,8 +219,6 @@ else:
 
 print("=" * 60)
 '''
-
-    return code
 
 
 def main():

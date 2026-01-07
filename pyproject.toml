@@ -372,6 +372,7 @@ ignore = [
 "examples/*" = ["T20", "RET504", "E501"]
 "docs/*" = ["T20", "RET504", "E501"]
 "mlflow/*" = ["PT018"]
+"mlflow/aitools/skills/agent-evaluation/scripts/*" = ["T20", "E501"]
 
 [tool.ruff.lint.flake8-pytest-style]
 mark-parentheses = false

@@ -312,7 +312,7 @@ def generate_dataset_creation_code(
     }}"""
     )
 
-    code = f'''#!/usr/bin/env python3
+    return f'''#!/usr/bin/env python3
 """
 Create MLflow evaluation dataset for agent evaluation.
 
@@ -380,8 +380,6 @@ print()
 print("✓ Dataset is ready for evaluation!")
 print("=" * 60)
 '''
-
-    return code
 
 
 def main():

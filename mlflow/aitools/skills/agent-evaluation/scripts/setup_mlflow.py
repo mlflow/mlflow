@@ -50,8 +50,7 @@ def detect_databricks_profiles() -> list[str]:
         result = subprocess.run(
             ["databricks", "auth", "profiles"], capture_output=True, text=True, check=True
         )
-        profiles = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
-        return profiles
+        return [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
     except (subprocess.CalledProcessError, FileNotFoundError):
         return []
 
@@ -179,7 +178,7 @@ def configure_tracking_uri(
     profiles = detect_databricks_profiles()
     if profiles:
         print(f"\n✓ Found {len(profiles)} Databricks profile(s):")
-        for i, profile in enumerate(profiles, 1):
+        for profile in profiles:
             auth_status = "authenticated" if check_databricks_auth(profile) else "not authenticated"
             options.append(f"databricks://{profile}")
             print(f"  {len(options)}. databricks://{profile} ({auth_status})")
