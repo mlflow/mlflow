@@ -10696,17 +10696,14 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
 
 def _gateway_model_scorer_json():
-    """Returns a serialized scorer JSON that uses a gateway model."""
     return json.dumps({"instructions_judge_pydantic_data": {"model": "gateway:/my-endpoint"}})
 
 
 def _non_gateway_model_scorer_json():
-    """Returns a serialized scorer JSON that does NOT use a gateway model."""
     return json.dumps({"instructions_judge_pydantic_data": {"model": "openai:/gpt-4"}})
 
 
 def _mock_gateway_endpoint():
-    """Returns a mock GatewayEndpoint for testing."""
     return GatewayEndpoint(
         endpoint_id="test-endpoint-id",
         name="my-endpoint",
