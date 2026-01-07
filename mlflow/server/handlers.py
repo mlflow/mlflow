@@ -4045,8 +4045,9 @@ def _update_online_scoring_config():
     """
     Update the online scoring configuration for a registered scorer.
 
+    The experiment_id is automatically determined from the scorer's registration.
+
     Request Body (JSON):
-        experiment_id: The experiment ID containing the scorer.
         name: The scorer name.
         sample_rate: The sampling rate (0.0 to 1.0).
         filter_string: Optional filter string for trace selection.
@@ -4057,7 +4058,6 @@ def _update_online_scoring_config():
     request_json = _get_validated_flask_request_json(
         flask_request=request,
         schema={
-            "experiment_id": [_assert_required, _assert_string],
             "name": [_assert_required, _assert_string],
             "sample_rate": [_assert_required],
             "filter_string": [_assert_string],
@@ -4065,7 +4065,6 @@ def _update_online_scoring_config():
     )
 
     config = _get_tracking_store().upsert_online_scoring_config(
-        experiment_id=request_json["experiment_id"],
         scorer_name=request_json["name"],
         sample_rate=float(request_json["sample_rate"]),
         filter_string=request_json.get("filter_string"),

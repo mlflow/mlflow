@@ -1366,7 +1366,6 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
 
     def upsert_online_scoring_config(
         self,
-        experiment_id: str,
         scorer_name: str,
         sample_rate: float,
         filter_string: str | None = None,
@@ -1374,8 +1373,9 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         """
         Create or update the online scoring configuration for a registered scorer.
 
+        The experiment_id is automatically determined from the scorer's registration.
+
         Args:
-            experiment_id: String ID of the experiment.
             scorer_name: The scorer name.
             sample_rate: The sampling rate (0.0 to 1.0).
             filter_string: Optional filter expression for trace selection.
@@ -1388,7 +1388,6 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
 
         endpoint = "/api/3.0/mlflow/scorers/online-config"
         request_body = {
-            "experiment_id": experiment_id,
             "name": scorer_name,
             "sample_rate": sample_rate,
         }
