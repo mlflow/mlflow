@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 from unittest import mock
 
+import cloudpickle
 import numpy as np
 import pandas as pd
 import pytest
@@ -14,6 +15,7 @@ import sklearn
 import sklearn.linear_model as glm
 import sklearn.naive_bayes as nb
 import sklearn.neighbors as knn
+import skops
 import yaml
 from packaging.version import Version
 from sklearn import datasets
@@ -96,6 +98,8 @@ def sklearn_knn_model(iris_df):
     return ModelWithData(model=knn_model, inference_data=X)
 
 
+# To load sklearn KNN model as skops format,
+# We need to mark these types as `skops_trusted_types`
 sklearn_knn_model_skops_trusted_types = [
     "sklearn.metrics._dist_metrics.EuclideanDistance64",
     "sklearn.neighbors._kd_tree.KDTree",
@@ -143,9 +147,6 @@ def sklearn_custom_env(tmp_path):
 
 @pytest.mark.parametrize("serialization_format", mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS)
 def test_model_save_load(sklearn_logreg_model, model_path, serialization_format):
-    import cloudpickle
-    import skops
-
     from mlflow.utils.requirements_utils import _parse_requirements
 
     sk_model = sklearn_logreg_model.model
