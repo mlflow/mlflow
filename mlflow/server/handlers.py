@@ -740,11 +740,16 @@ def _get_validated_flask_request_json(flask_request=request, schema=None):
     if flask_request.method == "GET" and flask_request.args:
         # Extract query parameters for GET requests
         request_json = {}
+        schema = schema or {}
         for key in flask_request.args:
             # Get all values for this key (supports repeated parameters)
             values = flask_request.args.getlist(key)
-            # If only one value, store as scalar; otherwise as list
-            request_json[key] = values[0] if len(values) == 1 else values
+            # Check if this field is a list type by looking for _assert_array validator
+            is_list_type = _assert_array in schema.get(key, [])
+            # If list type, always keep as list; otherwise use scalar if only one value
+            request_json[key] = (
+                values if is_list_type else (values[0] if len(values) == 1 else values)
+            )
     else:
         # Extract JSON body for POST/PUT requests
         request_json = _get_request_json(flask_request)
@@ -4007,15 +4012,11 @@ def _get_online_scoring_configs():
     request_json = _get_validated_flask_request_json(
         flask_request=request,
         schema={
-            "scorer_ids": [_assert_required],
+            "scorer_ids": [_assert_required, _assert_array, _assert_item_type_string],
         },
     )
 
-    # Normalize scorer_ids to always be a list (may be scalar if only one value)
     scorer_ids = request_json["scorer_ids"]
-    if not isinstance(scorer_ids, list):
-        scorer_ids = [scorer_ids]
-
     configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
 
     response = Response(mimetype="application/json")
