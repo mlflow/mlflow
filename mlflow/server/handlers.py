@@ -720,39 +720,42 @@ def _validate_request_json_with_schema(request_json, schema, proto_parsing_succe
             )
 
 
-def _get_validated_request_json(flask_request=request, schema=None):
+def _get_validated_flask_request_json(flask_request=request, schema=None):
     """
-    Get and validate request JSON for POST/PUT requests without protobuf parsing.
+    Get and validate request data without protobuf parsing.
 
-    This is a simpler alternative to _get_request_message for endpoints that don't
-    use protobuf message definitions. It only supports POST/PUT requests (not GET).
+    This is an alternative to _get_request_message for endpoints that don't
+    use protobuf message definitions. Supports both GET and POST/PUT requests.
 
     Args:
         flask_request: The Flask request object.
         schema: Dictionary mapping parameter names to lists of validation functions.
 
     Returns:
-        The validated request JSON as a dictionary.
+        The validated request data as a dictionary.
 
     Raises:
-        MlflowException: If the request is a GET request or validation fails.
+        MlflowException: If validation fails.
     """
-    if flask_request.method == "GET":
-        raise MlflowException(
-            "GET requests are not supported by this validation helper. "
-            "Use _get_request_message with a protobuf message instead.",
-            error_code=BAD_REQUEST,
-        )
-
-    request_json = _get_request_json(flask_request)
-
-    # Older clients may post their JSON double-encoded as strings
-    if is_string_type(request_json):
-        request_json = json.loads(request_json)
-
-    # If request doesn't have json body then assume it's empty
-    if request_json is None:
+    if flask_request.method == "GET" and flask_request.args:
+        # Extract query parameters for GET requests
         request_json = {}
+        for key in flask_request.args:
+            # Get all values for this key (supports repeated parameters)
+            values = flask_request.args.getlist(key)
+            # If only one value, store as scalar; otherwise as list
+            request_json[key] = values[0] if len(values) == 1 else values
+    else:
+        # Extract JSON body for POST/PUT requests
+        request_json = _get_request_json(flask_request)
+
+        # Older clients may post their JSON double-encoded as strings
+        if is_string_type(request_json):
+            request_json = json.loads(request_json)
+
+        # If request doesn't have json body then assume it's empty
+        if request_json is None:
+            request_json = {}
 
     _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded=None)
 
@@ -4001,12 +4004,17 @@ def _get_online_scoring_configs():
     Returns:
         JSON response containing a list of configurations.
     """
-    scorer_ids = request.args.getlist("scorer_ids")
+    request_json = _get_validated_flask_request_json(
+        flask_request=request,
+        schema={
+            "scorer_ids": [_assert_required],
+        },
+    )
 
-    if not scorer_ids:
-        raise MlflowException(
-            "Missing required parameter: scorer_ids", error_code=INVALID_PARAMETER_VALUE
-        )
+    # Normalize scorer_ids to always be a list (may be scalar if only one value)
+    scorer_ids = request_json["scorer_ids"]
+    if not isinstance(scorer_ids, list):
+        scorer_ids = [scorer_ids]
 
     configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
 
@@ -4030,7 +4038,7 @@ def _update_online_scoring_config():
     Returns:
         JSON response containing the updated configuration.
     """
-    request_json = _get_validated_request_json(
+    request_json = _get_validated_flask_request_json(
         flask_request=request,
         schema={
             "experiment_id": [_assert_required, _assert_string],
