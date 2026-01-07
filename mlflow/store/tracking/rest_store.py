@@ -1382,6 +1382,8 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         Returns:
             The created or updated OnlineScoringConfig object.
         """
+        endpoint = "/api/3.0/mlflow/scorers/online-config"
+
         request_body = {
             "experiment_id": experiment_id,
             "name": scorer_name,
@@ -1392,12 +1394,12 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
 
         response = http_request(
             host_creds=self.get_host_creds(),
-            endpoint="/api/3.0/mlflow/scorers/online-config",
+            endpoint=endpoint,
             method="PUT",
             json=request_body,
         )
 
-        verify_rest_response(response, "/api/3.0/mlflow/scorers/online-config")
+        verify_rest_response(response, endpoint)
         config_dict = response.json()["config"]
         return OnlineScoringConfig(
             online_scoring_config_id=config_dict["online_scoring_config_id"],
