@@ -1,19 +1,47 @@
 import React from 'react';
-import { CheckCircleIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { CheckCircleIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+  Legend,
+} from 'recharts';
 import { useTraceAssessmentChartData } from '../hooks/useTraceAssessmentChartData';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
   OverviewChartEmptyState,
   OverviewChartHeader,
-  OverviewChartTimeLabel,
   OverviewChartContainer,
   useChartTooltipStyle,
   useChartXAxisProps,
+  useChartLegendFormatter,
 } from './OverviewChartComponents';
 import type { OverviewChartProps } from '../types';
+
+/** Local component for chart panel with label */
+const ChartPanel: React.FC<{ label: React.ReactNode; children: React.ReactElement }> = ({ label, children }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div css={{ flex: 1 }}>
+      <Typography.Text color="secondary" size="sm">
+        {label}
+      </Typography.Text>
+      <div css={{ height: 200, marginTop: theme.spacing.sm }}>
+        <ResponsiveContainer width="100%" height="100%">
+          {children}
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
 
 export interface TraceAssessmentChartProps extends OverviewChartProps {
   /** The name of the assessment to display (e.g., "Correctness", "Relevance") */
@@ -33,12 +61,13 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
+  const legendFormatter = useChartLegendFormatter();
 
   // Use provided color or default to green
   const chartLineColor = lineColor || theme.colors.green500;
 
-  // Fetch and process assessment chart data
-  const { chartData, isLoading, error, hasData } = useTraceAssessmentChartData({
+  // Fetch and process all chart data using the custom hook
+  const { timeSeriesChartData, distributionChartData, isLoading, error, hasData } = useTraceAssessmentChartData({
     ...chartProps,
     assessmentName,
   });
@@ -49,6 +78,15 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
 
   if (error) {
     return <OverviewChartErrorState />;
+  }
+
+  if (!hasData) {
+    return (
+      <OverviewChartContainer>
+        <OverviewChartHeader icon={<CheckCircleIcon css={{ color: chartLineColor }} />} title={assessmentName} />
+        <OverviewChartEmptyState />
+      </OverviewChartContainer>
+    );
   }
 
   return (
@@ -64,39 +102,72 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
         }
       />
 
-      <OverviewChartTimeLabel />
+      {/* Two charts side by side */}
+      <div css={{ display: 'flex', gap: theme.spacing.lg, marginTop: theme.spacing.sm }}>
+        {/* Left: Distribution bar chart */}
+        <ChartPanel
+          label={
+            <FormattedMessage
+              defaultMessage="Total aggregate scores"
+              description="Label for assessment score distribution chart"
+            />
+          }
+        >
+          <BarChart data={distributionChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+            <XAxis dataKey="name" {...xAxisProps} />
+            <YAxis allowDecimals={false} {...xAxisProps} />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
+              formatter={(value: number) => [value, 'count']}
+            />
+            <Legend formatter={legendFormatter} />
+            <Bar dataKey="count" fill={chartLineColor} radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ChartPanel>
 
-      {/* Chart */}
-      <div css={{ height: 200, marginTop: theme.spacing.sm }}>
-        {hasData ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
-              <XAxis dataKey="name" {...xAxisProps} />
-              <YAxis hide />
-              <Tooltip
-                contentStyle={tooltipStyle}
-                cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number) => [value.toFixed(2), assessmentName]}
+        {/* Right: Time series line chart */}
+        <ChartPanel
+          label={
+            <FormattedMessage
+              defaultMessage="Moving average over time"
+              description="Label for assessment score over time chart"
+            />
+          }
+        >
+          <LineChart data={timeSeriesChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+            <XAxis dataKey="name" {...xAxisProps} />
+            <YAxis hide />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+              formatter={(value: number) => [value.toFixed(2), assessmentName]}
+            />
+            <Legend formatter={legendFormatter} />
+            <Line
+              type="monotone"
+              dataKey="value"
+              name={assessmentName}
+              stroke={chartLineColor}
+              strokeWidth={2}
+              dot={false}
+              legendType="plainline"
+            />
+            {avgValue !== undefined && (
+              <ReferenceLine
+                y={avgValue}
+                stroke={theme.colors.textSecondary}
+                strokeDasharray="4 4"
+                label={{
+                  value: `AVG (${avgValue.toFixed(2)})`,
+                  position: 'insideTopRight',
+                  fill: theme.colors.textSecondary,
+                  fontSize: 10,
+                }}
               />
-              <Line type="monotone" dataKey="value" stroke={chartLineColor} strokeWidth={2} dot={false} />
-              {avgValue !== undefined && (
-                <ReferenceLine
-                  y={avgValue}
-                  stroke={theme.colors.textSecondary}
-                  strokeDasharray="4 4"
-                  label={{
-                    value: `AVG (${avgValue.toFixed(2)})`,
-                    position: 'insideTopRight',
-                    fill: theme.colors.textSecondary,
-                    fontSize: 10,
-                  }}
-                />
-              )}
-            </LineChart>
-          </ResponsiveContainer>
-        ) : (
-          <OverviewChartEmptyState />
-        )}
+            )}
+          </LineChart>
+        </ChartPanel>
       </div>
     </OverviewChartContainer>
   );
