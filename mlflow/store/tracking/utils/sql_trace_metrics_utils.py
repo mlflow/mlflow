@@ -78,7 +78,11 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
 SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
     SpanMetricKey.SPAN_COUNT: TraceMetricsConfig(
         aggregation_types={AggregationType.COUNT},
-        dimensions={SpanMetricDimensionKey.SPAN_NAME, SpanMetricDimensionKey.SPAN_TYPE},
+        dimensions={
+            SpanMetricDimensionKey.SPAN_NAME,
+            SpanMetricDimensionKey.SPAN_TYPE,
+            SpanMetricDimensionKey.SPAN_STATUS,
+        },
     ),
     SpanMetricKey.LATENCY: TraceMetricsConfig(
         aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},

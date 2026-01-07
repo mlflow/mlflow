@@ -1069,7 +1069,12 @@ async def test_passthrough_gemini_generate_content():
                 }
             ]
         }
-        custom_headers = {"X-Custom-Header": "gemini-custom", "X-Request-ID": "gemini-req-456"}
+        custom_headers = {
+            "X-Custom-Header": "gemini-custom",
+            "X-Request-ID": "gemini-req-456",
+            "host": "example.com",
+            "content-length": "100",
+        }
         response = await provider.passthrough(
             PassthroughAction.GEMINI_GENERATE_CONTENT, payload, headers=custom_headers
         )
@@ -1087,6 +1092,10 @@ async def test_passthrough_gemini_generate_content():
         # Verify custom headers are propagated correctly
         assert captured_session_headers["X-Custom-Header"] == "gemini-custom"
         assert captured_session_headers["X-Request-ID"] == "gemini-req-456"
+
+        # Verify gateway specific headers are not propagated
+        assert "host" not in captured_session_headers
+        assert "content-length" not in captured_session_headers
 
 
 @pytest.mark.asyncio

@@ -67,7 +67,7 @@ class UCVolumeDatasetSource(DatasetSource):
 
     @staticmethod
     def _can_resolve(raw_source: Any):
-        raise NotImplementedError
+        return False
 
     @classmethod
     def _resolve(cls, raw_source: str):

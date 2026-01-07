@@ -196,8 +196,8 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
         inputs = _convert_llm_input_data_with_unwrapping(data)
         params = params or {}
         if isinstance(inputs, dict):
-            return [{**inputs, **params}]
-        return [{**x, **params} for x in inputs]
+            return [inputs | params]
+        return [x | params for x in inputs]
 
     async def _run_predictions(self, inputs: list[dict[str, Any]]) -> asyncio.Future:
         tasks = [self._predict_single(x) for x in inputs]

@@ -146,6 +146,7 @@ def serve_upload_artifact():
 # and render them in the Trace UI. The request body should contain the request_id
 # of the trace.
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/get-trace-artifact"), methods=["GET"])
+@app.route(_add_static_prefix("/ajax-api/3.0/mlflow/get-trace-artifact"), methods=["GET"])
 def serve_get_trace_artifact():
     return get_trace_artifact_handler()
 

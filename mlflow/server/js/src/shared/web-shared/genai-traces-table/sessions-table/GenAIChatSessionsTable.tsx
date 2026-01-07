@@ -165,6 +165,7 @@ export const GenAIChatSessionsTable = ({
   enableRowSelection: enableRowSelectionProp = false,
   enableLinks = true,
   empty,
+  toolbarAddons,
 }: {
   experimentId: string;
   traces: ModelTraceInfoV3[];
@@ -175,6 +176,7 @@ export const GenAIChatSessionsTable = ({
   enableRowSelection?: boolean;
   enableLinks?: boolean;
   empty?: React.ReactElement;
+  toolbarAddons?: React.ReactNode;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -247,6 +249,7 @@ export const GenAIChatSessionsTable = ({
         experimentId={experimentId}
         selectedSessions={selectedSessions}
         setRowSelection={setRowSelection}
+        addons={toolbarAddons}
       />
       <Table
         style={{ ...columnSizeVars }}

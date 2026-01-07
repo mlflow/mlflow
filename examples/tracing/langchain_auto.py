@@ -40,7 +40,7 @@ chain.invoke({"question": "How many animals are there in the world?"})
 chain.invoke({"question": "Who is the first person to land on the moon?"})
 
 # Retrieve the traces
-traces = mlflow.search_traces(experiment_ids=[exp_id], max_results=3, return_type="list")
+traces = mlflow.search_traces(locations=[exp_id], max_results=3, return_type="list")
 print(json.dumps([t.to_dict() for t in traces], indent=2))
 
 print(

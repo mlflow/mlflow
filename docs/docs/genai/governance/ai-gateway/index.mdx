@@ -4,7 +4,7 @@ import TabsWrapper from "@site/src/components/TabsWrapper";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
-import { Shield, Globe, Zap, Settings, Code, Users, Wrench, Play, Database, BarChart3 } from "lucide-react";
+import { Shield, Globe, Zap, Settings, Users, Wrench, Play, Database, BarChart3 } from "lucide-react";
 
 # MLflow AI Gateway
 
@@ -56,31 +56,24 @@ Choose your path to get up and running with MLflow AI Gateway:
 <TilesGrid>
   <TileCard
     icon={Wrench}
-    title="Setup"
-    description="Install MLflow, configure environment, and start your gateway server"
-    href="./setup"
-    linkText="Start setup →"
+    title="Setup (Legacy)"
+    description="Install MLflow, configure environment, and start your gateway server using YAML configuration"
+    href="./legacy/setup"
+    linkText="View legacy setup →"
   />
   <TileCard
     icon={Settings}
-    title="Configuration"
-    description="Configure providers, endpoints, and advanced gateway settings"
-    href="./configuration"
-    linkText="Configure providers →"
+    title="Configuration (Legacy)"
+    description="Configure providers, endpoints, and advanced gateway settings using YAML"
+    href="./legacy/configuration"
+    linkText="View legacy config →"
   />
   <TileCard
     icon={Play}
-    title="Usage"
+    title="Usage (Legacy)"
     description="Query endpoints with Python client and REST APIs"
-    href="./usage"
-    linkText="Start using →"
-  />
-  <TileCard
-    icon={Code}
-    title="Integration"
-    description="Integrate with applications, frameworks, and production systems"
-    href="./integration"
-    linkText="Learn integrations →"
+    href="./legacy/usage"
+    linkText="View legacy usage →"
   />
 </TilesGrid>
 
@@ -188,28 +181,28 @@ The gateway supports hot-reloading of configurations, allowing you to add, modif
 
 ## Next Steps
 
-Ready to dive deeper? Explore these resources:
+Ready to dive deeper? Explore the legacy YAML-based configuration documentation:
 
 <TilesGrid>
   <TileCard
     icon={Wrench}
-    title="Setup Guide"
-    description="Get started with installation, environment setup, and server configuration"
-    href="./setup"
-    linkText="Start setup →"
+    title="Setup Guide (Legacy)"
+    description="Get started with installation, environment setup, and server configuration using YAML"
+    href="./legacy/setup"
+    linkText="View legacy setup →"
   />
   <TileCard
     icon={Play}
-    title="Usage Guide"
+    title="Usage Guide (Legacy)"
     description="Learn basic querying patterns with Python client and REST APIs"
-    href="./usage"
-    linkText="Learn usage →"
+    href="./legacy/usage"
+    linkText="View legacy usage →"
   />
   <TileCard
-    icon={Code}
-    title="Integration Guide"
-    description="Integrate with applications, frameworks, and production systems"
-    href="./integration"
-    linkText="View integrations →"
+    icon={Settings}
+    title="Configuration Guide (Legacy)"
+    description="Configure providers and advanced settings using YAML files"
+    href="./legacy/configuration"
+    linkText="View legacy config →"
   />
 </TilesGrid>

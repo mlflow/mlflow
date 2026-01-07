@@ -892,7 +892,7 @@ def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
                 )
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiments[0], experiments[1]],
+        locations=[experiments[0], experiments[1]],
         max_results=10,
         return_type="list",
     )
@@ -926,7 +926,7 @@ def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
             span.set_attributes({"model": "test-model"})
 
     all_traces = mlflow.search_traces(
-        experiment_ids=[experiments[0], experiments[1]], max_results=10, return_type="list"
+        locations=[experiments[0], experiments[1]], max_results=10, return_type="list"
     )
     assert len(all_traces) == 4
 
@@ -983,7 +983,7 @@ def test_search_traces_dataframe_to_dataset_integration(tracking_uri, experiment
                 )
 
     traces_df = mlflow.search_traces(
-        experiment_ids=[experiments[0]],
+        locations=[experiments[0]],
     )
 
     assert "trace" in traces_df.columns
@@ -1912,7 +1912,7 @@ def test_trace_source_type_detection():
         name="test_trace_sources_df", experiment_id=exp, tags={"test": "trace_source_df"}
     )
 
-    traces_df = mlflow.search_traces(experiment_ids=[exp])
+    traces_df = mlflow.search_traces(locations=[exp])
     assert not traces_df.empty
     dataset2.merge_records(traces_df)
 
@@ -1924,7 +1924,7 @@ def test_trace_source_type_detection():
         name="test_trace_sources_list", experiment_id=exp, tags={"test": "trace_source_list"}
     )
 
-    traces_list = mlflow.search_traces(experiment_ids=[exp], return_type="list")
+    traces_list = mlflow.search_traces(locations=[exp], return_type="list")
     assert len(traces_list) > 0
     dataset3.merge_records(traces_list)
 
