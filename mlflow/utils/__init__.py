@@ -106,7 +106,7 @@ def merge_dicts(dict_a, dict_b, raise_on_duplicates=True):
     duplicate_keys = dict_a.keys() & dict_b.keys()
     if raise_on_duplicates and len(duplicate_keys) > 0:
         raise ValueError(f"The two merging dictionaries contains duplicate keys: {duplicate_keys}.")
-    return {**dict_a, **dict_b}
+    return dict_a | dict_b
 
 
 def _get_fully_qualified_class_name(obj):

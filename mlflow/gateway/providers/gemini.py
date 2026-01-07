@@ -641,8 +641,11 @@ class GeminiProvider(BaseProvider):
         result_headers = self.headers.copy()
 
         if headers:
+            client_headers = headers.copy()
+            client_headers.pop("host", None)
+            client_headers.pop("content-length", None)
             # Don't override api key header
-            result_headers = headers | result_headers
+            result_headers = client_headers | result_headers
 
         return result_headers
 

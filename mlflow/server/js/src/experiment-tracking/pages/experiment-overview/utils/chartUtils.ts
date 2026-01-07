@@ -129,11 +129,11 @@ export function generateTimeBuckets(
 }
 
 /**
- * Format token count in human-readable format
- * @param count - Token count to format
- * @returns Formatted string (e.g., "1.5M", "2.50K", "500")
+ * Format a large number with K/M suffix for human-readable display
+ * @param count - Number to format
+ * @returns Formatted string (e.g., "1.50M", "15.00K", "1.50K", "500")
  */
-export function formatTokenCount(count: number): string {
+export function formatCount(count: number): string {
   if (count >= 1_000_000) {
     return `${(count / 1_000_000).toFixed(2)}M`;
   }
@@ -141,4 +141,15 @@ export function formatTokenCount(count: number): string {
     return `${(count / 1_000).toFixed(2)}K`;
   }
   return count.toLocaleString();
+}
+
+/**
+ * Formats latency in milliseconds to a human-readable string
+ * @param ms - Latency in milliseconds
+ */
+export function formatLatency(ms: number): string {
+  if (ms < 1000) {
+    return `${ms.toFixed(2)}ms`;
+  }
+  return `${(ms / 1000).toFixed(2)}s`;
 }

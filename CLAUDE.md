@@ -39,6 +39,14 @@ tail -f /tmp/mlflow-dev-server.log
 
 This uses `uv` (fast Python package manager) to automatically manage dependencies and run the development environment.
 
+## Debugging
+
+For debugging errors, enable debug logging (must be set before importing mlflow):
+
+```bash
+export MLFLOW_LOGGING_LEVEL=DEBUG
+```
+
 ### Start Development Server with Databricks Backend
 
 To run the MLflow dev server that proxies requests to a Databricks workspace:
@@ -153,33 +161,25 @@ See `mlflow/server/js/` for frontend development.
 
 ### Committing Changes
 
-**IMPORTANT**: Before committing, run pre-commit hooks to ensure code quality. See the [Pre-commit Hooks](#pre-commit-hooks) section for setup and usage details.
+When committing changes:
+
+- DCO sign-off: All commits MUST use the `-s` flag (otherwise CI will reject them)
+- Co-Authored-By trailer: Include when Claude Code authors or co-authors changes
+- Pre-commit hooks: Run before committing (see [Pre-commit Hooks](#pre-commit-hooks))
 
 ```bash
-# Commit with DCO sign-off
-git commit -s -m "Your commit message"
+# Commit with required DCO sign-off
+git commit -s -m "Your commit message
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
 
 # Push your changes
 git push origin <your-branch>
 ```
 
-**IMPORTANT**: You MUST sign all commits with DCO (Developer Certificate of Origin). Always use the `-s` flag. When Claude Code authors or co-authors changes, include the Co-Authored-By trailer:
-
-```bash
-# REQUIRED: Always use -s flag and include Co-Authored-By when Claude helped
-git commit -s -m "Your commit message
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
-
-# This will NOT work - missing -s flag
-# git commit -m "Your commit message"  ❌
-```
-
-Commits without DCO sign-off will be rejected by CI.
-
 ### Creating Pull Requests
 
-Follow [the PR template](./.github/pull_request_template.md) when creating pull requests. Remove any unused checkboxes from the template to keep your PR clean and focused.
+When creating pull requests, read the instructions at the top of [the PR template](./.github/pull_request_template.md) and follow them carefully.
 
 ### Checking CI Status
 

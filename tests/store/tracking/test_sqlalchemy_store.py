@@ -4684,7 +4684,7 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
     exp1 = store_with_traces.get_experiment_by_name("exp1").experiment_id
     exp2 = store_with_traces.get_experiment_by_name("exp2").experiment_id
     trace_infos, _ = store_with_traces.search_traces(
-        experiment_ids=[exp1, exp2],
+        locations=[exp1, exp2],
         filter_string=None,
         max_results=5,
         order_by=order_by,
@@ -4726,7 +4726,7 @@ def test_search_traces_with_filter(store_with_traces, filter_string, expected_id
     exp2 = store_with_traces.get_experiment_by_name("exp2").experiment_id
 
     trace_infos, _ = store_with_traces.search_traces(
-        experiment_ids=[exp1, exp2],
+        locations=[exp1, exp2],
         filter_string=filter_string,
         max_results=5,
         order_by=[],
@@ -4753,7 +4753,7 @@ def test_search_traces_with_invalid_filter(store_with_traces, filter_string, err
 
     with pytest.raises(MlflowException, match=error):
         store_with_traces.search_traces(
-            experiment_ids=[exp1, exp2],
+            locations=[exp1, exp2],
             filter_string=filter_string,
         )
 
@@ -4763,12 +4763,12 @@ def test_search_traces_raise_if_max_results_arg_is_invalid(store):
         MlflowException,
         match="Invalid value 50001 for parameter 'max_results' supplied.",
     ):
-        store.search_traces(experiment_ids=[], max_results=50001)
+        store.search_traces(locations=[], max_results=50001)
 
     with pytest.raises(
         MlflowException, match="Invalid value -1 for parameter 'max_results' supplied."
     ):
-        store.search_traces(experiment_ids=[], max_results=-1)
+        store.search_traces(locations=[], max_results=-1)
 
 
 def test_search_traces_pagination(store_with_traces):
@@ -5524,6 +5524,13 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
         source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
     )
 
+    feedback4 = Feedback(
+        trace_id=trace1_id,
+        name="quality",
+        value="high",
+        source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
+    )
+
     # Create expectations for trace3 and trace4
     expectation1 = Expectation(
         trace_id=trace3_id,
@@ -5546,13 +5553,22 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
         source=AssessmentSource(source_type="CODE", source_id="latency_monitor"),
     )
 
+    expectation4 = Expectation(
+        trace_id=trace3_id,
+        name="priority",
+        value="urgent",
+        source=AssessmentSource(source_type="CODE", source_id="priority_checker"),
+    )
+
     # Store assessments
     store.create_assessment(feedback1)
     store.create_assessment(feedback2)
     store.create_assessment(feedback3)
+    store.create_assessment(feedback4)
     store.create_assessment(expectation1)
     store.create_assessment(expectation2)
     store.create_assessment(expectation3)
+    store.create_assessment(expectation4)
 
     # Test: Search for traces with correctness feedback = True
     traces, _ = store.search_traces([exp_id], filter_string='feedback.correctness = "true"')
@@ -5569,6 +5585,11 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
     assert len(traces) == 1
     assert traces[0].request_id == trace2_id
 
+    # Test: Search for traces with string-valued feedback
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.quality = "high"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
     # Test: Search for traces with response_length expectation = 150
     traces, _ = store.search_traces([exp_id], filter_string='expectation.response_length = "150"')
     assert len(traces) == 1
@@ -5583,6 +5604,11 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
     traces, _ = store.search_traces([exp_id], filter_string='expectation.latency_ms = "1000"')
     assert len(traces) == 1
     assert traces[0].request_id == trace4_id
+
+    # Test: Search for traces with string-valued expectation
+    traces, _ = store.search_traces([exp_id], filter_string='expectation.priority = "urgent"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
 
     # Test: Combined filter with AND - trace with multiple expectations
     traces, _ = store.search_traces(
@@ -10464,7 +10490,7 @@ def test_link_traces_to_run(store: SqlAlchemyStore):
 
     # search_traces should return traces linked to the run
     traces, _ = store.search_traces(
-        experiment_ids=[exp_id], filter_string=f"run_id = '{run.info.run_id}'"
+        locations=[exp_id], filter_string=f"run_id = '{run.info.run_id}'"
     )
     assert len(traces) == 5
 

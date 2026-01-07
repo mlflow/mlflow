@@ -39,6 +39,10 @@
     "defaultMessage": "Rename Run",
     "description": "Modal title to rename the experiment run name"
   },
+  "+HgSTK": {
+    "defaultMessage": "Use these code examples to call your endpoint. Choose between unified APIs for seamless model switching or passthrough APIs for provider-specific features.",
+    "description": "Endpoint usage modal description"
+  },
   "+LLlvi": {
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
@@ -86,10 +90,6 @@
   "+fb25b": {
     "defaultMessage": "Time created",
     "description": "Label for the start time select dropdown for experiment runs view"
-  },
-  "+gGVhu": {
-    "defaultMessage": "Output: {cost}",
-    "description": "Output cost"
   },
   "+gqcru": {
     "defaultMessage": "System",
@@ -190,6 +190,10 @@
   "/QYbzP": {
     "defaultMessage": "Time (wall)",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use wall time axis in all charts"
+  },
+  "/Sa51w": {
+    "defaultMessage": "Query endpoint",
+    "description": "Endpoint usage modal title"
   },
   "/T979r": {
     "defaultMessage": "Evaluations",
@@ -475,6 +479,10 @@
     "defaultMessage": "User frustration",
     "description": "LLM template option"
   },
+  "1wdK0N": {
+    "defaultMessage": "Anthropic Passthrough",
+    "description": "Anthropic passthrough section title"
+  },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
     "description": "Label for the custom column group in the logged model column selector"
@@ -635,10 +643,6 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model view page"
   },
-  "3Cwqj9": {
-    "defaultMessage": "e.g., gpt-4, claude-3-opus",
-    "description": "Placeholder for model name input"
-  },
   "3D2Znf": {
     "defaultMessage": "Filter by {columnNames}",
     "description": "Experiment page > artifact compare view > search input placeholder"
@@ -665,6 +669,10 @@
   "3X52Jw": {
     "defaultMessage": "This tab displays all the traces logged to this logged model. MLflow supports automatic tracing for many popular generative AI frameworks. Follow the steps below to log your first trace. For more information about MLflow Tracing, visit the <a>MLflow documentation</a>.",
     "description": "Message that explains the function of the 'Traces' tab in logged model page. This message is followed by a tutorial explaining how to get started with MLflow Tracing."
+  },
+  "3YddwH": {
+    "defaultMessage": "Traffic split percentages must total 100%",
+    "description": "Tooltip shown when save button is disabled due to invalid traffic split total"
   },
   "3Z6K+n": {
     "defaultMessage": "To manually instrument your own traces, the most convenient method is to use the {code} function decorator. This will cause the inputs and outputs of the function to be captured in the trace.",
@@ -762,10 +770,6 @@
     "defaultMessage": "Add/Edit alias for model version {version}",
     "description": "Model registry > model version alias editor > Title of the update alias modal"
   },
-  "4MSEHr": {
-    "defaultMessage": "LiteLLM ({count} providers)",
-    "description": "Navigation to LiteLLM providers"
-  },
   "4NEPlV": {
     "defaultMessage": "Scatter Plot",
     "description": "Tab text for scatter plot on the model comparison page"
@@ -821,10 +825,6 @@
   "4uE8hl": {
     "defaultMessage": "Overall assessment added by LLM-as-a-judge",
     "description": "Evaluation review > assessments > tooltip > overall assessment added by LLM-as-a-judge"
-  },
-  "4xriyG": {
-    "defaultMessage": "API key not found",
-    "description": "API key not found message"
   },
   "4yjF8O": {
     "defaultMessage": "Show all runs",
@@ -1054,6 +1054,10 @@
     "defaultMessage": "See more",
     "description": "A button label in a message renderer that expands truncated content when clicked."
   },
+  "6fV0+T": {
+    "defaultMessage": "Total: {total}%",
+    "description": "Total weight display"
+  },
   "6jqEbB": {
     "defaultMessage": "Model",
     "description": "Section header for model selection"
@@ -1157,6 +1161,14 @@
   "7KPJii": {
     "defaultMessage": "Tags",
     "description": "Label for the tags section"
+  },
+  "7MWbDM": {
+    "defaultMessage": "Direct access to Google's Gemini API. Note: endpoint name is part of the URL path.",
+    "description": "Gemini passthrough description"
+  },
+  "7MxBYq": {
+    "defaultMessage": "Traces",
+    "description": "Label for the traces mode on the registered prompt details page"
   },
   "7NKkk1": {
     "defaultMessage": "Save",
@@ -1302,10 +1314,6 @@
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
   },
-  "8ToywI": {
-    "defaultMessage": "Specs:",
-    "description": "Model specs label"
-  },
   "8Uwpjw": {
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
@@ -1397,6 +1405,10 @@
   "93iLUV": {
     "defaultMessage": "{timeSince, plural, =1 {1 second} other {# seconds}} ago",
     "description": "Text for time in seconds since given date for MLflow views"
+  },
+  "961sxj": {
+    "defaultMessage": "Success Rate",
+    "description": "Label for success rate statistic"
   },
   "97xY+o": {
     "defaultMessage": "Loading endpoints...",
@@ -1574,6 +1586,10 @@
     "defaultMessage": "Loading traces…",
     "description": "Loading traces message"
   },
+  "AHaom4": {
+    "defaultMessage": "No assessments available",
+    "description": "Message shown when there are no assessments to display"
+  },
   "AM8DuO": {
     "defaultMessage": "Failed",
     "description": "Run page > Overview > Run status cell > Value for failed state"
@@ -1586,14 +1602,6 @@
     "defaultMessage": "Error",
     "description": "Title for error fallback component in prompts management UI"
   },
-  "ARCnv6": {
-    "defaultMessage": "Connections",
-    "description": "Summary connections label"
-  },
-  "AST2FF": {
-    "defaultMessage": "API Key:",
-    "description": "API key name label"
-  },
   "AX7L9r": {
     "defaultMessage": "Error",
     "description": "Error assessment status in the evaluations table."
@@ -1605,10 +1613,6 @@
   "AdlJNW": {
     "defaultMessage": "Assessment Name",
     "description": "Field label for assessment name in a creation form"
-  },
-  "AgPtkL": {
-    "defaultMessage": "(new)",
-    "description": "Summary new secret indicator"
   },
   "AgjhWE": {
     "defaultMessage": "See less",
@@ -1950,6 +1954,10 @@
     "defaultMessage": "Register model",
     "description": "Label for a CTA button for registering a ML model version from a logged model"
   },
+  "D2svqS": {
+    "defaultMessage": "overall error rate",
+    "description": "Subtitle for overall tool error rate"
+  },
   "D4rcC+": {
     "defaultMessage": "Define custom instructions for LLM evaluation",
     "description": "Hint for Custom template"
@@ -2150,6 +2158,10 @@
     "defaultMessage": "Type a value",
     "description": "Key-value tag editor modal > Value input placeholder"
   },
+  "FKoHx5": {
+    "defaultMessage": "Security Notice: Default Passphrase in Use",
+    "description": "Gateway > Default passphrase warning banner title"
+  },
   "FPMrvd": {
     "defaultMessage": "Search traces",
     "description": "Experiment page > traces view filters > filter string input placeholder"
@@ -2157,10 +2169,6 @@
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
-  },
-  "FVFQR+": {
-    "defaultMessage": "Edit",
-    "description": "Gateway > Endpoint details page > Edit endpoint button"
   },
   "FVP/7B": {
     "defaultMessage": "3. Configure encryption passphrase (production deployments)",
@@ -2173,10 +2181,6 @@
   "FWtUH2": {
     "defaultMessage": "Load more",
     "description": "Label for a button to load more results in the logged models table"
-  },
-  "FYL73Y": {
-    "defaultMessage": "Please select a provider, model, and configure authentication",
-    "description": "Tooltip shown when save button is disabled due to incomplete form"
   },
   "FYxQgz": {
     "defaultMessage": "Key",
@@ -2234,10 +2238,6 @@
     "defaultMessage": "End Time:",
     "description": "Row title for the end time of runs on the experiment compare runs page"
   },
-  "G38qVI": {
-    "defaultMessage": "Name",
-    "description": "Label for endpoint name input"
-  },
   "G4x6G7": {
     "defaultMessage": "Finetuning",
     "description": "Label for experiments focused on model finetuning"
@@ -2269,10 +2269,6 @@
   "GDzD7I": {
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt examples > prompt template title"
-  },
-  "GIBO90": {
-    "defaultMessage": "Delete",
-    "description": "Gateway > Endpoint details page > Delete endpoint button"
   },
   "GJWVBA": {
     "defaultMessage": "Inputs",
@@ -2318,10 +2314,6 @@
     "defaultMessage": "Loading artifact failed",
     "description": "Run page > artifact view > error state > default error message"
   },
-  "Gms7Gk": {
-    "defaultMessage": "No resources are using this endpoint",
-    "description": "Empty state for connected resources"
-  },
   "GogRws": {
     "defaultMessage": "Loading judges...",
     "description": "Loading message while fetching experiment judges"
@@ -2337,6 +2329,10 @@
   "H+4gFh": {
     "defaultMessage": "Show diff only",
     "description": "Toggle text that determines whether to show diff only in the model\n                      comparison page"
+  },
+  "H0gTxe": {
+    "defaultMessage": "Select a Provider",
+    "description": "Modal title for provider selection"
   },
   "H2UIIZ": {
     "defaultMessage": "null",
@@ -2458,10 +2454,6 @@
     "defaultMessage": "Aliases",
     "description": "Aliases section in the metadata on model version page"
   },
-  "I2cpdw": {
-    "defaultMessage": "No API key configured",
-    "description": "No API key configured message"
-  },
   "IAyAgH": {
     "defaultMessage": "Move up",
     "description": "Experiment page > compare runs tab > chart header > move up option"
@@ -2546,10 +2538,6 @@
     "defaultMessage": "Error loading shared view state: share key is invalid",
     "description": "Experiment page > share viewstate > error > share key is invalid"
   },
-  "J0En95": {
-    "defaultMessage": "Connected resources",
-    "description": "Connected resources label"
-  },
   "J2XCE/": {
     "defaultMessage": "Specify sequences that signal the model to stop generating text.",
     "description": "Experiment page > prompt lab > stop parameter help text"
@@ -2593,6 +2581,14 @@
   "JNS471": {
     "defaultMessage": "No results. Try using a different keyword or adjusting your filters.",
     "description": "Models table > no results after filtering"
+  },
+  "JNmxAa": {
+    "defaultMessage": "Model {number}",
+    "description": "Label for traffic split model"
+  },
+  "JNv3nr": {
+    "defaultMessage": "Moving average over time",
+    "description": "Label for assessment score over time chart"
   },
   "JPd7WA": {
     "defaultMessage": "Key must be unique",
@@ -2758,10 +2754,6 @@
     "defaultMessage": "Assessment",
     "description": "Evaluation review > evaluations list > assessment sort option label prefix"
   },
-  "KoBxNq": {
-    "defaultMessage": "Connected resources",
-    "description": "Connected resources column header"
-  },
   "KqReh3": {
     "defaultMessage": "Error stack trace",
     "description": "Title of the assessment error stack trace modal"
@@ -2866,6 +2858,10 @@
     "defaultMessage": "Input: {input}/1M tokens",
     "description": "Input cost per million tokens"
   },
+  "Lh4Pv4": {
+    "defaultMessage": "Models in this priority will be tested first, with traffic split load balancing",
+    "description": "Traffic split description"
+  },
   "LhxSrc": {
     "defaultMessage": "Incorrect",
     "description": "Evaluation results > correctness assessment > negative value label. Displayed if evaluation result is considered as incorrect."
@@ -2893,6 +2889,10 @@
   "Ls2ris": {
     "defaultMessage": "Mark as reviewed",
     "description": "Evaluation review > assessments > mark as reviewed button"
+  },
+  "Lw+dTL": {
+    "defaultMessage": "Please configure at least one model in traffic split",
+    "description": "Tooltip shown when save button is disabled due to incomplete form"
   },
   "LxUEVH": {
     "defaultMessage": "No resources connected to this endpoint",
@@ -2994,10 +2994,6 @@
     "defaultMessage": "You cannot evaluate this cell, this run was not created using served LLM model route",
     "description": "Experiment page > artifact compare view > text cell > run not evaluable tooltip"
   },
-  "Mjj9bh": {
-    "defaultMessage": "About this endpoint",
-    "description": "Sidebar title"
-  },
   "Mn7Kss": {
     "defaultMessage": "OK",
     "description": "Experiment page > traces table > status label > ok"
@@ -3005,6 +3001,10 @@
   "Mp01o5": {
     "defaultMessage": "View all integrations",
     "description": "Link text directing users to additional tracing integrations"
+  },
+  "MsSpWB": {
+    "defaultMessage": "Add model for traffic split",
+    "description": "Button to add model for traffic split"
   },
   "Mtj9Ay": {
     "defaultMessage": "Edit description",
@@ -3106,9 +3106,17 @@
     "defaultMessage": "Name",
     "description": "Text for name column in schema table in model version page"
   },
+  "NjV5NM": {
+    "defaultMessage": "Search providers...",
+    "description": "Search placeholder in provider modal"
+  },
   "Nlm9bK": {
     "defaultMessage": "Add tags",
     "description": "Label for the add tags button on the registered prompt details page"
+  },
+  "NlwpVQ": {
+    "defaultMessage": "Add fallback",
+    "description": "Button to add fallback model"
   },
   "Nm/Pjx": {
     "defaultMessage": "Registered at",
@@ -3193,10 +3201,6 @@
   "OWfx/j": {
     "defaultMessage": "Regression",
     "description": "Label for experiments focused on regression modeling"
-  },
-  "OZ0hWS": {
-    "defaultMessage": "Created",
-    "description": "Created at label"
   },
   "OZXWas": {
     "defaultMessage": "False",
@@ -3509,9 +3513,9 @@
     "defaultMessage": "Create prompt version",
     "description": "Label for the create prompt action on the registered prompt details page"
   },
-  "RN//Gv": {
-    "defaultMessage": "Connections",
-    "description": "Section title for authentication"
+  "RMdf6R": {
+    "defaultMessage": "Priority 2 (Fallback)",
+    "description": "Section title for fallback models"
   },
   "RRvtnM": {
     "defaultMessage": "Did the conversation avoid causing user frustration?",
@@ -3577,6 +3581,10 @@
     "defaultMessage": "Dataset",
     "description": "Experiment page > group by runs control > group by dataset"
   },
+  "Rwi+VC": {
+    "defaultMessage": "avg score",
+    "description": "Subtitle for average assessment score"
+  },
   "Rx8d9z": {
     "defaultMessage": "Runs",
     "description": "Breadcrumb nav item to link to the runs tab on the parent experiment"
@@ -3621,6 +3629,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button text for creating model in the model registry"
   },
+  "SDClGN": {
+    "defaultMessage": "Resources using this endpoint ({count})",
+    "description": "Gateway > Delete endpoint modal > Bindings list header"
+  },
   "SI6n4L": {
     "defaultMessage": "Compare",
     "description": "Label for the compare mode on the registered prompt details page"
@@ -3640,10 +3652,6 @@
   "SNvZyR": {
     "defaultMessage": "Time",
     "description": "Label for the time axis on the runs compare chart"
-  },
-  "SPqqrV": {
-    "defaultMessage": "Models",
-    "description": "Models section label"
   },
   "SQUVnW": {
     "defaultMessage": "Dataset",
@@ -3680,6 +3688,10 @@
   "SbMdmm": {
     "defaultMessage": "{spanName} was called",
     "description": "Label for an intermediate node in the trace explorer summary view, indicating that a span/function was called in the course of execution."
+  },
+  "Sd7sQi": {
+    "defaultMessage": "Traces are only available for experiment-scoped prompts.",
+    "description": "Message when prompt is not experiment-scoped"
   },
   "Shv28w": {
     "defaultMessage": "Save",
@@ -3757,6 +3769,10 @@
     "defaultMessage": "Token Usage",
     "description": "Title for the token usage chart"
   },
+  "TPbCHS": {
+    "defaultMessage": "Google Gemini Passthrough",
+    "description": "Gemini passthrough section title"
+  },
   "TPspzA": {
     "defaultMessage": "Deleting the section will permanently remove it and the charts it contains. This cannot be undone.",
     "description": "Experiment page > compare runs > chart section > delete section warning message"
@@ -3815,6 +3831,10 @@
   "TlFUsN": {
     "defaultMessage": "Tags",
     "description": "Title text for the tags section on the model versions view page"
+  },
+  "TlS4PC": {
+    "defaultMessage": "Direct access to OpenAI-specific features and parameters.",
+    "description": "OpenAI passthrough description"
   },
   "TlVXcS": {
     "defaultMessage": "Cancel",
@@ -3883,10 +3903,6 @@
   "UI3HSV": {
     "defaultMessage": "Select",
     "description": "Select button"
-  },
-  "UKCnLU": {
-    "defaultMessage": "Active configuration",
-    "description": "Section title for active config"
   },
   "ULljUX": {
     "defaultMessage": "Filter: {filterString}",
@@ -3983,6 +3999,10 @@
   "VDkXRG": {
     "defaultMessage": "View model",
     "description": "Label for a button that opens a new tab to view the details of a logged ML model while registering a model version"
+  },
+  "VGGGB3": {
+    "defaultMessage": "This endpoint is currently in use. Deleting it will break connections to the resources listed below.",
+    "description": "Warning about resources using this endpoint"
   },
   "VGJhVI": {
     "defaultMessage": "Add New Tag",
@@ -4111,6 +4131,10 @@
   "WHf+VX": {
     "defaultMessage": "Please enter a name",
     "description": "Error message for empty assessment name in a creation form"
+  },
+  "WImn+W": {
+    "defaultMessage": "LiteLLM ({count} providers)",
+    "description": "Link to open modal with all LiteLLM providers"
   },
   "WJF+wY": {
     "defaultMessage": "Z-axis:",
@@ -4256,6 +4280,10 @@
     "defaultMessage": "View prompt template",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > \"view prompt template\" button label"
   },
+  "XZlIAj": {
+    "defaultMessage": "Remove fallback model",
+    "description": "Tooltip for remove fallback model button"
+  },
   "XaC3qF": {
     "defaultMessage": "Can't load run details",
     "description": "Run page > error loading page title"
@@ -4274,6 +4302,10 @@
   "Xm5xxu": {
     "defaultMessage": "Request error",
     "description": "Error state title displayed in the logged models list page"
+  },
+  "Xn0LxG": {
+    "defaultMessage": "Direct access to Anthropic's Messages API with Claude-specific features.",
+    "description": "Anthropic passthrough description"
   },
   "Xs1oJm": {
     "defaultMessage": "Search metric charts",
@@ -4299,10 +4331,6 @@
     "defaultMessage": "No metrics recorded",
     "description": "Placeholder text when no metrics are recorded for a logged model"
   },
-  "Y+XlMX": {
-    "defaultMessage": "Loading...",
-    "description": "Loading secret"
-  },
   "Y1eg9D": {
     "defaultMessage": "In progress",
     "description": "Model trace header > status label > in progress"
@@ -4319,6 +4347,10 @@
     "defaultMessage": "The correctness LLM judge gives a binary evaluation and written rationale on whether the agent's generated response is factually accurate and semantically similar to the provided ground-truth response or grading notes.",
     "description": "Evaluation results > known type of evaluation result assessment > description of correctness assessment."
   },
+  "Y7AIKR": {
+    "defaultMessage": "MLflow Invocations API",
+    "description": "MLflow invocations API section title"
+  },
   "Y7DzTT": {
     "defaultMessage": "Input",
     "description": "Label for the input tokens in the tooltip for the tokens cell."
@@ -4334,6 +4366,10 @@
   "YECxws": {
     "defaultMessage": "Compare",
     "description": "Label for the compare experiments action on the experiments list page"
+  },
+  "YEN2Ll": {
+    "defaultMessage": "Used by ({count})",
+    "description": "Gateway > Endpoint bindings drawer > Title"
   },
   "YGo9ni": {
     "defaultMessage": "Select a provider to configure API key",
@@ -4575,10 +4611,6 @@
     "defaultMessage": "Type",
     "description": "Header for \"type\" column in the UC table schema"
   },
-  "a1HWFD": {
-    "defaultMessage": "Input: {cost}",
-    "description": "Input cost"
-  },
   "a1liZ7": {
     "defaultMessage": "Export",
     "description": "Export traces to dataset modal action button"
@@ -4594,6 +4626,10 @@
   "a8rS4O": {
     "defaultMessage": "Delete",
     "description": "OK text for delete model modal on model view page"
+  },
+  "a9kRlY": {
+    "defaultMessage": "Tool calls",
+    "description": "Label for the tool calls tab in the experiment overview page"
   },
   "aAAHaS": {
     "defaultMessage": "Context insufficient",
@@ -4631,6 +4667,10 @@
     "defaultMessage": "Time (Relative)",
     "description": "Radio button option to choose the time relative control option for the X-axis for metric graph on the experiment runs"
   },
+  "aO2NFe": {
+    "defaultMessage": "No prompt version selected. Select a prompt version to view associated traces.",
+    "description": "Empty state message when no prompt version is selected"
+  },
   "aOW396": {
     "defaultMessage": "{timeSince, plural, =1 {1 hour} other {# hours}} ago",
     "description": "Text for time in hours since given date for MLflow views"
@@ -4650,10 +4690,6 @@
   "aW3CeS": {
     "defaultMessage": "Bound {date}",
     "description": "Gateway > Bindings using key drawer > Binding created date"
-  },
-  "aXS2IB": {
-    "defaultMessage": "Model:",
-    "description": "Model name label"
   },
   "aXw0NO": {
     "defaultMessage": "Please select metric",
@@ -4718,6 +4754,10 @@
   "b1yfI9": {
     "defaultMessage": "Run details",
     "description": "Run page > Overview > Run details section heading"
+  },
+  "b6hjrM": {
+    "defaultMessage": "Fallback Models",
+    "description": "Summary fallback models label"
   },
   "b7OpMB": {
     "defaultMessage": "Data Type",
@@ -4847,6 +4887,10 @@
     "defaultMessage": "Select a cell to display preview",
     "description": "Experiment page > table view > preview sidebar > nothing selected"
   },
+  "cAujuc": {
+    "defaultMessage": "Endpoints using this key ({count})",
+    "description": "Gateway > Delete API key modal > Endpoints list header"
+  },
   "cB0/61": {
     "defaultMessage": "Z axis",
     "description": "Label for Z axis in Contour chart configurator in compare runs chart config modal"
@@ -4939,10 +4983,6 @@
     "defaultMessage": "Failed to load chart data",
     "description": "Error message when chart fails to load"
   },
-  "cpF96x": {
-    "defaultMessage": "General",
-    "description": "Section title for general settings"
-  },
   "crFjQx": {
     "defaultMessage": "Loading providers...",
     "description": "Loading message for providers"
@@ -4966,14 +5006,6 @@
   "cv/bGM": {
     "defaultMessage": "Trace ID",
     "description": "Column label for trace ID"
-  },
-  "cvqfn9": {
-    "defaultMessage": "This endpoint is currently used by {bindingCount, plural, one {# resource} other {# resources}}. Deleting it will break those connections.",
-    "description": "Warning about resources using this endpoint"
-  },
-  "cx7Ksv": {
-    "defaultMessage": "Created by",
-    "description": "Created by label"
   },
   "cy9EfG": {
     "defaultMessage": "Attributes",
@@ -5023,6 +5055,10 @@
     "defaultMessage": "Tool",
     "description": "Display text for the 'tool' role in a GenAI chat message."
   },
+  "dQawRm": {
+    "defaultMessage": "Passthrough APIs",
+    "description": "Passthrough APIs tab title"
+  },
   "dTLq6E": {
     "defaultMessage": "expand {title}",
     "description": "Common component > collapsible section > alternative label when collapsed"
@@ -5047,10 +5083,6 @@
     "defaultMessage": "500: Internal server error",
     "description": "Generic 500 user-friendly error for the MLflow UI"
   },
-  "deJfGV": {
-    "defaultMessage": "{count, plural, one {# model} other {# models}}",
-    "description": "Gateway > Endpoints using key drawer > Model count"
-  },
   "dl0TeT": {
     "defaultMessage": "Save",
     "description": "Experiment tracking > experiment page > runs > save tags button"
@@ -5066,6 +5098,10 @@
   "dqfOjO": {
     "defaultMessage": "You cannot select rows when comparing runs",
     "description": "Tooltip message for the select button when comparing runs"
+  },
+  "dsPsxG": {
+    "defaultMessage": "OpenAI-Compatible Chat Completions API",
+    "description": "OpenAI compatible API section title"
   },
   "dt3hj5": {
     "defaultMessage": "Add tags",
@@ -5139,10 +5175,6 @@
     "defaultMessage": "Source",
     "description": "Experiment page > traces table > source column header"
   },
-  "eMbUhX": {
-    "defaultMessage": "e.g., openai, anthropic, google",
-    "description": "Placeholder for provider input"
-  },
   "eNUbaN": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for y-axis in scatter plot comparison in MLflow"
@@ -5178,6 +5210,10 @@
   "eVpwlz": {
     "defaultMessage": "Step 3: Register the judge",
     "description": "Step 3 title for custom judge creation"
+  },
+  "eWm+AG": {
+    "defaultMessage": "Remove model",
+    "description": "Tooltip for remove traffic split model button"
   },
   "eYZ/ZL": {
     "defaultMessage": "Endpoints",
@@ -5263,10 +5299,6 @@
     "defaultMessage": "(edited)",
     "description": "Link text in an edited assessment that allows the user to click to see the previous value"
   },
-  "fFsTIx": {
-    "defaultMessage": "No models configured for this endpoint",
-    "description": "Message when no models configured"
-  },
   "fKx4kG": {
     "defaultMessage": "Aggregation: {value}",
     "description": "Experiment page > group by runs control > current aggregation function tooltip"
@@ -5294,10 +5326,6 @@
   "fWm1UC": {
     "defaultMessage": "Group by",
     "description": "Experiment page > artifact compare view > \"group by column\" select dropdown label"
-  },
-  "fXXoKr": {
-    "defaultMessage": "Model configuration",
-    "description": "Section title for model configuration"
   },
   "fYtbd8": {
     "defaultMessage": "An error occurred while rendering the chat session.",
@@ -5355,9 +5383,9 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button in the select traces modal"
   },
-  "fsga0A": {
-    "defaultMessage": "Connected resources ({count})",
-    "description": "Gateway > Endpoint bindings drawer > Title"
+  "ftZaLl": {
+    "defaultMessage": "(must equal 100%)",
+    "description": "Weight validation message"
   },
   "fv7vQf": {
     "defaultMessage": "Rename",
@@ -5499,10 +5527,6 @@
     "defaultMessage": "Model",
     "description": "Experiment page > runs table > models column > default label for no specific model"
   },
-  "gleX6d": {
-    "defaultMessage": "This key is currently used by {modelCount, plural, one {# model definition} other {# model definitions}}. After deletion, you will need to attach a different API key to {modelCount, plural, one {this model} other {these models}} via the Edit Endpoint page.",
-    "description": "Warning about models using this key"
-  },
   "glxGz2": {
     "defaultMessage": "Parallel coordinates chart does not support aggregated string values.",
     "description": "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > title"
@@ -5518,10 +5542,6 @@
   "gqfk5C": {
     "defaultMessage": "User is not authorized.",
     "description": "Unauthorized (HTTP STATUS 401) generic error message"
-  },
-  "gwS08B": {
-    "defaultMessage": "Back to common providers",
-    "description": "Navigation back to common providers list"
   },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
@@ -5550,6 +5570,14 @@
   "hBAhI8": {
     "defaultMessage": "Copy",
     "description": "Tooltip message displayed on copy action"
+  },
+  "hDExYR": {
+    "defaultMessage": "Fallback Model {order}",
+    "description": "Label for fallback model"
+  },
+  "hDWN6z": {
+    "defaultMessage": "OpenAI Passthrough",
+    "description": "OpenAI passthrough section title"
   },
   "hFlaPP": {
     "defaultMessage": "System metrics",
@@ -5606,6 +5634,10 @@
   "hg+bcy": {
     "defaultMessage": "Enable telemetry",
     "description": "Enable telemetry settings title"
+  },
+  "hjAgZ8": {
+    "defaultMessage": "Unified OpenAI compatible API for model invocations. Set the endpoint name as the model parameter.",
+    "description": "OpenAI compatible API description"
   },
   "hkXDZn": {
     "defaultMessage": "MLflow allows you associate traces with users and chat sessions. This is useful for analyzing multi-turn conversations, enabling you to inspect what happened at each step. Copy the code snippet below to generate a sample trace, or visit the documentation for a more in-depth example.",
@@ -5803,10 +5835,6 @@
     "defaultMessage": "Edit API key",
     "description": "Gateway > API keys list > Edit API key button aria label"
   },
-  "jEAMLP": {
-    "defaultMessage": "Scorer jobs",
-    "description": "Scorer jobs resource type plural"
-  },
   "jGHQgn": {
     "defaultMessage": "Select an LLM template",
     "description": "Placeholder for LLM template selection"
@@ -5895,6 +5923,10 @@
     "defaultMessage": "Cancel",
     "description": "Experiment page > artifact compare view > \"add new row\" modal cancel button label"
   },
+  "jzNMBH": {
+    "defaultMessage": "This key is currently in use. After deleting, you will need to attach a different API key to continue using the endpoints currently using this key.",
+    "description": "Gateway > Delete API key modal > Warning about endpoints using this key"
+  },
   "k/AedV": {
     "defaultMessage": "Plain text",
     "description": "Tooltip content for a button that changes the render mode of the prompt to plain text"
@@ -5910,6 +5942,10 @@
   "k0m460": {
     "defaultMessage": "Failed to load child runs",
     "description": "Run page > Overview > Child runs error"
+  },
+  "k3V20c": {
+    "defaultMessage": "Scorer Insights",
+    "description": "Title for the scorer insights section in quality tab"
   },
   "kA+QJr": {
     "defaultMessage": "Overview",
@@ -5966,6 +6002,10 @@
   "kZaBMS": {
     "defaultMessage": "trace.status = 'OK'",
     "description": "Placeholder example for filter string input"
+  },
+  "kbOsmf": {
+    "defaultMessage": "The AI Gateway is using the default encryption passphrase. This is acceptable for development or single-user deployments, but for multi-user production environments, you should rotate the passphrase using the CLI command: mlflow crypto rotate-kek",
+    "description": "Gateway > Default passphrase warning banner description"
   },
   "kdTxC2": {
     "defaultMessage": "Disable run grouping in order to access the evaluation view",
@@ -6071,6 +6111,10 @@
     "defaultMessage": "This assessment is produced by a custom metric.",
     "description": "Custom judge assessment description"
   },
+  "lRO4km": {
+    "defaultMessage": "Quality",
+    "description": "Label for the quality tab in the experiment overview page"
+  },
   "lS7kq2": {
     "defaultMessage": "Parameters",
     "description": "Section header for the parameters in a 'group by' selector"
@@ -6134,10 +6178,6 @@
   "luV/3W": {
     "defaultMessage": "Adheres to guidelines",
     "description": "Evaluation results > guidelines assessment > positive value label. Displayed if evaluation result adheres to the guidelines."
-  },
-  "lx0teD": {
-    "defaultMessage": "Last modified",
-    "description": "Last modified label"
   },
   "lxGVDu": {
     "defaultMessage": "Percentage of traces evaluated by this judge.",
@@ -6279,6 +6319,10 @@
     "defaultMessage": "Yes, save and close",
     "description": "Key-value tag editor modal > Unsaved tag message > Yes, save and close button"
   },
+  "mz/gog": {
+    "defaultMessage": "Traffic Split",
+    "description": "Summary traffic split label"
+  },
   "n/l2ft": {
     "defaultMessage": "Reset filters",
     "description": "Reset filters button in list"
@@ -6306,6 +6350,10 @@
   "nEoTsR": {
     "defaultMessage": "Completed Runs",
     "description": "Label for the progress bar to show the number of completed runs"
+  },
+  "nF/4Eh": {
+    "defaultMessage": "Models in this priority will be tested second, after models in Priority 1 have failed. Models will be attempted in order from top to bottom.",
+    "description": "Fallback models description"
   },
   "nF10K1": {
     "defaultMessage": "Machine learning",
@@ -6403,6 +6451,10 @@
     "defaultMessage": "MLflow deployment returned the following error: \"{errorMessage}\"",
     "description": "Experiment page > MLflow deployment error message"
   },
+  "o0NwZU": {
+    "defaultMessage": "Quality metrics computed by scorers.",
+    "description": "Description for the scorer insights section"
+  },
   "o21MFS": {
     "defaultMessage": "Invalid log value",
     "description": "Experiment tracking > runs charts > line chart configuration > invalid log value message"
@@ -6463,13 +6515,13 @@
     "defaultMessage": "Add",
     "description": "Add new key-value tag modal > Add button text"
   },
-  "oUUe9R": {
-    "defaultMessage": "Edit endpoint",
-    "description": "Gateway > Endpoints list > Edit endpoint button aria label"
-  },
   "oWPgX7": {
     "defaultMessage": "Rename",
     "description": "Label for the rename run button above the experiment runs table"
+  },
+  "oWtdfc": {
+    "defaultMessage": "Failed Calls",
+    "description": "Label for failed calls statistic"
   },
   "oY+vPi": {
     "defaultMessage": "Showing all runs",
@@ -6567,6 +6619,10 @@
     "defaultMessage": "Response",
     "description": "Experiment page > traces table > output column header"
   },
+  "pOqgMC": {
+    "defaultMessage": "Weight",
+    "description": "Label for traffic split weight input"
+  },
   "pTDM+x": {
     "defaultMessage": "Select LLM model endpoint",
     "description": "Experiment page > new run modal > served LLM model endpoint placeholder"
@@ -6634,6 +6690,10 @@
   "puATD8": {
     "defaultMessage": "Are you sure you want to delete this assessment?",
     "description": "Delete assessments modal confirmation text"
+  },
+  "pvjUFP": {
+    "defaultMessage": "e.g., gpt-5.2, claude-4.5-opus",
+    "description": "Placeholder for model name input"
   },
   "pye4NE": {
     "defaultMessage": "Select an endpoint",
@@ -7047,6 +7107,10 @@
     "defaultMessage": "Errors",
     "description": "Title for the errors chart"
   },
+  "t8zXLd": {
+    "defaultMessage": "Priority 1 (Traffic Split)",
+    "description": "Section title for traffic split"
+  },
   "tCC/M3": {
     "defaultMessage": "Create a new key if a different provider is needed.",
     "description": "Tooltip suggestion to create new key for different provider"
@@ -7111,9 +7175,17 @@
     "defaultMessage": "No dataset",
     "description": "Label for the metrics column group header that are not grouped by dataset"
   },
+  "trW0O+": {
+    "defaultMessage": "Back to providers",
+    "description": "Navigation back to main provider list"
+  },
   "ttyLD4": {
     "defaultMessage": "Okay",
     "description": "Experiment page > new notebook run modal > okay button label"
+  },
+  "tv0qk9": {
+    "defaultMessage": "Native MLflow API for model invocations. Supports seamless model switching and advanced routing.",
+    "description": "MLflow invocations API description"
   },
   "tx3aAM": {
     "defaultMessage": "Add tag",
@@ -7142,6 +7214,10 @@
   "uBTAtY": {
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
+  },
+  "uHzRht": {
+    "defaultMessage": "Total aggregate scores",
+    "description": "Label for assessment score distribution chart"
   },
   "uIY1qq": {
     "defaultMessage": "Learn More",
@@ -7178,10 +7254,6 @@
   "ubeHow": {
     "defaultMessage": "Input",
     "description": "Column header for the input in the runs table on the logged model details page"
-  },
-  "udXIEY": {
-    "defaultMessage": "Edit endpoint",
-    "description": "Page title for edit endpoint"
   },
   "ufamzi": {
     "defaultMessage": "Comparing {runs} MLflow Runs",
@@ -7306,6 +7378,10 @@
   "vmiE+n": {
     "defaultMessage": "Add description",
     "description": "Run page > Overview > Description section > Add description button"
+  },
+  "vwD2zW": {
+    "defaultMessage": "Unified APIs",
+    "description": "Unified APIs tab title"
   },
   "vwDBPr": {
     "defaultMessage": "The run containing the dataset could not be found.",
@@ -7439,6 +7515,10 @@
     "defaultMessage": "Log traces",
     "description": "Home page quick action title for logging traces"
   },
+  "wvuSAK": {
+    "defaultMessage": "Total Tool Calls",
+    "description": "Label for total tool calls statistic"
+  },
   "wx0s66": {
     "defaultMessage": "Select a provider and model to configure API key",
     "description": "Message when no provider selected for API key form"
@@ -7514,6 +7594,10 @@
   "xVBx+a": {
     "defaultMessage": "Next",
     "description": "Button text for next trace"
+  },
+  "xWcxhf": {
+    "defaultMessage": "No items found",
+    "description": "Message shown when no items match the search"
   },
   "xYBwQl": {
     "defaultMessage": "Log traces",
@@ -7619,6 +7703,14 @@
     "defaultMessage": "NaN",
     "description": "Label displaying \"not-a-number\" symbol displayed on a plot UI element"
   },
+  "yLAJ6r": {
+    "defaultMessage": "Use",
+    "description": "Use endpoint button"
+  },
+  "yM9S/n": {
+    "defaultMessage": "Please select a model to run the judge",
+    "description": "Tooltip message when model is not selected"
+  },
   "yPdr5F": {
     "defaultMessage": "Does app's response directly address the user's input?",
     "description": "Hint for RelevanceToQuery template"
@@ -7626,6 +7718,10 @@
   "yQkV88": {
     "defaultMessage": "No endpoints are using this key",
     "description": "Gateway > Endpoints using key drawer > Empty state"
+  },
+  "yRzU8K": {
+    "defaultMessage": "Avg Latency",
+    "description": "Label for average latency statistic"
   },
   "ySno61": {
     "defaultMessage": "The code snippets below demonstrate how to make predictions using the logged model.",
@@ -7690,10 +7786,6 @@
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",
     "description": "Tooltip for deleted endpoint"
-  },
-  "z8dR1t": {
-    "defaultMessage": "Context: {tokens}",
-    "description": "Context window size"
   },
   "z94r4F": {
     "defaultMessage": "This assessment is produced by a human judge.",
@@ -7802,6 +7894,10 @@
   "zp4MBw": {
     "defaultMessage": "Token count",
     "description": "Label for the token count section"
+  },
+  "zuEXrI": {
+    "defaultMessage": "e.g., openai, anthropic, gemini",
+    "description": "Placeholder for provider input"
   },
   "zv4Ycc": {
     "defaultMessage": "View as table",
