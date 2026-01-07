@@ -21,6 +21,7 @@ CLAUDE_CONFIG_FILE = Path.home() / ".mlflow" / "assistant" / "claude-config.json
 # TODO: to be updated
 CLAUDE_SYSTEM_PROMPT = """You are an MLflow assistant helping users with their MLflow projects."""
 
+
 class ClaudeCodeProvider(AssistantProvider):
     """Assistant provider using Claude Code CLI."""
 
