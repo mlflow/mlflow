@@ -285,8 +285,8 @@ class MlflowTrackingStore(AbstractScorerStore):
         *,
         scorer: Scorer,
         sample_rate: float,
+        experiment_id: str,
         filter_string: str | None = None,
-        experiment_id: str | None = None,
     ) -> Scorer:
         """
         Create or update the online scoring configuration for a registered scorer.
@@ -294,8 +294,8 @@ class MlflowTrackingStore(AbstractScorerStore):
         Args:
             scorer: The scorer instance to update.
             sample_rate: The sampling rate (0.0 to 1.0).
+            experiment_id: The experiment ID.
             filter_string: Optional filter string.
-            experiment_id: The experiment ID. If None, uses the active experiment.
 
         Returns:
             A copy of the scorer with updated sampling configuration.
@@ -309,8 +309,6 @@ class MlflowTrackingStore(AbstractScorerStore):
                 "Please call register() first before calling start()/update(), "
                 "or use get_scorer() to load a registered scorer."
             )
-
-        experiment_id = experiment_id or _get_experiment_id()
 
         self._tracking_store.upsert_online_scoring_config(
             experiment_id=experiment_id,
