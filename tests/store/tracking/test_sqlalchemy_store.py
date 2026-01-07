@@ -4156,6 +4156,29 @@ def test_sqlalchemy_store_does_not_create_artifact_root_directory_on_init(tmp_pa
     store._dispose_engine()
 
 
+def test_sqlalchemy_store_creates_artifact_directory_on_log_artifact(tmp_path):
+    from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+
+    db_path = tmp_path / "mlflow.db"
+    artifact_root = tmp_path / "artifacts"
+
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", str(artifact_root))
+    exp_id = store.create_experiment("test")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="run")
+
+    assert not artifact_root.exists()
+
+    src_file = tmp_path / "test.txt"
+    src_file.write_text("hello")
+
+    artifact_repo = get_artifact_repository(run.info.artifact_uri)
+    artifact_repo.log_artifact(str(src_file))
+
+    assert artifact_root.exists()
+
+    store._dispose_engine()
+
+
 class TextClauseMatcher:
     def __init__(self, text):
         self.text = text
