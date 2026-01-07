@@ -710,10 +710,14 @@ def _get_normalized_request_json(flask_request: Request = request) -> dict[str, 
     """
     request_json = _get_request_json(flask_request)
 
-    # Older clients may post their JSON double-encoded as strings
+    # Older clients may post their JSON double-encoded as strings, so the get_json
+    # above actually converts it to a string. Therefore, we check this condition
+    # (which we can tell for sure because any proper request should be a dictionary),
+    # and decode it a second time.
     if is_string_type(request_json):
         request_json = json.loads(request_json)
 
+    # If request doesn't have json body then assume it's empty.
     if request_json is None:
         request_json = {}
 
