@@ -5395,10 +5395,6 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button in the select traces modal"
   },
-  "fsga0A": {
-    "defaultMessage": "Connected resources ({count})",
-    "description": "Gateway > Endpoint bindings drawer > Title"
-  },
   "ftZaLl": {
     "defaultMessage": "(must equal 100%)",
     "description": "Weight validation message"

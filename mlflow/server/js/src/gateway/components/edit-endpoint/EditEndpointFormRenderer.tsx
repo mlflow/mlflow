@@ -170,9 +170,9 @@ export const EditEndpointFormRenderer = ({
             >
               <div
                 css={{
-                  width: 2,
+                  width: 3,
                   height: '100%',
-                  backgroundColor: theme.colors.border,
+                  backgroundColor: theme.colors.actionDefaultBorderDefault,
                 }}
               />
             </div>
