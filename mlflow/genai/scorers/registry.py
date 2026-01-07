@@ -49,7 +49,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
         Register a scorer for an experiment.
 
         Args:
-            experiment_id: The experiment ID.
+            experiment_id: The ID of the Experiment containing the scorer.
             scorer: The scorer object.
 
         Returns:
@@ -62,7 +62,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
         List all scorers for an experiment.
 
         Args:
-            experiment_id: The experiment ID.
+            experiment_id: The ID of the Experiment containing the scorer.
 
         Returns:
             List of mlflow.genai.scorers.Scorer objects (latest version for each scorer name).
@@ -74,7 +74,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
         Get a specific scorer for an experiment.
 
         Args:
-            experiment_id: The experiment ID.
+            experiment_id: The ID of the Experiment containing the scorer.
             name: The scorer name.
             version: The scorer version. If None, returns the scorer with maximum version.
 
@@ -91,7 +91,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
         List all versions of a specific scorer for an experiment.
 
         Args:
-            experiment_id: The experiment ID.
+            experiment_id: The ID of the Experiment containing the scorer.
             name: The scorer name.
 
         Returns:
@@ -108,7 +108,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
         Delete a scorer by name and optional version.
 
         Args:
-            experiment_id: The experiment ID.
+            experiment_id: The ID of the Experiment containing the scorer.
             name: The scorer name.
             version: The scorer version to delete.
 
