@@ -237,6 +237,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         online_configs_list = (
             self._tracking_store.get_online_scoring_configs(scorer_ids) if scorer_ids else []
         )
+        # Each scorer has at most one online configuration, guaranteed by the server
         online_configs = {c.scorer_id: c for c in online_configs_list}
         scorers = []
         for scorer_version in scorer_versions:
@@ -254,6 +255,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         online_configs_list = self._tracking_store.get_online_scoring_configs(
             [scorer_version.scorer_id]
         )
+        # Each scorer has at most one online configuration, guaranteed by the server
         online_config = online_configs_list[0] if online_configs_list else None
         scorer = Scorer.model_validate(scorer_version.serialized_scorer)
         self._hydrate_scorer(scorer, experiment_id, online_config)
@@ -264,10 +266,11 @@ class MlflowTrackingStore(AbstractScorerStore):
 
         experiment_id = experiment_id or _get_experiment_id()
         scorer_versions = self._tracking_store.list_scorer_versions(experiment_id, name)
-        scorer_ids = [sv.scorer_id for sv in scorer_versions]
+        scorer_ids = list({sv.scorer_id for sv in scorer_versions})
         online_configs_list = (
             self._tracking_store.get_online_scoring_configs(scorer_ids) if scorer_ids else []
         )
+        # Each scorer has at most one online configuration, guaranteed by the server
         online_configs = {c.scorer_id: c for c in online_configs_list}
         scorers = []
         for scorer_version in scorer_versions:
