@@ -13,6 +13,7 @@ import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
 import { LazyTraceTokenStatsChart } from './components/LazyTraceTokenStatsChart';
 import { AssessmentChartsSection } from './components/AssessmentChartsSection';
+import { ToolCallStatistics } from './components/ToolCallStatistics';
 import { TabContentContainer, ChartGrid } from './components/OverviewLayoutComponents';
 import { calculateTimeInterval } from './hooks/useTraceMetricsQuery';
 import { generateTimeBuckets } from './utils/chartUtils';
@@ -148,8 +149,8 @@ const ExperimentGenAIOverviewPageImpl = () => {
 
         <Tabs.Content value={OverviewTab.ToolCalls} css={{ flex: 1, overflowY: 'auto' }}>
           <TabContentContainer>
-            {/* Tool call charts - placeholder for now */}
-            <div>Tool calls charts coming soon</div>
+            {/* Tool call statistics */}
+            <ToolCallStatistics experimentId={experimentId} startTimeMs={startTimeMs} endTimeMs={endTimeMs} />
           </TabContentContainer>
         </Tabs.Content>
       </Tabs.Root>
