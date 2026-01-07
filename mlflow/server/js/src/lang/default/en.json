@@ -4655,6 +4655,10 @@
     "defaultMessage": "Delete",
     "description": "OK text for delete model modal on model view page"
   },
+  "a9kRlY": {
+    "defaultMessage": "Tool calls",
+    "description": "Label for the tool calls tab in the experiment overview page"
+  },
   "aAAHaS": {
     "defaultMessage": "Context insufficient",
     "description": "Evaluation results > context sufficiency assessment > negative value label. Displayed if retrieved context is insufficient to generate the expected response."
