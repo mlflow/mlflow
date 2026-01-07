@@ -4684,7 +4684,7 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
     exp1 = store_with_traces.get_experiment_by_name("exp1").experiment_id
     exp2 = store_with_traces.get_experiment_by_name("exp2").experiment_id
     trace_infos, _ = store_with_traces.search_traces(
-        experiment_ids=[exp1, exp2],
+        locations=[exp1, exp2],
         filter_string=None,
         max_results=5,
         order_by=order_by,
@@ -4726,7 +4726,7 @@ def test_search_traces_with_filter(store_with_traces, filter_string, expected_id
     exp2 = store_with_traces.get_experiment_by_name("exp2").experiment_id
 
     trace_infos, _ = store_with_traces.search_traces(
-        experiment_ids=[exp1, exp2],
+        locations=[exp1, exp2],
         filter_string=filter_string,
         max_results=5,
         order_by=[],
@@ -4753,7 +4753,7 @@ def test_search_traces_with_invalid_filter(store_with_traces, filter_string, err
 
     with pytest.raises(MlflowException, match=error):
         store_with_traces.search_traces(
-            experiment_ids=[exp1, exp2],
+            locations=[exp1, exp2],
             filter_string=filter_string,
         )
 
@@ -4763,12 +4763,12 @@ def test_search_traces_raise_if_max_results_arg_is_invalid(store):
         MlflowException,
         match="Invalid value 50001 for parameter 'max_results' supplied.",
     ):
-        store.search_traces(experiment_ids=[], max_results=50001)
+        store.search_traces(locations=[], max_results=50001)
 
     with pytest.raises(
         MlflowException, match="Invalid value -1 for parameter 'max_results' supplied."
     ):
-        store.search_traces(experiment_ids=[], max_results=-1)
+        store.search_traces(locations=[], max_results=-1)
 
 
 def test_search_traces_pagination(store_with_traces):
@@ -10490,7 +10490,7 @@ def test_link_traces_to_run(store: SqlAlchemyStore):
 
     # search_traces should return traces linked to the run
     traces, _ = store.search_traces(
-        experiment_ids=[exp_id], filter_string=f"run_id = '{run.info.run_id}'"
+        locations=[exp_id], filter_string=f"run_id = '{run.info.run_id}'"
     )
     assert len(traces) == 5
 

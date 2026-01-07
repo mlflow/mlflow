@@ -2656,12 +2656,12 @@ def test_search_traces(mlflow_client):
         return [t.info.request_id for t in traces]
 
     # Validate search
-    traces = mlflow_client.search_traces(experiment_ids=[experiment_id])
+    traces = mlflow_client.search_traces(locations=[experiment_id])
     assert _get_request_ids(traces) == [request_id_3, request_id_2, request_id_1]
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id],
+        locations=[experiment_id],
         filter_string="status = 'OK'",
         order_by=["timestamp ASC"],
     )
@@ -2669,13 +2669,13 @@ def test_search_traces(mlflow_client):
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id],
+        locations=[experiment_id],
         max_results=2,
     )
     assert _get_request_ids(traces) == [request_id_3, request_id_2]
     assert traces.token is not None
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id],
+        locations=[experiment_id],
         page_token=traces.token,
     )
     assert _get_request_ids(traces) == [request_id_1]
@@ -2708,23 +2708,23 @@ def test_search_traces_match_text(mlflow_client, store_type):
     trace_id_2 = _create_trace(name="trace2", attributes={"test": "value2"})
     trace_id_3 = _create_trace(name="trace3", attributes={"test3": "I like it"})
 
-    traces = mlflow_client.search_traces(experiment_ids=[experiment_id])
+    traces = mlflow_client.search_traces(locations=[experiment_id])
     assert len([t.info.trace_id for t in traces]) == 3
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%trace%'"
+        locations=[experiment_id], filter_string="trace.text LIKE '%trace%'"
     )
     assert len([t.info.trace_id for t in traces]) == 3
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%value%'"
+        locations=[experiment_id], filter_string="trace.text LIKE '%value%'"
     )
     assert {t.info.trace_id for t in traces} == {trace_id_1, trace_id_2}
 
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%I like it%'"
+        locations=[experiment_id], filter_string="trace.text LIKE '%I like it%'"
     )
     assert [t.info.trace_id for t in traces] == [trace_id_3]
 
@@ -2990,12 +2990,12 @@ def test_link_traces_to_run_and_search_traces(mlflow_client, store_type):
     trace_id_3 = span3.trace_id
 
     # Search traces without run_id filter - should return all traces in experiment
-    all_traces = mlflow_client.search_traces(experiment_ids=[experiment_id])
+    all_traces = mlflow_client.search_traces(locations=[experiment_id])
     assert {t.info.trace_id for t in all_traces} == {trace_id_1, trace_id_2, trace_id_3}
 
     # Search traces with run_id filter - should return only linked traces
     linked_traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id], filter_string=f"attribute.run_id = '{run_id}'"
+        locations=[experiment_id], filter_string=f"attribute.run_id = '{run_id}'"
     )
     linked_trace_ids = [t.info.trace_id for t in linked_traces]
     assert len(linked_trace_ids) == 2

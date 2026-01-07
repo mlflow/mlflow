@@ -215,7 +215,7 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     assert result == "Parent: Hello World"
 
     client = MlflowClient()
-    traces = client.search_traces(experiment_ids=[experiment.experiment_id])
+    traces = client.search_traces(locations=[experiment.experiment_id])
     assert len(traces) == 1
     trace = traces[0]
     assert len(trace.data.spans) == 2
