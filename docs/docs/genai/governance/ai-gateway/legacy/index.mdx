@@ -1,0 +1,77 @@
+# Gateway Server (Legacy)
+
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Wrench, Settings, Play } from "lucide-react";
+
+The Gateway Server provides a YAML-based configuration approach for deploying and managing LLM endpoints. This legacy method offers flexibility for users who prefer file-based configuration and command-line server management.
+
+:::note
+For new deployments, we recommend using the [Gateway Guide](../ui-guide) which provides a modern web interface for managing endpoints, API keys, and routing configurations with zero-downtime updates.
+:::
+
+## Supported Providers
+
+The Gateway Server supports a comprehensive range of LLM providers through YAML configuration:
+
+| Provider              | Chat | Chat function calling | Completions | Embeddings | Notes                                    |
+| --------------------- | ---- | --------------------- | ----------- | ---------- | ---------------------------------------- |
+| OpenAI                | ✅   | ✅                    | ✅          | ✅         | GPT-4, GPT-5, text-embedding models      |
+| Azure OpenAI          | ✅   | ✅                    | ✅          | ✅         | Enterprise OpenAI with Azure integration |
+| Anthropic             | ✅   | ✅                    | ✅          | ❌         | Claude models via Anthropic API          |
+| Gemini                | ✅   | ✅                    | ✅          | ✅         | Gemini models via Gemini API             |
+| AWS Bedrock Claude    | ✅   | ✅                    | ✅          | ✅         | Claude models provided by AWS Bedrock    |
+| AWS Bedrock Titan     | ❌   | ❌                    | ✅          | ❌         | Titan models provided by AWS Bedrock     |
+| AWS Bedrock AI21      | ❌   | ❌                    | ✅          | ❌         | AI21 models provided by AWS Bedrock      |
+| MLflow Models         | ✅   | ❌                    | ✅          | ✅         | Your own deployed MLflow models          |
+| Cohere (deprecated)   | ✅   | ❌                    | ✅          | ✅         | Command and embedding models             |
+| PaLM (deprecated)     | ✅   | ❌                    | ✅          | ✅         | Google's PaLM models                     |
+| MosaicML (deprecated) | ✅   | ❌                    | ✅          | ❌         | MPT models and custom deployments        |
+
+## Core Concepts
+
+Understanding these key concepts will help you effectively configure the Gateway Server:
+
+### Endpoints
+
+Endpoints are named configurations defined in YAML that specify how to access a specific model from a provider. Each endpoint includes the model name, provider settings, and authentication parameters. Endpoints are configured in your YAML file and loaded when the server starts.
+
+### Providers
+
+Providers are the underlying LLM services (OpenAI, Anthropic, etc.) that serve the models. Each provider requires specific configuration parameters and authentication credentials, which you define in the endpoint configuration.
+
+### Routes
+
+Routes provide advanced request routing capabilities, allowing you to define traffic splitting and fallback strategies across multiple endpoints. Routes are configured in the YAML file under the `routes` section and enable load balancing and high availability patterns.
+
+### Configuration Management
+
+The Gateway Server uses YAML files for all configuration. To update endpoints or routes, you modify the YAML file and restart the server. This approach provides version control and declarative configuration benefits, though it requires server restarts for changes to take effect.
+
+## Getting Started
+
+Choose your next step to configure and use the Gateway Server:
+
+<TilesGrid>
+  <TileCard
+    icon={Wrench}
+    title="Setup"
+    description="Install MLflow, configure environment, and start your gateway server"
+    href="./setup"
+    linkText="Get started →"
+  />
+  <TileCard
+    icon={Settings}
+    title="Configuration"
+    description="Configure providers, endpoints, and advanced routing settings"
+    href="./configuration"
+    linkText="Configure →"
+  />
+  <TileCard
+    icon={Play}
+    title="Usage"
+    description="Query endpoints with Python client and REST APIs"
+    href="./usage"
+    linkText="Learn usage →"
+  />
+</TilesGrid>

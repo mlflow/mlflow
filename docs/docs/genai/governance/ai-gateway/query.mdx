@@ -1,0 +1,218 @@
+---
+title: Querying Endpoints
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Querying Endpoints
+
+Once you've created an endpoint, you can call it through several different API styles depending on your needs.
+
+## Viewing Usage Examples
+
+To see code examples for your endpoint, navigate to the Endpoints list and click either the Use button or the endpoint name itself. This opens a modal with comprehensive usage examples tailored to your specific endpoint.
+
+![Usage Modal](/images/genai/governance/ai-gateway/usage-modal.png)
+
+The usage modal organizes examples into two categories: unified APIs that work across any provider, and passthrough APIs that expose provider-specific features.
+
+## Unified APIs
+
+Unified APIs provide a consistent interface regardless of the underlying model provider. These APIs make it easy to switch between different models or providers without changing your application code.
+
+### MLflow Invocations API
+
+The MLflow Invocations API is the native interface for calling gateway endpoints. This API seamlessly handles model switching and advanced routing features like traffic splitting and fallbacks:
+
+<Tabs>
+<TabItem value="curl" label="cURL" default>
+
+```bash
+curl -X POST http://localhost:5000/gateway/my-chat-endpoint/mlflow/invocations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "temperature": 0.7
+  }'
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:5000/gateway/my-chat-endpoint/mlflow/invocations",
+    json={
+        "messages": [{"role": "user", "content": "Hello!"}],
+        "temperature": 0.7
+    }
+)
+print(response.json())
+```
+
+</TabItem>
+</Tabs>
+
+### OpenAI-Compatible Chat Completions API
+
+For teams already using the OpenAI chat completion style APIs, the gateway provides an OpenAI-compatible interface. Simply point your OpenAI client to the gateway's base URL and use your endpoint name as the model parameter. This lets you leverage existing OpenAI-based code while gaining the gateway's routing capabilities:
+
+<Tabs>
+<TabItem value="curl" label="cURL" default>
+
+```bash
+curl -X POST http://localhost:5000/gateway/mlflow/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-chat-endpoint",
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "temperature": 0.7
+  }'
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:5000/gateway/mlflow/v1",
+    api_key=""  # API key not needed, configured server-side
+)
+
+response = client.chat.completions.create(
+    model="my-chat-endpoint",
+    messages=[{"role": "user", "content": "Hello!"}],
+    temperature=0.7
+)
+print(response.choices[0].message.content)
+```
+
+</TabItem>
+</Tabs>
+
+## Passthrough APIs
+
+While unified APIs work for most use cases, passthrough APIs give you direct access to provider-specific features that may not be available through the unified interface. Each provider has its own passthrough endpoint.
+
+### OpenAI Passthrough
+
+The OpenAI passthrough API exposes OpenAI-specific parameters and features:
+
+<Tabs>
+<TabItem value="curl" label="cURL" default>
+
+```bash
+curl -X POST http://localhost:5000/gateway/openai/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-chat-endpoint",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:5000/gateway/openai/v1",
+    api_key="dummy"  # API key not needed, configured server-side
+)
+
+response = client.chat.completions.create(
+    model="my-chat-endpoint",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+print(response.choices[0].message.content)
+```
+
+</TabItem>
+</Tabs>
+
+### Anthropic Passthrough
+
+Access Anthropic's Messages API directly through the gateway, including Claude-specific features:
+
+<Tabs>
+<TabItem value="curl" label="cURL" default>
+
+```bash
+curl -X POST http://localhost:5000/gateway/anthropic/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-chat-endpoint",
+    "max_tokens": 1024,
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+import anthropic
+
+client = anthropic.Anthropic(
+    base_url="http://localhost:5000/gateway/anthropic",
+    api_key="dummy"  # API key not needed, configured server-side
+)
+
+response = client.messages.create(
+    model="my-chat-endpoint",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+print(response.content[0].text)
+```
+
+</TabItem>
+</Tabs>
+
+### Google Gemini Passthrough
+
+The Gemini passthrough API follows Google's API structure, with the endpoint name embedded in the URL path:
+
+<Tabs>
+<TabItem value="curl" label="cURL" default>
+
+```bash
+curl -X POST http://localhost:5000/gateway/gemini/v1beta/models/my-chat-endpoint:generateContent \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contents": [{
+      "parts": [{"text": "Hello!"}]
+    }]
+  }'
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+from google import genai
+
+# Configure with custom endpoint
+client = genai.Client(
+    api_key='dummy',
+    http_options={
+        'base_url': "http://localhost:5000/gateway/gemini",
+    }
+)
+
+response = client.models.generate_content(
+    model="my-chat-endpoint",
+    contents={'text': 'Hello!'},
+)
+client.close()
+print(response.candidates[0].content.parts[0].text)
+```
+
+</TabItem>
+</Tabs>

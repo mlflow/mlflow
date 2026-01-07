@@ -4,17 +4,15 @@ import TabsWrapper from "@site/src/components/TabsWrapper";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
-import { Shield, Globe, Zap, Settings, Users, Wrench, Play, Database, BarChart3 } from "lucide-react";
+import { Shield, Globe, Zap, Settings, Users, Wrench, Play, Database, BarChart3, Monitor } from "lucide-react";
 
 # MLflow AI Gateway
-
-:::warning
-MLflow AI Gateway does not support Windows.
-:::
 
 MLflow AI Gateway provides a unified interface for deploying and managing multiple LLM providers within your organization. It simplifies interactions with services like OpenAI, Anthropic, and others through a single, secure endpoint.
 
 The gateway server excels in production environments where organizations need to manage multiple LLM providers securely while maintaining operational flexibility and developer productivity.
+
+MLflow AI Gateway also offers passthrough endpoints, enabling requests to be forwarded in providers' native formats. This feature allows you to access and leverage the latest provider-specific capabilities as soon as they become available.
 
 <FeatureHighlights features={[
   {
@@ -30,7 +28,7 @@ The gateway server excels in production environments where organizations need to
   {
     icon: Database,
     title: "Provider Abstraction",
-    description: "Switch between OpenAI, Anthropic, Azure OpenAI, and other providers without changing your application code."
+    description: "Switch between OpenAI, Anthropic, Google, and other providers without changing your application code."
   },
   {
     icon: Zap,
@@ -49,88 +47,41 @@ The gateway server excels in production environments where organizations need to
   }
 ]} />
 
-## Getting Started
-
-Choose your path to get up and running with MLflow AI Gateway:
-
-<TilesGrid>
-  <TileCard
-    icon={Wrench}
-    title="Setup (Legacy)"
-    description="Install MLflow, configure environment, and start your gateway server using YAML configuration"
-    href="./legacy/setup"
-    linkText="View legacy setup →"
-  />
-  <TileCard
-    icon={Settings}
-    title="Configuration (Legacy)"
-    description="Configure providers, endpoints, and advanced gateway settings using YAML"
-    href="./legacy/configuration"
-    linkText="View legacy config →"
-  />
-  <TileCard
-    icon={Play}
-    title="Usage (Legacy)"
-    description="Query endpoints with Python client and REST APIs"
-    href="./legacy/usage"
-    linkText="View legacy usage →"
-  />
-</TilesGrid>
-
 ## Quick Start
 
-Get your AI Gateway running with OpenAI in under 5 minutes:
+Get your AI Gateway running in minutes:
 
 <TabsWrapper>
 <Tabs>
 <TabItem value="install" label="1. Install" default>
 
-Install MLflow with gateway dependencies:
+Install MLflow with GenAI dependencies:
 
 ```bash
-pip install 'mlflow[gateway]'
+pip install 'mlflow[genai]'
 ```
 
 </TabItem>
-<TabItem value="configure" label="2. Configure">
+<TabItem value="start" label="2. Start Server">
 
-Set your OpenAI API key:
+Start the MLflow server with a SQL backend:
 
 ```bash
-export OPENAI_API_KEY=your_api_key_here
-```
-
-Create a simple configuration file `config.yaml`:
-
-```yaml
-endpoints:
-  - name: chat
-    endpoint_type: llm/v1/chat
-    model:
-      provider: openai
-      name: gpt-3.5-turbo
-      config:
-        openai_api_key: $OPENAI_API_KEY
+mlflow server --backend-store-uri sqlite:///mlflow.db --host 0.0.0.0 --port 5000
 ```
 
 </TabItem>
-<TabItem value="start" label="3. Start Server">
+<TabItem value="configure" label="3. Configure">
 
-Start the gateway server:
-
-```bash
-mlflow gateway start --config-path config.yaml --port 5000
-```
-
-Your gateway is now running at `http://localhost:5000`
+Navigate to the Gateway section at `http://localhost:5000/#/gateway` and create your first endpoint through the web interface. Select your provider, model, and configure your API key.
 
 </TabItem>
 <TabItem value="test" label="4. Test">
 
-Test your endpoint:
+Test your endpoint using the unified MLflow API:
 
 ```bash
-curl -X POST http://localhost:5000/gateway/chat/invocations \
+curl -X POST http://localhost:5000/gateway/my-endpoint/mlflow/invocations \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [{"role": "user", "content": "Hello!"}]
@@ -141,68 +92,30 @@ curl -X POST http://localhost:5000/gateway/chat/invocations \
 </Tabs>
 </TabsWrapper>
 
-## Supported Providers
-
-MLflow AI Gateway supports a comprehensive range of LLM providers:
-
-| Provider              | Chat | Chat function calling | Completions | Embeddings | Notes                                    |
-| --------------------- | ---- | --------------------- | ----------- | ---------- | ---------------------------------------- |
-| OpenAI                | ✅   | ✅                    | ✅          | ✅         | GPT-4, GPT-5, text-embedding models      |
-| Azure OpenAI          | ✅   | ✅                    | ✅          | ✅         | Enterprise OpenAI with Azure integration |
-| Anthropic             | ✅   | ✅                    | ✅          | ❌         | Claude models via Anthropic API          |
-| Gemini                | ✅   | ✅                    | ✅          | ✅         | Gemini models via Gemini API             |
-| AWS Bedrock Claude    | ✅   | ✅                    | ✅          | ✅         | Claude models provided by AWS Bedrock    |
-| AWS Bedrock Titan     | ❌   | ❌                    | ✅          | ❌         | Titan models provided by AWS Bedrock     |
-| AWS Bedrock AI21      | ❌   | ❌                    | ✅          | ❌         | AI21 models provided by AWS Bedrock      |
-| MLflow Models         | ✅   | ❌                    | ✅          | ✅         | Your own deployed MLflow models          |
-| Cohere (deprecated)   | ✅   | ❌                    | ✅          | ✅         | Command and embedding models             |
-| PaLM (deprecated)     | ✅   | ❌                    | ✅          | ✅         | Google's PaLM models                     |
-| MosaicML (deprecated) | ✅   | ❌                    | ✅          | ❌         | MPT models and custom deployments        |
-
-## Core Concepts
-
-Understanding these key concepts will help you effectively use the AI Gateway:
-
-### Endpoints
-
-Endpoints are named configurations that define how to access a specific model from a provider. Each endpoint specifies the model, provider settings, and access parameters.
-
-### Providers
-
-Providers are the underlying LLM services (OpenAI, Anthropic, etc.) that actually serve the models. The gateway abstracts away provider-specific details.
-
-### Routes
-
-Routes define the URL structure for accessing endpoints. The gateway automatically creates routes based on your endpoint configurations.
-
-### Dynamic Updates
-
-The gateway supports hot-reloading of configurations, allowing you to add, modify, or remove endpoints without restarting the server.
-
 ## Next Steps
 
-Ready to dive deeper? Explore the legacy YAML-based configuration documentation:
+Ready to dive deeper? Start with the setup guide or explore the legacy YAML-based configuration:
 
 <TilesGrid>
   <TileCard
     icon={Wrench}
-    title="Setup Guide (Legacy)"
-    description="Get started with installation, environment setup, and server configuration using YAML"
-    href="./legacy/setup"
-    linkText="View legacy setup →"
+    title="Setup Guide"
+    description="Configure endpoints, API keys, and advanced routing features"
+    href="./setup"
+    linkText="Get started →"
   />
   <TileCard
     icon={Play}
-    title="Usage Guide (Legacy)"
-    description="Learn basic querying patterns with Python client and REST APIs"
-    href="./legacy/usage"
-    linkText="View legacy usage →"
+    title="Query Guide"
+    description="Learn how to call endpoints with unified and passthrough APIs"
+    href="./query"
+    linkText="View query guide →"
   />
   <TileCard
     icon={Settings}
-    title="Configuration Guide (Legacy)"
-    description="Configure providers and advanced settings using YAML files"
-    href="./legacy/configuration"
-    linkText="View legacy config →"
+    title="Gateway Server (Legacy)"
+    description="YAML-based configuration for endpoints and routing"
+    href="./legacy"
+    linkText="View legacy docs →"
   />
 </TilesGrid>

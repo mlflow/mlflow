@@ -623,6 +623,16 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
+          type: 'doc',
+          id: 'governance/ai-gateway/setup',
+          label: 'Setup',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/query',
+          label: 'Query',
+        },
+        {
           type: 'category',
           label: 'Gateway Server (Legacy)',
           items: [
@@ -642,6 +652,10 @@ const sidebarsGenAI: SidebarsConfig = {
               label: 'Usage',
             },
           ],
+          link: {
+            type: 'doc',
+            id: 'governance/ai-gateway/legacy/index',
+          },
         },
       ],
       link: {
