@@ -4,7 +4,7 @@ export enum GatewayPageId {
   gatewayPage = 'mlflow.gateway',
   apiKeysPage = 'mlflow.gateway.api-keys',
   createEndpointPage = 'mlflow.gateway.create',
-  editEndpointPage = 'mlflow.gateway.edit',
+  endpointDetailsPage = 'mlflow.gateway.endpoint-details',
 }
 
 export class GatewayRoutePaths {

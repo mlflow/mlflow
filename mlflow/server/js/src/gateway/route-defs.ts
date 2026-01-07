@@ -21,7 +21,7 @@ export const getGatewayRouteDefs = () => {
         {
           path: 'endpoints/:endpointId',
           element: createLazyRouteElement(() => import('./pages/EndpointPage')),
-          pageId: GatewayPageId.editEndpointPage,
+          pageId: GatewayPageId.endpointDetailsPage,
         },
       ],
     },
