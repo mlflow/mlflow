@@ -1,7 +1,6 @@
 import json
 import logging
 import re
-import tempfile
 from typing import Any
 
 import mlflow
@@ -335,7 +334,9 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         _logger.info("Applying zero-shot prompt optimization with best practices")
 
         # Build meta-prompt
-        meta_prompt = self._build_zero_shot_meta_prompt(target_prompts, template_variables)
+        meta_prompt = self._build_zero_shot_meta_prompt(
+            target_prompts, template_variables
+        )
 
         try:
             improved_prompts = self._call_reflection_model(meta_prompt)
@@ -352,7 +353,9 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             )
 
         except Exception as e:
-            _logger.warning(f"Zero-shot optimization failed: {e}. Returning original prompts.")
+            _logger.warning(
+                f"Zero-shot optimization failed: {e}. Returning original prompts."
+            )
             return PromptOptimizerOutput(
                 optimized_prompts=target_prompts,
                 initial_eval_score=None,
@@ -386,10 +389,6 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         initial_score = self._compute_aggregate_score(baseline_results)
         _logger.info(f"Baseline score: {initial_score:.4f}")
 
-        # Log baseline evaluation results as artifact if tracking is enabled
-        if enable_tracking:
-            self._save_eval_results_as_artifact(baseline_results, iteration=0)
-
         # Build meta-prompt with evaluation feedback
         _logger.info("Generating optimized prompts...")
         meta_prompt = self._build_few_shot_meta_prompt(
@@ -408,7 +407,9 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             _logger.info("Successfully generated optimized prompts")
 
         except Exception as e:
-            _logger.warning(f"Few-shot optimization failed: {e}. Returning original prompts.")
+            _logger.warning(
+                f"Few-shot optimization failed: {e}. Returning original prompts."
+            )
             return PromptOptimizerOutput(
                 optimized_prompts=target_prompts,
                 initial_eval_score=initial_score,
@@ -425,16 +426,15 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         final_score = self._compute_aggregate_score(final_results)
         _logger.info(f"Final score: {final_score:.4f}")
 
-        if enable_tracking:
-            self._save_eval_results_as_artifact(final_results, iteration=1)
-
         return PromptOptimizerOutput(
             optimized_prompts=improved_prompts,
             initial_eval_score=initial_score,
             final_eval_score=final_score,
         )
 
-    def _extract_template_variables(self, prompts: dict[str, str]) -> dict[str, set[str]]:
+    def _extract_template_variables(
+        self, prompts: dict[str, str]
+    ) -> dict[str, set[str]]:
         """
         Extract template variables ({{var}}) from each prompt.
 
@@ -474,33 +474,6 @@ class MetaPromptOptimizer(BasePromptOptimizer):
 
         return True
 
-    def _save_eval_results_as_artifact(self, results: list[EvaluationResultRecord], iteration: int):
-        # Convert evaluation results to DataFrame
-        records = []
-        for result in results:
-            record = {
-                "score": result.score,
-                "inputs": json.dumps(result.inputs),
-                "outputs": str(result.outputs),
-                "expectations": str(result.expectations) if result.expectations else None,
-            }
-            # Add rationales as separate columns
-            if result.rationales:
-                for rationale_key, rationale_value in result.rationales.items():
-                    record[f"rationale_{rationale_key}"] = str(rationale_value)
-            records.append(record)
-
-        import pandas as pd
-
-        df = pd.DataFrame(records)
-
-        # Save to temporary file and log as artifact
-        with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"eval_results_iteration_{iteration:02d}.csv"
-            filepath = f"{tmpdir}/{filename}"
-            df.to_csv(filepath, index=False)
-            mlflow.log_artifact(filepath, artifact_path="evaluation_results")
-
     def _build_zero_shot_meta_prompt(
         self,
         current_prompts: dict[str, str],
@@ -523,7 +496,9 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         )
 
         # Add custom guidelines to the meta-prompt if provided
-        custom_guidelines = f"CUSTOM GUIDELINES:\n{self.guidelines}" if self.guidelines else ""
+        custom_guidelines = (
+            f"CUSTOM GUIDELINES:\n{self.guidelines}" if self.guidelines else ""
+        )
 
         # Format example JSON response with actual prompt names
         response_format_example = "\n".join(
@@ -570,7 +545,9 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         )
 
         # Add custom guidelines to the meta-prompt if provided
-        custom_guidelines = f"CUSTOM GUIDELINES:\n{self.guidelines}" if self.guidelines else ""
+        custom_guidelines = (
+            f"CUSTOM GUIDELINES:\n{self.guidelines}" if self.guidelines else ""
+        )
 
         # Format example JSON response with actual prompt names
         response_format_example = "\n".join(
@@ -624,7 +601,9 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         litellm_model = f"{self.provider}/{self.model}"
 
         try:
-            with mlflow.start_span(name="metaprompt_reflection", span_type=SpanType.LLM) as span:
+            with mlflow.start_span(
+                name="metaprompt_reflection", span_type=SpanType.LLM
+            ) as span:
                 litellm_params = {
                     "model": litellm_model,
                     "messages": [{"role": "user", "content": meta_prompt}],
@@ -674,7 +653,9 @@ class MetaPromptOptimizer(BasePromptOptimizer):
                 f"Failed to parse reflection model response as JSON: {e}\nResponse: {content[:500]}"
             ) from e
         except Exception as e:
-            raise MlflowException(f"Failed to call reflection model {litellm_model}: {e}") from e
+            raise MlflowException(
+                f"Failed to call reflection model {litellm_model}: {e}"
+            ) from e
 
     def _compute_aggregate_score(self, results: list[EvaluationResultRecord]) -> float:
         """
