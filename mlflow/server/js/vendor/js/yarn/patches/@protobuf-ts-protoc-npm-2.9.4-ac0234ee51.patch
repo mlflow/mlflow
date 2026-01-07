@@ -1,0 +1,196 @@
+diff --git a/protoc.js b/protoc.js
+index c6dfb0ab10db5e22de3d2baea6a3e921794d8987..f2610a93279c0ddc54f7a52da2758436271ff51b 100755
+--- a/protoc.js
++++ b/protoc.js
+@@ -97,7 +97,7 @@ async function ensureInstalled(version) {
+     });
+ 
+     // if this release is already installed, we are done here
+-    let alreadyInstalled = listInstalled().find(i => i.name === releaseName);
++    let alreadyInstalled = listInstalled(version).find(i => i.name === releaseName);
+     if (alreadyInstalled) {
+         return alreadyInstalled;
+     }
+@@ -125,7 +125,7 @@ async function ensureInstalled(version) {
+     }
+ 
+     // sanity check
+-    let installed = listInstalled().find(i => i.name === releaseName);
++    let installed = listInstalled(version).find(i => i.name === releaseName);
+     if (!installed) {
+         throw new Error(`@protobuf-ts/protoc failed to install protoc v${version}.`);
+     }
+diff --git a/util.js b/util.js
+index 4f0fa4ba037ac9fae5d9185850cdf3c3f02d1494..91344b0d797f6c69adf0cd3f38f0508e0df62deb 100644
+--- a/util.js
++++ b/util.js
+@@ -6,6 +6,52 @@ const assert = require("assert");
+ const standardInstallDirectory = path.join(__dirname, "installed");
+ module.exports.standardInstallDirectory = standardInstallDirectory;
+ 
++/**
++ * protoc-22.3-linux-aarch_64.zip
++ * protoc-22.3-linux-ppcle_64.zip
++ * protoc-22.3-linux-s390_64.zip
++ * protoc-22.3-linux-x86_32.zip
++ * protoc-22.3-linux-x86_64.zip
++ * protoc-22.3-osx-aarch_64.zip
++ * protoc-22.3-osx-universal_binary.zip
++ * protoc-22.3-osx-x86_64.zip
++ * protoc-22.3-win32.zip
++ + protoc-22.3-win64.zip
++ *
++ * @param {ReleaseParameters} params
++ * @return {string}
++ */
++function makeReleaseName(params) {
++    let build = `${params.platform}-${params.arch}`;
++    switch (params.platform) {
++        case "darwin":
++            if (params.arch === "arm64") {
++                build = 'osx-aarch_64'
++            } else if (params.arch === "x64") {
++                build = 'osx-x86_64'
++            } else {
++                build = 'osx-universal_binary'
++            }
++            break;
++        case "linux":
++            if (params.arch === "x64") {
++                build = 'linux-x86_64'
++            } else if (params.arch === "x32") {
++                build = 'linux-x86_32'
++            } else if (params.arch === "arm64") {
++                build = 'linux-aarch_64'
++            }
++            break;
++        case "win32":
++            if (params.arch === "x64") {
++                build = 'win64'
++            } else if (params.arch === "x32" || params.arch === "ia32") {
++                build = 'win32'
++            }
++            break;
++    }
++    return `protoc-${params.version}-${build}`;
++}
+ 
+ /**
+  * Make directory, creating missing parent directories as well.
+@@ -44,25 +90,64 @@ module.exports.mkDirRecursive = function mkDirRecursive(dirname) {
+  * @param {string} installDir
+  * @return {DistEntry[]}
+  */
+-module.exports.listInstalled = function listInstalled(installDir = standardInstallDirectory) {
++module.exports.listInstalled = function listInstalled(preferredVersion, installDir = standardInstallDirectory) {
+     let entries = [];
++
++    // This patch change is necessary in order to install the protoc binary from an environment variable and also to 
++    // install the protoc binary from a bazel environment where it comes from `@com_google_protobuf//:protoc`.
++    function getEntry(installPath, isBazelEnv = false) {
++        if (!fs.lstatSync(installPath).isDirectory()) {
++            return;
++        }
++
++        if (isBazelEnv) {
++            // This is from bazel, so we can trust it is properly setup for the platform
++            let name = makeReleaseName({
++                platform: os.platform(),
++                arch: os.arch(),
++                version: preferredVersion
++            });
++
++            let protocPath = path.join(installPath, "protoc.exe");
++            if (!fs.existsSync(protocPath)) {
++                protocPath = path.join(installPath, "protoc");
++            }
++            let includePath = path.join(installPath, "_virtual_imports/descriptor_proto/")
++            return {name, preferredVersion, protocPath, includePath};
++        } else {
++            let name = path.basename(installPath);
++
++            // looking for directory names "protoc-3.13.0-win32"
++            if (!name.startsWith("protoc-")) {
++                return;
++            }
++            let version = name.split("-")[1];
++            let protocPath = path.join(installPath, "bin/protoc.exe");
++            if (!fs.existsSync(protocPath)) {
++                protocPath = path.join(installPath, "bin/protoc");
++            }
++            let includePath = path.join(installPath, "include/")
++            return {name, version, protocPath, includePath};
++        }
++    };
++
+     for (let name of fs.readdirSync(installDir)) {
+         let abs = path.join(installDir, name);
+-        if (!fs.lstatSync(abs).isDirectory()) {
+-            continue;
+-        }
+-        // looking for directory names "protoc-3.13.0-win32"
+-        if (!name.startsWith("protoc-")) {
+-            continue;
++        const entry = getEntry(abs);
++        if (entry) {
++            entries.push(entry);
+         }
+-        let version = name.split("-")[1];
+-        let protocPath = path.join(abs, "bin/protoc.exe");
+-        if (!fs.existsSync(protocPath)) {
+-            protocPath = path.join(abs, "bin/protoc");
++    }
++
++    const protocInstallPath = process.env.PROTOC_INSTALL_PATH;
++
++    if (protocInstallPath && fs.existsSync(protocInstallPath)) {
++        const envEntry = getEntry(protocInstallPath, true);
++        if (envEntry) {
++            entries.push(envEntry);
+         }
+-        let includePath = path.join(abs, "include/")
+-        entries.push({name, version, protocPath, includePath});
+     }
++
+     return entries;
+ };
+ 
+@@ -173,37 +258,7 @@ function httpGet(url, redirects) {
+  * @param {ReleaseParameters} params
+  * @return {string}
+  */
+-module.exports.makeReleaseName = function makeReleaseName(params) {
+-    let build = `${params.platform}-${params.arch}`;
+-    switch (params.platform) {
+-        case "darwin":
+-            if (params.arch === "arm64") {
+-                build = 'osx-aarch_64'
+-            } else if (params.arch === "x64") {
+-                build = 'osx-x86_64'
+-            } else {
+-                build = 'osx-universal_binary'
+-            }
+-            break;
+-        case "linux":
+-            if (params.arch === "x64") {
+-                build = 'linux-x86_64'
+-            } else if (params.arch === "x32") {
+-                build = 'linux-x86_32'
+-            } else if (params.arch === "arm64") {
+-                build = 'linux-aarch_64'
+-            }
+-            break;
+-        case "win32":
+-            if (params.arch === "x64") {
+-                build = 'win64'
+-            } else if (params.arch === "x32" || params.arch === "ia32") {
+-                build = 'win32'
+-            }
+-            break;
+-    }
+-    return `protoc-${params.version}-${build}`;
+-}
++module.exports.makeReleaseName = makeReleaseName
+ 
+ 
+ /**

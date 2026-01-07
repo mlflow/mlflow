@@ -69,7 +69,7 @@ describe('RunView navigation integration test', () => {
           params: {},
           error: null,
           loading: false,
-        } as any),
+        }) as any,
     );
   });
   test('should display overview by default and allow changing the tab', async () => {

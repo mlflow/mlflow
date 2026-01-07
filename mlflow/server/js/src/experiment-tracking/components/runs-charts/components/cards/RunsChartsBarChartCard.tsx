@@ -12,9 +12,7 @@ import { RunsChartsNoDataFoundIndicator } from '../RunsChartsNoDataFoundIndicato
 import { Tag, Typography } from '@databricks/design-system';
 
 export interface RunsChartsBarChartCardProps
-  extends RunsChartCardReorderProps,
-    RunsChartCardFullScreenProps,
-    RunsChartCardVisibilityProps {
+  extends RunsChartCardReorderProps, RunsChartCardFullScreenProps, RunsChartCardVisibilityProps {
   config: RunsChartsBarCardConfig;
   chartRunData: RunsChartsRunData[];
 

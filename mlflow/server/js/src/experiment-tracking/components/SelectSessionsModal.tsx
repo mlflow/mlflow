@@ -26,10 +26,13 @@ const SelectSessionsModalImpl = ({ onClose, onSuccess, initialSessionIdsSelected
   const timeRange = useMonitoringFiltersTimeRange();
 
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>(() =>
-    initialSessionIdsSelected.reduce((acc, sessionId) => {
-      acc[sessionId] = true;
-      return acc;
-    }, {} as Record<string, boolean>),
+    initialSessionIdsSelected.reduce(
+      (acc, sessionId) => {
+        acc[sessionId] = true;
+        return acc;
+      },
+      {} as Record<string, boolean>,
+    ),
   );
 
   const handleOk = async () => {

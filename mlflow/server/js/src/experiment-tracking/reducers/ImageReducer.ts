@@ -76,41 +76,44 @@ export const imagesByRunUuid = (
           };
         }
         // Filter images to only include directories
-        const result = files.reduce((acc: Record<string, Record<string, ImageEntity>>, file: ArtifactFileInfo) => {
-          if (!file.is_dir) {
-            if (!file.path) {
-              return acc;
-            }
-            const { imageKey, step, timestamp, fileKey, extension, isCompressed } = parseImageFile(
-              file.path.slice((MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH + '/').length),
-            );
+        const result = files.reduce(
+          (acc: Record<string, Record<string, ImageEntity>>, file: ArtifactFileInfo) => {
+            if (!file.is_dir) {
+              if (!file.path) {
+                return acc;
+              }
+              const { imageKey, step, timestamp, fileKey, extension, isCompressed } = parseImageFile(
+                file.path.slice((MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH + '/').length),
+              );
 
-            // Double check extension of image files
-            if (extension === IMAGE_FILE_EXTENSION || extension === IMAGE_COMPRESSED_FILE_EXTENSION) {
-              if (isCompressed) {
-                acc[imageKey] = {
-                  ...acc[imageKey],
-                  [fileKey]: {
-                    ...acc[imageKey]?.[fileKey],
-                    compressed_filepath: file.path,
-                  },
-                };
-              } else {
-                // Set the step and timestamp when retrieving the uncompressed image file.
-                acc[imageKey] = {
-                  ...acc[imageKey],
-                  [fileKey]: {
-                    ...acc[imageKey]?.[fileKey],
-                    filepath: file.path,
-                    step: step,
-                    timestamp: timestamp,
-                  },
-                };
+              // Double check extension of image files
+              if (extension === IMAGE_FILE_EXTENSION || extension === IMAGE_COMPRESSED_FILE_EXTENSION) {
+                if (isCompressed) {
+                  acc[imageKey] = {
+                    ...acc[imageKey],
+                    [fileKey]: {
+                      ...acc[imageKey]?.[fileKey],
+                      compressed_filepath: file.path,
+                    },
+                  };
+                } else {
+                  // Set the step and timestamp when retrieving the uncompressed image file.
+                  acc[imageKey] = {
+                    ...acc[imageKey],
+                    [fileKey]: {
+                      ...acc[imageKey]?.[fileKey],
+                      filepath: file.path,
+                      step: step,
+                      timestamp: timestamp,
+                    },
+                  };
+                }
               }
             }
-          }
-          return acc;
-        }, {} as Record<string, Record<string, ImageEntity>>);
+            return acc;
+          },
+          {} as Record<string, Record<string, ImageEntity>>,
+        );
         return {
           ...state,
           [runUuid]: result,

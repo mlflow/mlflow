@@ -43,7 +43,7 @@ export const TracesViewTableNoTracesQuickstart = ({
               isRun: !isNil(runUuid),
               a: (text: string) => (
                 <Typography.Link
-                  componentId={`${baseComponentId}.traces_table.quickstart_docs_link`}
+                  componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_traces_quickstart_tracesviewtablenotracesquickstart_46"
                   href="https://mlflow.org/docs/latest/llms/tracing/index.html"
                   openInNewTab
                 >

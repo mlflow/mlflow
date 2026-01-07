@@ -386,6 +386,7 @@ type ShowArtifactLoggedTableViewProps = {
 } & LoggedModelArtifactViewerProps;
 
 export const ShowArtifactLoggedTableView = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     runUuid,
     path,

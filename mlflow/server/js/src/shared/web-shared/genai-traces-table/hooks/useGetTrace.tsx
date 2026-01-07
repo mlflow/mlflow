@@ -1,17 +1,34 @@
 import { isNil } from 'lodash';
 import { useCallback, useMemo } from 'react';
 
-import { isV3ModelTraceInfo, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
+import {
+  type ModelTraceInfoV3,
+  isV3ModelTraceInfo,
+  isV4TraceId,
+  type ModelTrace,
+} from '@databricks/web-shared/model-trace-explorer';
 import { useQuery } from '@databricks/web-shared/query-client';
 
-export type GetTraceFunction = (traceId?: string, traceInfo?: ModelTrace['info']) => Promise<ModelTrace | undefined>;
+import { createTraceLocationForExperiment, createTraceLocationForUCSchema } from '../utils/TraceLocationUtils';
+import { formatTraceId } from '../utils/TraceUtils';
 
-export function useGetTrace(getTrace?: GetTraceFunction, traceInfo?: ModelTrace['info'], enablePolling = false) {
+export type GetTraceFunction = (
+  traceId?: string,
+  traceInfo?: ModelTrace['info'],
+  // prettier-ignore
+) => Promise<ModelTrace | undefined>;
+
+export function useGetTrace(
+  getTrace?: GetTraceFunction,
+  traceInfo?: ModelTrace['info'],
+  // prettier-ignore
+  enablePolling?: boolean,
+) {
   const traceId = useMemo(() => {
     if (!traceInfo) {
       return undefined;
     }
-    return isV3ModelTraceInfo(traceInfo) ? traceInfo.trace_id : traceInfo.request_id ?? '';
+    return isV3ModelTraceInfo(traceInfo) ? formatTraceId(traceInfo) : (traceInfo.request_id ?? '');
   }, [traceInfo]);
 
   const getTraceFn = useCallback(
@@ -19,9 +36,17 @@ export function useGetTrace(getTrace?: GetTraceFunction, traceInfo?: ModelTrace[
       if (!getTrace || isNil(traceId)) {
         return Promise.resolve(undefined);
       }
-      return getTrace(traceId, traceInfo);
+      // prettier-ignore
+      return getTrace(
+        traceId,
+        traceInfo,
+      );
     },
-    [getTrace, traceId],
+    [
+      getTrace,
+      traceId,
+      // prettier-ignore
+    ],
   );
 
   const getRefreshInterval = (data: ModelTrace | undefined) => {
@@ -53,3 +78,37 @@ export function useGetTrace(getTrace?: GetTraceFunction, traceInfo?: ModelTrace[
     refetchInterval: enablePolling ? getRefreshInterval : false,
   });
 }
+
+export const useGetTraceByFullTraceId = (getTrace?: GetTraceFunction, fullTraceId?: string) => {
+  const parsedTraceLocation = useMemo<Partial<ModelTraceInfoV3> | undefined>(() => {
+    const parseV4TraceId = (traceId: string): Partial<ModelTraceInfoV3> | undefined => {
+      if (!isV4TraceId(traceId)) {
+        return undefined;
+      }
+      const [, trace_location_string, trace_id] = traceId.split('/');
+
+      const trace_location = !trace_location_string.includes('.')
+        ? createTraceLocationForExperiment(trace_location_string)
+        : createTraceLocationForUCSchema(trace_location_string);
+
+      return {
+        trace_id,
+        trace_location,
+      };
+    };
+
+    if (!fullTraceId) {
+      return undefined;
+    }
+    return parseV4TraceId(fullTraceId);
+  }, [fullTraceId]);
+  return useQuery({
+    queryKey: ['getTrace', fullTraceId],
+    queryFn: () => getTrace?.(fullTraceId, parsedTraceLocation),
+    enabled: !isNil(getTrace) && !isNil(fullTraceId),
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    retry: 1,
+    keepPreviousData: true,
+  });
+};

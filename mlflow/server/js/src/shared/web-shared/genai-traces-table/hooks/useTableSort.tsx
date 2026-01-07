@@ -1,27 +1,54 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
+import { useTableSortURL } from './useTableSortURL';
+import { shoudlEnableURLPersistenceForSortAndColumns } from '../../model-trace-explorer/FeatureUtils';
 import type { EvaluationsOverviewTableSort, TracesTableColumn } from '../types';
 
 export const useTableSort = (
   selectedColumns: TracesTableColumn[],
   initialTableSort?: EvaluationsOverviewTableSort,
 ): [EvaluationsOverviewTableSort | undefined, (sort: EvaluationsOverviewTableSort | undefined) => void] => {
-  const [tableSort, setTableSort] = useState<EvaluationsOverviewTableSort | undefined>(
+  const enableURLPersistence = shoudlEnableURLPersistenceForSortAndColumns();
+
+  const [urlTableSort, setUrlTableSort] = useTableSortURL();
+
+  const [localTableSort, setLocalTableSort] = useState<EvaluationsOverviewTableSort | undefined>(
     initialTableSort && selectedColumns.find((c) => c.id === initialTableSort.key) ? initialTableSort : undefined,
   );
 
-  // This is to keep table sort in sync with selected columns.
-  // e.g. if the user deselects the column that is currently used for sorting,
-  // we should clear the sort.
   const derivedTableSort = useMemo(() => {
-    if (!tableSort) return undefined;
+    let sourceSort: EvaluationsOverviewTableSort | undefined;
 
-    if (!selectedColumns.find((c) => c.id === tableSort.key)) {
+    if (enableURLPersistence) {
+      // Priority: URL (if valid) → initial → undefined
+      if (urlTableSort && selectedColumns.find((c) => c.id === urlTableSort.key)) {
+        sourceSort = urlTableSort;
+      } else {
+        sourceSort = initialTableSort;
+      }
+    } else {
+      // Old behavior: use local state
+      sourceSort = localTableSort;
+    }
+
+    // Validate: sort column must be visible in selectedColumns
+    if (!sourceSort || !selectedColumns.find((c) => c.id === sourceSort.key)) {
       return undefined;
     }
 
-    return tableSort;
-  }, [tableSort, selectedColumns]);
+    return sourceSort;
+  }, [enableURLPersistence, urlTableSort, initialTableSort, localTableSort, selectedColumns]);
+
+  const setTableSort = useCallback(
+    (sort: EvaluationsOverviewTableSort | undefined) => {
+      if (enableURLPersistence) {
+        setUrlTableSort(sort, false);
+      } else {
+        setLocalTableSort(sort);
+      }
+    },
+    [enableURLPersistence, setUrlTableSort, setLocalTableSort],
+  );
 
   return [derivedTableSort, setTableSort];
 };

@@ -258,7 +258,10 @@ export const SortableHeaderCell = ({
         ':hover': { cursor: 'pointer', '& > div': { display: 'inline' } },
       }}
     >
-      <Tooltip componentId={`mlflow.eval-runs.sortable-header-cell.tooltip-${column.id}`} content={displayedKey}>
+      <Tooltip
+        componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_evaluation_runs_experimentevaluationrunstablecellrenderers_284"
+        content={displayedKey}
+      >
         <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', textWrap: 'nowrap' }}>
           <Typography.Text bold>{title ?? displayedKey}</Typography.Text>
         </span>

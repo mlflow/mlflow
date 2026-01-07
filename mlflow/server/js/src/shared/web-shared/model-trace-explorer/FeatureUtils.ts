@@ -30,3 +30,24 @@ export const shouldEnableTracesTabLabelingSchemas = () => {
 export const shouldEnableAssessmentsInSessions = () => {
   return true;
 };
+
+/**
+ * Determines if assessments/scores should be shown in experiment chat sessions.
+ */
+export const shoudlEnableURLPersistenceForSortAndColumns = () => {
+  return false;
+};
+
+/**
+ * A centralized setting enabling the new drawer UI for model trace explorer across the platform.
+ */
+export const shouldUseModelTraceExplorerDrawerUI = () => {
+  return false;
+};
+
+export const shouldUseUnifiedModelTraceComparisonUI = () => {
+  if (!shouldUseModelTraceExplorerDrawerUI()) {
+    return false;
+  }
+  return false;
+};

@@ -52,6 +52,14 @@ jest.mock('@databricks/web-shared/hooks', () => {
   };
 });
 
+jest.mock('./hooks/useTableSortURL', () => ({
+  useTableSortURL: () => [undefined, jest.fn()] as const,
+}));
+
+jest.mock('./hooks/useColumnsURL', () => ({
+  useColumnsURL: () => [undefined, jest.fn()] as const,
+}));
+
 const testExperimentId = 'test-experiment-id';
 const testRunUuid = 'test-run-uuid';
 const testCompareToRunUuid = 'compare-run-uuid';

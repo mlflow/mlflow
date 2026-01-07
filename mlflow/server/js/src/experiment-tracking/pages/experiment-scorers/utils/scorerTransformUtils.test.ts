@@ -340,6 +340,7 @@ describe('transformScheduledScorer', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: ['Guideline 1', 'Guideline 2'],
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -358,6 +359,7 @@ describe('transformScheduledScorer', () => {
             required_columns: ['outputs', 'inputs'],
             guidelines: ['Guideline 1', 'Guideline 2'],
           },
+          is_session_level_scorer: false,
         }),
         builtin: {
           name: 'Test Guidelines Scorer',
@@ -371,6 +373,7 @@ describe('transformScheduledScorer', () => {
         sampleRate: 50,
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -387,6 +390,7 @@ describe('transformScheduledScorer', () => {
             name: 'Test Toxicity Scorer',
             required_columns: ['outputs', 'inputs'],
           },
+          is_session_level_scorer: false,
         }),
         builtin: {
           name: 'Test Toxicity Scorer',
@@ -459,6 +463,7 @@ describe('transformScheduledScorer', () => {
         name: 'Test Scorer',
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -472,6 +477,7 @@ describe('transformScheduledScorer', () => {
         filterString: '',
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -483,6 +489,7 @@ describe('transformScheduledScorer', () => {
       const scorer = {
         name: 'Test Scorer',
         type: 'llm' as const,
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -502,6 +509,7 @@ describe('transformScheduledScorer', () => {
         code: 'def my_scorer(inputs, outputs):\n    return True',
         callSignature: '',
         originalFuncName: '',
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -517,6 +525,7 @@ describe('transformScheduledScorer', () => {
           call_source: 'def my_scorer(inputs, outputs):\n    return True',
           call_signature: '',
           original_func_name: '',
+          is_session_level_scorer: false,
         }),
         custom: {},
       });
@@ -529,6 +538,7 @@ describe('transformScheduledScorer', () => {
         code: 'return True',
         callSignature: '',
         originalFuncName: '',
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -795,6 +805,7 @@ describe('convertFormDataToScheduledScorer', () => {
         code: 'def original_scorer():\n    return False',
         callSignature: '',
         originalFuncName: '',
+        isSessionLevelScorer: false,
       };
 
       const formData: CustomCodeScorerFormData & { scorerType: 'custom-code' } = {
@@ -815,6 +826,7 @@ describe('convertFormDataToScheduledScorer', () => {
         code: 'def original_scorer():\n    return False', // Code unchanged
         callSignature: '',
         originalFuncName: '',
+        isSessionLevelScorer: false,
       });
     });
 
@@ -903,6 +915,7 @@ describe('convertFormDataToScheduledScorer', () => {
         filterString: 'old_filter',
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       };
 
       const formData: LLMScorerFormData & { scorerType: 'llm' } = {
@@ -928,6 +941,7 @@ describe('convertFormDataToScheduledScorer', () => {
         filterString: 'original_filter',
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       };
 
       const formData: Partial<LLMScorerFormData> & { scorerType: 'llm' } = {
@@ -945,6 +959,7 @@ describe('convertFormDataToScheduledScorer', () => {
         filterString: '',
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       });
     });
   });

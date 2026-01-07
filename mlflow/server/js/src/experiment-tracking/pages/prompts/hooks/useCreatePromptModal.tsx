@@ -309,7 +309,7 @@ export const useCreatePromptModal = ({
     errorsReset();
     const tagValue =
       mode === CreatePromptModalMode.CreatePromptVersion && latestVersion
-        ? getPromptContentTagValue(latestVersion) ?? ''
+        ? (getPromptContentTagValue(latestVersion) ?? '')
         : '';
     const promptType = isChatPrompt(latestVersion) ? PROMPT_TYPE_CHAT : PROMPT_TYPE_TEXT;
     const parsedMessages = getChatPromptMessagesFromValue(tagValue);

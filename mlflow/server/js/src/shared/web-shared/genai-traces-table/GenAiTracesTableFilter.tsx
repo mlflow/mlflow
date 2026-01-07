@@ -15,8 +15,8 @@ import {
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import { TableFilterItem } from './components/filters/TableFilterItem';
-import { FilterOperator } from './types';
 import type { AssessmentInfo, TableFilterFormState, TableFilter, TableFilterOptions, TracesTableColumn } from './types';
+import { FilterOperator } from './types';
 
 export const GenAiTracesTableFilter = ({
   filters,

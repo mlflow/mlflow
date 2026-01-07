@@ -111,6 +111,7 @@ interface ExperimentEvaluationDatasetsTableRowProps {
 const ExperimentEvaluationDatasetsTableRow: React.FC<
   React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>
 > = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({ row, isActive, onSelectDataset }) => {
     const { theme } = useDesignSystemTheme();
 
@@ -133,6 +134,7 @@ const ExperimentEvaluationDatasetsTableRow: React.FC<
       </TableRow>
     );
   },
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (prev, next) => {
     return prev.isActive === next.isActive && isEqual(prev.columnVisibility, next.columnVisibility);
   },
@@ -175,10 +177,13 @@ export const ExperimentEvaluationDatasetsListTable = ({
     },
   ]);
   const [columnVisibility, setColumnVisibility] = useState<{ [key: string]: boolean }>(
-    columns.reduce((acc, column) => {
-      acc[column.id ?? ''] = DEFAULT_ENABLED_COLUMN_IDS.includes(column.id ?? '');
-      return acc;
-    }, {} as { [key: string]: boolean }),
+    columns.reduce(
+      (acc, column) => {
+        acc[column.id ?? ''] = DEFAULT_ENABLED_COLUMN_IDS.includes(column.id ?? '');
+        return acc;
+      },
+      {} as { [key: string]: boolean },
+    ),
   );
   // Control field that gets updated immediately
   const [internalSearchFilter, setInternalSearchFilter] = useState(searchFilter);

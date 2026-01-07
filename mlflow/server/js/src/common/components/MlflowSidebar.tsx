@@ -52,6 +52,11 @@ export function MlflowSidebar() {
     onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName)),
   });
 
+  type MlFlowSidebarMenuDropdownComponentId =
+    | 'mlflow_sidebar.create_experiment_button'
+    | 'mlflow_sidebar.create_model_button'
+    | 'mlflow_sidebar.create_prompt_button';
+
   const menuItems = [
     {
       key: 'home',
@@ -73,7 +78,7 @@ export function MlflowSidebar() {
       },
       componentId: 'mlflow.sidebar.experiments_tab_link',
       dropdownProps: {
-        componentId: 'mlflow_sidebar.create_experiment_button',
+        componentId: 'mlflow_sidebar.create_experiment_button' as MlFlowSidebarMenuDropdownComponentId,
         onClick: () => setShowCreateExperimentModal(true),
         children: (
           <FormattedMessage
@@ -93,7 +98,7 @@ export function MlflowSidebar() {
       },
       componentId: 'mlflow.sidebar.models_tab_link',
       dropdownProps: {
-        componentId: 'mlflow_sidebar.create_model_button',
+        componentId: 'mlflow_sidebar.create_model_button' as MlFlowSidebarMenuDropdownComponentId,
         onClick: () => setShowCreateModelModal(true),
         children: (
           <FormattedMessage
@@ -113,7 +118,7 @@ export function MlflowSidebar() {
       },
       componentId: 'mlflow.sidebar.prompts_tab_link',
       dropdownProps: {
-        componentId: 'mlflow_sidebar.create_prompt_button',
+        componentId: 'mlflow_sidebar.create_prompt_button' as MlFlowSidebarMenuDropdownComponentId,
         onClick: openCreatePromptModal,
         children: (
           <FormattedMessage
@@ -162,7 +167,16 @@ export function MlflowSidebar() {
           {menuItems
             .filter((item) => item.dropdownProps !== undefined)
             .map(({ key, icon, dropdownProps }) => (
-              <DropdownMenu.Item key={key} componentId={dropdownProps.componentId} onClick={dropdownProps.onClick}>
+              <DropdownMenu.Item
+                key={key}
+                componentId={
+                  dropdownProps.componentId satisfies
+                    | 'mlflow_sidebar.create_experiment_button'
+                    | 'mlflow_sidebar.create_model_button'
+                    | 'mlflow_sidebar.create_prompt_button'
+                }
+                onClick={dropdownProps.onClick}
+              >
                 <DropdownMenu.IconWrapper>{icon}</DropdownMenu.IconWrapper>
                 {dropdownProps.children}
               </DropdownMenu.Item>

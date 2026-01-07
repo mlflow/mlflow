@@ -18,7 +18,6 @@ import {
   stringifyValue,
 } from './components/GenAiEvaluationTracesReview.utils';
 import { RESPONSE_COLUMN_ID } from './hooks/useTableColumns';
-import { TracesTableColumnType } from './types';
 import type {
   AssessmentValueType,
   EvalTraceComparisonEntry,
@@ -26,6 +25,7 @@ import type {
   AssessmentInfo,
   RunEvaluationResultAssessment,
 } from './types';
+import { TracesTableColumnType } from './types';
 import { timeSinceStr } from './utils/DisplayUtils';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer';
 
@@ -134,7 +134,7 @@ export const getColumnConfig = (
     theme: ThemeType;
     intl: IntlShape;
     experimentId: string;
-    onChangeEvaluationId: (evaluationId: string | undefined) => void;
+    onChangeEvaluationId: (evaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => void;
     onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void;
   },
 ): ColumnDef<EvalTraceComparisonEntry> => {
@@ -385,14 +385,14 @@ function sortPassFailAssessments(a?: RunEvaluationResultAssessment, b?: RunEvalu
     a.stringValue === KnownEvaluationResultAssessmentStringValue.YES
       ? true
       : a.stringValue === KnownEvaluationResultAssessmentStringValue.NO
-      ? false
-      : undefined;
+        ? false
+        : undefined;
   const bIsPassing =
     b.stringValue === KnownEvaluationResultAssessmentStringValue.YES
       ? true
       : b.stringValue === KnownEvaluationResultAssessmentStringValue.NO
-      ? false
-      : undefined;
+        ? false
+        : undefined;
 
   if (aIsPassing === bIsPassing) {
     return 0;

@@ -175,6 +175,7 @@ const LoggedModelV3Link = ({ model }: { model: LoggedModelProto }) => {
  * - `loggedModelsV3` containing V3 logged models associated with the runs inputs and outputs, populated by API call
  * In the component, we also resolve registered model versions for V3 logged models based on loged model's tags
  */
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) => {
   const { registeredModels = [], loggedModels = [], loggedModelsV3, experimentId, runUuid } = props.value || {};
 

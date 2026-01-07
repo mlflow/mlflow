@@ -8,8 +8,8 @@ import { ModelTraceExplorerSummarySection } from './ModelTraceExplorerSummarySec
 import { ModelTraceExplorerSummaryViewExceptionsSection } from './ModelTraceExplorerSummaryViewExceptionsSection';
 import type { ModelTraceExplorerRenderMode, ModelTraceSpanNode } from '../ModelTrace.types';
 import { createListFromObject, getSpanExceptionEvents } from '../ModelTraceExplorer.utils';
-import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
 
 export const SUMMARY_SPANS_MIN_WIDTH = 400;
@@ -25,7 +25,7 @@ export const ModelTraceExplorerSummarySpans = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const [renderMode, setRenderMode] = useState<ModelTraceExplorerRenderMode>('default');
-
+  const { readOnly } = useModelTraceExplorerViewState();
   const rootInputs = rootNode.inputs;
   const rootOutputs = rootNode.outputs;
   const chatMessageFormat = rootNode.chatMessageFormat;
@@ -74,7 +74,7 @@ export const ModelTraceExplorerSummarySpans = ({
                 />
               </SegmentedControlButton>
             </SegmentedControlGroup>
-            <AssessmentPaneToggle />
+            {!readOnly && <AssessmentPaneToggle />}
           </div>
         </div>
       )}

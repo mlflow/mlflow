@@ -380,6 +380,7 @@ export const RunsChartCardLoadingPlaceholder = forwardRef<
     className?: string;
     style?: React.CSSProperties;
   }
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 >(({ className, style }, ref) => (
   <div
     css={{ display: 'flex', height: '100%', justifyContent: 'center', alignItems: 'center' }}

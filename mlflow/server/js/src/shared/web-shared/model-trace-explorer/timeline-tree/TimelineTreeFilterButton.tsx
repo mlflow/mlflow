@@ -79,7 +79,7 @@ export const TimelineTreeFilterButton = ({
             />
           </Typography.Text>
           <Checkbox
-            componentId={`shared.model-trace-explorer.toggle-show-parents_${!spanFilterState.showParents}`}
+            componentId="codegen_no_dynamic_js_packages_web_shared_src_model_trace_explorer_timeline_tree_timelinetreefilterbutton_83"
             style={{ width: '100%' }}
             isChecked={spanFilterState.showParents}
             onChange={() =>
@@ -106,7 +106,7 @@ export const TimelineTreeFilterButton = ({
             />
           </Checkbox>
           <Checkbox
-            componentId={`shared.model-trace-explorer.toggle-show-parents_${!spanFilterState.showExceptions}`}
+            componentId="codegen_no_dynamic_js_packages_web_shared_src_model_trace_explorer_timeline_tree_timelinetreefilterbutton_111"
             style={{ width: '100%' }}
             isChecked={spanFilterState.showExceptions}
             onChange={() =>

@@ -1,0 +1,68 @@
+diff --git a/es/MotionTreeNode.js b/es/MotionTreeNode.js
+index 77e926512a5f654e915f351e7eac382535252950..3f6b118c8b726390b034ede1e1e041322d71d741 100644
+--- a/es/MotionTreeNode.js
++++ b/es/MotionTreeNode.js
+@@ -62,7 +62,16 @@ var MotionTreeNode = function MotionTreeNode(_ref, ref) {
+     return /*#__PURE__*/React.createElement(CSSMotion, _extends({
+       ref: ref,
+       visible: visible
+-    }, motion, {
++    }, {
++      motionName: "ant-motion-collapse",
++      onAppearStart: motion.onAppearStart,
++      onEnterStart: motion.onEnterStart,
++      onLeaveStart: motion.onLeaveStart,
++      onLeaveActive: motion.onLeaveActive,
++      onAppearEnd: motion.onAppearEnd,
++      onEnterEnd: motion.onEnterEnd,
++      onLeaveEnd: motion.onLeaveEnd,
++      motionDeadline: 100,
+       motionAppear: motionType === 'show',
+       onAppearEnd: onMotionEnd,
+       onLeaveEnd: onMotionEnd
+diff --git a/lib/MotionTreeNode.js b/lib/MotionTreeNode.js
+index a15a2785ffd492c1d46757140013ba14ab095ae7..7a8c37cc0c5b95cf065f9047c52ac0ef06bc2a9e 100644
+--- a/lib/MotionTreeNode.js
++++ b/lib/MotionTreeNode.js
+@@ -82,6 +82,15 @@ var MotionTreeNode = function MotionTreeNode(_ref, ref) {
+       ref: ref,
+       visible: visible
+     }, motion, {
++      motionName: "ant-motion-collapse",
++      onAppearStart: motion.onAppearStart,
++      onEnterStart: motion.onEnterStart,
++      onLeaveStart: motion.onLeaveStart,
++      onLeaveActive: motion.onLeaveActive,
++      onAppearEnd: motion.onAppearEnd,
++      onEnterEnd: motion.onEnterEnd,
++      onLeaveEnd: motion.onLeaveEnd,
++      motionDeadline: 100,
+       motionAppear: motionType === 'show',
+       onAppearEnd: onMotionEnd,
+       onLeaveEnd: onMotionEnd
+diff --git a/es/NodeList.js b/es/NodeList.js
+index b821139119b278b899d7294e862025a9d12ae163..54c2219f6bac16305828d0aaa31db76ce87797e0 100644
+--- a/es/NodeList.js
++++ b/es/NodeList.js
+@@ -217,7 +217,7 @@ var RefNodeList = function RefNodeList(props, ref) {
+   return /*#__PURE__*/React.createElement(React.Fragment, null, focused && activeItem && /*#__PURE__*/React.createElement("span", {
+     style: HIDDEN_STYLE,
+     "aria-live": "assertive"
+-  }, getAccessibilityPath(activeItem)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("input", {
++  }, getAccessibilityPath(activeItem)), /*#__PURE__*/React.createElement("div", { role: "treeitem" }, /*#__PURE__*/React.createElement("input", {
+     style: HIDDEN_STYLE,
+     disabled: focusable === false || disabled,
+     tabIndex: focusable !== false ? tabIndex : null,
+diff --git a/lib/NodeList.js b/lib/NodeList.js
+index 7bf7614a54891ad1ba43b18e689133798979ba10..174f386f5838dc5563878ddf6bdd20d312080281 100644
+--- a/lib/NodeList.js
++++ b/lib/NodeList.js
+@@ -234,7 +234,7 @@ var RefNodeList = function RefNodeList(props, ref) {
+   return /*#__PURE__*/React.createElement(React.Fragment, null, focused && activeItem && /*#__PURE__*/React.createElement("span", {
+     style: HIDDEN_STYLE,
+     "aria-live": "assertive"
+-  }, getAccessibilityPath(activeItem)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("input", {
++  }, getAccessibilityPath(activeItem)), /*#__PURE__*/React.createElement("div", { role: "treeitem" }, /*#__PURE__*/React.createElement("input", {
+     style: HIDDEN_STYLE,
+     disabled: focusable === false || disabled,
+     tabIndex: focusable !== false ? tabIndex : null,

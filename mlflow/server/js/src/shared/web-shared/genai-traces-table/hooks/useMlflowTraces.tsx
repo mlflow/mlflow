@@ -7,7 +7,6 @@ import { matchPredefinedErrorFromResponse } from '@databricks/web-shared/errors'
 import type { QueryClient, UseQueryOptions, UseQueryResult } from '@databricks/web-shared/query-client';
 import { useQuery } from '@databricks/web-shared/query-client';
 
-import { useGenAiTraceEvaluationArtifacts } from './useGenAiTraceEvaluationArtifacts';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
@@ -23,6 +22,8 @@ import {
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
+  INPUTS_COLUMN_ID,
+  RESPONSE_COLUMN_ID,
 } from './useTableColumns';
 import {
   TracesServiceV4,
@@ -31,8 +32,6 @@ import {
   type ModelTraceLocationUcSchema,
 } from '../../model-trace-explorer';
 import { SourceCellRenderer } from '../cellRenderers/Source/SourceRenderer';
-import type { GenAiTraceEvaluationArtifactFile } from '../enum';
-import { FilterOperator, TracesTableColumnGroup } from '../types';
 import type {
   TableFilterOption,
   EvaluationsOverviewTableSort,
@@ -41,14 +40,10 @@ import type {
   TableFilter,
   TableFilterOptions,
 } from '../types';
+import { FilterOperator, HiddenFilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
 import { ERROR_KEY, getAssessmentInfos } from '../utils/AggregationUtils';
 import { filterEvaluationResults } from '../utils/EvaluationsFilterUtils';
-import {
-  shouldEnableUnifiedEvalTab,
-  getMlflowTracesSearchPageSize,
-  getEvalTabTotalTracesLimit,
-  shouldUseTracesV4API,
-} from '../utils/FeatureUtils';
+import { getMlflowTracesSearchPageSize, getEvalTabTotalTracesLimit, shouldUseTracesV4API } from '../utils/FeatureUtils';
 import { fetchFn, getAjaxUrl } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import {
@@ -73,6 +68,12 @@ export const invalidateMlflowSearchTracesCache = ({ queryClient }: { queryClient
   queryClient.invalidateQueries({ queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY] });
 };
 
+const defaultTableSort: EvaluationsOverviewTableSort = {
+  asc: false,
+  key: REQUEST_TIME_COLUMN_ID,
+  type: TracesTableColumnType.TRACE_INFO,
+};
+
 export const useMlflowTracesTableMetadata = ({
   locations,
   runUuid,
@@ -83,6 +84,7 @@ export const useMlflowTracesTableMetadata = ({
   sqlWarehouseId,
   disabled,
   networkFilters,
+  filterByAssessmentSourceRun = false,
 }: {
   locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   runUuid?: string;
@@ -103,9 +105,19 @@ export const useMlflowTracesTableMetadata = ({
   sqlWarehouseId?: string;
   disabled?: boolean;
   networkFilters?: TableFilter[];
+  /**
+   * If true, filters traces by assessment source run ID. This is used in the eval tab
+   * to only show assessments that were created by the current evaluation run.
+   * Defaults to false for other tabs (traces, labeling, etc.).
+   */
+  filterByAssessmentSourceRun?: boolean;
 }) => {
   const intl = useIntl();
   const filter = createMlflowSearchFilter(runUuid, timeRange, networkFilters, filterByLoggedModelId);
+  const usingV4APIs = locations?.some((location) => location.type === 'UC_SCHEMA') && shouldUseTracesV4API();
+
+  const orderBy = createMlflowSearchOrderBy(defaultTableSort);
+
   const {
     data: traces,
     isLoading: isInnerLoading,
@@ -116,8 +128,12 @@ export const useMlflowTracesTableMetadata = ({
     loggedModelId,
     sqlWarehouseId,
     enabled: !disabled,
+    orderBy,
   });
-  const filteredTraces = useMemo(() => filterTracesByAssessmentSourceRunId(traces, runUuid), [traces, runUuid]);
+  const filteredTraces = useMemo(
+    () => (filterByAssessmentSourceRun ? filterTracesByAssessmentSourceRunId(traces, runUuid) : traces),
+    [traces, runUuid, filterByAssessmentSourceRun],
+  );
 
   const otherFilter = createMlflowSearchFilter(otherRunUuid, timeRange);
   const {
@@ -130,11 +146,12 @@ export const useMlflowTracesTableMetadata = ({
     enabled: !disabled && Boolean(otherRunUuid),
     loggedModelId,
     sqlWarehouseId,
+    orderBy,
   });
 
   const filteredOtherTraces = useMemo(
-    () => filterTracesByAssessmentSourceRunId(otherTraces, otherRunUuid),
-    [otherTraces, otherRunUuid],
+    () => (filterByAssessmentSourceRun ? filterTracesByAssessmentSourceRunId(otherTraces, otherRunUuid) : otherTraces),
+    [otherTraces, otherRunUuid, filterByAssessmentSourceRun],
   );
 
   const evaluatedTraces = useMemo(() => {
@@ -274,6 +291,7 @@ export const useSearchMlflowTraces = ({
   tableSort,
   loggedModelId,
   sqlWarehouseId,
+  filterByAssessmentSourceRun = false,
 }: {
   locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   runUuid?: string | null;
@@ -299,6 +317,12 @@ export const useSearchMlflowTraces = ({
   loggedModelId?: string;
   sqlWarehouseId?: string;
   tableSort?: EvaluationsOverviewTableSort;
+  /**
+   * If true, filters traces by assessment source run ID. This is used in the eval tab
+   * to only show assessments that were created by the current evaluation run.
+   * Defaults to false for other tabs (traces, labeling, etc.).
+   */
+  filterByAssessmentSourceRun?: boolean;
 }): {
   data: ModelTraceInfoV3[] | undefined;
   isLoading: boolean;
@@ -398,8 +422,8 @@ export const useSearchMlflowTraces = ({
   }, [evalTraceComparisonEntries, clientFilters, searchQuery, currentRunDisplayName, useClientSideFiltering]);
 
   const tracesFilteredBySourceRun = useMemo(
-    () => filterTracesByAssessmentSourceRunId(filteredTraces, runUuid),
-    [filteredTraces, runUuid],
+    () => (filterByAssessmentSourceRun ? filterTracesByAssessmentSourceRunId(filteredTraces, runUuid) : filteredTraces),
+    [filteredTraces, runUuid, filterByAssessmentSourceRun],
   );
 
   if (disabled) {
@@ -450,6 +474,7 @@ export const searchMlflowTracesQueryFn = async ({
       orderBy,
       locations,
       filter,
+      pageSize: pageSizeProp,
     });
   }
   let allTraces: ModelTraceInfoV3[] = [];
@@ -701,6 +726,10 @@ export const createMlflowSearchFilter = (
             filter.push(`span.name ${networkFilter.operator} '${networkFilter.value}'`);
           }
           break;
+        case INPUTS_COLUMN_ID:
+        case RESPONSE_COLUMN_ID:
+          filter.push(`${networkFilter.column} ${networkFilter.operator} '${networkFilter.value}'`);
+          break;
         case SPAN_TYPE_COLUMN_ID:
           if (networkFilter.operator === '=') {
             // Use ILIKE instead of = for case-insensitive matching (better UX for span type filtering)
@@ -719,7 +748,9 @@ export const createMlflowSearchFilter = (
         default:
           if (networkFilter.column.startsWith(CUSTOM_METADATA_COLUMN_ID)) {
             const columnKey = `request_metadata.${getCustomMetadataKeyFromColumnId(networkFilter.column)}`;
-            if (networkFilter.operator === FilterOperator.CONTAINS) {
+            if (networkFilter.operator === HiddenFilterOperator.IS_NOT_NULL) {
+              filter.push(`${columnKey} IS NOT NULL`);
+            } else if (networkFilter.operator === FilterOperator.CONTAINS) {
               filter.push(`${columnKey} ILIKE '%${networkFilter.value}%'`);
             } else {
               filter.push(`${columnKey} ${networkFilter.operator} '${networkFilter.value}'`);
@@ -751,75 +782,4 @@ const createMlflowSearchOrderBy = (tableSort?: EvaluationsOverviewTableSort): st
     default:
       return [];
   }
-};
-
-/**
- * Fetches all mlflow traces for a given experiment id and run id.
- * It returns the traces from artifacts storage if they exist and uses search API otherwise.
- *
- * @param experimentId - The experiment id to fetch traces for.
- * @param runUuid - The run id to fetch traces for. If not provided, it will fetch traces for the entire experiment.
- * @param traceTablesLoggedInRun - The trace tables logged in run to fetch traces for. Only used for fetching from artifacts storage. If not provided, it will fetch from all artifacts
- * @param disabled - Whether to disable the traces call.
- * @param timeRange - The time range to fetch traces for. Start/End time should be in milliseconds since epoch.
- */
-export const useMlflowTraces = (
-  experimentId?: string | null,
-  runUuid?: string | null,
-  traceTablesLoggedInRun?: GenAiTraceEvaluationArtifactFile[],
-  disabled?: boolean,
-  timeRange?: {
-    startTime: string | undefined;
-    endTime: string | undefined;
-  },
-): {
-  data: RunEvaluationTracesDataEntry[];
-  isLoading: boolean;
-  refetchMlflowTraces?: () => Promise<any>;
-  shouldUseTraceV3: boolean;
-  error?: NetworkRequestError;
-} => {
-  const isUnifiedEvalTabEnabled = shouldEnableUnifiedEvalTab();
-
-  const isExperimentIdValid = Boolean(experimentId && experimentId.length > 0);
-  const isArtifactCallEnabled = Boolean(!disabled && runUuid);
-  const isTracesCallEnabled = isExperimentIdValid && Boolean(isUnifiedEvalTabEnabled && !disabled);
-
-  const { data: artifactData, isLoading: isArtifactLoading } = useGenAiTraceEvaluationArtifacts(
-    {
-      runUuid: runUuid || '',
-      ...{ artifacts: traceTablesLoggedInRun ? traceTablesLoggedInRun : undefined },
-    },
-    { disabled: !isArtifactCallEnabled },
-  );
-
-  const filter = createMlflowSearchFilter(runUuid, timeRange);
-
-  const searchRes = useSearchMlflowTracesInner({
-    locations: [{ mlflow_experiment: { experiment_id: experimentId ?? '' }, type: 'MLFLOW_EXPERIMENT' }],
-    filter,
-    enabled: isTracesCallEnabled,
-  });
-
-  if (disabled) {
-    return {
-      data: [],
-      isLoading: false,
-      shouldUseTraceV3: false,
-    };
-  }
-
-  if (!isUnifiedEvalTabEnabled) {
-    return {
-      data: artifactData || [],
-      isLoading: isArtifactLoading,
-      shouldUseTraceV3: false,
-    };
-  }
-
-  return {
-    ...buildTracesFromSearchAndArtifacts(artifactData || [], searchRes, runUuid),
-    isLoading: isArtifactLoading || (searchRes.isLoading && isTracesCallEnabled),
-    refetchMlflowTraces: searchRes.refetch,
-  };
 };

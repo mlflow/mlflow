@@ -1,4 +1,5 @@
-import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../../experiment-tracking/constants';
+import { SELECTED_TRACE_ID_QUERY_PARAM } from '@databricks/web-shared/model-trace-explorer';
+
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link } from '../utils/RoutingUtils';
 

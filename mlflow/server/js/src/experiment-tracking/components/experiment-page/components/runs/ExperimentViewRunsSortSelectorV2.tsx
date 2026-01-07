@@ -168,6 +168,7 @@ const ExperimentViewRunsSortSelectorV2Body = ({
 };
 
 export const ExperimentViewRunsSortSelectorV2 = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     metricKeys,
     paramKeys,

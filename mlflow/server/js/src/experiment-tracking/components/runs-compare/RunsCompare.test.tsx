@@ -62,7 +62,7 @@ jest.mock('../runs-charts/hooks/useIsInViewport', () => ({
 jest.setTimeout(30000); // Larger timeout for integration testing
 
 // Helper function to assert order of HTMLElements
-function assertElementsInOrder(elements: HTMLElement[]) {
+function expectElementsInOrder(elements: HTMLElement[]) {
   for (let i = 0; i < elements.length - 1; i++) {
     const current = elements[i];
     const next = elements[i + 1];
@@ -317,7 +317,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(() => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('[bar plot for metric-static]'),
         screen.getByText('[line plot for metric-with-history]'),
       ]);
@@ -345,7 +345,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(() => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('tmp'),
         screen.getByText('Model metrics'),
         screen.getByText('System metrics'),
@@ -381,7 +381,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(async () => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('Model metrics'),
         screen.getByText('System metrics'),
         screen.getByText('tmp'),
@@ -401,7 +401,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(async () => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('System metrics'),
         screen.getByText('Model metrics'),
         screen.getByText('tmp'),
@@ -434,7 +434,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
 
     await waitFor(() => {
       expect(screen.queryByText('tmp1')).not.toBeInTheDocument();
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('tmp'),
         screen.getByText('tmp2'),
         screen.getByText('Model metrics'),
@@ -472,7 +472,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(() => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('tmp'),
         screen.getByText('tmp1'),
         screen.getByText('tmp2'),
@@ -506,7 +506,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(() => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('tmp'),
         screen.getByText('tmp2'),
         screen.getByText('Model metrics'),
@@ -555,7 +555,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(() => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('tmp2'),
         screen.getByText('tmp'),
         screen.getByText('Model metrics'),
@@ -629,7 +629,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(() => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('[bar plot for section1/metric3]'),
         screen.getByText('[bar plot for section1/metric5]'),
         screen.getByText('[bar plot for section1/metric6]'),
@@ -662,7 +662,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(() => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('[bar plot for section1/metric3]'),
         screen.getByText('[bar plot for section1/metric4]'),
         screen.getByText('[bar plot for section1/metric5]'),
@@ -694,7 +694,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(() => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('[bar plot for section1/metric5]'),
         screen.getByText('[bar plot for section2/metric6]'),
       ]);
@@ -742,7 +742,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(() => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('[bar plot for section1/metric3]'),
         screen.getByText('[bar plot for section1/metric7]'),
         screen.getByText('[bar plot for section1/metric4]'),
@@ -774,7 +774,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(() => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('[bar plot for section1/metric5]'),
         screen.getByText('[bar plot for section2/metric6]'),
       ]);
@@ -822,7 +822,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(() => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('[bar plot for section2/metric6]'),
         screen.getByText('[bar plot for section1/metric3]'),
         screen.getByText('[bar plot for section1/metric5]'),
@@ -860,7 +860,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(() => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('tmp'),
         screen.getByText('tmp2'),
         screen.getByText('Model metrics'),
@@ -905,7 +905,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(() => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('tmp'),
         screen.getByText('tmp1'),
         screen.getByText('tmp2'),
@@ -986,7 +986,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     });
 
     await waitFor(() => {
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('tmp/image'),
         screen.getByText('tmp1/image3'),
         screen.getByText('tmp2/image1'),
@@ -1143,7 +1143,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
 
     await waitFor(() => {
       // Assert correct chart types for metrics
-      assertElementsInOrder([
+      expectElementsInOrder([
         screen.getByText('[line plot for metric_1]'),
         screen.getByText('[bar plot for metric_2]'),
         screen.getByText('[line plot for metric_3]'),

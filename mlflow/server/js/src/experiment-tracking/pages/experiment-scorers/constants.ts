@@ -11,7 +11,7 @@ export enum ScorerEvaluationScope {
   SESSIONS = 'sessions',
 }
 
-export type ScorerFormMode = typeof SCORER_FORM_MODE[keyof typeof SCORER_FORM_MODE];
+export type ScorerFormMode = (typeof SCORER_FORM_MODE)[keyof typeof SCORER_FORM_MODE];
 
 export const DEFAULT_TRACE_COUNT = 10;
 
@@ -29,13 +29,13 @@ export const SCORER_TYPE = {
   CUSTOM_CODE: 'custom-code',
 } as const;
 
-export type ScorerType = typeof SCORER_TYPE[keyof typeof SCORER_TYPE];
+export type ScorerType = (typeof SCORER_TYPE)[keyof typeof SCORER_TYPE];
 
 export const BUTTON_VARIANT = {
   RUN: 'run',
   RERUN: 'rerun',
 } as const;
 
-export type ButtonVariant = typeof BUTTON_VARIANT[keyof typeof BUTTON_VARIANT];
+export type ButtonVariant = (typeof BUTTON_VARIANT)[keyof typeof BUTTON_VARIANT];
 
 export const RETRIEVAL_ASSESSMENTS = ['groundedness', 'context_sufficiency'] as const;

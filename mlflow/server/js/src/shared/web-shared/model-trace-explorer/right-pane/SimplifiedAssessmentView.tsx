@@ -110,7 +110,13 @@ const AssessmentCard = ({ assessment }: { assessment: FeedbackAssessment }) => {
   );
 };
 
-export const SimplifiedAssessmentView = ({ assessments }: { assessments: Assessment[] }) => {
+export const SimplifiedAssessmentView = ({
+  assessments,
+  className,
+}: {
+  assessments: Assessment[];
+  className?: string;
+}) => {
   const { theme } = useDesignSystemTheme();
 
   // We only show valid feedback assessments
@@ -133,6 +139,7 @@ export const SimplifiedAssessmentView = ({ assessments }: { assessments: Assessm
           height: '100%',
           borderLeft: `1px solid ${theme.colors.border}`,
         }}
+        className={className}
       >
         <Typography.Text color="secondary">
           <FormattedMessage
@@ -157,6 +164,7 @@ export const SimplifiedAssessmentView = ({ assessments }: { assessments: Assessm
         borderLeft: `1px solid ${theme.colors.border}`,
         overflowY: 'auto',
       }}
+      className={className}
     >
       {feedbackAssessments.map((assessment) => (
         <AssessmentCard key={assessment.assessment_id} assessment={assessment} />

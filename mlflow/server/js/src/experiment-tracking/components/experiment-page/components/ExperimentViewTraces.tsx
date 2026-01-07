@@ -1,9 +1,4 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { TracesView } from '../../traces/TracesView';
-import {
-  shouldEnableTracesV3View,
-  isExperimentEvalResultsMonitoringUIEnabled,
-} from '../../../../common/utils/FeatureUtils';
 import { TracesV3View } from './traces-v3/TracesV3View';
 import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
 
@@ -26,16 +21,9 @@ export const ExperimentViewTraces = ({ experimentIds }: { experimentIds: string[
 };
 
 const TracesComponent = ({ experimentIds }: { experimentIds: string[] }) => {
-  // A cache-only query to get the loading state
   const { loading: isLoadingExperiment } = useGetExperimentQuery({
     experimentId: experimentIds[0],
-    options: {
-      fetchPolicy: 'cache-only',
-    },
   });
 
-  if (shouldEnableTracesV3View() || isExperimentEvalResultsMonitoringUIEnabled()) {
-    return <TracesV3View experimentIds={experimentIds} isLoadingExperiment={isLoadingExperiment} />;
-  }
-  return <TracesView experimentIds={experimentIds} />;
+  return <TracesV3View experimentIds={experimentIds} isLoadingExperiment={isLoadingExperiment} />;
 };

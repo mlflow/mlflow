@@ -110,7 +110,7 @@ describe('RunViewTagsBox integration', () => {
         ({
           type: 'setRunTagsBulkApi',
           payload: Promise.reject(new Error('Some error message')),
-        } as any),
+        }) as any,
     );
 
     await act(async () => {

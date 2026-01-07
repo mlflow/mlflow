@@ -30,6 +30,7 @@ interface EvaluationTextCellRendererProps extends ICellRendererParams {
  * Internal use component - breaks down the rendered text into chunks and highlights
  * particular part found by the provided substring.
  */
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 const HighlightedText = React.memo(({ text, highlight }: { text: string; highlight: string }) => {
   const { theme } = useDesignSystemTheme();
   if (!highlight) {

@@ -1,0 +1,60 @@
+diff --git a/underscore-esm.js b/underscore-esm.js
+index 270a00f35a6a642c6c7dfdcd2715a212ba6b2805..22a6982c91f3b263adfd0d599f8996fcb816e49e 100644
+--- a/underscore-esm.js
++++ b/underscore-esm.js
+@@ -790,8 +790,8 @@ function random(min, max) {
+ }
+ 
+ // A (possibly faster) way to get the current timestamp as an integer.
+-var now = Date.now || function() {
+-  return new Date().getTime();
++var now = function() {
++  return Date.now();
+ };
+ 
+ // Internal helper to generate functions for escaping and unescaping strings
+diff --git a/underscore-node-f.cjs b/underscore-node-f.cjs
+index 05be06ec6cf8c097ae3c8932d0a4186fb74473fd..bd63d4d5146e47ec16092d80373378025bdc5ade 100644
+--- a/underscore-node-f.cjs
++++ b/underscore-node-f.cjs
+@@ -792,8 +792,8 @@ function random(min, max) {
+ }
+ 
+ // A (possibly faster) way to get the current timestamp as an integer.
+-var now = Date.now || function() {
+-  return new Date().getTime();
++var now = function() {
++  return Date.now();
+ };
+ 
+ // Internal helper to generate functions for escaping and unescaping strings
+diff --git a/underscore-umd.js b/underscore-umd.js
+index ffd77af9648a47d389f2d6976d4aa1c44d7ce7ce..4febe05f0fdd42e6783596c8774e1fae1f76de75 100644
+--- a/underscore-umd.js
++++ b/underscore-umd.js
+@@ -799,8 +799,8 @@
+   }
+ 
+   // A (possibly faster) way to get the current timestamp as an integer.
+-  var now = Date.now || function() {
+-    return new Date().getTime();
++  var now = function() {
++    return Date.now();
+   };
+ 
+   // Internal helper to generate functions for escaping and unescaping strings
+diff --git a/underscore.js b/underscore.js
+index ffd77af9648a47d389f2d6976d4aa1c44d7ce7ce..4febe05f0fdd42e6783596c8774e1fae1f76de75 100644
+--- a/underscore.js
++++ b/underscore.js
+@@ -799,8 +799,8 @@
+   }
+ 
+   // A (possibly faster) way to get the current timestamp as an integer.
+-  var now = Date.now || function() {
+-    return new Date().getTime();
++  var now = function() {
++    return Date.now();
+   };
+ 
+   // Internal helper to generate functions for escaping and unescaping strings

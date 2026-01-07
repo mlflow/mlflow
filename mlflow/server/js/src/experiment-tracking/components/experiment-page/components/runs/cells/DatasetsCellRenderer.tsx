@@ -92,6 +92,7 @@ export interface DatasetsCellRendererProps {
 }
 
 export const DatasetsCellRenderer = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({ value: datasets, data, onDatasetSelected, expandRows }: DatasetsCellRendererProps) => {
     const containerElement = useRef<HTMLDivElement>(null);
     const [datasetsVisible, setDatasetsVisible] = useState(0);

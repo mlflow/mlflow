@@ -1,19 +1,12 @@
 import { useCallback } from 'react';
 
-import {
-  NewWindowIcon,
-  SpeechBubbleIcon,
-  Tag,
-  Tooltip,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { SpeechBubbleIcon, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../experiment-tracking/constants';
 import { getExperimentChatSessionPageRoute } from './MlflowUtils';
 import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection';
 import { Link, useLocation } from './RoutingUtils';
+import { SELECTED_TRACE_ID_QUERY_PARAM } from './constants';
 
 const ID_MAX_LENGTH = 10;
 

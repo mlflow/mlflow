@@ -42,6 +42,7 @@ const getDocLinkHref = (experimentKind: ExperimentKind) => {
  * controls for renaming, deleting and editing permissions.
  */
 export const ExperimentViewHeader = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     experiment,
     inferredExperimentKind,

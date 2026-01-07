@@ -1,28 +1,55 @@
 import { isNil } from 'lodash';
-import React, { useCallback, useMemo } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import React, { useCallback, useEffect, useMemo } from 'react';
 
 import {
+  ApplyDesignSystemContextOverrides,
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
+  Drawer,
   GenericSkeleton,
   Modal,
+  PlusIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { ModelTraceExplorer, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
+import { FormattedMessage } from '@databricks/i18n';
+import {
+  isV3ModelTraceInfo,
+  ModelTraceExplorer,
+  ModelTraceExplorerSkeleton,
+  shouldUseModelTraceExplorerDrawerUI,
+  isV4TraceId,
+  type ModelTrace,
+} from '@databricks/web-shared/model-trace-explorer';
 
 import { EvaluationsReviewDetailsHeader } from './EvaluationsReviewDetails';
 import { GenAiEvaluationTracesReview } from './GenAiEvaluationTracesReview';
+import { GenAITracesTableContext } from '../GenAITracesTableContext';
 import { useGenAITracesTableConfig } from '../hooks/useGenAITracesTableConfig';
 import type { GetTraceFunction } from '../hooks/useGetTrace';
-import { useGetTrace } from '../hooks/useGetTrace';
-import type { AssessmentInfo, EvalTraceComparisonEntry, SaveAssessmentsQuery } from '../types';
-import { getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '../utils/TraceUtils';
+import { useGetTrace, useGetTraceByFullTraceId } from '../hooks/useGetTrace';
+import type {
+  AssessmentInfo,
+  EvalTraceComparisonEntry,
+  RunEvaluationTracesDataEntry,
+  SaveAssessmentsQuery,
+} from '../types';
+import { shouldUseTracesV4API } from '../utils/FeatureUtils';
+import { convertTraceInfoV3ToRunEvalEntry, getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '../utils/TraceUtils';
 
 const MODAL_SPACING_REM = 4;
 const DEFAULT_MODAL_MARGIN_REM = 1;
 
+const evalEntryMatchesEvaluationId = (evaluationId: string, entry?: RunEvaluationTracesDataEntry) => {
+  if (isV4TraceId(evaluationId) && entry?.fullTraceId === evaluationId) {
+    return true;
+  }
+  return entry?.evaluationId === evaluationId;
+};
+
 export const GenAiEvaluationTracesReviewModal = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     experimentId,
     runUuid,
@@ -48,7 +75,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     getTrace?: GetTraceFunction;
     saveAssessmentsQuery?: SaveAssessmentsQuery;
   }) => {
-    const { theme, classNamePrefix } = useDesignSystemTheme();
+    const { theme } = useDesignSystemTheme();
 
     const handleClose = useCallback(() => {
       onChangeEvaluationId(undefined);
@@ -57,8 +84,8 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     // The URL always has an evaluation id, so we look in either current or other for the eval.
     const findEval = useCallback(
       (entry: EvalTraceComparisonEntry) =>
-        entry.currentRunValue?.evaluationId === selectedEvaluationId ||
-        entry.otherRunValue?.evaluationId === selectedEvaluationId,
+        evalEntryMatchesEvaluationId(selectedEvaluationId, entry.currentRunValue) ||
+        evalEntryMatchesEvaluationId(selectedEvaluationId, entry.otherRunValue),
       [selectedEvaluationId],
     );
 
@@ -89,6 +116,11 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
       onChangeEvaluationId(newEvalId);
     }, [evaluations, previousEvaluationIdx, onChangeEvaluationId]);
 
+    // prettier-ignore
+    const {
+      showAddToEvaluationDatasetModal,
+    } = React.useContext(GenAITracesTableContext);
+
     const selectNextEval = useCallback(() => {
       if (evaluations === null || nextEvaluationIdx === undefined) return;
 
@@ -114,61 +146,85 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     const spansLocation = getSpansLocation(evaluation?.currentRunValue?.traceInfo);
     const shouldEnablePolling = spansLocation === TRACKING_STORE_SPANS_LOCATION;
 
-    const traceQueryResult = useGetTrace(getTrace, evaluation?.currentRunValue?.traceInfo, shouldEnablePolling);
-    const compareToTraceQueryResult = useGetTrace(getTrace, evaluation?.otherRunValue?.traceInfo, shouldEnablePolling);
+    // prettier-ignore
+    const traceQueryResult = useGetTrace(
+      getTrace,
+      evaluation?.currentRunValue?.traceInfo,
+      shouldEnablePolling,
+    );
+    // prettier-ignore
+    const compareToTraceQueryResult = useGetTrace(
+      getTrace,
+      evaluation?.otherRunValue?.traceInfo,
+      shouldEnablePolling,
+    );
+    // In case that the selected evaluation is not provided upstream (but the list is loaded), we lazily fetch the full trace data here
+    const shouldFetchTraceBySearchParamId = useMemo(
+      () => Boolean(evaluations) && !evaluation && Boolean(selectedEvaluationId),
+      [evaluations, evaluation, selectedEvaluationId],
+    );
+
+    const traceBySearchParamQueryResult = useGetTraceByFullTraceId(
+      getTrace,
+      shouldFetchTraceBySearchParamId ? selectedEvaluationId : undefined,
+    );
 
     // Prefetching the next and previous traces to optimize performance
-    useGetTrace(getTrace, nextEvaluation?.currentRunValue?.traceInfo);
-    useGetTrace(getTrace, previousEvaluation?.currentRunValue?.traceInfo);
+    // prettier-ignore
+    useGetTrace(
+      getTrace,
+      nextEvaluation?.currentRunValue?.traceInfo,
+    );
+    // prettier-ignore
+    useGetTrace(
+      getTrace,
+      previousEvaluation?.currentRunValue?.traceInfo,
+    );
 
     // is true if only one of the two runs has a trace
     const isSingleTraceView = Boolean(evaluation?.currentRunValue) !== Boolean(evaluation?.otherRunValue);
 
-    const currentTraceQueryResult =
-      selectedEvaluationId === evaluation?.currentRunValue?.evaluationId ? traceQueryResult : compareToTraceQueryResult;
+    const currentTraceQueryResult = shouldFetchTraceBySearchParamId
+      ? traceBySearchParamQueryResult
+      : evalEntryMatchesEvaluationId(selectedEvaluationId, evaluation?.currentRunValue)
+        ? traceQueryResult
+        : compareToTraceQueryResult;
 
-    if (isNil(evaluation)) {
+    if (isNil(evaluation) && !shouldFetchTraceBySearchParamId) {
       return <></>;
     }
 
-    return (
-      <div
-        onKeyDown={(e) => {
-          if (e.key === 'ArrowLeft') {
-            selectPreviousEval();
-          } else if (e.key === 'ArrowRight') {
-            selectNextEval();
-          }
-        }}
-      >
-        <Modal
-          componentId="mlflow.evaluations_review.modal"
-          visible
-          title={
-            evaluation.currentRunValue ? (
-              <EvaluationsReviewDetailsHeader evaluationResult={evaluation.currentRunValue} />
-            ) : evaluation.otherRunValue ? (
-              <EvaluationsReviewDetailsHeader evaluationResult={evaluation.otherRunValue} />
-            ) : null
-          }
-          onCancel={handleClose}
-          size="wide"
-          verticalSizing="maxed_out"
-          css={{
-            width: '100% !important',
-            padding: `0 ${MODAL_SPACING_REM}rem !important`,
-            [`& .${classNamePrefix}-modal-body`]: {
-              flex: 1,
-              paddingTop: 0,
-            },
-            [`& .${classNamePrefix}-modal-header`]: {
-              paddingBottom: theme.spacing.sm,
-            },
-          }}
-          footer={null} // Hide the footer
-        >
-          {/* Only show skeleton for the first fetch to avoid flickering when polling new spans */}
-          {!currentTraceQueryResult?.data && currentTraceQueryResult?.isFetching && (
+    const renderModalTitle = () => {
+      if (shouldFetchTraceBySearchParamId) {
+        if (traceBySearchParamQueryResult.isLoading) {
+          return (
+            <GenericSkeleton
+              css={{
+                width: 200,
+                height: theme.general.heightBase,
+              }}
+            />
+          );
+        }
+        if (traceBySearchParamQueryResult.data?.info && isV3ModelTraceInfo(traceBySearchParamQueryResult.data?.info)) {
+          const runEvalEntry = convertTraceInfoV3ToRunEvalEntry(traceBySearchParamQueryResult.data?.info);
+          return <EvaluationsReviewDetailsHeader evaluationResult={runEvalEntry} />;
+        }
+      }
+      return evaluation?.currentRunValue ? (
+        <EvaluationsReviewDetailsHeader evaluationResult={evaluation.currentRunValue} />
+      ) : evaluation?.otherRunValue ? (
+        <EvaluationsReviewDetailsHeader evaluationResult={evaluation.otherRunValue} />
+      ) : null;
+    };
+
+    // Define the content of the modal/drawer
+    const content = (
+      <>
+        {/* Only show skeleton for the first fetch to avoid flickering when polling new spans */}
+        {!shouldUseModelTraceExplorerDrawerUI() &&
+          !currentTraceQueryResult.data &&
+          currentTraceQueryResult.isFetching && (
             <GenericSkeleton
               label="Loading trace..."
               style={{
@@ -182,17 +238,29 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
               }}
             />
           )}
-          {
-            // Show ModelTraceExplorer only if there is no run to compare to and there's trace data.
-            isSingleTraceView && !isNil(currentTraceQueryResult?.data) ? (
-              <div css={{ height: '100%', marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
-                {/* prettier-ignore */}
-                <ModelTraceExplorerModalBody
-                  traceData={currentTraceQueryResult.data}
-                />
+        {
+          // Show ModelTraceExplorer only if there is no run to compare to and there's trace data.
+          ((shouldFetchTraceBySearchParamId && traceBySearchParamQueryResult?.data) || isSingleTraceView) &&
+          !isNil(currentTraceQueryResult.data) ? (
+            <div css={{ height: '100%', marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
+              {/* prettier-ignore */}
+              <ModelTraceExplorerModalBody
+                traceData={currentTraceQueryResult.data}
+                showLoadingState={shouldUseModelTraceExplorerDrawerUI() && (currentTraceQueryResult.isFetching)}
+              />
+            </div>
+          ) : (
+            evaluation?.currentRunValue &&
+            (shouldUseModelTraceExplorerDrawerUI() && currentTraceQueryResult.isFetching ? (
+              <div css={{ marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
+                <ModelTraceExplorerSkeleton />
               </div>
             ) : (
-              evaluation.currentRunValue && (
+              <div
+                css={
+                  shouldUseModelTraceExplorerDrawerUI() ? { overflow: 'auto', height: '100%' } : { display: 'contents' }
+                }
+              >
                 <GenAiEvaluationTracesReview
                   experimentId={experimentId}
                   evaluation={evaluation.currentRunValue}
@@ -210,10 +278,88 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
                   compareToTraceQueryResult={compareToTraceQueryResult}
                   saveAssessmentsQuery={saveAssessmentsQuery}
                 />
-              )
-            )
-          }
-        </Modal>
+              </div>
+            ))
+          )
+        }
+      </>
+    );
+
+    // Decide which wrapper to use based on feature flag
+    const WrapperComponent = shouldUseModelTraceExplorerDrawerUI() ? DrawerWrapper : ModalWrapper;
+
+    return (
+      <WrapperComponent
+        handleClose={handleClose}
+        isNextAvailable={isNextAvailable}
+        isPreviousAvailable={isPreviousAvailable}
+        selectNextEval={selectNextEval}
+        selectPreviousEval={selectPreviousEval}
+        renderModalTitle={renderModalTitle}
+        isLoading={currentTraceQueryResult.isFetching}
+        onAddTraceToEvaluationDatasetClick={() =>
+          showAddToEvaluationDatasetModal?.(evaluation?.currentRunValue ? [evaluation.currentRunValue] : undefined)
+        }
+      >
+        {content}
+      </WrapperComponent>
+    );
+  },
+);
+
+const ModalWrapper = ({
+  selectPreviousEval,
+  selectNextEval,
+  isPreviousAvailable,
+  isNextAvailable,
+  renderModalTitle,
+  handleClose,
+  children,
+  isLoading,
+}: {
+  children: React.ReactNode;
+  selectPreviousEval: () => void;
+  selectNextEval: () => void;
+  isPreviousAvailable: boolean;
+  isNextAvailable: boolean;
+  renderModalTitle: () => React.ReactNode;
+  handleClose: () => void;
+  isLoading?: boolean;
+}) => {
+  const { theme, classNamePrefix } = useDesignSystemTheme();
+  const useRadixModal = false;
+
+  return (
+    <div
+      onKeyDown={(e) => {
+        if (e.key === 'ArrowLeft') {
+          selectPreviousEval();
+        } else if (e.key === 'ArrowRight') {
+          selectNextEval();
+        }
+      }}
+    >
+      <Modal
+        componentId="mlflow.evaluations_review.modal"
+        visible
+        title={renderModalTitle()}
+        onCancel={handleClose}
+        size="wide"
+        verticalSizing="maxed_out"
+        css={{
+          width: '100% !important',
+          padding: useRadixModal ? undefined : `0 ${MODAL_SPACING_REM}rem !important`,
+          [`& .${classNamePrefix}-modal-body`]: {
+            flex: 1,
+            paddingTop: 0,
+          },
+          [`& .${classNamePrefix}-modal-header`]: {
+            paddingBottom: theme.spacing.sm,
+          },
+        }}
+        footer={null} // Hide the footer
+      >
+        {children}
         <div
           css={{
             display: 'flex',
@@ -270,20 +416,144 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
               disabled={!isNextAvailable}
               componentId="mlflow.evaluations_review.modal.next_eval"
               icon={<ChevronRightIcon />}
-              onClick={() => selectNextEval()}
+              onClick={(e) => selectNextEval()}
             />
           </div>
         </div>
-      </div>
-    );
-  },
-);
+      </Modal>
+    </div>
+  );
+};
+
+const DrawerWrapper = ({
+  selectPreviousEval,
+  selectNextEval,
+  isPreviousAvailable,
+  isNextAvailable,
+  renderModalTitle,
+  handleClose,
+  children,
+  isLoading,
+  onAddTraceToEvaluationDatasetClick,
+}: {
+  children: React.ReactNode;
+  selectPreviousEval: () => void;
+  selectNextEval: () => void;
+  isPreviousAvailable: boolean;
+  isNextAvailable: boolean;
+  renderModalTitle: () => React.ReactNode;
+  handleClose: () => void;
+  isLoading?: boolean;
+  onAddTraceToEvaluationDatasetClick?: () => void;
+}) => {
+  const { theme } = useDesignSystemTheme();
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLElement) {
+        if (e.target.role === 'tab') {
+          return;
+        }
+        const tagName = e.target?.tagName?.toLowerCase();
+        if (tagName === 'input' || tagName === 'textarea' || e.target.isContentEditable) {
+          return;
+        }
+      }
+      if (e.key === 'ArrowLeft' && isPreviousAvailable) {
+        e.stopPropagation();
+        selectPreviousEval();
+      } else if (e.key === 'ArrowRight' && isNextAvailable) {
+        e.stopPropagation();
+        selectNextEval();
+      }
+    },
+    [isPreviousAvailable, isNextAvailable, selectPreviousEval, selectNextEval],
+  );
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleKeyDown]);
+
+  return (
+    <Drawer.Root
+      open
+      onOpenChange={(open) => {
+        if (!open) {
+          handleClose();
+        }
+      }}
+    >
+      <Drawer.Content
+        componentId="mlflow.evaluations_review.modal"
+        width="90vw"
+        title={
+          <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+            <Button
+              componentId="mlflow.evaluations_review.modal.previous_eval"
+              disabled={!isPreviousAvailable}
+              onClick={() => selectPreviousEval()}
+            >
+              <ChevronLeftIcon />
+            </Button>
+            <Button
+              componentId="mlflow.evaluations_review.modal.next_eval"
+              disabled={!isNextAvailable}
+              onClick={() => selectNextEval()}
+            >
+              <ChevronRightIcon />
+            </Button>
+            <div css={{ flex: 1, overflow: 'hidden' }}>{renderModalTitle()}</div>
+            {onAddTraceToEvaluationDatasetClick && (
+              <Button
+                componentId="mlflow.evaluations_review.modal.add_to_evaluation_dataset"
+                onClick={() => onAddTraceToEvaluationDatasetClick?.()}
+                icon={<PlusIcon />}
+              >
+                <FormattedMessage
+                  defaultMessage="Add to dataset"
+                  description="Button text for adding a trace to a evaluation dataset"
+                />
+              </Button>
+            )}
+          </div>
+        }
+        expandContentToFullHeight
+        css={[
+          {
+            // Disable drawer's scroll to allow inner content to handle scrolling
+            '&>div': {
+              overflow: 'hidden',
+            },
+            '&>div:first-child': {
+              paddingLeft: theme.spacing.md,
+              paddingTop: 1,
+              paddingBottom: 1,
+              // Prevent close button from being squeezed
+              '&>button': {
+                flexShrink: 0,
+              },
+            },
+          },
+        ]}
+      >
+        <ApplyDesignSystemContextOverrides zIndexBase={2 * theme.options.zIndexBase}>
+          {isLoading ? <ModelTraceExplorerSkeleton /> : <>{children}</>}
+        </ApplyDesignSystemContextOverrides>
+      </Drawer.Content>
+    </Drawer.Root>
+  );
+};
 
 // prettier-ignore
 const ModelTraceExplorerModalBody = ({
   traceData,
+  showLoadingState,
 }: {
   traceData: ModelTrace;
+  showLoadingState: boolean;
 }) => {
   return (
     <ModelTraceExplorer

@@ -12,7 +12,7 @@ const generateRuns = (n: number, asChildRuns = false): RunEntity[] =>
       ({
         info: { runUuid: asChildRuns ? `run_child${index}` : `run${index}` },
         data: asChildRuns ? { tags: [{ key: EXPERIMENT_PARENT_ID_TAG, value: `parent-id-${index}` }] } : undefined,
-      } as any),
+      }) as any,
   );
 
 describe('useFetchedRunsNotification', () => {

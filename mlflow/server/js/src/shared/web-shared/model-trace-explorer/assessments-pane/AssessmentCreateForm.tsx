@@ -40,6 +40,7 @@ type AssessmentCreateFormProps = {
 };
 
 export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateFormProps>(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (
     {
       assessmentName,
