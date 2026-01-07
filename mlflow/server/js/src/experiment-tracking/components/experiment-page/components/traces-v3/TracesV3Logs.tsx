@@ -2,11 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { isEmpty as isEmptyFn } from 'lodash';
 import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
 import type { TracesTableColumn, TraceActions, GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
-import {
-  shouldUseTracesV4API,
-  useUnifiedTraceTagsModal,
-  SESSION_ID_METADATA_KEY,
-} from '@databricks/web-shared/model-trace-explorer';
+import { shouldUseTracesV4API, useUnifiedTraceTagsModal } from '@databricks/web-shared/model-trace-explorer';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
@@ -30,6 +26,7 @@ import {
   createTraceLocationForExperiment,
   doesTraceSupportV4API,
   useTraceTableGroupBy,
+  useHasSessionTraces,
 } from '@databricks/web-shared/genai-traces-table';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { shouldEnableTraceInsights } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
@@ -185,13 +182,7 @@ const TracesV3LogsImpl = React.memo(
     });
 
     // Check if any traces have session metadata
-    const hasSessionTraces = useMemo(() => {
-      if (!traceInfos || traceInfos.length === 0) return false;
-      return traceInfos.some((trace) => {
-        const metadata = trace.trace_metadata;
-        return metadata && SESSION_ID_METADATA_KEY in metadata;
-      });
-    }, [traceInfos]);
+    const hasSessionTraces = useHasSessionTraces(traceInfos || []);
 
     const deleteTracesMutation = useDeleteTracesMutation();
 

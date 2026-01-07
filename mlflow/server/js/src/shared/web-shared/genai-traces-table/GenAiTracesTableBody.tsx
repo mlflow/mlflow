@@ -370,11 +370,9 @@ export const GenAiTracesTableBody = React.memo(
               <GenAiTracesTableBodyGroupedRows
                 groupedTracesResult={groupedTracesResult}
                 selectedAssessmentInfos={selectedAssessmentInfos}
-                onTraceClick={(traceId) => onChangeEvaluationId(traceId)}
                 rows={rows}
                 isComparing={isComparing}
                 enableRowSelection={enableRowSelection}
-                rowSelectionState={rowSelection}
                 selectedColumns={selectedColumns}
               />
             ) : (

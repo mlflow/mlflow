@@ -105,4 +105,3 @@ export { useGetTraces } from './hooks/useGetTraces';
 export { useTraceTableGroupBy, useHasSessionTraces } from './hooks/useTraceTableGroupBy';
 export { groupTracesBySession, hasAnySessionTraces, isSessionLevelAssessment } from './utils/GroupingUtils';
 export { TraceTableGroupBySelector } from './components/TraceTableGroupBySelector';
-export { TraceSessionGroupRow } from './components/TraceSessionGroupRow';

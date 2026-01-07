@@ -1,4 +1,4 @@
-import type { Row, RowSelectionState } from '@tanstack/react-table';
+import type { Row } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import React, { useMemo, useState, useCallback } from 'react';
 
@@ -49,11 +49,9 @@ import {
 interface GroupedRowsProps {
   groupedTracesResult: GroupedTracesResult;
   selectedAssessmentInfos: AssessmentInfo[];
-  onTraceClick?: (traceId: string) => void;
   rows: Row<EvalTraceComparisonEntry>[];
   isComparing: boolean;
   enableRowSelection?: boolean;
-  rowSelectionState: RowSelectionState | undefined;
   selectedColumns: TracesTableColumn[];
 }
 
@@ -78,11 +76,9 @@ interface SessionAggregatedData {
 export const GenAiTracesTableBodyGroupedRows: React.FC<GroupedRowsProps> = ({
   groupedTracesResult,
   selectedAssessmentInfos,
-  onTraceClick,
   rows,
   isComparing,
   enableRowSelection,
-  rowSelectionState,
   selectedColumns,
 }) => {
   const { theme } = useDesignSystemTheme();
