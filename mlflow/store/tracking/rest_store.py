@@ -4,10 +4,10 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
 if TYPE_CHECKING:
     from mlflow.entities import DatasetRecord, EvaluationDataset
-    from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from packaging.version import Version
@@ -1370,7 +1370,7 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         scorer_name: str,
         sample_rate: float,
         filter_string: str | None = None,
-    ) -> "OnlineScoringConfig":
+    ) -> OnlineScoringConfig:
         """
         Create or update the online scoring configuration for a registered scorer.
 
@@ -1416,7 +1416,7 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
                 error_code=INTERNAL_ERROR,
             ) from e
 
-    def get_online_scoring_configs(self, scorer_ids: list[str]) -> list["OnlineScoringConfig"]:
+    def get_online_scoring_configs(self, scorer_ids: list[str]) -> list[OnlineScoringConfig]:
         """
         Get online scoring configurations for multiple scorers by their IDs.
 
