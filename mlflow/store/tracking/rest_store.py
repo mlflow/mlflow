@@ -1383,6 +1383,9 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         Returns:
             The created or updated OnlineScoringConfig object.
         """
+        # Import locally to avoid circular import of RestStore
+        from mlflow.genai.scorers.online.entities import OnlineScoringConfig
+
         endpoint = "/api/3.0/mlflow/scorers/online-config"
 
         request_body = {
@@ -1402,9 +1405,6 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
 
         verify_rest_response(response, endpoint)
         try:
-            # Import locally to avoid circular import of RestStore
-            from mlflow.genai.scorers.online.entities import OnlineScoringConfig
-
             config_dict = response.json()["config"]
             return OnlineScoringConfig(
                 online_scoring_config_id=config_dict["online_scoring_config_id"],
@@ -1433,6 +1433,9 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
             A list of OnlineScoringConfig objects for the specified scorers.
             Scorers without configurations are not included.
         """
+        # Import locally to avoid circular import of RestStore
+        from mlflow.genai.scorers.online.entities import OnlineScoringConfig
+
         if not scorer_ids:
             return []
 
@@ -1446,9 +1449,6 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         endpoint = "/api/3.0/mlflow/scorers/online-configs"
         verify_rest_response(response, endpoint)
         try:
-            # Import locally to avoid circular import of RestStore
-            from mlflow.genai.scorers.online.entities import OnlineScoringConfig
-
             configs_list = response.json()["configs"]
             return [
                 OnlineScoringConfig(
