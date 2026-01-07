@@ -6,7 +6,7 @@ import operator
 import re
 import shlex
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import sqlparse
 from packaging.version import Version
@@ -36,6 +36,12 @@ from mlflow.tracing.constant import (
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy.sql.elements import ClauseElement, ColumnElement
+
+# MSSQL collation for case-sensitive string comparisons
+_MSSQL_CASE_SENSITIVE_COLLATION = "Japanese_Bushu_Kakusu_100_CS_AS_KS_WS"
 
 
 def _convert_like_pattern_to_regex(pattern, flags=0):
@@ -245,7 +251,7 @@ class SearchUtils:
             if not isinstance(column.type, sa.types.String):
                 return comparison_func(column, value)
 
-            collated = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
+            collated = column.collate(_MSSQL_CASE_SENSITIVE_COLLATION)
             return comparison_func(collated, value)
 
         def mysql_comparison_func(column, value):
@@ -1860,6 +1866,62 @@ class SearchTraceUtils(SearchUtils):
                 )
             return True
         return False
+
+    @staticmethod
+    def _get_sql_json_comparison_func(
+        comparator: str, dialect: str
+    ) -> Callable[["ColumnElement", str], "ClauseElement"]:
+        """
+        Returns a comparison function for JSON-serialized values.
+
+        Assessment values are stored as JSON primitives in the database:
+          - Boolean False -> false (no quotes in JSON)
+          - Numeric value 5 -> 5 (no quotes in JSON)
+          - String "yes" -> '"yes"' (WITH quotes in JSON)
+
+        For equality comparisons, we match either the raw JSON primitive value
+        (for booleans and numeric values) or the JSON-serialized value (for strings).
+        """
+        import sqlalchemy as sa
+
+        def mysql_json_equality_inequality_comparison(
+            column: "ColumnElement", value: str
+        ) -> "ClauseElement":
+            # MySQL is case insensitive by default, so we need to use the BINARY operator
+            # for case sensitive comparisons. We check both the raw value (for booleans/numbers)
+            # and the JSON-serialized value (for strings).
+            json_string_value = json.dumps(value)
+            col_ref = f"{column.class_.__tablename__}.{column.key}"
+            template = (
+                f"(({col_ref} = :value1 AND BINARY {col_ref} = :value1) OR "
+                f"({col_ref} = :value2 AND BINARY {col_ref} = :value2))"
+            )
+            if comparator == "!=":
+                template = f"NOT {template}"
+            return sa.text(template).bindparams(
+                sa.bindparam("value1", value=value, unique=True),
+                sa.bindparam("value2", value=json_string_value, unique=True),
+            )
+
+        def json_equality_inequality_comparison(
+            column: "ColumnElement", value: str
+        ) -> "ClauseElement":
+            # MSSQL uses collation for case-sensitive comparisons on String columns
+            if dialect == MSSQL:
+                column = column.collate(_MSSQL_CASE_SENSITIVE_COLLATION)
+
+            json_string_value = json.dumps(value)
+            clause = sa.or_(column == value, column == json_string_value)
+            if comparator == "!=":
+                clause = sa.not_(clause)
+            return clause
+
+        if comparator not in ("=", "!="):
+            return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)
+        elif dialect == MYSQL:
+            return mysql_json_equality_inequality_comparison
+        else:
+            return json_equality_inequality_comparison
 
     @classmethod
     def _valid_entity_type(cls, entity_type):

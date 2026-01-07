@@ -68,6 +68,13 @@ from mlflow.entities.trace_metrics import (
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException, MlflowTracingException
+from mlflow.genai.scorers.scorer_utils import (
+    build_gateway_model,
+    extract_endpoint_ref,
+    extract_model_from_serialized_scorer,
+    is_gateway_model,
+    update_model_in_serialized_scorer,
+)
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -461,11 +468,19 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         stages = LifecycleStage.view_type_to_stages(view_type)
         query_options = self._get_eager_experiment_query_options() if eager else []
 
+        try:
+            experiment_id_int = int(experiment_id)
+        except (ValueError, TypeError):
+            raise MlflowException(
+                f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid integer.",
+                INVALID_PARAMETER_VALUE,
+            )
+
         experiment = (
             session.query(SqlExperiment)
             .options(*query_options)
             .filter(
-                SqlExperiment.experiment_id == int(experiment_id),
+                SqlExperiment.experiment_id == experiment_id_int,
                 SqlExperiment.lifecycle_stage.in_(stages),
             )
             .one_or_none()
@@ -473,7 +488,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         if experiment is None:
             raise MlflowException(
-                f"No Experiment with id={experiment_id} exists", RESOURCE_DOES_NOT_EXIST
+                f"No Experiment with id={experiment_id_int} exists", RESOURCE_DOES_NOT_EXIST
             )
 
         return experiment
@@ -2079,11 +2094,28 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         Returns:
             mlflow.entities.ScorerVersion: The newly registered scorer version with scorer_id.
+
+        Raises:
+            MlflowException: If the scorer references a gateway endpoint that does not exist.
         """
         with self.ManagedSessionMaker() as session:
             # Validate experiment exists and is active
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
+
+            # Parse serialized_scorer and resolve gateway endpoint name to ID if applicable
+            serialized_data = json.loads(serialized_scorer)
+            model = extract_model_from_serialized_scorer(serialized_data)
+
+            if is_gateway_model(model):
+                endpoint_name = extract_endpoint_ref(model)
+                # Resolve name to ID - raises MlflowException if endpoint doesn't exist
+                endpoint = self.get_gateway_endpoint(name=endpoint_name)
+                # Update serialized scorer with endpoint ID instead of name
+                serialized_data = update_model_in_serialized_scorer(
+                    serialized_data, build_gateway_model(endpoint.endpoint_id)
+                )
+                serialized_scorer = json.dumps(serialized_data)
 
             # First, check if the scorer exists in the scorers table
             scorer = (
@@ -2126,7 +2158,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.add(sql_scorer_version)
             session.flush()
 
-            return sql_scorer_version.to_mlflow_entity()
+            entity = sql_scorer_version.to_mlflow_entity()
+            # Resolve gateway endpoint ID to name before returning
+            return self._resolve_endpoint_in_scorer(entity)
 
     def list_scorers(self, experiment_id) -> list[ScorerVersion]:
         """
@@ -2137,7 +2171,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         Returns:
             List of mlflow.entities.scorer.ScorerVersion objects
-            (latest version for each scorer name).
+            (latest version for each scorer name) with gateway endpoint IDs resolved to names.
         """
         with self.ManagedSessionMaker() as session:
             # Validate experiment exists and is active
@@ -2179,8 +2213,20 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 .all()
             )
 
+            # Batch resolve gateway endpoint IDs to names
+            resolved_scorers = self._batch_resolve_endpoint_in_serialized_scorers(
+                [sv.serialized_scorer for sv in sql_scorer_versions]
+            )
             return [
-                sql_scorer_version.to_mlflow_entity() for sql_scorer_version in sql_scorer_versions
+                ScorerVersion(
+                    experiment_id=str(sv.scorer.experiment_id),
+                    scorer_id=sv.scorer_id,
+                    scorer_version=sv.scorer_version,
+                    scorer_name=sv.scorer.scorer_name,
+                    serialized_scorer=resolved_scorers[i],
+                    creation_time=sv.creation_time,
+                )
+                for i, sv in enumerate(sql_scorer_versions)
             ]
 
     def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
@@ -2194,7 +2240,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 maximum version.
 
         Returns:
-            A ScorerVersion entity object.
+            A ScorerVersion entity object with gateway endpoint IDs resolved to names.
 
         Raises:
             MlflowException: If scorer is not found.
@@ -2245,7 +2291,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         RESOURCE_DOES_NOT_EXIST,
                     )
 
-            return sql_scorer_version.to_mlflow_entity()
+            entity = sql_scorer_version.to_mlflow_entity()
+            # Resolve gateway endpoint ID to name before returning
+            return self._resolve_endpoint_in_scorer(entity)
 
     def delete_scorer(self, experiment_id, name, version=None) -> None:
         """
@@ -2321,7 +2369,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             name: The scorer name.
 
         Returns:
-            List of mlflow.entities.scorer.ScorerVersion objects for all versions of the scorer.
+            List of mlflow.entities.scorer.ScorerVersion objects for all versions of the scorer,
+            with gateway endpoint IDs resolved to names.
 
         Raises:
             MlflowException: If scorer is not found.
@@ -2361,9 +2410,20 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-            # Convert to mlflow.entities.scorer.ScorerVersion objects
+            # Batch resolve gateway endpoint IDs to names
+            resolved_scorers = self._batch_resolve_endpoint_in_serialized_scorers(
+                [sv.serialized_scorer for sv in sql_scorer_versions]
+            )
             return [
-                sql_scorer_version.to_mlflow_entity() for sql_scorer_version in sql_scorer_versions
+                ScorerVersion(
+                    experiment_id=str(sv.scorer.experiment_id),
+                    scorer_id=sv.scorer_id,
+                    scorer_version=sv.scorer_version,
+                    scorer_name=sv.scorer.scorer_name,
+                    serialized_scorer=resolved_scorers[i],
+                    creation_time=sv.creation_time,
+                )
+                for i, sv in enumerate(sql_scorer_versions)
             ]
 
     def _apply_order_by_search_logged_models(
@@ -3811,6 +3871,36 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             return traces
 
+    def batch_get_trace_infos(
+        self, trace_ids: list[str], location: str | None = None
+    ) -> list[TraceInfo]:
+        """
+        Get trace metadata (TraceInfo) for given trace IDs without loading spans.
+
+        Args:
+            trace_ids: The trace IDs to get.
+            location: Location of the trace. Should be None for SQLAlchemy backend.
+
+        Returns:
+            List of TraceInfo objects for the given trace IDs.
+        """
+        if not trace_ids:
+            return []
+
+        order_case = case(
+            {trace_id: idx for idx, trace_id in enumerate(trace_ids)},
+            value=SqlTraceInfo.request_id,
+        )
+        with self.ManagedSessionMaker() as session:
+            sql_trace_infos = (
+                session.query(SqlTraceInfo)
+                .filter(SqlTraceInfo.request_id.in_(trace_ids))
+                .order_by(order_case)
+                .all()
+            )
+
+            return [sql_trace_info.to_mlflow_entity() for sql_trace_info in sql_trace_infos]
+
     def _get_spans_with_trace_info(
         self, trace_info: TraceInfo, spans: list[SqlSpan], allow_partial: bool = True
     ) -> list[Span] | None:
@@ -4776,6 +4866,85 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
         return obj
 
+    def _resolve_endpoint_in_scorer(self, scorer_version: ScorerVersion) -> ScorerVersion:
+        """
+        Resolve gateway endpoint ID to name in a scorer version.
+
+        If the scorer's model field contains a gateway endpoint ID (gateway:/{id}),
+        resolves it to the endpoint name. If the endpoint has been deleted,
+        sets the model to None.
+
+        Args:
+            scorer_version: The scorer version to resolve.
+
+        Returns:
+            A new ScorerVersion with the resolved endpoint name, or the original
+            if no gateway endpoint is used.
+        """
+        serialized_data = json.loads(scorer_version._serialized_scorer)
+        model = extract_model_from_serialized_scorer(serialized_data)
+
+        if not is_gateway_model(model):
+            return scorer_version
+
+        endpoint_ref = extract_endpoint_ref(model)
+
+        # Try to resolve endpoint ID to name
+        try:
+            endpoint = self.get_gateway_endpoint(endpoint_id=endpoint_ref)
+            new_model = build_gateway_model(endpoint.name)
+        except MlflowException:
+            # Endpoint was deleted or invalid, set model to null
+            new_model = None
+
+        serialized_data = update_model_in_serialized_scorer(serialized_data, new_model)
+
+        return ScorerVersion(
+            experiment_id=scorer_version.experiment_id,
+            scorer_id=scorer_version.scorer_id,
+            scorer_version=scorer_version.scorer_version,
+            scorer_name=scorer_version.scorer_name,
+            serialized_scorer=json.dumps(serialized_data),
+            creation_time=scorer_version.creation_time,
+        )
+
+    def _batch_resolve_endpoint_in_serialized_scorers(
+        self, serialized_scorers: list[str]
+    ) -> list[str]:
+        """
+        Batch resolve gateway endpoint IDs to names in serialized scorer strings.
+
+        Efficiently resolves endpoint IDs by fetching all endpoints once (lazily)
+        and building an ID-to-name map, rather than making individual lookups.
+
+        Args:
+            serialized_scorers: List of serialized scorer JSON strings.
+
+        Returns:
+            List of serialized scorer JSON strings with resolved endpoint names.
+        """
+        resolved = []
+        id_to_name: dict[str, str] = {}
+
+        for serialized in serialized_scorers:
+            serialized_data = json.loads(serialized)
+            model = extract_model_from_serialized_scorer(serialized_data)
+
+            if is_gateway_model(model):
+                # Lazy load endpoints on first gateway model encountered
+                if not id_to_name:
+                    all_endpoints = self.list_gateway_endpoints()
+                    id_to_name = {ep.endpoint_id: ep.name for ep in all_endpoints}
+
+                endpoint_id = extract_endpoint_ref(model)
+                endpoint_name = id_to_name.get(endpoint_id)
+                new_model = build_gateway_model(endpoint_name) if endpoint_name else None
+                serialized_data = update_model_in_serialized_scorer(serialized_data, new_model)
+
+            resolved.append(json.dumps(serialized_data))
+
+        return resolved
+
     def _cleanup_endpoint_bindings(self, session, resource_type: str, resource_id: str):
         """
         Delete all endpoint bindings for a resource.
@@ -5219,14 +5388,14 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 span_filters.append(span_subquery)
                 continue
             elif SearchTraceUtils.is_assessment(key_type, key_name, comparator):
-                # Create subquery to find traces with matching feedback
-                # Filter by feedback name and check the value
+                # Create subquery to find traces with matching assessments
+                # Filter by assessment name and check the value
                 feedback_subquery = (
                     session.query(SqlAssessments.trace_id.label("request_id"))
                     .filter(
                         SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
-                        SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                        SearchTraceUtils._get_sql_json_comparison_func(comparator, dialect)(
                             SqlAssessments.value, value
                         ),
                     )

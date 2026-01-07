@@ -90,20 +90,18 @@ uv run --extra gateway pytest tests/gateway
 (cd mlflow/server/js && yarn test)
 ```
 
-**IMPORTANT**: `uv` may fail initially because the environment has not been set up yet. Follow the instructions to set up the environment and then rerun `uv` as needed.
-
 ### Code Quality
 
 ```bash
 # Python linting and formatting with Ruff
-uv run --only-group lint ruff check . --fix         # Lint with auto-fix
-uv run --only-group lint ruff format .              # Format code
+uv run ruff check . --fix         # Lint with auto-fix
+uv run ruff format .              # Format code
 
 # Custom MLflow linting with Clint
-uv run --only-group lint clint .                    # Run MLflow custom linter
+uv run clint .                    # Run MLflow custom linter
 
 # Check for MLflow spelling typos
-uv run --only-group lint bash dev/mlflow-typo.sh .
+uv run bash dev/mlflow-typo.sh .
 
 # JavaScript linting and formatting
 (cd mlflow/server/js && yarn lint)
@@ -112,9 +110,6 @@ uv run --only-group lint bash dev/mlflow-typo.sh .
 
 # Type checking
 (cd mlflow/server/js && yarn type-check)
-
-# Run all checks
-(cd mlflow/server/js && yarn check-all)
 ```
 
 ### Special Testing
@@ -158,23 +153,15 @@ See `mlflow/server/js/` for frontend development.
 
 ### Committing Changes
 
-**IMPORTANT**: After making your commits, run pre-commit hooks on your PR changes to ensure code quality:
+**IMPORTANT**: Before committing, run pre-commit hooks to ensure code quality. See the [Pre-commit Hooks](#pre-commit-hooks) section for setup and usage details.
 
 ```bash
-# Make your commit first (with DCO sign-off)
+# Commit with DCO sign-off
 git commit -s -m "Your commit message"
 
-# Then check all files changed in your PR
-uv run --only-group lint pre-commit run --from-ref origin/master --to-ref HEAD
-
-# Re-run pre-commit to verify fixes
-uv run --only-group lint pre-commit run --from-ref origin/master --to-ref HEAD
-
-# Only push once all checks pass
+# Push your changes
 git push origin <your-branch>
 ```
-
-This workflow ensures you only check files you've actually modified in your PR, avoiding false positives from unrelated files.
 
 **IMPORTANT**: You MUST sign all commits with DCO (Developer Certificate of Origin). Always use the `-s` flag. When Claude Code authors or co-authors changes, include the Co-Authored-By trailer:
 
@@ -189,12 +176,6 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 Commits without DCO sign-off will be rejected by CI.
-
-**Frontend Changes**: If your PR touches any code in `mlflow/server/js/`, you MUST run `yarn check-all` before committing:
-
-```bash
-(cd mlflow/server/js && yarn check-all)
-```
 
 ### Creating Pull Requests
 
@@ -220,21 +201,21 @@ gh run watch
 The repository uses pre-commit for code quality. Install hooks with:
 
 ```bash
-uv run --only-group lint pre-commit install --install-hooks
-uv run --only-group lint pre-commit run install-bin -a -v
+uv run pre-commit install --install-hooks
+uv run pre-commit run install-bin -a -v
 ```
 
 Run pre-commit manually:
 
 ```bash
 # Run on all files
-uv run --only-group lint pre-commit run --all-files
+uv run pre-commit run --all-files
 
 # Run on specific files
-uv run --only-group lint pre-commit run --files path/to/file.py
+uv run pre-commit run --files path/to/file.py
 
 # Run a specific hook
-uv run --only-group lint pre-commit run ruff --all-files
+uv run pre-commit run ruff --all-files
 ```
 
 This runs Ruff, typos checker, and other tools automatically before commits.

@@ -6,6 +6,7 @@ and is exposed in the :py:mod:`mlflow.tracking` module.
 
 import contextlib
 import functools
+import io
 import json
 import logging
 import os
@@ -2811,6 +2812,43 @@ class MlflowClient:
                 else:
                     # Stringify objects that can't be JSON-serialized
                     json.dump(dictionary, f, indent=2, default=str)
+
+    @experimental(version="3.9.0")
+    def log_stream(
+        self, run_id: str, stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str
+    ) -> None:
+        """
+        Log a binary file-like object (e.g., ``io.BytesIO``) as an artifact.
+
+        Args:
+            run_id: String ID of the run.
+            stream: A binary file-like object supporting ``.read()`` method
+                (e.g., ``io.BytesIO``).
+            artifact_file: The run-relative artifact file path in posixpath format to which
+                the stream content is saved (e.g. "dir/file.bin").
+
+        .. code-block:: python
+            :caption: Example
+
+            import io
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
+
+            # Log a BytesIO stream
+            bytes_stream = io.BytesIO(b"binary content")
+            client.log_stream(run.info.run_id, bytes_stream, "binary_file.bin")
+
+        """
+        # TODO: The current implementation creates a temporary file. Consider adding
+        # a direct upload API to artifact repositories to avoid this overhead.
+        # Other log-in-memory-object APIs (e.g., log_text) can benefit from this too.
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            with open(tmp_path, "wb") as f:
+                while chunk := stream.read(8192):
+                    f.write(chunk)
 
     def log_figure(
         self,
@@ -5879,6 +5917,7 @@ class MlflowClient:
         description: str | None = None,
         tags: dict[str, str] | None = None,
         response_format: type[BaseModel] | dict[str, Any] | None = None,
+        model_config: "PromptModelConfig | dict[str, Any] | None" = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -5894,6 +5933,9 @@ class MlflowClient:
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured
                 outputs from LLM calls.
+            model_config: Optional PromptModelConfig object or dictionary defining the model
+                configuration (model name, parameters, etc.) to use when invoking this
+                prompt version.
 
         Returns:
             A PromptVersion object.
@@ -5914,7 +5956,12 @@ class MlflowClient:
         """
         registry_client = self._get_registry_client()
         return registry_client.create_prompt_version(
-            name, template, description, tags, response_format
+            name=name,
+            template=template,
+            description=description,
+            tags=tags,
+            response_format=response_format,
+            model_config=model_config,
         )
 
     @require_prompt_registry

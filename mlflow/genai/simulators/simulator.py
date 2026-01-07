@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable
 
 import pydantic
+from tqdm import tqdm
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
@@ -31,7 +32,6 @@ from mlflow.genai.simulators.prompts import (
     INITIAL_USER_PROMPT,
 )
 from mlflow.genai.utils.trace_utils import parse_outputs_to_str
-from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import trace_disabled
 from mlflow.utils.annotations import experimental
@@ -45,17 +45,24 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 _MAX_METADATA_LENGTH = 250
+_EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context"}
 
 _MODEL_API_DOC = {
-    "user_model": """User model to use for generating user messages. Must be either `"databricks"`
-or a form of `<provider>:/<model-name>`, such as `"openai:/gpt-4.1-mini"`,
-`"anthropic:/claude-3.5-sonnet-20240620"`. MLflow natively supports
-`["openai", "anthropic", "bedrock", "mistral"]`, and more providers are supported
-through `LiteLLM <https://docs.litellm.ai/docs/providers>`_.
+    "model": """Model to use for generating user messages. Must be one of:
+
+* `"databricks"` - Uses the Databricks managed LLM endpoint
+* `"databricks:/<endpoint-name>"` - Uses a Databricks model serving endpoint \
+(e.g., `"databricks:/databricks-claude-sonnet-4-5"`)
+* `"<provider>:/<model-name>"` - Uses LiteLLM (e.g., `"openai:/gpt-4.1-mini"`, \
+`"anthropic:/claude-3.5-sonnet-20240620"`)
+
+MLflow natively supports `["openai", "anthropic", "bedrock", "mistral"]`, and more \
+providers are supported through `LiteLLM <https://docs.litellm.ai/docs/providers>`_.
+
 Default model depends on the tracking URI setup:
 
-* Databricks: `databricks`
-* Otherwise: `openai:/gpt-4.1-mini`.
+* Databricks: `"databricks"`
+* Otherwise: `"openai:/gpt-4.1-mini"`
 """,
 }
 
@@ -99,6 +106,8 @@ def _invoke_model(
     inference_params: dict[str, Any] | None = None,
 ) -> str:
     import litellm
+
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     # Use Databricks managed endpoint with agentic model for the default "databricks" URI
     if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
@@ -158,7 +167,7 @@ def _get_last_response(conversation_history: list[dict[str, Any]]) -> str | None
     if result and result.strip():
         return result
 
-    return _format_history(conversation_history)
+    return str(last_msg)
 
 
 def _format_history(history: list[dict[str, Any]]) -> str | None:
@@ -172,6 +181,7 @@ def _format_history(history: list[dict[str, Any]]) -> str | None:
     return "\n".join(formatted)
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.9.0")
 class SimulatedUserAgent:
     """
@@ -184,8 +194,7 @@ class SimulatedUserAgent:
         goal: The objective the simulated user is trying to achieve in the conversation.
         persona: Description of the user's personality and background. If None, uses a
             default helpful user persona.
-        model: Model URI for generating messages (e.g., "openai:/gpt-4o-mini").
-            If None, uses the default model.
+        model: {{ model }}
         **inference_params: Additional parameters passed to the LLM (e.g., temperature).
     """
 
@@ -248,14 +257,14 @@ class ConversationSimulator:
     - It should return a response (the assistant's message content will be extracted)
 
     Args:
-        test_cases: List of test case dictionaries or DataFrame. Each test case must have a
-            "goal" field describing what the simulated user wants to achieve. Optional fields:
+        test_cases: List of test case dictionaries or DataFrame with the following fields:
 
-            - "persona": Custom persona for the simulated user
-            - "context": Dict of additional kwargs to pass to predict_fn
+            - "goal": Describing what the simulated user wants to achieve.
+            - "persona" (optional): Custom persona for the simulated user.
+            - "context" (optional): Dict of additional kwargs to pass to predict_fn.
 
         max_turns: Maximum number of conversation turns before stopping. Default is 10.
-        user_model: {{ user_model }}
+        user_model: {{ model }}
         **user_llm_params: Additional parameters passed to the simulated user's LLM calls.
 
     Example:
@@ -267,7 +276,6 @@ class ConversationSimulator:
 
 
             def predict_fn(input: list[dict], **kwargs) -> dict:
-                # input is the conversation history
                 response = client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=input,
@@ -283,7 +291,6 @@ class ConversationSimulator:
                 max_turns=5,
             )
 
-            # Use with mlflow.genai.evaluate
             mlflow.genai.evaluate(
                 data=simulator,
                 predict_fn=predict_fn,
@@ -323,9 +330,20 @@ class ConversationSimulator:
         if missing_goal_indices:
             raise ValueError(f"Test cases at indices {missing_goal_indices} must have 'goal' field")
 
+        indices_with_extra_keys = [
+            i
+            for i, test_case in enumerate(self.test_cases)
+            if set(test_case.keys()) - _EXPECTED_TEST_CASE_KEYS
+        ]
+        if indices_with_extra_keys:
+            _logger.warning(
+                f"Test cases at indices {indices_with_extra_keys} contain unexpected keys "
+                f"which will be ignored. Expected keys: {_EXPECTED_TEST_CASE_KEYS}."
+            )
+
     def _simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list[str]]:
         num_test_cases = len(self.test_cases)
-        all_trace_ids: list[list[str] | None] = [None] * num_test_cases
+        all_trace_ids: list[list[str]] = [[] for _ in range(num_test_cases)]
         max_workers = min(num_test_cases, MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
 
         with (
@@ -340,19 +358,21 @@ class ConversationSimulator:
                 for i, test_case in enumerate(self.test_cases)
             }
 
-            for future in as_completed(futures):
-                idx = futures[future]
-                test_case = self.test_cases[idx]
-                try:
-                    trace_ids = future.result()
-                    all_trace_ids[idx] = trace_ids
-                except Exception as e:
-                    _logger.error(
-                        f"Failed to run conversation for test case {test_case.get('goal')}: {e}"
-                    )
-                    all_trace_ids[idx] = []
+            with tqdm(
+                total=num_test_cases, desc="Simulating conversations", unit="conversation"
+            ) as pbar:
+                for future in as_completed(futures):
+                    idx = futures[future]
+                    test_case = self.test_cases[idx]
+                    try:
+                        all_trace_ids[idx] = future.result()
+                    except Exception as e:
+                        _logger.error(
+                            f"Failed to run conversation for test case {test_case.get('goal')}: {e}"
+                        )
+                    pbar.update(1)
 
-        return [ids for ids in all_trace_ids if ids is not None]
+        return all_trace_ids
 
     def _run_conversation(
         self, test_case: dict[str, Any], predict_fn: Callable[..., dict[str, Any]]
@@ -399,7 +419,7 @@ class ConversationSimulator:
                     _logger.debug(f"Stopping conversation: empty response at turn {turn}")
                     break
                 conversation_history.append({"role": "assistant", "content": assistant_content})
-                if self._check_goal_achieved(assistant_content, goal):
+                if self._check_goal_achieved(conversation_history, assistant_content, goal):
                     _logger.debug(f"Stopping conversation: goal achieved at turn {turn}")
                     break
 
@@ -421,13 +441,13 @@ class ConversationSimulator:
     ) -> tuple[dict[str, Any], str | None]:
         # NB: We trace the predict_fn call to add session and simulation metadata to the trace.
         #     This adds a new root span to the trace, with the same inputs and outputs as the
-        #     predict_fn call.
-        @mlflow.trace(name=f"simulation_turn_{turn}")
+        #     predict_fn call. The goal/persona/turn metadata is used for trace comparison UI
+        #     since message content may differ between simulation runs.
+        @mlflow.trace(name=f"simulation_turn_{turn}", span_type="CHAIN")
         def traced_predict(input: list[dict[str, Any]], **context):
             mlflow.update_current_trace(
                 metadata={
                     TraceMetadataKey.TRACE_SESSION: trace_session_id,
-                    "mlflow.simulation.synthetic": "true",
                     "mlflow.simulation.goal": goal[:_MAX_METADATA_LENGTH],
                     "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[
                         :_MAX_METADATA_LENGTH
@@ -440,10 +460,20 @@ class ConversationSimulator:
         response = traced_predict(input=input_messages, **context)
         return response, mlflow.get_last_active_trace_id(thread_local=True)
 
-    def _check_goal_achieved(self, last_response: str, goal: str) -> bool:
+    def _check_goal_achieved(
+        self,
+        conversation_history: list[dict[str, Any]],
+        last_response: str,
+        goal: str,
+    ) -> bool:
         from mlflow.types.llm import ChatMessage
 
-        eval_prompt = CHECK_GOAL_PROMPT.format(goal=goal, last_response=last_response)
+        history_str = _format_history(conversation_history)
+        eval_prompt = CHECK_GOAL_PROMPT.format(
+            goal=goal,
+            conversation_history=history_str if history_str is not None else "",
+            last_response=last_response,
+        )
         messages = [ChatMessage(role="user", content=eval_prompt)]
 
         try:

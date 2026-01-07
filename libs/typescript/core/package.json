@@ -1,6 +1,6 @@
 {
   "name": "mlflow-tracing",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "TypeScript implementation of MLflow Tracing SDK for LLM observability",
   "repository": {
     "type": "git",

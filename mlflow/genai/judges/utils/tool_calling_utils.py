@@ -4,13 +4,37 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, is_dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
 if TYPE_CHECKING:
     import litellm
 
     from mlflow.entities.trace import Trace
     from mlflow.types.llm import ToolCall
+
+from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import REQUEST_LIMIT_EXCEEDED
+
+
+def _raise_iteration_limit_exceeded(max_iterations: int) -> NoReturn:
+    """Raise an exception when the agentic loop iteration limit is exceeded.
+
+    Args:
+        max_iterations: The maximum number of iterations that was exceeded.
+
+    Raises:
+        MlflowException: Always raises with REQUEST_LIMIT_EXCEEDED error code.
+    """
+    raise MlflowException(
+        f"Completion iteration limit of {max_iterations} exceeded. "
+        f"This usually indicates the model is not powerful enough to effectively "
+        f"analyze the trace. Consider using a more intelligent/powerful model. "
+        f"In rare cases, for very complex traces where a large number of completion "
+        f"iterations might be required, you can increase the number of iterations by "
+        f"modifying the {MLFLOW_JUDGE_MAX_ITERATIONS.name} environment variable.",
+        error_code=REQUEST_LIMIT_EXCEEDED,
+    )
 
 
 def _process_tool_calls(

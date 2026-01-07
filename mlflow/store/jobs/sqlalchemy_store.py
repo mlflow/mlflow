@@ -92,14 +92,21 @@ class SqlAlchemyJobStore(AbstractJobStore):
             session.flush()
             return job.to_mlflow_entity()
 
-    def _update_job(self, job_id: str, new_status: JobStatus, result: str | None = None) -> None:
+    def _update_job(self, job_id: str, new_status: JobStatus, result: str | None = None) -> Job:
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
+
+            if JobStatus.is_finalized(job.status):
+                raise MlflowException(
+                    f"The Job {job_id} is already finalized with status: {job.status}, "
+                    "it can't be updated."
+                )
 
             job.status = new_status.to_int()
             if result is not None:
                 job.result = result
             job.last_update_time = get_current_time_millis()
+            return job.to_mlflow_entity()
 
     def start_job(self, job_id: str) -> None:
         """
@@ -315,3 +322,69 @@ class SqlAlchemyJobStore(AbstractJobStore):
                     f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
                 )
             return job.to_mlflow_entity()
+
+    def delete_jobs(self, older_than: int = 0, job_ids: list[str] | None = None) -> list[str]:
+        """
+        Delete finalized jobs based on the provided filters. Used by ``mlflow gc``.
+
+        Only jobs with finalized status (SUCCEEDED, FAILED, TIMEOUT, CANCELED) are
+        eligible for deletion.
+
+        Behavior:
+            - No filters: Deletes all finalized jobs.
+            - Only ``older_than``: Deletes finalized jobs older than the threshold.
+            - Only ``job_ids``: Deletes only the specified finalized jobs.
+            - Both filters: Deletes finalized jobs matching both conditions.
+
+        Args:
+            older_than: Time threshold in milliseconds. Jobs with creation_time
+                older than (current_time - older_than) are eligible for deletion.
+                A value of 0 disables this filter.
+            job_ids: List of specific job IDs to delete. If None, all finalized jobs
+                (subject to older_than filter) are eligible for deletion.
+
+        Returns:
+            List of job IDs that were deleted.
+        """
+        current_time = get_current_time_millis()
+        time_threshold = current_time - older_than
+
+        finalized_statuses = [
+            JobStatus.SUCCEEDED.to_int(),
+            JobStatus.FAILED.to_int(),
+            JobStatus.TIMEOUT.to_int(),
+            JobStatus.CANCELED.to_int(),
+        ]
+
+        with self.ManagedSessionMaker() as session:
+            query = session.query(SqlJob).filter(SqlJob.status.in_(finalized_statuses))
+
+            if job_ids:
+                query = query.filter(SqlJob.id.in_(job_ids))
+
+            if older_than > 0:
+                query = query.filter(SqlJob.creation_time < time_threshold)
+
+            ids_to_delete = [job.id for job in query.all()]
+
+            if ids_to_delete:
+                session.query(SqlJob).filter(SqlJob.id.in_(ids_to_delete)).delete(
+                    synchronize_session=False
+                )
+
+            return ids_to_delete
+
+    def cancel_job(self, job_id: str) -> Job:
+        """
+        Cancel a job by its ID.
+
+        Args:
+            job_id: The ID of the job to cancel
+
+        Returns:
+            Job entity
+
+        Raises:
+            MlflowException: If job with the given ID is not found
+        """
+        return self._update_job(job_id, JobStatus.CANCELED)

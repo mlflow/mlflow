@@ -30,6 +30,7 @@ from mlflow.exceptions import MlflowException, RestException
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature, Schema
 from mlflow.prompt.constants import (
+    PROMPT_MODEL_CONFIG_TAG_KEY,
     PROMPT_TYPE_CHAT,
     PROMPT_TYPE_TAG_KEY,
     PROMPT_TYPE_TEXT,
@@ -2666,6 +2667,65 @@ def test_create_prompt_version_with_multi_turn_template_uc(mock_http, store, mon
     assert tags_in_request["type"] == "conversation"
     assert tags_in_request["env"] == "test"
     assert tags_in_request[PROMPT_TYPE_TAG_KEY] == PROMPT_TYPE_CHAT
+
+
+@mock_http_200
+def test_create_prompt_version_with_model_config_uc(mock_http, store, monkeypatch):
+    name = "prompt1"
+    template = "Generate a response for {query}"
+    description = "A prompt with model config"
+    tags = {"env": "test"}
+    model_config = {
+        "model_name": "databricks-meta-llama-3-1-70b-instruct",
+        "max_tokens": 100,
+        "temperature": 0.7,
+    }
+
+    # Patch proto_to_mlflow_prompt to return a dummy PromptVersion
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.proto_to_mlflow_prompt",
+        return_value=PromptVersion(
+            name=name,
+            version=1,
+            template=template,
+            commit_message=description,
+            tags=tags,
+            model_config=model_config,
+        ),
+    ) as proto_to_prompt:
+        store.create_prompt_version(
+            name=name,
+            template=template,
+            description=description,
+            tags=tags,
+            model_config=model_config,
+        )
+
+    # Verify the correct endpoint is called
+    assert any(
+        "/prompts/" in c[1]["endpoint"] and "/versions" in c[1]["endpoint"]
+        for c in mock_http.call_args_list
+    )
+    proto_to_prompt.assert_called()
+
+    # Verify the HTTP request body contains the model_config in tags
+    http_call_args = [
+        c
+        for c in mock_http.call_args_list
+        if "/prompts/" in c[1]["endpoint"] and "/versions" in c[1]["endpoint"]
+    ]
+    assert len(http_call_args) == 1
+
+    request_body = http_call_args[0][1]["json"]
+    prompt_version = request_body["prompt_version"]
+
+    tags_in_request = {tag["key"]: tag["value"] for tag in prompt_version.get("tags", [])}
+    assert PROMPT_MODEL_CONFIG_TAG_KEY in tags_in_request
+
+    expected_model_config = json.dumps(model_config)
+    assert tags_in_request[PROMPT_MODEL_CONFIG_TAG_KEY] == expected_model_config
+    assert tags_in_request["env"] == "test"
+    assert tags_in_request[PROMPT_TYPE_TAG_KEY] == PROMPT_TYPE_TEXT
 
 
 @mock_http_200

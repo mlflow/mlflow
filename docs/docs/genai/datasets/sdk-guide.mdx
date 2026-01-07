@@ -12,6 +12,8 @@ import { Activity, Users, Code, FileText, HelpCircle, Rocket, BarChart3, Target 
 
 Complete API reference for creating, managing, and querying evaluation datasets programmatically.
 
+For general information and examples of how to use evaluation datasets, see the section on [running evaluations](/genai/eval-monitor/running-evaluation/agents/).
+
 :::warning[SQL Backend Required]
 Evaluation Datasets require an MLflow Tracking Server with a **[SQL backend](/self-hosting/architecture/backend-store/#types-of-backend-stores)** (PostgreSQL, MySQL, SQLite, or MSSQL).
 This feature is **not available** with FileStore (local file system-based tracking).
@@ -147,6 +149,83 @@ dataset.merge_records(df)
   </Tabs>
 </TabsWrapper>
 
+## Evaluation dataset schema
+
+Evaluation datasets must use the schema described in this section.
+
+### Core fields
+
+The following fields are used in both the evaluation dataset abstraction or if you pass data directly.
+
+| Column         | Data Type        | Description                                                                              | Required |
+| -------------- | ---------------- | ---------------------------------------------------------------------------------------- | -------- |
+| `inputs`       | `dict[Any, Any]` | Inputs for your app (e.g., user question, context), stored as a JSON-seralizable `dict`. | Yes      |
+| `expectations` | `dict[Str, Any]` | Ground truth labels, stored as a JSON-seralizable `dict`.                                | Optional |
+
+#### `expectations` reserved keys
+
+`expectations` has several reserved keys that are used by built-in LLM judges: `guidelines`, `expected_facts`, and `expected_response`.
+
+| Field                        | Used by                  | Description                        |
+| ---------------------------- | ------------------------ | ---------------------------------- |
+| `expected_facts`             | `Correctness` judge      | List of facts that should appear   |
+| `expected_response`          | `Correctness` judge      | Exact or similar expected output   |
+| `guidelines`                 | `Guidelines` judge       | Natural language rules to follow   |
+| `expected_retrieved_context` | `document_recall` scorer | Documents that should be retrieved |
+
+### Additional fields
+
+The following fields are used by the evaluation dataset abstraction to track lineage and version history.
+
+| Column              | Data Type      | Description                                                          | Required                                      |
+| ------------------- | -------------- | -------------------------------------------------------------------- | --------------------------------------------- |
+| `dataset_record_id` | string         | The unique identifier for the record.                                | Automatically set if not provided.            |
+| `create_time`       | timestamp      | The time when the record was created.                                | Automatically set when inserting or updating. |
+| `created_by`        | string         | The user who created the record.                                     | Automatically set when inserting or updating. |
+| `last_update_time`  | timestamp      | The time when the record was last updated.                           | Automatically set when inserting or updating. |
+| `last_updated_by`   | string         | The user who last updated the record.                                | Automatically set when inserting or updating. |
+| `source`            | struct         | The source of the dataset record. See [Source field](#source-field). | Optional                                      |
+| `tags`              | dict[str, Any] | Key-value tags for the dataset record.                               | Optional                                      |
+
+#### Source field
+
+The `source` field tracks where a dataset record came from. Each record can have **only one** source type.
+
+**Human source**: Record created manually by a person
+
+```python
+{
+    "source": {
+        "human": {"user_name": "jane.doe@company.com"}  # user who created the record
+    }
+}
+```
+
+**Document source**: Record synthesized from a document
+
+```python
+{
+    "source": {
+        "document": {
+            "doc_uri": "s3://bucket/docs/product-manual.pdf",  # URI or path to the source document
+            "content": "The first 500 chars of the document...",  # Optional, excerpt or full content from the document
+        }
+    }
+}
+```
+
+**Trace source**: Record created from a production trace
+
+```python
+{
+    "source": {
+        "trace": {
+            "trace_id": "tr-abc123def456",  # unique identifier of the source trace
+        }
+    }
+}
+```
+
 ## Updating Existing Records
 
 The <APILink fn="mlflow.entities.EvaluationDataset.merge_records" text="merge_records()" /> method intelligently handles updates. **Records are matched based on a hash of their inputs** - if a record with identical inputs already exists, its expectations and tags are merged rather than creating a duplicate:
@@ -275,14 +354,25 @@ all_records = dataset.records
 df = dataset.to_df()
 print(df.head())
 
-# View dataset schema (auto-computed from records)
+# Serialize to a dictionary (e.g., for JSON export)
+dataset_dict = dataset.to_dict()
+
+# View dataset schema (inferred from the records)
 print(dataset.schema)
 
 # View dataset profile (statistics)
 print(dataset.profile)
 
 # Get record count
-print(f"Total records: {len(dataset.records)}")
+print(f"Total number of records: {len(dataset.records)}")
+```
+
+To recreate a dataset from a serialized dictionary:
+
+```python
+from mlflow.genai.datasets import EvaluationDataset
+
+dataset = EvaluationDataset.from_dict(dataset_dict)
 ```
 
 ---

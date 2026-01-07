@@ -8,6 +8,8 @@ Start a conversation about this topic. The way you start the conversation should
 a realistic user as possible. Don't ask about your goal directly - instead start with a broader
 question and let the conversation develop naturally."""
 
+# NB: We embed history into the prompt instead of passing a message list directly to reduce
+#     noise, since the prompt only cares about message content and sender role.
 FOLLOWUP_USER_PROMPT = """{persona}
 
 Your goal: {goal}
@@ -22,6 +24,9 @@ realistic user."""
 
 CHECK_GOAL_PROMPT = """A user has the following goal: {goal}
 
+Conversation so far:
+{conversation_history}
+
 The assistant just responded with: {last_response}
 
 Has the user's goal been FULLY and COMPLETELY achieved? The goal should only be considered \
@@ -35,3 +40,4 @@ You must output your response as a valid JSON object with the following format:
   Start each rationale with `Let's think step by step`",
   "result": "yes|no"
 }}"""
+# NB: We include "rationale" to invoke chain-of-thought reasoning for better results.
