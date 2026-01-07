@@ -268,13 +268,13 @@ def save_model(
                 "environment variable 'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true' "
                 "to allow unsafe deserialization."
             )
-        warnings.warn(
-            "Saving sklearn model by unsafe pickler is deprecated, and will be disabled "
-            "by default in future MLflow versions. Saving sklearn model as the 'skops' "
-            "format is the recommended way.",
-            FutureWarning,
-            stacklevel=2,
-        )
+warnings.warn(
+    "Saving scikit-learn models using an unsafe serialization method is deprecated and "
+    "will no longer be supported by default in future MLflow versions. The recommended "
+    "alternative is the 'skops' format.",
+    FutureWarning,
+    stacklevel=2,
+)
 
     _validate_and_prepare_target_save_path(path)
     code_path_subdir = _validate_and_copy_code_paths(code_paths, path)
