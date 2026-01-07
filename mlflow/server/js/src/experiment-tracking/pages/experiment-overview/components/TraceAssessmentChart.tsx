@@ -52,7 +52,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer data-testid={`assessment-chart-${assessmentName}`}>
       <OverviewChartHeader
         icon={<CheckCircleIcon css={{ color: chartLineColor }} />}
         title={assessmentName}

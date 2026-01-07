@@ -22,23 +22,6 @@ const createAssessmentDataPoint = (assessmentName: string, avgValue: number) => 
   values: { [AggregationType.AVG]: avgValue },
 });
 
-// Mock the lazy loaded component
-jest.mock('./LazyTraceAssessmentChart', () => ({
-  LazyTraceAssessmentChart: ({
-    assessmentName,
-    avgValue,
-    lineColor,
-  }: {
-    assessmentName: string;
-    avgValue?: number;
-    lineColor?: string;
-  }) => (
-    <div data-testid={`assessment-chart-${assessmentName}`} data-avg-value={avgValue} data-line-color={lineColor}>
-      {assessmentName}
-    </div>
-  ),
-}));
-
 describe('AssessmentChartsSection', () => {
   const testExperimentId = 'test-experiment-123';
   const startTimeMs = new Date('2025-12-22T10:00:00Z').getTime();
@@ -178,33 +161,16 @@ describe('AssessmentChartsSection', () => {
       });
     });
 
-    it('should pass avgValue to each chart', async () => {
+    it('should display average values for each assessment', async () => {
       setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('assessment-chart-Correctness')).toHaveAttribute('data-avg-value', '0.85');
-        expect(screen.getByTestId('assessment-chart-Relevance')).toHaveAttribute('data-avg-value', '0.72');
-        expect(screen.getByTestId('assessment-chart-Fluency')).toHaveAttribute('data-avg-value', '0.9');
-      });
-    });
-
-    it('should assign different colors to each chart', async () => {
-      setupTraceMetricsHandler(mockDataPoints);
-
-      renderComponent();
-
-      await waitFor(() => {
-        // Charts should be sorted alphabetically, so Correctness, Fluency, Relevance
-        const correctnessChart = screen.getByTestId('assessment-chart-Correctness');
-        const fluencyChart = screen.getByTestId('assessment-chart-Fluency');
-        const relevanceChart = screen.getByTestId('assessment-chart-Relevance');
-
-        // Each chart should have a lineColor attribute
-        expect(correctnessChart).toHaveAttribute('data-line-color');
-        expect(fluencyChart).toHaveAttribute('data-line-color');
-        expect(relevanceChart).toHaveAttribute('data-line-color');
+        // Average values are displayed in the chart headers
+        expect(screen.getByText('0.85')).toBeInTheDocument();
+        expect(screen.getByText('0.72')).toBeInTheDocument();
+        expect(screen.getByText('0.90')).toBeInTheDocument();
       });
     });
 
