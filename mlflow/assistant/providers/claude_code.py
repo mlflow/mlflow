@@ -54,6 +54,10 @@ class ClaudeCodeProvider(AssistantProvider):
     def config_path(self) -> Path:
         return MLFLOW_ASSISTANT_HOME / "claude-config.json"
 
+    @property
+    def skill_path(self) -> Path:
+        return Path.home() / ".claude" / "skills"
+
     def is_available(self) -> bool:
         return shutil.which("claude") is not None
 
@@ -99,6 +103,31 @@ class ClaudeCodeProvider(AssistantProvider):
             echo(f"Version: {version}")
         except (subprocess.TimeoutExpired, subprocess.SubprocessError):
             echo("(Could not determine version)")
+
+    def install_skills(self, skills: list[str]) -> list[str]:
+        """Install MLflow-specific Claude skills."""
+        # Get the skills directory from this package
+        print(Path(__file__).parent.parent)
+        skills_source = Path(__file__).parent.parent / "skills"
+        skills_dest = Path.home() / ".claude" / "skills"
+
+        if not skills_source.exists():
+            raise RuntimeError("Skills directory not found")
+
+        # Create destination directory
+        skills_dest.mkdir(parents=True, exist_ok=True)
+
+        # Find all skill directories in the skills directory
+        skill_dirs = list(skills_source.glob("*"))
+        if not skill_dirs:
+            raise RuntimeError("No skills to install")
+
+        installed_skills = []
+        for skill_dir in skill_dirs:
+            shutil.copytree(skill_dir, skills_dest / skill_dir.name, dirs_exist_ok=True)
+            installed_skills.append(skill_dir.name)
+
+        return installed_skills
 
     async def astream(
         self,

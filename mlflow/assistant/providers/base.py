@@ -64,6 +64,15 @@ class AssistantProvider(ABC):
             RuntimeError: If the provider is not accessible.
         """
 
+
+    @abstractmethod
+    def install_skills(self) -> list[str]:
+        """Install provider-specific skills.
+
+        Returns:
+            List of installed skill names.
+        """
+
     @abstractmethod
     def astream(
         self,
