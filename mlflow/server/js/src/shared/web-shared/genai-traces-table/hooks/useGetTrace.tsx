@@ -55,6 +55,11 @@ export function useGetTrace(
     // before child spans arrive at the backend.
     const traceInfo = data && isV3ModelTraceInfo(data.info) ? data.info : undefined;
 
+    // ERROR state indicates that the trace is likely finished, so stop polling
+    if (traceInfo?.state === 'ERROR') {
+      return false;
+    }
+
     if (!traceInfo || traceInfo.state === 'IN_PROGRESS') return 1000;
 
     const traceStats = traceInfo.trace_metadata?.['mlflow.trace.sizeStats'];
