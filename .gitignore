@@ -136,5 +136,4 @@ gunicorn.conf.py
 !.claude/commands/
 !.claude/skills/
 !.claude/hooks/
-!.claude/agents/
 !.claude/settings.json
