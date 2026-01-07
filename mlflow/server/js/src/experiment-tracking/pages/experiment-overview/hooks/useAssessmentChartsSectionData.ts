@@ -59,8 +59,9 @@ export function useAssessmentChartsSectionData({
 
     for (const dp of data.data_points) {
       const name = dp.dimensions?.[AssessmentDimensionKey.ASSESSMENT_NAME];
-      if (name && dp.values?.[AggregationType.AVG] !== undefined) {
-        avgValues.set(name, dp.values?.[AggregationType.AVG]!);
+      const avgValue = dp.values?.[AggregationType.AVG];
+      if (name && avgValue !== undefined) {
+        avgValues.set(name, avgValue);
       }
     }
 
