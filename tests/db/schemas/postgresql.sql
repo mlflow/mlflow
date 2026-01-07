@@ -449,7 +449,7 @@ CREATE TABLE online_scoring_configs (
 	filter_string TEXT,
 	CONSTRAINT online_scoring_config_pk PRIMARY KEY (online_scoring_config_id),
 	CONSTRAINT fk_online_scoring_configs_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE,
-	CONSTRAINT fk_online_scoring_configs_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+	CONSTRAINT fk_online_scoring_configs_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
 
 
