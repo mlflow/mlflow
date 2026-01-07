@@ -10,7 +10,7 @@ import tempfile
 import time
 import urllib
 from functools import partial, wraps
-from typing import Any
+from typing import Any, Callable
 
 import requests
 from cachetools import TTLCache
@@ -722,7 +722,7 @@ def _get_normalized_request_json(flask_request=request) -> dict[str, Any]:
 
 def _validate_request_json_with_schema(
     request_json: dict[str, Any],
-    schema: dict[str, list[Any]] | None,
+    schema: dict[str, list[Callable[..., Any]]] | None,
     proto_parsing_succeeded: bool | None,
 ) -> None:
     """
@@ -792,7 +792,9 @@ def _get_request_message(request_message, flask_request=request, schema=None):
     return request_message
 
 
-def _get_validated_flask_request_json(flask_request=request, schema=None):
+def _get_validated_flask_request_json(
+    flask_request=request, schema: dict[str, list[Callable[..., Any]]] | None = None
+) -> dict[str, Any]:
     """
     Get and validate request data without protobuf parsing.
 
