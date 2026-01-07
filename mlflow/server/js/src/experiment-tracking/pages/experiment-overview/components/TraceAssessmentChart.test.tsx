@@ -9,49 +9,24 @@ import {
   AggregationType,
   AssessmentMetricKey,
   AssessmentFilterKey,
+  AssessmentDimensionKey,
 } from '@databricks/web-shared/model-trace-explorer';
+import { setupServer } from '../../../../common/utils/setup-msw';
+import { rest } from 'msw';
 
-// Mock FetchUtils
-jest.mock('../../../../common/utils/FetchUtils', () => ({
-  fetchOrFail: jest.fn(),
-  getAjaxUrl: (url: string) => url,
-}));
-
-import { fetchOrFail } from '../../../../common/utils/FetchUtils';
-const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
-
-// Helper to create mock API response
-const mockApiResponse = (dataPoints: any[] | undefined) => {
-  mockFetchOrFail.mockResolvedValue({
-    json: () => Promise.resolve({ data_points: dataPoints }),
-  } as Response);
-};
-
-// Helper to create an assessment value data point
+// Helper to create an assessment value data point (for time series)
 const createAssessmentDataPoint = (timeBucket: string, avgValue: number) => ({
   metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
   dimensions: { time_bucket: timeBucket },
   values: { [AggregationType.AVG]: avgValue },
 });
 
-// Mock recharts components to avoid rendering issues in tests
-jest.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="responsive-container">{children}</div>
-  ),
-  LineChart: ({ children, data }: { children: React.ReactNode; data: any[] }) => (
-    <div data-testid="line-chart" data-count={data?.length || 0}>
-      {children}
-    </div>
-  ),
-  Line: ({ dataKey }: { dataKey: string }) => <div data-testid={`line-${dataKey}`} />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-  ReferenceLine: ({ label }: { label?: { value: string } }) => (
-    <div data-testid="reference-line" data-label={label?.value} />
-  ),
-}));
+// Helper to create a distribution data point (for bar chart)
+const createDistributionDataPoint = (assessmentValue: string, count: number) => ({
+  metric_name: AssessmentMetricKey.ASSESSMENT_COUNT,
+  dimensions: { [AssessmentDimensionKey.ASSESSMENT_VALUE]: assessmentValue },
+  values: { [AggregationType.COUNT]: count },
+});
 
 describe('TraceAssessmentChart', () => {
   const testExperimentId = 'test-experiment-123';
@@ -78,6 +53,8 @@ describe('TraceAssessmentChart', () => {
     assessmentName: testAssessmentName,
   };
 
+  const server = setupServer();
+
   const createQueryClient = () =>
     new QueryClient({
       defaultOptions: {
@@ -98,14 +75,41 @@ describe('TraceAssessmentChart', () => {
     );
   };
 
+  // Helper to setup MSW handler for the trace metrics endpoint
+  const setupTraceMetricsHandler = (dataPoints: any[]) => {
+    server.use(
+      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        return res(ctx.json({ data_points: dataPoints }));
+      }),
+    );
+  };
+
+  // Helper to setup MSW handler that returns different responses based on metric_name
+  const setupTraceMetricsHandlerWithDistribution = (timeSeriesData: any[], distributionData: any[]) => {
+    server.use(
+      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        const body = await req.json();
+        if (body.metric_name === AssessmentMetricKey.ASSESSMENT_COUNT) {
+          return res(ctx.json({ data_points: distributionData }));
+        }
+        return res(ctx.json({ data_points: timeSeriesData }));
+      }),
+    );
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockApiResponse([]);
+    // Default: return empty data points
+    setupTraceMetricsHandler([]);
   });
 
   describe('loading state', () => {
     it('should render loading spinner while data is being fetched', async () => {
-      mockFetchOrFail.mockReturnValue(new Promise(() => {}));
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.delay('infinite'));
+        }),
+      );
 
       renderComponent();
 
@@ -115,7 +119,11 @@ describe('TraceAssessmentChart', () => {
 
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
-      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
+        }),
+      );
 
       renderComponent();
 
@@ -127,7 +135,7 @@ describe('TraceAssessmentChart', () => {
 
   describe('empty data state', () => {
     it('should render empty state when no data points are returned', async () => {
-      mockApiResponse([]);
+      setupTraceMetricsHandler([]);
 
       renderComponent();
 
@@ -144,7 +152,7 @@ describe('TraceAssessmentChart', () => {
     ];
 
     it('should render chart with all time buckets', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -157,7 +165,7 @@ describe('TraceAssessmentChart', () => {
     });
 
     it('should display the assessment name as title', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -166,18 +174,19 @@ describe('TraceAssessmentChart', () => {
       });
     });
 
-    it('should display "Over time" label', async () => {
-      mockApiResponse(mockDataPoints);
+    it('should display chart section labels', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText('Over time')).toBeInTheDocument();
+        expect(screen.getByText('Total aggregate scores')).toBeInTheDocument();
+        expect(screen.getByText('Moving average over time')).toBeInTheDocument();
       });
     });
 
     it('should display average value when provided via prop', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent({ avgValue: 0.78 });
 
@@ -188,7 +197,7 @@ describe('TraceAssessmentChart', () => {
     });
 
     it('should render reference line when avgValue is provided', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent({ avgValue: 0.78 });
 
@@ -200,7 +209,7 @@ describe('TraceAssessmentChart', () => {
     });
 
     it('should NOT render reference line when avgValue is not provided', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -213,7 +222,7 @@ describe('TraceAssessmentChart', () => {
 
     it('should fill missing time buckets with zeros', async () => {
       // Only provide data for one time bucket
-      mockApiResponse([createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)]);
+      setupTraceMetricsHandler([createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)]);
 
       renderComponent();
 
@@ -225,12 +234,24 @@ describe('TraceAssessmentChart', () => {
   });
 
   describe('API call parameters', () => {
-    it('should call fetchOrFail with correct parameters', async () => {
+    it('should call API with correct parameters for time series', async () => {
+      let capturedTimeSeriesRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          // Only capture the time series request (ASSESSMENT_VALUE metric)
+          if (body.metric_name === AssessmentMetricKey.ASSESSMENT_VALUE) {
+            capturedTimeSeriesRequest = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent();
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody).toMatchObject({
+        expect(capturedTimeSeriesRequest).toMatchObject({
           experiment_ids: [testExperimentId],
           view_type: MetricViewType.ASSESSMENTS,
           metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
@@ -241,18 +262,30 @@ describe('TraceAssessmentChart', () => {
     });
 
     it('should use provided time interval', async () => {
+      let capturedTimeSeriesRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          // Only capture the time series request (has time_interval_seconds)
+          if (body.time_interval_seconds !== undefined) {
+            capturedTimeSeriesRequest = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent({ timeIntervalSeconds: 60 });
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.time_interval_seconds).toBe(60);
+        expect(capturedTimeSeriesRequest?.time_interval_seconds).toBe(60);
       });
     });
   });
 
   describe('custom props', () => {
     it('should accept custom lineColor', async () => {
-      mockApiResponse([createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)]);
+      setupTraceMetricsHandler([createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)]);
 
       renderComponent({ lineColor: '#FF0000' });
 
@@ -262,12 +295,151 @@ describe('TraceAssessmentChart', () => {
     });
 
     it('should render with different assessment names', async () => {
-      mockApiResponse([createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.9)]);
+      setupTraceMetricsHandler([createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.9)]);
 
       renderComponent({ assessmentName: 'Relevance' });
 
       await waitFor(() => {
         expect(screen.getByText('Relevance')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('distribution chart - bucketing behavior', () => {
+    it('should NOT bucket integer values with 5 or fewer unique values', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 3.0)];
+      const distributionData = [
+        createDistributionDataPoint('1', 5),
+        createDistributionDataPoint('2', 10),
+        createDistributionDataPoint('3', 15),
+        createDistributionDataPoint('4', 8),
+        createDistributionDataPoint('5', 3),
+      ];
+
+      setupTraceMetricsHandlerWithDistribution(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        const barChart = screen.getByTestId('bar-chart');
+        expect(barChart).toBeInTheDocument();
+        // Should show individual values, not bucketed
+        expect(barChart).toHaveAttribute('data-count', '5');
+        expect(barChart).toHaveAttribute('data-labels', '1,2,3,4,5');
+      });
+    });
+
+    it('should bucket integer values with more than 5 unique values', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 5.0)];
+      const distributionData = [
+        createDistributionDataPoint('1', 5),
+        createDistributionDataPoint('2', 10),
+        createDistributionDataPoint('3', 15),
+        createDistributionDataPoint('4', 8),
+        createDistributionDataPoint('5', 3),
+        createDistributionDataPoint('6', 7),
+        createDistributionDataPoint('7', 2),
+      ];
+
+      setupTraceMetricsHandlerWithDistribution(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        const barChart = screen.getByTestId('bar-chart');
+        expect(barChart).toBeInTheDocument();
+        // Should be bucketed into 5 ranges
+        expect(barChart).toHaveAttribute('data-count', '5');
+      });
+    });
+
+    it('should bucket float values regardless of count', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.75)];
+      const distributionData = [
+        createDistributionDataPoint('0.1', 5),
+        createDistributionDataPoint('0.5', 10),
+        createDistributionDataPoint('0.9', 8),
+      ];
+
+      setupTraceMetricsHandlerWithDistribution(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        const barChart = screen.getByTestId('bar-chart');
+        expect(barChart).toBeInTheDocument();
+        // Should be bucketed into 5 ranges even with few unique values
+        expect(barChart).toHaveAttribute('data-count', '5');
+      });
+    });
+
+    it('should NOT bucket boolean values', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)];
+      const distributionData = [createDistributionDataPoint('true', 15), createDistributionDataPoint('false', 5)];
+
+      setupTraceMetricsHandlerWithDistribution(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        const barChart = screen.getByTestId('bar-chart');
+        expect(barChart).toBeInTheDocument();
+        // Should show individual values
+        expect(barChart).toHaveAttribute('data-count', '2');
+        expect(barChart).toHaveAttribute('data-labels', 'false,true');
+      });
+    });
+
+    it('should NOT bucket string values', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)];
+      const distributionData = [
+        createDistributionDataPoint('pass', 15),
+        createDistributionDataPoint('fail', 5),
+        createDistributionDataPoint('error', 2),
+      ];
+
+      setupTraceMetricsHandlerWithDistribution(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        const barChart = screen.getByTestId('bar-chart');
+        expect(barChart).toBeInTheDocument();
+        // Should show individual values sorted alphabetically
+        expect(barChart).toHaveAttribute('data-count', '3');
+        expect(barChart).toHaveAttribute('data-labels', 'error,fail,pass');
+      });
+    });
+
+    it('should render both bar chart and line chart', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)];
+      const distributionData = [createDistributionDataPoint('0.8', 10)];
+
+      setupTraceMetricsHandlerWithDistribution(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
+        expect(screen.getByTestId('line-chart')).toBeInTheDocument();
+      });
+    });
+
+    it('should display "Total aggregate scores" label for bar chart', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)];
+      const distributionData = [createDistributionDataPoint('0.8', 10)];
+
+      setupTraceMetricsHandlerWithDistribution(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Total aggregate scores')).toBeInTheDocument();
+      });
+    });
+
+    it('should display "Moving average over time" label for line chart', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)];
+      const distributionData = [createDistributionDataPoint('0.8', 10)];
+
+      setupTraceMetricsHandlerWithDistribution(timeSeriesData, distributionData);
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Moving average over time')).toBeInTheDocument();
       });
     });
   });

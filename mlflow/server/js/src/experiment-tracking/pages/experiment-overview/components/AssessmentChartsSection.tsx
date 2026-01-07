@@ -2,7 +2,6 @@ import React, { useMemo, useCallback } from 'react';
 import { SparkleIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useAssessmentChartsSectionData } from '../hooks/useAssessmentChartsSectionData';
-import { ChartGrid } from './OverviewLayoutComponents';
 import { OverviewChartLoadingState, OverviewChartErrorState, OverviewChartEmptyState } from './OverviewChartComponents';
 import { LazyTraceAssessmentChart } from './LazyTraceAssessmentChart';
 import type { OverviewChartProps } from '../types';
@@ -79,18 +78,16 @@ export const AssessmentChartsSection: React.FC<OverviewChartProps> = (props) => 
         </Typography.Text>
       </div>
 
-      {/* Assessment charts grid */}
-      <ChartGrid>
-        {assessmentNames.map((name, index) => (
-          <LazyTraceAssessmentChart
-            key={name}
-            {...props}
-            assessmentName={name}
-            lineColor={getAssessmentColor(index)}
-            avgValue={avgValuesByName.get(name)}
-          />
-        ))}
-      </ChartGrid>
+      {/* Assessment charts - one row per scorer */}
+      {assessmentNames.map((name, index) => (
+        <LazyTraceAssessmentChart
+          key={name}
+          {...props}
+          assessmentName={name}
+          lineColor={getAssessmentColor(index)}
+          avgValue={avgValuesByName.get(name)}
+        />
+      ))}
     </div>
   );
 };
