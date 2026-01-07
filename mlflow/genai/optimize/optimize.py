@@ -176,13 +176,16 @@ def optimize_prompts(
                 aggregation=weighted_objective,
             )
     """
-    train_data_df = _convert_eval_set_to_df(train_data)
-    converted_train_data = train_data_df.to_dict("records")
-    validate_train_data(train_data_df, scorers, predict_fn)
+    if len(train_data) > 0:
+        train_data_df = _convert_eval_set_to_df(train_data)
+        converted_train_data = train_data_df.to_dict("records")
+        validate_train_data(train_data_df, scorers, predict_fn)
+    else:
+        train_data_df = None
+        converted_train_data = []
 
-    predict_fn = convert_predict_fn(
-        predict_fn=predict_fn, sample_input=converted_train_data[0]["inputs"]
-    )
+    sample_input = converted_train_data[0]["inputs"] if len(converted_train_data) > 0 else None
+    predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
 
     metric_fn = create_metric_from_scorers(scorers, aggregation)
     eval_fn = _build_eval_fn(predict_fn, metric_fn)
@@ -266,15 +269,11 @@ def _build_eval_fn(
             eval_request_id = str(uuid.uuid4())
             # set prediction context to retrieve the trace by the request id,
             # and set is_evaluate to True to disable async trace logging
-            with set_prediction_context(
-                Context(request_id=eval_request_id, is_evaluate=True)
-            ):
+            with set_prediction_context(Context(request_id=eval_request_id, is_evaluate=True)):
                 try:
                     program_outputs = predict_fn(inputs)
                 except Exception as e:
-                    program_outputs = (
-                        f"Failed to invoke the predict_fn with {inputs}: {e}"
-                    )
+                    program_outputs = f"Failed to invoke the predict_fn with {inputs}: {e}"
 
             trace = mlflow.get_trace(eval_request_id, silent=True)
             # Use metric function created from scorers

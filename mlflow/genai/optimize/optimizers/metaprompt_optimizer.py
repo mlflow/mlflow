@@ -1,10 +1,13 @@
 import json
 import logging
-import random
 import re
+import tempfile
 from typing import Any
 
+import pandas as pd
+
 import mlflow
+from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer, _EvalFunc
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
@@ -14,8 +17,9 @@ _logger = logging.getLogger(__name__)
 
 
 # Meta-prompt template for zero-shot optimization (no evaluation data)
-ZERO_SHOT_META_PROMPT_TEMPLATE = """You are an expert prompt engineer. Your task is to improve the
-following prompts to achieve better performance using prompt engineering best practices.
+ZERO_SHOT_META_PROMPT_TEMPLATE = """You are an expert prompt engineer. Your task is to
+improve the following prompts to achieve better performance using prompt engineering
+best practices.
 
 CURRENT PROMPTS:
 {current_prompts_formatted}
@@ -34,29 +38,44 @@ PROMPT ENGINEERING BEST PRACTICES:
 8. Specify what to avoid or not do if important
 9. Use delimiters or tags to separate different sections
 
-TEMPLATE VARIABLES:
-The following variables MUST be preserved exactly as-is in your improved prompts:
+CRITICAL REQUIREMENT - TEMPLATE VARIABLES:
+The following variables MUST be preserved EXACTLY as shown in the original prompts.
+DO NOT modify, remove, or change the formatting of these variables in any way:
 {template_variables}
+
+IMPORTANT: Template variables use double curly braces like {{{{variable_name}}}}.
+You MUST copy them exactly as they appear in the original prompt into your improved
+prompt. If a variable appears as {{{{question}}}} in the original, it must appear as
+{{{{question}}}} in your improvement.
 
 {custom_guidelines}
 
 INSTRUCTIONS:
-Generate improved versions of the prompts above. Apply prompt engineering principles to improve
-quality while preserving all template variables.
+Generate improved versions of the prompts above. Apply prompt engineering principles
+to improve quality while STRICTLY preserving all template variables in their exact
+original format.
 
-You must respond with a valid JSON object and nothing else. Use this exact structure:
+CRITICAL: You must respond with a valid JSON object using the EXACT prompt names
+shown above. The JSON keys must match the "Prompt name" fields exactly. Use this
+structure:
 {{
-  "prompt_name_1": "improved prompt text with {{{{variables}}}} preserved",
-  "prompt_name_2": "improved prompt text with {{{{variables}}}} preserved"
+{response_format_example}
 }}
 
-Do not include any text before or after the JSON object. Do not include explanations or reasoning.
+REMINDER:
+1. Use the exact prompt names as JSON keys (e.g., if the prompt is named
+   "aime_solver", use "aime_solver" as the key)
+2. Every template variable from the original prompt must appear unchanged in your
+   improved version
+
+Do not include any text before or after the JSON object. Do not include
+explanations or reasoning.
 """
 
 
 # Meta-prompt template for few-shot optimization (with evaluation feedback)
-FEW_SHOT_META_PROMPT_TEMPLATE = """You are an expert prompt engineer. Your task is to improve the
-following prompts based on evaluation feedback from real examples.
+FEW_SHOT_META_PROMPT_TEMPLATE = """You are an expert prompt engineer. Your task is to
+improve the following prompts based on evaluation feedback from real examples.
 
 CURRENT PROMPTS:
 {current_prompts_formatted}
@@ -64,58 +83,110 @@ CURRENT PROMPTS:
 CURRENT PERFORMANCE:
 Average score: {current_score:.3f}
 
-OBJECTIVE:
-Improve these prompts to produce more accurate, helpful, and relevant outputs based on the
-evaluation results and feedback below.
-
 EVALUATION EXAMPLES:
-Below are examples showing how the current prompts performed. Learn from the evaluation results and
-rationales.
+Below are examples showing how the current prompts performed. Study these carefully
+to identify patterns in what worked and what failed.
 
 {examples_formatted}
 
-TEMPLATE VARIABLES:
-The following variables MUST be preserved exactly as-is in your improved prompts:
+ANALYSIS INSTRUCTIONS:
+Before generating improved prompts, analyze the evaluation examples to identify:
+
+1. **Common Failure Patterns**: What mistakes appear repeatedly across failed
+   examples?
+   - Are outputs too verbose when they should be concise?
+   - Are outputs missing key information or steps?
+   - Are outputs in the wrong format?
+   - Are there systematic reasoning errors?
+
+2. **Success Patterns**: What made the successful examples work?
+   - What format did they follow?
+   - What level of detail was appropriate?
+   - What reasoning approach was effective?
+
+3. **Key Insights from Rationales**: What do the evaluation rationales tell you?
+   - What criteria are being used to judge quality?
+   - What specific issues are mentioned most often?
+   - What improvements would directly address these issues?
+
+4. **Task-Specific Requirements**: Based on the examples, what does this task
+   truly need?
+   - What output format is expected?
+   - What level of explanation vs. directness?
+   - What edge cases need to be handled?
+
+IMPROVEMENT STRATEGY:
+Your improved prompt should:
+- **Add specific instructions** that would have prevented the observed failures
+- **Include concrete examples or format specifications** if formatting issues
+  were common
+- **Clarify reasoning requirements** if logical errors were observed
+- **Set explicit constraints** (e.g., "be concise", "show your work", "only
+  output X") based on what worked
+- **Address the root causes** identified in the failure patterns, not just
+  symptoms
+
+CRITICAL REQUIREMENT - TEMPLATE VARIABLES:
+The following variables MUST be preserved EXACTLY as shown in the original prompts.
+DO NOT modify, remove, or change the formatting of these variables in any way:
 {template_variables}
+
+IMPORTANT: Template variables use double curly braces like {{{{variable_name}}}}.
+You MUST copy them exactly as they appear in the original prompt into your improved
+prompt. If a variable appears as {{{{question}}}} in the original, it must appear as
+{{{{question}}}} in your improvement.
 
 {custom_guidelines}
 
 INSTRUCTIONS:
-Based on the evaluation feedback above, generate improved versions of the prompts.
-Analyze the examples to understand what works well and what needs improvement.
+Generate improved versions of the prompts that directly address the patterns you
+identified. Make your prompts specific and actionable - add concrete rules,
+examples, or constraints that would prevent the observed failures.
 
-You must respond with a valid JSON object and nothing else. Use this exact structure:
+CRITICAL: Preserve all template variables in their exact original format with
+double curly braces.
+
+CRITICAL: You must respond with a valid JSON object using the EXACT prompt names
+shown above. The JSON keys must match the "Prompt name" fields exactly. Use this
+structure:
 {{
-  "prompt_name_1": "improved prompt text with {{{{variables}}}} preserved",
-  "prompt_name_2": "improved prompt text with {{{{variables}}}} preserved"
+{response_format_example}
 }}
 
-Do not include any text before or after the JSON object. Do not include explanations or reasoning.
+REMINDER:
+1. Use the exact prompt names as JSON keys (e.g., if the prompt is named
+   "aime_solver", use "aime_solver" as the key)
+2. Every template variable from the original prompt must appear unchanged in your
+   improved version
+
+Do not include any text before or after the JSON object. Do not include
+explanations or reasoning.
 """
 
 
 @experimental(version="3.9.0")
 class MetaPromptOptimizer(BasePromptOptimizer):
     """
-    A prompt optimizer that uses metaprompting with LLMs to iteratively improve prompts.
+    A prompt optimizer that uses metaprompting with LLMs to improve prompts in a single pass.
 
     Automatically detects optimization mode based on training data:
     - Zero-shot: No evaluation data - applies general prompt engineering best practices
     - Few-shot: Has evaluation data - learns from feedback on examples
 
+    This optimizer performs a single optimization pass, making it faster than iterative
+    approaches like GEPA while requiring less data. The optimized prompt is always
+    registered regardless of performance improvement.
+
     Args:
         reflection_model: Name of the model to use for prompt optimization.
             Format: "<provider>:/<model>" (e.g., "openai:/gpt-4o",
             "anthropic:/claude-3-5-sonnet-20241022")
-        num_iterations: Number of refinement iterations for few-shot mode. Zero-shot mode
-            always uses a single iteration. Default: 3
-        num_examples: Number of examples to randomly sample for few-shot learning. If None,
-            uses all training examples. Only used when training data is provided. Default: None
-        lm_kwargs: Optional dictionary of additional parameters to pass to the reflection model
-            (e.g., {"temperature": 0.7, "max_tokens": 4096}). These are passed directly to
-            the underlying litellm.completion() call. Default: None
-        display_progress_bar: Whether to show progress bar during few-shot optimization.
-            Default: False
+        lm_kwargs: Optional dictionary of additional parameters to pass to the reflection
+            model (e.g., {"temperature": 0.7, "max_tokens": 4096}). These are passed
+            directly to the underlying litellm.completion() call. Default: None
+        guidelines: Optional custom guidelines to provide domain-specific or task-specific
+            context for prompt optimization (e.g., "This is for a finance advisor to
+            project tax situations."). Default: None
 
     Example with evaluation data (few-shot mode):
 
@@ -133,6 +204,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
 
 
             def predict_fn(question: str) -> str:
+                prompt = mlflow.genai.load_prompt("prompts:/qa@latest")
                 completion = openai.OpenAI().chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[{"role": "user", "content": prompt.format(question=question)}],
@@ -151,15 +223,9 @@ class MetaPromptOptimizer(BasePromptOptimizer):
                 prompt_uris=[prompt.uri],
                 optimizer=MetaPromptOptimizer(
                     reflection_model="openai:/gpt-4o",
-                    num_iterations=5,
-                    lm_kwargs={"temperature": 0.7, "max_tokens": 4096},
-                    display_progress_bar=True,
+                    lm_kwargs={"temperature": 1.0, "max_tokens": 4096},
                 ),
                 scorers=[Correctness(model="openai:/gpt-4o")],
-                optimizer_kwargs={
-                    "guidelines": "This is for a finance advisor to project tax situations. "
-                    "Do not include information outside of finance."
-                },
             )
 
             print(f"Improved prompt: {result.optimized_prompts[0].template}")
@@ -183,7 +249,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
                 prompt_uris=[prompt.uri],
                 optimizer=MetaPromptOptimizer(
                     reflection_model="openai:/gpt-4o",
-                    num_iterations=3,
+                    guidelines="This is for a finance advisor to project tax situations.",
                 ),
                 scorers=[],  # No scorers needed for zero-shot
             )
@@ -194,28 +260,18 @@ class MetaPromptOptimizer(BasePromptOptimizer):
     def __init__(
         self,
         reflection_model: str,
-        num_iterations: int = 3,
-        num_examples: int | None = None,
         lm_kwargs: dict[str, Any] | None = None,
-        display_progress_bar: bool = False,
+        guidelines: str | None = None,
     ):
         from mlflow.metrics.genai.model_utils import _parse_model_uri
 
         self.reflection_model = reflection_model
-        self.num_iterations = num_iterations
-        self.num_examples = num_examples
         self.lm_kwargs = lm_kwargs or {}
-        self.display_progress_bar = display_progress_bar
+        self.guidelines = guidelines
         self.provider, self.model = _parse_model_uri(self.reflection_model)
         self._validate_parameters()
 
     def _validate_parameters(self):
-        if self.num_iterations < 1:
-            raise MlflowException("`num_iterations` must be at least 1")
-
-        if self.num_examples is not None and self.num_examples < 1:
-            raise MlflowException("`num_examples` must be at least 1 or None")
-
         if not isinstance(self.lm_kwargs, dict):
             raise MlflowException("`lm_kwargs` must be a dictionary")
 
@@ -225,33 +281,28 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         train_data: list[dict[str, Any]],
         target_prompts: dict[str, str],
         enable_tracking: bool = True,
-        guidelines: str | None = None,
-        val_data: list[dict[str, Any]] | None = None,
     ) -> PromptOptimizerOutput:
         """
-        Optimize the target prompts using metaprompting.
+        Optimize the target prompts using metaprompting in a single pass.
 
         Automatically detects mode:
         - If train_data is empty: zero-shot mode (no evaluation)
-        - If train_data has examples: few-shot mode (with evaluation)
+        - If train_data has examples: few-shot mode (with baseline evaluation for feedback)
+
+        The optimized prompt is always returned regardless of performance improvement.
 
         Args:
             eval_fn: The evaluation function that takes candidate prompts and dataset,
                 returns evaluation results. Not used in zero-shot mode.
-            train_data: The dataset to use for optimization. Empty list triggers zero-shot mode.
+            train_data: The dataset to use for optimization. Empty list triggers zero-shot
+                mode. In few-shot mode, train_data is always used for baseline evaluation
+                (to capture feedback) and for showing examples in the meta-prompt.
             target_prompts: The target prompt templates as dict (name -> template).
             enable_tracking: If True (default), automatically log optimization progress.
-            guidelines: Optional custom instructions to guide the prompt optimization process.
-                For example: "This is for a finance advisor to project tax situations.
-                Do not include information outside of finance." These guidelines will be
-                included in the meta-prompt sent to the reflection model.
-            val_data: Optional validation dataset for evaluation. If provided, train_data is used
-                for meta-prompting (showing examples to the LLM) and val_data is used for
-                evaluation (measuring improvement). This prevents overfitting. If None (default),
-                train_data is used for both purposes.
 
         Returns:
-            The optimized prompts with initial and final scores (scores are None for zero-shot).
+            The optimized prompts with initial score (final_eval_score is None for
+            single-pass).
         """
         # Extract template variables
         template_variables = self._extract_template_variables(target_prompts)
@@ -259,32 +310,24 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         # Auto-detect mode based on training data
         if not train_data or len(train_data) == 0:
             _logger.info("No training data provided, using zero-shot metaprompting")
-            return self._optimize_zero_shot(
-                target_prompts, template_variables, guidelines
-            )
+            return self._optimize_zero_shot(target_prompts, template_variables)
         else:
             _logger.info(
                 f"{len(train_data)} training examples provided, using few-shot metaprompting"
             )
-            if val_data:
-                _logger.info(
-                    f"{len(val_data)} validation examples provided for evaluation"
-                )
+
             return self._optimize_few_shot(
                 eval_fn,
                 train_data,
                 target_prompts,
                 template_variables,
                 enable_tracking,
-                guidelines,
-                val_data,
             )
 
     def _optimize_zero_shot(
         self,
         target_prompts: dict[str, str],
         template_variables: dict[str, set[str]],
-        guidelines: str | None = None,
     ) -> PromptOptimizerOutput:
         """
         Optimize prompts using zero-shot metaprompting (no evaluation data).
@@ -294,11 +337,8 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         _logger.info("Applying zero-shot prompt optimization with best practices")
 
         # Build meta-prompt
-        meta_prompt = self._build_zero_shot_meta_prompt(
-            target_prompts, template_variables, guidelines
-        )
+        meta_prompt = self._build_zero_shot_meta_prompt(target_prompts, template_variables)
 
-        # Call LLM to generate improved prompts
         try:
             improved_prompts = self._call_reflection_model(meta_prompt)
 
@@ -314,9 +354,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             )
 
         except Exception as e:
-            _logger.warning(
-                f"Zero-shot optimization failed: {e}. Returning original prompts."
-            )
+            _logger.warning(f"Zero-shot optimization failed: {e}. Returning original prompts.")
             return PromptOptimizerOutput(
                 optimized_prompts=target_prompts,
                 initial_eval_score=None,
@@ -330,128 +368,75 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         target_prompts: dict[str, str],
         template_variables: dict[str, set[str]],
         enable_tracking: bool,
-        guidelines: str | None = None,
-        val_data: list[dict[str, Any]] | None = None,
     ) -> PromptOptimizerOutput:
         """
         Optimize prompts using few-shot metaprompting (with evaluation feedback).
 
-        Iteratively improves prompts based on evaluation results from training examples.
+        Performs a single optimization pass based on evaluation results from training examples.
+        The optimized prompt is always returned regardless of performance improvement.
 
         Args:
             eval_fn: Evaluation function to score prompts
-            train_data: Training data used for showing examples in meta-prompts
+            train_data: Training data used for baseline evaluation to capture feedback
             target_prompts: Initial prompts to optimize
             template_variables: Template variables extracted from prompts
             enable_tracking: Whether to log metrics to MLflow
-            guidelines: Optional custom guidelines for optimization
-            val_data: Optional validation dataset for evaluation. If provided, train_data
-                is used for meta-prompting (showing examples to the LLM) and val_data is
-                used for evaluation (measuring improvement). This prevents overfitting.
-                If None, train_data is used for both purposes.
         """
-        # Use val_data for evaluation if provided, otherwise use train_data
-        eval_data = val_data if val_data is not None else train_data
-
-        # Baseline evaluation
-        _logger.info("Evaluating baseline prompts...")
-        baseline_results = eval_fn(target_prompts, eval_data)
+        # Always evaluate baseline on train_data to capture feedback for metaprompting
+        _logger.info("Evaluating baseline prompts on training data...")
+        baseline_results = eval_fn(target_prompts, train_data)
         initial_score = self._compute_aggregate_score(baseline_results)
         _logger.info(f"Baseline score: {initial_score:.4f}")
 
-        # Log baseline score at step 0 if tracking is enabled
+        # Log baseline evaluation results as artifact if tracking is enabled
         if enable_tracking:
-            mlflow.log_metric("score", initial_score, step=0)
-            # Log baseline evaluation results as artifact
             self._save_eval_results_as_artifact(baseline_results, iteration=0)
 
-        best_prompts = target_prompts.copy()
-        best_score = initial_score
-        best_results = baseline_results
-
-        # Progress bar setup
-        if self.display_progress_bar:
-            try:
-                from tqdm import tqdm
-
-                iterations = tqdm(
-                    range(self.num_iterations),
-                    desc=f"Optimizing (best: {best_score:.3f})",
-                )
-            except ImportError:
-                iterations = range(self.num_iterations)
-        else:
-            iterations = range(self.num_iterations)
-
-        for i in iterations:
-            _logger.info(
-                f"Few-shot iteration {i + 1}/{self.num_iterations} (current best: {best_score:.4f})"
-            )
-
-            # Sample examples for few-shot learning
-            sampled_examples = self._sample_examples(train_data, best_results)
-
-            # Build meta-prompt with evaluation feedback
-            meta_prompt = self._build_few_shot_meta_prompt(
-                best_prompts,
-                template_variables,
-                sampled_examples,
-                guidelines,
-            )
-
-            # Call LLM to generate improved prompts
-            try:
-                improved_prompts = self._call_reflection_model(meta_prompt)
-
-                # Validate template variables are preserved
-                self._validate_template_variables(target_prompts, improved_prompts)
-
-                # Evaluate improved prompts (using val_data if provided, otherwise train_data)
-                _logger.info("Evaluating improved prompts...")
-                new_results = eval_fn(improved_prompts, eval_data)
-                new_score = self._compute_aggregate_score(new_results)
-                _logger.info(f"New score: {new_score:.4f}")
-
-                # Log iteration metrics if tracking is enabled
-                if enable_tracking:
-                    mlflow.log_metric("score", new_score, step=i + 1)
-                    # Log intermediate prompts as artifacts
-                    self._log_prompts_as_artifact(improved_prompts, iteration=i + 1)
-                    # Log evaluation results as artifact
-                    self._save_eval_results_as_artifact(new_results, iteration=i + 1)
-
-                # Check if improved
-                if new_score > best_score:
-                    improvement = new_score - best_score
-                    _logger.info(f"Improvement: +{improvement:.4f}")
-                    best_prompts = improved_prompts
-                    best_score = new_score
-                    best_results = new_results
-
-                    # Log improvement metric if tracking is enabled
-                    if enable_tracking:
-                        mlflow.log_metric("improvement", improvement, step=i + 1)
-                else:
-                    _logger.info("No improvement, keeping previous best")
-
-                # Update progress bar
-                if self.display_progress_bar and hasattr(iterations, "set_description"):
-                    iterations.set_description(f"Optimizing (best: {best_score:.3f})")
-
-            except Exception as e:
-                _logger.warning(
-                    f"Iteration {i + 1} failed: {e}. Keeping previous best."
-                )
-
-        return PromptOptimizerOutput(
-            optimized_prompts=best_prompts,
-            initial_eval_score=initial_score,
-            final_eval_score=best_score,
+        # Build meta-prompt with evaluation feedback
+        _logger.info("Generating optimized prompts...")
+        meta_prompt = self._build_few_shot_meta_prompt(
+            target_prompts,
+            template_variables,
+            baseline_results,
         )
 
-    def _extract_template_variables(
-        self, prompts: dict[str, str]
-    ) -> dict[str, set[str]]:
+        # Call LLM to generate improved prompts
+        try:
+            improved_prompts = self._call_reflection_model(meta_prompt)
+
+            # Validate template variables are preserved
+            self._validate_template_variables(target_prompts, improved_prompts)
+
+            _logger.info("Successfully generated optimized prompts")
+
+        except Exception as e:
+            _logger.warning(f"Few-shot optimization failed: {e}. Returning original prompts.")
+            return PromptOptimizerOutput(
+                optimized_prompts=target_prompts,
+                initial_eval_score=initial_score,
+                final_eval_score=None,
+            )
+
+        _logger.info(
+            "Evaluating optimized prompts on training data, please note that this is more of a "
+            "sanity check than a final evaluation because the data has already been used for "
+            "meta-prompting. To accurately evaluate the optimized prompts, please use a "
+            "separate validation dataset and run mlflow.genai.evaluate() on it."
+        )
+        final_results = eval_fn(improved_prompts, train_data)
+        final_score = self._compute_aggregate_score(final_results)
+        _logger.info(f"Final score: {final_score:.4f}")
+
+        if enable_tracking:
+            self._save_eval_results_as_artifact(final_results, iteration=1)
+
+        return PromptOptimizerOutput(
+            optimized_prompts=improved_prompts,
+            initial_eval_score=initial_score,
+            final_eval_score=final_score,
+        )
+
+    def _extract_template_variables(self, prompts: dict[str, str]) -> dict[str, set[str]]:
         """
         Extract template variables ({{var}}) from each prompt.
 
@@ -471,19 +456,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
     def _validate_template_variables(
         self, original_prompts: dict[str, str], new_prompts: dict[str, str]
     ) -> bool:
-        """
-        Validate that all template variables are preserved in new prompts.
-
-        Args:
-            original_prompts: Original prompt templates
-            new_prompts: New prompt templates to validate
-
-        Returns:
-            True if valid
-
-        Raises:
-            MlflowException: If validation fails
-        """
+        """Validate that all template variables are preserved in new prompts."""
         original_vars = self._extract_template_variables(original_prompts)
         new_vars = self._extract_template_variables(new_prompts)
 
@@ -503,45 +476,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
 
         return True
 
-    def _log_prompts_as_artifact(self, prompts: dict[str, str], iteration: int):
-        """
-        Log intermediate prompts as MLflow artifacts.
-
-        Args:
-            prompts: Dict mapping prompt_name -> template
-            iteration: Current iteration number
-        """
-        import tempfile
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            for prompt_name, template in prompts.items():
-                # Create a filename that includes iteration and prompt name
-                filename = f"iteration_{iteration:02d}_{prompt_name}.txt"
-                filepath = f"{tmpdir}/{filename}"
-                with open(filepath, "w") as f:
-                    f.write(template)
-                mlflow.log_artifact(filepath, artifact_path="intermediate_prompts")
-
-    def _save_eval_results_as_artifact(
-        self, results: list[EvaluationResultRecord], iteration: int
-    ):
-        """
-        Save evaluation results as a pandas DataFrame artifact.
-
-        Args:
-            results: List of evaluation results from eval_fn
-            iteration: Current iteration number (0 for baseline)
-        """
-        import tempfile
-
-        try:
-            import pandas as pd
-        except ImportError:
-            _logger.warning(
-                "pandas is not installed. Skipping evaluation results artifact logging."
-            )
-            return
-
+    def _save_eval_results_as_artifact(self, results: list[EvaluationResultRecord], iteration: int):
         # Convert evaluation results to DataFrame
         records = []
         for result in results:
@@ -549,9 +484,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
                 "score": result.score,
                 "inputs": json.dumps(result.inputs),
                 "outputs": str(result.outputs),
-                "expectations": str(result.expectations)
-                if result.expectations
-                else None,
+                "expectations": str(result.expectations) if result.expectations else None,
             }
             # Add rationales as separate columns
             if result.rationales:
@@ -568,39 +501,10 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             df.to_csv(filepath, index=False)
             mlflow.log_artifact(filepath, artifact_path="evaluation_results")
 
-    def _sample_examples(
-        self,
-        train_data: list[dict[str, Any]],
-        eval_results: list[EvaluationResultRecord],
-    ) -> list[tuple[dict, EvaluationResultRecord]]:
-        """
-        Sample examples randomly from the training data.
-
-        If num_examples is None, returns all examples. Otherwise, randomly samples
-        num_examples from the dataset.
-
-        Args:
-            train_data: Full training dataset
-            eval_results: Evaluation results for current prompts
-
-        Returns:
-            List of (data_record, eval_result) tuples
-        """
-
-        data_and_eval_results = list(zip(train_data, eval_results))
-
-        # If num_examples is None, or the number of examples is less than or equal to num_examples,
-        # return all data.
-        if self.num_examples is None or len(data_and_eval_results) <= self.num_examples:
-            return data_and_eval_results
-        # Random sample num_examples from the dataset.
-        return random.sample(data_and_eval_results, self.num_examples)
-
     def _build_zero_shot_meta_prompt(
         self,
         current_prompts: dict[str, str],
         template_variables: dict[str, set[str]],
-        guidelines: str | None = None,
     ) -> str:
         # Format the current prompts for each module
         prompts_formatted = "\n\n".join(
@@ -619,20 +523,28 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         )
 
         # Add custom guidelines to the meta-prompt if provided
-        custom_guidelines = f"CUSTOM GUIDELINES:\n{guidelines}" if guidelines else ""
+        custom_guidelines = f"CUSTOM GUIDELINES:\n{self.guidelines}" if self.guidelines else ""
+
+        # Format example JSON response with actual prompt names
+        response_format_example = "\n".join(
+            [
+                f'  "{name}": "improved prompt text with variables preserved exactly"'
+                for name in current_prompts.keys()
+            ]
+        )
 
         return ZERO_SHOT_META_PROMPT_TEMPLATE.format(
             current_prompts_formatted=prompts_formatted,
             template_variables=vars_formatted,
             custom_guidelines=custom_guidelines,
+            response_format_example=response_format_example,
         )
 
     def _build_few_shot_meta_prompt(
         self,
         current_prompts: dict[str, str],
         template_variables: dict[str, set[str]],
-        sampled_examples: list[tuple[dict, EvaluationResultRecord]],
-        guidelines: str | None = None,
+        eval_results: list[EvaluationResultRecord],
     ) -> str:
         """Build few-shot meta-prompt with evaluation feedback."""
         # Format current prompts
@@ -643,13 +555,11 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             ]
         )
 
-        # Calculate current score from sampled examples
-        current_score = sum(result.score for _, result in sampled_examples) / len(
-            sampled_examples
-        )
+        # Calculate current score from evaluation results
+        current_score = sum(result.score for result in eval_results) / len(eval_results)
 
-        # Format examples
-        examples_formatted = self._format_examples(sampled_examples)
+        # Format examples and their evaluation results in the meta-prompt
+        examples_formatted = self._format_examples(eval_results)
 
         # Format template variables
         vars_formatted = "\n".join(
@@ -660,7 +570,15 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         )
 
         # Add custom guidelines to the meta-prompt if provided
-        custom_guidelines = f"CUSTOM GUIDELINES:\n{guidelines}" if guidelines else ""
+        custom_guidelines = f"CUSTOM GUIDELINES:\n{self.guidelines}" if self.guidelines else ""
+
+        # Format example JSON response with actual prompt names
+        response_format_example = "\n".join(
+            [
+                f'  "{name}": "improved prompt text with variables preserved exactly"'
+                for name in current_prompts.keys()
+            ]
+        )
 
         return FEW_SHOT_META_PROMPT_TEMPLATE.format(
             current_prompts_formatted=prompts_formatted,
@@ -668,14 +586,13 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             examples_formatted=examples_formatted,
             template_variables=vars_formatted,
             custom_guidelines=custom_guidelines,
+            response_format_example=response_format_example,
         )
 
-    def _format_examples(
-        self, examples: list[tuple[dict, EvaluationResultRecord]]
-    ) -> str:
-        """Format examples and the evaluation results for meta-prompting."""
+    def _format_examples(self, eval_results: list[EvaluationResultRecord]) -> str:
+        """Format evaluation results for meta-prompting."""
         formatted = []
-        for i, (data, result) in enumerate(examples, 1):
+        for i, result in enumerate(eval_results, 1):
             rationale_str = (
                 "\n".join([f"  - {k}: {v}" for k, v in result.rationales.items()])
                 if result.rationales
@@ -695,19 +612,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         return "\n".join(formatted)
 
     def _call_reflection_model(self, meta_prompt: str) -> dict[str, str]:
-        """
-        Call the reflection model to generate improved prompts.
-
-        Args:
-            meta_prompt: The meta-prompt to send
-
-        Returns:
-            Dict of improved prompts (name -> template)
-
-        Raises:
-            ImportError: If litellm is not installed
-            MlflowException: If LLM call fails or response is invalid
-        """
+        """Call the reflection model to generate improved prompts."""
         try:
             import litellm
         except ImportError as e:
@@ -719,51 +624,57 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         litellm_model = f"{self.provider}/{self.model}"
 
         try:
-            litellm_params = {
-                "model": litellm_model,
-                "messages": [{"role": "user", "content": meta_prompt}],
-                "response_format": {"type": "json_object"},  # Request JSON output
-                "max_retries": 3,
-                **self.lm_kwargs,  # Merge user-provided parameters
-            }
-            response = litellm.completion(**litellm_params)
+            with mlflow.start_span(name="metaprompt_reflection", span_type=SpanType.LLM) as span:
+                litellm_params = {
+                    "model": litellm_model,
+                    "messages": [{"role": "user", "content": meta_prompt}],
+                    "response_format": {"type": "json_object"},  # Request JSON output
+                    "max_retries": 3,
+                    **self.lm_kwargs,  # Merge user-provided parameters
+                }
 
-            # Extract and parse response
-            content = response.choices[0].message.content.strip()
+                # Set span inputs
+                span.set_inputs({"meta_prompt": meta_prompt, "model": litellm_model})
 
-            # Strip markdown code blocks if present as some models have the tendency to add them
-            if content.startswith("```json"):
-                content = content[7:]
-            elif content.startswith("```"):
-                content = content[3:]
-            content = content.removesuffix("```").strip()
+                response = litellm.completion(**litellm_params)
 
-            # The content should be a valid JSON object with keys being the prompt names and values
-            # being the improved prompts.
-            improved_prompts = json.loads(content)
+                # Extract and parse response
+                content = response.choices[0].message.content.strip()
 
-            if not isinstance(improved_prompts, dict):
-                raise MlflowException(
-                    f"Reflection model returned invalid format. Expected JSON object, "
-                    f"got {type(improved_prompts).__name__}"
-                )
+                # Strip markdown code blocks if present as some models have the tendency to add them
+                if content.startswith("```json"):
+                    content = content[7:]
+                elif content.startswith("```"):
+                    content = content[3:]
+                content = content.removesuffix("```").strip()
 
-            for key, value in improved_prompts.items():
-                if not isinstance(value, str):
+                # The content should be a valid JSON object with keys being the prompt
+                # names and values being the improved prompts.
+                improved_prompts = json.loads(content)
+
+                if not isinstance(improved_prompts, dict):
                     raise MlflowException(
-                        f"Prompt '{key}' must be a string, got {type(value).__name__}"
+                        f"Reflection model returned invalid format. Expected JSON object, "
+                        f"got {type(improved_prompts).__name__}"
                     )
 
-            return improved_prompts
+                for key, value in improved_prompts.items():
+                    if not isinstance(value, str):
+                        raise MlflowException(
+                            f"Prompt '{key}' must be a string, got {type(value).__name__}"
+                        )
+
+                # Set span outputs
+                span.set_outputs(improved_prompts)
+
+                return improved_prompts
 
         except json.JSONDecodeError as e:
             raise MlflowException(
                 f"Failed to parse reflection model response as JSON: {e}\nResponse: {content[:500]}"
             ) from e
         except Exception as e:
-            raise MlflowException(
-                f"Failed to call reflection model {litellm_model}: {e}"
-            ) from e
+            raise MlflowException(f"Failed to call reflection model {litellm_model}: {e}") from e
 
     def _compute_aggregate_score(self, results: list[EvaluationResultRecord]) -> float:
         """
