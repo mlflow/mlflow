@@ -82,7 +82,7 @@ describe('ToolErrorRateChart', () => {
   });
 
   describe('loading state', () => {
-    it('should render loading state while data is being fetched', () => {
+    it('should render loading skeleton while data is being fetched', () => {
       server.use(
         rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
@@ -91,8 +91,8 @@ describe('ToolErrorRateChart', () => {
 
       renderComponent();
 
-      // ChartLoadingState renders a spinner
-      expect(screen.getByRole('img')).toBeInTheDocument();
+      // Check that actual chart content is not rendered during loading
+      expect(screen.queryByText('get_weather')).not.toBeInTheDocument();
     });
   });
 

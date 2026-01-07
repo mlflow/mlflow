@@ -43,8 +43,6 @@ export const ToolCallChartsSection: React.FC<OverviewChartProps> = ({
   // Get a color for a tool based on its index
   const getToolColor = useCallback((index: number): string => toolColors[index % toolColors.length], [toolColors]);
 
-  const chartProps = { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets };
-
   if (isLoading) {
     return <OverviewChartLoadingState />;
   }
@@ -63,7 +61,11 @@ export const ToolCallChartsSection: React.FC<OverviewChartProps> = ({
       {toolNames.map((name, index) => (
         <LazyToolErrorRateChart
           key={name}
-          {...chartProps}
+          experimentId={experimentId}
+          startTimeMs={startTimeMs}
+          endTimeMs={endTimeMs}
+          timeIntervalSeconds={timeIntervalSeconds}
+          timeBuckets={timeBuckets}
           toolName={name}
           lineColor={getToolColor(index)}
           overallErrorRate={errorRateByTool.get(name) ?? 0}
