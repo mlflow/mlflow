@@ -10722,13 +10722,13 @@ def test_get_online_scoring_configs_batch(store: SqlAlchemyStore):
         store.register_scorer(experiment_id, "scorer2", _gateway_model_scorer_json())
         store.register_scorer(experiment_id, "scorer3", _gateway_model_scorer_json())
 
-    config1 = store.update_online_scoring_config(
+    config1 = store.upsert_online_scoring_config(
         experiment_id=experiment_id,
         scorer_name="scorer1",
         sample_rate=0.1,
         filter_string="status = 'OK'",
     )
-    config2 = store.update_online_scoring_config(
+    config2 = store.upsert_online_scoring_config(
         experiment_id=experiment_id,
         scorer_name="scorer2",
         sample_rate=0.5,
@@ -10755,12 +10755,12 @@ def test_get_online_scoring_configs_nonexistent_ids(store: SqlAlchemyStore):
     assert configs == []
 
 
-def test_update_online_scoring_config_creates_config(store: SqlAlchemyStore):
+def test_upsert_online_scoring_config_creates_config(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_online_config_create")
     with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
         store.register_scorer(experiment_id, "scorer", _gateway_model_scorer_json())
 
-    config = store.update_online_scoring_config(
+    config = store.upsert_online_scoring_config(
         experiment_id=experiment_id,
         scorer_name="scorer",
         sample_rate=0.1,
@@ -10772,18 +10772,18 @@ def test_update_online_scoring_config_creates_config(store: SqlAlchemyStore):
     assert config.online_scoring_config_id is not None
 
 
-def test_update_online_scoring_config_overwrites(store: SqlAlchemyStore):
+def test_upsert_online_scoring_config_overwrites(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_online_config_overwrite")
     with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
         store.register_scorer(experiment_id, "scorer", _gateway_model_scorer_json())
 
-    store.update_online_scoring_config(
+    store.upsert_online_scoring_config(
         experiment_id=experiment_id,
         scorer_name="scorer",
         sample_rate=0.1,
     )
 
-    new_config = store.update_online_scoring_config(
+    new_config = store.upsert_online_scoring_config(
         experiment_id=experiment_id,
         scorer_name="scorer",
         sample_rate=0.5,
@@ -10798,7 +10798,7 @@ def test_update_online_scoring_config_overwrites(store: SqlAlchemyStore):
     assert configs[0].sample_rate == 0.5
 
 
-def test_update_online_scoring_config_rejects_non_gateway_model(store: SqlAlchemyStore):
+def test_upsert_online_scoring_config_rejects_non_gateway_model(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_online_config_non_gateway")
     non_gateway_scorer = json.dumps(
         {"instructions_judge_pydantic_data": {"model": "openai:/gpt-4"}}
@@ -10806,30 +10806,30 @@ def test_update_online_scoring_config_rejects_non_gateway_model(store: SqlAlchem
     store.register_scorer(experiment_id, "scorer", non_gateway_scorer)
 
     with pytest.raises(MlflowException, match="does not use a gateway model"):
-        store.update_online_scoring_config(
+        store.upsert_online_scoring_config(
             experiment_id=experiment_id,
             scorer_name="scorer",
             sample_rate=0.1,
         )
 
 
-def test_update_online_scoring_config_nonexistent_scorer(store: SqlAlchemyStore):
+def test_upsert_online_scoring_config_nonexistent_scorer(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_online_config_error")
 
     with pytest.raises(MlflowException, match="not found"):
-        store.update_online_scoring_config(
+        store.upsert_online_scoring_config(
             experiment_id=experiment_id,
             scorer_name="nonexistent",
             sample_rate=0.1,
         )
 
 
-def test_update_online_scoring_config_validates_filter_string(store: SqlAlchemyStore):
+def test_upsert_online_scoring_config_validates_filter_string(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_filter_validation")
     with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
         store.register_scorer(experiment_id, "test_scorer", _gateway_model_scorer_json())
 
-    config = store.update_online_scoring_config(
+    config = store.upsert_online_scoring_config(
         experiment_id=experiment_id,
         scorer_name="test_scorer",
         sample_rate=0.5,
@@ -10838,7 +10838,7 @@ def test_update_online_scoring_config_validates_filter_string(store: SqlAlchemyS
     assert config.filter_string == "status = 'OK'"
 
     with pytest.raises(MlflowException, match="Invalid filter"):
-        store.update_online_scoring_config(
+        store.upsert_online_scoring_config(
             experiment_id=experiment_id,
             scorer_name="test_scorer",
             sample_rate=0.5,
@@ -10846,20 +10846,20 @@ def test_update_online_scoring_config_validates_filter_string(store: SqlAlchemyS
         )
 
 
-def test_update_online_scoring_config_validates_sample_rate(store: SqlAlchemyStore):
+def test_upsert_online_scoring_config_validates_sample_rate(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_sample_rate_validation")
     with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
         store.register_scorer(experiment_id, "test_scorer", _gateway_model_scorer_json())
 
     # Valid sample rates should work
-    config = store.update_online_scoring_config(
+    config = store.upsert_online_scoring_config(
         experiment_id=experiment_id,
         scorer_name="test_scorer",
         sample_rate=0.0,
     )
     assert config.sample_rate == 0.0
 
-    config = store.update_online_scoring_config(
+    config = store.upsert_online_scoring_config(
         experiment_id=experiment_id,
         scorer_name="test_scorer",
         sample_rate=1.0,
@@ -10868,7 +10868,7 @@ def test_update_online_scoring_config_validates_sample_rate(store: SqlAlchemySto
 
     # Invalid sample rates should raise
     with pytest.raises(MlflowException, match="sample_rate must be between 0.0 and 1.0"):
-        store.update_online_scoring_config(
+        store.upsert_online_scoring_config(
             experiment_id=experiment_id,
             scorer_name="test_scorer",
             sample_rate=-0.1,
@@ -10881,12 +10881,12 @@ def test_get_active_online_scorers_filters_by_sample_rate(store: SqlAlchemyStore
         store.register_scorer(experiment_id, "active", _gateway_model_scorer_json())
         store.register_scorer(experiment_id, "inactive", _gateway_model_scorer_json())
 
-    store.update_online_scoring_config(
+    store.upsert_online_scoring_config(
         experiment_id=experiment_id,
         scorer_name="active",
         sample_rate=0.1,
     )
-    store.update_online_scoring_config(
+    store.upsert_online_scoring_config(
         experiment_id=experiment_id,
         scorer_name="inactive",
         sample_rate=0.0,
@@ -10908,7 +10908,7 @@ def test_get_active_online_scorers_returns_scorer_fields(store: SqlAlchemyStore)
     with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
         store.register_scorer(experiment_id, "scorer", scorer_json)
 
-    store.update_online_scoring_config(
+    store.upsert_online_scoring_config(
         experiment_id=experiment_id,
         scorer_name="scorer",
         sample_rate=0.5,
@@ -10934,7 +10934,7 @@ def test_get_active_online_scorers_filters_non_gateway_model(store: SqlAlchemySt
         store.register_scorer(experiment_id, "scorer", _gateway_model_scorer_json())
 
     # Set up online scoring config (validation passes for version 1)
-    store.update_online_scoring_config(
+    store.upsert_online_scoring_config(
         experiment_id=experiment_id,
         scorer_name="scorer",
         sample_rate=0.5,
@@ -10963,7 +10963,7 @@ def test_scorer_deletion_cascades_to_online_configs(store: SqlAlchemyStore):
     with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
         store.register_scorer(experiment_id, "scorer", _gateway_model_scorer_json())
 
-    config = store.update_online_scoring_config(
+    config = store.upsert_online_scoring_config(
         experiment_id=experiment_id,
         scorer_name="scorer",
         sample_rate=0.5,

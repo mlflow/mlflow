@@ -1435,7 +1435,7 @@ class AbstractStore(GatewayStoreMixin):
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def update_online_scoring_config(
+    def upsert_online_scoring_config(
         self,
         experiment_id: str,
         scorer_name: str,
@@ -1443,7 +1443,7 @@ class AbstractStore(GatewayStoreMixin):
         filter_string: str | None = None,
     ) -> "OnlineScoringConfig":
         """
-        Update online scoring configuration for a scorer.
+        Create or update online scoring configuration for a scorer.
 
         Args:
             experiment_id: The ID of the experiment where the scorer is running online.
@@ -1452,7 +1452,7 @@ class AbstractStore(GatewayStoreMixin):
             filter_string: Optional filter expression for trace selection.
 
         Returns:
-            The updated OnlineScoringConfig object.
+            The created or updated OnlineScoringConfig object.
 
         Raises:
             MlflowException: If scorer is not found.

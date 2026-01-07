@@ -2454,7 +2454,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             return [config.to_mlflow_entity() for config in results]
 
-    def update_online_scoring_config(
+    def upsert_online_scoring_config(
         self,
         experiment_id: str,
         scorer_name: str,
@@ -2462,7 +2462,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         filter_string: str | None = None,
     ) -> OnlineScoringConfig:
         """
-        Update online scoring configuration for a scorer.
+        Create or update online scoring configuration for a scorer.
 
         Args:
             experiment_id: The ID of the experiment where the scorer is running online.
@@ -2471,7 +2471,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             filter_string: Optional filter expression for trace selection.
 
         Returns:
-            The updated OnlineScoringConfig entity.
+            The created or updated OnlineScoringConfig entity.
 
         Raises:
             MlflowException: If scorer is not found or does not use a gateway model.
