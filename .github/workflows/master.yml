@@ -286,17 +286,20 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-          pip install openai dspy deepeval litellm ragas
+          uv sync --extra genai
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            deepeval ragas
       - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
       - name: Run GenAI Tests (OSS)
         run: |
-          pytest tests/genai
+          uv run --no-sync pytest tests/genai
 
       - name: Run GenAI Tests (Databricks)
         run: |
-          pip install databricks-agents
-          pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
+          uv run --no-sync --with databricks-agents \
+            pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
             --ignore tests/genai/optimize --ignore tests/genai/prompts
 
   pyfunc:
