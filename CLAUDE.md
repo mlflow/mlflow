@@ -39,6 +39,14 @@ tail -f /tmp/mlflow-dev-server.log
 
 This uses `uv` (fast Python package manager) to automatically manage dependencies and run the development environment.
 
+## Debugging
+
+For debugging errors, enable debug logging (must be set before importing mlflow):
+
+```bash
+export MLFLOW_LOGGING_LEVEL=DEBUG
+```
+
 ### Start Development Server with Databricks Backend
 
 To run the MLflow dev server that proxies requests to a Databricks workspace:
