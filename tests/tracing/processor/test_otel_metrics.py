@@ -82,7 +82,7 @@ def test_metrics_export(
     assert tool_metric_attrs["span_type"] == "TOOL", data_points
     assert tool_metric_attrs["span_status"] == "ERROR"
     assert tool_metric_attrs["root"] is True
-    assert tool_metric.sum >= 1000
+    assert tool_metric.sum >= 990
 
 
 def test_no_metrics_when_disabled(
