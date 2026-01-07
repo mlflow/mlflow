@@ -1363,7 +1363,7 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
             endpoint="/api/3.0/mlflow/scorers/delete",
         )
 
-    def update_online_scoring_config(
+    def upsert_online_scoring_config(
         self,
         experiment_id: str,
         scorer_name: str,
@@ -1371,7 +1371,7 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         filter_string: str | None = None,
     ) -> "OnlineScoringConfig":
         """
-        Update the online scoring configuration for a registered scorer.
+        Create or update the online scoring configuration for a registered scorer.
 
         Args:
             experiment_id: String ID of the experiment.
@@ -1380,7 +1380,7 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
             filter_string: Optional filter expression for trace selection.
 
         Returns:
-            The updated OnlineScoringConfig object.
+            The created or updated OnlineScoringConfig object.
         """
         from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
