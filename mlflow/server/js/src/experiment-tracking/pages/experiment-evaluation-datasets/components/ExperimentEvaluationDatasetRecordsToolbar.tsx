@@ -1,42 +1,53 @@
+import {
+  Button,
+  ColumnsIcon,
+  DropdownMenu,
+  Input,
+  RowsIcon,
+  SearchIcon,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
+import type { ColumnDef } from '@tanstack/react-table';
+import { FormattedMessage } from 'react-intl';
+import type { EvaluationDataset, EvaluationDatasetRecord } from '../types';
+import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
+
+const getTotalRecordsCount = (profile: string | undefined): number | undefined => {
+  if (!profile) {
+    return undefined;
+  }
+
+  const profileJson = parseJSONSafe(profile);
+  return profileJson?.num_records ?? undefined;
+};
+
+export const ExperimentEvaluationDatasetRecordsToolbar = ({
+  dataset,
+  datasetRecords,
+  columns,
+  columnVisibility,
+  setColumnVisibility,
+  rowSize,
+  setRowSize,
+  searchFilter,
+  setSearchFilter,
+}: {
+  dataset: EvaluationDataset;
+  datasetRecords: EvaluationDatasetRecord[];
+  columns: ColumnDef<EvaluationDatasetRecord, any>[];
+  columnVisibility: Record<string, boolean>;
+  setColumnVisibility: (columnVisibility: Record<string, boolean>) => void;
+  rowSize: 'sm' | 'md' | 'lg';
+  setRowSize: (rowSize: 'sm' | 'md' | 'lg') => void;
+  searchFilter: string;
+  setSearchFilter: (searchFilter: string) => void;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const datasetName = dataset?.name;
+  const profile = dataset?.profile;
+  const totalRecordsCount = getTotalRecordsCount(profile);
   const loadedRecordsCount = datasetRecords.length;
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  const selectedRowIds = Object.keys(rowSelection).filter((key) => rowSelection[key]);
-  const selectedCount = selectedRowIds.length;
-  const hasSelection = selectedCount > 0;
-
-  const { deleteDatasetRecordsMutation, isLoading: isDeleting } = useDeleteDatasetRecordsMutation({
-    onSuccess: () => {
-      setRowSelection({});
-      setShowDeleteConfirm(false);
-      // TODO: optional success toast
-    },
-    onError: (error) => {
-      setShowDeleteConfirm(false);
-      // TODO: optional error toast
-      // eslint-disable-next-line no-console
-      console.error('Failed to delete records:', error);
-    },
-  });
-
-  const handleDeleteClick = () => {
-    setShowDeleteConfirm(true);
-  };
-
-  const handleDeleteConfirm = () => {
-    if (!hasSelection || !datasetId) {
-      return;
-    }
-
-    deleteDatasetRecordsMutation({
-      datasetId,
-      datasetRecordIds: selectedRowIds,
-    });
-  };
-
-  const handleDeleteCancel = () => {
-    setShowDeleteConfirm(false);
-  };
 
   return (
     <div
@@ -133,22 +144,6 @@
               ))}
             </DropdownMenu.Content>
           </DropdownMenu.Root>
-
-          {hasSelection && (
-            <Button
-              componentId="mlflow.eval-datasets.records-toolbar.delete-button"
-              icon={<TrashIcon />}
-              onClick={handleDeleteClick}
-              disabled={isDeleting}
-              danger
-            >
-              <FormattedMessage
-                defaultMessage="Delete ({selectedCount})"
-                description="Delete selected records button"
-                values={{ selectedCount }}
-              />
-            </Button>
-          )}
         </div>
       </div>
       <div
@@ -160,47 +155,12 @@
         <Input
           componentId="mlflow.eval-datasets.records-toolbar.search-input"
           prefix={<SearchIcon />}
-          placeholder={intl.formatMessage({
-            defaultMessage: 'Search inputs and expectations',
-            description: 'Placeholder for the evaluation dataset records search input',
-          })}
+          placeholder="Search inputs and expectations"
           value={searchFilter}
           onChange={(e) => setSearchFilter(e.target.value)}
           css={{ maxWidth: '540px', flex: 1 }}
         />
       </div>
-
-      {showDeleteConfirm && (
-        <Dialog.Root open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-          <Dialog.Content>
-            <Dialog.Header>
-              <Dialog.Title>
-                <FormattedMessage
-                  defaultMessage="Delete Records"
-                  description="Delete records confirmation dialog title"
-                />
-              </Dialog.Title>
-            </Dialog.Header>
-            <Dialog.Body>
-              <Typography.Text>
-                <FormattedMessage
-                  defaultMessage="Are you sure you want to delete {selectedCount, plural, =1 {1 record} other {# records}}? This action cannot be undone."
-                  description="Delete records confirmation message"
-                  values={{ selectedCount }}
-                />
-              </Typography.Text>
-            </Dialog.Body>
-            <Dialog.Footer>
-              <Button onClick={handleDeleteCancel} disabled={isDeleting}>
-                <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
-              </Button>
-              <Button onClick={handleDeleteConfirm} disabled={isDeleting} danger>
-                <FormattedMessage defaultMessage="Delete" description="Delete button" />
-              </Button>
-            </Dialog.Footer>
-          </Dialog.Content>
-        </Dialog.Root>
-      )}
     </div>
   );
 };
