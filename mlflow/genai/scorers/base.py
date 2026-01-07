@@ -22,6 +22,10 @@ from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
+# Backend identifiers for registered scorers
+SCORER_BACKEND_TRACKING = "tracking"
+SCORER_BACKEND_DATABRICKS = "databricks"
+
 # Context variable to track if we're in a scorer call (prevents nested telemetry)
 _in_scorer_call: ContextVar[bool] = ContextVar("mlflow_scorer_call_context", default=False)
 
@@ -671,9 +675,9 @@ class Scorer(BaseModel):
         store.register_scorer(experiment_id, new_scorer)
 
         if isinstance(store, DatabricksStore):
-            new_scorer._registered_backend = "databricks"
+            new_scorer._registered_backend = SCORER_BACKEND_DATABRICKS
         else:
-            new_scorer._registered_backend = "tracking"
+            new_scorer._registered_backend = SCORER_BACKEND_TRACKING
         return new_scorer
 
     @experimental(version="3.9.0")

@@ -12,7 +12,12 @@ from typing import TYPE_CHECKING, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
-from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
+from mlflow.genai.scorers.base import (
+    SCORER_BACKEND_DATABRICKS,
+    SCORER_BACKEND_TRACKING,
+    Scorer,
+    ScorerSamplingConfig,
+)
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.plugins import get_entry_points
@@ -215,7 +220,7 @@ class MlflowTrackingStore(AbstractScorerStore):
             experiment_id: The experiment ID the scorer belongs to.
             online_config: Optional OnlineScoringConfig from the tracking store.
         """
-        scorer._registered_backend = "tracking"
+        scorer._registered_backend = SCORER_BACKEND_TRACKING
         scorer._experiment_id = experiment_id
         if online_config is not None:
             scorer._sampling_config = ScorerSamplingConfig(
@@ -339,7 +344,7 @@ class DatabricksStore(AbstractScorerStore):
     @staticmethod
     def _scheduled_scorer_to_scorer(scheduled_scorer: ScorerScheduleConfig) -> Scorer:
         scorer = scheduled_scorer.scorer
-        scorer._registered_backend = "databricks"
+        scorer._registered_backend = SCORER_BACKEND_DATABRICKS
         scorer._sampling_config = ScorerSamplingConfig(
             sample_rate=scheduled_scorer.sample_rate,
             filter_string=scheduled_scorer.filter_string,
