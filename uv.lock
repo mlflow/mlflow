@@ -4389,7 +4389,7 @@ requires-dist = [
     { name = "sqlparse", specifier = ">=0.4.0,<1" },
     { name = "tiktoken", marker = "extra == 'gateway'", specifier = "<1" },
     { name = "tiktoken", marker = "extra == 'genai'", specifier = "<1" },
-    { name = "typing-extensions", specifier = ">=4.0.0,<5" },
+    { name = "typing-extensions", specifier = ">=4.2.0,<5" },
     { name = "uvicorn", specifier = "<1" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'gateway'", specifier = "<1" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'genai'", specifier = "<1" },
