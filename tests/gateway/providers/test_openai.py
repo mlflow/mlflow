@@ -907,7 +907,12 @@ async def test_openai_passthrough_chat():
         "mlflow.gateway.providers.openai.send_request", return_value=mock_response
     ) as mock_send:
         payload = {"messages": [{"role": "user", "content": "Hello"}]}
-        custom_headers = {"X-Custom-Header": "custom-value", "X-Request-ID": "req-123"}
+        custom_headers = {
+            "X-Custom-Header": "custom-value",
+            "X-Request-ID": "req-123",
+            "host": "example.com",
+            "content-length": "100",
+        }
         response = await provider.passthrough(
             PassthroughAction.OPENAI_CHAT, payload, headers=custom_headers
         )
@@ -925,6 +930,10 @@ async def test_openai_passthrough_chat():
         # Verify custom headers are propagated correctly
         assert call_kwargs["headers"]["X-Custom-Header"] == "custom-value"
         assert call_kwargs["headers"]["X-Request-ID"] == "req-123"
+
+        # Verify gateway specific headers are not propagated
+        assert "host" not in call_kwargs["headers"]
+        assert "content-length" not in call_kwargs["headers"]
 
         # Verify response is raw OpenAI format
         assert response == mock_response

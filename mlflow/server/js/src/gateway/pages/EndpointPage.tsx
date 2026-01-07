@@ -5,7 +5,7 @@ import { FormProvider } from 'react-hook-form';
 import { useEditEndpointForm, getReadableErrorMessage } from '../hooks/useEditEndpointForm';
 import { EditEndpointFormRenderer } from '../components/edit-endpoint/EditEndpointFormRenderer';
 
-const EditEndpointPage = () => {
+const EndpointPage = () => {
   const { endpointId } = useParams<{ endpointId: string }>();
 
   const {
@@ -44,4 +44,4 @@ const EditEndpointPage = () => {
   );
 };
 
-export default withErrorBoundary(ErrorUtils.mlflowServices.EXPERIMENTS, EditEndpointPage);
+export default withErrorBoundary(ErrorUtils.mlflowServices.EXPERIMENTS, EndpointPage);

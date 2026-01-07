@@ -5,36 +5,8 @@ import { TraceTokenUsageChart } from './TraceTokenUsageChart';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
-
-// Mock FetchUtils
-jest.mock('../../../../common/utils/FetchUtils', () => ({
-  fetchOrFail: jest.fn(),
-  getAjaxUrl: (url: string) => url,
-}));
-
-import { fetchOrFail } from '../../../../common/utils/FetchUtils';
-const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
-
-// Helper to create mock API response
-const mockApiResponse = (dataPoints: any[] | undefined) => {
-  mockFetchOrFail.mockResolvedValue({
-    json: () => Promise.resolve({ data_points: dataPoints }),
-  } as Response);
-};
-
-// Helper to chain mock API responses (for input tokens, output tokens, total tokens)
-const mockApiResponses = (inputDataPoints: any[], outputDataPoints: any[], totalDataPoints: any[]) => {
-  mockFetchOrFail
-    .mockResolvedValueOnce({
-      json: () => Promise.resolve({ data_points: inputDataPoints }),
-    } as Response)
-    .mockResolvedValueOnce({
-      json: () => Promise.resolve({ data_points: outputDataPoints }),
-    } as Response)
-    .mockResolvedValueOnce({
-      json: () => Promise.resolve({ data_points: totalDataPoints }),
-    } as Response);
-};
+import { setupServer } from '../../../../common/utils/setup-msw';
+import { rest } from 'msw';
 
 // Helper to create an input tokens data point
 const createInputTokensDataPoint = (timeBucket: string, sum: number) => ({
@@ -80,6 +52,8 @@ describe('TraceTokenUsageChart', () => {
     timeBuckets,
   };
 
+  const server = setupServer();
+
   const createQueryClient = () =>
     new QueryClient({
       defaultOptions: {
@@ -100,15 +74,37 @@ describe('TraceTokenUsageChart', () => {
     );
   };
 
+  // Helper to setup MSW handler for trace metrics endpoint with routing based on metric_name
+  const setupTraceMetricsHandler = (inputDataPoints: any[], outputDataPoints: any[], totalDataPoints: any[]) => {
+    server.use(
+      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        const body = await req.json();
+        const metricName = body.metric_name;
+        if (metricName === TraceMetricKey.INPUT_TOKENS) {
+          return res(ctx.json({ data_points: inputDataPoints }));
+        } else if (metricName === TraceMetricKey.OUTPUT_TOKENS) {
+          return res(ctx.json({ data_points: outputDataPoints }));
+        } else if (metricName === TraceMetricKey.TOTAL_TOKENS) {
+          return res(ctx.json({ data_points: totalDataPoints }));
+        }
+        return res(ctx.json({ data_points: [] }));
+      }),
+    );
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockApiResponse([]);
+    // Default: return empty data points
+    setupTraceMetricsHandler([], [], []);
   });
 
   describe('loading state', () => {
     it('should render loading spinner while data is being fetched', async () => {
-      // Create a promise that never resolves to keep the component in loading state
-      mockFetchOrFail.mockReturnValue(new Promise(() => {}));
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.delay('infinite'));
+        }),
+      );
 
       renderComponent();
 
@@ -119,7 +115,11 @@ describe('TraceTokenUsageChart', () => {
 
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
-      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
+        }),
+      );
 
       renderComponent();
 
@@ -131,7 +131,7 @@ describe('TraceTokenUsageChart', () => {
 
   describe('empty data state', () => {
     it('should render empty state when no data points are returned', async () => {
-      mockApiResponses([], [], []);
+      setupTraceMetricsHandler([], [], []);
 
       renderComponent();
 
@@ -141,7 +141,7 @@ describe('TraceTokenUsageChart', () => {
     });
 
     it('should render empty state when time range is not provided', async () => {
-      mockApiResponse([]);
+      setupTraceMetricsHandler([], [], []);
 
       renderComponent({ startTimeMs: undefined, endTimeMs: undefined, timeBuckets: [] });
 
@@ -165,7 +165,7 @@ describe('TraceTokenUsageChart', () => {
     const mockTotalDataPoints = [createTotalTokensDataPoint(175000)];
 
     it('should render chart with data points', async () => {
-      mockApiResponses(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints);
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints);
 
       renderComponent();
 
@@ -178,7 +178,7 @@ describe('TraceTokenUsageChart', () => {
     });
 
     it('should display both input and output token areas', async () => {
-      mockApiResponses(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints);
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints);
 
       renderComponent();
 
@@ -189,7 +189,7 @@ describe('TraceTokenUsageChart', () => {
     });
 
     it('should display the total tokens in header', async () => {
-      mockApiResponses(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints);
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints);
 
       renderComponent();
 
@@ -200,7 +200,7 @@ describe('TraceTokenUsageChart', () => {
     });
 
     it('should display the "Token Usage" title', async () => {
-      mockApiResponses(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints);
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints);
 
       renderComponent();
 
@@ -210,7 +210,7 @@ describe('TraceTokenUsageChart', () => {
     });
 
     it('should display input and output tokens in subtitle', async () => {
-      mockApiResponses(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints);
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints);
 
       renderComponent();
 
@@ -223,7 +223,7 @@ describe('TraceTokenUsageChart', () => {
     });
 
     it('should display "Over time" label', async () => {
-      mockApiResponses(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints);
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints);
 
       renderComponent();
 
@@ -233,7 +233,7 @@ describe('TraceTokenUsageChart', () => {
     });
 
     it('should format token count in millions for values >= 1,000,000', async () => {
-      mockApiResponses(mockInputDataPoints, mockOutputDataPoints, [createTotalTokensDataPoint(1500000)]);
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, [createTotalTokensDataPoint(1500000)]);
 
       renderComponent();
 
@@ -244,7 +244,7 @@ describe('TraceTokenUsageChart', () => {
     });
 
     it('should format token count in thousands for values >= 1,000', async () => {
-      mockApiResponses(mockInputDataPoints, mockOutputDataPoints, [createTotalTokensDataPoint(5000)]);
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, [createTotalTokensDataPoint(5000)]);
 
       renderComponent();
 
@@ -255,7 +255,7 @@ describe('TraceTokenUsageChart', () => {
     });
 
     it('should format token count with locale string for values < 1,000', async () => {
-      mockApiResponses(mockInputDataPoints, mockOutputDataPoints, [createTotalTokensDataPoint(500)]);
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, [createTotalTokensDataPoint(500)]);
 
       renderComponent();
 
@@ -267,14 +267,23 @@ describe('TraceTokenUsageChart', () => {
   });
 
   describe('API call parameters', () => {
-    it('should call fetchOrFail for input tokens with correct parameters', async () => {
-      mockApiResponses([], [], []);
+    it('should call API for input tokens with correct parameters', async () => {
+      let capturedInputRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          if (body.metric_name === TraceMetricKey.INPUT_TOKENS) {
+            capturedInputRequest = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
 
       renderComponent();
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody).toMatchObject({
+        expect(capturedInputRequest).toMatchObject({
           experiment_ids: [testExperimentId],
           view_type: MetricViewType.TRACES,
           metric_name: TraceMetricKey.INPUT_TOKENS,
@@ -284,14 +293,23 @@ describe('TraceTokenUsageChart', () => {
       });
     });
 
-    it('should call fetchOrFail for output tokens with correct parameters', async () => {
-      mockApiResponses([], [], []);
+    it('should call API for output tokens with correct parameters', async () => {
+      let capturedOutputRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          if (body.metric_name === TraceMetricKey.OUTPUT_TOKENS) {
+            capturedOutputRequest = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
 
       renderComponent();
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[1]?.[1] as any)?.body || '{}');
-        expect(callBody).toMatchObject({
+        expect(capturedOutputRequest).toMatchObject({
           experiment_ids: [testExperimentId],
           view_type: MetricViewType.TRACES,
           metric_name: TraceMetricKey.OUTPUT_TOKENS,
@@ -301,39 +319,57 @@ describe('TraceTokenUsageChart', () => {
       });
     });
 
-    it('should call fetchOrFail for total tokens without time interval', async () => {
-      mockApiResponses([], [], []);
+    it('should call API for total tokens without time interval', async () => {
+      let capturedTotalRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          if (body.metric_name === TraceMetricKey.TOTAL_TOKENS) {
+            capturedTotalRequest = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
 
       renderComponent();
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[2]?.[1] as any)?.body || '{}');
-        expect(callBody).toMatchObject({
+        expect(capturedTotalRequest).toMatchObject({
           experiment_ids: [testExperimentId],
           view_type: MetricViewType.TRACES,
           metric_name: TraceMetricKey.TOTAL_TOKENS,
           aggregations: [{ aggregation_type: AggregationType.SUM }],
         });
         // Should NOT have time_interval_seconds for total tokens query
-        expect(callBody.time_interval_seconds).toBeUndefined();
+        expect(capturedTotalRequest?.time_interval_seconds).toBeUndefined();
       });
     });
 
     it('should use provided time interval', async () => {
-      mockApiResponses([], [], []);
+      let capturedRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          if (body.metric_name === TraceMetricKey.INPUT_TOKENS) {
+            capturedRequest = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
 
       renderComponent({ timeIntervalSeconds: 60 });
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.time_interval_seconds).toBe(60);
+        expect(capturedRequest?.time_interval_seconds).toBe(60);
       });
     });
   });
 
   describe('data transformation', () => {
     it('should handle data points with missing token values gracefully', async () => {
-      mockApiResponses(
+      setupTraceMetricsHandler(
         [
           {
             metric_name: TraceMetricKey.INPUT_TOKENS,
@@ -360,7 +396,7 @@ describe('TraceTokenUsageChart', () => {
     });
 
     it('should handle missing total tokens data gracefully', async () => {
-      mockApiResponses(
+      setupTraceMetricsHandler(
         [createInputTokensDataPoint('2025-12-22T10:00:00Z', 1000)],
         [createOutputTokensDataPoint('2025-12-22T10:00:00Z', 500)],
         [],
@@ -378,7 +414,7 @@ describe('TraceTokenUsageChart', () => {
     });
 
     it('should handle data points with missing time_bucket', async () => {
-      mockApiResponses(
+      setupTraceMetricsHandler(
         [
           {
             metric_name: TraceMetricKey.INPUT_TOKENS,
@@ -409,7 +445,7 @@ describe('TraceTokenUsageChart', () => {
       const inputDataPoints = [createInputTokensDataPoint('2025-12-22T10:00:00Z', 1000)];
       const outputDataPoints = [createOutputTokensDataPoint('2025-12-22T10:00:00Z', 500)];
 
-      mockApiResponses(inputDataPoints, outputDataPoints, [createTotalTokensDataPoint(1500)]);
+      setupTraceMetricsHandler(inputDataPoints, outputDataPoints, [createTotalTokensDataPoint(1500)]);
 
       renderComponent();
 
@@ -429,7 +465,7 @@ describe('TraceTokenUsageChart', () => {
       // Output tokens only has data for the first time bucket (second bucket will be 0)
       const outputDataPoints = [createOutputTokensDataPoint('2025-12-22T10:00:00Z', 500)];
 
-      mockApiResponses(inputDataPoints, outputDataPoints, [createTotalTokensDataPoint(3500)]);
+      setupTraceMetricsHandler(inputDataPoints, outputDataPoints, [createTotalTokensDataPoint(3500)]);
 
       renderComponent();
 
