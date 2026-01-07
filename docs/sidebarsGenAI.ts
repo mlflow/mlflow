@@ -624,7 +624,7 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'category',
-          label: 'YAML-based (Legacy)',
+          label: 'Gateway Server (Legacy)',
           items: [
             {
               type: 'doc',
