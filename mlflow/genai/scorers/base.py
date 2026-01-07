@@ -733,7 +733,10 @@ class Scorer(BaseModel):
                 "When starting a scorer, provided sample rate must be greater than 0"
             )
 
+        from mlflow.tracking.fluent import _get_experiment_id
+
         scorer_name = name or self.name
+        experiment_id = experiment_id or _get_experiment_id()
         store = _get_scorer_store()
 
         if isinstance(store, DatabricksStore):
@@ -811,7 +814,10 @@ class Scorer(BaseModel):
 
         self._check_can_be_registered()
 
+        from mlflow.tracking.fluent import _get_experiment_id
+
         scorer_name = name or self.name
+        experiment_id = experiment_id or _get_experiment_id()
         store = _get_scorer_store()
 
         if isinstance(store, DatabricksStore):
