@@ -1,7 +1,7 @@
 import React from 'react';
 import { useDesignSystemTheme, ChartLineIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useTraceRequestsChartData } from '../hooks/useTraceRequestsChartData';
 import {
   OverviewChartLoadingState,
@@ -21,7 +21,7 @@ export const TraceRequestsChart: React.FC<OverviewChartProps> = (props) => {
   const xAxisProps = useChartXAxisProps();
 
   // Fetch and process requests chart data
-  const { chartData, totalRequests, isLoading, error, hasData } = useTraceRequestsChartData(props);
+  const { chartData, totalRequests, avgRequests, isLoading, error, hasData } = useTraceRequestsChartData(props);
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -53,6 +53,21 @@ export const TraceRequestsChart: React.FC<OverviewChartProps> = (props) => {
                 formatter={(value: number) => [`${value}`, 'Requests']}
               />
               <Bar dataKey="count" fill={theme.colors.blue400} radius={[4, 4, 0, 0]} />
+              {avgRequests > 0 && (
+                <ReferenceLine
+                  y={avgRequests}
+                  stroke={theme.colors.textSecondary}
+                  strokeDasharray="4 4"
+                  data-testid="reference-line"
+                  data-label={`AVG (${Math.round(avgRequests).toLocaleString()})`}
+                  label={{
+                    value: `AVG (${Math.round(avgRequests).toLocaleString()})`,
+                    position: 'insideTopRight',
+                    fill: theme.colors.textSecondary,
+                    fontSize: 10,
+                  }}
+                />
+              )}
             </BarChart>
           </ResponsiveContainer>
         ) : (

@@ -169,6 +169,19 @@ describe('TraceRequestsChart', () => {
       });
     });
 
+    it('should display average reference line', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      // Average should be (42 + 58 + 100) / 3 = 66.67, rounded to 67
+      await waitFor(() => {
+        const referenceLine = screen.getByTestId('reference-line');
+        expect(referenceLine).toBeInTheDocument();
+        expect(referenceLine).toHaveAttribute('data-label', 'AVG (67)');
+      });
+    });
+
     it('should format large numbers with locale formatting', async () => {
       setupTraceMetricsHandler([createTraceCountDataPoint('2025-12-22T10:00:00Z', 1234567)]);
 
