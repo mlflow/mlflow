@@ -48,7 +48,7 @@ def prompt_optimization_autolog(
         mlflow.log_param("num_prompts", num_prompts)
         mlflow.log_param("num_training_samples", num_training_samples)
 
-        if train_data_df:
+        if train_data_df is not None and not train_data_df.empty:
             # Log training dataset as run input if it is provided
             dataset = mlflow.data.from_pandas(
                 train_data_df, source="prompt_optimization_train_data"
