@@ -445,5 +445,5 @@ def test_build_few_shot_meta_prompt_with_guidelines(sample_target_prompts):
     assert "CUSTOM GUIDELINES:" in meta_prompt
     assert custom_guidelines in meta_prompt
     assert "TEMPLATE VARIABLES:" in meta_prompt
-    assert "EVALUATION EXAMPLES:" in meta_prompt
-    assert "CURRENT PERFORMANCE:" in meta_prompt
+    assert "EVALUATION EXAMPLES" in meta_prompt  # Now includes score in header
+    assert "Current Score:" in meta_prompt

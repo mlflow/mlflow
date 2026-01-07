@@ -13,27 +13,35 @@ from mlflow.utils.annotations import experimental
 _logger = logging.getLogger(__name__)
 
 
-# Meta-prompt template for zero-shot optimization (no evaluation data)
-ZERO_SHOT_META_PROMPT_TEMPLATE = """You are an expert prompt engineer. Your task is to
-improve the following prompts to achieve better performance using prompt engineering
-best practices.
+# Unified meta-prompt template that supports both zero-shot and few-shot modes
+META_PROMPT_TEMPLATE = """You are an expert prompt engineer. Your task is to improve
+the following prompts to achieve better performance.
 
 CURRENT PROMPTS:
 {current_prompts_formatted}
 
-OBJECTIVE:
-Improve these prompts to produce more accurate, helpful, and relevant outputs.
+{evaluation_examples}
 
 PROMPT ENGINEERING BEST PRACTICES:
-1. Be specific and clear about the task and expected output format
-2. Provide context and constraints when necessary
-3. Use structured formatting (numbered lists, sections) for clarity
-4. Include examples or demonstrations when helpful (few-shot prompting)
-5. Specify the role or persona if relevant (e.g., "You are an expert...")
-6. Break complex tasks into steps
-7. Use explicit instructions for output format and constraints
-8. Specify what to avoid or not do if important
-9. Use delimiters or tags to separate different sections
+Apply these proven techniques to create effective prompts:
+
+1. **Clarity & Specificity**: Be explicit about the task, expected output format,
+   and any constraints
+2. **Structured Formatting**: Use numbered lists, sections, or delimiters to
+   organize complex instructions clearly
+3. **Few-Shot Examples**: Include concrete examples showing desired input/output
+   pairs when appropriate
+4. **Role/Persona**: Specify expertise level if relevant (e.g., "You are an expert
+   mathematician...")
+5. **Step-by-Step Decomposition**: Break complex reasoning tasks into explicit
+   steps or phases
+6. **Output Format Specification**: Explicitly define the format, structure, and
+   constraints for outputs
+7. **Constraint Specification**: Clearly state what to avoid, exclude, or not do
+8. **Verification Instructions**: Add self-checking steps for calculation-heavy
+   or error-prone tasks
+9. **Chain-of-Thought Prompting**: For reasoning tasks, explicitly instruct to
+   show intermediate steps
 
 CRITICAL REQUIREMENT - TEMPLATE VARIABLES:
 The following variables MUST be preserved EXACTLY as shown in the original prompts.
@@ -48,97 +56,10 @@ prompt. If a variable appears as {{{{question}}}} in the original, it must appea
 {custom_guidelines}
 
 INSTRUCTIONS:
-Generate improved versions of the prompts above. Apply prompt engineering principles
-to improve quality while STRICTLY preserving all template variables in their exact
-original format.
+Generate improved versions of the prompts by applying relevant prompt engineering
+best practices. Make your prompts specific and actionable.
 
-CRITICAL: You must respond with a valid JSON object using the EXACT prompt names
-shown above. The JSON keys must match the "Prompt name" fields exactly. Use this
-structure:
-{{
-{response_format_example}
-}}
-
-REMINDER:
-1. Use the exact prompt names as JSON keys (e.g., if the prompt is named
-   "aime_solver", use "aime_solver" as the key)
-2. Every template variable from the original prompt must appear unchanged in your
-   improved version
-
-Do not include any text before or after the JSON object. Do not include
-explanations or reasoning.
-"""
-
-
-# Meta-prompt template for few-shot optimization (with evaluation feedback)
-FEW_SHOT_META_PROMPT_TEMPLATE = """You are an expert prompt engineer. Your task is to
-improve the following prompts based on evaluation feedback from real examples.
-
-CURRENT PROMPTS:
-{current_prompts_formatted}
-
-CURRENT PERFORMANCE:
-Average score: {current_score:.3f}
-
-EVALUATION EXAMPLES:
-Below are examples showing how the current prompts performed. Study these carefully
-to identify patterns in what worked and what failed.
-
-{examples_formatted}
-
-ANALYSIS INSTRUCTIONS:
-Before generating improved prompts, analyze the evaluation examples to identify:
-
-1. **Common Failure Patterns**: What mistakes appear repeatedly across failed
-   examples?
-   - Are outputs too verbose when they should be concise?
-   - Are outputs missing key information or steps?
-   - Are outputs in the wrong format?
-   - Are there systematic reasoning errors?
-
-2. **Success Patterns**: What made the successful examples work?
-   - What format did they follow?
-   - What level of detail was appropriate?
-   - What reasoning approach was effective?
-
-3. **Key Insights from Rationales**: What do the evaluation rationales tell you?
-   - What criteria are being used to judge quality?
-   - What specific issues are mentioned most often?
-   - What improvements would directly address these issues?
-
-4. **Task-Specific Requirements**: Based on the examples, what does this task
-   truly need?
-   - What output format is expected?
-   - What level of explanation vs. directness?
-   - What edge cases need to be handled?
-
-IMPROVEMENT STRATEGY:
-Your improved prompt should:
-- **Add specific instructions** that would have prevented the observed failures
-- **Include concrete examples or format specifications** if formatting issues
-  were common
-- **Clarify reasoning requirements** if logical errors were observed
-- **Set explicit constraints** (e.g., "be concise", "show your work", "only
-  output X") based on what worked
-- **Address the root causes** identified in the failure patterns, not just
-  symptoms
-
-CRITICAL REQUIREMENT - TEMPLATE VARIABLES:
-The following variables MUST be preserved EXACTLY as shown in the original prompts.
-DO NOT modify, remove, or change the formatting of these variables in any way:
-{template_variables}
-
-IMPORTANT: Template variables use double curly braces like {{{{variable_name}}}}.
-You MUST copy them exactly as they appear in the original prompt into your improved
-prompt. If a variable appears as {{{{question}}}} in the original, it must appear as
-{{{{question}}}} in your improvement.
-
-{custom_guidelines}
-
-INSTRUCTIONS:
-Generate improved versions of the prompts that directly address the patterns you
-identified. Make your prompts specific and actionable - add concrete rules,
-examples, or constraints that would prevent the observed failures.
+{extra_instructions}
 
 CRITICAL: Preserve all template variables in their exact original format with
 double curly braces.
@@ -155,6 +76,7 @@ REMINDER:
    "aime_solver", use "aime_solver" as the key)
 2. Every template variable from the original prompt must appear unchanged in your
    improved version
+3. Apply best practices that are most relevant to the task at hand
 
 Do not include any text before or after the JSON object. Do not include
 explanations or reasoning.
@@ -334,9 +256,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         _logger.info("Applying zero-shot prompt optimization with best practices")
 
         # Build meta-prompt
-        meta_prompt = self._build_zero_shot_meta_prompt(
-            target_prompts, template_variables
-        )
+        meta_prompt = self._build_zero_shot_meta_prompt(target_prompts, template_variables)
 
         try:
             improved_prompts = self._call_reflection_model(meta_prompt)
@@ -353,9 +273,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             )
 
         except Exception as e:
-            _logger.warning(
-                f"Zero-shot optimization failed: {e}. Returning original prompts."
-            )
+            _logger.warning(f"Zero-shot optimization failed: {e}. Returning original prompts.")
             return PromptOptimizerOutput(
                 optimized_prompts=target_prompts,
                 initial_eval_score=None,
@@ -407,9 +325,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             _logger.info("Successfully generated optimized prompts")
 
         except Exception as e:
-            _logger.warning(
-                f"Few-shot optimization failed: {e}. Returning original prompts."
-            )
+            _logger.warning(f"Few-shot optimization failed: {e}. Returning original prompts.")
             return PromptOptimizerOutput(
                 optimized_prompts=target_prompts,
                 initial_eval_score=initial_score,
@@ -432,9 +348,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             final_eval_score=final_score,
         )
 
-    def _extract_template_variables(
-        self, prompts: dict[str, str]
-    ) -> dict[str, set[str]]:
+    def _extract_template_variables(self, prompts: dict[str, str]) -> dict[str, set[str]]:
         """
         Extract template variables ({{var}}) from each prompt.
 
@@ -496,9 +410,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         )
 
         # Add custom guidelines to the meta-prompt if provided
-        custom_guidelines = (
-            f"CUSTOM GUIDELINES:\n{self.guidelines}" if self.guidelines else ""
-        )
+        custom_guidelines = f"CUSTOM GUIDELINES:\n{self.guidelines}" if self.guidelines else ""
 
         # Format example JSON response with actual prompt names
         response_format_example = "\n".join(
@@ -508,8 +420,10 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             ]
         )
 
-        return ZERO_SHOT_META_PROMPT_TEMPLATE.format(
+        return META_PROMPT_TEMPLATE.format(
             current_prompts_formatted=prompts_formatted,
+            evaluation_examples="",
+            extra_instructions="",
             template_variables=vars_formatted,
             custom_guidelines=custom_guidelines,
             response_format_example=response_format_example,
@@ -545,9 +459,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         )
 
         # Add custom guidelines to the meta-prompt if provided
-        custom_guidelines = (
-            f"CUSTOM GUIDELINES:\n{self.guidelines}" if self.guidelines else ""
-        )
+        custom_guidelines = f"CUSTOM GUIDELINES:\n{self.guidelines}" if self.guidelines else ""
 
         # Format example JSON response with actual prompt names
         response_format_example = "\n".join(
@@ -557,10 +469,31 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             ]
         )
 
-        return FEW_SHOT_META_PROMPT_TEMPLATE.format(
+        evaluation_examples = f"""EVALUATION EXAMPLES (Current Score: {current_score:.3f}):
+Below are examples showing how the current prompts performed. Study these to identify
+patterns in what worked and what failed.
+
+{examples_formatted}
+
+Before applying best practices, analyze the examples to identify:
+1. **Common Failure Patterns**: What mistakes appear repeatedly? (wrong format,
+   missing steps, calculation errors, etc.)
+2. **Success Patterns**: What made successful examples work? (format, detail level,
+   reasoning approach)
+3. **Key Insights**: What do the rationales tell you about quality criteria and
+   needed improvements?
+4. **Task Requirements**: What output format, explanation level, and edge cases
+   are expected?"""
+
+        extra_instructions = """
+Focus on applying best practices that directly address the observed failure patterns.
+Add specific instructions, format specifications, or verification steps that would
+have prevented the failures you identified."""
+
+        return META_PROMPT_TEMPLATE.format(
             current_prompts_formatted=prompts_formatted,
-            current_score=current_score,
-            examples_formatted=examples_formatted,
+            evaluation_examples=evaluation_examples,
+            extra_instructions=extra_instructions,
             template_variables=vars_formatted,
             custom_guidelines=custom_guidelines,
             response_format_example=response_format_example,
@@ -601,9 +534,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         litellm_model = f"{self.provider}/{self.model}"
 
         try:
-            with mlflow.start_span(
-                name="metaprompt_reflection", span_type=SpanType.LLM
-            ) as span:
+            with mlflow.start_span(name="metaprompt_reflection", span_type=SpanType.LLM) as span:
                 litellm_params = {
                     "model": litellm_model,
                     "messages": [{"role": "user", "content": meta_prompt}],
@@ -653,9 +584,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
                 f"Failed to parse reflection model response as JSON: {e}\nResponse: {content[:500]}"
             ) from e
         except Exception as e:
-            raise MlflowException(
-                f"Failed to call reflection model {litellm_model}: {e}"
-            ) from e
+            raise MlflowException(f"Failed to call reflection model {litellm_model}: {e}") from e
 
     def _compute_aggregate_score(self, results: list[EvaluationResultRecord]) -> float:
         """
