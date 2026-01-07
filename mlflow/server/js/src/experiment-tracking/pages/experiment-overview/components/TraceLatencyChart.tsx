@@ -1,17 +1,8 @@
-import React, { useMemo, useCallback } from 'react';
+import React from 'react';
 import { useDesignSystemTheme, ClockIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
-import {
-  MetricViewType,
-  AggregationType,
-  TraceMetricKey,
-  P50,
-  P90,
-  P99,
-  getPercentileKey,
-} from '@databricks/web-shared/model-trace-explorer';
-import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
+import { useTraceLatencyChartData } from '../hooks/useTraceLatencyChartData';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
@@ -23,7 +14,7 @@ import {
   useChartXAxisProps,
   useChartLegendFormatter,
 } from './OverviewChartComponents';
-import { formatTimestampForTraceMetrics, useLegendHighlight, useTimestampValueMap } from '../utils/chartUtils';
+import { useLegendHighlight } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
 
 /**
@@ -36,82 +27,15 @@ function formatLatency(ms: number): string {
   return `${ms.toFixed(0)} ms`;
 }
 
-export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-}) => {
+export const TraceLatencyChart: React.FC<OverviewChartProps> = (props) => {
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
   const legendFormatter = useChartLegendFormatter();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
 
-  // Fetch latency metrics with p50, p90, p99 aggregations grouped by time
-  const {
-    data: latencyData,
-    isLoading: isLoadingTimeSeries,
-    error: timeSeriesError,
-  } = useTraceMetricsQuery({
-    experimentId,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
-    metricName: TraceMetricKey.LATENCY,
-    aggregations: [
-      { aggregation_type: AggregationType.PERCENTILE, percentile_value: P50 },
-      { aggregation_type: AggregationType.PERCENTILE, percentile_value: P90 },
-      { aggregation_type: AggregationType.PERCENTILE, percentile_value: P99 },
-    ],
-    timeIntervalSeconds,
-  });
-
-  // Fetch overall average latency (without time bucketing) for the header
-  const {
-    data: avgLatencyData,
-    isLoading: isLoadingAvg,
-    error: avgError,
-  } = useTraceMetricsQuery({
-    experimentId,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
-    metricName: TraceMetricKey.LATENCY,
-    aggregations: [{ aggregation_type: AggregationType.AVG }],
-  });
-
-  const latencyDataPoints = useMemo(() => latencyData?.data_points || [], [latencyData?.data_points]);
-  const isLoading = isLoadingTimeSeries || isLoadingAvg;
-  const error = timeSeriesError || avgError;
-
-  // Extract overall average latency from the response (undefined if not available)
-  const avgLatency = avgLatencyData?.data_points?.[0]?.values?.[AggregationType.AVG];
-
-  // Create a map of latency values by timestamp
-  const latencyExtractor = useCallback(
-    (dp: { values?: Record<string, number> }) => ({
-      p50: dp.values?.[getPercentileKey(P50)] || 0,
-      p90: dp.values?.[getPercentileKey(P90)] || 0,
-      p99: dp.values?.[getPercentileKey(P99)] || 0,
-    }),
-    [],
-  );
-  const latencyByTimestamp = useTimestampValueMap(latencyDataPoints, latencyExtractor);
-
-  // Prepare chart data - fill in all time buckets with 0 for missing data
-  const chartData = useMemo(() => {
-    return timeBuckets.map((timestampMs) => {
-      const latency = latencyByTimestamp.get(timestampMs);
-      return {
-        name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
-        p50: latency?.p50 || 0,
-        p90: latency?.p90 || 0,
-        p99: latency?.p99 || 0,
-      };
-    });
-  }, [timeBuckets, latencyByTimestamp, timeIntervalSeconds]);
+  // Fetch and process latency chart data
+  const { chartData, avgLatency, isLoading, error, hasData } = useTraceLatencyChartData(props);
 
   // Line colors
   const lineColors = {
@@ -140,7 +64,7 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
 
       {/* Chart */}
       <div css={{ height: 200, marginTop: theme.spacing.sm }}>
-        {latencyDataPoints.length > 0 ? (
+        {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
               <XAxis dataKey="name" {...xAxisProps} />
