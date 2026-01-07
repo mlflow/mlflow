@@ -6,11 +6,13 @@ It reuses the core scoring and logging logic from the evaluation harness for con
 """
 
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from mlflow.entities import Trace
 from mlflow.environment_variables import (
+    MLFLOW_GENAI_EVAL_MAX_WORKERS,
     MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS,
     MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE,
 )
@@ -196,9 +198,7 @@ def _run_single_turn_scorer_batch(
     log_assessments: bool,
 ) -> dict[str, TraceResult]:
     """
-    Run a single-turn scorer on each trace individually (batch processing).
-
-    Reuses _compute_eval_scores from the evaluation harness.
+    Run a single-turn scorer on each trace in parallel.
 
     Args:
         scorer: The scorer instance.
@@ -211,9 +211,7 @@ def _run_single_turn_scorer_batch(
     """
     trace_map = _fetch_traces_batch(trace_ids, tracking_store)
 
-    results: dict[str, TraceResult] = {}
-
-    for trace_id, trace in trace_map.items():
+    def process_trace(trace_id: str, trace: Trace) -> tuple[str, TraceResult]:
         eval_item = EvalItem.from_trace(trace)
 
         try:
@@ -233,14 +231,28 @@ def _run_single_turn_scorer_batch(
                     assessments=feedbacks,
                 )
 
-            results[trace_id] = TraceResult(
+            return trace_id, TraceResult(
                 assessments=[f.to_dictionary() for f in feedbacks],
                 failures=failures,
             )
         except Exception as e:
-            results[trace_id] = TraceResult(
+            return trace_id, TraceResult(
                 failures=[ScorerFailure(error_code=type(e).__name__, error_message=str(e))]
             )
+
+    max_workers = min(len(trace_map), MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
+    results: dict[str, TraceResult] = {}
+
+    with ThreadPoolExecutor(
+        max_workers=max_workers,
+        thread_name_prefix="MlflowScorerInvoke",
+    ) as executor:
+        futures = {
+            executor.submit(process_trace, tid, trace): tid for tid, trace in trace_map.items()
+        }
+        for future in as_completed(futures):
+            trace_id, result = future.result()
+            results[trace_id] = result
 
     return results
 
@@ -266,18 +278,15 @@ def _group_traces_by_session_id(
     # trace_id -> (session_id, timestamp_ms)
     trace_info_cache: dict[str, tuple[str, int | None]] = {}
 
-    for trace_id in trace_ids:
-        try:
-            if trace_info := tracking_store.get_trace_info(trace_id):
-                trace_metadata = trace_info.trace_metadata or {}
-                if session_id := trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
-                    if session_id not in session_groups:
-                        session_groups[session_id] = []
-                    session_groups[session_id].append(trace_id)
-                    trace_info_cache[trace_id] = (session_id, trace_info.timestamp_ms)
-        except Exception:
-            # Skip traces that can't be fetched
-            pass
+    trace_infos = tracking_store.batch_get_trace_infos(trace_ids)
+
+    for trace_info in trace_infos:
+        trace_metadata = trace_info.trace_metadata or {}
+        if session_id := trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
+            if session_id not in session_groups:
+                session_groups[session_id] = []
+            session_groups[session_id].append(trace_info.trace_id)
+            trace_info_cache[trace_info.trace_id] = (session_id, trace_info.timestamp_ms)
 
     # Sort trace_ids within each session by trace timestamp (None timestamps sort last)
     for session_id in session_groups:

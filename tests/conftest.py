@@ -21,7 +21,6 @@ import requests
 from opentelemetry import trace as trace_api
 
 import mlflow
-import mlflow.telemetry.utils
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
@@ -215,6 +214,9 @@ def generate_duration_stats() -> str:
 
     if not rows:
         return ""
+
+    # Limit to top 30 files
+    rows = rows[:30]
 
     # Prepare data for markdown table (headers + data rows)
     table_rows = [["Rank", "File", "Duration", "Tests", "Min", "Max", "Avg"]]
