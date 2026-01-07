@@ -778,7 +778,12 @@ async def test_passthrough_anthropic_messages():
             "max_tokens": 1024,
             "temperature": 0.7,
         }
-        custom_headers = {"X-Custom-Header": "custom-value", "X-Request-ID": "req-789"}
+        custom_headers = {
+            "X-Custom-Header": "custom-value",
+            "X-Request-ID": "req-789",
+            "host": "example.com",
+            "content-length": "100",
+        }
         response = await provider.passthrough(
             PassthroughAction.ANTHROPIC_MESSAGES, payload, headers=custom_headers
         )
@@ -805,6 +810,10 @@ async def test_passthrough_anthropic_messages():
         # Verify custom headers are propagated correctly
         assert captured_session_headers["X-Custom-Header"] == "custom-value"
         assert captured_session_headers["X-Request-ID"] == "req-789"
+
+        # Verify gateway specific headers are not propagated
+        assert "host" not in captured_session_headers
+        assert "content-length" not in captured_session_headers
 
 
 @pytest.mark.asyncio
