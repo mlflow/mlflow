@@ -34,6 +34,8 @@ import {
   createTraceLocationForUCSchema,
   useFetchTraceV4LazyQuery,
   doesTraceSupportV4API,
+  useTraceTableGroupBy,
+  useHasSessionTraces,
 } from '@databricks/web-shared/genai-traces-table';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
@@ -144,6 +146,9 @@ const RunViewEvaluationsTabInner = ({
 
   const [tableSort, setTableSort] = useTableSort(selectedColumns);
 
+  // Group by state
+  const { groupByConfig, setGroupByConfig } = useTraceTableGroupBy(experimentId);
+
   // Get traces data
   const {
     data: traceInfos,
@@ -221,6 +226,9 @@ const RunViewEvaluationsTabInner = ({
   const isTableLoading = traceInfosLoading || compareToRunLoading;
   const displayLoadingOverlay = false;
 
+  // Check if any traces have session metadata
+  const hasSessionTraces = useHasSessionTraces(traceInfos || []);
+
   if (isTableMetadataLoading) {
     return <LoadingSkeleton />;
   }
@@ -281,6 +289,9 @@ const RunViewEvaluationsTabInner = ({
             toggleColumns={toggleColumns}
             traceInfos={traceInfos}
             tableFilterOptions={tableFilterOptions}
+            groupByConfig={groupByConfig}
+            setGroupByConfig={setGroupByConfig}
+            hasSessionTraces={hasSessionTraces}
           />
           {isTableLoading ? (
             <LoadingSkeleton />
@@ -307,6 +318,7 @@ const RunViewEvaluationsTabInner = ({
                 compareToTraceInfoV3={compareToRunData}
                 onTraceTagsEdit={showEditTagsModalForTrace}
                 displayLoadingOverlay={displayLoadingOverlay}
+                groupByConfig={groupByConfig}
               />
             </ContextProviders>
           )}

@@ -6,7 +6,7 @@ import type { ThemeType } from '@databricks/design-system';
 import { ArrowRightIcon, Tag, Tooltip, Typography, UserIcon } from '@databricks/design-system';
 import { type IntlShape } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { ExpectationValuePreview } from '@databricks/web-shared/model-trace-explorer';
+import { ExpectationValuePreview, SESSION_ID_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
 
 import { LoggedModelCell } from './LoggedModelCell';
 import { NullCell } from './NullCell';
@@ -49,6 +49,7 @@ import { getUniqueValueCountsBySourceId } from '../utils/AggregationUtils';
 import { COMPARE_TO_RUN_COLOR, CURRENT_RUN_COLOR } from '../utils/Colors';
 import { timeSinceStr } from '../utils/DisplayUtils';
 import { shouldEnableTagGrouping } from '../utils/FeatureUtils';
+import { isSessionLevelAssessment } from '../utils/GroupingUtils';
 import {
   getCustomMetadataKeyFromColumnId,
   getTagKeyFromColumnId,
@@ -101,6 +102,23 @@ export const assessmentCellRenderer = (
     currentValue: first(comparisonEntry.currentRunValue?.responseAssessmentsByName[assessmentName]),
     otherValue: first(comparisonEntry.otherRunValue?.responseAssessmentsByName[assessmentName]),
   };
+
+  // Check if this trace is part of a session
+  const currentTraceInfo = comparisonEntry.currentRunValue?.traceInfo;
+  const isTraceInSession = currentTraceInfo?.trace_metadata?.[SESSION_ID_METADATA_KEY] !== undefined;
+
+  // Hide session-level assessments in trace rows (they should only appear in session rows)
+  // Session-level assessments have mlflow.trace.session in their metadata
+  // Show "-" instead of the assessment badge
+  if (isSessionLevelAssessment(assessment.currentValue) || isSessionLevelAssessment(assessment.otherValue)) {
+    return <span style={{ color: theme.colors.textSecondary }}>-</span>;
+  }
+
+  // If the trace is part of a session and there's no assessment value,
+  // show "-" instead of null badge (session row will show the session-level value)
+  if (isTraceInSession && !assessment.currentValue && !assessment.otherValue) {
+    return <span style={{ color: theme.colors.textSecondary }}>-</span>;
+  }
 
   const uniqueValueCounts = getUniqueValueCountsBySourceId(
     assessmentInfo,

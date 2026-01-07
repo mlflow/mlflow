@@ -16,6 +16,7 @@ import { GenAiTracesTableFilter } from './GenAiTracesTableFilter';
 import { GenAiTracesTableSearchInput } from './GenAiTracesTableSearchInput';
 import { EvaluationsOverviewColumnSelectorGrouped } from './components/EvaluationsOverviewColumnSelectorGrouped';
 import { EvaluationsOverviewSortDropdown } from './components/EvaluationsOverviewSortDropdown';
+import { TraceTableGroupBySelector } from './components/TraceTableGroupBySelector';
 import type {
   EvaluationsOverviewTableSort,
   TraceActions,
@@ -23,6 +24,7 @@ import type {
   TracesTableColumn,
   TableFilter,
   TableFilterOptions,
+  TraceGroupByConfig,
 } from './types';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer';
@@ -78,6 +80,11 @@ interface GenAITracesTableToolbarProps {
 
   // Additional elements to render in the toolbar
   addons?: React.ReactNode;
+
+  // Group by configuration
+  groupByConfig?: TraceGroupByConfig | null;
+  setGroupByConfig?: (config: TraceGroupByConfig | null) => void;
+  hasSessionTraces?: boolean;
 }
 
 export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITracesTableToolbarProps>> = React.memo(
@@ -103,6 +110,9 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       usesV4APIs,
       metadataError,
       addons,
+      groupByConfig,
+      setGroupByConfig,
+      hasSessionTraces,
     } = props;
     const { theme } = useDesignSystemTheme();
 
@@ -160,6 +170,13 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
           />
           {traceActions && (
             <GenAITracesTableActions experimentId={experimentId} traceActions={traceActions} traceInfos={traceInfos} />
+          )}
+          {setGroupByConfig && hasSessionTraces && (
+            <TraceTableGroupBySelector
+              groupByConfig={groupByConfig ?? null}
+              setGroupByConfig={setGroupByConfig}
+              hasSessionTraces={hasSessionTraces}
+            />
           )}
           {addons}
         </TableFilterLayout>

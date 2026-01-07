@@ -17,9 +17,11 @@ import type {
   TracesTableColumn,
   EvaluationsOverviewTableSort,
   TableFilter,
+  TraceGroupByConfig,
 } from './types';
 import { sortAssessmentInfos } from './utils/AggregationUtils';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
+import { groupTracesBySession } from './utils/GroupingUtils';
 import { applyTraceInfoV3ToEvalEntry, DEFAULT_RUN_PLACEHOLDER_NAME } from './utils/TraceUtils';
 import { useGenAiTraceTableRowSelection } from './hooks/useGenAiTraceTableRowSelection';
 
@@ -57,6 +59,11 @@ interface GenAITracesTableBodyContainerProps {
    * Whether to display a loading overlay over the table
    */
   displayLoadingOverlay?: boolean;
+
+  /**
+   * Configuration for grouping traces (e.g., by session)
+   */
+  groupByConfig?: TraceGroupByConfig | null;
 }
 
 const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
@@ -80,6 +87,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       getRunColor,
       enableRowSelection = true,
       displayLoadingOverlay = false,
+      groupByConfig,
     } = props;
     const { theme } = useDesignSystemTheme();
 
@@ -191,6 +199,12 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       [currentEvaluationResults, compareToEvaluationResults],
     );
 
+    // Group traces by session if grouping is enabled
+    const groupedTracesResult = useMemo(
+      () => groupTracesBySession(currentTraceInfoV3, currentEvaluationResults, groupByConfig ?? null),
+      [currentTraceInfoV3, currentEvaluationResults, groupByConfig],
+    );
+
     const assessments = useMemo(() => {
       return currentEvaluationResults.flatMap((evalResult) => evalResult?.traceInfo?.assessments ?? []) as Assessment[];
     }, [currentEvaluationResults]);
@@ -246,6 +260,8 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 onTraceTagsEdit={onTraceTagsEdit}
                 enableGrouping={shouldEnableTagGrouping()}
                 displayLoadingOverlay={displayLoadingOverlay}
+                groupByConfig={groupByConfig}
+                groupedTracesResult={groupedTracesResult}
               />
             </AssessmentSchemaContextProvider>
           </div>

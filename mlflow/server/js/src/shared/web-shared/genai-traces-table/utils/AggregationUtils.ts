@@ -5,6 +5,7 @@ import type { IntlShape } from '@databricks/i18n';
 
 import { getAssessmentValueBarBackgroundColor } from './Colors';
 import { DEFAULT_RUN_PLACEHOLDER_NAME } from './TraceUtils';
+import { isSessionLevelAssessment } from './GroupingUtils';
 import { isAssessmentPassing } from '../components/EvaluationsReviewAssessmentTag';
 import {
   ASSESSMENTS_DOC_LINKS,
@@ -378,11 +379,27 @@ function getAssessmentRunValueCounts(
   if (assessmentInfo.dtype === 'numeric') {
     return undefined;
   }
+
+  // Check if any evaluation result has session-level assessments for this assessment
+  const hasSessionLevelAssessments = evalResults.some((evalResult) => {
+    const assessments = assessmentInfo.isOverall
+      ? evalResult.overallAssessments
+      : evalResult.responseAssessmentsByName[assessmentInfo.name];
+    return assessments?.some((assessment) => isSessionLevelAssessment(assessment));
+  });
+
   const valueCounts: AssessmentRunCounts = new Map();
   evalResults.forEach((evalResult) => {
     const assessments = assessmentInfo.isOverall
       ? evalResult.overallAssessments
       : evalResult.responseAssessmentsByName[assessmentInfo.name];
+
+    // If session-level assessments exist for this assessment type,
+    // skip traces that don't have any assessment (they're trace-level rows without session feedback)
+    if (hasSessionLevelAssessments && (!assessments || assessments.length === 0)) {
+      return; // Skip this evaluation result - don't count it as null
+    }
+
     const valueCountsBySourceId =
       assessments && assessments.length > 0
         ? getUniqueValueCountsBySourceId(assessmentInfo, assessments)
@@ -407,10 +424,25 @@ function getAssessmentRunNumericValues(
     return undefined;
   }
   const values: number[] = [];
+
+  // Check if any assessment is session-level
+  const allAssessments = evalResults.flatMap((evalResult) =>
+    assessmentInfo.isOverall
+      ? evalResult.overallAssessments
+      : evalResult.responseAssessmentsByName[assessmentInfo.name] || [],
+  );
+  const hasSessionLevelAssessment = allAssessments.some((assessment) => isSessionLevelAssessment(assessment));
+
   evalResults.forEach((evalResult) => {
     const assessment = assessmentInfo.isOverall
       ? first(evalResult.overallAssessments)
       : first(evalResult.responseAssessmentsByName[assessmentInfo.name]);
+
+    // Skip non-session-level assessments if session-level ones exist
+    if (hasSessionLevelAssessment && assessment && !isSessionLevelAssessment(assessment)) {
+      return;
+    }
+
     if (assessment) {
       const value = getEvaluationResultAssessmentValue(assessment);
 
@@ -716,6 +748,7 @@ function getAssessmentBarChartValueText(
 
 /**
  * Compute the counts for each of the values given a set of assessments.
+ * For session-level assessments, only those assessments are counted (ignoring trace-level nulls).
  */
 export function getUniqueValueCountsBySourceId(
   assessmentInfo: AssessmentInfo,
@@ -725,7 +758,15 @@ export function getUniqueValueCountsBySourceId(
   count: number;
   latestAssessment: RunEvaluationResultAssessment;
 }[] {
-  const filteredAssessments = assessments.filter((assessment) => assessment.name === assessmentInfo.name);
+  let filteredAssessments = assessments.filter((assessment) => assessment.name === assessmentInfo.name);
+
+  // Check if any assessment is session-level
+  // If so, only count session-level assessments (ignore trace-level values/nulls for aggregation)
+  const hasSessionLevelAssessment = filteredAssessments.some((assessment) => isSessionLevelAssessment(assessment));
+  if (hasSessionLevelAssessment) {
+    filteredAssessments = filteredAssessments.filter((assessment) => isSessionLevelAssessment(assessment));
+  }
+
   // Compute the unique values of assessments.
   let uniqueValues = new Set<AssessmentValueType | undefined>();
   for (const assessment of filteredAssessments) {

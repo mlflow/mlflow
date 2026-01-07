@@ -330,3 +330,102 @@ export type NumericAggregate = {
   maxCount: number;
   counts: NumericAggregateCount[];
 };
+
+// ==========================================
+// Trace Grouping Types
+// ==========================================
+
+/**
+ * The mode for grouping traces in the table.
+ */
+export type TraceGroupByMode = 'session';
+
+/**
+ * Configuration for trace grouping.
+ */
+export interface TraceGroupByConfig {
+  mode: TraceGroupByMode;
+}
+
+/**
+ * Aggregated assessment data for a session.
+ */
+export interface SessionAssessmentAggregate {
+  /**
+   * For pass-fail/boolean: whether the session passed.
+   * A session passes only if ALL traces in the session pass.
+   * null if no traces have this assessment.
+   */
+  sessionPassed: boolean | null;
+
+  /**
+   * For numeric assessments: the average value across traces.
+   * null if no traces have numeric values for this assessment.
+   */
+  numericAverage: number | null;
+
+  /**
+   * The number of traces that passed this assessment.
+   */
+  passCount: number;
+
+  /**
+   * The total number of traces with this assessment.
+   */
+  totalCount: number;
+
+  /**
+   * Per-trace values for detailed view.
+   */
+  traceValues: Array<{
+    traceId: string;
+    value: AssessmentValueType;
+  }>;
+}
+
+/**
+ * A group of traces belonging to the same session.
+ */
+export interface TraceSessionGroup {
+  /** The session ID from mlflow.trace.session metadata */
+  sessionId: string;
+
+  /** Traces in this session, sorted by request_time */
+  traces: ModelTraceInfoV3[];
+
+  /** Evaluation results for traces in this session */
+  evaluationResults: RunEvaluationTracesDataEntry[];
+
+  /** Aggregated assessments for the session */
+  aggregatedAssessments: Map<string, SessionAssessmentAggregate>;
+
+  /** The earliest request time in the session */
+  sessionStartTime: string | null;
+
+  /** Number of traces in the session */
+  traceCount: number;
+}
+
+/**
+ * Union type for table row data - either a single trace or a session group.
+ */
+export type TraceTableRowData =
+  | { type: 'trace'; data: ModelTraceInfoV3; evaluationResult?: RunEvaluationTracesDataEntry }
+  | { type: 'sessionGroup'; data: TraceSessionGroup };
+
+/**
+ * Result of grouping traces by session.
+ */
+export interface GroupedTracesResult {
+  /** Rows to display in the table (session groups + ungrouped traces) */
+  rows: TraceTableRowData[];
+
+  /** Map of session ID to aggregated assessment data for header charts */
+  sessionAggregates: Map<string, Map<string, SessionAssessmentAggregate>>;
+
+  /** Total number of sessions */
+  sessionCount: number;
+
+  /** Whether any traces have session metadata */
+  hasSessionTraces: boolean;
+}

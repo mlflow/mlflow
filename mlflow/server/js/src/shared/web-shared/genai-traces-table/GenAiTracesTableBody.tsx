@@ -14,6 +14,7 @@ import { sortColumns, sortGroupedColumns } from './GenAiTracesTable.utils';
 import { getColumnConfig } from './GenAiTracesTableBody.utils';
 import { MemoizedGenAiTracesTableBodyRows } from './GenAiTracesTableBodyRows';
 import { GenAiTracesTableHeader } from './GenAiTracesTableHeader';
+import { GenAiTracesTableBodyGroupedRows } from './GenAiTracesTableBodyGroupedRows';
 import { HeaderCellRenderer } from './cellRenderers/HeaderCellRenderer';
 import { GenAiEvaluationTracesReviewModal } from './components/GenAiEvaluationTracesReviewModal';
 import type { GetTraceFunction } from './hooks/useGetTrace';
@@ -26,7 +27,9 @@ import {
   type AssessmentInfo,
   type AssessmentValueType,
   type EvalTraceComparisonEntry,
+  type GroupedTracesResult,
   type SaveAssessmentsQuery,
+  type TraceGroupByConfig,
   type TracesTableColumn,
   TracesTableColumnGroup,
 } from './types';
@@ -62,6 +65,8 @@ export const GenAiTracesTableBody = React.memo(
     enableGrouping = false,
     allColumns,
     displayLoadingOverlay,
+    groupByConfig,
+    groupedTracesResult,
   }: {
     experimentId: string;
     selectedColumns: TracesTableColumn[];
@@ -96,6 +101,8 @@ export const GenAiTracesTableBody = React.memo(
     enableGrouping?: boolean;
     allColumns: TracesTableColumn[];
     displayLoadingOverlay?: boolean;
+    groupByConfig?: TraceGroupByConfig | null;
+    groupedTracesResult?: GroupedTracesResult;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
@@ -313,6 +320,9 @@ export const GenAiTracesTableBody = React.memo(
       return result;
     }, [selectedAssessmentInfos, evaluations, assessmentFilters]);
 
+    // Check if session grouping is enabled
+    const isSessionGroupingEnabled = groupByConfig?.mode === 'session' && groupedTracesResult;
+
     return (
       <>
         <div
@@ -356,16 +366,29 @@ export const GenAiTracesTableBody = React.memo(
               setColumnSizing={table.setColumnSizing}
             />
 
-            <MemoizedGenAiTracesTableBodyRows
-              rows={rows}
-              isComparing={isComparing}
-              enableRowSelection={enableRowSelection}
-              virtualItems={virtualItems}
-              virtualizerTotalSize={rowVirtualizer.getTotalSize()}
-              virtualizerMeasureElement={rowVirtualizer.measureElement}
-              rowSelectionState={rowSelection}
-              selectedColumns={selectedColumns}
-            />
+            {isSessionGroupingEnabled ? (
+              <GenAiTracesTableBodyGroupedRows
+                groupedTracesResult={groupedTracesResult}
+                selectedAssessmentInfos={selectedAssessmentInfos}
+                onTraceClick={(traceId) => onChangeEvaluationId(traceId)}
+                rows={rows}
+                isComparing={isComparing}
+                enableRowSelection={enableRowSelection}
+                rowSelectionState={rowSelection}
+                selectedColumns={selectedColumns}
+              />
+            ) : (
+              <MemoizedGenAiTracesTableBodyRows
+                rows={rows}
+                isComparing={isComparing}
+                enableRowSelection={enableRowSelection}
+                virtualItems={virtualItems}
+                virtualizerTotalSize={rowVirtualizer.getTotalSize()}
+                virtualizerMeasureElement={rowVirtualizer.measureElement}
+                rowSelectionState={rowSelection}
+                selectedColumns={selectedColumns}
+              />
+            )}
           </Table>
         </div>
         {displayLoadingOverlay && (

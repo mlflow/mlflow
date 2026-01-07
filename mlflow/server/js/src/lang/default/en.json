@@ -43,6 +43,10 @@
     "defaultMessage": "Rename Run",
     "description": "Modal title to rename the experiment run name"
   },
+  "+F5Ntq": {
+    "defaultMessage": "{count, plural, one {# trace} other {# traces}}",
+    "description": "Label showing number of traces in a session"
+  },
   "+LLlvi": {
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
@@ -2158,6 +2162,10 @@
     "defaultMessage": "Type a value",
     "description": "Key-value tag editor modal > Value input placeholder"
   },
+  "FMQgtO": {
+    "defaultMessage": "Session:",
+    "description": "Label for session group row in traces table"
+  },
   "FPMrvd": {
     "defaultMessage": "Search traces",
     "description": "Experiment page > traces view filters > filter string input placeholder"
@@ -3524,6 +3532,10 @@
   "RUw2fH": {
     "defaultMessage": "Create a model",
     "description": "Create button to register a new model"
+  },
+  "RV6Ecr": {
+    "defaultMessage": "({count} {count, plural, one {trace} other {traces}})",
+    "description": "Count of traces in a session"
   },
   "RWVGkL": {
     "defaultMessage": "Columns",
@@ -6870,6 +6882,10 @@
   "rgSaFx": {
     "defaultMessage": "Span type",
     "description": "Section label for span type filters in the trace explorer."
+  },
+  "rgv2UD": {
+    "defaultMessage": "Group by",
+    "description": "Label for the trace table group by selector"
   },
   "rjhiii": {
     "defaultMessage": "Trace failed to render",

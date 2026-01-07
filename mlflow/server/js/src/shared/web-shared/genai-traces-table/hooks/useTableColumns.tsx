@@ -128,7 +128,7 @@ export const useTableColumns = (
         {
           id: TRACE_ID_COLUMN_ID,
           label: intl.formatMessage({
-            defaultMessage: 'Trace ID',
+            defaultMessage: 'ID',
             description: 'Column label for trace ID',
           }),
           type: TracesTableColumnType.TRACE_INFO,

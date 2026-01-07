@@ -100,3 +100,9 @@ export { useFetchTraceV4LazyQuery } from './hooks/useFetchTraceV4';
 export { doesTraceSupportV4API } from './utils/TraceLocationUtils';
 export { GenAIChatSessionsTable } from './sessions-table/GenAIChatSessionsTable';
 export { useGetTraces } from './hooks/useGetTraces';
+
+// Trace grouping
+export { useTraceTableGroupBy, useHasSessionTraces } from './hooks/useTraceTableGroupBy';
+export { groupTracesBySession, hasAnySessionTraces, isSessionLevelAssessment } from './utils/GroupingUtils';
+export { TraceTableGroupBySelector } from './components/TraceTableGroupBySelector';
+export { TraceSessionGroupRow } from './components/TraceSessionGroupRow';
