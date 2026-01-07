@@ -20,7 +20,7 @@ import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer
 import type { ScheduledScorer } from './types';
 import { getTypeDisplayName, getTypeIcon } from './scorerCardUtils';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
-import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, type ScorerFormMode } from './constants';
+import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, ScorerEvaluationScope, type ScorerFormMode } from './constants';
 import { ScorerFormEvaluationScopeSelect } from './ScorerFormEvaluationScopeSelect';
 
 interface ScorerFormRendererProps {
@@ -169,7 +169,8 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
   const [leftPaneWidth, setLeftPaneWidth] = useState(800);
   const resizablePaneRef = useRef<ModelTraceExplorerResizablePaneRef>(null);
   const isRunningScorersFeatureEnabled = isRunningScorersEnabled();
-  const isSessionLevelScorer = useWatch({ control, name: 'isSessionLevelScorer' });
+  const evaluationScope = useWatch({ control, name: 'evaluationScope' });
+  const isSessionLevelScorer = evaluationScope === ScorerEvaluationScope.SESSIONS;
 
   // Callback to adjust panel ratio after scorer runs
   const handleScorerFinished = useCallback(() => {
