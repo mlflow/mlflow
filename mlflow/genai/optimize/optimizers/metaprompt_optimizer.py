@@ -4,8 +4,6 @@ import re
 import tempfile
 from typing import Any
 
-import pandas as pd
-
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
@@ -491,6 +489,8 @@ class MetaPromptOptimizer(BasePromptOptimizer):
                 for rationale_key, rationale_value in result.rationales.items():
                     record[f"rationale_{rationale_key}"] = str(rationale_value)
             records.append(record)
+
+        import pandas as pd
 
         df = pd.DataFrame(records)
 
