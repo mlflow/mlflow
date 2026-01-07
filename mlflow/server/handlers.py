@@ -696,6 +696,69 @@ def _get_request_json(flask_request=request):
     return flask_request.get_json(force=True, silent=True)
 
 
+def _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded=True):
+    """
+    Validate request JSON against a schema without requiring protobuf messages.
+
+    Args:
+        request_json: The request data as a dictionary.
+        schema: Dictionary mapping parameter names to lists of validation functions.
+        proto_parsing_succeeded: Whether protobuf parsing succeeded
+            (for _validate_param_against_schema).
+    """
+    schema = schema or {}
+    for schema_key, schema_validation_fns in schema.items():
+        if schema_key in request_json or _assert_required in schema_validation_fns:
+            value = request_json.get(schema_key)
+            if schema_key == "run_id" and value is None and "run_uuid" in request_json:
+                value = request_json.get("run_uuid")
+            _validate_param_against_schema(
+                schema=schema_validation_fns,
+                param=schema_key,
+                value=value,
+                proto_parsing_succeeded=proto_parsing_succeeded,
+            )
+
+
+def _get_validated_request_json(flask_request=request, schema=None):
+    """
+    Get and validate request JSON for POST/PUT requests without protobuf parsing.
+
+    This is a simpler alternative to _get_request_message for endpoints that don't
+    use protobuf message definitions. It only supports POST/PUT requests (not GET).
+
+    Args:
+        flask_request: The Flask request object.
+        schema: Dictionary mapping parameter names to lists of validation functions.
+
+    Returns:
+        The validated request JSON as a dictionary.
+
+    Raises:
+        MlflowException: If the request is a GET request or validation fails.
+    """
+    if flask_request.method == "GET":
+        raise MlflowException(
+            "GET requests are not supported by this validation helper. "
+            "Use _get_request_message with a protobuf message instead.",
+            error_code=BAD_REQUEST,
+        )
+
+    request_json = _get_request_json(flask_request)
+
+    # Older clients may post their JSON double-encoded as strings
+    if is_string_type(request_json):
+        request_json = json.loads(request_json)
+
+    # If request doesn't have json body then assume it's empty
+    if request_json is None:
+        request_json = {}
+
+    _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded=True)
+
+    return request_json
+
+
 def _get_request_message(request_message, flask_request=request, schema=None):
     if flask_request.method == "GET" and flask_request.args:
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
@@ -746,18 +809,7 @@ def _get_request_message(request_message, flask_request=request, schema=None):
     except ParseError:
         proto_parsing_succeeded = False
 
-    schema = schema or {}
-    for schema_key, schema_validation_fns in schema.items():
-        if schema_key in request_json or _assert_required in schema_validation_fns:
-            value = request_json.get(schema_key)
-            if schema_key == "run_id" and value is None and "run_uuid" in request_json:
-                value = request_json.get("run_uuid")
-            _validate_param_against_schema(
-                schema=schema_validation_fns,
-                param=schema_key,
-                value=value,
-                proto_parsing_succeeded=proto_parsing_succeeded,
-            )
+    _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded)
 
     return request_message
 
@@ -3978,30 +4030,21 @@ def _update_online_scoring_config():
     Returns:
         JSON response containing the updated configuration.
     """
-    request_json = _get_request_json()
-    experiment_id = request_json.get("experiment_id")
-    name = request_json.get("name")
-    sample_rate = request_json.get("sample_rate")
-    filter_string = request_json.get("filter_string")
-
-    if not experiment_id:
-        raise MlflowException(
-            "Missing required parameter: experiment_id", error_code=INVALID_PARAMETER_VALUE
-        )
-    if not name:
-        raise MlflowException(
-            "Missing required parameter: name", error_code=INVALID_PARAMETER_VALUE
-        )
-    if sample_rate is None:
-        raise MlflowException(
-            "Missing required parameter: sample_rate", error_code=INVALID_PARAMETER_VALUE
-        )
+    request_json = _get_validated_request_json(
+        flask_request=request,
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "sample_rate": [_assert_required],
+            "filter_string": [_assert_string],
+        },
+    )
 
     config = _get_tracking_store().upsert_online_scoring_config(
-        experiment_id=experiment_id,
-        scorer_name=name,
-        sample_rate=float(sample_rate),
-        filter_string=filter_string,
+        experiment_id=request_json["experiment_id"],
+        scorer_name=request_json["name"],
+        sample_rate=float(request_json["sample_rate"]),
+        filter_string=request_json.get("filter_string"),
     )
 
     response = Response(mimetype="application/json")
