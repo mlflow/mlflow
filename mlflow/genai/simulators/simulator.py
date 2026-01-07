@@ -30,6 +30,8 @@ from mlflow.genai.simulators.prompts import (
     INITIAL_USER_PROMPT,
 )
 from mlflow.genai.utils.trace_utils import parse_outputs_to_str
+from mlflow.telemetry.events import SimulateConversationEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import trace_disabled
 from mlflow.utils.annotations import experimental
@@ -315,6 +317,7 @@ class ConversationSimulator:
                 f"which will be ignored. Expected keys: {_EXPECTED_TEST_CASE_KEYS}."
             )
 
+    @record_usage_event(SimulateConversationEvent)
     def _simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list[str]]:
         num_test_cases = len(self.test_cases)
         all_trace_ids: list[list[str]] = [[] for _ in range(num_test_cases)]
