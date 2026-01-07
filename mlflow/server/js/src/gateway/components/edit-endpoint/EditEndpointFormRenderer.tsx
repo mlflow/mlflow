@@ -309,16 +309,16 @@ export const EditEndpointFormRenderer = ({
                   description: 'Tooltip shown when save button is disabled due to invalid traffic split total',
                 })
               : !isFormComplete
-              ? intl.formatMessage({
-                  defaultMessage: 'Please configure at least one model in traffic split',
-                  description: 'Tooltip shown when save button is disabled due to incomplete form',
-                })
-              : !hasChanges
                 ? intl.formatMessage({
-                    defaultMessage: 'No changes to save',
-                    description: 'Tooltip shown when save button is disabled due to no changes',
+                    defaultMessage: 'Please configure at least one model in traffic split',
+                    description: 'Tooltip shown when save button is disabled due to incomplete form',
                   })
-                : undefined
+                : !hasChanges
+                  ? intl.formatMessage({
+                      defaultMessage: 'No changes to save',
+                      description: 'Tooltip shown when save button is disabled due to no changes',
+                    })
+                  : undefined
           }
         >
           <Button
