@@ -3,12 +3,8 @@ import { SparkleIcon, Typography, useDesignSystemTheme } from '@databricks/desig
 import { FormattedMessage } from 'react-intl';
 import { useAssessmentChartsSectionData } from '../hooks/useAssessmentChartsSectionData';
 import { ChartGrid } from './OverviewLayoutComponents';
-import {
-  OverviewChartLoadingState,
-  OverviewChartErrorState,
-  OverviewChartEmptyState,
-  OverviewChartContainer,
-} from './OverviewChartComponents';
+import { OverviewChartLoadingState, OverviewChartErrorState, OverviewChartEmptyState } from './OverviewChartComponents';
+import { LazyTraceAssessmentChart } from './LazyTraceAssessmentChart';
 import type { OverviewChartProps } from '../types';
 
 /**
@@ -86,22 +82,13 @@ export const AssessmentChartsSection: React.FC<OverviewChartProps> = (props) => 
       {/* Assessment charts grid */}
       <ChartGrid>
         {assessmentNames.map((name, index) => (
-          // PLACEHOLDER: Render assessment charts here
-          <OverviewChartContainer key={name}>
-            <div
-              css={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: 200,
-                color: getAssessmentColor(index),
-              }}
-            >
-              <Typography.Title level={4}>{name}</Typography.Title>
-              <Typography.Text color="secondary">Avg: {avgValuesByName.get(name)?.toFixed(2) ?? 'N/A'}</Typography.Text>
-            </div>
-          </OverviewChartContainer>
+          <LazyTraceAssessmentChart
+            key={name}
+            {...props}
+            assessmentName={name}
+            lineColor={getAssessmentColor(index)}
+            avgValue={avgValuesByName.get(name)}
+          />
         ))}
       </ChartGrid>
     </div>

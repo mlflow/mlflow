@@ -3601,6 +3601,10 @@
     "defaultMessage": "Dataset",
     "description": "Experiment page > group by runs control > group by dataset"
   },
+  "Rwi+VC": {
+    "defaultMessage": "avg score",
+    "description": "Subtitle for average assessment score"
+  },
   "Rx8d9z": {
     "defaultMessage": "Runs",
     "description": "Breadcrumb nav item to link to the runs tab on the parent experiment"
