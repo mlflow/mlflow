@@ -4,7 +4,6 @@ export enum GatewayPageId {
   gatewayPage = 'mlflow.gateway',
   apiKeysPage = 'mlflow.gateway.api-keys',
   createEndpointPage = 'mlflow.gateway.create',
-  endpointDetailsPage = 'mlflow.gateway.details',
   editEndpointPage = 'mlflow.gateway.edit',
 }
 
@@ -21,12 +20,8 @@ export class GatewayRoutePaths {
     return createMLflowRoutePath('/gateway/endpoints/create');
   }
 
-  static get endpointDetailsPage() {
-    return createMLflowRoutePath('/gateway/endpoints/:endpointId');
-  }
-
   static get editEndpointPage() {
-    return createMLflowRoutePath('/gateway/endpoints/:endpointId/edit');
+    return createMLflowRoutePath('/gateway/endpoints/:endpointId');
   }
 }
 
@@ -43,12 +38,17 @@ class GatewayRoutes {
     return GatewayRoutePaths.createEndpointPage;
   }
 
-  static getEndpointDetailsRoute(endpointId: string) {
-    return generatePath(GatewayRoutePaths.endpointDetailsPage, { endpointId });
+  static getEndpointRoute(endpointId: string) {
+    return generatePath(GatewayRoutePaths.editEndpointPage, { endpointId });
   }
 
   static getEditEndpointRoute(endpointId: string) {
     return generatePath(GatewayRoutePaths.editEndpointPage, { endpointId });
+  }
+
+  // Deprecated: Use getEndpointRoute instead
+  static getEndpointDetailsRoute(endpointId: string) {
+    return this.getEndpointRoute(endpointId);
   }
 }
 
