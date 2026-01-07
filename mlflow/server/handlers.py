@@ -703,8 +703,7 @@ def _validate_request_json_with_schema(request_json, schema, proto_parsing_succe
     Args:
         request_json: The request data as a dictionary.
         schema: Dictionary mapping parameter names to lists of validation functions.
-        proto_parsing_succeeded: Whether protobuf parsing succeeded
-            (for _validate_param_against_schema).
+        proto_parsing_succeeded: Whether protobuf parsing succeeded.
     """
     schema = schema or {}
     for schema_key, schema_validation_fns in schema.items():
