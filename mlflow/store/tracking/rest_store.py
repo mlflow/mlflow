@@ -49,6 +49,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     BatchGetTraces,
@@ -1400,13 +1401,20 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         )
 
         verify_rest_response(response, endpoint)
-        config_dict = response.json()["config"]
-        return OnlineScoringConfig(
-            online_scoring_config_id=config_dict["online_scoring_config_id"],
-            scorer_id=config_dict["scorer_id"],
-            sample_rate=config_dict["sample_rate"],
-            filter_string=config_dict.get("filter_string"),
-        )
+        try:
+            config_dict = response.json()["config"]
+            return OnlineScoringConfig(
+                online_scoring_config_id=config_dict["online_scoring_config_id"],
+                scorer_id=config_dict["scorer_id"],
+                sample_rate=config_dict["sample_rate"],
+                filter_string=config_dict.get("filter_string"),
+                experiment_id=config_dict["experiment_id"],
+            )
+        except (KeyError, TypeError, ValueError) as e:
+            raise MlflowException(
+                f"Unexpected malformed response from {endpoint}: {e}",
+                error_code=INTERNAL_ERROR,
+            ) from e
 
     def get_online_scoring_configs(self, scorer_ids: list[str]) -> list["OnlineScoringConfig"]:
         """
@@ -1432,18 +1440,25 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
             params=[("scorer_ids", sid) for sid in scorer_ids],
         )
 
-        verify_rest_response(response, "/api/3.0/mlflow/scorers/online-configs")
-        configs_list = response.json()["configs"]
-        return [
-            OnlineScoringConfig(
-                online_scoring_config_id=config["online_scoring_config_id"],
-                scorer_id=config["scorer_id"],
-                sample_rate=config["sample_rate"],
-                filter_string=config.get("filter_string"),
-                experiment_id=config["experiment_id"],
-            )
-            for config in configs_list
-        ]
+        endpoint = "/api/3.0/mlflow/scorers/online-configs"
+        verify_rest_response(response, endpoint)
+        try:
+            configs_list = response.json()["configs"]
+            return [
+                OnlineScoringConfig(
+                    online_scoring_config_id=config["online_scoring_config_id"],
+                    scorer_id=config["scorer_id"],
+                    sample_rate=config["sample_rate"],
+                    filter_string=config.get("filter_string"),
+                    experiment_id=config["experiment_id"],
+                )
+                for config in configs_list
+            ]
+        except (KeyError, TypeError, ValueError) as e:
+            raise MlflowException(
+                f"Unexpected malformed response from {endpoint}: {e}",
+                error_code=INTERNAL_ERROR,
+            ) from e
 
     ############################################################################################
     # Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.
