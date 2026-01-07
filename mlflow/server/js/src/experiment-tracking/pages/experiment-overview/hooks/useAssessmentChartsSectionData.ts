@@ -65,7 +65,7 @@ export function useAssessmentChartsSectionData({
       }
     }
 
-    return { assessmentNames: avgValues.keys().toArray().sort(), avgValuesByName: avgValues };
+    return { assessmentNames: Array.from(avgValues.keys()).sort(), avgValuesByName: avgValues };
   }, [data?.data_points]);
 
   return {
