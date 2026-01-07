@@ -12,6 +12,7 @@ import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
 import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
 import { LazyTraceTokenStatsChart } from './components/LazyTraceTokenStatsChart';
+import { AssessmentChartsSection } from './components/AssessmentChartsSection';
 import { TabContentContainer, ChartGrid } from './components/OverviewLayoutComponents';
 import { calculateTimeInterval } from './hooks/useTraceMetricsQuery';
 import { generateTimeBuckets } from './utils/chartUtils';
@@ -132,7 +133,10 @@ const ExperimentGenAIOverviewPageImpl = () => {
         </Tabs.Content>
 
         <Tabs.Content value={OverviewTab.Quality} css={{ flex: 1, overflowY: 'auto' }}>
-          <TabContentContainer />
+          <TabContentContainer>
+            {/* Assessment charts - dynamically rendered based on available assessments */}
+            <AssessmentChartsSection {...chartProps} />
+          </TabContentContainer>
         </Tabs.Content>
       </Tabs.Root>
     </div>

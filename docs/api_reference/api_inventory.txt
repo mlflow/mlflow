@@ -739,6 +739,7 @@ mlflow.gateway.get_gateway_uri
 mlflow.gateway.set_gateway_uri
 mlflow.gemini.autolog
 mlflow.genai.Agent
+mlflow.genai.ConversationSimulator
 mlflow.genai.LabelingSession
 mlflow.genai.LabelingSession.add_dataset
 mlflow.genai.LabelingSession.add_traces
@@ -872,6 +873,8 @@ mlflow.genai.scorers.Completeness.get_input_fields
 mlflow.genai.scorers.Completeness.model_post_init
 mlflow.genai.scorers.ConversationCompleteness
 mlflow.genai.scorers.ConversationCompleteness.model_post_init
+mlflow.genai.scorers.ConversationalGuidelines
+mlflow.genai.scorers.ConversationalGuidelines.model_post_init
 mlflow.genai.scorers.ConversationalRoleAdherence
 mlflow.genai.scorers.ConversationalRoleAdherence.model_post_init
 mlflow.genai.scorers.ConversationalSafety
@@ -931,6 +934,7 @@ mlflow.genai.scorers.base.Scorer
 mlflow.genai.scorers.base.ScorerSamplingConfig
 mlflow.genai.scorers.builtin_scorers.Completeness
 mlflow.genai.scorers.builtin_scorers.ConversationCompleteness
+mlflow.genai.scorers.builtin_scorers.ConversationalGuidelines
 mlflow.genai.scorers.builtin_scorers.ConversationalRoleAdherence
 mlflow.genai.scorers.builtin_scorers.ConversationalSafety
 mlflow.genai.scorers.builtin_scorers.ConversationalToolCallEfficiency
@@ -1108,6 +1112,7 @@ mlflow.genai.set_prompt_alias
 mlflow.genai.set_prompt_model_config
 mlflow.genai.set_prompt_tag
 mlflow.genai.set_prompt_version_tag
+mlflow.genai.simulators.simulator.ConversationSimulator
 mlflow.genai.to_predict_fn
 mlflow.get_active_model_id
 mlflow.get_active_trace_id

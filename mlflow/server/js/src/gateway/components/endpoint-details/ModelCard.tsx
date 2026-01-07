@@ -38,9 +38,11 @@ interface ModelCardProps {
   modelDefinition: ModelDefinition | undefined;
   modelMetadata: ProviderModel | undefined;
   onKeyClick?: (secret: SecretInfo) => void;
+  weight?: number;
+  fallbackOrder?: number;
 }
 
-export const ModelCard = ({ modelDefinition, modelMetadata, onKeyClick }: ModelCardProps) => {
+export const ModelCard = ({ modelDefinition, modelMetadata, onKeyClick, weight, fallbackOrder }: ModelCardProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
@@ -96,6 +98,20 @@ export const ModelCard = ({ modelDefinition, modelMetadata, onKeyClick }: ModelC
             {modelDefinition.provider ? `${formatProviderName(modelDefinition.provider)} / ` : ''}
             {modelDefinition.model_name}
           </Typography.Text>
+          {weight !== undefined && (
+            <Tag color="turquoise" componentId="mlflow.gateway.endpoint-details.model-weight">
+              {weight.toFixed(0)}%
+            </Tag>
+          )}
+          {fallbackOrder !== undefined && (
+            <Tag color="indigo" componentId="mlflow.gateway.endpoint-details.fallback-order">
+              <FormattedMessage
+                defaultMessage="Fallback #{order}"
+                description="Fallback order tag"
+                values={{ order: fallbackOrder }}
+              />
+            </Tag>
+          )}
         </div>
 
         {modelMetadata && (contextWindow !== '-' || inputCost !== '-' || outputCost !== '-') && (

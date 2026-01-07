@@ -52,6 +52,7 @@ _MESSAGE_KEY = "message"
 _MESSAGES_KEY = "messages"
 _CHOICES_KEY = "choices"
 _CONTENT_KEY = "content"
+_OUTPUT_KEY = "output"
 
 
 def extract_request_from_trace(trace: Trace) -> str | None:
@@ -614,9 +615,37 @@ def parse_outputs_to_str(value: Any) -> str:
         content = value[_CHOICES_KEY][0][_MESSAGE_KEY][_CONTENT_KEY]
     elif _is_chat_messages(value.get(_MESSAGES_KEY)):
         content = value[_MESSAGES_KEY][-1][_CONTENT_KEY]
+    elif _is_responses_api_output(value.get(_OUTPUT_KEY)):
+        content = _extract_responses_api_content(value[_OUTPUT_KEY])
     else:
         content = json.dumps(value, cls=TraceJSONEncoder)
     return content
+
+
+def _is_responses_api_output(maybe_output: Any) -> bool:
+    """Check if the value is an OpenAI Responses API output format."""
+    if not maybe_output or not isinstance(maybe_output, list) or len(maybe_output) == 0:
+        return False
+    last_item = maybe_output[-1]
+    return (
+        isinstance(last_item, dict)
+        and last_item.get("type") == "message"
+        and "content" in last_item
+    )
+
+
+def _extract_responses_api_content(output: list[dict[str, Any]]) -> str:
+    """Extract text content from OpenAI Responses API output format."""
+    for item in reversed(output):
+        if item.get("role") == "assistant" and "content" in item:
+            content = item["content"]
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                for part in content:
+                    if isinstance(part, dict) and part.get("type") in ("text", "output_text"):
+                        return part.get("text", json.dumps(output))
+    return json.dumps(output)
 
 
 def _is_chat_choices(maybe_choices: Any) -> bool:
