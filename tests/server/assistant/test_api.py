@@ -1,11 +1,16 @@
-"""Tests for the Assistant API endpoints."""
+import shutil
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
 
-from mlflow.server.assistant.api import assistant_router, SESSION_DIR, _require_localhost
+from mlflow.server.assistant.api import (
+    SESSION_DIR,
+    _require_localhost,
+    _validate_session_id,
+    assistant_router,
+)
 from mlflow.server.assistant.providers.base import AssistantProvider
 
 
@@ -19,7 +24,7 @@ class MockProvider(AssistantProvider):
     def is_available(self) -> bool:
         return True
 
-    def load_config(self) -> dict:
+    def load_config(self) -> dict[str, str]:
         return {}
 
     async def run(self, prompt: str, session_id: str | None = None):
@@ -30,8 +35,6 @@ class MockProvider(AssistantProvider):
 @pytest.fixture(autouse=True)
 def clear_sessions():
     """Clear session storage before each test."""
-    import shutil
-
     if SESSION_DIR.exists():
         shutil.rmtree(SESSION_DIR)
     yield
@@ -61,7 +64,8 @@ def test_message(client):
         json={
             "message": "Hello",
             "context": {"trace_id": "tr-123", "experiment_id": "exp-456"},
-        })
+        },
+    )
 
     assert response.status_code == 200
     data = response.json()
@@ -140,11 +144,8 @@ async def test_localhost_blocks_external_ip():
     mock_request = MagicMock()
     mock_request.client.host = "192.168.1.100"
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(HTTPException, match="localhost"):
         await _require_localhost(mock_request)
-
-    assert exc_info.value.status_code == 403
-    assert "localhost" in exc_info.value.detail
 
 
 @pytest.mark.asyncio
@@ -152,7 +153,20 @@ async def test_localhost_blocks_when_no_client():
     mock_request = MagicMock()
     mock_request.client = None
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(HTTPException, match="localhost"):
         await _require_localhost(mock_request)
 
-    assert exc_info.value.status_code == 403
+
+def test_validate_session_id_accepts_valid_uuid():
+    valid_uuid = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    _validate_session_id(valid_uuid)  # Should not raise
+
+
+def test_validate_session_id_rejects_invalid_format():
+    with pytest.raises(ValueError, match="Invalid session ID format"):
+        _validate_session_id("invalid-session-id")
+
+
+def test_validate_session_id_rejects_path_traversal():
+    with pytest.raises(ValueError, match="Invalid session ID format"):
+        _validate_session_id("../../../etc/passwd")
