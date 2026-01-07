@@ -280,7 +280,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         experiment_id = experiment_id or _get_experiment_id()
         return self._tracking_store.delete_scorer(experiment_id, name, version)
 
-    def update_online_scoring_config(
+    def upsert_online_scoring_config(
         self,
         *,
         name: str,
@@ -290,7 +290,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         experiment_id: str | None = None,
     ) -> Scorer:
         """
-        Update the online scoring configuration for a registered scorer.
+        Create or update the online scoring configuration for a registered scorer.
 
         Args:
             name: The scorer name.
@@ -314,7 +314,7 @@ class MlflowTrackingStore(AbstractScorerStore):
 
         experiment_id = experiment_id or _get_experiment_id()
 
-        self._tracking_store.update_online_scoring_config(
+        self._tracking_store.upsert_online_scoring_config(
             experiment_id=experiment_id,
             scorer_name=name,
             sample_rate=sample_rate,
