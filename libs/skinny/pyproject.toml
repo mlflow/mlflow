@@ -42,7 +42,7 @@ dependencies = [
   "pyyaml<7,>=5.1",
   "requests<3,>=2.17.3",
   "sqlparse<1,>=0.4.0",
-  "typing-extensions<5,>=4.2.0",
+  "typing-extensions<5,>=4.0.0",
   "uvicorn<1",
 ]
 [[project.maintainers]]

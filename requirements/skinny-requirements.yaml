@@ -92,7 +92,7 @@ pydantic:
 
 typing-extensions:
   pip_release: typing-extensions
-  minimum: "4.2.0"
+  minimum: "4.0.0"
   max_major_version: 4
 
 fastapi:
