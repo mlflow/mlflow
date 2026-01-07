@@ -66,20 +66,4 @@ Carefully examine **only the changed lines** (added, modified, or deleted) in th
 
 ### 5. Add Review Comments
 
-For each issue found, use the `review-comment` skill to post review comments.
-
-**How to write comments:**
-
-- Use suggestion blocks (three backticks + "suggestion") for simple fixes that maintainers can apply with one click
-
-  ````
-  ```suggestion
-  <corrected code here>
-  ```
-  ````
-
-- Copy original indentation exactly in suggestion blocks
-- For repetitive issues, leave one representative comment instead of flagging every instance
-- Be specific about the issue and why it needs changing
-- For bugs, explain the potential problem and suggested fix clearly
-- End each comment with `🤖 Generated with Claude Code`
+For each issue found, use the `add-review-comment` skill to post review comments.
