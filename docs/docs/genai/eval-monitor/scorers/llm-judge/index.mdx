@@ -46,6 +46,10 @@ from mlflow.genai.scorers import Correctness
 Correctness(model="openai:/gpt-4o-mini")
 Correctness(model="anthropic:/claude-4-opus")
 Correctness(model="google:/gemini-2.0-flash")
+
+# Amazon Bedrock – Amazon Nova
+Correctness(model="bedrock:/amazon.nova-lite-v1")
+Correctness(model="bedrock:/amazon.nova-pro-v1")
 ```
 
 ### Supported Models
