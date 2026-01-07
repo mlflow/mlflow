@@ -727,7 +727,7 @@ def test_search_traces_experiment_ids_deprecated():
         match="experiment_ids.*deprecated.*use.*locations",
     ):
         store.search_traces(
-            experiment_ids=["123"],
+            locations=["123"],
         )
 
 
