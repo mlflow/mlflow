@@ -696,14 +696,15 @@ def _get_request_json(flask_request=request):
     return flask_request.get_json(force=True, silent=True)
 
 
-def _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded=True):
+def _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded):
     """
     Validate request JSON against a schema without requiring protobuf messages.
 
     Args:
         request_json: The request data as a dictionary.
         schema: Dictionary mapping parameter names to lists of validation functions.
-        proto_parsing_succeeded: Whether protobuf parsing succeeded.
+        proto_parsing_succeeded: Whether protobuf parsing succeeded. None indicates the
+            request was not parsed from protobuf.
     """
     schema = schema or {}
     for schema_key, schema_validation_fns in schema.items():
@@ -753,7 +754,7 @@ def _get_validated_request_json(flask_request=request, schema=None):
     if request_json is None:
         request_json = {}
 
-    _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded=True)
+    _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded=None)
 
     return request_json
 
