@@ -1,4 +1,5 @@
 import {
+  Alert,
   Button,
   ExpandMoreIcon,
   MarkdownIcon,
@@ -112,6 +113,22 @@ export const PromptContentCompare = ({
           </SegmentedControlButton>
         </SegmentedControlGroup>
       </div>
+      {shouldRenderMarkdown && (
+        <>
+          <Spacer shrinks={false} size="sm" />
+          <Alert
+            componentId="mlflow.prompts.compare.markdown-diff-warning"
+            type="warning"
+            message={
+              <FormattedMessage
+                defaultMessage="Diff highlighting is not supported in markdown view. Switch to text view to see differences."
+                description="Warning message shown in prompt comparison view when markdown rendering is enabled"
+              />
+            }
+            closable={false}
+          />
+        </>
+      )}
       <Spacer shrinks={false} />
       <div css={{ display: 'flex' }}>
         <div css={{ flex: 1 }}>
