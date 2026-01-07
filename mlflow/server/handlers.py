@@ -14,7 +14,7 @@ from typing import Any, Callable
 
 import requests
 from cachetools import TTLCache
-from flask import Response, current_app, jsonify, request, send_file
+from flask import Request, Response, current_app, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 
@@ -696,7 +696,7 @@ def _get_request_json(flask_request=request):
     return flask_request.get_json(force=True, silent=True)
 
 
-def _get_normalized_request_json(flask_request=request) -> dict[str, Any]:
+def _get_normalized_request_json(flask_request: Request = request) -> dict[str, Any]:
     """
     Get request JSON with normalization for legacy clients.
 
@@ -793,7 +793,8 @@ def _get_request_message(request_message, flask_request=request, schema=None):
 
 
 def _get_validated_flask_request_json(
-    flask_request=request, schema: dict[str, list[Callable[..., Any]]] | None = None
+    flask_request: Request = request,
+    schema: dict[str, list[Callable[..., Any]]] | None = None,
 ) -> dict[str, Any]:
     """
     Get and validate request data without protobuf parsing.
