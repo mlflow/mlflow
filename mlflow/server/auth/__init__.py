@@ -695,6 +695,65 @@ def validate_can_view_workspace() -> bool:
     return workspace_name in names
 
 
+def _get_workspace_name_from_request() -> str | None:
+    return request.view_args.get("workspace_name") if request.view_args else None
+
+
+def _get_manageable_workspace_resource_types(username: str, workspace_name: str | None) -> set[str]:
+    """
+    Return the set of workspace resource types the user can manage in the workspace.
+
+    The store currently supports the resource types in SqlAlchemyStore._WORKSPACE_RESOURCE_TYPES.
+    """
+    if not workspace_name or username is None:
+        return set()
+
+    manageable: set[str] = set()
+    for resource_type in store._WORKSPACE_RESOURCE_TYPES:
+        perm = _workspace_permission(username, resource_type, workspace_name)
+        if perm is not None and perm.can_manage:
+            if resource_type == "*":
+                # Wildcard manage covers all resource types; no need to continue checking.
+                return set(store._WORKSPACE_RESOURCE_TYPES)
+            manageable.add(resource_type)
+    return manageable
+
+
+def validate_can_list_workspace_permissions() -> bool:
+    username = authenticate_request().username
+    if not username:
+        return False
+
+    if store.get_user(username).is_admin:
+        return True
+
+    workspace_name = _get_workspace_name_from_request()
+    manageable_types = _get_manageable_workspace_resource_types(username, workspace_name)
+    return bool(manageable_types)
+
+
+def validate_can_modify_workspace_permission() -> bool:
+    username = authenticate_request().username
+    if not username:
+        return False
+
+    if store.get_user(username).is_admin:
+        return True
+
+    workspace_name = _get_workspace_name_from_request()
+    if not workspace_name:
+        return False
+
+    if request.method == "DELETE":
+        resource_type = _get_request_param("resource_type")
+    else:
+        payload = request.get_json(force=True, silent=True) or {}
+        _, resource_type, _ = _validate_workspace_permission_payload(payload)
+
+    perm = _workspace_permission(username, resource_type, workspace_name)
+    return perm is not None and perm.can_manage
+
+
 # Scorers
 def validate_can_read_scorer():
     return _get_permission_from_scorer_name().can_read
@@ -1083,9 +1142,9 @@ BEFORE_REQUEST_VALIDATORS.update(
         (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
         (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
         (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
-        (LIST_WORKSPACE_PERMISSIONS, "GET"): sender_is_admin,
-        (LIST_WORKSPACE_PERMISSIONS, "POST"): sender_is_admin,
-        (LIST_WORKSPACE_PERMISSIONS, "DELETE"): sender_is_admin,
+        (LIST_WORKSPACE_PERMISSIONS, "GET"): validate_can_list_workspace_permissions,
+        (LIST_WORKSPACE_PERMISSIONS, "POST"): validate_can_modify_workspace_permission,
+        (LIST_WORKSPACE_PERMISSIONS, "DELETE"): validate_can_modify_workspace_permission,
         (LIST_USER_WORKSPACE_PERMISSIONS, "GET"): sender_is_admin,
     }
 )
@@ -1282,6 +1341,12 @@ def _validate_workspace_permission_payload(payload: dict[str, Any]) -> tuple[str
 @_disable_if_workspaces_disabled
 def list_workspace_permissions(workspace_name: str):
     permissions = store.list_workspace_permissions(workspace_name)
+    if not sender_is_admin():
+        username = authenticate_request().username
+        manageable_types = _get_manageable_workspace_resource_types(username, workspace_name)
+        if "*" not in manageable_types:
+            permissions = [perm for perm in permissions if perm.resource_type in manageable_types]
+
     return jsonify({"permissions": [perm.to_json() for perm in permissions]})
 
 

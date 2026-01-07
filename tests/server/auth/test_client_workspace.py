@@ -223,24 +223,73 @@ def test_workspace_permission_list_requires_authentication(workspace_setup):
         client.list_workspace_permissions(workspace_name)
 
 
-def test_workspace_permission_list_requires_admin(workspace_setup, monkeypatch):
-    client, _tracking_uri, workspace_name, username, password = workspace_setup
+def test_workspace_permission_list_requires_manage_permission(workspace_setup, monkeypatch):
+    client, tracking_uri, workspace_name, manager_username, manager_password = workspace_setup
+    target_username, _ = create_user(tracking_uri)
+    other_username, other_password = create_user(tracking_uri)
 
-    with User(username, password, monkeypatch), assert_unauthorized():
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.set_workspace_permission(workspace_name, manager_username, "experiments", "MANAGE")
+        client.set_workspace_permission(
+            workspace_name, target_username, "registered_models", "READ"
+        )
+
+    with User(other_username, other_password, monkeypatch), assert_unauthorized():
         client.list_workspace_permissions(workspace_name)
 
+    with User(manager_username, manager_password, monkeypatch):
+        perms = client.list_workspace_permissions(workspace_name)
 
-def test_workspace_permission_set_requires_admin(workspace_client, monkeypatch):
+    assert perms  # manager should see permissions they can manage
+    assert all(p.resource_type == "experiments" for p in perms)
+    assert all(p.workspace == workspace_name for p in perms)
+
+
+def test_workspace_permission_set_requires_manage_permission(workspace_client, monkeypatch):
     client, tracking_uri = workspace_client
     workspace_name = "team-b"
     _create_workspace(tracking_uri, workspace_name)
-    username, password = create_user(tracking_uri)
+    manager_username, manager_password = create_user(tracking_uri)
+    target_username, target_password = create_user(tracking_uri)
 
-    with User(username, password, monkeypatch), assert_unauthorized():
-        client.set_workspace_permission(workspace_name, username, "experiments", "READ")
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.set_workspace_permission(workspace_name, manager_username, "experiments", "MANAGE")
 
-    with User(username, password, monkeypatch), assert_unauthorized():
-        client.delete_workspace_permission(workspace_name, username, "experiments")
+    with User(manager_username, manager_password, monkeypatch):
+        perm = client.set_workspace_permission(
+            workspace_name, target_username, "experiments", "READ"
+        )
+        assert perm.permission == "READ"
+        client.delete_workspace_permission(workspace_name, target_username, "experiments")
+
+    with User(manager_username, manager_password, monkeypatch), assert_unauthorized():
+        client.set_workspace_permission(
+            workspace_name, target_username, "registered_models", "READ"
+        )
+
+    with User(target_username, target_password, monkeypatch), assert_unauthorized():
+        client.set_workspace_permission(workspace_name, manager_username, "experiments", "READ")
+
+    with User(target_username, target_password, monkeypatch), assert_unauthorized():
+        client.delete_workspace_permission(workspace_name, manager_username, "experiments")
+
+
+def test_workspace_permission_wildcard_manage_allows_all_types(workspace_setup, monkeypatch):
+    client, tracking_uri, workspace_name, manager_username, manager_password = workspace_setup
+    target_username, _ = create_user(tracking_uri)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.set_workspace_permission(workspace_name, manager_username, "*", "MANAGE")
+
+    with User(manager_username, manager_password, monkeypatch):
+        client.set_workspace_permission(workspace_name, target_username, "experiments", "READ")
+        client.set_workspace_permission(
+            workspace_name, target_username, "registered_models", "READ"
+        )
+        perms = client.list_workspace_permissions(workspace_name)
+
+    resource_types = {p.resource_type for p in perms if p.username == target_username}
+    assert {"experiments", "registered_models"}.issubset(resource_types)
 
 
 def test_run_access_controls_across_workspaces(workspace_setup, monkeypatch):
