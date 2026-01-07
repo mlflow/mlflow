@@ -164,6 +164,7 @@ class Scorer(BaseModel):
     _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
     _registered_backend: str | None = PrivateAttr(default=None)
+    _experiment_id: str | None = PrivateAttr(default=None)
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -680,7 +681,6 @@ class Scorer(BaseModel):
         self,
         *,
         name: str | None = None,
-        experiment_id: str | None = None,
         sampling_config: ScorerSamplingConfig,
     ) -> "Scorer":
         """
@@ -693,8 +693,6 @@ class Scorer(BaseModel):
         Args:
             name: Optional scorer name. If not provided, uses the scorer's registered
                 name or default name.
-            experiment_id: The ID of the MLflow experiment containing the scorer.
-                If None, uses the currently active experiment.
             sampling_config: Configuration object containing:
                 - sample_rate: Fraction of traces to evaluate (0.0 to 1.0). Required.
                 - filter_string: Optional MLflow search_traces compatible filter string.
@@ -733,10 +731,7 @@ class Scorer(BaseModel):
                 "When starting a scorer, provided sample rate must be greater than 0"
             )
 
-        from mlflow.tracking.fluent import _get_experiment_id
-
         scorer_name = name or self.name
-        experiment_id = experiment_id or _get_experiment_id()
         store = _get_scorer_store()
 
         if isinstance(store, DatabricksStore):
@@ -745,12 +740,11 @@ class Scorer(BaseModel):
                 scorer=self,
                 sample_rate=sampling_config.sample_rate,
                 filter_string=sampling_config.filter_string,
-                experiment_id=experiment_id,
+                experiment_id=None,
             )
 
         return store.update_online_scoring_config(
             scorer=self,
-            experiment_id=experiment_id,
             sample_rate=sampling_config.sample_rate,
             filter_string=sampling_config.filter_string,
         )
@@ -760,7 +754,6 @@ class Scorer(BaseModel):
         self,
         *,
         name: str | None = None,
-        experiment_id: str | None = None,
         sampling_config: ScorerSamplingConfig,
     ) -> "Scorer":
         """
@@ -774,8 +767,6 @@ class Scorer(BaseModel):
         Args:
             name: Optional scorer name. If not provided, uses the scorer's registered name
                 or default name.
-            experiment_id: The ID of the MLflow experiment containing the scorer.
-                If None, uses the currently active experiment.
             sampling_config: Configuration object containing:
                 - sample_rate: New fraction of traces to evaluate (0.0 to 1.0). Optional.
                 - filter_string: New MLflow search_traces compatible filter string. Optional.
@@ -814,10 +805,7 @@ class Scorer(BaseModel):
 
         self._check_can_be_registered()
 
-        from mlflow.tracking.fluent import _get_experiment_id
-
         scorer_name = name or self.name
-        experiment_id = experiment_id or _get_experiment_id()
         store = _get_scorer_store()
 
         if isinstance(store, DatabricksStore):
@@ -826,18 +814,17 @@ class Scorer(BaseModel):
                 scorer=self,
                 sample_rate=sampling_config.sample_rate,
                 filter_string=sampling_config.filter_string,
-                experiment_id=experiment_id,
+                experiment_id=None,
             )
 
         return store.update_online_scoring_config(
             scorer=self,
-            experiment_id=experiment_id,
             sample_rate=sampling_config.sample_rate,
             filter_string=sampling_config.filter_string,
         )
 
     @experimental(version="3.9.0")
-    def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
+    def stop(self, *, name: str | None = None) -> "Scorer":
         """
         Stop registered scoring by setting sample rate to 0.
 
@@ -847,8 +834,6 @@ class Scorer(BaseModel):
         Args:
             name: Optional scorer name. If not provided, uses the scorer's registered name
                 or default name.
-            experiment_id: The ID of the MLflow experiment containing the scorer.
-                If None, uses the currently active experiment.
 
         Returns:
             A new Scorer instance with sample rate set to 0.
@@ -880,7 +865,6 @@ class Scorer(BaseModel):
         scorer_name = name or self.name
         return self.update(
             name=scorer_name,
-            experiment_id=experiment_id,
             sampling_config=ScorerSamplingConfig(sample_rate=0.0),
         )
 
