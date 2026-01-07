@@ -307,4 +307,3 @@ class SqlWebhookEvent(Base):
 
     def to_mlflow_entity(self):
         return WebhookEvent(entity=WebhookEntity(self.entity), action=WebhookAction(self.action))
-
