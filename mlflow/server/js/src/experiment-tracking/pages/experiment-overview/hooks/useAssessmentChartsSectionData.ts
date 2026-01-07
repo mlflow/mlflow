@@ -55,21 +55,16 @@ export function useAssessmentChartsSectionData({
   const { assessmentNames, avgValuesByName } = useMemo(() => {
     if (!data?.data_points) return { assessmentNames: [], avgValuesByName: new Map<string, number>() };
 
-    const names: string[] = [];
     const avgValues = new Map<string, number>();
 
     for (const dp of data.data_points) {
       const name = dp.dimensions?.[AssessmentDimensionKey.ASSESSMENT_NAME];
-      if (name) {
-        names.push(name);
-        const avgValue = dp.values?.[AggregationType.AVG];
-        if (avgValue !== undefined) {
-          avgValues.set(name, avgValue);
-        }
+      if (name && dp.values?.[AggregationType.AVG] !== undefined) {
+        avgValues.set(name, dp.values?.[AggregationType.AVG]!);
       }
     }
 
-    return { assessmentNames: names.sort(), avgValuesByName: avgValues };
+    return { assessmentNames: avgValues.keys().toArray().sort(), avgValuesByName: avgValues };
   }, [data?.data_points]);
 
   return {

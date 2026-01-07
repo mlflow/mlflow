@@ -12,22 +12,8 @@ import {
   AssessmentTypeValue,
   AssessmentDimensionKey,
 } from '@databricks/web-shared/model-trace-explorer';
-
-// Mock FetchUtils
-jest.mock('../../../../common/utils/FetchUtils', () => ({
-  fetchOrFail: jest.fn(),
-  getAjaxUrl: (url: string) => url,
-}));
-
-import { fetchOrFail } from '../../../../common/utils/FetchUtils';
-const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
-
-// Helper to create mock API response
-const mockApiResponse = (dataPoints: any[] | undefined) => {
-  mockFetchOrFail.mockResolvedValue({
-    json: () => Promise.resolve({ data_points: dataPoints }),
-  } as Response);
-};
+import { setupServer } from '../../../../common/utils/setup-msw';
+import { rest } from 'msw';
 
 // Helper to create an assessment data point with name and avg value
 const createAssessmentDataPoint = (assessmentName: string, avgValue: number) => ({
@@ -56,6 +42,8 @@ describe('AssessmentChartsSection', () => {
     timeBuckets,
   };
 
+  const server = setupServer();
+
   const createQueryClient = () =>
     new QueryClient({
       defaultOptions: {
@@ -76,14 +64,29 @@ describe('AssessmentChartsSection', () => {
     );
   };
 
+  // Helper to setup MSW handler for the trace metrics endpoint
+  const setupTraceMetricsHandler = (dataPoints: any[] | undefined) => {
+    server.use(
+      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        return res(ctx.json({ data_points: dataPoints }));
+      }),
+    );
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockApiResponse([]);
+    // Default: return empty data points
+    setupTraceMetricsHandler([]);
   });
 
   describe('loading state', () => {
     it('should render loading spinner while data is being fetched', async () => {
-      mockFetchOrFail.mockReturnValue(new Promise(() => {}));
+      // Never resolve the request to keep loading
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.delay('infinite'));
+        }),
+      );
 
       renderComponent();
 
@@ -93,7 +96,11 @@ describe('AssessmentChartsSection', () => {
 
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
-      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
+        }),
+      );
 
       renderComponent();
 
@@ -105,7 +112,7 @@ describe('AssessmentChartsSection', () => {
 
   describe('empty state', () => {
     it('should render empty state when no assessments are available', async () => {
-      mockApiResponse([]);
+      setupTraceMetricsHandler([]);
 
       renderComponent();
 
@@ -123,7 +130,7 @@ describe('AssessmentChartsSection', () => {
     ];
 
     it('should render section header with title', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -133,7 +140,7 @@ describe('AssessmentChartsSection', () => {
     });
 
     it('should render section description', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -143,7 +150,7 @@ describe('AssessmentChartsSection', () => {
     });
 
     it('should render a placeholder for each assessment', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -156,7 +163,7 @@ describe('AssessmentChartsSection', () => {
     });
 
     it('should display average values for each assessment', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -168,7 +175,7 @@ describe('AssessmentChartsSection', () => {
     });
 
     it('should sort assessments alphabetically', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         createAssessmentDataPoint('Zebra', 0.5),
         createAssessmentDataPoint('Alpha', 0.8),
         createAssessmentDataPoint('Middle', 0.6),
@@ -187,11 +194,19 @@ describe('AssessmentChartsSection', () => {
 
   describe('API call parameters', () => {
     it('should call API with correct parameters for fetching assessments', async () => {
+      let capturedRequestBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedRequestBody = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent();
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody).toMatchObject({
+        expect(capturedRequestBody).toMatchObject({
           experiment_ids: [testExperimentId],
           view_type: MetricViewType.ASSESSMENTS,
           metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
@@ -203,19 +218,27 @@ describe('AssessmentChartsSection', () => {
     });
 
     it('should include time range in API call', async () => {
+      let capturedRequestBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedRequestBody = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent();
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.start_time_ms).toBe(startTimeMs);
-        expect(callBody.end_time_ms).toBe(endTimeMs);
+        expect(capturedRequestBody.start_time_ms).toBe(startTimeMs);
+        expect(capturedRequestBody.end_time_ms).toBe(endTimeMs);
       });
     });
   });
 
   describe('data extraction', () => {
     it('should handle data points with missing assessment_name', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         createAssessmentDataPoint('ValidName', 0.8),
         {
           metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
@@ -230,25 +253,6 @@ describe('AssessmentChartsSection', () => {
         // Should only render the valid assessment
         expect(screen.getByText('ValidName')).toBeInTheDocument();
         expect(screen.getByText('Avg: 0.80')).toBeInTheDocument();
-      });
-    });
-
-    it('should handle data points with missing avg value', async () => {
-      mockApiResponse([
-        {
-          metric_name: AssessmentMetricKey.ASSESSMENT_VALUE,
-          dimensions: { [AssessmentDimensionKey.ASSESSMENT_NAME]: 'NoAvgValue' },
-          values: {}, // Missing AVG value
-        },
-      ]);
-
-      renderComponent();
-
-      await waitFor(() => {
-        // Should still render the assessment name
-        expect(screen.getByText('NoAvgValue')).toBeInTheDocument();
-        // Should show N/A for missing avg value
-        expect(screen.getByText('Avg: N/A')).toBeInTheDocument();
       });
     });
   });
