@@ -2216,6 +2216,7 @@ def test_search_traces_with_locations(mock_client):
     assert call_kwargs.get("experiment_ids") is None
 
 
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_search_traces_experiment_ids_deprecation_warning(mock_client):
     mock_client.search_traces.return_value = PagedList([], token=None)
 
