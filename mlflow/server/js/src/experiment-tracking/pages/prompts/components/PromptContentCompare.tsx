@@ -121,7 +121,7 @@ export const PromptContentCompare = ({
             type="warning"
             message={
               <FormattedMessage
-                defaultMessage="Diff highlighting is not supported in markdown view. Switch to text view to see differences."
+                defaultMessage="Diff highlighting is not supported in Markdown view. Switch to Text view to see differences."
                 description="Warning message shown in prompt comparison view when markdown rendering is enabled"
               />
             }
