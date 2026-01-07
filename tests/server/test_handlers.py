@@ -24,6 +24,7 @@ from mlflow.entities.trace_metrics import (
     MetricViewType,
 )
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -1630,8 +1631,6 @@ def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_s
 
 
 def test_get_online_scoring_configs_batch(mock_tracking_store):
-    from mlflow.genai.scorers.online.entities import OnlineScoringConfig
-
     mock_configs = [
         OnlineScoringConfig(
             online_scoring_config_id="cfg-1",
