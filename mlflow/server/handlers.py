@@ -4046,7 +4046,7 @@ def _update_online_scoring_config():
     Update the online scoring configuration for a registered scorer.
 
     Request Body (JSON):
-        experiment_id: The experiment ID.
+        experiment_id: The ID of the Experiment containing the scorer.
         name: The scorer name.
         sample_rate: The sampling rate (0.0 to 1.0).
         filter_string: Optional filter string for trace selection.
