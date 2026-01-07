@@ -2012,9 +2012,7 @@ class SqlOnlineScoringConfig(Base):
     Sample rate for online scoring: `Float` (double precision).
     Value between 0 and 1 representing the fraction of traces to sample.
     """
-    experiment_id = Column(
-        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
-    )
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
     """
     Experiment ID: `Integer`. *Foreign Key* into ``experiments`` table.
     """

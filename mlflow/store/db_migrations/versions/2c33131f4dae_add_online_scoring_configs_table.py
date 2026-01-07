@@ -34,7 +34,6 @@ def upgrade():
             ["experiment_id"],
             ["experiments.experiment_id"],
             name="fk_online_scoring_configs_experiment_id",
-            ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("online_scoring_config_id", name="online_scoring_config_pk"),
     )
