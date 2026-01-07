@@ -1,4 +1,5 @@
 import shutil
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,11 +19,26 @@ class MockProvider(AssistantProvider):
     def name(self) -> str:
         return "mock_provider"
 
+    @property
+    def display_name(self) -> str:
+        return "Mock Provider"
+
+    @property
+    def description(self) -> str:
+        return "Mock provider for testing"
+
+    @property
+    def config_path(self) -> Path:
+        return Path.home() / ".mlflow" / "assistant" / "mock-config.json"
+
     def is_available(self) -> bool:
         return True
 
     def load_config(self) -> ProviderConfig:
         return ProviderConfig()
+
+    def check_connection(self, echo=print) -> None:
+        pass
 
     async def astream(self, prompt: str, session_id: str | None = None):
         yield Event.from_message(message=Message(role="user", content="Hello from mock"))

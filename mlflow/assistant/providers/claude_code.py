@@ -9,8 +9,9 @@ import asyncio
 import json
 import logging
 import shutil
+import subprocess
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Callable
 
 from mlflow.assistant.providers.base import MLFLOW_ASSISTANT_HOME, AssistantProvider, ProviderConfig
 from mlflow.assistant.types import (
@@ -42,6 +43,13 @@ class ClaudeCodeProvider(AssistantProvider):
     def name(self) -> str:
         return "claude_code"
 
+    def display_name(self) -> str:
+        return "Claude Code"
+
+    @property
+    def description(self) -> str:
+        return "AI-powered assistant using Claude Code CLI"
+
     @property
     def config_path(self) -> Path:
         return MLFLOW_ASSISTANT_HOME / "claude-config.json"
@@ -56,6 +64,41 @@ class ClaudeCodeProvider(AssistantProvider):
 
         with open(self.config_path) as f:
             return ClaudeCodeAssistantConfig.model_validate_json(f.read())
+
+    def check_connection(self, echo: Callable[[str], None] = print) -> None:
+        """
+        Check if Claude CLI is installed and authenticated.
+
+        Args:
+            echo: Function to print status messages. Defaults to print().
+
+        Raises:
+            RuntimeError: If Claude CLI is not installed.
+        """
+        claude_path = shutil.which("claude")
+        if not claude_path:
+            raise RuntimeError(
+                "Claude CLI not found.\n\n"
+                "Please install Claude CLI first:\n"
+                "  npm install -g @anthropic-ai/claude-code\n\n"
+                "Then authenticate:\n"
+                "  claude login"
+            )
+
+        echo(f"Claude CLI found: {claude_path}")
+
+        # Check version
+        try:
+            result = subprocess.run(
+                ["claude", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            version = result.stdout.strip() or result.stderr.strip()
+            echo(f"Version: {version}")
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+            echo("(Could not determine version)")
 
     async def astream(
         self,
