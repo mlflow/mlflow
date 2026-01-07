@@ -782,7 +782,7 @@ class GeminiProvider(BaseProvider):
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[bytes]:
         provider_path = self._validate_passthrough_action(action)
-        provider_path = provider_path.format(model=self.config.model.name.replace("gemini/", ""))
+        provider_path = provider_path.format(model=self.config.model.name)
 
         request_headers = self._get_headers(payload, headers)
 
