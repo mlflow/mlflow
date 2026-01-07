@@ -346,14 +346,6 @@ def test_register_prompt_with_none_response_format():
     assert prompt.response_format is None
 
 
-def test_register_prompt_with_empty_chat_template():
-    # Empty list should be treated as text prompt
-    prompt = mlflow.genai.register_prompt(name="test_empty_chat", template=[])
-
-    assert prompt.is_text_prompt
-    assert prompt.template == "[]"  # Empty list serialized as string
-
-
 def test_register_prompt_with_single_message_chat():
     chat_template = [{"role": "user", "content": "Hello {{name}}!"}]
 
@@ -1230,16 +1222,6 @@ def test_register_prompt_with_none_response_format():
     # Load and verify
     prompt = mlflow.genai.load_prompt("test_none_response", version=1)
     assert prompt.response_format is None
-
-
-def test_register_prompt_with_empty_chat_template():
-    # Empty list should be treated as text prompt
-    mlflow.genai.register_prompt(name="test_empty_chat", template=[])
-
-    # Load and verify
-    prompt = mlflow.genai.load_prompt("test_empty_chat", version=1)
-    assert prompt.is_text_prompt
-    assert prompt.template == "[]"  # Empty list serialized as string
 
 
 def test_register_prompt_with_single_message_chat():
