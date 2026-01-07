@@ -64,7 +64,7 @@ export const ConnectedResourcesSection = ({ bindings }: ConnectedResourcesSectio
         overflow: 'hidden',
       },
       [`& > ${classItem} > ${classHeader}`]: {
-        paddingLeft: theme.spacing.sm,
+        paddingLeft: 0,
         paddingTop: theme.spacing.xs,
         paddingBottom: theme.spacing.xs,
         display: 'flex',
@@ -99,7 +99,7 @@ export const ConnectedResourcesSection = ({ bindings }: ConnectedResourcesSectio
   return (
     <div>
       <Typography.Text color="secondary">
-        <FormattedMessage defaultMessage="Connected resources" description="Connected resources label" />
+        <FormattedMessage defaultMessage="Used by" description="Used by label for connected resources" />
       </Typography.Text>
       <div css={{ marginTop: theme.spacing.xs }}>
         {bindings.length === 0 ? (
@@ -145,6 +145,7 @@ export const ConnectedResourcesSection = ({ bindings }: ConnectedResourcesSectio
                       key={`${binding.endpoint_id}_${binding.resource_type}_${binding.resource_id}`}
                       css={{
                         padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+                        paddingLeft: theme.spacing.md,
                         borderBottom: `1px solid ${theme.colors.borderDecorative}`,
                         '&:last-child': { borderBottom: 'none' },
                       }}
