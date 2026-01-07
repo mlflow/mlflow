@@ -16,8 +16,8 @@ _logger = logging.getLogger(__name__)
 class OnlineTraceScoringCheckpoint:
     """Checkpoint for trace-level online scoring."""
 
-    timestamp_ms: int
-    trace_id: str | None = None
+    timestamp_ms: int  # Timestamp of the last processed trace in milliseconds
+    trace_id: str | None = None  # Trace ID used as tie breaker when traces have same timestamp
 
     def to_json(self) -> str:
         """Serialize checkpoint to JSON string."""

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from mlflow.genai.scorers.base import Scorer
 
 if TYPE_CHECKING:
-    from mlflow.genai.scorers.online.processor import OnlineScorer
+    from mlflow.genai.scorers.online.entities import OnlineScorer
 
 _logger = logging.getLogger(__name__)
 
