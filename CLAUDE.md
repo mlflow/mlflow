@@ -41,7 +41,7 @@ This uses `uv` (fast Python package manager) to automatically manage dependencie
 
 ## Debugging
 
-For debugging errors, enable debug logging:
+For debugging errors, enable debug logging (must be set before importing mlflow):
 
 ```bash
 export MLFLOW_LOGGING_LEVEL=DEBUG
