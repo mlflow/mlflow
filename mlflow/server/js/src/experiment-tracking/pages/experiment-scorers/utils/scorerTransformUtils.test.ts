@@ -564,6 +564,7 @@ describe('convertFormDataToScheduledScorer', () => {
         instructions: 'Evaluate the response',
         model: 'openai:/gpt-4o-mini',
         is_instructions_judge: true,
+        isSessionLevelScorer: false,
       });
     });
 
@@ -575,6 +576,7 @@ describe('convertFormDataToScheduledScorer', () => {
         llmTemplate: 'Custom',
         instructions: 'Evaluate the response',
         isInstructionsJudge: true,
+        model: '',
       };
 
       const result = convertFormDataToScheduledScorer(formData);
@@ -589,6 +591,7 @@ describe('convertFormDataToScheduledScorer', () => {
         instructions: 'Evaluate the response',
         model: undefined,
         is_instructions_judge: true,
+        isSessionLevelScorer: false,
       });
     });
 
@@ -616,6 +619,7 @@ describe('convertFormDataToScheduledScorer', () => {
         instructions: 'Evaluate if the response is safe.',
         model: 'openai:/gpt-4o-mini',
         is_instructions_judge: true,
+        isSessionLevelScorer: false,
       });
     });
 
@@ -627,6 +631,7 @@ describe('convertFormDataToScheduledScorer', () => {
         llmTemplate: 'RelevanceToQuery',
         instructions: 'Evaluate if the response is relevant.',
         isInstructionsJudge: true,
+        model: '',
       };
 
       const result = convertFormDataToScheduledScorer(formData);
@@ -641,6 +646,7 @@ describe('convertFormDataToScheduledScorer', () => {
         instructions: 'Evaluate if the response is relevant.',
         model: undefined,
         is_instructions_judge: true,
+        isSessionLevelScorer: false,
       });
     });
 
@@ -652,6 +658,7 @@ describe('convertFormDataToScheduledScorer', () => {
         llmTemplate: 'Correctness',
         instructions: 'These instructions should be ignored',
         isInstructionsJudge: false,
+        model: '',
       };
 
       const result = convertFormDataToScheduledScorer(formData);
@@ -666,6 +673,7 @@ describe('convertFormDataToScheduledScorer', () => {
         instructions: undefined,
         model: undefined,
         is_instructions_judge: false,
+        isSessionLevelScorer: false,
       });
     });
 
@@ -677,6 +685,7 @@ describe('convertFormDataToScheduledScorer', () => {
         scorerType: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: '  Line 1  \n\n  Line 2  \n  \n  Line 3  ',
+        model: '',
       };
 
       const result = convertFormDataToScheduledScorer(formData);
@@ -688,6 +697,7 @@ describe('convertFormDataToScheduledScorer', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: ['Line 1', 'Line 2', 'Line 3'],
+        isSessionLevelScorer: false,
       });
     });
 
@@ -698,6 +708,7 @@ describe('convertFormDataToScheduledScorer', () => {
         scorerType: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: '',
+        model: '',
       };
 
       const formDataWithUndefined: LLMScorerFormData & { scorerType: 'llm' } = {
@@ -705,6 +716,7 @@ describe('convertFormDataToScheduledScorer', () => {
         sampleRate: 50,
         scorerType: 'llm',
         llmTemplate: 'Guidelines',
+        model: '',
         // guidelines intentionally undefined
       };
 
@@ -719,6 +731,7 @@ describe('convertFormDataToScheduledScorer', () => {
         filterString: '',
         scorerType: 'llm',
         llmTemplate: 'Safety',
+        model: '',
       };
 
       const formDataWithUndefined: LLMScorerFormData & { scorerType: 'llm' } = {
@@ -726,6 +739,7 @@ describe('convertFormDataToScheduledScorer', () => {
         sampleRate: 50,
         scorerType: 'llm',
         llmTemplate: 'Safety',
+        model: '',
         // filterString intentionally undefined
       };
 
@@ -822,6 +836,7 @@ describe('convertFormDataToScheduledScorer', () => {
         llmTemplate: 'Guidelines',
         guidelines: 'New guideline 1\nNew guideline 2',
         isInstructionsJudge: false,
+        model: '',
       };
 
       const result = convertFormDataToScheduledScorer(formData, baseScorer);
@@ -853,6 +868,7 @@ describe('convertFormDataToScheduledScorer', () => {
         scorerType: 'llm',
         llmTemplate: 'Safety',
         isInstructionsJudge: false,
+        model: '',
       };
 
       const result = convertFormDataToScheduledScorer(formData, baseScorer);
@@ -895,6 +911,7 @@ describe('convertFormDataToScheduledScorer', () => {
         filterString: '',
         scorerType: 'llm',
         llmTemplate: 'Safety',
+        model: '',
       };
 
       const result = convertFormDataToScheduledScorer(formData, baseScorer);

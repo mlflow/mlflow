@@ -30,6 +30,7 @@ export {
 export { shouldEnableTracesTabLabelingSchemas, shouldEnableAssessmentsInSessions } from './FeatureUtils';
 export { AssessmentSchemaContextProvider, type AssessmentSchema } from './contexts/AssessmentSchemaContext';
 export * from './ModelTrace.types';
+export * from './TraceMetrics.types';
 export * from './oss-notebook-renderer/mlflow-fetch-utils';
 
 export { getAssessmentValue } from './assessments-pane/utils';

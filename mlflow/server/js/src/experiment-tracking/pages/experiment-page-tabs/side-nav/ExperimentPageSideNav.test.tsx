@@ -23,6 +23,13 @@ jest.mock('@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent', () => ({
   useLogTelemetryEvent: jest.fn(() => jest.fn()),
 }));
 
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableExperimentOverviewTab: jest.fn(() => true),
+}));
+
 describe('ExperimentPageSideNav', () => {
   const renderTestComponent = (experimentKind: ExperimentKind, activeTab: ExperimentPageTabName) => {
     const queryClient = new QueryClient();
@@ -50,6 +57,9 @@ describe('ExperimentPageSideNav', () => {
     (experimentKind) => {
       renderTestComponent(experimentKind, ExperimentPageTabName.Traces);
 
+      // Check top-level section (Overview)
+      expect(screen.getByText('Overview')).toBeInTheDocument();
+
       // Check observability section
       expect(screen.getByText('Observability')).toBeInTheDocument();
       expect(screen.getByText('Traces')).toBeInTheDocument();
@@ -66,9 +76,10 @@ describe('ExperimentPageSideNav', () => {
     },
   );
 
-  test('should not render chat sessions for non-genai', () => {
+  test('should not render chat sessions or overview for non-genai', () => {
     renderTestComponent(ExperimentKind.CUSTOM_MODEL_DEVELOPMENT, ExperimentPageTabName.Runs);
     expect(screen.queryByText('Sessions')).not.toBeInTheDocument();
+    expect(screen.queryByText('Overview')).not.toBeInTheDocument();
   });
 
   test.each([

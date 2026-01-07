@@ -3054,8 +3054,8 @@ def test_legacy_end_trace(store_and_trace_info):
     assert trace_info.timestamp_ms == trace.timestamp_ms
     assert trace_info.execution_time_ms == timestamp_ms - trace.timestamp_ms
     assert trace_info.status == TraceStatus.OK
-    assert trace_info.request_metadata == {**trace.request_metadata, **request_metadata}
-    assert trace_info.tags == {**trace.tags, **tags}
+    assert trace_info.request_metadata == trace.request_metadata | request_metadata
+    assert trace_info.tags == trace.tags | tags
 
     with pytest.raises(MlflowException, match=r"Trace with ID 'fake_request_id' not found"):
         store.deprecated_end_trace_v2(

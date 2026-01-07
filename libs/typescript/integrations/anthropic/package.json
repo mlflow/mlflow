@@ -1,6 +1,6 @@
 {
   "name": "mlflow-anthropic",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Anthropic integration package for MLflow Tracing",
   "repository": {
     "type": "git",
@@ -37,7 +37,7 @@
     "format:check": "prettier --check ."
   },
   "peerDependencies": {
-    "mlflow-tracing": "^0.1.0-rc.0",
+    "mlflow-tracing": "^0.1.2",
     "@anthropic-ai/sdk": "^0.32.0"
   },
   "devDependencies": {

@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -77,7 +78,11 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
 SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
     SpanMetricKey.SPAN_COUNT: TraceMetricsConfig(
         aggregation_types={AggregationType.COUNT},
-        dimensions={SpanMetricDimensionKey.SPAN_NAME, SpanMetricDimensionKey.SPAN_TYPE},
+        dimensions={
+            SpanMetricDimensionKey.SPAN_NAME,
+            SpanMetricDimensionKey.SPAN_TYPE,
+            SpanMetricDimensionKey.SPAN_STATUS,
+        },
     ),
     SpanMetricKey.LATENCY: TraceMetricsConfig(
         aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
@@ -224,8 +229,10 @@ def _get_assessment_numeric_value_column(json_column: Column) -> Column:
         Column expression that extracts numeric value or NULL for non-numeric values
     """
     return case(
-        (json_column == "true", 1.0),
-        (json_column == "false", 0.0),
+        # yes / no -> 1.0 / 0.0 to support mlflow.genai.judges.CategoricalRating
+        # that is used by builtin judges
+        (json_column.in_([json.dumps(True), json.dumps("yes")]), 1.0),
+        (json_column.in_([json.dumps(False), json.dumps("no")]), 0.0),
         # Skip null, strings, lists, and dicts (JSON null/objects/arrays)
         (json_column == "null", None),
         (func.substring(json_column, 1, 1).in_(['"', "[", "{"]), None),
@@ -594,7 +601,12 @@ def convert_results_to_metric_data_points(
         values = {
             col.name: row[i + num_dimensions]
             for i, col in enumerate(select_columns[num_dimensions:])
+            if row[i + num_dimensions] is not None
         }
+
+        # Skip data points with no values (all aggregations returned None)
+        if not values:
+            continue
 
         data_points.append(
             MetricDataPoint(

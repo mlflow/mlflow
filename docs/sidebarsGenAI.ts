@@ -25,8 +25,8 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
-      type: 'doc',
-      id: 'eval-monitor/quickstart',
+      type: 'link',
+      href: '/genai/eval-monitor/quickstart/',
       label: 'Evaluate LLMs and Agents',
       className: 'sidebar-top-level-category',
     },
@@ -623,29 +623,25 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'doc',
-          id: 'governance/ai-gateway/setup',
-          label: 'Setup',
-        },
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/configuration',
-          label: 'Configuration',
-        },
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/usage',
-          label: 'Usage',
-        },
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/integration',
-          label: 'Integration',
-        },
-        {
-          type: 'doc',
-          id: 'governance/unity-catalog',
-          label: 'Unity Catalog',
+          type: 'category',
+          label: 'Gateway Server (Legacy)',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/setup',
+              label: 'Setup',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/configuration',
+              label: 'Configuration',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/usage',
+              label: 'Usage',
+            },
+          ],
         },
       ],
       link: {

@@ -10,7 +10,7 @@ from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.mistral import MistralProvider
-from mlflow.gateway.schemas import completions, embeddings
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse
 
@@ -92,7 +92,6 @@ async def test_completions():
             json={
                 "messages": [{"role": "user", "content": TEST_STRING}],
                 "model": "mistral-tiny",
-                "temperature": 0.0,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
@@ -281,3 +280,75 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
     payload = {"prompt": prompt}
     with pytest.raises(ValidationError, match=r"prompt"):
         await provider.completions(completions.RequestPayload(**payload))
+
+
+def chat_config():
+    return {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "mistral",
+            "name": "mistral-large-latest",
+            "config": {
+                "mistral_api_key": "key",
+            },
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_with_structured_output():
+    config = chat_config()
+    provider = MistralProvider(EndpointConfig(**config))
+
+    json_schema = {
+        "name": "user_info",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "email": {"type": "string"}},
+            "required": ["name", "email"],
+            "additionalProperties": False,
+        },
+    }
+
+    resp = {
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "mistral-large-latest",
+        "usage": {
+            "prompt_tokens": 13,
+            "completion_tokens": 50,
+            "total_tokens": 63,
+        },
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": '{"name": "John Doe", "email": "john@example.com"}',
+                },
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+    }
+
+    with mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post:
+        payload = {
+            "messages": [{"role": "user", "content": "Extract user info"}],
+            "response_format": {"type": "json_schema", "json_schema": json_schema},
+        }
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+        assert (
+            response.choices[0].message.content
+            == '{"name": "John Doe", "email": "john@example.com"}'
+        )
+        assert response.choices[0].finish_reason == "stop"
+
+        call_kwargs = mock_post.call_args[1]
+        assert call_kwargs["json"]["response_format"] == {
+            "type": "json_schema",
+            "json_schema": json_schema,
+        }

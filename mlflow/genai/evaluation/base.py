@@ -24,7 +24,6 @@ from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, vali
 from mlflow.genai.utils.display_utils import display_evaluation_output
 from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.models.evaluation.base import (
-    EvaluationResult,
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
 )
@@ -43,6 +42,7 @@ from mlflow.tracking.fluent import _get_experiment_id, _set_active_model
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION
 
 if TYPE_CHECKING:
+    from mlflow.genai.evaluation.entities import EvaluationResult
     from mlflow.genai.evaluation.utils import EvaluationDatasetTypes
 
 
@@ -54,7 +54,7 @@ def evaluate(
     scorers: list[Scorer],
     predict_fn: Callable[..., Any] | None = None,
     model_id: str | None = None,
-) -> EvaluationResult:
+) -> "EvaluationResult":
     """
     Evaluate the performance of a generative AI model/application using specified
     data and scorers.
@@ -234,7 +234,7 @@ def evaluate(
             :py:func:`mlflow.set_active_model` function.
 
     Returns:
-        An :py:class:`mlflow.models.EvaluationResult~` object.
+        An :py:class:`mlflow.genai.evaluation.entities.EvaluationResult` object.
 
     Note:
         Certain advanced features of this function are only supported on Databricks.
@@ -250,7 +250,7 @@ def evaluate(
 
 
 @record_usage_event(GenAIEvaluateEvent)
-def _run_harness(data, scorers, predict_fn, model_id) -> tuple[EvaluationResult, dict[str, Any]]:
+def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult", dict[str, Any]]:
     """
     Internal harness for running evaluation.
 
@@ -433,7 +433,7 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
         # Inject `{"databricks_options": {"return_trace": True}}` to the input payload
         # to return the trace in the response.
         databricks_options = {DATABRICKS_OPTIONS_KEY: {RETURN_TRACE_OPTION_KEY: True}}
-        payload = kwargs if is_fmapi else {**kwargs, **databricks_options}
+        payload = kwargs if is_fmapi else kwargs | databricks_options
         result = client.predict(endpoint=endpoint, inputs=payload)
         end_time_ms = int(time.time_ns() / 1e6)
 

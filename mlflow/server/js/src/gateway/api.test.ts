@@ -9,9 +9,7 @@ describe('GatewayApi', () => {
 
   describe('Provider Metadata', () => {
     it('should properly return error when listProviders API responds with bare status', async () => {
-      server.use(
-        rest.get('/ajax-api/3.0/mlflow/endpoints/supported-providers', (req, res, ctx) => res(ctx.status(404))),
-      );
+      server.use(rest.get('/ajax-api/3.0/mlflow/gateway/supported-providers', (req, res, ctx) => res(ctx.status(404))));
 
       const expectedMessage = new NotFoundError({}).message;
 
@@ -20,7 +18,7 @@ describe('GatewayApi', () => {
 
     it('should properly return error with message extracted from listModels API', async () => {
       server.use(
-        rest.get('/ajax-api/3.0/mlflow/endpoints/supported-models', (req, res, ctx) =>
+        rest.get('/ajax-api/3.0/mlflow/gateway/supported-models', (req, res, ctx) =>
           res(
             ctx.status(500),
             ctx.json({
@@ -38,7 +36,7 @@ describe('GatewayApi', () => {
   describe('Secrets Management', () => {
     it('should properly return error when createSecret API fails', async () => {
       server.use(
-        rest.post('/ajax-api/3.0/mlflow/secrets/create', (req, res, ctx) =>
+        rest.post('/ajax-api/3.0/mlflow/gateway/secrets/create', (req, res, ctx) =>
           res(
             ctx.status(400),
             ctx.json({
@@ -52,13 +50,13 @@ describe('GatewayApi', () => {
       await expect(
         GatewayApi.createSecret({
           secret_name: 'duplicate-secret',
-          secret_value: 'test-value',
+          secret_value: { api_key: 'test-value' },
         }),
       ).rejects.toThrow('Secret name already exists');
     });
 
     it('should properly return error when listSecrets API responds with bare status', async () => {
-      server.use(rest.get('/ajax-api/3.0/mlflow/secrets/list', (req, res, ctx) => res(ctx.status(403))));
+      server.use(rest.get('/ajax-api/3.0/mlflow/gateway/secrets/list', (req, res, ctx) => res(ctx.status(403))));
 
       await expect(GatewayApi.listSecrets()).rejects.toThrow();
     });
@@ -67,7 +65,7 @@ describe('GatewayApi', () => {
   describe('Endpoints Management', () => {
     it('should properly return error when createEndpoint API fails', async () => {
       server.use(
-        rest.post('/ajax-api/3.0/mlflow/endpoints/create', (req, res, ctx) =>
+        rest.post('/ajax-api/3.0/mlflow/gateway/endpoints/create', (req, res, ctx) =>
           res(
             ctx.status(400),
             ctx.json({
@@ -81,13 +79,13 @@ describe('GatewayApi', () => {
       await expect(
         GatewayApi.createEndpoint({
           name: 'test-endpoint',
-          model_definition_ids: [],
+          model_configs: [],
         }),
       ).rejects.toThrow('At least one model definition is required');
     });
 
     it('should properly return error when listEndpoints API responds with bare status', async () => {
-      server.use(rest.get('/ajax-api/3.0/mlflow/endpoints/list', (req, res, ctx) => res(ctx.status(500))));
+      server.use(rest.get('/ajax-api/3.0/mlflow/gateway/endpoints/list', (req, res, ctx) => res(ctx.status(500))));
 
       await expect(GatewayApi.listEndpoints()).rejects.toThrow();
     });
@@ -96,7 +94,7 @@ describe('GatewayApi', () => {
   describe('Model Definitions Management', () => {
     it('should properly return error when createModelDefinition API fails', async () => {
       server.use(
-        rest.post('/ajax-api/3.0/mlflow/model-definitions/create', (req, res, ctx) =>
+        rest.post('/ajax-api/3.0/mlflow/gateway/model-definitions/create', (req, res, ctx) =>
           res(
             ctx.status(400),
             ctx.json({
@@ -118,7 +116,9 @@ describe('GatewayApi', () => {
     });
 
     it('should properly return error when listModelDefinitions API responds with bare status', async () => {
-      server.use(rest.get('/ajax-api/3.0/mlflow/model-definitions/list', (req, res, ctx) => res(ctx.status(500))));
+      server.use(
+        rest.get('/ajax-api/3.0/mlflow/gateway/model-definitions/list', (req, res, ctx) => res(ctx.status(500))),
+      );
 
       await expect(GatewayApi.listModelDefinitions()).rejects.toThrow();
     });

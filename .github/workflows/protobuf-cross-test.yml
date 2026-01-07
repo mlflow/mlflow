@@ -60,20 +60,14 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          pip install -U pip setuptools wheel
-          pip install tests/resources/mlflow-test-plugin
-          pip install .[extras,genai,mcp]
-          pip install pyspark
-          # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
-          pip install datasets
-          # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
-          # tensorflow >= 2.22.0 are incompatible with protobuf < 5
-          pip install 'tensorflow<2.22.0' 'tf-keras<2.20.0'
-          # Install torch and transformers to test metrics
-          pip install torch transformers
-          pip install -r requirements/test-requirements.txt
+          uv sync --extra extras --extra genai --extra mcp
           # Test the latest minor version in protobuf_major_version
-          pip install "protobuf==${{ matrix.protobuf_major_version }}.*"
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            datasets \
+            'tensorflow<2.22.0' 'tf-keras<2.20.0' \
+            torch transformers \
+            "protobuf==${{ matrix.protobuf_major_version }}.*"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -81,7 +75,7 @@ jobs:
           # NB: test_mlflow_artifacts.py is excluded because it runs docker-compose with fresh
           # container builds. The protobuf version in the test environment has no effect on the
           # containers, making cross-version testing unnecessary and wasteful of disk space.
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors \
             --ignore=tests/projects \
             --ignore=tests/examples \

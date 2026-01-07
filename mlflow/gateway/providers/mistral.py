@@ -194,6 +194,17 @@ class MistralProvider(BaseProvider):
         )
         return MistralAdapter.model_to_completions(resp, self.config)
 
+    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+        resp = await self._request(
+            "chat/completions",
+            MistralAdapter.chat_to_model(payload, self.config),
+        )
+        return MistralAdapter.model_to_chat(resp, self.config)
+
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
