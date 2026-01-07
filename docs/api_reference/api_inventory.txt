@@ -381,6 +381,11 @@ mlflow.entities.InferenceTableLocation.to_proto
 mlflow.entities.InputTag
 mlflow.entities.InputTag.from_proto
 mlflow.entities.InputTag.to_proto
+mlflow.entities.IssueValue
+mlflow.entities.IssueValue.from_dictionary
+mlflow.entities.IssueValue.from_proto
+mlflow.entities.IssueValue.to_dictionary
+mlflow.entities.IssueValue.to_proto
 mlflow.entities.LifecycleStage
 mlflow.entities.LifecycleStage.is_valid
 mlflow.entities.LifecycleStage.matches_view_type
@@ -551,6 +556,7 @@ mlflow.entities.WebhookTestResult.to_proto
 mlflow.entities.assessment.Assessment
 mlflow.entities.assessment.Expectation
 mlflow.entities.assessment.Feedback
+mlflow.entities.assessment.IssueValue
 mlflow.entities.assessment_error.AssessmentError
 mlflow.entities.assessment_source.AssessmentSource
 mlflow.entities.assessment_source.AssessmentSourceType

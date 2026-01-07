@@ -4070,7 +4070,7 @@ public final class Assessments {
      * Boolean value indicating the trace is linked to the issue.
      * </pre>
      *
-     * <code>optional bool value = 1 [default = true];</code>
+     * <code>optional bool value = 1;</code>
      * @return Whether the value field is set.
      */
     boolean hasValue();
@@ -4079,7 +4079,7 @@ public final class Assessments {
      * Boolean value indicating the trace is linked to the issue.
      * </pre>
      *
-     * <code>optional bool value = 1 [default = true];</code>
+     * <code>optional bool value = 1;</code>
      * @return The value.
      */
     boolean getValue();
@@ -4102,7 +4102,6 @@ public final class Assessments {
       super(builder);
     }
     private Issue() {
-      value_ = true;
     }
 
     @java.lang.Override
@@ -4181,7 +4180,7 @@ public final class Assessments {
      * Boolean value indicating the trace is linked to the issue.
      * </pre>
      *
-     * <code>optional bool value = 1 [default = true];</code>
+     * <code>optional bool value = 1;</code>
      * @return Whether the value field is set.
      */
     @java.lang.Override
@@ -4193,7 +4192,7 @@ public final class Assessments {
      * Boolean value indicating the trace is linked to the issue.
      * </pre>
      *
-     * <code>optional bool value = 1 [default = true];</code>
+     * <code>optional bool value = 1;</code>
      * @return The value.
      */
     @java.lang.Override
@@ -4405,7 +4404,7 @@ public final class Assessments {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        value_ = true;
+        value_ = false;
         bitField0_ = (bitField0_ & ~0x00000001);
         return this;
       }
@@ -4436,9 +4435,9 @@ public final class Assessments {
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (((from_bitField0_ & 0x00000001) != 0)) {
+          result.value_ = value_;
           to_bitField0_ |= 0x00000001;
         }
-        result.value_ = value_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -4521,13 +4520,13 @@ public final class Assessments {
       }
       private int bitField0_;
 
-      private boolean value_ = true;
+      private boolean value_ ;
       /**
        * <pre>
        * Boolean value indicating the trace is linked to the issue.
        * </pre>
        *
-       * <code>optional bool value = 1 [default = true];</code>
+       * <code>optional bool value = 1;</code>
        * @return Whether the value field is set.
        */
       @java.lang.Override
@@ -4539,7 +4538,7 @@ public final class Assessments {
        * Boolean value indicating the trace is linked to the issue.
        * </pre>
        *
-       * <code>optional bool value = 1 [default = true];</code>
+       * <code>optional bool value = 1;</code>
        * @return The value.
        */
       @java.lang.Override
@@ -4551,7 +4550,7 @@ public final class Assessments {
        * Boolean value indicating the trace is linked to the issue.
        * </pre>
        *
-       * <code>optional bool value = 1 [default = true];</code>
+       * <code>optional bool value = 1;</code>
        * @param value The value to set.
        * @return This builder for chaining.
        */
@@ -4566,12 +4565,12 @@ public final class Assessments {
        * Boolean value indicating the trace is linked to the issue.
        * </pre>
        *
-       * <code>optional bool value = 1 [default = true];</code>
+       * <code>optional bool value = 1;</code>
        * @return This builder for chaining.
        */
       public Builder clearValue() {
         bitField0_ = (bitField0_ & ~0x00000001);
-        value_ = true;
+        value_ = false;
         onChanged();
         return this;
       }
@@ -10180,28 +10179,27 @@ public final class Assessments {
       "ogle.protobuf.Value\022I\n\020serialized_value\030" +
       "\003 \001(\0132/.mlflow.assessments.Expectation.S" +
       "erializedValue\032>\n\017SerializedValue\022\034\n\024ser" +
-      "ialization_format\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\034" +
-      "\n\005Issue\022\023\n\005value\030\001 \001(\010:\004true\"e\n\010Feedback" +
-      "\022%\n\005value\030\002 \001(\0132\026.google.protobuf.Value\022" +
-      "2\n\005error\030\003 \001(\0132#.mlflow.assessments.Asse" +
-      "ssmentError\"\205\005\n\nAssessment\022\025\n\rassessment" +
-      "_id\030\001 \001(\t\022\035\n\017assessment_name\030\002 \001(\tB\004\370\206\031\001" +
-      "\022\020\n\010trace_id\030\003 \001(\t\022\017\n\007span_id\030\004 \001(\t\0224\n\006s" +
-      "ource\030\005 \001(\0132$.mlflow.assessments.Assessm" +
-      "entSource\022/\n\013create_time\030\006 \001(\0132\032.google." +
-      "protobuf.Timestamp\0224\n\020last_update_time\030\007" +
-      " \001(\0132\032.google.protobuf.Timestamp\0220\n\010feed" +
-      "back\030\t \001(\0132\034.mlflow.assessments.Feedback" +
-      "H\000\0226\n\013expectation\030\n \001(\0132\037.mlflow.assessm" +
-      "ents.ExpectationH\000\022*\n\005issue\030\020 \001(\0132\031.mlfl" +
-      "ow.assessments.IssueH\000\022\021\n\trationale\030\013 \001(" +
-      "\t\0226\n\005error\030\014 \001(\0132#.mlflow.assessments.As" +
-      "sessmentErrorB\002\030\001\022>\n\010metadata\030\r \003(\0132,.ml" +
-      "flow.assessments.Assessment.MetadataEntr" +
-      "y\022\021\n\toverrides\030\016 \001(\t\022\023\n\005valid\030\017 \001(\010:\004tru" +
-      "e\032/\n\rMetadataEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value" +
-      "\030\002 \001(\t:\0028\001B\007\n\005valueB\031\n\024org.mlflow.api.pr" +
-      "oto\220\001\001"
+      "ialization_format\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\026" +
+      "\n\005Issue\022\r\n\005value\030\001 \001(\010\"e\n\010Feedback\022%\n\005va" +
+      "lue\030\002 \001(\0132\026.google.protobuf.Value\0222\n\005err" +
+      "or\030\003 \001(\0132#.mlflow.assessments.Assessment" +
+      "Error\"\205\005\n\nAssessment\022\025\n\rassessment_id\030\001 " +
+      "\001(\t\022\035\n\017assessment_name\030\002 \001(\tB\004\370\206\031\001\022\020\n\010tr" +
+      "ace_id\030\003 \001(\t\022\017\n\007span_id\030\004 \001(\t\0224\n\006source\030" +
+      "\005 \001(\0132$.mlflow.assessments.AssessmentSou" +
+      "rce\022/\n\013create_time\030\006 \001(\0132\032.google.protob" +
+      "uf.Timestamp\0224\n\020last_update_time\030\007 \001(\0132\032" +
+      ".google.protobuf.Timestamp\0220\n\010feedback\030\t" +
+      " \001(\0132\034.mlflow.assessments.FeedbackH\000\0226\n\013" +
+      "expectation\030\n \001(\0132\037.mlflow.assessments.E" +
+      "xpectationH\000\022*\n\005issue\030\020 \001(\0132\031.mlflow.ass" +
+      "essments.IssueH\000\022\021\n\trationale\030\013 \001(\t\0226\n\005e" +
+      "rror\030\014 \001(\0132#.mlflow.assessments.Assessme" +
+      "ntErrorB\002\030\001\022>\n\010metadata\030\r \003(\0132,.mlflow.a" +
+      "ssessments.Assessment.MetadataEntry\022\021\n\to" +
+      "verrides\030\016 \001(\t\022\023\n\005valid\030\017 \001(\010:\004true\032/\n\rM" +
+      "etadataEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t" +
+      ":\0028\001B\007\n\005valueB\031\n\024org.mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

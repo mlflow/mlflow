@@ -75,7 +75,7 @@ message Expectation {
 // The issue_id is stored as the assessment name, and issue_name is stored in metadata.
 message Issue {
   // Boolean value indicating the trace is linked to the issue.
-  optional bool value = 1 [default = true];
+  optional bool value = 1;
 }
 
 // Feedback provided on the model / agent output(s) contained in the trace
