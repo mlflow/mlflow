@@ -20,7 +20,7 @@ export class GatewayRoutePaths {
     return createMLflowRoutePath('/gateway/endpoints/create');
   }
 
-  static get editEndpointPage() {
+  static get endpointDetailsPage() {
     return createMLflowRoutePath('/gateway/endpoints/:endpointId');
   }
 }
@@ -38,17 +38,8 @@ class GatewayRoutes {
     return GatewayRoutePaths.createEndpointPage;
   }
 
-  static getEndpointRoute(endpointId: string) {
-    return generatePath(GatewayRoutePaths.editEndpointPage, { endpointId });
-  }
-
-  static getEditEndpointRoute(endpointId: string) {
-    return generatePath(GatewayRoutePaths.editEndpointPage, { endpointId });
-  }
-
-  // Deprecated: Use getEndpointRoute instead
   static getEndpointDetailsRoute(endpointId: string) {
-    return this.getEndpointRoute(endpointId);
+    return generatePath(GatewayRoutePaths.endpointDetailsPage, { endpointId });
   }
 }
 
