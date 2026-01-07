@@ -12,7 +12,7 @@ import shutil
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
-from mlflow.server.assistant.providers.base import AssistantProvider
+from mlflow.assistant.providers.base import AssistantProvider
 
 _logger = logging.getLogger(__name__)
 
