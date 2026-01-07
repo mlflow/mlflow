@@ -11,7 +11,7 @@ from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 
 @pytest.fixture(autouse=True)
 def enable_debug_logging():
-    # Enable debug logging to help diagnose flaky test failures in CI caused by timing issues.
+    # Enable debug logging to help diagnose flaky test failures
     logger = logging.getLogger("mlflow.system_metrics.system_metrics_monitor")
     original_level = logger.level
     logger.setLevel(logging.DEBUG)
