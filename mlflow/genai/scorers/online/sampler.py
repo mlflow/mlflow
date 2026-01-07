@@ -29,7 +29,7 @@ class OnlineScorerSampler:
         for online_scorer in online_scorers:
             scorer_dict = json.loads(online_scorer.serialized_scorer)
             scorer = Scorer.model_validate(scorer_dict)
-            self._sample_rates[scorer.name] = online_scorer.sample_rate
+            self._sample_rates[scorer.name] = online_scorer.online_config.sample_rate
             self._scorers[scorer.name] = scorer
 
     def group_scorers_by_filter(self, session_level: bool) -> dict[str | None, list[Scorer]]:
@@ -46,9 +46,10 @@ class OnlineScorerSampler:
         for online_scorer in self._online_scorers:
             scorer = self._scorers.get(online_scorer.name)
             if scorer and scorer.is_session_level_scorer == session_level:
-                if online_scorer.filter_string not in result:
-                    result[online_scorer.filter_string] = []
-                result[online_scorer.filter_string].append(scorer)
+                filter_str = online_scorer.online_config.filter_string
+                if filter_str not in result:
+                    result[filter_str] = []
+                result[filter_str].append(scorer)
         return result
 
     def sample(self, entity_id: str, scorers: list[Scorer]) -> list[Scorer]:
