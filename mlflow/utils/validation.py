@@ -515,8 +515,7 @@ def _validate_model_version(model_version):
         model_version = int(model_version)
     except ValueError:
         raise MlflowException(
-            not_integer_value("version", model_version),
-            error_code=INVALID_PARAMETER_VALUE,
+            not_integer_value("version", model_version), error_code=INVALID_PARAMETER_VALUE
         )
 
 
