@@ -1446,7 +1446,7 @@ class AbstractStore(GatewayStoreMixin):
         Create or update online scoring configuration for a scorer.
 
         Args:
-            experiment_id: The experiment ID.
+            experiment_id: The ID of the Experiment containing the scorer.
             scorer_name: The scorer name.
             sample_rate: The sampling rate (0.0 to 1.0).
             filter_string: Optional filter expression for trace selection.
