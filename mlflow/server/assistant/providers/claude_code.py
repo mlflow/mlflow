@@ -16,8 +16,10 @@ from mlflow.server.assistant.providers.base import AssistantProvider
 
 _logger = logging.getLogger(__name__)
 
-CLAUDE_CONFIG_FILE = Path.home() / ".mlflow" / "claude-config.json"
+CLAUDE_CONFIG_FILE = Path.home() / ".mlflow" / "assistant" / "claude-config.json"
 
+# TODO: to be updated
+CLAUDE_SYSTEM_PROMPT = """You are an MLflow assistant helping users with their MLflow projects."""
 
 class ClaudeCodeProvider(AssistantProvider):
     """Assistant provider using Claude Code CLI."""
@@ -67,8 +69,12 @@ class ClaudeCodeProvider(AssistantProvider):
         cwd = config.get("projectPath")
         model = config.get("model")
 
-        # NB: --verbose is required when using --output-format=stream-json with -p
+        # Build command
+        # Note: --verbose is required when using --output-format=stream-json with -p
         cmd = [claude_path, "-p", prompt, "--output-format", "stream-json", "--verbose"]
+
+        # Add system prompt
+        cmd.extend(["--append-system-prompt", CLAUDE_SYSTEM_PROMPT])
 
         if model and model != "default":
             cmd.extend(["--model", model])
@@ -94,9 +100,11 @@ class ClaudeCodeProvider(AssistantProvider):
                     data = json.loads(line_str)
                     msg_type = data.get("type", "")
 
+                    # Extract session ID if present
                     if "session_id" in data:
                         new_session_id = data["session_id"]
 
+                    # Handle different message types
                     if msg_type == "assistant":
                         content = data.get("message", {}).get("content", [])
                         text_parts = [
@@ -119,8 +127,10 @@ class ClaudeCodeProvider(AssistantProvider):
                         yield {"type": "error", "data": {"error": error_msg}}
 
                 except json.JSONDecodeError:
+                    # Non-JSON output, treat as plain text
                     yield {"type": "message", "data": {"text": line_str}}
 
+            # Wait for process to complete
             await process.wait()
 
             if process.returncode != 0:
