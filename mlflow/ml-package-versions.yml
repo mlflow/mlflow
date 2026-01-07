@@ -8,8 +8,6 @@ sklearn:
   models:
     minimum: "1.4.0"
     maximum: "1.8.0"
-    requirements:
-      ">= 0.0.0": ["skops"]
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py
 
