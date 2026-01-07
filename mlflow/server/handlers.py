@@ -696,30 +696,6 @@ def _get_request_json(flask_request=request):
     return flask_request.get_json(force=True, silent=True)
 
 
-def _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded):
-    """
-    Validate request JSON against a schema without requiring protobuf messages.
-
-    Args:
-        request_json: The request data as a dictionary.
-        schema: Dictionary mapping parameter names to lists of validation functions.
-        proto_parsing_succeeded: Whether protobuf parsing succeeded. None indicates the
-            request was not parsed from protobuf.
-    """
-    schema = schema or {}
-    for schema_key, schema_validation_fns in schema.items():
-        if schema_key in request_json or _assert_required in schema_validation_fns:
-            value = request_json.get(schema_key)
-            if schema_key == "run_id" and value is None and "run_uuid" in request_json:
-                value = request_json.get("run_uuid")
-            _validate_param_against_schema(
-                schema=schema_validation_fns,
-                param=schema_key,
-                value=value,
-                proto_parsing_succeeded=proto_parsing_succeeded,
-            )
-
-
 def _get_normalized_request_json(flask_request=request):
     """
     Get request JSON with normalization for legacy clients.
@@ -742,6 +718,30 @@ def _get_normalized_request_json(flask_request=request):
         request_json = {}
 
     return request_json
+
+
+def _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded):
+    """
+    Validate request JSON against a schema without requiring protobuf messages.
+
+    Args:
+        request_json: The request data as a dictionary.
+        schema: Dictionary mapping parameter names to lists of validation functions.
+        proto_parsing_succeeded: Whether protobuf parsing succeeded. None indicates the
+            request was not parsed from protobuf.
+    """
+    schema = schema or {}
+    for schema_key, schema_validation_fns in schema.items():
+        if schema_key in request_json or _assert_required in schema_validation_fns:
+            value = request_json.get(schema_key)
+            if schema_key == "run_id" and value is None and "run_uuid" in request_json:
+                value = request_json.get("run_uuid")
+            _validate_param_against_schema(
+                schema=schema_validation_fns,
+                param=schema_key,
+                value=value,
+                proto_parsing_succeeded=proto_parsing_succeeded,
+            )
 
 
 def _get_request_message(request_message, flask_request=request, schema=None):
