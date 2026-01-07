@@ -3,11 +3,13 @@ Fetch PR diff with filtering and line numbers.
 
 Filters out auto-generated and non-reviewable files, then adds line numbers
 for easier review comment placement.
+
+Example:
+    uv run .claude/skills/fetch-diff/fetch_diff.py https://github.com/<owner>/<repo>/pull/<number>
 """
 # ruff: noqa: T201
 
 import argparse
-import json
 import os
 import re
 import subprocess
@@ -125,10 +127,9 @@ def filter_diff(full_diff: str) -> str:
 
 
 def parse_pr_url(url: str) -> tuple[str, str, int]:
-    match = re.match(r"https://github\.com/([^/]+)/([^/]+)/pull/(\d+)", url)
-    if not match:
-        raise ValueError(f"Invalid PR URL: {url}")
-    return match.group(1), match.group(2), int(match.group(3))
+    if m := re.match(r"https://github\.com/([^/]+)/([^/]+)/pull/(\d+)", url):
+        return m.group(1), m.group(2), int(m.group(3))
+    raise ValueError(f"Invalid PR URL: {url}")
 
 
 def main() -> None:
@@ -137,16 +138,11 @@ def main() -> None:
         "pr_url", help="GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)"
     )
     args = parser.parse_args()
-
-    try:
-        token = get_github_token()
-        owner, repo, pull_number = parse_pr_url(args.pr_url)
-        full_diff = fetch_pr_diff(owner, repo, pull_number, token)
-        filtered = filter_diff(full_diff)
-        print(filtered)
-    except Exception as e:
-        print(json.dumps({"error": str(e)}), file=sys.stderr)
-        sys.exit(1)
+    token = get_github_token()
+    owner, repo, pull_number = parse_pr_url(args.pr_url)
+    full_diff = fetch_pr_diff(owner, repo, pull_number, token)
+    filtered = filter_diff(full_diff)
+    print(filtered)
 
 
 if __name__ == "__main__":

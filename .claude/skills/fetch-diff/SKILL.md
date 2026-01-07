@@ -23,7 +23,7 @@ uv run .claude/skills/fetch-diff/fetch_diff.py https://github.com/mlflow/mlflow/
 
 Token is auto-detected from `GITHUB_TOKEN` env var or `gh auth token`.
 
-## Output Format
+## Output Example
 
 ```
 diff --git a/path/to/file.py b/path/to/file.py
