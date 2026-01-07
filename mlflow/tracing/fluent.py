@@ -187,6 +187,12 @@ def trace(
             is traced.
     """
 
+    # Validate sampling_ratio
+    if sampling_ratio is not None and not (0.0 <= sampling_ratio <= 1.0):
+        raise MlflowException.invalid_parameter_value(
+            f"sampling_ratio must be between 0.0 and 1.0, got {sampling_ratio}"
+        )
+
     def decorator(fn):
         # Check if the function is a classmethod or staticmethod
         is_classmethod = isinstance(fn, classmethod)
