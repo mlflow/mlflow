@@ -249,41 +249,17 @@ def _prompt_model() -> str:
 
 def _install_skills(provider: AssistantProvider) -> None:
     """Install provider-specific skills."""
-    click.secho("Installing Skills", fg="cyan", bold=True)
-    click.secho("-" * 30, fg="cyan")
+    skill_source = Path(__file__).parent / "skills"
+    skills = [d.name for d in skill_source.glob("*")]
+    dst = provider.skill_path
+    dst.mkdir(parents=True, exist_ok=True)
+    for skill in skills:
+        shutil.copytree(skill_source / skill, dst / skill, dirs_exist_ok=True)
 
-    if provider.name == "claude_code":
-        _install_claude_skills()
-    else:
-        click.secho("No skills to install for this provider.", dim=True)
-
+    click.secho("Installed skills: ", fg="green")
+    for skill in skills:
+        click.secho(f"  - {skill}")
     click.echo()
-
-
-def _install_claude_skills() -> None:
-    """Install MLflow-specific Claude skills."""
-    # Get the skills directory from this package
-    skills_source = Path(__file__).parent / "skills"
-    skills_dest = Path.home() / ".claude" / "commands"
-
-    if not skills_source.exists():
-        click.secho("Skills directory not found (skipped)", fg="yellow")
-        return
-
-    # Create destination directory
-    skills_dest.mkdir(parents=True, exist_ok=True)
-
-    # Find all markdown files in the skills directory
-    skill_files = list(skills_source.glob("*.md"))
-
-    if not skill_files:
-        click.secho("No skill files found (skipped)", fg="yellow")
-        return
-
-    for src in skill_files:
-        dst = skills_dest / src.name
-        shutil.copy2(src, dst)
-        click.secho(f"Installed: {src.name}", fg="green")
 
 
 def _save_config(
