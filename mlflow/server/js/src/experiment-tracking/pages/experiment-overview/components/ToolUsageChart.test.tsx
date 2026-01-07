@@ -5,22 +5,8 @@ import { ToolUsageChart } from './ToolUsageChart';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { AggregationType, SpanMetricKey, SpanDimensionKey } from '@databricks/web-shared/model-trace-explorer';
-
-// Mock FetchUtils
-jest.mock('../../../../common/utils/FetchUtils', () => ({
-  fetchOrFail: jest.fn(),
-  getAjaxUrl: (url: string) => url,
-}));
-
-import { fetchOrFail } from '../../../../common/utils/FetchUtils';
-const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
-
-// Helper to create mock API response
-const mockApiResponse = (dataPoints: any[] | undefined) => {
-  mockFetchOrFail.mockResolvedValue({
-    json: () => Promise.resolve({ data_points: dataPoints }),
-  } as Response);
-};
+import { setupServer } from '../../../../common/utils/setup-msw';
+import { rest } from 'msw';
 
 // Helper to create a tool usage data point
 const createToolUsageDataPoint = (timeBucket: string, toolName: string, count: number) => ({
@@ -52,6 +38,8 @@ describe('ToolUsageChart', () => {
     timeBuckets,
   };
 
+  const server = setupServer();
+
   const createQueryClient = () =>
     new QueryClient({
       defaultOptions: {
@@ -72,14 +60,28 @@ describe('ToolUsageChart', () => {
     );
   };
 
+  // Helper to setup MSW handler for the trace metrics endpoint
+  const setupTraceMetricsHandler = (dataPoints: any[]) => {
+    server.use(
+      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        return res(ctx.json({ data_points: dataPoints }));
+      }),
+    );
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockApiResponse([]);
+    // Default: return empty data points
+    setupTraceMetricsHandler([]);
   });
 
   describe('loading state', () => {
     it('should render loading spinner while data is being fetched', async () => {
-      mockFetchOrFail.mockReturnValue(new Promise(() => {}));
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.delay('infinite'));
+        }),
+      );
 
       renderComponent();
 
@@ -89,7 +91,11 @@ describe('ToolUsageChart', () => {
 
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
-      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.status(500), ctx.json({ error: 'API Error' }));
+        }),
+      );
 
       renderComponent();
 
@@ -101,8 +107,7 @@ describe('ToolUsageChart', () => {
 
   describe('empty data state', () => {
     it('should render empty state when no data points are returned', async () => {
-      mockApiResponse([]);
-
+      // Default handler returns empty array
       renderComponent();
 
       await waitFor(() => {
@@ -111,8 +116,7 @@ describe('ToolUsageChart', () => {
     });
 
     it('should render empty state when time range is not provided', async () => {
-      mockApiResponse([]);
-
+      // Default handler returns empty array
       renderComponent({ startTimeMs: undefined, endTimeMs: undefined, timeBuckets: [] });
 
       await waitFor(() => {
@@ -132,7 +136,7 @@ describe('ToolUsageChart', () => {
     ];
 
     it('should render chart with correct data-count attribute', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -144,7 +148,7 @@ describe('ToolUsageChart', () => {
     });
 
     it('should display the chart title', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -154,7 +158,7 @@ describe('ToolUsageChart', () => {
     });
 
     it('should display "Over time" label', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -166,7 +170,7 @@ describe('ToolUsageChart', () => {
 
   describe('with single tool', () => {
     it('should render chart with single tool data', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         createToolUsageDataPoint('2025-12-22T10:00:00Z', 'single_tool', 100),
         createToolUsageDataPoint('2025-12-22T11:00:00Z', 'single_tool', 150),
       ]);

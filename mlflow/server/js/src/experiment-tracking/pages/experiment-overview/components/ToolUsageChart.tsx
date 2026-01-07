@@ -26,7 +26,7 @@ export const ToolUsageChart: React.FC<OverviewChartProps> = (props) => {
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
   const legendFormatter = useChartLegendFormatter();
-  const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight(0.8, 0.2);
+  const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
   const { getToolColor } = useToolColors();
 
   // Fetch and process tool usage chart data

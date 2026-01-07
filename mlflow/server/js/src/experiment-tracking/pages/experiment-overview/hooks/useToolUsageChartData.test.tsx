@@ -4,22 +4,8 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { useToolUsageChartData } from './useToolUsageChartData';
 import { AggregationType, SpanMetricKey, SpanDimensionKey } from '@databricks/web-shared/model-trace-explorer';
 import type { ReactNode } from 'react';
-
-// Mock FetchUtils
-jest.mock('../../../../common/utils/FetchUtils', () => ({
-  fetchOrFail: jest.fn(),
-  getAjaxUrl: (url: string) => url,
-}));
-
-import { fetchOrFail } from '../../../../common/utils/FetchUtils';
-const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
-
-// Helper to create mock API response
-const mockApiResponse = (dataPoints: any[] | undefined) => {
-  mockFetchOrFail.mockResolvedValue({
-    json: () => Promise.resolve({ data_points: dataPoints }),
-  } as Response);
-};
+import { setupServer } from '../../../../common/utils/setup-msw';
+import { rest } from 'msw';
 
 // Helper to create a tool usage data point
 const createToolUsageDataPoint = (timeBucket: string, toolName: string, count: number) => ({
@@ -51,6 +37,8 @@ describe('useToolUsageChartData', () => {
     timeBuckets,
   };
 
+  const server = setupServer();
+
   const createQueryClient = () =>
     new QueryClient({
       defaultOptions: {
@@ -67,14 +55,28 @@ describe('useToolUsageChartData', () => {
     );
   };
 
+  // Helper to setup MSW handler for the trace metrics endpoint
+  const setupTraceMetricsHandler = (dataPoints: any[]) => {
+    server.use(
+      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        return res(ctx.json({ data_points: dataPoints }));
+      }),
+    );
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockApiResponse([]);
+    // Default: return empty data points
+    setupTraceMetricsHandler([]);
   });
 
   describe('loading state', () => {
     it('should return isLoading true while fetching', async () => {
-      mockFetchOrFail.mockReturnValue(new Promise(() => {})); // Never resolve
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.delay('infinite'));
+        }),
+      );
 
       const { result } = renderHook(() => useToolUsageChartData(defaultProps), {
         wrapper: createWrapper(),
@@ -87,8 +89,11 @@ describe('useToolUsageChartData', () => {
 
   describe('error state', () => {
     it('should return error when API call fails', async () => {
-      const testError = new Error('API Error');
-      mockFetchOrFail.mockRejectedValue(testError);
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.status(500), ctx.json({ error: 'API Error' }));
+        }),
+      );
 
       const { result } = renderHook(() => useToolUsageChartData(defaultProps), {
         wrapper: createWrapper(),
@@ -102,7 +107,7 @@ describe('useToolUsageChartData', () => {
 
   describe('empty data', () => {
     it('should return hasData false when no data points', async () => {
-      mockApiResponse([]);
+      // Default handler returns empty array
 
       const { result } = renderHook(() => useToolUsageChartData(defaultProps), {
         wrapper: createWrapper(),
@@ -119,7 +124,7 @@ describe('useToolUsageChartData', () => {
     });
 
     it('should return hasData false when time range is not provided', async () => {
-      mockApiResponse([]);
+      // Default handler returns empty array
 
       const { result } = renderHook(
         () =>
@@ -142,7 +147,7 @@ describe('useToolUsageChartData', () => {
 
   describe('data transformation', () => {
     it('should extract unique tool names sorted alphabetically', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         createToolUsageDataPoint('2025-12-22T10:00:00Z', 'zebra_tool', 10),
         createToolUsageDataPoint('2025-12-22T10:00:00Z', 'alpha_tool', 20),
         createToolUsageDataPoint('2025-12-22T11:00:00Z', 'beta_tool', 30),
@@ -160,7 +165,7 @@ describe('useToolUsageChartData', () => {
     });
 
     it('should create chart data with all time buckets', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         createToolUsageDataPoint('2025-12-22T10:00:00Z', 'tool_a', 100),
         createToolUsageDataPoint('2025-12-22T11:00:00Z', 'tool_a', 150),
         createToolUsageDataPoint('2025-12-22T12:00:00Z', 'tool_a', 200),
@@ -182,7 +187,7 @@ describe('useToolUsageChartData', () => {
     });
 
     it('should fill missing time buckets with zeros', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         // Only provide data for the first bucket
         createToolUsageDataPoint('2025-12-22T10:00:00Z', 'tool_a', 100),
       ]);
@@ -205,7 +210,7 @@ describe('useToolUsageChartData', () => {
     });
 
     it('should handle multiple tools with different data availability', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         // Tool A has data in all buckets
         createToolUsageDataPoint('2025-12-22T10:00:00Z', 'tool_a', 100),
         createToolUsageDataPoint('2025-12-22T11:00:00Z', 'tool_a', 150),
@@ -232,7 +237,7 @@ describe('useToolUsageChartData', () => {
     });
 
     it('should skip data points with missing tool name', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         {
           metric_name: SpanMetricKey.SPAN_COUNT,
           dimensions: {
@@ -257,7 +262,7 @@ describe('useToolUsageChartData', () => {
     });
 
     it('should skip data points with missing time_bucket', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         {
           metric_name: SpanMetricKey.SPAN_COUNT,
           dimensions: {
@@ -283,7 +288,7 @@ describe('useToolUsageChartData', () => {
     });
 
     it('should handle data points with missing count value', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         {
           metric_name: SpanMetricKey.SPAN_COUNT,
           dimensions: {
@@ -308,7 +313,7 @@ describe('useToolUsageChartData', () => {
     });
 
     it('should return hasData true when there are tool names', async () => {
-      mockApiResponse([createToolUsageDataPoint('2025-12-22T10:00:00Z', 'tool_a', 100)]);
+      setupTraceMetricsHandler([createToolUsageDataPoint('2025-12-22T10:00:00Z', 'tool_a', 100)]);
 
       const { result } = renderHook(() => useToolUsageChartData(defaultProps), {
         wrapper: createWrapper(),
@@ -324,33 +329,45 @@ describe('useToolUsageChartData', () => {
 
   describe('API request', () => {
     it('should include SPAN_NAME dimension in request', async () => {
-      mockApiResponse([]);
+      let capturedBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedBody = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
 
       renderHook(() => useToolUsageChartData(defaultProps), {
         wrapper: createWrapper(),
       });
 
       await waitFor(() => {
-        expect(mockFetchOrFail).toHaveBeenCalled();
+        expect(capturedBody).not.toBeNull();
       });
 
-      const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-      expect(callBody.dimensions).toContain(SpanDimensionKey.SPAN_NAME);
+      expect(capturedBody.dimensions).toContain(SpanDimensionKey.SPAN_NAME);
     });
 
     it('should filter for TOOL type spans', async () => {
-      mockApiResponse([]);
+      let capturedBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedBody = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
 
       renderHook(() => useToolUsageChartData(defaultProps), {
         wrapper: createWrapper(),
       });
 
       await waitFor(() => {
-        expect(mockFetchOrFail).toHaveBeenCalled();
+        expect(capturedBody).not.toBeNull();
       });
 
-      const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-      expect(callBody.filters).toContainEqual('span.type = "TOOL"');
+      expect(capturedBody.filters).toContainEqual('span.type = "TOOL"');
     });
   });
 });
