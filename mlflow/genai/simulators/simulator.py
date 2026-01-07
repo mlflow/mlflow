@@ -9,7 +9,6 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable
 
 import pydantic
-from tqdm import tqdm
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
@@ -342,6 +341,8 @@ class ConversationSimulator:
             )
 
     def _simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list[str]]:
+        from tqdm import tqdm
+
         num_test_cases = len(self.test_cases)
         all_trace_ids: list[list[str]] = [[] for _ in range(num_test_cases)]
         max_workers = min(num_test_cases, MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
