@@ -10,7 +10,6 @@ from johnsnowlabs import nlp
 from packaging.version import Version
 
 import mlflow
-import mlflow.utils.file_utils
 from mlflow import pyfunc
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.models import Model, infer_signature

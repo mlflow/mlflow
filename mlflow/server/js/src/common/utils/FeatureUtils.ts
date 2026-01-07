@@ -57,6 +57,16 @@ export const isRunningScorersEnabled = () => {
 };
 
 /**
+ * Determines if running scorers feature is enabled (ability to run LLM scorers on sample traces)
+ */
+export const isEvaluatingSessionsInScorersEnabled = () => {
+  if (!enableScorersUI() || !isRunningScorersEnabled()) {
+    return false;
+  }
+  return false;
+};
+
+/**
  * Determines if experiment kind inference is enabled.
  */
 export const shouldEnableExperimentKindInference = () => true;

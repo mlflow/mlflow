@@ -3,7 +3,7 @@ import { Alert, Button, FormUI, Tooltip, Typography, useDesignSystemTheme } from
 import { GatewayInput } from '../common';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, useFormContext } from 'react-hook-form';
-import { ProviderSelect } from '../create-endpoint/ProviderSelect';
+import { ProviderSelect } from '../create-endpoint';
 import { ModelSelect } from '../create-endpoint/ModelSelect';
 import { ApiKeyConfigurator } from '../model-configuration/components/ApiKeyConfigurator';
 import { useApiKeyConfiguration } from '../model-configuration/hooks/useApiKeyConfiguration';
@@ -13,26 +13,11 @@ import { LongFormSection } from '../../../common/components/long-form/LongFormSe
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { ProviderModel, SecretInfo } from '../../types';
 import { formatTokens, formatCost } from '../../utils/formatters';
+import type { CreateEndpointFormData } from '../../hooks/useCreateEndpointForm';
 
 const LONG_FORM_TITLE_WIDTH = 200;
 
-/**
- * Shared form data interface for both create and edit endpoint forms.
- * Both use the same field structure.
- */
-export interface EndpointFormData {
-  name: string;
-  provider: string;
-  modelName: string;
-  secretMode: SecretMode;
-  existingSecretId: string;
-  newSecret: {
-    name: string;
-    authMode: string;
-    secretFields: Record<string, string>;
-    configFields: Record<string, string>;
-  };
-}
+export type EndpointFormData = CreateEndpointFormData;
 
 export interface EndpointFormRendererProps {
   /** Whether this is editing an existing endpoint (affects button labels, etc.) */
@@ -59,6 +44,8 @@ export interface EndpointFormRendererProps {
   onNameBlur: () => void;
   /** Component ID prefix for telemetry */
   componentIdPrefix?: string;
+  /** When true, adapts layout for use inside containers like modals */
+  embedded?: boolean;
 }
 
 /**
@@ -83,6 +70,7 @@ export const EndpointFormRenderer = ({
   onCancel,
   onNameBlur,
   componentIdPrefix = `mlflow.gateway.${mode}-endpoint`,
+  embedded = false,
 }: EndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -94,11 +82,9 @@ export const EndpointFormRenderer = ({
   const existingSecretId = form.watch('existingSecretId');
   const newSecret = form.watch('newSecret');
 
-  // Get API key configuration data for the selected provider
   const { existingSecrets, isLoadingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } =
     useApiKeyConfiguration({ provider });
 
-  // Convert form values to ApiKeyConfiguration format for the presentation component
   const apiKeyConfig: ApiKeyConfiguration = useMemo(
     () => ({
       mode: secretMode,
@@ -108,7 +94,6 @@ export const EndpointFormRenderer = ({
     [secretMode, existingSecretId, newSecret],
   );
 
-  // Handler to update form values when ApiKeyConfigurator changes
   const handleApiKeyChange = useCallback(
     (config: ApiKeyConfiguration) => {
       if (config.mode !== secretMode) {
@@ -124,7 +109,6 @@ export const EndpointFormRenderer = ({
     [form, secretMode, existingSecretId, newSecret],
   );
 
-  // Determine button disabled state and tooltip
   const isButtonDisabled = mode === 'edit' ? !isFormComplete || !hasChanges : !isFormComplete;
   const buttonTooltip = !isFormComplete
     ? intl.formatMessage({
@@ -141,7 +125,7 @@ export const EndpointFormRenderer = ({
   return (
     <>
       {error && (
-        <div css={{ padding: `0 ${theme.spacing.md}px` }}>
+        <div css={{ padding: embedded ? 0 : `0 ${theme.spacing.md}px` }}>
           <Alert
             componentId={`${componentIdPrefix}.error`}
             closable={false}
@@ -157,9 +141,8 @@ export const EndpointFormRenderer = ({
           flex: 1,
           display: 'flex',
           gap: theme.spacing.md,
-          padding: `0 ${theme.spacing.md}px`,
+          padding: embedded ? 0 : `0 ${theme.spacing.md}px`,
           overflow: 'auto',
-          // Stack vertically on narrow screens
           '@media (max-width: 1023px)': {
             flexDirection: 'column',
           },
@@ -183,6 +166,7 @@ export const EndpointFormRenderer = ({
               defaultMessage: 'Name',
               description: 'Section title for endpoint name',
             })}
+            css={embedded ? { paddingTop: 0 } : undefined}
           >
             <Controller
               control={form.control}
@@ -234,7 +218,6 @@ export const EndpointFormRenderer = ({
                     value={field.value}
                     onChange={(value) => {
                       field.onChange(value);
-                      // Reset all dependent fields when provider changes
                       form.setValue('modelName', '');
                       form.setValue('existingSecretId', '');
                       form.setValue('secretMode', 'new');
@@ -363,7 +346,7 @@ export const EndpointFormRenderer = ({
           display: 'flex',
           justifyContent: 'flex-end',
           gap: theme.spacing.sm,
-          padding: theme.spacing.md,
+          padding: embedded ? `${theme.spacing.md}px 0 0 0` : theme.spacing.md,
           borderTop: `1px solid ${theme.colors.border}`,
           flexShrink: 0,
         }}

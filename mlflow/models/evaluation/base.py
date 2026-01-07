@@ -5,7 +5,6 @@ import logging
 import os
 import pathlib
 import signal
-import urllib
 import urllib.parse
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager, nullcontext
