@@ -4,10 +4,9 @@ import logging
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Callable, Literal, TypeAlias, TypeVar
+from typing import Any, Callable, Literal, TypeAlias, TypeVar, overload
 
 from pydantic import BaseModel, PrivateAttr
-from typing_extensions import overload
 
 import mlflow
 from mlflow.entities import Assessment, Feedback

@@ -1,12 +1,4 @@
-import {
-  Button,
-  ChainIcon,
-  PencilIcon,
-  TableCell,
-  TableRow,
-  TrashIcon,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Button, ChainIcon, TableCell, TableRow, TrashIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
@@ -74,30 +66,17 @@ export const EndpointRow = ({ endpoint, bindings, visibleColumns, onViewBindings
           <TimeAgo date={new Date(endpoint.created_at)} />
         </TableCell>
       )}
-      <TableCell css={{ flex: 0, minWidth: 96, maxWidth: 96 }}>
-        <div css={{ display: 'flex', gap: theme.spacing.xs }}>
-          <Link to={GatewayRoutes.getEditEndpointRoute(endpoint.endpoint_id)}>
-            <Button
-              componentId="mlflow.gateway.endpoints-list.edit-button"
-              type="primary"
-              icon={<PencilIcon />}
-              aria-label={formatMessage({
-                defaultMessage: 'Edit endpoint',
-                description: 'Gateway > Endpoints list > Edit endpoint button aria label',
-              })}
-            />
-          </Link>
-          <Button
-            componentId="mlflow.gateway.endpoints-list.delete-button"
-            type="primary"
-            icon={<TrashIcon />}
-            aria-label={formatMessage({
-              defaultMessage: 'Delete endpoint',
-              description: 'Gateway > Endpoints list > Delete endpoint button aria label',
-            })}
-            onClick={onDelete}
-          />
-        </div>
+      <TableCell css={{ flex: 0, minWidth: 48, maxWidth: 48 }}>
+        <Button
+          componentId="mlflow.gateway.endpoints-list.delete-button"
+          type="primary"
+          icon={<TrashIcon />}
+          aria-label={formatMessage({
+            defaultMessage: 'Delete endpoint',
+            description: 'Gateway > Endpoints list > Delete endpoint button aria label',
+          })}
+          onClick={onDelete}
+        />
       </TableCell>
     </TableRow>
   );
