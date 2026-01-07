@@ -60,6 +60,49 @@ def test_load_config(tmp_path, file_content, expected_config, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_run_yields_error_when_claude_not_found():
+    with patch(
+        "mlflow.server.assistant.providers.claude_code.shutil.which",
+        return_value=None,
+    ):
+        provider = ClaudeCodeProvider()
+        events = [e async for e in provider.run("test prompt")]
+
+    assert len(events) == 1
+    assert events[0]["type"] == "error"
+    assert "not found" in events[0]["data"]["error"]
+
+
+@pytest.mark.asyncio
+async def test_run_builds_correct_command():
+    mock_process = MagicMock()
+    mock_process.stdout = AsyncIterator([b'{"type": "result"}\n'])
+    mock_process.stderr = MagicMock()
+    mock_process.stderr.read = AsyncMock(return_value=b"")
+    mock_process.wait = AsyncMock()
+    mock_process.returncode = 0
+
+    with (
+        patch("mlflow.server.assistant.providers.claude_code.shutil.which", return_value="/usr/bin/claude"),
+        patch(
+            "mlflow.server.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            return_value=mock_process,
+        ) as mock_exec,
+    ):
+        provider = ClaudeCodeProvider()
+        _ = [e async for e in provider.run("test prompt")]
+
+    call_args = mock_exec.call_args[0]
+    assert "/usr/bin/claude" in call_args
+    assert "-p" in call_args
+    assert "test prompt" in call_args
+    assert "--output-format" in call_args
+    assert "stream-json" in call_args
+    assert "--verbose" in call_args
+    assert "--append-system-prompt" in call_args
+
+
+@pytest.mark.asyncio
 async def test_run_streams_assistant_messages():
     mock_stdout = AsyncIterator(
         [
@@ -196,3 +239,5 @@ async def test_run_handles_error_message_type():
 
     assert events[0]["type"] == "error"
     assert "rate limit" in events[0]["data"]["error"]
+
+

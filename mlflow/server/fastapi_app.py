@@ -52,7 +52,7 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     fastapi_app.include_router(gateway_router)
 
     # Include Assistant API router for AI-powered trace analysis
-    # This provides /api/assistant/* endpoints (localhost only)
+    # This provides /ajax-api/3.0/mlflow/assistant/* endpoints (localhost only)
     fastapi_app.include_router(assistant_router)
 
     # Mount the entire Flask application at the root path

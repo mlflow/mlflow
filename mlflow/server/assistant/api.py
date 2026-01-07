@@ -6,8 +6,11 @@ enabling AI-powered helper through a chat interface.
 """
 
 import json
+import os
+import tempfile
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Any, AsyncGenerator
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -19,6 +22,11 @@ from mlflow.server.assistant.providers.claude_code import ClaudeCodeProvider
 # Hardcoded provider for now
 _provider = ClaudeCodeProvider()
 
+# TODO: Consider using a database for session storage instead of file-based storage.
+#       Also implement periodic cleanup of old sessions (e.g., older than 1 week)
+#       to prevent disk space accumulation.
+SESSION_DIR = Path(tempfile.gettempdir()) / "mlflow-assistant-sessions"
+
 
 @dataclass
 class Session:
@@ -27,11 +35,52 @@ class Session:
     context: dict[str, Any] = field(default_factory=dict)
     messages: list[dict[str, str]] = field(default_factory=list)
     pending_message: str | None = None
+    # We need a separate provider_session_id because the API must return a session_id
+    # immediately in the POST /message response, before the provider runs.
+    # The provider's session_id is only available after the first streaming response completes.
     provider_session_id: str | None = None
 
 
-# Session storage (in-memory)
-_sessions: dict[str, Session] = {}
+def _validate_session_id(session_id: str) -> None:
+    """Validate that session_id is a valid UUID to prevent path traversal."""
+    try:
+        uuid.UUID(session_id)
+    except (ValueError, TypeError) as e:
+        raise ValueError("Invalid session ID format") from e
+
+
+def _get_session_file(session_id: str) -> Path:
+    """Get the file path for a session."""
+    _validate_session_id(session_id)
+    return SESSION_DIR / f"{session_id}.json"
+
+
+def _save_session(session_id: str, session: Session) -> None:
+    """Save session to disk atomically."""
+    _validate_session_id(session_id)
+    SESSION_DIR.mkdir(parents=True, exist_ok=True)
+    session_file = _get_session_file(session_id)
+    # Write to temp file, then rename (atomic on POSIX)
+    fd, temp_path = tempfile.mkstemp(dir=SESSION_DIR, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(asdict(session), f)
+        os.replace(temp_path, session_file)
+    except Exception:
+        os.unlink(temp_path)
+        raise
+
+
+def _load_session(session_id: str) -> Session | None:
+    """Load session from disk."""
+    try:
+        session_file = _get_session_file(session_id)
+    except ValueError:
+        return None
+    if not session_file.exists():
+        return None
+    data = json.loads(session_file.read_text())
+    return Session(**data)
 
 
 async def _require_localhost(request: Request) -> None:
@@ -52,7 +101,7 @@ async def _require_localhost(request: Request) -> None:
 
 
 assistant_router = APIRouter(
-    prefix="/api/assistant",
+    prefix="/ajax-api/3.0/mlflow/assistant",
     tags=["assistant"],
     dependencies=[Depends(_require_localhost)],
 )
@@ -93,19 +142,20 @@ async def send_message(request: MessageRequest) -> MessageResponse:
     session_id = request.session_id or str(uuid.uuid4())
 
     # Create or update session
-    if session_id not in _sessions:
-        _sessions[session_id] = Session(context=request.context)
+    session = _load_session(session_id)
+    if session is None:
+        session = Session(context=request.context)
     elif request.context:
-        _sessions[session_id].context.update(request.context)
+        session.context.update(request.context)
 
     # Store the pending message
-    session = _sessions[session_id]
     session.pending_message = request.message
     session.messages.append({"role": "user", "content": request.message})
+    _save_session(session_id, session)
 
     return MessageResponse(
         session_id=session_id,
-        stream_url=f"/api/assistant/stream/{session_id}",
+        stream_url=f"/ajax-api/3.0/mlflow/assistant/stream/{session_id}",
     )
 
 
@@ -120,18 +170,19 @@ async def stream_response(session_id: str) -> StreamingResponse:
     Returns:
         StreamingResponse with SSE events
     """
-    if session_id not in _sessions:
+    session = _load_session(session_id)
+    if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
-
-    session = _sessions[session_id]
 
     # Get and clear the pending message
     pending_message = session.pending_message
     if not pending_message:
         raise HTTPException(status_code=400, detail="No pending message to process")
     session.pending_message = None
+    _save_session(session_id, session)
 
     async def event_generator() -> AsyncGenerator[str, None]:
+        nonlocal session
         async for event in _provider.run(
             prompt=pending_message,
             session_id=session.provider_session_id,
@@ -139,9 +190,10 @@ async def stream_response(session_id: str) -> StreamingResponse:
             event_type = event["type"]
             event_data = event["data"]
 
-            # Store provider session ID if returned
+            # Store provider session ID if returned (for conversation continuity)
             if event_type == "done" and event_data.get("session_id"):
                 session.provider_session_id = event_data["session_id"]
+                _save_session(session_id, session)
 
             yield _format_sse_event(event_type, event_data)
 

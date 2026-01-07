@@ -21,7 +21,7 @@ class AssistantProvider(ABC):
         """Load provider configuration."""
 
     @abstractmethod
-    async def run(
+    def run(
         self,
         prompt: str,
         session_id: str | None = None,
@@ -35,6 +35,5 @@ class AssistantProvider(ABC):
 
         Yields:
             Event dictionaries with 'type' and 'data' keys.
-            Types: 'message', 'done', 'error'
+            Event types: 'message', 'status', 'done', 'error'
         """
-        yield {}  # pragma: no cover
