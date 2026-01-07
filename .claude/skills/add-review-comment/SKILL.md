@@ -16,8 +16,8 @@ Adds a review comment to a specific line in a GitHub pull request.
 ```bash
 gh api repos/<owner>/<repo>/pulls/<pr_number>/comments \
   # Body must end with "🤖 Generated with Claude" on a separate line
-  -f body="<comment>" \
-  -f path="<file_path>" \
+  -f body=<comment> \
+  -f path=<file_path> \
   -F line=<line_number> \
   -f side=<side> \
   -f commit_id="$(gh pr view <pr_number> --repo <owner>/<repo> --json headRefOid -q .headRefOid)"
@@ -28,8 +28,8 @@ gh api repos/<owner>/<repo>/pulls/<pr_number>/comments \
 ```bash
 gh api repos/<owner>/<repo>/pulls/<pr_number>/comments \
   # Body must end with "🤖 Generated with Claude" on a separate line
-  -f body="<comment>" \
-  -f path="<file_path>" \
+  -f body=<comment> \
+  -f path=<file_path> \
   -F start_line=<first_line> \
   -f start_side=<side> \
   -F line=<last_line> \
