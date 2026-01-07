@@ -29,7 +29,7 @@ The MLflow Invocations API is the native interface for calling gateway endpoints
 <TabItem value="curl" label="cURL" default>
 
 ```bash
-curl -X POST http://localhost:5000/gateway/my-chat-endpoint/mlflow/invocations \
+curl -X POST http://localhost:5000/gateway/my-endpoint/mlflow/invocations \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [{"role": "user", "content": "Hello!"}],
@@ -44,7 +44,7 @@ curl -X POST http://localhost:5000/gateway/my-chat-endpoint/mlflow/invocations \
 import requests
 
 response = requests.post(
-    "http://localhost:5000/gateway/my-chat-endpoint/mlflow/invocations",
+    "http://localhost:5000/gateway/my-endpoint/mlflow/invocations",
     json={"messages": [{"role": "user", "content": "Hello!"}], "temperature": 0.7},
 )
 print(response.json())
@@ -64,7 +64,7 @@ For teams already using the OpenAI chat completion style APIs, the gateway provi
 curl -X POST http://localhost:5000/gateway/mlflow/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "my-chat-endpoint",
+    "model": "my-endpoint",
     "messages": [{"role": "user", "content": "Hello!"}],
     "temperature": 0.7
   }'
@@ -82,7 +82,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="my-chat-endpoint",
+    model="my-endpoint",
     messages=[{"role": "user", "content": "Hello!"}],
     temperature=0.7,
 )
@@ -107,7 +107,7 @@ The OpenAI passthrough API exposes OpenAI-specific parameters and features:
 curl -X POST http://localhost:5000/gateway/openai/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "my-chat-endpoint",
+    "model": "my-endpoint",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -124,7 +124,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="my-chat-endpoint", messages=[{"role": "user", "content": "Hello!"}]
+    model="my-endpoint", messages=[{"role": "user", "content": "Hello!"}]
 )
 print(response.choices[0].message.content)
 ```
@@ -143,7 +143,7 @@ Access Anthropic's Messages API directly through the gateway, including Claude-s
 curl -X POST http://localhost:5000/gateway/anthropic/v1/messages \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "my-chat-endpoint",
+    "model": "my-endpoint",
     "max_tokens": 1024,
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
@@ -161,7 +161,7 @@ client = anthropic.Anthropic(
 )
 
 response = client.messages.create(
-    model="my-chat-endpoint",
+    model="my-endpoint",
     max_tokens=1024,
     messages=[{"role": "user", "content": "Hello!"}],
 )
@@ -179,7 +179,7 @@ The Gemini passthrough API follows Google's API structure, with the endpoint nam
 <TabItem value="curl" label="cURL" default>
 
 ```bash
-curl -X POST http://localhost:5000/gateway/gemini/v1beta/models/my-chat-endpoint:generateContent \
+curl -X POST http://localhost:5000/gateway/gemini/v1beta/models/my-endpoint:generateContent \
   -H "Content-Type: application/json" \
   -d '{
     "contents": [{
@@ -203,7 +203,7 @@ client = genai.Client(
 )
 
 response = client.models.generate_content(
-    model="my-chat-endpoint",
+    model="my-endpoint",
     contents={"text": "Hello!"},
 )
 client.close()

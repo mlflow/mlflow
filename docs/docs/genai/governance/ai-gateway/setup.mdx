@@ -17,8 +17,7 @@ pip install "mlflow[genai]"
 The gateway requires a SQL-based tracking store such as SQLite, PostgreSQL, MySQL, or MSSQL. Start your MLflow server with a SQL backend:
 
 ```bash
-# Example with SQLite
-mlflow server --backend-store-uri sqlite:///mlflow.db --host 0.0.0.0 --port 5000
+mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000
 ```
 
 For production deployments, you'll want to configure encryption for secrets. Generate a secure passphrase and set it as an environment variable before starting the server:
@@ -78,7 +77,7 @@ Endpoints define how requests are routed to AI models. Beyond basic routing, end
 
 ### Basic Endpoint Setup
 
-Navigate to the Endpoints tab and click Create Endpoint to begin configuring a new endpoint. Start by choosing a unique name for your endpoint, such as `my-chat-endpoint`. This name becomes part of the API path you'll use to call the endpoint.
+Navigate to the Endpoints tab and click Create Endpoint to begin configuring a new endpoint. Start by choosing a unique name for your endpoint, such as `my-endpoint`. This name becomes part of the API path you'll use to call the endpoint.
 
 ![Create Endpoint](/images/genai/governance/ai-gateway/create-endpoint.png)
 
