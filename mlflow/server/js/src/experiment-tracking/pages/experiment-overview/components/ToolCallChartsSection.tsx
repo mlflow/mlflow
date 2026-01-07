@@ -1,8 +1,7 @@
 import React, { useMemo, useCallback } from 'react';
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
 import { useToolCallChartsSectionData } from '../hooks/useToolCallChartsSectionData';
-import { OverviewChartLoadingState, OverviewChartErrorState, OverviewChartEmptyState } from './OverviewChartComponents';
+import { OverviewChartLoadingState, OverviewChartErrorState } from './OverviewChartComponents';
 import { ChartGrid } from './OverviewLayoutComponents';
 import { LazyToolErrorRateChart } from './LazyToolErrorRateChart';
 import type { OverviewChartProps } from '../types';
@@ -54,17 +53,9 @@ export const ToolCallChartsSection: React.FC<OverviewChartProps> = ({
     return <OverviewChartErrorState />;
   }
 
+  // Don't render anything if there are no tools, other charts handle the empty states as well
   if (!hasData) {
-    return (
-      <OverviewChartEmptyState
-        message={
-          <FormattedMessage
-            defaultMessage="No tool calls available"
-            description="Message shown when there are no tool calls to display"
-          />
-        }
-      />
-    );
+    return null;
   }
 
   return (

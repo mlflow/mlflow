@@ -110,12 +110,13 @@ describe('ToolCallChartsSection', () => {
   });
 
   describe('empty state', () => {
-    it('should render empty state when no tools are found', async () => {
+    it('should render nothing when no tools are found', async () => {
       // Default handler returns empty array
-      renderComponent();
+      const { container } = renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText('No tool calls available')).toBeInTheDocument();
+        // Component returns null when no data
+        expect(container).toBeEmptyDOMElement();
       });
     });
   });

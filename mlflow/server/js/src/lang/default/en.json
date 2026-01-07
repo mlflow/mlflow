@@ -5991,10 +5991,6 @@
     "defaultMessage": "Discard",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > submit button label"
   },
-  "kSSD9B": {
-    "defaultMessage": "No tool calls available",
-    "description": "Message shown when there are no tool calls to display"
-  },
   "kTkJkb": {
     "defaultMessage": "Parallel coordinates chart does not support aggregated string values. Use other parameters or disable run grouping to continue.",
     "description": "Experiment page > compare runs > parallel coordinates chart configuration modal > unsupported string values warning"
