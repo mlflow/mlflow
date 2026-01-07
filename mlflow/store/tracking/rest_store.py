@@ -1382,8 +1382,6 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         Returns:
             The created or updated OnlineScoringConfig object.
         """
-        from mlflow.genai.scorers.online.entities import OnlineScoringConfig
-
         request_body = {
             "experiment_id": experiment_id,
             "name": scorer_name,
@@ -1422,8 +1420,6 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
             A list of OnlineScoringConfig objects for the specified scorers.
             Scorers without configurations are not included.
         """
-        from mlflow.genai.scorers.online.entities import OnlineScoringConfig
-
         if not scorer_ids:
             return []
 
