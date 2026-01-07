@@ -8,9 +8,10 @@ import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable
-from mlflow.exceptions import MlflowException
 
 import pandas as pd
+
+from mlflow.exceptions import MlflowException
 
 try:
     from tqdm.auto import tqdm
@@ -407,7 +408,7 @@ def _get_new_expectations(eval_item: EvalItem) -> list[Expectation]:
         MlflowException: If the trace is None or trace.info is None, indicating that
             the backend does not support tracing.
     """
-    
+
     # If trace is missing, raise an informative error
     if eval_item.trace is None or eval_item.trace.info is None:
         raise MlflowException(
@@ -426,7 +427,6 @@ def _get_new_expectations(eval_item: EvalItem) -> list[Expectation]:
         for exp in eval_item.get_expectation_assessments()
         if exp.name not in existing_expectations
     ]
-
 
 
 def _log_assessments(

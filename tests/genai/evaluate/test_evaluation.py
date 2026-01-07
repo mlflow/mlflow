@@ -4,10 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 from unittest import mock
-from unittest.mock import ANY, MagicMock
-from mlflow.genai.evaluation.entities import EvalItem
-from mlflow.genai.evaluation.harness import _get_new_expectations
-from unittest.mock import Mock
+from unittest.mock import ANY, MagicMock, Mock
 
 import pandas as pd
 import pytest
@@ -18,7 +15,8 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
-from mlflow.genai.evaluation.entities import EvaluationResult
+from mlflow.genai.evaluation.entities import EvalItem, EvaluationResult
+from mlflow.genai.evaluation.harness import _get_new_expectations
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.genai.simulators import ConversationSimulator
@@ -1290,7 +1288,6 @@ def test_max_scorer_workers_env_var(monkeypatch):
     ids=["trace_none", "trace_info_none"],
 )
 def test_get_new_expectations_raises_exception_when_trace_unavailable(trace_setup):
-    """Regression test for issue #19596."""
     eval_item = EvalItem(
         inputs={"question": "What is the capital of France?"},
         outputs="Paris",
@@ -1304,7 +1301,6 @@ def test_get_new_expectations_raises_exception_when_trace_unavailable(trace_setu
 
 
 def test_get_new_expectations_filters_existing_expectations():
-    """Regression test for issue #19596."""
     existing_assessment = Mock()
     existing_assessment.name = "existing_expectation"
     existing_assessment.expectation = Mock()
