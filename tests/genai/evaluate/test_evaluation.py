@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import Any, Literal
 from unittest import mock
 from unittest.mock import ANY, MagicMock
+from mlflow.genai.evaluation.entities import EvalItem
+from mlflow.genai.evaluation.harness import _get_new_expectations
+from unittest.mock import Mock
 
 import pandas as pd
 import pytest
@@ -1277,100 +1280,53 @@ def test_max_scorer_workers_env_var(monkeypatch):
     _validate_scorer_max_workers(expected_max_workers=1, num_scorers=3)
 
 
-class TestTraceNoneHandling:
-    """Tests for handling None traces in evaluation harness.
-    
-    These tests ensure the harness handles missing or invalid traces gracefully,
-    which is critical for backends like SageMaker that don't fully support tracing.
-    Regression test for issue #19596.
-    """
+@pytest.mark.parametrize(
+    "trace_setup",
+    [
+        None,  # trace is None
+        Mock(info=None),  # trace.info is None
+    ],
+    ids=["trace_none", "trace_info_none"],
+)
+def test_get_new_expectations_raises_exception_when_trace_unavailable(trace_setup):
+    """Regression test for issue #19596."""
+    eval_item = EvalItem(
+        inputs={"question": "What is the capital of France?"},
+        outputs="Paris",
+        expectations={"expected_response": "Paris"},
+        trace=trace_setup,  # Backend that does not support tracing
+        request_id="test-request-1",
+    )
 
-    def test_get_new_expectations_with_none_trace(self):
-        """Test that _get_new_expectations handles None trace without crashing.
-        
-        This simulates the SageMaker scenario where traces fail to be retrieved
-        from the tracking store, resulting in eval_item.trace being None.
-        """
-        from unittest.mock import Mock, patch
-        from mlflow.genai.evaluation.entities import EvalItem
-        from mlflow.genai.evaluation.harness import _get_new_expectations
+    with pytest.raises(MlflowException, match="GenAI evaluation requires trace support"):
+        _get_new_expectations(eval_item)
 
-        eval_item = EvalItem(
-            inputs={"question": "What is the capital of France?"},
-            outputs="Paris",
-            expectations={"expected_response": "Paris"},
-            trace=None,  # Simulates SageMaker backend issue
-            request_id="test-request-1",
-        )
-        
-        # Mock get_expectation_assessments to avoid needing context
-        mock_expectations = [Mock(name="expected_response", value="Paris")]
-        with patch.object(eval_item, 'get_expectation_assessments', return_value=mock_expectations):
-            # Should not raise: AttributeError: 'NoneType' object has no attribute 'info'
-            result = _get_new_expectations(eval_item)
-            
-            assert isinstance(result, list)
-            assert len(result) == 1
 
-    def test_get_new_expectations_with_none_trace_info(self):
-        """Test that _get_new_expectations handles trace with None info."""
-        from unittest.mock import Mock, patch
-        from mlflow.genai.evaluation.entities import EvalItem
-        from mlflow.genai.evaluation.harness import _get_new_expectations
+def test_get_new_expectations_filters_existing_expectations():
+    """Regression test for issue #19596."""
+    existing_assessment = Mock()
+    existing_assessment.name = "existing_expectation"
+    existing_assessment.expectation = Mock()
 
-        mock_trace = Mock()
-        mock_trace.info = None
-        
-        eval_item = EvalItem(
-            inputs={"question": "test"},
-            outputs="test output",
-            expectations={"expected": "test"},
-            trace=mock_trace,
-            request_id="test-request-2",
-        )
-        
-        # Mock get_expectation_assessments to avoid needing context
-        mock_expectations = [Mock(name="expected", value="test")]
-        with patch.object(eval_item, 'get_expectation_assessments', return_value=mock_expectations):
-            result = _get_new_expectations(eval_item)
-            
-            assert isinstance(result, list)
-            assert len(result) == 1
+    mock_trace = Mock()
+    mock_trace.info = Mock()
+    mock_trace.info.assessments = [existing_assessment]
 
-    def test_get_new_expectations_filters_existing_expectations(self):
-        """Test that _get_new_expectations filters out existing expectations correctly."""
-        from unittest.mock import Mock
-        from mlflow.genai.evaluation.entities import EvalItem
-        from mlflow.genai.evaluation.harness import _get_new_expectations
-        from mlflow.entities import Expectation
+    eval_item = EvalItem(
+        inputs={"question": "test"},
+        outputs="test output",
+        expectations={"expected": "test"},
+        trace=mock_trace,
+        request_id="test-request-3",
+    )
 
-        # Create a mock trace with existing assessments
-        existing_assessment = Mock()
-        existing_assessment.name = "existing_expectation"
-        existing_assessment.expectation = Mock()  # Not None
-        
-        mock_trace = Mock()
-        mock_trace.info = Mock()
-        mock_trace.info.assessments = [existing_assessment]
-        
-        # Create eval item with expectations
-        eval_item = EvalItem(
-            inputs={"question": "test"},
-            outputs="test output",
-            expectations={"expected": "test"},
-            trace=mock_trace,
-            request_id="test-request-3",
-        )
-        
-        # Mock the get_expectation_assessments to return both new and existing
-        new_expectation = Expectation(name="new_expectation", value=True)
-        existing_expectation_obj = Expectation(name="existing_expectation", value=True)
-        eval_item.get_expectation_assessments = Mock(
-            return_value=[new_expectation, existing_expectation_obj]
-        )
-        
-        result = _get_new_expectations(eval_item)
-        
-        # Should only return the new expectation, filtering out existing one
-        assert len(result) == 1
-        assert result[0].name == "new_expectation"
+    new_expectation = Expectation(name="new_expectation", value=True)
+    existing_expectation_obj = Expectation(name="existing_expectation", value=True)
+    eval_item.get_expectation_assessments = Mock(
+        return_value=[new_expectation, existing_expectation_obj]
+    )
+
+    result = _get_new_expectations(eval_item)
+
+    assert len(result) == 1
+    assert result[0].name == "new_expectation"
