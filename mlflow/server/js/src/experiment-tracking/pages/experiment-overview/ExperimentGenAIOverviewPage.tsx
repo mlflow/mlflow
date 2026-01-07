@@ -12,6 +12,9 @@ import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
 import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
 import { LazyTraceTokenStatsChart } from './components/LazyTraceTokenStatsChart';
+import { AssessmentChartsSection } from './components/AssessmentChartsSection';
+import { ToolCallStatistics } from './components/ToolCallStatistics';
+import { ToolCallChartsSection } from './components/ToolCallChartsSection';
 import { TabContentContainer, ChartGrid } from './components/OverviewLayoutComponents';
 import { calculateTimeInterval } from './hooks/useTraceMetricsQuery';
 import { generateTimeBuckets } from './utils/chartUtils';
@@ -19,6 +22,7 @@ import { generateTimeBuckets } from './utils/chartUtils';
 enum OverviewTab {
   Usage = 'usage',
   Quality = 'quality',
+  ToolCalls = 'tool-calls',
 }
 
 const ExperimentGenAIOverviewPageImpl = () => {
@@ -84,6 +88,12 @@ const ExperimentGenAIOverviewPageImpl = () => {
               description="Label for the quality tab in the experiment overview page"
             />
           </Tabs.Trigger>
+          <Tabs.Trigger value={OverviewTab.ToolCalls}>
+            <FormattedMessage
+              defaultMessage="Tool calls"
+              description="Label for the tool calls tab in the experiment overview page"
+            />
+          </Tabs.Trigger>
         </Tabs.List>
 
         {/* Control bar with search and time range */}
@@ -132,7 +142,20 @@ const ExperimentGenAIOverviewPageImpl = () => {
         </Tabs.Content>
 
         <Tabs.Content value={OverviewTab.Quality} css={{ flex: 1, overflowY: 'auto' }}>
-          <TabContentContainer />
+          <TabContentContainer>
+            {/* Assessment charts - dynamically rendered based on available assessments */}
+            <AssessmentChartsSection {...chartProps} />
+          </TabContentContainer>
+        </Tabs.Content>
+
+        <Tabs.Content value={OverviewTab.ToolCalls} css={{ flex: 1, overflowY: 'auto' }}>
+          <TabContentContainer>
+            {/* Tool call statistics */}
+            <ToolCallStatistics experimentId={experimentId} startTimeMs={startTimeMs} endTimeMs={endTimeMs} />
+
+            {/* Tool error rate charts - dynamically rendered based on available tools */}
+            <ToolCallChartsSection {...chartProps} />
+          </TabContentContainer>
         </Tabs.Content>
       </Tabs.Root>
     </div>

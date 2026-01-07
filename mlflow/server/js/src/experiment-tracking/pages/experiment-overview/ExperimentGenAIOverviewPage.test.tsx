@@ -52,11 +52,13 @@ describe('ExperimentGenAIOverviewPage', () => {
   });
 
   describe('page rendering', () => {
-    it('should render the Usage tab', async () => {
+    it('should render all tabs', async () => {
       renderComponent();
 
       await waitFor(() => {
         expect(screen.getByRole('tab', { name: 'Usage' })).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Quality' })).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Tool calls' })).toBeInTheDocument();
       });
     });
 
@@ -95,6 +97,38 @@ describe('ExperimentGenAIOverviewPage', () => {
         // Check for tabs structure
         expect(screen.getByRole('tablist')).toBeInTheDocument();
         expect(screen.getByRole('tabpanel')).toBeInTheDocument();
+      });
+    });
+
+    it('should switch to Quality tab when clicked', async () => {
+      const user = userEvent.setup();
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: 'Quality' })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('tab', { name: 'Quality' }));
+
+      await waitFor(() => {
+        const qualityTab = screen.getByRole('tab', { name: 'Quality' });
+        expect(qualityTab).toHaveAttribute('aria-selected', 'true');
+      });
+    });
+
+    it('should switch to Tool calls tab when clicked', async () => {
+      const user = userEvent.setup();
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: 'Tool calls' })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('tab', { name: 'Tool calls' }));
+
+      await waitFor(() => {
+        const toolCallsTab = screen.getByRole('tab', { name: 'Tool calls' });
+        expect(toolCallsTab).toHaveAttribute('aria-selected', 'true');
       });
     });
   });
