@@ -659,10 +659,9 @@ class MlflowClient:
                     PROMPT_TEXT_TAG_KEY: json.dumps(template),
                 }
             )
-
         elif isinstance(template, str):
-            # Jinja2 detection
             if "{%" in template and "%}" in template:
+                # Jinja2 prompt
                 tags.update(
                     {
                         PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_JINJA2,
@@ -679,7 +678,6 @@ class MlflowClient:
                 )
 
         else:
-            # Unexpected template type → must raise error!!
             raise MlflowException.invalid_parameter_value(
                 f"Invalid prompt template type: {type(template)}"
             )
@@ -715,6 +713,7 @@ class MlflowClient:
                 # delete the registered model to avoid leaving a prompt with no versions
                 registry_client.delete_registered_model(name)
             raise
+
         # Fetch the prompt-level tags from the registered model
         prompt_tags = registry_client.get_registered_model(name)._tags
 

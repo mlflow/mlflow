@@ -4,6 +4,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
+import jinja2
 import pytest
 from pydantic import BaseModel, ValidationError
 
@@ -12,7 +13,7 @@ from mlflow import MlflowClient
 from mlflow.entities.model_registry import PromptModelConfig, PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.prompts.utils import format_prompt
-from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY
+from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY, PROMPT_TYPE_JINJA2
 from mlflow.prompt.registry_utils import PromptCache, PromptCacheKey
 from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
 
@@ -253,6 +254,33 @@ def test_register_and_load_chat_prompt_integration():
         {"role": "user", "content": "How are you?"},
     ]
     assert formatted == expected
+
+
+def test_register_and_load_jinja2_prompt():
+    template = "Hello {% if name %}{{ name }}{% else %}Guest{% endif %}"
+    mlflow.genai.register_prompt(name="jinja-basic", template=template)
+
+    loaded_prompt = mlflow.genai.load_prompt("jinja-basic", version=1)
+
+    assert loaded_prompt.template == template
+    assert loaded_prompt._prompt_type == PROMPT_TYPE_JINJA2
+    assert loaded_prompt.format(name="Alice") == "Hello Alice"
+    assert loaded_prompt.format() == "Hello Guest"
+
+
+def test_register_and_load_jinja2_prompt_without_sandbox():
+    # Accessing private attributes to trigger unsafe operation
+    template = "{% if ''.__class__.__name__ == 'str' %}Yes{% else %}No{% endif %}"
+    mlflow.genai.register_prompt(name="jinja-nosandbox", template=template)
+
+    loaded_prompt = mlflow.genai.load_prompt("jinja-nosandbox", version=1)
+
+    # Unsafe operation should be banned by default
+    with pytest.raises(jinja2.exceptions.SecurityError, match="access to attribute '__class__'"):
+        loaded_prompt.format()
+
+    # Render without sandbox
+    assert loaded_prompt.format(use_jinja_sandbox=False) == "Yes"
 
 
 def test_register_text_prompt_backward_compatibility():

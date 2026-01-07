@@ -223,10 +223,6 @@ class PromptVersion(_ModelRegistryEntity):
             else:
                 self._prompt_type = PROMPT_TYPE_TEXT
                 tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_TEXT
-        elif isinstance(template, list) and len(template) == 0:
-            # Empty list is treated as text prompt for backward compatibility
-            self._prompt_type = PROMPT_TYPE_TEXT
-            tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_TEXT
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid template type: expected str or list, got {type(template)}"
@@ -518,8 +514,14 @@ class PromptVersion(_ModelRegistryEntity):
 
         # Jinja2 template rendering
         if self._prompt_type == PROMPT_TYPE_JINJA2:
-            from jinja2 import Environment, Undefined
-            from jinja2.sandbox import SandboxedEnvironment
+            try:
+                from jinja2 import Environment, Undefined
+                from jinja2.sandbox import SandboxedEnvironment
+            except ImportError:
+                raise MlflowException.invalid_parameter_value(
+                    "The prompt is a Jinja2 template. To format the prompt, "
+                    "Jinja2 must be installed."
+                )
 
             env_cls = SandboxedEnvironment if use_jinja_sandbox else Environment
             env = env_cls(undefined=Undefined)
