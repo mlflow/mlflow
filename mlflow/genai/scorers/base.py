@@ -4,9 +4,10 @@ import logging
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Callable, Literal, TypeAlias
+from typing import Any, Callable, Literal, TypeAlias, TypeVar
 
 from pydantic import BaseModel, PrivateAttr
+from typing_extensions import overload
 
 import mlflow
 from mlflow.entities import Assessment, Feedback
@@ -927,13 +928,36 @@ class Scorer(BaseModel):
             )
 
 
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
+@overload
 def scorer(
-    func=None,
+    func: _F,
     *,
     name: str | None = None,
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
-):
+) -> Scorer: ...
+
+
+@overload
+def scorer(
+    func: None = None,
+    *,
+    name: str | None = None,
+    description: str | None = None,
+    aggregations: list[_AggregationType] | None = None,
+) -> Callable[[_F], Scorer]: ...
+
+
+def scorer(
+    func: _F | None = None,
+    *,
+    name: str | None = None,
+    description: str | None = None,
+    aggregations: list[_AggregationType] | None = None,
+) -> Scorer | Callable[[_F], Scorer]:
     """
     A decorator to define a custom scorer that can be used in ``mlflow.genai.evaluate()``.
 
