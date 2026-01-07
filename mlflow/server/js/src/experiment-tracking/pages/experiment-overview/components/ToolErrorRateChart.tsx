@@ -127,7 +127,7 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({
 
   if (!hasData) {
     return (
-      <OverviewChartContainer>
+      <OverviewChartContainer data-testid={`tool-chart-${toolName}`}>
         <OverviewChartHeader icon={<WrenchIcon css={{ color: chartLineColor }} />} title={toolName} />
         <OverviewChartEmptyState />
       </OverviewChartContainer>
@@ -135,7 +135,7 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer data-testid={`tool-chart-${toolName}`}>
       <OverviewChartHeader
         icon={<WrenchIcon css={{ color: chartLineColor }} />}
         title={toolName}

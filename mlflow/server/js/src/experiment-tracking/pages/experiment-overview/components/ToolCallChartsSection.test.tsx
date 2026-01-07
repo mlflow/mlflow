@@ -13,32 +13,8 @@ import {
   SpanStatus,
   SpanDimensionKey,
 } from '@databricks/web-shared/model-trace-explorer';
-
-// Mock FetchUtils
-jest.mock('../../../../common/utils/FetchUtils', () => ({
-  fetchOrFail: jest.fn(),
-  getAjaxUrl: (url: string) => url,
-}));
-
-import { fetchOrFail } from '../../../../common/utils/FetchUtils';
-const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
-
-// Mock LazyToolErrorRateChart to avoid nested async loading issues
-jest.mock('./LazyToolErrorRateChart', () => ({
-  LazyToolErrorRateChart: ({ toolName, overallErrorRate }: { toolName: string; overallErrorRate: number }) => (
-    <div data-testid={`tool-chart-${toolName}`}>
-      <span>{toolName}</span>
-      <span>{overallErrorRate.toFixed(2)}%</span>
-    </div>
-  ),
-}));
-
-// Helper to create mock API response
-const mockApiResponse = (dataPoints: any[]) => {
-  mockFetchOrFail.mockResolvedValue({
-    json: () => Promise.resolve({ data_points: dataPoints }),
-  } as Response);
-};
+import { setupServer } from '../../../../common/utils/setup-msw';
+import { rest } from 'msw';
 
 // Helper to create a data point with tool name and status
 const createDataPoint = (toolName: string, status: string, count: number) => ({
@@ -65,6 +41,8 @@ describe('ToolCallChartsSection', () => {
     timeBuckets,
   };
 
+  const server = setupServer();
+
   const createQueryClient = () =>
     new QueryClient({
       defaultOptions: {
@@ -85,13 +63,28 @@ describe('ToolCallChartsSection', () => {
     );
   };
 
+  // Helper to setup MSW handler for the trace metrics endpoint
+  const setupTraceMetricsHandler = (dataPoints: any[]) => {
+    server.use(
+      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        return res(ctx.json({ data_points: dataPoints }));
+      }),
+    );
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
+    // Default: return empty data points
+    setupTraceMetricsHandler([]);
   });
 
   describe('loading state', () => {
     it('should render loading state while data is being fetched', () => {
-      mockFetchOrFail.mockReturnValue(new Promise(() => {})); // Never resolve
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.delay('infinite'));
+        }),
+      );
 
       renderComponent();
 
@@ -102,7 +95,11 @@ describe('ToolCallChartsSection', () => {
 
   describe('error state', () => {
     it('should render error state when API call fails', async () => {
-      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.status(500), ctx.json({ error: 'API Error' }));
+        }),
+      );
 
       renderComponent();
 
@@ -114,8 +111,7 @@ describe('ToolCallChartsSection', () => {
 
   describe('empty state', () => {
     it('should render empty state when no tools are found', async () => {
-      mockApiResponse([]);
-
+      // Default handler returns empty array
       renderComponent();
 
       await waitFor(() => {
@@ -126,7 +122,7 @@ describe('ToolCallChartsSection', () => {
 
   describe('with data', () => {
     it('should render a chart for each tool', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         createDataPoint('get_weather', SpanStatus.OK, 100),
         createDataPoint('search_docs', SpanStatus.OK, 50),
       ]);
@@ -140,7 +136,7 @@ describe('ToolCallChartsSection', () => {
     });
 
     it('should display tool names alphabetically sorted', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         createDataPoint('zebra_tool', SpanStatus.OK, 10),
         createDataPoint('alpha_tool', SpanStatus.OK, 20),
         createDataPoint('middle_tool', SpanStatus.OK, 30),
@@ -159,7 +155,7 @@ describe('ToolCallChartsSection', () => {
     it('should calculate correct error rate for each tool', async () => {
       // get_weather: 10 errors / 100 total = 10%
       // search_docs: 25 errors / 100 total = 25%
-      mockApiResponse([
+      setupTraceMetricsHandler([
         createDataPoint('get_weather', SpanStatus.OK, 90),
         createDataPoint('get_weather', SpanStatus.ERROR, 10),
         createDataPoint('search_docs', SpanStatus.OK, 75),
@@ -175,7 +171,7 @@ describe('ToolCallChartsSection', () => {
     });
 
     it('should handle tools with 0% error rate', async () => {
-      mockApiResponse([createDataPoint('perfect_tool', SpanStatus.OK, 100)]);
+      setupTraceMetricsHandler([createDataPoint('perfect_tool', SpanStatus.OK, 100)]);
 
       renderComponent();
 
@@ -185,7 +181,7 @@ describe('ToolCallChartsSection', () => {
     });
 
     it('should handle tools with 100% error rate', async () => {
-      mockApiResponse([createDataPoint('broken_tool', SpanStatus.ERROR, 50)]);
+      setupTraceMetricsHandler([createDataPoint('broken_tool', SpanStatus.ERROR, 50)]);
 
       renderComponent();
 
@@ -197,16 +193,22 @@ describe('ToolCallChartsSection', () => {
 
   describe('API call parameters', () => {
     it('should call API with correct view type and metric name', async () => {
-      mockApiResponse([]);
+      let capturedBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedBody = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
 
       renderComponent();
 
       await waitFor(() => {
-        expect(mockFetchOrFail).toHaveBeenCalled();
+        expect(capturedBody).not.toBeNull();
       });
 
-      const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-      expect(callBody).toMatchObject({
+      expect(capturedBody).toMatchObject({
         experiment_ids: [testExperimentId],
         view_type: MetricViewType.SPANS,
         metric_name: SpanMetricKey.SPAN_COUNT,
@@ -215,44 +217,62 @@ describe('ToolCallChartsSection', () => {
     });
 
     it('should filter by tool type', async () => {
-      mockApiResponse([]);
+      let capturedBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedBody = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
 
       renderComponent();
 
       await waitFor(() => {
-        expect(mockFetchOrFail).toHaveBeenCalled();
+        expect(capturedBody).not.toBeNull();
       });
 
-      const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-      expect(callBody.filters).toContain(`span.${SpanFilterKey.TYPE} = "${SpanType.TOOL}"`);
+      expect(capturedBody.filters).toContain(`span.${SpanFilterKey.TYPE} = "${SpanType.TOOL}"`);
     });
 
     it('should include span_name and span_status dimensions', async () => {
-      mockApiResponse([]);
+      let capturedBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedBody = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
 
       renderComponent();
 
       await waitFor(() => {
-        expect(mockFetchOrFail).toHaveBeenCalled();
+        expect(capturedBody).not.toBeNull();
       });
 
-      const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-      expect(callBody.dimensions).toContain(SpanDimensionKey.SPAN_NAME);
-      expect(callBody.dimensions).toContain(SpanDimensionKey.SPAN_STATUS);
+      expect(capturedBody.dimensions).toContain(SpanDimensionKey.SPAN_NAME);
+      expect(capturedBody.dimensions).toContain(SpanDimensionKey.SPAN_STATUS);
     });
 
     it('should include time range in API call', async () => {
-      mockApiResponse([]);
+      let capturedBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedBody = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
 
       renderComponent();
 
       await waitFor(() => {
-        expect(mockFetchOrFail).toHaveBeenCalled();
+        expect(capturedBody).not.toBeNull();
       });
 
-      const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-      expect(callBody.start_time_ms).toBe(startTimeMs);
-      expect(callBody.end_time_ms).toBe(endTimeMs);
+      expect(capturedBody.start_time_ms).toBe(startTimeMs);
+      expect(capturedBody.end_time_ms).toBe(endTimeMs);
     });
   });
 });
