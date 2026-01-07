@@ -141,7 +141,7 @@ class SystemMetricsMonitor:
                     _logger.debug(f"Monitor loop exiting (status={run.info.status})")
                     return
             metrics = self.aggregate_metrics()
-            _logger.debug(f"Aggregated metrics: {metrics}")
+            _logger.debug(f"Aggregated {len(metrics)} metrics")
             try:
                 self.publish_metrics(metrics)
                 _logger.debug(
