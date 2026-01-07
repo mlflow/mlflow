@@ -198,12 +198,13 @@ class MlflowTrackingStore(AbstractScorerStore):
         version = self._tracking_store.register_scorer(
             experiment_id, scorer.name, serialized_scorer
         )
-        self._hydrate_scorer(scorer, online_config=None)
+        self._hydrate_scorer(scorer, experiment_id, online_config=None)
         return version
 
     def _hydrate_scorer(
         self,
         scorer: Scorer,
+        experiment_id: str,
         online_config: Optional["OnlineScoringConfig"] = None,
     ) -> None:
         """
@@ -211,9 +212,11 @@ class MlflowTrackingStore(AbstractScorerStore):
 
         Args:
             scorer: The scorer to hydrate.
+            experiment_id: The experiment ID the scorer belongs to.
             online_config: Optional OnlineScoringConfig from the tracking store.
         """
         scorer._registered_backend = "tracking"
+        scorer._experiment_id = experiment_id
         if online_config is not None:
             scorer._sampling_config = ScorerSamplingConfig(
                 sample_rate=online_config.sample_rate,
@@ -234,7 +237,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         for scorer_version in scorer_versions:
             scorer = Scorer.model_validate(scorer_version.serialized_scorer)
             online_config = online_configs.get(scorer_version.scorer_id)
-            self._hydrate_scorer(scorer, online_config)
+            self._hydrate_scorer(scorer, experiment_id, online_config)
             scorers.append(scorer)
         return scorers
 
@@ -248,7 +251,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         )
         online_config = online_configs_list[0] if online_configs_list else None
         scorer = Scorer.model_validate(scorer_version.serialized_scorer)
-        self._hydrate_scorer(scorer, online_config)
+        self._hydrate_scorer(scorer, experiment_id, online_config)
         return scorer
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple[Scorer, int]]:
@@ -265,7 +268,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         for scorer_version in scorer_versions:
             scorer = Scorer.model_validate(scorer_version.serialized_scorer)
             online_config = online_configs.get(scorer_version.scorer_id)
-            self._hydrate_scorer(scorer, online_config)
+            self._hydrate_scorer(scorer, experiment_id, online_config)
             scorers.append((scorer, scorer_version.scorer_version))
         return scorers
 
@@ -285,7 +288,6 @@ class MlflowTrackingStore(AbstractScorerStore):
         *,
         scorer: Scorer,
         sample_rate: float,
-        experiment_id: str,
         filter_string: str | None = None,
     ) -> Scorer:
         """
@@ -294,7 +296,6 @@ class MlflowTrackingStore(AbstractScorerStore):
         Args:
             scorer: The scorer instance to update.
             sample_rate: The sampling rate (0.0 to 1.0).
-            experiment_id: The experiment ID.
             filter_string: Optional filter string.
 
         Returns:
@@ -310,14 +311,20 @@ class MlflowTrackingStore(AbstractScorerStore):
                 "or use get_scorer() to load a registered scorer."
             )
 
+        if scorer._experiment_id is None:
+            raise MlflowException.invalid_parameter_value(
+                "Scorer does not have an experiment_id. This should have been set during "
+                "registration or when loading the scorer."
+            )
+
         self._tracking_store.upsert_online_scoring_config(
-            experiment_id=experiment_id,
+            experiment_id=scorer._experiment_id,
             scorer_name=scorer.name,
             sample_rate=sample_rate,
             filter_string=filter_string,
         )
 
-        return self.get_scorer(experiment_id, scorer.name)
+        return self.get_scorer(scorer._experiment_id, scorer.name)
 
 
 class DatabricksStore(AbstractScorerStore):
