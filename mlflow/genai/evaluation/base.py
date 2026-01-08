@@ -323,7 +323,7 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
                 "The simulator needs a predict function to generate conversations."
             )
         all_trace_ids = data._simulate(predict_fn)
-        logger.info(
+        logger.debug(
             f"Simulation produced {len(all_trace_ids)} conversation(s) with "
             f"{[len(ids) for ids in all_trace_ids]} trace(s) each"
         )
@@ -336,11 +336,8 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
             )
 
         data = [mlflow.get_trace(tid) for tid in flat_trace_ids]
-        predict_fn = None  # predict_fn was already used during simulation
-        logger.info(f"Fetched {len(data)} traces for evaluation")
-        for t in data:
-            session = t.info.trace_metadata.get("mlflow.trace.session", "N/A")
-            logger.info(f"  - {t.info.trace_id[:16]}... session={session}")
+        # predict_fn was used during simulation
+        predict_fn = None
 
     is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
 
