@@ -87,7 +87,7 @@ The request body follows the OpenAI chat completions format with these supported
   "id": "chatcmpl-123",
   "object": "chat.completion",
   "created": 1677652288,
-  "model": "gpt-4",
+  "model": "gpt-5",
   "choices": [{
     "index": 0,
     "message": {
@@ -109,9 +109,9 @@ The request body follows the OpenAI chat completions format with these supported
 When `stream: true` is set, the response is sent as Server-Sent Events (SSE):
 
 ```
-data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1677652288,"model":"gpt-4","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1677652288,"model":"gpt-5","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
 
-data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1677652288,"model":"gpt-4","choices":[{"index":0,"delta":{"content":"!"},"finish_reason":null}]}
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1677652288,"model":"gpt-5","choices":[{"index":0,"delta":{"content":"!"},"finish_reason":null}]}
 
 data: [DONE]
 ```
