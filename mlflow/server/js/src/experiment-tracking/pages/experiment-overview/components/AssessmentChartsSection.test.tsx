@@ -14,6 +14,7 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create an assessment data point with name and avg value
 const createAssessmentDataPoint = (assessmentName: string, avgValue: number) => ({
@@ -34,14 +35,7 @@ describe('AssessmentChartsSection', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  const defaultProps: {
-    experimentId: string;
-    startTimeMs: number;
-    endTimeMs: number;
-    timeIntervalSeconds: number;
-    timeBuckets: number[];
-    searchQuery?: string;
-  } = {
+  const contextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
@@ -60,12 +54,14 @@ describe('AssessmentChartsSection', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = (props: { searchQuery?: string } = {}) => {
     const queryClient = createQueryClient();
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <AssessmentChartsSection {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <AssessmentChartsSection {...props} />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );

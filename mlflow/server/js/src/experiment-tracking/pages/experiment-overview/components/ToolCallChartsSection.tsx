@@ -4,9 +4,8 @@ import { OverviewChartLoadingState, OverviewChartErrorState } from './OverviewCh
 import { ChartGrid } from './OverviewLayoutComponents';
 import { LazyToolErrorRateChart } from './LazyToolErrorRateChart';
 import { useToolColors } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
 
-interface ToolCallChartsSectionProps extends OverviewChartProps {
+interface ToolCallChartsSectionProps {
   /** Optional search query to filter tools by name */
   searchQuery?: string;
 }
@@ -14,22 +13,11 @@ interface ToolCallChartsSectionProps extends OverviewChartProps {
 /**
  * Component that fetches available tools and renders an error rate chart for each one.
  */
-export const ToolCallChartsSection: React.FC<ToolCallChartsSectionProps> = ({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-  searchQuery,
-}) => {
+export const ToolCallChartsSection: React.FC<ToolCallChartsSectionProps> = ({ searchQuery }) => {
   const { getToolColor } = useToolColors();
 
   // Fetch and process tool call data using the custom hook
-  const { toolNames, errorRateByTool, isLoading, error, hasData } = useToolCallChartsSectionData({
-    experimentId,
-    startTimeMs,
-    endTimeMs,
-  });
+  const { toolNames, errorRateByTool, isLoading, error, hasData } = useToolCallChartsSectionData();
 
   // Filter tool names based on search query (matches tool name which is the chart title)
   const filteredToolNames = useMemo(() => {
@@ -59,11 +47,6 @@ export const ToolCallChartsSection: React.FC<ToolCallChartsSectionProps> = ({
         return (
           <LazyToolErrorRateChart
             key={name}
-            experimentId={experimentId}
-            startTimeMs={startTimeMs}
-            endTimeMs={endTimeMs}
-            timeIntervalSeconds={timeIntervalSeconds}
-            timeBuckets={timeBuckets}
             toolName={name}
             lineColor={getToolColor(originalIndex)}
             overallErrorRate={errorRateByTool.get(name) ?? 0}

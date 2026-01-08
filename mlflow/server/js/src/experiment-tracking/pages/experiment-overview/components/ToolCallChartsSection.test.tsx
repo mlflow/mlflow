@@ -15,6 +15,7 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create a data point with tool name and status
 const createDataPoint = (toolName: string, status: string, count: number) => ({
@@ -33,14 +34,7 @@ describe('ToolCallChartsSection', () => {
   const timeIntervalSeconds = 3600;
   const timeBuckets = [new Date('2025-12-22T10:00:00Z').getTime(), new Date('2025-12-22T11:00:00Z').getTime()];
 
-  const defaultProps: {
-    experimentId: string;
-    startTimeMs: number;
-    endTimeMs: number;
-    timeIntervalSeconds: number;
-    timeBuckets: number[];
-    searchQuery?: string;
-  } = {
+  const contextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
@@ -59,12 +53,14 @@ describe('ToolCallChartsSection', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = (props: { searchQuery?: string } = {}) => {
     const queryClient = createQueryClient();
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <ToolCallChartsSection {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <ToolCallChartsSection {...props} />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );

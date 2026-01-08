@@ -4,9 +4,8 @@ import { FormattedMessage } from 'react-intl';
 import { useAssessmentChartsSectionData } from '../hooks/useAssessmentChartsSectionData';
 import { OverviewChartLoadingState, OverviewChartErrorState, OverviewChartEmptyState } from './OverviewChartComponents';
 import { LazyTraceAssessmentChart } from './LazyTraceAssessmentChart';
-import type { OverviewChartProps } from '../types';
 
-interface AssessmentChartsSectionProps extends OverviewChartProps {
+interface AssessmentChartsSectionProps {
   /** Optional search query to filter assessments by name */
   searchQuery?: string;
 }
@@ -14,11 +13,11 @@ interface AssessmentChartsSectionProps extends OverviewChartProps {
 /**
  * Component that fetches available feedback assessments and renders a chart for each one.
  */
-export const AssessmentChartsSection: React.FC<AssessmentChartsSectionProps> = ({ searchQuery, ...props }) => {
+export const AssessmentChartsSection: React.FC<AssessmentChartsSectionProps> = ({ searchQuery }) => {
   const { theme } = useDesignSystemTheme();
 
   // Fetch and process assessment data
-  const { assessmentNames, avgValuesByName, isLoading, error, hasData } = useAssessmentChartsSectionData(props);
+  const { assessmentNames, avgValuesByName, isLoading, error, hasData } = useAssessmentChartsSectionData();
 
   // Filter assessment names based on search query (matches chart title)
   const filteredAssessmentNames = useMemo(() => {
@@ -97,7 +96,6 @@ export const AssessmentChartsSection: React.FC<AssessmentChartsSectionProps> = (
         return (
           <LazyTraceAssessmentChart
             key={name}
-            {...props}
             assessmentName={name}
             lineColor={getAssessmentColor(originalIndex)}
             avgValue={avgValuesByName.get(name)}
