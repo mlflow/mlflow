@@ -14,10 +14,7 @@ const generateMessageId = (): string => {
   return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
-/**
- * Assistant Agent Provider.
- * Provides global Assistant functionality across the MLflow app.
- */
+
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Panel state
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -60,6 +57,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(status);
   }, []);
 
+  const handleSessionId = useCallback((newSessionId: string) => {
+    setSessionId(newSessionId);
+  }, []);
+
   const handleStreamError = useCallback((errorMsg: string) => {
     setError(errorMsg);
     setIsStreaming(false);
@@ -91,7 +92,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     streamingMessageRef.current = '';
   }, []);
 
-  const handleStartAnalysis = useCallback(
+  const startChat = useCallback(
     async (prompt?: string) => {
       setError(null);
       setIsStreaming(true);
@@ -123,7 +124,6 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       ]);
 
       try {
-        // Send message - backend will create session if needed
         await sendMessageStream(
           {
             message: prompt || '',
@@ -133,19 +133,19 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           handleStreamError,
           finalizeStreamingMessage,
           handleStatus,
+          handleSessionId,
         );
       } catch (err) {
-        handleStreamError(err instanceof Error ? err.message : 'Failed to start analysis');
+        handleStreamError(err instanceof Error ? err.message : 'Failed to start chat');
       }
     },
-    [sessionId, appendToStreamingMessage, handleStreamError, finalizeStreamingMessage, handleStatus],
+    [sessionId, appendToStreamingMessage, handleStreamError, finalizeStreamingMessage, handleStatus, handleSessionId],
   );
 
   const handleSendMessage = useCallback(
     (message: string) => {
       if (!sessionId) {
-        // No session yet - start analysis with the message as prompt
-        handleStartAnalysis(message);
+        startChat(message);
         return;
       }
 
@@ -183,16 +183,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         handleStreamError,
         finalizeStreamingMessage,
         handleStatus,
+        handleSessionId,
       );
     },
-    [
-      sessionId,
-      handleStartAnalysis,
-      appendToStreamingMessage,
-      handleStreamError,
-      finalizeStreamingMessage,
-      handleStatus,
-    ],
+    [sessionId, appendToStreamingMessage, handleStreamError, finalizeStreamingMessage, handleStatus, handleSessionId],
   );
 
   const value: AssistantAgentContextType = {
@@ -207,7 +201,6 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     openPanel,
     closePanel,
     sendMessage: handleSendMessage,
-    startAnalysis: handleStartAnalysis,
     reset,
   };
 

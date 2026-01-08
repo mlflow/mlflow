@@ -6,7 +6,6 @@ enabling AI-powered helper through a chat interface.
 """
 
 import ipaddress
-import json
 import uuid
 from typing import Any, AsyncGenerator
 
@@ -70,11 +69,6 @@ class MessageResponse(BaseModel):
 class GetStatusResponse(BaseModel):
     provider: str
     available: bool
-
-
-def _format_sse_event(event_type: str, data: dict[str, Any]) -> str:
-    """Format an event as SSE."""
-    return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
 
 @assistant_router.post("/message")

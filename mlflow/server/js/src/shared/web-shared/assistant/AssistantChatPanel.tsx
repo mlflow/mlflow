@@ -71,7 +71,9 @@ const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; i
       <div
         css={{
           maxWidth: isUser ? '85%' : '100%',
-          padding: `${theme.spacing.md}px ${theme.spacing.md}px ${isUser ? theme.spacing.md : 0}px ${theme.spacing.md}px`,
+          padding: `${theme.spacing.md}px ${theme.spacing.md}px ${isUser ? theme.spacing.md : 0}px ${
+            theme.spacing.md
+          }px`,
           borderRadius: theme.borders.borderRadiusLg,
           backgroundColor: isUser ? theme.colors.blue100 : 'transparent',
           color: theme.colors.textPrimary,
@@ -132,12 +134,7 @@ const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; i
           }}
         >
           <Tooltip componentId={`${COMPONENT_ID}.copy.tooltip`} content="Copy">
-            <Button
-              componentId={`${COMPONENT_ID}.copy`}
-              size="small"
-              icon={<CopyIcon />}
-              onClick={handleCopy}
-            />
+            <Button componentId={`${COMPONENT_ID}.copy`} size="small" icon={<CopyIcon />} onClick={handleCopy} />
           </Tooltip>
           {isLastMessage && (
             <Tooltip componentId={`${COMPONENT_ID}.regenerate.tooltip`} content="Regenerate">
@@ -247,6 +244,7 @@ const StatusIndicator = () => {
         gap: theme.spacing.sm,
         padding: theme.spacing.md,
         color: theme.colors.textSecondary,
+        flexShrink: 0,
       }}
     >
       <SparkleIcon
@@ -354,6 +352,7 @@ const ChatPanelContent = () => {
       <div
         css={{
           padding: `${theme.spacing.sm}px ${theme.spacing.md}px ${theme.spacing.md}px ${theme.spacing.md}px`,
+          flexShrink: 0,
         }}
       >
         <div
@@ -456,6 +455,7 @@ export const AssistantChatPanel = () => {
           justifyContent: 'space-between',
           padding: theme.spacing.md,
           borderBottom: `1px solid ${theme.colors.border}`,
+          flexShrink: 0,
         }}
       >
         <span

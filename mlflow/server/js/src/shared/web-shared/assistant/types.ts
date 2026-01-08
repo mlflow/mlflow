@@ -9,6 +9,8 @@ export interface ChatMessage {
 export interface AssistantAgentState {
   /** Whether the Assistant panel is open */
   isPanelOpen: boolean;
+  /** Whether a trace drawer is currently open */
+  isTraceDrawerOpen: boolean;
   /** Session ID for conversation continuity */
   sessionId: string | null;
   /** Chat message history */
@@ -26,10 +28,10 @@ export interface AssistantAgentActions {
   openPanel: () => void;
   /** Close the Assistant panel */
   closePanel: () => void;
+  /** Set whether a trace drawer is open */
+  setIsTraceDrawerOpen: (isOpen: boolean) => void;
   /** Send a message to Assistant */
   sendMessage: (message: string) => void;
-  /** Start analysis with optional prompt */
-  startAnalysis: (prompt?: string) => Promise<void>;
   /** Reset the conversation */
   reset: () => void;
 }
