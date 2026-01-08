@@ -367,8 +367,9 @@ def _wait(url: str):
     t = time.time()
     while time.time() - t < 10:
         try:
-            if requests.get(f"{url}/api/2.0/mlflow/version").ok:
+            if requests.get(f"{url}/health").ok:
                 yield
+                return
         except requests.exceptions.ConnectionError:
             pass
         time.sleep(0.5)
