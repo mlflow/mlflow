@@ -2489,8 +2489,9 @@ def import_checkpoints(
 
     Args:
         checkpoint_path: String path to the UC Volume location that contains the checkpoints.
-            NOTE: Each path must be isolated from other models and runs. For example,
-            ``dbfs:/Volumes/mycatalog/myschema/myvolume/mytrainingmodel/trainingrun1/checkpoints``.
+            NOTE: Each path must be isolated from other models and runs. This can be specified
+            in the path directory structure, e.g.
+            "dbfs:/Volumes/mycatalog/myschema/myvolume/mytrainingmodel/trainingrun1/checkpoints"
         source_run_id: ID of the MLflow source run that these checkpoints were trained with.
             If not provided, uses the current active run if available.
         model_prefix: String prefix to prepend to the name of each external model created from
@@ -2502,63 +2503,53 @@ def import_checkpoints(
     Returns:
         List of created :py:class:`mlflow.entities.LoggedModel` instances.
     """
-    from mlflow.artifacts import list_artifacts as list_artifacts_api
+    from databricks.sdk import WorkspaceClient
+
     from mlflow.entities import LoggedModel
 
     # Resolve source_run_id from the active run if not provided
     if source_run_id is None and (run := active_run()):
         source_run_id = run.info.run_id
 
+    if source_run_id is None:
+        raise MlflowException.invalid_parameter_value(
+            "Please set 'source_run_id' or start an active run before calling 'import_checkpoints'"
+        )
+
     # Resolve experiment ID to operate against
-    if source_run_id is not None:
-        exp_id = MlflowClient().get_run(source_run_id).info.experiment_id
-    elif run := active_run():
-        exp_id = run.info.experiment_id
-    else:
-        exp_id = _get_experiment_id()
+    exp_id = MlflowClient().get_run(source_run_id).info.experiment_id
+
+    ws = WorkspaceClient()
+    top_level_paths = [entry.path for entry in ws.files.list_directory_contents(checkpoint_path)]
 
     created_models: list[LoggedModel] = []
+    client = MlflowClient()
 
-    # List top-level entries in the checkpoint path
-    entries = list_artifacts_api(artifact_uri=checkpoint_path)
+    created_models = []
+    for sub_checkpoint_path in top_level_paths:
+        model_name = os.path.basename(checkpoint_path)
+        if model_prefix:
+            model_name = model_prefix + model_name
 
-    def _escape_single_quotes(value: str) -> str:
-        # Escape single quotes for use in filter strings
-        return value.replace("'", "''")
-
-    for entry in entries:
-        # Build model name from entry name and optional prefix
-        entry_name = entry.path.rsplit("/", 1)[-1]
-        model_name = f"{model_prefix or ''}{entry_name}"
-
-        # Check for existing model with the same name in the target experiment
-        existing = search_logged_models(
+        existing_models = search_logged_models(
             experiment_ids=[exp_id] if exp_id else None,
-            filter_string=f"name = '{_escape_single_quotes(model_name)}'",
+            filter_string=f"name = '{model_name}'",
             output_format="list",
         )
 
-        if existing:
-            if overwrite_checkpoints:
-                client = MlflowClient()
-                for m in existing:
-                    client.delete_logged_model(m.model_id)
-            else:
-                # Skip creation when not overwriting
-                continue
+        if existing_models and overwrite_checkpoints:
+            for model in existing_models:
+                client.delete_logged_model(model.model_id)
 
-        # Construct full artifact path for the entry
-        entry_uri = f"{checkpoint_path.rstrip('/')}/{entry.path.lstrip('/')}"
-
-        tags = {"original_artifact_path": entry_uri}
-
-        created = create_external_model(
-            name=model_name,
-            source_run_id=source_run_id,
-            tags=tags,
-            experiment_id=exp_id,
-        )
-        created_models.append(created)
+        if not existing_models or overwrite_checkpoints:
+            # create new model points to the latest checkpoint.
+            created_model = create_external_model(
+                name=model_name,
+                source_run_id=source_run_id,
+                tags={"original_artifact_path": sub_checkpoint_path},
+                experiment_id=exp_id,
+            )
+            created_models.append(created_model)
 
     return created_models
 
