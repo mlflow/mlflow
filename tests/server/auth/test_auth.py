@@ -363,12 +363,11 @@ def test_create_and_delete_registered_model(client, monkeypatch):
     assert rm.name == "test_model"
 
 
-def _wait(url: str):
+def _wait(url: str, timeout: int = 10) -> None:
     t = time.time()
-    while time.time() - t < 10:
+    while time.time() - t < timeout:
         try:
             if requests.get(f"{url}/health").ok:
-                yield
                 return
         except requests.exceptions.ConnectionError:
             pass
@@ -411,8 +410,7 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
     ) as prc:
         try:
             url = f"http://{host}:{port}"
-            for _ in _wait(url):
-                break
+            _wait(url)
 
             mlflow.set_tracking_uri(url)
             client = MlflowClient(url)
