@@ -63,9 +63,9 @@
     "defaultMessage" : "Compartir y administrar las características del aprendizaje automático.",
     "description" : "Text on the popover for feature store onboarding."
   },
-  "+RYBrq" : {
+  "Qv7cZx" : {
     "defaultMessage" : "Promocionar modelo",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+X8JmT" : {
     "defaultMessage" : "Introduzca valores enteros no negativos para todos los límites de frecuencia.",

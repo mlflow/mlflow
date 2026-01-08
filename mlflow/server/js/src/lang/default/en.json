@@ -63,10 +63,6 @@
     "defaultMessage": "Start with a built-in LLM judge template or create your own.",
     "description": "Hint text for LLM template selection with documentation link"
   },
-  "+RYBrq": {
-    "defaultMessage": "Promote model",
-    "description": "Button text to pomote the model to a different registered model"
-  },
   "+SBxBK": {
     "defaultMessage": "Assessment Type",
     "description": "Field label for assessment type in a creation form"
@@ -3218,6 +3214,10 @@
     "defaultMessage": "View chat session",
     "description": "Tooltip for the session id tag"
   },
+  "OWCfFp": {
+    "defaultMessage": "Promote {sourceModelName} version {sourceModelVersion}",
+    "description": "Modal title to promote the model to a different registered model"
+  },
   "OWfx/j": {
     "defaultMessage": "Regression",
     "description": "Label for experiments focused on regression modeling"
@@ -3480,6 +3480,10 @@
   "QuU1sl": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab text for parallel coordinates plot on the model comparison page"
+  },
+  "Qv7cZx": {
+    "defaultMessage": "Promote model",
+    "description": "Button text to promote the model to a different registered model"
   },
   "R/4/8G": {
     "defaultMessage": "Metric",
@@ -6506,10 +6510,6 @@
   "oBKd1E": {
     "defaultMessage": "Value",
     "description": "Column title for value column in editable tags table view in MLflow"
-  },
-  "oBjwod": {
-    "defaultMessage": "Promote {sourceModelName} version {sourceModelVersion}",
-    "description": "Modal title to pomote the model to a different registered model"
   },
   "oDwj2g": {
     "defaultMessage": "The relevance_to_query LLM judge determines whether the response is relevant to the input request.",

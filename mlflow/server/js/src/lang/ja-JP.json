@@ -63,9 +63,9 @@
     "defaultMessage" : "機械学習機能を共有、管理します。",
     "description" : "Text on the popover for feature store onboarding."
   },
-  "+RYBrq" : {
+  "Qv7cZx" : {
     "defaultMessage" : "モデルをプロモート",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+X8JmT" : {
     "defaultMessage" : "すべてのレート制限では、負でない整数値を入力してください。",
