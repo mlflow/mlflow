@@ -1141,6 +1141,7 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
         return BEFORE_REQUEST_VALIDATORS.get((req.path, req.method))
 
 
+@catch_mlflow_exception
 def _before_request():
     if is_unprotected_route(request.path):
         return

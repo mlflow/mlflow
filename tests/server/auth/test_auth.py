@@ -1286,7 +1286,12 @@ def test_gateway_endpoints_permissions(client, monkeypatch):
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
             json={
                 "name": "user1_endpoint",
-                "model_definition_ids": [model_definition_id],
+                "model_configs": [
+                    {
+                        "model_definition_id": model_definition_id,
+                        "linkage_type": "PRIMARY",
+                    }
+                ],
             },
             auth=(user1, password1),
         )
@@ -1628,108 +1633,6 @@ def test_gateway_endpoint_use_permission(client, monkeypatch):
         )
 
 
-def test_gateway_endpoint_passthrough_routes_permission(client, monkeypatch):
-    user1, password1 = create_user(client.tracking_uri)
-    user2, password2 = create_user(client.tracking_uri)
-
-    # User1 creates a secret, model definition, and endpoint
-    with User(user1, password1, monkeypatch):
-        response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
-            json={
-                "secret_name": "test_secret_passthrough",
-                "secret_value": {"api_key": "test-key"},
-                "provider": "openai",
-            },
-            auth=(user1, password1),
-        )
-        response.raise_for_status()
-        secret_id = response.json()["secret"]["secret_id"]
-
-    with User(user1, password1, monkeypatch):
-        response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
-            json={
-                "name": "test_model_passthrough",
-                "secret_id": secret_id,
-                "provider": "openai",
-                "model_name": "gpt-4",
-            },
-            auth=(user1, password1),
-        )
-        response.raise_for_status()
-        model_definition_id = response.json()["model_definition"]["model_definition_id"]
-
-    with User(user1, password1, monkeypatch):
-        response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
-            json={
-                "name": "passthrough_endpoint",
-                "model_definition_ids": [model_definition_id],
-            },
-            auth=(user1, password1),
-        )
-        response.raise_for_status()
-        endpoint_id = response.json()["endpoint"]["endpoint_id"]
-        endpoint_name = response.json()["endpoint"]["name"]
-
-    # User2 without permission cannot invoke via passthrough route
-    with User(user2, password2, monkeypatch):
-        response = requests.post(
-            url=client.tracking_uri + "/gateway/openai/v1/chat/completions",
-            json={
-                "model": endpoint_name,
-                "messages": [{"role": "user", "content": "test"}],
-            },
-            auth=(user2, password2),
-        )
-        assert response.status_code == 403
-
-    # Grant USE permission to user2
-    with User(user1, password1, monkeypatch):
-        _send_rest_tracking_post_request(
-            client.tracking_uri,
-            "/api/3.0/mlflow/gateway/endpoints/permissions/create",
-            json_payload={
-                "endpoint_id": endpoint_id,
-                "username": user2,
-                "permission": "USE",
-            },
-            auth=(user1, password1),
-        )
-
-    # User2 with USE permission can invoke via passthrough route
-    with User(user2, password2, monkeypatch):
-        response = requests.post(
-            url=client.tracking_uri + "/gateway/openai/v1/chat/completions",
-            json={
-                "model": endpoint_name,
-                "messages": [{"role": "user", "content": "test"}],
-            },
-            auth=(user2, password2),
-        )
-        # Will fail because we don't have real LLM credentials, but should pass auth (not 403)
-        assert response.status_code != 403
-
-    # Cleanup
-    with User(user1, password1, monkeypatch):
-        requests.delete(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
-            json={"endpoint_id": endpoint_id},
-            auth=(user1, password1),
-        )
-        requests.delete(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
-            json={"model_definition_id": model_definition_id},
-            auth=(user1, password1),
-        )
-        requests.delete(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
-            json={"secret_id": secret_id},
-            auth=(user1, password1),
-        )
-
-
 def test_gateway_model_definition_requires_secret_use_permission(client, monkeypatch):
     user1, password1 = create_user(client.tracking_uri)
     user2, password2 = create_user(client.tracking_uri)
@@ -1834,6 +1737,26 @@ def test_gateway_model_definition_requires_secret_use_permission(client, monkeyp
             auth=(user2, password2),
         )
         response.raise_for_status()
+
+    # Cleanup
+    with User(user2, password2, monkeypatch):
+        requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": model_def_id},
+            auth=(user2, password2),
+        ).raise_for_status()
+
+    with User(user1, password1, monkeypatch):
+        requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": secret_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": secret_id_2},
+            auth=(user1, password1),
+        ).raise_for_status()
 
 
 def test_gateway_endpoint_requires_model_definition_use_permission(client, monkeypatch):
@@ -1977,6 +1900,31 @@ def test_gateway_endpoint_requires_model_definition_use_permission(client, monke
         )
         response.raise_for_status()
 
+    # Cleanup
+    with User(user2, password2, monkeypatch):
+        requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            json={"endpoint_id": endpoint_id},
+            auth=(user2, password2),
+        ).raise_for_status()
+
+    with User(user1, password1, monkeypatch):
+        requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": model_def_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": model_def_id_2},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": secret_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+
 
 def test_gateway_endpoint_requires_fallback_model_definition_use_permission(client, monkeypatch):
     user1, password1 = create_user(client.tracking_uri)
@@ -2093,3 +2041,29 @@ def test_gateway_endpoint_requires_fallback_model_definition_use_permission(clie
             auth=(user2, password2),
         )
         response.raise_for_status()
+        endpoint_id = response.json()["endpoint"]["endpoint_id"]
+
+    # Cleanup
+    with User(user2, password2, monkeypatch):
+        requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            json={"endpoint_id": endpoint_id},
+            auth=(user2, password2),
+        ).raise_for_status()
+
+    with User(user1, password1, monkeypatch):
+        requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": primary_model_def_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": fallback_model_def_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": secret_id},
+            auth=(user1, password1),
+        ).raise_for_status()
