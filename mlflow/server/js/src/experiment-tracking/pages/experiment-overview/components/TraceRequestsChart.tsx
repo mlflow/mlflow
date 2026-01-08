@@ -58,8 +58,6 @@ export const TraceRequestsChart: React.FC<OverviewChartProps> = (props) => {
                   y={avgRequests}
                   stroke={theme.colors.textSecondary}
                   strokeDasharray="4 4"
-                  data-testid="reference-line"
-                  data-label={`AVG (${Math.round(avgRequests).toLocaleString()})`}
                   label={{
                     value: `AVG (${Math.round(avgRequests).toLocaleString()})`,
                     position: 'insideTopRight',
