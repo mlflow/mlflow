@@ -1,6 +1,7 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
+from ragas.embeddings.base import BaseRagasEmbedding
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -198,8 +199,16 @@ def test_missing_reference_parameter_returns_mlflow_error():
         (AgentGoalAccuracyWithReference, "AgentGoalAccuracyWithReference", {}),
         (AgentGoalAccuracyWithoutReference, "AgentGoalAccuracyWithoutReference", {}),
         # Embeddings-based Metrics
-        (AnswerRelevancy, "AnswerRelevancy", {}),
-        (SemanticSimilarity, "SemanticSimilarity", {}),
+        (
+            AnswerRelevancy,
+            "AnswerRelevancy",
+            {"embeddings": MagicMock(spec=BaseRagasEmbedding)},
+        ),
+        (
+            SemanticSimilarity,
+            "SemanticSimilarity",
+            {"embeddings": MagicMock(spec=BaseRagasEmbedding)},
+        ),
     ],
 )
 def test_namespaced_class_properly_instantiates(scorer_class, expected_metric_name, metric_kwargs):
