@@ -53,6 +53,67 @@ print(response.json())
 </TabItem>
 </Tabs>
 
+#### API Specification
+
+**Endpoint URL Pattern:**
+```
+POST /gateway/{endpoint_name}/mlflow/invocations
+```
+
+**Request Body:**
+
+The request body follows the OpenAI chat completions format with these supported parameters:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `messages` | array | Yes | Array of message objects with `role` and `content` fields |
+| `temperature` | number | No | Sampling temperature between 0 and 2. Higher values make output more random. Default varies by model. |
+| `max_tokens` | integer | No | Maximum number of tokens to generate. Default varies by model. |
+| `top_p` | number | No | Nucleus sampling parameter. Alternative to temperature. Default is 1. |
+| `n` | integer | No | Number of completions to generate. Default is 1. |
+| `stream` | boolean | No | Whether to stream responses. Default is false. |
+| `stop` | string or array | No | Up to 4 sequences where the API will stop generating tokens. |
+| `presence_penalty` | number | No | Penalizes new tokens based on presence in text so far. Range: -2.0 to 2.0. |
+| `frequency_penalty` | number | No | Penalizes new tokens based on frequency in text so far. Range: -2.0 to 2.0. |
+| `tools` | array | No | List of tools the model can call. Each tool includes `type`, `function` with `name`, `description`, and `parameters`. |
+| `tool_choice` | string or object | No | Controls which tool is called. Can be "none", "auto", or specify a particular tool. |
+
+**Response Format:**
+
+```json
+{
+  "id": "chatcmpl-123",
+  "object": "chat.completion",
+  "created": 1677652288,
+  "model": "gpt-4",
+  "choices": [{
+    "index": 0,
+    "message": {
+      "role": "assistant",
+      "content": "Hello! How can I assist you today?"
+    },
+    "finish_reason": "stop"
+  }],
+  "usage": {
+    "prompt_tokens": 9,
+    "completion_tokens": 12,
+    "total_tokens": 21
+  }
+}
+```
+
+**Streaming Responses:**
+
+When `stream: true` is set, the response is sent as Server-Sent Events (SSE):
+
+```
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1677652288,"model":"gpt-4","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1677652288,"model":"gpt-4","choices":[{"index":0,"delta":{"content":"!"},"finish_reason":null}]}
+
+data: [DONE]
+```
+
 ### OpenAI-Compatible Chat Completions API
 
 For teams already using the OpenAI chat completion style APIs, the gateway provides an OpenAI-compatible interface. Simply point your OpenAI client to the gateway's base URL and use your endpoint name as the model parameter. This lets you leverage existing OpenAI-based code while gaining the gateway's routing capabilities:
