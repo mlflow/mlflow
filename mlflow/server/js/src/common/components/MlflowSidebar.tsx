@@ -169,12 +169,7 @@ export function MlflowSidebar() {
             .map(({ key, icon, dropdownProps }) => (
               <DropdownMenu.Item
                 key={key}
-                componentId={
-                  dropdownProps.componentId satisfies
-                    | 'mlflow_sidebar.create_experiment_button'
-                    | 'mlflow_sidebar.create_model_button'
-                    | 'mlflow_sidebar.create_prompt_button'
-                }
+                componentId={dropdownProps.componentId satisfies MlFlowSidebarMenuDropdownComponentId}
                 onClick={dropdownProps.onClick}
               >
                 <DropdownMenu.IconWrapper>{icon}</DropdownMenu.IconWrapper>
