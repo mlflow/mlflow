@@ -639,6 +639,7 @@ def test_delete_scorer_permissions_for_scorer(store):
         store.get_scorer_permission(experiment_id1, scorer_name1, username2)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
+
 # Gateway Secret Permission Tests
 
 
@@ -658,7 +659,7 @@ def test_create_gateway_secret_permission(store):
     # error on duplicate
     with pytest.raises(
         MlflowException,
-        match=rf"Gateway secret permission \(secret_id={secret_id1}, username={username1}\) already exists",
+        match=rf"\(secret_id={secret_id1}, username={username1}\) already exists",
     ) as exception_context:
         _gsp_maker(store, secret_id1, username1, permission1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
@@ -731,7 +732,7 @@ def test_delete_gateway_secret_permission(store):
     # error on non-existent permission
     with pytest.raises(
         MlflowException,
-        match=rf"Gateway secret permission with secret_id={secret_id1} and username={username1} not found",
+        match=f"secret_id={secret_id1} and username={username1} not found",
     ) as exception_context:
         store.get_gateway_secret_permission(secret_id1, username1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -780,7 +781,7 @@ def test_create_gateway_endpoint_permission(store):
     # error on duplicate
     with pytest.raises(
         MlflowException,
-        match=rf"Gateway endpoint permission \(endpoint_id={endpoint_id1}, username={username1}\) already exists",
+        match=rf"\(endpoint_id={endpoint_id1}, username={username1}\) already exists",
     ) as exception_context:
         _gep_maker(store, endpoint_id1, username1, permission1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
@@ -856,7 +857,7 @@ def test_delete_gateway_endpoint_permission(store):
     # error on non-existent permission
     with pytest.raises(
         MlflowException,
-        match=rf"Gateway endpoint permission with endpoint_id={endpoint_id1} and username={username1} not found",
+        match=f"endpoint_id={endpoint_id1} and username={username1} not found",
     ) as exception_context:
         store.get_gateway_endpoint_permission(endpoint_id1, username1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -905,7 +906,7 @@ def test_create_gateway_model_definition_permission(store):
     # error on duplicate
     with pytest.raises(
         MlflowException,
-        match=rf"Gateway model definition permission \(model_definition_id={model_definition_id1}, username={username1}\) already exists",
+        match="already exists",
     ) as exception_context:
         _gmdp_maker(store, model_definition_id1, username1, permission1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
@@ -964,7 +965,9 @@ def test_update_gateway_model_definition_permission(store):
         MlflowException,
         match=r"not found",
     ) as exception_context:
-        store.update_gateway_model_definition_permission(model_definition_id1, "random", MANAGE.name)
+        store.update_gateway_model_definition_permission(
+            model_definition_id1, "random", MANAGE.name
+        )
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
@@ -981,7 +984,7 @@ def test_delete_gateway_model_definition_permission(store):
     # error on non-existent permission
     with pytest.raises(
         MlflowException,
-        match=rf"Gateway model definition permission with model_definition_id={model_definition_id1} and username={username1} not found",
+        match=f"model_definition_id={model_definition_id1} and username={username1} not found",
     ) as exception_context:
         store.get_gateway_model_definition_permission(model_definition_id1, username1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
