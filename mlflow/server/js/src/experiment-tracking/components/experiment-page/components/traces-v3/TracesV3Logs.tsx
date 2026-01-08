@@ -1,7 +1,12 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { isEmpty as isEmptyFn } from 'lodash';
 import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
-import type { TracesTableColumn, TraceActions, GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
+import type {
+  TracesTableColumn,
+  TraceActions,
+  GetTraceFunction,
+  TableFilter,
+} from '@databricks/web-shared/genai-traces-table';
 import { shouldUseTracesV4API, useUnifiedTraceTagsModal } from '@databricks/web-shared/model-trace-explorer';
 import {
   EXECUTION_DURATION_COLUMN_ID,
@@ -36,9 +41,8 @@ import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { checkColumnContents } from './utils/columnUtils';
-// eslint-disable-next-line no-useless-rename -- renaming due to copybara transformation
-import { useExportTracesToDatasetModal as useExportTracesToDatasetModal } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/hooks/useExportTracesToDatasetModal';
 import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
+import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 const ContextProviders = ({
   children,
   makeHtmlFromMarkdown,
@@ -56,18 +60,27 @@ const ContextProviders = ({
 };
 
 const TracesV3LogsImpl = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     experimentId,
-    endpointName,
+    endpointName = '',
     timeRange,
     isLoadingExperiment,
     loggedModelId,
+    additionalFilters,
+    disableActions = false,
+    customDefaultSelectedColumns,
+    toolbarAddons,
   }: {
     experimentId: string;
-    endpointName: string;
+    endpointName?: string;
     timeRange?: { startTime: string | undefined; endTime: string | undefined };
     isLoadingExperiment?: boolean;
     loggedModelId?: string;
+    additionalFilters?: TableFilter[];
+    disableActions?: boolean;
+    customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
+    toolbarAddons?: React.ReactNode;
   }) => {
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
@@ -110,10 +123,19 @@ const TracesV3LogsImpl = React.memo(
     const [filters, setFilters] = useFilters();
     const queryClient = useQueryClient();
 
+    const combinedFilters = useMemo(() => {
+      if (!additionalFilters || additionalFilters.length === 0) {
+        return filters;
+      }
+      return [...additionalFilters, ...filters];
+    }, [additionalFilters, filters]);
+
     const defaultSelectedColumns = useCallback(
       (allColumns: TracesTableColumn[]) => {
         const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(evaluatedTraces);
-
+        if (customDefaultSelectedColumns) {
+          return allColumns.filter(customDefaultSelectedColumns);
+        }
         return allColumns.filter(
           (col) =>
             col.type === TracesTableColumnType.ASSESSMENT ||
@@ -128,7 +150,7 @@ const TracesV3LogsImpl = React.memo(
             col.type === TracesTableColumnType.INTERNAL_MONITOR_REQUEST_TIME,
         );
       },
-      [evaluatedTraces],
+      [evaluatedTraces, customDefaultSelectedColumns],
     );
 
     const { selectedColumns, toggleColumns, setSelectedColumns } = useSelectedColumns(
@@ -148,7 +170,7 @@ const TracesV3LogsImpl = React.memo(
       locations: traceSearchLocations,
       isTracesEmpty: isEmpty,
       isTraceMetadataLoading: isMetadataLoading,
-      disabled: isQueryDisabled,
+      disabled: isQueryDisabled || usesV4APIs,
     });
 
     // Get traces data
@@ -161,7 +183,7 @@ const TracesV3LogsImpl = React.memo(
       locations: traceSearchLocations,
       currentRunDisplayName: endpointName,
       searchQuery,
-      filters,
+      filters: combinedFilters,
       timeRange,
       filterByLoggedModelId: loggedModelId,
       tableSort,
@@ -185,20 +207,19 @@ const TracesV3LogsImpl = React.memo(
 
     const deleteTracesAction = useGetDeleteTracesAction({ traceSearchLocations });
 
-    // TODO: Unify export action between managed and OSS
-    const { showExportTracesToDatasetsModal, setShowExportTracesToDatasetsModal, renderExportTracesToDatasetsModal } =
-      useExportTracesToDatasetModal({
-        experimentId,
-      });
+    const renderCustomExportTracesToDatasetsModal = ExportTracesToDatasetModal;
 
     const traceActions: TraceActions = useMemo(() => {
+      if (disableActions) {
+        return {
+          deleteTracesAction: undefined,
+          exportToEvals: undefined,
+          editTags: undefined,
+        };
+      }
       return {
         deleteTracesAction,
-        exportToEvals: {
-          showExportTracesToDatasetsModal: showExportTracesToDatasetsModal,
-          setShowExportTracesToDatasetsModal: setShowExportTracesToDatasetsModal,
-          renderExportTracesToDatasetsModal: renderExportTracesToDatasetsModal,
-        },
+        exportToEvals: true,
         // Enable unified tags modal if V4 APIs is enabled
         editTags: shouldUseTracesV4API()
           ? {
@@ -212,13 +233,11 @@ const TracesV3LogsImpl = React.memo(
       };
     }, [
       deleteTracesAction,
-      showExportTracesToDatasetsModal,
-      setShowExportTracesToDatasetsModal,
-      renderExportTracesToDatasetsModal,
       showEditTagsModalForTraceUnified,
       EditTagsModalUnified,
       showEditTagsModalForTrace,
       EditTagsModal,
+      disableActions,
     ]);
 
     const countInfo = useMemo(() => {
@@ -323,7 +342,11 @@ const TracesV3LogsImpl = React.memo(
 
     // Single unified layout with toolbar and content
     return (
-      <GenAITracesTableProvider>
+      <GenAITracesTableProvider
+        experimentId={experimentId}
+        getTrace={getTrace}
+        renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+      >
         <div
           css={{
             overflowY: 'hidden',
@@ -352,6 +375,7 @@ const TracesV3LogsImpl = React.memo(
             isMetadataLoading={isMetadataLoading}
             metadataError={metadataError}
             usesV4APIs={usesV4APIs}
+            addons={toolbarAddons}
           />
           {renderMainContent()}
         </div>

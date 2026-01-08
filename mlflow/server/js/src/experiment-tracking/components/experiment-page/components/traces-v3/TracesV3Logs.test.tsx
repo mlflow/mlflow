@@ -16,6 +16,7 @@ import {
   REQUEST_TIME_COLUMN_ID,
   TracesTableColumnType,
   TracesTableColumnGroup,
+  FilterOperator,
 } from '@databricks/web-shared/genai-traces-table';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
@@ -479,5 +480,51 @@ describe('TracesV3Logs', () => {
         });
       },
     );
+  });
+
+  describe('Additional filters', () => {
+    it('should combine additional filters with user filters', async () => {
+      const userFilters = [{ column: 'status', operator: FilterOperator.EQUALS, value: 'success' }];
+      const setFiltersMock = jest.fn();
+      jest.mocked(useFilters).mockReturnValue([userFilters, setFiltersMock]);
+
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: false,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
+        isInitialTimeFilterLoading: false,
+      });
+
+      const searchTracesMock = jest.fn().mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+      jest.mocked(useSearchMlflowTraces).mockImplementation(searchTracesMock as any);
+
+      const additionalFilters = [{ column: 'prompt', operator: FilterOperator.EQUALS, value: 'test-prompt/1' }];
+
+      renderComponent({ additionalFilters });
+      await waitForRoutesToBeRendered();
+
+      // Should have called useSearchMlflowTraces with combined filters (additionalFilters + userFilters)
+      await waitFor(() => {
+        expect(searchTracesMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            filters: [...additionalFilters, ...userFilters],
+          }),
+        );
+      });
+    });
   });
 });

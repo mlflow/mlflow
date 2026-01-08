@@ -4,7 +4,7 @@ import { withErrorBoundary } from '@mlflow/mlflow/src/common/utils/withErrorBoun
 import { TracesV3Toolbar } from '../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
 import invariant from 'invariant';
 import { useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   CUSTOM_METADATA_COLUMN_ID,
   GenAIChatSessionsTable,
@@ -12,35 +12,27 @@ import {
   createTraceLocationForUCSchema,
   useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
+import type { GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
-import { getAbsoluteStartEndTime, useMonitoringFilters } from '../../hooks/useMonitoringFilters';
+import { useMonitoringFiltersTimeRange } from '../../hooks/useMonitoringFilters';
 import { SESSION_ID_METADATA_KEY, shouldUseTracesV4API } from '@databricks/web-shared/model-trace-explorer';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { getChatSessionsFilter } from './utils';
 import { ExperimentChatSessionsPageWrapper } from './ExperimentChatSessionsPageWrapper';
 import { useGetDeleteTracesAction } from '../../components/experiment-page/components/traces-v3/hooks/useGetDeleteTracesAction';
+import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 
 const ExperimentChatSessionsPageImpl = () => {
   const { experimentId } = useParams();
   const [searchQuery, setSearchQuery] = useState<string>('');
   invariant(experimentId, 'Experiment ID must be defined');
 
-  const [monitoringFilters] = useMonitoringFilters();
   const monitoringConfig = useMonitoringConfig();
   const { loading: isLoadingExperiment } = useGetExperimentQuery({
     experimentId,
-    options: {
-      fetchPolicy: 'cache-only',
-    },
   });
 
-  const timeRange = useMemo(() => {
-    const { startTime, endTime } = getAbsoluteStartEndTime(monitoringConfig.dateNow, monitoringFilters);
-    return {
-      startTime: startTime ? new Date(startTime).getTime().toString() : undefined,
-      endTime: endTime ? new Date(endTime).getTime().toString() : undefined,
-    };
-  }, [monitoringConfig.dateNow, monitoringFilters]);
+  const timeRange = useMonitoringFiltersTimeRange(monitoringConfig.dateNow);
 
   const traceSearchLocations = useMemo(
     () => {
@@ -68,9 +60,12 @@ const ExperimentChatSessionsPageImpl = () => {
 
   const deleteTracesAction = useGetDeleteTracesAction({ traceSearchLocations });
 
-  const traceActions = {
-    deleteTracesAction,
-  };
+  const traceActions = useMemo(
+    () => ({
+      deleteTracesAction,
+    }),
+    [deleteTracesAction],
+  );
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
