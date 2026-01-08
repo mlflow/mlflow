@@ -796,6 +796,7 @@ mlflow.genai.delete_prompt_alias
 mlflow.genai.delete_prompt_model_config
 mlflow.genai.delete_prompt_tag
 mlflow.genai.delete_prompt_version_tag
+mlflow.genai.delete_scorer
 mlflow.genai.disable_git_model_versioning
 mlflow.genai.enable_git_model_versioning
 mlflow.genai.evaluate
@@ -804,6 +805,7 @@ mlflow.genai.get_labeling_session
 mlflow.genai.get_labeling_sessions
 mlflow.genai.get_prompt_tags
 mlflow.genai.get_review_app
+mlflow.genai.get_scorer
 mlflow.genai.judges.AlignmentOptimizer
 mlflow.genai.judges.AlignmentOptimizer.align
 mlflow.genai.judges.CategoricalRating
@@ -845,6 +847,7 @@ mlflow.genai.label_schemas.label_schemas.LabelSchemaType
 mlflow.genai.labeling.labeling.Agent
 mlflow.genai.labeling.labeling.LabelingSession
 mlflow.genai.labeling.labeling.ReviewApp
+mlflow.genai.list_scorers
 mlflow.genai.load_prompt
 mlflow.genai.make_judge
 mlflow.genai.optimize.BasePromptOptimizer
