@@ -1139,10 +1139,11 @@ MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF = _BooleanEnvironmentVariable(
 
 #: Specifies whether to enable job execution feature for MLflow server.
 #: This feature requires "huey" package dependency, and requires MLflow server to configure
-#: --backend-store-uri to database URI.
-#: (default: ``False``)
+#: --backend-store-uri to database URI. If enabled but requirements are not met, the server
+#: will start without job execution support and errors will be surfaced at job invocation time.
+#: (default: ``True``)
 MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
-    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", False
+    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", True
 )
 
 #: Specifies MLflow server job maximum allowed retries for transient errors.
