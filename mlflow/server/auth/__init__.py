@@ -650,19 +650,24 @@ def validate_can_create_gateway_endpoint():
     Validate that the user can create a gateway endpoint.
     This requires USE permission on all referenced model definitions.
     """
-    # Get both primary and fallback model definition IDs from request body
     body = request.json or {}
-    model_definition_ids = body.get("model_definition_ids", [])
-    fallback_model_definition_ids = body.get("fallback_model_definition_ids", [])
-    all_model_def_ids = list(model_definition_ids) + list(fallback_model_definition_ids)
+    model_configs = body.get("model_configs", [])
 
-    if not all_model_def_ids:
-        # If no model definitions are provided, allow creation (will fail in handler)
+    if not model_configs:
+        return True
+
+    model_def_ids = [
+        config.get("model_definition_id")
+        for config in model_configs
+        if config.get("model_definition_id")
+    ]
+
+    if not model_def_ids:
         return True
 
     username = authenticate_request().username
-    for model_def_id in all_model_def_ids:
-        # Need to capture model_def_id properly in the lambda
+    for model_def_id in model_def_ids:
+
         def get_perm(md_id=model_def_id):
             return store.get_gateway_model_definition_permission(md_id, username).permission
 
@@ -679,23 +684,27 @@ def validate_can_update_gateway_endpoint():
     This requires UPDATE permission on the endpoint AND
     USE permission on any new model definitions being referenced.
     """
-    # First check update permission on the endpoint
     if not _get_permission_from_gateway_endpoint_id().can_update:
         return False
 
-    # If updating model definitions, check USE permission on the new ones
     body = request.json or {}
-    model_definition_ids = body.get("model_definition_ids", [])
-    fallback_model_definition_ids = body.get("fallback_model_definition_ids", [])
-    all_model_def_ids = list(model_definition_ids) + list(fallback_model_definition_ids)
+    model_configs = body.get("model_configs", [])
 
-    if not all_model_def_ids:
-        # No model definitions being changed, just return True
+    if not model_configs:
+        return True
+
+    model_def_ids = [
+        config.get("model_definition_id")
+        for config in model_configs
+        if config.get("model_definition_id")
+    ]
+
+    if not model_def_ids:
         return True
 
     username = authenticate_request().username
-    for model_def_id in all_model_def_ids:
-        # Need to capture model_def_id properly in the lambda
+    for model_def_id in model_def_ids:
+
         def get_perm(md_id=model_def_id):
             return store.get_gateway_model_definition_permission(md_id, username).permission
 

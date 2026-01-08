@@ -1874,7 +1874,12 @@ def test_gateway_endpoint_requires_model_definition_use_permission(client, monke
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
             json={
                 "name": "endpoint_1",
-                "model_definition_ids": [model_def_id],
+                "model_configs": [
+                    {
+                        "model_definition_id": model_def_id,
+                        "linkage_type": "PRIMARY",
+                    }
+                ],
             },
             auth=(user2, password2),
         )
@@ -1899,7 +1904,12 @@ def test_gateway_endpoint_requires_model_definition_use_permission(client, monke
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
             json={
                 "name": "endpoint_1",
-                "model_definition_ids": [model_def_id],
+                "model_configs": [
+                    {
+                        "model_definition_id": model_def_id,
+                        "linkage_type": "PRIMARY",
+                    }
+                ],
             },
             auth=(user2, password2),
         )
@@ -1927,7 +1937,12 @@ def test_gateway_endpoint_requires_model_definition_use_permission(client, monke
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/update",
             json={
                 "endpoint_id": endpoint_id,
-                "model_definition_ids": [model_def_id_2],
+                "model_configs": [
+                    {
+                        "model_definition_id": model_def_id_2,
+                        "linkage_type": "PRIMARY",
+                    }
+                ],
             },
             auth=(user2, password2),
         )
@@ -1952,7 +1967,12 @@ def test_gateway_endpoint_requires_model_definition_use_permission(client, monke
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/update",
             json={
                 "endpoint_id": endpoint_id,
-                "model_definition_ids": [model_def_id_2],
+                "model_configs": [
+                    {
+                        "model_definition_id": model_def_id_2,
+                        "linkage_type": "PRIMARY",
+                    }
+                ],
             },
             auth=(user2, password2),
         )
@@ -2024,8 +2044,17 @@ def test_gateway_endpoint_requires_fallback_model_definition_use_permission(clie
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
             json={
                 "name": "endpoint_with_fallback",
-                "model_definition_ids": [primary_model_def_id],
-                "fallback_model_definition_ids": [fallback_model_def_id],
+                "model_configs": [
+                    {
+                        "model_definition_id": primary_model_def_id,
+                        "linkage_type": "PRIMARY",
+                    },
+                    {
+                        "model_definition_id": fallback_model_def_id,
+                        "linkage_type": "FALLBACK",
+                        "fallback_order": 1,
+                    },
+                ],
             },
             auth=(user2, password2),
         )
@@ -2050,8 +2079,17 @@ def test_gateway_endpoint_requires_fallback_model_definition_use_permission(clie
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
             json={
                 "name": "endpoint_with_fallback",
-                "model_definition_ids": [primary_model_def_id],
-                "fallback_model_definition_ids": [fallback_model_def_id],
+                "model_configs": [
+                    {
+                        "model_definition_id": primary_model_def_id,
+                        "linkage_type": "PRIMARY",
+                    },
+                    {
+                        "model_definition_id": fallback_model_def_id,
+                        "linkage_type": "FALLBACK",
+                        "fallback_order": 1,
+                    },
+                ],
             },
             auth=(user2, password2),
         )
