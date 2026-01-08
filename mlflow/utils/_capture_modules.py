@@ -68,8 +68,14 @@ class _CaptureImportedModules:
                     for from_name in fromlist:
                         full_modules = parent_modules + [from_name]
                         full_module_name = ".".join(full_modules)
-                        if full_module_name in sys.modules:
-                            self._record_imported_module(full_module_name)
+                        # Try to find the module in sys.modules by checking parent modules
+                        # if the full path (including from_name) is not found.
+                        # This handles cases where from_name is a class/function, not a submodule.
+                        for i in range(len(full_modules), 0, -1):
+                            test_module = ".".join(full_modules[:i])
+                            if test_module in sys.modules:
+                                self._record_imported_module(test_module)
+                                break
                 else:
                     full_module_name = ".".join(parent_modules)
                     self._record_imported_module(full_module_name)

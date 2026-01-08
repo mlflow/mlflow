@@ -116,3 +116,33 @@ def test_python_model_save_load(tmp_path, monkeypatch):
         loaded_pyfunc_model.predict([1, 2, 3]),
         [11, 12, 13],
     )
+
+
+def test_transitive_import_capture(tmp_path, monkeypatch):
+    monkeypatch.chdir(os.path.dirname(__file__))
+    monkeypatch.syspath_prepend(".")
+
+    from custom_model.transitive_test.model_with_transitive import (
+        ModelWithTransitiveDependency,
+    )
+
+    pyfunc_model_path = tmp_path / "pyfunc_model"
+
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path,
+        python_model=ModelWithTransitiveDependency(),
+        infer_code_paths=True,
+    )
+
+    # The bug: transitive_dependency.py should be captured but currently isn't
+    # because it's imported as "from ... import some_function" (importing a function, not a module)
+    assert _walk_dir(pyfunc_model_path / "code") == {
+        "custom_model/transitive_test/__init__.py",
+        "custom_model/transitive_test/model_with_transitive.py",
+        "custom_model/transitive_test/transitive_dependency.py",
+    }
+
+    # Verify the model works after loading
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
+    result = loaded_pyfunc_model.predict([1, 2, 3])
+    assert result == ["test", "test", "test"]
