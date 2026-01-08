@@ -3908,6 +3908,10 @@
     "defaultMessage": "Select",
     "description": "Select button"
   },
+  "UIi6pp": {
+    "defaultMessage": "Guidelines should not be empty",
+    "description": "Tooltip message when guidelines are empty"
+  },
   "UKCnLU": {
     "defaultMessage": "Active configuration",
     "description": "Section title for active config"
@@ -7303,10 +7307,6 @@
     "defaultMessage": "using Notebook",
     "description": "String for creating a new run from a notebook"
   },
-  "vPaah9": {
-    "defaultMessage": "The response must be in English",
-    "description": "Placeholder text for guidelines textarea"
-  },
   "vPnoNk": {
     "defaultMessage": "Save changes",
     "description": "Confirm button label within a modal when editing a runs comparison chart"
@@ -7522,6 +7522,10 @@
   "xBoybr": {
     "defaultMessage": "Tag key already exists on one or more of the selected runs. Please choose a different key.",
     "description": "Add new key-value tag modal > Duplicate tag key error"
+  },
+  "xEk4mS": {
+    "defaultMessage": "Add your guidelines here - for instance, The response must be professional",
+    "description": "Placeholder text for guidelines textarea"
   },
   "xIP8WW": {
     "defaultMessage": "Are you sure you want to delete these runs?",

@@ -6,7 +6,10 @@ import { convertFormDataToScheduledScorer, type ScorerFormData } from './utils/s
 import { getFormValuesFromScorer } from './scorerCardUtils';
 import ScorerFormRenderer from './ScorerFormRenderer';
 import type { ScheduledScorer } from './types';
+import { LLM_TEMPLATE } from './types';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
+
+const TEMPLATES_WITH_GUIDELINES = [LLM_TEMPLATE.GUIDELINES, LLM_TEMPLATE.CONVERSATIONAL_GUIDELINES];
 
 interface ScorerFormEditContainerProps {
   experimentId: string;
@@ -44,6 +47,18 @@ const ScorerFormEditContainer: React.FC<ScorerFormEditContainerProps> = ({ exper
   const onFormSubmit = (data: ScorerFormData) => {
     try {
       setComponentError(null);
+
+      // Validate guidelines for guidelines-based templates
+      if (
+        data.scorerType === 'llm' &&
+        TEMPLATES_WITH_GUIDELINES.includes(data.llmTemplate as LLM_TEMPLATE)
+      ) {
+        const guidelines = (data.guidelines || '').trim();
+        if (!guidelines) {
+          setComponentError('Guidelines should not be empty');
+          return;
+        }
+      }
 
       // Convert form data to ScheduledScorer - this could throw synchronously
       const scheduledScorer = convertFormDataToScheduledScorer(data, existingScorer);

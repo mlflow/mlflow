@@ -542,7 +542,7 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control, se
               readOnly={mode === SCORER_FORM_MODE.DISPLAY}
               rows={3}
               placeholder={intl.formatMessage({
-                defaultMessage: 'The response must be in English',
+                defaultMessage: 'The response must be concise, professional, and friendly.',
                 description: 'Placeholder text for guidelines textarea',
               })}
               css={{ resize: 'vertical', cursor: mode === SCORER_FORM_MODE.DISPLAY ? 'auto' : 'text' }}
