@@ -629,6 +629,11 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'governance/ai-gateway/routing',
+          label: 'Advanced Routing',
+        },
+        {
+          type: 'doc',
           id: 'governance/ai-gateway/query',
           label: 'Querying Endpoints',
         },
