@@ -685,8 +685,8 @@ class Scorer(BaseModel):
         self,
         *,
         name: str | None = None,
-        sampling_config: ScorerSamplingConfig,
         experiment_id: str | None = None,
+        sampling_config: ScorerSamplingConfig,
     ) -> "Scorer":
         """
         Start registered scoring with the specified sampling configuration.
@@ -698,11 +698,11 @@ class Scorer(BaseModel):
         Args:
             name: Optional scorer name. If not provided, uses the scorer's registered
                 name or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
             sampling_config: Configuration object containing:
                 - sample_rate: Fraction of traces to evaluate (0.0 to 1.0). Required.
                 - filter_string: Optional MLflow search_traces compatible filter string.
-            experiment_id: The ID of the MLflow experiment containing the scorer.
-                If None, uses the currently active experiment.
 
         Returns:
             A new Scorer instance with updated sampling configuration.
@@ -768,8 +768,8 @@ class Scorer(BaseModel):
         self,
         *,
         name: str | None = None,
-        sampling_config: ScorerSamplingConfig,
         experiment_id: str | None = None,
+        sampling_config: ScorerSamplingConfig,
     ) -> "Scorer":
         """
         Update the sampling configuration for this scorer.
@@ -782,11 +782,11 @@ class Scorer(BaseModel):
         Args:
             name: Optional scorer name. If not provided, uses the scorer's registered name
                 or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
             sampling_config: Configuration object containing:
                 - sample_rate: New fraction of traces to evaluate (0.0 to 1.0). Optional.
                 - filter_string: New MLflow search_traces compatible filter string. Optional.
-            experiment_id: The ID of the MLflow experiment containing the scorer.
-                If None, uses the currently active experiment.
 
         Returns:
             A new Scorer instance with updated configuration.
