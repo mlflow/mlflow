@@ -38,6 +38,29 @@ export MLFLOW_CRYPTO_KEK_PASSPHRASE="your-secure-passphrase-here"
 For local development, MLflow uses a default passphrase if none is configured. This is acceptable for development or single-user deployments, but production environments should always use a custom passphrase.
 :::
 
+<details>
+<summary>How to rotate API keys</summary>
+
+When you need to rotate credentials for security purposes:
+
+1. Navigate to the API Keys tab and locate the key you want to rotate
+2. Click the Edit button for that API key
+3. Update the credential value with your new API key from the provider
+4. Click Save to apply the changes
+
+All endpoints using this API key will automatically use the new credentials without requiring any configuration changes. This zero-downtime rotation ensures your applications continue running uninterrupted during the credential update.
+
+For mission-critical deployments, consider this rotation strategy:
+
+1. Create a new API key with the rotated credentials (e.g., `my-openai-key-v2`)
+2. Update your endpoints to use the new API key
+3. Monitor your endpoints to ensure they're working correctly
+4. Delete the old API key once you've verified the rotation was successful
+
+This approach provides a rollback path if issues arise during rotation.
+
+</details>
+
 ## Accessing the Gateway
 
 Once your MLflow server is running, navigate to the AI Gateway section at `http://localhost:5000/#/gateway`.
@@ -74,29 +97,6 @@ To update credentials for a provider, use the Edit function to modify the key wi
 :::tip
 Creating reusable API keys simplifies credential rotation. When you need to update a credential, edit it once rather than updating every endpoint individually.
 :::
-
-<details>
-<summary>How to rotate API keys</summary>
-
-When you need to rotate credentials for security purposes:
-
-1. Navigate to the API Keys tab and locate the key you want to rotate
-2. Click the Edit button for that API key
-3. Update the credential value with your new API key from the provider
-4. Click Save to apply the changes
-
-All endpoints using this API key will automatically use the new credentials without requiring any configuration changes. This zero-downtime rotation ensures your applications continue running uninterrupted during the credential update.
-
-For mission-critical deployments, consider this rotation strategy:
-
-1. Create a new API key with the rotated credentials (e.g., `my-openai-key-v2`)
-2. Update your endpoints to use the new API key
-3. Monitor your endpoints to ensure they're working correctly
-4. Delete the old API key once you've verified the rotation was successful
-
-This approach provides a rollback path if issues arise during rotation.
-
-</details>
 
 ## Creating an Endpoint
 

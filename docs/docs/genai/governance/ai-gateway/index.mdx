@@ -60,7 +60,7 @@ pip install 'mlflow[genai]'
 mlflow server --port 5000
 ```
 
-The AI Gateway runs within the MLflow Tracking Server itself. By default, MLflow uses a SQL-based backend store.
+The AI Gateway runs within the MLflow Tracking Server itself and requires a SQL-based backend store with the FastAPI tracking server.
 
 **3. Configure your first endpoint:**
 
