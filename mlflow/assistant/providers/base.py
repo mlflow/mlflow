@@ -1,7 +1,21 @@
 """Base class for assistant providers."""
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, AsyncGenerator
+
+from pydantic import BaseModel
+
+# Constant for .mlflow assistant directory
+MLFLOW_ASSISTANT_HOME = Path.home() / ".mlflow" / "assistant"
+
+
+class ProviderConfig(BaseModel):
+    """Base configuration for assistant providers.
+
+    This is a concrete Pydantic model that providers can subclass
+    to add provider-specific validation.
+    """
 
 
 class AssistantProvider(ABC):
@@ -17,17 +31,21 @@ class AssistantProvider(ABC):
         """Check if the provider is available and ready to use."""
 
     @abstractmethod
-    def load_config(self) -> dict[str, Any]:
-        """Load provider configuration."""
+    def load_config(self) -> ProviderConfig:
+        """Load provider configuration.
+
+        Returns:
+            ProviderConfig subclass with validated configuration.
+        """
 
     @abstractmethod
-    def run(
+    def astream(
         self,
         prompt: str,
         session_id: str | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
         """
-        Run the assistant and stream responses.
+        Stream responses from the assistant asynchronously.
 
         Args:
             prompt: The prompt to send to the assistant
