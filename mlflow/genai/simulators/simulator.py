@@ -31,7 +31,6 @@ from mlflow.genai.simulators.prompts import (
 )
 from mlflow.genai.utils.trace_utils import parse_outputs_to_str
 from mlflow.tracing.constant import TraceMetadataKey
-from mlflow.tracing.provider import trace_disabled
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
@@ -94,59 +93,80 @@ def _suppress_tracing_logging():
         fluent_logger.setLevel(original_fluent_level)
 
 
+@contextmanager
+def _delete_trace_if_created():
+    """Delete any trace created within this context to avoid polluting user traces."""
+    trace_id_before = mlflow.get_last_active_trace_id(thread_local=True)
+    try:
+        yield
+    finally:
+        trace_id_after = mlflow.get_last_active_trace_id(thread_local=True)
+        if trace_id_after and trace_id_after != trace_id_before:
+            try:
+                mlflow.delete_trace(trace_id_after)
+            except Exception as e:
+                _logger.debug(f"Failed to delete trace {trace_id_after}: {e}")
+
+
 # TODO: Refactor judges adapters to support returning raw responses, then use them here
 #       instead of reimplementing the invocation logic.
-@trace_disabled  # Suppress tracing for our LLM (e.g., user message generation, stopping condition)
-def _invoke_model(
+def _invoke_model_without_tracing(
     model_uri: str,
     messages: list["ChatMessage"],
     num_retries: int = 3,
     inference_params: dict[str, Any] | None = None,
 ) -> str:
+    """
+    Invoke a model without tracing. This method will delete the last trace created by the
+    invocation, if any.
+    """
     import litellm
 
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
-    # Use Databricks managed endpoint with agentic model for the default "databricks" URI
-    if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-        user_prompt = json.dumps([{"role": msg.role, "content": msg.content} for msg in messages])
-        result = call_chat_completions(
-            user_prompt=user_prompt,
-            system_prompt="",
-            model=_DATABRICKS_AGENTIC_JUDGE_MODEL,
-        )
-        if getattr(result, "error_code", None):
-            raise MlflowException(
-                f"Failed to get chat completions result from Databricks managed endpoint: "
-                f"[{result.error_code}] {result.error_message}"
+    with _delete_trace_if_created():
+        # Use Databricks managed endpoint with agentic model for the default "databricks" URI
+        if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+            user_prompt = json.dumps(
+                [{"role": msg.role, "content": msg.content} for msg in messages]
             )
-        return result.output
+            result = call_chat_completions(
+                user_prompt=user_prompt,
+                system_prompt="",
+                model=_DATABRICKS_AGENTIC_JUDGE_MODEL,
+            )
+            if getattr(result, "error_code", None):
+                raise MlflowException(
+                    f"Failed to get chat completions result from Databricks managed endpoint: "
+                    f"[{result.error_code}] {result.error_message}"
+                )
+            return result.output
 
-    provider, model_name = _parse_model_uri(model_uri)
+        provider, model_name = _parse_model_uri(model_uri)
 
-    # Use Databricks serving endpoint for databricks:/<endpoint> URIs
-    if provider in {"databricks", "endpoints"}:
-        output = _invoke_databricks_serving_endpoint(
-            model_name=model_name,
-            prompt=messages,
-            num_retries=num_retries,
-            inference_params=inference_params,
-        )
-        return output.response
+        # Use Databricks serving endpoint for databricks:/<endpoint> URIs
+        if provider in {"databricks", "endpoints"}:
+            output = _invoke_databricks_serving_endpoint(
+                model_name=model_name,
+                prompt=messages,
+                num_retries=num_retries,
+                inference_params=inference_params,
+            )
+            return output.response
 
-    # Use LiteLLM for other providers
-    litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
+        # Use LiteLLM for other providers
+        litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
-    kwargs = {
-        "model": f"{provider}/{model_name}",
-        "messages": litellm_messages,
-        "max_retries": num_retries,
-    }
-    if inference_params:
-        kwargs.update(inference_params)
+        kwargs = {
+            "model": f"{provider}/{model_name}",
+            "messages": litellm_messages,
+            "max_retries": num_retries,
+        }
+        if inference_params:
+            kwargs.update(inference_params)
 
-    response = litellm.completion(**kwargs)
-    return response.choices[0].message.content
+        response = litellm.completion(**kwargs)
+        return response.choices[0].message.content
 
 
 def _get_last_response(conversation_history: list[dict[str, Any]]) -> str | None:
@@ -225,7 +245,7 @@ class SimulatedUserAgent:
             )
 
         messages = [ChatMessage(role="user", content=prompt)]
-        return _invoke_model(
+        return _invoke_model_without_tracing(
             model_uri=self.model,
             messages=messages,
             num_retries=3,
@@ -441,43 +461,22 @@ class ConversationSimulator:
         turn: int,
         **context,
     ) -> tuple[dict[str, Any], str | None]:
-        # Use set_prediction_context to tag the trace with a custom request_id, similar to how
-        # the evaluation harness does it. This approach is reliable in multi-threaded contexts
-        # because it uses ContextVar which properly propagates to the tracing system.
-        from mlflow.pyfunc.context import Context, set_prediction_context
-        from mlflow.tracing.provider import is_tracing_enabled
+        @mlflow.trace(name=f"simulation_turn_{turn}", span_type="CHAIN")
+        def traced_predict(input: list[dict[str, Any]], **ctx):
+            mlflow.update_current_trace(
+                metadata={
+                    TraceMetadataKey.TRACE_SESSION: trace_session_id,
+                    "mlflow.simulation.goal": goal[:_MAX_METADATA_LENGTH],
+                    "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[
+                        :_MAX_METADATA_LENGTH
+                    ],
+                    "mlflow.simulation.turn": str(turn),
+                },
+            )
+            return predict_fn(input=input, **ctx)
 
-        request_id = str(uuid.uuid4())
-        trace_id = None
-
-        # Ensure tracing is enabled before starting the span. The @trace_disabled decorator
-        # on _invoke_model uses global state, which can cause race conditions in threaded contexts.
-        # We explicitly check and re-enable if needed.
-        if not is_tracing_enabled():
-            mlflow.tracing.enable()
-
-        with set_prediction_context(Context(request_id=request_id, is_evaluate=True)):
-            with mlflow.start_span(name=f"simulation_turn_{turn}", span_type="CHAIN") as span:
-                # Capture trace_id directly from the span object
-                span_trace_id = span.request_id
-                # Filter out no-op span trace IDs that indicate tracing was disabled
-                if span_trace_id and span_trace_id != "MLFLOW_NO_OP_SPAN_TRACE_ID":
-                    trace_id = span_trace_id
-                    span.set_inputs({"input": input_messages, **context})
-                    mlflow.update_current_trace(
-                        metadata={
-                            TraceMetadataKey.TRACE_SESSION: trace_session_id,
-                            "mlflow.simulation.goal": goal[:_MAX_METADATA_LENGTH],
-                            "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[
-                                :_MAX_METADATA_LENGTH
-                            ],
-                            "mlflow.simulation.turn": str(turn),
-                        },
-                    )
-                response = predict_fn(input=input_messages, **context)
-                if trace_id:
-                    span.set_outputs(response)
-
+        response = traced_predict(input=input_messages, **context)
+        trace_id = mlflow.get_last_active_trace_id(thread_local=True)
         return response, trace_id
 
     def _check_goal_achieved(
@@ -497,7 +496,7 @@ class ConversationSimulator:
         messages = [ChatMessage(role="user", content=eval_prompt)]
 
         try:
-            text_result = _invoke_model(
+            text_result = _invoke_model_without_tracing(
                 model_uri=self.user_model,
                 messages=messages,
                 num_retries=3,
