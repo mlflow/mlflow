@@ -2163,16 +2163,16 @@ def test_gateway_endpoint_invocation_requires_use_permission(client, monkeypatch
 
     # Upgrade to USE permission
     with User(user1, password1, monkeypatch):
-        _send_rest_tracking_post_request(
-            client.tracking_uri,
-            "/api/3.0/mlflow/gateway/endpoints/permissions/update",
-            json_payload={
+        response = requests.patch(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/permissions/update",
+            json={
                 "endpoint_id": endpoint_id,
                 "username": user2,
                 "permission": "USE",
             },
             auth=(user1, password1),
         )
+        response.raise_for_status()
 
     # User2 can now invoke the endpoint (though it will fail due to invalid API key)
     # We just check that we get past the permission check (403) to a different error
