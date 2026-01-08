@@ -1,6 +1,6 @@
 import { isNil } from 'lodash';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   ApplyDesignSystemContextOverrides,
@@ -76,6 +76,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     saveAssessmentsQuery?: SaveAssessmentsQuery;
   }) => {
     const { theme } = useDesignSystemTheme();
+    const [showAddToEvaluationDatasetModal, setShowAddToEvaluationDatasetModal] = useState(false);
 
     const handleClose = useCallback(() => {
       onChangeEvaluationId(undefined);
@@ -118,7 +119,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
 
     // prettier-ignore
     const {
-      showAddToEvaluationDatasetModal,
+      renderExportTracesToDatasetsModal,
     } = React.useContext(GenAITracesTableContext);
 
     const selectNextEval = useCallback(() => {
@@ -242,7 +243,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
           // Show ModelTraceExplorer only if there is no run to compare to and there's trace data.
           ((shouldFetchTraceBySearchParamId && traceBySearchParamQueryResult?.data) || isSingleTraceView) &&
           !isNil(currentTraceQueryResult.data) ? (
-            <div css={{ height: '100%', marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
+            <div css={{ height: 'calc(100% - 34px)', marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
               {/* prettier-ignore */}
               <ModelTraceExplorerModalBody
                 traceData={currentTraceQueryResult.data}
@@ -297,11 +298,15 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
         selectPreviousEval={selectPreviousEval}
         renderModalTitle={renderModalTitle}
         isLoading={currentTraceQueryResult.isFetching}
-        onAddTraceToEvaluationDatasetClick={() =>
-          showAddToEvaluationDatasetModal?.(evaluation?.currentRunValue ? [evaluation.currentRunValue] : undefined)
-        }
+        onAddTraceToEvaluationDatasetClick={() => setShowAddToEvaluationDatasetModal(true)}
       >
         {content}
+        {renderExportTracesToDatasetsModal?.({
+          experimentId,
+          visible: showAddToEvaluationDatasetModal,
+          setVisible: setShowAddToEvaluationDatasetModal,
+          selectedTraceInfos: evaluation?.currentRunValue?.traceInfo ? [evaluation.currentRunValue.traceInfo] : [],
+        })}
       </WrapperComponent>
     );
   },

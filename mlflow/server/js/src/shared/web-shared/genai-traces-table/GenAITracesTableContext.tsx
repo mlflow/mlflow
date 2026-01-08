@@ -23,12 +23,35 @@ export interface GenAITracesTableContextValue<T> {
    * Provide traces to be added to the dataset. If `undefined` is passed, the modal is closed.
    */
   showAddToEvaluationDatasetModal?: (traces?: RunEvaluationTracesDataEntry[]) => void;
+
+  /**
+   * temporary hack to allow the trace drawer to render
+   * the evaluation dataset modal in its own context.
+   * `showAddToEvaluationDatasetModal` renders the modal
+   * at the trace table root, but unfortunately this
+   * makes it not a child of the trace drawer, causing
+   * issues with interactivity.
+   *
+   * TODO: upgrade design system to use radix-modal to fix
+   */
+  renderExportTracesToDatasetsModal?: ({
+    selectedTraceInfos,
+    experimentId,
+    visible,
+    setVisible,
+  }: {
+    selectedTraceInfos: ModelTraceInfoV3[];
+    experimentId: string;
+    visible: boolean;
+    setVisible: (visible: boolean) => void;
+  }) => React.ReactNode;
 }
 export const GenAITracesTableContext = createContext<GenAITracesTableContextValue<TraceRow>>({
   table: undefined,
   setTable: () => {},
   selectedRowIds: [],
   setSelectedRowIds: () => {},
+  renderExportTracesToDatasetsModal: () => null,
 });
 
 interface GenAITracesTableProviderProps {
@@ -75,12 +98,14 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
       selectedRowIds,
       setSelectedRowIds,
       showAddToEvaluationDatasetModal,
+      renderExportTracesToDatasetsModal,
     }),
     // prettier-ignore
     [
       table,
       selectedRowIds,
       showAddToEvaluationDatasetModal,
+      renderExportTracesToDatasetsModal,
     ],
   );
 

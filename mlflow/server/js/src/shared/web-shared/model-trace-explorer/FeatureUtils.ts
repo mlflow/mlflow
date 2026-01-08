@@ -42,12 +42,12 @@ export const shoudlEnableURLPersistenceForSortAndColumns = () => {
  * A centralized setting enabling the new drawer UI for model trace explorer across the platform.
  */
 export const shouldUseModelTraceExplorerDrawerUI = () => {
-  return false;
+  return true;
 };
 
 export const shouldUseUnifiedModelTraceComparisonUI = () => {
   if (!shouldUseModelTraceExplorerDrawerUI()) {
     return false;
   }
-  return false;
+  return true;
 };

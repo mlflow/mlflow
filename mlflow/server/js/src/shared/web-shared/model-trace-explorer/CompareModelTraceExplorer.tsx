@@ -84,6 +84,11 @@ export const CompareModelTraceExplorerImpl = ({
         value={activeView}
         onValueChange={handleValueChange}
         css={{
+          // this is to remove the margin at the bottom of the <Tabs> component
+          '& > div:nth-of-type(1)': {
+            marginBottom: 0,
+            flexShrink: 0,
+          },
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
