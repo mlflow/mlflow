@@ -39,6 +39,14 @@ tail -f /tmp/mlflow-dev-server.log
 
 This uses `uv` (fast Python package manager) to automatically manage dependencies and run the development environment.
 
+## Debugging
+
+For debugging errors, enable debug logging (must be set before importing mlflow):
+
+```bash
+export MLFLOW_LOGGING_LEVEL=DEBUG
+```
+
 ### Start Development Server with Databricks Backend
 
 To run the MLflow dev server that proxies requests to a Databricks workspace:
@@ -90,8 +98,6 @@ uv run --extra gateway pytest tests/gateway
 (cd mlflow/server/js && yarn test)
 ```
 
-**IMPORTANT**: `uv` may fail initially because the environment has not been set up yet. Follow the instructions to set up the environment and then rerun `uv` as needed.
-
 ### Code Quality
 
 ```bash
@@ -112,9 +118,6 @@ uv run bash dev/mlflow-typo.sh .
 
 # Type checking
 (cd mlflow/server/js && yarn type-check)
-
-# Run all checks
-(cd mlflow/server/js && yarn check-all)
 ```
 
 ### Special Testing
@@ -158,47 +161,25 @@ See `mlflow/server/js/` for frontend development.
 
 ### Committing Changes
 
-**IMPORTANT**: After making your commits, run pre-commit hooks on your PR changes to ensure code quality:
+When committing changes:
+
+- DCO sign-off: All commits MUST use the `-s` flag (otherwise CI will reject them)
+- Co-Authored-By trailer: Include when Claude Code authors or co-authors changes
+- Pre-commit hooks: Run before committing (see [Pre-commit Hooks](#pre-commit-hooks))
 
 ```bash
-# Make your commit first (with DCO sign-off)
-git commit -s -m "Your commit message"
-
-# Then check all files changed in your PR
-uv run pre-commit run --from-ref origin/master --to-ref HEAD
-
-# Re-run pre-commit to verify fixes
-uv run pre-commit run --from-ref origin/master --to-ref HEAD
-
-# Only push once all checks pass
-git push origin <your-branch>
-```
-
-This workflow ensures you only check files you've actually modified in your PR, avoiding false positives from unrelated files.
-
-**IMPORTANT**: You MUST sign all commits with DCO (Developer Certificate of Origin). Always use the `-s` flag. When Claude Code authors or co-authors changes, include the Co-Authored-By trailer:
-
-```bash
-# REQUIRED: Always use -s flag and include Co-Authored-By when Claude helped
+# Commit with required DCO sign-off
 git commit -s -m "Your commit message
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
-# This will NOT work - missing -s flag
-# git commit -m "Your commit message"  ❌
-```
-
-Commits without DCO sign-off will be rejected by CI.
-
-**Frontend Changes**: If your PR touches any code in `mlflow/server/js/`, you MUST run `yarn check-all` before committing:
-
-```bash
-(cd mlflow/server/js && yarn check-all)
+# Push your changes
+git push origin <your-branch>
 ```
 
 ### Creating Pull Requests
 
-Follow [the PR template](./.github/pull_request_template.md) when creating pull requests. Remove any unused checkboxes from the template to keep your PR clean and focused.
+When creating pull requests, read the instructions at the top of [the PR template](./.github/pull_request_template.md) and follow them carefully.
 
 ### Checking CI Status
 

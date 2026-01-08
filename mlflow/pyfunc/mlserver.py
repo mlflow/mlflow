@@ -1,5 +1,6 @@
 import logging
 import os
+import shlex
 
 _logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ def get_cmd(
     model_name: str | None = None,
     model_version: str | None = None,
 ) -> tuple[str, dict[str, str]]:
-    cmd = f"mlserver start {model_uri}"
+    cmd = f"mlserver start {shlex.quote(model_uri)}"
 
     cmd_env = os.environ.copy()
 
