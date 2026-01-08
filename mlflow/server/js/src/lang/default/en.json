@@ -1586,10 +1586,6 @@
     "defaultMessage": "Add tags",
     "description": "Tag assignment modal > Title of the add tags modal"
   },
-  "AGi/De": {
-    "defaultMessage": "Loading traces…",
-    "description": "Loading traces message"
-  },
   "AHRvpU": {
     "defaultMessage": "Pass the function directly to {evaluate}, just like other predefined or LLM-based judges.",
     "description": "Step 3 description for running the judge"

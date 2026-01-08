@@ -4,6 +4,7 @@ import {
   Empty,
   Button,
   PlusIcon,
+  CodeIcon,
   Spacer,
   GavelIcon,
   Typography,
@@ -82,7 +83,7 @@ const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({
               />
             </Button>
             <Button
-              icon={<PlusIcon />}
+              icon={<CodeIcon />}
               componentId={`${COMPONENT_ID_PREFIX}.empty-state-add-custom-code-scorer-button`}
               onClick={onAddCustomCodeScorerClick}
             >
