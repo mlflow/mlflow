@@ -750,18 +750,19 @@ class Scorer(BaseModel):
                 experiment_id=experiment_id,
             )
 
-        # For MLflow backend, temporarily set experiment_id if provided
-        original_exp_id = self._experiment_id
-        if experiment_id is not None:
-            self._experiment_id = experiment_id
-        try:
-            return store.upsert_online_scoring_config(
-                scorer=self,
-                sample_rate=sampling_config.sample_rate,
-                filter_string=sampling_config.filter_string,
-            )
-        finally:
-            self._experiment_id = original_exp_id
+        # For MLflow backend, use provided experiment_id or fall back to scorer's experiment_id
+        exp_id = experiment_id or self._experiment_id
+        if exp_id is None:
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            exp_id = _get_experiment_id()
+
+        return store.upsert_online_scoring_config(
+            scorer=self,
+            experiment_id=exp_id,
+            sample_rate=sampling_config.sample_rate,
+            filter_string=sampling_config.filter_string,
+        )
 
     @experimental(version="3.9.0")
     def update(
@@ -834,18 +835,19 @@ class Scorer(BaseModel):
                 experiment_id=experiment_id,
             )
 
-        # For MLflow backend, temporarily set experiment_id if provided
-        original_exp_id = self._experiment_id
-        if experiment_id is not None:
-            self._experiment_id = experiment_id
-        try:
-            return store.upsert_online_scoring_config(
-                scorer=self,
-                sample_rate=sampling_config.sample_rate,
-                filter_string=sampling_config.filter_string,
-            )
-        finally:
-            self._experiment_id = original_exp_id
+        # For MLflow backend, use provided experiment_id or fall back to scorer's experiment_id
+        exp_id = experiment_id or self._experiment_id
+        if exp_id is None:
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            exp_id = _get_experiment_id()
+
+        return store.upsert_online_scoring_config(
+            scorer=self,
+            experiment_id=exp_id,
+            sample_rate=sampling_config.sample_rate,
+            filter_string=sampling_config.filter_string,
+        )
 
     @experimental(version="3.9.0")
     def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
