@@ -149,14 +149,8 @@ const ExperimentPageTabsImpl = () => {
         inferredExperimentKind={inferredExperimentKind}
         refetchExperiment={refetchExperiment}
         experimentKindSelector={
-          <ExperimentViewHeaderKindSelector
-            value={experimentKind}
-            inferredExperimentKind={inferredExperimentKind}
-            onChange={(kind) => updateExperimentKind({ experimentId, kind })}
-            isUpdating={updatingExperimentKind || inferringExperimentType}
-            key={inferredExperimentKind}
-            readOnly={!canUpdateExperimentKind}
-          />
+          // POC: Hide experiment type selector from header, it's now in the sidebar
+          undefined
         }
       />
       {!shouldEnableExperimentPageSideTabs() && (
@@ -167,14 +161,15 @@ const ExperimentPageTabsImpl = () => {
       )}
       {shouldEnableExperimentPageSideTabs() ? (
         <div css={{ display: 'flex', flex: 1, minWidth: 0, minHeight: 0 }}>
-          {loadingExperiment || inferringExperimentType ? (
+          {/* POC: Hide experiment-level side nav, tabs are now in main sidebar */}
+          {/* {loadingExperiment || inferringExperimentType ? (
             <ExperimentPageSideNavSkeleton />
           ) : (
             <ExperimentPageSideNav
               experimentKind={experimentKind ?? inferredExperimentKind ?? ExperimentKind.CUSTOM_MODEL_DEVELOPMENT}
               activeTab={activeTab}
             />
-          )}
+          )} */}
           <div
             css={{
               display: 'flex',

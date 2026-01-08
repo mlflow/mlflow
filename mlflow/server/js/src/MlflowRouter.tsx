@@ -42,11 +42,11 @@ const MlflowRootRoute = () => {
   const { setIsDarkTheme } = useDarkThemeContext();
   const isDarkTheme = theme.isDarkMode;
 
-  // Hide sidebar if we are in a single experiment page
-  const isSingleExperimentPage = Boolean(experimentId);
-  useEffect(() => {
-    setShowSidebar(!isSingleExperimentPage);
-  }, [isSingleExperimentPage]);
+  // POC: Always show sidebar, including in experiment pages
+  // const isSingleExperimentPage = Boolean(experimentId);
+  // useEffect(() => {
+  //   setShowSidebar(!isSingleExperimentPage);
+  // }, [isSingleExperimentPage]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
