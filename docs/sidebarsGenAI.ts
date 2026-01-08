@@ -380,7 +380,7 @@ const sidebarsGenAI: SidebarsConfig = {
             {
               type: 'doc',
               id: 'eval-monitor/running-evaluation/eval-examples',
-              label: 'Evaluation Examples',
+              label: 'Examples',
             },
             {
               type: 'doc',
