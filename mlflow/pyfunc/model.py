@@ -19,7 +19,6 @@ import pandas as pd
 import yaml
 
 import mlflow.pyfunc
-import mlflow.utils
 from mlflow.entities.span import SpanType
 from mlflow.environment_variables import MLFLOW_LOG_MODEL_COMPRESSION
 from mlflow.exceptions import MlflowException
@@ -73,7 +72,7 @@ from mlflow.types.responses import (
     to_chat_completions_input,
 )
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
     is_in_databricks_serverless_runtime,
@@ -841,7 +840,6 @@ def _maybe_decompress_cloudpickle_load(path, compression):
         return cloudpickle.load(f)
 
 
-@experimental(version="3.0.0")
 class ResponsesAgent(PythonModel, metaclass=ABCMeta):
     """
     A base class for creating ResponsesAgent models. It can be used as a wrapper around any

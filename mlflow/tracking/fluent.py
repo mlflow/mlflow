@@ -7,6 +7,7 @@ import atexit
 import contextlib
 import importlib
 import inspect
+import io
 import logging
 import os
 import threading
@@ -95,7 +96,6 @@ if not IS_TRACING_SDK_ONLY:
 
 
 if TYPE_CHECKING:
-    import matplotlib
     import matplotlib.figure
     import numpy
     import pandas
@@ -1640,6 +1640,38 @@ def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: str | None 
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
 
 
+@experimental(version="3.9.0")
+def log_stream(
+    stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str, run_id: str | None = None
+) -> None:
+    """
+    Log a binary file-like object (e.g., ``io.BytesIO``) as an artifact.
+
+    Args:
+        stream: A binary file-like object supporting ``.read()`` method (e.g., ``io.BytesIO``).
+        artifact_file: The run-relative artifact file path in posixpath format to which
+            the stream content is saved (e.g. "dir/file.bin").
+        run_id: If specified, log the artifact to the specified run. If not specified, log the
+            artifact to the currently active run.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import io
+
+        import mlflow
+
+        with mlflow.start_run():
+            # Log a BytesIO stream
+            bytes_stream = io.BytesIO(b"binary content")
+            mlflow.log_stream(bytes_stream, "binary_file.bin")
+
+    """
+    run_id = run_id or _get_or_start_run().info.run_id
+    MlflowClient().log_stream(run_id, stream, artifact_file)
+
+
 def log_figure(
     figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"],
     artifact_file: str,
@@ -2226,7 +2258,6 @@ def delete_experiment(experiment_id: str) -> None:
     MlflowClient().delete_experiment(experiment_id)
 
 
-@experimental(version="3.0.0")
 def initialize_logged_model(
     name: str | None = None,
     source_run_id: str | None = None,
@@ -2415,7 +2446,6 @@ def _create_logged_model(
     )
 
 
-@experimental(version="3.0.0")
 def log_model_params(params: dict[str, str], model_id: str | None = None) -> None:
     """
     Log params to the specified logged model.
@@ -2447,7 +2477,6 @@ def log_model_params(params: dict[str, str], model_id: str | None = None) -> Non
     MlflowClient().log_model_params(model_id, params)
 
 
-@experimental(version="3.0.0")
 def finalize_logged_model(
     model_id: str, status: Literal["READY", "FAILED"] | LoggedModelStatus
 ) -> LoggedModel:
@@ -2480,7 +2509,6 @@ def finalize_logged_model(
     return MlflowClient().finalize_logged_model(model_id, status)
 
 
-@experimental(version="3.0.0")
 def get_logged_model(model_id: str) -> LoggedModel:
     """
     Get a logged model by ID.
@@ -2512,7 +2540,6 @@ def get_logged_model(model_id: str) -> LoggedModel:
     return MlflowClient().get_logged_model(model_id)
 
 
-@experimental(version="3.0.0")
 def last_logged_model() -> LoggedModel | None:
     """
     Fetches the most recent logged model in the current session.
@@ -2564,7 +2591,6 @@ def search_logged_models(
 ) -> list[LoggedModel]: ...
 
 
-@experimental(version="3.0.0")
 def search_logged_models(
     experiment_ids: list[str] | None = None,
     filter_string: str | None = None,
@@ -2708,7 +2734,6 @@ def search_logged_models(
         )
 
 
-@experimental(version="3.0.0")
 def log_outputs(models: list[LoggedModelOutput] | None = None):
     """
     Log outputs, such as models, to the active run. If there is no active run, a new run will be

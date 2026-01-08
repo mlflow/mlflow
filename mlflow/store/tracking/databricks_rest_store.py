@@ -531,6 +531,8 @@ class DatabricksTracingRestStore(RestStore):
         _logger.debug(f"Unlinked experiment {experiment_id} from trace location: {location}")
 
     def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
+        _logger.debug(f"Logging {len(spans)} spans to {location}")
+
         if not spans:
             return []
 

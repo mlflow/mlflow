@@ -95,7 +95,30 @@ export type ModelTraceSpanV3 = {
   type?: ModelSpanType;
 };
 
-export type ModelTraceSpan = ModelTraceSpanV2 | ModelTraceSpanV3;
+export type ModelTraceSpanV4 = {
+  trace_id: string;
+  span_id: string;
+  // can be empty or null
+  parent_span_id: string | null;
+  name: string;
+  kind: string;
+  start_time_unix_nano: string;
+  end_time_unix_nano: string;
+  attributes: Array<{
+    key: string;
+    value: {
+      string_value?: string;
+      int_value?: number;
+      bool_value?: boolean;
+    };
+  }>;
+  status: { code: ModelSpanStatusCode };
+  events?: ModelTraceEvent[];
+  /* metadata for ui usage logging */
+  type?: ModelSpanType;
+};
+
+export type ModelTraceSpan = ModelTraceSpanV2 | ModelTraceSpanV3 | ModelTraceSpanV4;
 
 export type ModelTraceEvent = {
   name: string;
@@ -342,6 +365,7 @@ export type ModelTraceChatMessage = {
   content?: string | null;
   tool_calls?: ModelTraceToolCall[];
   tool_call_id?: string;
+  reasoning?: string | null;
 };
 
 // The actual chat message schema of mlflow contains string, null and content part list.

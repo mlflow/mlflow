@@ -4,57 +4,145 @@ sidebar_label: OpenAI
 ---
 
 import useBaseUrl from '@docusaurus/useBaseUrl';
+import { Users, BookOpen, Scale } from "lucide-react";
 
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
+import StepHeader from "@site/src/components/StepHeader";
+import ServerSetup from "@site/src/content/setup_server_slim.mdx";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
 
 # Tracing OpenAI
 
-<video src={useBaseUrl("/images/llms/tracing/openai-tracing.mp4")} controls loop autoPlay muted aria-label="OpenAI Tracing via autolog" />
+<video src={useBaseUrl("/images/llms/tracing/openai-tracing.mp4")} controls loop autoPlay muted aria-label="OpenAI Tracing via autolog" className="rounded-lg shadow-lg mb-8" />
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for OpenAI. By enabling auto tracing
 for OpenAI by calling the <APILink fn="mlflow.openai.autolog" /> function, MLflow will capture traces for LLM invocation and log them to the active MLflow Experiment. In Typescript, you can instead use the `tracedOpenAI` function to wrap the OpenAI client.
-
-<TabsWrapper>
-<Tabs>
-  <TabItem value="python" label="Python" default>
-    ```python
-    import mlflow
-
-    mlflow.openai.autolog()
-    ```
-
-</TabItem>
-<TabItem value="typescript" label="JS / TS">
-    ```typescript
-    import { OpenAI } from "openai";
-    import { tracedOpenAI } from "mlflow-openai";
-
-    const client = tracedOpenAI(new OpenAI());
-    ```
-
-</TabItem>
-</Tabs>
-</TabsWrapper>
 
 MLflow trace automatically captures the following information about OpenAI calls:
 
 - Prompts and completion responses
 - Latencies
+- Token usage
 - Model name
 - Additional metadata such as `temperature`, `max_completion_tokens`, if specified.
 - Function calling if returned in the response
 - Built-in tools such as web search, file search, computer use, etc.
 - Any exception if raised
+- and more...
 
-:::tip
+## Getting Started
 
-MLflow OpenAI integration is not only about tracing. MLflow offers full tracking experience for OpenAI, including model tracking, prompt management, and evaluation. Please checkout the **[MLflow OpenAI Flavor](/genai/flavors/openai)** to learn more!
+<StepHeader number={1} title="Install Dependencies" />
 
-:::
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
+```bash
+pip install mlflow openai
+```
+</TabItem>
+<TabItem value="typescript" label="JS / TS">
+```bash
+npm install mlflow-openai openai
+```
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+<StepHeader number={2} title="Start MLflow Server" />
+
+<ServerSetup />
+
+<StepHeader number={3} title="Enable Tracing and Make API Calls" />
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="chat" label="Chat Completion API" default>
+
+    Enable tracing with `mlflow.openai.autolog()` and make API calls as usual.
+
+    ```python
+    import openai
+    import mlflow
+
+    # Enable auto-tracing for OpenAI
+    mlflow.openai.autolog()
+
+    # Set a tracking URI and an experiment
+    mlflow.set_tracking_uri("http://localhost:5000")
+    mlflow.set_experiment("OpenAI")
+
+    # Invoke the OpenAI model as usual
+    client = openai.OpenAI()
+    response = client.chat.completions.create(
+        model="o4-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful weather assistant."},
+            {"role": "user", "content": "What is the capital of France?"},
+        ],
+        max_completion_tokens=100,
+    )
+    ```
+
+  </TabItem>
+  <TabItem value="responses" label="Responses API">
+    Enable tracing with `mlflow.openai.autolog()` and make API calls as usual.
+
+    ```python
+    import openai
+    import mlflow
+
+    # Enable auto-tracing for OpenAI
+    mlflow.openai.autolog()
+
+    # Optional: Set a tracking URI and an experiment
+    mlflow.set_tracking_uri("http://localhost:5000")
+    mlflow.set_experiment("OpenAI")
+
+    openai_client = openai.OpenAI()
+
+    response = client.responses.create(
+        model="o4-mini", input="What is the capital of France?"
+    )
+    ```
+
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+    Wrap the OpenAI client with the `tracedOpenAI` function and make API calls as usual.
+
+    ```typescript
+    import { OpenAI } from "openai";
+    import { tracedOpenAI } from "mlflow-openai";
+
+    // Wrap the OpenAI client with the tracedOpenAI function
+    const client = tracedOpenAI(new OpenAI());
+
+    // Invoke the client as usual
+    const response = await client.chat.completions.create({
+        model: "o4-mini",
+        messages: [
+            {"role": "system", "content": "You are a helpful weather assistant."},
+            {"role": "user", "content": "What's the weather like in Seattle?"},
+        ],
+    })
+    ```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+<StepHeader number={4} title="View Traces in MLflow UI" />
+
+Browse to the MLflow UI at http://localhost:5000 (or your MLflow server URL) and you should see the traces for the OpenAI API calls.
+
+<ImageBox src="/images/llms/tracing/basic-openai-trace.png" alt="OpenAI Tracing" />
+
+→ View [Next Steps](#next-steps) for learning about more MLflow features like user feedback tracking, prompt management, and evaluation.
 
 ## Supported APIs
 
@@ -83,79 +171,6 @@ See [OpenAI Agents SDK Tracing](/genai/tracing/integrations/listing/openai-agent
 | Normal | Async |
 | :----: | :---: |
 |   ✅   |  ✅   |
-
-## Basic Example
-
-<Tabs>
-  <TabItem value="chat" label="Chat Completion API" default>
-    ```python
-    import openai
-    import mlflow
-
-    # Enable auto-tracing for OpenAI
-    mlflow.openai.autolog()
-
-    # Optional: Set a tracking URI and an experiment
-    mlflow.set_tracking_uri("http://localhost:5000")
-    mlflow.set_experiment("OpenAI")
-
-    openai_client = openai.OpenAI()
-
-    messages = [
-        {
-            "role": "user",
-            "content": "What is the capital of France?",
-        }
-    ]
-
-    response = openai_client.chat.completions.create(
-        model="o4-mini",
-        messages=messages,
-        max_completion_tokens=100,
-    )
-    ```
-
-  </TabItem>
-  <TabItem value="responses" label="Responses API">
-    ```python
-    import openai
-    import mlflow
-
-    # Enable auto-tracing for OpenAI
-    mlflow.openai.autolog()
-
-    # Optional: Set a tracking URI and an experiment
-    mlflow.set_tracking_uri("http://localhost:5000")
-    mlflow.set_experiment("OpenAI")
-
-    openai_client = openai.OpenAI()
-
-    response = client.responses.create(
-        model="o4-mini", input="What is the capital of France?"
-    )
-    ```
-
-  </TabItem>
-  <TabItem value="typescript" label="JS / TS">
-    ```typescript
-    import { OpenAI } from "openai";
-    import { tracedOpenAI } from "mlflow-openai";
-
-    // Wrap the OpenAI client with the tracedOpenAI function
-    const client = tracedOpenAI(new OpenAI());
-
-    // Invoke the client as usual
-    const response = await client.chat.completions.create({
-        model: "o4-mini",
-        messages: [
-            {"role": "system", "content": "You are a helpful weather assistant."},
-            {"role": "user", "content": "What's the weather like in Seattle?"},
-        ],
-    })
-    ```
-
-  </TabItem>
-</Tabs>
 
 ## Streaming
 
@@ -271,13 +286,13 @@ MLflow Tracing supports asynchronous API of the OpenAI SDK since MLflow 2.21.0. 
   </TabItem>
 </Tabs>
 
-## Function Calling
+## Combine with Manual Tracing
 
-MLflow Tracing automatically captures function calling response from OpenAI models. The function instruction in the response will be highlighted in the trace UI. Moreover, you can annotate the tool function with the `@mlflow.trace` decorator to create a span for the tool execution.
+To control the tracing behavior more precisely, MLflow provides [Manual Tracing SDK](/genai/tracing/app-instrumentation/manual-tracing) to create spans for your custom code. Manual tracing can be used in conjunction with auto-tracing to create a custom trace while keeping the auto-tracing convenience.
+
+The following example shows how to combine auto-tracing and manual tracing to create a function calling agent. MLflow Tracing automatically captures function calling response from OpenAI models. The function instruction in the response will be highlighted in the trace UI. The `@mlflow.trace` decorator from manual tracing SDK is applied to the tool function (`get_weather`) and the parent agent function (`run_tool_agent`) to create a complete trace for the agent execution.
 
 <ImageBox src="/images/llms/tracing/openai-function-calling.png" alt="OpenAI Function Calling Trace" />
-
-The following example implements a simple function calling agent using OpenAI Function Calling and MLflow Tracing for OpenAI.
 
 <Tabs>
   <TabItem value="chat" label="Chat Completion API" default>
@@ -451,8 +466,11 @@ The following example implements a simple function calling agent using OpenAI Fu
 
 ## Token usage
 
-MLflow >= 3.1.0 supports token usage tracking for OpenAI. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
-available in the `token_usage` field of the trace info object.
+MLflow automatically tracks the token usage for each LLM call. You can view the detailed token usage in the trace UI as follows:
+
+<ImageBox src="/images/llms/tracing/openai-token-usage.png" alt="OpenAI Token Usage" />
+
+To retrieve the token usage information programmatically, the `mlflow.chat.tokenUsage` attribute in the span object records the token usage for each LLM call. The total token usage throughout the trace will be available in the `token_usage` field of the trace info object.
 
 <Tabs>
   <TabItem value="python" label="Python" default>
@@ -537,7 +555,7 @@ Completions_2:
   Total tokens: 47
 ```
 
-### Supported APIs:
+#### Supported APIs:
 
 Token usage tracking is supported for the following OpenAI APIs:
 
@@ -552,3 +570,35 @@ Token usage tracking is supported for the following OpenAI APIs:
 ## Disable auto-tracing
 
 Auto tracing for OpenAI can be disabled globally by calling `mlflow.openai.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
+
+## Next steps
+
+<TilesGrid>
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Track User Feedback"
+    description="Record user feedback on traces for tracking user satisfaction."
+    href="/genai/tracing/collect-user-feedback"
+    linkText="Learn about feedback →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Manage Prompts"
+    description="Learn how to manage prompts with MLflow's prompt registry."
+    href="/genai/prompt-registry"
+    linkText="Manage prompts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Evaluate Traces"
+    description="Evaluate traces with LLM judges to understand and improve your AI application's behavior."
+    href="/genai/eval-monitor/running-evaluation/traces"
+    linkText="Evaluate traces →"
+    containerHeight={64}
+  />
+</TilesGrid>

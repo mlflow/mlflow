@@ -248,7 +248,9 @@ def _wrap_function(
             # we return control to the coro (in particular, so that the __exit__'s
             # of start_span and OTel's use_span can execute).
             if exc_type is not None:
-                self.coro.throw(exc_type, exc_value, traceback)
+                if exc_value is None:
+                    exc_value = exc_type()
+                self.coro.throw(exc_value)
             self.coro.close()
 
     if inspect.iscoroutinefunction(fn):
@@ -1477,7 +1479,7 @@ def _merge_trace(
     with trace_manager.get_trace(target_trace_id) as parent_trace:
         # Order of merging is important to ensure the parent trace's metadata is
         # not overwritten by the child trace's metadata if they have the same key.
-        parent_trace.info.tags = {**trace.info.tags, **parent_trace.info.tags}
+        parent_trace.info.tags = trace.info.tags | parent_trace.info.tags
         parent_trace.info.trace_metadata = {
             **trace.info.request_metadata,
             **parent_trace.info.trace_metadata,

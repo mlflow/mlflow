@@ -7,30 +7,54 @@ import {
   type ModelTraceInfoV3,
   type Assessment,
   type ExpectationAssessment,
+  TracesServiceV4,
+  TracesServiceV3,
+  isV4TraceId,
 } from '@databricks/web-shared/model-trace-explorer';
+import {
+  getSpansLocation,
+  TRACKING_STORE_SPANS_LOCATION,
+} from '../../shared/web-shared/genai-traces-table/utils/TraceUtils';
+import { getExperimentTraceV3 } from '../../shared/web-shared/model-trace-explorer/api';
+import { getSpanAttribute } from '@databricks/web-shared/genai-traces-table';
 
-/**
- * Fetches trace information and data for a given trace ID.
- *
- * @param traceId - The ID of the trace to fetch
- * @returns Promise resolving to ModelTrace object or undefined if trace cannot be fetched
- */
-export async function getTrace(traceId?: string, traceInfo?: ModelTrace['info']): Promise<ModelTrace | undefined> {
+export async function getTrace(
+  traceId?: string,
+  traceInfo?: ModelTrace['info'],
+  // prettier-ignore
+): Promise<ModelTrace | undefined> {
   if (!traceId) {
     return undefined;
   }
 
-  const [traceInfoResponse, traceData] = await Promise.all([
-    MlflowService.getExperimentTraceInfoV3(traceId),
-    MlflowService.getExperimentTraceData(traceId),
-  ]);
+  // Check spans location tag to decide the source of span data
+  // If spans are in the tracking store, use V3 get-trace (allow_partial=true)
+  // Otherwise, fall back to artifact route. Currently, tracking store tag is
+  // only set when the backend is OSS SQLAlchemyStore.
+  if (getSpansLocation(traceInfo as ModelTraceInfoV3) === TRACKING_STORE_SPANS_LOCATION) {
+    const traceResp = await getExperimentTraceV3({ traceId });
+    if (traceResp?.trace && traceResp.trace.data) {
+      return {
+        info: traceResp.trace.trace_info || {},
+        data: traceResp.trace.data,
+      };
+    }
+  }
 
-  return traceData
-    ? {
-        info: traceInfoResponse?.trace?.trace_info || {},
-        data: traceData,
-      }
-    : undefined;
+  // v4 trace ID
+  if (isV4TraceId(traceId)) {
+    // prettier-ignore
+    return TracesServiceV4.getTraceV4(
+      traceId,
+    );
+  }
+
+  // v3 trace ID
+  if (traceId.startsWith('tr-')) {
+    return TracesServiceV3.getTraceV3(traceId);
+  }
+
+  return getTraceLegacy(traceId);
 }
 
 /**
@@ -105,8 +129,8 @@ function extractFieldFromSpan(
   }
 
   // V3 format or V2 with attributes - check attributes
-  if (rootSpan.attributes?.[v3AttributeKey] !== undefined) {
-    return ensureString(rootSpan.attributes[v3AttributeKey]);
+  if (getSpanAttribute(rootSpan.attributes, v3AttributeKey) !== undefined) {
+    return ensureString(getSpanAttribute(rootSpan.attributes, v3AttributeKey));
   }
 
   return null;

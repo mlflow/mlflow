@@ -6,6 +6,7 @@ import type { ModelTrace } from './ModelTrace.types';
 import { getModelTraceId, getModelTraceSize } from './ModelTraceExplorer.utils';
 import { ModelTraceExplorerErrorState } from './ModelTraceExplorerErrorState';
 import { ModelTraceExplorerGenericErrorState } from './ModelTraceExplorerGenericErrorState';
+import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
 import { ModelTraceExplorerTraceTooLargeView } from './ModelTraceExplorerTraceTooLargeView';
 import { ModelTraceExplorerViewStateProvider } from './ModelTraceExplorerViewStateContext';
 import { ModelTraceHeaderDetails } from './ModelTraceHeaderDetails';
@@ -26,6 +27,7 @@ export const ModelTraceExplorerImpl = ({
   onSelectSpan,
   collapseAssessmentPane,
   isInComparisonView,
+  showLoadingState,
 }: {
   modelTrace: ModelTrace;
   className?: string;
@@ -38,6 +40,7 @@ export const ModelTraceExplorerImpl = ({
    */
   collapseAssessmentPane?: boolean | 'force-open';
   isInComparisonView?: boolean;
+  showLoadingState?: boolean;
 }) => {
   const [modelTrace, setModelTrace] = useState(initialModelTrace);
   const [forceDisplay, setForceDisplay] = useState(false);
@@ -46,6 +49,7 @@ export const ModelTraceExplorerImpl = ({
   const size = getModelTraceSize(initialModelTrace) ?? 0;
   // always displayable if the feature flag is disabled
   const isDisplayable = shouldBlockLargeTraceDisplay() ? size < getLargeTraceDisplaySizeThreshold() : true;
+  const spanLength = initialModelTrace.data?.spans?.length ?? 0;
   const [assessmentsPaneEnabled, setAssessmentsPaneEnabled] = useState(traceId.startsWith('tr-'));
   const [isMountingTrace, setIsMountingTrace] = useState(true);
 
@@ -63,7 +67,7 @@ export const ModelTraceExplorerImpl = ({
     setIsMountingTrace(true);
     // reset the model trace when the traceId changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [traceId]);
+  }, [traceId, spanLength]);
 
   useEffect(() => {
     if (isMountingTrace && !isFetching) {
@@ -93,16 +97,22 @@ export const ModelTraceExplorerImpl = ({
         initialAssessmentsPaneCollapsed={collapseAssessmentPane}
         isTraceInitialLoading={isTraceInitialLoading}
       >
-        <ModelTraceHeaderDetails modelTraceInfo={modelTrace.info} />
-        {isInComparisonView ? (
-          <ModelTraceExplorerComparisonView modelTraceInfo={modelTrace.info} />
+        {showLoadingState ? (
+          <ModelTraceExplorerSkeleton />
         ) : (
-          <ModelTraceExplorerContent
-            modelTraceInfo={modelTrace.info}
-            className={className}
-            selectedSpanId={selectedSpanId}
-            onSelectSpan={onSelectSpan}
-          />
+          <>
+            <ModelTraceHeaderDetails modelTraceInfo={modelTrace.info} />
+            {isInComparisonView ? (
+              <ModelTraceExplorerComparisonView modelTraceInfo={modelTrace.info} />
+            ) : (
+              <ModelTraceExplorerContent
+                modelTraceInfo={modelTrace.info}
+                className={className}
+                selectedSpanId={selectedSpanId}
+                onSelectSpan={onSelectSpan}
+              />
+            )}
+          </>
         )}
       </ModelTraceExplorerViewStateProvider>
     </ContextProviders>

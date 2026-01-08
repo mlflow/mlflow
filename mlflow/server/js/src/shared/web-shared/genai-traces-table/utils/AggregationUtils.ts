@@ -107,19 +107,21 @@ export function getAssessmentInfos(
       ...retrievalAssessmentsByName,
     ]) {
       assessmentNames.add(assessmentName);
-      const assessment = assessments[0];
       // For string values, if we see a value that is not "yes" or "no", we treat it as a string.
       // This is not a great approach, we should probably actually pass the pass-fail dtype information back somehow.
-      let dtype: AssessmentDType | undefined = !isNil(assessment.stringValue)
-        ? 'pass-fail'
-        : !isNil(assessment.numericValue)
-        ? 'numeric'
-        : !isNil(assessment.booleanValue)
-        ? 'boolean'
-        : undefined;
-
-      if (doesAssessmentContainErrors(assessment)) {
-        dtype = undefined;
+      let dtype: AssessmentDType | undefined;
+      for (const assessment of assessments) {
+        dtype = !isNil(assessment.stringValue)
+          ? 'pass-fail'
+          : !isNil(assessment.numericValue)
+            ? 'numeric'
+            : !isNil(assessment.booleanValue)
+              ? 'boolean'
+              : undefined;
+        // If we found an assessment with a value, use it and stop searching
+        if (dtype !== undefined) {
+          break;
+        }
       }
 
       if (!assessmentDtypes[assessmentName]) {
@@ -130,12 +132,15 @@ export function getAssessmentInfos(
       }
 
       // Treat non-"yes"|"no" as string values.
-      if (
-        dtype === 'pass-fail' &&
-        !isNil(assessment.stringValue) &&
-        !PASS_FAIL_VALUES.includes(assessment.stringValue)
-      ) {
-        assessmentDtypes[assessmentName] = 'string';
+      for (const assessment of assessments) {
+        if (
+          dtype === 'pass-fail' &&
+          !isNil(assessment.stringValue) &&
+          !PASS_FAIL_VALUES.includes(assessment.stringValue)
+        ) {
+          assessmentDtypes[assessmentName] = 'string';
+          break;
+        }
       }
 
       // If the dtype is not the same as the current dtype (meaning there's mixed data types),
@@ -176,8 +181,7 @@ export function getAssessmentInfos(
         ...overallAssessmentsByName.filter(([name]) => name === assessmentName),
         ...retrievalAssessmentsByName.filter(([name]) => name === assessmentName),
       ];
-      // NOTE: We only take the first assessment as row-level judges produce a single assessment.
-      const assessments = assessmentsByName.map(([_, assessments]) => assessments[0]);
+      const assessments = assessmentsByName.flatMap(([_, assessmentArray]) => assessmentArray);
       const assessment: RunEvaluationResultAssessment | undefined = assessments[0];
 
       const isError = doesAssessmentContainErrors(assessment);
@@ -212,20 +216,23 @@ export function getAssessmentInfos(
           assessmentName in KnownEvaluationResultAssessmentValueDescription
             ? intl.formatMessage(KnownEvaluationResultAssessmentValueDescription[assessmentName])
             : assessment?.source?.sourceType === 'HUMAN'
-            ? intl.formatMessage({
-                defaultMessage: 'This assessment is produced by a human judge.',
-                description: 'Human judge assessment description',
-              })
-            : intl.formatMessage({
-                defaultMessage: 'This assessment is produced by a custom metric.',
-                description: 'Custom judge assessment description',
-              });
-
-        let assessmentValue = assessment ? getEvaluationResultAssessmentValue(assessment) : undefined;
-        if (assessmentValue === null) assessmentValue = undefined;
+              ? intl.formatMessage({
+                  defaultMessage: 'This assessment is produced by a human judge.',
+                  description: 'Human judge assessment description',
+                })
+              : intl.formatMessage({
+                  defaultMessage: 'This assessment is produced by a custom metric.',
+                  description: 'Custom judge assessment description',
+                });
 
         const uniqueValues = new Set<AssessmentValueType>();
-        if (!isError) {
+        // If no assessments exist for this name, add undefined to track missing assessments
+        if (assessments.length === 0) {
+          uniqueValues.add(undefined);
+        }
+        for (const currentAssessment of assessments) {
+          let assessmentValue = currentAssessment ? getEvaluationResultAssessmentValue(currentAssessment) : undefined;
+          if (assessmentValue === null) assessmentValue = undefined;
           uniqueValues.add(assessmentValue);
         }
 
@@ -248,9 +255,13 @@ export function getAssessmentInfos(
         };
       } else {
         const assessmentInfo = assessmentInfos[assessmentName];
-        let value = assessment ? getEvaluationResultAssessmentValue(assessment) : undefined;
-        if (isNil(value)) value = undefined;
-        if (!isError) {
+        // If no assessments exist for this name, add undefined to track missing assessments
+        if (assessments.length === 0) {
+          assessmentInfo.uniqueValues.add(undefined);
+        }
+        for (const currentAssessment of assessments) {
+          let value = currentAssessment ? getEvaluationResultAssessmentValue(currentAssessment) : undefined;
+          if (isNil(value)) value = undefined;
           assessmentInfo.uniqueValues.add(value);
         }
 
@@ -687,6 +698,11 @@ function getAssessmentBarChartValueText(
       return intl.formatMessage({
         defaultMessage: 'False',
         description: 'False assessment label',
+      });
+    } else if (value === ERROR_KEY) {
+      return intl.formatMessage({
+        defaultMessage: 'Error',
+        description: 'The label for an error assessment above a bar-chart in the summary stats.',
       });
     } else {
       return intl.formatMessage({

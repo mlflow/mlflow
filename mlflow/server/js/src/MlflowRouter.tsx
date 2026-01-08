@@ -17,17 +17,9 @@ import { useDarkThemeContext } from './common/contexts/DarkThemeContext';
 import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tracking/route-defs';
 import { getRouteDefs as getModelRegistryRouteDefs } from './model-registry/route-defs';
 import { getRouteDefs as getCommonRouteDefs } from './common/route-defs';
+import { getGatewayRouteDefs } from './gateway/route-defs';
 import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
 import { MlflowSidebar } from './common/components/MlflowSidebar';
-
-/**
- * This is the MLflow default entry/landing route.
- */
-const landingRoute = {
-  path: '/',
-  element: createLazyRouteElement(() => import('./experiment-tracking/components/HomePage')),
-  pageId: 'mlflow.experiments.list',
-};
 
 /**
  * This is root element for MLflow routes, containing app header.
@@ -89,7 +81,12 @@ const MlflowRootRoute = () => {
 export const MlflowRouter = () => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const routes = useMemo(
-    () => [...getExperimentTrackingRouteDefs(), ...getModelRegistryRouteDefs(), landingRoute, ...getCommonRouteDefs()],
+    () => [
+      ...getExperimentTrackingRouteDefs(),
+      ...getModelRegistryRouteDefs(),
+      ...getGatewayRouteDefs(),
+      ...getCommonRouteDefs(),
+    ],
     [],
   );
   // eslint-disable-next-line react-hooks/rules-of-hooks

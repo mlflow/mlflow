@@ -9,6 +9,7 @@ import {
   assessmentValueToSerializedString,
   serializedStringToAssessmentValueV2,
 } from '../../hooks/useAssessmentFilters';
+import { ERROR_KEY } from '../../utils/AggregationUtils';
 import { useExperimentVersionsQuery } from '../../hooks/useExperimentVersionsQuery';
 import { useGenAiExperimentRunsForComparison } from '../../hooks/useGenAiExperimentRunsForComparison';
 import {
@@ -19,8 +20,8 @@ import {
   LINKED_PROMPTS_COLUMN_ID,
   SOURCE_COLUMN_ID,
 } from '../../hooks/useTableColumns';
-import { TracesTableColumnGroup } from '../../types';
 import type { AssessmentInfo, TableFilter, TableFilterOption, TableFilterOptions } from '../../types';
+import { TracesTableColumnGroup } from '../../types';
 import { getAssessmentValueLabel } from '../GenAiEvaluationTracesReview.utils';
 
 export const TableFilterItemValueInput = ({
@@ -132,6 +133,14 @@ export const TableFilterItemValueInput = ({
           renderValue: () => getAssessmentValueLabel(intl, theme, assessmentInfo, value).content,
         };
       });
+
+      // Add Error option when assessment contains errors, similar to how bar charts handle it
+      if (assessmentInfo.containsErrors) {
+        options.push({
+          value: assessmentValueToSerializedString(ERROR_KEY),
+          renderValue: () => getAssessmentValueLabel(intl, theme, assessmentInfo, ERROR_KEY).content,
+        });
+      }
 
       return (
         <TableFilterItemTypeahead

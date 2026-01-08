@@ -24,6 +24,7 @@ from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
+    MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS,
     MLFLOW_GENAI_EVAL_MAX_WORKERS,
 )
 from mlflow.genai.evaluation import context
@@ -302,15 +303,25 @@ def _compute_eval_scores(
     eval_item: EvalItem,
     scorers: list[Scorer],
 ) -> list[Feedback]:
-    """Compute the per-eval-item scores."""
+    """Compute the per-eval-item scores.
+
+    Args:
+        eval_item: The evaluation item containing inputs, outputs, expectations, and trace.
+        scorers: List of scorer instances to run.
+
+    Returns:
+        List of Feedback objects from all scorers.
+    """
     if not scorers:
         return []
+
+    should_trace = MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get()
 
     def run_scorer(scorer):
         try:
             scorer_func = scorer.run
 
-            if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get():
+            if should_trace:
                 scorer_func = mlflow.trace(name=scorer.name, span_type=SpanType.EVALUATOR)(
                     scorer_func
                 )
@@ -337,9 +348,7 @@ def _compute_eval_scores(
             ]
 
         # Record the trace ID for the scorer function call.
-        if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get() and (
-            trace_id := mlflow.get_last_active_trace_id(thread_local=True)
-        ):
+        if should_trace and (trace_id := mlflow.get_last_active_trace_id(thread_local=True)):
             for feedback in feedbacks:
                 feedback.metadata = {
                     **(feedback.metadata or {}),
@@ -354,8 +363,10 @@ def _compute_eval_scores(
         return feedbacks
 
     # Use a thread pool to run scorers in parallel
+    # Limit concurrent scorers to prevent rate limiting errors with external LLM APIs
+    max_scorer_workers = min(len(scorers), MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS.get())
     with ThreadPoolExecutor(
-        max_workers=len(scorers),
+        max_workers=max_scorer_workers,
         thread_name_prefix="MlflowGenAIEvalScorer",
     ) as executor:
         futures = [executor.submit(run_scorer, scorer) for scorer in scorers]

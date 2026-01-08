@@ -144,16 +144,34 @@ class ChatTool(BaseModel):
     function: FunctionToolDefinition | None = None
 
 
+class ResponseFormat(BaseModel):
+    """
+    Response format configuration for structured outputs.
+
+    Supported formats: {"type": "json_schema", "json_schema": {...}}.
+
+    The schema should follow JSON Schema specification.
+    """
+
+    type: Literal["text", "json_object", "json_schema"]
+    json_schema: dict[str, Any] | None = None
+
+
 class BaseRequestPayload(BaseModel):
     """Common parameters used for chat completions and completion endpoints."""
 
-    temperature: float = Field(0.0, ge=0, le=2)
     n: int = Field(1, ge=1)
     stop: list[str] | None = Field(None, min_length=1)
     max_tokens: int | None = Field(None, ge=1)
     stream: bool | None = None
     stream_options: dict[str, Any] | None = None
     model: str | None = None
+    response_format: ResponseFormat | None = None
+    temperature: float | None = Field(None, ge=0, le=2)
+    top_p: float | None = Field(None, ge=0, le=1)
+    presence_penalty: float | None = Field(None, ge=-2, le=2)
+    frequency_penalty: float | None = Field(None, ge=-2, le=2)
+    top_k: int | None = Field(None, ge=1)
 
 
 # NB: For interface constructs that rely on other BaseModel implementations, in

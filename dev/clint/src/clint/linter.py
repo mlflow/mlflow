@@ -705,6 +705,18 @@ class Linter(ast.NodeVisitor):
                 if alias.name.split(".")[-1] == "set_active_model":
                     self._check_forbidden_set_active_model_usage(node)
 
+        # Check for forbidden make_judge import in builtin_scorers.py
+        if self.path.name == "builtin_scorers.py" and node.module:
+            for alias in node.names:
+                if alias.name == "make_judge" and (
+                    node.module == "mlflow.genai.judges.make_judge"
+                    or node.module.endswith(".make_judge")
+                ):
+                    self._check(
+                        Range.from_node(node),
+                        rules.ForbiddenMakeJudgeInBuiltinScorers(),
+                    )
+
         self.generic_visit(node)
 
     def _check_forbidden_top_level_import(
@@ -750,6 +762,9 @@ class Linter(ast.NodeVisitor):
 
         if rules.ForbiddenSetActiveModelUsage.check(node, self.resolver):
             self._check(Range.from_node(node), rules.ForbiddenSetActiveModelUsage())
+
+        if rules.ForbiddenMakeJudgeInBuiltinScorers.check(node, self.resolver, self.path):
+            self._check(Range.from_node(node), rules.ForbiddenMakeJudgeInBuiltinScorers())
 
         if expr := rules.ForbiddenDeprecationWarning.check(node, self.resolver):
             self._check(Range.from_node(expr), rules.ForbiddenDeprecationWarning())
@@ -801,6 +816,11 @@ class Linter(ast.NodeVisitor):
     def visit_Delete(self, node: ast.Delete) -> None:
         if self._is_in_test() and rules.OsEnvironDeleteInTest.check(node, self.resolver):
             self._check(Range.from_node(node), rules.OsEnvironDeleteInTest())
+        self.generic_visit(node)
+
+    def visit_Dict(self, node: ast.Dict) -> None:
+        if rules.PreferDictUnion.check(node):
+            self._check(Range.from_node(node), rules.PreferDictUnion())
         self.generic_visit(node)
 
     def visit_Compare(self, node: ast.Compare) -> None:

@@ -1,5 +1,5 @@
 import { values, isString } from 'lodash';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
 
@@ -28,14 +28,6 @@ import {
 const LEFT_PANE_MIN_WIDTH_LARGE_SPACINGS = 7;
 const LEFT_PANE_HEADER_MIN_WIDTH_PX = 275;
 
-const getDefaultSplitRatio = (): number => {
-  if (window.innerWidth <= 768) {
-    return 0.33;
-  }
-
-  return 0.25;
-};
-
 export const ModelTraceExplorerDetailView = ({
   modelTraceInfo,
   className,
@@ -48,24 +40,32 @@ export const ModelTraceExplorerDetailView = ({
   onSelectSpan?: (selectedSpanId?: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const initialRatio = getDefaultSplitRatio();
   const paneRef = useRef<ModelTraceExplorerResizablePaneRef>(null);
   const [paneWidth, setPaneWidth] = useState(500);
 
   const {
-    rootNode: treeNode,
     selectedNode,
     setSelectedNode,
     activeTab,
     setActiveTab,
     isInComparisonView,
+    updatePaneSizeRatios,
+    getPaneSizeRatios,
+    topLevelNodes,
   } = useModelTraceExplorerViewState();
 
   const { expandedKeys, setExpandedKeys } = useTimelineTreeExpandedNodes({
-    rootNodes: treeNode ? [treeNode] : [],
+    rootNodes: topLevelNodes,
     // nodes beyond this depth will be collapsed
     initialExpandDepth: DEFAULT_EXPAND_DEPTH,
   });
+
+  const onSizeRatioChange = useCallback(
+    (ratio: number) => {
+      updatePaneSizeRatios({ detailsPane: ratio });
+    },
+    [updatePaneSizeRatios],
+  );
 
   const {
     matchData,
@@ -77,7 +77,7 @@ export const ModelTraceExplorerDetailView = ({
     handleNextSearchMatch,
     handlePreviousSearchMatch,
   } = useModelTraceSearch({
-    treeNode,
+    treeNodes: topLevelNodes,
     selectedNode,
     setSelectedNode,
     setActiveTab,
@@ -108,6 +108,17 @@ export const ModelTraceExplorerDetailView = ({
     return Math.max(LEFT_PANE_HEADER_MIN_WIDTH_PX, minWidthForSpans);
   }, [filteredTreeNodes, theme.spacing.lg]);
 
+  const { traceStartTime, traceEndTime } = useMemo(() => {
+    if (!topLevelNodes || topLevelNodes.length === 0) {
+      return { traceStartTime: 0, traceEndTime: 0 };
+    }
+
+    const traceStartTime = Math.min(...topLevelNodes.map((node) => node.start));
+    const traceEndTime = Math.max(...topLevelNodes.map((node) => node.end));
+
+    return { traceStartTime, traceEndTime };
+  }, [topLevelNodes]);
+
   return (
     <div
       css={{
@@ -134,9 +145,10 @@ export const ModelTraceExplorerDetailView = ({
       </div>
       <ModelTraceExplorerResizablePane
         ref={paneRef}
-        initialRatio={initialRatio}
+        initialRatio={getPaneSizeRatios().detailsPane}
         paneWidth={paneWidth}
         setPaneWidth={setPaneWidth}
+        onRatioChange={onSizeRatioChange}
         leftChild={
           <div
             css={{
@@ -149,8 +161,8 @@ export const ModelTraceExplorerDetailView = ({
             <TimelineTree
               rootNodes={filteredTreeNodes}
               selectedNode={selectedNode}
-              traceStartTime={treeNode?.start ?? 0}
-              traceEndTime={treeNode?.end ?? 0}
+              traceStartTime={traceStartTime}
+              traceEndTime={traceEndTime}
               setSelectedNode={onSelectNode}
               css={{ flex: 1 }}
               expandedKeys={expandedKeys}

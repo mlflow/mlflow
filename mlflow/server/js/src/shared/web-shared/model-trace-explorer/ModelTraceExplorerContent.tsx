@@ -18,7 +18,7 @@ export const ModelTraceExplorerContent = ({
   onSelectSpan?: (selectedSpanId?: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { activeView, setActiveView } = useModelTraceExplorerViewState();
+  const { activeView, setActiveView, rootNode } = useModelTraceExplorerViewState();
 
   const handleValueChange = useCallback(
     (value: string) => {
@@ -48,12 +48,14 @@ export const ModelTraceExplorerContent = ({
       }}
     >
       <Tabs.List css={{ paddingLeft: theme.spacing.md, flexShrink: 0 }}>
-        <Tabs.Trigger value="summary">
-          <FormattedMessage
-            defaultMessage="Summary"
-            description="Label for the summary view tab in the model trace explorer"
-          />
-        </Tabs.Trigger>
+        {rootNode && (
+          <Tabs.Trigger value="summary">
+            <FormattedMessage
+              defaultMessage="Summary"
+              description="Label for the summary view tab in the model trace explorer"
+            />
+          </Tabs.Trigger>
+        )}
         <Tabs.Trigger value="detail">
           <FormattedMessage
             defaultMessage="Details & Timeline"

@@ -20,7 +20,7 @@ from mlflow.entities import (
     TraceData,
     TraceInfo,
 )
-from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
@@ -36,7 +36,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.destination import MlflowExperiment
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import _get_tracer, set_destination
+from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, _get_tracer, set_destination
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -911,7 +911,7 @@ def test_search_traces(return_type, mock_client):
     )
 
     traces = mlflow.search_traces(
-        experiment_ids=["1"],
+        locations=["1"],
         filter_string="name = 'foo'",
         max_results=10,
         order_by=["timestamp DESC"],
@@ -971,7 +971,7 @@ def test_search_traces_with_pagination(mock_client):
         PagedList(traces[20:], token=None),
     ]
 
-    traces = mlflow.search_traces(experiment_ids=["1"])
+    traces = mlflow.search_traces(locations=["1"])
 
     assert len(traces) == 30
     common_args = {
@@ -1253,7 +1253,7 @@ def test_search_traces_with_run_id():
         )
 
     with pytest.raises(MlflowException, match=f"Run {run1.info.run_id} belongs to"):
-        mlflow.search_traces(run_id=run1.info.run_id, experiment_ids=["1"])
+        mlflow.search_traces(run_id=run1.info.run_id, locations=["1"])
 
 
 @pytest.mark.parametrize(
@@ -2216,6 +2216,7 @@ def test_search_traces_with_locations(mock_client):
     assert call_kwargs.get("experiment_ids") is None
 
 
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_search_traces_experiment_ids_deprecation_warning(mock_client):
     mock_client.search_traces.return_value = PagedList([], token=None)
 
@@ -2357,6 +2358,15 @@ async def test_set_destination_in_async_contexts(async_logging_enabled):
         assert len(traces) == 1
         assert traces[0].info.experiment_id == exp_id
         assert len(traces[0].data.spans) == 2
+
+
+def test_set_destination_from_env_var_databricks_uc(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema")
+    destination = _MLFLOW_TRACE_USER_DESTINATION.get()
+    assert isinstance(destination, UCSchemaLocation)
+    assert destination.catalog_name == "catalog"
+    assert destination.schema_name == "schema"
+    assert mlflow.get_tracking_uri() == "databricks"
 
 
 @skip_when_testing_trace_sdk

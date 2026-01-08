@@ -16,6 +16,7 @@ import { getDisplayScore, getDisplayScoreChange } from '../../utils/DisplayUtils
 const MAX_VISIBLE_ITEMS = 4;
 
 export const CategoricalAggregateChart = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     theme,
     intl,
@@ -202,16 +203,15 @@ const ChartRow = ({
       <tr
         key={barData.name}
         css={{
-          // filtering by error is not currently supported
-          cursor: barData.name !== ERROR_KEY ? 'pointer' : 'not-allowed',
+          cursor: 'pointer',
           ':hover': {
             backgroundColor: hoverBarColor,
           },
-          color: barData.name === ERROR_KEY ? theme.colors.textValidationWarning : theme.colors.textSecondary,
+          color: isError ? theme.colors.textValidationWarning : theme.colors.textSecondary,
           fontWeight: 'normal',
           fontSize: theme.typography.fontSizeSm,
         }}
-        onClick={barData.name !== ERROR_KEY ? barData.current.toggleFilter : undefined}
+        onClick={barData.current.toggleFilter}
       >
         <td
           css={{

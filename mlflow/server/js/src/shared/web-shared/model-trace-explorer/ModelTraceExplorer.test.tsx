@@ -21,6 +21,8 @@ import {
   MOCK_SPAN_ASSESSMENT,
   MOCK_TRACE,
   MOCK_V3_TRACE,
+  MOCK_TRACE_INFO_V3,
+  MOCK_V3_SPANS,
 } from './ModelTraceExplorer.test-utils';
 import { AssessmentSchemaContextProvider } from './contexts/AssessmentSchemaContext';
 
@@ -378,5 +380,45 @@ describe('ModelTraceExplorer', () => {
     await userEvent.click(factsItem);
     expect(typeahead).toHaveValue('expected_facts');
     expect(screen.getByTestId('assessment-value-json-input')).toBeInTheDocument();
+  });
+
+  it('should render in-progress traces with multiple top-level spans', async () => {
+    // Create an in-progress trace where the root span hasn't been emitted yet
+    const inProgressTrace = {
+      ...MOCK_V3_TRACE,
+      info: {
+        ...MOCK_TRACE_INFO_V3,
+        state: 'IN_PROGRESS',
+      },
+      data: {
+        spans: [
+          // Two spans with parent span ID pointing to the root span not being emitted yet
+          {
+            ...MOCK_V3_SPANS[1],
+            parent_span_id: 'non-existing-parent-span-id',
+          },
+          {
+            ...MOCK_V3_SPANS[2],
+            parent_span_id: 'non-existing-parent-span-id',
+          },
+        ],
+      },
+    };
+
+    render(<TestComponent modelTrace={inProgressTrace} />);
+
+    // Both top-level spans should be visible in the tree
+    const spanElements = await screen.findAllByText('document-qa-chain');
+    expect(spanElements.length).toBeGreaterThanOrEqual(1);
+
+    expect(screen.getByText('rephrase_chat_to_queue')).toBeInTheDocument();
+
+    // Should be able to select and view each span independently
+    await userEvent.click(screen.getByText('rephrase_chat_to_queue'));
+    expect(await screen.findByText('rephrase_chat_to_queue-input')).toBeInTheDocument();
+
+    // Switch to the other top-level span
+    await userEvent.click(spanElements[0]);
+    expect(await screen.findByText('rephrase_chat_to_queue-input')).toBeInTheDocument();
   });
 });

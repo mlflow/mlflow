@@ -16,6 +16,7 @@ export const FeedbackValueGroup = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const [expanded, setExpanded] = useState(false);
+  const assessmentName = feedbacks[0]?.assessment_name;
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
@@ -27,7 +28,7 @@ export const FeedbackValueGroup = ({
           icon={expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
           onClick={() => setExpanded(!expanded)}
         />
-        <AssessmentDisplayValue jsonValue={jsonValue} />
+        <AssessmentDisplayValue jsonValue={jsonValue} assessmentName={assessmentName} />
         <FeedbackValueGroupSourceCounts feedbacks={feedbacks} />
       </div>
       {expanded && (

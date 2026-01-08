@@ -1,20 +1,27 @@
 import { isNil, uniq } from 'lodash';
 
-import { getAssessmentValue, ModelTraceSpanType } from '@databricks/web-shared/model-trace-explorer';
 import type {
   Assessment,
   ExpectationAssessment,
   FeedbackAssessment,
   ModelTrace,
+  ModelTraceSpan,
   ModelTraceInfoV3,
   RetrieverDocument,
 } from '@databricks/web-shared/model-trace-explorer';
+import {
+  createTraceV4LongIdentifier,
+  getAssessmentValue,
+  isSessionLevelAssessment,
+  ModelTraceSpanType,
+} from '@databricks/web-shared/model-trace-explorer';
 
+import { doesTraceSupportV4API } from './TraceLocationUtils';
 import {
   MLFLOW_ASSESSMENT_SOURCE_RUN_ID,
   MLFLOW_TRACE_SOURCE_SCORER_NAME_TAG,
 } from '../../model-trace-explorer/constants';
-import { stringifyValue } from '../components/GenAiEvaluationTracesReview.utils';
+import { stringifyValue, tryExtractUserMessageContent } from '../components/GenAiEvaluationTracesReview.utils';
 import { KnownEvaluationResultAssessmentName } from '../enum';
 import { CUSTOM_METADATA_COLUMN_ID, TAGS_COLUMN_ID } from '../hooks/useTableColumns';
 import type {
@@ -37,6 +44,9 @@ export const MLFLOW_SOURCE_RUN_KEY = 'mlflow.sourceRun';
 export const MLFLOW_INTERNAL_PREFIX = 'mlflow.';
 
 export const DEFAULT_RUN_PLACEHOLDER_NAME = 'monitor';
+
+const SPANS_LOCATION_TAG_KEY = 'mlflow.trace.spansLocation';
+export const TRACKING_STORE_SPANS_LOCATION = 'TRACKING_STORE';
 
 export const getRowIdFromEvaluation = (evaluation?: RunEvaluationTracesDataEntry) => {
   return evaluation?.evaluationId || '';
@@ -141,6 +151,13 @@ export const getTraceInfoInputs = (traceInfo: ModelTraceInfoV3) => {
 export const getTraceInfoOutputs = (traceInfo: ModelTraceInfoV3) => {
   return traceInfo.response_preview || traceInfo.response || traceInfo.trace_metadata?.['mlflow.traceOutputs'] || '';
 };
+
+/**
+ * Returns the "spans location" tag value if present.
+ */
+export function getSpansLocation(traceInfo?: ModelTraceInfoV3): string | undefined {
+  return traceInfo?.tags?.[SPANS_LOCATION_TAG_KEY] || undefined;
+}
 
 const isExpectationAssessment = (assessment: Assessment): assessment is ExpectationAssessment => {
   return Boolean('expectation' in assessment && assessment.expectation);
@@ -247,6 +264,11 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
       return;
     }
 
+    // Skip assessments that are tied to the session (not the individual trace)
+    if (isSessionLevelAssessment(assessment)) {
+      return;
+    }
+
     if (isExpectationAssessment(assessment)) {
       processExpectationAssessment(assessment, targets);
     } else {
@@ -264,12 +286,14 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
   try {
     inputs = JSON.parse(rawInputs);
 
-    // Try to parse OpenAI messages
+    // Try to parse OpenAI messages first (most common case)
     const messages = inputs['messages'];
     if (Array.isArray(messages) && !isNil(messages[0]?.content)) {
       inputsTitle = messages[messages.length - 1]?.content;
     } else {
-      inputsTitle = stringifyValue(inputs);
+      // Try to extract user message content from various chat formats (openai, langchain, anthropic)
+      const extractedContent = tryExtractUserMessageContent(inputs);
+      inputsTitle = extractedContent ?? stringifyValue(inputs);
     }
   } catch {
     inputs = {
@@ -294,6 +318,7 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
     responseAssessmentsByName,
     metrics: {},
     traceInfo,
+    fullTraceId: createTraceV4LongIdentifier(traceInfo),
   };
 };
 
@@ -358,15 +383,15 @@ export function getRetrievedContextFromTrace(
 
   const retrievalSpans = trace.data.spans.filter(
     (span) =>
-      span.attributes?.['mlflow.spanType'] &&
-      safelyParseValue(span.attributes?.['mlflow.spanType']) === ModelTraceSpanType.RETRIEVER,
+      getSpanAttribute(span.attributes, 'mlflow.spanType') &&
+      safelyParseValue(getSpanAttribute(span.attributes, 'mlflow.spanType') as string) === ModelTraceSpanType.RETRIEVER,
   );
   if (retrievalSpans.length === 0) {
     return [];
   }
 
   // Return the last retrieval span chronologically since it is the one analyzed by our judges.
-  const spanOutputs = retrievalSpans.at(-1)?.attributes?.['mlflow.spanOutputs'];
+  const spanOutputs = getSpanAttribute(retrievalSpans.at(-1)?.attributes, 'mlflow.spanOutputs');
   if (!spanOutputs) {
     return [];
   }
@@ -401,4 +426,49 @@ const getRetrievalAssessmentsByName = (
   );
 
   return filteredResponseAssessmentsByName;
+};
+
+/**
+ * Extract an attribute value from span attributes.
+ * V3 traces have flat objects: { 'mlflow.spanInputs': '{"x": 10}' }
+ * V4 traces have arrays: [{ key: 'mlflow.spanInputs', value: { string_value: '{"x":10}' } }]
+ */
+export const getSpanAttribute = (
+  attributes: ModelTraceSpan['attributes'],
+  attributeKey: string,
+): string | undefined => {
+  if (!attributes) {
+    return undefined;
+  }
+
+  // V3: attributes is a flat object
+  if (!Array.isArray(attributes)) {
+    return attributes[attributeKey];
+  }
+
+  // V4: attributes is an array - find the matching key
+  const attribute = attributes.find((attr) => attr.key === attributeKey);
+  if (!attribute?.value) {
+    return undefined;
+  }
+
+  // V4 values are typed - return whichever type is present
+  return attribute.value.string_value ?? attribute.value.int_value ?? attribute.value.bool_value;
+};
+
+/**
+ * V4 UC traces: trace:/catalog_name.schema_name/trace_id
+ * V3 traces or others: trace_id as-is
+ * Both V3 and V4 traces have the same traceInfo schema; what's different is the trace location
+ */
+export const formatTraceId = (traceInfo: ModelTraceInfoV3 | undefined, fallbackId?: string): string => {
+  const traceId = traceInfo?.trace_id || fallbackId;
+
+  // Check if this is a V4 UC schema trace
+  // TODO: Support other trace locations
+  if (traceInfo && doesTraceSupportV4API(traceInfo)) {
+    return createTraceV4LongIdentifier(traceInfo);
+  }
+
+  return traceId || '';
 };

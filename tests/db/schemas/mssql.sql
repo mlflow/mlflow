@@ -12,6 +12,8 @@ CREATE TABLE endpoints (
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_at BIGINT NOT NULL,
+	routing_strategy VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	fallback_config_json VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id)
 )
 
@@ -74,7 +76,7 @@ CREATE TABLE inputs (
 CREATE TABLE jobs (
 	id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	creation_time BIGINT NOT NULL,
-	function_fullname VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	job_name VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	params VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	timeout FLOAT,
 	status INTEGER NOT NULL,
@@ -100,7 +102,7 @@ CREATE TABLE secrets (
 	encrypted_value VARBINARY NOT NULL,
 	wrapped_dek VARBINARY NOT NULL,
 	kek_version INTEGER NOT NULL,
-	masked_value VARCHAR(100) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	masked_value VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	provider VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	auth_config VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
@@ -150,6 +152,15 @@ CREATE TABLE endpoint_bindings (
 	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT endpoint_bindings_pk PRIMARY KEY (endpoint_id, resource_type, resource_id),
 	CONSTRAINT fk_endpoint_bindings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE endpoint_tags (
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	value VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	endpoint_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT endpoint_tag_pk PRIMARY KEY (key, endpoint_id),
+	CONSTRAINT fk_endpoint_tags_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
 )
 
 
@@ -341,6 +352,8 @@ CREATE TABLE endpoint_model_mappings (
 	weight FLOAT NOT NULL,
 	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_at BIGINT NOT NULL,
+	linkage_type VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('PRIMARY') NOT NULL,
+	fallback_order INTEGER,
 	CONSTRAINT endpoint_model_mappings_pk PRIMARY KEY (mapping_id),
 	CONSTRAINT fk_endpoint_model_mappings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_endpoint_model_mappings_model_definition_id FOREIGN KEY(model_definition_id) REFERENCES model_definitions (model_definition_id)
@@ -421,6 +434,18 @@ CREATE TABLE model_version_tags (
 )
 
 
+CREATE TABLE online_scoring_configs (
+	online_scoring_config_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	scorer_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	sample_rate FLOAT NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	filter_string VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT online_scoring_config_pk PRIMARY KEY (online_scoring_config_id),
+	CONSTRAINT fk_online_scoring_configs_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_online_scoring_configs_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE params (
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
@@ -464,6 +489,15 @@ CREATE TABLE tags (
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT "FK__tags__run_uuid__5441852A" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+)
+
+
+CREATE TABLE trace_metrics (
+	request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	value FLOAT,
+	CONSTRAINT trace_metrics_pk PRIMARY KEY (request_id, key),
+	CONSTRAINT fk_trace_metrics_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 
 

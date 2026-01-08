@@ -26,6 +26,7 @@ export const useExperimentContainsTraces = ({
     },
     {
       enabled: enabled && Boolean(experimentId),
+      refetchOnWindowFocus: false,
     },
   );
 

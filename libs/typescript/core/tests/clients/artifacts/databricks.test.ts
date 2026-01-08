@@ -3,6 +3,7 @@ import { TraceData } from '../../../src/core/entities/trace_data';
 import { TraceLocationType } from '../../../src/core/entities/trace_location';
 import { TraceState } from '../../../src/core/entities/trace_state';
 import { DatabricksArtifactsClient } from '../../../src/clients/artifacts/databricks';
+import { AuthProvider } from '../../../src/auth';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 
@@ -10,6 +11,17 @@ describe('DatabricksArtifactsClient', () => {
   let client: DatabricksArtifactsClient;
   const testHost = 'https://dbc-12345.cloud.databricks.com';
   const testToken = 'test-token';
+
+  // Create a mock AuthProvider for testing
+  const mockAuthProvider: AuthProvider = {
+    getHost: () => testHost,
+    // eslint-disable-next-line require-await, @typescript-eslint/require-await
+    getHeadersProvider: () => async () => ({
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${testToken}`
+    }),
+    getDatabricksToken: () => testToken
+  };
 
   let server: ReturnType<typeof setupServer>;
 
@@ -23,7 +35,7 @@ describe('DatabricksArtifactsClient', () => {
   });
 
   beforeEach(() => {
-    client = new DatabricksArtifactsClient({ host: testHost, databricksToken: testToken });
+    client = new DatabricksArtifactsClient({ host: testHost, authProvider: mockAuthProvider });
   });
 
   describe('uploadTraceData', () => {

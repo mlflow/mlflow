@@ -1,7 +1,12 @@
 import { describe, expect, it } from '@jest/globals';
 
+import type {
+  Assessment,
+  ModelTraceChatMessage,
+  ModelTraceSpanNode,
+  RawModelTraceChatMessage,
+} from './ModelTrace.types';
 import { ModelSpanType } from './ModelTrace.types';
-import type { ModelTraceChatMessage, ModelTraceSpanNode, RawModelTraceChatMessage } from './ModelTrace.types';
 import {
   MOCK_CHAT_SPAN,
   MOCK_CHAT_TOOL_CALL_SPAN,
@@ -15,9 +20,12 @@ import {
   MOCK_TRACE_INFO_V2,
   MOCK_TRACE_INFO_V3,
   MOCK_V3_SPANS,
+  MOCK_V3_TRACE,
+  MOCK_ASSESSMENT,
 } from './ModelTraceExplorer.test-utils';
 import {
   parseModelTraceToTree,
+  parseModelTraceToTreeWithMultipleRoots,
   searchTree,
   searchTreeBySpanId,
   getMatchesFromSpan,
@@ -33,6 +41,7 @@ import {
   getDefaultActiveTab,
   getTotalTokens,
   convertOtelAttributesToMap,
+  isSessionLevelAssessment,
 } from './ModelTraceExplorer.utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
@@ -70,6 +79,296 @@ describe('parseTraceToTree', () => {
     });
 
     expect(rootNode).toBeNull();
+  });
+
+  it('should sort children by start time when they are out of order', () => {
+    const commonSpanParts = {
+      span_type: 'TEST',
+      status: {
+        description: 'OK' as const,
+        status_code: 1 as const,
+      },
+      events: [],
+    };
+
+    // Create a trace with children in reverse chronological order
+    const outOfOrderSpans = [
+      {
+        ...commonSpanParts,
+        attributes: {
+          'mlflow.spanInputs': JSON.stringify({ query: 'root-input' }),
+          'mlflow.spanOutputs': JSON.stringify({ response: 'root-output' }),
+          'mlflow.spanType': JSON.stringify(ModelSpanType.CHAIN),
+        },
+        context: { span_id: 'root', trace_id: '1' },
+        parent_id: null,
+        name: 'root',
+        start_time: 0,
+        end_time: 100 * 1e9,
+      },
+      // Child 3 - starts at 50s
+      {
+        ...commonSpanParts,
+        attributes: {
+          'mlflow.spanInputs': JSON.stringify({ query: 'child3-input' }),
+          'mlflow.spanOutputs': JSON.stringify({ response: 'child3-output' }),
+          'mlflow.spanType': JSON.stringify(ModelSpanType.LLM),
+        },
+        context: { span_id: 'child3', trace_id: '1' },
+        parent_id: 'root',
+        name: 'child3',
+        start_time: 50 * 1e9,
+        end_time: 60 * 1e9,
+      },
+      // Child 1 - starts at 10s (earliest)
+      {
+        ...commonSpanParts,
+        attributes: {
+          'mlflow.spanInputs': JSON.stringify({ query: 'child1-input' }),
+          'mlflow.spanOutputs': JSON.stringify({ response: 'child1-output' }),
+          'mlflow.spanType': JSON.stringify(ModelSpanType.LLM),
+        },
+        context: { span_id: 'child1', trace_id: '1' },
+        parent_id: 'root',
+        name: 'child1',
+        start_time: 10 * 1e9,
+        end_time: 20 * 1e9,
+      },
+      // Child 2 - starts at 30s
+      {
+        ...commonSpanParts,
+        attributes: {
+          'mlflow.spanInputs': JSON.stringify({ query: 'child2-input' }),
+          'mlflow.spanOutputs': JSON.stringify({ response: 'child2-output' }),
+          'mlflow.spanType': JSON.stringify(ModelSpanType.LLM),
+        },
+        context: { span_id: 'child2', trace_id: '1' },
+        parent_id: 'root',
+        name: 'child2',
+        start_time: 30 * 1e9,
+        end_time: 40 * 1e9,
+      },
+    ];
+
+    const rootNode = parseModelTraceToTree({
+      ...MOCK_TRACE,
+      trace_data: { spans: outOfOrderSpans },
+    });
+
+    expect(rootNode).toBeDefined();
+    expect(rootNode?.children).toHaveLength(3);
+    // Verify children are sorted by start time: child1 (10s), child2 (30s), child3 (50s)
+    expect(rootNode?.children?.[0].key).toBe('child1');
+    expect(rootNode?.children?.[1].key).toBe('child2');
+    expect(rootNode?.children?.[2].key).toBe('child3');
+  });
+});
+
+describe('parseModelTraceToTreeWithMultipleRoots', () => {
+  it('should return empty array if the trace has no spans', () => {
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots({
+      ...MOCK_V3_TRACE,
+      data: {
+        spans: [],
+      },
+    });
+
+    expect(rootNodes).toEqual([]);
+  });
+
+  it('should return a single root node for a complete trace', () => {
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(MOCK_V3_TRACE);
+
+    expect(rootNodes).toHaveLength(1);
+    expect(rootNodes[0]).toEqual(
+      expect.objectContaining({
+        key: 'a96bcf7b57a48b3d',
+        children: [
+          expect.objectContaining({
+            key: '31323334',
+            children: [
+              expect.objectContaining({
+                key: '3132333435',
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('should return multiple root nodes for in-progress traces with multiple top-level spans', () => {
+    // Simulate an in-progress trace where root span hasn't been emitted yet
+    const inProgressTrace = {
+      ...MOCK_V3_TRACE,
+      data: {
+        spans: [
+          // Two spans without parent_span_id - simulating multiple roots
+          {
+            ...MOCK_V3_SPANS[1],
+            parent_span_id: '',
+          },
+          {
+            ...MOCK_V3_SPANS[2],
+            parent_span_id: '',
+          },
+        ],
+      },
+    };
+
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(inProgressTrace);
+
+    expect(rootNodes).toHaveLength(2);
+    expect(rootNodes[0]).toEqual(expect.objectContaining({ key: '31323334' }));
+    expect(rootNodes[1]).toEqual(expect.objectContaining({ key: '3132333435' }));
+  });
+
+  it('should treat orphaned spans as top-level nodes', () => {
+    const traceWithOrphan = {
+      ...MOCK_V3_TRACE,
+      data: {
+        spans: [
+          MOCK_V3_SPANS[0],
+          {
+            ...MOCK_V3_SPANS[1],
+            parent_span_id: 'bm9uLWV4aXN0ZW50',
+          },
+        ],
+      },
+    };
+
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(traceWithOrphan);
+
+    expect(rootNodes).toHaveLength(2);
+    expect(rootNodes[0].key).toBe('a96bcf7b57a48b3d');
+    expect(rootNodes[1].key).toBe('31323334');
+  });
+
+  it('should handle traces with only the root span', () => {
+    const singleSpanTrace = {
+      ...MOCK_V3_TRACE,
+      data: { spans: [MOCK_V3_SPANS[0]] },
+    };
+
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(singleSpanTrace);
+
+    expect(rootNodes).toHaveLength(1);
+    expect(rootNodes[0]).toEqual(expect.objectContaining({ key: 'a96bcf7b57a48b3d' }));
+  });
+
+  it('should calculate span times relative to global start time', () => {
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(MOCK_V3_TRACE);
+
+    expect(rootNodes[0].start).toBe(0);
+    expect(rootNodes[0].end).toBeGreaterThan(0);
+
+    const childSpan = rootNodes[0].children?.[0];
+    expect(childSpan?.start).toBe(0);
+    expect(childSpan?.end).toBeGreaterThan(0);
+  });
+});
+
+describe('parseModelTraceToTreeWithMultipleRoots', () => {
+  it('should return empty array if the trace has no spans', () => {
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots({
+      ...MOCK_V3_TRACE,
+      data: {
+        spans: [],
+      },
+    });
+
+    expect(rootNodes).toEqual([]);
+  });
+
+  it('should return a single root node for a complete trace', () => {
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(MOCK_V3_TRACE);
+
+    expect(rootNodes).toHaveLength(1);
+    expect(rootNodes[0]).toEqual(
+      expect.objectContaining({
+        key: 'a96bcf7b57a48b3d',
+        children: [
+          expect.objectContaining({
+            key: '31323334',
+            children: [
+              expect.objectContaining({
+                key: '3132333435',
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('should return multiple root nodes for in-progress traces with multiple top-level spans', () => {
+    // Simulate an in-progress trace where root span hasn't been emitted yet
+    const inProgressTrace = {
+      ...MOCK_V3_TRACE,
+      data: {
+        spans: [
+          // Two spans without parent_span_id - simulating multiple roots
+          {
+            ...MOCK_V3_SPANS[1],
+            parent_span_id: '',
+          },
+          {
+            ...MOCK_V3_SPANS[2],
+            parent_span_id: '',
+          },
+        ],
+      },
+    };
+
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(inProgressTrace);
+
+    expect(rootNodes).toHaveLength(2);
+    expect(rootNodes[0]).toEqual(expect.objectContaining({ key: '31323334' }));
+    expect(rootNodes[1]).toEqual(expect.objectContaining({ key: '3132333435' }));
+  });
+
+  it('should treat orphaned spans as top-level nodes', () => {
+    const traceWithOrphan = {
+      ...MOCK_V3_TRACE,
+      data: {
+        spans: [
+          MOCK_V3_SPANS[0],
+          {
+            ...MOCK_V3_SPANS[1],
+            parent_span_id: 'bm9uLWV4aXN0ZW50',
+          },
+        ],
+      },
+    };
+
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(traceWithOrphan);
+
+    expect(rootNodes).toHaveLength(2);
+    expect(rootNodes[0].key).toBe('a96bcf7b57a48b3d');
+    expect(rootNodes[1].key).toBe('31323334');
+  });
+
+  it('should handle traces with only the root span', () => {
+    const singleSpanTrace = {
+      ...MOCK_V3_TRACE,
+      data: { spans: [MOCK_V3_SPANS[0]] },
+    };
+
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(singleSpanTrace);
+
+    expect(rootNodes).toHaveLength(1);
+    expect(rootNodes[0]).toEqual(expect.objectContaining({ key: 'a96bcf7b57a48b3d' }));
+  });
+
+  it('should calculate span times relative to global start time', () => {
+    const rootNodes = parseModelTraceToTreeWithMultipleRoots(MOCK_V3_TRACE);
+
+    expect(rootNodes[0].start).toBe(0);
+    expect(rootNodes[0].end).toBeGreaterThan(0);
+
+    const childSpan = rootNodes[0].children?.[0];
+    expect(childSpan?.start).toBe(0);
+    expect(childSpan?.end).toBeGreaterThan(0);
   });
 });
 
@@ -454,6 +753,61 @@ describe('normalizeNewSpanData', () => {
 
     const childNormalized = normalizeNewSpanData(childSpan, 0, 0, [], assessmentMap, traceInfo.trace_id);
     expect(childNormalized.assessments).toEqual([traceInfo.assessments[2]]);
+  });
+
+  it('should sort children by start time', () => {
+    const child1: ModelTraceSpanNode = {
+      key: 'child1',
+      title: 'child1',
+      children: [],
+      start: 100,
+      end: 200,
+      inputs: undefined,
+      outputs: undefined,
+      attributes: {},
+      type: ModelSpanType.UNKNOWN,
+      assessments: [],
+      traceId: 'test',
+    };
+
+    const child2: ModelTraceSpanNode = {
+      key: 'child2',
+      title: 'child2',
+      children: [],
+      start: 50, // Earlier start time
+      end: 150,
+      inputs: undefined,
+      outputs: undefined,
+      attributes: {},
+      type: ModelSpanType.UNKNOWN,
+      assessments: [],
+      traceId: 'test',
+    };
+
+    const child3: ModelTraceSpanNode = {
+      key: 'child3',
+      title: 'child3',
+      children: [],
+      start: 75, // Middle start time
+      end: 125,
+      inputs: undefined,
+      outputs: undefined,
+      attributes: {},
+      type: ModelSpanType.UNKNOWN,
+      assessments: [],
+      traceId: 'test',
+    };
+
+    // Pass children in non-chronological order
+    const outOfOrderChildren = [child1, child2, child3];
+
+    const normalized = normalizeNewSpanData(MOCK_CHAT_TOOL_CALL_SPAN, 0, 0, outOfOrderChildren, {}, '');
+
+    // Verify children are sorted: child2 (50), child3 (75), child1 (100)
+    expect(normalized.children).toHaveLength(3);
+    expect(normalized.children?.[0].key).toBe('child2');
+    expect(normalized.children?.[1].key).toBe('child3');
+    expect(normalized.children?.[2].key).toBe('child1');
   });
 });
 
@@ -867,5 +1221,80 @@ describe('convertOtelAttributesToMap', () => {
       span_id: '1',
       events: [{ attributes: { converted: 'value' } }],
     });
+  });
+});
+
+describe('isSessionLevelAssessment', () => {
+  it('should return true when assessment has session metadata', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+      metadata: {
+        'mlflow.trace.session': 'session-123',
+      },
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(true);
+  });
+
+  it('should return false when assessment has no session metadata', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+      metadata: {
+        'other.key': 'value',
+      },
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(false);
+  });
+
+  it('should return false when assessment metadata is empty object', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+      metadata: {},
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(false);
+  });
+
+  it('should return false when assessment has no metadata at all', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(false);
+  });
+
+  it('should return false when session metadata is empty string', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+      metadata: {
+        'mlflow.trace.session': '',
+      },
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(false);
+  });
+
+  it('should return false when session metadata is null', () => {
+    const assessment: Assessment = {
+      assessment_id: 'test-1',
+      assessment_name: 'Test',
+      trace_id: 'trace-1',
+      metadata: {
+        'mlflow.trace.session': null,
+      },
+    } as any;
+
+    expect(isSessionLevelAssessment(assessment)).toBe(false);
   });
 });

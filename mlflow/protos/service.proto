@@ -982,6 +982,25 @@ service MlflowService {
     };
   }
 
+  // Query aggregated metrics for traces, spans, or assessments.
+  // Supports grouping by dimensions and time-based aggregation.
+  rpc queryTraceMetrics(QueryTraceMetrics) returns (QueryTraceMetrics.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/metrics"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Query Trace Metrics"
+    };
+  }
+
   rpc createLoggedModel(CreateLoggedModel) returns (CreateLoggedModel.Response) {
     option (rpc) = {
       endpoints: [
@@ -1580,12 +1599,12 @@ service MlflowService {
   // ========== Secrets Management APIs ==========
 
   // Create a new encrypted secret for LLM provider authentication
-  rpc createSecret(CreateGatewaySecret) returns (CreateGatewaySecret.Response) {
+  rpc createGatewaySecret(CreateGatewaySecret) returns (CreateGatewaySecret.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/secrets/create"
+          path: "/mlflow/gateway/secrets/create"
           since: {
             major: 3
             minor: 0
@@ -1593,17 +1612,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Create Secret"
+      rpc_doc_title: "Create Gateway Secret"
     };
   }
 
   // Get metadata about a secret (does not include the encrypted value)
-  rpc getSecretInfo(GetGatewaySecretInfo) returns (GetGatewaySecretInfo.Response) {
+  rpc getGatewaySecretInfo(GetGatewaySecretInfo) returns (GetGatewaySecretInfo.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/secrets/get"
+          path: "/mlflow/gateway/secrets/get"
           since: {
             major: 3
             minor: 0
@@ -1611,17 +1630,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Get Secret Info"
+      rpc_doc_title: "Get Gateway Secret Info"
     };
   }
 
   // Update an existing secret's value or auth configuration
-  rpc updateSecret(UpdateGatewaySecret) returns (UpdateGatewaySecret.Response) {
+  rpc updateGatewaySecret(UpdateGatewaySecret) returns (UpdateGatewaySecret.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/secrets/update"
+          path: "/mlflow/gateway/secrets/update"
           since: {
             major: 3
             minor: 0
@@ -1629,17 +1648,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Update Secret"
+      rpc_doc_title: "Update Gateway Secret"
     };
   }
 
   // Delete a secret
-  rpc deleteSecret(DeleteGatewaySecret) returns (DeleteGatewaySecret.Response) {
+  rpc deleteGatewaySecret(DeleteGatewaySecret) returns (DeleteGatewaySecret.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "DELETE"
-          path: "/mlflow/secrets/delete"
+          path: "/mlflow/gateway/secrets/delete"
           since: {
             major: 3
             minor: 0
@@ -1647,17 +1666,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Delete Secret"
+      rpc_doc_title: "Delete Gateway Secret"
     };
   }
 
   // List all secrets with optional filtering by provider
-  rpc listSecretInfos(ListGatewaySecretInfos) returns (ListGatewaySecretInfos.Response) {
+  rpc listGatewaySecretInfos(ListGatewaySecretInfos) returns (ListGatewaySecretInfos.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/secrets/list"
+          path: "/mlflow/gateway/secrets/list"
           since: {
             major: 3
             minor: 0
@@ -1665,19 +1684,19 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "List Secrets"
+      rpc_doc_title: "List Gateway Secrets"
     };
   }
 
   // ========== Endpoints Management APIs ==========
 
   // Create a new endpoint with model configurations
-  rpc createEndpoint(CreateGatewayEndpoint) returns (CreateGatewayEndpoint.Response) {
+  rpc createGatewayEndpoint(CreateGatewayEndpoint) returns (CreateGatewayEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/endpoints/create"
+          path: "/mlflow/gateway/endpoints/create"
           since: {
             major: 3
             minor: 0
@@ -1685,17 +1704,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Create Endpoint"
+      rpc_doc_title: "Create Gateway Endpoint"
     };
   }
 
   // Get endpoint details including all model configurations
-  rpc getEndpoint(GetGatewayEndpoint) returns (GetGatewayEndpoint.Response) {
+  rpc getGatewayEndpoint(GetGatewayEndpoint) returns (GetGatewayEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/endpoints/get"
+          path: "/mlflow/gateway/endpoints/get"
           since: {
             major: 3
             minor: 0
@@ -1703,17 +1722,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Get Endpoint"
+      rpc_doc_title: "Get Gateway Endpoint"
     };
   }
 
   // Update an endpoint's name
-  rpc updateEndpoint(UpdateGatewayEndpoint) returns (UpdateGatewayEndpoint.Response) {
+  rpc updateGatewayEndpoint(UpdateGatewayEndpoint) returns (UpdateGatewayEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/endpoints/update"
+          path: "/mlflow/gateway/endpoints/update"
           since: {
             major: 3
             minor: 0
@@ -1721,17 +1740,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Update Endpoint"
+      rpc_doc_title: "Update Gateway Endpoint"
     };
   }
 
   // Delete an endpoint and all its model configurations
-  rpc deleteEndpoint(DeleteGatewayEndpoint) returns (DeleteGatewayEndpoint.Response) {
+  rpc deleteGatewayEndpoint(DeleteGatewayEndpoint) returns (DeleteGatewayEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "DELETE"
-          path: "/mlflow/endpoints/delete"
+          path: "/mlflow/gateway/endpoints/delete"
           since: {
             major: 3
             minor: 0
@@ -1739,17 +1758,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Delete Endpoint"
+      rpc_doc_title: "Delete Gateway Endpoint"
     };
   }
 
   // List endpoints with optional filtering by provider or secret
-  rpc listEndpoints(ListGatewayEndpoints) returns (ListGatewayEndpoints.Response) {
+  rpc listGatewayEndpoints(ListGatewayEndpoints) returns (ListGatewayEndpoints.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/endpoints/list"
+          path: "/mlflow/gateway/endpoints/list"
           since: {
             major: 3
             minor: 0
@@ -1757,19 +1776,19 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "List Endpoints"
+      rpc_doc_title: "List Gateway Endpoints"
     };
   }
 
   // ========== Model Definitions Management APIs ==========
 
   // Create a reusable model definition
-  rpc createModelDefinition(CreateGatewayModelDefinition) returns (CreateGatewayModelDefinition.Response) {
+  rpc createGatewayModelDefinition(CreateGatewayModelDefinition) returns (CreateGatewayModelDefinition.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/model-definitions/create"
+          path: "/mlflow/gateway/model-definitions/create"
           since: {
             major: 3
             minor: 0
@@ -1777,17 +1796,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Create Model Definition"
+      rpc_doc_title: "Create Gateway Model Definition"
     };
   }
 
   // Get a model definition by ID
-  rpc getModelDefinition(GetGatewayModelDefinition) returns (GetGatewayModelDefinition.Response) {
+  rpc getGatewayModelDefinition(GetGatewayModelDefinition) returns (GetGatewayModelDefinition.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/model-definitions/get"
+          path: "/mlflow/gateway/model-definitions/get"
           since: {
             major: 3
             minor: 0
@@ -1795,17 +1814,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Get Model Definition"
+      rpc_doc_title: "Get Gateway Model Definition"
     };
   }
 
   // List all model definitions with optional filters
-  rpc listModelDefinitions(ListGatewayModelDefinitions) returns (ListGatewayModelDefinitions.Response) {
+  rpc listGatewayModelDefinitions(ListGatewayModelDefinitions) returns (ListGatewayModelDefinitions.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/model-definitions/list"
+          path: "/mlflow/gateway/model-definitions/list"
           since: {
             major: 3
             minor: 0
@@ -1813,17 +1832,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "List Model Definitions"
+      rpc_doc_title: "List Gateway Model Definitions"
     };
   }
 
   // Update a model definition
-  rpc updateModelDefinition(UpdateGatewayModelDefinition) returns (UpdateGatewayModelDefinition.Response) {
+  rpc updateGatewayModelDefinition(UpdateGatewayModelDefinition) returns (UpdateGatewayModelDefinition.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/model-definitions/update"
+          path: "/mlflow/gateway/model-definitions/update"
           since: {
             major: 3
             minor: 0
@@ -1831,17 +1850,17 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Update Model Definition"
+      rpc_doc_title: "Update Gateway Model Definition"
     };
   }
 
   // Delete a model definition (fails if in use by any endpoint)
-  rpc deleteModelDefinition(DeleteGatewayModelDefinition) returns (DeleteGatewayModelDefinition.Response) {
+  rpc deleteGatewayModelDefinition(DeleteGatewayModelDefinition) returns (DeleteGatewayModelDefinition.Response) {
     option (rpc) = {
       endpoints: [
         {
           method: "DELETE"
-          path: "/mlflow/model-definitions/delete"
+          path: "/mlflow/gateway/model-definitions/delete"
           since: {
             major: 3
             minor: 0
@@ -1849,7 +1868,7 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Delete Model Definition"
+      rpc_doc_title: "Delete Gateway Model Definition"
     };
   }
 
@@ -1861,7 +1880,7 @@ service MlflowService {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/endpoints/models/attach"
+          path: "/mlflow/gateway/endpoints/models/attach"
           since: {
             major: 3
             minor: 0
@@ -1879,7 +1898,7 @@ service MlflowService {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/endpoints/models/detach"
+          path: "/mlflow/gateway/endpoints/models/detach"
           since: {
             major: 3
             minor: 0
@@ -1899,7 +1918,7 @@ service MlflowService {
       endpoints: [
         {
           method: "POST"
-          path: "/mlflow/endpoints/bindings/create"
+          path: "/mlflow/gateway/endpoints/bindings/create"
           since: {
             major: 3
             minor: 0
@@ -1917,7 +1936,7 @@ service MlflowService {
       endpoints: [
         {
           method: "DELETE"
-          path: "/mlflow/endpoints/bindings/delete"
+          path: "/mlflow/gateway/endpoints/bindings/delete"
           since: {
             major: 3
             minor: 0
@@ -1935,7 +1954,7 @@ service MlflowService {
       endpoints: [
         {
           method: "GET"
-          path: "/mlflow/endpoints/bindings/list"
+          path: "/mlflow/gateway/endpoints/bindings/list"
           since: {
             major: 3
             minor: 0
@@ -1947,15 +1966,13 @@ service MlflowService {
     };
   }
 
-  // ========== Secrets Configuration API ==========
-
-  // Get secrets storage configuration status
-  rpc getSecretsConfig(GetSecretsConfig) returns (GetSecretsConfig.Response) {
+  // Set a tag on an endpoint
+  rpc setGatewayEndpointTag(SetGatewayEndpointTag) returns (SetGatewayEndpointTag.Response) {
     option (rpc) = {
       endpoints: [
         {
-          method: "GET"
-          path: "/mlflow/secrets/config"
+          method: "POST"
+          path: "/mlflow/gateway/endpoints/set-tag"
           since: {
             major: 3
             minor: 0
@@ -1963,7 +1980,25 @@ service MlflowService {
         }
       ]
       visibility: PUBLIC
-      rpc_doc_title: "Get Secrets Config"
+      rpc_doc_title: "Gateway Set Endpoint Tag"
+    };
+  }
+
+  // Delete a tag from an endpoint
+  rpc deleteGatewayEndpointTag(DeleteGatewayEndpointTag) returns (DeleteGatewayEndpointTag.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/gateway/endpoints/delete-tag"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Gateway Delete Endpoint Tag"
     };
   }
 }
@@ -3143,6 +3178,111 @@ message CalculateTraceFilterCorrelation {
   }
 }
 
+// View type for metrics aggregation.
+enum MetricViewType {
+  // Aggregate at trace level.
+  TRACES = 1;
+  // Aggregate at span level.
+  SPANS = 2;
+  // Aggregate at assessment level.
+  ASSESSMENTS = 3;
+}
+
+// Aggregation type for metrics.
+enum AggregationType {
+  // Count of entities.
+  COUNT = 1;
+  // Sum of values.
+  SUM = 2;
+  // Average of values.
+  AVG = 3;
+  // Percentile aggregation (requires percentile_value parameter).
+  PERCENTILE = 4;
+  // Minimum value.
+  MIN = 5;
+  // Maximum value.
+  MAX = 6;
+}
+
+message MetricAggregation {
+  // The type of aggregation to perform.
+  optional AggregationType aggregation_type = 1;
+
+  // The percentile value to compute (0-100), required when aggregation_type is PERCENTILE.
+  // Examples: 50 (median), 75, 90, 95, 99.
+  // This field is ignored for other aggregation types.
+  optional double percentile_value = 2;
+}
+
+// Query aggregated metrics for traces, spans, or assessments.
+message QueryTraceMetrics {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Required: The experiment IDs to search traces.
+  repeated string experiment_ids = 1;
+
+  // Required: The level at which to aggregate metrics.
+  optional MetricViewType view_type = 2;
+
+  // Required: The name of the metric to query (e.g. "latency").
+  optional string metric_name = 3;
+
+  // Required: The aggregations to apply.
+  repeated MetricAggregation aggregations = 4;
+
+  // Optional: Dimensions to group metrics by. (e.g. "name", "status")
+  repeated string dimensions = 5;
+
+  // Optional: Filter expressions to apply. (e.g. `trace.status="OK"`)
+  repeated string filters = 6;
+
+  // Optional: Time interval for grouping in seconds.
+  // When set, results automatically include a time dimension grouped by
+  // the specified interval.
+  // Examples: 60 (minute), 3600 (hour), 86400 (day), 604800 (week), 2592000 (month).
+  optional int64 time_interval_seconds = 7;
+
+  // Optional: Start of time range in milliseconds since epoch.
+  // Required if time_interval_seconds is set.
+  optional int64 start_time_ms = 8;
+
+  // Optional: End of time range in milliseconds since epoch.
+  // Required if time_interval_seconds is set.
+  optional int64 end_time_ms = 9;
+
+  // Optional: Maximum number of data points to return.
+  // Default: 1000
+  optional int32 max_results = 10 [default = 1000];
+
+  // Optional: Pagination token for fetching the next page of results.
+  optional string page_token = 11;
+
+  message Response {
+    // Data points grouped by dimensions.
+    repeated MetricDataPoint data_points = 1;
+
+    // Pagination token for fetching the next page.
+    // Empty if no more results are available.
+    optional string next_page_token = 2;
+  }
+}
+
+// A single data point with dimension values and metric values.
+message MetricDataPoint {
+  // Metric name, e.g. "latency"
+  optional string metric_name = 1;
+
+  // Dimension values for this data point
+  // Keys correspond to dimensions
+  // e.g., {"status": "OK"}
+  map<string, string> dimensions = 2;
+
+  // Metric values for this data point
+  // Keys are aggregation types
+  // e.g., {"AVG": 150, "P99": 234.5}
+  map<string, double> values = 3;
+}
+
 message SetTraceTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -4004,8 +4144,10 @@ message GatewaySecretInfo {
   optional string secret_id = 1;
   // User-friendly name for the secret (must be unique)
   optional string secret_name = 2;
-  // Masked version of the secret for display (e.g., "sk-...xyz123")
-  optional string masked_value = 3;
+  // Masked version of the secret values for display as key-value pairs.
+  // For simple API keys: {"api_key": "sk-...xyz123"}
+  // For compound credentials: ``{"aws_access_key_id": "AKI...1234", "aws_secret_access_key": "***"}``
+  map<string, string> masked_values = 3;
   // Timestamp (milliseconds since epoch) when the secret was created
   optional int64 created_at = 4;
   // Timestamp (milliseconds since epoch) when the secret was last updated
@@ -4016,8 +4158,8 @@ message GatewaySecretInfo {
   optional string created_by = 7;
   // User ID who last updated the secret
   optional string last_updated_by = 8;
-  // Provider-specific auth configuration as JSON (e.g., region, project_id)
-  optional string auth_config_json = 9;
+  // Provider-specific auth configuration (e.g., auth_mode, region, project_id)
+  map<string, string> auth_config = 9;
 }
 
 // Reusable model definition that can be shared across endpoints
@@ -4061,6 +4203,10 @@ message GatewayEndpointModelMapping {
   optional int64 created_at = 6;
   // User ID who created the mapping
   optional string created_by = 7;
+  // Type of linkage
+  optional GatewayModelLinkageType linkage_type = 8;
+  // Order for fallback attempts (only for FALLBACK linkages, NULL for PRIMARY)
+  optional int32 fallback_order = 9;
 }
 
 // Endpoint entity representing an LLM gateway endpoint
@@ -4079,6 +4225,20 @@ message GatewayEndpoint {
   optional string created_by = 6;
   // User ID who last updated the endpoint
   optional string last_updated_by = 7;
+  // Tags associated with the endpoint
+  repeated GatewayEndpointTag tags = 8;
+  // Routing strategy for the endpoint
+  optional RoutingStrategy routing_strategy = 9;
+  // Fallback configuration (populated if routing_strategy is FALLBACK)
+  optional FallbackConfig fallback_config = 10;
+}
+
+// Tag associated with an endpoint
+message GatewayEndpointTag {
+  // Tag key
+  optional string key = 1;
+  // Tag value
+  optional string value = 2;
 }
 
 // Binding between an endpoint and an MLflow resource.
@@ -4106,16 +4266,18 @@ message GatewayEndpointBinding {
 message CreateGatewaySecret {
   // User-friendly name for the secret (must be unique)
   optional string secret_name = 1;
-  // The secret value to encrypt (e.g., API key)
-  optional string secret_value = 2;
+  // The secret value(s) to encrypt as key-value pairs.
+  // For simple API keys: {"api_key": "sk-xxx"}
+  // For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}
+  map<string, string> secret_value = 2;
   // Optional LLM provider (e.g., "openai", "anthropic")
   optional string provider = 3;
-  // Reserved: credential_name was removed - auth_mode is now stored in auth_config_json
+  // Reserved: credential_name was removed - auth_mode is now stored in auth_config
   reserved 4;
   reserved "credential_name";
-  // Optional provider-specific auth configuration as JSON string.
+  // Optional provider-specific auth configuration.
   // For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
-  optional string auth_config_json = 5;
+  map<string, string> auth_config = 5;
   // Username of the creator
   optional string created_by = 6;
 
@@ -4139,14 +4301,16 @@ message GetGatewaySecretInfo {
 message UpdateGatewaySecret {
   // ID of the secret to update
   optional string secret_id = 1;
-  // Optional new secret value (if rotating the key)
-  optional string secret_value = 2;
-  // Reserved: credential_name was removed - auth_mode is now stored in auth_config_json
+  // Optional new secret value(s) for key rotation as key-value pairs (empty map = no change).
+  // For simple API keys: {"api_key": "sk-xxx"}
+  // For compound credentials: {"aws_access_key_id": "...", "aws_secret_access_key": "..."}
+  map<string, string> secret_value = 2;
+  // Reserved: credential_name was removed - auth_mode is now stored in auth_config
   reserved 3;
   reserved "credential_name";
-  // Optional new auth configuration as JSON string.
+  // Optional new auth configuration.
   // For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
-  optional string auth_config_json = 4;
+  map<string, string> auth_config = 4;
   // Username of the updater
   optional string updated_by = 5;
 
@@ -4226,6 +4390,8 @@ message UpdateGatewayModelDefinition {
   optional string model_name = 4;
   // Username of the updater
   optional string updated_by = 5;
+  // Optional new provider
+  optional string provider = 6;
 
   message Response {
     // The updated model definition
@@ -4242,13 +4408,60 @@ message DeleteGatewayModelDefinition {
 
 // ========== Endpoints API Messages ==========
 
+// Routing strategy for endpoints
+enum RoutingStrategy {
+  ROUTING_STRATEGY_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  // Request-based traffic split: distributes traffic based on weights
+  REQUEST_BASED_TRAFFIC_SPLIT = 1;
+}
+
+// Fallback strategy for routing (future-proof for additional strategies)
+enum FallbackStrategy {
+  FALLBACK_STRATEGY_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  // Sequential fallback: tries models in the order specified
+  SEQUENTIAL = 1;
+}
+
+// Type of linkage between endpoint and model definition
+enum GatewayModelLinkageType {
+  LINKAGE_TYPE_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  // Primary linkage: used for routing traffic
+  PRIMARY = 1;
+  // Fallback linkage: used for failover
+  FALLBACK = 2;
+}
+
+// Configuration for fallback routing
+message FallbackConfig {
+  // The fallback strategy.
+  optional FallbackStrategy strategy = 1;
+  // The max attempts for fallback routing (cannot exceed number of destinations).
+  optional int32 max_attempts = 2;
+}
+
+// Configuration for a model attached to an endpoint
+message GatewayEndpointModelConfig {
+  // ID of the model definition
+  optional string model_definition_id = 1;
+  // Type of linkage
+  optional GatewayModelLinkageType linkage_type = 2;
+  // Routing weight for traffic distribution
+  optional float weight = 3;
+  // Order for fallback attempts (only for FALLBACK linkages, NULL for PRIMARY)
+  optional int32 fallback_order = 4;
+}
+
 message CreateGatewayEndpoint {
   // Optional user-friendly name for the endpoint
   optional string name = 1;
-  // List of model definition IDs to attach to this endpoint
-  repeated string model_definition_ids = 2;
+  // List of model configurations
+  repeated GatewayEndpointModelConfig model_configs = 2;
   // Username of the creator
   optional string created_by = 3;
+  // Optional routing strategy for the endpoint
+  optional RoutingStrategy routing_strategy = 4;
+  // Optional fallback configuration (includes strategy, max_attempts)
+  optional FallbackConfig fallback_config = 5;
 
   message Response {
     // The created endpoint with all model mappings
@@ -4274,6 +4487,12 @@ message UpdateGatewayEndpoint {
   optional string name = 2;
   // Username of the updater
   optional string updated_by = 3;
+  // Optional new list of model configurations (replaces all existing model linkages)
+  repeated GatewayEndpointModelConfig model_configs = 4;
+  // Optional new routing strategy for the endpoint
+  optional RoutingStrategy routing_strategy = 5;
+  // Optional fallback configuration (includes strategy, max_attempts)
+  optional FallbackConfig fallback_config = 6;
 
   message Response {
     // The updated endpoint
@@ -4305,12 +4524,10 @@ message ListGatewayEndpoints {
 message AttachModelToGatewayEndpoint {
   // ID of the endpoint to attach the model to
   optional string endpoint_id = 1;
-  // ID of the model definition to attach
-  optional string model_definition_id = 2;
-  // Optional routing weight (default 1)
-  optional float weight = 3;
+  // Configuration for the model to attach
+  optional GatewayEndpointModelConfig model_config = 2;
   // Username of the creator
-  optional string created_by = 4;
+  optional string created_by = 3;
 
   message Response {
     // The created mapping
@@ -4368,6 +4585,26 @@ message ListGatewayEndpointBindings {
     // List of bindings for the endpoint
     repeated GatewayEndpointBinding bindings = 1;
   }
+}
+
+message SetGatewayEndpointTag {
+  // ID of the endpoint to set tag on
+  optional string endpoint_id = 1;
+  // Tag key to set
+  optional string key = 2;
+  // Tag value to set
+  optional string value = 3;
+
+  message Response {}
+}
+
+message DeleteGatewayEndpointTag {
+  // ID of the endpoint to delete tag from
+  optional string endpoint_id = 1;
+  // Tag key to delete
+  optional string key = 2;
+
+  message Response {}
 }
 
 // ========== Secrets Configuration API Messages ==========
