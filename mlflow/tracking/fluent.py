@@ -2477,6 +2477,92 @@ def log_model_params(params: dict[str, str], model_id: str | None = None) -> Non
     MlflowClient().log_model_params(model_id, params)
 
 
+def import_checkpoints(
+    checkpoint_path: str,
+    source_run_id: str | None = None,
+    model_prefix: str | None = None,
+    overwrite_checkpoints: bool = False,
+) -> list[LoggedModel]:
+    """
+    Create external models for all top-level files and directories under the specified
+    checkpoint path.
+
+    Args:
+        checkpoint_path: String path to the UC Volume location that contains the checkpoints.
+            NOTE: Each path must be isolated from other models and runs. For example,
+            ``dbfs:/Volumes/mycatalog/myschema/myvolume/mytrainingmodel/trainingrun1/checkpoints``.
+        source_run_id: ID of the MLflow source run that these checkpoints were trained with.
+            If not provided, uses the current active run if available.
+        model_prefix: String prefix to prepend to the name of each external model created from
+            each checkpoint. If not provided, no prefix is applied.
+        overwrite_checkpoints: If True and existing models are found with the same name in the
+            associated experiment, they will be deleted and recreated to point to the latest
+            checkpoint. Defaults to False.
+
+    Returns:
+        List of created :py:class:`mlflow.entities.LoggedModel` instances.
+    """
+    from mlflow.artifacts import list_artifacts as list_artifacts_api
+    from mlflow.entities import LoggedModel
+
+    # Resolve source_run_id from the active run if not provided
+    if source_run_id is None and (run := active_run()):
+        source_run_id = run.info.run_id
+
+    # Resolve experiment ID to operate against
+    if source_run_id is not None:
+        exp_id = MlflowClient().get_run(source_run_id).info.experiment_id
+    elif run := active_run():
+        exp_id = run.info.experiment_id
+    else:
+        exp_id = _get_experiment_id()
+
+    created_models: list[LoggedModel] = []
+
+    # List top-level entries in the checkpoint path
+    entries = list_artifacts_api(artifact_uri=checkpoint_path)
+
+    def _escape_single_quotes(value: str) -> str:
+        # Escape single quotes for use in filter strings
+        return value.replace("'", "''")
+
+    for entry in entries:
+        # Build model name from entry name and optional prefix
+        entry_name = entry.path.rsplit("/", 1)[-1]
+        model_name = f"{model_prefix or ''}{entry_name}"
+
+        # Check for existing model with the same name in the target experiment
+        existing = search_logged_models(
+            experiment_ids=[exp_id] if exp_id else None,
+            filter_string=f"name = '{_escape_single_quotes(model_name)}'",
+            output_format="list",
+        )
+
+        if existing:
+            if overwrite_checkpoints:
+                client = MlflowClient()
+                for m in existing:
+                    client.delete_logged_model(m.model_id)
+            else:
+                # Skip creation when not overwriting
+                continue
+
+        # Construct full artifact path for the entry
+        entry_uri = f"{checkpoint_path.rstrip('/')}/{entry.path.lstrip('/')}"
+
+        tags = {"original_artifact_path": entry_uri}
+
+        created = create_external_model(
+            name=model_name,
+            source_run_id=source_run_id,
+            tags=tags,
+            experiment_id=exp_id,
+        )
+        created_models.append(created)
+
+    return created_models
+
+
 def finalize_logged_model(
     model_id: str, status: Literal["READY", "FAILED"] | LoggedModelStatus
 ) -> LoggedModel:
