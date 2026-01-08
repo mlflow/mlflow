@@ -23,6 +23,7 @@ service MlflowService {
   // experiments share the same name, the API will return one of them.
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if no experiment with the specified name exists.
+  // This method is case-sensitive.
   //
   rpc getExperimentByName(GetExperimentByName) returns (GetExperimentByName.Response) {
     option (rpc) = {
@@ -65,6 +66,9 @@ service MlflowService {
     };
   }
 
+  }
+
+  // Experiment names are case-sensitive.
   rpc searchExperiments(SearchExperiments) returns (SearchExperiments.Response) {
     option (rpc) = {
       endpoints: [

@@ -27,8 +27,6 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Create RegisteredModel"
     };
-  }
-
   rpc renameRegisteredModel(RenameRegisteredModel) returns (RenameRegisteredModel.Response) {
     option (rpc) = {
       endpoints: [
@@ -44,8 +42,6 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Rename RegisteredModel"
     };
-  }
-
   rpc updateRegisteredModel(UpdateRegisteredModel) returns (UpdateRegisteredModel.Response) {
     option (rpc) = {
       endpoints: [
@@ -61,8 +57,6 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Update RegisteredModel"
     };
-  }
-
   rpc deleteRegisteredModel(DeleteRegisteredModel) returns (DeleteRegisteredModel.Response) {
     option (rpc) = {
       endpoints: [
@@ -78,8 +72,7 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Delete RegisteredModel"
     };
-  }
-
+  // This method is case-sensitive.
   rpc getRegisteredModel(GetRegisteredModel) returns (GetRegisteredModel.Response) {
     option (rpc) = {
       endpoints: [
@@ -95,8 +88,7 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Get RegisteredModel"
     };
-  }
-
+  // Registered model names are case-sensitive.
   rpc searchRegisteredModels(SearchRegisteredModels) returns (SearchRegisteredModels.Response) {
     option (rpc) = {
       endpoints: [
@@ -112,8 +104,6 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Search RegisteredModels"
     };
-  }
-
   rpc getLatestVersions(GetLatestVersions) returns (GetLatestVersions.Response) {
     option (rpc) = {
       endpoints: [
@@ -137,8 +127,6 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Get Latest ModelVersions"
     };
-  }
-
   rpc createModelVersion(CreateModelVersion) returns (CreateModelVersion.Response) {
     option (rpc) = {
       endpoints: [
@@ -154,8 +142,6 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Create ModelVersion"
     };
-  }
-
   rpc updateModelVersion(UpdateModelVersion) returns (UpdateModelVersion.Response) {
     option (rpc) = {
       endpoints: [
@@ -171,8 +157,6 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Update ModelVersion"
     };
-  }
-
   rpc transitionModelVersionStage(TransitionModelVersionStage) returns (TransitionModelVersionStage.Response) {
     option (rpc) = {
       endpoints: [
@@ -188,8 +172,6 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Transition ModelVersion Stage"
     };
-  }
-
   rpc deleteModelVersion(DeleteModelVersion) returns (DeleteModelVersion.Response) {
     option (rpc) = {
       endpoints: [
@@ -205,8 +187,7 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Delete ModelVersion"
     };
-  }
-
+  // This method is case-sensitive.
   rpc getModelVersion(GetModelVersion) returns (GetModelVersion.Response) {
     option (rpc) = {
       endpoints: [
@@ -222,8 +203,7 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Get ModelVersion"
     };
-  }
-
+  // Model version names are case-sensitive.
   rpc searchModelVersions(SearchModelVersions) returns (SearchModelVersions.Response) {
     option (rpc) = {
       endpoints: [
@@ -240,8 +220,6 @@ service ModelRegistryService {
       rpc_doc_title: "Search ModelVersions"
     };
     option (graphql) = {};
-  }
-
   rpc getModelVersionDownloadUri(GetModelVersionDownloadUri) returns (GetModelVersionDownloadUri.Response) {
     option (rpc) = {
       endpoints: [
@@ -257,8 +235,6 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Get Download URI For ModelVersion Artifacts"
     };
-  }
-
   rpc setRegisteredModelTag(SetRegisteredModelTag) returns (SetRegisteredModelTag.Response) {
     option (rpc) = {
       endpoints: [
@@ -274,8 +250,6 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Set Registered Model Tag"
     };
-  }
-
   rpc setModelVersionTag(SetModelVersionTag) returns (SetModelVersionTag.Response) {
     option (rpc) = {
       endpoints: [
@@ -291,8 +265,6 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Set Model Version Tag"
     };
-  }
-
   rpc deleteRegisteredModelTag(DeleteRegisteredModelTag) returns (DeleteRegisteredModelTag.Response) {
     option (rpc) = {
       endpoints: [
@@ -308,8 +280,6 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Delete Registered Model Tag"
     };
-  }
-
   rpc deleteModelVersionTag(DeleteModelVersionTag) returns (DeleteModelVersionTag.Response) {
     option (rpc) = {
       endpoints: [
@@ -325,8 +295,6 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Delete Model Version Tag"
     };
-  }
-
   rpc setRegisteredModelAlias(SetRegisteredModelAlias) returns (SetRegisteredModelAlias.Response) {
     option (rpc) = {
       endpoints: [
@@ -342,8 +310,6 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Set Registered Model Alias"
     };
-  }
-
   rpc deleteRegisteredModelAlias(DeleteRegisteredModelAlias) returns (DeleteRegisteredModelAlias.Response) {
     option (rpc) = {
       endpoints: [
@@ -359,8 +325,6 @@ service ModelRegistryService {
       visibility: PUBLIC
       rpc_doc_title: "Delete Registered Model Alias"
     };
-  }
-
   rpc getModelVersionByAlias(GetModelVersionByAlias) returns (GetModelVersionByAlias.Response) {
     option (rpc) = {
       endpoints: [
