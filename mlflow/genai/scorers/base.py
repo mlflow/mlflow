@@ -747,7 +747,7 @@ class Scorer(BaseModel):
                 experiment_id=None,
             )
 
-        return store.update_online_scoring_config(
+        return store.upsert_online_scoring_config(
             scorer=self,
             sample_rate=sampling_config.sample_rate,
             filter_string=sampling_config.filter_string,
@@ -821,7 +821,7 @@ class Scorer(BaseModel):
                 experiment_id=None,
             )
 
-        return store.update_online_scoring_config(
+        return store.upsert_online_scoring_config(
             scorer=self,
             sample_rate=sampling_config.sample_rate,
             filter_string=sampling_config.filter_string,
