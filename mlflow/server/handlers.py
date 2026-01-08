@@ -4049,7 +4049,7 @@ def _get_online_scoring_configs():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _update_online_scoring_config():
+def _upsert_online_scoring_config():
     """
     Update the online scoring configuration for a registered scorer.
 
@@ -4835,12 +4835,12 @@ def get_internal_online_scoring_endpoints():
         ),
         (
             _get_ajax_path("/mlflow/scorers/online-config", version=3),
-            _update_online_scoring_config,
+            _upsert_online_scoring_config,
             ["PUT"],
         ),
         (
             _get_rest_path("/mlflow/scorers/online-config", version=3),
-            _update_online_scoring_config,
+            _upsert_online_scoring_config,
             ["PUT"],
         ),
     ]
