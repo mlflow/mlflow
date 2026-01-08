@@ -27,6 +27,7 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
   const inputList = useMemo(() => createListFromObject(node.inputs), [node]);
   const outputList = useMemo(() => createListFromObject(node.outputs), [node]);
   const exceptionEvents = getSpanExceptionEvents(node);
+  const chatMessageFormat = node.chatMessageFormat;
 
   const hasException = exceptionEvents.length > 0;
   const containsInputs = inputList.length > 0;
@@ -57,7 +58,7 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
         css={{
           position: 'relative',
           boxSizing: 'border-box',
-          height: '100%',
+          height: ROW_HEIGHT,
           borderLeft: `2px solid ${theme.colors.border}`,
           width: CONNECTOR_WIDTH,
         }}
@@ -126,7 +127,7 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
                     flexDirection: 'column',
                     gap: theme.spacing.sm,
                     paddingLeft: theme.spacing.lg,
-                    marginBottom: containsOutputs ? 0 : theme.spacing.sm,
+                    marginBottom: theme.spacing.sm,
                   }}
                 >
                   {inputList.map(({ key, value }, index) => (
@@ -135,6 +136,7 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
                       title={key}
                       data={value}
                       renderMode={renderMode}
+                      chatMessageFormat={chatMessageFormat}
                     />
                   ))}
                 </div>
@@ -160,7 +162,13 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
                   }}
                 >
                   {outputList.map(({ key, value }) => (
-                    <ModelTraceExplorerFieldRenderer key={key} title={key} data={value} renderMode={renderMode} />
+                    <ModelTraceExplorerFieldRenderer
+                      key={key}
+                      title={key}
+                      data={value}
+                      renderMode={renderMode}
+                      chatMessageFormat={chatMessageFormat}
+                    />
                   ))}
                 </div>
               </ModelTraceExplorerCollapsibleSection>

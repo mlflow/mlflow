@@ -78,6 +78,7 @@ export const MLFLOW_RUN_DATASET_CONTEXT_TAG = 'mlflow.data.context';
 export const MLFLOW_LOGGED_ARTIFACTS_TAG = 'mlflow.loggedArtifacts';
 export const MLFLOW_LINKED_PROMPTS_TAG = 'mlflow.linkedPrompts';
 export const MLFLOW_LOGGED_MODEL_USER_TAG = 'mlflow.user';
+export const MLFLOW_TRACES_TAB_LABELING_SCHEMAS_TAG = 'mlflow.tracesTabLabelingSchemas';
 export const EXPERIMENT_PAGE_FEEDBACK_URL = 'https://github.com/mlflow/mlflow/issues/6348';
 
 export const MLFLOW_RUN_TYPE_TAG = 'mlflow.runType';
@@ -115,6 +116,7 @@ export const MLFLOW_MODEL_METRIC_NAME = 'Model metrics';
 
 export const EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY = 'viewStateShareKey';
 export const EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX = 'mlflow.sharedViewState.';
+export const SELECTED_TRACE_ID_QUERY_PARAM = 'selectedTraceId';
 
 export const MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH = 'images';
 export const IMAGE_FILE_EXTENSION = 'png';
@@ -137,16 +139,19 @@ export const LINE_CHART_RELATIVE_TIME_THRESHOLD = 1000 * 60 * 60 * 24; // 1 day
 export const HOUR_IN_MILLISECONDS = 1000 * 60 * 60; // 1 hour
 
 export enum ExperimentPageTabName {
+  Overview = 'overview',
   Runs = 'runs',
   Traces = 'traces',
   Models = 'models',
   EvaluationMonitoring = 'evaluation-monitoring',
-  Scorers = 'scorers',
+  Judges = 'judges',
   EvaluationRuns = 'evaluation-runs',
   Datasets = 'datasets',
   LabelingSessions = 'labeling-sessions',
   LabelingSchemas = 'label-schemas',
   Prompts = 'prompts',
+  ChatSessions = 'chat-sessions',
+  SingleChatSession = 'single-chat-session',
 }
 
 export const getMlflow3DocsLink = () => {

@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   Empty,
   Input,
@@ -13,7 +14,7 @@ import {
 } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import type { CellContext, ColumnDef, ColumnDefTemplate } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, getExpandedRowModel, useReactTable } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getExpandedRowModel } from '@tanstack/react-table';
 import { entries, groupBy, isEmpty, uniqBy } from 'lodash';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
@@ -142,15 +143,18 @@ export const ExperimentLoggedModelDetailsPageRunsTable = ({
     [intl],
   );
 
-  const table = useReactTable({
-    data: filteredRunsWithDatasets,
-    getCoreRowModel: getCoreRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
-    getRowId: (row) => row.key,
-    enableColumnResizing: true,
-    columnResizeMode: 'onChange',
-    columns,
-  });
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/components/experiment-logged-models/ExperimentLoggedModelDetailsRunsTable.tsx',
+    {
+      data: filteredRunsWithDatasets,
+      getCoreRowModel: getCoreRowModel(),
+      getExpandedRowModel: getExpandedRowModel(),
+      getRowId: (row) => row.key,
+      enableColumnResizing: true,
+      columnResizeMode: 'onChange',
+      columns,
+    },
+  );
 
   const renderTableContent = () => {
     if (relatedRunsLoading) {

@@ -87,8 +87,7 @@ def test_on_start_during_run(monkeypatch):
         assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
-def test_incremental_span_name_deduplication():
-    """Test that span names are deduplicated incrementally as spans end."""
+def test_incremental_span_name_no_deduplication():
     InMemoryTraceManager.reset()
     trace_manager = InMemoryTraceManager.get_instance()
 
@@ -109,42 +108,28 @@ def test_incremental_span_name_deduplication():
         processor.on_start(span)
         live_span = LiveSpan(span, request_id)
         trace_manager.register_span(live_span)
+        processor.on_end(span)
         return span
 
     # Create root and 4 child spans: 3 "process" and 2 "query"
-    root = create_and_register("process", 1, parent_id=None)
-    child1 = create_and_register("process", 2)
-    child2 = create_and_register("query", 3)
-    child3 = create_and_register("process", 4)
-    child4 = create_and_register("query", 5)
+    create_and_register("process", 1, parent_id=None)
+    create_and_register("process", 2)
+    create_and_register("query", 3)
+    create_and_register("process", 4)
+    create_and_register("query", 5)
 
-    # End child1 - should deduplicate first two "process" spans
-    processor.on_end(child1)
     with trace_manager.get_trace(request_id) as trace:
-        names = [s.name for s in trace.span_dict.values()]
-        assert "process_1" in names
-        assert "process_2" in names
+        names = [s.name for s in trace.span_dict.values() if s.name == "process"]
+        assert len(names) == 3
 
-    # End child3 - should correctly number third "process" as process_3
-    processor.on_end(child3)
     with trace_manager.get_trace(request_id) as trace:
-        names = [s.name for s in trace.span_dict.values()]
-        assert "process_3" in names  # Correctly numbered due to _original_name
+        names = [s.name for s in trace.span_dict.values() if s.name == "query"]
+        assert len(names) == 2
 
-    # End child4 - should deduplicate "query" spans
-    processor.on_end(child4)
-    with trace_manager.get_trace(request_id) as trace:
-        names = [s.name for s in trace.span_dict.values()]
-        assert "query_1" in names
-        assert "query_2" in names
-
-    # Final check after all spans processed
-    processor.on_end(child2)
-    processor.on_end(root)
     with trace_manager.get_trace(request_id) as trace:
         spans_sorted_by_creation = sorted(trace.span_dict.values(), key=lambda s: s.start_time_ns)
         final_names = [s.name for s in spans_sorted_by_creation]
-        assert final_names == ["process_1", "process_2", "query_1", "process_3", "query_2"]
+        assert final_names == ["process", "process", "query", "process", "query"]
 
 
 def test_on_end():

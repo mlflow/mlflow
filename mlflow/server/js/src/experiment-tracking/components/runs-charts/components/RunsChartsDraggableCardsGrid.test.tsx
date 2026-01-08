@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { RunsChartsDraggableCardsGridSection } from './RunsChartsDraggableCardsGridSection';
 import { noop } from 'lodash';
@@ -62,7 +63,8 @@ describe('RunsChartsDraggableCardsGrid', () => {
   };
 
   const mockGridElementSize = (element: Element, width: number, height: number) => {
-    element.getBoundingClientRect = jest.fn<any, any>(() => ({
+    // @ts-expect-error Argument is not assignable to parameter of type '() => DOMRect'
+    element.getBoundingClientRect = jest.fn<() => DOMRect>(() => ({
       top: 0,
       left: 0,
       width,

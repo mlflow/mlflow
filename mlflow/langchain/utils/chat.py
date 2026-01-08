@@ -14,6 +14,7 @@ from langchain_core.messages import (
     SystemMessage,
     ToolMessage,
 )
+from langchain_core.outputs import ChatGenerationChunk
 from langchain_core.outputs.generation import Generation
 
 from mlflow.environment_variables import MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN
@@ -29,7 +30,6 @@ from mlflow.types.chat import (
     ChatMessage,
     ChatUsage,
 )
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _logger = logging.getLogger(__name__)
 
@@ -106,10 +106,7 @@ def _chat_model_to_langchain_message(message: ChatMessage) -> BaseMessage:
 
 
 def _get_tool_calls_from_ai_message(message: AIMessage) -> list[dict[str, Any]]:
-    # AIMessage does not have tool_calls field in LangChain < 0.1.0.
-    if not hasattr(message, "tool_calls"):
-        return []
-
+    # Extract tool calls from AIMessage
     tool_calls = [
         {
             "type": "function",
@@ -180,10 +177,7 @@ def try_transform_response_to_chat_format(response: Any) -> dict[str, Any]:
                 total_tokens=None,
             ),
         )
-        if IS_PYDANTIC_V2_OR_NEWER:
-            return transformed_response.model_dump(mode="json", exclude_unset=True)
-        else:
-            return json.loads(transformed_response.json(exclude_unset=True))
+        return transformed_response.model_dump(mode="json", exclude_unset=True)
     else:
         return response
 
@@ -194,6 +188,7 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
     def _gen_converted_chunk(message_content, message_id, finish_reason):
         transformed_response = ChatCompletionChunk(
             id=message_id,
+            object="chat.completion.chunk",
             created=int(time.time()),
             model="",
             choices=[
@@ -208,10 +203,7 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
             ],
         )
 
-        if IS_PYDANTIC_V2_OR_NEWER:
-            return transformed_response.model_dump(mode="json")
-        else:
-            return json.loads(transformed_response.json())
+        return transformed_response.model_dump(mode="json", exclude_unset=True)
 
     def _convert(chunk):
         if isinstance(chunk, str):
@@ -246,7 +238,7 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
 def _convert_chat_request_or_throw(
     chat_request: dict[str, Any],
 ) -> list[BaseMessage]:
-    model = ChatCompletionRequest.validate_compat(chat_request)
+    model = ChatCompletionRequest.model_validate(chat_request)
     return [_chat_model_to_langchain_message(message) for message in model.messages]
 
 
@@ -260,7 +252,7 @@ def _convert_chat_request(chat_request: dict[str, Any] | list[dict[str, Any]]):
 def _get_lc_model_input_fields(lc_model) -> set[str]:
     try:
         if hasattr(lc_model, "input_schema"):
-            return set(lc_model.input_schema.__fields__)
+            return set(lc_model.input_schema.model_fields)
     except Exception as e:
         _logger.debug(
             f"Unexpected exception while checking LangChain input schema for"
@@ -283,9 +275,10 @@ def _should_transform_request_json_for_chat(lc_model):
 
     # Avoid converting the request to LangChain's Message format if the chain
     # is an AgentExecutor, as LangChainChatMessage might not be accepted by the chain
-    from langchain.agents import AgentExecutor
+    from mlflow.langchain._compat import try_import_agent_executor
 
-    if isinstance(lc_model, AgentExecutor):
+    AgentExecutor = try_import_agent_executor()
+    if AgentExecutor and isinstance(lc_model, AgentExecutor):
         return False
 
     input_fields = _get_lc_model_input_fields(lc_model)
@@ -362,6 +355,24 @@ def parse_token_usage(
     lc_generations: list[Generation],
 ) -> dict[str, int] | None:
     """Parse the token usage from the LangChain generations."""
+
+    # Check if this is streaming (contains ChatGenerationChunk)
+    is_streaming = any(isinstance(gen, ChatGenerationChunk) for gen in lc_generations)
+
+    if is_streaming:
+        # Streaming mode: collect all generations with usage, use only the last one
+        # (which contains the final cumulative token counts)
+        generations_with_usage = [
+            token_usage
+            for generation in lc_generations
+            if (token_usage := _parse_token_usage_from_generation(generation))
+        ]
+
+        if generations_with_usage:
+            return generations_with_usage[-1]
+        return None
+
+    # Non-streaming mode: existing behavior (sum all generations)
     aggregated = defaultdict(int)
     for generation in lc_generations:
         if token_usage := _parse_token_usage_from_generation(generation):

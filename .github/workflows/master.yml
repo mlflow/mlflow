@@ -65,9 +65,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3]
+        group: [1, 2, 3, 4]
         include:
-          - splits: 3
+          - splits: 4
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -75,47 +75,35 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          source ./dev/install-common-deps.sh --ml
-          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
-          pip install tf-keras
-          # Ensure `databricks-connect` and `databricks-agents` are not installed
-          pip uninstall -y databricks-connect databricks-agents
-          pip install --no-deps --force-reinstall pyspark
+          uv sync --extra extras --extra gateway --extra mcp --extra genai
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            -r requirements/extra-ml-requirements.txt
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
-          source .venv/bin/activate
           # `-I` is used to avoid importing modules from user-specific site-packages
           # that might conflict with the built-in modules (e.g. `types`).
-          python -I tests/check_mlflow_lazily_imports_ml_packages.py
+          uv run --no-sync python -I tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
-          source .venv/bin/activate
           source dev/setup-ssh.sh
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
-            --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
-            --ignore tests/genai tests
-
-      # TODO: Remove this step once support for pydantic v1 is dropped
-      # - name: Run gateway tests with pydantic v1
-      #   run: |
-      #     source .venv/bin/activate
-      #     pip install 'pydantic<2.0'
-      #     pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/gateway
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+            --quiet --requires-ssh --ignore-flavors \
+            --ignore=tests/examples \
+            --ignore=tests/evaluate \
+            --ignore=tests/genai \
+            tests
 
       - name: Run databricks-connect related tests
         run: |
           # this needs to be run in a separate job because installing databricks-connect could break other
           # tests that uses normal SparkSession instead of remote SparkSession
-          source .venv/bin/activate
-          pip install databricks-agents
-          pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
+          uv run --no-sync --with 'databricks-agents,databricks-connect' \
+            pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -129,7 +117,7 @@ jobs:
       - name: Build
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
-          docker images
+          docker images --digests
           ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)"
       - name: Run tests
         run: |
@@ -143,6 +131,8 @@ jobs:
             # https://github.com/actions/virtual-environments/issues/5022
             ./tests/db/compose.sh run --rm --no-TTY $service pytest \
               tests/store/tracking/test_sqlalchemy_store.py \
+              tests/store/tracking/test_sqlalchemy_store_query_trace_metrics.py \
+              tests/store/tracking/test_gateway_sql_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
               tests/db
               RESULTS="$RESULTS\n$service: $(if [ $? -eq 0 ]; then echo "✅"; else echo "❌"; fi)"
@@ -180,6 +170,8 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
+        with:
+          java-version: 11
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
@@ -202,25 +194,20 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          source ./dev/install-common-deps.sh --ml
-          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
-          pip install tf-keras uvicorn
+          uv sync --extra extras
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            -r requirements/extra-ml-requirements.txt
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          source .venv/bin/activate
-          pytest \
+          uv run --no-sync pytest \
             tests/tracking/fluent/test_fluent_autolog.py \
             tests/autologging
 
-  # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
-  # run these tests in a separate job.
   models:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -230,9 +217,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2]
+        group: [1, 2, 3]
         include:
-          - splits: 2
+          - splits: 3
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -242,18 +229,16 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-          pip install pyspark langchain langchain-community '.[mlserver]'
+          uv sync --extra mlserver
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            pyspark langchain langchain-community
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
 
-  # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
-  # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
-  # When the shap cross version tests are passing in a new release version of shap, this pin should
-  # be removed.
   evaluate:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -263,9 +248,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2]
+        group: [1]
         include:
-          - splits: 2
+          - splits: 1
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -274,16 +259,18 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-          pip install pyspark torch transformers langchain langchain-experimental '.[genai]' 'shap<0.47.0' lightgbm xgboost
+          uv sync --extra extras --extra genai
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            torch transformers pyspark langchain langchain-experimental 'shap<0.47.0' lightgbm xgboost
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run tests with delta
         run: |
-          pytest tests/evaluate/test_default_evaluator_delta.py
+          uv run --no-sync pytest tests/evaluate/test_default_evaluator_delta.py
 
   genai:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -299,27 +286,21 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-          pip install openai dspy
+          uv sync --extra genai
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            deepeval ragas
       - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
       - name: Run GenAI Tests (OSS)
         run: |
-          pytest tests/genai
+          uv run --no-sync pytest tests/genai
 
       - name: Run GenAI Tests (Databricks)
         run: |
-          pip install databricks-agents
-          pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
+          uv run --no-sync --with databricks-agents \
+            pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
             --ignore tests/genai/optimize --ignore tests/genai/prompts
-
-      - name: Run Tests with Local Spark Session
-        run: |
-          # databricks-agents installs databricks-connect that blocks us from running spark-related
-          # tests with local spark session. To work around this, we run skipped tests after
-          # uninstalling databricks-connect.
-          pip uninstall -y databricks-connect pyspark
-          pip install pyspark
-          pytest tests/genai/evaluate/test_utils.py
 
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -342,23 +323,19 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-          pip install tensorflow 'pyspark[connect]'
+          uv sync --extra extras --extra gateway
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            tensorflow 'pyspark[connect]'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
-          pytest tests/pyfunc/test_spark_connect.py
-      # TODO: Remove this step once support for pydantic v1 is dropped
-      # - name: Run tests on pydantic v1
-      #   run: |
-      #     pip install 'pydantic<2'
-      #     pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
-      #       tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
+          uv run --no-sync pytest tests/pyfunc/test_spark_connect.py
 
   windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -369,35 +346,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3, 4]
+        group: [1, 2, 3]
         include:
-          - splits: 4
+          - splits: 3
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/cache-pip
       - name: Install python dependencies
         run: |
-          python -m venv .venv
-          source .venv/Scripts/activate
-          python -m pip install -U pip setuptools wheel
-          pip install tests/resources/mlflow-test-plugin
-          pip install '.[extras,genai]'
-          pip install pyspark
-          # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
-          pip install datasets
-          # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
-          pip install tensorflow
-          # Install torch and transformers to test metrics
-          pip install torch transformers
-          pip install -r requirements/test-requirements.txt
-          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
-          pip install tf-keras
-          # test telemetry events
-          pip install openai
+          uv sync --extra extras --extra genai --extra mcp
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            pyspark datasets tensorflow torch transformers tf-keras openai \
+            tests/resources/mlflow-test-plugin
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark
@@ -410,13 +374,13 @@ jobs:
           # files created during tests on Windows as it keeps the DB connection open until
           # it's explicitly disposed.
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
-        run: |
-          source .venv/Scripts/activate
           # Set Hadoop environment variables required for testing Spark integrations on Windows
-          export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
+          HADOOP_HOME: /tmp/winutils/hadoop-3.2.2
+        run: |
           export PATH=$PATH:$HADOOP_HOME/bin
-          # Run Windows tests
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          uv run --no-sync pytest tests \
+            --splits=${{ matrix.splits }} \
+            --group=${{ matrix.group }} \
             --ignore-flavors \
             --ignore=tests/projects \
             --ignore=tests/examples \
@@ -427,4 +391,4 @@ jobs:
             --ignore=tests/sagemaker \
             --ignore=tests/gateway \
             --ignore=tests/server/auth \
-            tests
+            --ignore=tests/data/test_spark_dataset.py

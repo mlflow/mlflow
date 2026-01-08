@@ -1331,7 +1331,7 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
             peft_adapter_path=os.path.join(path, peft_adapter_dir),
         )
 
-    conf = {**conf, **model_and_components}
+    conf = conf | model_and_components
 
     if return_type == "pipeline":
         conf.update(**kwargs)
@@ -1782,7 +1782,7 @@ class _TransformersWrapper:
                 "valid for the pipeline, MlflowException will be raised."
             )
             # Override the inference configuration with any additional kwargs provided by the user.
-            return {**model_config, **params}
+            return model_config | params
         else:
             return model_config
 
@@ -2933,11 +2933,7 @@ def autolog(
 
         safe_patch(
             FLAVOR_NAME,
-            (
-                setfit.SetFitTrainer
-                if Version(setfit.__version__) < Version("1.0.0")
-                else setfit.Trainer
-            ),
+            (setfit.SetFitTrainer if Version(setfit.__version__).major < 1 else setfit.Trainer),
             "train",
             functools.partial(train),
             manage_run=False,

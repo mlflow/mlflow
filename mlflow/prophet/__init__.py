@@ -67,7 +67,17 @@ def get_default_pip_requirements():
     # to setup.py installation process.
     # If a pystan installation error occurs, ensure gcc>=8 is installed in your environment.
     # See: https://gcc.gnu.org/install/
-    return [_get_pinned_requirement("prophet")]
+    import prophet
+    from packaging.version import Version
+
+    pip_deps = [_get_pinned_requirement("prophet")]
+
+    # cmdstanpy>=1.3.0 is not compatible with prophet<=1.2.0
+    # https://github.com/facebook/prophet/issues/2697
+    if Version(prophet.__version__) <= Version("1.2.0"):
+        pip_deps.append("cmdstanpy<1.3.0")
+
+    return pip_deps
 
 
 def get_default_conda_env():

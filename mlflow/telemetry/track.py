@@ -35,13 +35,7 @@ def record_usage_event(event: type[Event]) -> Callable[[Callable[P, R]], Callabl
             finally:
                 try:
                     duration_ms = int((time.time() - start_time) * 1000)
-                    client = get_telemetry_client()
-                    if client and (
-                        record := _generate_telemetry_record(
-                            func, args, kwargs, success, duration_ms, event, result
-                        )
-                    ):
-                        client.add_record(record)
+                    _add_telemetry_record(func, args, kwargs, success, duration_ms, event, result)
                 except Exception as e:
                     _log_error(f"Failed to record telemetry event {event.name}: {e}")
 
@@ -50,7 +44,7 @@ def record_usage_event(event: type[Event]) -> Callable[[Callable[P, R]], Callabl
     return decorator
 
 
-def _generate_telemetry_record(
+def _add_telemetry_record(
     func: Callable[..., Any],
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
@@ -58,35 +52,47 @@ def _generate_telemetry_record(
     duration_ms: int,
     event: type[Event],
     result: Any,
-) -> Record | None:
+) -> None:
     try:
-        signature = inspect.signature(func)
-        bound_args = signature.bind(*args, **kwargs)
-        bound_args.apply_defaults()
+        if client := get_telemetry_client():
+            signature = inspect.signature(func)
+            bound_args = signature.bind(*args, **kwargs)
+            bound_args.apply_defaults()
 
-        arguments = dict(bound_args.arguments)
-        if "self" in arguments:
-            del arguments["self"]
-
-        params = list(arguments.keys())
-        if params and params[0] == "cls" and isinstance(arguments["cls"], type):
-            del arguments["cls"]
-
-        record_params = event.parse(arguments) or {}
-        if hasattr(event, "parse_result"):
-            record_params.update(event.parse_result(result))
-        if experiment_id := MLFLOW_EXPERIMENT_ID.get():
-            record_params["mlflow_experiment_id"] = experiment_id
-        return Record(
-            event_name=event.name,
-            timestamp_ns=time.time_ns(),
-            params=record_params or None,
-            status=Status.SUCCESS if success else Status.FAILURE,
-            duration_ms=duration_ms,
-        )
+            arguments = dict(bound_args.arguments)
+            record_params = event.parse(arguments) or {}
+            if hasattr(event, "parse_result"):
+                record_params.update(event.parse_result(result))
+            if experiment_id := MLFLOW_EXPERIMENT_ID.get():
+                record_params["mlflow_experiment_id"] = experiment_id
+            record = Record(
+                event_name=event.name,
+                timestamp_ns=time.time_ns(),
+                params=record_params or None,
+                status=Status.SUCCESS if success else Status.FAILURE,
+                duration_ms=duration_ms,
+            )
+            client.add_record(record)
     except Exception as e:
         _log_error(f"Failed to generate telemetry record for event {event.name}: {e}")
-        return
+
+
+def _record_event(event: type[Event], params: dict[str, Any] | None = None) -> None:
+    try:
+        if client := get_telemetry_client():
+            if experiment_id := MLFLOW_EXPERIMENT_ID.get():
+                params["mlflow_experiment_id"] = experiment_id
+            client.add_record(
+                Record(
+                    event_name=event.name,
+                    params=params,
+                    timestamp_ns=time.time_ns(),
+                    status=Status.SUCCESS,
+                    duration_ms=0,
+                )
+            )
+    except Exception as e:
+        _log_error(f"Failed to record telemetry event {event.name}: {e}")
 
 
 def _is_telemetry_disabled_for_event(event: type[Event]) -> bool:

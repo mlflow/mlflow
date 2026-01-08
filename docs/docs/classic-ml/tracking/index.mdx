@@ -3,7 +3,6 @@ sidebar_label: Overview
 sidebar_position: 0
 ---
 
-import Link from "@docusaurus/Link";
 import { PageCard, CardGroup } from "@site/src/components/Card";
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
@@ -268,7 +267,7 @@ If you log runs to a local `mlruns` directory, run the following command in the 
 then access http://127.0.0.1:5000 in your browser.
 
 ```bash
-mlflow ui --port 5000
+mlflow server --port 5000
 ```
 
 Alternatively, the [MLflow Tracking Server](#tracking_server) serves the same UI and enables remote
@@ -290,7 +289,7 @@ From a bird's-eye view, the MLflow Tracking environment consists of the followin
 
 You can call MLflow Tracking APIs in your ML code to log runs and communicate with the MLflow Tracking Server if necessary.
 
-#### [Backend Store](/ml/tracking/backend-stores)
+#### [Backend Store](/self-hosting/architecture/backend-store)
 
 The backend store persists various metadata for each [Run](#runs), such as run ID, start and end times, parameters, metrics, etc.
 MLflow supports two types of storage for the backend: **file-system-based** like local files and **database-based** like PostgreSQL.
@@ -298,7 +297,7 @@ MLflow supports two types of storage for the backend: **file-system-based** like
 Additionally, if you are interfacing with a managed service (such as Databricks or Azure Machine Learning), you will be interfacing with a
 REST-based backend store that is externally managed and not directly accessible.
 
-#### [Artifact Store](/ml/tracking/artifact-stores) \{#artifact-stores}
+#### [Artifact Store](/self-hosting/architecture/artifact-store) \{#artifact-stores}
 
 Artifact store persists (typically large) artifacts for each run, such as model weights (e.g. a pickled scikit-learn model),
 images (e.g. PNGs), model and data files (e.g. [Parquet](https://parquet.apache.org) file). MLflow stores artifacts ina a
@@ -312,11 +311,11 @@ If the model is registered in the [MLflow Model Registry](/ml/model-registry),
 you can also refer the the model through a model URI of format: `models:/<model-name>/<model-version>`,
 see [MLflow Model Registry](/ml/model-registry) for details.
 
-#### [MLflow Tracking Server](/ml/tracking/server) (Optional) \{#tracking_server}
+#### [MLflow Tracking Server](/self-hosting/architecture/tracking-server) (Optional) \{#tracking_server}
 
 MLflow Tracking Server is a stand-alone HTTP server that provides REST APIs for accessing backend and/or artifact store.
 Tracking server also offers flexibility to configure what data to server, govern access control, versioning, and etc. Read
-[MLflow Tracking Server documentation](/ml/tracking/server) for more details.
+[MLflow Tracking Server documentation](/self-hosting) for more details.
 
 ### Common Setups \{#tracking_setup}
 
@@ -344,7 +343,7 @@ The following diagram and table show a few common setups for the MLflow Tracking
     <tr>
       <th>Use Case</th>
       <td>By default, MLflow records metadata and artifacts for each run to a local directory, `mlruns`. This is the simplest way to get started with MLflow Tracking, without setting up any external server, database, and storage.</td>
-      <td>The MLflow client can interface with a SQLAlchemy-compatible database (e.g., SQLite, PostgreSQL, MySQL) for the [backend](/ml/tracking/backend-stores). Saving metadata to a database allows you cleaner management of your experiment data while skipping the effort of setting up a server.</td>
+      <td>The MLflow client can interface with a SQLAlchemy-compatible database (e.g., SQLite, PostgreSQL, MySQL) for the [backend](/self-hosting/architecture/backend-store). Saving metadata to a database allows you cleaner management of your experiment data while skipping the effort of setting up a server.</td>
       <td>MLflow Tracking Server can be configured with an artifacts HTTP proxy, passing artifact requests through the tracking server to store and retrieve artifacts without having to interact with underlying object store services. This is particularly useful for team development scenarios where you want to store artifacts and experiment metadata in a shared location with proper access control.</td>
     </tr>
     <tr>
@@ -381,7 +380,7 @@ the basic setup and continue to the following materials for advanced configurati
     MLflow Tracking Server has an `--artifacts-only` option which allows the server to handle (proxy) exclusively artifacts, without permitting
     the processing of metadata. This is particularly useful when you are in a large organization or are training extremely large models. In these scenarios, you might have high artifact
     transfer volumes and can benefit from splitting out the traffic for serving artifacts to not impact tracking functionality. Please read
-    [Optionally using a Tracking Server instance exclusively for artifact handling](/ml/tracking/server#tracking-server-artifacts-only)
+    [Optionally using a Tracking Server instance exclusively for artifact handling](/self-hosting/architecture/tracking-server#tracking-server-artifacts-only)
     for more details on how to use this mode.
 
     <div class="center-div" style={{ width: "50%" }}>
@@ -395,7 +394,7 @@ the basic setup and continue to the following materials for advanced configurati
     MLflow Tracking Server, by default, serves both artifacts and only metadata. However, in some cases, you may want
     to allow direct access to the remote artifacts storage to avoid the overhead of a proxy while preserving the functionality
     of metadata tracking. This can be done by disabling artifact proxying by starting server with `--no-serve-artifacts` option.
-    Refer to [Use Tracking Server without Proxying Artifacts Access](/ml/tracking/server#tracking-server-no-proxy)
+    Refer to [Use Tracking Server without Proxying Artifacts Access](/self-hosting/architecture/tracking-server#tracking-server-no-proxy)
     for how to set this up.
 
     <div class="center-div" style={{ width: "50%" }}>
@@ -426,7 +425,7 @@ Yes, while it is best practice to have the MLflow Tracking Server as a proxy for
 if you are using it for personal projects or testing. You can achieve this by following the workaround below:
 
 1. Set up artifacts configuration such as credentials and endpoints, just like you would for the MLflow Tracking Server.
-   See [configure artifact storage](/ml/tracking/artifact-stores#artifacts-store-supported-storages) for more details.
+   See [configure artifact storage](/self-hosting/architecture/artifact-store#artifacts-store-supported-storages) for more details.
 2. Create an experiment with an explicit artifact location,
 
 ```python
@@ -441,7 +440,7 @@ Your runs under this experiment will log artifacts to the remote storage directl
 
 To use the Model Registry functionality with MLflow tracking, you **must use database backed store** such as PostgresQL and log a model using the `log_model` methods of the corresponding model flavors.
 Once a model has been logged, you can add, modify, update, or delete the model in the Model Registry through the UI or the API.
-See [Backend Stores](/ml/tracking/backend-stores) and [Common Setups](#tracking_setup) for how to configures backend store properly for your workflow.
+See [Backend Stores](/self-hosting/architecture/backend-store) and [Common Setups](/self-hosting/architecture/overview/#common-setups) for how to configures backend store properly for your workflow.
 
 #### How to include additional description texts about the run?
 

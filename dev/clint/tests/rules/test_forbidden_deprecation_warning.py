@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, lint_file
+from clint.linter import Position, Range, lint_file
 from clint.rules import ForbiddenDeprecationWarning
 
 
@@ -28,12 +28,11 @@ other_function("message", category=DeprecationWarning)  # not warnings.warn
     results = lint_file(Path("test.py"), code, config, index_path)
     assert len(results) == 2
     assert all(isinstance(r.rule, ForbiddenDeprecationWarning) for r in results)
-    assert results[0].loc == Location(4, 34)  # First warnings.warn call
-    assert results[1].loc == Location(7, 13)  # Second warnings.warn call
+    assert results[0].range == Range(Position(4, 34))  # First warnings.warn call
+    assert results[1].range == Range(Position(7, 13))  # Second warnings.warn call
 
 
 def test_forbidden_deprecation_warning_import_variants(index_path: Path) -> None:
-    """Test detection with different import styles."""
     code = """
 import warnings
 from warnings import warn
@@ -51,7 +50,6 @@ w.warn("message", category=DeprecationWarning)
 
 
 def test_forbidden_deprecation_warning_parameter_order(index_path: Path) -> None:
-    """Test detection regardless of parameter order."""
     code = """
 import warnings
 
@@ -66,7 +64,6 @@ warnings.warn(category=DeprecationWarning, message="test")
 
 
 def test_forbidden_deprecation_warning_positional_args(index_path: Path) -> None:
-    """Test detection with positional arguments."""
     code = """
 import warnings
 

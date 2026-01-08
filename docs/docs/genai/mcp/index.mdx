@@ -6,7 +6,7 @@ import TabItem from "@theme/TabItem";
 :::info
 
 - This feature is experimental and may change in future releases.
-- MLflow 3.4 or newer is required.
+- MLflow 3.5.1 or newer is required.
 
 :::
 
@@ -24,8 +24,16 @@ This integration makes it easy to incorporate MLflow tracing capabilities into A
 
 ## Prerequisites
 
-- MLflow version 3.4 or newer
+- MLflow version 3.5.1 or newer
 - An MCP-compatible client (VS Code, Cursor, Claude, etc.)
+
+## Installation
+
+To use the MLflow MCP server, install MLflow with the `mcp` extra:
+
+```bash
+pip install 'mlflow[mcp]>=3.5.1'
+```
 
 ## Set up
 
@@ -41,7 +49,7 @@ Add to your VS Code configuration file (`.vscode/mcp.json`):
   "servers": {
     "mlflow-mcp": {
       "command": "uv",
-      "args": ["run", "--with", "mlflow>=3.4", "mlflow", "mcp", "run"],
+      "args": ["run", "--with", "mlflow[mcp]>=3.5.1", "mlflow", "mcp", "run"],
       "env": {
         "MLFLOW_TRACKING_URI": "<MLFLOW_TRACKING_URI>"
       }
@@ -60,7 +68,7 @@ Add to your Cursor configuration file (`.cursor/mcp.json`):
   "mcpServers": {
     "mlflow-mcp": {
       "command": "uv",
-      "args": ["run", "--with", "mlflow>=3.4", "mlflow", "mcp", "run"],
+      "args": ["run", "--with", "mlflow[mcp]>=3.5.1", "mlflow", "mcp", "run"],
       "env": {
         "MLFLOW_TRACKING_URI": "<MLFLOW_TRACKING_URI>"
       }
@@ -79,7 +87,7 @@ Add to your Claude `.claude/settings.json`:
   "mcpServers": {
     "mlflow-mcp": {
       "command": "uv",
-      "args": ["run", "--with", "mlflow>=3.4", "mlflow", "mcp", "run"],
+      "args": ["run", "--with", "mlflow[mcp]>=3.5.1", "mlflow", "mcp", "run"],
       "env": {
         "MLFLOW_TRACKING_URI": "<MLFLOW_TRACKING_URI>"
       }
@@ -237,5 +245,5 @@ For Databricks environments, ensure you have appropriate authentication configur
 ## Related Documentation
 
 - [MLflow Tracing Overview](/genai/tracing/quickstart)
-- [Collecting User Feedback](/genai/tracing/collect-user-feedback)
+- [Collecting User Feedback](/genai/assessments/feedback)
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/)

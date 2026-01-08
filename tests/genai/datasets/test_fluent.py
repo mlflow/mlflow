@@ -40,7 +40,7 @@ def mock_client():
 
 @pytest.fixture
 def mock_databricks_environment():
-    with mock.patch("mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True):
+    with mock.patch("mlflow.genai.datasets.is_databricks_uri", return_value=True):
         yield
 
 
@@ -367,17 +367,186 @@ def test_search_datasets_single_page(mock_client):
     assert mock_client.search_datasets.call_count == 1
 
 
-def test_search_datasets_databricks(mock_databricks_environment):
-    with pytest.raises(NotImplementedError, match="Dataset search is not available in Databricks"):
-        search_datasets()
+def test_search_datasets_databricks(mock_databricks_environment, mock_client):
+    datasets = [
+        EntityEvaluationDataset(
+            dataset_id="id1",
+            name="dataset1",
+            digest="digest1",
+            created_time=123456789,
+            last_update_time=123456789,
+        ),
+    ]
+    mock_client.search_datasets.return_value = PagedList(datasets, None)
+
+    result = search_datasets(experiment_ids=["exp1"])
+
+    assert len(result) == 1
+    assert isinstance(result, list)
+
+    # Verify that default filter_string and order_by are NOT set for Databricks
+    # (since these parameters may not be supported by all Databricks backends)
+    mock_client.search_datasets.assert_called_once()
+    call_kwargs = mock_client.search_datasets.call_args.kwargs
+    assert call_kwargs.get("filter_string") is None
+    assert call_kwargs.get("order_by") is None
 
 
 def test_databricks_import_error():
-    with mock.patch("mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True):
-        with mock.patch.dict("sys.modules", {"databricks.agents.datasets": None}):
-            with mock.patch("builtins.__import__", side_effect=ImportError("No module")):
-                with pytest.raises(ImportError, match="databricks-agents"):
-                    create_dataset(name="test", experiment_id="exp1")
+    with (
+        mock.patch("mlflow.genai.datasets.is_databricks_uri", return_value=True),
+        mock.patch.dict("sys.modules", {"databricks.agents.datasets": None}),
+        mock.patch("builtins.__import__", side_effect=ImportError("No module")),
+    ):
+        with pytest.raises(ImportError, match="databricks-agents"):
+            create_dataset(name="test", experiment_id="exp1")
+
+
+def test_databricks_profile_uri_support():
+    mock_dataset = mock.Mock()
+    with (
+        mock.patch(
+            "mlflow.genai.datasets.get_tracking_uri", return_value="databricks://profilename"
+        ),
+        mock.patch.dict(
+            "sys.modules",
+            {
+                "databricks.agents.datasets": mock.Mock(
+                    get_dataset=mock.Mock(return_value=mock_dataset),
+                    create_dataset=mock.Mock(return_value=mock_dataset),
+                    delete_dataset=mock.Mock(),
+                )
+            },
+        ),
+    ):
+        result = get_dataset(name="catalog.schema.table")
+        sys.modules["databricks.agents.datasets"].get_dataset.assert_called_once_with(
+            "catalog.schema.table"
+        )
+        assert isinstance(result, EvaluationDataset)
+
+        result2 = create_dataset(name="catalog.schema.table2", experiment_id=["exp1"])
+        sys.modules["databricks.agents.datasets"].create_dataset.assert_called_once_with(
+            "catalog.schema.table2", ["exp1"]
+        )
+        assert isinstance(result2, EvaluationDataset)
+
+        delete_dataset(name="catalog.schema.table3")
+        sys.modules["databricks.agents.datasets"].delete_dataset.assert_called_once_with(
+            "catalog.schema.table3"
+        )
+
+
+def test_databricks_profile_env_var_set_from_uri(monkeypatch):
+    mock_dataset = mock.Mock()
+    profile_values_during_calls = []
+
+    def mock_get_dataset(name):
+        profile_values_during_calls.append(
+            ("get_dataset", os.environ.get("DATABRICKS_CONFIG_PROFILE"))
+        )
+        return mock_dataset
+
+    def mock_create_dataset(name, experiment_ids):
+        profile_values_during_calls.append(
+            ("create_dataset", os.environ.get("DATABRICKS_CONFIG_PROFILE"))
+        )
+        return mock_dataset
+
+    def mock_delete_dataset(name):
+        profile_values_during_calls.append(
+            ("delete_dataset", os.environ.get("DATABRICKS_CONFIG_PROFILE"))
+        )
+
+    mock_agents_module = mock.Mock(
+        get_dataset=mock_get_dataset,
+        create_dataset=mock_create_dataset,
+        delete_dataset=mock_delete_dataset,
+    )
+    monkeypatch.setitem(sys.modules, "databricks.agents.datasets", mock_agents_module)
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks://myprofile")
+
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+    get_dataset(name="catalog.schema.table")
+    create_dataset(name="catalog.schema.table", experiment_id="exp1")
+    delete_dataset(name="catalog.schema.table")
+
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+    assert profile_values_during_calls == [
+        ("get_dataset", "myprofile"),
+        ("create_dataset", "myprofile"),
+        ("delete_dataset", "myprofile"),
+    ]
+
+
+def test_databricks_profile_env_var_overridden_and_restored(monkeypatch):
+    mock_dataset = mock.Mock()
+    profile_during_call = None
+
+    def mock_get_dataset(name):
+        nonlocal profile_during_call
+        profile_during_call = os.environ.get("DATABRICKS_CONFIG_PROFILE")
+        return mock_dataset
+
+    mock_agents_module = mock.Mock(get_dataset=mock_get_dataset)
+    monkeypatch.setitem(sys.modules, "databricks.agents.datasets", mock_agents_module)
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks://myprofile")
+    monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "original_profile")
+
+    assert os.environ.get("DATABRICKS_CONFIG_PROFILE") == "original_profile"
+
+    get_dataset(name="catalog.schema.table")
+
+    assert os.environ.get("DATABRICKS_CONFIG_PROFILE") == "original_profile"
+    assert profile_during_call == "myprofile"
+
+
+def test_databricks_dataset_merge_records_uses_profile(monkeypatch):
+    profile_during_merge = None
+    profile_during_to_df = None
+
+    mock_inner_dataset = mock.Mock()
+    mock_inner_dataset.digest = "test_digest"
+    mock_inner_dataset.name = "catalog.schema.table"
+    mock_inner_dataset.dataset_id = "dataset-123"
+
+    def mock_merge_records(records):
+        nonlocal profile_during_merge
+        profile_during_merge = os.environ.get("DATABRICKS_CONFIG_PROFILE")
+        return mock_inner_dataset
+
+    def mock_to_df():
+        nonlocal profile_during_to_df
+        profile_during_to_df = os.environ.get("DATABRICKS_CONFIG_PROFILE")
+        import pandas as pd
+
+        return pd.DataFrame({"test": [1, 2, 3]})
+
+    mock_inner_dataset.merge_records = mock_merge_records
+    mock_inner_dataset.to_df = mock_to_df
+
+    def mock_get_dataset(name):
+        return mock_inner_dataset
+
+    mock_agents_module = mock.Mock(get_dataset=mock_get_dataset)
+    monkeypatch.setitem(sys.modules, "databricks.agents.datasets", mock_agents_module)
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks://myprofile")
+
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+    dataset = get_dataset(name="catalog.schema.table")
+
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+    dataset.merge_records([{"inputs": {"q": "test"}}])
+    assert profile_during_merge == "myprofile"
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+    dataset.to_df()
+    assert profile_during_to_df == "myprofile"
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
 
 
 def test_create_dataset_with_user_tag(tracking_uri, experiments):
@@ -559,14 +728,12 @@ def test_dataset_with_dataframe_records(tracking_uri, experiments):
 
 
 def test_search_datasets(tracking_uri, experiments):
-    datasets = []
     for i in range(5):
-        dataset = create_dataset(
+        create_dataset(
             name=f"search_test_{i}",
             experiment_id=[experiments[i % len(experiments)]],
             tags={"type": "human" if i % 2 == 0 else "trace", "index": str(i)},
         )
-        datasets.append(dataset)
 
     all_results = search_datasets()
     assert len(all_results) == 5
@@ -725,7 +892,7 @@ def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
                 )
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiments[0], experiments[1]],
+        locations=[experiments[0], experiments[1]],
         max_results=10,
         return_type="list",
     )
@@ -759,7 +926,7 @@ def test_trace_to_evaluation_dataset_integration(tracking_uri, experiments):
             span.set_attributes({"model": "test-model"})
 
     all_traces = mlflow.search_traces(
-        experiment_ids=[experiments[0], experiments[1]], max_results=10, return_type="list"
+        locations=[experiments[0], experiments[1]], max_results=10, return_type="list"
     )
     assert len(all_traces) == 4
 
@@ -816,7 +983,7 @@ def test_search_traces_dataframe_to_dataset_integration(tracking_uri, experiment
                 )
 
     traces_df = mlflow.search_traces(
-        experiment_ids=[experiments[0]],
+        locations=[experiments[0]],
     )
 
     assert "trace" in traces_df.columns
@@ -1169,18 +1336,17 @@ def test_dataset_pagination_transparency_large_records(tracking_uri, experiments
         tags={"test": "large_dataset"},
     )
 
-    large_records = []
-    for i in range(150):
-        large_records.append(
-            {
-                "inputs": {"question": f"Question {i}", "index": i},
-                "expectations": {"answer": f"Answer {i}", "score": i * 0.01},
-            }
-        )
+    large_records = [
+        {
+            "inputs": {"question": f"Question {i}", "index": i},
+            "expectations": {"answer": f"Answer {i}", "score": i * 0.01},
+        }
+        for i in range(150)
+    ]
 
     dataset.merge_records(large_records)
 
-    all_records = dataset.records
+    all_records = dataset._mlflow_dataset.records
     assert len(all_records) == 150
 
     record_indices = {record.inputs["index"] for record in all_records}
@@ -1201,11 +1367,11 @@ def test_dataset_pagination_transparency_large_records(tracking_uri, experiments
     assert not hasattr(dataset, "next_page_token")
     assert not hasattr(dataset, "max_results")
 
-    second_access = dataset.records
+    second_access = dataset._mlflow_dataset.records
     assert second_access is all_records
 
-    dataset._records = None
-    refreshed_records = dataset.records
+    dataset._mlflow_dataset._records = None
+    refreshed_records = dataset._mlflow_dataset.records
     assert len(refreshed_records) == 150
 
 
@@ -1218,26 +1384,25 @@ def test_dataset_internal_pagination_with_mock(tracking_uri, experiments):
         tags={"test": "pagination_mock"},
     )
 
-    records = []
-    for i in range(75):
-        records.append(
-            {"inputs": {"question": f"Q{i}", "id": i}, "expectations": {"answer": f"A{i}"}}
-        )
+    records = [
+        {"inputs": {"question": f"Q{i}", "id": i}, "expectations": {"answer": f"A{i}"}}
+        for i in range(75)
+    ]
 
     dataset.merge_records(records)
 
-    dataset._records = None
+    dataset._mlflow_dataset._records = None
 
     store = _get_store()
     with mock.patch.object(
         store, "_load_dataset_records", wraps=store._load_dataset_records
     ) as mock_load:
-        accessed_records = dataset.records
+        accessed_records = dataset._mlflow_dataset.records
 
         mock_load.assert_called_once_with(dataset.dataset_id, max_results=None)
         assert len(accessed_records) == 75
 
-    dataset._records = None
+    dataset._mlflow_dataset._records = None
 
     with mock.patch.object(
         store, "_load_dataset_records", wraps=store._load_dataset_records
@@ -1739,7 +1904,7 @@ def test_trace_source_type_detection():
     trace_sources = df[df["source_type"] == DatasetRecordSourceType.TRACE.value]
     assert len(trace_sources) == 3
 
-    for idx, trace_id in enumerate(trace_ids):
+    for trace_id in trace_ids:
         matching_records = df[df["source_id"] == trace_id]
         assert len(matching_records) == 1
 
@@ -1747,7 +1912,7 @@ def test_trace_source_type_detection():
         name="test_trace_sources_df", experiment_id=exp, tags={"test": "trace_source_df"}
     )
 
-    traces_df = mlflow.search_traces(experiment_ids=[exp])
+    traces_df = mlflow.search_traces(locations=[exp])
     assert not traces_df.empty
     dataset2.merge_records(traces_df)
 
@@ -1759,7 +1924,7 @@ def test_trace_source_type_detection():
         name="test_trace_sources_list", experiment_id=exp, tags={"test": "trace_source_list"}
     )
 
-    traces_list = mlflow.search_traces(experiment_ids=[exp], return_type="list")
+    traces_list = mlflow.search_traces(locations=[exp], return_type="list")
     assert len(traces_list) > 0
     dataset3.merge_records(traces_list)
 

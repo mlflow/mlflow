@@ -16,14 +16,12 @@ if Version(google.protobuf.__version__).major >= 5:
   _sym_db = _symbol_database.Default()
 
 
-  from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
-  from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
-  from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
   from . import databricks_pb2 as databricks__pb2
+  from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#unity_catalog_prompt_messages.proto\x12\x13mlflow.unitycatalog\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\"\x95\x02\n\x06Prompt\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x36\n\x12\x63reation_timestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12:\n\x16last_updated_timestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x31\n\x07\x61liases\x18\x06 \x03(\x0b\x32 .mlflow.unitycatalog.PromptAlias\x12,\n\x04tags\x18\x07 \x03(\x0b\x32\x1e.mlflow.unitycatalog.PromptTagJ\x04\x08\x05\x10\x06R\rexperiment_id\"\xb1\x02\n\rPromptVersion\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x36\n\x12\x63reation_timestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12:\n\x16last_updated_timestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0b\x64\x65scription\x18\x05 \x01(\t\x12\x10\n\x08template\x18\x06 \x01(\t\x12\x31\n\x07\x61liases\x18\x07 \x03(\x0b\x32 .mlflow.unitycatalog.PromptAlias\x12\x33\n\x04tags\x18\x08 \x03(\x0b\x32%.mlflow.unitycatalog.PromptVersionTag\"\'\n\tPromptTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\".\n\x10PromptVersionTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"-\n\x0bPromptAlias\x12\r\n\x05\x61lias\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"?\n\x12UnityCatalogSchema\x12\x14\n\x0c\x63\x61talog_name\x18\x04 \x01(\t\x12\x13\n\x0bschema_name\x18\x05 \x01(\t\"P\n\x13\x43reatePromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12+\n\x06prompt\x18\x02 \x01(\x0b\x32\x1b.mlflow.unitycatalog.Prompt\"P\n\x13UpdatePromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12+\n\x06prompt\x18\x02 \x01(\x0b\x32\x1b.mlflow.unitycatalog.Prompt\"#\n\x13\x44\x65letePromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x16\n\x14\x44\x65letePromptResponse\" \n\x10GetPromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\xb3\x01\n\x14SearchPromptsRequest\x12\x0e\n\x06\x66ilter\x18\x01 \x01(\t\x12\x41\n\x0e\x63\x61talog_schema\x18\x03 \x01(\x0b\x32\'.mlflow.unitycatalog.UnityCatalogSchemaH\x00\x12\x13\n\x0bmax_results\x18\x04 \x01(\x03\x12\x12\n\npage_token\x18\x05 \x01(\tB\n\n\x08locationJ\x04\x08\x02\x10\x03R\rexperiment_id\"^\n\x15SearchPromptsResponse\x12,\n\x07prompts\x18\x01 \x03(\x0b\x32\x1b.mlflow.unitycatalog.Prompt\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"u\n\x1a\x43reatePromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12:\n\x0eprompt_version\x18\x03 \x01(\x0b\x32\".mlflow.unitycatalog.PromptVersionJ\x04\x08\x02\x10\x03R\x07version\"w\n\x1aUpdatePromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12:\n\x0eprompt_version\x18\x03 \x01(\x0b\x32\".mlflow.unitycatalog.PromptVersion\";\n\x1a\x44\x65letePromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"8\n\x17GetPromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"T\n\x1bSearchPromptVersionsRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0bmax_results\x18\x02 \x01(\x03\x12\x12\n\npage_token\x18\x03 \x01(\t\"t\n\x1cSearchPromptVersionsResponse\x12;\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32\".mlflow.unitycatalog.PromptVersion\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"E\n\x15SetPromptAliasRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x61lias\x18\x02 \x01(\t\x12\x0f\n\x07version\x18\x03 \x01(\t\"7\n\x18\x44\x65letePromptAliasRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x61lias\x18\x02 \x01(\t\"=\n\x1eGetPromptVersionByAliasRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x61lias\x18\x02 \x01(\t\"?\n\x13SetPromptTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x12\r\n\x05value\x18\x03 \x01(\t\"3\n\x16\x44\x65letePromptTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\"W\n\x1aSetPromptVersionTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x0b\n\x03key\x18\x03 \x01(\t\x12\r\n\x05value\x18\x04 \x01(\t\"K\n\x1d\x44\x65letePromptVersionTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x0b\n\x03key\x18\x03 \x01(\t\"\xbe\x01\n!LinkPromptVersionsToModelsRequest\x12\x44\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32+.mlflow.unitycatalog.PromptVersionLinkEntry\x12\x11\n\tmodel_ids\x18\x02 \x03(\t:@\xe2?=\n;UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]\"\xb7\x01\n\x1aLinkPromptsToTracesRequest\x12\x44\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32+.mlflow.unitycatalog.PromptVersionLinkEntry\x12\x11\n\ttrace_ids\x18\x02 \x03(\t:@\xe2?=\n;UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]\"\xba\x01\n\x1fLinkPromptVersionsToRunsRequest\x12\x44\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32+.mlflow.unitycatalog.PromptVersionLinkEntry\x12\x0f\n\x07run_ids\x18\x02 \x03(\t:@\xe2?=\n;UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]\"C\n\x16PromptVersionLinkEntry\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x42\x34\n\'com.databricks.api.proto.managedcatalog\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#unity_catalog_prompt_messages.proto\x12\x13mlflow.unitycatalog\x1a\x10\x64\x61tabricks.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x15scalapb/scalapb.proto\"\x95\x02\n\x06Prompt\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x36\n\x12\x63reation_timestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12:\n\x16last_updated_timestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x31\n\x07\x61liases\x18\x06 \x03(\x0b\x32 .mlflow.unitycatalog.PromptAlias\x12,\n\x04tags\x18\x07 \x03(\x0b\x32\x1e.mlflow.unitycatalog.PromptTagJ\x04\x08\x05\x10\x06R\rexperiment_id\"\xb1\x02\n\rPromptVersion\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x36\n\x12\x63reation_timestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12:\n\x16last_updated_timestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0b\x64\x65scription\x18\x05 \x01(\t\x12\x10\n\x08template\x18\x06 \x01(\t\x12\x31\n\x07\x61liases\x18\x07 \x03(\x0b\x32 .mlflow.unitycatalog.PromptAlias\x12\x33\n\x04tags\x18\x08 \x03(\x0b\x32%.mlflow.unitycatalog.PromptVersionTag\"\'\n\tPromptTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\".\n\x10PromptVersionTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"-\n\x0bPromptAlias\x12\r\n\x05\x61lias\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"?\n\x12UnityCatalogSchema\x12\x14\n\x0c\x63\x61talog_name\x18\x04 \x01(\t\x12\x13\n\x0bschema_name\x18\x05 \x01(\t\"P\n\x13\x43reatePromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12+\n\x06prompt\x18\x02 \x01(\x0b\x32\x1b.mlflow.unitycatalog.Prompt\"P\n\x13UpdatePromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12+\n\x06prompt\x18\x02 \x01(\x0b\x32\x1b.mlflow.unitycatalog.Prompt\"#\n\x13\x44\x65letePromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x16\n\x14\x44\x65letePromptResponse\" \n\x10GetPromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\xb3\x01\n\x14SearchPromptsRequest\x12\x0e\n\x06\x66ilter\x18\x01 \x01(\t\x12\x41\n\x0e\x63\x61talog_schema\x18\x03 \x01(\x0b\x32\'.mlflow.unitycatalog.UnityCatalogSchemaH\x00\x12\x13\n\x0bmax_results\x18\x04 \x01(\x03\x12\x12\n\npage_token\x18\x05 \x01(\tB\n\n\x08locationJ\x04\x08\x02\x10\x03R\rexperiment_id\"^\n\x15SearchPromptsResponse\x12,\n\x07prompts\x18\x01 \x03(\x0b\x32\x1b.mlflow.unitycatalog.Prompt\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"u\n\x1a\x43reatePromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12:\n\x0eprompt_version\x18\x03 \x01(\x0b\x32\".mlflow.unitycatalog.PromptVersionJ\x04\x08\x02\x10\x03R\x07version\"w\n\x1aUpdatePromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12:\n\x0eprompt_version\x18\x03 \x01(\x0b\x32\".mlflow.unitycatalog.PromptVersion\";\n\x1a\x44\x65letePromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"8\n\x17GetPromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"T\n\x1bSearchPromptVersionsRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0bmax_results\x18\x02 \x01(\x03\x12\x12\n\npage_token\x18\x03 \x01(\t\"t\n\x1cSearchPromptVersionsResponse\x12;\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32\".mlflow.unitycatalog.PromptVersion\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"E\n\x15SetPromptAliasRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x61lias\x18\x02 \x01(\t\x12\x0f\n\x07version\x18\x03 \x01(\t\"7\n\x18\x44\x65letePromptAliasRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x61lias\x18\x02 \x01(\t\"=\n\x1eGetPromptVersionByAliasRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x61lias\x18\x02 \x01(\t\"?\n\x13SetPromptTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x12\r\n\x05value\x18\x03 \x01(\t\"3\n\x16\x44\x65letePromptTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\"W\n\x1aSetPromptVersionTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x0b\n\x03key\x18\x03 \x01(\t\x12\r\n\x05value\x18\x04 \x01(\t\"K\n\x1d\x44\x65letePromptVersionTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x0b\n\x03key\x18\x03 \x01(\t\"\xbe\x01\n!LinkPromptVersionsToModelsRequest\x12\x44\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32+.mlflow.unitycatalog.PromptVersionLinkEntry\x12\x11\n\tmodel_ids\x18\x02 \x03(\t:@\xe2?=\n;UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]\"\xb7\x01\n\x1aLinkPromptsToTracesRequest\x12\x44\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32+.mlflow.unitycatalog.PromptVersionLinkEntry\x12\x11\n\ttrace_ids\x18\x02 \x03(\t:@\xe2?=\n;UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]\"\xba\x01\n\x1fLinkPromptVersionsToRunsRequest\x12\x44\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32+.mlflow.unitycatalog.PromptVersionLinkEntry\x12\x0f\n\x07run_ids\x18\x02 \x03(\t:@\xe2?=\n;UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]\"C\n\x16PromptVersionLinkEntry\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x42\x34\n\'com.databricks.api.proto.managedcatalog\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -41,66 +39,66 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_PROMPTVERSIONLINKENTRY'].fields_by_name['name']._serialized_options = b'\370\206\031\001'
     _globals['_PROMPTVERSIONLINKENTRY'].fields_by_name['version']._loaded_options = None
     _globals['_PROMPTVERSIONLINKENTRY'].fields_by_name['version']._serialized_options = b'\370\206\031\001'
-    _globals['_PROMPT']._serialized_start=194
-    _globals['_PROMPT']._serialized_end=471
-    _globals['_PROMPTVERSION']._serialized_start=474
-    _globals['_PROMPTVERSION']._serialized_end=779
-    _globals['_PROMPTTAG']._serialized_start=781
-    _globals['_PROMPTTAG']._serialized_end=820
-    _globals['_PROMPTVERSIONTAG']._serialized_start=822
-    _globals['_PROMPTVERSIONTAG']._serialized_end=868
-    _globals['_PROMPTALIAS']._serialized_start=870
-    _globals['_PROMPTALIAS']._serialized_end=915
-    _globals['_UNITYCATALOGSCHEMA']._serialized_start=917
-    _globals['_UNITYCATALOGSCHEMA']._serialized_end=980
-    _globals['_CREATEPROMPTREQUEST']._serialized_start=982
-    _globals['_CREATEPROMPTREQUEST']._serialized_end=1062
-    _globals['_UPDATEPROMPTREQUEST']._serialized_start=1064
-    _globals['_UPDATEPROMPTREQUEST']._serialized_end=1144
-    _globals['_DELETEPROMPTREQUEST']._serialized_start=1146
-    _globals['_DELETEPROMPTREQUEST']._serialized_end=1181
-    _globals['_DELETEPROMPTRESPONSE']._serialized_start=1183
-    _globals['_DELETEPROMPTRESPONSE']._serialized_end=1205
-    _globals['_GETPROMPTREQUEST']._serialized_start=1207
-    _globals['_GETPROMPTREQUEST']._serialized_end=1239
-    _globals['_SEARCHPROMPTSREQUEST']._serialized_start=1242
-    _globals['_SEARCHPROMPTSREQUEST']._serialized_end=1421
-    _globals['_SEARCHPROMPTSRESPONSE']._serialized_start=1423
-    _globals['_SEARCHPROMPTSRESPONSE']._serialized_end=1517
-    _globals['_CREATEPROMPTVERSIONREQUEST']._serialized_start=1519
-    _globals['_CREATEPROMPTVERSIONREQUEST']._serialized_end=1636
-    _globals['_UPDATEPROMPTVERSIONREQUEST']._serialized_start=1638
-    _globals['_UPDATEPROMPTVERSIONREQUEST']._serialized_end=1757
-    _globals['_DELETEPROMPTVERSIONREQUEST']._serialized_start=1759
-    _globals['_DELETEPROMPTVERSIONREQUEST']._serialized_end=1818
-    _globals['_GETPROMPTVERSIONREQUEST']._serialized_start=1820
-    _globals['_GETPROMPTVERSIONREQUEST']._serialized_end=1876
-    _globals['_SEARCHPROMPTVERSIONSREQUEST']._serialized_start=1878
-    _globals['_SEARCHPROMPTVERSIONSREQUEST']._serialized_end=1962
-    _globals['_SEARCHPROMPTVERSIONSRESPONSE']._serialized_start=1964
-    _globals['_SEARCHPROMPTVERSIONSRESPONSE']._serialized_end=2080
-    _globals['_SETPROMPTALIASREQUEST']._serialized_start=2082
-    _globals['_SETPROMPTALIASREQUEST']._serialized_end=2151
-    _globals['_DELETEPROMPTALIASREQUEST']._serialized_start=2153
-    _globals['_DELETEPROMPTALIASREQUEST']._serialized_end=2208
-    _globals['_GETPROMPTVERSIONBYALIASREQUEST']._serialized_start=2210
-    _globals['_GETPROMPTVERSIONBYALIASREQUEST']._serialized_end=2271
-    _globals['_SETPROMPTTAGREQUEST']._serialized_start=2273
-    _globals['_SETPROMPTTAGREQUEST']._serialized_end=2336
-    _globals['_DELETEPROMPTTAGREQUEST']._serialized_start=2338
-    _globals['_DELETEPROMPTTAGREQUEST']._serialized_end=2389
-    _globals['_SETPROMPTVERSIONTAGREQUEST']._serialized_start=2391
-    _globals['_SETPROMPTVERSIONTAGREQUEST']._serialized_end=2478
-    _globals['_DELETEPROMPTVERSIONTAGREQUEST']._serialized_start=2480
-    _globals['_DELETEPROMPTVERSIONTAGREQUEST']._serialized_end=2555
-    _globals['_LINKPROMPTVERSIONSTOMODELSREQUEST']._serialized_start=2558
-    _globals['_LINKPROMPTVERSIONSTOMODELSREQUEST']._serialized_end=2748
-    _globals['_LINKPROMPTSTOTRACESREQUEST']._serialized_start=2751
-    _globals['_LINKPROMPTSTOTRACESREQUEST']._serialized_end=2934
-    _globals['_LINKPROMPTVERSIONSTORUNSREQUEST']._serialized_start=2937
-    _globals['_LINKPROMPTVERSIONSTORUNSREQUEST']._serialized_end=3123
-    _globals['_PROMPTVERSIONLINKENTRY']._serialized_start=3125
-    _globals['_PROMPTVERSIONLINKENTRY']._serialized_end=3192
+    _globals['_PROMPT']._serialized_start=135
+    _globals['_PROMPT']._serialized_end=412
+    _globals['_PROMPTVERSION']._serialized_start=415
+    _globals['_PROMPTVERSION']._serialized_end=720
+    _globals['_PROMPTTAG']._serialized_start=722
+    _globals['_PROMPTTAG']._serialized_end=761
+    _globals['_PROMPTVERSIONTAG']._serialized_start=763
+    _globals['_PROMPTVERSIONTAG']._serialized_end=809
+    _globals['_PROMPTALIAS']._serialized_start=811
+    _globals['_PROMPTALIAS']._serialized_end=856
+    _globals['_UNITYCATALOGSCHEMA']._serialized_start=858
+    _globals['_UNITYCATALOGSCHEMA']._serialized_end=921
+    _globals['_CREATEPROMPTREQUEST']._serialized_start=923
+    _globals['_CREATEPROMPTREQUEST']._serialized_end=1003
+    _globals['_UPDATEPROMPTREQUEST']._serialized_start=1005
+    _globals['_UPDATEPROMPTREQUEST']._serialized_end=1085
+    _globals['_DELETEPROMPTREQUEST']._serialized_start=1087
+    _globals['_DELETEPROMPTREQUEST']._serialized_end=1122
+    _globals['_DELETEPROMPTRESPONSE']._serialized_start=1124
+    _globals['_DELETEPROMPTRESPONSE']._serialized_end=1146
+    _globals['_GETPROMPTREQUEST']._serialized_start=1148
+    _globals['_GETPROMPTREQUEST']._serialized_end=1180
+    _globals['_SEARCHPROMPTSREQUEST']._serialized_start=1183
+    _globals['_SEARCHPROMPTSREQUEST']._serialized_end=1362
+    _globals['_SEARCHPROMPTSRESPONSE']._serialized_start=1364
+    _globals['_SEARCHPROMPTSRESPONSE']._serialized_end=1458
+    _globals['_CREATEPROMPTVERSIONREQUEST']._serialized_start=1460
+    _globals['_CREATEPROMPTVERSIONREQUEST']._serialized_end=1577
+    _globals['_UPDATEPROMPTVERSIONREQUEST']._serialized_start=1579
+    _globals['_UPDATEPROMPTVERSIONREQUEST']._serialized_end=1698
+    _globals['_DELETEPROMPTVERSIONREQUEST']._serialized_start=1700
+    _globals['_DELETEPROMPTVERSIONREQUEST']._serialized_end=1759
+    _globals['_GETPROMPTVERSIONREQUEST']._serialized_start=1761
+    _globals['_GETPROMPTVERSIONREQUEST']._serialized_end=1817
+    _globals['_SEARCHPROMPTVERSIONSREQUEST']._serialized_start=1819
+    _globals['_SEARCHPROMPTVERSIONSREQUEST']._serialized_end=1903
+    _globals['_SEARCHPROMPTVERSIONSRESPONSE']._serialized_start=1905
+    _globals['_SEARCHPROMPTVERSIONSRESPONSE']._serialized_end=2021
+    _globals['_SETPROMPTALIASREQUEST']._serialized_start=2023
+    _globals['_SETPROMPTALIASREQUEST']._serialized_end=2092
+    _globals['_DELETEPROMPTALIASREQUEST']._serialized_start=2094
+    _globals['_DELETEPROMPTALIASREQUEST']._serialized_end=2149
+    _globals['_GETPROMPTVERSIONBYALIASREQUEST']._serialized_start=2151
+    _globals['_GETPROMPTVERSIONBYALIASREQUEST']._serialized_end=2212
+    _globals['_SETPROMPTTAGREQUEST']._serialized_start=2214
+    _globals['_SETPROMPTTAGREQUEST']._serialized_end=2277
+    _globals['_DELETEPROMPTTAGREQUEST']._serialized_start=2279
+    _globals['_DELETEPROMPTTAGREQUEST']._serialized_end=2330
+    _globals['_SETPROMPTVERSIONTAGREQUEST']._serialized_start=2332
+    _globals['_SETPROMPTVERSIONTAGREQUEST']._serialized_end=2419
+    _globals['_DELETEPROMPTVERSIONTAGREQUEST']._serialized_start=2421
+    _globals['_DELETEPROMPTVERSIONTAGREQUEST']._serialized_end=2496
+    _globals['_LINKPROMPTVERSIONSTOMODELSREQUEST']._serialized_start=2499
+    _globals['_LINKPROMPTVERSIONSTOMODELSREQUEST']._serialized_end=2689
+    _globals['_LINKPROMPTSTOTRACESREQUEST']._serialized_start=2692
+    _globals['_LINKPROMPTSTOTRACESREQUEST']._serialized_end=2875
+    _globals['_LINKPROMPTVERSIONSTORUNSREQUEST']._serialized_start=2878
+    _globals['_LINKPROMPTVERSIONSTORUNSREQUEST']._serialized_end=3064
+    _globals['_PROMPTVERSIONLINKENTRY']._serialized_start=3066
+    _globals['_PROMPTVERSIONLINKENTRY']._serialized_end=3133
   # @@protoc_insertion_point(module_scope)
 
 else:
@@ -118,14 +116,12 @@ else:
   _sym_db = _symbol_database.Default()
 
 
-  from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
-  from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
-  from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
   from . import databricks_pb2 as databricks__pb2
+  from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#unity_catalog_prompt_messages.proto\x12\x13mlflow.unitycatalog\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\"\x95\x02\n\x06Prompt\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x36\n\x12\x63reation_timestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12:\n\x16last_updated_timestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x31\n\x07\x61liases\x18\x06 \x03(\x0b\x32 .mlflow.unitycatalog.PromptAlias\x12,\n\x04tags\x18\x07 \x03(\x0b\x32\x1e.mlflow.unitycatalog.PromptTagJ\x04\x08\x05\x10\x06R\rexperiment_id\"\xb1\x02\n\rPromptVersion\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x36\n\x12\x63reation_timestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12:\n\x16last_updated_timestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0b\x64\x65scription\x18\x05 \x01(\t\x12\x10\n\x08template\x18\x06 \x01(\t\x12\x31\n\x07\x61liases\x18\x07 \x03(\x0b\x32 .mlflow.unitycatalog.PromptAlias\x12\x33\n\x04tags\x18\x08 \x03(\x0b\x32%.mlflow.unitycatalog.PromptVersionTag\"\'\n\tPromptTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\".\n\x10PromptVersionTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"-\n\x0bPromptAlias\x12\r\n\x05\x61lias\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"?\n\x12UnityCatalogSchema\x12\x14\n\x0c\x63\x61talog_name\x18\x04 \x01(\t\x12\x13\n\x0bschema_name\x18\x05 \x01(\t\"P\n\x13\x43reatePromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12+\n\x06prompt\x18\x02 \x01(\x0b\x32\x1b.mlflow.unitycatalog.Prompt\"P\n\x13UpdatePromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12+\n\x06prompt\x18\x02 \x01(\x0b\x32\x1b.mlflow.unitycatalog.Prompt\"#\n\x13\x44\x65letePromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x16\n\x14\x44\x65letePromptResponse\" \n\x10GetPromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\xb3\x01\n\x14SearchPromptsRequest\x12\x0e\n\x06\x66ilter\x18\x01 \x01(\t\x12\x41\n\x0e\x63\x61talog_schema\x18\x03 \x01(\x0b\x32\'.mlflow.unitycatalog.UnityCatalogSchemaH\x00\x12\x13\n\x0bmax_results\x18\x04 \x01(\x03\x12\x12\n\npage_token\x18\x05 \x01(\tB\n\n\x08locationJ\x04\x08\x02\x10\x03R\rexperiment_id\"^\n\x15SearchPromptsResponse\x12,\n\x07prompts\x18\x01 \x03(\x0b\x32\x1b.mlflow.unitycatalog.Prompt\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"u\n\x1a\x43reatePromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12:\n\x0eprompt_version\x18\x03 \x01(\x0b\x32\".mlflow.unitycatalog.PromptVersionJ\x04\x08\x02\x10\x03R\x07version\"w\n\x1aUpdatePromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12:\n\x0eprompt_version\x18\x03 \x01(\x0b\x32\".mlflow.unitycatalog.PromptVersion\";\n\x1a\x44\x65letePromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"8\n\x17GetPromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"T\n\x1bSearchPromptVersionsRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0bmax_results\x18\x02 \x01(\x03\x12\x12\n\npage_token\x18\x03 \x01(\t\"t\n\x1cSearchPromptVersionsResponse\x12;\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32\".mlflow.unitycatalog.PromptVersion\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"E\n\x15SetPromptAliasRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x61lias\x18\x02 \x01(\t\x12\x0f\n\x07version\x18\x03 \x01(\t\"7\n\x18\x44\x65letePromptAliasRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x61lias\x18\x02 \x01(\t\"=\n\x1eGetPromptVersionByAliasRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x61lias\x18\x02 \x01(\t\"?\n\x13SetPromptTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x12\r\n\x05value\x18\x03 \x01(\t\"3\n\x16\x44\x65letePromptTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\"W\n\x1aSetPromptVersionTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x0b\n\x03key\x18\x03 \x01(\t\x12\r\n\x05value\x18\x04 \x01(\t\"K\n\x1d\x44\x65letePromptVersionTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x0b\n\x03key\x18\x03 \x01(\t\"\xbe\x01\n!LinkPromptVersionsToModelsRequest\x12\x44\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32+.mlflow.unitycatalog.PromptVersionLinkEntry\x12\x11\n\tmodel_ids\x18\x02 \x03(\t:@\xe2?=\n;UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]\"\xb7\x01\n\x1aLinkPromptsToTracesRequest\x12\x44\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32+.mlflow.unitycatalog.PromptVersionLinkEntry\x12\x11\n\ttrace_ids\x18\x02 \x03(\t:@\xe2?=\n;UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]\"\xba\x01\n\x1fLinkPromptVersionsToRunsRequest\x12\x44\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32+.mlflow.unitycatalog.PromptVersionLinkEntry\x12\x0f\n\x07run_ids\x18\x02 \x03(\t:@\xe2?=\n;UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]\"C\n\x16PromptVersionLinkEntry\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x42\x34\n\'com.databricks.api.proto.managedcatalog\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#unity_catalog_prompt_messages.proto\x12\x13mlflow.unitycatalog\x1a\x10\x64\x61tabricks.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x15scalapb/scalapb.proto\"\x95\x02\n\x06Prompt\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x36\n\x12\x63reation_timestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12:\n\x16last_updated_timestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x31\n\x07\x61liases\x18\x06 \x03(\x0b\x32 .mlflow.unitycatalog.PromptAlias\x12,\n\x04tags\x18\x07 \x03(\x0b\x32\x1e.mlflow.unitycatalog.PromptTagJ\x04\x08\x05\x10\x06R\rexperiment_id\"\xb1\x02\n\rPromptVersion\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x36\n\x12\x63reation_timestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12:\n\x16last_updated_timestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x13\n\x0b\x64\x65scription\x18\x05 \x01(\t\x12\x10\n\x08template\x18\x06 \x01(\t\x12\x31\n\x07\x61liases\x18\x07 \x03(\x0b\x32 .mlflow.unitycatalog.PromptAlias\x12\x33\n\x04tags\x18\x08 \x03(\x0b\x32%.mlflow.unitycatalog.PromptVersionTag\"\'\n\tPromptTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\".\n\x10PromptVersionTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"-\n\x0bPromptAlias\x12\r\n\x05\x61lias\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"?\n\x12UnityCatalogSchema\x12\x14\n\x0c\x63\x61talog_name\x18\x04 \x01(\t\x12\x13\n\x0bschema_name\x18\x05 \x01(\t\"P\n\x13\x43reatePromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12+\n\x06prompt\x18\x02 \x01(\x0b\x32\x1b.mlflow.unitycatalog.Prompt\"P\n\x13UpdatePromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12+\n\x06prompt\x18\x02 \x01(\x0b\x32\x1b.mlflow.unitycatalog.Prompt\"#\n\x13\x44\x65letePromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\x16\n\x14\x44\x65letePromptResponse\" \n\x10GetPromptRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\"\xb3\x01\n\x14SearchPromptsRequest\x12\x0e\n\x06\x66ilter\x18\x01 \x01(\t\x12\x41\n\x0e\x63\x61talog_schema\x18\x03 \x01(\x0b\x32\'.mlflow.unitycatalog.UnityCatalogSchemaH\x00\x12\x13\n\x0bmax_results\x18\x04 \x01(\x03\x12\x12\n\npage_token\x18\x05 \x01(\tB\n\n\x08locationJ\x04\x08\x02\x10\x03R\rexperiment_id\"^\n\x15SearchPromptsResponse\x12,\n\x07prompts\x18\x01 \x03(\x0b\x32\x1b.mlflow.unitycatalog.Prompt\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"u\n\x1a\x43reatePromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12:\n\x0eprompt_version\x18\x03 \x01(\x0b\x32\".mlflow.unitycatalog.PromptVersionJ\x04\x08\x02\x10\x03R\x07version\"w\n\x1aUpdatePromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12:\n\x0eprompt_version\x18\x03 \x01(\x0b\x32\".mlflow.unitycatalog.PromptVersion\";\n\x1a\x44\x65letePromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"8\n\x17GetPromptVersionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"T\n\x1bSearchPromptVersionsRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x13\n\x0bmax_results\x18\x02 \x01(\x03\x12\x12\n\npage_token\x18\x03 \x01(\t\"t\n\x1cSearchPromptVersionsResponse\x12;\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32\".mlflow.unitycatalog.PromptVersion\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"E\n\x15SetPromptAliasRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x61lias\x18\x02 \x01(\t\x12\x0f\n\x07version\x18\x03 \x01(\t\"7\n\x18\x44\x65letePromptAliasRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x61lias\x18\x02 \x01(\t\"=\n\x1eGetPromptVersionByAliasRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x61lias\x18\x02 \x01(\t\"?\n\x13SetPromptTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x12\r\n\x05value\x18\x03 \x01(\t\"3\n\x16\x44\x65letePromptTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\"W\n\x1aSetPromptVersionTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x0b\n\x03key\x18\x03 \x01(\t\x12\r\n\x05value\x18\x04 \x01(\t\"K\n\x1d\x44\x65letePromptVersionTagRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x0b\n\x03key\x18\x03 \x01(\t\"\xbe\x01\n!LinkPromptVersionsToModelsRequest\x12\x44\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32+.mlflow.unitycatalog.PromptVersionLinkEntry\x12\x11\n\tmodel_ids\x18\x02 \x03(\t:@\xe2?=\n;UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]\"\xb7\x01\n\x1aLinkPromptsToTracesRequest\x12\x44\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32+.mlflow.unitycatalog.PromptVersionLinkEntry\x12\x11\n\ttrace_ids\x18\x02 \x03(\t:@\xe2?=\n;UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]\"\xba\x01\n\x1fLinkPromptVersionsToRunsRequest\x12\x44\n\x0fprompt_versions\x18\x01 \x03(\x0b\x32+.mlflow.unitycatalog.PromptVersionLinkEntry\x12\x0f\n\x07run_ids\x18\x02 \x03(\t:@\xe2?=\n;UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]\"C\n\x16PromptVersionLinkEntry\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x42\x34\n\'com.databricks.api.proto.managedcatalog\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
 
 
 
@@ -383,65 +379,65 @@ else:
     _PROMPTVERSIONLINKENTRY.fields_by_name['name']._serialized_options = b'\370\206\031\001'
     _PROMPTVERSIONLINKENTRY.fields_by_name['version']._options = None
     _PROMPTVERSIONLINKENTRY.fields_by_name['version']._serialized_options = b'\370\206\031\001'
-    _PROMPT._serialized_start=194
-    _PROMPT._serialized_end=471
-    _PROMPTVERSION._serialized_start=474
-    _PROMPTVERSION._serialized_end=779
-    _PROMPTTAG._serialized_start=781
-    _PROMPTTAG._serialized_end=820
-    _PROMPTVERSIONTAG._serialized_start=822
-    _PROMPTVERSIONTAG._serialized_end=868
-    _PROMPTALIAS._serialized_start=870
-    _PROMPTALIAS._serialized_end=915
-    _UNITYCATALOGSCHEMA._serialized_start=917
-    _UNITYCATALOGSCHEMA._serialized_end=980
-    _CREATEPROMPTREQUEST._serialized_start=982
-    _CREATEPROMPTREQUEST._serialized_end=1062
-    _UPDATEPROMPTREQUEST._serialized_start=1064
-    _UPDATEPROMPTREQUEST._serialized_end=1144
-    _DELETEPROMPTREQUEST._serialized_start=1146
-    _DELETEPROMPTREQUEST._serialized_end=1181
-    _DELETEPROMPTRESPONSE._serialized_start=1183
-    _DELETEPROMPTRESPONSE._serialized_end=1205
-    _GETPROMPTREQUEST._serialized_start=1207
-    _GETPROMPTREQUEST._serialized_end=1239
-    _SEARCHPROMPTSREQUEST._serialized_start=1242
-    _SEARCHPROMPTSREQUEST._serialized_end=1421
-    _SEARCHPROMPTSRESPONSE._serialized_start=1423
-    _SEARCHPROMPTSRESPONSE._serialized_end=1517
-    _CREATEPROMPTVERSIONREQUEST._serialized_start=1519
-    _CREATEPROMPTVERSIONREQUEST._serialized_end=1636
-    _UPDATEPROMPTVERSIONREQUEST._serialized_start=1638
-    _UPDATEPROMPTVERSIONREQUEST._serialized_end=1757
-    _DELETEPROMPTVERSIONREQUEST._serialized_start=1759
-    _DELETEPROMPTVERSIONREQUEST._serialized_end=1818
-    _GETPROMPTVERSIONREQUEST._serialized_start=1820
-    _GETPROMPTVERSIONREQUEST._serialized_end=1876
-    _SEARCHPROMPTVERSIONSREQUEST._serialized_start=1878
-    _SEARCHPROMPTVERSIONSREQUEST._serialized_end=1962
-    _SEARCHPROMPTVERSIONSRESPONSE._serialized_start=1964
-    _SEARCHPROMPTVERSIONSRESPONSE._serialized_end=2080
-    _SETPROMPTALIASREQUEST._serialized_start=2082
-    _SETPROMPTALIASREQUEST._serialized_end=2151
-    _DELETEPROMPTALIASREQUEST._serialized_start=2153
-    _DELETEPROMPTALIASREQUEST._serialized_end=2208
-    _GETPROMPTVERSIONBYALIASREQUEST._serialized_start=2210
-    _GETPROMPTVERSIONBYALIASREQUEST._serialized_end=2271
-    _SETPROMPTTAGREQUEST._serialized_start=2273
-    _SETPROMPTTAGREQUEST._serialized_end=2336
-    _DELETEPROMPTTAGREQUEST._serialized_start=2338
-    _DELETEPROMPTTAGREQUEST._serialized_end=2389
-    _SETPROMPTVERSIONTAGREQUEST._serialized_start=2391
-    _SETPROMPTVERSIONTAGREQUEST._serialized_end=2478
-    _DELETEPROMPTVERSIONTAGREQUEST._serialized_start=2480
-    _DELETEPROMPTVERSIONTAGREQUEST._serialized_end=2555
-    _LINKPROMPTVERSIONSTOMODELSREQUEST._serialized_start=2558
-    _LINKPROMPTVERSIONSTOMODELSREQUEST._serialized_end=2748
-    _LINKPROMPTSTOTRACESREQUEST._serialized_start=2751
-    _LINKPROMPTSTOTRACESREQUEST._serialized_end=2934
-    _LINKPROMPTVERSIONSTORUNSREQUEST._serialized_start=2937
-    _LINKPROMPTVERSIONSTORUNSREQUEST._serialized_end=3123
-    _PROMPTVERSIONLINKENTRY._serialized_start=3125
-    _PROMPTVERSIONLINKENTRY._serialized_end=3192
+    _PROMPT._serialized_start=135
+    _PROMPT._serialized_end=412
+    _PROMPTVERSION._serialized_start=415
+    _PROMPTVERSION._serialized_end=720
+    _PROMPTTAG._serialized_start=722
+    _PROMPTTAG._serialized_end=761
+    _PROMPTVERSIONTAG._serialized_start=763
+    _PROMPTVERSIONTAG._serialized_end=809
+    _PROMPTALIAS._serialized_start=811
+    _PROMPTALIAS._serialized_end=856
+    _UNITYCATALOGSCHEMA._serialized_start=858
+    _UNITYCATALOGSCHEMA._serialized_end=921
+    _CREATEPROMPTREQUEST._serialized_start=923
+    _CREATEPROMPTREQUEST._serialized_end=1003
+    _UPDATEPROMPTREQUEST._serialized_start=1005
+    _UPDATEPROMPTREQUEST._serialized_end=1085
+    _DELETEPROMPTREQUEST._serialized_start=1087
+    _DELETEPROMPTREQUEST._serialized_end=1122
+    _DELETEPROMPTRESPONSE._serialized_start=1124
+    _DELETEPROMPTRESPONSE._serialized_end=1146
+    _GETPROMPTREQUEST._serialized_start=1148
+    _GETPROMPTREQUEST._serialized_end=1180
+    _SEARCHPROMPTSREQUEST._serialized_start=1183
+    _SEARCHPROMPTSREQUEST._serialized_end=1362
+    _SEARCHPROMPTSRESPONSE._serialized_start=1364
+    _SEARCHPROMPTSRESPONSE._serialized_end=1458
+    _CREATEPROMPTVERSIONREQUEST._serialized_start=1460
+    _CREATEPROMPTVERSIONREQUEST._serialized_end=1577
+    _UPDATEPROMPTVERSIONREQUEST._serialized_start=1579
+    _UPDATEPROMPTVERSIONREQUEST._serialized_end=1698
+    _DELETEPROMPTVERSIONREQUEST._serialized_start=1700
+    _DELETEPROMPTVERSIONREQUEST._serialized_end=1759
+    _GETPROMPTVERSIONREQUEST._serialized_start=1761
+    _GETPROMPTVERSIONREQUEST._serialized_end=1817
+    _SEARCHPROMPTVERSIONSREQUEST._serialized_start=1819
+    _SEARCHPROMPTVERSIONSREQUEST._serialized_end=1903
+    _SEARCHPROMPTVERSIONSRESPONSE._serialized_start=1905
+    _SEARCHPROMPTVERSIONSRESPONSE._serialized_end=2021
+    _SETPROMPTALIASREQUEST._serialized_start=2023
+    _SETPROMPTALIASREQUEST._serialized_end=2092
+    _DELETEPROMPTALIASREQUEST._serialized_start=2094
+    _DELETEPROMPTALIASREQUEST._serialized_end=2149
+    _GETPROMPTVERSIONBYALIASREQUEST._serialized_start=2151
+    _GETPROMPTVERSIONBYALIASREQUEST._serialized_end=2212
+    _SETPROMPTTAGREQUEST._serialized_start=2214
+    _SETPROMPTTAGREQUEST._serialized_end=2277
+    _DELETEPROMPTTAGREQUEST._serialized_start=2279
+    _DELETEPROMPTTAGREQUEST._serialized_end=2330
+    _SETPROMPTVERSIONTAGREQUEST._serialized_start=2332
+    _SETPROMPTVERSIONTAGREQUEST._serialized_end=2419
+    _DELETEPROMPTVERSIONTAGREQUEST._serialized_start=2421
+    _DELETEPROMPTVERSIONTAGREQUEST._serialized_end=2496
+    _LINKPROMPTVERSIONSTOMODELSREQUEST._serialized_start=2499
+    _LINKPROMPTVERSIONSTOMODELSREQUEST._serialized_end=2689
+    _LINKPROMPTSTOTRACESREQUEST._serialized_start=2692
+    _LINKPROMPTSTOTRACESREQUEST._serialized_end=2875
+    _LINKPROMPTVERSIONSTORUNSREQUEST._serialized_start=2878
+    _LINKPROMPTVERSIONSTORUNSREQUEST._serialized_end=3064
+    _PROMPTVERSIONLINKENTRY._serialized_start=3066
+    _PROMPTVERSIONLINKENTRY._serialized_end=3133
   # @@protoc_insertion_point(module_scope)
 

@@ -16,8 +16,7 @@ from dspy.utils.dummies import DummyLM
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities import SpanType
-from mlflow.entities.trace import Trace
+from mlflow.entities import Feedback, LoggedModelOutput, SpanType, Trace
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -161,7 +160,7 @@ def test_autolog_cot():
     assert len(spans[3].outputs) == 3
     # Output parser will run per completion output (n=3)
     for i in range(3):
-        assert spans[4 + i].name == f"ChatAdapter.parse_{i + 1}"
+        assert spans[4 + i].name == "ChatAdapter.parse"
         assert spans[4 + i].span_type == SpanType.PARSER
         assert "question -> reasoning, answer" in spans[4 + i].inputs["signature"]
 
@@ -260,20 +259,20 @@ def test_autolog_react():
     assert len(spans) == 15
     assert [span.name for span in spans] == [
         "ReAct.forward",
-        "Predict.forward_1",
-        "ChatAdapter.format_1",
-        "DummyLMWithUsage.__call___1",
-        "ChatAdapter.parse_1",
+        "Predict.forward",
+        "ChatAdapter.format",
+        "DummyLMWithUsage.__call__",
+        "ChatAdapter.parse",
         "Tool.search",
-        "Predict.forward_2",
-        "ChatAdapter.format_2",
-        "DummyLMWithUsage.__call___2",
-        "ChatAdapter.parse_2",
+        "Predict.forward",
+        "ChatAdapter.format",
+        "DummyLMWithUsage.__call__",
+        "ChatAdapter.parse",
         "ChainOfThought.forward",
-        "Predict.forward_3",
-        "ChatAdapter.format_3",
-        "DummyLMWithUsage.__call___3",
-        "ChatAdapter.parse_3",
+        "Predict.forward",
+        "ChatAdapter.format",
+        "DummyLMWithUsage.__call__",
+        "ChatAdapter.parse",
     ]
 
     assert spans[3].span_type == SpanType.CHAT_MODEL
@@ -635,6 +634,40 @@ def test_autolog_log_compile(log_compiles):
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
         assert "best_model.json" in artifacts
+
+        # verify that a dummy model output is logged
+        run = client.get_run(run.info.run_id)
+        assert len(run.outputs.model_outputs) == 1
+        assert isinstance(run.outputs.model_outputs[0], LoggedModelOutput)
+    else:
+        assert mlflow.last_active_run() is None
+
+
+@skip_when_testing_trace_sdk
+@pytest.mark.parametrize("log_compiles", [True, False])
+def test_autolog_log_compile_log_model_output_when_failure(log_compiles):
+    class DummyOptimizer(dspy.teleprompt.Teleprompter):
+        def compile(self, program, kwarg1=None, kwarg2=None):
+            raise Exception("test error")
+
+    mlflow.dspy.autolog(log_compiles=log_compiles)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    program = dspy.ChainOfThought("question -> answer")
+    optimizer = DummyOptimizer()
+
+    with pytest.raises(Exception, match="test error"):
+        optimizer.compile(program, kwarg1=1, kwarg2="2")
+
+    if log_compiles:
+        run = mlflow.last_active_run()
+        assert run is not None
+
+        # verify that a dummy model output is logged even when compilation fails
+        client = MlflowClient()
+        run = client.get_run(run.info.run_id)
+        assert len(run.outputs.model_outputs) == 1
+        assert isinstance(run.outputs.model_outputs[0], LoggedModelOutput)
     else:
         assert mlflow.last_active_run() is None
 
@@ -868,6 +901,93 @@ def test_autolog_nested_evals():
     )
 
     assert len(child_runs) == 0
+
+
+@skip_when_testing_trace_sdk
+@skip_if_evaluate_callback_unavailable
+@pytest.mark.parametrize("call_args", ["args", "kwargs", "mixed"])
+def test_autolog_log_traces_from_evals(call_args):
+    mlflow.dspy.autolog(log_evals=True, log_traces_from_eval=True)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    class DummyProgram(dspy.Module):
+        def forward(self, question):
+            return dspy.Prediction(answer="2")
+
+    examples = [
+        Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+        Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
+    ]
+
+    program = DummyProgram()
+    evaluator = Evaluate(devset=examples, metric=answer_exact_match)
+
+    if call_args == "args":
+        result = evaluator(program, answer_exact_match, examples)
+    elif call_args == "kwargs":
+        result = evaluator(program=program, devset=examples, metric=answer_exact_match)
+    else:
+        result = evaluator(program, answer_exact_match, devset=examples)
+
+    if _DSPY_VERSION >= Version("3.0.0"):
+        from dspy.evaluate.evaluate import EvaluationResult
+
+        assert isinstance(result, EvaluationResult)
+    else:
+        assert result is not None
+
+    traces = get_traces()
+    assert len(traces) == 2
+    assert all(trace.info.status == "OK" for trace in traces)
+
+    actual_values = []
+
+    assessments = traces[0].info.assessments
+    assert len(assessments) == 1
+    assert isinstance(assessments[0], Feedback)
+    assert assessments[0].name == "answer_exact_match"
+    actual_values.append(assessments[0].value)
+
+    assessments = traces[1].info.assessments
+    assert len(assessments) == 1
+    assert isinstance(assessments[0], Feedback)
+    assert assessments[0].name == "answer_exact_match"
+    actual_values.append(assessments[0].value)
+
+    assert set(actual_values) == {True, False}
+
+
+@skip_when_testing_trace_sdk
+@skip_if_evaluate_callback_unavailable
+def test_autolog_log_traces_from_evals_log_error_assessment():
+    mlflow.dspy.autolog(log_evals=True, log_traces_from_eval=True)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    class DummyProgram(dspy.Module):
+        def forward(self, question):
+            return dspy.Prediction(answer="2")
+
+    def error_metric(program, devset):
+        raise Exception("Error")
+
+    examples = [Example(question="What is 1 + 1?", answer="2").with_inputs("question")]
+
+    program = DummyProgram()
+    evaluator = Evaluate(devset=examples, metric=error_metric)
+    evaluator(program, error_metric, examples)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+
+    assessments = traces[0].info.assessments
+    assert len(assessments) == 1
+    assert isinstance(assessments[0], Feedback)
+    assert assessments[0].name == "error_metric"
+    assert assessments[0].value is None
+    assert assessments[0].error.error_code == "Exception"
+    assert assessments[0].error.error_message == "Error"
+    assert assessments[0].error.stack_trace is not None
 
 
 @skip_when_testing_trace_sdk

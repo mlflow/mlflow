@@ -8,6 +8,7 @@ ONNX (native) format
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 
+# TEMPORARY: Trigger CI - remove this comment after CI runs
 import logging
 import os
 from pathlib import Path
@@ -261,8 +262,7 @@ class _OnnxModelWrapper:
             providers = ONNX_EXECUTION_PROVIDERS
 
         sess_options = onnxruntime.SessionOptions()
-        options = model_meta.flavors.get(FLAVOR_NAME).get("onnx_session_options")
-        if options:
+        if options := model_meta.flavors.get(FLAVOR_NAME).get("onnx_session_options"):
             if inter_op_num_threads := options.get("inter_op_num_threads"):
                 sess_options.inter_op_num_threads = inter_op_num_threads
             if intra_op_num_threads := options.get("intra_op_num_threads"):

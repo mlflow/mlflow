@@ -3,6 +3,7 @@ import json
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.prompt.constants import (
+    PROMPT_MODEL_CONFIG_TAG_KEY,
     PROMPT_TYPE_TAG_KEY,
     PROMPT_TYPE_TEXT,
     RESPONSE_FORMAT_TAG_KEY,
@@ -92,16 +93,31 @@ def test_proto_info_to_mlflow_prompt_info():
 
 
 def test_proto_to_mlflow_prompt():
-    """Test that proto_to_mlflow_prompt correctly handles the decoupled tag architecture."""
-
-    # Test with version tags - the key behavior we care about
+    # Test with version tags including response_format and model_config
     proto_version = ProtoPromptVersion()
     proto_version.name = "test_prompt"
     proto_version.version = "1"
     proto_version.template = json.dumps("Hello {{name}}!")
     proto_version.description = "Test description"
 
-    # Add version tags
+    response_format = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "test_schema",
+            "schema": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+            },
+        },
+    }
+
+    model_config = {
+        "model_name": "databricks-meta-llama-3-1-70b-instruct",
+        "max_tokens": 100,
+        "temperature": 0.7,
+    }
+
+    # Add version tags including both response_format and model_config
     proto_version.tags.extend(
         [
             ProtoPromptVersionTag(key="env", value="production"),
@@ -109,35 +125,28 @@ def test_proto_to_mlflow_prompt():
             ProtoPromptVersionTag(key=PROMPT_TYPE_TAG_KEY, value=PROMPT_TYPE_TEXT),
             ProtoPromptVersionTag(
                 key=RESPONSE_FORMAT_TAG_KEY,
-                value=json.dumps(
-                    {
-                        "type": "json_schema",
-                        "json_schema": {
-                            "name": "test_schema",
-                            "schema": {
-                                "type": "object",
-                                "properties": {"name": {"type": "string"}},
-                            },
-                        },
-                    }
-                ),
+                value=json.dumps(response_format),
+            ),
+            ProtoPromptVersionTag(
+                key=PROMPT_MODEL_CONFIG_TAG_KEY,
+                value=json.dumps(model_config),
             ),
         ]
     )
 
     result = proto_to_mlflow_prompt(proto_version)
 
-    # The critical test: version tags should go to tags
-    expected_tags = {"env": "production", "author": "alice"}
+    # Verify response_format and model_config are extracted
     assert result.template == "Hello {{name}}!"
-    assert result.response_format == {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "test_schema",
-            "schema": {"type": "object", "properties": {"name": {"type": "string"}}},
-        },
-    }
+    assert result.response_format == response_format
+    assert result.model_config == model_config
+
+    # Verify user tags remain and _mlflow tags are filtered out
+    expected_tags = {"env": "production", "author": "alice"}
     assert result.tags == expected_tags
+    assert RESPONSE_FORMAT_TAG_KEY not in result.tags
+    assert PROMPT_MODEL_CONFIG_TAG_KEY not in result.tags
+    assert PROMPT_TYPE_TAG_KEY not in result.tags
 
     # Test with no tags
     proto_no_tags = ProtoPromptVersion()
@@ -147,6 +156,8 @@ def test_proto_to_mlflow_prompt():
 
     result_no_tags = proto_to_mlflow_prompt(proto_no_tags)
     assert result_no_tags.tags == {}
+    assert result_no_tags.response_format is None
+    assert result_no_tags.model_config is None
 
 
 def test_mlflow_prompt_to_proto():

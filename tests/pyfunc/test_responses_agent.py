@@ -2,23 +2,12 @@ import functools
 import pathlib
 import pickle
 from typing import Generator
+from uuid import uuid4
 
 import pytest
 
-from mlflow.entities.span import SpanType
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
-
-from tests.tracing.helper import get_traces, purge_traces
-
-if not IS_PYDANTIC_V2_OR_NEWER:
-    pytest.skip(
-        "ResponsesAgent and its pydantic classes are not supported in pydantic v1. Skipping test.",
-        allow_module_level=True,
-    )
-
-from uuid import uuid4
-
 import mlflow
+from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.responses_agent import _ResponsesAgentPyfuncWrapper
@@ -31,7 +20,10 @@ from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
+    output_to_responses_items_stream,
 )
+
+from tests.tracing.helper import get_traces, purge_traces
 
 if _HAS_LANGCHAIN_BASE_MESSAGE:
     pass
@@ -1154,6 +1146,20 @@ def test_create_function_call_output_item():
                     "type": "message",
                 },
                 {
+                    "type": "mcp_approval_request",
+                    "id": "mcp_approval_request_123",
+                    "arguments": "{}",
+                    "name": "system__ai__python_exec",
+                    "server_label": "python_exec",
+                },
+                {
+                    "type": "mcp_approval_response",
+                    "id": "mcp_approval_response_123",
+                    "approval_request_id": "mcp_approval_request_123",
+                    "approve": True,
+                    "reason": "The request was approved",
+                },
+                {
                     "type": "function_call",
                     "id": "chatcmpl_56a443d8-bf71-4f71-aff5-082191c4db1e",
                     "call_id": "call_39565342-e7d7-4ed5-a3e3-ea115a7f9fc6",
@@ -1170,6 +1176,25 @@ def test_create_function_call_output_item():
                 {"content": "what is 4*3 in python"},
                 {"role": "assistant", "content": '"I can help you calculate 4*3"'},
                 {"role": "assistant", "content": "I can help you calculate 4*"},
+                {
+                    "role": "assistant",
+                    "content": "mcp approval request",
+                    "tool_calls": [
+                        {
+                            "id": "mcp_approval_request_123",
+                            "type": "function",
+                            "function": {
+                                "arguments": "{}",
+                                "name": "system__ai__python_exec",
+                            },
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "content": "True",
+                    "tool_call_id": "mcp_approval_request_123",
+                },
                 {
                     "role": "assistant",
                     "content": "tool call",
@@ -1196,3 +1221,82 @@ def test_create_function_call_output_item():
 def test_prep_msgs_for_cc_llm(responses_input, cc_msgs):
     result = ResponsesAgent.prep_msgs_for_cc_llm(responses_input)
     assert result == cc_msgs
+
+
+@pytest.mark.parametrize(
+    ("responses_input", "cc_msgs"),
+    [
+        (
+            [
+                {"type": "user", "content": "what is 4*3 in python"},
+                {"type": "reasoning", "summary": "I can help you calculate 4*3"},
+                {
+                    "id": "msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
+                    "content": [{"text": "I can help you calculate 4*", "type": "output_text"}],
+                    "role": "assistant",
+                    "type": "message",
+                },
+                {
+                    "type": "function_call",
+                    "id": "chatcmpl_56a443d8-bf71-4f71-aff5-082191c4db1e",
+                    "call_id": "call_39565342-e7d7-4ed5-a3e3-ea115a7f9fc6",
+                    "name": "system__ai__python_exec",
+                    "arguments": "",
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_39565342-e7d7-4ed5-a3e3-ea115a7f9fc6",
+                    "output": "12\n",
+                },
+            ],
+            [
+                {"content": "what is 4*3 in python"},
+                {"role": "assistant", "content": '"I can help you calculate 4*3"'},
+                {"role": "assistant", "content": "I can help you calculate 4*"},
+                {
+                    "role": "assistant",
+                    "content": "tool call",
+                    "tool_calls": [
+                        {
+                            "id": "call_39565342-e7d7-4ed5-a3e3-ea115a7f9fc6",
+                            "type": "function",
+                            "function": {
+                                "arguments": "{}",
+                                "name": "system__ai__python_exec",
+                            },
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "content": "12\n",
+                    "tool_call_id": "call_39565342-e7d7-4ed5-a3e3-ea115a7f9fc6",
+                },
+            ],
+        )
+    ],
+)
+def test_prep_msgs_for_cc_llm_empty_arguments(responses_input, cc_msgs):
+    result = ResponsesAgent.prep_msgs_for_cc_llm(responses_input)
+    assert result == cc_msgs
+
+
+def test_cc_stream_to_responses_stream_handles_multiple_invalid_chunks():
+    chunks_with_mixed_validity = [
+        {"choices": None, "id": "msg-1"},
+        {"choices": [], "id": "msg-2"},
+        {"choices": [{"delta": {"content": "valid"}}], "id": "msg-3"},
+        {"choices": None, "id": "msg-4"},
+        {"choices": [{"delta": {"content": " content"}}], "id": "msg-5"},
+    ]
+
+    events = list(output_to_responses_items_stream(iter(chunks_with_mixed_validity)))
+
+    # Should only process chunks with valid choices
+    # Expected: 2 delta events + 1 done event (content gets aggregated)
+    assert len(events) == 3
+    assert events[0].type == "response.output_text.delta"
+    assert events[0].delta == "valid"
+    assert events[1].type == "response.output_text.delta"
+    assert events[1].delta == " content"
+    assert events[2].type == "response.output_item.done"

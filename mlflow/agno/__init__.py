@@ -1,7 +1,8 @@
 import inspect
 import logging
 
-from mlflow.agno.autolog import patched_async_class_call, patched_class_call
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -10,16 +11,40 @@ _logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.3.0")
-@autologging_integration(FLAVOR_NAME)
 def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = False) -> None:
     """
     Enables (or disables) and configures autologging from Agno to MLflow.
+
+    For Agno V2 (>= 2.0.0), this uses OpenTelemetry instrumentation via OpenInference.
 
     Args:
         log_traces: If ``True``, traces are logged for Agno Agents.
         disable: If ``True``, disables Agno autologging.
         silent: If ``True``, suppresses all MLflow event logs and warnings.
     """
+    from mlflow.agno.autolog_v1 import patched_async_class_call, patched_class_call
+    from mlflow.agno.autolog_v2 import _is_agno_v2, _setup_otel_instrumentation, _uninstrument_otel
+
+    # NB: The @autologging_integration annotation is used for adding shared logic. However, one
+    # caveat is that the wrapped function is NOT executed when disable=True is passed. This prevents
+    # us from running cleaning up logging when autologging is turned off. To workaround this, we
+    # annotate _autolog() instead of this entrypoint, and define the cleanup logic outside it.
+    # This needs to be called before doing any safe-patching (otherwise safe-patch will be no-op).
+    _autolog(log_traces=log_traces, disable=disable, silent=silent)
+
+    # Check if Agno V2 is installed
+    if _is_agno_v2():
+        _logger.debug("Detected Agno V2, using OpenTelemetry instrumentation")
+        if disable or not log_traces:
+            _uninstrument_otel()
+        else:
+            _setup_otel_instrumentation()
+        _record_event(
+            AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+        )
+        return
+
+    # For Agno V1, use the existing patching method
     from mlflow.agno.utils import discover_storage_backends, find_model_subclasses
 
     class_map = {
@@ -28,8 +53,7 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
         "agno.tools.function.FunctionCall": ["execute", "aexecute"],
     }
 
-    storages = discover_storage_backends()
-    if storages:
+    if storages := discover_storage_backends():
         class_map.update(
             {
                 cls.__module__ + "." + cls.__name__: [
@@ -43,9 +67,7 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
             }
         )
 
-    models = find_model_subclasses()
-
-    if models:
+    if models := find_model_subclasses():
         class_map.update(
             {
                 # TODO: Support streaming
@@ -76,3 +98,20 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
                 _logger.debug(
                     "Agno autologging: cannot patch %s.%s – %s", cls_path, method_name, exc
                 )
+
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )
+
+
+# This is required by mlflow.autolog()
+autolog.integration_name = FLAVOR_NAME
+
+
+@autologging_integration(FLAVOR_NAME)
+def _autolog(
+    log_traces: bool,
+    disable: bool = False,
+    silent: bool = False,
+):
+    pass

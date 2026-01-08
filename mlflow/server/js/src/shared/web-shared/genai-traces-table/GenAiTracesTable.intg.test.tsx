@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, afterEach, expect, it } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 
@@ -9,7 +10,6 @@ import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-c
 import { GenAiTracesTable } from './GenAITracesTable';
 // eslint-disable-next-line import/no-namespace
 import * as GenAiTracesTableUtils from './GenAiTracesTable.utils';
-import type { GenAiEvaluationTracesReview } from './components/GenAiEvaluationTracesReview';
 import { createTestTraces } from './test-fixtures/EvaluatedTraceTestUtils';
 import type { RunEvaluationTracesDataEntry } from './types';
 import { testRoute, TestRouter } from './utils/RoutingTestUtils';
@@ -229,7 +229,10 @@ describe('Evaluations overview - integration test', () => {
       },
     ]);
 
-    renderTestComponent(currentTestTraces, compareToTestTraces);
+    renderTestComponent(currentTestTraces, compareToTestTraces, {
+      compareToRunUuid: 'compare-run-uuid',
+      compareToRunDisplayName: 'Compare Run',
+    });
 
     await waitForViewToBeReady();
 
@@ -246,15 +249,13 @@ describe('Evaluations overview - integration test', () => {
     expect(screen.getAllByText('Pass').length).toBeGreaterThanOrEqual(1);
 
     // Make sure the null values are rendered as well.
-
-    // TODO ML-48427: Investigate why this is failing and re-enable or replace test with updated component
-    // expect(screen.getAllByText('null')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('null')[0]).toBeInTheDocument();
   });
 
   const renderTestComponent = (
     currentEvaluationResults: RunEvaluationTracesDataEntry[],
     compareToEvaluationResults: RunEvaluationTracesDataEntry[] = [],
-    additionalProps: Partial<ComponentProps<typeof GenAiEvaluationTracesReview>> = {},
+    additionalProps: Partial<ComponentProps<typeof GenAiTracesTable>> = {},
   ) => {
     const TestComponent = () => {
       return (

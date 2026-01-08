@@ -3,8 +3,6 @@ Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
 
-import shutil
-import sys
 import time
 from pathlib import Path
 
@@ -16,40 +14,16 @@ from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import get_safe_port
 from tests.tracking.integration_test_utils import ServerThread
 
 
-def to_db_uri(db_path: Path) -> str:
-    db_uri = db_path.as_uri()
-    return ("sqlite://" if sys.platform == "win32" else "sqlite:////") + db_uri[len("file://") :]
-
-
-@pytest.fixture(scope="module")
-def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
-    tmp_dir = tmp_path_factory.mktemp("sqlite_db")
-    db_path = tmp_dir / "mlflow.db"
-    backend_uri = to_db_uri(db_path)
-    artifact_uri = (tmp_dir / "artifacts").as_uri()
-    store = SqlAlchemyStore(backend_uri, artifact_uri)
-    store.engine.dispose()
-    return db_path
-
-
 @pytest.fixture(params=["file", "sqlalchemy"])
-def client(request: pytest.FixtureRequest, tmp_path: Path, cached_db: Path):
+def client(request: pytest.FixtureRequest, tmp_path: Path, db_uri: str):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
-    if request.param == "file":
-        backend_uri = tmp_path.joinpath("file").as_uri()
-    else:
-        # Copy the cached database for this test
-        db_path = tmp_path / "mlflow.db"
-        shutil.copy(cached_db, db_path)
-        backend_uri = to_db_uri(db_path)
+    backend_uri = tmp_path.joinpath("file").as_uri() if request.param == "file" else db_uri
 
     # Force-reset backend stores before each test
     handlers._tracking_store = None

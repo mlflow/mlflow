@@ -9,7 +9,6 @@ from unittest import mock
 import pandas as pd
 import pydantic
 import pytest
-from packaging.version import Version
 from pyspark.sql import SparkSession
 from pyspark.sql.types import (
     ArrayType,
@@ -34,15 +33,27 @@ from mlflow.types.agent import ChatAgentMessage, ChatAgentResponse, ChatContext
 from mlflow.types.llm import ChatMessage, ChatParams
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import TypeFromExample
-from mlflow.utils.pydantic_utils import model_dump_compat
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.pyfunc.utils import score_model_in_process
 
 
 @pytest.fixture(scope="module")
 def spark():
     with SparkSession.builder.master("local[*]").getOrCreate() as s:
         yield s
+
+
+@pytest.fixture(autouse=True, scope="module")
+def mock_log_model_with_pip_requirements():
+    """Inject pip_requirements=[] to skip dependency inference in all log_model calls."""
+    original_log_model = mlflow.pyfunc.log_model
+
+    def patched_log_model(*args, **kwargs):
+        kwargs.setdefault("pip_requirements", [])
+        return original_log_model(*args, **kwargs)
+
+    with mock.patch("mlflow.pyfunc.log_model", patched_log_model):
+        yield
 
 
 class CustomExample(pydantic.BaseModel):
@@ -244,16 +255,15 @@ def test_pyfunc_model_infer_signature_from_type_hints(
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     result = pyfunc_model.predict(input_example)
     if isinstance(result[0], pydantic.BaseModel):
-        result = [model_dump_compat(r) for r in result]
+        result = [r.model_dump() for r in result]
     assert result == input_example
 
     # test serving
     payload = convert_input_example_to_serving_input(input_example)
-    scoring_response = pyfunc_serve_and_score_model(
+    scoring_response = score_model_in_process(
         model_uri=model_info.model_uri,
         data=payload,
         content_type=CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
 
@@ -507,7 +517,6 @@ class TypeHintExample(NamedTuple):
 class Message(pydantic.BaseModel):
     role: str
     content: str
-
 
 class CustomExample2(pydantic.BaseModel):
     custom_field: dict[str, Any]
@@ -998,11 +1007,10 @@ def test_type_hint_from_example(input_example, type_from_example_model):
 
     # test serving
     payload = convert_input_example_to_serving_input(input_example)
-    scoring_response = pyfunc_serve_and_score_model(
+    scoring_response = score_model_in_process(
         model_uri=model_info.model_uri,
         data=payload,
         content_type=CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
     if isinstance(input_example, pd.DataFrame):
@@ -1028,10 +1036,6 @@ def test_type_hint_from_example_invalid_input(type_from_example_model):
         pyfunc_model.predict(["1", "2", "3"])
 
 
-@pytest.mark.skipif(
-    Version(pydantic.VERSION).major <= 1,
-    reason="pydantic v1 has default value None if the field is Optional",
-)
 def test_invalid_type_hint_raise_exception():
     class Message(pydantic.BaseModel):
         role: str
@@ -1073,56 +1077,56 @@ def test_python_model_without_type_hint_warning():
             mlflow.pyfunc.log_model(name="model", python_model=predict, input_example="abc")
 
 
-@mock.patch("mlflow.pyfunc.utils.data_validation.color_warning")
-def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
-    # Class outside "mlflow" module should warn
-    class PythonModelWithoutTypeHint(mlflow.pyfunc.PythonModel):
-        def predict(self, model_input, params=None):
-            return model_input
+def test_type_hint_warning_not_shown_for_builtin_subclasses():
+    with mock.patch("mlflow.pyfunc.utils.data_validation.color_warning") as mock_warning:
+        # Class outside "mlflow" module should warn
+        class PythonModelWithoutTypeHint(mlflow.pyfunc.PythonModel):
+            def predict(self, model_input, params=None):
+                return model_input
 
-    assert mock_warning.call_count == 1
-    assert "Add type hints to the `predict` method" in mock_warning.call_args[0][0]
-    mock_warning.reset_mock()
+        assert mock_warning.call_count == 1
+        assert "Add type hints to the `predict` method" in mock_warning.call_args[0][0]
+        mock_warning.reset_mock()
 
-    # Class inside "mlflow" module should not warn
-    ChatModel.__init_subclass__()
-    assert mock_warning.call_count == 0
+        # Class inside "mlflow" module should not warn
+        ChatModel.__init_subclass__()
+        assert mock_warning.call_count == 0
 
-    _FunctionPythonModel.__init_subclass__()
-    assert mock_warning.call_count == 0
+        _FunctionPythonModel.__init_subclass__()
+        assert mock_warning.call_count == 0
 
-    # Subclass of ChatModel should not warn (exception to the rule)
-    class ChatModelSubclass(ChatModel):
-        def predict(self, model_input: list[ChatMessage], params: ChatParams | None = None):
-            return model_input
+        # Subclass of ChatModel should not warn (exception to the rule)
+        class ChatModelSubclass(ChatModel):
+            def predict(self, model_input: list[ChatMessage], params: ChatParams | None = None):
+                return model_input
 
-    assert mock_warning.call_count == 0
+        assert mock_warning.call_count == 0
 
-    # Subclass of ChatAgent should not warn as well (valid pydantic type hint)
-    class SimpleChatAgent(ChatAgent):
-        def predict(
-            self,
-            messages: list[ChatAgentMessage],
-            context: ChatContext | None = None,
-            custom_inputs: dict[str, Any] | None = None,
-        ) -> ChatAgentResponse:
-            pass
+        # Subclass of ChatAgent should not warn as well (valid pydantic type hint)
+        class SimpleChatAgent(ChatAgent):
+            def predict(
+                self,
+                messages: list[ChatAgentMessage],
+                context: ChatContext | None = None,
+                custom_inputs: dict[str, Any] | None = None,
+            ) -> ChatAgentResponse:
+                pass
 
-    assert mock_warning.call_count == 0
+        assert mock_warning.call_count == 0
 
-    # Check import does not trigger any warning (from builtin sub-classes)
-    # Note: DO NOT USE importlib.reload as classes in the reloaded
-    # module are different than original ones, which could cause unintended
-    # side effects in other tests.
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-W",
-            "error::UserWarning:mlflow.pyfunc.model",
-            "-c",
-            "import mlflow.pyfunc.model",
-        ]
-    )
+        # Check import does not trigger any warning (from builtin sub-classes)
+        # Note: DO NOT USE importlib.reload as classes in the reloaded
+        # module are different than original ones, which could cause unintended
+        # side effects in other tests.
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-W",
+                "error::UserWarning:mlflow.pyfunc.model",
+                "-c",
+                "import mlflow.pyfunc.model",
+            ]
+        )
 
 
 def test_load_context_type_hint():

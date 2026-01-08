@@ -15,10 +15,66 @@ To inspect per-row evaluation results, open the **Traces** tab on the run overvi
 
 ## How to change the concurrency of the evaluation?
 
-MLflow uses a thread pool to run the predict function and scorers in parallel. Configure the number of workers by setting the `MLFLOW_GENAI_EVAL_MAX_WORKERS` environment variable (default: `10`).
+MLflow uses thread pools to run the predict function and scorers in parallel. You can configure concurrency at two levels:
+
+**1. Data-level concurrency:** Controls how many data items are evaluated in parallel.
 
 ```bash
+# Limit concurrent data items being evaluated (default: 10)
 export MLFLOW_GENAI_EVAL_MAX_WORKERS=5
+```
+
+**2. Scorer-level concurrency:** Controls how many scorers run in parallel for each data item. The actual number of scorer workers will not exceed the number of scorers being used.
+
+```bash
+# Limit concurrent scorer execution (default: 10)
+export MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS=2
+
+# For strict rate limiting, run scorers sequentially
+export MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS=1
+```
+
+The total maximum concurrent API calls is approximately `MLFLOW_GENAI_EVAL_MAX_WORKERS × min(MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS, num_scorers)`. Adjust these values based on your LLM provider's rate limits, especially when using free tiers.
+
+## Can I use async functions as predict_fn?
+
+Yes! MLflow automatically detects and wraps async functions. The async function will be executed with a timeout to prevent indefinite hangs.
+
+Configure the timeout (in seconds) using the `MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT` environment variable (default: `300` seconds):
+
+```bash
+export MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT=600  # 10 minutes
+```
+
+**For Jupyter Notebooks:** Install `nest_asyncio` to use async functions in notebook environments:
+
+```bash
+pip install nest_asyncio
+```
+
+Example with an async predict function:
+
+```python
+import asyncio
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+
+async def async_predict_fn(question: str) -> str:
+    """Async prediction function using OpenAI"""
+    response = await client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": question}],
+    )
+    return response.choices[0].message.content
+
+
+mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=async_predict_fn,  # Async function automatically supported
+    scorers=[Correctness()],
+)
 ```
 
 ## Why does MLflow make N+1 predictions during evaluation?
@@ -61,4 +117,117 @@ mlflow.genai.evaluate(
     predict_fn=mlflow.genai.to_predict_fn("endpoints:/chat"),
     scorers=[Correctness()],
 )
+```
+
+## How to migrate from MLflow 2 LLM Evaluation?
+
+See the [Migrating from MLflow 2 LLM Evaluation](/genai/eval-monitor/legacy-llm-evaluation) guide.
+
+## How do I track the cost of LLM judges?
+
+MLflow visualizes the cost of LLM judges in the assessment pane of the trace details page.
+When you open an assessment logged by an LLM judge, you can see the cost incurred for running the judge model.
+This feature is available only when you have the [LiteLLM](https://github.com/BerriAI/litellm) library installed.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/tracking-judge-cost.png" alt="LLM Judge Cost" width="90%" />
+
+Managing the balance between cost and accuracy is important.
+To use a more cost-effective LLM model while maintaining accuracy, you can leverage the [LLM Judge Alignment](/genai/eval-monitor/scorers/llm-judge/alignment) feature.
+
+## How do I pass additional inference parameters to judge LLMs?
+
+LLM-as-a-Judge scorers like `Correctness` and `Guidelines` accept an `inference_params` argument to customize the judge model's behavior. This allows you to control parameters such as `temperature`, `max_tokens`, and other model-specific settings.
+
+```python
+from mlflow.genai.scorers import Correctness, Guidelines
+
+# Pass inference parameters to control judge behavior
+correctness_scorer = Correctness(
+    inference_params={
+        "temperature": 0.0,  # More deterministic responses
+        "max_tokens": 500,
+    }
+)
+
+guidelines_scorer = Guidelines(
+    name="tone_check",
+    guidelines="The response should be professional and helpful.",
+    inference_params={
+        "temperature": 0.0,
+    },
+)
+
+mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=my_predict_fn,
+    scorers=[correctness_scorer, guidelines_scorer],
+)
+```
+
+The available inference parameters depend on the model provider being used. Common parameters include:
+
+- `temperature`: Controls randomness (0.0 = deterministic, higher = more random)
+- `max_tokens`: Maximum tokens in the response
+- `top_p`: Nucleus sampling parameter
+
+## How do I debug my scorers?
+
+To debug your scorers, you can enable tracing for the scorer functions by setting the `MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING` environment variable to `true`.
+
+```bash
+export MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING=true
+```
+
+When this is set to `true`, MLflow will trace scorer executions during the evaluation and allow
+you to inspect the input, output, and internal steps during the scorer execution.
+
+To view the scorer trace, you can open the assessment pane of the trace details page and click the
+"View trace" link.
+
+## How do I programmatically access evaluation results?
+
+The <APILink fn="mlflow.genai.evaluate" /> function returns an <APILink fn="mlflow.genai.evaluation.entities.EvaluationResult" /> object that contains all evaluation results. Here's how to access different parts of the results:
+
+### Accessing Aggregated Metrics
+
+The `metrics` property returns a dictionary of aggregated metric values across all evaluated rows:
+
+```python
+result = mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=my_predict_fn,
+    scorers=[Correctness(), Safety()],
+)
+
+# Access aggregated metrics
+print(result.metrics)
+# Output: {'correctness/mean': 0.85, 'safety/mean': 0.95}
+
+# Access a specific metric
+correctness_score = result.metrics.get("correctness/mean")
+```
+
+To get metrics for an existing evaluation run, you can use <APILink fn="mlflow.get_run" /> API:
+
+```python
+run = mlflow.get_run(run_id="<run_id>")
+print(run.data.metrics)
+# Output: {'correctness/mean': 0.85, 'safety/mean': 0.95}
+```
+
+### Accessing the Results DataFrame
+
+The `result_df` property returns a pandas DataFrame containing detailed per-row evaluation results:
+
+```python
+# Export to CSV for further analysis
+result.result_df.to_csv("evaluation_results.csv", index=False)
+```
+
+### Accessing Traces from Results
+
+You can get the traces for the evaluation run by using <APILink fn="mlflow.search_traces" /> API:
+
+```python
+traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
 ```

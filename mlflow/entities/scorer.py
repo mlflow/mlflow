@@ -25,6 +25,7 @@ class ScorerVersion(_MlflowObject):
         scorer_version (int): The version number of this scorer instance.
         serialized_scorer (str): JSON-serialized string containing the scorer's metadata and code.
         creation_time (int): Unix timestamp (in milliseconds) when this version was created.
+        scorer_id (str, optional): The unique identifier for the scorer.
 
     Example:
         .. code-block:: python
@@ -52,12 +53,14 @@ class ScorerVersion(_MlflowObject):
         scorer_version: int,
         serialized_scorer: str,
         creation_time: int,
+        scorer_id: str | None = None,
     ):
         self._experiment_id = experiment_id
         self._scorer_name = scorer_name
         self._scorer_version = scorer_version
         self._serialized_scorer = serialized_scorer
         self._creation_time = creation_time
+        self._scorer_id = scorer_id
 
     @property
     def experiment_id(self):
@@ -126,6 +129,16 @@ class ScorerVersion(_MlflowObject):
         """
         return self._creation_time
 
+    @property
+    def scorer_id(self):
+        """
+        The unique identifier for the scorer.
+
+        Returns:
+            str: The unique identifier (UUID) for the scorer, or None if not available.
+        """
+        return self._scorer_id
+
     @classmethod
     def from_proto(cls, proto):
         """
@@ -151,6 +164,7 @@ class ScorerVersion(_MlflowObject):
             scorer_version=proto.scorer_version,
             serialized_scorer=proto.serialized_scorer,
             creation_time=proto.creation_time,
+            scorer_id=proto.scorer_id if proto.HasField("scorer_id") else None,
         )
 
     def to_proto(self):
@@ -169,11 +183,13 @@ class ScorerVersion(_MlflowObject):
             and should not typically be called directly by users.
         """
         proto = ProtoScorer()
-        proto.experiment_id = self.experiment_id
+        proto.experiment_id = int(self.experiment_id)
         proto.scorer_name = self.scorer_name
         proto.scorer_version = self.scorer_version
         proto.serialized_scorer = self._serialized_scorer
         proto.creation_time = self.creation_time
+        if self.scorer_id is not None:
+            proto.scorer_id = self.scorer_id
         return proto
 
     def __repr__(self):

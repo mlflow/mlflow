@@ -494,7 +494,8 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(xgb_model,
     ``model_class`` in XGBoost flavor.
     """
     model = xgb_model.model
-    mlflow.xgboost.save_model(xgb_model=model, path=model_path)
+    # Use xgb format explicitly since this test verifies backward compatibility with old models
+    mlflow.xgboost.save_model(xgb_model=model, path=model_path, model_format="xgb")
 
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)

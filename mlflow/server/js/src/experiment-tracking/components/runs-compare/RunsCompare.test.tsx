@@ -1,3 +1,4 @@
+import { jest, expect, describe, beforeEach, test } from '@jest/globals';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import {
   renderWithIntl,

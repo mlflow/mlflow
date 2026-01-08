@@ -44,15 +44,16 @@ def _extract_tool_call_ids(output: Any) -> list[str]:
         if isinstance(output, ChatCompletion):
             message = output.choices[0].message
             if tool_calls := getattr(message, "tool_calls", None):
-                for tool_call in tool_calls:
-                    tool_call_ids.append(tool_call.id)
+                tool_call_ids.extend(tool_call.id for tool_call in tool_calls)
     except ImportError:
         pass
 
     if _is_responses_output(output):
-        for output_item in output.output:
-            if call_id := getattr(output_item, "call_id", None):
-                tool_call_ids.append(call_id)
+        tool_call_ids.extend(
+            call_id
+            for output_item in output.output
+            if (call_id := getattr(output_item, "call_id", None))
+        )
 
     return tool_call_ids
 
@@ -73,7 +74,7 @@ def _is_responses_output(output: Any) -> bool:
     try:
         from mlflow.types.responses import ResponsesAgentResponse
 
-        if ResponsesAgentResponse.validate_compat(output):
+        if ResponsesAgentResponse.model_validate(output):
             return True
     except Exception:
         pass

@@ -672,15 +672,14 @@ def test_similarity_metric(parameters, extra_headers, proxy_url):
             "answer_similarity "
             "based on the rubric\njustification: Your reasoning about the model's "
             "answer_similarity "
-            "score\n\nYou are an impartial judge. You will be given an input that was "
-            "sent to a machine\nlearning model, and you will be given an output that the model "
-            "produced. You\nmay also be given additional information that was used by the model "
-            "to generate the output.\n\nYour task is to determine a numerical score called "
-            "answer_similarity based on the input and output.\nA definition of "
-            "answer_similarity and a grading rubric are provided below.\nYou must use the "
-            "grading rubric to determine your score. You must also justify your score."
-            "\n\nExamples could be included below for reference. Make sure to use them as "
-            "references and to\nunderstand them before completing the task.\n"
+            "score\n\nYou are an impartial judge. You will be given an output that a machine "
+            "learning model produced.\nYou may also be given additional information that was "
+            "used by the model to generate the output.\n\nYour task is to determine a "
+            "numerical score called answer_similarity based on the output and any additional "
+            "information provided.\nA definition of answer_similarity and a grading rubric are "
+            "provided below.\nYou must use the grading rubric to determine your score. You must "
+            "also justify your score.\n\nExamples could be included below for reference. Make "
+            "sure to use them as references and to\nunderstand them before completing the task.\n"
             f"\nOutput:\n{mlflow_prediction}\n"
             "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
             f"{mlflow_ground_truth}\n"
@@ -694,11 +693,9 @@ def test_similarity_metric(parameters, extra_headers, proxy_url):
             f"Example justification: {mlflow_example.justification}\n        "
             "\n\nYou must return the "
             "following fields in your response in two lines, one below the other:\nscore: Your "
-            "numerical score for the model's answer_similarity based on the rubric\njustification: "
-            "Your "
-            "reasoning about the model's answer_similarity score\n\nDo not add additional new "
-            "lines. Do "
-            "not add any other fields.\n    "
+            "numerical score for the model's answer_similarity based on the rubric\n"
+            "justification: Your reasoning about the model's answer_similarity score\n\n"
+            "Do not add additional new lines. Do not add any other fields.\n    "
         )
         assert mock_predict_function.call_args[0][2] == parameters or {
             **AnswerSimilarityMetric.parameters,
@@ -749,15 +746,14 @@ def test_faithfulness_metric():
             "faithfulness "
             "based on the rubric\njustification: Your reasoning about the model's "
             "faithfulness "
-            "score\n\nYou are an impartial judge. You will be given an input that was "
-            "sent to a machine\nlearning model, and you will be given an output that the model "
-            "produced. You\nmay also be given additional information that was used by the model "
-            "to generate the output.\n\nYour task is to determine a numerical score called "
-            "faithfulness based on the input and output.\nA definition of "
-            "faithfulness and a grading rubric are provided below.\nYou must use the "
-            "grading rubric to determine your score. You must also justify your score."
-            "\n\nExamples could be included below for reference. Make sure to use them as "
-            "references and to\nunderstand them before completing the task.\n"
+            "score\n\nYou are an impartial judge. You will be given an output that a machine "
+            "learning model produced.\nYou may also be given additional information that was "
+            "used by the model to generate the output.\n\nYour task is to determine a numerical "
+            "score called faithfulness based on the output and any additional information "
+            "provided.\nA definition of faithfulness and a grading rubric are provided below.\n"
+            "You must use the grading rubric to determine your score. You must also justify "
+            "your score.\n\nExamples could be included below for reference. Make sure to use "
+            "them as references and to\nunderstand them before completing the task.\n"
             f"\nOutput:\n{mlflow_prediction}\n"
             "\nAdditional information used by the model:\nkey: context\nvalue:\n"
             f"{mlflow_ground_truth}\n"
@@ -767,10 +763,8 @@ def test_faithfulness_metric():
             "\n\nYou must return the "
             "following fields in your response in two lines, one below the other:\nscore: Your "
             "numerical score for the model's faithfulness based on the rubric\njustification: "
-            "Your "
-            "reasoning about the model's faithfulness score\n\nDo not add additional new "
-            "lines. Do "
-            "not add any other fields.\n    "
+            "Your reasoning about the model's faithfulness score\n\nDo not add additional new "
+            "lines. Do not add any other fields.\n    "
         )
         assert mock_predict_function.call_args[0][2] == {
             **FaithfulnessMetric.parameters,
@@ -794,13 +788,18 @@ def test_faithfulness_metric():
             examples=[mlflow_example],
         )
 
-    faithfulness_metric.eval_fn(
-        # Inputs with different indices
-        pd.Series([mlflow_prediction], index=[0]),
-        {},
-        pd.Series([input], index=[1]),
-        pd.Series([mlflow_ground_truth], index=[2]),
-    )
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ):
+        faithfulness_metric.eval_fn(
+            # Inputs with different indices
+            pd.Series([mlflow_prediction], index=[0]),
+            {},
+            pd.Series([input], index=[1]),
+            pd.Series([mlflow_ground_truth], index=[2]),
+        )
 
 
 def test_answer_correctness_metric():

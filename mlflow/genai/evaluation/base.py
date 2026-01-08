@@ -1,7 +1,6 @@
 import logging
 import os
 import time
-import warnings
 from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -14,23 +13,24 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
+from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
 from mlflow.genai.evaluation.utils import (
-    _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
+    _get_eval_data_size_and_fields,
 )
 from mlflow.genai.scorers import Scorer
-from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, BuiltInScorer
+from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 from mlflow.genai.utils.display_utils import display_evaluation_output
-from mlflow.genai.utils.trace_utils import clean_up_extra_traces, convert_predict_fn
+from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.models.evaluation.base import (
-    EvaluationResult,
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
 )
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.telemetry.events import GenAIEvaluateEvent
 from mlflow.telemetry.track import record_usage_event
+from mlflow.telemetry.utils import _log_error
 from mlflow.tracing.constant import (
     DATABRICKS_OPTIONS_KEY,
     DATABRICKS_OUTPUT_KEY,
@@ -38,25 +38,23 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import _set_active_model
-from mlflow.utils.annotations import experimental
+from mlflow.tracking.fluent import _get_experiment_id, _set_active_model
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION
-from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
+    from mlflow.genai.evaluation.entities import EvaluationResult
     from mlflow.genai.evaluation.utils import EvaluationDatasetTypes
 
 
 logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.0.0")
 def evaluate(
     data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
     predict_fn: Callable[..., Any] | None = None,
     model_id: str | None = None,
-) -> EvaluationResult:
+) -> "EvaluationResult":
     """
     Evaluate the performance of a generative AI model/application using specified
     data and scorers.
@@ -178,6 +176,7 @@ def evaluate(
             * Pandas DataFrame
             * Spark DataFrame
             * List of dictionaries
+            * List of `Trace` objects
 
             The dataset must include either of the following columns:
 
@@ -225,34 +224,57 @@ def evaluate(
             The function must emit a single trace per call. If it doesn't, decorate
             the function with @mlflow.trace decorator to ensure a trace to be emitted.
 
+            Both synchronous and asynchronous (async def) functions are supported. Async
+            functions are automatically detected and wrapped to run synchronously with a
+            configurable timeout (default: 300 seconds). Set the timeout using the
+            MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT environment variable.
+
         model_id: Optional model identifier (e.g. "m-074689226d3b40bfbbdf4c3ff35832cd")
             to associate with the evaluation results. Can be also set globally via the
             :py:func:`mlflow.set_active_model` function.
 
     Returns:
-        An :py:class:`mlflow.models.EvaluationResult~` object.
+        An :py:class:`mlflow.genai.evaluation.entities.EvaluationResult` object.
 
     Note:
-        This function is only supported on Databricks. The tracking URI must be
-        set to Databricks.
+        Certain advanced features of this function are only supported on Databricks.
+        The tracking URI must be set to Databricks to use these features.
 
     .. warning::
 
         This function is not thread-safe. Please do not use it in multi-threaded
         environments.
     """
+    result, _ = _run_harness(data, scorers, predict_fn, model_id)
+    return result
+
+
+@record_usage_event(GenAIEvaluateEvent)
+def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult", dict[str, Any]]:
+    """
+    Internal harness for running evaluation.
+
+    Returns:
+        A tuple containing:
+            - EvaluationResult: The evaluation result object with metrics and assessments
+            - dict: Telemetry data dictionary containing evaluation metadata (data size, fields,
+              etc.). This is used by the @record_usage_event decorator.
+    """
+    from mlflow.genai.evaluation import harness
+
     is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
 
     scorers = validate_scorers(scorers)
-    # convert into a pandas dataframe with expected evaluation set schema
-    df = data.to_df() if is_managed_dataset else _convert_to_eval_set(data)
+
+    # Validate session-level input if session-level scorers are present
+    validate_session_level_evaluation_inputs(scorers, predict_fn)
+
+    df = _convert_to_eval_set(data)
 
     builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
     valid_data_for_builtin_scorers(df, builtin_scorers, predict_fn)
 
-    # "request" column must exist after conversion
-    input_key = "inputs" if is_managed_dataset else "request"
-    sample_input = df.iloc[0][input_key]
+    sample_input = df.iloc[0][InputDatasetColumn.INPUTS]
 
     # Only check 'inputs' column when it is not derived from the trace object
     if "trace" not in df.columns and not isinstance(sample_input, dict):
@@ -268,39 +290,29 @@ def evaluate(
     if predict_fn:
         predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
 
-    eval_start_time = int(time.time() * 1000)
-
-    if is_databricks_uri(mlflow.get_tracking_uri()):
-        result = _evaluate_dbx(data, scorers, predict_fn, model_id)
-    else:
-        result = _evaluate_oss(data, scorers, predict_fn, model_id)
-
-    # Clean up noisy traces generated during evaluation
-    clean_up_extra_traces(result.run_id, eval_start_time)
-
-    return result
-
-
-@record_usage_event(GenAIEvaluateEvent)
-def _evaluate_oss(data, scorers, predict_fn, model_id):
-    from mlflow.genai.evaluation import harness
+    # NB: The "RAG_EVAL_MAX_WORKERS" env var is used in the DBX agent harness, but is
+    # deprecated in favor of the new "MLFLOW_GENAI_EVAL_MAX_WORKERS" env var. The old
+    # one is not publicly documented, but we keep it for backward compatibility.
+    if "RAG_EVAL_MAX_WORKERS" in os.environ:
+        logger.warning(
+            "The `RAG_EVAL_MAX_WORKERS` environment variable is deprecated. "
+            f"Please use `{MLFLOW_GENAI_EVAL_MAX_WORKERS.name}` instead."
+        )
+        os.environ[MLFLOW_GENAI_EVAL_MAX_WORKERS.name] = os.environ["RAG_EVAL_MAX_WORKERS"]
 
     if isinstance(data, (EvaluationDataset, EntityEvaluationDataset)):
         mlflow_dataset = data
         df = data.to_df()
     else:
-        # Rename 'request' / 'response' column back to 'inputs' / 'outputs'.
-        # This is a temporary hack to avoid branching _convert_to_eval_set()
-        # into OSS and DBX implementation.
-        data = data.rename(
-            columns={
-                "request": InputDatasetColumn.INPUTS,
-                "response": InputDatasetColumn.OUTPUTS,
-            }
-        )
         # Use default name for evaluation dataset when converting from DataFrame
         mlflow_dataset = mlflow.data.from_pandas(df=data, name="dataset")
         df = data
+
+    try:
+        telemetry_data = _get_eval_data_size_and_fields(df)
+    except Exception:
+        _log_error("Failed to get evaluation data size and fields for GenAIEvaluateEvent")
+        telemetry_data = {}
 
     with (
         _start_run_or_reuse_active_run() as run_id,
@@ -325,57 +337,7 @@ def _evaluate_oss(data, scorers, predict_fn, model_id):
     except Exception:
         logger.debug("Failed to display summary and usage instructions", exc_info=True)
 
-    return result
-
-
-def _evaluate_dbx(data, scorers, predict_fn, model_id):
-    """In Databricks, we run GenAI evaluation using databricks-agents package and
-    the mlflow.evaluate() function. This is a temporary migration state and we will
-    eventually unify this into OSS flow.
-    """
-    import pandas as pd
-
-    # NB: The "RAG_EVAL_MAX_WORKERS" env var is used in the DBX agent harness, but is
-    # deprecated in favor of the new "MLFLOW_GENAI_EVAL_MAX_WORKERS" env var. The old
-    # one is not publicly documented, but we keep it for backward compatibility.
-    if MLFLOW_GENAI_EVAL_MAX_WORKERS.is_set() and "RAG_EVAL_MAX_WORKERS" not in os.environ:
-        os.environ["RAG_EVAL_MAX_WORKERS"] = str(MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
-    elif "RAG_EVAL_MAX_WORKERS" in os.environ:
-        logger.warning(
-            "The `RAG_EVAL_MAX_WORKERS` environment variable is deprecated. "
-            "Please use `MLFLOW_GENAI_EVAL_MAX_WORKERS` instead."
-        )
-
-    if isinstance(data, pd.DataFrame):
-        from mlflow.data.evaluation_dataset import convert_data_to_mlflow_dataset
-
-        data = convert_data_to_mlflow_dataset(data=data, name="dataset")
-
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore",
-            message=r"Hint: Inferred schema contains integer column\(s\).*",
-            category=UserWarning,
-        )
-        # Suppress numpy warning about ragged nested sequences. This is raised when passing
-        # a dataset that contains complex object to mlflow.evaluate(). MLflow converts data
-        # into numpy array to compute dataset digest, which triggers the warning.
-        warnings.filterwarnings(
-            "ignore",
-            message=r"Creating an ndarray from ragged nested sequences",
-            module="mlflow.data.evaluation_dataset",
-        )
-
-        return mlflow.models.evaluate(
-            model=predict_fn,
-            data=data,
-            evaluator_config={GENAI_CONFIG_NAME: {"metrics": []}},  # Turn off the default metrics
-            # Scorers are passed to the eval harness as extra metrics
-            extra_metrics=[_convert_scorer_to_legacy_metric(_scorer) for _scorer in scorers],
-            model_type=GENAI_CONFIG_NAME,
-            model_id=model_id,
-            _called_from_genai_evaluate=True,
-        )
+    return result, telemetry_data
 
 
 def _log_dataset_input(
@@ -392,7 +354,6 @@ def _log_dataset_input(
     )
 
 
-@experimental(version="3.0.0")
 def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
     """
     Convert an endpoint URI to a predict function.
@@ -472,12 +433,34 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
         # Inject `{"databricks_options": {"return_trace": True}}` to the input payload
         # to return the trace in the response.
         databricks_options = {DATABRICKS_OPTIONS_KEY: {RETURN_TRACE_OPTION_KEY: True}}
-        payload = kwargs if is_fmapi else {**kwargs, **databricks_options}
+        payload = kwargs if is_fmapi else kwargs | databricks_options
         result = client.predict(endpoint=endpoint, inputs=payload)
         end_time_ms = int(time.time_ns() / 1e6)
 
-        # If the endpoint returns a trace, copy it to the current experiment.
+        # If the endpoint returns a trace, check if we need to copy it to the current experiment.
         if trace_dict := result.pop(DATABRICKS_OUTPUT_KEY, {}).get("trace"):
+            # Check if the trace is already in the current experiment (dual-write mode).
+            # This happens when the endpoint has MLFLOW_EXPERIMENT_ID set and writes
+            # traces to both inference table and MLflow experiment.
+            trace_experiment_id = (
+                (info := trace_dict.get("info"))
+                and (trace_loc := info.get("trace_location"))
+                and (ml_exp := trace_loc.get("mlflow_experiment"))
+                and ml_exp.get("experiment_id")
+            )
+            current_experiment_id = _get_experiment_id()
+
+            # If the trace is already in the current experiment, we can reuse it
+            # instead of copying it again (avoiding duplicate traces).
+            if trace_experiment_id and trace_experiment_id == current_experiment_id:
+                logger.debug(
+                    "Trace from endpoint is already in the current experiment "
+                    f"(experiment_id={current_experiment_id}). Reusing existing trace "
+                    "instead of copying."
+                )
+                return result
+
+            # Otherwise, copy the trace to the current experiment.
             try:
                 copy_trace_to_experiment(trace_dict)
                 return result
@@ -489,12 +472,14 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
                 )
 
         # If the endpoint doesn't return a trace, manually create a trace with request/response.
-        mlflow.log_trace(
+        span = mlflow.start_span_no_context(
             name="predict",
-            request=kwargs,
-            response=result,
-            start_time_ms=start_time_ms,
-            execution_time_ms=end_time_ms - start_time_ms,
+            inputs=kwargs,
+            start_time_ns=start_time_ms * 1000000,
+        )
+        span.end(
+            outputs=result,
+            end_time_ns=end_time_ms * 1000000,
         )
         return result
 

@@ -1,6 +1,8 @@
 import logging
 
 from mlflow.langchain.constant import FLAVOR_NAME
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import safe_patch
@@ -15,6 +17,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     log_traces=True,
+    run_tracer_inline=False,
 ):
     """
     Enables (or disables) and configures autologging from Langchain to MLflow.
@@ -34,6 +37,12 @@ def autolog(
         log_traces: If ``True``, traces are logged for Langchain models by using
             MlflowLangchainTracer as a callback during inference. If ``False``, no traces are
             collected during inference. Default to ``True``.
+        run_tracer_inline: If ``True``, the MLflow tracer callback runs in the main async task
+            rather than being offloaded to a thread pool. This ensures proper context propagation
+            when combining autolog traces with manual ``@mlflow.trace`` decorators in async
+            scenarios (e.g., LangGraph's ``ainvoke``). Default is ``False`` for backward
+            compatibility. Set to ``True`` if you use manual ``@mlflow.trace`` decorators within
+            LangGraph nodes or tools and need them properly nested in the autolog trace.
     """
     try:
         from langchain_core.callbacks import BaseCallbackManager
@@ -68,9 +77,14 @@ def autolog(
     except Exception:
         logger.debug("Failed to patch RunnableSequence or BaseCallbackManager.", exc_info=True)
 
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )
+
 
 def _patched_callback_manager_init(original, self, *args, **kwargs):
     from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
+    from mlflow.utils.autologging_utils import get_autologging_config
 
     original(self, *args, **kwargs)
 
@@ -81,7 +95,8 @@ def _patched_callback_manager_init(original, self, *args, **kwargs):
         if isinstance(handler, MlflowLangchainTracer):
             return
 
-    _handler = MlflowLangchainTracer()
+    run_tracer_inline = get_autologging_config(FLAVOR_NAME, "run_tracer_inline", True)
+    _handler = MlflowLangchainTracer(run_inline=run_tracer_inline)
     self.add_handler(_handler, inherit=True)
 
 

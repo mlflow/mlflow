@@ -67,7 +67,7 @@ class _ChatAgentPyfuncWrapper:
 
     def _response_to_dict(self, response, pydantic_class) -> dict[str, Any]:
         if isinstance(response, pydantic_class):
-            return response.model_dump_compat(exclude_none=True)
+            return response.model_dump(exclude_none=True)
         try:
             model_validate(pydantic_class, response)
         except pydantic.ValidationError as e:

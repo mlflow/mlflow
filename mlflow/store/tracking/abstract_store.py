@@ -1,3 +1,4 @@
+import bisect
 import json
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING, Any
@@ -12,17 +13,31 @@ from mlflow.entities import (
     LoggedModelParameter,
     LoggedModelStatus,
     LoggedModelTag,
+    ScorerVersion,
     ViewType,
+)
+from mlflow.entities.model_registry import PromptVersion
+from mlflow.entities.trace_metrics import (
+    MetricAggregation,
+    MetricDataPoint,
+    MetricViewType,
 )
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
+    from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.entities.metric import MetricWithRunId
-from mlflow.entities.trace import Span
+from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.store.tracking import (
+    MAX_RESULTS_GET_METRIC_HISTORY,
+    MAX_RESULTS_QUERY_TRACE_METRICS,
+    SEARCH_MAX_RESULTS_DEFAULT,
+    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+)
+from mlflow.store.tracking.gateway import GatewayStoreMixin
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable, requires_sql_backend
@@ -31,7 +46,7 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 
 
 @developer_stable
-class AbstractStore:
+class AbstractStore(GatewayStoreMixin):
     """
     Abstract class for Backend Storage.
     This class defines the API interface for front ends to connect with various types of backends.
@@ -323,10 +338,59 @@ class AbstractStore:
         """
         raise NotImplementedError
 
+    def get_trace(self, trace_id: str, *, allow_partial: bool = False) -> Trace:
+        """
+        Get a trace with spans for given trace id.
+
+        Args:
+            trace_id: String id of the trace to fetch.
+            allow_partial: Whether to allow partial traces. If True, the trace will be returned
+                even if it is not fully exported yet. If False, MLflow retries and returns
+                the trace until all spans are exported or retries are exhausted. Default
+                to False.
+
+        Returns:
+            The fetched Trace object, of type ``mlflow.entities.Trace``.
+        """
+        raise MlflowNotImplementedException()
+
+    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
+        """
+        Get a batch of complete traces with spans for given trace ids.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+            location: Location of the trace. For example, "catalog.schema" for UC schema.
+
+        Returns:
+            List of Trace objects.
+        """
+        # raise MlflowException so this can be captured by the handlers
+        # instead of default internal server error and retry
+        # TODO: ensure NotImplementedError can be translated to 501 error code in mlflow server
+        raise MlflowNotImplementedException()
+
+    def batch_get_trace_infos(
+        self, trace_ids: list[str], location: str | None = None
+    ) -> list[TraceInfo]:
+        """
+        Get trace metadata (TraceInfo) for given trace IDs without loading spans.
+
+        This is more efficient than batch_get_traces when only metadata is needed,
+        as it avoids loading potentially large span data.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+            location: Location of the trace. For example, "catalog.schema" for UC schema.
+
+        Returns:
+            List of TraceInfo objects containing only metadata (no spans).
+        """
+        raise MlflowNotImplementedException()
+
     def get_online_trace_details(
         self,
         trace_id: str,
-        sql_warehouse_id: str,
         source_inference_table: str,
         source_databricks_request_id: str,
     ) -> str:
@@ -336,13 +400,13 @@ class AbstractStore:
 
     def search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
         page_token: str | None = None,
         model_id: str | None = None,
-        sql_warehouse_id: str | None = None,
+        locations: list[str] | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -355,8 +419,7 @@ class AbstractStore:
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
             model_id: If specified, return traces associated with the model ID.
-            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-                searching traces in inference tables.
+            locations: A list of locations to search over.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
@@ -367,6 +430,38 @@ class AbstractStore:
             not be meaningful in such cases.
         """
         raise NotImplementedError
+
+    def query_trace_metrics(
+        self,
+        experiment_ids: list[str],
+        view_type: MetricViewType,
+        metric_name: str,
+        aggregations: list[MetricAggregation],
+        dimensions: list[str] | None = None,
+        filters: list[str] | None = None,
+        time_interval_seconds: int | None = None,
+        start_time_ms: int | None = None,
+        end_time_ms: int | None = None,
+        max_results: int = MAX_RESULTS_QUERY_TRACE_METRICS,
+        page_token: str | None = None,
+    ) -> PagedList[list[MetricDataPoint]]:
+        """
+        Query trace metrics for the given experiment ids.
+
+        Args:
+            experiment_ids: List of experiment ids to query metrics for.
+            view_type: The view type to query metrics for.
+            metric_name: The metric name to query metrics for.
+            aggregations: The aggregations to apply to the metrics.
+            dimensions: The dimensions to group metrics by.
+            filters: The filters to apply to the traces.
+            time_interval_seconds: The time interval in seconds to group traces metrics by.
+            start_time_ms: The start time to query traces metrics for.
+            end_time_ms: The end time to query traces metrics for.
+            max_results: The maximum number of traces metrics to return. Default is 1000.
+            page_token: The page token to use for pagination.
+        """
+        raise MlflowNotImplementedException()
 
     def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
@@ -458,13 +553,15 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+    def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
 
         Args:
-            experiment_id: The experiment ID to log spans to.
+            location: The location to log spans to. Can be either experiment ID or the
+                full UC table name.
             spans: List of Span entities to log. All spans must belong to the same trace.
+            tracking_uri: The tracking URI to use. Default to None.
 
         Returns:
             List of logged Span entities.
@@ -474,12 +571,12 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    async def log_spans_async(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+    async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
         """
         Asynchronously log multiple span entities to the tracking store.
 
         Args:
-            experiment_id: The experiment ID to log spans to.
+            location: The location to log spans to.
             spans: List of Span entities to log. All spans must belong to the same trace.
 
         Returns:
@@ -621,6 +718,82 @@ class AbstractStore:
             )
             for metric in metrics_for_run
         ]
+
+    def get_metric_history_bulk_interval(
+        self, run_ids: list[str], metric_key: str, max_results: int, start_step: int, end_step: int
+    ) -> list[MetricWithRunId]:
+        """
+        Return a list of metric objects for a given metric across multiple runs,
+        sampled within a specified step range.
+
+        This method collects metric history from multiple runs, samples the steps
+        to limit the result size, and returns metrics for the sampled steps. The
+        sampling preserves min/max steps to maintain data boundaries.
+
+        Args:
+            run_ids: List of unique identifiers for runs.
+            metric_key: Metric name to retrieve across runs.
+            max_results: Maximum number of steps to sample from the step range.
+            start_step: Starting step of the range (inclusive). If None, starts from 0.
+            end_step: Ending step of the range (inclusive). If None, uses the maximum
+                step found across all runs.
+
+        Returns:
+            A list of `MetricWithRunId` objects containing metric data for the sampled
+            steps across all specified runs.
+        """
+
+        # get a list of all steps for all runs. this is necessary
+        # because we can't assume that every step was logged, so
+        # sampling needs to be done on the steps that actually exist
+        all_runs = [
+            [m.step for m in self.get_metric_history(run_id, metric_key)] for run_id in run_ids
+        ]
+
+        # save mins and maxes to be added back later
+        all_mins_and_maxes = {step for run in all_runs if run for step in [min(run), max(run)]}
+        all_steps = sorted({step for sublist in all_runs for step in sublist})
+
+        # init start and end step if not provided in args
+        if start_step is None and end_step is None:
+            start_step = 0
+            end_step = all_steps[-1] if all_steps else 0
+
+        # remove any steps outside of the range
+        all_mins_and_maxes = {step for step in all_mins_and_maxes if start_step <= step <= end_step}
+
+        # doing extra iterations here shouldn't badly affect performance,
+        # since the number of steps at this point should be relatively small
+        # (MAX_RESULTS_PER_RUN + len(all_mins_and_maxes))
+
+        start_idx = bisect.bisect_left(all_steps, start_step)
+        end_idx = bisect.bisect_right(all_steps, end_step)
+        if end_idx - start_idx <= max_results:
+            sampled_steps = set(all_steps[start_idx:end_idx])
+        else:
+            num_steps = end_idx - start_idx
+            interval = num_steps / max_results
+            sampled_steps = set()
+
+            for i in range(0, max_results):
+                idx = start_idx + int(i * interval)
+                if idx < end_idx:
+                    sampled_steps.add(all_steps[idx])
+
+            sampled_steps.add(all_steps[end_idx - 1])
+
+        steps = sorted(sampled_steps.union(all_mins_and_maxes))
+        metrics_with_run_ids = []
+        for run_id in run_ids:
+            metrics_with_run_ids.extend(
+                self.get_metric_history_bulk_interval_from_steps(
+                    run_id=run_id,
+                    metric_key=metric_key,
+                    steps=steps,
+                    max_results=MAX_RESULTS_GET_METRIC_HISTORY,
+                )
+            )
+        return metrics_with_run_ids
 
     def search_runs(
         self,
@@ -911,12 +1084,14 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_logged_model(self, model_id: str) -> LoggedModel:
+    def get_logged_model(self, model_id: str, allow_deleted: bool = False) -> LoggedModel:
         """
         Fetch the logged model with the specified ID.
 
         Args:
             model_id: ID of the model to fetch.
+            allow_deleted: If ``True``, allow fetching logged models in the deleted lifecycle
+                stage. Defaults to ``False``.
 
         Returns:
             The fetched model.
@@ -1135,6 +1310,36 @@ class AbstractStore:
             MlflowException: If more than 100 traces are provided.
         """
 
+    def unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Unlink multiple traces from a run by removing entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to unlink from the run.
+            run_id: ID of the run to unlink traces from.
+
+        Raises:
+            MlflowException: If the operation is not supported or fails.
+        """
+        raise NotImplementedError(
+            f"Unlinking traces from runs is not implemented for {self.__class__.__name__}."
+        )
+
+    def link_prompts_to_trace(self, _trace_id: str, _prompt_versions: list[PromptVersion]) -> None:
+        """
+        Link multiple prompt versions to a trace by creating entity associations.
+
+        Args:
+            _trace_id: ID of the trace to link prompt versions to.
+            _prompt_versions: List of PromptVersion objects to link.
+
+        Raises:
+            NotImplementedError: If the operation is not supported by this store.
+        """
+        raise NotImplementedError(
+            f"Linking prompts to traces is not implemented for {self.__class__.__name__}."
+        )
+
     def calculate_trace_filter_correlation(
         self,
         experiment_ids: list[str],
@@ -1172,7 +1377,9 @@ class AbstractStore:
             "A SQL backend is required to use this feature."
         )
 
-    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
+    def register_scorer(
+        self, experiment_id: str, name: str, serialized_scorer: str
+    ) -> ScorerVersion:
         """
         Register a scorer for an experiment.
 
@@ -1182,11 +1389,11 @@ class AbstractStore:
             serialized_scorer: The serialized scorer string (JSON).
 
         Returns:
-            The new version number for the scorer.
+            mlflow.entities.ScorerVersion: The newly registered scorer version with scorer_id.
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_scorers(self, experiment_id):
+    def list_scorers(self, experiment_id) -> list[ScorerVersion]:
         """
         List all scorers for an experiment.
 
@@ -1199,7 +1406,7 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_scorer(self, experiment_id, name, version=None):
+    def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
         """
         Get a specific scorer for an experiment.
 
@@ -1216,7 +1423,7 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_scorer_versions(self, experiment_id, name):
+    def list_scorer_versions(self, experiment_id, name) -> list[ScorerVersion]:
         """
         List all versions of a specific scorer for an experiment.
 
@@ -1232,7 +1439,7 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_scorer(self, experiment_id, name, version=None):
+    def delete_scorer(self, experiment_id, name, version=None) -> None:
         """
         Delete all versions of a scorer for an experiment.
 
@@ -1243,5 +1450,58 @@ class AbstractStore:
 
         Raises:
             MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def upsert_online_scoring_config(
+        self,
+        experiment_id: str,
+        scorer_name: str,
+        sample_rate: float,
+        filter_string: str | None = None,
+    ) -> "OnlineScoringConfig":
+        """
+        Create or update online scoring configuration for a scorer.
+
+        Args:
+            experiment_id: The ID of the Experiment containing the scorer.
+            scorer_name: The scorer name.
+            sample_rate: The sampling rate (0.0 to 1.0).
+            filter_string: Optional filter expression for trace selection.
+
+        Returns:
+            The created or updated OnlineScoringConfig object.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_online_scoring_configs(self, scorer_ids: list[str]) -> list["OnlineScoringConfig"]:
+        """
+        Get online scoring configurations for multiple scorers by their IDs.
+
+        A single scorer can have multiple configurations (e.g., running in different
+        experiments or with different filter strings).
+
+        Args:
+            scorer_ids: List of scorer IDs to fetch configurations for.
+
+        Returns:
+            A list of OnlineScoringConfig objects for the specified scorers.
+            Scorers without configurations are not included.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_active_online_scorers(self) -> list["OnlineScorer"]:
+        """
+        Get all active online scorers across all experiments.
+
+        Active online scorers are those with a sample_rate greater than zero.
+        Each OnlineScorer contains the serialized scorer and sampling configuration.
+
+        Returns:
+            List of OnlineScorer entities with serialized_scorer, sample_rate,
+            and filter_string fields populated.
         """
         raise NotImplementedError(self.__class__.__name__)

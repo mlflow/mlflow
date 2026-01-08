@@ -6,8 +6,8 @@ repos:
       - id: trailing-whitespace
         files: \.(mdx|ya?ml|txt)$
       - id: end-of-file-fixer
-        files: \.(proto|txt|sh|rst)$
-        exclude: ^examples/
+        files: \.(txt|sh|rst)$
+        exclude: ^examples/|^mlflow/protos/opentelemetry/
       - id: check-vcs-permalinks
         files: \.py$
         require_serial: true
@@ -98,6 +98,31 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
+      - id: check-mlflow-ui
+        name: check-mlflow-ui
+        entry: |
+          bash -c '
+            if bin/rg "mlflow ui" --line-number --with-filename "$@"; then
+              echo
+              echo "Error - Use \"mlflow server\" instead of \"mlflow ui\""
+              exit 1
+            fi
+          ' --
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+        types: [text]
+        exclude: |
+          (?x)^(
+            \.pre-commit-config\.yaml|
+            CHANGELOG\.md|
+            docs/api_reference/source/R-api\.rst|
+            examples/llms/RAG/.*\.(json|csv)|
+            mlflow/cli/__init__\.py|
+            mlflow/R/mlflow/.*|
+            tests/test_cli\.py
+          )$
+
       - id: pyproject
         name: pyproject
         entry: uv run --only-group lint dev/pyproject.py
@@ -123,6 +148,15 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
+      - id: buf
+        name: buf
+        entry: bin/buf format -d -w --exit-code --exclude-path mlflow/protos/opentelemetry mlflow/protos
+        files: '\.proto$'
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+
       - id: typos
         name: typos
         entry: bin/typos --format brief --force-exclude --color never
@@ -133,9 +167,17 @@ repos:
 
       - id: conftest
         name: conftest
-        entry: bin/conftest test --policy .github/policy.rego
+        entry: bin/conftest test --namespace mlflow --policy .github/policy.rego
         files: '^\.github/(workflows|actions)/.*\.ya?ml$'
         exclude: '^\.github/workflows/copilot-setup-steps\.yml$'
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+
+      - id: regal
+        name: regal
+        entry: bin/regal lint
+        files: '\.rego$'
         language: system
         stages: [pre-commit]
         require_serial: true
@@ -157,3 +199,10 @@ repos:
         stages: [pre-commit]
         require_serial: true
         pass_filenames: false
+
+      - id: forbid-gif
+        name: forbid-gif
+        language: fail
+        entry: "Please use MP4 instead of GIF for docs animations"
+        files: ^docs/.*\.gif$
+        stages: [pre-commit]

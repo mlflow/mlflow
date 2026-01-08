@@ -150,7 +150,7 @@ def preprocess_llm_inference_input(
 
     # The rest of fields in input payload should goes to params and override default ones
     params_in_data = {k: v[0] for k, v in data.items() if v[0] is not None}
-    params = {**params, **params_in_data}
+    params = params | params_in_data
 
     if max_tokens := params.pop("max_tokens", None):
         params["max_new_tokens"] = max_tokens
@@ -257,14 +257,12 @@ def postprocess_output_for_llm_inference_task(
     Returns:
         List of dictionaries containing the output text and usage information for each input prompt.
     """
-    output_dicts = []
-    for input_data, output_tensor in zip(data, output_tensors):
-        output_dict = _get_output_and_usage_from_tensor(
+    return [
+        _get_output_and_usage_from_tensor(
             input_data, output_tensor, pipeline, flavor_config, model_config, inference_task
         )
-        output_dicts.append(output_dict)
-
-    return output_dicts
+        for input_data, output_tensor in zip(data, output_tensors)
+    ]
 
 
 def _get_output_and_usage_from_tensor(

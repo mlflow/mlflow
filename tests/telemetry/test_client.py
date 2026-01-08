@@ -16,7 +16,7 @@ from mlflow.telemetry.client import (
     TelemetryClient,
     get_telemetry_client,
 )
-from mlflow.telemetry.events import CreateLoggedModelEvent, CreateRunEvent, ImportMlflowEvent
+from mlflow.telemetry.events import CreateLoggedModelEvent, CreateRunEvent
 from mlflow.telemetry.schemas import Record, SourceSDK, Status
 from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
@@ -28,7 +28,6 @@ if not IS_TRACING_SDK_ONLY:
 
 
 def test_telemetry_client_initialization(mock_telemetry_client: TelemetryClient, mock_requests):
-    """Test that TelemetryClient initializes correctly."""
     assert mock_telemetry_client.info is not None
     assert mock_telemetry_client._queue.maxsize == MAX_QUEUE_SIZE
     assert mock_telemetry_client._max_workers == MAX_WORKERS
@@ -48,7 +47,6 @@ def test_telemetry_client_session_id(
 
 
 def test_add_record_and_send(mock_telemetry_client: TelemetryClient, mock_requests):
-    """Test adding a record and sending it to the mock server."""
     # Create a test record
     record = Record(
         event_name="test_event",
@@ -69,8 +67,82 @@ def test_add_record_and_send(mock_telemetry_client: TelemetryClient, mock_reques
     assert data["status"] == "success"
 
 
+def test_add_records_and_send(mock_telemetry_client: TelemetryClient, mock_requests):
+    # Pre-populate pending_records with 200 records
+    initial_records = [
+        Record(
+            event_name=f"initial_{i}",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+        for i in range(200)
+    ]
+    mock_telemetry_client.add_records(initial_records)
+
+    # We haven't hit the batch size limit yet, so expect no records to be sent
+    assert len(mock_telemetry_client._pending_records) == 200
+    assert len(mock_requests) == 0
+
+    # Add 1000 more records
+    # Expected behavior:
+    # - First 300 records fill to 500 -> send batch (200 + 300) to queue
+    # - Next 500 records -> send batch to queue
+    # - Last 200 records remain in pending (200 < 500)
+    additional_records = [
+        Record(
+            event_name=f"additional_{i}",
+            timestamp_ns=time.time_ns(),
+            status=Status.SUCCESS,
+        )
+        for i in range(1000)
+    ]
+    mock_telemetry_client.add_records(additional_records)
+
+    # Verify batching logic:
+    # - 2 batches should be in the queue
+    # - 200 records should remain in pending
+    assert mock_telemetry_client._queue.qsize() == 2
+    assert len(mock_telemetry_client._pending_records) == 200
+
+    # Flush to process queue and send the remaining partial batch
+    mock_telemetry_client.flush()
+
+    # Verify all 1200 records were sent
+    assert len(mock_requests) == 1200
+    event_names = {req["data"]["event_name"] for req in mock_requests}
+    assert all(f"initial_{i}" in event_names for i in range(200))
+    assert all(f"additional_{i}" in event_names for i in range(1000))
+
+
+def test_record_with_session_and_installation_id(
+    mock_telemetry_client: TelemetryClient, mock_requests
+):
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+        session_id="session_id_override",
+        installation_id="installation_id_override",
+    )
+    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.flush()
+    assert mock_requests[0]["data"]["session_id"] == "session_id_override"
+    assert mock_requests[0]["data"]["installation_id"] == "installation_id_override"
+
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.flush()
+    assert mock_requests[1]["data"]["session_id"] == mock_telemetry_client.info["session_id"]
+    assert (
+        mock_requests[1]["data"]["installation_id"] == mock_telemetry_client.info["installation_id"]
+    )
+
+
 def test_batch_processing(mock_telemetry_client: TelemetryClient, mock_requests):
-    """Test that multiple records are batched correctly."""
     mock_telemetry_client._batch_size = 3  # Set small batch size for testing
 
     # Add multiple records
@@ -88,7 +160,6 @@ def test_batch_processing(mock_telemetry_client: TelemetryClient, mock_requests)
 
 
 def test_flush_functionality(mock_telemetry_client: TelemetryClient, mock_requests):
-    """Test that flush properly sends pending records."""
     record = Record(
         event_name="test_event",
         timestamp_ns=time.time_ns(),
@@ -101,17 +172,43 @@ def test_flush_functionality(mock_telemetry_client: TelemetryClient, mock_reques
     assert record.event_name in events
 
 
-def test_first_record_sent(mock_telemetry_client: TelemetryClient, mock_requests):
-    record = Record(
-        event_name="test_event",
+def test_record_sent(mock_telemetry_client: TelemetryClient, mock_requests):
+    record_1 = Record(
+        event_name="test_event_1",
         timestamp_ns=time.time_ns(),
         status=Status.SUCCESS,
-        duration_ms=0,
     )
-    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.add_record(record_1)
     mock_telemetry_client.flush()
-    events = {req["data"]["event_name"] for req in mock_requests}
-    assert record.event_name in events
+
+    assert len(mock_requests) == 1
+    data = mock_requests[0]["data"]
+    assert data["event_name"] == record_1.event_name
+    assert data["status"] == "success"
+
+    session_id = data.get("session_id")
+    installation_id = data.get("installation_id")
+    assert session_id is not None
+    assert installation_id is not None
+
+    record_2 = Record(
+        event_name="test_event_2",
+        timestamp_ns=time.time_ns(),
+        status=Status.FAILURE,
+    )
+    record_3 = Record(
+        event_name="test_event_3",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+    mock_telemetry_client.add_record(record_2)
+    mock_telemetry_client.add_record(record_3)
+    mock_telemetry_client.flush()
+    assert len(mock_requests) == 3
+
+    # all record should have the same session id and installation id
+    assert {req["data"].get("session_id") for req in mock_requests} == {session_id}
+    assert {req["data"].get("installation_id") for req in mock_requests} == {installation_id}
 
 
 def test_client_shutdown(mock_telemetry_client: TelemetryClient, mock_requests):
@@ -253,7 +350,6 @@ def test_telemetry_retry_on_request_error(error_type, terminate):
 
 
 def test_stop_event(mock_telemetry_client: TelemetryClient, mock_requests):
-    """Test that records are not added when telemetry client is stopped."""
     mock_telemetry_client._is_stopped = True
 
     record = Record(
@@ -272,8 +368,6 @@ def test_stop_event(mock_telemetry_client: TelemetryClient, mock_requests):
 
 
 def test_concurrent_record_addition(mock_telemetry_client: TelemetryClient, mock_requests):
-    """Test adding records from multiple threads."""
-
     def add_records(thread_id):
         for i in range(5):
             record = Record(
@@ -308,7 +402,6 @@ def test_concurrent_record_addition(mock_telemetry_client: TelemetryClient, mock
 
 
 def test_telemetry_info_inclusion(mock_telemetry_client: TelemetryClient, mock_requests):
-    """Test that telemetry info is included in records."""
     record = Record(
         event_name="test_event",
         timestamp_ns=time.time_ns(),
@@ -330,7 +423,6 @@ def test_telemetry_info_inclusion(mock_telemetry_client: TelemetryClient, mock_r
 
 
 def test_partition_key(mock_telemetry_client: TelemetryClient, mock_requests):
-    """Test that partition key is set correctly."""
     record = Record(
         event_name="test_event",
         timestamp_ns=time.time_ns(),
@@ -360,7 +452,6 @@ def test_max_workers_setup(monkeypatch):
 
 
 def test_log_suppression_in_consumer_thread(mock_requests, capsys, mock_telemetry_client):
-    """Test that logs are suppressed in the consumer thread but not in main thread."""
     # Clear any existing captured output
     capsys.readouterr()
 
@@ -395,7 +486,6 @@ def test_log_suppression_in_consumer_thread(mock_requests, capsys, mock_telemetr
 
 
 def test_consumer_thread_no_stderr_output(mock_requests, capsys, mock_telemetry_client):
-    """Test that consumer thread produces no stderr output at all."""
     # Clear any existing captured output
     capsys.readouterr()
 
@@ -433,7 +523,6 @@ def test_consumer_thread_no_stderr_output(mock_requests, capsys, mock_telemetry_
 
 
 def test_batch_time_interval(mock_requests, monkeypatch):
-    """Test that batching respects time interval configuration."""
     monkeypatch.setattr("mlflow.telemetry.client.BATCH_TIME_INTERVAL_SECONDS", 1)
     telemetry_client = TelemetryClient()
 
@@ -724,6 +813,7 @@ def test_client_set_to_none_if_config_none():
         )
         with TelemetryClient() as telemetry_client:
             assert telemetry_client is not None
+            telemetry_client.activate()
             telemetry_client._config_thread.join(timeout=3)
             assert not telemetry_client._config_thread.is_alive()
             assert telemetry_client.config is None
@@ -752,6 +842,7 @@ def test_records_not_dropped_when_fetching_config(mock_requests):
             ),
         )
         with TelemetryClient() as telemetry_client:
+            telemetry_client.activate()
             # wait for config to be fetched
             telemetry_client._config_thread.join(timeout=3)
             telemetry_client.add_record(record)
@@ -835,15 +926,45 @@ def test_disable_events(mock_requests):
                 "mlflow.telemetry.track.get_telemetry_client", return_value=telemetry_client
             ),
         ):
+            telemetry_client.activate()
+            telemetry_client._config_thread.join(timeout=1)
             mlflow.initialize_logged_model(name="model", tags={"key": "value"})
             telemetry_client.flush()
-            assert len(mock_requests) == 1
-            validate_telemetry_record(
-                telemetry_client, mock_requests, ImportMlflowEvent.name, check_params=False
-            )
+            assert len(mock_requests) == 0
 
             with mlflow.start_run():
                 pass
             validate_telemetry_record(
                 telemetry_client, mock_requests, CreateRunEvent.name, check_params=False
             )
+
+
+@pytest.mark.no_mock_requests_get
+def test_fetch_config_after_first_record():
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+        duration_ms=0,
+    )
+
+    mock_response = mock.Mock(
+        status_code=200,
+        json=mock.Mock(
+            return_value={
+                "mlflow_version": VERSION,
+                "disable_telemetry": False,
+                "ingestion_url": "http://localhost:9999",
+                "rollout_percentage": 70,
+            }
+        ),
+    )
+    with mock.patch(
+        "mlflow.telemetry.client.requests.get", return_value=mock_response
+    ) as mock_requests_get:
+        with TelemetryClient() as telemetry_client:
+            assert telemetry_client._is_config_fetched is False
+            telemetry_client.add_record(record)
+            telemetry_client._config_thread.join(timeout=1)
+            assert telemetry_client._is_config_fetched is True
+        mock_requests_get.assert_called_once()

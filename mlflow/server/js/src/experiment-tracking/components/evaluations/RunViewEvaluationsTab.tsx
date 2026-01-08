@@ -6,8 +6,8 @@ import { useCompareToRunUuid } from './hooks/useCompareToRunUuid';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { EvaluationRunCompareSelector } from './EvaluationRunCompareSelector';
 import { getEvalTabTotalTracesLimit } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
-import { getTrace } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
-import type { TracesTableColumn, TraceActions, TraceInfoV3 } from '@databricks/web-shared/genai-traces-table';
+import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
+import type { TracesTableColumn, TraceActions, GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
@@ -29,6 +29,11 @@ import {
   TOKENS_COLUMN_ID,
   invalidateMlflowSearchTracesCache,
   TRACE_ID_COLUMN_ID,
+  shouldUseTracesV4API,
+  createTraceLocationForExperiment,
+  createTraceLocationForUCSchema,
+  useFetchTraceV4LazyQuery,
+  doesTraceSupportV4API,
 } from '@databricks/web-shared/genai-traces-table';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
@@ -38,19 +43,43 @@ import { useDeleteTracesMutation } from './hooks/useDeleteTraces';
 import { RunViewEvaluationsTabArtifacts } from './RunViewEvaluationsTabArtifacts';
 import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperimentRunColor';
 import { useQueryClient } from '@databricks/web-shared/query-client';
-import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
 import { checkColumnContents } from '../experiment-page/components/traces-v3/utils/columnUtils';
+import type {
+  ModelTraceLocationMlflowExperiment,
+  ModelTraceLocationUcSchema,
+} from '@databricks/web-shared/model-trace-explorer';
+import { isV3ModelTraceInfo, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import type { UseGetRunQueryResponseExperiment } from '../run-page/hooks/useGetRunQuery';
+import type { ExperimentEntity } from '../../types';
+import { useGetDeleteTracesAction } from '../experiment-page/components/traces-v3/hooks/useGetDeleteTracesAction';
+// eslint-disable-next-line no-useless-rename -- renaming due to copybara transformation
+import { useExportTracesToDatasetModal as useExportTracesToDatasetModal } from '../../pages/experiment-evaluation-datasets/hooks/useExportTracesToDatasetModal';
+import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
+
+const ContextProviders = ({
+  children,
+  makeHtmlFromMarkdown,
+  experimentId,
+}: {
+  makeHtmlFromMarkdown: (markdown?: string) => string;
+  experimentId?: string;
+  children: React.ReactNode;
+}) => {
+  return (
+    <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
+      {children}
+    </GenAiTracesMarkdownConverterProvider>
+  );
+};
 
 const RunViewEvaluationsTabInner = ({
   experimentId,
   runUuid,
-  runTags,
   runDisplayName,
   setCurrentRunUuid,
 }: {
   experimentId: string;
   runUuid: string;
-  runTags?: Record<string, KeyValueEntity>;
   runDisplayName: string;
   setCurrentRunUuid?: (runUuid: string) => void;
 }) => {
@@ -58,6 +87,10 @@ const RunViewEvaluationsTabInner = ({
   const makeHtmlFromMarkdown = useMarkdownConverter();
 
   const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
+
+  const traceLocations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
+  const getTrace = getTraceV3;
+  const isQueryDisabled = false;
 
   // Get table metadata
   const {
@@ -70,9 +103,10 @@ const RunViewEvaluationsTabInner = ({
     error: tableMetadataError,
     tableFilterOptions,
   } = useMlflowTracesTableMetadata({
-    experimentId,
+    locations: traceLocations,
     runUuid,
     otherRunUuid: compareToRunUuid,
+    disabled: isQueryDisabled,
   });
 
   // Setup table states
@@ -114,24 +148,29 @@ const RunViewEvaluationsTabInner = ({
   const {
     data: traceInfos,
     isLoading: traceInfosLoading,
+    isFetching: traceInfosFetching,
     error: traceInfosError,
     refetchMlflowTraces,
   } = useSearchMlflowTraces({
-    experimentId,
+    locations: traceLocations,
     currentRunDisplayName: runDisplayName,
     searchQuery,
     filters,
     runUuid,
     tableSort,
+    disabled: isQueryDisabled,
   });
-
-  const deleteTracesMutation = useDeleteTracesMutation();
 
   const {
     data: compareToRunData,
     displayName: compareToRunDisplayName,
     loading: compareToRunLoading,
-  } = useGetCompareToData(experimentId, compareToRunUuid);
+  } = useGetCompareToData({
+    experimentId,
+    traceLocations,
+    compareToRunUuid,
+    isQueryDisabled,
+  });
 
   const countInfo = useMemo(() => {
     return {
@@ -147,27 +186,40 @@ const RunViewEvaluationsTabInner = ({
   const { showEditTagsModalForTrace, EditTagsModal } = useEditExperimentTraceTags({
     onSuccess: () => invalidateMlflowSearchTracesCache({ queryClient }),
     existingTagKeys: getTracesTagKeys(traceInfos || []),
-    useV3Apis: true,
   });
+
+  const deleteTracesAction = useGetDeleteTracesAction({ traceSearchLocations: traceLocations });
+  // TODO: Unify export action between managed and OSS
+  const { showExportTracesToDatasetsModal, setShowExportTracesToDatasetsModal, renderExportTracesToDatasetsModal } =
+    useExportTracesToDatasetModal({
+      experimentId,
+    });
 
   const traceActions: TraceActions = useMemo(() => {
     return {
-      deleteTracesAction: {
-        deleteTraces: (experimentId: string, traceIds: string[]) =>
-          deleteTracesMutation.mutateAsync({ experimentId, traceRequestIds: traceIds }),
-      },
+      deleteTracesAction,
       exportToEvals: {
-        exportToEvalsInstanceEnabled: true,
-        getTrace,
+        showExportTracesToDatasetsModal: showExportTracesToDatasetsModal,
+        setShowExportTracesToDatasetsModal: setShowExportTracesToDatasetsModal,
+        renderExportTracesToDatasetsModal: renderExportTracesToDatasetsModal,
       },
+      // Enable unified tags modal if V4 APIs is enabled
       editTags: {
         showEditTagsModalForTrace,
         EditTagsModal,
       },
     };
-  }, [deleteTracesMutation, showEditTagsModalForTrace, EditTagsModal]);
+  }, [
+    deleteTracesAction,
+    showExportTracesToDatasetsModal,
+    setShowExportTracesToDatasetsModal,
+    renderExportTracesToDatasetsModal,
+    showEditTagsModalForTrace,
+    EditTagsModal,
+  ]);
 
   const isTableLoading = traceInfosLoading || compareToRunLoading;
+  const displayLoadingOverlay = false;
 
   if (isTableMetadataLoading) {
     return <LoadingSkeleton />;
@@ -237,7 +289,7 @@ const RunViewEvaluationsTabInner = ({
               <pre>{String(traceInfosError)}</pre>
             </div>
           ) : (
-            <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
+            <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={experimentId}>
               <GenAITracesTableBodyContainer
                 experimentId={experimentId}
                 currentRunDisplayName={runDisplayName}
@@ -254,8 +306,9 @@ const RunViewEvaluationsTabInner = ({
                 currentTraceInfoV3={traceInfos || []}
                 compareToTraceInfoV3={compareToRunData}
                 onTraceTagsEdit={showEditTagsModalForTrace}
+                displayLoadingOverlay={displayLoadingOverlay}
               />
-            </GenAiTracesMarkdownConverterProvider>
+            </ContextProviders>
           )}
           {EditTagsModal}
         </div>
@@ -266,12 +319,14 @@ const RunViewEvaluationsTabInner = ({
 
 export const RunViewEvaluationsTab = ({
   experimentId,
+  experiment,
   runUuid,
   runTags,
   runDisplayName,
   setCurrentRunUuid,
 }: {
   experimentId: string;
+  experiment?: ExperimentEntity | UseGetRunQueryResponseExperiment;
   runUuid: string;
   runTags?: Record<string, KeyValueEntity>;
   runDisplayName: string;
@@ -327,24 +382,27 @@ const LoadingSkeleton = () => {
   );
 };
 
-const useGetCompareToData = (
-  experimentId: string,
-  compareToRunUuid: string | undefined,
-): {
-  data: TraceInfoV3[] | undefined;
+const useGetCompareToData = (params: {
+  experimentId: string;
+  traceLocations: ModelTraceLocationUcSchema[] | ModelTraceLocationMlflowExperiment[];
+  compareToRunUuid: string | undefined;
+  isQueryDisabled?: boolean;
+}): {
+  data: ModelTraceInfoV3[] | undefined;
   displayName: string;
   loading: boolean;
 } => {
+  const { compareToRunUuid, experimentId, traceLocations, isQueryDisabled } = params;
   const { data: traceInfos, isLoading: traceInfosLoading } = useSearchMlflowTraces({
-    experimentId,
+    locations: traceLocations,
     currentRunDisplayName: undefined,
     runUuid: compareToRunUuid,
-    disabled: isNil(compareToRunUuid),
+    disabled: isNil(compareToRunUuid) || isQueryDisabled,
   });
 
   const { data: runData, loading: runDetailsLoading } = useSearchRunsQuery({
     experimentIds: [experimentId],
-    filter: `attributes.runId = "${compareToRunUuid}"`,
+    filter: `attributes.run_id = "${compareToRunUuid}"`,
     disabled: isNil(compareToRunUuid),
   });
 

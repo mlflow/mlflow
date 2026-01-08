@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.mlflow</groupId>
     <artifactId>mlflow-parent</artifactId>
-    <version>3.4.1-SNAPSHOT</version>
+    <version>3.8.2-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -41,6 +41,12 @@
     <dependency>
       <groupId>org.ini4j</groupId>
       <artifactId>ini4j</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry.proto</groupId>
+      <artifactId>opentelemetry-proto</artifactId>
+      <!-- use 0.20.0 to be compatible with protobuf 3.19.6, we should upgrade later -->
+      <version>0.20.0-alpha</version>
     </dependency>
 
     <!-- Test dependencies -->
@@ -108,6 +114,7 @@
               <include>commons-logging:commons-logging</include>
               <include>org.apache.httpcomponents:httpcore</include>
               <include>org.ini4j:ini4j</include>
+              <include>io.opentelemetry.proto:opentelemetry-proto</include>
             </includes>
           </artifactSet>
           <relocations>
@@ -131,6 +138,10 @@
             <relocation>
               <pattern>org.ini4j</pattern>
               <shadedPattern>${mlflow.shade.packageName}.ini4j</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.opentelemetry</pattern>
+              <shadedPattern>${mlflow.shade.packageName}.opentelemetry</shadedPattern>
             </relocation>
           </relocations>
           <transformers>

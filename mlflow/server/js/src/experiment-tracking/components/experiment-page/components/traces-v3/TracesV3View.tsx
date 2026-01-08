@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { TracesV3DateSelector } from './TracesV3DateSelector';
 import { TracesV3Logs } from './TracesV3Logs';
 import {
   MonitoringConfigProvider,
@@ -9,34 +8,9 @@ import {
 } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 import { TracesV3PageWrapper } from './TracesV3PageWrapper';
 import { useMonitoringViewState } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringViewState';
-import {
-  getAbsoluteStartEndTime,
-  useMonitoringFilters,
-} from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
-import {
-  isExperimentEvalResultsMonitoringUIEnabled,
-  shouldEnableTracesSyncUI,
-} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { useMonitoringFiltersTimeRange } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
 import { useExperiments } from '../../hooks/useExperiments';
-
-const TracesV3Toolbar = () => {
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const { theme } = useDesignSystemTheme();
-
-  return (
-    <div
-      css={{
-        display: 'flex',
-        alignItems: 'center',
-        width: '100%',
-        borderBottom: `1px solid ${theme.colors.grey100}`,
-        paddingBottom: `${theme.spacing.sm}px`,
-      }}
-    >
-      <TracesV3DateSelector />
-    </div>
-  );
-};
+import { TracesV3Toolbar } from './TracesV3Toolbar';
 
 interface TracesV3ContentProps {
   viewState: string;
@@ -65,22 +39,21 @@ const TracesV3Content = ({
   return null;
 };
 
-const TracesV3ViewImpl = ({ experimentIds }: { experimentIds: string[] }) => {
+const TracesV3ViewImpl = ({
+  experimentIds,
+  isLoadingExperiment,
+}: {
+  experimentIds: string[];
+  isLoadingExperiment?: boolean;
+}) => {
   const { theme } = useDesignSystemTheme();
-  const [monitoringFilters, _setMonitoringFilters] = useMonitoringFilters();
   const monitoringConfig = useMonitoringConfig();
 
   // Traces view only works with one experiment
   const experimentId = experimentIds[0];
   const [viewState] = useMonitoringViewState();
 
-  const timeRange = useMemo(() => {
-    const { startTime, endTime } = getAbsoluteStartEndTime(monitoringConfig.dateNow, monitoringFilters);
-    return {
-      startTime: startTime ? new Date(startTime).getTime().toString() : undefined,
-      endTime: endTime ? new Date(endTime).getTime().toString() : undefined,
-    };
-  }, [monitoringConfig.dateNow, monitoringFilters]);
+  const timeRange = useMonitoringFiltersTimeRange(monitoringConfig.dateNow);
 
   return (
     <div
@@ -92,10 +65,10 @@ const TracesV3ViewImpl = ({ experimentIds }: { experimentIds: string[] }) => {
         overflowY: 'hidden',
       }}
     >
-      {isExperimentEvalResultsMonitoringUIEnabled() && (
-        // comment for copybara formatting
-        <TracesV3Toolbar />
-      )}
+      <TracesV3Toolbar
+        // prettier-ignore
+        viewState={viewState}
+      />
       <TracesV3Content
         // comment for copybara formatting
         viewState={viewState}
@@ -106,10 +79,16 @@ const TracesV3ViewImpl = ({ experimentIds }: { experimentIds: string[] }) => {
   );
 };
 
-export const TracesV3View = ({ experimentIds }: { experimentIds: string[] }) => (
+export const TracesV3View = ({
+  experimentIds,
+  isLoadingExperiment,
+}: {
+  experimentIds: string[];
+  isLoadingExperiment?: boolean;
+}) => (
   <TracesV3PageWrapper>
     <MonitoringConfigProvider>
-      <TracesV3ViewImpl experimentIds={experimentIds} />
+      <TracesV3ViewImpl experimentIds={experimentIds} isLoadingExperiment={isLoadingExperiment} />
     </MonitoringConfigProvider>
   </TracesV3PageWrapper>
 );

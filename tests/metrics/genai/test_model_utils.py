@@ -6,7 +6,7 @@ import pytest
 
 from mlflow.deployments.server.config import Endpoint
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import RouteModelInfo
+from mlflow.gateway.config import EndpointModelInfo
 from mlflow.metrics.genai.model_utils import (
     _parse_model_uri,
     call_deployments_api,
@@ -45,26 +45,21 @@ def force_reload_openai():
     sys.modules.pop("openai", None)
 
 
-def test_parse_model_uri():
-    prefix, suffix = _parse_model_uri("openai:/gpt-4o-mini")
-
-    assert prefix == "openai"
-    assert suffix == "gpt-4o-mini"
-
-    prefix, suffix = _parse_model_uri("model:/123")
-
-    assert prefix == "model"
-    assert suffix == "123"
-
-    prefix, suffix = _parse_model_uri("gateway:/my-route")
-
-    assert prefix == "gateway"
-    assert suffix == "my-route"
-
-    prefix, suffix = _parse_model_uri("endpoints:/my-endpoint")
-
-    assert prefix == "endpoints"
-    assert suffix == "my-endpoint"
+@pytest.mark.parametrize(
+    ("model_uri", "expected_prefix", "expected_suffix"),
+    [
+        ("openai:/gpt-4o-mini", "openai", "gpt-4o-mini"),
+        ("model:/123", "model", "123"),
+        ("gateway:/my-route", "gateway", "my-route"),
+        ("endpoints:/my-endpoint", "endpoints", "my-endpoint"),
+        ("vertex_ai:/gemini-2.0", "vertex_ai", "gemini-2.0"),
+        ("azure_ai:/gpt-4", "azure_ai", "gpt-4"),
+    ],
+)
+def test_parse_model_uri(model_uri: str, expected_prefix: str, expected_suffix: str):
+    prefix, suffix = _parse_model_uri(model_uri)
+    assert prefix == expected_prefix
+    assert suffix == expected_suffix
 
 
 def test_parse_model_uri_throws_for_malformed():
@@ -270,8 +265,8 @@ def test_score_model_bedrock(monkeypatch):
         # and requires "anthropic_version" put within the body not headers.
         body=json.dumps(
             {
-                "temperature": 0,
                 "max_tokens": 1000,
+                "temperature": 0,
                 "messages": [{"role": "user", "content": "input prompt"}],
                 "anthropic_version": "2023-06-01",
             }
@@ -363,7 +358,7 @@ def test_score_model_gateway_completions():
             return_value=Endpoint(
                 name="my-route",
                 endpoint_type="llm/v1/completions",
-                model=RouteModelInfo(provider="openai"),
+                model=EndpointModelInfo(provider="openai"),
                 endpoint_url="my-route",
                 limit=None,
             ),
@@ -408,7 +403,7 @@ def test_score_model_gateway_chat():
             return_value=Endpoint(
                 name="my-route",
                 endpoint_type="llm/v1/chat",
-                model=RouteModelInfo(provider="openai"),
+                model=EndpointModelInfo(provider="openai"),
                 endpoint_url="my-route",
                 limit=None,
             ),

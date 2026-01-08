@@ -139,7 +139,7 @@ async def test_autolog_agent():
     assert spans[0].outputs == response.final_output
     assert spans[1].name == "Triage Agent"
     assert spans[1].parent_id == spans[0].span_id
-    assert spans[2].name == "Response_1"
+    assert spans[2].name == "Response"
     assert spans[2].parent_id == spans[1].span_id
     assert spans[2].inputs == [{"role": "user", "content": "Hola.  ¿Como estás?"}]
     assert spans[2].outputs == [
@@ -158,7 +158,7 @@ async def test_autolog_agent():
     assert spans[3].parent_id == spans[1].span_id
     assert spans[4].name == "Spanish Agent"
     assert spans[4].parent_id == spans[0].span_id
-    assert spans[5].name == "Response_2"
+    assert spans[5].name == "Response"
     assert spans[5].parent_id == spans[4].span_id
 
     # Validate chat attributes

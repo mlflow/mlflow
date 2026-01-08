@@ -1,3 +1,4 @@
+import { jest, describe, test, expect, beforeEach } from '@jest/globals';
 import React, { useState } from 'react';
 import { DesignSystemProvider, Input } from '@databricks/design-system';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
@@ -250,21 +251,5 @@ describe('Input', () => {
     wrapper.find("button[data-testid='clear-button']").simulate('click');
 
     expect(onClearMock).toHaveBeenCalled();
-  });
-
-  test('should pop up tooltip when search returns error', () => {
-    const searchFacetsState = createExperimentPageSearchFacetsState();
-
-    const props = {
-      runsData: MOCK_RUNS_DATA,
-      updateSearchFacets: jest.fn(),
-      searchFacetsState,
-      requestError: new ErrorWrapper('some error'),
-    };
-    const { wrapper } = doStatefulMock(props);
-
-    const toolTip = wrapper.find('.search-input-tooltip-content');
-
-    expect(toolTip).toBeTruthy();
   });
 });

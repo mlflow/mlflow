@@ -1,7 +1,7 @@
 import time
 from typing import Any
 
-from mlflow.gateway.config import MistralConfig, RouteConfig
+from mlflow.gateway.config import EndpointConfig, MistralConfig
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -151,7 +151,7 @@ class MistralProvider(BaseProvider):
     NAME = "Mistral"
     CONFIG_TYPE = MistralConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, MistralConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
@@ -193,6 +193,17 @@ class MistralProvider(BaseProvider):
             MistralAdapter.completions_to_model(payload, self.config),
         )
         return MistralAdapter.model_to_completions(resp, self.config)
+
+    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+        resp = await self._request(
+            "chat/completions",
+            MistralAdapter.chat_to_model(payload, self.config),
+        )
+        return MistralAdapter.model_to_chat(resp, self.config)
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         from fastapi.encoders import jsonable_encoder

@@ -6,9 +6,10 @@ from operator import itemgetter
 from typing import Any
 from unittest import mock
 
-import langchain
+import langchain_core
 import pytest
-from langchain.chains.llm import LLMChain
+from langchain_community.document_loaders import TextLoader
+from langchain_community.vectorstores import FAISS
 from langchain_core.callbacks.base import (
     AsyncCallbackHandler,
     BaseCallbackHandler,
@@ -23,37 +24,20 @@ from langchain_core.messages import (
     SystemMessage,
     ToolMessage,
 )
-from langchain_core.output_parsers.string import StrOutputParser
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_core.prompts.chat import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_core.runnables.config import RunnableConfig
-
-from mlflow.entities.trace import Trace
-
-# NB: We run this test suite twice - once with langchain_community installed and once without.
-try:
-    from langchain_community.chat_models import ChatOpenAI
-    from langchain_community.document_loaders import TextLoader
-    from langchain_community.llms import OpenAI
-    from langchain_community.vectorstores import FAISS
-
-    _LC_COMMUNITY_INSTALLED = True
-except ImportError:
-    from langchain_openai import ChatOpenAI, OpenAI
-
-    _LC_COMMUNITY_INSTALLED = False
-
-# langchain-text-splitters is moved to a separate package since LangChain v0.1.10
-try:
-    from langchain_text_splitters.character import CharacterTextSplitter
-except ImportError:
-    from langchain.text_splitter import CharacterTextSplitter
-
-
-from packaging.version import Version
+from langchain_core.runnables.router import RouterRunnable
+from langchain_core.tools import tool
+from langchain_openai import ChatOpenAI
+from langchain_text_splitters.character import CharacterTextSplitter
+from packaging import version
 
 import mlflow
+from mlflow.entities.span import SpanType
+from mlflow.entities.trace import Trace
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey, TraceMetadataKey
 
@@ -71,40 +55,33 @@ MODEL_DIR = "model"
 # So the expected output will be the prompt itself.
 TEST_CONTENT = "What is MLflow?"
 
+_SIMPLE_MODEL_CODE_PATH = "tests/langchain/sample_code/simple_runnable.py"
 
-def create_openai_llmchain():
-    llm = OpenAI(temperature=0.9)
-    prompt = PromptTemplate(
-        input_variables=["product"],
-        template="What is {product}?",
-    )
-    return LLMChain(llm=llm, prompt=prompt)
+IS_LANGCHAIN_v1 = version.parse(langchain_core.__version__).major >= 1
 
 
 def create_openai_runnable(temperature=0.9):
-    from langchain_core.output_parsers import StrOutputParser
-
     prompt = PromptTemplate(
         input_variables=["product"],
         template="What is {product}?",
     )
-    if _LC_COMMUNITY_INSTALLED:
-        # langchain-community ChatOpenAI does not support stream_usage
-        llm = ChatOpenAI(temperature=temperature)
-    else:
-        llm = ChatOpenAI(temperature=temperature, stream_usage=True)
+    llm = ChatOpenAI(temperature=temperature, stream_usage=True)
     return prompt | llm | StrOutputParser()
 
 
 @pytest.fixture
+def model_info():
+    with mlflow.start_run():
+        return mlflow.langchain.log_model(_SIMPLE_MODEL_CODE_PATH, pip_requirements=["mlflow"])
+
+
+@pytest.fixture
 def model_infos():
-    models = [create_openai_runnable(temperature=temperature / 10) for temperature in range(1, 3)]
     model_infos = []
-    for model in models:
+    for _ in range(3):
         with mlflow.start_run():
-            model_infos.append(
-                mlflow.langchain.log_model(model, name="model", pip_requirements=["mlflow"])
-            )
+            info = mlflow.langchain.log_model(_SIMPLE_MODEL_CODE_PATH, pip_requirements=["mlflow"])
+            model_infos.append(info)
     return model_infos
 
 
@@ -194,69 +171,6 @@ def test_autolog_record_exception(async_logging_enabled):
     assert trace.data.spans[0].name == "always_fail"
 
 
-def test_llmchain_autolog(async_logging_enabled):
-    mlflow.langchain.autolog()
-    question = "MLflow"
-    model = create_openai_llmchain()
-    assert model.invoke(question) == {"product": "MLflow", "text": TEST_CONTENT}
-    model.invoke(question)
-    if async_logging_enabled:
-        mlflow.flush_trace_async_logging(terminate=True)
-
-    traces = get_traces()
-    assert len(traces) == 2
-    for trace in traces:
-        spans = trace.data.spans
-        assert len(spans) == 2  # chain + llm
-        assert spans[0].name == "LLMChain"
-        assert spans[0].span_type == "CHAIN"
-        assert spans[0].inputs == {"product": "MLflow"}
-        assert spans[0].outputs == {"text": TEST_CONTENT}
-        assert spans[1].name == "OpenAI"
-        assert spans[1].parent_id == spans[0].span_id
-        assert spans[1].span_type == "LLM"
-        assert spans[1].inputs == ["What is MLflow?"]
-        assert spans[1].outputs["generations"][0][0]["text"] == TEST_CONTENT
-        attrs = spans[1].attributes
-        assert attrs["invocation_params"]["model_name"] == "gpt-3.5-turbo-instruct"
-        assert attrs["invocation_params"]["temperature"] == 0.9
-
-
-@skip_when_testing_trace_sdk
-def test_llmchain_autolog_should_not_generate_trace_while_saving_models(tmp_path):
-    mlflow.langchain.autolog()
-    question = "MLflow"
-
-    model = create_openai_llmchain()
-    # Either save_model or log_model should not generate traces
-    mlflow.langchain.save_model(model, path=tmp_path / "model", input_example=question)
-    with mlflow.start_run():
-        mlflow.langchain.log_model(model, name="model", input_example=question)
-
-    traces = get_traces()
-    assert len(traces) == 0
-
-
-@skip_when_testing_trace_sdk
-def test_llmchain_autolog_no_optional_artifacts_by_default():
-    mlflow.langchain.autolog()
-    question = "MLflow"
-    answer = {"product": "MLflow", "text": TEST_CONTENT}
-    model = create_openai_llmchain()
-    with mock.patch("mlflow.MlflowClient.create_run") as create_run_mock:
-        assert model.invoke(question) == answer
-        create_run_mock.assert_not_called()
-
-    traces = get_traces()
-    assert len(traces) == 1
-    spans = traces[0].data.spans
-    assert len(spans) == 2
-
-
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Callback does not pass all messages in older versions",
-)
 def test_chat_model_autolog():
     mlflow.langchain.autolog()
     model = ChatOpenAI(model="gpt-4o-mini", temperature=0.9)
@@ -278,27 +192,16 @@ def test_chat_model_autolog():
     span = traces[0].data.spans[0]
     assert span.name == "ChatOpenAI"
     assert span.span_type == "CHAT_MODEL"
-    # LangChain uses pydantic V1 until LangChain v0.3.0
-    if Version(langchain.__version__) >= Version("0.3.0"):
-        assert span.inputs == [[msg.model_dump() for msg in messages]]
-    else:
-        assert span.inputs == [[msg.dict() for msg in messages]]
+    for msg, expected in zip(span.inputs[0], messages, strict=True):
+        assert msg["type"] == expected.type
+        assert msg["content"] == expected.content
     assert span.outputs["generations"][0][0]["message"]["content"] == response.content
     assert span.get_attribute("invocation_params")["model"] == "gpt-4o-mini"
     assert span.get_attribute("invocation_params")["temperature"] == 0.9
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "langchain"
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.3.0"),
-    reason="langchain-openai.ChatOpenAI requires LangChain >= 0.3.0",
-)
 def test_chat_model_bind_tool_autolog():
-    from langchain.tools import tool
-
-    # Community version of ChatOpenAI does not support bind_tools
-    from langchain_openai import ChatOpenAI
-
     mlflow.langchain.autolog()
 
     @tool
@@ -337,39 +240,43 @@ def test_chat_model_bind_tool_autolog():
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "langchain"
 
 
+@pytest.mark.skipif(not IS_LANGCHAIN_v1, reason="create_agent is not supported in langchain v0")
 @skip_when_testing_trace_sdk
-@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="ToolCall message is not available in older versions",
-)
 def test_agent_autolog(async_logging_enabled):
     mlflow.langchain.autolog()
 
     # Load the agent definition (with OpenAI mock) from the sample script
-    from tests.langchain.sample_code.openai_agent import create_openai_agent
+    from langchain.agents import create_agent
 
-    model = create_openai_agent()
-    input = {"input": "The result of 2 * 3 is 6."}
-    expected_output = {"output": "The result of 2 * 3 is 6."}
+    from tests.langchain.sample_code.openai_agent import FakeOpenAI, add, multiply
 
-    assert model(input, return_only_outputs=True) == expected_output
+    model = create_agent(FakeOpenAI(), [add, multiply], system_prompt="You are a helpful assistant")
+    prompt = "What is 2 * 3?"
+    expected_output = "The result of 2 * 3 is 6."
 
-    model = create_openai_agent()
-
-    # ensure invoke is patched
-    assert model.invoke(input, return_only_outputs=True) == expected_output
+    result = model.invoke({"messages": [HumanMessage(content=prompt)]})
+    assert result["messages"][-1].content == expected_output
 
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
-    assert len(traces) == 2
-    for trace in traces:
-        spans = [(s.name, s.span_type) for s in trace.data.spans]
-        assert len(spans) == 16
-        assert trace.data.spans[0].inputs == input
-        assert trace.data.spans[0].outputs == expected_output
+    assert len(traces) == 1
+    assert len(traces[0].data.spans) == 7
+    spans = traces[0].data.spans
+    assert spans[0].name == "LangGraph"
+    assert spans[0].span_type == SpanType.CHAIN
+    assert spans[0].inputs["messages"][0]["content"] == prompt
+    assert spans[0].outputs["messages"][-1]["content"] == expected_output
+    llm_spans = [s for s in spans if s.span_type == SpanType.CHAT_MODEL]
+    assert len(llm_spans) == 2
+    assert all(s.name == "FakeOpenAI" for s in llm_spans)
+    tool_spans = [s for s in traces[0].data.spans if s.span_type == SpanType.TOOL]
+    assert len(tool_spans) == 1
+    assert tool_spans[0].name == "multiply"
+    assert tool_spans[0].inputs["a"] == 2
+    assert tool_spans[0].inputs["b"] == 3
+    assert tool_spans[0].outputs["content"] == "6"
 
 
 def test_runnable_sequence_autolog(async_logging_enabled):
@@ -387,13 +294,13 @@ def test_runnable_sequence_autolog(async_logging_enabled):
         # Since the chain includes parallel execution, the order of some
         # spans is not deterministic.
         assert spans == {
-            ("RunnableSequence_1", "CHAIN"),
+            ("RunnableSequence", "CHAIN"),
             ("RunnableParallel<question,chat_history>", "CHAIN"),
-            ("RunnableSequence_2", "CHAIN"),
-            ("RunnableLambda_1", "CHAIN"),
+            ("RunnableSequence", "CHAIN"),
+            ("RunnableLambda", "CHAIN"),
             ("extract_question", "CHAIN"),
-            ("RunnableSequence_3", "CHAIN"),
-            ("RunnableLambda_2", "CHAIN"),
+            ("RunnableSequence", "CHAIN"),
+            ("RunnableLambda", "CHAIN"),
             ("extract_history", "CHAIN"),
             ("PromptTemplate", "CHAIN"),
             ("FakeChatModel", "CHAT_MODEL"),
@@ -401,7 +308,6 @@ def test_runnable_sequence_autolog(async_logging_enabled):
         }
 
 
-@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 def test_retriever_autolog(tmp_path, async_logging_enabled):
     mlflow.langchain.autolog()
     model, query = create_retriever(tmp_path)
@@ -471,8 +377,7 @@ def _extract_callback_handlers(config) -> list[BaseCallbackHandler] | None:
     if isinstance(config, list):
         callbacks = []
         for c in config:
-            callbacks_in_c = _extract_callback_handlers(c)
-            if callbacks_in_c:
+            if callbacks_in_c := _extract_callback_handlers(c):
                 callbacks.extend(callbacks_in_c)
         return callbacks
     # RunnableConfig is also a dict
@@ -615,7 +520,7 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async
 def test_tracing_source_run_in_batch():
     mlflow.langchain.autolog()
 
-    model = create_openai_llmchain()
+    model = create_openai_runnable()
     input = {"product": "MLflow"}
     with mlflow.start_run() as run:
         model.batch([input] * 2)
@@ -625,18 +530,12 @@ def test_tracing_source_run_in_batch():
 
 
 @skip_when_testing_trace_sdk
-@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
-def test_tracing_source_run_in_pyfunc_model_predict():
+def test_tracing_source_run_in_pyfunc_model_predict(model_info):
     mlflow.langchain.autolog()
-
-    model = create_openai_runnable()
-    input = {"product": "MLflow"}
-    with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(model, name="model")
 
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     with mlflow.start_run() as run:
-        pyfunc_model.predict([input] * 2)
+        pyfunc_model.predict([{"product": "MLflow"}] * 2)
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
@@ -771,7 +670,6 @@ async def test_langchain_autolog_callback_injection_in_astream(
         assert set(handlers[0].logs) == {"chain_start", "chain_end"}
 
 
-@pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
 def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path, async_logging_enabled):
     mlflow.langchain.autolog()
     retriever, _ = create_retriever(tmp_path)
@@ -833,10 +731,6 @@ def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Old version of LangChain does not support usage metadata",
-)
 async def test_langchain_autolog_token_usage():
     mlflow.langchain.autolog()
 
@@ -852,11 +746,9 @@ async def test_langchain_autolog_token_usage():
     _validate_token_counts(trace)
 
     # Invoke with streaming
-    # ChatOpenAI in langchain-community does not support streaming token usage
-    if not _LC_COMMUNITY_INSTALLED:
-        list(model.stream({"product": "MLflow"}))
-        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-        _validate_token_counts(trace)
+    list(model.stream({"product": "MLflow"}))
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    _validate_token_counts(trace)
 
     # Async invoke
     await model.ainvoke({"product": "MLflow"})
@@ -874,8 +766,6 @@ async def test_langchain_autolog_token_usage():
 
 @pytest.mark.parametrize("log_traces", [True, False, None])
 def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces, async_logging_enabled):
-    from langchain.schema.runnable import RouterRunnable, RunnableLambda
-
     should_log_traces = log_traces is not False
 
     if log_traces is not None:
@@ -902,7 +792,7 @@ def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces, async_lo
 
 @skip_when_testing_trace_sdk
 @pytest.mark.skip(reason="This test is not thread safe, please run locally")
-def test_set_retriever_schema_work_for_langchain_model():
+def test_set_retriever_schema_work_for_langchain_model(model_info):
     from mlflow.models.dependencies_schemas import DependenciesSchemasType, set_retriever_schema
 
     set_retriever_schema(
@@ -911,10 +801,6 @@ def test_set_retriever_schema_work_for_langchain_model():
         doc_uri="doc-uri",
         other_columns=["column1", "column2"],
     )
-
-    model = create_openai_runnable()
-    with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(model, name="model", input_example="MLflow")
 
     mlflow.langchain.autolog()
 
@@ -965,20 +851,10 @@ def test_langchain_auto_tracing_work_when_langchain_parent_package_not_installed
 
 
 @skip_when_testing_trace_sdk
-def test_langchain_auto_tracing_in_serving_runnable():
+def test_langchain_auto_tracing_in_serving_runnable(model_info):
     mlflow.langchain.autolog()
 
-    chain = create_openai_runnable()
-
-    with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(
-            chain,
-            name="model",
-            input_example={"product": "MLflow"},
-        )
-
     expected_output = '[{"role": "user", "content": "What is MLflow?"}]'
-
     databricks_request_id, predictions, trace = score_in_model_serving(
         model_info.model_uri,
         [{"product": "MLflow"}],
@@ -1011,16 +887,12 @@ def test_langchain_auto_tracing_in_serving_runnable():
     assert child_span.span_type == "CHAT_MODEL"
 
 
+@pytest.mark.skipif(not IS_LANGCHAIN_v1, reason="create_agent is not supported in langchain v0")
 @skip_when_testing_trace_sdk
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="ToolCall message is not available in older versions",
-)
 def test_langchain_auto_tracing_in_serving_agent():
     mlflow.langchain.autolog()
 
     input_example = {"input": "What is 2 * 3?"}
-    expected_output = {"output": "The result of 2 * 3 is 6."}
 
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
@@ -1040,13 +912,13 @@ def test_langchain_auto_tracing_in_serving_agent():
     assert trace.info.status == "OK"
 
     spans = trace.data.spans
-    assert len(spans) == 16
+    assert len(spans) == 7
 
     root_span = spans[0]
-    assert root_span.name == "AgentExecutor"
-    assert root_span.span_type == "CHAIN"
-    assert root_span.inputs == input_example
-    assert root_span.outputs == expected_output
+    assert root_span.name == "LangGraph"
+    assert root_span.span_type == SpanType.CHAIN
+    assert root_span.inputs["input"] == "What is 2 * 3?"
+    assert root_span.outputs["messages"][-1]["content"] == "The result of 2 * 3 is 6."
     assert root_span.start_time_ns // 1_000_000 == trace.info.timestamp_ms
     assert (
         root_span.end_time_ns // 1_000_000
@@ -1168,13 +1040,8 @@ def test_autolog_link_traces_to_active_model(model_infos):
 
 
 @skip_when_testing_trace_sdk
-def test_model_loading_set_active_model_id_without_fetching_logged_model():
+def test_model_loading_set_active_model_id_without_fetching_logged_model(model_info):
     mlflow.langchain.autolog()
-
-    model = create_openai_runnable(temperature=0.9)
-    model_info = mlflow.langchain.log_model(
-        model, name="model", input_example={"product": "MLflow"}
-    )
 
     with mock.patch("mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")):
         loaded_model = mlflow.langchain.load_model(model_info.model_uri)
@@ -1184,3 +1051,85 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
     assert len(traces) == 1
     model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id == model_info.model_id
+
+
+@skip_when_testing_trace_sdk
+@pytest.mark.parametrize("log_traces", [True, False])
+def test_langchain_tracing_evaluate(log_traces):
+    from mlflow.genai import scorer
+
+    if log_traces:
+        mlflow.langchain.autolog()
+        mlflow.openai.autolog()  # Our chain contains OpenAI call as well
+
+    chain = create_openai_runnable()
+
+    data = [
+        {
+            "inputs": {"product": "MLflow"},
+            "expectations": {"expected_response": "MLflow is an open-source platform."},
+        },
+        {
+            "inputs": {"product": "Spark"},
+            "expectations": {"expected_response": "Spark is a unified analytics engine."},
+        },
+    ]
+
+    def predict_fn(product: str) -> str:
+        return chain.invoke({"product": product})
+
+    @scorer
+    def exact_match(outputs: str, expectations: dict[str, str]) -> bool:
+        return outputs == expectations["expected_response"]
+
+    result = mlflow.genai.evaluate(
+        predict_fn=predict_fn,
+        data=data,
+        scorers=[exact_match],
+    )
+    assert result.metrics["exact_match/mean"] == 0.0
+    assert result.result_df is not None
+
+    # Traces should be enabled automatically
+    assert len(get_traces()) == 2
+    for trace in get_traces():
+        assert len(trace.data.spans) == 5
+        assert trace.data.spans[0].name == "RunnableSequence"
+        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == result.run_id
+        assert len(trace.info.assessments) == 2
+
+
+@pytest.mark.asyncio
+async def test_autolog_run_tracer_inline_with_manual_traces_async():
+    mlflow.langchain.autolog(run_tracer_inline=True)
+
+    prompt = PromptTemplate(
+        input_variables=["color"],
+        template="What is the complementary color of {color}?",
+    )
+    llm = ChatOpenAI()
+
+    @mlflow.trace
+    def manual_transform(s: str):
+        return s.replace("red", "blue")
+
+    chain = RunnableLambda(manual_transform) | prompt | llm | StrOutputParser()
+
+    @mlflow.trace(name="parent")
+    async def run(message):
+        return await chain.ainvoke(message)
+
+    response = await run("red")
+    expected_response = '[{"role": "user", "content": "What is the complementary color of blue?"}]'
+    assert response == expected_response
+
+    traces = get_traces()
+    assert len(traces) == 1
+
+    trace = traces[0]
+    spans = trace.data.spans
+    assert spans[0].name == "parent"
+    assert spans[1].name == "RunnableSequence"
+    assert spans[1].parent_id == spans[0].span_id
+    assert spans[2].name == "manual_transform"
+    assert spans[2].parent_id == spans[1].span_id

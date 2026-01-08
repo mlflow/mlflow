@@ -18,8 +18,12 @@ export type AnthropicMessagesOutput = {
   // usage: Usage;
 };
 
-type AnthropicContentBlock = AnthropicTextBlock | AnthropicToolUseBlock;
-// | ThinkingBlock
+type AnthropicThinkingBlock = {
+  type: 'thinking';
+  thinking: string;
+};
+
+type AnthropicContentBlock = AnthropicTextBlock | AnthropicToolUseBlock | AnthropicThinkingBlock;
 // | RedactedThinkingBlock
 // | ServerToolUseBlock
 // | WebSearchToolResultBlock;
@@ -33,9 +37,9 @@ type AnthropicContentBlockParam =
   | AnthropicTextBlockParam
   | AnthropicImageBlockParam
   | AnthropicToolUseBlockParam
-  | AnthropicToolResultBlockParam;
+  | AnthropicToolResultBlockParam
+  | AnthropicThinkingBlock;
 // | DocumentBlockParam
-// | ThinkingBlockParam
 // | RedactedThinkingBlockParam
 // | ServerToolUseBlockParam
 // | WebSearchToolResultBlockParam;
@@ -120,6 +124,10 @@ const isAnthropicContentBlockParam = (obj: unknown): obj is AnthropicContentBloc
     if (obj.type === 'tool_result' && has(obj, 'tool_use_id') && has(obj, 'content')) {
       return isString(obj.tool_use_id) && isString(obj.content);
     }
+
+    if (obj.type === 'thinking' && has(obj, 'thinking') && isString(obj.thinking)) {
+      return true;
+    }
   }
   return false;
 };
@@ -165,10 +173,12 @@ const processAnthropicMessageContent = (
   messages: ModelTraceChatMessage[];
   textParts: ModelTraceContentParts[];
   toolCalls: any[];
+  thinking: string | null;
 } => {
   const messages: ModelTraceChatMessage[] = [];
   const textParts: ModelTraceContentParts[] = [];
   const toolCalls: any[] = [];
+  const thinkingParts: string[] = [];
 
   for (const item of content) {
     if (item.type === 'text' || item.type === 'image') {
@@ -187,10 +197,13 @@ const processAnthropicMessageContent = (
         tool_call_id: item.tool_use_id,
         content: item.content,
       });
+    } else if (item.type === 'thinking') {
+      thinkingParts.push((item as any).thinking);
     }
   }
 
-  return { messages, textParts, toolCalls };
+  const thinking = thinkingParts.length > 0 ? thinkingParts.join('\n\n') : null;
+  return { messages, textParts, toolCalls, thinking };
 };
 
 const processAnthropicMessage = (message: AnthropicMessageParam): ModelTraceChatMessage[] => {
@@ -204,7 +217,7 @@ const processAnthropicMessage = (message: AnthropicMessageParam): ModelTraceChat
     });
     if (chatMessage) messages.push(chatMessage);
   } else {
-    const { messages: toolMessages, textParts, toolCalls } = processAnthropicMessageContent(message.content);
+    const { messages: toolMessages, textParts, toolCalls, thinking } = processAnthropicMessageContent(message.content);
     messages.push(...toolMessages);
 
     if (textParts.length > 0 || toolCalls.length > 0) {
@@ -214,7 +227,14 @@ const processAnthropicMessage = (message: AnthropicMessageParam): ModelTraceChat
         role: message.role,
         ...(toolCalls.length > 0 && { tool_calls: toolCalls }),
       });
-      if (chatMessage) messages.push(chatMessage);
+      if (chatMessage) {
+        // Attach thinking/reasoning to the message if present
+        if (thinking) {
+          messages.push({ ...chatMessage, reasoning: thinking });
+        } else {
+          messages.push(chatMessage);
+        }
+      }
     }
   }
 

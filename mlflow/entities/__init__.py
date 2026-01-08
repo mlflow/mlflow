@@ -21,6 +21,20 @@ from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
+from mlflow.entities.gateway_endpoint import (
+    FallbackConfig,
+    FallbackStrategy,
+    GatewayEndpoint,
+    GatewayEndpointBinding,
+    GatewayEndpointModelConfig,
+    GatewayEndpointModelMapping,
+    GatewayEndpointTag,
+    GatewayModelDefinition,
+    GatewayModelLinkageType,
+    GatewayResourceType,
+    RoutingStrategy,
+)
+from mlflow.entities.gateway_secrets import GatewaySecretInfo
 from mlflow.entities.input_tag import InputTag
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
@@ -52,6 +66,7 @@ from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
     TraceLocation,
     TraceLocationType,
+    UCSchemaLocation,
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.view_type import ViewType
@@ -96,6 +111,7 @@ __all__ = [
     "TraceLocationType",
     "MlflowExperimentLocation",
     "InferenceTableLocation",
+    "UCSchemaLocation",
     "TraceState",
     "SpanStatusCode",
     "_DatasetSummary",
@@ -112,11 +128,25 @@ __all__ = [
     "AssessmentSourceType",
     "Expectation",
     "Feedback",
-    "EvaluationDataset",
+    # Note: EvaluationDataset is intentionally excluded from __all__ to prevent
+    # circular import issues during plugin registration. It can still be imported
+    # explicitly via: from mlflow.entities import EvaluationDataset
     "DatasetRecord",
     "DatasetRecordSource",
     "DatasetRecordSourceType",
     "EntityAssociationType",
+    "FallbackConfig",
+    "FallbackStrategy",
+    "GatewayEndpoint",
+    "GatewayEndpointBinding",
+    "GatewayEndpointModelConfig",
+    "GatewayEndpointModelMapping",
+    "GatewayEndpointTag",
+    "GatewayModelDefinition",
+    "GatewayResourceType",
+    "GatewaySecretInfo",
+    "GatewayModelLinkageType",
+    "RoutingStrategy",
     "Webhook",
     "WebhookEvent",
     "WebhookStatus",

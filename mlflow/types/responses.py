@@ -1,20 +1,11 @@
+import json
 from itertools import tee
+from typing import Any, Generator, Iterator
 from uuid import uuid4
 
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
-
-if not IS_PYDANTIC_V2_OR_NEWER:
-    raise ImportError(
-        "mlflow.types.responses is not supported in Pydantic v1. "
-        "Please upgrade to Pydantic v2 or newer."
-    )
-import json
-from typing import Any, Generator, Iterator
-
-from pydantic import ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from mlflow.types.agent import ChatContext
-from mlflow.types.chat import BaseModel
 from mlflow.types.responses_helpers import (
     BaseRequestPayload,
     Message,
@@ -95,15 +86,15 @@ class ResponsesAgentStreamEvent(BaseModel):
     def check_type(self) -> "ResponsesAgentStreamEvent":
         type = self.type
         if type == "response.output_item.done":
-            ResponseOutputItemDoneEvent(**self.model_dump_compat())
+            ResponseOutputItemDoneEvent(**self.model_dump())
         elif type == "response.output_text.delta":
-            ResponseTextDeltaEvent(**self.model_dump_compat())
+            ResponseTextDeltaEvent(**self.model_dump())
         elif type == "response.output_text.annotation.added":
-            ResponseTextAnnotationDeltaEvent(**self.model_dump_compat())
+            ResponseTextAnnotationDeltaEvent(**self.model_dump())
         elif type == "error":
-            ResponseErrorEvent(**self.model_dump_compat())
+            ResponseErrorEvent(**self.model_dump())
         elif type == "response.completed":
-            ResponseCompletedEvent(**self.model_dump_compat())
+            ResponseCompletedEvent(**self.model_dump())
         """
         unvalidated types: {
             "response.created",
@@ -274,6 +265,53 @@ def create_function_call_output_item(call_id: str, output: str) -> dict[str, Any
     }
 
 
+def create_mcp_approval_request_item(
+    id: str, arguments: str, name: str, server_label: str
+) -> dict[str, Any]:
+    """Helper method to create a dictionary conforming to the MCP approval request item schema.
+
+    Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
+
+    Args:
+        id (str): The unique id of the approval request.
+        arguments (str): A JSON string of arguments for the tool.
+        name (str): The name of the tool to run.
+        server_label (str): The label of the MCP server making the request.
+    """
+    return {
+        "type": "mcp_approval_request",
+        "id": id,
+        "arguments": arguments,
+        "name": name,
+        "server_label": server_label,
+    }
+
+
+def create_mcp_approval_response_item(
+    id: str,
+    approval_request_id: str,
+    approve: bool,
+    reason: str | None = None,
+) -> dict[str, Any]:
+    """Helper method to create a dictionary conforming to the MCP approval response item schema.
+
+    Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
+
+    Args:
+        id (str): The unique id of the approval response.
+        approval_request_id (str): The id of the approval request being answered.
+        approve (bool): Whether the request was approved.
+        reason (Optional[str]): The reason for the approval.
+    """
+    return {
+        "type": "mcp_approval_response",
+        "id": id,
+        "approval_request_id": approval_request_id,
+        "approve": approve,
+        "reason": reason,
+    }
+
+
 def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
     """Convert from a Responses API output item to a list of ChatCompletion messages."""
     msg_type = message.get("type")
@@ -287,7 +325,7 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
                         "id": message["call_id"],
                         "type": "function",
                         "function": {
-                            "arguments": message["arguments"],
+                            "arguments": message.get("arguments") or "{}",
                             "name": message["name"],
                         },
                     }
@@ -306,6 +344,31 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
                 "role": "tool",
                 "content": message["output"],
                 "tool_call_id": message["call_id"],
+            }
+        ]
+    elif msg_type == "mcp_approval_request":
+        return [
+            {
+                "role": "assistant",
+                "content": "mcp approval request",
+                "tool_calls": [
+                    {
+                        "id": message["id"],
+                        "type": "function",
+                        "function": {
+                            "arguments": message.get("arguments") or "{}",
+                            "name": message["name"],
+                        },
+                    }
+                ],
+            }
+        ]
+    elif msg_type == "mcp_approval_response":
+        return [
+            {
+                "role": "tool",
+                "content": str(message["approve"]),
+                "tool_call_id": message["approval_request_id"],
             }
         ]
     compatible_keys = ["role", "content", "name", "tool_calls", "tool_call_id"]
@@ -410,6 +473,8 @@ def _cc_stream_to_responses_stream(
     tool_calls = []
     msg_id = None
     for chunk in chunks:
+        if chunk.get("choices") is None or len(chunk["choices"]) == 0:
+            continue
         delta = chunk["choices"][0]["delta"]
         msg_id = chunk.get("id", None)
         content = delta.get("content", None)

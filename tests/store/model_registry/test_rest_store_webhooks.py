@@ -23,20 +23,16 @@ from tests.tracking.integration_test_utils import ServerThread
 
 
 @pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[RestStore]:
+def store(tmp_path: Path, db_uri: str, monkeypatch: pytest.MonkeyPatch) -> Iterator[RestStore]:
     """Set up a local MLflow server with proper webhook encryption key support."""
     # Set up encryption key for webhooks using monkeypatch
     encryption_key = Fernet.generate_key().decode("utf-8")
     monkeypatch.setenv(MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY.name, encryption_key)
 
-    # Configure backend stores
-    backend_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
-    default_artifact_root = tmp_path.as_uri()
-
     # Force-reset backend stores before each test
     handlers._tracking_store = None
     handlers._model_registry_store = None
-    initialize_backend_stores(backend_uri, default_artifact_root=default_artifact_root)
+    initialize_backend_stores(db_uri, default_artifact_root=tmp_path.as_uri())
 
     # Start server and return RestStore
     with ServerThread(app, get_safe_port()) as url:
@@ -112,14 +108,12 @@ def test_get_webhook_not_found(store: RestStore):
 
 def test_list_webhooks(store: RestStore):
     # Create more webhooks than max_results
-    created_webhooks = []
     for i in range(5):
-        webhook = store.create_webhook(
+        store.create_webhook(
             name=f"webhook{i}",
             url=f"https://example.com/{i}",
             events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
         )
-        created_webhooks.append(webhook)
     # Test pagination with max_results=2
     webhooks_page = store.list_webhooks(max_results=2)
     assert len(webhooks_page) == 2

@@ -1,7 +1,6 @@
 import logging
 from typing import Any
 
-import mlflow
 import mlflow.anthropic
 from mlflow.anthropic.chat import convert_tool_to_mlflow_chat_tool
 from mlflow.entities import SpanType
@@ -15,6 +14,37 @@ from mlflow.tracing.utils import (
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
+
+
+def patched_claude_sdk_init(original, self, options=None):
+    """Patched __init__ that adds MLflow tracing hook to ClaudeSDKClient.
+
+    The hook handler checks autologging_is_disabled() at runtime, so hooks
+    are always injected but become no-ops when autologging is disabled.
+    """
+    try:
+        from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
+
+        from mlflow.claude_code.hooks import sdk_stop_hook_handler
+
+        # Create options if not provided
+        if options is None:
+            options = ClaudeAgentOptions()
+
+        if options.hooks is None:
+            options.hooks = {}
+        if "Stop" not in options.hooks:
+            options.hooks["Stop"] = []
+
+        options.hooks["Stop"].append(HookMatcher(hooks=[sdk_stop_hook_handler]))
+
+        # Call original init with modified options
+        return original(self, options)
+
+    except Exception as e:
+        _logger.debug("Error in patched_claude_sdk_init: %s", e, exc_info=True)
+        # Fall back to original behavior if patching fails
+        return original(self, options)
 
 
 def patched_class_call(original, self, *args, **kwargs):
@@ -106,8 +136,7 @@ def _set_token_usage_attribute(span: LiveSpan, output: Any):
 
 def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
-        usage = getattr(output, "usage", None)
-        if usage:
+        if usage := getattr(output, "usage", None):
             return {
                 TokenUsageKey.INPUT_TOKENS: usage.input_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.output_tokens,

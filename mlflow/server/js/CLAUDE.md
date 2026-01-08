@@ -9,6 +9,7 @@ This file provides guidance to Claude Code when working with the MLflow frontend
 **IMPORTANT**: Always be consistent with the rest of the repository. This is extremely important!
 
 Before implementing any feature:
+
 1. Read through similar files to understand their structure and patterns
 2. Do NOT invent new components if they already exist
 3. Use existing patterns and conventions found in the codebase
@@ -60,9 +61,6 @@ yarn prettier:check     # Check Prettier formatting
 yarn prettier:fix       # Fix Prettier formatting
 yarn type-check         # Run TypeScript type checking
 
-# Combined Checks
-yarn check-all          # Run all checks (lint, prettier, i18n, type-check)
-
 # Other Commands
 yarn storybook          # Start Storybook for component development
 yarn build-storybook    # Build static Storybook
@@ -75,7 +73,12 @@ yarn i18n:check         # Check i18n translations
 
 ```bash
 # From repository root
-pushd mlflow/server/js && yarn check-all; popd
+pushd mlflow/server/js
+yarn lint
+yarn prettier:check
+yarn i18n:check
+yarn type-check
+popd
 
 # Fix any issues that are reported
 ```
@@ -89,7 +92,7 @@ pushd mlflow/server/js && yarn check-all; popd
 Common components include:
 
 - `Button`, `IconButton` - for actions
-- `Input`, `Textarea`, `Select` - for form inputs  
+- `Input`, `Textarea`, `Select` - for form inputs
 - `Modal`, `Drawer` - for overlays
 - `Table`, `TableRow`, `TableCell` - for data tables
 - `Tabs`, `TabPane` - for tabbed interfaces
@@ -114,13 +117,15 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 
 const Component = () => {
   const { theme } = useDesignSystemTheme();
-  
+
   return (
-    <div style={{ 
-      color: theme.colors.textPrimary,
-      padding: theme.spacing.md,
-      fontSize: theme.typography.fontSizeBase
-    }}>
+    <div
+      style={{
+        color: theme.colors.textPrimary,
+        padding: theme.spacing.md,
+        fontSize: theme.typography.fontSizeBase,
+      }}
+    >
       Content
     </div>
   );
@@ -133,14 +138,14 @@ const Component = () => {
 
 ```typescript
 // ✅ GOOD - Use theme spacing
-<div style={{ 
+<div style={{
   padding: theme.spacing.md,
   marginBottom: theme.spacing.lg,
-  gap: theme.spacing.sm 
+  gap: theme.spacing.sm
 }} />
 
 // ❌ BAD - Avoid hard-coded pixels
-<div style={{ 
+<div style={{
   padding: '16px',
   marginBottom: '24px',
   gap: '8px'
@@ -148,6 +153,7 @@ const Component = () => {
 ```
 
 Common spacing values:
+
 - `theme.spacing.xs` - Extra small spacing (4px)
 - `theme.spacing.sm` - Small spacing (8px)
 - `theme.spacing.md` - Medium spacing (16px)
@@ -155,9 +161,10 @@ Common spacing values:
 - `theme.spacing.xl` - Extra large spacing (32px)
 
 For custom spacing needs, use the spacing function:
+
 ```typescript
 // When you need a specific multiple of the base unit
-padding: theme.spacing(2.5) // 20px (2.5 * 8px base unit)
+padding: theme.spacing(2.5); // 20px (2.5 * 8px base unit)
 ```
 
 ### Finding the Right Component
@@ -192,6 +199,7 @@ https://ui-infra.dev.databricks.com/storybook/js/packages/du-bois/index.html?pat
 ```
 
 For example:
+
 - Alert: `https://ui-infra.dev.databricks.com/storybook/js/packages/du-bois/index.html?path=/docs/primitives-alert--docs`
 - Button: `https://ui-infra.dev.databricks.com/storybook/js/packages/du-bois/index.html?path=/docs/primitives-button--docs`
 - Modal: `https://ui-infra.dev.databricks.com/storybook/js/packages/du-bois/index.html?path=/docs/primitives-modal--docs`
@@ -242,7 +250,7 @@ Example workflow:
 mlflow/server/js/
 ├── src/
 │   ├── experiment-tracking/    # Experiment tracking UI
-│   ├── model-registry/         # Model registry UI  
+│   ├── model-registry/         # Model registry UI
 │   ├── common/                 # Shared components
 │   ├── shared/                 # Shared utilities
 │   └── app.tsx                # Main app entry point
@@ -334,7 +342,7 @@ const { data, isLoading, error } = useQuery({
 ```typescript
 // Good: Derive state with useMemo
 const filteredRuns = useMemo(() => {
-  return runs.filter(run => run.status === 'active');
+  return runs.filter((run) => run.status === 'active');
 }, [runs]);
 
 // Avoid: useEffect to update state

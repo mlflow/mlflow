@@ -77,6 +77,46 @@ import * as mlflow from 'mlflow-tracing';
 mlflow.init(); // Uses the values from the environment
 ```
 
+### Authentication
+
+For MLflow tracking servers that require authentication, the SDK supports:
+
+1. **Basic Auth** (username/password):
+
+```typescript
+mlflow.init({
+  trackingUri: 'http://localhost:5000',
+  experimentId: '123456789',
+  trackingServerUsername: 'user',
+  trackingServerPassword: 'pass'
+});
+```
+
+Or via environment variables:
+
+```bash
+export MLFLOW_TRACKING_USERNAME=user
+export MLFLOW_TRACKING_PASSWORD=pass
+```
+
+2. **Bearer Token**:
+
+```typescript
+mlflow.init({
+  trackingUri: 'http://localhost:5000',
+  experimentId: '123456789',
+  trackingServerToken: 'my-token'
+});
+```
+
+Or via environment variable:
+
+```bash
+export MLFLOW_TRACKING_TOKEN=my-token
+```
+
+3. **No authentication** (default for local development)
+
 Create a trace:
 
 ```typescript
@@ -87,7 +127,7 @@ const getWeather = mlflow.trace(
   (city: string) => {
     return `The weather in ${city} is sunny`;
   },
-  // Pass options to set span name. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/typescript-sdk
+  // Pass options to set span name. See https://mlflow.org/docs/latest/genai/tracing/quickstart
   // for the full list of options.
   { name: 'get-weather' }
 );
@@ -101,6 +141,11 @@ span.end();
 View traces in MLflow UI:
 
 ![MLflow Tracing UI](https://github.com/mlflow/mlflow/blob/891fed9a746477f808dd2b82d3abb2382293c564/docs/static/images/llms/tracing/quickstart/openai-tool-calling-trace-detail.png?raw=true)
+
+## Publishing
+
+1. Run `yarn bump-version --version <new_version>` from this directory to bump the package versions appropriately
+2. `cd` into `core` and run `npm publish`, and repeat for `integrations/openai`
 
 ## Adding New Integrations
 
@@ -151,7 +196,7 @@ MLflow Tracing empowers you throughout the end-to-end lifecycle of your applicat
 
 MLflow's tracing capabilities provide deep insights into what happens beneath the abstractions of your application, helping you precisely identify where issues occur.
 
-[Learn more →](https://mlflow.org/docs/latest/genai/tracing/observe-with-traces)
+[Learn more →](https://mlflow.org/docs/latest/genai/tracing/observe-with-traces/ui)
 
 </td>
 <td width="40%">
@@ -177,7 +222,7 @@ Collecting and managing feedback is essential for improving your application. ML
 
 This feedback data helps you understand user satisfaction, identify areas for improvement, and build better evaluation datasets based on real user interactions.
 
-[Learn more →](https://mlflow.org/docs/latest/genai/tracing/collect-user-feedback)
+[Learn more →](https://mlflow.org/docs/latest/genai/assessments/feedback)
 
 </td>
 <td width="40%">
@@ -270,7 +315,7 @@ This comprehensive data capture enables you to create realistic test scenarios, 
 
 ## Documentation 📘
 
-Official documentation for MLflow Typescript SDK can be found [here](https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/typescript-sdk).
+Official documentation for MLflow Typescript SDK can be found [here](https://mlflow.org/docs/latest/genai/tracing/quickstart).
 
 ## License
 

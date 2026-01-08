@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -5,10 +6,28 @@ from typing import Any
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
 from mlflow.protos import service_pb2 as pb
+from mlflow.utils.annotations import deprecated
+
+_UC_SCHEMA_DEFAULT_SPANS_TABLE_NAME = "mlflow_experiment_trace_otel_spans"
+_UC_SCHEMA_DEFAULT_LOGS_TABLE_NAME = "mlflow_experiment_trace_otel_logs"
 
 
 @dataclass
-class MlflowExperimentLocation(_MlflowObject):
+class TraceLocationBase(_MlflowObject, ABC):
+    """
+    Base class for trace location classes.
+    """
+
+    @abstractmethod
+    def to_dict(self) -> dict[str, Any]: ...
+
+    @classmethod
+    @abstractmethod
+    def from_dict(cls, d: dict[str, Any]) -> "TraceLocationBase": ...
+
+
+@dataclass
+class MlflowExperimentLocation(TraceLocationBase):
     """
     Represents the location of an MLflow experiment.
 
@@ -33,8 +52,9 @@ class MlflowExperimentLocation(_MlflowObject):
         return cls(experiment_id=d["experiment_id"])
 
 
+@deprecated(since="3.7.0")
 @dataclass
-class InferenceTableLocation(_MlflowObject):
+class InferenceTableLocation(TraceLocationBase):
     """
     Represents the location of a Databricks inference table.
 
@@ -61,29 +81,58 @@ class InferenceTableLocation(_MlflowObject):
 
 
 @dataclass
-class UCSchemaLocation(_MlflowObject):
+class UCSchemaLocation(TraceLocationBase):
     """
-    Represents the location of a Databricks UC schema.
+    Represents the location of a Databricks Unity Catalog (UC) schema.
+
+    Args:
+        catalog_name: The name of the Unity Catalog catalog name.
+        schema_name: The name of the Unity Catalog schema.
     """
 
     catalog_name: str
     schema_name: str
 
-    def to_proto(self):
-        return pb.TraceLocation.UCSchemaLocation(
-            catalog_name=self.catalog_name, schema_name=self.schema_name
-        )
+    # These table names are set by the backend
+    _otel_spans_table_name: str | None = _UC_SCHEMA_DEFAULT_SPANS_TABLE_NAME
+    _otel_logs_table_name: str | None = _UC_SCHEMA_DEFAULT_LOGS_TABLE_NAME
 
-    @classmethod
-    def from_proto(cls, proto) -> "UCSchemaLocation":
-        return cls(catalog_name=proto.catalog_name, schema_name=proto.schema_name)
+    @property
+    def schema_location(self) -> str:
+        return f"{self.catalog_name}.{self.schema_name}"
+
+    @property
+    def full_otel_spans_table_name(self) -> str | None:
+        if self._otel_spans_table_name:
+            return f"{self.catalog_name}.{self.schema_name}.{self._otel_spans_table_name}"
+
+    @property
+    def full_otel_logs_table_name(self) -> str | None:
+        if self._otel_logs_table_name:
+            return f"{self.catalog_name}.{self.schema_name}.{self._otel_logs_table_name}"
 
     def to_dict(self) -> dict[str, Any]:
-        return {"catalog_name": self.catalog_name, "schema_name": self.schema_name}
+        d = {
+            "catalog_name": self.catalog_name,
+            "schema_name": self.schema_name,
+        }
+        if self._otel_spans_table_name:
+            d["otel_spans_table_name"] = self._otel_spans_table_name
+        if self._otel_logs_table_name:
+            d["otel_logs_table_name"] = self._otel_logs_table_name
+        return d
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "UCSchemaLocation":
-        return cls(catalog_name=d["catalog_name"], schema_name=d["schema_name"])
+        location = cls(
+            catalog_name=d["catalog_name"],
+            schema_name=d["schema_name"],
+        )
+        if otel_spans_table_name := d.get("otel_spans_table_name"):
+            location._otel_spans_table_name = otel_spans_table_name
+        if otel_logs_table_name := d.get("otel_logs_table_name"):
+            location._otel_logs_table_name = otel_logs_table_name
+        return location
 
 
 class TraceLocationType(str, Enum):
@@ -129,9 +178,18 @@ class TraceLocation(_MlflowObject):
     uc_schema: UCSchemaLocation | None = None
 
     def __post_init__(self) -> None:
-        if self.mlflow_experiment is not None and self.inference_table is not None:
+        if (
+            sum(
+                [
+                    self.mlflow_experiment is not None,
+                    self.inference_table is not None,
+                    self.uc_schema is not None,
+                ]
+            )
+            > 1
+        ):
             raise MlflowException.invalid_parameter_value(
-                "Only one of mlflow_experiment or inference_table can be provided."
+                "Only one of mlflow_experiment, inference_table, or uc_schema can be provided."
             )
 
         if (
@@ -140,7 +198,7 @@ class TraceLocation(_MlflowObject):
             or (self.uc_schema and self.type != TraceLocationType.UC_SCHEMA)
         ):
             raise MlflowException.invalid_parameter_value(
-                f"Trace location type {type} does not match the provided location "
+                f"Trace location type {self.type} does not match the provided location "
                 f"{self.mlflow_experiment or self.inference_table or self.uc_schema}."
             )
 
@@ -167,7 +225,7 @@ class TraceLocation(_MlflowObject):
             uc_schema=(UCSchemaLocation.from_dict(v) if (v := d.get("uc_schema")) else None),
         )
 
-    def to_proto(self):
+    def to_proto(self) -> pb.TraceLocation:
         if self.mlflow_experiment:
             return pb.TraceLocation(
                 type=self.type.to_proto(),
@@ -178,34 +236,16 @@ class TraceLocation(_MlflowObject):
                 type=self.type.to_proto(),
                 inference_table=self.inference_table.to_proto(),
             )
-        elif self.uc_schema:
-            return pb.TraceLocation(
-                type=self.type.to_proto(),
-                uc_schema=self.uc_schema.to_proto(),
-            )
+        # uc schema is not supported in to_proto since it's databricks specific, should use
+        # databricks_service_utils to convert to proto
         else:
             return pb.TraceLocation(type=self.type.to_proto())
 
     @classmethod
     def from_proto(cls, proto) -> "TraceLocation":
-        type_ = TraceLocationType.from_proto(proto.type)
-        if proto.WhichOneof("identifier") == "mlflow_experiment":
-            return cls(
-                type=type_,
-                mlflow_experiment=MlflowExperimentLocation.from_proto(proto.mlflow_experiment),
-            )
-        elif proto.WhichOneof("identifier") == "inference_table":
-            return cls(
-                type=type_,
-                inference_table=InferenceTableLocation.from_proto(proto.inference_table),
-            )
-        elif proto.WhichOneof("identifier") == "uc_schema":
-            return cls(
-                type=type_,
-                uc_schema=UCSchemaLocation.from_proto(proto.uc_schema),
-            )
-        else:
-            return cls(type=type_)
+        from mlflow.utils.databricks_tracing_utils import trace_location_from_proto
+
+        return trace_location_from_proto(proto)
 
     @classmethod
     def from_experiment_id(cls, experiment_id: str) -> "TraceLocation":
@@ -215,7 +255,7 @@ class TraceLocation(_MlflowObject):
         )
 
     @classmethod
-    def from_uc_schema(cls, catalog_name: str, schema_name: str) -> "TraceLocation":
+    def from_databricks_uc_schema(cls, catalog_name: str, schema_name: str) -> "TraceLocation":
         return cls(
             type=TraceLocationType.UC_SCHEMA,
             uc_schema=UCSchemaLocation(catalog_name=catalog_name, schema_name=schema_name),

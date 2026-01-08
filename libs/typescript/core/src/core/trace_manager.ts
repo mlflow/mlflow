@@ -142,7 +142,10 @@ export class InMemoryTraceManager {
    * @param traceId The trace ID
    * @param spanId The span ID
    */
-  getSpan(traceId: string, spanId: string): LiveSpan | null {
+  getSpan(traceId?: string | null, spanId?: string | null): LiveSpan | null {
+    if (traceId == null || spanId == null) {
+      return null;
+    }
     return this._traces.get(traceId)?.spanDict.get(spanId) || null;
   }
 

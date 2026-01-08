@@ -108,7 +108,7 @@ def _find_latest_installable_python_version(version_prefix):
     matched = [v for v in semantic_versions if v.startswith(version_prefix)]
     if not matched:
         raise MlflowException(f"Could not find python version that matches {version_prefix}")
-    return sorted(matched, key=Version)[-1]
+    return max(matched, key=Version)
 
 
 def _install_python(version, pyenv_root=None, capture_output=False):
@@ -161,8 +161,7 @@ def _get_conda_env_file(model_config):
 
     for flavor, config in model_config.flavors.items():
         if flavor == mlflow.pyfunc.FLAVOR_NAME:
-            env = config.get(mlflow.pyfunc.ENV)
-            if env:
+            if env := config.get(mlflow.pyfunc.ENV):
                 return _extract_conda_env(env)
     return _CONDA_ENV_FILE_NAME
 
@@ -240,6 +239,10 @@ def _get_virtualenv_activate_cmd(env_dir: Path) -> str:
     return f"source {activate_cmd}" if not is_windows() else str(activate_cmd)
 
 
+def _get_uv_env_creation_command(env_dir: str | Path, python_version: str) -> str:
+    return ["uv", "venv", str(env_dir), f"--python={python_version}"]
+
+
 def _create_virtualenv(
     local_model_path: Path,
     python_env: _PythonEnv,
@@ -281,7 +284,7 @@ def _create_virtualenv(
             f"Creating a new environment in {env_dir} with python "
             f"version {python_env.python} using uv"
         )
-        env_creation_cmd = ["uv", "venv", env_dir, f"--python={python_env.python}"]
+        env_creation_cmd = _get_uv_env_creation_command(env_dir, python_env.python)
         install_deps_cmd_prefix = "uv pip install"
         if python_install_dir:
             # Setting `UV_PYTHON_INSTALL_DIR` to make `uv env` install python into

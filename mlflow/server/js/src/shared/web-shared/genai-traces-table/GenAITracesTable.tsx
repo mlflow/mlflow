@@ -21,7 +21,7 @@ import {
   WarningIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import type { ModelTrace, ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 
 import { GenAITracesTableActions } from './GenAITracesTableActions';
 import { computeEvaluationsComparison } from './GenAiTracesTable.utils';
@@ -42,6 +42,7 @@ import {
 } from './hooks/useAssessmentFilters';
 import { useEvaluationsSearchQuery } from './hooks/useEvaluationsSearchQuery';
 import { GenAITracesTableConfigProvider, type GenAITracesTableConfig } from './hooks/useGenAITracesTableConfig';
+import type { GetTraceFunction } from './hooks/useGetTrace';
 import { useTableColumns } from './hooks/useTableColumns';
 import { TracesTableColumnType } from './types';
 import type {
@@ -56,7 +57,6 @@ import type {
 } from './types';
 import { getAssessmentInfos, sortAssessmentInfos } from './utils/AggregationUtils';
 import { displayPercentage } from './utils/DisplayUtils';
-import { FILTER_DROPDOWN_COMPONENT_ID } from './utils/EvaluationLogging';
 import { filterEvaluationResults } from './utils/EvaluationsFilterUtils';
 import { applyTraceInfoV3ToEvalEntry } from './utils/TraceUtils';
 
@@ -90,7 +90,7 @@ function GenAiTracesTableImpl({
   compareToRunLoading?: boolean;
   sampledInfo?: SampleInfo;
   exportToEvalsInstanceEnabled?: boolean;
-  getTrace?: (traceId?: string) => Promise<ModelTrace | undefined>;
+  getTrace?: GetTraceFunction;
   saveAssessmentsQuery?: SaveAssessmentsQuery;
   enableRunEvaluationWriteFeatures?: boolean;
   defaultSortOption?: EvaluationsOverviewTableSort;
@@ -98,7 +98,7 @@ function GenAiTracesTableImpl({
   // we don't properly display long strings yet. We should eventually fix the hovercard
   // to display long strings and remove this prop.
   disableAssessmentTooltips?: boolean;
-  onTraceTagsEdit?: (trace: ModelTraceInfo) => void;
+  onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void;
   traceActions?: TraceActions;
   initialSelectedColumns?: (allColumns: TracesTableColumn[]) => TracesTableColumn[];
 }) {
@@ -111,24 +111,7 @@ function GenAiTracesTableImpl({
   const currentEvaluationResults = applyTraceInfoV3ToEvalEntry(oldEvalResults);
   const compareToEvaluationResults = applyTraceInfoV3ToEvalEntry(oldCompareToEvalResults || []);
 
-  // Eventually we should just take traceActions that user passes in
-  // once exportToEval is moved to traceActions as well.
-  const fullTraceActions: TraceActions = useMemo(() => {
-    const exportToEvalAction = exportToEvalsInstanceEnabled
-      ? {
-          exportToEvals: {
-            exportToEvalsInstanceEnabled,
-            getTrace,
-          },
-        }
-      : {};
-    return {
-      ...traceActions,
-      ...exportToEvalAction,
-    };
-  }, [traceActions, exportToEvalsInstanceEnabled, getTrace]);
-
-  const enableTableRowSelection: boolean = Object.keys(fullTraceActions).length > 0;
+  const enableTableRowSelection: boolean = Object.keys(traceActions ?? {}).length > 0;
 
   const [selectedEvaluationId, setSelectedEvaluationId] = useActiveEvaluation();
 
@@ -353,7 +336,7 @@ function GenAiTracesTableImpl({
               >
                 <GenAiTracesTableSearchInput searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
                 <DialogCombobox
-                  componentId={FILTER_DROPDOWN_COMPONENT_ID}
+                  componentId="mlflow.genai_traces_table.filter_dropdown"
                   label="Filters"
                   value={Array.from(assessmentFilters).map((filter) => filter.assessmentName)}
                   multiSelect
@@ -488,7 +471,7 @@ function GenAiTracesTableImpl({
                   experimentId={experimentId}
                   selectedTraces={selectedTraces}
                   setRowSelection={setRowSelection}
-                  traceActions={fullTraceActions}
+                  traceActions={traceActions}
                   traceInfos={undefined}
                 />
               </TableFilterLayout>
@@ -529,6 +512,7 @@ function GenAiTracesTableImpl({
                   display: 'flex',
                   flex: 1,
                   overflowY: 'hidden',
+                  position: 'relative',
                 }}
               >
                 <GenAiTracesTableBody
@@ -667,7 +651,7 @@ const AssessmentsFilterSelector = React.memo(
             updateAssessmentFilter(assessmentName, value, run);
           }}
           size="middle"
-          componentId={`mlflow.evaluations_review.table_ui.filter_control_${assessmentName}`}
+          componentId="mlflow.evaluations_review.table_ui.filter_control"
         >
           <SegmentedControlButton value={ANY_VALUE}>
             <div

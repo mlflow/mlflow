@@ -11,7 +11,7 @@ defaults:
 
 jobs:
   check-comment:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/autoformat') }}
     permissions:
@@ -34,7 +34,7 @@ jobs:
       - uses: ./.github/actions/validate-author
       - name: judge
         id: judge
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             core.debug(JSON.stringify(context, null, 2));
@@ -50,7 +50,7 @@ jobs:
 
       - name: Check maintainer access
         if: ${{ fromJSON(steps.judge.outputs.result).shouldAutoformat }}
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const autoformat = require('./.github/workflows/autoformat.js');
@@ -71,7 +71,7 @@ jobs:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
           # Set fetch-depth to merge the base branch
-          fetch-depth: 300
+          fetch-depth: 100
       - name: Check diff
         id: diff
         env:
@@ -83,10 +83,13 @@ jobs:
           docs=$([[ -z $(echo "$changed_files" | grep '^docs/') ]] && echo "false" || echo "true")
           r=$([[ -z $(echo "$changed_files" | grep '^mlflow/R/mlflow') ]] && echo "false" || echo "true")
           db=$([[ -z $(echo "$changed_files" | grep '^mlflow/store/db_migrations/') ]] && echo "false" || echo "true")
+          api=$([[ -z $(echo "$changed_files" | grep -E '(^mlflow/.*\.py$|^docs/api_reference/.*\.rst$)') ]] && echo "false" || echo "true")
           echo "protos=$protos" >> $GITHUB_OUTPUT
           echo "js=$js" >> $GITHUB_OUTPUT
+          echo "docs=$docs" >> $GITHUB_OUTPUT
           echo "r=$r" >> $GITHUB_OUTPUT
           echo "db=$db" >> $GITHUB_OUTPUT
+          echo "api=$api" >> $GITHUB_OUTPUT
       # Merge the base branch (which is usually master) to apply formatting using the latest configurations.
       - name: Merge base branch
         run: |
@@ -155,6 +158,12 @@ jobs:
         run: |
           ./build-rdoc.sh
       # ************************************************************************
+      # API Reference
+      # ************************************************************************
+      - if: steps.diff.outputs.api == 'true'
+        run: |
+          uv run --group docs --extra gateway --directory docs/api_reference make dummy
+      # ************************************************************************
       # Upload patch
       # ************************************************************************
       - name: Create patch
@@ -172,7 +181,7 @@ jobs:
           path: ${{ github.run_id }}.diff
 
   push:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     needs: [check-comment, format]
     if: ${{ needs.format.outputs.reformatted == 'true' }}
@@ -193,7 +202,7 @@ jobs:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
           # Set fetch-depth to merge the base branch
-          fetch-depth: 300
+          fetch-depth: 100
           # As reported in https://github.com/orgs/community/discussions/25702, if an action pushes
           # code using `GITHUB_TOKEN`, that won't trigger new workflow runs on the PR.
           # A personal access token is required to trigger new workflow runs.
@@ -229,7 +238,7 @@ jobs:
           git push
 
   update-status:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     needs: [check-comment, format, push]
     if: always() && needs.check-comment.outputs.should_autoformat == 'true'
@@ -242,7 +251,7 @@ jobs:
           sparse-checkout: |
             .github
       - name: Update status
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const needs = ${{ toJson(needs) }};

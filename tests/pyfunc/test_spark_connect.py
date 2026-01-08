@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import pyspark
 import pytest
 from pyspark.sql import SparkSession
 from sklearn.datasets import load_iris
@@ -11,15 +10,7 @@ import mlflow
 
 @pytest.fixture(scope="module")
 def spark():
-    spark = (
-        SparkSession.builder.remote("local[2]")
-        .config(
-            # The jars for spark-connect are not bundled in the pyspark package
-            "spark.jars.packages",
-            f"org.apache.spark:spark-connect_2.12:{pyspark.__version__}",
-        )
-        .getOrCreate()
-    )
+    spark = SparkSession.builder.remote("local[2]").getOrCreate()
     yield spark
     spark.stop()
 

@@ -31,6 +31,15 @@ FLAVOR_NAME = "ag2"
 
 
 @dataclass
+class _PendingSpan:
+    """A span waiting for parent relocation, with its end data stored."""
+
+    span: Span
+    outputs: Any
+    end_time_ns: int
+
+
+@dataclass
 class ChatState:
     """
     Represents the state of a chat session.
@@ -46,7 +55,8 @@ class ChatState:
     # LLM/Tool Spans created after the last message in the chat session.
     # We consider them as operations for generating the next message and
     # re-locate them under the corresponding message span.
-    pending_spans: list[Span] = field(default_factory=list)
+    # These spans are not ended yet to avoid premature export before parent relocation.
+    pending_spans: list[_PendingSpan] = field(default_factory=list)
 
     def clear(self):
         self.session_span = None
@@ -136,6 +146,11 @@ class MlflowAg2Logger(BaseLogger):
                     self._record_exception(span, e)
                     raise e
                 finally:
+                    # End any pending spans before ending the session
+                    # This ensures they get exported even if an error occurred
+                    for pending in self._chat_state.pending_spans:
+                        pending.span.end(outputs=pending.outputs, end_time_ns=pending.end_time_ns)
+
                     span.end(outputs=result)
                     # Clear the state to start a new chat session
                     self._chat_state.clear()
@@ -152,8 +167,10 @@ class MlflowAg2Logger(BaseLogger):
                     self._record_exception(span, e)
                     raise e
                 finally:
-                    span.end(outputs=result)
-                    self._chat_state.pending_spans.append(span)
+                    # Don't end the span yet - defer ending until after parent relocation
+                    # to avoid premature export with incorrect parent_id
+                    end_time_ns = time.time_ns()
+                    self._chat_state.pending_spans.append(_PendingSpan(span, result, end_time_ns))
             else:
                 result = original(*args, **kwargs)
             return result
@@ -215,12 +232,16 @@ class MlflowAg2Logger(BaseLogger):
                     span_type=SpanType.AGENT,
                     start_time_ns=self._chat_state.last_message_timestamp,
                 )
-                span.end(outputs=kwargs, end_time_ns=event_end_time)
-
-                # Re-locate the pended spans under this message span
-                for child_span in self._chat_state.pending_spans:
-                    child_span._span._parent = span._span.context
+                # Re-locate the pending spans under this message span BEFORE ending them
+                # This ensures spans are exported with the correct parent_id
+                for pending in self._chat_state.pending_spans:
+                    pending.span._span._parent = span._span.context
+                    # Now end the span with its stored outputs and end_time
+                    pending.span.end(outputs=pending.outputs, end_time_ns=pending.end_time_ns)
                 self._chat_state.pending_spans = []
+
+                # End the message span after all children have been relocated and ended
+                span.end(outputs=kwargs, end_time_ns=event_end_time)
 
             self._chat_state.last_message = kwargs
             self._chat_state.last_message_timestamp = event_end_time
@@ -259,8 +280,10 @@ class MlflowAg2Logger(BaseLogger):
         if usage := self._parse_usage(response):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
 
-        span.end(outputs=response, end_time_ns=time.time_ns())
-        self._chat_state.pending_spans.append(span)
+        # Defer ending until after parent relocation
+        # to avoid premature export with incorrect parent_id
+        end_time_ns = time.time_ns()
+        self._chat_state.pending_spans.append(_PendingSpan(span, response, end_time_ns))
 
     def _parse_usage(self, output: Any) -> dict[str, int] | None:
         usage = getattr(output, "usage", None)

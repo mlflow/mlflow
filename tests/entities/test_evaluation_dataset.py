@@ -1,7 +1,20 @@
+import json
+
 import pandas as pd
+import pytest
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 from mlflow.entities.dataset_record import DatasetRecord
+from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.entities.evaluation_dataset import EvaluationDataset
+from mlflow.entities.span import Span, SpanType
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
+from mlflow.exceptions import MlflowException
+from mlflow.tracing.utils import build_otel_context
 
 
 def test_evaluation_dataset_creation():
@@ -288,7 +301,6 @@ def test_evaluation_dataset_complex_tags():
 
 
 def test_evaluation_dataset_to_df():
-    """Test that to_df method returns a DataFrame with outputs column."""
     dataset = EvaluationDataset(
         dataset_id="dataset123",
         name="test_dataset",
@@ -307,6 +319,7 @@ def test_evaluation_dataset_to_df():
         "tags",
         "source_type",
         "source_id",
+        "source",
         "created_time",
         "dataset_record_id",
     ]
@@ -372,3 +385,331 @@ def test_evaluation_dataset_to_df():
     assert df["source_id"].iloc[1] == "script456"
     assert df["dataset_record_id"].iloc[0] == "rec123"
     assert df["dataset_record_id"].iloc[1] == "rec456"
+
+
+def create_test_span(
+    span_id=1,
+    parent_id=None,
+    name="test_span",
+    inputs=None,
+    outputs=None,
+    span_type=SpanType.UNKNOWN,
+):
+    attributes = {
+        "mlflow.spanType": json.dumps(span_type),
+    }
+
+    if inputs is not None:
+        attributes["mlflow.spanInputs"] = json.dumps(inputs)
+
+    if outputs is not None:
+        attributes["mlflow.spanOutputs"] = json.dumps(outputs)
+
+    otel_span = OTelReadableSpan(
+        name=name,
+        context=build_otel_context(trace_id=123456789, span_id=span_id),
+        parent=build_otel_context(trace_id=123456789, span_id=parent_id) if parent_id else None,
+        start_time=100000000,
+        end_time=200000000,
+        attributes=attributes,
+    )
+    return Span(otel_span)
+
+
+def create_test_trace(
+    trace_id="test-trace-123",
+    inputs=None,
+    outputs=None,
+    expectations=None,
+    trace_metadata=None,
+    _no_defaults=False,
+):
+    assessments = []
+    if expectations:
+        from mlflow.entities.assessment import AssessmentSource, AssessmentSourceType, Expectation
+
+        for name, value in expectations.items():
+            expectation = Expectation(
+                name=name,
+                value=value,
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.HUMAN, source_id="test_user"
+                ),
+            )
+            assessments.append(expectation)
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1234567890,
+        execution_duration=1000,
+        state=TraceState.OK,
+        assessments=assessments,
+        trace_metadata=trace_metadata or {},
+    )
+
+    default_inputs = {"question": "What is MLflow?"}
+    default_outputs = {"answer": "MLflow is a platform"}
+
+    if _no_defaults:
+        span_inputs = inputs
+        span_outputs = outputs
+    else:
+        span_inputs = inputs if inputs is not None else default_inputs
+        span_outputs = outputs if outputs is not None else default_outputs
+
+    spans = [
+        create_test_span(
+            span_id=1,
+            parent_id=None,
+            name="root_span",
+            inputs=span_inputs,
+            outputs=span_outputs,
+            span_type=SpanType.CHAIN,
+        )
+    ]
+
+    trace_data = TraceData(spans=spans)
+    return Trace(info=trace_info, data=trace_data)
+
+
+def test_process_trace_records_with_dict_outputs():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    trace = create_test_trace(
+        trace_id="trace1",
+        inputs={"question": "What is MLflow?"},
+        outputs={"answer": "MLflow is a platform", "confidence": 0.95},
+    )
+
+    record_dicts = dataset._process_trace_records([trace])
+
+    assert len(record_dicts) == 1
+    assert record_dicts[0]["inputs"] == {"question": "What is MLflow?"}
+    assert record_dicts[0]["outputs"] == {"answer": "MLflow is a platform", "confidence": 0.95}
+    assert record_dicts[0]["expectations"] == {}
+    assert record_dicts[0]["source"]["source_type"] == DatasetRecordSourceType.TRACE.value
+    assert record_dicts[0]["source"]["source_data"]["trace_id"] == "trace1"
+
+
+def test_process_trace_records_with_string_outputs():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    trace = create_test_trace(
+        trace_id="trace2",
+        inputs={"query": "Tell me about Python"},
+        outputs="Python is a programming language",
+    )
+
+    record_dicts = dataset._process_trace_records([trace])
+
+    assert len(record_dicts) == 1
+    assert record_dicts[0]["inputs"] == {"query": "Tell me about Python"}
+    assert record_dicts[0]["outputs"] == "Python is a programming language"
+    assert record_dicts[0]["expectations"] == {}
+    assert record_dicts[0]["source"]["source_type"] == DatasetRecordSourceType.TRACE.value
+
+
+def test_process_trace_records_with_non_dict_non_string_outputs():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    trace = create_test_trace(
+        trace_id="trace3", inputs={"x": 1, "y": 2}, outputs=["result1", "result2", "result3"]
+    )
+
+    record_dicts = dataset._process_trace_records([trace])
+
+    assert len(record_dicts) == 1
+    assert record_dicts[0]["inputs"] == {"x": 1, "y": 2}
+    assert record_dicts[0]["outputs"] == ["result1", "result2", "result3"]
+    assert record_dicts[0]["source"]["source_type"] == DatasetRecordSourceType.TRACE.value
+
+
+def test_process_trace_records_with_numeric_outputs():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    trace = create_test_trace(trace_id="trace4", inputs={"number": 42}, outputs=42)
+
+    record_dicts = dataset._process_trace_records([trace])
+
+    assert len(record_dicts) == 1
+    assert record_dicts[0]["outputs"] == 42
+
+
+def test_process_trace_records_with_none_outputs():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    trace = create_test_trace(
+        trace_id="trace5", inputs={"input": "test"}, outputs=None, _no_defaults=True
+    )
+
+    record_dicts = dataset._process_trace_records([trace])
+
+    assert len(record_dicts) == 1
+    assert record_dicts[0]["outputs"] is None
+
+
+def test_process_trace_records_with_expectations():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    trace = create_test_trace(
+        trace_id="trace6",
+        inputs={"question": "What is 2+2?"},
+        outputs={"answer": "4"},
+        expectations={"correctness": True, "tone": "neutral"},
+    )
+
+    record_dicts = dataset._process_trace_records([trace])
+
+    assert len(record_dicts) == 1
+    assert record_dicts[0]["expectations"] == {"correctness": True, "tone": "neutral"}
+
+
+def test_process_trace_records_multiple_traces():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    traces = [
+        create_test_trace(trace_id="trace1", outputs={"result": "answer1"}),
+        create_test_trace(trace_id="trace2", outputs="string answer"),
+        create_test_trace(trace_id="trace3", outputs=[1, 2, 3]),
+    ]
+
+    record_dicts = dataset._process_trace_records(traces)
+
+    assert len(record_dicts) == 3
+    assert record_dicts[0]["outputs"] == {"result": "answer1"}
+    assert record_dicts[1]["outputs"] == "string answer"
+    assert record_dicts[2]["outputs"] == [1, 2, 3]
+
+
+def test_process_trace_records_mixed_types_error():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    trace = create_test_trace(trace_id="trace1")
+    not_a_trace = {"not": "a trace"}
+
+    with pytest.raises(
+        MlflowException,
+        match=(
+            "Mixed types in trace list.*Expected all elements to be Trace objects.*"
+            "element at index 1 is dict"
+        ),
+    ):
+        dataset._process_trace_records([trace, not_a_trace])
+
+
+def test_process_trace_records_preserves_session_metadata():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    # Create trace with session metadata
+    trace_with_session = create_test_trace(
+        trace_id="tr-123",
+        trace_metadata={"mlflow.trace.session": "session_1"},
+    )
+
+    # Create trace without session metadata
+    trace_without_session = create_test_trace(
+        trace_id="tr-456",
+        trace_metadata={},
+    )
+
+    records = dataset._process_trace_records([trace_with_session, trace_without_session])
+
+    # Trace with session should have session_id in source_data
+    assert records[0]["source"]["source_data"]["trace_id"] == "tr-123"
+    assert records[0]["source"]["source_data"]["session_id"] == "session_1"
+
+    # Trace without session should only have trace_id
+    assert records[1]["source"]["source_data"]["trace_id"] == "tr-456"
+    assert "session_id" not in records[1]["source"]["source_data"]
+
+
+def test_to_df_includes_source_column():
+    from mlflow.entities.dataset_record import DatasetRecord
+    from mlflow.entities.dataset_record_source import DatasetRecordSource
+
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    # Manually add a record with source to the dataset
+    source = DatasetRecordSource(
+        source_type=DatasetRecordSourceType.TRACE,
+        source_data={"trace_id": "tr-123"},
+    )
+    record = DatasetRecord(
+        dataset_id="dataset123",
+        dataset_record_id="record123",
+        inputs={"question": "test"},
+        outputs={"answer": "test answer"},
+        expectations={},
+        tags={},
+        created_time=123456789,
+        last_update_time=123456789,
+        source=source,
+    )
+    dataset._records = [record]
+
+    df = dataset.to_df()
+
+    assert "source" in df.columns
+    assert df["source"].notna().all()
+    assert df["source"].iloc[0] == source

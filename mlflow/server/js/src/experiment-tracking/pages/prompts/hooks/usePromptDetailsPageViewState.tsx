@@ -10,16 +10,13 @@ const promptDetailsViewStateReducer = (
     comparedVersion?: string;
   },
   action:
-    | { type: 'setTableMode' }
     | { type: 'switchSides' }
     | { type: 'setPreviewMode'; selectedVersion?: string }
     | { type: 'setCompareMode'; selectedVersion?: string; comparedVersion?: string }
+    | { type: 'setTracesMode'; selectedVersion?: string }
     | { type: 'setSelectedVersion'; selectedVersion: string }
     | { type: 'setComparedVersion'; comparedVersion: string },
 ) => {
-  if (action.type === 'setTableMode') {
-    return { ...state, mode: PromptVersionsTableMode.TABLE };
-  }
   if (action.type === 'switchSides') {
     return { ...state, selectedVersion: state.comparedVersion, comparedVersion: state.selectedVersion };
   }
@@ -33,6 +30,9 @@ const promptDetailsViewStateReducer = (
       selectedVersion: action.selectedVersion,
       comparedVersion: action.comparedVersion,
     };
+  }
+  if (action.type === 'setTracesMode') {
+    return { ...state, mode: PromptVersionsTableMode.TRACES, selectedVersion: action.selectedVersion };
   }
   if (action.type === 'setSelectedVersion') {
     return { ...state, selectedVersion: action.selectedVersion };
@@ -48,9 +48,6 @@ export const usePromptDetailsPageViewState = (promptDetailsData?: RegisteredProm
     mode: PromptVersionsTableMode.PREVIEW,
   });
 
-  const setTableMode = useCallback(() => {
-    dispatchViewMode({ type: 'setTableMode' });
-  }, []);
   const setPreviewMode = useCallback(
     (versionEntity?: { version: string }) => {
       const firstVersion = (versionEntity ?? first(promptDetailsData?.versions))?.version;
@@ -72,6 +69,14 @@ export const usePromptDetailsPageViewState = (promptDetailsData?: RegisteredProm
     dispatchViewMode({ type: 'setCompareMode', selectedVersion: baselineVersion, comparedVersion });
   }, [promptDetailsData]);
 
+  const setTracesMode = useCallback(
+    (versionEntity?: { version: string }) => {
+      const firstVersion = (versionEntity ?? first(promptDetailsData?.versions))?.version;
+      dispatchViewMode({ type: 'setTracesMode', selectedVersion: firstVersion });
+    },
+    [promptDetailsData],
+  );
+
   const switchSides = useCallback(() => dispatchViewMode({ type: 'switchSides' }), []);
 
   if (
@@ -84,9 +89,9 @@ export const usePromptDetailsPageViewState = (promptDetailsData?: RegisteredProm
 
   return {
     viewState,
-    setTableMode,
     setPreviewMode,
     setCompareMode,
+    setTracesMode,
     switchSides,
     setSelectedVersion,
     setComparedVersion,

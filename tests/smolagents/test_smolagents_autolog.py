@@ -71,35 +71,35 @@ def test_run_autolog():
         }
         # CodeAgent
         span_1 = traces[0].data.spans[1]
-        assert span_1.name == "CodeAgent.step_1"
+        assert span_1.name == "CodeAgent.step"
         assert span_1.span_type == SpanType.AGENT
         assert span_1.parent_id == span_0.span_id
         assert span_1.inputs["memory_step"]["step_number"] == 1
         assert span_1.outputs is None
         # InferenceClientModel
         span_2 = traces[0].data.spans[2]
-        assert span_2.name == "InferenceClientModel.call_original_1"
+        assert span_2.name == "InferenceClientModel.call_original"
         assert span_2.span_type == SpanType.CHAT_MODEL
         assert span_2.parent_id == span_1.span_id
         assert span_2.inputs is not None
         assert span_2.outputs is not None
         # CodeAgent
         span_3 = traces[0].data.spans[3]
-        assert span_3.name == "CodeAgent.step_2"
+        assert span_3.name == "CodeAgent.step"
         assert span_3.span_type == SpanType.AGENT
         assert span_3.parent_id == span_0.span_id
         assert span_3.inputs is not None
         assert span_3.outputs is None
         # InferenceClientModel
         span_4 = traces[0].data.spans[4]
-        assert span_4.name == "InferenceClientModel.call_original_2"
+        assert span_4.name == "InferenceClientModel.call_original"
         assert span_4.span_type == SpanType.CHAT_MODEL
         assert span_4.parent_id == span_3.span_id
         assert span_4.inputs is not None
         assert span_4.outputs is not None
         # InferenceClientModel
         span_5 = traces[0].data.spans[5]
-        assert span_5.name == "InferenceClientModel.call_original_3"
+        assert span_5.name == "InferenceClientModel.call_original"
         assert span_5.span_type == SpanType.CHAT_MODEL
         assert span_5.parent_id == span_0.span_id
         assert span_5.inputs is not None
@@ -223,14 +223,14 @@ def test_tool_autolog():
         assert span_1.outputs is None
         # InferenceClientModel
         span_2 = traces[0].data.spans[2]
-        assert span_2.name == "InferenceClientModel.call_original_1"
+        assert span_2.name == "InferenceClientModel.call_original"
         assert span_2.span_type == SpanType.CHAT_MODEL
         assert span_2.parent_id == span_1.span_id
         assert span_2.inputs is not None
         assert span_2.outputs is not None
         # CodeAgent
         span_3 = traces[0].data.spans[3]
-        assert span_3.name == "InferenceClientModel.call_original_2"
+        assert span_3.name == "InferenceClientModel.call_original"
         assert span_3.span_type == SpanType.CHAT_MODEL
         assert span_3.parent_id == span_0.span_id
         assert span_3.inputs is not None

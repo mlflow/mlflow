@@ -1,0 +1,151 @@
+import { APILink } from "@site/src/components/APILink";
+import TileCard from '@site/src/components/TileCard';
+import TilesGrid from '@site/src/components/TilesGrid';
+import { Bot, GitBranch, Shield } from "lucide-react";
+
+# RAGAS
+
+[RAGAS](https://docs.ragas.io/) (Retrieval Augmented Generation Assessment) is an evaluation framework designed for LLM applications. MLflow's RAGAS integration allows you to use RAGAS metrics as MLflow scorers for evaluating retrieval quality, answer generation, and other aspects of LLM applications.
+
+## Prerequisites
+
+RAGAS scorers require the `ragas` package:
+
+```bash
+pip install ragas
+```
+
+## Quick Start
+
+You can call RAGAS scorers directly:
+
+```python
+from mlflow.genai.scorers.ragas import Faithfulness
+
+scorer = Faithfulness(model="openai:/gpt-4")
+feedback = scorer(trace=trace)
+
+print(feedback.value)  # Score between 0.0 and 1.0
+print(feedback.rationale)  # Explanation of the score
+```
+
+Or use them in <APILink fn="mlflow.genai.evaluate">mlflow.genai.evaluate</APILink>:
+
+```python
+import mlflow
+from mlflow.genai.scorers.ragas import Faithfulness, ContextPrecision
+
+traces = mlflow.search_traces()
+results = mlflow.genai.evaluate(
+    data=traces,
+    scorers=[
+        Faithfulness(model="openai:/gpt-4"),
+        ContextPrecision(model="openai:/gpt-4"),
+    ],
+)
+```
+
+## Available RAGAS Scorers
+
+RAGAS scorers are organized into categories based on their evaluation focus:
+
+### RAG (Retrieval-Augmented Generation) Metrics
+
+Evaluate retrieval quality and answer generation in RAG systems:
+
+| Scorer                                                                                                                     | What does it evaluate?                                                     | RAGAS Docs                                                                                                                     |
+| -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| <APILink fn="mlflow.genai.scorers.ragas.ContextPrecision">ContextPrecision</APILink>                                       | Are relevant retrieved documents ranked higher than irrelevant ones?       | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/)                                  |
+| <APILink fn="mlflow.genai.scorers.ragas.NonLLMContextPrecisionWithReference">NonLLMContextPrecisionWithReference</APILink> | Non-LLM version of context precision using reference answers               | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/#non-llm-based-context-precision/) |
+| <APILink fn="mlflow.genai.scorers.ragas.ContextRecall">ContextRecall</APILink>                                             | Does retrieval context contain all information needed to answer the query? | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_recall/)                                     |
+| <APILink fn="mlflow.genai.scorers.ragas.NonLLMContextRecall">NonLLMContextRecall</APILink>                                 | Non-LLM version of context recall using reference answers                  | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_recall/)                                     |
+| <APILink fn="mlflow.genai.scorers.ragas.ContextEntityRecall">ContextEntityRecall</APILink>                                 | Are entities from the expected answer present in the retrieved context?    | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_entities_recall/)                            |
+| <APILink fn="mlflow.genai.scorers.ragas.NoiseSensitivity">NoiseSensitivity</APILink>                                       | How sensitive is the model to irrelevant information in the context?       | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/noise_sensitivity/)                                  |
+| <APILink fn="mlflow.genai.scorers.ragas.Faithfulness">Faithfulness</APILink>                                               | Is the output factually consistent with the retrieval context?             | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/faithfulness/)                                       |
+
+### Natural Language Comparison
+
+Evaluate answer quality through natural language comparison:
+
+| Scorer                                                                                           | What does it evaluate?                                       | RAGAS Docs                                                                                                        |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| <APILink fn="mlflow.genai.scorers.ragas.FactualCorrectness">FactualCorrectness</APILink>         | Is the output factually correct compared to expected answer? | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/factual_correctness/)                   |
+| <APILink fn="mlflow.genai.scorers.ragas.NonLLMStringSimilarity">NonLLMStringSimilarity</APILink> | String similarity between output and expected answer         | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#non-llm-string-similarity) |
+| <APILink fn="mlflow.genai.scorers.ragas.BleuScore">BleuScore</APILink>                           | BLEU score for text comparison                               | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#bleu-score)                |
+| <APILink fn="mlflow.genai.scorers.ragas.ChrfScore">ChrfScore</APILink>                           | CHRF score for text comparison                               | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#chrf-score)                |
+| <APILink fn="mlflow.genai.scorers.ragas.RougeScore">RougeScore</APILink>                         | ROUGE score for text comparison                              | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#rouge-score)               |
+| <APILink fn="mlflow.genai.scorers.ragas.StringPresence">StringPresence</APILink>                 | Is a specific string present in the output?                  | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#string-presence)           |
+| <APILink fn="mlflow.genai.scorers.ragas.ExactMatch">ExactMatch</APILink>                         | Does output exactly match expected output?                   | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/traditional/#exact-match)               |
+
+### General Purpose
+
+Flexible evaluation metrics for various use cases:
+
+| Scorer                                                                             | What does it evaluate?                             | RAGAS Docs                                                                                                                             |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| <APILink fn="mlflow.genai.scorers.ragas.AspectCritic">AspectCritic</APILink>       | Evaluates specific aspects of the output using LLM | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/aspect_critic/)                                              |
+| <APILink fn="mlflow.genai.scorers.ragas.RubricsScore">RubricsScore</APILink>       | Scores output based on predefined rubrics          | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/general_purpose/#rubrics-based-criteria-scoring)             |
+| <APILink fn="mlflow.genai.scorers.ragas.InstanceRubrics">InstanceRubrics</APILink> | Scores output based on instance-specific rubrics   | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/general_purpose/#instance-specific-rubrics-criteria-scoring) |
+
+### Other Tasks
+
+Specialized metrics for specific tasks:
+
+| Scorer                                                                                   | What does it evaluate?        | RAGAS Docs                                                                                      |
+| ---------------------------------------------------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------- |
+| <APILink fn="mlflow.genai.scorers.ragas.SummarizationScore">SummarizationScore</APILink> | Quality of text summarization | [Link](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/summarization_score/) |
+
+## Creating Scorers by Name
+
+You can also create RAGAS scorers dynamically using <APILink fn="mlflow.genai.scorers.ragas.get_scorer">get_scorer</APILink>:
+
+```python
+from mlflow.genai.scorers.ragas import get_scorer
+
+# Create scorer by name
+scorer = get_scorer(
+    metric_name="Faithfulness",
+    model="openai:/gpt-4",
+)
+
+feedback = scorer(trace=trace)
+```
+
+## Configuration
+
+RAGAS scorers accept metric-specific parameters. Any additional keyword arguments are passed directly to the RAGAS metric constructor:
+
+```python
+from mlflow.genai.scorers.ragas import Faithfulness, ContextPrecision, ExactMatch
+
+# LLM-based metric with model specification
+scorer = Faithfulness(model="openai:/gpt-4")
+
+# Non-LLM metric (no model required)
+deterministic_scorer = ExactMatch()
+```
+
+Refer to the [RAGAS documentation](https://docs.ragas.io/) for metric-specific parameters and advanced usage.
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Bot}
+    title="Evaluate Agents"
+    description="Learn specialized techniques for evaluating AI agents with tool usage"
+    href="/genai/eval-monitor/running-evaluation/agents"
+  />
+  <TileCard
+    icon={GitBranch}
+    title="Evaluate Traces"
+    description="Evaluate production traces to understand application behavior"
+    href="/genai/eval-monitor/running-evaluation/traces"
+  />
+  <TileCard
+    icon={Shield}
+    title="Predefined Scorers"
+    description="Explore MLflow's built-in evaluation scorers"
+    href="/genai/eval-monitor/scorers/llm-judge/predefined"
+  />
+</TilesGrid>

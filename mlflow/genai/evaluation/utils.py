@@ -1,18 +1,20 @@
 import json
 import logging
 import math
-from concurrent.futures import Future, as_completed
 from typing import TYPE_CHECKING, Any, Collection
 
 from mlflow.entities import Assessment, Trace, TraceData
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
 from mlflow.genai.evaluation.constant import (
     AgentEvaluationReserverKey,
 )
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
+from mlflow.tracing.utils.search import traces_to_df
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
@@ -23,7 +25,6 @@ except ImportError:
 if TYPE_CHECKING:
     from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
     from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
-    from mlflow.genai.evaluation.entities import EvalResult
 
     try:
         import pyspark.sql.dataframe
@@ -32,12 +33,17 @@ if TYPE_CHECKING:
             pd.DataFrame
             | pyspark.sql.dataframe.DataFrame
             | list[dict]
+            | list[Trace]
             | ManagedEvaluationDataset
             | EntityEvaluationDataset
         )
     except ImportError:
         EvaluationDatasetTypes = (
-            pd.DataFrame | list[dict] | ManagedEvaluationDataset | EntityEvaluationDataset
+            pd.DataFrame
+            | list[dict]
+            | list[Trace]
+            | ManagedEvaluationDataset
+            | EntityEvaluationDataset
         )
 
 
@@ -49,22 +55,60 @@ PGBAR_FORMAT = (
 )
 
 
+def _get_eval_data_type(data: "EvaluationDatasetTypes") -> dict[str, Any]:
+    data_type = type(data)
+
+    if data_type is list:
+        if len(data) > 0 and all(isinstance(item, Trace) for item in data):
+            return {"eval_data_type": "list[Trace]"}
+        return {"eval_data_type": "list[dict]"}
+
+    if data_type is EntityEvaluationDataset:
+        return {"eval_data_type": "EntityEvaluationDataset"}
+    if data_type is ManagedEvaluationDataset:
+        return {"eval_data_type": "EvaluationDataset"}
+
+    module = data_type.__module__
+    qualname = data_type.__qualname__
+
+    if qualname == "DataFrame":
+        if module.startswith("pandas"):
+            return {"eval_data_type": "pd.DataFrame"}
+        if module.startswith("pyspark"):
+            return {"eval_data_type": "pyspark.sql.DataFrame"}
+
+    return "unknown"
+
+
+def _get_eval_data_size_and_fields(df: "pd.DataFrame") -> dict[str, Any]:
+    input_columns = set(df.columns.tolist())
+    relevant_fields = {"inputs", "outputs", "trace", "expectations"}
+    return {
+        "eval_data_size": len(df),
+        "eval_data_provided_fields": sorted(input_columns & relevant_fields),
+    }
+
+
 def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     """
     Takes in a dataset in the format that `mlflow.genai.evaluate()` expects and
     converts it into a pandas DataFrame.
     """
     if isinstance(data, list):
-        # validate that every item in the list is a dict and has inputs as key
-        for item in data:
-            if not isinstance(item, dict):
-                raise MlflowException.invalid_parameter_value(
-                    "Every item in the list must be a dictionary."
-                )
+        if all(isinstance(item, Trace) for item in data):
+            data = traces_to_df(data)
+        else:
+            for item in data:
+                if not isinstance(item, dict):
+                    raise MlflowException.invalid_parameter_value(
+                        "Every item in the list must be a dictionary."
+                    )
         df = pd.DataFrame(data)
     elif isinstance(data, pd.DataFrame):
         # Data is already a pd DataFrame, just copy it
         df = data.copy()
+    elif isinstance(data, (EntityEvaluationDataset, ManagedEvaluationDataset)):
+        df = data.to_df()
     else:
         try:
             from mlflow.utils.spark_utils import get_spark_dataframe_type
@@ -98,25 +142,13 @@ def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
 
 def _convert_to_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     """
-    Takes in a dataset in the multiple format that mlflow.genai.evaluate() expects and converts it
-    into standardized Pandas DataFrame.
-    The expected schema can be found at:
-    https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema
-
-    NB: The harness secretly support 'expectations' column as well. It accepts a dictionary of
-        expectations, which is same as the schema that mlflow.genai.evaluate() expects.
-        Therefore, we can simply pass through expectations column.
+    Takes in a dataset in the multiple format that mlflow.genai.evaluate() expects and converts
+    it into a standardized Pandas DataFrame.
     """
-    column_mapping = {
-        "inputs": "request",
-        "outputs": "response",
-    }
-
     df = _convert_eval_set_to_df(data)
 
     return (
-        df.rename(columns=column_mapping)
-        .pipe(_deserialize_trace_column_if_needed)
+        df.pipe(_deserialize_trace_column_if_needed)
         .pipe(_extract_request_response_from_trace)
         .pipe(_extract_expectations_from_trace)
     )
@@ -170,7 +202,7 @@ def _deserialize_trace_column_if_needed(df: "pd.DataFrame") -> "pd.DataFrame":
 
 def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
     """
-    Add `request` and `response`columns from traces if it is not already present.
+    Add `inputs` and `outputs` columns from traces if it is not already present.
     """
     if "trace" not in df.columns:
         return df
@@ -180,10 +212,33 @@ def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
             return json.loads(att)
         return None
 
-    if "request" not in df.columns:
-        df["request"] = df["trace"].apply(lambda trace: _extract_attribute(trace.data, "request"))
-    if "response" not in df.columns:
-        df["response"] = df["trace"].apply(lambda trace: _extract_attribute(trace.data, "response"))
+    def _safe_extract_from_root_span(trace: Trace, attribute: str) -> Any:
+        """Safely extract an attribute from the root span, returning None if root span is None."""
+        root_span = trace.data._get_root_span()
+        if root_span is None:
+            return None
+        return getattr(root_span, attribute, None)
+
+    if "inputs" not in df.columns:
+        df["inputs"] = df["trace"].apply(
+            lambda trace: _safe_extract_from_root_span(trace, "inputs")
+        )
+    if "outputs" not in df.columns:
+        df["outputs"] = df["trace"].apply(
+            lambda trace: _safe_extract_from_root_span(trace, "outputs")
+        )
+
+    # Warn once if any traces have missing root spans
+    missing_root_span_mask = df["trace"].apply(lambda trace: trace.data._get_root_span() is None)
+    if missing_root_span_mask.any():
+        missing_count = missing_root_span_mask.sum()
+        _logger.warning(
+            f"{missing_count} trace(s) do not have a root span, so input and output data may be"
+            " missing for these traces. This may occur if traces were fetched using"
+            " search_traces(..., include_spans=False) and, if so, it can be resolved by fetching"
+            " traces using search_traces(..., include_spans=True)."
+        )
+
     return df
 
 
@@ -378,32 +433,11 @@ def validate_tags(tags: Any) -> None:
             f"Tags must be a dictionary, got {type(tags).__name__}. "
         )
 
-    errors = []
-    for key in tags.keys():
-        if not isinstance(key, str):
-            errors.append(f"Key {key!r} has type {type(key).__name__}; expected str.")
+    errors = [
+        f"Key {key!r} has type {type(key).__name__}; expected str."
+        for key in tags.keys()
+        if not isinstance(key, str)
+    ]
 
     if errors:
         raise MlflowException.invalid_parameter_value("Invalid tags:\n  - " + "\n  - ".join(errors))
-
-
-def complete_eval_futures_with_progress_base(futures: list[Future]) -> list["EvalResult"]:
-    """Wraps the as_completed function with a progress bar."""
-    futures_as_completed = as_completed(futures)
-
-    try:
-        from tqdm.auto import tqdm
-
-        futures_as_completed = tqdm(
-            futures_as_completed,
-            total=len(futures),
-            disable=False,
-            desc="Evaluating",
-            smoothing=0,  # 0 means using average speed for remaining time estimates
-            bar_format=PGBAR_FORMAT,
-        )
-    except ImportError:
-        # If tqdm is not installed, we don't show a progress bar
-        pass
-
-    return [future.result() for future in futures_as_completed]

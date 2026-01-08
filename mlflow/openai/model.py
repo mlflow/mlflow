@@ -24,6 +24,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, Schema, TensorSpec
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     is_in_databricks_runtime,
@@ -228,6 +229,10 @@ def _get_input_schema(task, content):
         return Schema([ColSpec(type="string")])
 
 
+@deprecated(
+    alternative="mlflow.genai.register_prompt",
+    since="3.8.0",
+)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     model,
@@ -426,6 +431,10 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
+@deprecated(
+    alternative="mlflow.genai.register_prompt",
+    since="3.8.0",
+)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,

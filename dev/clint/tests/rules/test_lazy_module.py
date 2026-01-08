@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, lint_file
+from clint.linter import Position, Range, lint_file
 from clint.rules.lazy_module import LazyModule
 
 
@@ -24,4 +24,4 @@ if TYPE_CHECKING:
     violations = lint_file(Path("mlflow", "__init__.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, LazyModule) for v in violations)
-    assert violations[0].loc == Location(5, 12)  # anthropic LazyLoader
+    assert violations[0].range == Range(Position(5, 12))  # anthropic LazyLoader

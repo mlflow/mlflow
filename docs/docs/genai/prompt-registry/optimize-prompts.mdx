@@ -1,447 +1,610 @@
 ---
 sidebar_position: 5
-sidebar_label: Optimize Prompts 🆕
+sidebar_label: Optimize Prompts
 ---
 
 import { APILink } from "@site/src/components/APILink";
+import { CardGroup, Card, SmallLogoCard } from "@site/src/components/Card";
 
 # Optimize Prompts (Experimental)
 
-MLflow allows you to plug your prompts into advanced prompt optimization techniques through MLflow's unified interface using the <APILink fn="mlflow.genai.optimize_prompt" /> API.
-This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data. MLflow provides built-in support for optimization algorithms such as [DSPy's MIPROv2 algorithm](https://dspy.ai/api/optimizers/MIPROv2/). You can also implement custom optimization algorithms by extending MLflow's base optimizer class <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>.
+**The simple way to continuously improve your AI agents and prompts.**
 
-:::tip Key Benefits
+MLflow's prompt optimization lets you systematically enhance your AI applications with minimal code changes. Whether you're building with LangChain, OpenAI Agent, CrewAI, or your own custom implementation, MLflow provides a universal path from initial prototyping to steady improvement.
 
-- **Unified Interface**: Access to the state-of-the-art prompt optimization algorithms through a neutral interface.
-- **Extensible**: Create custom optimization algorithms by extending base optimizer classes.
-- **Prompt Management**: Integrate with MLflow Prompt Registry to gain reusability, version control and lineage.
-- **Evaluation**: Evaluate prompt performance comprehensively with MLflow's evaluation features.
+**Minimum rewrites, no lock-in, just better prompts.**
+
+Currently, MLflow supports the [GEPA](https://arxiv.org/abs/2507.19457) optimization algorithm through the <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer" >`GepaPromptOptimizer`</APILink>. GEPA iteratively refines prompts using LLM-driven reflection and automated feedback, leading to systematic and data-driven improvements.
+
+:::tip Why Use MLflow Prompt Optimization?
+
+- **Zero Framework Lock-in**: Works with ANY agent framework—LangChain, OpenAI Agent, CrewAI, or custom solutions
+- **Minimal Code Changes**: Add a few lines to start optimizing; no architectural rewrites needed
+- **Data-Driven Improvement**: Automatically learn from your evaluation data and custom metrics
+- **Multi-Prompt Optimization**: Jointly optimize multiple prompts for complex agent workflows
+- **Granular Control**: Optimize single prompts or entire multi-prompt workflows—you decide what to improve
+- **Production-Ready**: Built-in version control and registry for seamless deployment
+- **Extensible**: Bring your own optimization algorithms with simple base class extension
 
 :::
 
-## Optimization Overview
+:::note[Version Requirements]
+The `optimize_prompts` API requires **MLflow >= 3.5.0**.
+:::
 
-In order to use <APILink fn="mlflow.genai.optimize_prompt" /> API, you need to prepare the following:
+## Quick Start
+
+Here's a realistic example of optimizing a prompt for medical paper section classification:
+
+```python
+import mlflow
+import openai
+from mlflow.genai.optimize import GepaPromptOptimizer
+from mlflow.genai.scorers import Correctness
+
+# Register initial prompt for classifying medical paper sections
+prompt = mlflow.genai.register_prompt(
+    name="medical_section_classifier",
+    template="Classify this medical research paper sentence into one of these sections: CONCLUSIONS, RESULTS, METHODS, OBJECTIVE, BACKGROUND.\n\nSentence: {{sentence}}",
+)
+
+
+# Define your prediction function
+def predict_fn(sentence: str) -> str:
+    prompt = mlflow.genai.load_prompt("prompts:/medical_section_classifier/1")
+    completion = openai.OpenAI().chat.completions.create(
+        model="gpt-5-nano",
+        # load prompt template using PromptVersion.format()
+        messages=[{"role": "user", "content": prompt.format(sentence=sentence)}],
+    )
+    return completion.choices[0].message.content
+
+
+# Training data with medical paper sentences and ground truth labels
+# fmt: off
+raw_data = [
+    ("The emergence of HIV as a chronic condition means that people living with HIV are required to take more responsibility for the self-management of their condition , including making physical , emotional and social adjustments .", "BACKGROUND"),
+    ("This paper describes the design and evaluation of Positive Outlook , an online program aiming to enhance the self-management skills of gay men living with HIV .", "BACKGROUND"),
+    ("This study is designed as a randomised controlled trial in which men living with HIV in Australia will be assigned to either an intervention group or usual care control group .", "METHODS"),
+    ("The intervention group will participate in the online group program ` Positive Outlook ' .", "METHODS"),
+    ("The program is based on self-efficacy theory and uses a self-management approach to enhance skills , confidence and abilities to manage the psychosocial issues associated with HIV in daily life .", "METHODS"),
+    ("Participants will access the program for a minimum of 90 minutes per week over seven weeks .", "METHODS"),
+    ("Primary outcomes are domain specific self-efficacy , HIV related quality of life , and outcomes of health education .", "METHODS"),
+    ("Secondary outcomes include : depression , anxiety and stress ; general health and quality of life ; adjustment to HIV ; and social support .", "METHODS"),
+    ("Data collection will take place at baseline , completion of the intervention ( or eight weeks post randomisation ) and at 12 week follow-up .", "METHODS"),
+    ("Results of the Positive Outlook study will provide information regarding the effectiveness of online group programs improving health related outcomes for men living with HIV .", "CONCLUSIONS"),
+    ("The aim of this study was to evaluate the efficacy , safety and complications of orbital steroid injection versus oral steroid therapy in the management of thyroid-related ophthalmopathy .", "OBJECTIVE"),
+    ("A total of 29 patients suffering from thyroid ophthalmopathy were included in this study .", "METHODS"),
+    ("Patients were randomized into two groups : group I included 15 patients treated with oral prednisolone and group II included 14 patients treated with peribulbar triamcinolone orbital injection .", "METHODS"),
+    ("Both groups showed improvement in symptoms and in clinical evidence of inflammation with improvement of eye movement and proptosis in most cases .", "RESULTS"),
+    ("Mean exophthalmometry value before treatment was 22.6 1.98 mm that decreased to 18.6 0.996 mm in group I , compared with 23 1.86 mm that decreased to 19.08 1.16 mm in group II .", "RESULTS"),
+    ("There was no change in the best-corrected visual acuity in both groups .", "RESULTS"),
+    ("There was an increase in body weight , blood sugar , blood pressure and gastritis in group I in 66.7 % , 33.3 % , 50 % and 75 % , respectively , compared with 0 % , 0 % , 8.3 % and 8.3 % in group II .", "RESULTS"),
+    ("Orbital steroid injection for thyroid-related ophthalmopathy is effective and safe .", "CONCLUSIONS"),
+    ("It eliminates the adverse reactions associated with oral corticosteroid use .", "CONCLUSIONS"),
+    ("The aim of this prospective randomized study was to examine whether active counseling and more liberal oral fluid intake decrease postoperative pain , nausea and vomiting in pediatric ambulatory tonsillectomy .", "OBJECTIVE"),
+]
+# fmt: on
+
+# Format dataset for optimization
+dataset = [
+    {
+        "inputs": {"sentence": sentence},
+        "expectations": {"expected_response": label},
+    }
+    for sentence, label in raw_data
+]
+
+# Optimize the prompt
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=dataset,
+    prompt_uris=[prompt.uri],
+    optimizer=GepaPromptOptimizer(
+        reflection_model="openai:/gpt-5", max_metric_calls=300
+    ),
+    scorers=[Correctness(model="openai:/gpt-5-mini")],
+)
+
+# Use the optimized prompt
+optimized_prompt = result.optimized_prompts[0]
+print(f"Optimized template: {optimized_prompt.template}")
+```
+
+The API will automatically improve the prompt to better classify medical paper sections by learning from the training examples.
+
+### Example: Simple Prompt → Optimized Prompt
+
+<CardGroup cols={2}>
+<Card style={{ justifyContent: 'flex-start' }}>
+
+**Before Optimization:**
+
+<div style={{ maxWidth: '100%' }}>
+
+```text
+Classify this medical research paper sentence
+into one of these sections: CONCLUSIONS, RESULTS,
+METHODS, OBJECTIVE, BACKGROUND.
+
+Sentence: {{sentence}}
+```
+
+</div>
+
+</Card>
+<Card>
+
+**After Optimization:**
+
+<div style={{ maxWidth: '100%' }}>
+
+```text
+You are a single-sentence classifier for medical research abstracts. For each input sentence, decide which abstract section it belongs to and output exactly one label in UPPERCASE with no extra words, punctuation, or explanation.
+
+Allowed labels: CONCLUSIONS, RESULTS, METHODS, OBJECTIVE, BACKGROUND
+
+Input format:
+- The prompt will be:
+  "Classify this medical research paper sentence into one of these sections: CONCLUSIONS, RESULTS, METHODS, OBJECTIVE, BACKGROUND.
+
+  Sentence: {{sentence}}"
+
+Core rules:
+- Use only the information in the single sentence.
+- Classify by the sentence's function: context-setting vs aim vs procedure vs findings vs interpretation.
+- Return exactly one uppercase label from the allowed set.
+
+Decision guide and lexical cues:
+
+1) RESULTS
+- Reports observed findings/outcomes tied to data.
+- Common cues: past-tense result verbs and outcome terms: "showed," "was/were associated with," "increased/decreased," "improved," "reduced," "significant," "p < …," "odds ratio," "risk ratio," "95% CI," percentages, rates, counts or numbers tied to effects/adverse events.
+- If it explicitly states changes, associations, statistical significance, or quantified outcomes, choose RESULTS.
+
+2) CONCLUSIONS
+- Interpretation, implications, recommendations, or high-level takeaways.
+- Common cues: "In conclusion," "These findings suggest/indicate," "We conclude," statements about practice/policy/clinical implications, benefit–risk judgments, feasibility statements.
+- Sentences that forecast the significance/utility of the study's results ("Results will provide insight/information," "Findings will inform/guide practice") are CONCLUSIONS.
+- Tie-break with RESULTS: If a sentence describes an outcome as a general claim without specific observed data/statistics, prefer CONCLUSIONS over RESULTS.
+
+3) METHODS
+- How the study was conducted: design, participants, interventions/programs, measurements/outcomes lists, timelines, procedures, or analyses.
+- Common cues: design terms ("randomized," "double-blind," "cross-sectional," "cohort," "case-control"), "participants," "n =," inclusion/exclusion criteria, instruments/scales, dosing/protocols, schedules/timelines, statistical tests/analysis plans ("multivariate regression," "Kaplan–Meier," "ANOVA," "we will compare"), trial registration, ethics approval.
+- Measurement/outcome lists are METHODS (e.g., "Secondary outcomes include: …"; "Primary outcome was …").
+- Numbers specifying sample size (e.g., "n = 200") → METHODS; numbers tied to effects → RESULTS.
+- Program/intervention descriptions, components, theoretical basis, and mechanisms are METHODS, even if written in present tense and even if they contain purpose phrases. Examples: "The program is based on self-efficacy theory…," "The intervention uses a self-management approach to enhance skills…," "The device is designed to…"
+  - Important: An infinitive "to [verb] …" inside a program/intervention description (e.g., "uses X to improve Y") is METHODS, not OBJECTIVE, because it describes how the intervention works, not the study's aim.
+
+4) OBJECTIVE
+- The aim/purpose/hypothesis of the study.
+- Common cues: "Objective(s):" "Aim/Purpose was," "We aimed/sought/intended to," "We hypothesized that …"
+- Infinitive purpose phrases indicating the study's aim without procedures or results: "To determine/evaluate/assess/investigate whether …" → OBJECTIVE.
+- Phrases like "The aim of this study was to evaluate the efficacy/safety of X vs Y …" → OBJECTIVE.
+- If "We evaluated/assessed …" is clearly used as a purpose statement (not describing methods or results), label OBJECTIVE.
+
+5) BACKGROUND
+- Context, rationale, prior knowledge, unmet need; introduces topic without specific aims, procedures, or results.
+- Common cues: burden/prevalence statements, "X is common," "X remains poorly understood," prior work summaries, general descriptions.
+- If a sentence merely states that a paper describes/reports a program/design/evaluation without concrete procedures/analyses, label as BACKGROUND.
+
+Important tie-break rules:
+- RESULTS vs CONCLUSIONS: Observed data/findings → RESULTS; interpretation/generalization/recommendation → CONCLUSIONS.
+- OBJECTIVE vs METHODS: Purpose/aim of the study → OBJECTIVE; concrete design/intervention details/measurements/analysis steps → METHODS.
+- BACKGROUND vs OBJECTIVE: Context/motivation without an explicit study aim → BACKGROUND.
+- BACKGROUND vs METHODS: General description without concrete procedures/analyses → BACKGROUND.
+- The word "Results" at the start does not guarantee RESULTS; e.g., "Results will provide information …" → CONCLUSIONS.
+
+Output constraint:
+- Return exactly one uppercase label: CONCLUSIONS, RESULTS, METHODS, OBJECTIVE, or BACKGROUND. No extra text or punctuation.
+```
+
+</div>
+
+</Card>
+</CardGroup>
+
+## Components
+
+The <APILink fn="mlflow.genai.optimize_prompts" /> API requires the following components:
 
 <table style={{ width: "100%" }}>
   <thead>
     <tr>
       <th style={{ width: "30%" }}>Component</th>
-      <th style={{ width: "70%" }}>Example</th>
+      <th style={{ width: "70%" }}>Description</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Prompt</strong><br/><small>Registered in MLflow</small></td>
-      <td>
-        <pre><code>mlflow.register_prompt(name="qa", template="Answer \{\{question\}\}")</code></pre>
-      </td>
+      <td><strong>Target Prompt URIs</strong></td>
+      <td>List of prompt URIs to optimize (e.g., <code>["prompts:/qa/1"]</code>)</td>
     </tr>
     <tr>
-      <td><strong>Scorer</strong><br/><small>Evaluates prompt quality</small></td>
-      <td>
-        <pre><code>@scorer<br/>def exact_match(expectations, outputs):<br/>    return expectations == outputs</code></pre>
-      </td>
+      <td><strong>Predict Function</strong></td>
+      <td>A callable that takes inputs as keyword arguments and returns outputs. Must load templates from MLflow prompt versions (e.g., call <APILink fn="mlflow.entities.model_registry.PromptVersion.format">`PromptVersion.format()`</APILink>).</td>
     </tr>
     <tr>
-      <td><strong>Data</strong><br/><small>Inputs &amp; expectations</small></td>
-      <td>
-        <pre><code>\[<br/>  \{"inputs": \{"question": "2+2"\}, "expectations": \{"answer": "4"\}},<br/>  \{"inputs": \{"question": "2+3"\}, "expectations": \{"answer": "5"\}\}<br/>\]</code></pre>
-      </td>
+      <td><strong>Training Data</strong></td>
+      <td>Dataset with <code>inputs</code> (dict) and <code>expectations</code> (expected results). Supports pandas DataFrame, list of dicts, or MLflow EvaluationDataset.</td>
     </tr>
     <tr>
-      <td><strong>Target LLM</strong><br/><small>Model to optimize for</small></td>
-      <td>
-        <pre><code>LLMParams(model_name="openai/gpt-4.1-mini")</code></pre>
-      </td>
-    </tr>
-    <tr>
-      <td><strong>Optimizer Config</strong><br/><small>Optimization settings</small></td>
-      <td>
-        <pre><code>OptimizerConfig(<br/>  algorithm="DSPy/MIPROv2",<br/>  num_instruction_candidates=6,<br/>  max_few_show_examples=2<br/>)</code></pre>
-      </td>
+      <td><strong>Optimizer</strong></td>
+      <td>Prompt optimizer instance (e.g., <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer" >`GepaPromptOptimizer`</APILink>)</td>
     </tr>
   </tbody>
 </table>
 
-## Getting Started
+### 1. Target Prompt URIs
 
-Here's a simple example of optimizing a question-answering prompt:
-
-As a prerequisite, you need to install DSPy.
-
-```bash
-$ pip install dspy>=2.6.0 mlflow>=3.1.0
-```
-
-Then, run the following code to register the initial prompt and optimize it.
+Specify which prompts to optimize using their URIs from MLflow Prompt Registry:
 
 ```python
-import os
-from typing import Any
-import mlflow
-from mlflow.genai.scorers import scorer
-from mlflow.genai.optimize import OptimizerConfig, LLMParams
+prompt_uris = [
+    "prompts:/qa/1",  # Specific version
+    "prompts:/instruction@latest",  # Latest version
+]
+```
 
-os.environ["OPENAI_API_KEY"] = "<YOUR_OPENAI_API_KEY>"
+You can reference prompts by:
 
+- **Specific version**: `"prompts:/qa/1"` - Optimize a particular version
+- **Latest version**: `"prompts:/qa@latest"` - Optimize the most recent version
+- **Alias**: `"prompts:/qa@champion"` - Optimize a version with a specific alias
 
-# Define a custom scorer function to evaluate prompt performance with the @scorer decorator.
-# The scorer function for optimization can take inputs, outputs, and expectations.
-@scorer
-def exact_match(expectations: dict[str, Any], outputs: dict[str, Any]) -> bool:
-    return expectations["answer"] == outputs["answer"]
+### 2. Predict Function
 
+Your `predict_fn` must:
 
-# Register the initial prompt
-initial_template = """
-Answer to this math question: {{question}}.
-Return the result in a JSON string in the format of {"answer": "xxx"}.
-"""
+- Accept inputs as keyword arguments matching the inputs field of the dataset
+- Load the template from MLflow prompt versions using one of the following methods:
+  - <APILink fn="mlflow.entities.model_registry.PromptVersion.format">`PromptVersion.format()`</APILink>
+  - <APILink fn="mlflow.entities.model_registry.PromptVersion.template">`PromptVersion.template`</APILink>
+  - <APILink fn="mlflow.entities.model_registry.PromptVersion.to_single_brace_format" >`PromptVersion.to_single_brace_format()`</APILink>
+- Return outputs in the same format as your training data (e.g., outputs = `{"answer": "xxx"}` if expectations = `{"expected_response": {"answer": "xxx"}}`)
 
-prompt = mlflow.genai.register_prompt(
-    name="math",
-    template=initial_template,
-)
+```python
+def predict_fn(question: str) -> str:
+    # Load prompt from registry
+    prompt = mlflow.genai.load_prompt("prompts:/qa/1")
 
-# The data can be a list of dictionaries, a pandas DataFrame, or an mlflow.genai.EvaluationDataset
-# It needs to contain inputs and expectations where each row is a dictionary.
-train_data = [
+    # Format the prompt with input variables
+    formatted_prompt = prompt.format(question=question)
+
+    # Call your LLM
+    response = your_llm_call(formatted_prompt)
+
+    return response
+```
+
+### 3. Training Data
+
+Provide a dataset with `inputs` and `expectations`. Both columns should have dictionary values. `inputs` values will be passed to the predict function as keyword arguments. Please refer to [Predefined LLM Scorers](/genai/eval-monitor/scorers/llm-judge/predefined/) for the expected format of each built in scorers.
+
+```python
+# List of dictionaries - Example: Medical paper classification
+dataset = [
     {
-        "inputs": {"question": "Given that $y=3$, evaluate $(1+y)^y$."},
-        "expectations": {"answer": "64"},
+        "inputs": {
+            "sentence": "The emergence of HIV as a chronic condition means that people living with HIV are required to take more responsibility..."
+        },
+        "expectations": {"expected_response": "BACKGROUND"},
     },
     {
         "inputs": {
-            "question": "The midpoint of the line segment between $(x,y)$ and $(-9,1)$ is $(3,-5)$. Find $(x,y)$."
+            "sentence": "This study is designed as a randomised controlled trial in which men living with HIV..."
         },
-        "expectations": {"answer": "(15,-11)"},
+        "expectations": {"expected_response": "METHODS"},
     },
     {
         "inputs": {
-            "question": "What is the value of $b$ if $5^b + 5^b + 5^b + 5^b + 5^b = 625^{(b-1)}$? Express your answer as a common fraction."
+            "sentence": "Both groups showed improvement in symptoms and in clinical evidence of inflammation..."
         },
-        "expectations": {"answer": "\\frac{5}{3}"},
+        "expectations": {"expected_response": "RESULTS"},
     },
     {
-        "inputs": {"question": "Evaluate the expression $a^3\\cdot a^2$ if $a= 5$."},
-        "expectations": {"answer": "3125"},
+        "inputs": {
+            "sentence": "Orbital steroid injection for thyroid-related ophthalmopathy is effective and safe."
+        },
+        "expectations": {"expected_response": "CONCLUSIONS"},
     },
     {
-        "inputs": {"question": "Evaluate $\\lceil 8.8 \\rceil+\\lceil -8.8 \\rceil$."},
-        "expectations": {"answer": "17"},
+        "inputs": {
+            "sentence": "The aim of this study was to evaluate the efficacy, safety and complications..."
+        },
+        "expectations": {"expected_response": "OBJECTIVE"},
     },
 ]
 
-eval_data = [
-    {
-        "inputs": {
-            "question": "The sum of 27 consecutive positive integers is $3^7$. What is their median?"
-        },
-        "expectations": {"answer": "81"},
-    },
-    {
-        "inputs": {"question": "What is the value of $x$ if $x^2 - 10x + 25 = 0$?"},
-        "expectations": {"answer": "5"},
-    },
-    {
-        "inputs": {
-            "question": "If $a\\ast b = 2a+5b-ab$, what is the value of $3\\ast10$?"
-        },
-        "expectations": {"answer": "26"},
-    },
-    {
-        "inputs": {
-            "question": "Given that $-4$ is a solution to $x^2 + bx -36 = 0$, what is the value of $b$?"
-        },
-        "expectations": {"answer": "-5"},
-    },
-]
-
-# Optimize the prompt
-result = mlflow.genai.optimize_prompt(
-    target_llm_params=LLMParams(model_name="openai/gpt-4.1-mini"),
-    prompt=prompt,
-    train_data=train_data,
-    eval_data=eval_data,
-    scorers=[exact_match],
-    optimizer_config=OptimizerConfig(
-        num_instruction_candidates=8,
-        max_few_show_examples=2,
-    ),
-)
-
-# The optimized prompt is automatically registered as a new version
-print(result.prompt.uri)
-```
-
-In the example above the average performance score increased from 0 to 0.5.
-After the optimization process is completed, you can visit the MLflow Prompt Registry page and see the optimized prompt.
-
-![Optimized Prompt](/images/llms/optimize-prompt/registered_prompt.png)
-
-Note that the optimized prompt of <APILink fn="mlflow.genai.optimize_prompt" /> expects the output to be a JSON string.
-Therefore, you need to parse the output using `json.loads` in your application. See [Load and Use the Prompt](/genai/prompt-registry/#4-load-and-use-the-prompt) for how to load the optimized prompt.
-
-```python
-import mlflow
-import json
-import openai
-
-
-def predict(question: str, prompt_uri: str) -> str:
-    prompt = mlflow.genai.load_prompt(prompt_uri)
-    content = prompt.format(question=question)
-    completion = openai.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[{"role": "user", "content": content}],
-        temperature=0.1,
-    )
-
-    return json.loads(completion.choices[0].message.content)["answer"]
-```
-
-## Configuration
-
-You can customize the optimization process using `OptimizerConfig`, which includes the following parameters:
-
-- **algorithm**: The optimization algorithm to use. Can be a string (e.g., "DSPy/MIPROv2") or a custom optimizer class. Default: "DSPy/MIPROv2"
-- **num_instruction_candidates**: The number of candidate instructions to try. Default: 6
-- **max_few_show_examples**: The maximum number of examples to show in few-shot demonstrations. Default: 6
-- **optimizer_llm**: The LLM to use for optimization. Default: None (uses target LLM)
-- **extract_instructions**: Whether to extract instructions from the initial prompt template. Default: True
-- **verbose**: Whether to show optimizer logs during optimization. Default: False
-- **autolog**: Whether to log the optimization parameters, datasets and metrics. If set to True, a MLflow run is automatically created to store them. Default: False
-
-See <APILink fn="mlflow.genai.OptimizerConfig" /> for more details.
-
-## Custom Optimizers
-
-MLflow supports creating custom prompt optimization algorithms by extending the base optimizer classes. This allows you to implement domain-specific optimization strategies or integrate with other optimization libraries.
-
-### BasePromptOptimizer
-
-For custom optimization logic, extend the <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink> class:
-
-```python
-from mlflow.genai.optimize import BasePromptOptimizer, OptimizerConfig, OptimizerOutput
-from mlflow.genai.optimize.types import LLMParams
-from mlflow.entities.model_registry import PromptVersion
-from mlflow.genai.scorers import Scorer
-from typing import Optional, Callable, Any
+# Or pandas DataFrame
 import pandas as pd
 
-
-class CustomOptimizer(BasePromptOptimizer):
-    # Inherit the BasePromptOptimizer class and implement the `optimize` method.
-    def optimize(
-        self,
-        prompt: PromptVersion,
-        target_llm_params: LLMParams,
-        train_data: pd.DataFrame,
-        scorers: list[Scorer],
-        objective: Optional[Callable[[dict[str, Any]], float]] = None,
-        eval_data: Optional[pd.DataFrame] = None,
-    ) -> OptimizerOutput:
-        # Implement your custom optimization logic here
-
-        optimized_template = f"Please answer accurately: {prompt.template}"
-
-        return OptimizerOutput(
-            optimized_prompt=optimized_template,
-            optimizer_name="CustomOptimizer",
-            final_eval_score=0.85,
-            initial_eval_score=0.75,
-        )
-
-
-# Use the custom optimizer
-result = mlflow.genai.optimize_prompt(
-    target_llm_params=LLMParams(model_name="openai/gpt-4o-mini"),
-    prompt=prompt,
-    train_data=train_data,
-    scorers=[exact_match],
-    optimizer_config=OptimizerConfig(algorithm=CustomOptimizer),
+dataset = pd.DataFrame(
+    {
+        "inputs": [
+            {"sentence": "The emergence of HIV as a chronic condition..."},
+            {"sentence": "This study is designed as a randomised controlled trial..."},
+            {"sentence": "Both groups showed improvement in symptoms..."},
+        ],
+        "expectations": [
+            {"expected_response": "BACKGROUND"},
+            {"expected_response": "METHODS"},
+            {"expected_response": "RESULTS"},
+        ],
+    }
 )
 ```
 
-### DSPyPromptOptimizer
+### 4. Optimizer
 
-For DSPy-based optimizations, extend the <APILink fn="mlflow.genai.optimize.DSPyPromptOptimizer" >DSPyPromptOptimizer</APILink> class, which provides DSPy integration infrastructure:
+Create an optimizer instance for the optimization algorithm. Currently only <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer">`GepaPromptOptimizer`</APILink> is supported natively.
 
 ```python
-import dspy
-from typing import Callable
-from mlflow.genai.optimize import (
-    DSPyPromptOptimizer,
-    OptimizerOutput,
-    format_dspy_prompt,
-)
-from mlflow.entities.model_registry import PromptVersion
+from mlflow.genai.optimize import GepaPromptOptimizer
 
-
-class CustomDSPyOptimizer(DSPyPromptOptimizer):
-    # Inherit the DSPyPromptOptimizer class and implement the `run_optimization` method.
-    def run_optimization(
-        self,
-        prompt: PromptVersion,
-        program: dspy.Module,
-        metric: Callable[[dspy.Example], float],
-        train_data: list,
-        eval_data: list,
-    ) -> OptimizerOutput:
-        # Use DSPy's optimization components with your custom logic
-        # Example using DSPy's BootstrapFewShot optimizer
-        optimizer = dspy.BootstrapFewShot(
-            metric=metric,
-            max_bootstrapped_demos=self.optimizer_config.max_few_show_examples,
-        )
-
-        # Compile the program
-        compiled_program = optimizer.compile(
-            student=program,
-            trainset=train_data,
-        )
-
-        return OptimizerOutput(
-            optimized_prompt=format_dspy_prompt(compiled_program),
-            optimizer_name="BootstrapFewShot",
-        )
-
-
-# Use the custom DSPy optimizer
-result = mlflow.genai.optimize_prompt(
-    target_llm_params=LLMParams(model_name="openai/gpt-4o-mini"),
-    prompt=prompt,
-    train_data=train_data,
-    scorers=[exact_match],
-    optimizer_config=OptimizerConfig(algorithm=CustomDSPyOptimizer),
+optimizer = GepaPromptOptimizer(
+    reflection_model="openai:/gpt-5",  # Powerful model for optimization
+    max_metric_calls=100,
+    display_progress_bar=False,
 )
 ```
 
-:::note
-When using custom optimizers, ensure they return an `OptimizerOutput` object with the optimized prompt and evaluation scores.
-:::
+## Advanced Usage
 
-## Performance Benchmarks
+### Works with Any Agent Framework
 
-:::info
+MLflow's optimization is **framework-agnostic**—it works seamlessly with LangChain, LangGraph, OpenAI Agent, Pydantic AI, CrewAI, AutoGen, or any custom framework. No need to rewrite your existing agents or switch frameworks.
 
-We are actively working on the benchmarking.
-These benchmarks results are preliminary and subject to change.
+See these framework-specific guides for detailed examples:
 
-:::
+<CardGroup isSmall>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/langchain-optimization">
+    <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/langgraph-optimization">
+    <span>![LangGraph Logo](/images/logos/langgraph-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/openai-agent-optimization">
+    <span>![OpenAI Agent Logo](/images/logos/openai-agent-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/prompt-registry/optimize-prompts/pydantic-ai-optimization">
+    <span>![Pydantic AI Logo](/images/logos/pydanticai-logo.png)</span>
+  </SmallLogoCard>
+</CardGroup>
 
-MLflow prompt optimization can improve your application's performance across various tasks. Here are the results from testing MLflow's optimization capabilities on several datasets:
+### Using Custom Scorers
 
-- [**ARC-Challenge**](https://huggingface.co/datasets/allenai/ai2_arc): The ai2_arc dataset contains a set of multiple choice science questions
-- [**GSM8K**](https://huggingface.co/datasets/openai/gsm8k): The gsm8k dataset contains a set of linguistically diverse grade school math word problems
-- [**MATH**](https://huggingface.co/datasets/DigitalLearningGmbH/MATH-lighteval): Competition mathematics problems requiring advanced reasoning and problem-solving skills
-
-| Dataset           | Model           | Baseline | Optimized  |
-| ----------------- | --------------- | -------- | ---------- |
-| **MATH**          | gpt-4.1o-nano   | 17.25%   | **18.48%** |
-| **GSM8K**         | gpt-4.1o-nano   | 21.46%   | **49.89%** |
-| **ARC-Challenge** | gpt-4.1o-nano   | 71.42%   | **89.25%** |
-| **MATH**          | Llama4-maverick | 33.06%   | **33.26%** |
-| **GSM8K**         | Llama4-maverick | 55.80%   | **58.22%** |
-| **ARC-Challenge** | Llama4-maverick | 0.17%    | **93.17%** |
-
-The results above are benchmarks tested against `gpt-4.1o-nano` and `Llama4-maverick` with DSPy's MIPROv2 algorithm and default settings, using specific evaluation metrics for each task.
-The results might change if you use a different model, configuration, dataset, or starting prompt(s).
-These results show that MLflow's prompt optimization can solve many of the challenges, delivering measurable performance gains with minimal effort.
-
-## FAQ
-
-### What are the supported Dataset formats?
-
-The training and evaluation data for the <APILink fn="mlflow.genai.optimize_prompt" /> API can be a list of dictionaries, a pandas DataFrame, a spark DataFrame, or an <APILink fn="mlflow.genai.EvaluationDataset">mlflow.genai.EvaluationDataset</APILink>.
-In any case, the data needs to contain inputs and expectations columns that contains a dictionary of input fields and expected output fields.
-Each inputs or expectations dictionary can contain primitive types, lists, nested dictionaries, and Pydantic models. Data types are inferred from the first row of the dataset.
+Define custom evaluation metrics to guide optimization:
 
 ```python
-# ✅ OK
-[
-    {
-        "inputs": {"question": "What is the capital of France?"},
-        "expectations": {"answer": "Paris"},
-    },
-]
-
-# ✅ OK
-[
-    {
-        "inputs": {"question": "What are the three largest cities of Japan?"},
-        "expectations": {"answer": ["Tokyo", "Osaka", "Nagoya"]},
-    },
-]
-
-# ✅ OK
-from pydantic import BaseModel
-
-
-class Country(BaseModel):
-    name: str
-    capital: str
-    population: int
-
-
-[
-    {
-        "inputs": {"question": "What is the capital of France?"},
-        "expectations": {
-            "answer": Country(name="France", capital="Paris", population=68000000)
-        },
-    },
-]
-
-# ❌ NG
-[
-    {
-        "inputs": "What is the capital of France?",
-        "expectations": "Paris",
-    },
-]
-```
-
-### How to combine multiple scorers?
-
-While the <APILink fn="mlflow.genai.optimize_prompt" /> API accepts multiple scorers, the optimizer needs to combine them into a single score during the optimization process.
-By default, the optimizer computes the total score of all scorers with numeric or boolean values.
-If you want to use a custom aggregation function or use scorers that return non-numeric values, you can pass a custom aggregation function to the `objective` parameter.
-
-```python
-@scorer
-def safeness(outputs: dict[str, Any]) -> bool:
-    return "death" not in outputs["answer"].lower()
+from typing import Any
+from mlflow.genai.scorers import scorer
 
 
 @scorer
-def relevance(expectations: dict[str, Any], outputs: dict[str, Any]) -> bool:
-    return expectations["answer"] in outputs["answer"]
+def accuracy_scorer(outputs: Any, expectations: dict[str, Any]):
+    """Check if output matches expected value."""
+    return 1.0 if outputs.lower() == expectations.lower() else 0.0
 
 
-def objective(scores: dict[str, Any]) -> float:
-    if not scores["safeness"]:
-        return -1
-    return scores["relevance"]
+@scorer
+def brevity_scorer(outputs: Any):
+    """Prefer shorter outputs (max 50 chars)."""
+    return min(1.0, 50 / max(len(outputs), 1))
 
 
-result = mlflow.genai.optimize_prompt(
-    target_llm_params=LLMParams(model_name="openai/gpt-4.1-mini"),
-    prompt=prompt,
-    train_data=train_data,
-    eval_data=eval_data,
-    scorers=[safeness, relevance],
-    objective=objective,
+# Combine scorers with a weighted objective
+def weighted_objective(scores: dict[str, Any]):
+    return 0.7 * scores["accuracy_scorer"] + 0.3 * scores["brevity_scorer"]
+
+
+# Use custom scorers
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=dataset,
+    prompt_uris=[prompt.uri],
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
+    scorers=[accuracy_scorer, brevity_scorer],
+    aggregation=weighted_objective,
 )
 ```
 
-### How to create custom optimizers?
+### Custom Optimization Algorithm
 
-MLflow provides two base classes for creating custom optimizers:
+Implement your own optimizer by extending <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >`BasePromptOptimizer`</APILink>:
 
-1. **<APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>**: For custom optimization logic. In order to customize, you must implement your own `optimize` method.
-2. **<APILink fn="mlflow.genai.optimize.DSPyPromptOptimizer" >DSPyPromptOptimizer</APILink>**: For DSPy-based optimizations. Customization of this optimizer involves building a`run_optimization` method. MLflow will handle the required DSPy setup for utilizing your custom interface.
+```python
+from mlflow.genai.optimize import BasePromptOptimizer, PromptOptimizerOutput
+from mlflow.genai.scorers import Correctness
 
-Choose <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink> when you want complete control over the optimization process, or <APILink fn="mlflow.genai.optimize.DSPyPromptOptimizer" >DSPyPromptOptimizer</APILink> when you want to leverage DSPy's ecosystem while customizing the optimization strategy.
+
+class MyCustomOptimizer(BasePromptOptimizer):
+    def __init__(self, model_name: str):
+        self.model_name = model_name
+
+    def optimize(self, eval_fn, train_data, target_prompts, enable_tracking):
+        # Your custom optimization logic
+        optimized_prompts = {}
+        for prompt_name, prompt_template in target_prompts.items():
+            # Implement your algorithm
+            optimized_prompts[prompt_name] = your_optimization_algorithm(
+                prompt_template, train_data, self.model_name
+            )
+
+        return PromptOptimizerOutput(optimized_prompts=optimized_prompts)
+
+
+# Use custom optimizer
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=dataset,
+    prompt_uris=[prompt.uri],
+    optimizer=MyCustomOptimizer(model_name="openai:/gpt-5"),
+    scorers=[Correctness(model="openai:/gpt-5")],
+)
+```
+
+### Multi-Prompt Optimization
+
+Optimize multiple prompts together:
+
+```python
+import mlflow
+from mlflow.genai.scorers import Correctness
+
+# Register multiple prompts
+plan_prompt = mlflow.genai.register_prompt(
+    name="plan",
+    template="Make a plan to answer {{question}}.",
+)
+answer_prompt = mlflow.genai.register_prompt(
+    name="answer",
+    template="Answer {{question}} following the plan: {{plan}}",
+)
+
+
+def predict_fn(question: str) -> str:
+    plan_prompt = mlflow.genai.load_prompt("prompts:/plan/1")
+    completion = openai.OpenAI().chat.completions.create(
+        model="gpt-5",  # strong model
+        messages=[{"role": "user", "content": plan_prompt.format(question=question)}],
+    )
+    plan = completion.choices[0].message.content
+
+    answer_prompt = mlflow.genai.load_prompt("prompts:/answer/1")
+    completion = openai.OpenAI().chat.completions.create(
+        model="gpt-5-mini",  # cost efficient model
+        messages=[
+            {
+                "role": "user",
+                "content": answer_prompt.format(question=question, plan=plan),
+            }
+        ],
+    )
+    return completion.choices[0].message.content
+
+
+# Optimize both
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=dataset,
+    prompt_uris=[plan_prompt.uri, answer_prompt.uri],
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
+    scorers=[Correctness(model="openai:/gpt-5")],
+)
+
+# Access optimized prompts
+optimized_plan = result.optimized_prompts[0]
+optimized_answer = result.optimized_prompts[1]
+```
+
+## Result Object
+
+The API returns a <APILink fn="mlflow.genai.optimize.PromptOptimizationResult" >`PromptOptimizationResult`</APILink> object:
+
+```python
+result = mlflow.genai.optimize_prompts(...)
+
+# Access optimized prompts
+for prompt in result.optimized_prompts:
+    print(f"Name: {prompt.name}")
+    print(f"Version: {prompt.version}")
+    print(f"Template: {prompt.template}")
+    print(f"URI: {prompt.uri}")
+
+# Check optimizer used
+print(f"Optimizer: {result.optimizer_name}")
+
+# View evaluation scores (if available)
+print(f"Initial score: {result.initial_eval_score}")
+print(f"Final score: {result.final_eval_score}")
+```
+
+## Common Use Cases
+
+### Improving Accuracy
+
+Optimize prompts to produce more accurate outputs:
+
+```python
+from mlflow.genai.scorers import Correctness
+
+
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=dataset,
+    prompt_uris=[prompt.uri],
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
+    scorers=[Correctness(model="openai:/gpt-5")],
+)
+```
+
+### Optimizing for Safeness
+
+Ensure outputs are safe:
+
+```python
+from mlflow.genai.scorers import Safety
+
+
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=dataset,
+    prompt_uris=[prompt.uri],
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
+    scorers=[Safety(model="openai:/gpt-5")],
+)
+```
+
+### Model Switching and Migration
+
+When switching between different language models (e.g., migrating from `gpt-5` to `gpt-5-mini` for cost reduction), you may need to rewrite your prompts to maintain output quality with the new model. The <APILink fn="mlflow.genai.optimize_prompts" /> API can help adapt prompts automatically using your existing application outputs as training data.
+
+See the [Auto-rewrite Prompts for New Models](/genai/prompt-registry/rewrite-prompts) guide for a complete model migration workflow.
+
+## Troubleshooting
+
+### Issue: Optimization Takes Too Long
+
+**Solution**: Reduce dataset size or reduce the optimizer budget:
+
+```python
+# Use fewer examples
+small_dataset = dataset[:20]
+
+# Use faster model for optimization
+optimizer = GepaPromptOptimizer(
+    reflection_model="openai:/gpt-5-mini", max_metric_calls=100
+)
+```
+
+### Issue: No Improvement Observed
+
+**Solution**: Check your evaluation metrics and increase dataset diversity:
+
+- Ensure scorers accurately measure what you care about
+- Increase training data size and diversity
+- Try to modify optimizer configurations
+- Verify outputs format matches expectations
+
+### Issue: Prompts Not Being Used
+
+**Solution**: Ensure `predict_fn` calls <APILink fn="mlflow.entities.model_registry.PromptVersion.format" >`PromptVersion.format()`</APILink> during execution:
+
+```python
+# ✅ Correct - loads from registry
+def predict_fn(question: str):
+    prompt = mlflow.genai.load_prompt("prompts:/qa@latest")
+    return llm_call(prompt.format(question=question))
+
+
+# ❌ Incorrect - hardcoded prompt
+def predict_fn(question: str):
+    return llm_call(f"Answer: {question}")
+```
+
+## See Also
+
+- [Auto-rewrite Prompts for New Models](/genai/prompt-registry/rewrite-prompts): Adapt prompts when switching between language models
+- [Create and Edit Prompts](/genai/prompt-registry/create-and-edit-prompts): Basic Prompt Registry usage
+- [Evaluate Prompts](/genai/eval-monitor/running-evaluation/prompts): Evaluate prompt performance

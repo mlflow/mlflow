@@ -8,6 +8,7 @@ import numbers
 import posixpath
 import re
 import urllib.parse
+from typing import Any
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
@@ -168,7 +169,7 @@ def bad_character_message():
 
 def path_not_unique(name):
     norm = posixpath.normpath(name)
-    return norm != name or norm == "." or norm.startswith("..") or norm.startswith("/")
+    return norm != str(name) or norm == "." or norm.startswith("..") or norm.startswith("/")
 
 
 def _validate_metric_name(name, path="name"):
@@ -477,6 +478,28 @@ def _validate_experiment_id_type(experiment_id):
         )
 
 
+def _validate_list_param(param_name: str, param_value: Any, allow_none: bool = False) -> None:
+    """
+    Validate that a parameter is a list and raise a helpful error if it isn't.
+
+    Args:
+        param_name: Name of the parameter being validated (e.g., "experiment_ids")
+        param_value: The value to validate
+        allow_none: If True, None is allowed. If False, None is treated as invalid.
+
+    Raises:
+        MlflowException: If the parameter is not a list (and not None when allow_none=True)
+    """
+    if allow_none and param_value is None:
+        return
+
+    if not isinstance(param_value, list):
+        raise MlflowException.invalid_parameter_value(
+            f"{param_name} must be a list, got {type(param_value).__name__}. "
+            f"Did you mean to use {param_name}=[{param_value!r}]?"
+        )
+
+
 def _validate_model_name(model_name):
     if model_name is None or model_name == "":
         raise MlflowException(missing_value("name"), error_code=INVALID_PARAMETER_VALUE)
@@ -724,3 +747,28 @@ def _validate_webhook_events(events: list[WebhookEvent]) -> None:
         raise MlflowException.invalid_parameter_value(
             f"Webhook events must be a non-empty list of WebhookEvent objects: {events}."
         )
+
+
+def _resolve_experiment_ids_and_locations(
+    experiment_ids: list[str] | None, locations: list[str] | None
+) -> list[str]:
+    if experiment_ids:
+        if locations:
+            raise MlflowException.invalid_parameter_value(
+                "`experiment_ids` is deprecated, use `locations` instead."
+            )
+        else:
+            locations = experiment_ids
+    if not locations:
+        return locations
+
+    if invalid_experiment_ids := [location for location in locations if "." in location]:
+        invalid_exp_ids_str = ", ".join(invalid_experiment_ids)
+        if len(invalid_exp_ids_str) > 20:
+            invalid_exp_ids_str = invalid_exp_ids_str[:20] + "..."
+        raise MlflowException.invalid_parameter_value(
+            "Locations must be a list of experiment IDs. "
+            f"Found invalid experiment IDs: {invalid_exp_ids_str}."
+        )
+
+    return locations

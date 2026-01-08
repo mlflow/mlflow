@@ -13,6 +13,8 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.openai.constant import FLAVOR_NAME
 from mlflow.openai.utils.chat_schema import set_span_chat_attributes
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_NAME_FORMAT,
     STREAM_CHUNK_EVENT_VALUE_KEY,
@@ -93,6 +95,10 @@ def autolog(
             remove_mlflow_trace_processor()
     except ImportError:
         pass
+
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )
 
 
 # This is required by mlflow.autolog()
@@ -393,7 +399,20 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     def _extract_content(chunk: Any) -> str:
         if not chunk.choices:
             return ""
-        return chunk.choices[0].delta.content or ""
+        content = chunk.choices[0].delta.content
+        if content is None:
+            return ""
+        # Handle Databricks streaming format where content can be a list of content items
+        # See https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/api-reference#content-item
+        if isinstance(content, list):
+            # Extract text from text items only.
+            text_parts = [
+                item["text"]
+                for item in content
+                if isinstance(item, dict) and item.get("type") == "text" and "text" in item
+            ]
+            return "".join(text_parts)
+        return content
 
     message = ChatCompletionMessage(
         role="assistant", content="".join(map(_extract_content, chunks))

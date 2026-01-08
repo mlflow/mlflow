@@ -1,4 +1,5 @@
 import json
+from unittest import mock
 from unittest.mock import Mock, patch
 
 import pytest
@@ -11,6 +12,7 @@ from mlflow.entities import (
     SpanType,
 )
 from mlflow.entities.span import SpanType
+from mlflow.entities.trace_location import UCSchemaLocation
 from mlflow.exceptions import MlflowException
 from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.constant import (
@@ -23,8 +25,11 @@ from mlflow.tracing.utils import (
     aggregate_usage_from_spans,
     capture_function_input_args,
     construct_full_inputs,
-    deduplicate_span_names_in_place,
     encode_span_id,
+    encode_trace_id,
+    generate_trace_id_v4,
+    generate_trace_id_v4_from_otel_trace_id,
+    get_active_spans_table_name,
     get_otel_attribute,
     maybe_get_request_id,
     parse_trace_id_v4,
@@ -42,23 +47,15 @@ def test_capture_function_input_args_does_not_raise():
     assert mock_input_args.call_count > 0
 
 
-def test_deduplicate_span_names():
+def test_duplicate_span_names():
     span_names = ["red", "red", "blue", "red", "green", "blue"]
 
     spans = [
         LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=span_name), trace_id="tr-123")
         for i, span_name in enumerate(span_names)
     ]
-    deduplicate_span_names_in_place(spans)
 
-    assert [span.name for span in spans] == [
-        "red_1",
-        "red_2",
-        "blue_1",
-        "red_3",
-        "green",
-        "blue_2",
-    ]
+    assert [span.name for span in spans] == span_names
     # Check if the span order is preserved
     assert [span.span_id for span in spans] == [encode_span_id(i) for i in [0, 1, 2, 3, 4, 5]]
 
@@ -195,7 +192,6 @@ def test_set_chat_tools_validation():
     ],
 )
 def test_openai_parse_tools_enum_validation(enum_values, param_type):
-    """Test that OpenAI _parse_tools accepts various enum value types."""
     from mlflow.openai.utils.chat_schema import _parse_tools
 
     # Simulate the exact OpenAI autologging input that was failing
@@ -394,3 +390,53 @@ def test_get_otel_attribute_non_string_attribute():
 
     result = get_otel_attribute(span, "boolean_value")
     assert result is None
+
+
+def test_generate_trace_id_v4_with_uc_schema():
+    span = create_mock_otel_span(trace_id=12345, span_id=1)
+    uc_schema = "catalog.schema"
+
+    with mock.patch(
+        "mlflow.tracing.utils.construct_trace_id_v4", return_value="trace:/catalog.schema/abc123"
+    ) as mock_construct:
+        result = generate_trace_id_v4(span, uc_schema)
+
+        mock_construct.assert_called_once_with(uc_schema, mock.ANY)
+        assert result == "trace:/catalog.schema/abc123"
+
+
+def test_get_spans_table_name_for_trace_with_destination():
+    mock_destination = UCSchemaLocation(catalog_name="catalog", schema_name="schema")
+
+    with mock.patch("mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION") as mock_ctx:
+        mock_ctx.get.return_value = mock_destination
+
+        result = get_active_spans_table_name()
+        assert result == "catalog.schema.mlflow_experiment_trace_otel_spans"
+
+
+def test_get_spans_table_name_for_trace_no_destination():
+    with mock.patch("mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION") as mock_ctx:
+        mock_ctx.get.return_value = None
+
+        result = get_active_spans_table_name()
+        assert result is None
+
+
+def test_generate_trace_id_v4_from_otel_trace_id():
+    otel_trace_id = 0x12345678901234567890123456789012
+    location = "catalog.schema"
+
+    result = generate_trace_id_v4_from_otel_trace_id(otel_trace_id, location)
+
+    # Verify the format is trace:/<location>/<hex_trace_id>
+    assert result.startswith(f"{TRACE_ID_V4_PREFIX}{location}/")
+
+    # Extract and verify the hex trace ID part
+    expected_hex_id = encode_trace_id(otel_trace_id)
+    assert result == f"{TRACE_ID_V4_PREFIX}{location}/{expected_hex_id}"
+
+    # Verify it can be parsed back
+    parsed_location, parsed_id = parse_trace_id_v4(result)
+    assert parsed_location == location
+    assert parsed_id == expected_hex_id

@@ -1,17 +1,7 @@
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
-
-if not IS_PYDANTIC_V2_OR_NEWER:
-    raise ImportError(
-        "mlflow.types.responses is not supported in Pydantic v1. "
-        "Please upgrade to Pydantic v2 or newer."
-    )
-
 import warnings
 from typing import Any
 
-from pydantic import ConfigDict, model_validator
-
-from mlflow.types.chat import BaseModel
+from pydantic import BaseModel, ConfigDict, model_validator
 
 """
 Classes are inspired by classes for Response and ResponseStreamEvent in openai-python
@@ -73,11 +63,11 @@ class Annotation(BaseModel):
     @model_validator(mode="after")
     def check_type(self) -> "Annotation":
         if self.type == "file_citation":
-            AnnotationFileCitation(**self.model_dump_compat())
+            AnnotationFileCitation(**self.model_dump())
         elif self.type == "url_citation":
-            AnnotationURLCitation(**self.model_dump_compat())
+            AnnotationURLCitation(**self.model_dump())
         elif self.type == "file_path":
-            AnnotationFilePath(**self.model_dump_compat())
+            AnnotationFilePath(**self.model_dump())
         else:
             raise ValueError(f"Invalid annotation type: {self.type}")
         return self
@@ -101,9 +91,9 @@ class Content(BaseModel):
     @model_validator(mode="after")
     def check_type(self) -> "Content":
         if self.type == "output_text":
-            ResponseOutputText(**self.model_dump_compat())
+            ResponseOutputText(**self.model_dump())
         elif self.type == "refusal":
-            ResponseOutputRefusal(**self.model_dump_compat())
+            ResponseOutputRefusal(**self.model_dump())
         else:
             raise ValueError(f"Invalid content type: {self.type} for {self.__class__.__name__}")
         return self
@@ -149,6 +139,22 @@ class ResponseReasoningItem(Status):
     type: str = "reasoning"
 
 
+class McpApprovalRequest(Status):
+    id: str
+    arguments: str
+    name: str
+    server_label: str
+    type: str = "mcp_approval_request"
+
+
+class McpApprovalResponse(Status):
+    approval_request_id: str
+    approve: bool
+    type: str = "mcp_approval_response"
+    id: str | None = None
+    reason: str | None = None
+
+
 class OutputItem(BaseModel):
     model_config = ConfigDict(extra="allow")
     type: str
@@ -156,13 +162,17 @@ class OutputItem(BaseModel):
     @model_validator(mode="after")
     def check_type(self) -> "OutputItem":
         if self.type == "message":
-            ResponseOutputMessage(**self.model_dump_compat())
+            ResponseOutputMessage(**self.model_dump())
         elif self.type == "function_call":
-            ResponseFunctionToolCall(**self.model_dump_compat())
+            ResponseFunctionToolCall(**self.model_dump())
         elif self.type == "reasoning":
-            ResponseReasoningItem(**self.model_dump_compat())
+            ResponseReasoningItem(**self.model_dump())
         elif self.type == "function_call_output":
-            FunctionCallOutput(**self.model_dump_compat())
+            FunctionCallOutput(**self.model_dump())
+        elif self.type == "mcp_approval_request":
+            McpApprovalRequest(**self.model_dump())
+        elif self.type == "mcp_approval_response":
+            McpApprovalResponse(**self.model_dump())
         elif self.type not in {
             "file_search_call",
             "computer_call",
@@ -202,7 +212,7 @@ class Tool(BaseModel):
     @model_validator(mode="after")
     def check_type(self) -> "Tool":
         if self.type == "function":
-            FunctionTool(**self.model_dump_compat())
+            FunctionTool(**self.model_dump())
         elif self.type not in {"file_search", "computer_use", "web_search"}:
             warnings.warn(f"Invalid tool type: {self.type}")
         return self
@@ -297,9 +307,9 @@ class Response(Truncation, ToolChoice):
         texts: list[str] = []
         for output in self.output:
             if output.type == "message":
-                for content in output.content:
-                    if content.type == "output_text":
-                        texts.append(content.text)
+                texts.extend(
+                    content.text for content in output.content if content.type == "output_text"
+                )
 
         return "".join(texts)
 

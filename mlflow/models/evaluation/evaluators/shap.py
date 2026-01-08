@@ -295,4 +295,4 @@ def _compute_df_mode_or_mean(df):
 
     means = {} if df_cont.empty else df_cont.mean().to_dict()
     modes = {} if df_non_cont.empty else df_non_cont.mode().loc[0].to_dict()
-    return {**means, **modes}
+    return means | modes

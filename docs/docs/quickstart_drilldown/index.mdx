@@ -4,7 +4,7 @@ sidebar_custom_props:
 displayed_sidebar: docsSidebar
 ---
 
-import Link from "@docusaurus/Link";
+import { APILink } from "@site/src/components/APILink";
 import { Table } from "@site/src/components/Table";
 
 # Quickstart options and troubleshooting
@@ -88,7 +88,7 @@ python examples/sklearn_logistic_regression/train.py
 ```
 
 When you run the example, it outputs an MLflow run ID for that experiment. If you look at the
-`mlflow ui`, you will also see that the run saved a **model** folder containing an `MLmodel`
+`mlflow server`, you will also see that the run saved a **model** folder containing an `MLmodel`
 description file and a pickled scikit-learn model. You can pass the run ID and the path of the model
 within the artifacts directory (here **model/**) to various tools. For example, MLflow includes a
 simple REST server for python-based models:

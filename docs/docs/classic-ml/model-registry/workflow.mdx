@@ -5,7 +5,6 @@ sidebar_label: Workflow
 ---
 
 import { APILink } from "@site/src/components/APILink";
-import Link from "@docusaurus/Link";
 
 # Model Registry Workflows
 
@@ -13,7 +12,7 @@ This guide walks you through using the MLflow Model Registry via both the UI and
 
 :::note
 If running your own MLflow server, you must use a database-backed backend store in order to access
-the model registry via the UI or API. [See here](/ml/tracking/backend-stores) for more information.
+the model registry via the UI or API. [See here](/self-hosting/architecture/backend-store) for more information.
 :::
 
 Before you can add a model to the Model Registry, you must log it using the `log_model` methods
@@ -428,7 +427,7 @@ mlflow models serve -m "models:/sk-learn-random-forest-reg-model@champion"
 
 In mature DevOps and MLOps workflows, organizations use separate environments (typically, dev,
 staging, and prod) with access controls to enable quick development without compromising stability
-in production. In MLflow, you can use registered models and [MLflow Authentication](/ml/auth) to
+in production. In MLflow, you can use registered models and [MLflow Authentication](/self-hosting/security/basic-http-auth) to
 express access-controlled environments for your MLflow models. For example, you can create registered
 models corresponding to each combination of environment and business problem (e.g.
 `prod.ml_team.revenue_forecasting`, `dev.ml_team.revenue_forecasting`) and configure permissions
@@ -932,7 +931,7 @@ for easier A/B testing and model rollout.
 **Set up separate environments for models**
 
 In mature DevOps and MLOps workflows, organizations use separate environments (typically, dev, staging, and prod) with
-access controls to enable quick development without compromising stability in production. With [MLflow Authentication](/ml/auth),
+access controls to enable quick development without compromising stability in production. With [MLflow Authentication](/self-hosting/security/basic-http-auth),
 you can use registered models to express access-controlled environments for your MLflow models. For example, you can create
 registered models corresponding to each combination of environment and business problem (e.g. `prod.ml_team.revenue_forecasting`,
 `dev.ml_team.revenue_forecasting`) and configure permissions accordingly. Automate model retraining against your production
@@ -951,7 +950,7 @@ To set up separate environments and permissions for your model versions, create 
   to your environments with different prefixes.
 - For example, if you want three separate dev, staging, and production environments, you can set up
   `dev.ml_team.revenue_forecasting`, `staging.ml_team.revenue_forecasting`, and `prod.ml_team.revenue_forecasting` registered models.
-- Use [MLflow Authentication](/ml/auth) to grant appropriate permissions on these models.
+- Use [MLflow Authentication](/self-hosting/security/basic-http-auth) to grant appropriate permissions on these models.
 
 **Transition models across environments**
 

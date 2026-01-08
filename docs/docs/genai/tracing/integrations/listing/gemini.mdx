@@ -4,30 +4,22 @@ sidebar_label: Gemini
 ---
 
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import StepHeader from "@site/src/components/StepHeader";
+import ServerSetup from "@site/src/content/setup_server_slim.mdx";
+import ImageBox from "@site/src/components/ImageBox";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Users, BookOpen, Scale } from "lucide-react";
 
 # Tracing Gemini
 
-![OpenAI Tracing via autolog](/images/llms/gemini/gemini-tracing.png)
+<ImageBox src="/images/llms/gemini/gemini-tracing.png" alt="Gemini Tracing via autolog" />
 
 [MLflow Tracing](../../) provides automatic tracing capability for Google Gemini. By enabling auto tracing
-for Gemini by calling the <APILink fn="mlflow.gemini.autolog" /> function, MLflow will capture nested traces and log them to the active MLflow Experiment upon invocation of Gemini Python SDK.
-
-```python
-import mlflow
-
-mlflow.gemini.autolog()
-```
-
-:::note
-
-Current MLflow tracing integration supports both new [Google GenAI SDK](https://github.com/googleapis/python-genai) and legacy [Google AI Python SDK](https://github.com/google-gemini/generative-ai-python).
-However, it may drop support for the legacy package without notice, and it is highly recommended to migrate your use cases to the new Google GenAI SDK.
-
-:::
+for Gemini by calling the <APILink fn="mlflow.gemini.autolog" /> function, MLflow will capture nested traces and log them to the active MLflow Experiment upon invocation of Gemini Python SDK. In Typescript, you can instead use the `tracedGemini` function to wrap the Gemini client.
 
 MLflow trace automatically captures the following information about Gemini calls:
 
@@ -39,9 +31,96 @@ MLflow trace automatically captures the following information about Gemini calls
 - Function calling if returned in the response
 - Any exception if raised
 
+## Getting Started
+
+<StepHeader number={1} title="Install Dependencies" />
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
+```bash
+pip install mlflow google-generativeai
+```
+</TabItem>
+<TabItem value="typescript" label="JS / TS">
+```bash
+npm install mlflow-gemini @google/generative-ai
+```
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+<StepHeader number={2} title="Start MLflow Server" />
+
+<ServerSetup />
+
+<StepHeader number={3} title="Enable Tracing and Make API Calls" />
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
+    Enable tracing with `mlflow.gemini.autolog()` and make API calls as usual.
+
+    ```python
+    import mlflow
+    import google.generativeai as genai
+    import os
+
+    # Enable auto-tracing for Gemini
+    mlflow.gemini.autolog()
+
+    # Set a tracking URI and an experiment
+    mlflow.set_tracking_uri("http://localhost:5000")
+    mlflow.set_experiment("Gemini")
+
+    # Configure your API key
+    genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+
+    # Use Gemini as usual - traces will be automatically captured
+    model = genai.GenerativeModel("gemini-2.5-flash")
+    response = model.generate_content("What is the capital of France?")
+    print(response.text)
+    ```
+
+</TabItem>
+<TabItem value="typescript" label="JS / TS">
+    Wrap the Gemini client with the `tracedGemini` function and make API calls as usual.
+
+    ```typescript
+    import { GoogleGenerativeAI } from "@google/generative-ai";
+    import { tracedGemini } from "mlflow-gemini";
+
+    // Wrap the Gemini client with the tracedGemini function
+    const genAI = tracedGemini(new GoogleGenerativeAI(process.env.GOOGLE_API_KEY));
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    // Invoke the client as usual
+    const result = await model.generateContent("What is the capital of France?");
+    console.log(result.response.text());
+    ```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+<StepHeader number={4} title="View Traces in MLflow UI" />
+
+Browse to the MLflow UI at http://localhost:5000 (or your MLflow server URL) and you should see the traces for the Gemini API calls.
+
+→ View [Next Steps](#next-steps) for learning about more MLflow features like user feedback tracking, prompt management, and evaluation.
+
+:::note
+
+Current MLflow tracing integration supports both new [Google GenAI SDK](https://github.com/googleapis/python-genai) and legacy [Google AI Python SDK](https://github.com/google-gemini/generative-ai-python).
+However, it may drop support for the legacy package without notice, and it is highly recommended to migrate your use cases to the new Google GenAI SDK.
+
+:::
+
 ## Supported APIs
 
-MLflow supports automatic tracing for the following Anthropic APIs:
+MLflow supports automatic tracing for the following Gemini APIs:
+
+### Python
 
 | Text Generation | Chat | Function Calling | Streaming |  Async   | Image | Video |
 | :-------------: | :--: | :--------------: | :-------: | :------: | :---: | :---: |
@@ -53,65 +132,110 @@ MLflow supports automatic tracing for the following Anthropic APIs:
 
 </div>
 
+### TypeScript / JavaScript
+
+| Content Generation | Chat | Function Calling | Streaming | Async |
+| :----------------: | :--: | :--------------: | :-------: | :---: |
+|         ✅         |  -   |     ✅ (\*2)     |     -     |  ✅   |
+
+<div style={{ fontSize: '0.9em', marginTop: '10px' }}>
+
+(\*2) Only `models.generateContent()` is supported. Function calls in responses are captured and can be rendered in the MLflow UI. The TypeScript SDK is natively async.
+
+</div>
+
 To request support for additional APIs, please open a [feature request](https://github.com/mlflow/mlflow/issues) on GitHub.
 
-### Basic Example
+## Examples
 
-```python
-import mlflow
-import google.genai as genai
-import os
+### Basic Text Generation
 
-# Turn on auto tracing for Gemini
-mlflow.gemini.autolog()
+<Tabs>
+  <TabItem value="python" label="Python" default>
+    ```python
+    import mlflow
+    import google.genai as genai
+    import os
 
-# Optional: Set a tracking URI and an experiment
-mlflow.set_tracking_uri("http://localhost:5000")
-mlflow.set_experiment("Gemini")
+    # Turn on auto tracing for Gemini
+    mlflow.gemini.autolog()
+
+    # Optional: Set a tracking URI and an experiment
+    mlflow.set_tracking_uri("http://localhost:5000")
+    mlflow.set_experiment("Gemini")
 
 
-# Configure the SDK with your API key.
-client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    # Configure the SDK with your API key.
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
-# Use the generate_content method to generate responses to your prompts.
-response = client.models.generate_content(
-    model="gemini-1.5-flash", contents="The opposite of hot is"
-)
-```
+    # Use the generate_content method to generate responses to your prompts.
+    response = client.models.generate_content(
+        model="gemini-1.5-flash", contents="The opposite of hot is"
+    )
+    ```
 
-### Multi-turn chat interactions
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+    ```typescript
+    import { GoogleGenAI } from "@google/genai";
+    import { tracedGemini } from "mlflow-gemini";
+
+    const client = tracedGemini(new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }));
+
+    const response = await client.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: "What is the capital of France?"
+    });
+    ```
+
+  </TabItem>
+</Tabs>
+
+## Multi-turn chat interactions
 
 MLflow support tracing multi-turn conversations with Gemini:
 
-```
+```python
 import mlflow
 
 mlflow.gemini.autolog()
 
-chat = client.chats.create(model='gemini-1.5-flash')
-response = chat.send_message("In one sentence, explain how a computer works to a young child.")
+chat = client.chats.create(model="gemini-1.5-flash")
+response = chat.send_message(
+    "In one sentence, explain how a computer works to a young child."
+)
 print(response.text)
-response = chat.send_message("Okay, how about a more detailed explanation to a high schooler?")
+response = chat.send_message(
+    "Okay, how about a more detailed explanation to a high schooler?"
+)
 print(response.text)
 ```
 
-### Async
+## Async
 
 MLflow Tracing supports asynchronous API of the Gemini SDK since MLflow 3.2.0. The usage is same as the synchronous API.
 
-```python
-# Configure the SDK with your API key.
-client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+<Tabs>
+  <TabItem value="python" label="Python" default>
+    ```python
+    # Configure the SDK with your API key.
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
-# Async API is invoked through the `aio` namespace.
-response = await client.aio.models.generate_content(
-    model="gemini-1.5-flash", contents="The opposite of hot is"
-)
-```
+    # Async API is invoked through the `aio` namespace.
+    response = await client.aio.models.generate_content(
+        model="gemini-1.5-flash", contents="The opposite of hot is"
+    )
+    ```
 
-### Embeddings
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+    Gemini Typescript / Javascript SDK is natively async. See the basic example above.
+  </TabItem>
+</Tabs>
 
-MLflow Tracing for Gemini SDK supports embeddings API:
+## Embeddings
+
+MLflow Tracing for Gemini SDK supports embeddings API (Python only):
 
 ```python
 result = client.models.embed_content(model="text-embedding-004", contents="Hello world")
@@ -121,6 +245,9 @@ result = client.models.embed_content(model="text-embedding-004", contents="Hello
 
 MLflow >= 3.4.0 supports token usage tracking for Gemini. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
 available in the `token_usage` field of the trace info object.
+
+<Tabs>
+  <TabItem value="python" label="Python" default>
 
 ```python
 import json
@@ -155,6 +282,38 @@ for span in trace.data.spans:
         print(f"  Total tokens: {usage['total_tokens']}")
 ```
 
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+// After your Gemini call completes, flush and fetch the trace
+await mlflow.flushTraces();
+const lastTraceId = mlflow.getLastActiveTraceId();
+
+if (lastTraceId) {
+  const client = new mlflow.MlflowClient({ trackingUri: "http://localhost:5000" });
+  const trace = await client.getTrace(lastTraceId);
+
+  // Total token usage on the trace
+  console.log("== Total token usage: ==");
+  console.log(trace.info.tokenUsage); // { input_tokens, output_tokens, total_tokens }
+
+  // Per-span usage (if provided by the provider)
+  console.log("\n== Detailed usage for each LLM call: ==");
+  for (const span of trace.data.spans) {
+    const usage = span.attributes?.["mlflow.chat.tokenUsage"];
+    if (usage) {
+      console.log(`${span.name}:`, usage);
+    }
+  }
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ```bash
 == Total token usage: ==
   Input tokens: 5
@@ -172,6 +331,40 @@ Models._generate_content:
   Total tokens: 7
 ```
 
+Token usage tracking is supported for both Python and TypeScript/JavaScript implementations.
+
 ### Disable auto-tracing
 
 Auto tracing for Gemini can be disabled globally by calling `mlflow.gemini.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
+
+## Next steps
+
+<TilesGrid>
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Track User Feedback"
+    description="Record user feedback on traces for tracking user satisfaction."
+    href="/genai/tracing/collect-user-feedback"
+    linkText="Learn about feedback →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Manage Prompts"
+    description="Learn how to manage prompts with MLflow's prompt registry."
+    href="/genai/prompt-registry"
+    linkText="Manage prompts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Evaluate Traces"
+    description="Evaluate traces with LLM judges to understand and improve your AI application's behavior."
+    href="/genai/eval-monitor/running-evaluation/traces"
+    linkText="Evaluate traces →"
+    containerHeight={64}
+  />
+</TilesGrid>

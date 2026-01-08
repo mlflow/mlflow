@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, jest, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow } from 'enzyme';
 import { DeleteRunModalImpl } from './DeleteRunModal';
@@ -45,6 +46,7 @@ describe('MyComponent', () => {
       openErrorModal: jest.fn(),
       deleteRunApi: getMockDeleteRunApiFn(false, []),
       intl: { formatMessage: jest.fn() },
+      childRunIdsBySelectedParent: {},
     };
     wrapper = shallow(<DeleteRunModalImpl {...minimalProps} />);
   });
@@ -60,7 +62,7 @@ describe('MyComponent', () => {
     const deleteRunApi = getMockDeleteRunApiFn(false, deletedRunIds);
     wrapper = shallow(<DeleteRunModalImpl {...{ ...minimalProps, deleteRunApi }} />);
     instance = wrapper.instance();
-    instance.handleSubmit().then(() => {
+    instance.handleDeleteSelected().then(() => {
       expect(deletedRunIds).toEqual(minimalProps.selectedRunIds);
       done();
     });
@@ -72,9 +74,35 @@ describe('MyComponent', () => {
     const deleteRunApi = getMockDeleteRunApiFn(true, deletedRunIds);
     wrapper = shallow(<DeleteRunModalImpl {...{ ...minimalProps, deleteRunApi }} />);
     instance = wrapper.instance();
-    instance.handleSubmit().then(() => {
+    instance.handleDeleteSelected().then(() => {
       expect(deletedRunIds).toEqual([]);
       expect(minimalProps.openErrorModal).toHaveBeenCalled();
+      done();
+    });
+  });
+
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should delete child runs when selected', (done) => {
+    const deletedRunIds: any = [];
+    const deleteRunApi = getMockDeleteRunApiFn(false, deletedRunIds);
+    const childRunIdsBySelectedParent = { runId0: ['childRun1', 'childRun2'] };
+    wrapper = shallow(<DeleteRunModalImpl {...{ ...minimalProps, deleteRunApi, childRunIdsBySelectedParent }} />);
+    instance = wrapper.instance();
+    instance.handleDeleteWithChildren().then(() => {
+      expect(deletedRunIds).toEqual(['runId0', 'runId1', 'childRun1', 'childRun2']);
+      done();
+    });
+  });
+
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should not duplicate already selected child runs', (done) => {
+    const deletedRunIds: any = [];
+    const deleteRunApi = getMockDeleteRunApiFn(false, deletedRunIds);
+    const childRunIdsBySelectedParent = { runId0: ['runId1'] };
+    wrapper = shallow(<DeleteRunModalImpl {...{ ...minimalProps, deleteRunApi, childRunIdsBySelectedParent }} />);
+    instance = wrapper.instance();
+    instance.handleDeleteWithChildren().then(() => {
+      expect(deletedRunIds).toEqual(['runId0', 'runId1']);
       done();
     });
   });

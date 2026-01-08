@@ -20,8 +20,12 @@ import {
   USER_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
   SOURCE_COLUMN_ID,
   CUSTOM_METADATA_COLUMN_ID,
+  SPAN_NAME_COLUMN_ID,
+  SPAN_TYPE_COLUMN_ID,
+  SPAN_CONTENT_COLUMN_ID,
 } from '../../hooks/useTableColumns';
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnGroupToLabelMap } from '../../types';
 import type {
@@ -39,8 +43,32 @@ const FILTERABLE_INFO_COLUMNS = [
   USER_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
   SOURCE_COLUMN_ID,
 ];
+
+const getAvailableOperators = (column: string, key?: string): FilterOperator[] => {
+  if (column === EXECUTION_DURATION_COLUMN_ID) {
+    return [
+      FilterOperator.EQUALS,
+      FilterOperator.NOT_EQUALS,
+      FilterOperator.GREATER_THAN,
+      FilterOperator.LESS_THAN,
+      FilterOperator.GREATER_THAN_OR_EQUALS,
+      FilterOperator.LESS_THAN_OR_EQUALS,
+    ];
+  }
+
+  if (column === SPAN_NAME_COLUMN_ID || column === SPAN_TYPE_COLUMN_ID) {
+    return [FilterOperator.EQUALS, FilterOperator.NOT_EQUALS, FilterOperator.CONTAINS];
+  }
+
+  if (column === SPAN_CONTENT_COLUMN_ID) {
+    return [FilterOperator.CONTAINS];
+  }
+
+  return [FilterOperator.EQUALS];
+};
 
 export const TableFilterItem = ({
   tableFilter,
@@ -51,6 +79,7 @@ export const TableFilterItem = ({
   experimentId,
   tableFilterOptions,
   allColumns,
+  usesV4APIs,
 }: {
   tableFilter: TableFilter;
   index: number;
@@ -60,6 +89,7 @@ export const TableFilterItem = ({
   experimentId: string;
   tableFilterOptions: TableFilterOptions;
   allColumns: TracesTableColumn[];
+  usesV4APIs?: boolean;
 }) => {
   const { column, operator, key } = tableFilter;
   const { theme } = useDesignSystemTheme();
@@ -78,7 +108,7 @@ export const TableFilterItem = ({
       .filter(
         (column) => FILTERABLE_INFO_COLUMNS.includes(column.id) || column.id.startsWith(CUSTOM_METADATA_COLUMN_ID),
       )
-      .map((column) => ({ value: column.id, renderValue: () => column.label }));
+      .map((column) => ({ value: column.id, renderValue: () => column.filterLabel ?? column.label }));
 
     // Add the tag and assessment column groups
     result.push(
@@ -91,8 +121,20 @@ export const TableFilterItem = ({
         renderValue: () => TracesTableColumnGroupToLabelMap[TracesTableColumnGroup.ASSESSMENT],
       },
     );
+
+    // Add individual span filter options
+    if (usesV4APIs) {
+      result.push(
+        // TODO: Added via UI sync, but doesn't work in databricks yet. Uncomment
+        // these when the search API supports them
+        { value: SPAN_CONTENT_COLUMN_ID, renderValue: () => 'Span content' },
+        { value: SPAN_NAME_COLUMN_ID, renderValue: () => 'Span name' },
+        { value: SPAN_TYPE_COLUMN_ID, renderValue: () => 'Span type' },
+      );
+    }
+
     return result;
-  }, [allColumns]);
+  }, [allColumns, usesV4APIs]);
 
   return (
     <>
@@ -111,7 +153,7 @@ export const TableFilterItem = ({
         >
           <FormUI.Label htmlFor={`filter-column-${index}`}>
             <FormattedMessage
-              defaultMessage="Column"
+              defaultMessage="Field"
               description="Label for the column field in the GenAI Traces Table Filter form"
             />
           </FormUI.Label>
@@ -121,12 +163,12 @@ export const TableFilterItem = ({
             options={columnOptions}
             onChange={(value: string) => {
               if (value !== column) {
-                // Clear other fields as well on column change
-                onChange({ column: value, operator: FilterOperator.EQUALS, value: '' }, index);
+                const defaultOperator = getAvailableOperators(value)[0];
+                onChange({ column: value, operator: defaultOperator, value: '' }, index);
               }
             }}
             placeholder="Select column"
-            width={160}
+            width={180}
             canSearchCustomValue={false}
           />
         </div>
@@ -195,29 +237,33 @@ export const TableFilterItem = ({
               description="Label for the operator field in the GenAI Traces Table Filter form"
             />
           </FormUI.Label>
-          <SimpleSelect
-            aria-label="Operator"
-            componentId="mlflow.evaluations_review.table_ui.filter_operator"
-            id={'filter-operator-' + index}
-            placeholder="Select"
-            width={100}
-            contentProps={{
-              // Set the z-index to be higher than the Popover
-              style: { zIndex: theme.options.zIndexBase + 100 },
-            }}
-            // Currently only executionTime supports other operators
-            value={column === '' || column === EXECUTION_DURATION_COLUMN_ID ? operator : '='}
-            disabled={column !== '' && column !== EXECUTION_DURATION_COLUMN_ID}
-            onChange={(e) => {
-              onChange({ ...tableFilter, operator: e.target.value as FilterOperator }, index);
-            }}
-          >
-            {(Object.values(FilterOperator) as string[]).map((op) => (
-              <SimpleSelectOption key={op} value={op}>
-                {op}
-              </SimpleSelectOption>
-            ))}
-          </SimpleSelect>
+          {(() => {
+            const isOperatorSelectorDisabled = column !== '' && getAvailableOperators(column, key).length === 1;
+            return (
+              <SimpleSelect
+                aria-label="Operator"
+                componentId="mlflow.evaluations_review.table_ui.filter_operator"
+                id={'filter-operator-' + index}
+                placeholder="Select"
+                width={120}
+                contentProps={{
+                  // Set the z-index to be higher than the Popover
+                  style: { zIndex: theme.options.zIndexBase + 100 },
+                }}
+                value={!isOperatorSelectorDisabled ? operator : getAvailableOperators(column, key)[0]}
+                disabled={isOperatorSelectorDisabled}
+                onChange={(e) => {
+                  onChange({ ...tableFilter, operator: e.target.value as FilterOperator }, index);
+                }}
+              >
+                {getAvailableOperators(column, key).map((op) => (
+                  <SimpleSelectOption key={op} value={op}>
+                    {op}
+                  </SimpleSelectOption>
+                ))}
+              </SimpleSelect>
+            );
+          })()}
         </div>
         <div
           css={{

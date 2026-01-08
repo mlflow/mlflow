@@ -354,7 +354,6 @@ can simply log a predict method via the keyword argument ``python_model``.
     prediction = model.predict(x_new)
     print(prediction)
 
-
 Class-based Model
 #################
 If you're looking to serialize a more complex object, for instance a class that handles
@@ -586,7 +585,6 @@ from mlflow.utils.model_utils import (
     _validate_pyfunc_model_config,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
-from mlflow.utils.pydantic_utils import model_dump_compat
 from mlflow.utils.requirements_utils import (
     _parse_requirements,
     warn_dependency_requirement_mismatches,
@@ -630,7 +628,6 @@ class EnvType:
 
 
 PY_VERSION = "python_version"
-
 
 _logger = logging.getLogger(__name__)
 
@@ -1771,8 +1768,8 @@ def _convert_struct_values(
                     ]
                 )
             else:
-                if isinstance(field_type, pydantic.BaseModel):
-                    field_values = model_dump_compat(field_values)
+                if isinstance(field_values, pydantic.BaseModel):
+                    field_values = field_values.model_dump()
                 field_values = _convert_struct_values(field_values, field_type)
         elif isinstance(field_type, MapType):
             if is_pandas_df:
@@ -2397,7 +2394,7 @@ def spark_udf(
     dbconnect_artifact_cache = DBConnectArtifactCache.get_or_create(spark)
 
     if use_dbconnect_artifact:
-        # Upload model artifacts and python environment to NFS as DBConncet artifacts.
+        # Upload model artifacts and python environment to NFS as DBConnect artifacts.
         if env_manager in (_EnvManager.VIRTUALENV, _EnvManager.UV):
             if not dbconnect_artifact_cache.has_cache_key(env_cache_key):
                 if prebuilt_env_uri:
@@ -2525,7 +2522,7 @@ e.g., struct<a:int, b:array<int>>.
                 and len(result) > 0
                 and isinstance(result[0], pydantic.BaseModel)
             ):
-                result = pandas.DataFrame([model_dump_compat(r) for r in result])
+                result = pandas.DataFrame([r.model_dump() for r in result])
             else:
                 result = pandas.DataFrame(result)
             return _convert_struct_values(result, result_type)
@@ -3175,7 +3172,7 @@ def save_model(
             )
     elif isinstance(python_model, ChatAgent):
         input_example = _save_model_chat_agent_helper(
-            python_model, mlflow_model, signature, input_example
+            python_model, mlflow_model, signature, input_example, artifacts, model_config
         )
     elif IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
         input_example = _save_model_responses_agent_helper(
@@ -3464,7 +3461,6 @@ def log_model(
                         python_model=MyModel(),
                     )
 
-
                 loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
                 print(loaded_model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
 
@@ -3488,7 +3484,6 @@ def log_model(
                     model_info = mlflow.pyfunc.log_model(
                         name="model", python_model=predict, input_example=["a"]
                     )
-
 
                 loaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
                 print(loaded_model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
@@ -3759,7 +3754,9 @@ def _save_model_with_loader_module_and_data_path(
     return mlflow_model
 
 
-def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_example):
+def _save_model_chat_agent_helper(
+    python_model, mlflow_model, signature, input_example, artifacts, model_config
+):
     """Helper method for save_model for ChatAgent models
 
     Returns: a dict input_example
@@ -3792,11 +3789,13 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
                 error_code=INTERNAL_ERROR,
             ) from e
         if isinstance(input_example, ChatAgentRequest):
-            input_example = input_example.model_dump_compat(exclude_none=True)
+            input_example = input_example.model_dump(exclude_none=True)
     else:
         input_example = CHAT_AGENT_INPUT_EXAMPLE
 
     _logger.info("Predicting on input example to validate output")
+    context = PythonModelContext(artifacts, model_config)
+    python_model.load_context(context)
     request = ChatAgentRequest(**input_example)
     output = python_model.predict(request.messages, request.context, request.custom_inputs)
     try:
@@ -3854,7 +3853,7 @@ def _save_model_responses_agent_helper(
                 error_code=INTERNAL_ERROR,
             ) from e
         if isinstance(input_example, ResponsesAgentRequest):
-            input_example = input_example.model_dump_compat(exclude_none=True)
+            input_example = input_example.model_dump(exclude_none=True)
     else:
         input_example = RESPONSES_AGENT_INPUT_EXAMPLE
     _logger.info("Predicting on input example to validate output")

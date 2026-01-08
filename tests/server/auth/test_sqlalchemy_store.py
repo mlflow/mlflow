@@ -7,7 +7,12 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
-from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPermission, User
+from mlflow.server.auth.entities import (
+    ExperimentPermission,
+    RegisteredModelPermission,
+    ScorerPermission,
+    User,
+)
 from mlflow.server.auth.permissions import (
     ALL_PERMISSIONS,
     EDIT,
@@ -38,6 +43,10 @@ def _ep_maker(store, experiment_id, username, permission):
 
 def _rmp_maker(store, name, username, permission):
     return store.create_registered_model_permission(name, username, permission)
+
+
+def _sp_maker(store, experiment_id, scorer_name, username, permission):
+    return store.create_scorer_permission(experiment_id, scorer_name, username, permission)
 
 
 def test_create_user(store):
@@ -454,3 +463,161 @@ def test_rename_registered_model_permission(store):
 
     assert perm_user_1.permission == MANAGE.name
     assert perm_user_2.permission == READ.name
+
+
+def test_create_scorer_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    scorer_name1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    sp1 = _sp_maker(store, experiment_id1, scorer_name1, username1, permission1)
+    assert sp1.experiment_id == experiment_id1
+    assert sp1.scorer_name == scorer_name1
+    assert sp1.user_id == user_id1
+    assert sp1.permission == permission1
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Scorer permission \(experiment_id={experiment_id1}, scorer_name={scorer_name1}, "
+        rf"username={username1}\) already exists",
+    ) as exception_context:
+        _sp_maker(store, experiment_id1, scorer_name1, username1, permission1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+
+    experiment_id2 = random_str()
+    sp2 = _sp_maker(store, experiment_id2, scorer_name1, username1, permission1)
+    assert sp2.experiment_id == experiment_id2
+    assert sp2.scorer_name == scorer_name1
+    assert sp2.user_id == user_id1
+    assert sp2.permission == permission1
+
+    for perm in ALL_PERMISSIONS:
+        experiment_id3 = random_str()
+        scorer_name3 = random_str()
+        sp3 = _sp_maker(store, experiment_id3, scorer_name3, username1, perm)
+        assert sp3.experiment_id == experiment_id3
+        assert sp3.scorer_name == scorer_name3
+        assert sp3.user_id == user_id1
+        assert sp3.permission == perm
+
+    experiment_id4 = random_str()
+    scorer_name4 = random_str()
+    with pytest.raises(MlflowException, match=r"Invalid permission") as exception_context:
+        _sp_maker(store, experiment_id4, scorer_name4, username1, "some_invalid_permission_string")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_get_scorer_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    scorer_name1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    _sp_maker(store, experiment_id1, scorer_name1, username1, permission1)
+    sp1 = store.get_scorer_permission(experiment_id1, scorer_name1, username1)
+    assert sp1.experiment_id == experiment_id1
+    assert sp1.scorer_name == scorer_name1
+    assert sp1.user_id == user_id1
+    assert sp1.permission == permission1
+
+    experiment_id2 = random_str()
+    with pytest.raises(
+        MlflowException,
+        match=rf"Scorer permission with experiment_id={experiment_id2}, "
+        rf"scorer_name={scorer_name1}, and username={username1} not found",
+    ) as exception_context:
+        store.get_scorer_permission(experiment_id2, scorer_name1, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_list_scorer_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    scorer_name1 = random_str()
+    permission1 = READ.name
+    _sp_maker(store, experiment_id1, scorer_name1, username1, permission1)
+
+    experiment_id2 = random_str()
+    scorer_name2 = random_str()
+    permission2 = EDIT.name
+    _sp_maker(store, experiment_id2, scorer_name2, username1, permission2)
+
+    sps = store.list_scorer_permissions(username1)
+    assert len(sps) == 2
+    assert isinstance(sps[0], ScorerPermission)
+    assert isinstance(sps[1], ScorerPermission)
+
+
+def test_update_scorer_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    scorer_name1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    _sp_maker(store, experiment_id1, scorer_name1, username1, permission1)
+
+    permission2 = MANAGE.name
+    sp2 = store.update_scorer_permission(experiment_id1, scorer_name1, username1, permission2)
+    assert sp2.experiment_id == experiment_id1
+    assert sp2.scorer_name == scorer_name1
+    assert sp2.user_id == user_id1
+    assert sp2.permission == permission2
+
+
+def test_delete_scorer_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    scorer_name1 = random_str()
+    permission1 = READ.name
+    _sp_maker(store, experiment_id1, scorer_name1, username1, permission1)
+
+    store.delete_scorer_permission(experiment_id1, scorer_name1, username1)
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Scorer permission with experiment_id={experiment_id1}, "
+        rf"scorer_name={scorer_name1}, and username={username1} not found",
+    ) as exception_context:
+        store.get_scorer_permission(experiment_id1, scorer_name1, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_delete_scorer_permissions_for_scorer(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    username2 = random_str()
+    password2 = random_str()
+    _user_maker(store, username2, password2)
+
+    experiment_id1 = random_str()
+    scorer_name1 = random_str()
+    _sp_maker(store, experiment_id1, scorer_name1, username1, MANAGE.name)
+    _sp_maker(store, experiment_id1, scorer_name1, username2, READ.name)
+
+    store.delete_scorer_permissions_for_scorer(experiment_id1, scorer_name1)
+
+    with pytest.raises(MlflowException, match=r"not found") as exception_context:
+        store.get_scorer_permission(experiment_id1, scorer_name1, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    with pytest.raises(MlflowException, match=r"not found") as exception_context:
+        store.get_scorer_permission(experiment_id1, scorer_name1, username2)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)

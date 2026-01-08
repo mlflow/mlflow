@@ -4,7 +4,6 @@ import numpy as np
 import optuna
 import pytest
 import setfit
-import sklearn
 import sklearn.cluster
 import sklearn.datasets
 import torch

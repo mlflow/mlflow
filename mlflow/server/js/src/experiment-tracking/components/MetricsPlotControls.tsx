@@ -6,9 +6,10 @@
  */
 
 import React from 'react';
-import { Button, LegacySelect, Switch, LegacyTooltip, Radio, QuestionMarkIcon } from '@databricks/design-system';
+import { Button, LegacySelect, Switch, Tooltip, Radio, QuestionMarkIcon } from '@databricks/design-system';
 import { Progress } from '../../common/components/Progress';
-import { CHART_TYPE_LINE, METRICS_PLOT_POLLING_INTERVAL_MS } from './MetricsPlotPanel';
+import { CHART_TYPE_LINE } from './MetricsPlotPanel';
+import { EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL } from '../utils/MetricsUtils';
 
 import { FormattedMessage, injectIntl } from 'react-intl';
 import { LineSmoothSlider } from './LineSmoothSlider';
@@ -74,7 +75,7 @@ class MetricsPlotControlsImpl extends React.Component<Props> {
         // eslint-disable-next-line max-len
         defaultMessage="MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval."
         description="Helpful tooltip message to explain the automatic metrics plot update"
-        values={{ interval: Math.round(METRICS_PLOT_POLLING_INTERVAL_MS / 1000) }}
+        values={{ interval: Math.round(EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL / 1000) }}
       />
     );
     return (
@@ -90,9 +91,14 @@ class MetricsPlotControlsImpl extends React.Component<Props> {
                   defaultMessage="Completed Runs"
                   description="Label for the progress bar to show the number of completed runs"
                 />{' '}
-                <LegacyTooltip title={completedRunsTooltipText}>
-                  <QuestionMarkIcon />
-                </LegacyTooltip>
+                <Tooltip
+                  componentId="mlflow.experiment-tracking.metrics-plot-controls.reset"
+                  content={completedRunsTooltipText}
+                >
+                  <span>
+                    <QuestionMarkIcon />
+                  </span>
+                </Tooltip>
                 <Progress
                   percent={Math.round((100 * numCompletedRuns) / numRuns)}
                   format={() => `${numCompletedRuns}/${numRuns}`}
@@ -121,9 +127,14 @@ class MetricsPlotControlsImpl extends React.Component<Props> {
                     defaultMessage="Line Smoothness"
                     description="Label for the smoothness slider for the graph plot for metrics"
                   />{' '}
-                  <LegacyTooltip title={lineSmoothnessTooltipText}>
-                    <QuestionMarkIcon />
-                  </LegacyTooltip>
+                  <Tooltip
+                    componentId="mlflow.experiment-tracking.metrics-plot-controls.save"
+                    content={lineSmoothnessTooltipText}
+                  >
+                    <span>
+                      <QuestionMarkIcon />
+                    </span>
+                  </Tooltip>
                 </div>
                 <LineSmoothSlider
                   data-testid="smoothness-toggle"

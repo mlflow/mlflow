@@ -6,15 +6,13 @@ description: Complete workflow for developing, testing, and deploying custom LLM
 
 import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
-import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
-import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import DAGLoop from "@site/src/components/DAGLoop";
-import { Code, Brain, Zap, Target, Shield, ChartBar, FileText, RefreshCw, Users, Activity } from "lucide-react";
+import { Code, Brain, Target, Shield, ChartBar, FileText, RefreshCw, Users, Activity } from "lucide-react";
 
 # End-to-End Judge Workflow
 
@@ -86,6 +84,7 @@ This guide walks through the complete lifecycle of developing and optimizing cus
 Start by defining your evaluation criteria:
 
 ```python
+from typing import Literal
 import mlflow
 from mlflow.genai.judges import make_judge
 from mlflow.entities import AssessmentSource, AssessmentSourceType
@@ -110,6 +109,7 @@ support_judge = make_judge(
     Focus on {{ outputs }} responding to {{ inputs }}.
     """,
     model="anthropic:/claude-opus-4-1-20250805",
+    feedback_value_type=Literal["excellent", "good", "needs_improvement", "poor"],
 )
 ```
 
@@ -225,7 +225,7 @@ Use the SIMBA optimizer to improve judge accuracy:
 
 ```python
 # Retrieve traces with both judge and human assessments
-traces = mlflow.search_traces(experiment_ids=[experiment_id], return_type="list")
+traces = mlflow.search_traces(locations=[experiment_id], return_type="list")
 
 # Filter for traces with both assessments
 aligned_traces = []

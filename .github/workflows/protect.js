@@ -84,7 +84,10 @@ module.exports = async ({ github, context }) => {
         repo,
         head_sha: ref,
       })
-    ).filter(({ path }) => path !== ".github/workflows/protect.yml");
+    ).filter(
+      ({ path, conclusion }) =>
+        path !== ".github/workflows/protect.yml" && conclusion !== "cancelled"
+    );
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt
     const latestRuns = {};
@@ -121,31 +124,7 @@ module.exports = async ({ github, context }) => {
       }
     }
 
-    // Commit statues (e.g., CircleCI checks)
-    const commitStatuses = await github.paginate(github.rest.repos.listCommitStatusesForRef, {
-      owner,
-      repo,
-      ref,
-    });
-
-    const latestStatuses = {};
-    for (const status of commitStatuses) {
-      const { context } = status;
-      if (
-        !latestStatuses[context] ||
-        new Date(status.created_at) > new Date(latestStatuses[context].created_at)
-      ) {
-        latestStatuses[context] = status;
-      }
-    }
-
-    const statuses = Object.values(latestStatuses).map(({ context, state }) => ({
-      name: context,
-      status:
-        state === "pending" ? STATE.pending : state === "success" ? STATE.success : STATE.failure,
-    }));
-
-    return [...checks, ...runs, ...statuses].sort((a, b) => a.name.localeCompare(b.name));
+    return [...checks, ...runs].sort((a, b) => a.name.localeCompare(b.name));
   }
 
   const start = new Date();

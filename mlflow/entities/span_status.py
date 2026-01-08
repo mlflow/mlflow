@@ -18,25 +18,35 @@ class SpanStatusCode(str, Enum):
     OK = "OK"
     ERROR = "ERROR"
 
-    @staticmethod
-    def from_proto_status_code(status_code: str) -> SpanStatusCode:
+    def to_otel_proto_status_code_name(self) -> str:
         """
-        Convert a string status code to the corresponding SpanStatusCode enum value.
+        Convert the SpanStatusCode to the corresponding OpenTelemetry protobuf enum name.
         """
-        from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
+        proto_code = OtelStatus.StatusCode
+        mapping = {
+            SpanStatusCode.UNSET: proto_code.Name(proto_code.STATUS_CODE_UNSET),
+            SpanStatusCode.OK: proto_code.Name(proto_code.STATUS_CODE_OK),
+            SpanStatusCode.ERROR: proto_code.Name(proto_code.STATUS_CODE_ERROR),
+        }
+        return mapping[self]
 
-        proto_code = ProtoSpan.Status.StatusCode
-        status_code_mapping = {
+    @staticmethod
+    def from_otel_proto_status_code_name(status_code_name: str) -> SpanStatusCode:
+        """
+        Convert an OpenTelemetry protobuf enum name to the corresponding SpanStatusCode enum value.
+        """
+        proto_code = OtelStatus.StatusCode
+        mapping = {
             proto_code.Name(proto_code.STATUS_CODE_UNSET): SpanStatusCode.UNSET,
             proto_code.Name(proto_code.STATUS_CODE_OK): SpanStatusCode.OK,
             proto_code.Name(proto_code.STATUS_CODE_ERROR): SpanStatusCode.ERROR,
         }
         try:
-            return status_code_mapping[status_code]
+            return mapping[status_code_name]
         except KeyError:
             raise MlflowException(
-                f"Invalid status code: {status_code}. "
-                f"Valid values are: {', '.join(status_code_mapping.keys())}",
+                f"Invalid status code name: {status_code_name}. "
+                f"Valid values are: {', '.join(mapping.keys())}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

@@ -1,5 +1,3 @@
-"""Tests verifying that the SQLAlchemyStore generates the expected database schema"""
-
 import os
 import sqlite3
 
@@ -76,7 +74,6 @@ def test_sqlalchemystore_idempotently_generates_up_to_date_schema(
 
 
 def test_running_migrations_generates_expected_schema(tmp_path, expected_schema_file, db_url):
-    """Test that migrating an existing database generates the desired schema."""
     engine = sqlalchemy.create_engine(db_url)
     InitialBase.metadata.create_all(engine)
     invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
@@ -156,3 +153,34 @@ def test_index_for_dataset_tables(tmp_path, db_url):
             "index_inputs_destination_type_destination_id_source_type",
         }
         assert new_index_names.issubset(all_index_names)
+
+
+def test_secrets_and_endpoints_tables(tmp_path, db_url):
+    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        all_table_names = [r[0] for r in cursor.fetchall()]
+        expected_tables = {
+            "secrets",
+            "endpoints",
+            "model_definitions",
+            "endpoint_model_mappings",
+            "endpoint_bindings",
+        }
+        assert expected_tables.issubset(all_table_names)
+        cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+        all_index_names = [r[0] for r in cursor.fetchall()]
+        expected_indexes = {
+            "index_model_definitions_secret_id",
+            "index_model_definitions_provider",
+            "unique_model_definition_name",
+            "index_endpoint_model_mappings_endpoint_id",
+            "index_endpoint_model_mappings_model_definition_id",
+            "unique_endpoint_model_linkage_mapping",
+            # endpoint_bindings uses composite PK (endpoint_id, resource_type, resource_id)
+            # which serves as an implicit index
+            "unique_secret_name",
+            "unique_endpoint_name",
+        }
+        assert expected_indexes.issubset(all_index_names)

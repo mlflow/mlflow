@@ -6,6 +6,8 @@ import importlib
 import inspect
 import json
 import logging
+import os
+import warnings
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Callable, Generator, Literal
 
@@ -13,9 +15,10 @@ from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
 from mlflow.entities import NoOpSpan, SpanType, Trace
-from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan, create_mlflow_span
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.entities.trace_location import TraceLocationBase
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
@@ -28,20 +31,19 @@ from mlflow.tracing.constant import (
     SpanAttributeKey,
     TraceMetadataKey,
 )
-from mlflow.tracing.destination import TraceDestination
 from mlflow.tracing.provider import is_tracing_enabled, safe_set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
-    SPANS_COLUMN_NAME,
     TraceJSONEncoder,
     capture_function_input_args,
     encode_span_id,
     exclude_immutable_tags,
     get_otel_attribute,
 )
-from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
+from mlflow.tracing.utils.search import traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import deprecated_parameter
+from mlflow.utils.annotations import deprecated, deprecated_parameter
+from mlflow.utils.validation import _validate_list_param
 
 _logger = logging.getLogger(__name__)
 
@@ -64,7 +66,7 @@ def trace(
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
-    trace_destination: TraceDestination | None = None,
+    trace_destination: TraceLocationBase | None = None,
 ) -> Callable[..., Any]:
     """
     A decorator that creates a new span for the decorated function.
@@ -207,7 +209,7 @@ def _wrap_function(
     name: str | None = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
-    trace_destination: TraceDestination | None = None,
+    trace_destination: TraceLocationBase | None = None,
 ) -> Callable[..., Any]:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -246,7 +248,9 @@ def _wrap_function(
             # we return control to the coro (in particular, so that the __exit__'s
             # of start_span and OTel's use_span can execute).
             if exc_type is not None:
-                self.coro.throw(exc_type, exc_value, traceback)
+                if exc_value is None:
+                    exc_value = exc_type()
+                self.coro.throw(exc_value)
             self.coro.close()
 
     if inspect.iscoroutinefunction(fn):
@@ -269,7 +273,7 @@ def _wrap_generator(
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
-    trace_destination: TraceDestination | None = None,
+    trace_destination: TraceLocationBase | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
@@ -413,7 +417,7 @@ def start_span(
     name: str = "span",
     span_type: str | None = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
-    trace_destination: TraceDestination | None = None,
+    trace_destination: TraceLocationBase | None = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -481,10 +485,15 @@ def start_span(
 
         # Create a new MLflow span and register it to the in-memory trace manager
         request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
-        mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
+
+        # SpanProcessor should have already registered the span in the in-memory trace manager
+        trace_manager = InMemoryTraceManager.get_instance()
+        mlflow_span = trace_manager.get_span_from_id(
+            request_id, encode_span_id(otel_span.context.span_id)
+        )
+        mlflow_span.set_span_type(span_type)
         attributes = dict(attributes) if attributes is not None else {}
         mlflow_span.set_attributes(attributes)
-        InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
     except Exception:
         _logger.debug(f"Failed to start span {name}.", exc_info=True)
@@ -579,7 +588,12 @@ def start_span_no_context(
         else:
             trace_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
 
-        mlflow_span = create_mlflow_span(otel_span, trace_id, span_type)
+        # SpanProcessor should have already registered the span in the in-memory trace manager
+        trace_manager = InMemoryTraceManager.get_instance()
+        mlflow_span = trace_manager.get_span_from_id(
+            trace_id, encode_span_id(otel_span.context.span_id)
+        )
+        mlflow_span.set_span_type(span_type)
 
         # # If the span is a no-op span i.e. tracing is disabled, do nothing
         if isinstance(mlflow_span, NoOpSpan):
@@ -589,14 +603,10 @@ def start_span_no_context(
             mlflow_span.set_inputs(inputs)
         mlflow_span.set_attributes(attributes or {})
 
-        trace_manager = InMemoryTraceManager.get_instance()
         if tags := exclude_immutable_tags(tags or {}):
             # Update trace tags for trace in in-memory trace manager
             with trace_manager.get_trace(trace_id) as trace:
                 trace.info.tags.update(tags)
-
-        # Register new span in the in-memory trace manager
-        trace_manager.register_span(mlflow_span)
 
         return mlflow_span
     except Exception as e:
@@ -645,13 +655,14 @@ def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
     except MlflowException as e:
         if not silent:
             _logger.warning(
-                f"Failed to get trace from the tracking store: {e}"
+                f"Failed to get trace from the tracking store: {e} "
                 "For full traceback, set logging level to debug.",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
         return None
 
 
+@deprecated_parameter("experiment_ids", "locations")
 def search_traces(
     experiment_ids: list[str] | None = None,
     filter_string: str | None = None,
@@ -663,6 +674,7 @@ def search_traces(
     model_id: str | None = None,
     sql_warehouse_id: str | None = None,
     include_spans: bool = True,
+    locations: list[str] | None = None,
 ) -> "pandas.DataFrame" | list[Trace]:
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -674,13 +686,16 @@ def search_traces(
         function returns all results in memory and may not be suitable for large result sets.
 
     Args:
-        experiment_ids: List of experiment ids to scope the search. If not provided, the search
-            will be performed across the current active experiment.
+        experiment_ids: List of experiment ids to scope the search.
         filter_string: A search filter string.
         max_results: Maximum number of traces desired. If None, all traces matching the search
             expressions will be returned.
         order_by: List of order_by clauses.
-        extract_fields: Specify fields to extract from traces using the format
+        extract_fields:
+            .. deprecated:: 3.6.0
+                This parameter is deprecated and will be removed in a future version.
+
+            Specify fields to extract from traces using the format
             ``"span_name.[inputs|outputs].field_name"`` or ``"span_name.[inputs|outputs]"``.
 
             .. note::
@@ -722,12 +737,18 @@ def search_traces(
             - `"list"`: Returns a list of :py:class:`Trace <mlflow.entities.Trace>` objects.
 
         model_id: If specified, search traces associated with the given model ID.
-        sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-            searching traces in inference tables.
+        sql_warehouse_id: DEPRECATED. Use the `MLFLOW_TRACING_SQL_WAREHOUSE_ID` environment
+            variable instead. The ID of the SQL warehouse to use for
+            searching traces in inference tables or UC tables. Only used in Databricks.
 
         include_spans: If ``True``, include spans in the returned traces. Otherwise, only
             the trace metadata is returned, e.g., trace ID, start time, end time, etc,
             without any spans. Default to ``True``.
+
+        locations: A list of locations to search over. To search over experiments, provide
+            a list of experiment IDs. To search over UC tables on databricks, provide
+            a list of locations in the format `<catalog_name>.<schema_name>`.
+            If not provided, the search will be performed across the current active experiment.
 
     Returns:
         Traces that satisfy the search expressions. Either as a list of
@@ -784,6 +805,21 @@ def search_traces(
     """
     from mlflow.tracking.fluent import _get_experiment_id
 
+    if sql_warehouse_id is not None:
+        warnings.warn(
+            "The `sql_warehouse_id` parameter is deprecated. Please use the "
+            "`MLFLOW_TRACING_SQL_WAREHOUSE_ID` environment variable instead.",
+            category=FutureWarning,
+        )
+        os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] = sql_warehouse_id
+
+    if extract_fields is not None:
+        warnings.warn(
+            "The `extract_fields` parameter is deprecated and will be removed in a future version.",
+            category=FutureWarning,
+            stacklevel=2,
+        )
+
     # Default to "pandas" only if the pandas library is installed
     if return_type is None:
         try:
@@ -811,13 +847,17 @@ def search_traces(
                 ),
             )
 
-    if not experiment_ids:
+    _validate_list_param("locations", locations, allow_none=True)
+
+    if not experiment_ids and not locations:
+        _logger.debug("Searching traces in the current active experiment")
+
         if experiment_id := _get_experiment_id():
-            experiment_ids = [experiment_id]
+            locations = [experiment_id]
         else:
             raise MlflowException(
                 "No active experiment found. Set an experiment using `mlflow.set_experiment`, "
-                "or specify the list of experiment IDs in the `experiment_ids` parameter."
+                "or specify the list of experiment IDs in the `locations` parameter."
             )
 
     def pagination_wrapper_func(number_to_get, next_page_token):
@@ -829,8 +869,8 @@ def search_traces(
             order_by=order_by,
             page_token=next_page_token,
             model_id=model_id,
-            sql_warehouse_id=sql_warehouse_id,
             include_spans=include_spans,
+            locations=locations,
         )
 
     results = get_results_from_paginated_fn(
@@ -840,13 +880,7 @@ def search_traces(
     )
 
     if return_type == "pandas":
-        results = traces_to_df(results)
-        if extract_fields:
-            results = extract_span_inputs_outputs(
-                traces=results,
-                fields=extract_fields,
-                col_name=SPANS_COLUMN_NAME,
-            )
+        results = traces_to_df(results, extract_fields=extract_fields)
 
     return results
 
@@ -916,8 +950,7 @@ def get_active_trace_id() -> str | None:
     Returns:
         The ID of the current active trace if exists, otherwise None.
     """
-    active_span = get_current_active_span()
-    if active_span:
+    if active_span := get_current_active_span():
         return active_span.trace_id
     return None
 
@@ -1090,8 +1123,7 @@ def update_current_trace(
         return
 
     def _warn_non_string_values(d: dict[str, Any], field_name: str):
-        non_string_items = {k: v for k, v in d.items() if not isinstance(v, str)}
-        if non_string_items:
+        if non_string_items := {k: v for k, v in d.items() if not isinstance(v, str)}:
             _logger.warning(
                 f"Found non-string values in {field_name}. Non-string values in {field_name} will "
                 f"automatically be stringified when the trace is logged. Non-string items: "
@@ -1301,7 +1333,10 @@ def add_trace(trace: Trace | dict[str, Any], target: LiveSpan | None = None):
                 for k, v in remote_root_span.attributes.items()
                 if k != SpanAttributeKey.REQUEST_ID
             },
-            start_time_ns=remote_root_span.start_time_ns,
+            # ensure this span has a smaller start time than the remote trace
+            # so when it's loaded the order is correct when sorting by start time
+            # TODO: deprecate this function once we fully support OTel traces
+            start_time_ns=remote_root_span.start_time_ns - 1,
         )
         _merge_trace(
             trace=trace,
@@ -1315,6 +1350,8 @@ def add_trace(trace: Trace | dict[str, Any], target: LiveSpan | None = None):
         )
 
 
+# TODO: remove this function in 3.7.0
+@deprecated(since="3.6.0")
 def log_trace(
     name: str = "Task",
     request: Any | None = None,
@@ -1435,12 +1472,14 @@ def _merge_trace(
             otel_trace_id=new_trace_id,
         )
         trace_manager.register_span(cloned_span)
+        # end the cloned span to ensure it's processed by the exporter
+        cloned_span.end(end_time_ns=span.end_time_ns)
 
     # Merge the tags and metadata from the child trace to the parent trace.
     with trace_manager.get_trace(target_trace_id) as parent_trace:
         # Order of merging is important to ensure the parent trace's metadata is
         # not overwritten by the child trace's metadata if they have the same key.
-        parent_trace.info.tags = {**trace.info.tags, **parent_trace.info.tags}
+        parent_trace.info.tags = trace.info.tags | parent_trace.info.tags
         parent_trace.info.trace_metadata = {
             **trace.info.request_metadata,
             **parent_trace.info.trace_metadata,

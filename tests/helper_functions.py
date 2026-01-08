@@ -43,7 +43,7 @@ def get_safe_port():
 
 
 def random_int(lo=1, hi=1e10):
-    return random.randint(lo, hi)
+    return random.randint(int(lo), int(hi))
 
 
 def random_str(size=12):
@@ -120,8 +120,7 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
         "-d",
         output_directory,
     ]
-    mlflow_home = os.environ.get("MLFLOW_HOME")
-    if mlflow_home:
+    if mlflow_home := os.environ.get("MLFLOW_HOME"):
         cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args

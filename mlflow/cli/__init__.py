@@ -24,9 +24,16 @@ from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT
 from mlflow.exceptions import InvalidUrlException, MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.tracking import DEFAULT_ARTIFACTS_URI, DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.tracking import (
+    DEFAULT_ARTIFACTS_URI,
+    DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+)
 from mlflow.tracking import _get_store
-from mlflow.tracking._tracking_service.utils import is_tracking_uri_set, set_tracking_uri
+from mlflow.tracking._tracking_service.utils import (
+    _get_default_tracking_uri,
+    is_tracking_uri_set,
+    set_tracking_uri,
+)
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.os import is_windows
@@ -276,14 +283,23 @@ def _user_args_to_dict(arguments, argument_type="P"):
     return user_dict
 
 
-def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None, uvicorn_opts=None):
+def _validate_server_args(
+    ctx=None,
+    gunicorn_opts=None,
+    workers=None,
+    waitress_opts=None,
+    uvicorn_opts=None,
+    allowed_hosts=None,
+    cors_allowed_origins=None,
+    x_frame_options=None,
+    disable_security_middleware=None,
+):
     if sys.platform == "win32":
         if gunicorn_opts is not None:
             raise NotImplementedError(
                 "gunicorn is not supported on Windows, cannot specify --gunicorn-opts"
             )
 
-    # Check for conflicting options
     num_server_opts_specified = sum(
         1 for opt in [gunicorn_opts, waitress_opts, uvicorn_opts] if opt is not None
     )
@@ -291,6 +307,33 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None, 
         raise click.UsageError(
             "Cannot specify multiple server options. Choose one of: "
             "'--gunicorn-opts', '--waitress-opts', or '--uvicorn-opts'."
+        )
+
+    using_flask_only = gunicorn_opts is not None or waitress_opts is not None
+    # NB: Only check for security params that are explicitly passed via CLI (not env vars)
+    # This allows Docker containers to set env vars while using gunicorn
+    from click.core import ParameterSource
+
+    security_params_specified = False
+    if ctx:
+        security_params_specified = any(
+            [
+                ctx.get_parameter_source("allowed_hosts") == ParameterSource.COMMANDLINE,
+                ctx.get_parameter_source("cors_allowed_origins") == ParameterSource.COMMANDLINE,
+                (
+                    ctx.get_parameter_source("disable_security_middleware")
+                    == ParameterSource.COMMANDLINE
+                ),
+            ]
+        )
+
+    if using_flask_only and security_params_specified:
+        raise click.UsageError(
+            "Security middleware parameters (--allowed-hosts, --cors-allowed-origins, "
+            "--disable-security-middleware) are only supported with "
+            "the default uvicorn server. They cannot be used with --gunicorn-opts or "
+            "--waitress-opts. To use security features, run without specifying a server "
+            "option (uses uvicorn by default) or explicitly use --uvicorn-opts."
         )
 
 
@@ -314,7 +357,7 @@ def _validate_static_prefix(ctx, param, value):
     "--backend-store-uri",
     envvar="MLFLOW_BACKEND_STORE_URI",
     metavar="PATH",
-    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    default=None,
     help="URI to which to persist experiment and run data. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
@@ -359,6 +402,10 @@ def _validate_static_prefix(ctx, param, value):
 @cli_args.HOST
 @cli_args.PORT
 @cli_args.WORKERS
+@cli_args.ALLOWED_HOSTS
+@cli_args.CORS_ALLOWED_ORIGINS
+@cli_args.DISABLE_SECURITY_MIDDLEWARE
+@cli_args.X_FRAME_OPTIONS
 @click.option(
     "--static-prefix",
     envvar="MLFLOW_STATIC_PREFIX",
@@ -411,6 +458,30 @@ def _validate_static_prefix(ctx, param, value):
         "Unsupported on Windows."
     ),
 )
+@click.option(
+    "--secrets-cache-ttl",
+    type=click.IntRange(10, 300),
+    default=60,
+    show_default=True,
+    help=(
+        "Server-side secrets cache time-to-live in seconds. "
+        "Controls how long decrypted secrets are cached in memory (encrypted with AES-GCM-256). "
+        "Lower values (10-30s) are more secure but impact performance. "
+        "Higher values (120-300s) improve performance but increase exposure window. "
+        "Range: 10-300 seconds."
+    ),
+)
+@click.option(
+    "--secrets-cache-max-size",
+    type=click.IntRange(1, 10000),
+    default=1000,
+    show_default=True,
+    help=(
+        "Server-side secrets cache maximum entries. "
+        "When exceeded, least recently used entries are evicted. "
+        "Range: 1-10000 entries."
+    ),
+)
 def server(
     ctx,
     backend_store_uri,
@@ -422,6 +493,10 @@ def server(
     host,
     port,
     workers,
+    allowed_hosts,
+    cors_allowed_origins,
+    disable_security_middleware,
+    x_frame_options,
     static_prefix,
     gunicorn_opts,
     waitress_opts,
@@ -429,14 +504,19 @@ def server(
     app_name,
     dev,
     uvicorn_opts,
+    secrets_cache_ttl,
+    secrets_cache_max_size,
 ):
     """
-    Run the MLflow tracking server.
+    Run the MLflow tracking server with built-in security middleware.
 
     The server listens on http://localhost:5000 by default and only accepts connections
     from the local machine. To let the server accept connections from other machines, you will need
     to pass ``--host 0.0.0.0`` to listen on all network interfaces
     (or a specific interface address).
+
+    See https://mlflow.org/docs/latest/tracking/server-security.html for detailed documentation
+    and guidance on security configurations for the MLflow tracking server.
     """
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores
@@ -457,35 +537,90 @@ def server(
                 "is only supported for the default MLflow tracking server."
             )
 
-        # In dev mode, use uvicorn with reload and debug logging
         uvicorn_opts = "--reload --log-level debug"
 
     _validate_server_args(
+        ctx=ctx,
         gunicorn_opts=gunicorn_opts,
         workers=workers,
         waitress_opts=waitress_opts,
         uvicorn_opts=uvicorn_opts,
+        allowed_hosts=allowed_hosts,
+        cors_allowed_origins=cors_allowed_origins,
+        x_frame_options=x_frame_options,
+        disable_security_middleware=disable_security_middleware,
     )
 
-    # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
-    if not backend_store_uri:
-        backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+    if disable_security_middleware:
+        os.environ["MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE"] = "true"
+    else:
+        if allowed_hosts:
+            os.environ["MLFLOW_SERVER_ALLOWED_HOSTS"] = allowed_hosts
+            if allowed_hosts == "*":
+                click.echo(
+                    "WARNING: Accepting ALL hosts. "
+                    "This may leave the server vulnerable to DNS rebinding attacks."
+                )
 
-    # the default setting of registry_store_uri is same as backend_store_uri
+        if cors_allowed_origins:
+            os.environ["MLFLOW_SERVER_CORS_ALLOWED_ORIGINS"] = cors_allowed_origins
+            if cors_allowed_origins == "*":
+                click.echo(
+                    "WARNING: Allowing ALL origins for CORS. "
+                    "This allows ANY website to access your MLflow data. "
+                    "This configuration is only recommended for local development."
+                )
+
+        if x_frame_options:
+            os.environ["MLFLOW_SERVER_X_FRAME_OPTIONS"] = x_frame_options
+
+    if not backend_store_uri:
+        backend_store_uri = _get_default_tracking_uri()
+        click.echo(f"Backend store URI not provided. Using {backend_store_uri}")
+
     if not registry_store_uri:
         registry_store_uri = backend_store_uri
+        click.echo("Registry store URI not provided. Using backend store URI.")
 
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
     artifacts_only_config_validation(artifacts_only, backend_store_uri)
 
-    try:
-        initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
-    except Exception as e:
-        _logger.error("Error initializing backend store")
-        _logger.exception(e)
-        sys.exit(1)
+    if not artifacts_only:
+        try:
+            initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
+        except Exception as e:
+            _logger.error("Error initializing backend store")
+            _logger.exception(e)
+            sys.exit(1)
+
+    if disable_security_middleware:
+        click.echo(
+            "[MLflow] WARNING: Security middleware is DISABLED. "
+            "Your MLflow server is vulnerable to various attacks.",
+            err=True,
+        )
+    elif not allowed_hosts and not cors_allowed_origins:
+        click.echo(
+            "[MLflow] Security middleware enabled with default settings (localhost-only). "
+            "To allow connections from other hosts, use --host 0.0.0.0 and configure "
+            "--allowed-hosts and --cors-allowed-origins.",
+            err=True,
+        )
+    else:
+        parts = ["[MLflow] Security middleware enabled"]
+        if allowed_hosts:
+            hosts_list = allowed_hosts.split(",")[:3]
+            if len(allowed_hosts.split(",")) > 3:
+                hosts_list.append(f"and {len(allowed_hosts.split(',')) - 3} more")
+            parts.append(f"Allowed hosts: {', '.join(hosts_list)}")
+        if cors_allowed_origins:
+            origins_list = cors_allowed_origins.split(",")[:3]
+            if len(cors_allowed_origins.split(",")) > 3:
+                origins_list.append(f"and {len(cors_allowed_origins.split(',')) - 3} more")
+            parts.append(f"CORS origins: {', '.join(origins_list)}")
+        click.echo(". ".join(parts) + ".", err=True)
 
     try:
         _run_server(
@@ -505,6 +640,8 @@ def server(
             app_name=app_name,
             uvicorn_opts=uvicorn_opts,
             env_file=env_file,
+            secrets_cache_ttl=secrets_cache_ttl,
+            secrets_cache_max_size=secrets_cache_max_size,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
@@ -522,7 +659,7 @@ def server(
 @click.option(
     "--backend-store-uri",
     metavar="PATH",
-    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    default=None,
     help="URI of the backend store from which to delete runs. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
@@ -556,11 +693,43 @@ def server(
     "experiments in the `deleted` lifecycle stage.",
 )
 @click.option(
+    "--logged-model-ids",
+    default=None,
+    help="Optional comma separated list of logged model IDs to be permanently deleted."
+    " If logged model IDs are not specified, data is removed for all logged models in the `deleted`"
+    " lifecycle stage.",
+)
+@click.option(
+    "--jobs",
+    is_flag=True,
+    default=False,
+    help="Enable job cleanup. Without this flag, no jobs will be deleted."
+    " When enabled, all jobs are deleted unless filtered by --older-than or --job-ids."
+    " This option only works with database backends.",
+)
+@click.option(
+    "--job-ids",
+    default=None,
+    help="Optional comma separated list of job IDs to be permanently deleted."
+    " Can be used with or without --jobs flag."
+    " If --older-than is also specified, only jobs matching both filters are deleted.",
+)
+@click.option(
     "--tracking-uri",
     default=os.environ.get("MLFLOW_TRACKING_URI"),
     help="Tracking URI to use for deleting 'deleted' runs e.g. http://127.0.0.1:8080",
 )
-def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment_ids, tracking_uri):
+def gc(
+    older_than,
+    backend_store_uri,
+    artifacts_destination,
+    run_ids,
+    experiment_ids,
+    logged_model_ids,
+    jobs,
+    job_ids,
+    tracking_uri,
+):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
@@ -574,11 +743,54 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
         this command. Otherwise, the ``gc`` command will not be able to resolve
         artifact URIs and will not be able to delete the associated artifacts.
 
+    **What gets deleted:**
+
+    This command permanently removes:
+
+    - **Run metadata**: Parameters, metrics, tags, and all other run information from the
+      backend store
+    - **Artifacts**: All files stored in the run's artifact location (models, plots, data
+      files, etc.)
+    - **Experiment metadata**: When deleting experiments, removes the experiment record and
+      all associated data
+    - **Job records**: When using the --jobs flag, removes historical job records from the
+      jobs table
+
+    .. note::
+
+        This command only considers lifecycle stage and the specified deletion criteria.
+        It does **not** check for pinned runs, registered models, or tags. Pinning is a
+        UI-only feature that has no effect on garbage collection. Runs must be in the
+        `deleted` lifecycle stage before they can be permanently deleted.
+
+    **Examples:**
+
+    .. code-block:: bash
+
+        # Delete all runs that have been in the deleted state for more than 30 days
+        mlflow gc --older-than 30d
+
+        # Delete specific runs by ID (they must be in deleted state)
+        mlflow gc --run-ids 'run1,run2,run3'
+
+        # Delete all runs in specific experiments (experiments must be in deleted state)
+        mlflow gc --experiment-ids 'exp1,exp2'
+
+        # Combine criteria: delete runs older than 7 days in specific experiments
+        mlflow gc --older-than 7d --experiment-ids 'exp1,exp2'
+
+        # Delete all finalized jobs older than 7 days (requires --jobs flag)
+        mlflow gc --jobs --older-than 7d
+
+        # Delete specific jobs by ID
+        mlflow gc --job-ids 'job1,job2,job3'
+
     """
     from mlflow.utils.time import get_current_time_millis
 
     backend_store = _get_store(backend_store_uri, artifacts_destination)
     skip_experiments = False
+    skip_logged_models = False
     if not hasattr(backend_store, "_hard_delete_run"):
         raise MlflowException(
             "This cli can only be used with a backend that allows hard-deleting runs"
@@ -592,6 +804,15 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
             stacklevel=2,
         )
         skip_experiments = True
+
+    if not hasattr(backend_store, "_hard_delete_logged_model"):
+        warnings.warn(
+            "The specified backend does not allow hard-deleting logged models. Logged models"
+            " will be skipped.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        skip_logged_models = True
 
     time_delta = 0
 
@@ -621,6 +842,19 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
 
     deleted_run_ids_older_than = backend_store._get_deleted_runs(older_than=time_delta)
     run_ids = run_ids.split(",") if run_ids else deleted_run_ids_older_than
+
+    deleted_logged_model_ids = (
+        backend_store._get_deleted_logged_models() if not skip_logged_models else []
+    )
+
+    deleted_logged_model_ids_older_than = (
+        backend_store._get_deleted_logged_models(older_than=time_delta)
+        if not skip_logged_models
+        else []
+    )
+    logged_model_ids = (
+        logged_model_ids.split(",") if logged_model_ids else deleted_logged_model_ids_older_than
+    )
 
     time_threshold = get_current_time_millis() - time_delta
     if not skip_experiments:
@@ -698,6 +932,7 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
                 error_code=INVALID_PARAMETER_VALUE,
             )
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
+
         try:
             artifact_repo.delete_artifacts()
         except InvalidUrlException as iue:
@@ -716,13 +951,71 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
                     fg="yellow",
                 ),
             )
+
         backend_store._hard_delete_run(run_id)
         click.echo(f"Run with ID {run_id} has been permanently deleted.")
+
+    if not skip_logged_models:
+        for model_id in set(logged_model_ids):
+            if model_id not in deleted_logged_model_ids:
+                raise MlflowException(
+                    f"Logged model {model_id} is not in `deleted` lifecycle stage. "
+                    "Only logged models in `deleted` lifecycle stage can be deleted."
+                )
+            if older_than and model_id not in deleted_logged_model_ids_older_than:
+                raise MlflowException(
+                    f"Logged model {model_id} is not older than the required age. "
+                    f"Only logged models older than {older_than} can be deleted.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            logged_model = backend_store.get_logged_model(model_id, allow_deleted=True)
+            artifact_repo = get_artifact_repository(logged_model.artifact_location)
+            try:
+                artifact_repo.delete_artifacts()
+            except InvalidUrlException as iue:
+                click.echo(
+                    click.style(
+                        f"An exception {iue!r} was raised during the deletion of a model artifact",
+                        fg="yellow",
+                    )
+                )
+                click.echo(
+                    click.style(
+                        f"Unable to resolve the provided artifact URL: '{artifact_repo}'. "
+                        "The gc process will continue and bypass artifact deletion. "
+                        "Please ensure that the artifact exists "
+                        "and consider manually deleting any unused artifacts. ",
+                        fg="yellow",
+                    ),
+                )
+            backend_store._hard_delete_logged_model(model_id)
+            click.echo(f"Logged model with ID {model_id} has been permanently deleted.")
 
     if not skip_experiments:
         for experiment_id in experiment_ids:
             backend_store._hard_delete_experiment(experiment_id)
             click.echo(f"Experiment with ID {experiment_id} has been permanently deleted.")
+
+    # Clean up jobs (only when --jobs flag is set or --job-ids are given and for database backends)
+    if jobs or job_ids:
+        from mlflow.utils.uri import extract_db_type_from_uri
+
+        store_uri = backend_store_uri or os.environ.get("MLFLOW_BACKEND_STORE_URI")
+        try:
+            extract_db_type_from_uri(store_uri)
+        except MlflowException:
+            # Not a database backend - skip job cleanup silently
+            pass
+        else:
+            from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+
+            job_store = SqlAlchemyJobStore(store_uri)
+
+            job_ids_list = job_ids.split(",") if job_ids else None
+
+            deleted_job_ids = job_store.delete_jobs(older_than=time_delta, job_ids=job_ids_list)
+            for job_id in deleted_job_ids:
+                click.echo(f"Job with ID {job_id} has been permanently deleted.")
 
 
 @cli.command(short_help="Prints out useful information for debugging issues with MLflow.")
@@ -749,6 +1042,11 @@ cli.add_command(mlflow.db.commands)
 from mlflow.cli import traces
 
 cli.add_command(traces.commands)
+
+# Add scorers CLI commands
+from mlflow.cli import scorers
+
+cli.add_command(scorers.commands)
 
 # Add AI commands CLI
 cli.add_command(ai_commands.commands)
@@ -790,6 +1088,11 @@ with contextlib.suppress(ImportError):
 
     cli.add_command(mlflow.gateway.cli.commands)
 
+# Add crypto CLI commands
+with contextlib.suppress(ImportError):
+    from mlflow.cli import crypto
+
+    cli.add_command(crypto.commands)
 
 if __name__ == "__main__":
     cli()

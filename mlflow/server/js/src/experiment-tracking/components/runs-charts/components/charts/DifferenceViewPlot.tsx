@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   Button,
   ChevronDownIcon,
@@ -9,7 +10,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import type { CellContext, ColumnDef, ColumnDefTemplate, Row } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, getExpandedRowModel, useReactTable } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getExpandedRowModel } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
@@ -215,23 +216,26 @@ export const DifferenceViewPlot = ({
     tags: true,
   });
 
-  const table = useReactTable({
-    columns,
-    data: dataRows,
-    getCoreRowModel: getCoreRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
-    columnResizeMode: 'onChange',
-    enableExpanding: true,
-    getSubRows: (row) => row.children,
-    getRowId: (row) => row.key,
-    getRowCanExpand: (row) => Boolean(row.subRows.length),
-    state: {
-      expanded,
-      columnPinning: {
-        left: [DIFFERENCE_PLOT_EXPAND_COLUMN_ID, DIFFERENCE_PLOT_HEADING_COLUMN_ID],
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/components/runs-charts/components/charts/DifferenceViewPlot.tsx',
+    {
+      columns,
+      data: dataRows,
+      getCoreRowModel: getCoreRowModel(),
+      getExpandedRowModel: getExpandedRowModel(),
+      columnResizeMode: 'onChange',
+      enableExpanding: true,
+      getSubRows: (row) => row.children,
+      getRowId: (row) => row.key,
+      getRowCanExpand: (row) => Boolean(row.subRows.length),
+      state: {
+        expanded,
+        columnPinning: {
+          left: [DIFFERENCE_PLOT_EXPAND_COLUMN_ID, DIFFERENCE_PLOT_HEADING_COLUMN_ID],
+        },
       },
     },
-  });
+  );
 
   const tableContainerRef = useRef<HTMLDivElement>(null);
 

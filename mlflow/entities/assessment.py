@@ -15,7 +15,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
 from mlflow.protos.assessments_pb2 import Feedback as ProtoFeedback
-from mlflow.utils.annotations import experimental
 from mlflow.utils.exception_utils import get_stacktrace
 from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 
@@ -178,7 +177,6 @@ class Assessment(_MlflowObject):
 DEFAULT_FEEDBACK_NAME = "feedback"
 
 
-@experimental(version="3.0.0")
 @dataclass
 class Feedback(Assessment):
     """
@@ -233,7 +231,7 @@ class Feedback(Assessment):
         self,
         name: str = DEFAULT_FEEDBACK_NAME,
         value: FeedbackValueType | None = None,
-        error: Exception | AssessmentError | None = None,
+        error: Exception | AssessmentError | str | None = None,
         source: AssessmentSource | None = None,
         trace_id: str | None = None,
         metadata: dict[str, str] | None = None,
@@ -258,6 +256,17 @@ class Feedback(Assessment):
                 error_message=str(error),
                 error_code=error.__class__.__name__,
                 stack_trace=get_stacktrace(error),
+            )
+        elif isinstance(error, str):
+            # Convert string errors to AssessmentError objects
+            error = AssessmentError(
+                error_message=error,
+                error_code="ASSESSMENT_ERROR",
+            )
+        elif error is not None and not isinstance(error, AssessmentError):
+            # Handle any other unexpected types
+            raise MlflowException.invalid_parameter_value(
+                f"'error' must be an Exception, AssessmentError, or string. Got: {type(error)}"
             )
 
         super().__init__(
@@ -285,11 +294,13 @@ class Feedback(Assessment):
 
     @classmethod
     def from_proto(cls, proto):
+        from mlflow.utils.databricks_tracing_utils import get_trace_id_from_assessment_proto
+
         # Convert ScalarMapContainer to a normal Python dict
         metadata = dict(proto.metadata) if proto.metadata else None
         feedback_value = FeedbackValue.from_proto(proto.feedback)
         feedback = cls(
-            trace_id=proto.trace_id,
+            trace_id=get_trace_id_from_assessment_proto(proto),
             name=proto.assessment_name,
             source=AssessmentSource.from_proto(proto.source),
             create_time_ms=proto.create_time.ToMilliseconds(),
@@ -421,11 +432,13 @@ class Expectation(Assessment):
 
     @classmethod
     def from_proto(cls, proto) -> "Expectation":
+        from mlflow.utils.databricks_tracing_utils import get_trace_id_from_assessment_proto
+
         # Convert ScalarMapContainer to a normal Python dict
         metadata = dict(proto.metadata) if proto.metadata else None
         expectation_value = ExpectationValue.from_proto(proto.expectation)
         expectation = cls(
-            trace_id=proto.trace_id,
+            trace_id=get_trace_id_from_assessment_proto(proto),
             name=proto.assessment_name,
             source=AssessmentSource.from_proto(proto.source),
             create_time_ms=proto.create_time.ToMilliseconds(),
@@ -465,7 +478,6 @@ class Expectation(Assessment):
 _JSON_SERIALIZATION_FORMAT = "JSON_FORMAT"
 
 
-@experimental(version="3.0.0")
 @dataclass
 class ExpectationValue(_MlflowObject):
     """Represents an expectation value."""

@@ -2,41 +2,20 @@ import multiprocessing
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable
 
-from mlflow.entities import Feedback
+from mlflow.entities import Feedback, Trace
 from mlflow.entities.model_registry import PromptVersion
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated, experimental
 
 if TYPE_CHECKING:
     from mlflow.genai.optimize.optimizers import BasePromptOptimizer
 
 
-ObjectiveFn = Callable[[dict[str, bool | float | str | Feedback | list[Feedback]]], float]
+AggregationFn = Callable[[dict[str, bool | float | str | Feedback | list[Feedback]]], float]
 
 
-@experimental(version="3.0.0")
-@dataclass
-class PromptOptimizationResult:
-    """
-    Result of the :py:func:`mlflow.genai.optimize_prompt()` API.
-
-    Args:
-        prompt: The optimized prompt. When autolog=True (default), this is a
-            PromptVersion entity containing the registered optimized template.
-            When autolog=False, this is the raw optimized template (str or dict).
-        initial_prompt: A prompt version entity containing the initial template.
-        optimizer_name: The name of the optimizer.
-        final_eval_score: The final evaluation score of the optimized prompt.
-        initial_eval_score: The initial evaluation score of the optimized prompt.
-    """
-
-    prompt: str | dict[str, Any] | PromptVersion
-    initial_prompt: PromptVersion
-    optimizer_name: str
-    final_eval_score: float | None
-    initial_eval_score: float | None
-
-
-@experimental(version="3.0.0")
+@deprecated(
+    since="3.5.0",
+)
 @dataclass
 class LLMParams:
     """
@@ -58,7 +37,9 @@ class LLMParams:
     temperature: float | None = None
 
 
-@experimental(version="3.0.0")
+@deprecated(
+    since="3.5.0",
+)
 @dataclass
 class OptimizerConfig:
     """
@@ -68,7 +49,7 @@ class OptimizerConfig:
         num_instruction_candidates: Number of candidate instructions to generate
             during each optimization iteration. Higher values may lead to better
             results but increase optimization time. Default: 6
-        max_few_show_examples: Maximum number of examples to show in few-shot
+        max_few_shot_examples: Maximum number of examples to show in few-shot
             demonstrations. Default: 6
         num_threads: Number of threads to use for parallel optimization.
             Default: (number of CPU cores * 2 + 1)
@@ -91,7 +72,7 @@ class OptimizerConfig:
     """
 
     num_instruction_candidates: int = 6
-    max_few_show_examples: int = 6
+    max_few_shot_examples: int = 6
     num_threads: int = field(default_factory=lambda: (multiprocessing.cpu_count() or 1) * 2 + 1)
     optimizer_llm: LLMParams | None = None
     algorithm: str | type["BasePromptOptimizer"] = "DSPy/MIPROv2"
@@ -101,20 +82,63 @@ class OptimizerConfig:
     extract_instructions: bool = True
 
 
-@experimental(version="3.3.0")
-@dataclass(kw_only=True)
-class OptimizerOutput:
+@experimental(version="3.5.0")
+@dataclass
+class EvaluationResultRecord:
     """
-    Output of the `optimize` method of :py:class:`mlflow.genai.optimize.BasePromptOptimizer`.
+    The output type of `eval_fn` in the
+    :py:func:`mlflow.genai.optimize.BasePromptOptimizer.optimize()` API.
 
     Args:
-        optimized_prompt: The optimized prompt version entity.
-        optimizer_name: The name of the optimizer.
-        final_eval_score: The final evaluation score of the optimized prompt.
-        initial_eval_score: The initial evaluation score of the optimized prompt.
+        inputs: The inputs of the evaluation.
+        outputs: The outputs of the prediction function.
+        expectations: The expected outputs.
+        score: The score of the evaluation result.
+        trace: The trace of the evaluation execution.
+        rationales: The rationales of the evaluation result.
     """
 
-    optimized_prompt: str | dict[str, Any]
-    optimizer_name: str
-    final_eval_score: float | None = None
+    inputs: dict[str, Any]
+    outputs: Any
+    expectations: Any
+    score: float
+    trace: Trace
+    rationales: dict[str, str]
+
+
+@experimental(version="3.5.0")
+@dataclass
+class PromptOptimizerOutput:
+    """
+    An output of the :py:func:`mlflow.genai.optimize.BasePromptOptimizer.optimize()` API.
+
+    Args:
+        optimized_prompts: The optimized prompts as
+            a dict (prompt template name -> prompt template).
+            e.g., {"question": "What is the capital of {{country}}?"}
+        initial_eval_score: The evaluation score before optimization (optional).
+        final_eval_score: The evaluation score after optimization (optional).
+    """
+
+    optimized_prompts: dict[str, str]
     initial_eval_score: float | None = None
+    final_eval_score: float | None = None
+
+
+@experimental(version="3.5.0")
+@dataclass
+class PromptOptimizationResult:
+    """
+    Result of the :py:func:`mlflow.genai.optimize_prompts()` API.
+
+    Args:
+        optimized_prompts: The optimized prompts.
+        optimizer_name: The name of the optimizer.
+        initial_eval_score: The evaluation score before optimization (optional).
+        final_eval_score: The evaluation score after optimization (optional).
+    """
+
+    optimized_prompts: list[PromptVersion]
+    optimizer_name: str
+    initial_eval_score: float | None = None
+    final_eval_score: float | None = None

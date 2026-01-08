@@ -1,3 +1,4 @@
+import sys
 from collections.abc import AsyncIterator
 
 import pytest
@@ -12,7 +13,7 @@ from mlflow.mcp import server
 @pytest_asyncio.fixture()
 async def client() -> AsyncIterator[Client]:
     transport = StdioTransport(
-        command="python",
+        command=sys.executable,
         args=[server.__file__],
         env={"MLFLOW_TRACKING_URI": mlflow.get_tracking_uri()},
     )
@@ -27,10 +28,13 @@ async def test_list_tools(client: Client):
         "delete_assessment",
         "delete_trace_tag",
         "delete_traces",
+        "evaluate_traces",
         "get_assessment",
         "get_trace",
+        "list_scorers",
         "log_expectation",
         "log_feedback",
+        "register_llm_judge",
         "search_traces",
         "set_trace_tag",
         "update_assessment",

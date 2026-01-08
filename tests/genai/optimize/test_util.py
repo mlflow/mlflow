@@ -3,7 +3,15 @@ from typing import Any, Union
 import pytest
 from pydantic import BaseModel
 
-from mlflow.genai.optimize.util import infer_type_from_value
+from mlflow.entities.assessment import Feedback
+from mlflow.exceptions import MlflowException
+from mlflow.genai.judges import CategoricalRating
+from mlflow.genai.optimize.util import (
+    create_metric_from_scorers,
+    infer_type_from_value,
+    validate_train_data,
+)
+from mlflow.genai.scorers import scorer
 
 
 @pytest.mark.parametrize(
@@ -121,3 +129,93 @@ def test_infer_unsupported_type(type_to_infer):
 def test_model_name_parameter(input_dict, model_name):
     result = infer_type_from_value(input_dict, model_name=model_name)
     assert result.__name__ == model_name
+
+
+@pytest.mark.parametrize(
+    ("score", "expected_score"),
+    [
+        (CategoricalRating.YES, 1.0),
+        (CategoricalRating.NO, 0.0),
+        ("yes", 1.0),
+        ("no", 0.0),
+        (True, 1.0),
+        (False, 0.0),
+        (1, 1.0),
+        (0, 0.0),
+        (1.0, 1.0),
+        (0.0, 0.0),
+    ],
+)
+def test_create_metric_from_scorers_with_single_score(score, expected_score):
+    @scorer(name="test_scorer")
+    def test_scorer(inputs, outputs):
+        return Feedback(name="test_scorer", value=score, rationale="test rationale")
+
+    metric = create_metric_from_scorers([test_scorer])
+
+    result = metric({"input": "test"}, {"output": "result"}, {}, None)
+    assert result[0] == expected_score
+    assert result[1] == {"test_scorer": "test rationale"}
+
+
+def test_create_metric_from_scorers_with_multiple_categorical_ratings():
+    @scorer(name="scorer1")
+    def scorer1(inputs, outputs):
+        return Feedback(name="scorer1", value=CategoricalRating.YES, rationale="rationale1")
+
+    @scorer(name="scorer2")
+    def scorer2(inputs, outputs):
+        return Feedback(name="scorer2", value=CategoricalRating.YES, rationale="rationale2")
+
+    metric = create_metric_from_scorers([scorer1, scorer2])
+
+    # Should average: (1.0 + 1.0) / 2 = 1.0
+    result = metric({"input": "test"}, {"output": "result"}, {}, None)
+    assert result[0] == 1.0
+    assert result[1] == {"scorer1": "rationale1", "scorer2": "rationale2"}
+
+
+@pytest.mark.parametrize(
+    ("train_data", "scorers", "expected_error"),
+    [
+        # Empty inputs
+        (
+            [{"inputs": {}, "outputs": "result"}],
+            [],
+            "Record 0 is missing required 'inputs' field or it is empty",
+        ),
+        # Missing inputs
+        (
+            [{"outputs": "result"}],
+            [],
+            "Record 0 is missing required 'inputs' field or it is empty",
+        ),
+    ],
+)
+def test_validate_train_data_errors(train_data, scorers, expected_error):
+    import pandas as pd
+
+    with pytest.raises(MlflowException, match=expected_error):
+        validate_train_data(pd.DataFrame(train_data), scorers, lambda **kwargs: None)
+
+
+@pytest.mark.parametrize(
+    "train_data",
+    [
+        # Valid with outputs
+        [{"inputs": {"text": "hello"}, "outputs": "result"}],
+        # Valid with expectations
+        [{"inputs": {"text": "hello"}, "expectations": {"expected": "result"}}],
+        # Multiple valid records
+        [
+            {"inputs": {"text": "hello"}, "outputs": "result1"},
+            {"inputs": {"text": "world"}, "expectations": {"expected": "result2"}},
+        ],
+        # Falsy but valid values: False as output
+        [{"inputs": {"text": "hello"}, "outputs": False}],
+    ],
+)
+def test_validate_train_data_success(train_data):
+    import pandas as pd
+
+    validate_train_data(pd.DataFrame(train_data), [], lambda **kwargs: None)

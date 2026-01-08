@@ -77,7 +77,7 @@ def build_docker(
             The version of installed mlflow will be the same as the one used to invoke this command.
         enable_mlserver: If specified, the image will be built with the Seldon MLserver as backend.
         base_image: Base image for the Docker image. If not specified, the default image is either
-            UBUNTU_BASE_IMAGE = "ubuntu:20.04" or PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
+            UBUNTU_BASE_IMAGE = "ubuntu:22.04" or PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
             Note: If custom image is used, there are no guarantees that the image will work. You
             may find greater compatibility by building your image on top of the ubuntu images. In
             addition, you must install Java and virtualenv to have the image work properly.

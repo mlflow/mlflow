@@ -2,35 +2,121 @@ import inspect
 import json
 import logging
 import warnings
+from contextlib import contextmanager, nullcontext
+from typing import Any
 
 from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
 
 
+def patched_standalone_call(original, *args, **kwargs):
+    config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
+
+    if not config.log_traces:
+        return original(*args, **kwargs)
+
+    fullname, span_type = _resolve_standalone_span(original, kwargs)
+    if fullname is None or span_type is None:
+        _logger.debug(f"Could not resolve span name or type for {original}")
+        return original(*args, **kwargs)
+
+    with mlflow.start_span(name=fullname, span_type=span_type) as span:
+        inputs = _construct_full_inputs(original, *args, **kwargs)
+        span.set_inputs(inputs)
+
+        result = original(*args, **kwargs)
+
+        # Need to convert the response of generate_content for better visualization
+        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        span.set_outputs(outputs)
+
+        return result
+
+
 def patched_class_call(original, self, *args, **kwargs):
     config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
 
-    if config.log_traces:
-        fullname = f"{self.__class__.__name__}.{original.__name__}"
-        span_type = _get_span_type(self)
-        with mlflow.start_span(name=fullname, span_type=span_type) as span:
-            inputs = _construct_full_inputs(original, self, *args, **kwargs)
-            span.set_inputs(inputs)
-            _set_span_attributes(span=span, instance=self)
-            result = original(self, *args, **kwargs)
-            # Need to convert the response of generate_content for better visualization
-            outputs = result.__dict__ if hasattr(result, "__dict__") else result
-            span.set_outputs(outputs)
+    if not config.log_traces:
+        return original(self, *args, **kwargs)
 
-            return result
+    default_name = f"{self.__class__.__name__}.{original.__name__}"
+    fullname = _get_span_name(self) or default_name
+    span_type = _get_span_type(self)
+    with mlflow.start_span(name=fullname, span_type=span_type) as span:
+        inputs = _construct_full_inputs(original, self, *args, **kwargs)
+        span.set_inputs(inputs)
+        _set_span_attributes(span=span, instance=self)
+
+        # CrewAI reports only crew-level usage totals.
+        # This patch hooks LiteLLM's `completion` to capture each response
+        # so per-call LLM usage can be logged.
+        capture_context = (
+            _capture_llm_response(self) if span_type == SpanType.LLM else nullcontext()
+        )
+        with capture_context:
+            result = original(self, *args, **kwargs)
+
+        # Need to convert the response of generate_content for better visualization
+        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+
+        if span_type == SpanType.LLM and (usage_dict := _parse_usage(self)):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+        span.set_outputs(outputs)
+
+        return result
+
+
+def _capture_llm_response(instance):
+    @contextmanager
+    def _patched_completion():
+        import litellm
+
+        original_completion = litellm.completion
+
+        def _capture_completion(*args, **kwargs):
+            response = original_completion(*args, **kwargs)
+            setattr(instance, "_mlflow_last_response", response)
+            return response
+
+        litellm.completion = _capture_completion
+        try:
+            yield
+        finally:
+            litellm.completion = original_completion
+
+    return _patched_completion()
+
+
+def _parse_usage(instance: Any) -> dict[str, int] | None:
+    usage = instance.__dict__.get("_mlflow_last_response", {}).get("usage", {})
+    if not usage:
+        return None
+
+    return {
+        TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
+        TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
+        TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+    }
+
+
+def _resolve_standalone_span(original, kwargs) -> tuple[str, SpanType]:
+    name = original.__name__
+    if name == "execute_tool_and_check_finality":
+        # default_tool_name should not be hit in normal runs; may append if crewai bugs
+        default_tool_name = "ToolExecution"
+        fullname = kwargs["agent_action"].tool if "agent_action" in kwargs else None
+        fullname = fullname or default_tool_name
+        return fullname, SpanType.TOOL
+
+    return None, None
 
 
 def _get_span_type(instance) -> str:
@@ -74,6 +160,26 @@ def _get_span_type(instance) -> str:
         _logger.warn("An exception happens when resolving the span type. Exception: %s", e)
 
     return SpanType.UNKNOWN
+
+
+def _get_span_name(instance) -> str | None:
+    try:
+        from crewai import LLM, Agent, Crew, Task
+
+        if isinstance(instance, Crew):
+            default_name = Crew.model_fields["name"].default
+            return instance.name if instance.name != default_name else None
+        elif isinstance(instance, Task):
+            return instance.name
+        elif isinstance(instance, Agent):
+            return instance.role
+        elif isinstance(instance, LLM):
+            return instance.model
+
+    except AttributeError as e:
+        _logger.debug("An exception happens when resolving the span name. Exception: %s", e)
+
+    return None
 
 
 def _is_serializable(value):

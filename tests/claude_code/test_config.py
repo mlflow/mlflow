@@ -1,5 +1,3 @@
-"""Tests for mlflow.claude_code.config module."""
-
 import json
 
 import pytest
@@ -21,7 +19,6 @@ def temp_settings_path(tmp_path):
 
 
 def test_load_claude_config_valid_json(temp_settings_path):
-    """Test loading a valid Claude configuration file."""
     config_data = {"tools": {"computer_20241022": {"name": "computer"}}}
     with open(temp_settings_path, "w") as f:
         json.dump(config_data, f)
@@ -31,14 +28,12 @@ def test_load_claude_config_valid_json(temp_settings_path):
 
 
 def test_load_claude_config_missing_file(tmp_path):
-    """Test loading configuration when file doesn't exist returns empty dict."""
     non_existent_path = tmp_path / "non_existent.json"
     result = load_claude_config(non_existent_path)
     assert result == {}
 
 
 def test_load_claude_config_invalid_json(temp_settings_path):
-    """Test loading configuration with invalid JSON returns empty dict."""
     with open(temp_settings_path, "w") as f:
         f.write("invalid json content")
 
@@ -47,7 +42,6 @@ def test_load_claude_config_invalid_json(temp_settings_path):
 
 
 def test_save_claude_config_creates_file(temp_settings_path):
-    """Test that save_claude_config creates a new configuration file."""
     config_data = {"test": "value"}
     save_claude_config(temp_settings_path, config_data)
 
@@ -57,7 +51,6 @@ def test_save_claude_config_creates_file(temp_settings_path):
 
 
 def test_save_claude_config_creates_directory(tmp_path):
-    """Test that save_claude_config creates parent directories if they don't exist."""
     nested_path = tmp_path / "nested" / "dir" / "settings.json"
     config_data = {"test": "value"}
 
@@ -69,7 +62,6 @@ def test_save_claude_config_creates_directory(tmp_path):
 
 
 def test_get_env_var_from_os_environment(monkeypatch):
-    """Test get_env_var returns value from OS environment when available."""
     test_value = "test_os_value"
     monkeypatch.setenv(MLFLOW_TRACING_ENABLED, test_value)
 
@@ -78,7 +70,6 @@ def test_get_env_var_from_os_environment(monkeypatch):
 
 
 def test_get_env_var_from_claude_settings_fallback(tmp_path, monkeypatch):
-    """Test get_env_var falls back to Claude settings when OS env var not set."""
     # Ensure OS env var is not set
     monkeypatch.delenv(MLFLOW_TRACING_ENABLED, raising=False)
 
@@ -96,7 +87,6 @@ def test_get_env_var_from_claude_settings_fallback(tmp_path, monkeypatch):
 
 
 def test_get_env_var_default_when_not_found(tmp_path, monkeypatch):
-    """Test get_env_var returns default when variable not found anywhere."""
     # Ensure OS env var is not set
     monkeypatch.delenv(MLFLOW_TRACING_ENABLED, raising=False)
 
@@ -113,7 +103,6 @@ def test_get_env_var_default_when_not_found(tmp_path, monkeypatch):
 
 
 def test_get_tracing_status_enabled(temp_settings_path):
-    """Test get_tracing_status returns enabled status when tracing is enabled."""
     # Create settings with tracing enabled
     config_data = {"environment": {MLFLOW_TRACING_ENABLED: "true"}}
     with open(temp_settings_path, "w") as f:
@@ -125,7 +114,6 @@ def test_get_tracing_status_enabled(temp_settings_path):
 
 
 def test_get_tracing_status_disabled(temp_settings_path):
-    """Test get_tracing_status returns disabled status when tracing is disabled."""
     # Create settings with tracing disabled
     config_data = {"environment": {MLFLOW_TRACING_ENABLED: "false"}}
     with open(temp_settings_path, "w") as f:
@@ -136,7 +124,6 @@ def test_get_tracing_status_disabled(temp_settings_path):
 
 
 def test_get_tracing_status_no_config(tmp_path):
-    """Test get_tracing_status returns disabled when no configuration exists."""
     non_existent_path = tmp_path / "missing.json"
     status = get_tracing_status(non_existent_path)
     assert status.enabled is False
@@ -144,7 +131,6 @@ def test_get_tracing_status_no_config(tmp_path):
 
 
 def test_setup_environment_config_new_file(temp_settings_path):
-    """Test setup_environment_config creates new configuration file."""
     tracking_uri = "test://localhost"
     experiment_id = "123"
 
@@ -163,7 +149,6 @@ def test_setup_environment_config_new_file(temp_settings_path):
 
 
 def test_setup_environment_config_experiment_id_precedence(temp_settings_path):
-    """Test that experiment_id parameter takes precedence over existing config."""
     # Create existing config with different experiment ID
     existing_config = {
         "environment": {

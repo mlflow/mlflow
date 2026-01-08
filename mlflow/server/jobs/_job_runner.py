@@ -10,33 +10,30 @@ The job runner will:
   See module `mlflow/server/jobs/_huey_consumer.py` for details of Huey consumer.
 """
 
+import logging
 import os
 import time
 
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
-from mlflow.server.jobs.util import (
+from mlflow.server.jobs.utils import (
     _enqueue_unfinished_jobs,
+    _job_name_to_fn_fullname_map,
     _launch_huey_consumer,
     _start_watcher_to_kill_job_runner_if_mlflow_server_dies,
 )
 
 if __name__ == "__main__":
+    logger = logging.getLogger("mlflow.server.jobs._job_runner")
+    server_up_time = int(time.time() * 1000)
     _start_watcher_to_kill_job_runner_if_mlflow_server_dies()
-    _enqueue_unfinished_jobs()
 
     huey_store_path = os.environ[HUEY_STORAGE_PATH_ENV_VAR]
 
-    seen_huey_files = set()
-    huey_file_suffix = ".mlflow-huey-store"
+    for job_name in _job_name_to_fn_fullname_map:
+        try:
+            _launch_huey_consumer(job_name)
+        except Exception as e:
+            logging.warning(f"Launch Huey consumer for {job_name} jobs failed, root cause: {e!r}")
 
-    while True:
-        time.sleep(0.5)
-        current_huey_files = set(os.listdir(huey_store_path))
-        new_huey_files = current_huey_files - seen_huey_files
-
-        for huey_file in new_huey_files:
-            if huey_file.endswith(huey_file_suffix):
-                job_fn_fullname = huey_file[: -len(huey_file_suffix)]
-                _launch_huey_consumer(job_fn_fullname)
-
-        seen_huey_files = current_huey_files
+    time.sleep(10)  # wait for huey consumer launching
+    _enqueue_unfinished_jobs(server_up_time)

@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, expect, test } from '@jest/globals';
 import type { DeepPartial } from 'redux';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { waitFor, renderWithIntl, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
@@ -6,9 +7,15 @@ import type { ReduxState } from '../../../redux-types';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { cloneDeep, merge } from 'lodash';
 import userEvent from '@testing-library/user-event';
-import { getRunApi, setTagApi } from '../../actions';
+import { setTagApi } from '../../actions';
+import type { UseGetRunQueryDataResponse } from './hooks/useGetRunQuery';
+import { useGetRunQuery } from './hooks/useGetRunQuery';
 import { usePromptVersionsForRunQuery } from '../../pages/prompts/hooks/usePromptVersionsForRunQuery';
 import { NOTE_CONTENT_TAG } from '../../utils/NoteUtils';
+import {
+  shouldEnableRunDetailsMetadataBoxOnRunDetailsPage,
+  shouldEnableArtifactsOnRunDetailsPage,
+} from '../../../common/utils/FeatureUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
 import type { RunInfoEntity } from '../../types';
@@ -25,7 +32,17 @@ jest.mock('../../../common/components/Prompt', () => ({
 
 jest.mock('../../actions', () => ({
   setTagApi: jest.fn(() => ({ type: 'setTagApi', payload: Promise.resolve() })),
-  getRunApi: jest.fn(() => ({ type: 'getRunApi', payload: Promise.resolve() })),
+}));
+
+jest.mock('./hooks/useGetRunQuery', () => ({
+  useGetRunQuery: jest.fn(),
+}));
+
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
+  shouldEnableRunDetailsMetadataBoxOnRunDetailsPage: jest.fn(() => false),
+  shouldEnableArtifactsOnRunDetailsPage: jest.fn(() => false),
+  shouldEnableGraphQLRunDetailsPage: jest.fn(() => true),
 }));
 
 const testPromptName = 'test-prompt';
@@ -93,7 +110,11 @@ const testEntitiesState: Partial<ReduxState['entities']> = {
 };
 
 describe('RunViewOverview integration', () => {
-  const onRunDataUpdated = jest.fn();
+  beforeEach(() => {
+    jest.mocked(useGetRunQuery).mockReset();
+  });
+
+  const onRunDataUpdated = jest.fn<() => void>();
   const renderComponent = ({
     tags = {},
     runInfo,
@@ -296,6 +317,20 @@ describe('RunViewOverview integration', () => {
     const testParentRunUuid = 'test-parent-run-uuid';
     const testParentRunName = 'Test parent run name';
 
+    jest.mocked(useGetRunQuery).mockReturnValue({
+      data: {
+        info: {
+          runName: testParentRunName,
+          runUuid: testParentRunUuid,
+          experimentId: testExperimentId,
+        },
+      } as UseGetRunQueryDataResponse,
+      loading: false,
+      apolloError: undefined,
+      apiError: undefined,
+      refetchRun: jest.fn() as any,
+    });
+
     const { container } = renderComponent({
       tags: {
         [EXPERIMENT_PARENT_ID_TAG]: {
@@ -333,7 +368,7 @@ describe('RunViewOverview integration', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Parent run name loading')).toBeInTheDocument();
-      expect(getRunApi).toHaveBeenCalledWith(testParentRunUuid);
+      expect(useGetRunQuery).toHaveBeenCalledWith({ runUuid: testParentRunUuid, disabled: false });
     });
   });
 

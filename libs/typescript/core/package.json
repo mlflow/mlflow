@@ -1,6 +1,6 @@
 {
   "name": "mlflow-tracing",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "TypeScript implementation of MLflow Tracing SDK for LLM observability",
   "repository": {
     "type": "git",
@@ -35,12 +35,12 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@databricks/sdk-experimental": "0.15.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-node": "^0.201.1",
-    "@types/json-bigint": "^1.0.4",
     "fast-safe-stringify": "^2.1.1",
-    "ini": "^5.0.0",
-    "json-bigint": "^1.0.0"
+    "bignumber.js": "^9.0.0",
+    "ini": "^5.0.0"
   },
   "devDependencies": {
     "@types/ini": "^4.1.1",
@@ -48,7 +48,6 @@
     "@types/node": "^20.4.5",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
-    "openai": "^4.0.0",
     "eslint": "^8.57.1",
     "jest": "^29.6.2",
     "msw": "^2.10.3",

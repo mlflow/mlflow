@@ -1,0 +1,247 @@
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from '@site/src/components/ImageBox';
+import WorkflowSteps from '@site/src/components/WorkflowSteps';
+import TilesGrid from '@site/src/components/TilesGrid';
+import TileCard from '@site/src/components/TileCard';
+import { MessageSquare, Users, Target, Play, Code, Activity, BookOpen } from 'lucide-react';
+import ServerSetup from "@site/src/content/setup_server.mdx";
+
+# Evaluate Conversations
+
+Conversation evaluation enables you to assess entire conversation sessions rather than individual turns. This is essential for evaluating conversational AI systems where quality emerges over multiple interactions, such as user frustration patterns, conversation completeness, or overall dialogue coherence.
+
+:::info[Experimental Feature]
+Multi-turn evaluation is experimental in MLflow 3.7.0. The API and behavior may change in future releases.
+:::
+
+## Workflow
+
+<WorkflowSteps
+  steps={[
+    {
+      icon: MessageSquare,
+      title: "Tag traces with session IDs",
+      description: "Add session metadata to your traces to group related conversation turns together."
+    },
+    {
+      icon: Users,
+      title: "Search and retrieve session traces",
+      description: "Collect traces from your tracking server and MLflow will automatically group them by session."
+    },
+    {
+      icon: Target,
+      title: "Define conversation scorers",
+      description: "Use built-in multi-turn scorers or create custom ones to evaluate full conversations."
+    },
+    {
+      icon: Play,
+      title: "Run evaluation",
+      description: "Execute evaluation and analyze session-level metrics alongside individual turn metrics in MLflow UI."
+    }
+  ]}
+/>
+
+## Overview
+
+Traditional single-turn evaluation assesses each agent response independently. However, many important qualities can only be evaluated by examining the full conversation:
+
+- **User Frustration**: Did the user become frustrated? Was it resolved?
+- **Conversation Completeness**: Were all user questions answered by the end of the conversation?
+- **Dialogue Coherence**: Does the conversation flow naturally?
+
+Multi-turn evaluation addresses these needs by grouping traces into conversation sessions and applying scorers that analyze the entire conversation history.
+
+## Prerequisites
+
+First, install the required packages by running the following command:
+
+```bash
+pip install --upgrade mlflow>=3.7
+```
+
+MLflow stores evaluation results in a tracking server. Connect your local environment to the tracking server by one of the following methods.
+
+<ServerSetup />
+
+## Quick Start
+
+Multi-turn evaluation works by grouping traces into conversation sessions using the `mlflow.trace.session` metadata. When building your agent, you can set session IDs on traces to group them into conversations:
+
+```python
+import mlflow
+
+
+@mlflow.trace
+def my_chatbot(question, session_id):
+    mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+    return generate_response(question)
+```
+
+<ImageBox src="/images/genai/sessions-view-ui.png" alt="Sessions View UI" width="95%"/>
+
+To evaluate conversations, [get traces from your experiment](/genai/tracing/search-traces/) and pass them to `mlflow.genai.evaluate`:
+
+```python
+from mlflow.genai.scorers import ConversationCompleteness, UserFrustration
+
+# Get all traces
+traces = mlflow.search_traces(
+    experiment_ids=["<your-experiment-id>"],
+    return_type="list",
+)
+
+# Evaluate all sessions - MLflow automatically groups by session ID
+results = mlflow.genai.evaluate(
+    data=traces,
+    scorers=[
+        ConversationCompleteness(),
+        UserFrustration(),
+    ],
+)
+```
+
+**How it works:** MLflow automatically groups traces by their `mlflow.trace.session` metadata and sorts them chronologically by timestamp within each session. Multi-turn scorers run once per session and analyze the complete conversation history. Multi-turn assessments are logged to the first trace (chronologically) in each session. You can use the Sessions tab to view session-level metrics for the entire conversation as well as trace-level metrics for individual turns.
+
+## Multi-Turn Scorers
+
+### Built-in Scorers
+
+MLflow provides built-in scorers for evaluating conversations:
+
+- **<APILink fn="mlflow.genai.scorers.ConversationCompleteness">ConversationCompleteness</APILink>**: Evaluates whether the agent addressed all user questions throughout the conversation (returns "yes" or "no")
+- **<APILink fn="mlflow.genai.scorers.ConversationalGuidelines">ConversationalGuidelines</APILink>**: Evaluates whether the assistant's responses throughout the conversation comply with provided guidelines (returns "yes" or "no")
+- **<APILink fn="mlflow.genai.scorers.KnowledgeRetention">KnowledgeRetention</APILink>**: Evaluates whether the assistant correctly retains information from earlier user inputs without contradiction or distortion (returns "yes" or "no")
+- **<APILink fn="mlflow.genai.scorers.UserFrustration">UserFrustration</APILink>**: Detects and tracks user frustration patterns (returns "none", "resolved", or "unresolved")
+
+See the [Predefined Scorers](/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn-scorers) page for detailed usage examples and API documentation.
+
+### Custom Scorers
+
+You can create custom multi-turn scorers using <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> with the `{{ conversation }}` template variable:
+
+```python
+from mlflow.genai.judges import make_judge
+from typing import Literal
+
+# Create a custom multi-turn judge
+politeness_judge = make_judge(
+    name="conversation_politeness",
+    instructions=(
+        "Analyze the {{ conversation }} and determine if the agent maintains "
+        "a polite and professional tone throughout all interactions. "
+        "Rate as 'consistently_polite', 'mostly_polite', or 'impolite'."
+    ),
+    feedback_value_type=Literal["consistently_polite", "mostly_polite", "impolite"],
+    model="openai:/gpt-4o",
+)
+
+# Use in evaluation
+results = mlflow.genai.evaluate(
+    data=traces,
+    scorers=[politeness_judge],
+)
+```
+
+:::note[Conversation Template Variable]
+The `{{ conversation }}` variable injects the complete conversation history in a structured format.
+
+The variable can only be used with `{{ expectations }}`, not with `{{ inputs }}`, `{{ outputs }}`, or `{{ trace }}`.
+:::
+
+### Combining Single-Turn and Multi-Turn Scorers
+
+You can use both single-turn and multi-turn scorers in the same evaluation:
+
+```python
+from mlflow.genai.scorers import (
+    ConversationCompleteness,
+    UserFrustration,
+    RelevanceToQuery,  # Single-turn scorer
+)
+
+results = mlflow.genai.evaluate(
+    data=traces,
+    scorers=[
+        # Single-turn: evaluates each trace individually
+        RelevanceToQuery(),
+        # Multi-turn: evaluates entire sessions
+        ConversationCompleteness(),
+        UserFrustration(),
+    ],
+)
+```
+
+Single-turn scorers run on every trace individually, while multi-turn scorers run once per session and analyze the complete conversation history.
+
+## Working with Specific Sessions
+
+If you need to evaluate specific sessions or filter traces, you can extract session IDs and retrieve traces for each:
+
+```python
+import mlflow
+
+# Get all traces from your experiment
+all_traces = mlflow.search_traces(
+    experiment_ids=["<your-experiment-id>"],
+    return_type="list",
+)
+
+# Extract unique session IDs
+session_ids = set()
+for trace in all_traces:
+    session_id = trace.info.trace_metadata.get("mlflow.trace.session")
+    if session_id:
+        session_ids.add(session_id)
+
+# Get traces for each session and combine
+all_session_traces = []
+for session_id in session_ids:
+    session_traces = mlflow.search_traces(
+        experiment_ids=["<your-experiment-id>"],
+        filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+        return_type="list",
+    )
+    all_session_traces.extend(session_traces)
+
+# Evaluate all sessions
+results = mlflow.genai.evaluate(
+    data=all_session_traces,
+    scorers=[ConversationCompleteness(), UserFrustration()],
+)
+```
+
+## Limitations
+
+- **No `predict_fn` support**: Multi-turn scorers currently work only with pre-collected traces. You cannot use them with `predict_fn` in `mlflow.genai.evaluate`.
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Session Tracing Guide"
+    description="Learn how to track users and sessions in your conversational AI applications for better evaluation."
+    href="/genai/tracing/track-users-sessions/"
+    linkText="Learn about sessions →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Activity}
+    iconSize={48}
+    title="Built-in Multi-Turn Scorers"
+    description="Explore predefined scorers for conversation completeness, user frustration, and other multi-turn metrics."
+    href="/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn-scorers"
+    linkText="View scorers →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Code}
+    iconSize={48}
+    title="Create Custom Multi-Turn Judges"
+    description="Build custom LLM judges using make_judge to evaluate conversation-specific criteria and patterns."
+    href="/genai/eval-monitor/scorers/llm-judge/make-judge"
+    linkText="Create custom judges →"
+    containerHeight={64}
+  />
+</TilesGrid>

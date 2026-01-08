@@ -4,12 +4,9 @@ import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from google.protobuf.json_format import ParseDict
-from google.protobuf.struct_pb2 import Value
 from opentelemetry.util.types import AttributeValue
 
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
 from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
 
 
@@ -68,15 +65,7 @@ class SpanEvent(_MlflowObject):
             else None,
         }
 
-    def to_proto(self):
-        """Convert into OTLP compatible proto object to sent to the Databricks Trace Server."""
-        return ProtoSpan.Event(
-            name=self.name,
-            time_unix_nano=self.timestamp,
-            attributes={k: ParseDict(v, Value()) for k, v in self.attributes.items()},
-        )
-
-    def _to_otel_proto(self):
+    def to_otel_proto(self):
         """
         Convert to OpenTelemetry protobuf event format for OTLP export.
         This is an internal method used for logging spans via OTel protocol.

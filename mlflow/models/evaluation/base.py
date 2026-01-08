@@ -5,7 +5,6 @@ import logging
 import os
 import pathlib
 import signal
-import urllib
 import urllib.parse
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager, nullcontext
@@ -1760,7 +1759,7 @@ def evaluate(
             ):
                 dataset = data.to_evaluation_dataset(dataset_path, feature_names)
 
-                # Use metrix_prefix configured for builtin evaluators as a dataset tag
+                # Use metric_prefix configured for builtin evaluators as a dataset tag
                 context = None
                 for e in evaluators:
                     if _model_evaluation_registry.is_builtin(e.name) and e.config.get(

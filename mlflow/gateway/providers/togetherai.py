@@ -2,7 +2,7 @@ import json
 from typing import Any, AsyncGenerator, AsyncIterable
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import RouteConfig, TogetherAIConfig
+from mlflow.gateway.config import EndpointConfig, TogetherAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
@@ -294,7 +294,7 @@ class TogetherAIProvider(BaseProvider):
     NAME = "TogetherAI"
     CONFIG_TYPE = TogetherAIConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, TogetherAIConfig):
             # Should be unreachable

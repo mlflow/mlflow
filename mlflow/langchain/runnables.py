@@ -41,7 +41,10 @@ from mlflow.langchain.utils.logging import (
 )
 
 if TYPE_CHECKING:
-    from langchain.schema.runnable import Runnable
+    try:
+        from langchain.schema.runnable import Runnable
+    except ImportError:
+        from langchain_core.runnables import Runnable
 
 _STEPS_FOLDER_NAME = "steps"
 _RUNNABLE_STEPS_FILE_NAME = "steps.yaml"
@@ -119,7 +122,10 @@ def _load_runnable_with_steps(file_path: Path | str, model_type: str):
         file_path: Path to file to load the model from.
         model_type: Type of the model to load.
     """
-    from langchain.schema.runnable import RunnableParallel, RunnableSequence
+    from mlflow.langchain._compat import import_runnable_parallel, import_runnable_sequence
+
+    RunnableParallel = import_runnable_parallel()
+    RunnableSequence = import_runnable_sequence()
 
     load_path = _validate_path(file_path)
 
@@ -153,7 +159,9 @@ def runnable_sequence_from_steps(steps):
     Args:
         steps: List of steps to construct the RunnableSequence from.
     """
-    from langchain.schema.runnable import RunnableSequence
+    from mlflow.langchain._compat import import_runnable_sequence
+
+    RunnableSequence = import_runnable_sequence()
 
     if len(steps) < 2:
         raise ValueError(f"RunnableSequence must have at least 2 steps, got {len(steps)}.")
@@ -168,7 +176,9 @@ def _load_runnable_branch(file_path: Path | str):
     Args:
         file_path: Path to file to load the model from.
     """
-    from langchain.schema.runnable import RunnableBranch
+    from mlflow.langchain._compat import import_runnable_branch
+
+    RunnableBranch = import_runnable_branch()
 
     load_path = _validate_path(file_path)
 
@@ -211,7 +221,9 @@ def _load_runnable_assign(file_path: Path | str):
     Args:
         file_path: Path to file to load the model from.
     """
-    from langchain.schema.runnable.passthrough import RunnableAssign
+    from mlflow.langchain._compat import import_runnable_assign
+
+    RunnableAssign = import_runnable_assign()
 
     load_path = _validate_path(file_path)
 
@@ -225,7 +237,9 @@ def _load_runnable_binding(file_path: Path | str):
     """
     Load runnable binding model from the path
     """
-    from langchain.schema.runnable import RunnableBinding
+    from mlflow.langchain._compat import import_runnable_binding
+
+    RunnableBinding = import_runnable_binding()
 
     load_path = _validate_path(file_path)
 
@@ -413,7 +427,9 @@ def _save_runnable_branch(model, file_path, loader_fn, persist_dir):
 
 
 def _save_runnable_assign(model, file_path, loader_fn=None, persist_dir=None):
-    from langchain.schema.runnable import RunnableParallel
+    from mlflow.langchain._compat import import_runnable_parallel
+
+    RunnableParallel = import_runnable_parallel()
 
     save_path = Path(file_path)
     save_path.mkdir(parents=True, exist_ok=True)
@@ -446,7 +462,7 @@ def _save_runnable_binding(model, file_path, loader_fn=None, persist_dir=None):
     model_config["bound"] = _save_internal_runnables(model.bound, save_path, loader_fn, persist_dir)
 
     # save other fields
-    for field, value in model.dict().items():
+    for field, value in model.model_dump().items():
         if _is_json_primitive(value):
             model_config[field] = value
         elif field != "bound":

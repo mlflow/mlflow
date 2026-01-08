@@ -88,7 +88,7 @@ def get_feature_cols(
         try:
             transformer.transform(df_subset.drop(column))
         except IllegalArgumentException as iae:
-            if re.search("does not exist|no such struct field", str(iae), re.IGNORECASE):
+            if re.search(r"does not exist|no such struct field", str(iae), re.IGNORECASE):
                 feature_cols.add(column)
                 continue
             raise

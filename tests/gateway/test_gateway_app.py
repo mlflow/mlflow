@@ -6,7 +6,12 @@ from fastapi.testclient import TestClient
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.app import create_app_from_config, create_app_from_env
 from mlflow.gateway.config import GatewayConfig
-from mlflow.gateway.constants import MLFLOW_GATEWAY_CRUD_ROUTE_BASE, MLFLOW_GATEWAY_ROUTE_BASE
+from mlflow.gateway.constants import (
+    MLFLOW_GATEWAY_CRUD_ENDPOINT_V3_BASE,
+    MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
+    MLFLOW_GATEWAY_CRUD_ROUTE_V3_BASE,
+    MLFLOW_GATEWAY_ROUTE_BASE,
+)
 
 from tests.gateway.tools import MockAsyncResponse
 
@@ -41,7 +46,34 @@ def client() -> TestClient:
                         },
                     },
                 },
-            ]
+                {
+                    "name": "chat-gpt5",
+                    "endpoint_type": "llm/v1/chat",
+                    "model": {
+                        "name": "gpt-5",
+                        "provider": "openai",
+                        "config": {
+                            "openai_api_key": "MY_API_KEY",
+                        },
+                    },
+                },
+            ],
+            "routes": [
+                {
+                    "name": "traffic_route1",
+                    "task_type": "llm/v1/chat",
+                    "destinations": [
+                        {
+                            "name": "chat-gpt4",
+                            "traffic_percentage": 80,
+                        },
+                        {
+                            "name": "chat-gpt5",
+                            "traffic_percentage": 20,
+                        },
+                    ],
+                },
+            ],
         }
     )
     app = create_app_from_config(config)
@@ -94,6 +126,16 @@ def test_search_routes(client: TestClient):
             },
             "limit": None,
         },
+        {
+            "name": "chat-gpt5",
+            "route_type": "llm/v1/chat",
+            "route_url": "/gateway/chat-gpt5/invocations",
+            "model": {
+                "name": "gpt-5",
+                "provider": "openai",
+            },
+            "limit": None,
+        },
     ]
 
 
@@ -109,6 +151,32 @@ def test_get_route(client: TestClient):
             "provider": "openai",
         },
         "limit": None,
+    }
+
+
+def test_get_endpoint_v3(client: TestClient):
+    response = client.get(f"{MLFLOW_GATEWAY_CRUD_ENDPOINT_V3_BASE}chat-gpt4")
+    assert response.status_code == 200
+    assert response.json() == {
+        "name": "chat-gpt4",
+        "endpoint_type": "llm/v1/chat",
+        "model": {"name": "gpt-4", "provider": "openai"},
+        "endpoint_url": "/gateway/chat-gpt4/invocations",
+        "limit": None,
+    }
+
+
+def test_get_route_v3(client: TestClient):
+    response = client.get(f"{MLFLOW_GATEWAY_CRUD_ROUTE_V3_BASE}traffic_route1")
+    assert response.status_code == 200
+    assert response.json() == {
+        "name": "traffic_route1",
+        "task_type": "llm/v1/chat",
+        "destinations": [
+            {"name": "chat-gpt4", "traffic_percentage": 80},
+            {"name": "chat-gpt5", "traffic_percentage": 20},
+        ],
+        "routing_strategy": "TRAFFIC_SPLIT",
     }
 
 
@@ -129,7 +197,19 @@ def test_dynamic_route():
                     },
                     "limit": None,
                 }
-            ]
+            ],
+            "routes": [
+                {
+                    "name": "traffic_route",
+                    "task_type": "llm/v1/chat",
+                    "destinations": [
+                        {
+                            "name": "chat",
+                            "traffic_percentage": 100,
+                        }
+                    ],
+                }
+            ],
         }
     )
     app = create_app_from_config(config)
@@ -161,35 +241,38 @@ def test_dynamic_route():
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-        resp = client.post(
-            f"{MLFLOW_GATEWAY_ROUTE_BASE}chat/invocations",
-            json={"messages": [{"role": "user", "content": "Tell me a joke"}]},
-        )
-        mock_post.assert_called_once()
-        assert resp.status_code == 200
-        assert resp.json() == {
-            "id": "chatcmpl-abc123",
-            "object": "chat.completion",
-            "created": 1677858242,
-            "model": "gpt-4o-mini",
-            "usage": {
-                "prompt_tokens": 13,
-                "completion_tokens": 7,
-                "total_tokens": 20,
-            },
-            "choices": [
-                {
-                    "message": {
-                        "role": "assistant",
-                        "content": "\n\nThis is a test!",
-                        "tool_calls": None,
-                        "refusal": None,
-                    },
-                    "finish_reason": "stop",
-                    "index": 0,
-                }
-            ],
-        }
+        for name in ["chat", "traffic_route"]:
+            resp = client.post(
+                f"{MLFLOW_GATEWAY_ROUTE_BASE}{name}/invocations",
+                json={"messages": [{"role": "user", "content": "Tell me a joke"}]},
+            )
+            mock_post.assert_called_once()
+            assert resp.status_code == 200
+            assert resp.json() == {
+                "id": "chatcmpl-abc123",
+                "object": "chat.completion",
+                "created": 1677858242,
+                "model": "gpt-4o-mini",
+                "usage": {
+                    "prompt_tokens": 13,
+                    "completion_tokens": 7,
+                    "total_tokens": 20,
+                },
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "\n\nThis is a test!",
+                            "tool_calls": None,
+                            "refusal": None,
+                        },
+                        "finish_reason": "stop",
+                        "index": 0,
+                    }
+                ],
+            }
+
+            mock_post.reset_mock()
 
 
 def test_create_app_from_env_fails_if_MLFLOW_GATEWAY_CONFIG_is_not_set(monkeypatch):

@@ -56,7 +56,7 @@ CHAT_AGENT_TOOL_CALL_MSG = ChatAgentMessage(
             }
         ],
     }
-).model_dump_compat(exclude_none=True)
+).model_dump(exclude_none=True)
 LC_TOOL_MSG = ToolMessage(
     **{
         "content": '{"content": "Successfully generated array of 5 random ints in [1, 100].", "attachments": {"key1": "attach1", "key2": "attach2"}, "custom_outputs": {"random_nums": [1, 82, 9, 12, 22]}}',  # noqa: E501
@@ -78,7 +78,7 @@ CHAT_AGENT_TOOL_MSG = ChatAgentMessage(
     tool_call_id="call_ee823299-62d7-4407-95e8-168412904471",
     attachments={"key1": "attach1", "key2": "attach2"},
     finish_reason=None,
-).model_dump_compat(exclude_none=True)  # id will be a generated UUID
+).model_dump(exclude_none=True)  # id will be a generated UUID
 TOOL_MSG_ATTACHMENTS = {"key1": "attach1", "key2": "attach2"}
 LC_ASSISTANT_MSG = AIMessage(
     **{
@@ -103,7 +103,7 @@ CHAT_AGENT_ASSISTANT_MSG = ChatAgentMessage(
     tool_call_id=None,
     attachments=None,
     finish_reason=None,
-).model_dump_compat(exclude_none=True)
+).model_dump(exclude_none=True)
 
 
 @pytest.mark.parametrize(

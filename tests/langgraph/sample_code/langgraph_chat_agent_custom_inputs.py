@@ -146,7 +146,7 @@ class LangGraphChatAgent(ChatAgent):
         request = {
             "messages": self._convert_messages_to_dict(messages),
             **({"custom_inputs": custom_inputs} if custom_inputs else {}),
-            **({"context": context.model_dump_compat()} if context else {}),
+            **({"context": context.model_dump()} if context else {}),
         }
 
         response = ChatAgentResponse(messages=[])
@@ -169,7 +169,7 @@ class LangGraphChatAgent(ChatAgent):
         request = {
             "messages": self._convert_messages_to_dict(messages),
             **({"custom_inputs": custom_inputs} if custom_inputs else {}),
-            **({"context": context.model_dump_compat()} if context else {}),
+            **({"context": context.model_dump()} if context else {}),
         }
 
         last_message = None

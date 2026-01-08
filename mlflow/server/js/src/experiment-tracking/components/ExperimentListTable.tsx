@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import { useMemo } from 'react';
 import type { CursorPaginationProps } from '@databricks/design-system';
 import {
@@ -15,7 +16,7 @@ import {
 import 'react-virtualized/styles.css';
 import type { ExperimentEntity } from '../types';
 import type { ColumnDef, OnChangeFn, RowSelectionState, SortingState } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { isEmpty } from 'lodash';
 import { FormattedMessage, useIntl } from 'react-intl';
 import Utils from '../../common/utils/Utils';
@@ -111,14 +112,14 @@ export const ExperimentListTable = ({
   isLoading: boolean;
   rowSelection: RowSelectionState;
   setRowSelection: OnChangeFn<RowSelectionState>;
-  cursorPaginationProps: Omit<CursorPaginationProps, 'componentId'>;
+  cursorPaginationProps?: Omit<CursorPaginationProps, 'componentId'>;
   sortingProps: { sorting: SortingState; setSorting: OnChangeFn<SortingState> };
   onEditTags: (editedEntity: ExperimentEntity) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const columns = useExperimentsTableColumns();
 
-  const table = useReactTable({
+  const table = useReactTable('mlflow/server/js/src/experiment-tracking/components/ExperimentListTable.tsx', {
     data: experiments ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
@@ -174,7 +175,11 @@ export const ExperimentListTable = ({
   return (
     <Table
       scrollable
-      pagination={<CursorPagination {...cursorPaginationProps} componentId="mlflow.experiment_list_view.pagination" />}
+      pagination={
+        cursorPaginationProps ? (
+          <CursorPagination {...cursorPaginationProps} componentId="mlflow.experiment_list_view.pagination" />
+        ) : undefined
+      }
       empty={getEmptyState()}
     >
       <TableRow isHeader>

@@ -3,15 +3,13 @@ sidebar_position: 7
 sidebar_label: CrewAI
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
 
 # Tracing CrewAI
 
-![CrewAI Tracing via autolog](/images/llms/crewai/crewai-tracing.gif)
+<video src={useBaseUrl("/images/llms/crewai/crewai-tracing.mp4")} controls loop autoPlay muted aria-label="CrewAI Tracing via autolog" />
 
 [CrewAI](https://www.crewai.com/) is an open-source framework for orchestrating role-playing, autonomous AI agent.
 
@@ -191,6 +189,56 @@ class TripCrew:
 
 trip_crew = TripCrew("California", "Tokyo", "Dec 12 - Dec 20", "sports")
 result = trip_crew.run()
+```
+
+## Token usage
+
+MLflow >= 3.5.0 supports token usage tracking for CrewAI. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object.
+
+```python
+import json
+import mlflow
+
+mlflow.crewai.autolog()
+
+# Run the tool calling agent defined in the previous section
+trip_crew = TripCrew("California", "Tokyo", "Dec 12 - Dec 20", "sports")
+result = trip_crew.run()
+
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 32870
+  Output tokens: 1826
+  Total tokens: 34696
+
+== Detailed usage for each LLM call: ==
+LLM.call_1:
+  Input tokens: 295
+  Output tokens: 63
+  Total tokens: 358
+LLM.call_2:
+  Input tokens: 465
+  Output tokens: 65
+  Total tokens: 530
+LLM.call_3:
+  Input tokens: 4445
+  Output tokens: 76
+  Total tokens: 4521
+
+... (other modules)
 ```
 
 ### Disable auto-tracing

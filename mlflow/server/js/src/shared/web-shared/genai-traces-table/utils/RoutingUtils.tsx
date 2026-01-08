@@ -1,7 +1,7 @@
 /**
  * This file re-exports the appropriate package for routing based on the environment.
  *
- * Duplicate of mlflow/web/js/src/common/utils/RoutingUtils.tsx, because unfortunately
+ * Duplicate of mlflow/server/js/src/common/utils/RoutingUtils.tsx, because unfortunately
  * this package is located in web-shared and we can't directly access it from here.
  */
 /* eslint-disable no-restricted-imports */

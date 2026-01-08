@@ -1,10 +1,24 @@
+"""
+Trace destination classes are DEPRECATED. Use mlflow.entities.trace_location.TraceLocation instead.
+"""
+
 from __future__ import annotations
 
+import logging
 from contextvars import ContextVar
 from dataclasses import dataclass
 
+import mlflow
+from mlflow.entities.trace_location import (
+    MlflowExperimentLocation,
+    TraceLocationBase,
+    UCSchemaLocation,
+)
+from mlflow.environment_variables import MLFLOW_TRACING_DESTINATION
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated
+
+_logger = logging.getLogger(__name__)
 
 
 class UserTraceDestinationRegistry:
@@ -12,11 +26,11 @@ class UserTraceDestinationRegistry:
         self._global_value = None
         self._context_local_value = ContextVar("mlflow_trace_destination", default=None)
 
-    def get(self) -> TraceDestination | None:
+    def get(self) -> TraceLocationBase | None:
         """First check the context-local value, then the global value."""
         if local_destination := self._context_local_value.get():
             return local_destination
-        return self._global_value
+        return self._global_value or self._get_trace_location_from_env()
 
     def set(self, value, context_local: bool = False):
         if context_local:
@@ -28,7 +42,35 @@ class UserTraceDestinationRegistry:
         self._global_value = None
         self._context_local_value.set(None)
 
+    def _get_trace_location_from_env(self) -> TraceLocationBase | None:
+        """
+        Get trace location from `MLFLOW_TRACING_DESTINATION` environment variable.
+        """
+        if location := MLFLOW_TRACING_DESTINATION.get():
+            match location.split("."):
+                case [catalog_name, schema_name]:
+                    if (
+                        mlflow.get_tracking_uri() is None
+                        or not mlflow.get_tracking_uri().startswith("databricks")
+                    ):
+                        mlflow.set_tracking_uri("databricks")
+                        _logger.info(
+                            "Automatically setting the tracking URI to `databricks` "
+                            "because the tracing destination is set to Databricks."
+                        )
+                    return UCSchemaLocation(catalog_name, schema_name)
+                case [experiment_id]:
+                    return MlflowExperimentLocation(experiment_id)
+                case _:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Failed to parse trace location {location} rom MLFLOW_TRACING_DESTINATION "
+                        "environment variable. Expected format: <catalog_name>.<schema_name> or "
+                        "<experiment_id>"
+                    )
+        return None
 
+
+@deprecated(since="3.5.0", alternative="mlflow.entities.trace_location.TraceLocation")
 @dataclass
 class TraceDestination:
     """A configuration object for specifying the destination of trace data."""
@@ -38,7 +80,11 @@ class TraceDestination:
         """Type of the destination."""
         raise NotImplementedError
 
+    def to_location(self) -> TraceLocationBase:
+        raise NotImplementedError
 
+
+@deprecated(since="3.5.0", alternative="mlflow.entities.trace_location.MlflowExperimentLocation")
 @dataclass
 class MlflowExperiment(TraceDestination):
     """
@@ -58,8 +104,11 @@ class MlflowExperiment(TraceDestination):
     def type(self) -> str:
         return "experiment"
 
+    def to_location(self) -> TraceLocationBase:
+        return MlflowExperimentLocation(experiment_id=self.experiment_id)
 
-@experimental(version="2.22.0")
+
+@deprecated(since="3.5.0", alternative="mlflow.entities.trace_location.MlflowExperimentLocation")
 @dataclass
 class Databricks(TraceDestination):
     """
@@ -98,3 +147,6 @@ class Databricks(TraceDestination):
     @property
     def type(self) -> str:
         return "databricks"
+
+    def to_location(self) -> TraceLocationBase:
+        return MlflowExperimentLocation(experiment_id=self.experiment_id)

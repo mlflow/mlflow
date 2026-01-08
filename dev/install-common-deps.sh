@@ -50,7 +50,7 @@ pip --version
 if [[ "$SKINNY" == "true" ]]; then
   pip install ./libs/skinny
 else
-  pip install .[extras,gateway,jobs] --upgrade
+  pip install .[extras,gateway,mcp] --upgrade
 fi
 
 req_files=""

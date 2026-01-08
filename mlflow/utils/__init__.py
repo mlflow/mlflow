@@ -7,8 +7,6 @@ from contextlib import closing
 from itertools import islice
 from sys import version_info
 
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER  # noqa: F401
-
 PYTHON_VERSION = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
 
 
@@ -108,7 +106,7 @@ def merge_dicts(dict_a, dict_b, raise_on_duplicates=True):
     duplicate_keys = dict_a.keys() & dict_b.keys()
     if raise_on_duplicates and len(duplicate_keys) > 0:
         raise ValueError(f"The two merging dictionaries contains duplicate keys: {duplicate_keys}.")
-    return {**dict_a, **dict_b}
+    return dict_a | dict_b
 
 
 def _get_fully_qualified_class_name(obj):

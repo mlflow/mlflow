@@ -1,6 +1,7 @@
 import os
 import random
 import re
+from io import BytesIO
 from typing import Any, NamedTuple
 from unittest import mock
 
@@ -54,7 +55,7 @@ def sklearn_knn_model():
 
 
 def random_int(lo=1, hi=1000000000):
-    return random.randint(lo, hi)
+    return random.randint(int(lo), int(hi))
 
 
 def _get_list_from_file(path):
@@ -278,7 +279,7 @@ def test_create_pip_requirement(tmp_path):
     )
     wm._create_pip_requirement(conda_env_path, pip_reqs_path)
     with open(pip_reqs_path) as f:
-        pip_reqs = [x.strip() for x in f.readlines()]
+        pip_reqs = [x.strip() for x in f]
     assert expected_pip_deps.sort() == pip_reqs.sort()
 
 
@@ -346,7 +347,7 @@ def test_serving_wheeled_model(sklearn_knn_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
+    scores = pd.read_json(BytesIO(resp.content), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_data))
 
 

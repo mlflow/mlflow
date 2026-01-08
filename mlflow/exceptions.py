@@ -210,3 +210,10 @@ class MlflowTraceDataCorrupted(MlflowTraceDataException):
 
     def __init__(self, request_id: str | None = None, artifact_path: str | None = None):
         super().__init__(INVALID_STATE, request_id, artifact_path)
+
+
+class MlflowNotImplementedException(MlflowException):
+    """Exception thrown when a feature is not implemented"""
+
+    def __init__(self, message=""):
+        super().__init__(message, error_code=NOT_IMPLEMENTED)

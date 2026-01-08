@@ -2,12 +2,22 @@
 
 import ast
 import inspect
+import json
 import logging
 import re
 from textwrap import dedent
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
+
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
+
+if TYPE_CHECKING:
+    from mlflow.genai.utils.type import FunctionCall
 
 _logger = logging.getLogger(__name__)
+
+GATEWAY_PROVIDER = "gateway"
+INSTRUCTIONS_JUDGE_PYDANTIC_DATA = "instructions_judge_pydantic_data"
+BUILTIN_SCORER_PYDANTIC_DATA = "builtin_scorer_pydantic_data"
 
 
 # FunctionBodyExtractor class is forked from https://github.com/unitycatalog/unitycatalog/blob/20dd3820be332ac04deec4e063099fb863eb3392/ai/core/src/unitycatalog/ai/core/utils/callable_utils.py
@@ -50,8 +60,7 @@ class FunctionBodyExtractor(ast.NodeVisitor):
 
         self.function_body = dedent("".join(function_body_lines)).rstrip("\n")
 
-        indents = [stmt.col_offset for stmt in body if stmt.col_offset is not None]
-        if indents:
+        if indents := [stmt.col_offset for stmt in body if stmt.col_offset is not None]:
             self.indent_unit = min(indents)
 
 
@@ -72,7 +81,7 @@ def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
     return extractor.function_body, extractor.indent_unit
 
 
-def recreate_function(source: str, signature: str, func_name: str) -> Callable[..., Any] | None:
+def recreate_function(source: str, signature: str, func_name: str) -> Callable[..., Any]:
     """
     Recreate a function from its source code, signature, and name.
 
@@ -82,59 +91,153 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
         func_name: The name of the function.
 
     Returns:
-        The recreated function or None if recreation failed.
+        The recreated function.
     """
+    import mlflow
+
+    # Parse the signature to build the function definition
+    sig_match = re.match(r"\((.*?)\)", signature)
+    if not sig_match:
+        raise MlflowException(
+            f"Invalid signature format: '{signature}'", error_code=INVALID_PARAMETER_VALUE
+        )
+
+    params_str = sig_match.group(1).strip()
+
+    # Build the function definition with future annotations to defer type hint evaluation
+    func_def = "from __future__ import annotations\n"
+    func_def += f"def {func_name}({params_str}):\n"
+    # Indent the source code
+    indented_source = "\n".join(f"    {line}" for line in source.split("\n"))
+    func_def += indented_source
+
+    # Create a namespace with common MLflow imports that scorer functions might use
+    # Include mlflow module so type hints like "mlflow.entities.Trace" can be resolved
+    import_namespace = {
+        "mlflow": mlflow,
+    }
+
+    # Import commonly used MLflow classes
     try:
-        # Parse the signature to build the function definition
-        sig_match = re.match(r"\((.*?)\)", signature)
-        if not sig_match:
-            return None
+        from mlflow.entities import (
+            Assessment,
+            AssessmentError,
+            AssessmentSource,
+            AssessmentSourceType,
+            Feedback,
+            Trace,
+        )
+        from mlflow.genai.judges import CategoricalRating
 
-        params_str = sig_match.group(1).strip()
+        import_namespace.update(
+            {
+                "Feedback": Feedback,
+                "Assessment": Assessment,
+                "AssessmentSource": AssessmentSource,
+                "AssessmentError": AssessmentError,
+                "AssessmentSourceType": AssessmentSourceType,
+                "Trace": Trace,
+                "CategoricalRating": CategoricalRating,
+            }
+        )
+    except ImportError:
+        pass  # Some imports might not be available in all contexts
 
-        # Build the function definition
-        func_def = f"def {func_name}({params_str}):\n"
-        # Indent the source code
-        indented_source = "\n".join(f"    {line}" for line in source.split("\n"))
-        func_def += indented_source
+    # Local namespace will capture the created function
+    local_namespace = {}
 
-        # Create a namespace with common MLflow imports that scorer functions might use
-        import_namespace = {}
+    # Execute the function definition with MLflow imports available
+    exec(func_def, import_namespace, local_namespace)  # noqa: S102
 
-        # Import commonly used MLflow classes
-        try:
-            from mlflow.entities import (
-                Assessment,
-                AssessmentError,
-                AssessmentSource,
-                AssessmentSourceType,
-                Feedback,
-                Trace,
-            )
-            from mlflow.genai.judges import CategoricalRating
+    # Return the recreated function
+    return local_namespace[func_name]
 
-            import_namespace.update(
-                {
-                    "Feedback": Feedback,
-                    "Assessment": Assessment,
-                    "AssessmentSource": AssessmentSource,
-                    "AssessmentError": AssessmentError,
-                    "AssessmentSourceType": AssessmentSourceType,
-                    "Trace": Trace,
-                    "CategoricalRating": CategoricalRating,
-                }
-            )
-        except ImportError:
-            pass  # Some imports might not be available in all contexts
 
-        local_namespace = {}
+def is_gateway_model(model: str | None) -> bool:
+    if model is None:
+        return False
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
 
-        # Execute the function definition with MLflow imports available
-        exec(func_def, import_namespace, local_namespace)
+    try:
+        provider, _ = _parse_model_uri(model)
+        return provider == GATEWAY_PROVIDER
+    except MlflowException:
+        return False
 
-        # Return the recreated function
-        return local_namespace[func_name]
 
-    except Exception:
-        _logger.warning(f"Failed to recreate function '{func_name}' from serialized source code")
+def extract_endpoint_ref(model: str) -> str:
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    _, endpoint_ref = _parse_model_uri(model)
+    return endpoint_ref
+
+
+def build_gateway_model(endpoint_ref: str) -> str:
+    return f"{GATEWAY_PROVIDER}:/{endpoint_ref}"
+
+
+def extract_model_from_serialized_scorer(serialized_data: dict[str, Any]) -> str | None:
+    if ij_data := serialized_data.get(INSTRUCTIONS_JUDGE_PYDANTIC_DATA):
+        return ij_data.get("model")
+    if bs_data := serialized_data.get(BUILTIN_SCORER_PYDANTIC_DATA):
+        return bs_data.get("model")
+    return None
+
+
+def update_model_in_serialized_scorer(
+    serialized_data: dict[str, Any], new_model: str | None
+) -> dict[str, Any]:
+    result = serialized_data.copy()
+    if ij_data := result.get(INSTRUCTIONS_JUDGE_PYDANTIC_DATA):
+        result[INSTRUCTIONS_JUDGE_PYDANTIC_DATA] = {**ij_data, "model": new_model}
+    elif bs_data := result.get(BUILTIN_SCORER_PYDANTIC_DATA):
+        result[BUILTIN_SCORER_PYDANTIC_DATA] = {**bs_data, "model": new_model}
+    return result
+
+
+def parse_tool_call_expectations(
+    expectations: dict[str, Any] | None,
+) -> list["FunctionCall"] | None:
+    from mlflow.genai.utils.type import FunctionCall
+
+    if not expectations or "expected_tool_calls" not in expectations:
         return None
+
+    expected_tool_calls = expectations["expected_tool_calls"]
+    if not expected_tool_calls:
+        return None
+
+    normalized_calls = []
+    for call in expected_tool_calls:
+        if isinstance(call, FunctionCall):
+            normalized_calls.append(call)
+        elif isinstance(call, dict):
+            name = call.get("name")
+            arguments = call.get("arguments")
+            if arguments is not None and not isinstance(arguments, dict):
+                raise MlflowException(
+                    f"Invalid arguments type: {type(arguments)}. Arguments must be a dict."
+                )
+            normalized_calls.append(FunctionCall(name=name, arguments=arguments))
+        else:
+            raise MlflowException(
+                f"Invalid expected tool call format: {type(call)}. "
+                "Expected dict with 'name' and optional 'arguments', or FunctionCall object."
+            )
+
+    return normalized_calls
+
+
+def normalize_tool_call_arguments(args: dict[str, Any] | None) -> dict[str, Any]:
+    if args is None:
+        return {}
+    if isinstance(args, dict):
+        return args
+    raise MlflowException(f"Invalid arguments type: {type(args)}. Arguments must be a dict.")
+
+
+def get_tool_call_signature(call: "FunctionCall", include_arguments: bool) -> str | None:
+    if include_arguments:
+        args = json.dumps(normalize_tool_call_arguments(call.arguments), sort_keys=True)
+        return f"{call.name}({args})"
+    return call.name

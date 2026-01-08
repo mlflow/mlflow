@@ -1,3 +1,5 @@
+import os
+import shutil
 import sys
 from unittest import mock
 
@@ -15,7 +17,6 @@ def mock_exec_cmd():
 
 
 def test_find_app_custom_app_plugin():
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
     assert server._find_app("custom_app") == "mlflow_test_plugin.app:custom_app"
 
 
@@ -100,9 +101,24 @@ def test_build_uvicorn_command():
         "mlflow.server.fastapi_app:app",
     ]
 
+    assert server._build_uvicorn_command(
+        "", "localhost", "5000", "4", "mlflow.server.fastapi_app:app", None, is_factory=True
+    ) == [
+        sys.executable,
+        "-m",
+        "uvicorn",
+        "--host",
+        "localhost",
+        "--port",
+        "5000",
+        "--workers",
+        "4",
+        "--factory",
+        "mlflow.server.fastapi_app:app",
+    ]
+
 
 def test_build_uvicorn_command_with_env_file():
-    """Test that uvicorn command includes --env-file when provided."""
     cmd = server._build_uvicorn_command(
         uvicorn_opts=None,
         host="localhost",
@@ -124,7 +140,6 @@ def test_build_uvicorn_command_with_env_file():
 
 
 def test_run_server(mock_exec_cmd, monkeypatch):
-    """Make sure this runs."""
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="linux"):
         server._run_server(
@@ -141,7 +156,6 @@ def test_run_server(mock_exec_cmd, monkeypatch):
 
 
 def test_run_server_win32(mock_exec_cmd, monkeypatch):
-    """Make sure this runs."""
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="win32"):
         server._run_server(
@@ -158,7 +172,6 @@ def test_run_server_win32(mock_exec_cmd, monkeypatch):
 
 
 def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
-    """Test running server with uvicorn."""
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="linux"):
         server._run_server(
@@ -191,3 +204,30 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
         capture_output=False,
         synchronous=False,
     )
+
+
+@pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows")
+def test_run_server_with_jobs_without_uv(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    original_which = shutil.which
+
+    def patched_which(cmd):
+        if cmd == "uv":
+            return None
+        return original_which(cmd)
+
+    with (
+        mock.patch("shutil.which", side_effect=patched_which) as which_patch,
+        pytest.raises(MlflowException, match="MLflow job backend requires 'uv'"),
+    ):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+        )
+    which_patch.assert_called_once_with("uv")

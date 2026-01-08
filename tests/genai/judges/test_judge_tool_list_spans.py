@@ -1,5 +1,3 @@
-"""Tests for the ListSpansTool implementation."""
-
 from unittest import mock
 
 import pytest
@@ -68,7 +66,6 @@ def mock_trace_with_spans():
 
 
 def test_list_spans_tool_invoke_success(mock_trace_with_spans):
-    """Test that the tool successfully returns span data."""
     tool = ListSpansTool()
     result = tool.invoke(mock_trace_with_spans)
 
@@ -98,7 +95,6 @@ def test_list_spans_tool_invoke_success(mock_trace_with_spans):
 
 
 def test_list_spans_tool_invoke_none_trace():
-    """Test that the tool handles None trace gracefully."""
     tool = ListSpansTool()
     result = tool.invoke(None)
 
@@ -108,7 +104,6 @@ def test_list_spans_tool_invoke_none_trace():
 
 
 def test_list_spans_tool_invoke_empty_trace():
-    """Test that the tool handles traces with no spans."""
     trace_info = TraceInfo(
         trace_id="empty-trace",
         trace_location=TraceLocation.from_experiment_id("0"),
@@ -127,7 +122,6 @@ def test_list_spans_tool_invoke_empty_trace():
 
 
 def test_list_spans_tool_invoke_with_pagination(mock_trace_with_spans):
-    """Test pagination functionality."""
     tool = ListSpansTool()
 
     # Test with max_results=1
@@ -144,7 +138,6 @@ def test_list_spans_tool_invoke_with_pagination(mock_trace_with_spans):
 
 
 def test_list_spans_tool_invoke_invalid_page_token(mock_trace_with_spans):
-    """Test that invalid page tokens raise MlflowException."""
     from mlflow.exceptions import MlflowException
 
     tool = ListSpansTool()

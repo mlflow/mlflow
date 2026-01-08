@@ -2,7 +2,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-import mlflow
 import mlflow.telemetry.utils
 from mlflow.telemetry.client import TelemetryClient, _set_telemetry_client, get_telemetry_client
 from mlflow.version import VERSION
@@ -11,8 +10,7 @@ from mlflow.version import VERSION
 @pytest.fixture(autouse=True)
 def terminate_telemetry_client():
     yield
-    client = get_telemetry_client()
-    if client:
+    if client := get_telemetry_client():
         client._clean_up()
         # set to None to avoid side effect in other tests
         _set_telemetry_client(None)
@@ -76,12 +74,11 @@ def mock_requests_get(request):
 
 @pytest.fixture
 def mock_telemetry_client(mock_requests_get, mock_requests):
-    client = TelemetryClient()
-    # ensure config is fetched before the test
-    client._config_thread.join(timeout=1)
-    yield client
-    # TODO: add a context manager to always clean up the threads for tests
-    client._clean_up()
+    with TelemetryClient() as client:
+        client.activate()
+        # ensure config is fetched before the test
+        client._config_thread.join(timeout=1)
+        yield client
 
 
 @pytest.fixture(autouse=True)

@@ -16,13 +16,13 @@ To install `psutil`, run the following command:
 pip install psutil
 ```
 
-If you want to catch Nvidia GPU metrics, you also need to install `pynvml`:
+If you want to catch Nvidia GPU metrics, you also need to install `nvidia-ml-py`:
 
 ```bash
-pip install pynvml
+pip install nvidia-ml-py
 ```
 
-If you are using AMD/HIP GPUs, install [pyrsmi](https://github.com/ROCm/pyrsmi) instead of `pynvml`:
+If you are using AMD/HIP GPUs, install [pyrsmi](https://github.com/ROCm/pyrsmi) instead of `nvidia-ml-py`:
 
 ```bash
 pip install pyrsmi
@@ -156,7 +156,7 @@ By default, MLflow logs the following system metrics:
 - disk_usage_megabytes
 - disk_available_megabytes
 
-GPU metrics are only logged when a GPU is available and `pynvml` is installed.
+GPU metrics are only logged when a GPU is available and `nvidia-ml-py` is installed.
 
 Every system metric has a prefix `system/` when logged for grouping purpose. So the actual metric name
 that is logged will have `system/` prepended, e.g, `system/cpu_utilization_percentage`,
@@ -168,7 +168,7 @@ System metrics are available within the MLflow UI under the metrics section. In 
 them, let's start our MLflow UI server, and log some system metrics to it:
 
 ```bash
-mlflow ui
+mlflow server
 ```
 
 ```python

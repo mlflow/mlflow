@@ -29,8 +29,10 @@ import type { DesignSystemHocProps } from '@databricks/design-system';
 import {
   Alert,
   Empty,
+  InfoTooltip,
   LayerIcon,
   LegacyTooltip,
+  Tooltip,
   Typography,
   WithDesignSystemThemeHoc,
 } from '@databricks/design-system';
@@ -254,10 +256,11 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
               />
             </Checkbox>
           )}
-          <LegacyTooltip
-            arrowPointAtCenter
-            placement="topLeft"
-            title={this.props.intl.formatMessage({
+          <Tooltip
+            componentId="mlflow.artifact_view.download_artifact"
+            side="top"
+            align="end"
+            content={this.props.intl.formatMessage({
               defaultMessage: 'Download artifact',
               description: 'Link to download the artifact of the experiment',
             })}
@@ -269,7 +272,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
                 this.onDownloadClick(runUuid, activeNodeId, loggedModelId, isFallbackToLoggedModelArtifacts)
               }
             />
-          </LegacyTooltip>
+          </Tooltip>
         </div>
       </div>
     );
@@ -342,7 +345,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           this.props.entityTags,
         );
       } else {
-        this.props.listArtifactsApi(this.props.runUuid, id);
+        this.props.listArtifactsApi(this.props.runUuid, id, undefined, this.props.experimentId, this.props.entityTags);
       }
     }
     this.setState({
@@ -582,21 +585,26 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
   // eslint-disable-next-line prefer-const
   let mvPageRoute = ModelRegistryRoutes.getModelVersionPageRoute(name, version);
   const modelVersionLink = (
-    <LegacyTooltip title={`${name} version ${version}`}>
-      <Link to={mvPageRoute} className="model-version-link" target="_blank" rel="noreferrer">
-        <span className="model-name">{name}</span>
-        <span>,&nbsp;v{version}&nbsp;</span>
-        <i className="fa fa-external-link-o" />
-      </Link>
-    </LegacyTooltip>
+    <Tooltip componentId="mlflow.artifacts.model_version.link" content={`${name} version ${version}`}>
+      <span>
+        <Link to={mvPageRoute} className="model-version-link" target="_blank" rel="noreferrer">
+          <span className="model-name">{name}</span>
+          <span>,&nbsp;v{version}&nbsp;</span>
+          <i className="fa fa-external-link-o" />
+        </Link>
+      </span>
+    </Tooltip>
   );
 
   return (
     <div className="model-version-info">
       <div className="model-version-link-section">
-        <LegacyTooltip title={status_message || modelVersionStatusIconTooltips[status]}>
+        <Tooltip
+          componentId="mlflow.artifacts.model_version.status"
+          content={status_message || modelVersionStatusIconTooltips[status]}
+        >
           <div>{ModelVersionStatusIcons[status]}</div>
-        </LegacyTooltip>
+        </Tooltip>
         {modelVersionLink}
       </div>
       <div className="model-version-status-text">

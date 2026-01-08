@@ -7,9 +7,6 @@ on:
       - synchronize
       - reopened
       - ready_for_review
-    paths:
-      - libs/typescript/**
-      - .github/workflows/typescript.yml
   push:
     branches:
       - master
@@ -18,6 +15,10 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   typescript-sdk:

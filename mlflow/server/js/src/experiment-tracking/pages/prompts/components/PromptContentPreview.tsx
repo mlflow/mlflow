@@ -1,11 +1,17 @@
 import {
   Button,
+  LightningIcon,
   Modal,
   PlayIcon,
   Spacer,
   TrashIcon,
+  MarkdownIcon,
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
+  TextBoxIcon,
 } from '@databricks/design-system';
 import { useMemo, useState } from 'react';
 import {
@@ -19,10 +25,12 @@ import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { PromptVersionMetadata } from './PromptVersionMetadata';
 import { FormattedMessage } from 'react-intl';
 import { uniq } from 'lodash';
+import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
 import { useDeletePromptVersionModal } from '../hooks/useDeletePromptVersionModal';
 import { ShowArtifactCodeSnippet } from '../../../components/artifact-view-components/ShowArtifactCodeSnippet';
-import { ModelTraceExplorerChatMessage } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer/right-pane/ModelTraceExplorerChatMessage';
-import type { ModelTraceChatMessage } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer/ModelTrace.types';
+import { ModelTraceExplorerChatMessage } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceChatMessage } from '@databricks/web-shared/model-trace-explorer';
+import { OptimizeModal } from './OptimizeModal';
 
 const PROMPT_VARIABLE_REGEX = /\{\{\s*(.*?)\s*\}\}/g;
 
@@ -34,6 +42,7 @@ export const PromptContentPreview = ({
   registeredPrompt,
   showEditAliasesModal,
   showEditPromptVersionMetadataModal,
+  showEditModelConfigModal,
 }: {
   promptVersion?: RegisteredPromptVersion;
   onUpdatedContent?: () => Promise<any>;
@@ -42,6 +51,7 @@ export const PromptContentPreview = ({
   registeredPrompt?: RegisteredPrompt;
   showEditAliasesModal?: (versionNumber: string) => void;
   showEditPromptVersionMetadataModal: (promptVersion: RegisteredPromptVersion) => void;
+  showEditModelConfigModal?: (promptVersion: RegisteredPromptVersion) => void;
 }) => {
   const value = useMemo(() => (promptVersion ? getPromptContentTagValue(promptVersion) : ''), [promptVersion]);
   const isChatPromptType = useMemo(() => isChatPrompt(promptVersion), [promptVersion]);
@@ -56,6 +66,8 @@ export const PromptContentPreview = ({
   });
 
   const [showUsageExample, setShowUsageExample] = useState(false);
+  const [showOptimizeModal, setShowOptimizeModal] = useState(false);
+  const [shouldRenderMarkdown, setShouldRenderMarkdown] = useState(true);
 
   // Find all variables in the prompt content
   const variableNames = useMemo(() => {
@@ -99,7 +111,25 @@ export const PromptContentPreview = ({
       }}
     >
       <div css={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Typography.Title level={3}>Viewing version {promptVersion?.version}</Typography.Title>
+        <div
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            flex: 1,
+            columnGap: theme.spacing.md,
+            rowGap: theme.spacing.sm,
+            marginRight: theme.spacing.md,
+          }}
+        >
+          <Typography.Title withoutMargins level={3}>
+            <FormattedMessage
+              defaultMessage="Viewing version {version}"
+              description="Title of the prompt details page for a given version"
+              values={{ version: promptVersion?.version }}
+            />
+          </Typography.Title>
+        </div>
         <div css={{ display: 'flex', gap: theme.spacing.sm }}>
           <Button
             componentId="mlflow.prompts.details.delete_version"
@@ -111,6 +141,16 @@ export const PromptContentPreview = ({
             <FormattedMessage
               defaultMessage="Delete version"
               description="A label for a button to delete prompt version on the prompt details page"
+            />
+          </Button>
+          <Button
+            componentId="mlflow.prompts.details.preview.optimize"
+            icon={<LightningIcon />}
+            onClick={() => setShowOptimizeModal(true)}
+          >
+            <FormattedMessage
+              defaultMessage="Optimize"
+              description="A label for a button to display the modal with instructions to optimize the prompt"
             />
           </Button>
           <Button
@@ -132,39 +172,93 @@ export const PromptContentPreview = ({
         registeredPromptVersion={promptVersion}
         showEditAliasesModal={showEditAliasesModal}
         showEditPromptVersionMetadataModal={showEditPromptVersionMetadataModal}
+        showEditModelConfigModal={showEditModelConfigModal}
       />
-      <Spacer shrinks={false} />
-      <div
-        css={{
-          backgroundColor: isChatPromptType ? undefined : theme.colors.backgroundSecondary,
-          padding: theme.spacing.md,
-          overflow: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: theme.spacing.sm,
-        }}
-      >
-        {isChatPromptType && parsedMessages ? (
-          parsedMessages.map((msg: any, index: number) => (
-            <ModelTraceExplorerChatMessage
-              key={index}
-              message={
-                {
-                  ...msg,
-                  content: msg.content,
-                } as ModelTraceChatMessage
-              }
-            />
-          ))
-        ) : (
-          <Typography.Text
-            css={{
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-            {value || 'Empty'}
-          </Typography.Text>
-        )}
+      {isChatPromptType && <Spacer shrinks={false} />}
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+        <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+          {!isChatPromptType && (
+            <SegmentedControlGroup
+              name="render-mode"
+              size="small"
+              componentId="mlflow.prompts.details.toggle-markdown-rendering"
+              value={shouldRenderMarkdown}
+              onChange={(event) => setShouldRenderMarkdown(event.target.value)}
+              css={{ display: 'flex' }}
+            >
+              <SegmentedControlButton value={false}>
+                <Tooltip
+                  componentId="mlflow.prompts.details.plaintext-rendering-tooltip"
+                  content={
+                    <FormattedMessage
+                      defaultMessage="Plain text"
+                      description="Tooltip content for a button that changes the render mode of the prompt to plain text"
+                    />
+                  }
+                >
+                  <div css={{ display: 'flex', alignItems: 'center' }}>
+                    <Typography.Text>
+                      {' '}
+                      <FormattedMessage
+                        defaultMessage="Text"
+                        description="Label for the text render mode of the prompt"
+                      />
+                    </Typography.Text>
+                  </div>
+                </Tooltip>
+              </SegmentedControlButton>
+              <SegmentedControlButton value>
+                <Tooltip
+                  componentId="mlflow.prompts.details.markdown-rendering-tooltip"
+                  content={
+                    <FormattedMessage
+                      defaultMessage="Markdown"
+                      description="Tooltip content for a button that changes the render mode of the prompt to markdown"
+                    />
+                  }
+                >
+                  <div css={{ display: 'flex', alignItems: 'center' }}>
+                    <MarkdownIcon css={{ fontSize: theme.typography.fontSizeLg }} />
+                  </div>
+                </Tooltip>
+              </SegmentedControlButton>
+            </SegmentedControlGroup>
+          )}
+        </div>
+        <div
+          css={{
+            backgroundColor: isChatPromptType ? undefined : theme.colors.backgroundSecondary,
+            padding: theme.spacing.md,
+            overflow: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.sm,
+          }}
+        >
+          {isChatPromptType && parsedMessages ? (
+            parsedMessages.map((msg: any, index: number) => (
+              <ModelTraceExplorerChatMessage
+                key={index}
+                message={
+                  {
+                    ...msg,
+                    content: msg.content,
+                  } as ModelTraceChatMessage
+                }
+              />
+            ))
+          ) : shouldRenderMarkdown ? (
+            <GenAIMarkdownRenderer>{value || 'Empty'}</GenAIMarkdownRenderer>
+          ) : (
+            <Typography.Text
+              css={{
+                whiteSpace: 'pre-wrap',
+              }}
+            >
+              {value || 'Empty'}
+            </Typography.Text>
+          )}
+        </div>
       </div>
       <Modal
         componentId="mlflow.prompts.details.preview.usage_example_modal"
@@ -187,6 +281,12 @@ export const PromptContentPreview = ({
           code={buildCodeSnippetContent(promptVersion, variableNames, isChatPromptType ? PROMPT_TYPE_CHAT : undefined)}
         />{' '}
       </Modal>
+      <OptimizeModal
+        visible={showOptimizeModal}
+        promptName={promptVersion?.name || ''}
+        promptVersion={promptVersion?.version || ''}
+        onCancel={() => setShowOptimizeModal(false)}
+      />
       {DeletePromptModal}
     </div>
   );

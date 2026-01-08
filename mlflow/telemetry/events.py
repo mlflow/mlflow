@@ -1,7 +1,38 @@
+import inspect
 import sys
-from typing import Any
+from enum import Enum
+from typing import TYPE_CHECKING, Any
 
+from mlflow.entities import Feedback
 from mlflow.telemetry.constant import GENAI_MODULES, MODULES_TO_CHECK_IMPORT
+
+if TYPE_CHECKING:
+    from mlflow.genai.scorers.base import Scorer
+
+
+def _get_scorer_class_name_for_tracking(scorer: "Scorer") -> str:
+    from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
+
+    if isinstance(scorer, BuiltInScorer):
+        return type(scorer).__name__
+
+    try:
+        from mlflow.genai.scorers.deepeval import DeepEvalScorer
+
+        if isinstance(scorer, DeepEvalScorer):
+            return f"DeepEval:{scorer.name}"
+    except ImportError:
+        pass
+
+    try:
+        from mlflow.genai.scorers.ragas import RagasScorer
+
+        if isinstance(scorer, RagasScorer):
+            return f"Ragas:{scorer.name}"
+    except ImportError:
+        pass
+
+    return "UserDefinedScorer"
 
 
 class Event:
@@ -13,10 +44,6 @@ class Event:
         Parse the arguments and return the params.
         """
         return None
-
-
-class ImportMlflowEvent(Event):
-    name: str = "import_mlflow"
 
 
 class CreateExperimentEvent(Event):
@@ -32,6 +59,17 @@ class CreatePromptEvent(Event):
     name: str = "create_prompt"
 
 
+class LoadPromptEvent(Event):
+    name: str = "load_prompt"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        name_or_uri = arguments.get("name_or_uri", "")
+        # Check if alias is used (format: "prompts:/name@alias")
+        uses_alias = "@" in name_or_uri
+        return {"uses_alias": uses_alias}
+
+
 class StartTraceEvent(Event):
     name: str = "start_trace"
 
@@ -45,6 +83,19 @@ class StartTraceEvent(Event):
 class LogAssessmentEvent(Event):
     name: str = "log_assessment"
 
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        from mlflow.entities.assessment import Expectation, Feedback
+
+        assessment = arguments.get("assessment")
+        if assessment is None:
+            return None
+
+        if isinstance(assessment, Expectation):
+            return {"type": "expectation", "source_type": assessment.source.source_type}
+        elif isinstance(assessment, Feedback):
+            return {"type": "feedback", "source_type": assessment.source.source_type}
+
 
 class EvaluateEvent(Event):
     name: str = "evaluate"
@@ -55,11 +106,43 @@ class GenAIEvaluateEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
+        from mlflow.genai.scorers.base import Scorer
 
+        record_params = {}
+
+        # Track if predict_fn is provided
+        record_params["predict_fn_provided"] = arguments.get("predict_fn") is not None
+
+        # Track eval data type
+        eval_data = arguments.get("data")
+        if eval_data is not None:
+            from mlflow.genai.evaluation.utils import _get_eval_data_type
+
+            record_params.update(_get_eval_data_type(eval_data))
+
+        # Track scorer information
         scorers = arguments.get("scorers") or []
-        builtin_scorers = {scorer.name for scorer in scorers if isinstance(scorer, BuiltInScorer)}
-        return {"builtin_scorers": list(builtin_scorers)}
+        scorer_info = [
+            {
+                "class": _get_scorer_class_name_for_tracking(scorer),
+                "kind": scorer.kind.value,
+                "scope": "session" if scorer.is_session_level_scorer else "response",
+            }
+            for scorer in scorers
+            if isinstance(scorer, Scorer)
+        ]
+        record_params["scorer_info"] = scorer_info
+
+        return record_params
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any] | None:
+        _, telemetry_data = result
+
+        if not isinstance(telemetry_data, dict):
+            return None
+
+        return telemetry_data
 
 
 class CreateLoggedModelEvent(Event):
@@ -175,6 +258,35 @@ class CreateWebhookEvent(Event):
 class PromptOptimizationEvent(Event):
     name: str = "prompt_optimization"
 
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        result = {}
+
+        # Track the optimizer type used
+        if optimizer := arguments.get("optimizer"):
+            result["optimizer_type"] = type(optimizer).__name__
+        else:
+            result["optimizer_type"] = None
+
+        # Track the number of prompts being optimized
+        prompt_uris = arguments.get("prompt_uris") or []
+        try:
+            result["prompt_count"] = len(prompt_uris)
+        except TypeError:
+            result["prompt_count"] = None
+
+        # Track if custom scorers are provided and how many
+        scorers = arguments.get("scorers")
+        try:
+            result["scorer_count"] = len(scorers)
+        except TypeError:
+            result["scorer_count"] = None
+
+        # Track if custom aggregation is provided
+        result["custom_aggregation"] = arguments.get("aggregation") is not None
+
+        return result
+
 
 class LogDatasetEvent(Event):
     name: str = "log_dataset"
@@ -211,6 +323,14 @@ class LogBatchEvent(Event):
 
 class McpRunEvent(Event):
     name: str = "mcp_run"
+
+
+class GatewayStartEvent(Event):
+    name: str = "gateway_start"
+
+
+class AiCommandRunEvent(Event):
+    name: str = "ai_command_run"
 
 
 class GitModelVersioningEvent(Event):
@@ -263,3 +383,69 @@ class AlignJudgeEvent(Event):
             result["optimizer_type"] = "default"
 
         return result
+
+
+class AutologgingEvent(Event):
+    name: str = "autologging"
+
+
+class TraceSource(str, Enum):
+    """Source of a trace received by the MLflow server."""
+
+    MLFLOW_PYTHON_CLIENT = "MLFLOW_PYTHON_CLIENT"
+    UNKNOWN = "UNKNOWN"
+
+
+class TracesReceivedByServerEvent(Event):
+    name: str = "traces_received_by_server"
+
+
+class SimulateConversationEvent(Event):
+    name: str = "simulate_conversation"
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any] | None:
+        return {
+            "simulated_conversation_info": [
+                {"turn_count": len(conversation)} for conversation in result
+            ]
+        }
+
+
+class ScorerCallEvent(Event):
+    name: str = "scorer_call"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        from mlflow.genai.scorers.base import Scorer
+
+        scorer_instance = arguments.get("self")
+        if not isinstance(scorer_instance, Scorer):
+            return None
+
+        callsite = "direct_scorer_call"
+        for frame_info in inspect.stack()[:10]:
+            frame_filename = frame_info.filename
+            frame_function = frame_info.function
+
+            if "mlflow/genai/scorers/base" in frame_filename.replace("\\", "/"):
+                if frame_function == "run":
+                    callsite = "genai.evaluate"
+                    break
+
+        return {
+            "scorer_class": _get_scorer_class_name_for_tracking(scorer_instance),
+            "scorer_kind": scorer_instance.kind.value,
+            "is_session_level_scorer": scorer_instance.is_session_level_scorer,
+            "callsite": callsite,
+        }
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any] | None:
+        if isinstance(result, Feedback):
+            return {"has_feedback_error": result.error is not None}
+
+        if isinstance(result, list) and result and all(isinstance(f, Feedback) for f in result):
+            return {"has_feedback_error": any(f.error is not None for f in result)}
+
+        return {"has_feedback_error": False}

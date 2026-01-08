@@ -1,4 +1,4 @@
-import { Tag, LegacyTooltip, Typography } from '@databricks/design-system';
+import { Tag, Tooltip, Typography } from '@databricks/design-system';
 import type { KeyValueEntity } from '../types';
 import React, { useState } from 'react';
 import { useIntl } from 'react-intl';
@@ -64,7 +64,10 @@ export const KeyValueTag = ({
         title={tag.key}
         className={className}
       >
-        <LegacyTooltip title={allowFullViewModal ? fullViewModalLabel : ''}>
+        <Tooltip
+          content={allowFullViewModal ? fullViewModalLabel : ''}
+          componentId="mlflow.common.components.key-value-tag.tooltip"
+        >
           <span
             css={{ maxWidth, display: 'inline-flex' }}
             onClick={() => (allowFullViewModal ? setIsKeyValueTagFullViewModalVisible(true) : undefined)}
@@ -78,7 +81,7 @@ export const KeyValueTag = ({
               </Typography.Text>
             )}
           </span>
-        </LegacyTooltip>
+        </Tooltip>
       </Tag>
       <div>
         {isKeyValueTagFullViewModalVisible && (

@@ -11,7 +11,7 @@ from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
 
-UBUNTU_BASE_IMAGE = "ubuntu:20.04"
+UBUNTU_BASE_IMAGE = "ubuntu:22.04"
 PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
 
 
@@ -30,6 +30,8 @@ RUN apt install -y software-properties-common \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt update \
     && apt install -y python3.10 python3.10-distutils \
+    # Remove python3-blinker to avoid pip uninstall conflicts
+    && apt remove -y python3-blinker \
     && ln -s -f $(which python3.10) /usr/bin/python \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py

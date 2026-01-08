@@ -8,6 +8,9 @@ import type {
   OpenAIResponsesInputMessageRole,
   OpenAIResponsesInputText,
   OpenAIResponsesOutputItem,
+  OpenAIResponsesReasoning,
+  OpenAIResponsesStreamingOutputDelta,
+  OpenAIResponsesStreamingOutputDone,
 } from './openai.types';
 import type { ModelTraceChatMessage } from '../ModelTrace.types';
 import {
@@ -24,7 +27,7 @@ export const normalizeOpenAIChatInput = (obj: any): ModelTraceChatMessage[] | nu
     return null;
   }
 
-  const messages = obj.messages ?? obj.input;
+  const messages = obj.messages ?? obj.input ?? obj.request?.input;
   if (!Array.isArray(messages) || messages.length === 0 || !messages.every(isRawModelTraceChatMessage)) {
     return null;
   }
@@ -92,7 +95,8 @@ export const isOpenAIResponsesOutputItem = (obj: unknown): obj is OpenAIResponse
   }
 
   if (get(obj, 'type') === 'reasoning') {
-    return has(obj, 'id') && isArray(get(obj, 'summary'));
+    const summary = get(obj, 'summary');
+    return has(obj, 'id') && (isArray(summary) || summary === null);
   }
 
   return false;
@@ -138,7 +142,9 @@ const normalizeOpenAIResponsesInputMessage = (obj: OpenAIResponsesInputMessage):
 };
 
 export const normalizeOpenAIResponsesInput = (obj: unknown): ModelTraceChatMessage[] | null => {
-  const input: unknown = get(obj, 'input');
+  // if the object does not have the 'input' key, then try using the object directly
+  // (user may have passed in the response input directly to the span)
+  const input: unknown = get(obj, 'input') ?? get(obj, 'request.input') ?? obj;
 
   if (isString(input)) {
     const message = prettyPrintChatMessage({ type: 'message', content: input, role: 'user' });
@@ -152,9 +158,37 @@ export const normalizeOpenAIResponsesInput = (obj: unknown): ModelTraceChatMessa
   return null;
 };
 
-export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputItem): ModelTraceChatMessage | null => {
+const extractReasoningText = (reasoning: OpenAIResponsesReasoning): string | null => {
+  if (!reasoning.summary) {
+    return null;
+  }
+  return reasoning.summary.map((s) => s.text).join('\n\n') || null;
+};
+
+// Process output items, attaching reasoning to following messages
+const processOutputItemsWithReasoning = (items: OpenAIResponsesOutputItem[]): ModelTraceChatMessage[] => {
+  const messages: (ModelTraceChatMessage | null)[] = [];
+  let pendingReasoning: string | null = null;
+
+  for (const item of items) {
+    if (item.type === 'reasoning') {
+      pendingReasoning = extractReasoningText(item as OpenAIResponsesReasoning);
+    } else {
+      messages.push(normalizeOpenAIResponsesOutputItem(item, pendingReasoning));
+      pendingReasoning = null;
+    }
+  }
+
+  return compact(messages);
+};
+
+export const normalizeOpenAIResponsesOutputItem = (
+  obj: OpenAIResponsesOutputItem,
+  reasoning?: string | null,
+): ModelTraceChatMessage | null => {
   if (obj.type === 'message') {
-    return prettyPrintChatMessage(obj);
+    const message = prettyPrintChatMessage(obj);
+    return message && reasoning ? { ...message, reasoning } : message;
   }
 
   if (obj.type === 'function_call') {
@@ -169,6 +203,7 @@ export const normalizeOpenAIResponsesOutputItem = (obj: OpenAIResponsesOutputIte
           },
         }),
       ],
+      ...(reasoning && { reasoning }),
     };
   }
 
@@ -201,11 +236,14 @@ export const normalizeOpenAIResponsesOutput = (obj: unknown): ModelTraceChatMess
     return null;
   }
 
-  const output: unknown = get(obj, 'output');
+  // if the object does not have the 'output' key, then try using the object directly
+  // (user may have passed in the response output directly to the span)
+  const output: unknown = get(obj, 'output') ?? obj;
 
   // list of output items
   if (isArray(output) && output.length > 0 && output.every(isOpenAIResponsesOutputItem)) {
-    return compact(output.map(normalizeOpenAIResponsesOutputItem).filter(Boolean));
+    const messages = processOutputItemsWithReasoning(output);
+    return messages.length > 0 ? messages : null;
   }
 
   // list of output chunks
@@ -214,7 +252,9 @@ export const normalizeOpenAIResponsesOutput = (obj: unknown): ModelTraceChatMess
     output.length > 0 &&
     output.every((chunk) => chunk.type === 'response.output_item.done' && isOpenAIResponsesOutputItem(chunk.item))
   ) {
-    return compact(output.map((chunk) => normalizeOpenAIResponsesOutputItem(chunk.item)));
+    const items = output.map((chunk) => chunk.item);
+    const messages = processOutputItemsWithReasoning(items);
+    return messages.length > 0 ? messages : null;
   }
 
   return null;
@@ -243,6 +283,22 @@ const isOpenAIAgentMessage = (obj: unknown): boolean => {
   }
 
   return false;
+};
+
+const isOpenAIAgentStreamingOutputDelta = (obj: unknown): obj is OpenAIResponsesStreamingOutputDelta => {
+  if (!isObject(obj)) {
+    return false;
+  }
+
+  return get(obj, 'type') === 'response.output_text.delta' && isString(get(obj, 'delta'));
+};
+
+const isOpenAIAgentStreamingOutputDone = (obj: unknown): obj is OpenAIResponsesStreamingOutputDone => {
+  if (!isObject(obj)) {
+    return false;
+  }
+
+  return get(obj, 'type') === 'response.output_item.done' && isOpenAIResponsesOutputItem(get(obj, 'item'));
 };
 
 const normalizeOpenAIAgentMessage = (obj: any): ModelTraceChatMessage | null => {
@@ -327,6 +383,30 @@ export const normalizeOpenAIAgentOutput = (obj: unknown): ModelTraceChatMessage[
   // Handle array of messages directly
   if (isArray(obj) && obj.length > 0 && obj.every(isOpenAIAgentMessage)) {
     return compact(obj.map(normalizeOpenAIAgentMessage));
+  }
+
+  return null;
+};
+
+export const normalizeOpenAIResponsesStreamingOutput = (obj: unknown): ModelTraceChatMessage[] | null => {
+  if (isNil(obj)) {
+    return null;
+  }
+
+  if (
+    isArray(obj) &&
+    obj.length > 0 &&
+    obj.every((message) => isOpenAIAgentStreamingOutputDelta(message) || isOpenAIAgentStreamingOutputDone(message)) &&
+    // ensure there's at least one "done" event
+    obj.some((message) => isOpenAIAgentStreamingOutputDone(message))
+  ) {
+    // for streaming outputs, the full text will be contained in the `response.output_item.done` event.
+    // in order to conveniently display the text, we just ignore the deltas and return the full messages.
+    return compact(
+      obj
+        .filter(isOpenAIAgentStreamingOutputDone)
+        .map((done_events) => normalizeOpenAIResponsesOutputItem(done_events.item)),
+    );
   }
 
   return null;

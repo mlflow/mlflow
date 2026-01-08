@@ -1,5 +1,3 @@
-"""Unit tests for the AI commands utilities."""
-
 import platform
 from unittest import mock
 
@@ -234,7 +232,6 @@ def test_list_commands_sorted():
 
 
 def test_get_command_body(tmp_path):
-    """Strips frontmatter from command content and returns body only."""
     genai_dir = tmp_path / "commands" / "genai"
     genai_dir.mkdir(parents=True)
 
@@ -275,7 +272,6 @@ This is just markdown content."""
 
 
 def test_get_command_body_not_found(tmp_path):
-    """Raises FileNotFoundError for non-existent commands."""
     commands_dir = tmp_path / "commands"
     commands_dir.mkdir()
 

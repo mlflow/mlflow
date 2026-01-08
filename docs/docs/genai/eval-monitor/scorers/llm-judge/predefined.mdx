@@ -68,20 +68,75 @@ results = mlflow.genai.evaluate(
 
 ## Available Scorers
 
-| Scorer                                                                                     | What does it evaluate?                                       | Requires ground-truth? | Requires traces?      |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | ---------------------- | --------------------- |
-| <APILink fn="mlflow.genai.scorers.RelevanceToQuery">RelevanceToQuery</APILink>             | Does the app's response directly address the user's input?   | No                     | No                    |
-| <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink>                       | Is the app's response correct compared to ground-truth?      | Yes                    | No                    |
-| <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink>                         | Does the response adhere to provided guidelines?             | Yes                    | No                    |
-| <APILink fn="mlflow.genai.scorers.ExpectationsGuidelines">ExpectationsGuidelines</APILink> | Does the response meet specific expectations and guidelines? | Yes                    | No                    |
-| <APILink fn="mlflow.genai.scorers.Safety">Safety</APILink>                                 | Does the app's response avoid harmful or toxic content?      | No                     | No                    |
-| <APILink fn="mlflow.genai.scorers.RetrievalGroundedness">RetrievalGroundedness</APILink>   | Is the app's response grounded in retrieved information?     | No                     | ⚠️ **Trace Required** |
-| <APILink fn="mlflow.genai.scorers.RetrievalRelevance">RetrievalRelevance</APILink>         | Are retrieved documents relevant to the user's request?      | No                     | ⚠️ **Trace Required** |
-| <APILink fn="mlflow.genai.scorers.RetrievalSufficiency">RetrievalSufficiency</APILink>     | Do retrieved documents contain all necessary information?    | Yes                    | ⚠️ **Trace Required** |
+### Single-Turn Scorers
+
+| Scorer                                                                                     | What does it evaluate?                                        | Requires ground-truth? | Requires traces?      |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------- | ---------------------- | --------------------- |
+| <APILink fn="mlflow.genai.scorers.RelevanceToQuery">RelevanceToQuery</APILink>             | Does the app's response directly address the user's input?    | No                     | No                    |
+| <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink>                       | Are the expected facts supported by the app's response?       | Yes\*                  | No                    |
+| <APILink fn="mlflow.genai.scorers.Completeness">Completeness</APILink>\*\*                 | Does the agent address all questions in a single user prompt? | No                     | No                    |
+| <APILink fn="mlflow.genai.scorers.Fluency">Fluency</APILink>                               | Is the response grammatically correct and naturally flowing?  | No                     | No                    |
+| <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink>                         | Does the response adhere to provided guidelines?              | Yes\*                  | No                    |
+| <APILink fn="mlflow.genai.scorers.ExpectationsGuidelines">ExpectationsGuidelines</APILink> | Does the response meet specific expectations and guidelines?  | Yes\*                  | No                    |
+| <APILink fn="mlflow.genai.scorers.Safety">Safety</APILink>                                 | Does the app's response avoid harmful or toxic content?       | No                     | No                    |
+| <APILink fn="mlflow.genai.scorers.Equivalence">Equivalence</APILink>                       | Is the app's response equivalent to the expected output?      | Yes                    | No                    |
+| <APILink fn="mlflow.genai.scorers.RetrievalGroundedness">RetrievalGroundedness</APILink>   | Is the app's response grounded in retrieved information?      | No                     | ⚠️ **Trace Required** |
+| <APILink fn="mlflow.genai.scorers.RetrievalRelevance">RetrievalRelevance</APILink>         | Are retrieved documents relevant to the user's request?       | No                     | ⚠️ **Trace Required** |
+| <APILink fn="mlflow.genai.scorers.RetrievalSufficiency">RetrievalSufficiency</APILink>     | Do retrieved documents contain all necessary information?     | Yes                    | ⚠️ **Trace Required** |
+| <APILink fn="mlflow.genai.scorers.ToolCallCorrectness">ToolCallCorrectness</APILink>\*\*   | Are the tool calls and arguments correct for the user query?  | No                     | ⚠️ **Trace Required** |
+| <APILink fn="mlflow.genai.scorers.ToolCallEfficiency">ToolCallEfficiency</APILink>\*\*     | Are the tool calls efficient without redundancy?              | No                     | ⚠️ **Trace Required** |
+
+\*Can extract expectations from trace assessments if available.
+
+\*\*Indicates experimental features that may change in future releases.
+
+### Multi-Turn Scorers
+
+Multi-turn scorers evaluate entire conversation sessions rather than individual turns. They require traces with session IDs and are experimental in MLflow 3.7.0.
+
+| Scorer                                                                                                             | What does it evaluate?                                                     | Requires Session? |
+| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- | ----------------- |
+| <APILink fn="mlflow.genai.scorers.ConversationCompleteness">ConversationCompleteness</APILink>\*\*                 | Does the agent address all user questions throughout the conversation?     | Yes               |
+| <APILink fn="mlflow.genai.scorers.ConversationalGuidelines">ConversationalGuidelines</APILink>\*\*                 | Do the assistant's responses comply with provided guidelines?              | Yes               |
+| <APILink fn="mlflow.genai.scorers.ConversationalRoleAdherence">ConversationalRoleAdherence</APILink>\*\*           | Does the assistant maintain its assigned role throughout the conversation? | Yes               |
+| <APILink fn="mlflow.genai.scorers.ConversationalSafety">ConversationalSafety</APILink>\*\*                         | Are the assistant's responses safe and free of harmful content?            | Yes               |
+| <APILink fn="mlflow.genai.scorers.ConversationalToolCallEfficiency">ConversationalToolCallEfficiency</APILink>\*\* | Was tool usage across the conversation efficient and appropriate?          | Yes               |
+| <APILink fn="mlflow.genai.scorers.KnowledgeRetention">KnowledgeRetention</APILink>\*\*                             | Does the assistant correctly retain information from earlier user inputs?  | Yes               |
+| <APILink fn="mlflow.genai.scorers.UserFrustration">UserFrustration</APILink>\*\*                                   | Is the user frustrated? Was the frustration resolved?                      | Yes               |
+
+:::info Multi-Turn Evaluation Requirements
+Multi-turn scorers require:
+
+1. **Session IDs**: Traces must have `mlflow.trace.session` metadata
+2. **List or DataFrame input**: Currently only supports pre-collected traces (no `predict_fn` support yet)
+
+See the [Evaluate Conversations](#evaluate-conversations) section below for detailed usage examples.
+:::
 
 :::note Availability
 Safety and RetrievalRelevance scorers are currently only available in [Databricks managed MLflow](https://docs.databricks.com/mlflow3/genai/eval-monitor/) and will be open-sourced soon.
 :::
+
+## Using Traces with Built-in Scorers
+
+All built-in scorers, such as Guidelines, RelevanceToQuery, Safety, Correctness, and ExpectationsGuidelines, can extract inputs and outputs directly from traces:
+
+```python
+from mlflow.genai.scorers import Correctness
+
+trace = mlflow.get_trace("<your-trace-id>")
+scorer = Correctness()
+
+# Extracts inputs/outputs from trace automatically
+result = scorer(trace=trace)
+
+# Override specific fields as needed
+result = scorer(trace=trace, expectations={"expected_facts": ["Custom fact"]})
+```
+
+### Automatic Fallback for Complex Traces
+
+For complex traces or those that do not contain inputs and outputs in the root span, the scorer will use tool calling to provide the trace information to an LLM judge.
 
 :::warning[Retrieval Scorers Require Traces]
 
@@ -126,6 +181,10 @@ source: AssessmentSource(
 :::info Why Binary Scores?
 Binary scoring provides clearer, more consistent evaluations compared to numeric scales (1-5). Research shows that LLMs produce more reliable judgments when asked to make binary decisions rather than rating on a scale. Binary outputs also simplify threshold-based decision making in production systems.
 :::
+
+## Evaluate Conversations
+
+Multi-turn scorers evaluate entire conversation sessions rather than individual turns. For detailed information on how to use conversation evaluation, including setup, examples, and best practices, see the [Evaluate Conversations](/genai/eval-monitor/running-evaluation/multi-turn) guide.
 
 ## Next Steps
 

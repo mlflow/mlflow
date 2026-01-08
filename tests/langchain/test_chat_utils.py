@@ -1,8 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-import langchain
 import pytest
-from langchain.agents import AgentExecutor
 from langchain_core.language_models.chat_models import SimpleChatModel
 from langchain_core.messages import (
     AIMessage,
@@ -11,9 +9,9 @@ from langchain_core.messages import (
     SystemMessage,
     ToolMessage,
 )
+from langchain_core.outputs import ChatGenerationChunk
 from langchain_core.outputs.chat_generation import ChatGeneration
 from langchain_core.outputs.generation import Generation
-from packaging.version import Version
 
 from mlflow.langchain.utils.chat import (
     convert_lc_message_to_chat_message,
@@ -51,10 +49,6 @@ def test_convert_lc_message_to_chat_message(message, expected):
     assert convert_lc_message_to_chat_message(message) == expected
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.0"),
-    reason="AIMessage does not have tool_calls attribute",
-)
 @pytest.mark.parametrize(
     ("message", "expected"),
     [
@@ -171,15 +165,6 @@ def test_transform_response_iter_to_chat_format_ai_message():
         )
 
 
-def test_transform_request_json_for_chat_if_necessary_no_conversion():
-    model = MagicMock(spec=AgentExecutor)
-    request_json = {"messages": [{"role": "user", "content": "some_input"}]}
-    assert transform_request_json_for_chat_if_necessary(request_json, model) == (
-        request_json,
-        False,
-    )
-
-
 def test_transform_request_json_for_chat_if_necessary_conversion():
     model = MagicMock(spec=SimpleChatModel)
     request_json = {"messages": [{"role": "user", "content": "some_input"}]}
@@ -252,9 +237,99 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
         (Generation(text="foo"), None),
     ],
 )
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Old version of LangChain does not support usage metadata",
-)
 def test_parse_token_usage(generation, expected):
     assert parse_token_usage([generation]) == expected
+
+
+def test_parse_token_usage_streaming_chunks():
+    """
+    Test that streaming chunks with cumulative token usage are handled correctly.
+
+    In streaming mode, each ChatGenerationChunk contains:
+    - Same input_tokens (repeated for each chunk)
+    - Cumulative output_tokens (increasing with each chunk)
+
+    Expected behavior: Use only the last chunk's usage (final cumulative values)
+    """
+    # Simulate 3 streaming chunks with same input_tokens but cumulative output_tokens
+    # This matches the pattern observed in real streaming scenarios
+    chunks = [
+        ChatGenerationChunk(
+            message=AIMessageChunk(
+                content="Agreement",
+                usage_metadata={
+                    "input_tokens": 16049,
+                    "output_tokens": 2,
+                    "total_tokens": 16051,
+                },
+            )
+        ),
+        ChatGenerationChunk(
+            message=AIMessageChunk(
+                content=" ",
+                usage_metadata={
+                    "input_tokens": 16049,
+                    "output_tokens": 58,
+                    "total_tokens": 16107,
+                },
+            )
+        ),
+        ChatGenerationChunk(
+            message=AIMessageChunk(
+                content="",
+                usage_metadata={
+                    "input_tokens": 16049,
+                    "output_tokens": 115,
+                    "total_tokens": 16164,
+                },
+            )
+        ),
+    ]
+
+    result = parse_token_usage(chunks)
+
+    # Should use only the last chunk's usage (final cumulative values)
+    assert result is not None
+    assert result["input_tokens"] == 16049
+    assert result["output_tokens"] == 115
+    assert result["total_tokens"] == 16164
+
+
+def test_parse_token_usage_non_streaming_multiple_calls():
+    """
+    Test that non-streaming multiple calls still sum correctly (existing behavior).
+
+    When multiple ChatGeneration objects are present (non-streaming), they represent
+    separate LLM calls and should be summed.
+    """
+    # Simulate 2 separate non-streaming calls with different token usage
+    generations = [
+        ChatGeneration(
+            message=AIMessage(
+                content="Response 1",
+                usage_metadata={
+                    "input_tokens": 10,
+                    "output_tokens": 20,
+                    "total_tokens": 30,
+                },
+            )
+        ),
+        ChatGeneration(
+            message=AIMessage(
+                content="Response 2",
+                usage_metadata={
+                    "input_tokens": 15,
+                    "output_tokens": 25,
+                    "total_tokens": 40,
+                },
+            )
+        ),
+    ]
+
+    result = parse_token_usage(generations)
+
+    # Should sum all generations (existing non-streaming behavior)
+    assert result is not None
+    assert result["input_tokens"] == 25  # 10 + 15
+    assert result["output_tokens"] == 45  # 20 + 25
+    assert result["total_tokens"] == 70  # 30 + 40

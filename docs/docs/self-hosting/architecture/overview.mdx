@@ -1,0 +1,72 @@
+---
+title: Architecture Overview
+---
+
+import { Table } from "@site/src/components/Table";
+
+# Architecture Overview
+
+MLflow's architecture is simple yet flexible. Whether your needs are for local solo development or production-scale deployment, you can choose the right components and backend options to fit your needs.
+
+## Core Components
+
+### MLflow SDK
+
+MLflow provides client SDKs in multiple languages (Python, TypeScript, Java, R) with which users interact with the backend.
+
+### Backend Store
+
+A database (or file system that emulates it) that stores the metadata of experiments, runs, traces, etc. MLflow supports different databases through SQLAlchemy, including `postgresql`, `mysql`, `sqlite` and `mssql`. See [Backend Stores](/self-hosting/architecture/backend-store) for more configurations of the backend store.
+
+### Artifact Store
+
+Artifact store persists (typically large) artifacts for each run, such as model weights (e.g. a pickled scikit-learn model),
+images (e.g. PNGs), model and data files (e.g. [Parquet](https://parquet.apache.org) file). These files are too large to be stored within the tracking backend and are often less-frequently accessed than metadata, rendering them more suited for cheap object storage such as Amazon S3. See [Artifact Stores](/self-hosting/architecture/artifact-store) for supported storage options and low-level configurations.
+
+### Tracking Server
+
+MLflow Tracking Server is a FastAPI server that serves REST APIs for accessing the backend and the artifact store, as well as hosting the MLflow UI. This is optional for local development since MLflow SDK can directly interact with a local database and file system. However, the server is essential for team development and provides features such as access control. Read [Tracking Server](/self-hosting/architecture/tracking-server) for how to configure the server.
+
+## Common Setups
+
+By configuring these components properly, you can create an MLflow Tracking environment suitable for your team's development workflow.
+The following diagram and table show a few common setups for the MLflow Tracking environment.
+
+![](/images/tracking/tracking-setup-overview.png)
+
+<Table>
+  <thead>
+    <tr>
+      <th></th>
+      <th>1. Localhost (default)</th>
+      <th>2. Local Tracking with Local Database</th>
+      <th>3. Remote Tracking with MLflow Tracking Server</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Scenario</th>
+      <td>Solo development</td>
+      <td>Solo development</td>
+      <td>Team development</td>
+    </tr>
+    <tr>
+      <th>Use Case</th>
+      <td>By default, MLflow records metadata and artifacts for each run to a local directory, `mlruns`. This is the simplest way to get started with MLflow Tracking, without setting up any external server, database, and storage.</td>
+      <td>Database backend provides better performance and reliability than the default file backend. MLflow client SDK interfaces with a [SQLAlchemy-compatible database](/self-hosting/architecture/backend-store) (e.g., SQLite, PostgreSQL, MySQL) to manage metadata, and store artifacts to the local file system.</td>
+      <td>[MLflow Tracking Server](/self-hosting/architecture/tracking-server) serves as a proxy for the remote access to the metadata and artifacts. This is particularly useful for team development scenarios where you want to store artifacts and experiment metadata in a shared location with proper access control.</td>
+    </tr>
+    <tr>
+      <th>Setup</th>
+      <td>
+        No additional setup (default).
+      </td>
+      <td>
+        Set the tracking URI to the database URI (e.g., `sqlite:///mlflow.db`) with the `mlflow.set_tracking_uri` or the `MLFLOW_TRACKING_URI` environment variable.
+      </td>
+      <td>
+        Refer to the [Docker Compose](/self-hosting/#docker-compose) setup. Alternatively, you can use the [managed MLflow service](https://www.databricks.com/product/managed-mlflow) from popular cloud providers to avoid the maintenance overhead.
+      </td>
+    </tr>
+  </tbody>
+</Table>

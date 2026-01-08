@@ -16,6 +16,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.model_registry.prompt_version import PromptModelConfig
 from mlflow.entities.webhook import (
     Webhook,
     WebhookEvent,
@@ -90,7 +91,7 @@ class ModelRegistryClient:
         """
         # TODO: Do we want to validate the name is legit here - non-empty without "/" and ":" ?
         #       Those are constraints applicable to any backend, given the model URI format.
-        tags = tags if tags else {}
+        tags = tags or {}
         tags = [RegisteredModelTag(key, str(value)) for key, value in tags.items()]
         return self.store.create_registered_model(name, tags, description, deployment_job_id)
 
@@ -260,7 +261,7 @@ class ModelRegistryClient:
             backend.
 
         """
-        tags = tags if tags else {}
+        tags = tags or {}
         tags = [ModelVersionTag(key, str(value)) for key, value in tags.items()]
         arg_names = _get_arg_names(self.store.create_model_version)
         if "local_model_path" in arg_names:
@@ -563,7 +564,8 @@ class ModelRegistryClient:
         template: str | list[dict[str, Any]],
         description: str | None = None,
         tags: dict[str, str] | None = None,
-        response_format: BaseModel | dict[str, Any] | None = None,
+        response_format: type[BaseModel] | dict[str, Any] | None = None,
+        model_config: "PromptModelConfig | dict[str, Any] | None" = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -584,11 +586,19 @@ class ModelRegistryClient:
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
+            model_config: Optional PromptModelConfig or dictionary defining the model configuration.
 
         Returns:
             A PromptVersion object representing the new version.
         """
-        return self.store.create_prompt_version(name, template, description, tags, response_format)
+        return self.store.create_prompt_version(
+            name=name,
+            template=template,
+            description=description,
+            tags=tags,
+            response_format=response_format,
+            model_config=model_config,
+        )
 
     def get_prompt_version(self, name: str, version: str) -> PromptVersion:
         """

@@ -1,8 +1,9 @@
 import json
 import time
+import warnings
 from typing import Any, AsyncGenerator, AsyncIterable
 
-from mlflow.gateway.config import CohereConfig, RouteConfig
+from mlflow.gateway.config import CohereConfig, EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
@@ -207,8 +208,7 @@ class CohereAdapter(ProviderAdapter):
 
         # remaining messages are chat history
         # we want to include only user and assistant messages
-        messages = [m for m in messages if m["role"] in ("user", "assistant")]
-        if messages:
+        if messages := [m for m in messages if m["role"] in ("user", "assistant")]:
             payload["chat_history"] = [
                 {
                     "role": "USER" if m["role"] == "user" else "CHATBOT",
@@ -326,8 +326,13 @@ class CohereProvider(BaseProvider):
     NAME = "Cohere"
     CONFIG_TYPE = CohereConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
+        warnings.warn(
+            "Cohere provider is deprecated and will be removed in a future MLflow version.",
+            category=FutureWarning,
+            stacklevel=2,
+        )
         if config.model.config is None or not isinstance(config.model.config, CohereConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.cohere_config: CohereConfig = config.model.config

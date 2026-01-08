@@ -1,7 +1,10 @@
+from unittest.mock import Mock
+
 import pytest
 
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.telemetry.events import (
+    AiCommandRunEvent,
     AlignJudgeEvent,
     CreateDatasetEvent,
     CreateExperimentEvent,
@@ -14,6 +17,8 @@ from mlflow.telemetry.events import (
     LogAssessmentEvent,
     MakeJudgeEvent,
     MergeRecordsEvent,
+    PromptOptimizationEvent,
+    SimulateConversationEvent,
     StartTraceEvent,
 )
 
@@ -74,6 +79,7 @@ def test_create_model_version_parse_params(arguments, expected_params):
 
 
 def test_event_name():
+    assert AiCommandRunEvent.name == "ai_command_run"
     assert CreatePromptEvent.name == "create_prompt"
     assert CreateLoggedModelEvent.name == "create_logged_model"
     assert CreateRegisteredModelEvent.name == "create_registered_model"
@@ -87,6 +93,8 @@ def test_event_name():
     assert MergeRecordsEvent.name == "merge_records"
     assert MakeJudgeEvent.name == "make_judge"
     assert AlignJudgeEvent.name == "align_judge"
+    assert PromptOptimizationEvent.name == "prompt_optimization"
+    assert SimulateConversationEvent.name == "simulate_conversation"
 
 
 @pytest.mark.parametrize(
@@ -134,3 +142,87 @@ def test_make_judge_parse_params(arguments, expected_params):
 )
 def test_align_judge_parse_params(arguments, expected_params):
     assert AlignJudgeEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        # Normal case with optimizer and prompt URIs
+        (
+            {
+                "optimizer": type("MockOptimizer", (), {})(),
+                "prompt_uris": ["prompts:/test/1"],
+                "scorers": None,
+                "aggregation": None,
+            },
+            {
+                "optimizer_type": "MockOptimizer",
+                "prompt_count": 1,
+                "scorer_count": None,
+                "custom_aggregation": False,
+            },
+        ),
+        # Multiple prompt URIs with custom scorers
+        (
+            {
+                "optimizer": type("CustomAdapter", (), {})(),
+                "prompt_uris": ["prompts:/test/1", "prompts:/test/2"],
+                "scorers": [Mock()],
+                "aggregation": None,
+            },
+            {
+                "optimizer_type": "CustomAdapter",
+                "prompt_count": 2,
+                "scorer_count": 1,
+                "custom_aggregation": False,
+            },
+        ),
+        # Custom objective with multiple scorers
+        (
+            {
+                "optimizer": type("TestAdapter", (), {})(),
+                "prompt_uris": ["prompts:/test/1"],
+                "scorers": [Mock(), Mock(), Mock()],
+                "aggregation": lambda scores: sum(scores.values()),
+            },
+            {
+                "optimizer_type": "TestAdapter",
+                "prompt_count": 1,
+                "scorer_count": 3,
+                "custom_aggregation": True,
+            },
+        ),
+        # No optimizer provided - optimizer_type should be None
+        (
+            {
+                "optimizer": None,
+                "prompt_uris": ["prompts:/test/1"],
+                "scorers": None,
+                "aggregation": None,
+            },
+            {
+                "optimizer_type": None,
+                "prompt_count": 1,
+                "scorer_count": None,
+                "custom_aggregation": False,
+            },
+        ),
+    ],
+)
+def test_prompt_optimization_parse_params(arguments, expected_params):
+    assert PromptOptimizationEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("result", "expected_params"),
+    [
+        (
+            [["t1", "t2", "t3"], ["t1"]],
+            {"simulated_conversation_info": [{"turn_count": 3}, {"turn_count": 1}]},
+        ),
+        ([[]], {"simulated_conversation_info": [{"turn_count": 0}]}),
+        ([], {"simulated_conversation_info": []}),
+    ],
+)
+def test_simulate_conversation_parse_result(result, expected_params):
+    assert SimulateConversationEvent.parse_result(result) == expected_params

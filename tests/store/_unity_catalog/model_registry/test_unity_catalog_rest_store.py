@@ -30,12 +30,13 @@ from mlflow.exceptions import MlflowException, RestException
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature, Schema
 from mlflow.prompt.constants import (
-    LINKED_PROMPTS_TAG_KEY,
+    PROMPT_MODEL_CONFIG_TAG_KEY,
     PROMPT_TYPE_CHAT,
     PROMPT_TYPE_TAG_KEY,
     PROMPT_TYPE_TEXT,
     RESPONSE_FORMAT_TAG_KEY,
 )
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ_WRITE,
     AwsCredentials,
@@ -91,6 +92,7 @@ from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArt
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
+from mlflow.tracing.constant import TraceTagKey
 from mlflow.types.schema import ColSpec, DataType
 from mlflow.utils._unity_catalog_utils import (
     _ACTIVE_CATALOG_QUERY,
@@ -203,7 +205,6 @@ def test_create_registered_model(mock_http, store):
 
 
 def test_create_registered_model_three_level_name_hint(store):
-    """Test that creating a registered model with invalid name provides legacy registry hint."""
     # Mock the _call_endpoint method to raise a RestException with
     # "specify all three levels" message
     original_error_message = "Model name must specify all three levels"
@@ -226,7 +227,6 @@ def test_create_registered_model_three_level_name_hint(store):
 
 
 def test_create_registered_model_three_level_name_hint_with_period(store):
-    """Test the hint works correctly when original error message ends with a period."""
     original_error_message = "Model name must specify all three levels."
     rest_exception = RestException(
         {"error_code": "INVALID_PARAMETER_VALUE", "message": original_error_message}
@@ -946,6 +946,94 @@ def test_create_model_version_with_optional_signature_validation_bypass_disabled
         mock_validate_signature.assert_called_once_with(tmp_path)
 
 
+def test_get_logged_model_from_model_id_returns_none_on_resource_not_found(store):
+    with mock.patch(
+        "mlflow.get_logged_model",
+        side_effect=MlflowException("Node ID does not exist", error_code=RESOURCE_DOES_NOT_EXIST),
+    ):
+        result = store._get_logged_model_from_model_id("nonexistent_model_id")
+        assert result is None
+
+
+def test_get_logged_model_from_model_id_returns_logged_model_on_success(store):
+    mock_logged_model = LoggedModel(
+        experiment_id="exp123",
+        model_id="model123",
+        name="test_model",
+        artifact_location="runs:/run123/model",
+        source_run_id="run123",
+        creation_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+    )
+    with mock.patch("mlflow.get_logged_model", return_value=mock_logged_model):
+        result = store._get_logged_model_from_model_id("model123")
+        assert result == mock_logged_model
+
+
+def test_get_logged_model_from_model_id_returns_none_for_none_input(store):
+    result = store._get_logged_model_from_model_id(None)
+    assert result is None
+
+
+def test_get_logged_model_from_model_id_reraises_other_exceptions(store):
+    with mock.patch(
+        "mlflow.get_logged_model",
+        side_effect=MlflowException("Some other error", error_code=INTERNAL_ERROR),
+    ):
+        with pytest.raises(MlflowException, match="Some other error"):
+            store._get_logged_model_from_model_id("model123")
+
+
+def test_create_model_version_succeeds_when_logged_model_not_found(store, local_model_dir):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    source = str(local_model_dir)
+    model_name = "model_1"
+    version = "1"
+    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
+    with (
+        mock.patch(
+            "mlflow.get_logged_model",
+            side_effect=MlflowException(
+                "Node ID does not exist", error_code=RESOURCE_DOES_NOT_EXIST
+            ),
+        ),
+        mock.patch(
+            "mlflow.utils.rest_utils.http_request",
+            side_effect=get_request_mock(
+                name=model_name,
+                version=version,
+                temp_credentials=aws_temp_creds,
+                storage_location=storage_location,
+                source=source,
+                model_id="nonexistent_model_id",
+            ),
+        ) as request_mock,
+        mock.patch(
+            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
+            return_value=mock_artifact_repo,
+        ),
+        mock.patch.dict("sys.modules", {"boto3": {}}),
+    ):
+        store.create_model_version(name=model_name, source=source, model_id="nonexistent_model_id")
+        _assert_create_model_version_endpoints_called(
+            request_mock=request_mock,
+            name=model_name,
+            source=source,
+            version=version,
+            model_id="nonexistent_model_id",
+        )
+
+
 @pytest.mark.parametrize(
     ("encryption_details", "extra_args"),
     [
@@ -1200,6 +1288,32 @@ def test_update_registered_model_description(mock_http, store):
 
 
 @mock_http_200
+@pytest.mark.parametrize(
+    "deployment_job_id",
+    [
+        "123",  # Actual deployment job id
+        "",  # Empty string is preserved to disconnect the model from a deployment job
+        None,  # Test with None
+    ],
+)
+def test_update_registered_model_deployment_job_id(mock_http, store, deployment_job_id):
+    name = "model_1"
+    description = "test model"
+
+    store.update_registered_model(
+        name=name, description=description, deployment_job_id=deployment_job_id
+    )
+    _verify_requests(
+        mock_http,
+        "registered-models/update",
+        "PATCH",
+        UpdateRegisteredModelRequest(
+            name=name, description=description, deployment_job_id=deployment_job_id
+        ),
+    )
+
+
+@mock_http_200
 def test_delete_registered_model(mock_http, store):
     name = "model_1"
     store.delete_registered_model(name=name)
@@ -1414,6 +1528,7 @@ def get_request_mock(
     run_id=None,
     tags=None,
     model_version_dependencies=None,
+    model_id=None,
 ):
     def request_mock(
         host_creds,
@@ -1445,6 +1560,7 @@ def get_request_mock(
                         tags=uc_tags,
                         feature_deps="",
                         model_version_dependencies=model_version_dependencies,
+                        model_id=model_id,
                     )
                 ),
             ): CreateModelVersionResponse(
@@ -1502,6 +1618,7 @@ def _assert_create_model_version_endpoints_called(
     extra_headers=None,
     tags=None,
     model_version_dependencies=None,
+    model_id=None,
 ):
     """
     Asserts that endpoints related to the model version creation flow were called on the provided
@@ -1520,6 +1637,7 @@ def _assert_create_model_version_endpoints_called(
                 tags=uc_tags,
                 feature_deps="",
                 model_version_dependencies=model_version_dependencies,
+                model_id=model_id,
             ),
         ),
         (
@@ -2552,6 +2670,65 @@ def test_create_prompt_version_with_multi_turn_template_uc(mock_http, store, mon
 
 
 @mock_http_200
+def test_create_prompt_version_with_model_config_uc(mock_http, store, monkeypatch):
+    name = "prompt1"
+    template = "Generate a response for {query}"
+    description = "A prompt with model config"
+    tags = {"env": "test"}
+    model_config = {
+        "model_name": "databricks-meta-llama-3-1-70b-instruct",
+        "max_tokens": 100,
+        "temperature": 0.7,
+    }
+
+    # Patch proto_to_mlflow_prompt to return a dummy PromptVersion
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.proto_to_mlflow_prompt",
+        return_value=PromptVersion(
+            name=name,
+            version=1,
+            template=template,
+            commit_message=description,
+            tags=tags,
+            model_config=model_config,
+        ),
+    ) as proto_to_prompt:
+        store.create_prompt_version(
+            name=name,
+            template=template,
+            description=description,
+            tags=tags,
+            model_config=model_config,
+        )
+
+    # Verify the correct endpoint is called
+    assert any(
+        "/prompts/" in c[1]["endpoint"] and "/versions" in c[1]["endpoint"]
+        for c in mock_http.call_args_list
+    )
+    proto_to_prompt.assert_called()
+
+    # Verify the HTTP request body contains the model_config in tags
+    http_call_args = [
+        c
+        for c in mock_http.call_args_list
+        if "/prompts/" in c[1]["endpoint"] and "/versions" in c[1]["endpoint"]
+    ]
+    assert len(http_call_args) == 1
+
+    request_body = http_call_args[0][1]["json"]
+    prompt_version = request_body["prompt_version"]
+
+    tags_in_request = {tag["key"]: tag["value"] for tag in prompt_version.get("tags", [])}
+    assert PROMPT_MODEL_CONFIG_TAG_KEY in tags_in_request
+
+    expected_model_config = json.dumps(model_config)
+    assert tags_in_request[PROMPT_MODEL_CONFIG_TAG_KEY] == expected_model_config
+    assert tags_in_request["env"] == "test"
+    assert tags_in_request[PROMPT_TYPE_TAG_KEY] == PROMPT_TYPE_TEXT
+
+
+@mock_http_200
 def test_get_prompt_uc(mock_http, store, monkeypatch):
     name = "prompt1"
     # Patch proto_info_to_mlflow_prompt_info to return a dummy Prompt
@@ -2617,8 +2794,6 @@ def test_get_prompt_version_by_alias_uc(mock_http, store, monkeypatch):
 
 
 def test_link_prompt_version_to_model_success(store):
-    """Test successful Unity Catalog linking with API call."""
-
     with (
         mock.patch.object(store, "_edit_endpoint_and_call") as mock_edit_call,
         mock.patch.object(store, "_get_endpoint_from_method") as mock_get_endpoint,
@@ -2650,14 +2825,7 @@ def test_link_prompt_version_to_model_success(store):
         assert call_args[1]["proto_name"] == LinkPromptVersionsToModelsRequest
 
 
-@mock.patch("mlflow.tracking._get_store")
-def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
-    """Test that linking a prompt version to a model sets the appropriate tag."""
-
-    # Setup mocks
-    mock_tracking_store = mock.Mock()
-    mock_get_tracking_store.return_value = mock_tracking_store
-
+def test_link_prompt_version_to_model_sets_tag(store):
     # Mock the prompt version
     mock_prompt_version = PromptVersion(
         name="test_prompt",
@@ -2666,7 +2834,14 @@ def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
         creation_timestamp=1234567890,
     )
 
-    with mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version):
+    with (
+        mock.patch("mlflow.tracking._get_store") as mock_get_tracking_store,
+        mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version),
+    ):
+        # Setup mocks
+        mock_tracking_store = mock.Mock()
+        mock_get_tracking_store.return_value = mock_tracking_store
+
         # Mock the logged model
         model_id = "model_123"
         logged_model = LoggedModel(
@@ -2681,12 +2856,14 @@ def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
         mock_tracking_store.get_logged_model.return_value = logged_model
 
         # Mock the UC-specific API call to avoid real API calls
-        with mock.patch.object(store, "_edit_endpoint_and_call"):
-            with mock.patch.object(
+        with (
+            mock.patch.object(store, "_edit_endpoint_and_call"),
+            mock.patch.object(
                 store, "_get_endpoint_from_method", return_value=("/api/test", "POST")
-            ):
-                # Execute
-                store.link_prompt_version_to_model("test_prompt", "1", model_id)
+            ),
+        ):
+            # Execute
+            store.link_prompt_version_to_model("test_prompt", "1", model_id)
 
         # Verify the tag was set
         mock_tracking_store.set_logged_model_tags.assert_called_once()
@@ -2697,21 +2874,16 @@ def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
         assert len(logged_model_tags) == 1
         logged_model_tag = logged_model_tags[0]
         assert isinstance(logged_model_tag, LoggedModelTag)
-        assert logged_model_tag.key == LINKED_PROMPTS_TAG_KEY
+        assert logged_model_tag.key == TraceTagKey.LINKED_PROMPTS
 
         expected_value = [{"name": "test_prompt", "version": "1"}]
         assert json.loads(logged_model_tag.value) == expected_value
 
 
 def test_link_prompts_to_trace_success(store):
-    """Test successful Unity Catalog linking prompts to a trace with API call."""
-
     with (
         mock.patch.object(store, "_edit_endpoint_and_call") as mock_edit_call,
         mock.patch.object(store, "_get_endpoint_from_method") as mock_get_endpoint,
-        mock.patch(
-            "mlflow.store.model_registry.abstract_store.AbstractStore.link_prompts_to_trace"
-        ) as mock_super_call,
     ):
         # Setup
         mock_get_endpoint.return_value = (
@@ -2727,9 +2899,6 @@ def test_link_prompts_to_trace_success(store):
         # Execute
         store.link_prompts_to_trace(prompt_versions, trace_id)
 
-        # Verify parent method was called
-        mock_super_call.assert_called_once_with(prompt_versions=prompt_versions, trace_id=trace_id)
-
         # Verify API call was made
         mock_edit_call.assert_called_once()
         call_args = mock_edit_call.call_args
@@ -2738,8 +2907,6 @@ def test_link_prompts_to_trace_success(store):
 
 
 def test_link_prompt_version_to_run_success(store):
-    """Test successful Unity Catalog linking prompt version to run with API call."""
-
     with (
         mock.patch.object(store, "_edit_endpoint_and_call") as mock_edit_call,
         mock.patch.object(store, "_get_endpoint_from_method") as mock_get_endpoint,
@@ -2779,14 +2946,7 @@ def test_link_prompt_version_to_run_success(store):
         assert req_body["run_ids"] == ["run_123"]
 
 
-@mock.patch("mlflow.tracking._get_store")
-def test_link_prompt_version_to_run_sets_tag(mock_get_tracking_store, store):
-    """Test that linking a prompt version to a run sets the appropriate tag."""
-
-    # Setup mocks
-    mock_tracking_store = mock.Mock()
-    mock_get_tracking_store.return_value = mock_tracking_store
-
+def test_link_prompt_version_to_run_sets_tag(store):
     # Mock the prompt version
     mock_prompt_version = PromptVersion(
         name="test_prompt",
@@ -2795,7 +2955,14 @@ def test_link_prompt_version_to_run_sets_tag(mock_get_tracking_store, store):
         creation_timestamp=1234567890,
     )
 
-    with mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version):
+    with (
+        mock.patch("mlflow.tracking._get_store") as mock_get_tracking_store,
+        mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version),
+    ):
+        # Setup mocks
+        mock_tracking_store = mock.Mock()
+        mock_get_tracking_store.return_value = mock_tracking_store
+
         # Mock the run
         run_id = "run_123"
         run_data = RunData(metrics=[], params=[], tags={})
@@ -2812,12 +2979,14 @@ def test_link_prompt_version_to_run_sets_tag(mock_get_tracking_store, store):
         mock_tracking_store.get_run.return_value = run
 
         # Mock the UC-specific API call to avoid real API calls
-        with mock.patch.object(store, "_edit_endpoint_and_call"):
-            with mock.patch.object(
+        with (
+            mock.patch.object(store, "_edit_endpoint_and_call"),
+            mock.patch.object(
                 store, "_get_endpoint_from_method", return_value=("/api/test", "POST")
-            ):
-                # Execute
-                store.link_prompt_version_to_run("test_prompt", "1", run_id)
+            ),
+        ):
+            # Execute
+            store.link_prompt_version_to_run("test_prompt", "1", run_id)
 
         # Verify the tag was set
         mock_tracking_store.set_tag.assert_called_once()
@@ -2826,7 +2995,7 @@ def test_link_prompt_version_to_run_sets_tag(mock_get_tracking_store, store):
 
         run_tag = call_args[0][1]
         assert isinstance(run_tag, RunTag)
-        assert run_tag.key == LINKED_PROMPTS_TAG_KEY
+        assert run_tag.key == TraceTagKey.LINKED_PROMPTS
 
         expected_value = [{"name": "test_prompt", "version": "1"}]
         assert json.loads(run_tag.value) == expected_value

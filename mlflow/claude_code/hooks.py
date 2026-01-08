@@ -1,14 +1,30 @@
 """Hook management for Claude Code integration with MLflow."""
 
+import json
+import sys
 from pathlib import Path
 from typing import Any
 
 from mlflow.claude_code.config import (
+    ENVIRONMENT_FIELD,
     HOOK_FIELD_COMMAND,
     HOOK_FIELD_HOOKS,
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_EXPERIMENT_NAME,
     MLFLOW_HOOK_IDENTIFIER,
+    MLFLOW_TRACING_ENABLED,
+    MLFLOW_TRACKING_URI,
     load_claude_config,
     save_claude_config,
+)
+from mlflow.claude_code.tracing import (
+    CLAUDE_TRACING_LEVEL,
+    get_hook_response,
+    get_logger,
+    is_tracing_enabled,
+    process_transcript,
+    read_hook_input,
+    setup_mlflow,
 )
 
 # ============================================================================
@@ -95,10 +111,11 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
 
         for group in hook_groups:
             if HOOK_FIELD_HOOKS in group:
-                filtered_hooks = []
-                for hook in group[HOOK_FIELD_HOOKS]:
-                    if MLFLOW_HOOK_IDENTIFIER not in hook.get(HOOK_FIELD_COMMAND, ""):
-                        filtered_hooks.append(hook)
+                filtered_hooks = [
+                    hook
+                    for hook in group[HOOK_FIELD_HOOKS]
+                    if MLFLOW_HOOK_IDENTIFIER not in hook.get(HOOK_FIELD_COMMAND, "")
+                ]
 
                 if filtered_hooks:
                     filtered_groups.append({HOOK_FIELD_HOOKS: filtered_hooks})
@@ -114,14 +131,6 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
             hooks_removed = True
 
     # Remove config variables
-    from mlflow.claude_code.config import (
-        ENVIRONMENT_FIELD,
-        MLFLOW_EXPERIMENT_ID,
-        MLFLOW_EXPERIMENT_NAME,
-        MLFLOW_TRACING_ENABLED,
-        MLFLOW_TRACKING_URI,
-    )
-
     if ENVIRONMENT_FIELD in config:
         mlflow_vars = [
             MLFLOW_TRACING_ENABLED,
@@ -155,18 +164,38 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
 # ============================================================================
 
 
-def stop_hook_handler() -> None:
-    """Hook handler for conversation end - processes transcript and creates trace."""
-    from mlflow.claude_code.tracing import (
-        get_logger,
-        is_tracing_enabled,
-        output_hook_response,
-        process_transcript,
-        read_hook_input,
+def _process_stop_hook(session_id: str | None, transcript_path: str | None) -> dict[str, Any]:
+    """Common logic for processing stop hooks.
+
+    Args:
+        session_id: Session identifier
+        transcript_path: Path to transcript file
+
+    Returns:
+        Hook response dictionary
+    """
+    get_logger().log(
+        CLAUDE_TRACING_LEVEL, "Stop hook: session=%s, transcript=%s", session_id, transcript_path
     )
 
+    # Process the transcript and create MLflow trace
+    trace = process_transcript(transcript_path, session_id)
+
+    if trace is not None:
+        return get_hook_response()
+    return get_hook_response(
+        error=(
+            "Failed to process transcript, please check .claude/mlflow/claude_tracing.log"
+            " for more details"
+        ),
+    )
+
+
+def stop_hook_handler() -> None:
+    """CLI hook handler for conversation end - processes transcript and creates trace."""
     if not is_tracing_enabled():
-        output_hook_response()
+        response = get_hook_response()
+        print(json.dumps(response))  # noqa: T201
         return
 
     try:
@@ -174,24 +203,41 @@ def stop_hook_handler() -> None:
         session_id = hook_data.get("session_id")
         transcript_path = hook_data.get("transcript_path")
 
-        get_logger().info("Stop hook: session=%s, transcript=%s", session_id, transcript_path)
-
-        # Process the transcript and create MLflow trace
-        trace = process_transcript(transcript_path, session_id)
-
-        if trace is not None:
-            output_hook_response()
-        else:
-            output_hook_response(
-                error=(
-                    "Failed to process transcript, please check .claude/mlflow/claude_tracing.log"
-                    " for more details"
-                ),
-            )
+        setup_mlflow()
+        response = _process_stop_hook(session_id, transcript_path)
+        print(json.dumps(response))  # noqa: T201
 
     except Exception as e:
-        import sys  # clint: disable=lazy-builtin-import
-
         get_logger().error("Error in Stop hook: %s", e, exc_info=True)
-        output_hook_response(error=str(e))
+        response = get_hook_response(error=str(e))
+        print(json.dumps(response))  # noqa: T201
         sys.exit(1)
+
+
+async def sdk_stop_hook_handler(
+    input_data: dict[str, Any],
+    tool_use_id: str | None,
+    context: Any,
+) -> dict[str, Any]:
+    """SDK hook handler for Stop event - processes transcript and creates trace.
+
+    Args:
+        input_data: Dictionary containing session_id and transcript_path
+        tool_use_id: Tool use identifier
+        context: HookContext from the SDK
+    """
+    from mlflow.utils.autologging_utils import autologging_is_disabled
+
+    # Check if autologging is disabled
+    if autologging_is_disabled("anthropic"):
+        return get_hook_response()
+
+    try:
+        session_id = input_data.get("session_id")
+        transcript_path = input_data.get("transcript_path")
+
+        return _process_stop_hook(session_id, transcript_path)
+
+    except Exception as e:
+        get_logger().error("Error in SDK Stop hook: %s", e, exc_info=True)
+        return get_hook_response(error=str(e))

@@ -59,6 +59,7 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
+from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.databricks_utils import get_workspace_url, is_in_databricks_notebook
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION, MLFLOW_USER
@@ -172,7 +173,7 @@ class TrackingServiceClient:
 
         """
 
-        tags = tags if tags else {}
+        tags = tags or {}
 
         # Extract user from tags
         # This logic is temporary; the user_id attribute of runs is deprecated and will be removed
@@ -646,7 +647,7 @@ class TrackingServiceClient:
             artifact_uri = add_databricks_profile_info_to_artifact_uri(
                 artifact_location, self.tracking_uri
             )
-            artifact_repo = get_artifact_repository(artifact_uri)
+            artifact_repo = get_artifact_repository(artifact_uri, tracking_uri=self.tracking_uri)
             # Cache the artifact repo to avoid a future network call, removing the oldest
             # entry in the cache if there are too many elements
             if len(utils._artifact_repos_cache) > 1024:
@@ -786,8 +787,8 @@ class TrackingServiceClient:
             status: A string value of :py:class:`mlflow.entities.RunStatus`. Defaults to "FINISHED".
             end_time: If not provided, defaults to the current time.
         """
-        end_time = end_time if end_time else get_current_time_millis()
-        status = status if status else RunStatus.to_string(RunStatus.FINISHED)
+        end_time = end_time or get_current_time_millis()
+        status = status or RunStatus.to_string(RunStatus.FINISHED)
         # Tell the store to stop async logging: stop accepting new data and log already enqueued
         # data in the background. This call is making sure every async logging data has been
         # submitted for logging, but not necessarily finished logging.
@@ -955,7 +956,7 @@ class TrackingServiceClient:
 
         return self.store.create_dataset(
             name=name,
-            tags=merged_tags if merged_tags else None,
+            tags=merged_tags or None,
             experiment_ids=experiment_ids,
         )
 
@@ -1098,3 +1099,23 @@ class TrackingServiceClient:
             )
 
         return self.store.link_traces_to_run(trace_ids, run_id)
+
+    @experimental(version="3.5.0")
+    def unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Unlink multiple traces from a run by removing entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to unlink from the run.
+            run_id: ID of the run to unlink traces from.
+
+        Raises:
+            MlflowException: If run_id is empty.
+        """
+        if not trace_ids:
+            return
+
+        if not run_id:
+            raise MlflowException.invalid_parameter_value("run_id cannot be empty")
+
+        return self.store.unlink_traces_from_run(trace_ids, run_id)

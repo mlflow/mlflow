@@ -18,54 +18,30 @@ def calculate_sum(a: int, b: int) -> int:
     return a + b
 ```
 
-## Use Type Hints for All Functions
+## Prefer `typing.Literal` for Fixed-String Parameters
 
-Add type hints to all function parameters and return values. This enables better IDE support, catches bugs early, and serves as inline documentation.
+When a parameter only accepts a fixed set of string values, use `typing.Literal` instead of a plain `str` type hint. This improves type-checking, enables IDE autocompletion, and documents allowed values at the type level.
 
 ```python
 # Bad
-def foo(s):
-    return len(s)
+def f(app: str) -> None:
+    """
+    Args:
+        app: Application type. Either "fastapi" or "flask".
+    """
+    ...
 
 
 # Good
-def foo(s: str) -> int:
-    return len(s)
-```
+from typing import Literal
 
-### Exceptions
 
-**Test functions:** The `-> None` return type can be omitted for test functions since they implicitly return `None` and the return value is not used. However, **parameter type hints are still required** for all test function parameters.
-
-```python
-# Good - has parameter type hints but no return type hint
-def test_foo(s: str):
+def f(app: Literal["fastapi", "flask"]) -> None:
+    """
+    Args:
+        app: Application type. Either "fastapi" or "flask".
+    """
     ...
-
-
-# Good - has both parameter and return type hints
-def test_foo(s: str) -> None:
-    ...
-
-
-# Bad - missing parameter type hints
-def test_foo(s):
-    ...
-```
-
-**`__init__` methods:** The `-> None` return type can be omitted for `__init__` methods since they always return `None` by definition.
-
-```python
-# Acceptable
-class Foo:
-    def __init__(self, s: str):
-        ...
-
-
-# Also acceptable (but not required)
-class Foo:
-    def __init__(self, s: str) -> None:
-        ...
 ```
 
 ## Minimize Try-Catch Block Scope
@@ -244,57 +220,6 @@ def test_foo():
         calls_bar()
 ```
 
-## Prefer `unittest.mock.patch` as a Context Manager
-
-`unittest.mock.patch` should be used as a **context manager** rather than as a decorator, unless the patch must stay active for the entire test (which is unlikely in most cases). Using a context manager avoids patches being active longer than needed and makes it clear which code depends on them.
-
-```python
-from unittest import mock
-
-
-# Bad
-@mock.patch("foo.bar")
-def test_bar(mock_bar):
-    result1 = foo.bar()  # bar is patched here
-    result2 = foo.baz()  # baz depends on real bar, but bar is still patched!
-    assert result1 == "ok"
-    assert result2 == "baz"
-    # bar stays patched even after we're done using it
-
-
-# Good
-def test_bar():
-    with mock.patch("foo.bar") as mock_bar:
-        result1 = foo.bar()  # bar is patched only in this block
-    result2 = foo.baz()  # baz now uses the real bar
-    assert result1 == "ok"
-    assert result2 == "baz"
-    # outside patch, everything back to normal
-```
-
-## Use Pytest's Monkeypatch for Directory Changes
-
-Use `monkeypatch.chdir()` instead of manual `os.chdir()` with try/finally blocks. Pytest automatically restores the original directory after the test, preventing side effects.
-
-```python
-import os
-import pytest
-
-
-# Bad
-def test_foo():
-    cwd = os.getcwd()
-    try:
-        os.chdir("some/directory")
-    finally:
-        os.chdir(cwd)
-
-
-# Good
-def test_foo(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.chdir("some/directory")
-```
-
 ## Parametrize Tests with Multiple Input Cases
 
 Use `@pytest.mark.parametrize` to test multiple inputs instead of repeating assertions. This creates separate test cases for each input, making failures easier to diagnose and tests more maintainable.
@@ -320,54 +245,57 @@ def test_foo(input: str, expected: int):
     assert foo(input) == expected
 ```
 
-## Use Pytest's Monkeypatch for Mocking Environment Variables
+## Avoid Custom Messages in Test Asserts
 
-Use `monkeypatch.setenv()` and `monkeypatch.delenv()` instead of `mock.patch.dict()` for environment variables. Pytest's monkeypatch fixture automatically restores the original environment after the test, providing cleaner and more reliable test isolation.
-
-```python
-# Bad - Setting environment variables
-def test_foo():
-    with mock.patch.dict("os.environ", {"FOO": "True"}):
-        ...
-
-
-# Bad - Removing environment variables
-def test_bar():
-    with mock.patch.dict("os.environ", {}, clear=True):
-        ...
-
-
-# Good - Setting environment variables
-def test_foo(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("FOO", "True")
-    ...
-
-
-# Good - Removing environment variables
-def test_bar(monkeypatch: pytest.MonkeyPatch):
-    # raising=False prevents KeyError if FOO doesn't exist
-    monkeypatch.delenv("FOO", raising=False)
-    ...
-```
-
-## Use Pytest's tmp_path Fixture for Temporary Files
-
-Use `tmp_path` fixture instead of manual `tempfile.TemporaryDirectory()` for handling temporary files and directories in tests. Pytest automatically cleans up the temporary directory after the test, provides better test isolation, and integrates seamlessly with pytest's fixture system.
+Pytest's assertion introspection provides detailed failure information automatically. Avoid adding custom messages to `assert` statements in tests unless absolutely necessary.
 
 ```python
 # Bad
-import tempfile
-
-
-def test_foo():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        ...
+def test_list_items():
+    items = list_items()
+    assert len(items) == 3, f"Expected 3 items, got {len(items)}"
 
 
 # Good
-from pathlib import Path
+def test_list_items():
+    items = list_items()
+    assert len(items) == 3
+```
+
+## Preserve function metadata and type information in decorators
+
+When writing decorators, always use `@functools.wraps` to preserve function metadata (like `__name__` and `__doc__`), and use `typing.ParamSpec` and `typing.TypeVar` to preserve the function's type information for accurate type checking and autocompletion in IDEs.
+
+```python
+# Bad
+from typing import Any, Callable
 
 
-def test_foo(tmp_path: Path):
-    ...
+def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        ...  # Pre-execution logic (e.g., logging, validation, setup)
+        res = f(*args, **kwargs)
+        ...  # Post-execution logic (e.g., cleanup, result transformation)
+        return res
+
+    return wrapper
+
+
+# Good
+import functools
+from typing import Callable, ParamSpec, TypeVar
+
+_P = ParamSpec("P")
+_R = TypeVar("R")
+
+
+def decorator(f: Callable[_P, _R]) -> Callable[_P, _R]:
+    @functools.wraps(f)
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        ...  # Pre-execution logic (e.g., logging, validation, setup)
+        res = f(*args, **kwargs)
+        ...  # Post-execution logic (e.g., cleanup, result transformation)
+        return res
+
+    return wrapper
 ```

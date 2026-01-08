@@ -356,4 +356,4 @@ const systemMetricPrefix = new RegExp(`^${MLFLOW_SYSTEM_METRIC_PREFIX}`);
 
 export const isSystemMetricKey = (metricKey: string) => metricKey.match(systemMetricPrefix);
 
-export const EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL = 30000;
+export const EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL = 30000;

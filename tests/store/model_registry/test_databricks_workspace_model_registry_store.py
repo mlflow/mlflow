@@ -128,8 +128,6 @@ def test_workspace_model_registry_alias_apis_unsupported(store):
 
 
 def test_copy_model_version_regular_path(store, sample_model_version):
-    """Test copy_model_version when dst_name is not a Unity Catalog name (doesn't have 3 parts)"""
-
     # Mock the parent class method
     with mock.patch.object(store.__class__.__bases__[0], "copy_model_version") as mock_parent_copy:
         mock_parent_copy.return_value = ModelVersion(
@@ -153,8 +151,6 @@ def test_copy_model_version_regular_path(store, sample_model_version):
 
 
 def test_copy_model_version_unity_catalog_success(store, sample_model_version):
-    """Test copy_model_version when dst_name is a Unity Catalog name (has 3 parts) - successes"""
-
     dst_name = "catalog.schema.model"
 
     # Mock multiple dependencies in a single context manager
@@ -220,8 +216,6 @@ def test_copy_model_version_unity_catalog_success(store, sample_model_version):
 
 
 def test_copy_model_version_unity_catalog_migration_download_failure(store, sample_model_version):
-    """Test copy_model_version when dst_name is a Unity Catalog name but download fails"""
-
     dst_name = "catalog.schema.model"
 
     # Mock multiple dependencies in a single context manager
@@ -242,8 +236,6 @@ def test_copy_model_version_unity_catalog_migration_download_failure(store, samp
 def test_copy_model_version_unity_catalog_registered_model_already_exists(
     store, sample_model_version
 ):
-    """Test copy_model_version when Unity Catalog registered model already exists"""
-
     dst_name = "catalog.schema.existing_model"
 
     # Mock multiple dependencies in a single context manager
@@ -315,8 +307,6 @@ def test_copy_model_version_unity_catalog_registered_model_already_exists(
 def test_copy_model_version_unity_catalog_registered_model_creation_failure(
     store, sample_model_version
 ):
-    """Test copy_model_version when UC model creation fails w/ non-RESOURCE_ALREADY_EXISTS error"""
-
     dst_name = "catalog.schema.failing_model"
 
     # Mock multiple dependencies in a single context manager
@@ -360,7 +350,6 @@ def test_copy_model_version_unity_catalog_registered_model_creation_failure(
 def test_copy_model_version_unity_catalog_signature_validation_bypass(
     store, sample_model_version, monkeypatch
 ):
-    """Test copy_model_version signature validation bypass via environment variable"""
     dst_name = "catalog.schema.model"
     # Mock multiple dependencies in a single context manager
     with (

@@ -1,28 +1,44 @@
 from enum import Enum
 
+from mlflow.exceptions import MlflowException
 
-class JobStatus(Enum):
+
+class JobStatus(str, Enum):
     """Enum for status of a Job."""
 
-    PENDING = 0
-    RUNNING = 1
-    SUCCEEDED = 2
-    FAILED = 3
-    TIMEOUT = 4
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    TIMEOUT = "TIMEOUT"
+    CANCELED = "CANCELED"
 
     @classmethod
     def from_int(cls, status_int: int) -> "JobStatus":
         """Convert integer status to JobStatus enum."""
-        return JobStatus(status_int)
+        try:
+            return next(e for i, e in enumerate(JobStatus) if i == status_int)
+        except StopIteration:
+            raise MlflowException.invalid_parameter_value(
+                f"The value {status_int} can't be converted to JobStatus enum value."
+            )
+
+    @classmethod
+    def from_str(cls, status_str: str) -> "JobStatus":
+        """Convert string status to JobStatus enum."""
+        try:
+            return JobStatus[status_str]
+        except KeyError:
+            raise MlflowException.invalid_parameter_value(
+                f"The string '{status_str}' can't be converted to JobStatus enum value."
+            )
 
     def to_int(self) -> int:
         """Convert JobStatus enum to integer."""
-        return self.value
+        return next(i for i, e in enumerate(JobStatus) if e == self)
 
     def __str__(self):
-        # `super().__str__()` returns value like `JobStatus.PENDING`
-        # strip the redundant `JobStatus.` prefix.
-        return super().__str__().split(".")[1]
+        return self.name
 
     @staticmethod
     def is_finalized(status: "JobStatus") -> bool:
@@ -30,4 +46,9 @@ class JobStatus(Enum):
         Determines whether or not a JobStatus is a finalized status.
         A finalized status indicates that no further status updates will occur.
         """
-        return status in [JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.TIMEOUT]
+        return status in [
+            JobStatus.SUCCEEDED,
+            JobStatus.FAILED,
+            JobStatus.TIMEOUT,
+            JobStatus.CANCELED,
+        ]

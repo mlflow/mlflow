@@ -1,7 +1,9 @@
+import { randomUUID } from 'crypto';
 import { MlflowClient } from '../../src/clients/client';
 import { TraceInfo } from '../../src/core/entities/trace_info';
 import { TraceLocationType } from '../../src/core/entities/trace_location';
 import { TraceState } from '../../src/core/entities/trace_state';
+import { createAuthProvider } from '../../src/auth';
 import { TEST_TRACKING_URI } from '../helper';
 
 describe('MlflowClient', () => {
@@ -9,7 +11,8 @@ describe('MlflowClient', () => {
   let experimentId: string;
 
   beforeEach(async () => {
-    client = new MlflowClient({ trackingUri: TEST_TRACKING_URI, host: TEST_TRACKING_URI });
+    const authProvider = createAuthProvider({ trackingUri: TEST_TRACKING_URI });
+    client = new MlflowClient({ trackingUri: TEST_TRACKING_URI, authProvider });
 
     // Create a new experiment for each test
     const experimentName = `test-experiment-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
@@ -27,7 +30,7 @@ describe('MlflowClient', () => {
 
   describe('createTrace', () => {
     it('should create a trace', async () => {
-      const traceId = 'test-trace-id';
+      const traceId = randomUUID();
       const traceInfo = new TraceInfo({
         traceId: traceId,
         traceLocation: {
@@ -59,10 +62,7 @@ describe('MlflowClient', () => {
       expect(createdTraceInfo.requestPreview).toBe('{"input":"test"}');
       expect(createdTraceInfo.responsePreview).toBe('{"output":"result"}');
       expect(createdTraceInfo.clientRequestId).toBe('client-request-id');
-      expect(createdTraceInfo.traceMetadata).toEqual({
-        'meta-key': 'meta-value',
-        'mlflow.trace_schema.version': '3'
-      });
+      expect(createdTraceInfo.traceMetadata).toEqual({ 'meta-key': 'meta-value' });
       expect(createdTraceInfo.tags).toEqual({
         'tag-key': 'tag-value',
         'mlflow.artifactLocation': expect.any(String)
@@ -71,7 +71,7 @@ describe('MlflowClient', () => {
     });
 
     it('should create a trace with error state', async () => {
-      const traceId = 'test-trace-id';
+      const traceId = randomUUID();
       const traceInfo = new TraceInfo({
         traceId: traceId,
         traceLocation: {
@@ -97,7 +97,7 @@ describe('MlflowClient', () => {
 
   describe('getTraceInfo', () => {
     it('should retrieve trace info for an existing trace', async () => {
-      const traceId = 'test-trace-id';
+      const traceId = randomUUID();
       const traceInfo = new TraceInfo({
         traceId: traceId,
         traceLocation: {

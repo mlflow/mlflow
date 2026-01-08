@@ -4,6 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **For contribution guidelines, code standards, and additional development information not covered here, please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).**
 
+## Knowledge Cutoff Note
+
+Claude's training data has a knowledge cutoff that may lag behind the current date. When reviewing documentation or code that references AI models, be aware that newer models may exist beyond the cutoff. Do not flag model names as "speculative" or "non-existent". Trust the documentation authors' knowledge of current model availability.
+
+Example: If documentation references "GPT-5" or "Claude 4.5", do not suggest changing these to older model names just because they are unfamiliar.
+
+## Code Style Principles
+
+- Use top-level imports (only use lazy imports when necessary)
+- Only add docstrings in tests when they provide additional context
+- Only add comments that explain non-obvious logic or provide additional context
+
 ## Repository Overview
 
 MLflow is an open-source platform for managing the end-to-end machine learning lifecycle. It provides tools for:
@@ -19,10 +31,8 @@ MLflow is an open-source platform for managing the end-to-end machine learning l
 ### Start the Full Development Environment (Recommended)
 
 ```bash
-# Kill any existing servers
-pkill -f "mlflow server" || true; pkill -f "yarn start" || true
-
 # Start both MLflow backend and React frontend dev servers
+# (The script will automatically clean up any existing servers)
 nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
 
 # Monitor the logs
@@ -34,6 +44,14 @@ tail -f /tmp/mlflow-dev-server.log
 ```
 
 This uses `uv` (fast Python package manager) to automatically manage dependencies and run the development environment.
+
+## Debugging
+
+For debugging errors, enable debug logging (must be set before importing mlflow):
+
+```bash
+export MLFLOW_LOGGING_LEVEL=DEBUG
+```
 
 ### Start Development Server with Databricks Backend
 
@@ -48,6 +66,7 @@ export MLFLOW_TRACKING_URI="databricks"                        # Must be set to 
 export MLFLOW_REGISTRY_URI="databricks-uc"                     # Use "databricks-uc" for Unity Catalog, or "databricks" for workspace model registry
 
 # Start the dev server with these environment variables
+# (The script will automatically clean up any existing servers)
 nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
 
 # Monitor the logs
@@ -82,34 +101,29 @@ uv run --with transformers pytest tests/transformers
 uv run --extra gateway pytest tests/gateway
 
 # Run JavaScript tests
-yarn --cwd mlflow/server/js test
+(cd mlflow/server/js && yarn test)
 ```
-
-**IMPORTANT**: `uv` may fail initially because the environment has not been set up yet. Follow the instructions to set up the environment and then rerun `uv` as needed.
 
 ### Code Quality
 
 ```bash
 # Python linting and formatting with Ruff
-uv run --only-group lint ruff check . --fix         # Lint with auto-fix
-uv run --only-group lint ruff format .              # Format code
+uv run ruff check . --fix         # Lint with auto-fix
+uv run ruff format .              # Format code
 
 # Custom MLflow linting with Clint
-uv run --only-group lint clint .                    # Run MLflow custom linter
+uv run clint .                    # Run MLflow custom linter
 
 # Check for MLflow spelling typos
-uv run --only-group lint bash dev/mlflow-typo.sh .
+uv run bash dev/mlflow-typo.sh .
 
 # JavaScript linting and formatting
-yarn --cwd mlflow/server/js lint
-yarn --cwd mlflow/server/js prettier:check
-yarn --cwd mlflow/server/js prettier:fix
+(cd mlflow/server/js && yarn lint)
+(cd mlflow/server/js && yarn prettier:check)
+(cd mlflow/server/js && yarn prettier:fix)
 
 # Type checking
-yarn --cwd mlflow/server/js type-check
-
-# Run all checks
-yarn --cwd mlflow/server/js check-all
+(cd mlflow/server/js && yarn type-check)
 ```
 
 ### Special Testing
@@ -129,7 +143,7 @@ uv run --all-extras bash dev/build-docs.sh --build-api-docs
 uv run --all-extras bash dev/build-docs.sh --build-api-docs --with-r-docs
 
 # Serve documentation locally (after building)
-cd docs && yarn serve --port 8080
+cd docs && npm run serve --port 8080
 ```
 
 ## Important Files
@@ -153,49 +167,25 @@ See `mlflow/server/js/` for frontend development.
 
 ### Committing Changes
 
-**IMPORTANT**: After making your commits, run pre-commit hooks on your PR changes to ensure code quality:
+When committing changes:
+
+- DCO sign-off: All commits MUST use the `-s` flag (otherwise CI will reject them)
+- Co-Authored-By trailer: Include when Claude Code authors or co-authors changes
+- Pre-commit hooks: Run before committing (see [Pre-commit Hooks](#pre-commit-hooks))
 
 ```bash
-# Make your commit first (with DCO sign-off)
-git commit -s -m "Your commit message"
+# Commit with required DCO sign-off
+git commit -s -m "Your commit message
 
-# Then check all files changed in your PR
-uv run --only-group lint pre-commit run --from-ref origin/master --to-ref HEAD
+Co-Authored-By: Claude <noreply@anthropic.com>"
 
-# Fix any issues and amend your commit if needed
-git add <fixed files>
-git commit --amend -s
-
-# Re-run pre-commit to verify fixes
-uv run --only-group lint pre-commit run --from-ref origin/master --to-ref HEAD
-
-# Only push once all checks pass
+# Push your changes
 git push origin <your-branch>
-```
-
-This workflow ensures you only check files you've actually modified in your PR, avoiding false positives from unrelated files.
-
-**IMPORTANT**: You MUST sign all commits with DCO (Developer Certificate of Origin). Always use the `-s` flag:
-
-```bash
-# REQUIRED: Always use -s flag when committing
-git commit -s -m "Your commit message"
-
-# This will NOT work - missing -s flag
-# git commit -m "Your commit message"  ❌
-```
-
-Commits without DCO sign-off will be rejected by CI.
-
-**Frontend Changes**: If your PR touches any code in `mlflow/server/js/`, you MUST run `yarn check-all` before committing:
-
-```bash
-yarn --cwd mlflow/server/js check-all
 ```
 
 ### Creating Pull Requests
 
-Follow [the PR template](./.github/pull_request_template.md) when creating pull requests. Remove any unused checkboxes from the template to keep your PR clean and focused.
+When creating pull requests, read the instructions at the top of [the PR template](./.github/pull_request_template.md) and follow them carefully.
 
 ### Checking CI Status
 
@@ -217,42 +207,21 @@ gh run watch
 The repository uses pre-commit for code quality. Install hooks with:
 
 ```bash
-uv run --only-group lint pre-commit install --install-hooks
+uv run pre-commit install --install-hooks
+uv run pre-commit run install-bin -a -v
 ```
 
 Run pre-commit manually:
 
 ```bash
 # Run on all files
-uv run --only-group lint pre-commit run --all-files
-
-# Run on all files, skipping hooks that require external tools
-SKIP=taplo,typos,conftest uv run --only-group lint pre-commit run --all-files
+uv run pre-commit run --all-files
 
 # Run on specific files
-uv run --only-group lint pre-commit run --files path/to/file.py
+uv run pre-commit run --files path/to/file.py
 
 # Run a specific hook
-uv run --only-group lint pre-commit run ruff --all-files
+uv run pre-commit run ruff --all-files
 ```
 
 This runs Ruff, typos checker, and other tools automatically before commits.
-
-**Note about external tools**: Some pre-commit hooks require external tools that aren't Python packages:
-
-- `taplo` - TOML formatter
-- `typos` - Spell checker
-- `conftest` - Policy testing tool
-
-To install these tools:
-
-```bash
-# Install all tools at once (recommended)
-uv run --only-group lint bin/install.py
-```
-
-This automatically downloads and installs the correct versions of all external tools to the `bin/` directory. The tools work on both Linux and ARM Macs.
-
-These tools are optional. Use `SKIP=taplo,typos,conftest` if they're not installed.
-
-**Note**: If the typos hook fails, you only need to fix typos in code that was changed by your PR, not pre-existing typos in the codebase.

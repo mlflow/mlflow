@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
 const MOCK_GEMINI_INPUT = {
@@ -80,6 +82,28 @@ const MOCK_GEMINI_OUTPUT = {
   parsed: null,
 };
 
+const MOCK_GEMINI_OUTPUT_WITH_THINKING = {
+  candidates: [
+    {
+      content: {
+        parts: [
+          {
+            thought: true,
+            text: "Let me think about how many r's are in strawberry...",
+          },
+          {
+            thought: null,
+            text: 'There are 3 r\'s in the word "strawberry".',
+          },
+        ],
+        role: 'model',
+      },
+      finish_reason: 'STOP',
+    },
+  ],
+  model_version: 'gemini-2.5-flash',
+};
+
 describe('normalizeConversation', () => {
   it('should handle gemini input', () => {
     expect(normalizeConversation(MOCK_GEMINI_INPUT, 'gemini')).toEqual([
@@ -95,6 +119,17 @@ describe('normalizeConversation', () => {
       expect.objectContaining({
         content: expect.stringMatching(/ai learns patterns from data to make decisions/i),
         role: 'assistant',
+      }),
+    ]);
+  });
+
+  it('should handle gemini output with thinking content', () => {
+    const result = normalizeConversation(MOCK_GEMINI_OUTPUT_WITH_THINKING, 'gemini');
+    expect(result).toEqual([
+      expect.objectContaining({
+        content: expect.stringMatching(/there are 3 r's in the word/i),
+        role: 'assistant',
+        reasoning: expect.stringMatching(/let me think about how many r's/i),
       }),
     ]);
   });

@@ -25,7 +25,7 @@ export const getAssessmentDisplayName = (name: string): string => {
   return split.slice(2).join('/');
 };
 
-// forked from mlflow/web/js/src/common/utils/Utils.tsx
+// forked from mlflow/server/js/src/common/utils/Utils.tsx
 export const timeSinceStr = (date: any, referenceDate = new Date()) => {
   const seconds = Math.max(0, Math.floor((referenceDate.getTime() - date) / 1000));
   let interval = Math.floor(seconds / 31536000);

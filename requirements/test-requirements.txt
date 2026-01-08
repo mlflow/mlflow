@@ -26,7 +26,7 @@ tqdm[notebook]
 openai
 # Required for showing pytest stats
 psutil
-pyspark
+pyspark<4.1.0
 # Required for testing the opentelemetry exporter of tracing
 opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-exporter-otlp-proto-http
@@ -36,5 +36,5 @@ Flask-WTF<2
 polars>=1
 # required for testing mlflow.genai.optimize_prompt
 dspy
-# required for testing mlflow.server.jobs
-huey<3,>=2.5.0
+# required for testing mlflow.genai.optimize.optimizers
+gepa

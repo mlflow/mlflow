@@ -8,7 +8,7 @@ import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import useBaseUrl from '@docusaurus/useBaseUrl';
-import { Code2, TestTube, Rocket, Eye, Database, Shield, Zap, Users, TrendingUp, BookOpen, PlayCircle, Target, Settings } from "lucide-react";
+import { Code2, TestTube, Rocket, Eye, Database, Shield, Zap, PlayCircle, Target } from "lucide-react";
 
 # Getting Started with MLflow for GenAI
 
@@ -17,9 +17,13 @@ import { Code2, TestTube, Rocket, Eye, Database, Shield, Zap, Users, TrendingUp,
 MLflow transforms how software engineers build, evaluate, and deploy GenAI applications. Get complete observability, systematic evaluation, and deployment confidence—all while maintaining the flexibility to use any framework or model provider.
 
 <div style={{margin: '2rem 0', textAlign: 'center'}}>
-  <img
-    src={useBaseUrl('/images/llms/tracing/tracing-top.gif')}
-    alt="MLflow Tracing UI showing detailed GenAI observability"
+  <video
+    src={useBaseUrl('/images/llms/tracing/tracing-top.mp4')}
+    controls
+    loop
+    autoPlay
+    muted
+    aria-label="MLflow Tracing UI showing detailed GenAI observability"
     style={{maxWidth: '100%', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'}}
   />
 </div>
@@ -75,7 +79,7 @@ As the original open source ML platform, MLflow brings battle-tested reliability
 
 ## Start Building Production GenAI Applications
 
-MLflow transforms GenAI development from complex instrumentation to simple, one-line integrations. See how easy it is to add comprehensive observability, evaluation, and deployment to your AI applications.
+MLflow transforms GenAI development from complex instrumentation to simple, one-line integrations. See how easy it is to add comprehensive observability, evaluation, and deployment to your AI applications. Visit the [Tracing guide](/genai/tracing) for more information.
 
 ### Add Complete Observability in One Line
 
@@ -105,67 +109,72 @@ No code changes required. Every LLM call, tool interaction, and prompt execution
 
 ### Manage and Optimize Prompts Systematically
 
-Register prompts and automatically optimize them with data-driven techniques:
+Register prompts and automatically optimize them with data-driven techniques. See the [Prompt Registry](/genai/prompt-registry/create-and-edit-prompts) guide for comprehensive prompt management:
 
 ```python
 import mlflow
-from mlflow.genai.optimize import OptimizerConfig, LLMParams
+import openai
+from mlflow.genai.optimize import GepaPromptOptimizer
+from mlflow.genai.scorers import Correctness
 
 # Register an initial prompt
-initial_prompt = mlflow.genai.register_prompt(
+prompt = mlflow.genai.register_prompt(
     name="math_tutor",
     template="Answer this math question: {{question}}. Provide a clear explanation.",
 )
 
-# Prepare training data for optimization
+
+# Define prediction function that includes prompt.format() call for your target prompt(s)
+def predict_fn(question: str) -> str:
+    prompt = mlflow.genai.load_prompt("prompts:/math_tutor@latest")
+    completion = openai.OpenAI().chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt.format(question=question)}],
+    )
+    return completion.choices[0].message.content
+
+
+# Prepare training data with inputs and expectations
 train_data = [
-    {"question": "What is 15 + 27?", "expected": "42"},
-    {"question": "Calculate 8 × 9", "expected": "72"},
+    {
+        "inputs": {"question": "What is 15 + 27?"},
+        "expectations": {"expected_response": "42"},
+    },
+    {
+        "inputs": {"question": "Calculate 8 × 9"},
+        "expectations": {"expected_response": "72"},
+    },
+    {
+        "inputs": {"question": "What is 100 - 37?"},
+        "expectations": {"expected_response": "63"},
+    },
     # ... more examples
 ]
 
-# Automatically optimize the prompt using MLflow + DSPy
-result = mlflow.genai.optimize_prompt(
-    target_llm_params=LLMParams(model_name="openai/gpt-4o-mini"),
-    prompt=initial_prompt,
+# Automatically optimize the prompt using MLflow + GEPA
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
     train_data=train_data,
-    eval_data=train_data[:5],  # Hold-out evaluation set
-    optimizer_config=OptimizerConfig(
-        num_instruction_candidates=5,  # Try 5 different prompt variations
-        max_few_shot_examples=3,  # Include up to 3 examples
-    ),
+    prompt_uris=[prompt.uri],
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o-mini"),
+    scorers=[Correctness(model="openai:/gpt-4o-mini")],
 )
 
-# The optimized prompt is automatically registered as a new version of the original prompt
-optimized_prompt = result.optimized_prompt
-print(
-    f"Optimization improved accuracy from {result.baseline_score:.2f} to {result.optimized_score:.2f}"
-)
-print(
-    f"Optimized prompt registered as version {optimized_prompt.version} of '{optimized_prompt.name}'"
-)
-
-# Deploy the best-performing version
-with mlflow.start_run():
-    # Use the optimized prompt in your application
-    model_info = mlflow.openai.log_model(
-        model="gpt-4o-mini",
-        task="llm/v1/completions",
-        name="math_tutor_optimized",
-        prompts=[optimized_prompt],  # Link optimized prompt to model
-    )
-# ✅ Data-driven prompt optimization + automatic versioning + deployment
+# The optimized prompt is automatically registered as a new version
+optimized_prompt = result.optimized_prompts[0]
+print(f"Optimized prompt registered as version {optimized_prompt.version}")
+print(f"Template: {optimized_prompt.template}")
+print(f"Score: {result.final_eval_score}")
 ```
 
-Transform manual prompt engineering into systematic, data-driven optimization with automatic performance tracking.
+Transform manual prompt engineering into systematic, data-driven optimization with automatic performance tracking. Learn more in the [Optimize Prompts](/genai/prompt-registry/optimize-prompts) guide.
 
 ### Prerequisites
 
 Ready to get started? You'll need:
 
 - Python 3.10+ installed
-- MLflow 3.0+ (`pip install --upgrade mlflow`)
-- For prompt optimization: DSPy (`pip install dspy`)
+- MLflow 3.5+ (`pip install --upgrade mlflow`)
 - API access to an LLM provider (OpenAI, Anthropic, etc.)
 
 ---
@@ -267,15 +276,6 @@ MLflow provides deep integrations with popular GenAI frameworks. Choose your fra
     description="Instrument RAG pipelines and document processing workflows with LlamaIndex support"
     href="/genai/flavors/llama-index"
     linkText="Use LlamaIndex →"
-    containerHeight={64}
-  />
-  <TileCard
-    image="/images/logos/openai-logo.svg"
-    iconSize={48}
-    title="OpenAI Integration"
-    description="Track completions, embeddings, and function calls with native OpenAI instrumentation"
-    href="/genai/flavors/openai"
-    linkText="Use OpenAI →"
     containerHeight={64}
   />
   <TileCard

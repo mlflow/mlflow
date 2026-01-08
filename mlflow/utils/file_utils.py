@@ -24,6 +24,7 @@ from concurrent.futures import as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
 from subprocess import CalledProcessError, TimeoutExpired
+from types import TracebackType
 from typing import Any
 from urllib.parse import unquote
 from urllib.request import pathname2url
@@ -401,7 +402,7 @@ def _copy_project(src_path, dst_path=""):
         patterns = []
         if os.path.exists(docker_ignore):
             with open(docker_ignore) as f:
-                patterns = [x.strip() for x in f.readlines()]
+                patterns = [x.strip() for x in f]
 
         def ignore(_, names):
             res = set()
@@ -525,8 +526,7 @@ def yield_file_in_chunks(file, chunk_size=100000000):
     """
     with open(file, "rb") as f:
         while True:
-            chunk = f.read(chunk_size)
-            if chunk:
+            if chunk := f.read(chunk_size):
                 yield chunk
             else:
                 break
@@ -939,7 +939,7 @@ def get_total_file_size(path: str | pathlib.Path) -> int | None:
         total_size = 0
         for cur_path, dirs, files in os.walk(path):
             full_paths = [os.path.join(cur_path, file) for file in files]
-            total_size += sum([os.path.getsize(file) for file in full_paths])
+            total_size += sum(map(os.path.getsize, full_paths))
         return total_size
     except Exception as e:
         _logger.info(f"Failed to get the total size of {path} because of error :{e}")
@@ -979,3 +979,37 @@ def read_yaml(root: str, file_name: str) -> dict[str, Any]:
 
     with open(os.path.join(root, file_name)) as f:
         return yaml.safe_load(f)
+
+
+class ExclusiveFileLock:
+    """
+    Exclusive file lock (only works on Unix system)
+    """
+
+    def __init__(self, path: str):
+        if os.name == "nt":
+            raise MlflowException("ExclusiveFileLock class does not support Windows system.")
+        self.path = path
+        self.fd = None
+
+    def __enter__(self) -> None:
+        # Python on Windows does not have `fcntl` module, so importing it lazily.
+        import fcntl  # clint: disable=lazy-builtin-import
+
+        # Open file (create if missing)
+        self.fd = open(self.path, "w")
+        # Acquire exclusive lock (blocking)
+        fcntl.flock(self.fd, fcntl.LOCK_EX)
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ):
+        # Python on Windows does not have `fcntl` module, so importing it lazily.
+        import fcntl  # clint: disable=lazy-builtin-import
+
+        # Release lock
+        fcntl.flock(self.fd, fcntl.LOCK_UN)
+        self.fd.close()

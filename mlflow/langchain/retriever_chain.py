@@ -7,10 +7,27 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from langchain.callbacks.manager import AsyncCallbackManagerForChainRun, CallbackManagerForChainRun
-from langchain.chains.base import Chain
-from langchain.schema import BaseRetriever, Document
-from pydantic import Extra, Field
+from pydantic import ConfigDict, Field
+
+from mlflow.langchain._compat import (
+    import_async_callback_manager_for_chain_run,
+    import_base_retriever,
+    import_callback_manager_for_chain_run,
+    import_document,
+    try_import_chain,
+)
+
+AsyncCallbackManagerForChainRun = import_async_callback_manager_for_chain_run()
+CallbackManagerForChainRun = import_callback_manager_for_chain_run()
+BaseRetriever = import_base_retriever()
+Document = import_document()
+Chain = try_import_chain()
+
+if Chain is None:
+    raise ImportError(
+        "Chain class not found. MLflow's retriever_chain functionality requires langchain<1.0.0. "
+        "For langchain 1.0.0+, please use LangGraph instead."
+    )
 
 
 class _RetrieverChain(Chain):
@@ -35,11 +52,7 @@ class _RetrieverChain(Chain):
     output_key: str = "source_documents"
     retriever: BaseRetriever = Field(exclude=True)
 
-    class Config:
-        """Configuration for this pydantic object."""
-
-        extra = Extra.forbid
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     @property
     def input_keys(self) -> list[str]:

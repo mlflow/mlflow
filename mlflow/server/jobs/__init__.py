@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from dataclasses import dataclass
 from types import FunctionType
 from typing import Any, Callable, ParamSpec, TypeVar
@@ -7,11 +8,30 @@ from typing import Any, Callable, ParamSpec, TypeVar
 from mlflow.entities._job import Job as JobEntity
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
+from mlflow.utils.environment import _PythonEnv
 
 _logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+_SUPPORTED_JOB_FUNCTION_LIST = [
+    # Putting all supported job function fullname in the list
+    "mlflow.genai.scorers.job.invoke_scorer_job",
+]
+
+if supported_job_function_list_env := os.environ.get("_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST"):
+    _SUPPORTED_JOB_FUNCTION_LIST += supported_job_function_list_env.split(",")
+
+
+_ALLOWED_JOB_NAME_LIST = [
+    # Putting all allowed job function static name in the list
+    "invoke_scorer",
+]
+
+if allowed_job_name_list_env := os.environ.get("_MLFLOW_ALLOWED_JOB_NAME_LIST"):
+    _ALLOWED_JOB_NAME_LIST += allowed_job_name_list_env.split(",")
 
 
 class TransientError(RuntimeError):
@@ -30,33 +50,70 @@ class TransientError(RuntimeError):
 
 @dataclass
 class JobFunctionMetadata:
+    name: str
     fn_fullname: str
     max_workers: int
-    use_process: bool
+    transient_error_classes: list[type[Exception]] | None = None
+    python_env: _PythonEnv | None = None
 
 
 def job(
+    name: str,
     max_workers: int,
-    use_process: bool = True,
+    transient_error_classes: list[type[Exception]] | None = None,
+    python_version: str | None = None,
+    pip_requirements: list[str] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     The decorator for the custom job function for setting max parallel workers that
     the job function can use.
+    Each job is executed in an individual subprocess.
 
     Args:
+        name: The static name of the job function.
         max_workers: The maximum number of workers that are allowed to run the jobs
             using this job function.
-        use_process: (optional) Specify whether to run the job in an individual process.
-            If the job uses environment variables (e.g. API keys),
-            it should be run in an individual process to isolate the environment variable settings.
-            Default value is True.
+        transient_error_classes: (optional) Specify a list of classes that are regarded as
+            transient error classes.
+        python_version: (optional) The required python version to run the job function.
+        pip_requirements: (optional) The required pip requirements to run the job function,
+            relative file references such as "-r requirements.txt" are not supported.
     """
+    from mlflow.utils import PYTHON_VERSION
+    from mlflow.utils.requirements_utils import _parse_requirements
+    from mlflow.version import VERSION
+
+    if not python_version and not pip_requirements:
+        python_env = None
+    else:
+        python_version = python_version or PYTHON_VERSION
+        try:
+            pip_requirements = [
+                req.req_str for req in _parse_requirements(pip_requirements, is_constraint=False)
+            ]
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid pip_requirements for job function: {pip_requirements}, "
+                f"parsing error: {e!r}"
+            )
+        if mlflow_home := os.environ.get("MLFLOW_HOME"):
+            # Append MLflow dev version dependency (for testing)
+            pip_requirements += [mlflow_home]
+        else:
+            pip_requirements += [f"mlflow=={VERSION}"]
+
+        python_env = _PythonEnv(
+            python=python_version,
+            dependencies=pip_requirements,
+        )
 
     def decorator(fn: Callable[P, R]) -> Callable[P, R]:
         fn._job_fn_metadata = JobFunctionMetadata(
+            name=name,
             fn_fullname=f"{fn.__module__}.{fn.__name__}",
             max_workers=max_workers,
-            use_process=use_process,
+            transient_error_classes=transient_error_classes,
+            python_env=python_env,
         )
         return fn
 
@@ -81,7 +138,9 @@ def submit_job(
         function: The job function, it must be a python module-level function,
             and all params and return value must be JSON-serializable.
             The function can raise `TransientError` in order to trigger
-            job retry, you can set `MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES`
+            job retry, or you can annotate a list of transient error classes
+            by ``@job(..., transient_error_classes=[...])``.
+            You can set `MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES`
             to configure maximum allowed retries for transient errors
             and set `MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY` to
             configure base retry delay in seconds.
@@ -95,19 +154,19 @@ def submit_job(
         the updated job entity.
     """
     from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
-    from mlflow.server.jobs.util import (
+    from mlflow.server.jobs.utils import (
         _check_requirements,
         _get_or_init_huey_instance,
         _validate_function_parameters,
     )
-
-    _check_requirements()
 
     if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         raise MlflowException(
             "Mlflow server job execution feature is not enabled, please set "
             "environment variable 'MLFLOW_SERVER_ENABLE_JOB_EXECUTION' to 'true' to enable it."
         )
+
+    _check_requirements()
 
     if not (isinstance(function, FunctionType) and "." not in function.__qualname__):
         raise MlflowException("The job function must be a python global function.")
@@ -120,17 +179,28 @@ def submit_job(
             "'mlflow.server.jobs.job_function'."
         )
 
+    fn_meta = function._job_fn_metadata
+
+    if fn_meta.name not in _ALLOWED_JOB_NAME_LIST:
+        raise MlflowException.invalid_parameter_value(
+            f"The function {func_fullname} is not in the allowed job function list"
+        )
+
+    if not isinstance(params, dict):
+        raise MlflowException.invalid_parameter_value(
+            "When calling 'submit_job', the 'params' argument must be a dict."
+        )
     # Validate that required parameters are provided
     _validate_function_parameters(function, params)
 
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
-    job = job_store.create_job(func_fullname, serialized_params, timeout)
+    job = job_store.create_job(fn_meta.name, serialized_params, timeout)
 
     # enqueue job
-    _get_or_init_huey_instance(func_fullname).submit_task(
+    _get_or_init_huey_instance(fn_meta.name).submit_task(
         job.job_id,
-        function,
+        fn_meta.name,
         params,
         timeout,
     )
@@ -154,3 +224,20 @@ def get_job(job_id: str) -> JobEntity:
     """
     job_store = _get_job_store()
     return job_store.get_job(job_id)
+
+
+def cancel_job(job_id: str) -> JobEntity:
+    """
+    Cancel a job by its ID.
+
+    Args:
+        job_id: The ID of the job to cancel
+
+    Returns:
+        The job entity
+
+    Raises:
+        MlflowException: If job with the given ID is not found
+    """
+    job_store = _get_job_store()
+    return job_store.cancel_job(job_id)

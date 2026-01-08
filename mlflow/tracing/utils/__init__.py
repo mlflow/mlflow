@@ -5,7 +5,7 @@ import inspect
 import json
 import logging
 import uuid
-from collections import Counter, defaultdict
+from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any, Generator
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
-from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowException, MlflowTracingException
 from mlflow.tracing.constant import (
@@ -71,28 +70,10 @@ class TraceJSONEncoder(json.JSONEncoder):
 
     def default(self, obj):
         try:
-            import langchain
-
-            # LangChain < 0.3.0 does some trick to support Pydantic 1.x and 2.x, so checking
-            # type with installed Pydantic version might not work for some models.
-            # https://github.com/langchain-ai/langchain/blob/b66a4f48fa5656871c3e849f7e1790dfb5a4c56b/libs/core/langchain_core/pydantic_v1/__init__.py#L7
-            if Version(langchain.__version__) < Version("0.3.0"):
-                from langchain_core.pydantic_v1 import BaseModel as LangChainBaseModel
-
-                if isinstance(obj, LangChainBaseModel):
-                    return obj.dict()
-        except ImportError:
-            pass
-
-        try:
             import pydantic
 
             if isinstance(obj, pydantic.BaseModel):
-                # NB: Pydantic 2.0+ has a different API for model serialization
-                if Version(pydantic.VERSION) >= Version("2.0"):
-                    return obj.model_dump()
-                else:
-                    return obj.dict()
+                return obj.model_dump()
         except ImportError:
             pass
 
@@ -135,6 +116,13 @@ class TraceJSONEncoder(json.JSONEncoder):
             pass
 
         return True
+
+
+def dump_span_attribute_value(value: Any) -> str:
+    # NB: OpenTelemetry attribute can store not only string but also a few primitives like
+    #   int, float, bool, and list of them. However, we serialize all into JSON string here
+    #   for the simplicity in deserialization process.
+    return json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
 
 
 @lru_cache(maxsize=1)
@@ -186,31 +174,6 @@ def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
         # yet so always set it to False.
         is_remote=False,
     )
-
-
-def deduplicate_span_names_in_place(spans: list[LiveSpan]):
-    """
-    Deduplicate span names in the trace data by appending an index number to the span name.
-
-    This is only applied when there are multiple spans with the same name. The span names
-    are modified in place to avoid unnecessary copying.
-
-    E.g.
-        ["red", "red"] -> ["red_1", "red_2"]
-        ["red", "red", "blue"] -> ["red_1", "red_2", "blue"]
-
-    Args:
-        spans: A list of spans to deduplicate.
-    """
-    # Use _original_name to handle incremental deduplication correctly
-    span_name_counter = Counter(span._original_name for span in spans)
-    # Apply renaming only for duplicated spans
-    span_name_counter = {name: 1 for name, count in span_name_counter.items() if count > 1}
-    # Add index to the duplicated span names
-    for span in spans:
-        if count := span_name_counter.get(span._original_name):
-            span_name_counter[span._original_name] += 1
-            span._span._name = f"{span._original_name}_{count}"
 
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
@@ -311,8 +274,7 @@ def maybe_get_request_id(is_evaluate=False) -> str | None:
 
 
 def maybe_get_dependencies_schemas() -> dict[str, Any] | None:
-    context = _try_get_prediction_context()
-    if context:
+    if context := _try_get_prediction_context():
         return context.dependencies_schemas
 
 
@@ -340,6 +302,34 @@ def generate_mlflow_trace_id_from_otel_trace_id(otel_trace_id: int) -> str:
         The MLflow trace ID string in format "tr-<hex_trace_id>".
     """
     return TRACE_REQUEST_ID_PREFIX + encode_trace_id(otel_trace_id)
+
+
+def generate_trace_id_v4_from_otel_trace_id(otel_trace_id: int, location: str) -> str:
+    """
+    Generate a trace ID in v4 format from the given OpenTelemetry trace ID.
+
+    Args:
+        otel_trace_id: The OpenTelemetry trace ID as an integer.
+        location: The location, of the trace.
+
+    Returns:
+        The MLflow trace ID string in format "trace:/<location>/<hex_trace_id>".
+    """
+    return construct_trace_id_v4(location, encode_trace_id(otel_trace_id))
+
+
+def generate_trace_id_v4(span: OTelSpan, location: str) -> str:
+    """
+    Generate a trace ID for the given span.
+
+    Args:
+        span: The OpenTelemetry span object.
+        location: The location, of the trace.
+
+    Returns:
+        Trace ID with format "trace:/<location>/<hex_trace_id>".
+    """
+    return generate_trace_id_v4_from_otel_trace_id(span.context.trace_id, location)
 
 
 def generate_trace_id_v3(span: OTelSpan) -> str:
@@ -451,10 +441,10 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
     sanitized_tools = []
     for tool in tools:
         if isinstance(tool, dict):
-            ChatTool.validate_compat(tool)
+            ChatTool.model_validate(tool)
             sanitized_tools.append(tool)
         elif isinstance(tool, ChatTool):
-            sanitized_tools.append(tool.model_dump_compat(exclude_unset=True))
+            sanitized_tools.append(tool.model_dump(exclude_unset=True))
 
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)
 
@@ -510,7 +500,7 @@ def add_size_stats_to_trace_metadata(trace: Trace):
         # again (which can be expensive), we compute the size of the trace without spans
         # and combine it with the total size of the spans.
         empty_trace = Trace(info=trace.info, data=TraceData(spans=[]))
-        metadata_size = len(empty_trace.to_json().encode("utf-8"))
+        metadata_size = len((empty_trace.to_json()).encode("utf-8"))
 
         # NB: the third term is the size of comma separators between spans (", ").
         trace_size_bytes = sum(span_sizes) + metadata_size + (len(span_sizes) - 1) * 2
@@ -559,7 +549,12 @@ def update_trace_state_from_span_conditionally(trace, root_span):
     # If the trace state is anything else, it means the user explicitly set it
     # and we should preserve it
     if trace.info.state == TraceState.IN_PROGRESS:
-        trace.info.state = TraceState.from_otel_status(root_span.status)
+        state = TraceState.from_otel_status(root_span.status)
+        # If the root span is created by the native OpenTelemetry SDK, the status code can be UNSET
+        # (default value when an otel span is ended). Override it to OK here to avoid backend error.
+        if state == TraceState.STATE_UNSPECIFIED:
+            state = TraceState.OK
+        trace.info.state = state
 
 
 def get_experiment_id_for_trace(span: OTelReadableSpan) -> str:
@@ -594,6 +589,20 @@ def get_experiment_id_for_trace(span: OTelReadableSpan) -> str:
     return _get_experiment_id()
 
 
+def get_active_spans_table_name() -> str | None:
+    """
+    Get active Unity Catalog spans table name that's set by `mlflow.tracing.set_destination`.
+    """
+    from mlflow.entities.trace_location import UCSchemaLocation
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+    if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
+        if isinstance(destination, UCSchemaLocation):
+            return destination.full_otel_spans_table_name
+
+    return None
+
+
 def generate_assessment_id() -> str:
     """
     Generates an assessment ID of the form 'a-<uuid4>' in hex string format.
@@ -623,10 +632,12 @@ def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
         span._end_time = original_end_time
 
 
-def parse_trace_id_v4(trace_id: str) -> tuple[str | None, str]:
+def parse_trace_id_v4(trace_id: str | None) -> tuple[str | None, str | None]:
     """
     Parse the trace ID into location and trace ID components.
     """
+    if trace_id is None:
+        return None, None
     if trace_id.startswith(TRACE_ID_V4_PREFIX):
         match trace_id.removeprefix(TRACE_ID_V4_PREFIX).split("/"):
             case [location, tid] if location and tid:
@@ -637,3 +648,10 @@ def parse_trace_id_v4(trace_id: str) -> tuple[str | None, str]:
                     f"Expected format: {TRACE_ID_V4_PREFIX}<location>/<trace_id>"
                 )
     return None, trace_id
+
+
+def construct_trace_id_v4(location: str, trace_id: str) -> str:
+    """
+    Construct a trace ID for the given location and trace ID.
+    """
+    return f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}"

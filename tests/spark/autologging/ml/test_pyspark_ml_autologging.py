@@ -1055,7 +1055,7 @@ def _read_model_conf_as_dict(run):
     ml_model_path = artifacts_dir.joinpath("model", ml_model_filename).absolute()
     assert ml_model_path.relative_to(artifacts_dir.absolute()).as_posix() in artifacts
     with open(ml_model_path) as f:
-        return yaml.load(f, Loader=yaml.FullLoader)
+        return yaml.safe_load(f)
 
 
 def _read_schema(schema_str):

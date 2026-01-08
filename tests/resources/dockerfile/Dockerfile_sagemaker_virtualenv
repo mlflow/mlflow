@@ -1,5 +1,5 @@
 # Build an image that can serve mlflow models.
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-recommends wget curl nginx ca-certificates bzip2 build-essential cmake git-core
 
@@ -18,6 +18,8 @@ RUN apt install -y software-properties-common \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt update \
     && apt install -y python3.10 python3.10-distutils \
+    # Remove python3-blinker to avoid pip uninstall conflicts
+    && apt remove -y python3-blinker \
     && ln -s -f $(which python3.10) /usr/bin/python \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py
@@ -25,8 +27,8 @@ RUN pip install virtualenv
 
 
 # Setup Java
-RUN apt-get install -y --no-install-recommends openjdk-11-jdk maven
-ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+RUN apt-get install -y --no-install-recommends openjdk-17-jdk maven
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 
 WORKDIR /opt/mlflow
 

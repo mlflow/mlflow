@@ -6,21 +6,12 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _convert_llm_ndarray_to_list
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.pyfunc.model import _load_context_model_and_signature
-from mlflow.types.type_hints import model_validate
-from mlflow.utils.annotations import experimental
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
-
-if not IS_PYDANTIC_V2_OR_NEWER:
-    raise ImportError(
-        "ResponsesAgent and its pydantic classes are not supported in pydantic v1. "
-        "Please upgrade to pydantic v2 or newer to use ResponsesAgent.",
-    )
-
 from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
 )
+from mlflow.types.type_hints import model_validate
 
 
 def _load_pyfunc(model_path: str, model_config: dict[str, Any] | None = None):
@@ -28,7 +19,6 @@ def _load_pyfunc(model_path: str, model_config: dict[str, Any] | None = None):
     return _ResponsesAgentPyfuncWrapper(responses_agent, context)
 
 
-@experimental(version="3.0.0")
 class _ResponsesAgentPyfuncWrapper:
     """
     Wrapper class that converts dict inputs to pydantic objects accepted by
@@ -63,7 +53,7 @@ class _ResponsesAgentPyfuncWrapper:
 
     def _response_to_dict(self, response, pydantic_class) -> dict[str, Any]:
         if isinstance(response, pydantic_class):
-            return response.model_dump_compat(exclude_none=True)
+            return response.model_dump(exclude_none=True)
         try:
             model_validate(pydantic_class, response)
         except pydantic.ValidationError as e:

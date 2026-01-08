@@ -4,8 +4,6 @@ import logging
 import warnings
 from typing import Any, Generator
 
-from packaging import version
-
 from mlflow.models.resources import (
     DatabricksFunction,
     DatabricksServingEndpoint,
@@ -18,15 +16,14 @@ _logger = logging.getLogger(__name__)
 
 
 def _get_embedding_model_endpoint_names(index):
-    embedding_model_endpoint_names = []
     desc = index.describe()
     delta_sync_index_spec = desc.get("delta_sync_index_spec", {})
     embedding_source_columns = delta_sync_index_spec.get("embedding_source_columns", [])
-    for column in embedding_source_columns:
-        embedding_model_endpoint_name = column.get("embedding_model_endpoint_name", None)
-        if embedding_model_endpoint_name:
-            embedding_model_endpoint_names.append(embedding_model_endpoint_name)
-    return embedding_model_endpoint_names
+    return [
+        name
+        for column in embedding_source_columns
+        if (name := column.get("embedding_model_endpoint_name", None))
+    ]
 
 
 def _get_vectorstore_from_retriever(retriever) -> Generator[Resource, None, None]:
@@ -262,7 +259,6 @@ def _traverse_runnable(
     by lc_model.get_graph().nodes.values().
     This function supports arbitrary LCEL chain.
     """
-    import pydantic
     from langchain_core.runnables import Runnable, RunnableLambda
 
     visited = visited or set()
@@ -276,9 +272,7 @@ def _traverse_runnable(
 
     if isinstance(lc_model, Runnable):
         # Visit the returned graph
-        if isinstance(lc_model, RunnableLambda) and version.parse(
-            pydantic.version.VERSION
-        ) >= version.parse("2.0"):
+        if isinstance(lc_model, RunnableLambda):
             nodes = _get_nodes_from_runnable_lambda(lc_model)
         else:
             nodes = _get_nodes_from_runnable_callable(lc_model)
@@ -309,7 +303,7 @@ def _get_deps_from_closures(lc_model):
         from langchain_core.runnables import Runnable
 
         closure = inspect.getclosurevars(lc_model.func)
-        candidates = {**closure.globals, **closure.nonlocals}
+        candidates = closure.globals | closure.nonlocals
         deps = []
 
         # This code is taken from Langchain deps here: https://github.com/langchain-ai/langchain/blob/14f182795312f01985344576b5199681683641e1/libs/core/langchain_core/runnables/base.py#L4481

@@ -1,4 +1,3 @@
-import Link from "@docusaurus/Link";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import { APILink } from "@site/src/components/APILink";
@@ -119,14 +118,14 @@ with mlflow.start_run(run_name="default-params"):
     lr.fit(X_train, y_train)
 
     y_pred = lr.predict(X_test)
-    metrics = eval_metrics(y_pred, y_test)
+    rmse, mae, r2 = eval_metrics(y_pred, y_test)
 ```
 
 Now you have trained a model, let's check if the parameters and metrics are logged correctly, via the MLflow UI.
 You can start the MLflow UI by running the following command in your terminal:
 
 ```bash
-mlflow ui --port 5000
+mlflow server --port 5000
 ```
 
 Then visit http://localhost:5000 to open the UI.
@@ -173,7 +172,7 @@ with mlflow.start_run(run_name="hyperparameter-tuning"):
 
     # Evaluate the best model on test dataset
     y_pred = clf.best_estimator_.predict(X_test)
-    rmse, mae, r2 = eval_metrics(clf.best_estimator_, y_pred, y_test)
+    rmse, mae, r2 = eval_metrics(y_pred, y_test)
     mlflow.log_metrics(
         {
             "mean_squared_error_X_test": rmse,

@@ -1,6 +1,8 @@
 import logging
 from typing import Callable
 
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "litellm"
@@ -54,6 +56,10 @@ def autolog(
         # success/failure callbacks to there as well.
         litellm.callbacks = _remove_mlflow_callbacks(litellm.callbacks)
 
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )
+
 
 # This is required by mlflow.autolog()
 autolog.integration_name = FLAVOR_NAME
@@ -89,7 +95,10 @@ def _patch_thread_pool():
         return
 
     def _patched_submit(original, *args, **kwargs):
-        if isinstance(args[0], Callable) and "success_handler" in args[0].__name__:
+        # In litellm < 1.78, the success_handler is submitted directly.
+        # In litellm >= 1.78, it's wrapped in a function named "run".
+        fn_name = getattr(args[0], "__name__", "") if args else ""
+        if args and isinstance(args[0], Callable) and fn_name in ("success_handler", "run"):
             # Immediately run the callback handler instead of submitting it to the thread pool
             args[0](*args[1:], **kwargs)
             return

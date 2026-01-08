@@ -9,6 +9,22 @@ import pytest
 from google.protobuf.json_format import ParseDict
 
 import mlflow
+from mlflow.entities import LiveSpan
+from mlflow.entities.model_registry import PromptVersion
+from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import MlflowExperimentLocation
+from mlflow.protos import service_pb2 as pb
+from mlflow.tracing.constant import SpansLocation, TraceMetadataKey, TraceSizeStatsKey, TraceTagKey
+from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+from mlflow.tracing.provider import _get_trace_exporter
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import generate_trace_id_v3
+
+from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
+
+_EXPERIMENT_ID = "dummy-experiment-id"
 
 
 def join_thread_by_name_prefix(prefix: str, timeout: float = 5.0):
@@ -16,19 +32,6 @@ def join_thread_by_name_prefix(prefix: str, timeout: float = 5.0):
     for thread in threading.enumerate():
         if thread != threading.main_thread() and thread.name.startswith(prefix):
             thread.join(timeout=timeout)
-
-
-from mlflow.entities.model_registry import PromptVersion
-from mlflow.entities.span_event import SpanEvent
-from mlflow.entities.trace import Trace
-from mlflow.entities.trace_info import TraceInfo
-from mlflow.protos import service_pb2 as pb
-from mlflow.tracing.constant import TraceMetadataKey, TraceSizeStatsKey
-from mlflow.tracing.destination import Databricks
-from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
-from mlflow.tracing.provider import _get_trace_exporter
-
-_EXPERIMENT_ID = "dummy-experiment-id"
 
 
 @mlflow.trace
@@ -55,7 +58,8 @@ def test_export(is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
 
-    mlflow.tracing.set_destination(Databricks(experiment_id=_EXPERIMENT_ID))
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
 
     trace_info = None
 
@@ -141,15 +145,15 @@ def test_export(is_async, monkeypatch):
     assert mlflow.get_last_active_trace_id() is not None
 
 
-@mock.patch("mlflow.tracing.export.mlflow_v3.is_in_databricks_notebook", return_value=True)
-def test_async_logging_disabled_in_databricks_notebook(mock_is_in_db_notebook, monkeypatch):
-    exporter = MlflowV3SpanExporter()
-    assert not exporter._is_async_enabled
+def test_async_logging_disabled_in_databricks_notebook(monkeypatch):
+    with mock.patch("mlflow.tracing.export.mlflow_v3.is_in_databricks_notebook", return_value=True):
+        exporter = MlflowV3SpanExporter()
+        assert not exporter._is_async_enabled
 
-    # If the env var is set explicitly, we should respect that
-    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "True")
-    exporter = MlflowV3SpanExporter()
-    assert exporter._is_async_enabled
+        # If the env var is set explicitly, we should respect that
+        monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "True")
+        exporter = MlflowV3SpanExporter()
+        assert exporter._is_async_enabled
 
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
@@ -158,7 +162,8 @@ def test_export_catch_failure(is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
 
-    mlflow.tracing.set_destination(Databricks(experiment_id=_EXPERIMENT_ID))
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
 
     response = mock.MagicMock()
     response.status_code = 500
@@ -188,7 +193,8 @@ def test_async_bulk_export(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "True")
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", "1000")
 
-    mlflow.tracing.set_destination(Databricks(experiment_id=0))
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=0))
 
     # Create a mock function that simulates delay
     def _mock_client_method(*args, **kwargs):
@@ -224,12 +230,12 @@ def test_async_bulk_export(monkeypatch):
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
-    """Test that prompts are correctly linked when using MLflow v3 exporter."""
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
 
-    mlflow.tracing.set_destination(Databricks(experiment_id=_EXPERIMENT_ID))
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
 
     # Capture prompt linking calls
     captured_prompts = None
@@ -269,13 +275,6 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
             creation_timestamp=123456790,
         )
 
-        # Use the MLflow v3 exporter directly to test prompt linking
-        from mlflow.entities import LiveSpan
-        from mlflow.tracing.trace_manager import InMemoryTraceManager
-        from mlflow.tracing.utils import generate_trace_id_v3
-
-        from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
-
         # Create a mock OTEL span and trace
         otel_span = create_mock_otel_span(
             name="root",
@@ -307,6 +306,16 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
         # Wait for any prompt linking threads to complete
         join_thread_by_name_prefix("link_prompts_from_exporter")
 
+    # Verify that trace info contains the linked prompts tags
+    tag_value = trace_info.tags.get(TraceTagKey.LINKED_PROMPTS)
+    assert tag_value is not None
+    tag_value = json.loads(tag_value)
+    assert len(tag_value) == 2
+    assert tag_value[0]["name"] == "test_prompt_1"
+    assert tag_value[0]["version"] == "1"
+    assert tag_value[1]["name"] == "test_prompt_2"
+    assert tag_value[1]["version"] == "2"
+
     # Verify that prompt linking was called
     mock_link_prompts.assert_called_once()
     assert captured_prompts is not None, "Prompts were not passed to link method"
@@ -326,12 +335,12 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 def test_prompt_linking_with_empty_prompts_mlflow_v3(is_async, monkeypatch):
-    """Test that empty prompts list doesn't cause issues with MLflow v3 exporter."""
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
 
-    mlflow.tracing.set_destination(Databricks(experiment_id=_EXPERIMENT_ID))
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
 
     # Capture prompt linking calls
     captured_prompts = None
@@ -356,13 +365,6 @@ def test_prompt_linking_with_empty_prompts_mlflow_v3(is_async, monkeypatch):
             side_effect=mock_link_prompt_versions_to_trace,
         ) as mock_link_prompts,
     ):
-        # Use the MLflow v3 exporter directly with no prompts
-        from mlflow.entities import LiveSpan
-        from mlflow.tracing.trace_manager import InMemoryTraceManager
-        from mlflow.tracing.utils import generate_trace_id_v3
-
-        from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
-
         # Create a mock OTEL span and trace (no prompts added)
         otel_span = create_mock_otel_span(
             name="root",
@@ -401,12 +403,12 @@ def test_prompt_linking_with_empty_prompts_mlflow_v3(is_async, monkeypatch):
 
 
 def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
-    """Test that MLflow v3 exporter handles prompt linking errors gracefully."""
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "False")  # Use sync for easier testing
 
-    mlflow.tracing.set_destination(Databricks(experiment_id=_EXPERIMENT_ID))
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
 
     # Mock the client methods with prompt linking failing
     with (
@@ -423,13 +425,6 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
         ) as mock_link_prompts,
         mock.patch("mlflow.tracing.export.utils._logger") as mock_logger,
     ):
-        # Use the MLflow v3 exporter directly
-        from mlflow.entities import LiveSpan
-        from mlflow.tracing.trace_manager import InMemoryTraceManager
-        from mlflow.tracing.utils import generate_trace_id_v3
-
-        from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
-
         # Create a mock OTEL span and trace with a prompt
         otel_span = create_mock_otel_span(
             name="root",
@@ -475,3 +470,36 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
     mock_logger.warning.assert_called()
     warning_calls = [call[0][0] for call in mock_logger.warning.call_args_list]
     assert any("Prompt linking failed" in msg for msg in warning_calls)
+
+
+def test_no_log_spans_to_artifacts_if_stored_in_tracking_store():
+    # Create a mock OTEL span and trace
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=12345,
+        span_id=1,
+        parent_id=None,
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    # Register the trace and spans
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+    trace_info.tags[TraceTagKey.SPANS_LOCATION] = SpansLocation.TRACKING_STORE.value
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+    trace_manager.register_span(span)
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            return_value=trace_info,
+        ) as mock_start_trace,
+        mock.patch(
+            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
+        ) as mock_upload_trace_data,
+    ):
+        exporter = MlflowV3SpanExporter()
+        exporter.export([otel_span])
+        mock_upload_trace_data.assert_not_called()
+        mock_start_trace.assert_called_once()

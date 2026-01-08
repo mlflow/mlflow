@@ -138,7 +138,7 @@ class ChatAgentOutputParser(BaseTransformOutputParser[str]):
         """
         return ChatAgentResponse(
             messages=[ChatAgentMessage(content=text, role="assistant", id=str(uuid4()))]
-        ).model_dump_compat(exclude_none=True)
+        ).model_dump(exclude_none=True)
 
     def transform(self, input: Iterator[BaseMessage], config, **kwargs) -> Iterator[dict[str, Any]]:
         """
@@ -149,4 +149,4 @@ class ChatAgentOutputParser(BaseTransformOutputParser[str]):
             if chunk.content:
                 yield ChatAgentChunk(
                     delta=ChatAgentMessage(content=chunk.content, role="assistant", id=chunk.id)
-                ).model_dump_compat(exclude_none=True)
+                ).model_dump(exclude_none=True)

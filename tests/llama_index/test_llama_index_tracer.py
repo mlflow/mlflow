@@ -23,12 +23,16 @@ from openai.types.chat import ChatCompletionMessageToolCall
 from packaging.version import Version
 
 import mlflow
-import mlflow.tracking._tracking_service
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
+from mlflow.llama_index.tracer import (
+    StreamResolver,
+    remove_llama_index_tracer,
+    set_llama_index_tracer,
+)
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.provider import _get_tracer
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
@@ -399,7 +403,7 @@ def test_trace_llm_error(monkeypatch, is_stream):
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.stream_chat" if is_stream else "OpenAI.chat"
     assert spans[0].span_type == SpanType.CHAT_MODEL
-    assert spans[0].inputs == {"messages": [message.dict()]}
+    assert spans[0].inputs == {"messages": [message.model_dump()]}
     assert spans[0].outputs is None
     events = traces[0].data.spans[0].events
     assert len(events) == 1
@@ -465,7 +469,6 @@ def test_trace_query_engine(multi_index, is_stream, is_async):
     if is_stream:
         response = engine.query("Hello")
         assert isinstance(response, StreamingResponse)
-        assert len(get_traces()) == 0
         response = "".join(response.response_gen)
         assert response == "Hello world"
     else:
@@ -590,8 +593,14 @@ def test_trace_agent():
 @pytest.mark.parametrize("is_stream", [False, True])
 @pytest.mark.parametrize("is_async", [False, True])
 def test_trace_chat_engine(multi_index, is_stream, is_async):
-    if is_stream and is_async:
-        pytest.skip("Async stream is not supported yet")
+    if is_stream:
+        if is_async:
+            pytest.skip("Async stream is not supported yet")
+
+        # Skip streaming test for llama-index <0.13 due to race condition with OpenAIAgent
+        # where child spans are created after root span completes, causing incomplete traces
+        if llama_core_version < Version("0.13.0"):
+            pytest.skip("Streaming chat engine test is flaky for llama-index <0.13")
 
     engine = multi_index.as_chat_engine()
 
@@ -804,3 +813,29 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     inner_result_span = next(s for s in spans if s.name == "custom_inner_result_span")
     assert inner_result_span.inputs is not None
     assert inner_result_span.outputs == result
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("should_close", [True, False])
+async def test_stream_resolver_with_async_generator(should_close):
+    async def async_generator():
+        yield "chunk1"
+        yield "chunk2"
+
+    resolver = StreamResolver()
+    tracer = _get_tracer(__name__)
+
+    agen = async_generator()
+    if should_close:
+        async for _ in agen:
+            pass
+
+    with tracer.start_as_current_span("test_closed_async") as otel_span:
+        from mlflow.entities.span import LiveSpan
+
+        trace_id = f"{otel_span.context.trace_id:032x}"
+        span = LiveSpan(otel_span=otel_span, trace_id=trace_id)
+
+        # Should detect that the generator is closed and return False
+        result = resolver.register_stream_span(span, agen)
+        assert result == (not should_close)

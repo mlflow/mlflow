@@ -121,7 +121,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    model_format="xgb",
+    model_format="ubj",
     metadata=None,
 ):
     """Save an XGBoost model to a path on the local file system.
@@ -137,7 +137,9 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        model_format: File format in which the model is to be saved.
+        model_format: File format in which the model is to be saved. Defaults to "ubj" (UBJSON),
+            which is the recommended format for optimal performance and cross-platform
+            compatibility. Also supports "json" and "xgb" formats.
         metadata: {{ metadata }}
     """
     import xgboost as xgb
@@ -234,7 +236,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    model_format="xgb",
+    model_format="ubj",
     metadata=None,
     name: str | None = None,
     params: dict[str, Any] | None = None,
@@ -262,7 +264,9 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        model_format: File format in which the model is to be saved.
+        model_format: File format in which the model is to be saved. Defaults to "ubj" (UBJSON),
+            which is the recommended format for optimal performance and cross-platform
+            compatibility. Also supports "json" and "xgb" formats.
         metadata: {{ metadata }}
         name: {{ name }}
         params: {{ params }}
@@ -457,7 +461,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
-    model_format="xgb",
+    model_format="ubj",
     extra_tags=None,
 ):
     """
@@ -506,7 +510,9 @@ def autolog(
         registered_model_name: If given, each time a model is trained, it is registered as a
             new model version of the registered model with this name.
             The registered model is created if it does not already exist.
-        model_format: File format in which the model is to be saved.
+        model_format: File format in which the model is to be saved. Defaults to "ubj" (UBJSON),
+            which is the recommended format for optimal performance and cross-platform
+            compatibility. Also supports "json" and "xgb" formats.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
     import numpy as np

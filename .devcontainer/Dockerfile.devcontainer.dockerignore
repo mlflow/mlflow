@@ -1,6 +1,0 @@
-**
-
-!.devcontainer/codespaces.zsh-theme
-!.devcontainer/requirements.txt
-!mlflow/server/js
-mlflow/server/js/node_modules

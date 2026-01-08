@@ -46,8 +46,7 @@ def test_set_run_status_to_killed():
     client.set_terminated(run_id=run.info.run_id, status="KILLED")
 
 
-@mock.patch("mlflow.store.db.utils._logger.exception")
-def test_database_operational_error(exception, monkeypatch):
+def test_database_operational_error(monkeypatch):
     # This test is specifically designed to force errors with SQLite. Skip it if
     # using a non-SQLite backend.
     if not MLFLOW_TRACKING_URI.get().startswith("sqlite"):
@@ -140,15 +139,16 @@ def test_database_operational_error(exception, monkeypatch):
     # (i.e. database connections), preventing our error-throwing monkeypatches
     # from being called.
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, f"{MLFLOW_TRACKING_URI.get()}-{uuid.uuid4().hex}")
-    with pytest.raises(mlflow.MlflowException, match=r"sqlite3\.OperationalError"):
-        with mlflow.start_run():
-            # This statement will fail with an OperationalError.
-            mlflow.log_param(
-                "test_database_operational_error_1667938883_param",
-                "test_database_operational_error_1667938883_value",
-            )
-    # Verify that the error handling was executed.
-    assert any(
-        "SQLAlchemy database error" in str(call) and "sqlite3.OperationalError" in str(call)
-        for call in exception.mock_calls
-    )
+    with mock.patch("mlflow.store.db.utils._logger.exception") as exception:
+        with pytest.raises(mlflow.MlflowException, match=r"sqlite3\.OperationalError"):
+            with mlflow.start_run():
+                # This statement will fail with an OperationalError.
+                mlflow.log_param(
+                    "test_database_operational_error_1667938883_param",
+                    "test_database_operational_error_1667938883_value",
+                )
+        # Verify that the error handling was executed.
+        assert any(
+            "SQLAlchemy database error" in str(call) and "sqlite3.OperationalError" in str(call)
+            for call in exception.mock_calls
+        )

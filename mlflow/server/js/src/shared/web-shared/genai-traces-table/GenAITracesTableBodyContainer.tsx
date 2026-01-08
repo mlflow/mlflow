@@ -1,26 +1,27 @@
-import type { RowSelectionState } from '@tanstack/react-table';
+import type { RowSelectionState, Updater } from '@tanstack/react-table';
 import React, { useState, useMemo, useCallback } from 'react';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import type { Assessment, ModelTrace, ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
+import type { Assessment, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { AssessmentSchemaContextProvider } from '@databricks/web-shared/model-trace-explorer';
 
 import { computeEvaluationsComparison } from './GenAiTracesTable.utils';
 import { GenAiTracesTableBody } from './GenAiTracesTableBody';
 import { useActiveEvaluation } from './hooks/useActiveEvaluation';
+import type { GetTraceFunction } from './hooks/useGetTrace';
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from './types';
 import type {
   AssessmentFilter,
   AssessmentInfo,
   TracesTableColumn,
-  TraceInfoV3,
   EvaluationsOverviewTableSort,
   TableFilter,
 } from './types';
 import { sortAssessmentInfos } from './utils/AggregationUtils';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
-import { applyTraceInfoV3ToEvalEntry } from './utils/TraceUtils';
+import { applyTraceInfoV3ToEvalEntry, DEFAULT_RUN_PLACEHOLDER_NAME } from './utils/TraceUtils';
+import { useGenAiTraceTableRowSelection } from './hooks/useGenAiTraceTableRowSelection';
 
 interface GenAITracesTableBodyContainerProps {
   // Experiment metadata
@@ -35,9 +36,9 @@ interface GenAITracesTableBodyContainerProps {
   assessmentInfos: AssessmentInfo[];
 
   // Table data
-  currentTraceInfoV3: TraceInfoV3[];
-  compareToTraceInfoV3?: TraceInfoV3[];
-  getTrace: (traceId?: string) => Promise<ModelTrace | undefined>;
+  currentTraceInfoV3: ModelTraceInfoV3[];
+  compareToTraceInfoV3?: ModelTraceInfoV3[];
+  getTrace: GetTraceFunction;
 
   // Table state
   selectedColumns: TracesTableColumn[];
@@ -47,10 +48,15 @@ interface GenAITracesTableBodyContainerProps {
   setFilters: (filters: TableFilter[]) => void;
 
   // TODO: Remove this in favor of unified tagging modal apis
-  onTraceTagsEdit?: (trace: ModelTraceInfo) => void;
+  onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void;
 
   // Configuration
   enableRowSelection?: boolean;
+
+  /**
+   * Whether to display a loading overlay over the table
+   */
+  displayLoadingOverlay?: boolean;
 }
 
 const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
@@ -73,6 +79,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       allColumns,
       getRunColor,
       enableRowSelection = true,
+      displayLoadingOverlay = false,
     } = props;
     const { theme } = useDesignSystemTheme();
 
@@ -114,7 +121,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       [compareToTraceInfoV3],
     );
 
-    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+    const { rowSelection, setRowSelection } = useGenAiTraceTableRowSelection();
 
     // Handle assessment filter toggle
     const handleAssessmentFilterToggle = useCallback(
@@ -165,7 +172,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
         .map((filter) => ({
           assessmentName: filter.key || '',
           filterValue: filter.value,
-          run: currentRunDisplayName || '',
+          run: currentRunDisplayName || DEFAULT_RUN_PLACEHOLDER_NAME,
         }));
     }, [filters, currentRunDisplayName]);
 
@@ -211,6 +218,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
             css={{
               flex: 1,
               overflowY: 'hidden',
+              position: 'relative',
             }}
           >
             <AssessmentSchemaContextProvider assessments={assessments}>
@@ -237,6 +245,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 getTrace={getTrace}
                 onTraceTagsEdit={onTraceTagsEdit}
                 enableGrouping={shouldEnableTagGrouping()}
+                displayLoadingOverlay={displayLoadingOverlay}
               />
             </AssessmentSchemaContextProvider>
           </div>

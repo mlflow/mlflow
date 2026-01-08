@@ -1,5 +1,3 @@
-"""Tests for DSPyAlignmentOptimizer base class."""
-
 from typing import Any, Callable, Collection
 from unittest.mock import MagicMock, Mock, patch
 
@@ -31,7 +29,7 @@ def make_judge_mock_builder(
     mock_feedback.value = "pass"
     mock_feedback.rationale = "Test rationale"
 
-    def mock_make_judge(name, instructions, model):
+    def mock_make_judge(name, instructions, model, feedback_value_type):
         if track_calls is not None and model == expected_model:
             track_calls.append(model)
         return MagicMock(return_value=mock_feedback)
@@ -57,14 +55,11 @@ class ConcreteDSPyOptimizer(DSPyAlignmentOptimizer):
 
 
 def test_dspy_optimizer_abstract():
-    """Test that DSPyAlignmentOptimizer cannot be instantiated directly."""
     with pytest.raises(TypeError, match="Can't instantiate abstract class"):
         DSPyAlignmentOptimizer()
 
 
 def test_concrete_implementation_required():
-    """Test that concrete classes must implement _dspy_optimize method."""
-
     class IncompleteDSPyOptimizer(DSPyAlignmentOptimizer):
         pass
 
@@ -73,13 +68,11 @@ def test_concrete_implementation_required():
 
 
 def test_concrete_implementation_works():
-    """Test that concrete implementation can be instantiated."""
     optimizer = ConcreteDSPyOptimizer()
     assert optimizer is not None
 
 
 def test_align_success(sample_traces_with_assessments):
-    """Test successful alignment process."""
     mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
 
     with patch("dspy.LM", MagicMock()):
@@ -94,7 +87,6 @@ def test_align_success(sample_traces_with_assessments):
 
 
 def test_align_no_traces(mock_judge):
-    """Test alignment with no traces provided."""
     optimizer = ConcreteDSPyOptimizer()
 
     with pytest.raises(MlflowException, match="Alignment optimization failed") as exc_info:
@@ -106,7 +98,6 @@ def test_align_no_traces(mock_judge):
 
 
 def test_align_no_valid_examples(mock_judge, sample_trace_without_assessment):
-    """Test alignment when no valid examples can be created."""
     with patch("dspy.LM", MagicMock()):
         optimizer = ConcreteDSPyOptimizer()
         with pytest.raises(MlflowException, match="Alignment optimization failed") as exc_info:
@@ -118,7 +109,6 @@ def test_align_no_valid_examples(mock_judge, sample_trace_without_assessment):
 
 
 def test_align_insufficient_examples(mock_judge, sample_trace_with_assessment):
-    """Test alignment with insufficient examples."""
     optimizer = ConcreteDSPyOptimizer()
     min_traces = optimizer.get_min_traces_required()
 
@@ -147,7 +137,6 @@ def _create_mock_dspy_lm_factory(optimizer_lm, judge_lm):
 
 
 def test_optimizer_and_judge_use_different_models(sample_traces_with_assessments):
-    """Test that optimizer uses its own model while judge program uses judge's model."""
     judge_model = "openai:/gpt-4"
     optimizer_model = "anthropic:/claude-3"
 
@@ -199,7 +188,6 @@ def test_optimizer_and_judge_use_different_models(sample_traces_with_assessments
 
 
 def test_optimizer_default_model_initialization():
-    """Test that optimizer uses default model when none specified."""
     with patch("mlflow.genai.judges.optimizers.dspy.get_default_model") as mock_get_default:
         mock_get_default.return_value = "whichever default model is used"
 
@@ -210,7 +198,6 @@ def test_optimizer_default_model_initialization():
 
 
 def test_optimizer_custom_model_initialization():
-    """Test that optimizer uses custom model when specified."""
     custom_model = "anthropic:/claude-3.5-sonnet"
 
     optimizer = ConcreteDSPyOptimizer(model=custom_model)
@@ -219,7 +206,6 @@ def test_optimizer_custom_model_initialization():
 
 
 def test_different_models_no_interference():
-    """Test that different optimizers maintain separate models."""
     optimizer1 = ConcreteDSPyOptimizer(model="openai:/gpt-3.5-turbo")
     optimizer2 = ConcreteDSPyOptimizer(model="anthropic:/claude-3")
 
@@ -229,7 +215,6 @@ def test_different_models_no_interference():
 
 
 def test_mlflow_to_litellm_uri_conversion_in_optimizer(sample_traces_with_assessments):
-    """Test that MLflow URIs are correctly converted to LiteLLM format in optimizer."""
     # Setup models with MLflow URI format
     judge_model = "openai:/gpt-4"
     optimizer_model = "anthropic:/claude-3.5-sonnet"
@@ -251,7 +236,6 @@ def test_mlflow_to_litellm_uri_conversion_in_optimizer(sample_traces_with_assess
 
 
 def test_mlflow_to_litellm_uri_conversion_in_judge_program():
-    """Test that judge's model URI is converted when creating DSPy program."""
     mock_judge = MockJudge(name="test_judge", model="openai:/gpt-4o-mini")
 
     optimizer = ConcreteDSPyOptimizer()
@@ -274,7 +258,6 @@ def test_mlflow_to_litellm_uri_conversion_in_judge_program():
 
 
 def test_dspy_align_litellm_nonfatal_error_messages_suppressed():
-    """Test that LiteLLM nonfatal error messages are suppressed during DSPy align method."""
     suppression_state_during_call = {}
 
     def mock_dspy_optimize(program, examples, metric_fn):
@@ -304,7 +287,6 @@ def test_dspy_align_litellm_nonfatal_error_messages_suppressed():
 
 
 def test_align_configures_databricks_lm_in_context(sample_traces_with_assessments):
-    """Test that align method configures AgentEvalLM in dspy.settings when using databricks model"""
     mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
     optimizer = ConcreteDSPyOptimizer(model="databricks")
 
@@ -321,7 +303,6 @@ def test_align_configures_databricks_lm_in_context(sample_traces_with_assessment
 
 
 def test_align_configures_openai_lm_in_context(sample_traces_with_assessments):
-    """Test that align method configures dspy.LM in dspy.settings when using OpenAI model."""
     mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
     optimizer = ConcreteDSPyOptimizer(model="openai:/gpt-4.1")
 
@@ -359,7 +340,7 @@ def test_dspy_program_forward_lm_parameter_handling(lm_value, lm_model, expected
     make_judge_calls = []
     captured_args = {}
 
-    def track_make_judge(name, instructions, model):
+    def track_make_judge(name, instructions, model, feedback_value_type):
         make_judge_calls.append(model)
         captured_args["name"] = name
         captured_args["instructions"] = instructions
@@ -385,7 +366,6 @@ def test_dspy_program_forward_lm_parameter_handling(lm_value, lm_model, expected
 
 
 def test_dspy_program_uses_make_judge_with_optimized_instructions(sample_traces_with_assessments):
-    """Test that CustomPredict uses optimized instructions after DSPy optimization."""
     original_instructions = (
         "Original judge instructions for evaluation of {{inputs}} and {{outputs}}"
     )
@@ -397,7 +377,7 @@ def test_dspy_program_uses_make_judge_with_optimized_instructions(sample_traces_
     )
     captured_instructions = None
 
-    def capture_make_judge(name, instructions, model):
+    def capture_make_judge(name, instructions, model, feedback_value_type):
         nonlocal captured_instructions
         captured_instructions = instructions
         mock_feedback = MagicMock()

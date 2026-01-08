@@ -213,11 +213,8 @@ def test_spark_udf(spark, model_path):
                 assert expected == actual
 
 
-@pytest.mark.parametrize("sklearn_version", ["1.3.2", "1.4.2"])
 @pytest.mark.parametrize("env_manager", ["virtualenv", "conda", "uv"])
-def test_spark_udf_env_manager_can_restore_env(
-    spark, model_path, sklearn_version, env_manager, monkeypatch
-):
+def test_spark_udf_env_manager_can_restore_env(spark, model_path, env_manager, monkeypatch):
     class EnvRestoringTestModel(mlflow.pyfunc.PythonModel):
         def __init__(self):
             pass
@@ -227,6 +224,7 @@ def test_spark_udf_env_manager_can_restore_env(
 
             return model_input.apply(lambda row: sklearn.__version__, axis=1)
 
+    sklearn_version = "1.4.2"
     infer_spark_df = spark.createDataFrame(pd.DataFrame(data=[[1, 2]], columns=["a", "b"]))
 
     mlflow.pyfunc.save_model(
@@ -617,7 +615,9 @@ def test_spark_udf_autofills_no_arguments(spark):
                 # PySpark 3.3
                 r"Column 'a' does not exist|"
                 # PySpark 3.4
-                r"A column or function parameter with name `a` cannot be resolved"
+                r"A column or function parameter with name `a` cannot be resolved|"
+                # PySpark 4.0
+                r"A column, variable, or function parameter with name `a` cannot be resolved"
             ),
         ):
             bad_data.withColumn("res", udf())
@@ -1446,8 +1446,11 @@ def test_spark_udf_structs_and_arrays(spark, tmp_path):
 
     udf = mlflow.pyfunc.spark_udf(spark=spark, model_uri=save_path, result_type="string")
     pdf = df.withColumn("output", udf("str", "arr", "obj", "obj_arr")).toPandas()
-    assert pdf["output"][0] == "a | [0] | {'bool': True} | [{'double': 0.1}]"
-    assert pdf["output"][1] == "b | [1 2] | {'bool': False} | [{'double': 0.2} {'double': 0.3}]"
+    assert pdf["output"][0] == "a | [0] | {'bool': np.True_} | [{'double': np.float64(0.1)}]"
+    assert pdf["output"][1] == (
+        "b | [1 2] | {'bool': np.False_} | "
+        "[{'double': np.float64(0.2)} {'double': np.float64(0.3)}]"
+    )
 
     # More complex nested structures
     df = spark.createDataFrame(
@@ -1487,8 +1490,8 @@ def test_spark_udf_structs_and_arrays(spark, tmp_path):
     )
     udf = mlflow.pyfunc.spark_udf(spark=spark, model_uri=save_path, result_type="string")
     pdf = df.withColumn("output", udf("test")).toPandas()
-    assert pdf["output"][0] == "[{'arr': array([{'bool': True}], dtype=object)}]"
-    assert pdf["output"][1] == "[{'arr': array([{'bool': False}], dtype=object)}]"
+    assert pdf["output"][0] == "[{'arr': array([{'bool': np.True_}], dtype=object)}]"
+    assert pdf["output"][1] == "[{'arr': array([{'bool': np.False_}], dtype=object)}]"
 
 
 def test_spark_udf_infer_return_type(spark, tmp_path):

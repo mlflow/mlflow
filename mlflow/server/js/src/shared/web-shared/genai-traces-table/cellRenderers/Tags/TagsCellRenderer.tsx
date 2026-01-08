@@ -38,7 +38,7 @@ export const TagsCellRenderer = ({
       ))}
       {onAddEditTags && (
         <Button
-          componentId={`${baseComponentId}.traces_table.edit_tag`}
+          componentId="mlflow.tags_cell_renderer.traces_table.edit_tag"
           size="small"
           icon={!containsTags ? undefined : <PencilIcon />}
           onClick={onAddEditTags}

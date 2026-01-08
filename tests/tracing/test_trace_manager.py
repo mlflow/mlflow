@@ -1,8 +1,11 @@
+import json
 import time
 from threading import Thread
 
 from mlflow.entities import LiveSpan, Span
+from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager, ManagerTrace
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
@@ -212,6 +215,62 @@ def test_get_root_span_id():
 
     # Non-existing trace
     assert trace_manager.get_root_span_id("tr-2") is None
+
+
+def test_register_prompt():
+    prompt_version = PromptVersion(name="test_prompt", version=1, template="Test template")
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    request_id_1 = "tr-1"
+    trace_manager.register_trace(12345, create_test_trace_info(request_id_1, "test"))
+    trace_manager.register_prompt(request_id_1, prompt_version)
+
+    trace = trace_manager._traces[request_id_1]
+    assert trace.prompts == [prompt_version]
+    assert json.loads(trace.info.tags[TraceTagKey.LINKED_PROMPTS]) == [
+        {"name": "test_prompt", "version": "1"}
+    ]
+
+    # Adding multiple prompts to the same trace
+    prompt_version_2 = PromptVersion(name="test_prompt_2", version=2, template="Test template 2")
+
+    trace_manager.register_prompt(request_id_1, prompt_version_2)
+    assert trace.prompts == [prompt_version, prompt_version_2]
+    assert json.loads(trace.info.tags[TraceTagKey.LINKED_PROMPTS]) == [
+        {"name": "test_prompt", "version": "1"},
+        {"name": "test_prompt_2", "version": "2"},
+    ]
+
+    # Registering the same prompt should not add it again
+    trace_manager.register_prompt(request_id_1, prompt_version)
+    assert trace.prompts == [prompt_version, prompt_version_2]
+    assert json.loads(trace.info.tags[TraceTagKey.LINKED_PROMPTS]) == [
+        {"name": "test_prompt", "version": "1"},
+        {"name": "test_prompt_2", "version": "2"},
+    ]
+
+
+def test_register_prompt_thread_safety():
+    trace_manager = InMemoryTraceManager.get_instance()
+    request_id_1 = "tr-1"
+    trace_manager.register_trace(12345, create_test_trace_info(request_id_1, "test"))
+    prompt_versions = [
+        PromptVersion(name=f"test_prompt_{i}", version=i, template=f"Test template {i}")
+        for i in range(10)
+    ]
+
+    def register_prompt(prompt_version):
+        trace_manager.register_prompt(request_id_1, prompt_version)
+
+    threads = [Thread(target=register_prompt, args=[pv]) for pv in prompt_versions]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    trace = trace_manager._traces[request_id_1]
+    assert len(trace.prompts) == len(prompt_versions)
+    assert len(json.loads(trace.info.tags[TraceTagKey.LINKED_PROMPTS])) == len(prompt_versions)
 
 
 def _create_test_span(

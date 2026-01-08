@@ -22,6 +22,7 @@ import { TextInput } from './components/TextInput';
 import type { AssessmentValueInputFieldProps } from './components/types';
 import type { CreateAssessmentPayload } from '../api';
 import type { AssessmentSchema } from '../contexts/AssessmentSchemaContext';
+import { useAssessmentSchemas } from '../contexts/AssessmentSchemaContext';
 import { useCreateAssessment } from '../hooks/useCreateAssessment';
 
 const ComponentMap: Record<AssessmentFormInputDataType, React.ComponentType<AssessmentValueInputFieldProps>> = {
@@ -51,6 +52,7 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
     ref,
   ) => {
     const { theme } = useDesignSystemTheme();
+    const { schemas } = useAssessmentSchemas();
 
     const [name, setName] = useState('');
     const [assessmentType, setAssessmentType] = useState<'feedback' | 'expectation'>('feedback');
@@ -131,36 +133,50 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
       createAssessmentMutation,
     ]);
 
-    const handleChangeSchema = useCallback((schema: AssessmentSchema | null) => {
-      // clear the form back to defaults
-      if (!schema) {
-        setName('');
-        setAssessmentType('feedback');
-        setDataType('boolean');
-        setValue(true);
-        setRationale('');
-        setValueError(null);
-        return;
-      }
-
-      setName(schema.name);
-      setAssessmentType(schema.assessmentType);
-      setDataType(schema.dataType);
-
-      // set the appropriate empty value for the data type
-      switch (schema.dataType) {
-        case 'string':
-        case 'json':
-          setValue('');
-          break;
-        case 'number':
-          setValue(0);
-          break;
-        case 'boolean':
+    const handleChangeSchema = useCallback(
+      (schema: AssessmentSchema | null) => {
+        // clear the form back to defaults
+        if (!schema) {
+          setName('');
+          setAssessmentType('feedback');
+          setDataType('boolean');
           setValue(true);
-          break;
-      }
-    }, []);
+          setRationale('');
+          setValueError(null);
+          return;
+        }
+
+        // Check if this is a real schema from the schemas list or a fake one created for a new name
+        const isRealSchema = schemas.some((s) => s.name === schema.name);
+
+        // Only update the name if it's a new assessment name (not in schemas)
+        // This preserves the user's selections for assessment type and data type
+        if (!isRealSchema) {
+          setName(schema.name);
+          return;
+        }
+
+        // For existing schemas, update all fields
+        setName(schema.name);
+        setAssessmentType(schema.assessmentType);
+        setDataType(schema.dataType);
+
+        // set the appropriate empty value for the data type
+        switch (schema.dataType) {
+          case 'string':
+          case 'json':
+            setValue('');
+            break;
+          case 'number':
+            setValue(0);
+            break;
+          case 'boolean':
+            setValue(true);
+            break;
+        }
+      },
+      [schemas],
+    );
 
     return (
       <div
@@ -184,6 +200,7 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
         <SimpleSelect
           id="shared.model-trace-explorer.assessment-type-select"
           componentId="shared.model-trace-explorer.assessment-type-select"
+          label="Assessment Type"
           value={assessmentType}
           disabled={isLoading}
           onChange={(e) => {
@@ -230,6 +247,7 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
         <SimpleSelect
           id="shared.model-trace-explorer.assessment-data-type-select"
           componentId="shared.model-trace-explorer.assessment-data-type-select"
+          label="Data Type"
           value={dataType}
           disabled={isLoading}
           onChange={(e) => {

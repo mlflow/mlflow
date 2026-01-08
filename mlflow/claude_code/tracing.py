@@ -10,6 +10,21 @@ from typing import Any
 
 import dateutil.parser
 
+import mlflow
+from mlflow.claude_code.config import (
+    MLFLOW_TRACING_ENABLED,
+    get_env_var,
+)
+from mlflow.entities import SpanType
+from mlflow.environment_variables import (
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_TRACKING_URI,
+)
+from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracking.fluent import _get_trace_exporter
+
 # ============================================================================
 # CONSTANTS
 # ============================================================================
@@ -28,6 +43,9 @@ MESSAGE_FIELD_CONTENT = "content"
 MESSAGE_FIELD_TYPE = "type"
 MESSAGE_FIELD_MESSAGE = "message"
 MESSAGE_FIELD_TIMESTAMP = "timestamp"
+
+# Custom logging level for Claude tracing
+CLAUDE_TRACING_LEVEL = logging.WARNING - 5
 
 
 # ============================================================================
@@ -55,17 +73,22 @@ def setup_logging() -> logging.Logger:
         logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     )
     logger.addHandler(file_handler)
-    logger.setLevel(logging.WARNING)
+    logging.addLevelName(CLAUDE_TRACING_LEVEL, "CLAUDE_TRACING")
+    logger.setLevel(CLAUDE_TRACING_LEVEL)
     logger.propagate = False  # Prevent duplicate log messages
 
     return logger
 
 
-_MODULE_LOGGER = setup_logging()
+_MODULE_LOGGER: logging.Logger | None = None
 
 
 def get_logger() -> logging.Logger:
     """Get the configured module logger."""
+    global _MODULE_LOGGER
+
+    if _MODULE_LOGGER is None:
+        _MODULE_LOGGER = setup_logging()
     return _MODULE_LOGGER
 
 
@@ -73,14 +96,6 @@ def setup_mlflow() -> None:
     """Configure MLflow tracking URI and experiment."""
     if not is_tracing_enabled():
         return
-
-    import mlflow
-    from mlflow.claude_code.config import get_env_var
-    from mlflow.environment_variables import (
-        MLFLOW_EXPERIMENT_ID,
-        MLFLOW_EXPERIMENT_NAME,
-        MLFLOW_TRACKING_URI,
-    )
 
     # Get tracking URI from environment/settings
     mlflow.set_tracking_uri(get_env_var(MLFLOW_TRACKING_URI.name))
@@ -100,14 +115,6 @@ def setup_mlflow() -> None:
 
 def is_tracing_enabled() -> bool:
     """Check if MLflow Claude tracing is enabled via environment variable."""
-    try:
-        import mlflow  # noqa: F401
-    except ImportError as e:
-        get_logger().error("MLflow not available: %s", e)
-        return False
-
-    from mlflow.claude_code.config import MLFLOW_TRACING_ENABLED, get_env_var
-
     return get_env_var(MLFLOW_TRACING_ENABLED).lower() in ("true", "1", "yes")
 
 
@@ -122,29 +129,29 @@ def read_hook_input() -> dict[str, Any]:
         input_data = sys.stdin.read()
         return json.loads(input_data)
     except json.JSONDecodeError as e:
-        get_logger().error("Failed to parse input JSON: %s", e)
-        return {}
+        raise json.JSONDecodeError(f"Failed to parse hook input: {e}", input_data, 0) from e
 
 
 def read_transcript(transcript_path: str) -> list[dict[str, Any]]:
     """Read and parse a Claude Code conversation transcript from JSONL file."""
-    try:
-        with open(transcript_path, encoding="utf-8") as f:
-            lines = f.readlines()
-            return [json.loads(line) for line in lines if line.strip()]
-    except Exception as e:
-        get_logger().error("Failed to read transcript %s: %s", transcript_path, e)
-        return []
+    with open(transcript_path, encoding="utf-8") as f:
+        lines = f.readlines()
+        return [json.loads(line) for line in lines if line.strip()]
 
 
-def output_hook_response(error: str | None = None, **kwargs) -> None:
-    """Output hook response JSON to stdout for Claude Code hook protocol."""
+def get_hook_response(error: str | None = None, **kwargs) -> dict[str, Any]:
+    """Build hook response dictionary for Claude Code hook protocol.
+
+    Args:
+        error: Error message if hook failed, None if successful
+        kwargs: Additional fields to include in response
+
+    Returns:
+        Hook response dictionary
+    """
     if error is not None:
-        response = {"continue": False, "stopReason": error, **kwargs}
-    else:
-        response = {"continue": True, **kwargs}
-
-    print(json.dumps(response))  # noqa: T201
+        return {"continue": False, "stopReason": error, **kwargs}
+    return {"continue": True, **kwargs}
 
 
 # ============================================================================
@@ -191,10 +198,11 @@ def extract_text_content(content: str | list[dict[str, Any]] | Any) -> str:
         Extracted text content, empty string if none found
     """
     if isinstance(content, list):
-        text_parts = []
-        for part in content:
-            if isinstance(part, dict) and part.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TEXT:
-                text_parts.append(part.get(CONTENT_TYPE_TEXT, ""))
+        text_parts = [
+            part.get(CONTENT_TYPE_TEXT, "")
+            for part in content
+            if isinstance(part, dict) and part.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TEXT
+        ]
         return "\n".join(text_parts)
     if isinstance(content, str):
         return content
@@ -241,8 +249,7 @@ def find_last_user_message_index(transcript: list[dict[str, Any]]) -> int | None
 def _get_next_timestamp_ns(transcript: list[dict[str, Any]], current_idx: int) -> int | None:
     """Get the timestamp of the next entry for duration calculation."""
     for i in range(current_idx + 1, len(transcript)):
-        timestamp = transcript[i].get(MESSAGE_FIELD_TIMESTAMP)
-        if timestamp:
+        if timestamp := transcript[i].get(MESSAGE_FIELD_TIMESTAMP):
             return parse_timestamp_to_ns(timestamp)
     return None
 
@@ -371,17 +378,15 @@ def _process_user_entry(msg: dict[str, Any], messages: list[dict[str, Any]]) -> 
             if part_type == CONTENT_TYPE_TOOL_RESULT:
                 # If we have accumulated text, add it as a user message first
                 if current_text_parts:
-                    combined_text = "\n".join(current_text_parts).strip()
-                    if combined_text:
+                    if combined_text := "\n".join(current_text_parts).strip():
                         message_buffer.append({"role": "user", "content": combined_text})
                     current_text_parts = []
 
                 # Extract tool result information
                 tool_id = part.get("tool_use_id")
-                result_content = part.get("content")
 
                 # Add tool results with proper "tool" role
-                if result_content:
+                if result_content := part.get("content"):
                     tool_msg = {
                         "role": "tool",
                         "content": result_content,
@@ -392,14 +397,12 @@ def _process_user_entry(msg: dict[str, Any], messages: list[dict[str, Any]]) -> 
 
             elif part_type == CONTENT_TYPE_TEXT:
                 # Accumulate text content
-                text = part.get(CONTENT_TYPE_TEXT)
-                if text:
+                if text := part.get(CONTENT_TYPE_TEXT):
                     current_text_parts.append(text)
 
         # Add any remaining text content as user message
         if current_text_parts:
-            combined_text = "\n".join(current_text_parts).strip()
-            if combined_text:
+            if combined_text := "\n".join(current_text_parts).strip():
                 message_buffer.append({"role": "user", "content": combined_text})
 
         # Add all messages in order to preserve sequence
@@ -426,11 +429,9 @@ def _process_assistant_entry(msg: dict[str, Any], messages: list[dict[str, Any]]
 
 
 def _create_llm_and_tool_spans(
-    client, trace, transcript: list[dict[str, Any]], start_idx: int
+    parent_span, transcript: list[dict[str, Any]], start_idx: int
 ) -> None:
     """Create LLM and tool spans for assistant responses with proper timing."""
-    from mlflow.entities import SpanType
-
     llm_call_num = 0
     for i in range(start_idx, len(transcript)):
         entry = transcript[i]
@@ -438,10 +439,9 @@ def _create_llm_and_tool_spans(
             continue
 
         timestamp_ns = parse_timestamp_to_ns(entry.get(MESSAGE_FIELD_TIMESTAMP))
-        next_timestamp_ns = _get_next_timestamp_ns(transcript, i)
 
         # Calculate duration based on next timestamp or use default
-        if next_timestamp_ns:
+        if next_timestamp_ns := _get_next_timestamp_ns(transcript, i):
             duration_ns = next_timestamp_ns - timestamp_ns
         else:
             duration_ns = int(1000 * NANOSECONDS_PER_MS)  # 1 second default
@@ -459,10 +459,9 @@ def _create_llm_and_tool_spans(
             llm_call_num += 1
             conversation_messages = _reconstruct_conversation_messages(transcript, i)
 
-            llm_span = client.start_span(
+            llm_span = mlflow.start_span_no_context(
                 name=f"llm_call_{llm_call_num}",
-                trace_id=trace.trace_id,
-                parent_id=trace.span_id,
+                parent_span=parent_span,
                 span_type=SpanType.LLM,
                 start_time_ns=timestamp_ns,
                 inputs={
@@ -476,12 +475,8 @@ def _create_llm_and_tool_spans(
                 },
             )
 
-            client.end_span(
-                trace_id=llm_span.trace_id,
-                span_id=llm_span.span_id,
-                outputs={"response": text_content},
-                end_time_ns=timestamp_ns + duration_ns,
-            )
+            llm_span.set_outputs({"response": text_content})
+            llm_span.end(end_time_ns=timestamp_ns + duration_ns)
 
         # Create tool spans with proportional timing and actual results
         if tool_uses:
@@ -493,10 +488,9 @@ def _create_llm_and_tool_spans(
                 tool_use_id = tool_use.get("id", "")
                 tool_result = tool_results.get(tool_use_id, "No result found")
 
-                tool_span = client.start_span(
+                tool_span = mlflow.start_span_no_context(
                     name=f"tool_{tool_use.get('name', 'unknown')}",
-                    trace_id=trace.trace_id,
-                    parent_id=trace.span_id,
+                    parent_span=parent_span,
                     span_type=SpanType.TOOL,
                     start_time_ns=tool_start_ns,
                     inputs=tool_use.get("input", {}),
@@ -506,12 +500,8 @@ def _create_llm_and_tool_spans(
                     },
                 )
 
-                client.end_span(
-                    trace_id=tool_span.trace_id,
-                    span_id=tool_span.span_id,
-                    outputs={"result": tool_result},
-                    end_time_ns=tool_start_ns + tool_duration_ns,
-                )
+                tool_span.set_outputs({"result": tool_result})
+                tool_span.end(end_time_ns=tool_start_ns + tool_duration_ns)
 
 
 def find_final_assistant_response(transcript: list[dict[str, Any]], start_idx: int) -> str | None:
@@ -549,7 +539,9 @@ def find_final_assistant_response(transcript: list[dict[str, Any]], start_idx: i
 # ============================================================================
 
 
-def process_transcript(transcript_path: str, session_id: str | None = None) -> Any | None:
+def process_transcript(
+    transcript_path: str, session_id: str | None = None
+) -> mlflow.entities.Trace | None:
     """Process a Claude conversation transcript and create an MLflow trace with spans.
 
     Args:
@@ -559,19 +551,7 @@ def process_transcript(transcript_path: str, session_id: str | None = None) -> A
     Returns:
         MLflow trace object if successful, None if processing fails
     """
-    if not is_tracing_enabled():
-        get_logger().info("MLflow Claude tracing is disabled")
-        return None
-
     try:
-        import mlflow
-        from mlflow import MlflowClient
-        from mlflow.tracing.constant import TraceMetadataKey
-        from mlflow.tracing.trace_manager import InMemoryTraceManager
-
-        setup_mlflow()
-        client = MlflowClient()
-
         transcript = read_transcript(transcript_path)
         if not transcript:
             get_logger().warning("Empty transcript, skipping")
@@ -590,18 +570,19 @@ def process_transcript(transcript_path: str, session_id: str | None = None) -> A
         if not session_id:
             session_id = f"claude-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-        get_logger().info("Creating MLflow trace for session: %s", session_id)
+        get_logger().log(CLAUDE_TRACING_LEVEL, "Creating MLflow trace for session: %s", session_id)
 
         conv_start_ns = parse_timestamp_to_ns(last_user_entry.get(MESSAGE_FIELD_TIMESTAMP))
 
-        trace = client.start_trace(
+        parent_span = mlflow.start_span_no_context(
             name="claude_code_conversation",
             inputs={"prompt": extract_text_content(last_user_prompt)},
             start_time_ns=conv_start_ns,
+            span_type=SpanType.AGENT,
         )
 
         # Create spans for all assistant responses and tool uses
-        _create_llm_and_tool_spans(client, trace, transcript, last_user_idx + 1)
+        _create_llm_and_tool_spans(parent_span, transcript, last_user_idx + 1)
 
         # Update trace with preview content and end timing
         final_response = find_final_assistant_response(transcript, last_user_idx + 1)
@@ -609,12 +590,15 @@ def process_transcript(transcript_path: str, session_id: str | None = None) -> A
 
         # Set trace previews for UI display
         try:
-            with InMemoryTraceManager.get_instance().get_trace(trace.trace_id) as in_memory_trace:
+            with InMemoryTraceManager.get_instance().get_trace(
+                parent_span.trace_id
+            ) as in_memory_trace:
                 if user_prompt_text:
                     in_memory_trace.info.request_preview = user_prompt_text[:MAX_PREVIEW_LENGTH]
                 if final_response:
                     in_memory_trace.info.response_preview = final_response[:MAX_PREVIEW_LENGTH]
                 in_memory_trace.info.trace_metadata = {
+                    **in_memory_trace.info.trace_metadata,
                     TraceMetadataKey.TRACE_SESSION: session_id,
                     TraceMetadataKey.TRACE_USER: os.environ.get("USER", ""),
                     "mlflow.trace.working_directory": os.getcwd(),
@@ -628,16 +612,22 @@ def process_transcript(transcript_path: str, session_id: str | None = None) -> A
         if not conv_end_ns or conv_end_ns <= conv_start_ns:
             conv_end_ns = conv_start_ns + int(10 * NANOSECONDS_PER_S)  # 10 second default
 
-        client.end_trace(
-            trace_id=trace.trace_id,
-            outputs={"response": final_response or "Conversation completed", "status": "completed"},
-            end_time_ns=conv_end_ns,
+        parent_span.set_outputs(
+            {"response": final_response or "Conversation completed", "status": "completed"}
         )
+        parent_span.end(end_time_ns=conv_end_ns)
 
-        mlflow.flush_trace_async_logging()
-        get_logger().info("Created MLflow trace: %s", trace.trace_id)
+        try:
+            # Use this to check if async trace logging is enabled
+            if hasattr(_get_trace_exporter(), "_async_queue"):
+                mlflow.flush_trace_async_logging()
+        except Exception as e:
+            # This is not a critical error, so we log it as debug
+            get_logger().debug("Failed to flush trace async logging: %s", e)
 
-        return mlflow.get_trace(trace.trace_id)
+        get_logger().log(CLAUDE_TRACING_LEVEL, "Created MLflow trace: %s", parent_span.trace_id)
+
+        return mlflow.get_trace(parent_span.trace_id)
 
     except Exception as e:
         get_logger().error("Error processing transcript: %s", e, exc_info=True)

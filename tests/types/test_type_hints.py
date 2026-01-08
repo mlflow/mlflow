@@ -9,7 +9,7 @@ import pytest
 from scipy.sparse import csc_matrix, csr_matrix
 
 from mlflow.exceptions import MlflowException
-from mlflow.models.utils import _enforce_schema
+from mlflow.models.utils import PyFuncOutput, _enforce_schema
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import (
     InvalidTypeHintException,
@@ -22,7 +22,6 @@ from mlflow.types.type_hints import (
     _validate_data_against_type_hint,
 )
 from mlflow.types.utils import _infer_schema
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
 
 
 class CustomModel(pydantic.BaseModel):
@@ -192,19 +191,18 @@ def test_infer_schema_from_type_hints_errors():
     class InvalidModel(pydantic.BaseModel):
         bool_field: bool | None
 
-    if IS_PYDANTIC_V2_OR_NEWER:
-        message = (
-            r"Optional field `bool_field` in Pydantic model `InvalidModel` "
-            r"doesn't have a default value. Please set default value to None for this field."
-        )
-        with pytest.raises(
-            MlflowException,
-            match=message,
-        ):
-            _infer_schema_from_list_type_hint(list[InvalidModel])
+    message = (
+        r"Optional field `bool_field` in Pydantic model `InvalidModel` "
+        r"doesn't have a default value. Please set default value to None for this field."
+    )
+    with pytest.raises(
+        MlflowException,
+        match=message,
+    ):
+        _infer_schema_from_list_type_hint(list[InvalidModel])
 
-        with pytest.raises(MlflowException, match=message):
-            _infer_schema_from_list_type_hint(list[list[InvalidModel]])
+    with pytest.raises(MlflowException, match=message):
+        _infer_schema_from_list_type_hint(list[list[InvalidModel]])
 
     message = r"Input cannot be Optional type"
     with pytest.raises(MlflowException, match=message):
@@ -346,7 +344,10 @@ def test_pydantic_model_validation(type_hint, example):
             get_args(type_hint)[0](**item) for item in example
         ]
     else:
-        assert _validate_data_against_type_hint(data=example.dict(), type_hint=type_hint) == example
+        assert (
+            _validate_data_against_type_hint(data=example.model_dump(), type_hint=type_hint)
+            == example
+        )
 
 
 @pytest.mark.parametrize(
@@ -505,3 +506,22 @@ def test_convert_dataframe_to_example_format(data):
         pd.testing.assert_frame_equal(converted_data, data)
     else:
         assert converted_data == data
+
+
+def test_dict_in_pyfunc_output():
+    """
+    Ensure dict is in PyFuncOutput union.
+
+    ResponsesAgent, ChatAgent, and ChatModel all return dict[str, Any]
+    at runtime via their pyfunc wrappers. PyFuncOutput must include dict
+    to accurately reflect this behavior.
+    """
+    output_types = get_args(PyFuncOutput)
+    # Check if dict is in the union (it could be dict or dict[str, Any])
+    has_dict = any(
+        t is dict or (hasattr(t, "__origin__") and t.__origin__ is dict) for t in output_types
+    )
+    assert has_dict, (
+        f"dict must be in PyFuncOutput for ResponsesAgent/ChatAgent/ChatModel. "
+        f"Current types: {output_types}"
+    )

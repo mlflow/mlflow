@@ -6,6 +6,9 @@ sidebar_position: 1
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import Platform from "@site/src/content/platform.mdx"
+import TileCard from '@site/src/components/TileCard';
+import TilesGrid from '@site/src/components/TilesGrid';
+import { Play, Settings, BookOpen } from "lucide-react";
 
 # MLflow: A Tool for Managing the Machine Learning Lifecycle
 
@@ -19,127 +22,32 @@ If this is your first time exploring MLflow, the tutorials and guides here are a
 getting you up to speed as quickly as possible with the basic functionality, terms, APIs, and general best practices of using MLflow in order to
 enhance your learning in area-specific guides and tutorials.
 
-<Tabs>
-  <TabItem value="learn-about-mlflow" label="Learn about MLflow" default>
-    <div class="flex-column">
-      ### Learn about the core components of MLflow
+<TilesGrid>
+  <TileCard
+    icon={Play}
+    title="Quickstart"
+    description="A quick guide to learn the basics of MLflow by training a simple scikit-learn model"
+    href="/ml/getting-started/quickstart"
+    linkText="Start learning →"
+  />
 
-      <div class="flex-row">
-        <div class="flex-item">
-          #### Quickstarts
+  <TileCard
+    icon={Settings}
+    title="MLflow for GenAI / LLM"
+    description="A walkthrough of MLflow's GenAI / LLM capabilities, including tracing, evaluation, and prompt management"
+    href="/genai/getting-started/connect-environment"
+    linkText="Start building →"
+  />
 
-          Get Started with MLflow in our [5-minute tutorial](/ml/tracking/quickstart)
+  <TileCard
+    icon={BookOpen}
+    title="Deep Learning Guide"
+    description="A hands-on tutorial on how to use MLflow to track deep learning model training using PyTorch as an example"
+    href="/ml/getting-started/deep-learning"
+    linkText="Start training →"
+  />
 
-          #### Guides
-
-          Learn the core components of MLflow with [this in-depth guide to Tracking](/ml/getting-started/logging-first-model)
-        </div>
-
-        <div class="flex-item padding-md">
-          ![Core Components](/images/intro/learn-core-components.png)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-
-  <TabItem value="mlflow-basics" label="MLflow Basics">
-    <div class="flex-column">
-      ### Learn how to perform common tasks in MLflow
-
-      <div class="flex-row">
-        <div class="flex-item">
-          #### Guides
-
-          [Autologging guide](/ml/tracking/autolog) for effortless model tracking
-
-          [Model Signatures](/ml/model/signatures) and type validation in MLflow
-
-          [Model Deployment Quickstart](/ml/getting-started/hyperparameter-tuning)
-
-          [Hyperparameter tuning](/ml/traditional-ml/tutorials/hyperparameter-tuning) with MLflow
-        </div>
-
-        <div class="flex-item padding-md">
-          ![Model Development Lifecycle](/images/intro/model-dev-lifecycle.png)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-
-  <TabItem value="mlflow-models-introduction" label="MLflow Models Introduction">
-    <div class="flex-column">
-      ### Learn about MLflow Model-related topics
-
-      <div class="flex-row">
-        <div class="flex-item">
-          #### Guides
-
-          Introduction to [Custom Python Models](/ml/traditional-ml/tutorials/creating-custom-pyfunc)
-
-          [Model dependency management](/ml/model/dependencies) in MLflow
-
-          [Model Signatures](/ml/model/signatures) and type validation
-        </div>
-
-        <div class="flex-item padding-md">
-          ![MLflow Model Topics](/images/intro/model-topics.png)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-
-  <TabItem value="traditional-ml-quickstarts" label="Traditional ML">
-    <div class="flex-column">
-      ### Get started with MLflow's Traditional ML integrations
-
-      <div class="flex-row">
-        <div class="flex-item">
-          #### Quickstarts and Guides
-
-          [Scikit-learn](/ml/traditional-ml/sklearn) introduction with MLflow
-
-          [XGBoost](/ml/traditional-ml/xgboost) usage with MLflow
-
-          [Spark ML](/ml/traditional-ml/sparkml) guide
-
-          [Prophet](/ml/traditional-ml/prophet) Time Series Forecasting with MLflow
-        </div>
-        <div class="flex-item padding-md">
-          ![Classic ML with MLflow](/images/intro/mlflow-classic-ml.png)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-
-  <TabItem value="deep-learning-quickstarts" label="Deep Learning">
-    <div class="flex-column">
-      ### Get started with MLflow's Deep Learning Library integrations
-
-      <div class="flex-row">
-        <div class="flex-item">
-          #### Guides and Tutorials
-
-          [TensorFlow](/ml/deep-learning/tensorflow)
-
-          [PyTorch](/ml/deep-learning/pytorch)
-
-          [Keras](/ml/deep-learning/keras)
-
-          [spaCy](/ml/deep-learning/spacy) for NLP workflows
-        </div>
-
-        <div class="flex-item padding-md">
-          ![Deep Learning with MLflow](/images/intro/mlflow-deep-learning.png)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-</Tabs>
+</TilesGrid>
 
 ## Traditional ML and Deep Learning with MLflow
 
@@ -203,8 +111,6 @@ Explore the core MLflow capabilities and integrations below to enhance your ML d
 
           [Model Registry Introduction](/ml/model-registry)
 
-          [Registering Your First Model](/ml/getting-started/registering-first-model)
-
         </div>
 
         <div class="flex-item padding-md">
@@ -227,7 +133,7 @@ Explore the core MLflow capabilities and integrations below to enhance your ML d
 
           **Key Benefits:**
 
-          - **Multiple Targets**: Deploy to local servers, cloud platforms, or containerized - enronments
+          - **Multiple Targets**: Deploy to local servers, cloud platforms, or containerized environments
           - **Model Serving**: Built-in REST API serving with automatic input validation
           - **Batch Inference**: Support for batch scoring and offline predictions
           - **Production Ready**: Scalable deployment options for enterprise use
@@ -308,7 +214,7 @@ Explore the core MLflow capabilities and integrations below to enhance your ML d
 
           **Key Benefits:**
 
-          - **Automated Metrics**: Built-in evaluation metrics for classification, regression, and - mo
+          - **Automated Metrics**: Built-in evaluation metrics for classification, regression, and more
           - **Custom Evaluators**: Create custom evaluation functions for domain-specific metrics
           - **Model Comparison**: Compare multiple models and versions side-by-side
           - **Validation Datasets**: Track evaluation datasets and ensure reproducible results
@@ -317,9 +223,9 @@ Explore the core MLflow capabilities and integrations below to enhance your ML d
 
           Learn how to [evaluate your ML models](/ml/evaluation) with MLflow
 
-          Discover [custom evaluation metrics](/ml/evaluation/metrics-visualizations) and functions
+          Discover [custom evaluation metrics](/ml/evaluation#custom-metrics--visualizations) and functions
 
-          Compare models with [MLflow Model Comparison](/ml/evaluation/model-eval)
+          Compare models with [MLflow Model Validation](/ml/evaluation#model-validation)
         </div>
 
         <div class="flex-item padding-md">

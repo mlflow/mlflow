@@ -1,8 +1,8 @@
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
 import { KnownEvaluationResultAssessmentName } from '../enum';
 import type {
   RunEvaluationResultAssessment,
   RunEvaluationTracesDataEntry,
-  TraceInfoV3,
   AssessmentInfo,
   AssessmentDType,
   TracesTableColumn,
@@ -92,7 +92,7 @@ export const createTestTraceInfoV3 = (
     dtype: 'pass-fail' | 'numeric' | 'boolean' | 'string';
   }> = [],
   experimentId = 'test-experiment-id',
-): TraceInfoV3 => ({
+): ModelTraceInfoV3 => ({
   trace_id: traceId,
   client_request_id: requestId,
   trace_location: {

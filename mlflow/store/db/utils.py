@@ -1,12 +1,18 @@
+import hashlib
 import logging
 import os
+import re
+import sqlite3
+import tempfile
 import time
 from contextlib import contextmanager
+from pathlib import Path
 
 import sqlalchemy
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from sqlalchemy import sql
+from packaging.version import Version
+from sqlalchemy import event, sql
 
 # We need to import sqlalchemy.pool to convert poolclass string to class object
 from sqlalchemy.pool import (
@@ -75,12 +81,11 @@ def _get_package_dir():
 
 
 def _all_tables_exist(engine):
-    return {
-        t
-        for t in sqlalchemy.inspect(engine).get_table_names()
-        # Filter out alembic tables
-        if not t.startswith("alembic_")
-    } == {
+    # Check if the core initial tables exist in the database.
+    # Using issubset() instead of equality so that additional tables added by migrations
+    # don't cause this check to fail. This prevents unnecessary calls to _initialize_tables
+    # which can cause migration errors like "Can't locate revision identified by 'xxx'".
+    expected_tables = {
         SqlExperiment.__tablename__,
         SqlRun.__tablename__,
         SqlMetric.__tablename__,
@@ -103,12 +108,33 @@ def _all_tables_exist(engine):
         SqlScorerVersion.__tablename__,
         SqlJob.__tablename__,
     }
+    actual_tables = {
+        t for t in sqlalchemy.inspect(engine).get_table_names() if not t.startswith("alembic_")
+    }
+    return expected_tables.issubset(actual_tables)
 
 
 def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
     InitialBase.metadata.create_all(engine)
     _upgrade_db(engine)
+
+
+def _safe_initialize_tables(engine: sqlalchemy.engine.Engine) -> None:
+    from mlflow.utils.file_utils import ExclusiveFileLock
+
+    if os.name == "nt":
+        if not _all_tables_exist(engine):
+            _initialize_tables(engine)
+        return
+
+    url_hash = hashlib.md5(
+        str(engine.url).encode("utf-8"),
+        usedforsecurity=False,
+    ).hexdigest()
+    with ExclusiveFileLock(f"{tempfile.gettempdir()}/db_init_lock-{url_hash}"):
+        if not _all_tables_exist(engine):
+            _initialize_tables(engine)
 
 
 def _get_latest_schema_revision():
@@ -209,6 +235,30 @@ def _get_alembic_config(db_url, alembic_dir=None):
     return config
 
 
+def _check_sqlite_version(db_url: str) -> None:
+    """
+    Check if SQLite version supports required features.
+
+    MLflow requires SQLite 3.31.0 or higher for computed columns support.
+    Raises MlflowException if the version is too old.
+    """
+    if not db_url.startswith("sqlite:"):
+        return
+
+    version_str = sqlite3.sqlite_version
+    try:
+        sqlite_version = Version(version_str)
+    except Exception:
+        return
+    min_version_str = "3.31.0"
+    if sqlite_version < Version(min_version_str):
+        raise MlflowException(
+            f"MLflow requires SQLite >= {min_version_str} for SQL based "
+            f"store, but found {version_str}. Please upgrade your SQLite. "
+            f"See https://www.sqlite.org/download.html for installation options."
+        )
+
+
 def _upgrade_db(engine):
     """
     Upgrade the schema of an MLflow tracking database to the latest supported version.
@@ -224,6 +274,8 @@ def _upgrade_db(engine):
     from alembic import command
 
     db_url = str(engine.url)
+    # Check SQLite version before running migrations
+    _check_sqlite_version(db_url)
     _logger.info("Updating database tables")
     config = _get_alembic_config(db_url)
     # Initialize a shared connection to be used for the database upgrade, ensuring that
@@ -242,7 +294,20 @@ def _get_schema_version(engine):
         return mc.get_current_revision()
 
 
+def _make_parent_dirs_if_sqlite(db_uri: str) -> None:
+    """Create parent directories for SQLite database file if they don't exist."""
+    if not db_uri.startswith("sqlite:///"):
+        return
+    # SQLite URI format: sqlite:///path/to/file.db (relative) or sqlite:////abs/path (Unix)
+    # Remove the 'sqlite:///' prefix to get the path
+    # Skip in-memory databases (:memory: or empty path)
+    db_path = db_uri.removeprefix("sqlite:///")
+    if db_path and db_path != ":memory:":
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+
+
 def create_sqlalchemy_engine_with_retry(db_uri):
+    _make_parent_dirs_if_sqlite(db_uri)
     attempts = 0
     while True:
         attempts += 1
@@ -317,4 +382,22 @@ def create_sqlalchemy_engine(db_uri):
         if connect_args:
             kwargs["connect_args"] = connect_args
 
-    return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **kwargs)
+    engine = sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **kwargs)
+
+    # Register REGEXP function for SQLite to enable RLIKE operator support
+    if db_uri.startswith("sqlite"):
+
+        @event.listens_for(engine, "connect")
+        def _set_sqlite_regexp(dbapi_conn, connection_record):
+            def regexp(pattern, string):
+                """Custom REGEXP function for SQLite that uses Python's re module."""
+                if string is None or pattern is None:
+                    return False
+                try:
+                    return re.search(pattern, string) is not None
+                except re.error:
+                    return False
+
+            dbapi_conn.create_function("regexp", 2, regexp)
+
+    return engine

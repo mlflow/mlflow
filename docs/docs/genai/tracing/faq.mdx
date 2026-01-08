@@ -172,10 +172,10 @@ The `trace_destination` parameter was introduced to the <APILink fn="mlflow.trac
 
 ```python
 import mlflow
-from mlflow.tracing.destination import MlflowExperiment
+from mlflow.entities.trace_location import MlflowExperimentLocation
 
 
-@mlflow.trace(trace_destination=MlflowExperiment(experiment_id="1234"))
+@mlflow.trace(trace_destination=MlflowExperimentLocation(experiment_id="1234"))
 def math_agent(request: Request):
     # Your model logic here
     ...
@@ -189,12 +189,13 @@ The <APILink fn="mlflow.tracing.set_destination" /> API is a purpose-built API f
 
 ```python
 import mlflow
+from mlflow.entities.trace_location import MlflowExperimentLocation
 
 
 @app.get("/math-agent")
 def math_agent(request: Request):
     # The API is super low-overhead, so you can call it inside the request handler.
-    mlflow.tracing.set_destination(MlflowExperiment(experiment_id="1234"))
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id="1234"))
 
     # Your model logic here
     with mlflow.start_span(name="math-agent") as span:
@@ -203,7 +204,7 @@ def math_agent(request: Request):
 
 @app.get("/chat-agent")
 def chat_agent(request: Request):
-    mlflow.tracing.set_destination(MlflowExperiment(experiment_id="5678"))
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id="5678"))
 
     # Your model logic here
     with mlflow.start_span(name="chat-agent") as span:
@@ -223,7 +224,7 @@ There are multiple possible reasons why a trace may not be viewable in the MLflo
 3. **MLflow server connectivity**: Ensure your MLflow tracking server is running and accessible:
 
    ```bash
-   mlflow ui --host 0.0.0.0 --port 5000
+   mlflow server --host 0.0.0.0 --port 5000
    ```
 
 4. **Experiment permissions**: Verify you have access to the experiment containing the trace.
@@ -456,7 +457,7 @@ Read more about [trace deletion](/genai/tracing/observe-with-traces/delete-trace
 
 Traces are stored in your MLflow tracking backend:
 
-**Local filesystem**: When using `mlflow ui` locally, traces are stored in the `mlruns` directory
+**Local filesystem**: When using `mlflow server` locally, traces are stored in the `mlruns` directory
 
 **Remote tracking server**: When using a remote MLflow server, traces are stored in the configured backend (database + artifact store)
 

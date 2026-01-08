@@ -7,6 +7,7 @@ import atexit
 import contextlib
 import importlib
 import inspect
+import io
 import logging
 import os
 import threading
@@ -14,6 +15,7 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Generator, Literal, Optional, Union, overload
 
 import mlflow
+from mlflow.entities import Dataset as DatasetEntity
 from mlflow.entities import (
     DatasetInput,
     Experiment,
@@ -25,6 +27,7 @@ from mlflow.entities import (
     Metric,
     Param,
     Run,
+    RunInputs,
     RunStatus,
     RunTag,
     ViewType,
@@ -32,6 +35,7 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
+    _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS,
     MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
@@ -45,6 +49,8 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
@@ -60,12 +66,14 @@ from mlflow.utils.autologging_utils import (
     is_testing,
 )
 from mlflow.utils.databricks_utils import (
+    get_sgc_job_run_id,
     is_in_databricks_model_serving_environment,
     is_in_databricks_runtime,
 )
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX,
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
@@ -88,7 +96,6 @@ if not IS_TRACING_SDK_ONLY:
 
 
 if TYPE_CHECKING:
-    import matplotlib
     import matplotlib.figure
     import numpy
     import pandas
@@ -258,6 +265,59 @@ class ActiveRun(Run):
         return exc_type is None
 
 
+def _get_sgc_job_run_id_tag_key() -> str | None:
+    """
+    Get the SGC job run ID tag key for run resumption if enabled and available.
+
+    Returns:
+        str or None: The experiment tag key for SGC resumption, or None if not applicable.
+    """
+    if not _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS.get():
+        return None
+
+    if sgc_job_run_id := get_sgc_job_run_id():
+        return f"{MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX}.{sgc_job_run_id}"
+
+    return None
+
+
+def _get_sgc_mlflow_run_id_for_resumption(
+    client, experiment_id: str | None, sgc_job_run_id_tag_key: str | None
+) -> str | None:
+    """
+    Retrieves the MLflow run ID associated with a specific SGC job run ID tag key
+    for potential run resumption.
+
+    This function searches the experiment (specified by `experiment_id`, or the
+    default if None) for an experiment tag named `sgc_job_run_id_tag_key`. If the
+    tag exists, its value (the run ID to resume) is returned; otherwise, returns None.
+
+    Args:
+        client: MlflowClient instance used to query experiment information.
+        experiment_id: The experiment ID to search, or None to use the default.
+        sgc_job_run_id_tag_key: The experiment tag key that maps the SGC job run ID
+            to an MLflow run ID.
+
+    Returns:
+        str or None: The MLflow run ID to resume, if found; otherwise None.
+    """
+    search_exp_id = experiment_id or _get_experiment_id()
+
+    try:
+        exp = client.get_experiment(search_exp_id)
+        # Check if experiment has the tag for resumption
+        if prev_mlflow_run_id := exp.tags.get(sgc_job_run_id_tag_key):
+            _logger.info(
+                f"Resuming MLflow run: {prev_mlflow_run_id} "
+                f"using SGC tag key: {sgc_job_run_id_tag_key}"
+            )
+            return prev_mlflow_run_id
+    except Exception as e:
+        _logger.debug(f"Failed to retrieve SGC run ID: {e}", exc_info=True)
+
+    return None
+
+
 def start_run(
     run_id: str | None = None,
     experiment_id: str | None = None,
@@ -384,11 +444,17 @@ def start_run(
             ).format(active_run_stack[0].info.run_id)
         )
     client = MlflowClient()
+    sgc_job_run_id_tag_key: str | None = None
     if run_id:
         existing_run_id = run_id
     elif run_id := MLFLOW_RUN_ID.get():
         existing_run_id = run_id
         del os.environ[MLFLOW_RUN_ID.name]
+    # Get SGC job run ID tag key for run resumption if applicable
+    elif sgc_job_run_id_tag_key := _get_sgc_job_run_id_tag_key():
+        existing_run_id = _get_sgc_mlflow_run_id_for_resumption(
+            client, experiment_id, sgc_job_run_id_tag_key
+        )
     else:
         existing_run_id = None
     if existing_run_id:
@@ -400,7 +466,7 @@ def start_run(
             and _active_experiment_id != active_run_obj.info.experiment_id
         ):
             raise MlflowException(
-                f"Cannot start run with ID {existing_run_id} because active run ID "
+                f"Cannot start run with ID {existing_run_id} because active experiment ID "
                 "does not match environment run ID. Make sure --experiment-name "
                 "or --experiment-id matches experiment set with "
                 "set_experiment(), or just use command-line arguments"
@@ -413,7 +479,7 @@ def start_run(
         # Use previous `end_time` because a value is required for `update_run_info`.
         end_time = active_run_obj.info.end_time
         _get_store().update_run_info(
-            existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time, run_name=None
+            existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time, run_name=run_name
         )
         tags = tags or {}
         if description:
@@ -476,6 +542,22 @@ def start_run(
             tags=resolved_tags,
             run_name=run_name,
         )
+
+        # If SGC run resumption is enabled, set the experiment tag mapping
+        # SGC job_run_id to this run_id for future run resumption
+        if sgc_job_run_id_tag_key:
+            try:
+                client.set_experiment_tag(
+                    exp_id_for_run, sgc_job_run_id_tag_key, active_run_obj.info.run_id
+                )
+                _logger.info(
+                    f"Set experiment tag {sgc_job_run_id_tag_key} = {active_run_obj.info.run_id} "
+                    f"for SGC run resumption"
+                )
+            except Exception as e:
+                _logger.debug(
+                    f"Failed to set experiment tag for SGC resumption: {e}", exc_info=True
+                )
 
     if log_system_metrics is None:
         # If `log_system_metrics` is not specified, we will check environment variable.
@@ -788,8 +870,7 @@ def _shut_down_async_logging() -> None:
 def flush_artifact_async_logging() -> None:
     """Flush all pending artifact async logging."""
     run_id = _get_or_start_run().info.run_id
-    _artifact_repo = _get_artifact_repo(run_id)
-    if _artifact_repo:
+    if _artifact_repo := _get_artifact_repo(run_id):
         _artifact_repo.flush_async_logging()
 
 
@@ -927,7 +1008,7 @@ def log_metric(
     timestamp: int | None = None,
     run_id: str | None = None,
     model_id: str | None = None,
-    dataset: Optional["Dataset"] = None,
+    dataset: Union["Dataset", DatasetEntity] | None = None,
 ) -> RunOperations | None:
     """
     Log a metric under the current run. If no run is active, this method will create
@@ -975,11 +1056,12 @@ def log_metric(
         with mlflow.start_run():
             mlflow.log_metric("mse", 2500.00, synchronous=False)
     """
-    run_id = run_id or _get_or_start_run().info.run_id
+    run = _get_or_start_run() if run_id is None else MlflowClient().get_run(run_id)
+    run_id = run.info.run_id
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     model_id = model_id or get_active_model_id()
     _log_inputs_for_metrics_if_necessary(
-        run_id,
+        run,
         [
             Metric(
                 key=key,
@@ -998,7 +1080,7 @@ def log_metric(
     model_ids = (
         [model_id]
         if model_id is not None
-        else (_get_model_ids_for_new_metric_if_exist(run_id, step) or [None])
+        else (_get_model_ids_for_new_metric_if_exist(run, step) or [None])
     )
     for model_id in model_ids:
         return MlflowClient().log_metric(
@@ -1015,22 +1097,34 @@ def log_metric(
 
 
 def _log_inputs_for_metrics_if_necessary(
-    run_id, metrics: list[Metric], datasets: list["Dataset"] | None = None
+    run: Run, metrics: list[Metric], datasets: list["Dataset"] | None = None
 ) -> None:
     client = MlflowClient()
-    run = client.get_run(run_id)
+    input_model_ids = (
+        {i.model_id for i in run.inputs.model_inputs}
+        if run.inputs and run.inputs.model_inputs
+        else set()
+    )
+    output_model_ids = (
+        {o.model_id for o in run.outputs.model_outputs}
+        if run.outputs and run.outputs.model_outputs
+        else set()
+    )
+    run_datasets = (
+        [(inp.dataset.name, inp.dataset.digest) for inp in run.inputs.dataset_inputs]
+        if run.inputs
+        else []
+    )
     datasets = datasets or []
+    models_to_log = []
+    datasets_to_log = []
     for metric in metrics:
-        input_model_ids = [i.model_id for i in (run.inputs and run.inputs.model_inputs) or []]
-        output_model_ids = [o.model_id for o in (run.outputs and run.outputs.model_outputs) or []]
         if (
             metric.model_id is not None
-            and metric.model_id not in input_model_ids + output_model_ids
+            and metric.model_id not in input_model_ids | output_model_ids
         ):
-            client.log_inputs(run_id, models=[LoggedModelInput(model_id=metric.model_id)])
-        if (metric.dataset_name, metric.dataset_digest) not in [
-            (inp.dataset.name, inp.dataset.digest) for inp in run.inputs.dataset_inputs
-        ]:
+            models_to_log.append(LoggedModelInput(model_id=metric.model_id))
+        if datasets and (metric.dataset_name, metric.dataset_digest) not in run_datasets:
             matching_dataset = next(
                 (
                     dataset
@@ -1041,15 +1135,22 @@ def _log_inputs_for_metrics_if_necessary(
                 None,
             )
             if matching_dataset is not None:
-                client.log_inputs(
-                    run_id,
-                    datasets=[DatasetInput(matching_dataset._to_mlflow_entity(), tags=[])],
-                )
+                if isinstance(matching_dataset, DatasetEntity):
+                    dataset_entity = matching_dataset
+                else:
+                    dataset_entity = matching_dataset._to_mlflow_entity()
+                datasets_to_log.append(DatasetInput(dataset_entity, tags=[]))
+    if models_to_log or datasets_to_log:
+        client.log_inputs(run.info.run_id, models=models_to_log, datasets=datasets_to_log)
+        # update in-memory run inputs to avoid duplicate logging
+        if run.inputs is None:
+            run._inputs = RunInputs(dataset_inputs=datasets_to_log, model_inputs=models_to_log)
+        else:
+            run._inputs._model_inputs.extend(models_to_log)
+            run._inputs._dataset_inputs.extend(datasets_to_log)
 
 
-def _get_model_ids_for_new_metric_if_exist(run_id: str, metric_step: str) -> list[str]:
-    client = MlflowClient()
-    run = client.get_run(run_id)
+def _get_model_ids_for_new_metric_if_exist(run: Run, metric_step: str) -> list[str]:
     outputs = run.outputs.model_outputs if run.outputs else []
     model_outputs_at_step = [mo for mo in outputs if mo.step == metric_step]
     return [mo.model_id for mo in model_outputs_at_step]
@@ -1062,7 +1163,7 @@ def log_metrics(
     run_id: str | None = None,
     timestamp: int | None = None,
     model_id: str | None = None,
-    dataset: Optional["Dataset"] = None,
+    dataset: Union["Dataset", DatasetEntity] | None = None,
 ) -> RunOperations | None:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new
@@ -1108,7 +1209,8 @@ def log_metrics(
         with mlflow.start_run():
             mlflow.log_metrics(metrics, synchronous=False)
     """
-    run_id = run_id or _get_or_start_run().info.run_id
+    run = _get_or_start_run() if run_id is None else MlflowClient().get_run(run_id)
+    run_id = run.info.run_id
     timestamp = timestamp or get_current_time_millis()
     step = step or 0
     dataset_name = dataset.name if dataset is not None else None
@@ -1117,7 +1219,7 @@ def log_metrics(
     model_ids = (
         [model_id]
         if model_id is not None
-        else (_get_model_ids_for_new_metric_if_exist(run_id, step) or [None])
+        else (_get_model_ids_for_new_metric_if_exist(run, step) or [None])
     )
     metrics_arr = [
         Metric(
@@ -1134,7 +1236,7 @@ def log_metrics(
         for model_id in model_ids
     ]
     _log_inputs_for_metrics_if_necessary(
-        run_id, metrics_arr, [dataset] if dataset is not None else None
+        run, metrics_arr, [dataset] if dataset is not None else None
     )
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
@@ -1536,6 +1638,38 @@ def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: str | None 
     """
     run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
+
+
+@experimental(version="3.9.0")
+def log_stream(
+    stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str, run_id: str | None = None
+) -> None:
+    """
+    Log a binary file-like object (e.g., ``io.BytesIO``) as an artifact.
+
+    Args:
+        stream: A binary file-like object supporting ``.read()`` method (e.g., ``io.BytesIO``).
+        artifact_file: The run-relative artifact file path in posixpath format to which
+            the stream content is saved (e.g. "dir/file.bin").
+        run_id: If specified, log the artifact to the specified run. If not specified, log the
+            artifact to the currently active run.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import io
+
+        import mlflow
+
+        with mlflow.start_run():
+            # Log a BytesIO stream
+            bytes_stream = io.BytesIO(b"binary content")
+            mlflow.log_stream(bytes_stream, "binary_file.bin")
+
+    """
+    run_id = run_id or _get_or_start_run().info.run_id
+    MlflowClient().log_stream(run_id, stream, artifact_file)
 
 
 def log_figure(
@@ -2124,7 +2258,6 @@ def delete_experiment(experiment_id: str) -> None:
     MlflowClient().delete_experiment(experiment_id)
 
 
-@experimental(version="3.0.0")
 def initialize_logged_model(
     name: str | None = None,
     source_run_id: str | None = None,
@@ -2313,7 +2446,6 @@ def _create_logged_model(
     )
 
 
-@experimental(version="3.0.0")
 def log_model_params(params: dict[str, str], model_id: str | None = None) -> None:
     """
     Log params to the specified logged model.
@@ -2345,7 +2477,6 @@ def log_model_params(params: dict[str, str], model_id: str | None = None) -> Non
     MlflowClient().log_model_params(model_id, params)
 
 
-@experimental(version="3.0.0")
 def finalize_logged_model(
     model_id: str, status: Literal["READY", "FAILED"] | LoggedModelStatus
 ) -> LoggedModel:
@@ -2378,7 +2509,6 @@ def finalize_logged_model(
     return MlflowClient().finalize_logged_model(model_id, status)
 
 
-@experimental(version="3.0.0")
 def get_logged_model(model_id: str) -> LoggedModel:
     """
     Get a logged model by ID.
@@ -2410,7 +2540,6 @@ def get_logged_model(model_id: str) -> LoggedModel:
     return MlflowClient().get_logged_model(model_id)
 
 
-@experimental(version="3.0.0")
 def last_logged_model() -> LoggedModel | None:
     """
     Fetches the most recent logged model in the current session.
@@ -2462,7 +2591,6 @@ def search_logged_models(
 ) -> list[LoggedModel]: ...
 
 
-@experimental(version="3.0.0")
 def search_logged_models(
     experiment_ids: list[str] | None = None,
     filter_string: str | None = None,
@@ -2606,7 +2734,6 @@ def search_logged_models(
         )
 
 
-@experimental(version="3.0.0")
 def log_outputs(models: list[LoggedModelOutput] | None = None):
     """
     Log outputs, such as models, to the active run. If there is no active run, a new run will be
@@ -2891,8 +3018,7 @@ def search_runs(
         experiments = []
         for n in experiment_names:
             if n is not None:
-                experiment_by_name = get_experiment_by_name(n)
-                if experiment_by_name:
+                if experiment_by_name := get_experiment_by_name(n):
                     experiments.append(experiment_by_name)
                 else:
                     _logger.warning("Cannot retrieve experiment by name %s", n)
@@ -3010,8 +3136,7 @@ def _get_experiment_id_from_env():
     experiment_name = MLFLOW_EXPERIMENT_NAME.get()
     experiment_id = MLFLOW_EXPERIMENT_ID.get()
     if experiment_name is not None:
-        exp = MlflowClient().get_experiment_by_name(experiment_name)
-        if exp:
+        if exp := MlflowClient().get_experiment_by_name(experiment_name):
             if experiment_id and experiment_id != exp.experiment_id:
                 raise MlflowException(
                     message=f"The provided {MLFLOW_EXPERIMENT_ID} environment variable "
@@ -3316,6 +3441,8 @@ def autolog(
             register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
         if "pyspark.ml" in target_library_and_module:
             register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)
+
+    _record_event(AutologgingEvent, {"flavor": "all", "log_traces": log_traces, "disable": disable})
 
 
 _active_model_id_env_lock = threading.Lock()

@@ -19,6 +19,9 @@ class TraceState(str, Enum):
     ERROR = "ERROR"
     IN_PROGRESS = "IN_PROGRESS"
 
+    def __str__(self):
+        return self.value
+
     def to_proto(self):
         return pb.TraceInfoV3.State.Value(self)
 
