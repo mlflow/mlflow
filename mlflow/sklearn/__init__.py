@@ -1439,7 +1439,7 @@ def _autolog(
     silent=False,
     max_tuning_runs=5,
     log_post_training_metrics=True,
-    serialization_format=SERIALIZATION_FORMAT_SKOPS,
+    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     pos_label=None,
     extra_tags=None,
 ):
