@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from mlflow.genai.scorers.base import Scorer
@@ -42,13 +43,11 @@ class OnlineScorerSampler:
         Returns:
             Dictionary mapping filter_string to list of scorers with that filter.
         """
-        result: dict[str | None, list[Scorer]] = {}
+        result: dict[str | None, list[Scorer]] = defaultdict(list)
         for online_scorer in self._online_scorers:
             scorer = self._scorers.get(online_scorer.name)
             if scorer and scorer.is_session_level_scorer == session_level:
                 filter_str = online_scorer.online_config.filter_string
-                if filter_str not in result:
-                    result[filter_str] = []
                 result[filter_str].append(scorer)
         return result
 
