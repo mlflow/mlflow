@@ -19,8 +19,8 @@ from mlflow.tracing.utils import build_otel_context
 
 
 def _create_test_trace(
-    inputs: dict | None = None,
-    outputs: dict | None = None,
+    inputs: dict[str, str] | None = None,
+    outputs: dict[str, str] | None = None,
 ) -> Trace:
     """Create a realistic trace for testing."""
     current_time_ns = int(time.time() * 1e9)
@@ -129,8 +129,8 @@ def test_map_scorer_inputs_with_trace():
         trace=trace,
     )
 
-    assert "input" in record
-    assert "output" in record
+    assert record["input"] == "{'question': 'What is MLflow?'}"
+    assert record["output"] == '{"answer": "MLflow is a platform for ML lifecycle."}'
     assert record["reference"] == "MLflow is an ML platform."
 
 

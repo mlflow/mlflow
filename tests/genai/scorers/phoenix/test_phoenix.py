@@ -9,7 +9,6 @@ phoenix_evals = pytest.importorskip("phoenix.evals")
 
 @pytest.fixture
 def mock_evaluator():
-    """Mock the Phoenix evaluator's evaluate method."""
     mock = Mock()
     mock.evaluate = Mock()
     return mock
@@ -17,7 +16,6 @@ def mock_evaluator():
 
 @pytest.fixture
 def mock_phoenix_model():
-    """Create a mock model that works with Phoenix evaluators."""
     mock = Mock()
     mock._verbose = False
     mock._rate_limiter = Mock()
