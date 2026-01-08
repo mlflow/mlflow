@@ -58,27 +58,28 @@ print(response.json())
 The MLflow Invocations API supports both OpenAI-style chat completions and embeddings endpoints.
 
 **Endpoint URL Pattern:**
+
 ```
 POST /gateway/{endpoint_name}/mlflow/invocations
 ```
 
 **Chat Completions Request Body:**
 
-The request body follows the OpenAI chat completions format with these supported parameters:
+The request body follows the OpenAI chat completions format with these supported parameters. See [OpenAI Chat Completions API Reference](https://platform.openai.com/docs/api-reference/chat) for complete documentation.
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `messages` | array | Yes | Array of message objects with `role` and `content` fields |
-| `temperature` | number | No | Sampling temperature between 0 and 2. Higher values make output more random. Default varies by model. |
-| `max_tokens` | integer | No | Maximum number of tokens to generate. Default varies by model. |
-| `top_p` | number | No | Nucleus sampling parameter. Alternative to temperature. Default is 1. |
-| `n` | integer | No | Number of completions to generate. Default is 1. |
-| `stream` | boolean | No | Whether to stream responses. Default is false. |
-| `stop` | string or array | No | Up to 4 sequences where the API will stop generating tokens. |
-| `presence_penalty` | number | No | Penalizes new tokens based on presence in text so far. Range: -2.0 to 2.0. |
-| `frequency_penalty` | number | No | Penalizes new tokens based on frequency in text so far. Range: -2.0 to 2.0. |
-| `tools` | array | No | List of tools the model can call. Each tool includes `type`, `function` with `name`, `description`, and `parameters`. |
-| `tool_choice` | string or object | No | Controls which tool is called. Can be "none", "auto", or specify a particular tool. |
+| Parameter           | Type             | Required | Description                                                                                                           |
+| ------------------- | ---------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
+| `messages`          | array            | Yes      | Array of message objects with `role` and `content` fields                                                             |
+| `temperature`       | number           | No       | Sampling temperature between 0 and 2. Higher values make output more random. Default varies by model.                 |
+| `max_tokens`        | integer          | No       | Maximum number of tokens to generate. Default varies by model.                                                        |
+| `top_p`             | number           | No       | Nucleus sampling parameter. Alternative to temperature. Default is 1.                                                 |
+| `n`                 | integer          | No       | Number of completions to generate. Default is 1.                                                                      |
+| `stream`            | boolean          | No       | Whether to stream responses. Default is false.                                                                        |
+| `stop`              | string or array  | No       | Up to 4 sequences where the API will stop generating tokens.                                                          |
+| `presence_penalty`  | number           | No       | Penalizes new tokens based on presence in text so far. Range: -2.0 to 2.0.                                            |
+| `frequency_penalty` | number           | No       | Penalizes new tokens based on frequency in text so far. Range: -2.0 to 2.0.                                           |
+| `tools`             | array            | No       | List of tools the model can call. Each tool includes `type`, `function` with `name`, `description`, and `parameters`. |
+| `tool_choice`       | string or object | No       | Controls which tool is called. Can be "none", "auto", or specify a particular tool.                                   |
 
 **Response Format:**
 
@@ -120,10 +121,10 @@ data: [DONE]
 
 For embeddings endpoints, the request body follows the OpenAI embeddings format:
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `input` | string or array | Yes | Input text(s) to embed. Can be a single string or array of strings. |
-| `encoding_format` | string | No | Format to return embeddings. Options: "float" (default) or "base64". |
+| Parameter         | Type            | Required | Description                                                          |
+| ----------------- | --------------- | -------- | -------------------------------------------------------------------- |
+| `input`           | string or array | Yes      | Input text(s) to embed. Can be a single string or array of strings.  |
+| `encoding_format` | string          | No       | Format to return embeddings. Options: "float" (default) or "base64". |
 
 **Embeddings Response Format:**
 
@@ -188,9 +189,11 @@ The Passthrough API relays requests to the provider's LLM endpoint using its nat
 
 ### OpenAI Passthrough
 
-The OpenAI passthrough API exposes the full OpenAI API including Chat Completions, Embeddings, and Responses (Realtime) endpoints. See [OpenAI API Reference](https://platform.openai.com/docs/api-reference) for complete documentation.
+The OpenAI passthrough API exposes the full OpenAI API including Chat Completions, Embeddings, and Responses endpoints. See [OpenAI API Reference](https://platform.openai.com/docs/api-reference) for complete documentation.
 
 #### Chat Completions
+
+See [OpenAI Chat Completions API Reference](https://platform.openai.com/docs/api-reference/chat) for complete documentation.
 
 <Tabs>
 <TabItem value="curl" label="cURL" default>
@@ -259,11 +262,23 @@ print(response.data[0].embedding)
 </TabItem>
 </Tabs>
 
-#### Realtime (Responses API)
+#### Responses API
 
-The Responses API provides a WebSocket-based interface for real-time bidirectional communication with speech-to-speech models.
+The Responses API provides a streamlined interface for creating multi-turn conversational experiences with vision and audio capabilities. For detailed Responses API usage, see [OpenAI Responses API Reference](https://platform.openai.com/docs/api-reference/responses).
 
 <Tabs>
+<TabItem value="curl" label="cURL" default>
+
+```bash
+curl -X POST http://localhost:5000/gateway/openai/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-endpoint",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+</TabItem>
 <TabItem value="python" label="Python">
 
 ```python
@@ -274,14 +289,15 @@ client = OpenAI(
     api_key="dummy",  # API key not needed, configured server-side
 )
 
-# Use the realtime.sessions.create() method for WebSocket connections
-# See OpenAI Realtime API documentation for full examples
+response = client.responses.create(
+    model="my-endpoint",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+print(response.output)
 ```
 
 </TabItem>
 </Tabs>
-
-For detailed Realtime API usage, see [OpenAI Realtime API Guide](https://platform.openai.com/docs/guides/realtime).
 
 ### Anthropic Passthrough
 
