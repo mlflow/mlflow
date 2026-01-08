@@ -21,6 +21,7 @@ from mlflow.genai.scorers.ragas.scorers.comparison_metrics import (
     StringPresence,
 )
 from mlflow.genai.scorers.ragas.scorers.rag_metrics import (
+    AnswerRelevancy,
     ContextEntityRecall,
     ContextPrecision,
     ContextRecall,
@@ -28,7 +29,6 @@ from mlflow.genai.scorers.ragas.scorers.rag_metrics import (
     NoiseSensitivity,
     NonLLMContextPrecisionWithReference,
     NonLLMContextRecall,
-    ResponseRelevancy,
     SemanticSimilarity,
 )
 from mlflow.utils.annotations import experimental
@@ -71,10 +71,11 @@ class DiscreteMetric(RagasScorer):
     discrete values (e.g., "pass"/"fail", scores 0-10, etc.).
 
     Args:
-        name: Name for this metric instance
-        prompt: Custom prompt template for evaluation. Use {response} placeholder.
+        name: Name for this metric instance.
+        prompt: Custom prompt template for evaluation (required). Should contain
+            placeholders for evaluation inputs that will be formatted at runtime.
         model: {{ model }}
-        **metric_kwargs: Additional metric-specific parameters
+        **metric_kwargs: Additional metric-specific parameters.
 
     Examples:
         .. code-block:: python
@@ -91,11 +92,25 @@ class DiscreteMetric(RagasScorer):
                 Response: {response}
 
                 Respond with only the number (0-10).\"\"\",
+                allowed_values=[num for num in range(10)]
             )
             feedback = scorer(trace=trace)
     """
 
     metric_name: ClassVar[str] = "DiscreteMetric"
+
+    def __init__(
+        self,
+        name: str,
+        prompt: str,
+        **metric_kwargs,
+    ):
+        super().__init__(
+            metric_name=self.metric_name,
+            name=name,
+            prompt=prompt,
+            **metric_kwargs,
+        )
 
 
 @experimental(version="3.8.0")
@@ -280,7 +295,7 @@ __all__ = [
     "ContextEntityRecall",
     "NoiseSensitivity",
     "Faithfulness",
-    "ResponseRelevancy",
+    "AnswerRelevancy",
     "SemanticSimilarity",
     # NVIDIA metrics
     "AnswerAccuracy",

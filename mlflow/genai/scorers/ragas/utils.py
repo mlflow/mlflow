@@ -6,6 +6,7 @@ from ragas.dataset_schema import MultiTurnSample, SingleTurnSample
 from ragas.messages import AIMessage, HumanMessage, ToolCall
 
 from mlflow.entities.trace import Trace
+from mlflow.genai.scorers.scorer_utils import parse_tool_call_expectations
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     extract_tools_called_from_trace,
@@ -106,7 +107,7 @@ def _create_multi_turn_sample(
         messages = map_session_to_ragas_messages(session, include_tool_calls=True)
         expectations = resolve_expectations_from_session(expectations, session)
     elif trace is not None:
-        messages = map_trace_to_ragas_messages(trace, include_tool_calls=True)
+        messages = map_session_to_ragas_messages([trace], include_tool_calls=True)
         expectations = resolve_expectations_from_trace(expectations, trace)
     else:
         messages = []
@@ -205,7 +206,8 @@ def extract_reference_tool_calls_from_expectations(
     expectations: dict[str, Any] | None,
 ) -> list[ToolCall] | None:
     """
-    Extract reference tool calls from expectations dict.
+    Uses parse_tool_call_expectations to extract tool calls from expectations, then converts
+    MLflow FunctionCall objects to RAGAS ToolCall format.
 
     Args:
         expectations: Expectations dict that may contain 'expected_tool_calls'.
@@ -213,39 +215,19 @@ def extract_reference_tool_calls_from_expectations(
     Returns:
         List of RAGAS ToolCall objects, or None if no tool calls are found.
     """
-    if not expectations or "expected_tool_calls" not in expectations:
+    function_calls = parse_tool_call_expectations(expectations)
+    if not function_calls:
         return None
 
-    expected_tool_calls = expectations["expected_tool_calls"]
-    if not isinstance(expected_tool_calls, list):
-        return None
-
-    reference_tool_calls = []
-    for tc in expected_tool_calls:
-        if isinstance(tc, dict):
-            reference_tool_calls.append(
-                ToolCall(
-                    name=tc.get("name", ""),
-                    args=tc.get("arguments", tc.get("args", {})),
-                )
-            )
-        elif hasattr(tc, "name") and hasattr(tc, "args"):
-            reference_tool_calls.append(
-                ToolCall(
-                    name=tc.name,
-                    args=tc.args if hasattr(tc, "args") else {},
-                )
-            )
-
-    return reference_tool_calls or None
+    return [ToolCall(name=fc.name or "", args=fc.arguments or {}) for fc in function_calls]
 
 
-def create_mlflow_error_message_from_ragas_param(ragas_param: str, metric_name: str) -> str:
+def create_mlflow_error_message_from_ragas_param(error_msg: str, metric_name: str) -> str:
     """
     Create an mlflow error message for missing RAGAS parameters.
 
     Args:
-        ragas_param: The RAGAS parameter name that is missing
+        error_msg: The error message from the RAGAS metric
         metric_name: The name of the RAGAS metric
 
     Returns:
@@ -254,12 +236,21 @@ def create_mlflow_error_message_from_ragas_param(ragas_param: str, metric_name: 
     ragas_to_mlflow_param_mapping = {
         "user_input": "inputs",
         "response": "outputs",
+        "reference_tool_calls": "expectations['expected_tool_calls']",
+        "reference_contexts": "trace with retrieval spans",
         "reference": "expectations['expected_output']",
         "retrieved_contexts": "trace with retrieval spans",
-        "reference_contexts": "trace with retrieval spans",
         "rubrics": "expectations['rubrics']",
     }
-    mlflow_param = ragas_to_mlflow_param_mapping.get(ragas_param, ragas_param)
+
+    mlflow_param = error_msg
+    for (
+        ragas_param,
+        corresponding_mlflow_param,
+    ) in ragas_to_mlflow_param_mapping.items():
+        if ragas_param in error_msg.lower():
+            mlflow_param = corresponding_mlflow_param
+            break
 
     message_parts = [
         f"RAGAS metric '{metric_name}' requires '{mlflow_param}' parameter, which is missing."
@@ -275,7 +266,7 @@ def create_mlflow_error_message_from_ragas_param(ragas_param: str, metric_name: 
             "expectations={'expected_output': ...}) or log an expectation to the trace: "
             "mlflow.log_expectation(trace_id, name='expected_output', value=..., source=...)"
         )
-    elif ragas_param in ["retrieved_contexts", "reference_contexts"]:
+    elif ragas_param in {"retrieved_contexts", "reference_contexts"}:
         message_parts.append(
             "\nMake sure your trace includes retrieval spans. "
             "Example: use @mlflow.trace(span_type=SpanType.RETRIEVER) decorator"
@@ -284,6 +275,12 @@ def create_mlflow_error_message_from_ragas_param(ragas_param: str, metric_name: 
         message_parts.append(
             "\nExample: judge(inputs='...', outputs='...', "
             "expectations={'rubrics': {'0': 'rubric for score 0', '1': 'rubric for score 1'}})"
+        )
+    elif ragas_param == "reference_tool_calls":
+        message_parts.append(
+            "\nExample: judge(inputs='...', outputs='...', "
+            "expectations={'expected_tool_calls': ["
+            "{'name': 'tool_name', 'arguments': {'arg1': 'value1'}}]})"
         )
 
     return " ".join(message_parts)

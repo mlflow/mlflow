@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import json
+import typing as t
+
 import instructor
 import litellm
-from langchain_core.outputs import Generation, LLMResult
-from ragas.llms import BaseRagasLLM
+from openai import AsyncOpenAI
+from pydantic import BaseModel
+from ragas.embeddings import OpenAIEmbeddings
+from ragas.llms import InstructorBaseRagasLLM
 from ragas.llms.litellm_llm import LiteLLMStructuredLLM
 
 from mlflow.exceptions import MlflowException
@@ -16,65 +21,26 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 
 
-class MlflowLiteLLM(LiteLLMStructuredLLM):
-    """
-    Wrapper adding generate_text/agenerate_text to LiteLLMStructuredLLM.
-
-    Nvidia metrics require generate_text/agenerate_text methods.
-    """
-
-    def generate_text(self, prompt: str, **kwargs) -> str:
-        if hasattr(prompt, "to_string"):
-            prompt = prompt.to_string()
-        elif not isinstance(prompt, str):
-            prompt = str(prompt)
-
-        response = litellm.completion(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-            **self.model_args,
-        )
-        return response.choices[0].message.content
-
-    async def agenerate_text(self, prompt: str, **kwargs):
-        text = self.generate_text(prompt, **kwargs)
-        generation = Generation(text=text)
-        return LLMResult(generations=[[generation]])
-
-
-class DatabricksRagasLLM(BaseRagasLLM):
+class DatabricksRagasLLM(InstructorBaseRagasLLM):
     """
     RAGAS LLM adapter for Databricks managed judge.
 
     Uses the default Databricks endpoint via call_chat_completions.
     """
 
-    def __init__(self):
-        super().__init__()
+    def generate(self, prompt: str, response_model: type[T]) -> T:
+        full_prompt = _build_json_prompt(prompt, response_model)
+        result = call_chat_completions(user_prompt=full_prompt, system_prompt="")
+        return _parse_json_response(result.output, response_model)
 
-    def generate_text(self, prompt: str, **kwargs) -> str:
-        # Convert LangChain StringPromptValue to string if needed
-        if hasattr(prompt, "to_string"):
-            prompt = prompt.to_string()
-        elif not isinstance(prompt, str):
-            prompt = str(prompt)
-
-        result = call_chat_completions(user_prompt=prompt, system_prompt="")
-        return result.output
-
-    async def agenerate_text(self, prompt: str, **kwargs):
-        text = self.generate_text(prompt, **kwargs)
-        generation = Generation(text=text)
-        return LLMResult(generations=[[generation]])
+    async def agenerate(self, prompt: str, response_model: type[T]) -> T:
+        return self.generate(prompt, response_model)
 
     def get_model_name(self) -> str:
         return _DATABRICKS_DEFAULT_JUDGE_MODEL
 
-    def is_finished(self, result=None) -> bool:
-        return True
 
-
-class DatabricksServingEndpointRagasLLM(BaseRagasLLM):
+class DatabricksServingEndpointRagasLLM(InstructorBaseRagasLLM):
     """
     RAGAS LLM adapter for Databricks serving endpoints.
 
@@ -82,34 +48,35 @@ class DatabricksServingEndpointRagasLLM(BaseRagasLLM):
     """
 
     def __init__(self, endpoint_name: str):
-        super().__init__()
         self._endpoint_name = endpoint_name
 
-    def generate_text(self, prompt: str, **kwargs) -> str:
-        # Convert LangChain StringPromptValue to string if needed
-        if hasattr(prompt, "to_string"):
-            prompt = prompt.to_string()
-        elif not isinstance(prompt, str):
-            prompt = str(prompt)
+    def generate(self, prompt: str, response_model: type[T]) -> T:
+        try:
+            output = _invoke_databricks_serving_endpoint(
+                model_name=self._endpoint_name,
+                prompt=prompt,
+                num_retries=3,
+                response_format=response_model,
+            )
+            return _parse_json_response(output.response, response_model)
+        except MlflowException as e:
+            if "Response format type object is not supported" in str(e):
+                full_prompt = _build_json_prompt(prompt, response_model)
+                output = _invoke_databricks_serving_endpoint(
+                    model_name=self._endpoint_name,
+                    prompt=full_prompt,
+                    num_retries=3,
+                    response_format=None,
+                )
+                return _parse_json_response(output.response, response_model)
+            else:
+                raise
 
-        output = _invoke_databricks_serving_endpoint(
-            model_name=self._endpoint_name,
-            prompt=prompt,
-            num_retries=3,
-            response_format=None,
-        )
-        return output.response
-
-    async def agenerate_text(self, prompt: str, **kwargs):
-        text = self.generate_text(prompt, **kwargs)
-        generation = Generation(text=text)
-        return LLMResult(generations=[[generation]])
+    async def agenerate(self, prompt: str, response_model: type[T]) -> T:
+        return self.generate(prompt, response_model)
 
     def get_model_name(self) -> str:
         return f"databricks:/{self._endpoint_name}"
-
-    def is_finished(self, result=None) -> bool:
-        return True
 
 
 def create_ragas_model(model_uri: str):
@@ -136,8 +103,8 @@ def create_ragas_model(model_uri: str):
     elif ":" in model_uri:
         provider, model_name = model_uri.split(":", 1)
         model_name = model_name.removeprefix("/")
-        client = instructor.from_litellm(litellm.completion)
-        return MlflowLiteLLM(
+        client = instructor.from_litellm(litellm.acompletion)
+        return LiteLLMStructuredLLM(
             client=client,
             model=f"{provider}/{model_name}",
             provider=provider,
@@ -148,3 +115,41 @@ def create_ragas_model(model_uri: str):
             f"Must be 'databricks' or include a provider prefix (e.g., 'openai:/gpt-4') "
             f"or a Databricks serving endpoint (e.g., 'databricks:/<endpoint_name>')."
         )
+
+
+def create_default_embeddings():
+    """
+    Create default OpenAI embeddings for RAGAS metrics that require them.
+
+    Returns:
+        An OpenAIEmbeddings instance configured with a sync client.
+    """
+    return OpenAIEmbeddings(client=AsyncOpenAI())
+
+
+T = t.TypeVar("T", bound=BaseModel)
+
+
+def _build_json_prompt(prompt: str, response_model: type[T]) -> str:
+    schema = response_model.model_json_schema()
+    fields = schema.get("properties", {})
+    field_desc = ", ".join(f'"{k}"' for k in fields.keys())
+    return (
+        f"{prompt}\n\n"
+        f"OUTPUT FORMAT: Respond ONLY with a JSON object "
+        f"containing these fields: {field_desc}, no other text."
+    )
+
+
+def _parse_json_response(response: str, response_model: type[T]) -> T:
+    text = response.strip()
+    # remove lines with ```json or ```
+    if text.startswith("```"):
+        lines = text.split("\n")[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        text = "\n".join(lines).strip()
+    try:
+        return response_model.model_validate(json.loads(text))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse JSON. Response was: {response}") from e

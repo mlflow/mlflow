@@ -18,7 +18,6 @@ class TopicAdherence(RagasScorer):
     outside its designated domain of interest.
 
     Args:
-        topics: List of allowed topics the agent should adhere to
         model: {{ model }}
         **metric_kwargs: Additional metric-specific parameters
 

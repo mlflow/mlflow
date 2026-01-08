@@ -5,42 +5,46 @@ from mlflow.exceptions import MlflowException
 # (classpath, is_deterministic)
 _METRIC_REGISTRY = {
     # Retrieval Augmented Generation
-    "ContextPrecision": ("ragas.metrics.ContextPrecision", False),
+    "ContextPrecision": ("ragas.metrics.collections.ContextPrecision", False),
+    "ContextUtilization": ("ragas.metrics.collections.ContextUtilization", False),
     "NonLLMContextPrecisionWithReference": (
         "ragas.metrics.NonLLMContextPrecisionWithReference",
         True,
     ),
-    "ContextRecall": ("ragas.metrics.ContextRecall", False),
+    "ContextRecall": ("ragas.metrics.collections.ContextRecall", False),
     "NonLLMContextRecall": ("ragas.metrics.NonLLMContextRecall", True),
-    "ContextEntityRecall": ("ragas.metrics.ContextEntityRecall", False),
-    "NoiseSensitivity": ("ragas.metrics.NoiseSensitivity", False),
-    "ResponseRelevancy": ("ragas.metrics.ResponseRelevancy", False),
-    "Faithfulness": ("ragas.metrics.Faithfulness", False),
+    "ContextEntityRecall": ("ragas.metrics.collections.ContextEntityRecall", False),
+    "NoiseSensitivity": ("ragas.metrics.collections.NoiseSensitivity", False),
+    "AnswerRelevancy": ("ragas.metrics.collections.AnswerRelevancy", False),
+    "Faithfulness": ("ragas.metrics.collections.Faithfulness", False),
     # Nvidia Metrics
-    "AnswerAccuracy": ("ragas.metrics.AnswerAccuracy", False),
-    "ContextRelevance": ("ragas.metrics.ContextRelevance", False),
-    "ResponseGroundedness": ("ragas.metrics.ResponseGroundedness", False),
+    "AnswerAccuracy": ("ragas.metrics.collections.AnswerAccuracy", False),
+    "ContextRelevance": ("ragas.metrics.collections.ContextRelevance", False),
+    "ResponseGroundedness": ("ragas.metrics.collections.ResponseGroundedness", False),
     # Agents or Tool Use Cases
-    "TopicAdherence": ("ragas.metrics.TopicAdherenceScore", False),
-    "ToolCallAccuracy": ("ragas.metrics.ToolCallAccuracy", True),
-    "ToolCallF1": ("ragas.metrics.ToolCallF1", True),
+    "TopicAdherence": ("ragas.metrics.collections.TopicAdherence", False),
+    "ToolCallAccuracy": ("ragas.metrics.collections.ToolCallAccuracy", True),
+    "ToolCallF1": ("ragas.metrics.collections.ToolCallF1", True),
     "AgentGoalAccuracyWithReference": (
-        "ragas.metrics.AgentGoalAccuracyWithReference",
+        "ragas.metrics.collections.AgentGoalAccuracyWithReference",
         False,
     ),
     "AgentGoalAccuracyWithoutReference": (
-        "ragas.metrics.AgentGoalAccuracyWithoutReference",
+        "ragas.metrics.collections.AgentGoalAccuracyWithoutReference",
         False,
     ),
     # Natural Language Comparison
-    "FactualCorrectness": ("ragas.metrics.FactualCorrectness", False),
-    "SemanticSimilarity": ("ragas.metrics.SemanticSimilarity", False),
-    "NonLLMStringSimilarity": ("ragas.metrics.NonLLMStringSimilarity", True),
-    "BleuScore": ("ragas.metrics.BleuScore", True),
-    "ChrfScore": ("ragas.metrics.ChrfScore", True),
-    "RougeScore": ("ragas.metrics.RougeScore", True),
-    "StringPresence": ("ragas.metrics.StringPresence", True),
-    "ExactMatch": ("ragas.metrics.ExactMatch", True),
+    "FactualCorrectness": ("ragas.metrics.collections.FactualCorrectness", False),
+    "SemanticSimilarity": ("ragas.metrics.collections.SemanticSimilarity", False),
+    "NonLLMStringSimilarity": (
+        "ragas.metrics.collections.NonLLMStringSimilarity",
+        True,
+    ),
+    "BleuScore": ("ragas.metrics.collections.BleuScore", True),
+    "ChrfScore": ("ragas.metrics.collections.ChrfScore", True),
+    "RougeScore": ("ragas.metrics.collections.RougeScore", True),
+    "StringPresence": ("ragas.metrics.collections.StringPresence", True),
+    "ExactMatch": ("ragas.metrics.collections.ExactMatch", True),
     # TODO: SQL metrics not yet supported
     # "DatacompyScore": ("ragas.metrics.DatacompyScore", False),
     # "SQLSemanticEquivalence": ("ragas.metrics.SQLSemanticEquivalence", False),
@@ -87,20 +91,7 @@ def get_metric_class(metric_name: str):
 
 def is_deterministic_metric(metric_name: str) -> bool:
     _, is_deterministic = _METRIC_REGISTRY[metric_name]
-
     return is_deterministic
-
-
-def no_llm_required_in_metric_constructor(metric_name: str) -> bool:
-    metrics = {"DiscreteMetric"}
-
-    return metric_name in metrics
-
-
-def metric_requires_only_embeddings(metric_name: str) -> bool:
-    metrics = {"SemanticSimilarity"}
-
-    return metric_name in metrics
 
 
 def is_agentic_metric(metric_name: str) -> bool:
@@ -112,3 +103,22 @@ def is_agentic_metric(metric_name: str) -> bool:
         "AgentGoalAccuracyWithoutReference",
     }
     return metric_name in agentic_metrics
+
+
+_NO_LLM_IN_CONSTRUCTOR = {
+    "SemanticSimilarity",  # Only needs embeddings
+    "DiscreteMetric",  # llm passed to score() instead
+}
+_REQUIRES_EMBEDDINGS = {"SemanticSimilarity", "AnswerRelevancy"}
+
+
+def llm_in_constructor(metric_name: str) -> bool:
+    return metric_name not in _NO_LLM_IN_CONSTRUCTOR
+
+
+def requires_embeddings(metric_name: str) -> bool:
+    return metric_name in _REQUIRES_EMBEDDINGS
+
+
+def requires_llm_at_score_time(metric_name: str) -> bool:
+    return metric_name == "DiscreteMetric"

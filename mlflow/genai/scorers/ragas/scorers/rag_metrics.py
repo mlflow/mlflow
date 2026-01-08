@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from ragas.embeddings.base import Embeddings
+
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.scorers.ragas import RagasScorer
 from mlflow.utils.annotations import experimental
@@ -169,7 +171,7 @@ class Faithfulness(RagasScorer):
 
 @experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
-class ResponseRelevancy(RagasScorer):
+class AnswerRelevancy(RagasScorer):
     """
     Evaluates how relevant the response is to the input question.
 
@@ -183,18 +185,21 @@ class ResponseRelevancy(RagasScorer):
     Examples:
         .. code-block:: python
 
-            from mlflow.genai.scorers.ragas import ResponseRelevancy
+            from mlflow.genai.scorers.ragas import AnswerRelevancy
             from ragas.embeddings.base import embedding_factory
 
             embeddings = embedding_factory("openai", model="text-embedding-3-small")
-            scorer = ResponseRelevancy(embeddings=embeddings)
+            scorer = AnswerRelevancy(embeddings=embeddings)
             feedback = scorer(
                 inputs="What is MLflow?",
                 outputs="MLflow is an open-source platform for managing ML workflows.",
             )
     """
 
-    metric_name: ClassVar[str] = "ResponseRelevancy"
+    metric_name: ClassVar[str] = "AnswerRelevancy"
+
+    def __init__(self, embeddings: Embeddings | None = None, **metric_kwargs):
+        super().__init__(metric_name=self.metric_name, embeddings=embeddings, **metric_kwargs)
 
 
 @experimental(version="3.9.0")
