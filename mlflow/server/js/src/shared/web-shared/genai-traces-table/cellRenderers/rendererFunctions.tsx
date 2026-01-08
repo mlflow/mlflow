@@ -293,7 +293,7 @@ export const expectationCellRenderer = (
 };
 
 export const inputColumnCellRenderer = (
-  onChangeEvaluationId: (evaluationId: string | undefined) => void,
+  onChangeEvaluationId: (evaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => void,
   row: CellContext<EvalTraceComparisonEntry, unknown>,
   isComparing: boolean,
   theme: ThemeType,
@@ -301,6 +301,7 @@ export const inputColumnCellRenderer = (
   getRunColor?: (runUuid: string) => string,
 ) => {
   const value = row.getValue() as EvalTraceComparisonEntry;
+
   const evalId = value.currentRunValue?.evaluationId || value.otherRunValue?.evaluationId;
 
   // fetch colors if possible
@@ -339,7 +340,7 @@ export const inputColumnCellRenderer = (
           textOverflow: 'ellipsis',
         }}
         componentId="mlflow.evaluations_review.table_ui.evaluation_id_link"
-        onClick={() => onChangeEvaluationId(evalId)}
+        onClick={() => onChangeEvaluationId(evalId, value.currentRunValue?.traceInfo)}
       >
         {inputColumnTitle ? (
           inputColumnTitle
@@ -386,7 +387,7 @@ export const traceInfoCellRenderer = (
   isComparing: boolean,
   colId: string,
   comparisonEntry: EvalTraceComparisonEntry,
-  onChangeEvaluationId: (evalId: string) => void,
+  onChangeEvaluationId: (evalId: string, traceInfo?: ModelTraceInfoV3) => void,
   intl: IntlShape,
   theme: ThemeType,
   onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void,
@@ -569,7 +570,7 @@ export const traceInfoCellRenderer = (
                   textOverflow: 'ellipsis',
                 }}
                 componentId="mlflow.evaluations_review.table_ui.evaluation_id_link"
-                onClick={() => evalId && onChangeEvaluationId(evalId)}
+                onClick={() => evalId && onChangeEvaluationId(evalId, comparisonEntry.currentRunValue?.traceInfo)}
               >
                 {currentTraceInfo?.tags?.['mlflow.traceName']}
               </Typography.Link>
@@ -647,7 +648,7 @@ export const traceInfoCellRenderer = (
               css={{ width: 'fit-content', maxWidth: '100%' }}
               componentId="mlflow.genai-traces-table.trace-id"
               color="indigo"
-              onClick={() => onChangeEvaluationId(value)}
+              onClick={() => onChangeEvaluationId(value, currentTraceInfo)}
             >
               <span
                 css={{
@@ -672,7 +673,7 @@ export const traceInfoCellRenderer = (
               componentId="mlflow.genai-traces-table.trace-id"
               color="indigo"
               title={otherValue}
-              onClick={() => onChangeEvaluationId(otherValue)}
+              onClick={() => onChangeEvaluationId(otherValue, otherTraceInfo)}
             >
               <span
                 css={{

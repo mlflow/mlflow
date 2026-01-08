@@ -20,7 +20,7 @@ import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer
 import type { ScheduledScorer } from './types';
 import { getTypeDisplayName, getTypeIcon } from './scorerCardUtils';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
-import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, type ScorerFormMode } from './constants';
+import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, ScorerEvaluationScope, type ScorerFormMode } from './constants';
 import { ScorerFormEvaluationScopeSelect } from './ScorerFormEvaluationScopeSelect';
 
 interface ScorerFormRendererProps {
@@ -71,7 +71,7 @@ const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
     <>
       {isEvaluatingSessionsInScorersEnabled() && (
         <div>
-          <ScorerFormEvaluationScopeSelect />
+          <ScorerFormEvaluationScopeSelect mode={mode} />
         </div>
       )}
       {/* Scorer Type Selection - only show in create mode */}
@@ -87,12 +87,12 @@ const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
             render={({ field }) => (
               <Radio.Group
                 {...field}
-                componentId={`${COMPONENT_ID_PREFIX}.new-scorer-type.radio-group`}
+                componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_84"
                 name="scorer-type"
               >
                 <Radio value="llm">
                   <Tag
-                    componentId={`${COMPONENT_ID_PREFIX}.llm-type-tag`}
+                    componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_90"
                     color="purple"
                     icon={getTypeIcon({ type: 'llm' } as ScheduledScorer)}
                   >
@@ -108,7 +108,7 @@ const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
 
                 <Radio value="custom-code">
                   <Tag
-                    componentId={`${COMPONENT_ID_PREFIX}.custom-code-type-tag`}
+                    componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_107"
                     color="pink"
                     icon={getTypeIcon({ type: 'custom-code' } as ScheduledScorer)}
                   >
@@ -140,7 +140,7 @@ const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
       {/* Error message - display with priority: local error first, then mutation error */}
       {(mutation.error || componentError) && (
         <Alert
-          componentId={`${COMPONENT_ID_PREFIX}.scorer-form-error`}
+          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_140"
           type="error"
           message={componentError || mutation.error?.message || mutation.error?.displayMessage}
           closable={false}
@@ -169,6 +169,8 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
   const [leftPaneWidth, setLeftPaneWidth] = useState(800);
   const resizablePaneRef = useRef<ModelTraceExplorerResizablePaneRef>(null);
   const isRunningScorersFeatureEnabled = isRunningScorersEnabled();
+  const evaluationScope = useWatch({ control, name: 'evaluationScope' });
+  const isSessionLevelScorer = evaluationScope === ScorerEvaluationScope.SESSIONS;
 
   // Callback to adjust panel ratio after scorer runs
   const handleScorerFinished = useCallback(() => {
@@ -253,6 +255,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
                   control={control}
                   experimentId={experimentId}
                   onScorerFinished={handleScorerFinished}
+                  isSessionLevelScorer={isSessionLevelScorer}
                 />
               </div>
             }
@@ -292,11 +295,14 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
           bottom: 0,
         }}
       >
-        <Button componentId={`${COMPONENT_ID_PREFIX}.new-scorer-form.cancel-button`} onClick={handleCancel}>
+        <Button
+          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_293"
+          onClick={handleCancel}
+        >
           <FormattedMessage defaultMessage="Cancel" description="Cancel button text" />
         </Button>
         <Button
-          componentId={`${COMPONENT_ID_PREFIX}.scorer-form.submit-button`}
+          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_298"
           type="primary"
           htmlType="submit"
           loading={mutation.isLoading}
