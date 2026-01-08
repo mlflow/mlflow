@@ -105,6 +105,7 @@ export const ExperimentSingleChatSessionScoreResults = ({
               border: 0,
             }}
             assessmentsTitleOverride={AssessmentsTitleOverride}
+            disableCloseButton
           />
         </ModelTraceExplorerUpdateTraceContextProvider>
       </ResizableBox>

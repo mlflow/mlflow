@@ -1,9 +1,8 @@
-import React, { useMemo, useCallback } from 'react';
+import React from 'react';
 import { useDesignSystemTheme, LightningIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
-import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
+import { useTraceTokenUsageChartData } from '../hooks/useTraceTokenUsageChartData';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
@@ -15,105 +14,19 @@ import {
   useChartXAxisProps,
   useChartLegendFormatter,
 } from './OverviewChartComponents';
-import {
-  formatTimestampForTraceMetrics,
-  formatTokenCount,
-  useLegendHighlight,
-  useTimestampValueMap,
-} from '../utils/chartUtils';
+import { formatTokenCount, useLegendHighlight } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
 
-export const TraceTokenUsageChart: React.FC<OverviewChartProps> = ({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-}) => {
+export const TraceTokenUsageChart: React.FC<OverviewChartProps> = (props) => {
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
   const legendFormatter = useChartLegendFormatter();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight(0.8, 0.2);
 
-  // Fetch input tokens over time
-  const {
-    data: inputTokensData,
-    isLoading: isLoadingInput,
-    error: inputError,
-  } = useTraceMetricsQuery({
-    experimentId,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
-    metricName: TraceMetricKey.INPUT_TOKENS,
-    aggregations: [{ aggregation_type: AggregationType.SUM }],
-    timeIntervalSeconds,
-  });
-
-  // Fetch output tokens over time
-  const {
-    data: outputTokensData,
-    isLoading: isLoadingOutput,
-    error: outputError,
-  } = useTraceMetricsQuery({
-    experimentId,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
-    metricName: TraceMetricKey.OUTPUT_TOKENS,
-    aggregations: [{ aggregation_type: AggregationType.SUM }],
-    timeIntervalSeconds,
-  });
-
-  // Fetch total tokens (without time bucketing) for the header
-  const {
-    data: totalTokensData,
-    isLoading: isLoadingTotal,
-    error: totalError,
-  } = useTraceMetricsQuery({
-    experimentId,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
-    metricName: TraceMetricKey.TOTAL_TOKENS,
-    aggregations: [{ aggregation_type: AggregationType.SUM }],
-  });
-
-  const inputDataPoints = useMemo(() => inputTokensData?.data_points || [], [inputTokensData?.data_points]);
-  const outputDataPoints = useMemo(() => outputTokensData?.data_points || [], [outputTokensData?.data_points]);
-  const isLoading = isLoadingInput || isLoadingOutput || isLoadingTotal;
-  const error = inputError || outputError || totalError;
-
-  // Extract total tokens from the response
-  const totalTokens = totalTokensData?.data_points?.[0]?.values?.[AggregationType.SUM] || 0;
-
-  // Calculate total input and output tokens from time-bucketed data
-  const totalInputTokens = useMemo(
-    () => inputDataPoints.reduce((sum, dp) => sum + (dp.values?.[AggregationType.SUM] || 0), 0),
-    [inputDataPoints],
-  );
-  const totalOutputTokens = useMemo(
-    () => outputDataPoints.reduce((sum, dp) => sum + (dp.values?.[AggregationType.SUM] || 0), 0),
-    [outputDataPoints],
-  );
-
-  // Create maps of tokens by timestamp using shared utility
-  const sumExtractor = useCallback(
-    (dp: { values?: Record<string, number> }) => dp.values?.[AggregationType.SUM] || 0,
-    [],
-  );
-  const inputTokensMap = useTimestampValueMap(inputDataPoints, sumExtractor);
-  const outputTokensMap = useTimestampValueMap(outputDataPoints, sumExtractor);
-
-  // Prepare chart data - fill in all time buckets with 0 for missing data
-  const chartData = useMemo(() => {
-    return timeBuckets.map((timestampMs) => ({
-      name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
-      inputTokens: inputTokensMap.get(timestampMs) || 0,
-      outputTokens: outputTokensMap.get(timestampMs) || 0,
-    }));
-  }, [timeBuckets, inputTokensMap, outputTokensMap, timeIntervalSeconds]);
+  // Fetch and process token usage chart data
+  const { chartData, totalTokens, totalInputTokens, totalOutputTokens, isLoading, error, hasData } =
+    useTraceTokenUsageChartData(props);
 
   // Area colors
   const areaColors = {
@@ -142,7 +55,7 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = ({
 
       {/* Chart */}
       <div css={{ height: 200, marginTop: theme.spacing.sm }}>
-        {inputDataPoints.length > 0 || outputDataPoints.length > 0 ? (
+        {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
               <XAxis dataKey="name" {...xAxisProps} />

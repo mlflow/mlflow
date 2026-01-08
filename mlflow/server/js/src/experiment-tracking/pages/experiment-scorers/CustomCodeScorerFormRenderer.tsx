@@ -48,7 +48,6 @@ export interface CustomCodeScorerFormData {
   sampleRate: number;
   filterString?: string;
   scorerType: typeof SCORER_TYPE.CUSTOM_CODE;
-  isSessionLevelScorer?: boolean;
 }
 
 interface CustomCodeScorerFormRendererProps {

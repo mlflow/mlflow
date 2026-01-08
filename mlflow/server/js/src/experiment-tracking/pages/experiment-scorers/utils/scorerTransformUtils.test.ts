@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import {
   ScorerTransformationError,
   transformScorerConfig,
@@ -10,6 +10,10 @@ import type { RegisterScorerResponse } from '../api';
 import type { ScorerConfig, LLMScorer, CustomCodeScorer } from '../types';
 import type { LLMScorerFormData } from '../LLMScorerFormRenderer';
 import type { CustomCodeScorerFormData } from '../CustomCodeScorerFormRenderer';
+
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  isEvaluatingSessionsInScorersEnabled: () => true,
+}));
 
 describe('transformScorerConfig', () => {
   describe('Custom template (instructions-based) LLM scorer', () => {
@@ -352,6 +356,7 @@ describe('transformScheduledScorer', () => {
         serialized_scorer: JSON.stringify({
           mlflow_version: '3.3.2+ui',
           serialization_version: 1,
+          is_session_level_scorer: false,
           name: 'Test Guidelines Scorer',
           builtin_scorer_class: 'Guidelines',
           builtin_scorer_pydantic_data: {
@@ -359,7 +364,6 @@ describe('transformScheduledScorer', () => {
             required_columns: ['outputs', 'inputs'],
             guidelines: ['Guideline 1', 'Guideline 2'],
           },
-          is_session_level_scorer: false,
         }),
         builtin: {
           name: 'Test Guidelines Scorer',
@@ -384,13 +388,13 @@ describe('transformScheduledScorer', () => {
         serialized_scorer: JSON.stringify({
           mlflow_version: '3.3.2+ui',
           serialization_version: 1,
+          is_session_level_scorer: false,
           name: 'Test Toxicity Scorer',
           builtin_scorer_class: 'Safety',
           builtin_scorer_pydantic_data: {
             name: 'Test Toxicity Scorer',
             required_columns: ['outputs', 'inputs'],
           },
-          is_session_level_scorer: false,
         }),
         builtin: {
           name: 'Test Toxicity Scorer',
@@ -521,11 +525,11 @@ describe('transformScheduledScorer', () => {
         serialized_scorer: JSON.stringify({
           mlflow_version: '3.3.2+ui',
           serialization_version: 1,
+          is_session_level_scorer: false,
           name: 'Test Custom Scorer',
           call_source: 'def my_scorer(inputs, outputs):\n    return True',
           call_signature: '',
           original_func_name: '',
-          is_session_level_scorer: false,
         }),
         custom: {},
       });
