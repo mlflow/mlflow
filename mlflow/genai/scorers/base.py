@@ -16,6 +16,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.telemetry.events import ScorerCallEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking import get_tracking_uri
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.uri import is_databricks_uri
@@ -753,8 +754,6 @@ class Scorer(BaseModel):
         # For MLflow backend, use provided experiment_id or fall back to scorer's experiment_id
         exp_id = experiment_id or self._experiment_id
         if exp_id is None:
-            from mlflow.tracking.fluent import _get_experiment_id
-
             exp_id = _get_experiment_id()
 
         return store.upsert_online_scoring_config(
@@ -838,8 +837,6 @@ class Scorer(BaseModel):
         # For MLflow backend, use provided experiment_id or fall back to scorer's experiment_id
         exp_id = experiment_id or self._experiment_id
         if exp_id is None:
-            from mlflow.tracking.fluent import _get_experiment_id
-
             exp_id = _get_experiment_id()
 
         return store.upsert_online_scoring_config(
