@@ -69,6 +69,7 @@ from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.store.db.base_sql_model import Base
 from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
@@ -1984,6 +1985,71 @@ class SqlScorerVersion(Base):
             serialized_scorer=self.serialized_scorer,
             creation_time=self.creation_time,
             scorer_id=self.scorer_id,
+        )
+
+
+class SqlOnlineScoringConfig(Base):
+    """
+    DB model for storing online scoring configuration. These are recorded in
+    ``online_scoring_configs`` table.
+    """
+
+    __tablename__ = "online_scoring_configs"
+
+    online_scoring_config_id = Column(String(36), nullable=False)
+    """
+    Online Scoring Config ID: `String` (limit 36 characters). *Primary Key* for
+    ``online_scoring_configs`` table.
+    """
+    scorer_id = Column(
+        String(36), ForeignKey("scorers.scorer_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Scorer ID: `String` (limit 36 characters). *Foreign Key* into ``scorers`` table.
+    """
+    sample_rate = Column(sa.types.Float(precision=53), nullable=False)
+    """
+    Sample rate for online scoring: `Float` (double precision).
+    Value between 0 and 1 representing the fraction of traces to sample.
+    """
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    """
+    Experiment ID: `Integer`. *Foreign Key* into ``experiments`` table.
+    """
+    filter_string = Column(Text, nullable=True)
+    """
+    Filter string for online scoring: `Text`. Optional filter expression to select traces.
+    """
+
+    # Relationship to the parent scorer
+    scorer = relationship("SqlScorer", backref=backref("online_configs", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlScorer`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("online_scoring_config_id", name="online_scoring_config_pk"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlOnlineScoringConfig ({self.online_scoring_config_id}, {self.scorer_id}, "
+            f"{self.sample_rate}, {self.experiment_id}, {self.filter_string})>"
+        )
+
+    def to_mlflow_entity(self) -> OnlineScoringConfig:
+        """
+        Convert this SqlOnlineScoringConfig to an OnlineScoringConfig entity.
+
+        Returns:
+            OnlineScoringConfig: The entity representation of this online config.
+        """
+        return OnlineScoringConfig(
+            online_scoring_config_id=self.online_scoring_config_id,
+            scorer_id=self.scorer_id,
+            sample_rate=self.sample_rate,
+            experiment_id=str(self.experiment_id),
+            filter_string=self.filter_string,
         )
 
 

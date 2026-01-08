@@ -29,7 +29,7 @@ const ScorerModalRenderer: React.FC<ScorerModalRendererProps> = ({
 
   return (
     <Modal
-      componentId={`${COMPONENT_ID_PREFIX}.scorer-modal`}
+      componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorermodalrenderer_29"
       title={
         mode === SCORER_FORM_MODE.EDIT ? (
           <FormattedMessage defaultMessage="Edit judge" description="Title for edit judge modal" />

@@ -54,7 +54,7 @@ const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({
               values={{
                 learnMore: (
                   <Typography.Link
-                    componentId={`${COMPONENT_ID_PREFIX}.empty-state-learn-more-link`}
+                    componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scoreremptystaterenderer_59"
                     href={getProductionMonitoringDocUrl()}
                     openInNewTab
                   >

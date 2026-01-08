@@ -116,7 +116,7 @@ mlflow.genai.evaluate(
             values={{
               link: (
                 <Typography.Link
-                  componentId={`${COMPONENT_ID_PREFIX}.custom-scorer-form.documentation-link`}
+                  componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_customcodescorerformrenderer_152"
                   href={getDocLink()}
                   openInNewTab
                 >
@@ -163,7 +163,7 @@ mlflow.genai.evaluate(
                 decorator: <Typography.Text code>@scorer</Typography.Text>,
                 link: (
                   <Typography.Link
-                    componentId={`${COMPONENT_ID_PREFIX}.custom-scorer-form.step2-documentation-link`}
+                    componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_customcodescorerformrenderer_209"
                     href={getDocLink()}
                     openInNewTab
                   >

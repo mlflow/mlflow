@@ -12,17 +12,20 @@ import { EvaluateTracesParams, LLM_TEMPLATE } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
 import { JudgeEvaluationResult } from './useEvaluateTraces.common';
+import { isEvaluatingSessionsInScorersEnabled } from '../../../common/utils/FeatureUtils';
 
 interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
   experimentId: string;
   onScorerFinished?: () => void;
+  isSessionLevelScorer?: boolean;
 }
 
 const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContainerProps> = ({
   control,
   experimentId,
   onScorerFinished,
+  isSessionLevelScorer,
 }) => {
   const intl = useIntl();
   const judgeInstructions = useWatch({ control, name: 'instructions' });
@@ -189,6 +192,14 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
         description: 'Tooltip message when model is not selected',
       });
     }
+
+    if (!isEvaluatingSessionsInScorersEnabled() && isSessionLevelScorer) {
+      return intl.formatMessage({
+        defaultMessage: 'Session-level scorers cannot be run on individual traces',
+        description: 'Tooltip message when scorer is session-level',
+      });
+    }
+
     if (isCustomMode) {
       // Custom judge mode
       if (!judgeInstructions) {
@@ -226,6 +237,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     }
     return undefined;
   }, [
+    isSessionLevelScorer,
     modelValue,
     isCustomMode,
     judgeInstructions,
