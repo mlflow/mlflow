@@ -99,6 +99,7 @@ def sklearn_knn_model(iris_df):
 
 # To load sklearn KNN model as skops format,
 # We need to mark these types as `skops_trusted_types`
+# related ticket: https://github.com/skops-dev/skops/issues/498
 sklearn_knn_model_skops_trusted_types = [
     "sklearn.metrics._dist_metrics.EuclideanDistance64",
     "sklearn.neighbors._kd_tree.KDTree",

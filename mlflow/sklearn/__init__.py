@@ -263,14 +263,14 @@ def save_model(
     if serialization_format != SERIALIZATION_FORMAT_SKOPS:
         if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
             raise MlflowException(
-                "Unsafe pickle deserialization is disallowed, Please set 'serialization_format' "
+                "Unsafe pickle deserialization is disallowed. Please set 'serialization_format' "
                 "parameter to 'skops', or set "
                 "environment variable 'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true' "
                 "to allow unsafe deserialization."
             )
     warnings.warn(
         "Saving scikit-learn models using an unsafe serialization method is deprecated and "
-        "will no longer be supported by default in future MLflow versions. The recommended "
+        "will no longer be supported by default in a future MLflow version. The recommended "
         "alternative is the 'skops' format.",
         FutureWarning,
         stacklevel=2,
@@ -517,17 +517,10 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
         if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
             raise MlflowException(
                 "Unsafe pickle deserialization is disallowed, but this model is saved "
-                "as pickle format. To address this issue, you need to set environment variable "
-                "'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true', or save the model as "
+                "in pickle format. To address this issue, you need to set environment variable "
+                "'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true', or save the model in "
                 "'skops' format."
             )
-        warnings.warn(
-            "The sklearn model is saved by unsafe pickler, this saving format is deprecated, "
-            "and will be disabled by default in future MLflow versions. Saving sklearn model as "
-            "the 'skops' format is the recommended way.",
-            FutureWarning,
-            stacklevel=2,
-        )
 
     if serialization_format == SERIALIZATION_FORMAT_SKOPS:
         import skops.io
@@ -688,19 +681,19 @@ def _save_model(sk_model, output_path, serialization_format, skops_trusted_types
         except UntrustedTypesFoundException as e:
             shutil.rmtree(output_path, ignore_errors=True)
             raise MlflowException(
-                "The saved sklearn model references untrusted type, "
-                "if you are sure loading these types are safe, "
-                "when calling 'log_model' or 'save_model', set 'skops_trusted_types' param "
+                "The saved sklearn model references untrusted types. "
+                "If you are sure loading these types is safe, "
+                "set the 'skops_trusted_types' parameter when calling 'log_model' or 'save_model' "
                 "to the list of trusted types. "
                 f"Root error: {e!s}"
             )
         except Exception as e:
             shutil.rmtree(output_path, ignore_errors=True)
             raise MlflowException(
-                "The sklearn model could not be serialized using skops serialization format. "
-                "skops does not support custom functions / classes that are not defined in the "
-                "top-level. You can set 'serialization_format' param to 'cloudpickle' to address "
-                "the issue."
+                "The sklearn model could not be serialized using the skops serialization format. "
+                "skops does not support custom functions or classes that are not defined at the "
+                "top level. You can set the 'serialization_format' parameter to 'cloudpickle' to "
+                "address this issue."
             ) from e
         return
 
