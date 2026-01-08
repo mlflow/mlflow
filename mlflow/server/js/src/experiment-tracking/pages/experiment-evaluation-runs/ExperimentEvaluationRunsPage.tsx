@@ -35,6 +35,7 @@ import {
 import { ExperimentEvaluationRunsPageCharts } from './charts/ExperimentEvaluationRunsPageCharts';
 import { ExperimentEvaluationRunsRowVisibilityProvider } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
+import { useEvalRunsAssistantContext } from './hooks/useEvalRunsAssistantContext';
 
 const getLearnMoreLink = () => {
   return 'https://mlflow.org/docs/latest/genai/eval-monitor/quickstart/';
@@ -62,6 +63,9 @@ const ExperimentEvaluationRunsPageImpl = () => {
   invariant(experimentId, 'Experiment ID must be defined');
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+
+  // Register context with assistant
+  useEvalRunsAssistantContext(experimentId, selectedRunUuid, rowSelection);
 
   const {
     data: runs,

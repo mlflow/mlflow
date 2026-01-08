@@ -62,6 +62,19 @@ export const AssistantPageContextProvider = ({ children }: { children: ReactNode
     notifySubscribers();
   }, [experimentIdFromParams, notifySubscribers]);
 
+  // Auto-extract runId from route params (e.g., /experiments/:experimentId/runs/:runUuid/...)
+  const runIdFromParams = (params as Record<string, string | undefined>)['runUuid'];
+  useEffect(() => {
+    // Only set from URL if not explicitly registered by a component
+    if (runIdFromParams && !registeredKeysRef.current.has('runId')) {
+      contextRef.current['runId'] = runIdFromParams;
+      notifySubscribers();
+    } else if (!runIdFromParams && !registeredKeysRef.current.has('runId')) {
+      delete contextRef.current['runId'];
+      notifySubscribers();
+    }
+  }, [runIdFromParams, notifySubscribers]);
+
   // Auto-extract traceId from query params (selectedEvaluationId)
   useEffect(() => {
     const traceId = searchParams.get('selectedEvaluationId');
