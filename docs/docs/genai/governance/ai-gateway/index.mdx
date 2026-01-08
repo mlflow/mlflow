@@ -1,8 +1,5 @@
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import TabsWrapper from "@site/src/components/TabsWrapper";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import { Shield, Globe, Zap, Settings, Users, Wrench, Play, Database, BarChart3 } from "lucide-react";
 
@@ -51,46 +48,33 @@ MLflow AI Gateway also offers passthrough endpoints, enabling requests to be for
 
 Get your AI Gateway running in minutes:
 
-<TabsWrapper>
-<Tabs>
-<TabItem value="install" label="1. Install" default>
-
-Install MLflow with GenAI dependencies:
+**1. Install MLflow with GenAI dependencies:**
 
 ```bash
 pip install 'mlflow[genai]'
 ```
 
-</TabItem>
-<TabItem value="start" label="2. Start Server">
-
-Start the MLflow server with a SQL backend:
+**2. Start the MLflow server with a SQL backend:**
 
 ```bash
 mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000
 ```
 
-</TabItem>
-<TabItem value="configure" label="3. Configure">
+**3. Configure your first endpoint:**
 
-Navigate to the Gateway section at `http://localhost:5000/#/gateway` and create your first endpoint through the web interface. Select your provider, model, and configure your API key.
+Navigate to `http://localhost:5000/#/gateway` and create your first endpoint `my-chat-endpoint` through the web interface. Select your provider, model, and configure your API key.
 
-</TabItem>
-<TabItem value="test" label="4. Test">
+![Create Endpoint](/images/genai/governance/ai-gateway/create-endpoint.png)
 
-Test your endpoint using the unified MLflow API:
+**4. Test your endpoint:**
 
 ```bash
-curl -X POST http://localhost:5000/gateway/my-endpoint/mlflow/invocations \
+curl -X POST http://localhost:5000/gateway/my-chat-endpoint/mlflow/invocations \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
-
-</TabItem>
-</Tabs>
-</TabsWrapper>
 
 ## Next Steps
 

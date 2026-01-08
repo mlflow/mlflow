@@ -77,7 +77,7 @@ Endpoints define how requests are routed to AI models. Beyond basic routing, end
 
 ### Basic Endpoint Setup
 
-Navigate to the Endpoints tab and click Create Endpoint to begin configuring a new endpoint. Start by choosing a unique name for your endpoint, such as `my-endpoint`. This name becomes part of the API path you'll use to call the endpoint.
+Navigate to the Endpoints tab and click Create Endpoint to begin configuring a new endpoint. Start by choosing a unique name for your endpoint, such as `my-chat-endpoint`. This name becomes part of the API path you'll use to call the endpoint.
 
 ![Create Endpoint](/images/genai/governance/ai-gateway/create-endpoint.png)
 
@@ -128,4 +128,4 @@ To configure fallbacks, navigate to the Priority 2 (Fallback) section in your en
 
 The order of fallback models matters, as the gateway tries them sequentially from top to bottom. Use the drag handle icon to reorder your fallbacks, placing your preferred alternatives first and less desirable options toward the end of the list.
 
-Consider a production configuration where you have GPT-5 mini as the first fallback and Anthropic Claude 4.5 Haiku as the second fallback If the primary model fails, the gateway falls back first to OpenAI GPT-5 mini, which is cheaper and faster but less capable. If that also fails, a second fallback to Anthropic Claude 4.5 Haiku provides another alternative before the request fails entirely.
+Consider a production configuration where you have GPT-5 mini as the first fallback and Anthropic Claude 4.5 Haiku as the second fallback. If the primary model fails, the gateway falls back first to OpenAI GPT-5 mini, which is cheaper and faster but less capable. If that also fails, a second fallback to Anthropic Claude 4.5 Haiku provides another alternative before the request fails entirely.
