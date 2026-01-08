@@ -213,9 +213,9 @@ class OnlineTraceScoringProcessor:
             thread_name_prefix="OnlineScoring",
         ) as executor:
             futures = {}
-            for task in tasks.values():
+            for trace_id, task in tasks.items():
                 if task.trace is None:
-                    _logger.warning("Skipping task with no trace")
+                    _logger.warning(f"Skipping task with no trace for trace_id: {trace_id}")
                     continue
                 eval_item = EvalItem.from_trace(task.trace)
                 future = executor.submit(
