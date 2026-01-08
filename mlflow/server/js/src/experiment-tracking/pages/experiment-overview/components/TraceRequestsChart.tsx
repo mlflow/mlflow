@@ -1,7 +1,7 @@
 import React from 'react';
 import { useDesignSystemTheme, ChartLineIcon, Button } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
 import { useTraceRequestsChartData } from '../hooks/useTraceRequestsChartData';
 import {
   OverviewChartLoadingState,
@@ -12,13 +12,14 @@ import {
   OverviewChartContainer,
   useChartTooltipStyle,
   useChartXAxisProps,
-  ChartZoomSelectionArea,
+  useChartZoomSelectionProps,
 } from './OverviewChartComponents';
 
 export const TraceRequestsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
+  const zoomSelectionProps = useChartZoomSelectionProps();
 
   // Fetch and process requests chart data (includes zoom state)
   const { totalRequests, avgRequests, isLoading, error, hasData, zoom } = useTraceRequestsChartData();
@@ -83,7 +84,9 @@ export const TraceRequestsChart: React.FC = () => {
                 />
               )}
               {/* Selection highlight area for zoom */}
-              <ChartZoomSelectionArea x1={refAreaLeft} x2={refAreaRight} />
+              {refAreaLeft && refAreaRight && (
+                <ReferenceArea x1={refAreaLeft} x2={refAreaRight} {...zoomSelectionProps} />
+              )}
             </BarChart>
           </ResponsiveContainer>
         ) : (

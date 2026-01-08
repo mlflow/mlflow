@@ -1,7 +1,6 @@
 import React from 'react';
 import { TableSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { ReferenceArea } from 'recharts';
 
 const DEFAULT_CHART_HEIGHT = 280;
 
@@ -272,23 +271,25 @@ export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ 
   );
 };
 
-interface ChartZoomSelectionAreaProps {
-  /** Left boundary of the selection */
-  x1: string | number | null;
-  /** Right boundary of the selection */
-  x2: string | number | null;
-}
-
 /**
- * Reusable ReferenceArea component for showing zoom selection highlight on charts.
- * Renders only when both x1 and x2 are provided.
+ * Hook that returns props for ReferenceArea to show zoom selection highlight.
+ * Use this with Recharts ReferenceArea component directly since Recharts
+ * components must be direct children of the chart.
+ *
+ * @example
+ * const zoomSelectionProps = useChartZoomSelectionProps();
+ * <BarChart>
+ *   {refAreaLeft && refAreaRight && (
+ *     <ReferenceArea x1={refAreaLeft} x2={refAreaRight} {...zoomSelectionProps} />
+ *   )}
+ * </BarChart>
  */
-export const ChartZoomSelectionArea: React.FC<ChartZoomSelectionAreaProps> = ({ x1, x2 }) => {
+export function useChartZoomSelectionProps() {
   const { theme } = useDesignSystemTheme();
 
-  if (!x1 || !x2) {
-    return null;
-  }
-
-  return <ReferenceArea x1={x1} x2={x2} strokeOpacity={0.3} fill={theme.colors.blue200} fillOpacity={0.3} />;
-};
+  return {
+    strokeOpacity: 0.3,
+    fill: theme.colors.blue200,
+    fillOpacity: 0.3,
+  };
+}
