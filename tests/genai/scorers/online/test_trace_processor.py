@@ -313,12 +313,18 @@ def test_process_traces_truncates_and_sorts_across_filters(
     ]
     sampler = OnlineScorerSampler(configs)
 
-    # Mock filter 1 (prod): timestamps 500-999 (500 traces)
-    # Mock filter 2 (staging): timestamps 100-599 (500 traces)
-    # Overlap: timestamps 500-599 (100 traces overlap in timestamp range)
-    filter1_traces = [make_trace_info(f"tr-prod-{i}", 500 + i) for i in range(MAX_TRACES_PER_JOB)]
+    # Compute timestamp ranges dynamically based on MAX_TRACES_PER_JOB
+    # Staging: starts at 0, covers full MAX_TRACES_PER_JOB range (0 to MAX-1)
+    # Prod: starts at 80% through staging range, creating 20% overlap
+    staging_start = 0
+    prod_start = int(0.8 * MAX_TRACES_PER_JOB)
+
+    # Each filter returns MAX_TRACES_PER_JOB traces
+    filter1_traces = [
+        make_trace_info(f"tr-prod-{i}", prod_start + i) for i in range(MAX_TRACES_PER_JOB)
+    ]
     filter2_traces = [
-        make_trace_info(f"tr-staging-{i}", 100 + i) for i in range(MAX_TRACES_PER_JOB)
+        make_trace_info(f"tr-staging-{i}", staging_start + i) for i in range(MAX_TRACES_PER_JOB)
     ]
 
     def mock_fetch_trace_infos(exp_id, min_ts, max_ts, filter_str, limit):
@@ -336,10 +342,10 @@ def test_process_traces_truncates_and_sorts_across_filters(
         for tid in trace_ids:
             if tid.startswith("tr-prod-"):
                 idx = int(tid.split("-")[-1])
-                result.append(make_trace(tid, 500 + idx))
+                result.append(make_trace(tid, prod_start + idx))
             elif tid.startswith("tr-staging-"):
                 idx = int(tid.split("-")[-1])
-                result.append(make_trace(tid, 100 + idx))
+                result.append(make_trace(tid, staging_start + idx))
         return result
 
     mock_trace_loader.fetch_traces.side_effect = mock_fetch_traces
@@ -360,11 +366,10 @@ def test_process_traces_truncates_and_sorts_across_filters(
     assert len(fetched_trace_ids) == MAX_TRACES_PER_JOB
 
     # Build expected list of traces in chronological order:
-    # Staging traces start at ts 100, prod traces start at ts 500
-    # The overlap starts at ts 500 where both filters have traces
-    # We process staging-only traces (ts 100-499), then interleaved (ts 500+)
-    staging_only_count = 400  # timestamps 100-499 (staging only, no prod yet)
-    overlap_pairs = (MAX_TRACES_PER_JOB - staging_only_count) // 2  # remaining capacity / 2
+    # 1. Staging-only traces (timestamps 0 to prod_start-1)
+    # 2. Interleaved traces in overlap region (prod_start onwards)
+    staging_only_count = prod_start  # traces before overlap
+    overlap_pairs = (MAX_TRACES_PER_JOB - staging_only_count) // 2
 
     expected_trace_ids = [f"tr-staging-{i}" for i in range(staging_only_count)]
     for i in range(overlap_pairs):
@@ -376,7 +381,7 @@ def test_process_traces_truncates_and_sorts_across_filters(
 
     # Verify checkpoint was updated to the last processed trace
     checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
-    last_timestamp = 500 + overlap_pairs - 1
+    last_timestamp = prod_start + overlap_pairs - 1
     last_trace_id = f"tr-staging-{staging_only_count + overlap_pairs - 1}"
     assert checkpoint.timestamp_ms == last_timestamp
     assert checkpoint.trace_id == last_trace_id
