@@ -1,5 +1,5 @@
 import React from 'react';
-import { useDesignSystemTheme, ChartLineIcon } from '@databricks/design-system';
+import { useDesignSystemTheme, ChartLineIcon, Button } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useTraceRequestsChartData } from '../hooks/useTraceRequestsChartData';
@@ -12,6 +12,7 @@ import {
   OverviewChartContainer,
   useChartTooltipStyle,
   useChartXAxisProps,
+  ChartZoomSelectionArea,
 } from './OverviewChartComponents';
 
 export const TraceRequestsChart: React.FC = () => {
@@ -19,8 +20,10 @@ export const TraceRequestsChart: React.FC = () => {
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
 
-  // Fetch and process requests chart data
-  const { chartData, totalRequests, avgRequests, isLoading, error, hasData } = useTraceRequestsChartData();
+  // Fetch and process requests chart data (includes zoom state)
+  const { totalRequests, avgRequests, isLoading, error, hasData, zoom } = useTraceRequestsChartData();
+  const { zoomedData, isZoomed, refAreaLeft, refAreaRight, handleMouseDown, handleMouseMove, handleMouseUp, zoomOut } =
+    zoom;
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -32,18 +35,32 @@ export const TraceRequestsChart: React.FC = () => {
 
   return (
     <OverviewChartContainer>
-      <OverviewChartHeader
-        icon={<ChartLineIcon />}
-        title={<FormattedMessage defaultMessage="Requests" description="Title for the trace requests chart" />}
-        value={totalRequests.toLocaleString()}
-      />
+      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <OverviewChartHeader
+          icon={<ChartLineIcon />}
+          title={<FormattedMessage defaultMessage="Requests" description="Title for the trace requests chart" />}
+          value={totalRequests.toLocaleString()}
+        />
+        {isZoomed && (
+          <Button componentId="mlflow.charts.trace_requests.zoom_out" size="small" onClick={zoomOut}>
+            <FormattedMessage defaultMessage="Zoom Out" description="Button to reset chart zoom" />
+          </Button>
+        )}
+      </div>
       <OverviewChartTimeLabel />
 
       {/* Chart */}
-      <div css={{ height: 200 }}>
+      <div css={{ height: 200, userSelect: 'none' }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <BarChart
+              data={zoomedData}
+              margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+            >
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis hide />
               <Tooltip
@@ -65,6 +82,8 @@ export const TraceRequestsChart: React.FC = () => {
                   }}
                 />
               )}
+              {/* Selection highlight area for zoom */}
+              <ChartZoomSelectionArea x1={refAreaLeft} x2={refAreaRight} />
             </BarChart>
           </ResponsiveContainer>
         ) : (

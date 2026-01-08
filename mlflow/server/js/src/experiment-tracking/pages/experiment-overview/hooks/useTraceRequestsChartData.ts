@@ -1,7 +1,12 @@
 import { useMemo, useCallback } from 'react';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
+import {
+  formatTimestampForTraceMetrics,
+  useTimestampValueMap,
+  useChartZoom,
+  ChartZoomState,
+} from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface RequestsChartDataPoint {
@@ -14,7 +19,7 @@ export interface UseTraceRequestsChartDataResult {
   chartData: RequestsChartDataPoint[];
   /** Total number of requests in the time range */
   totalRequests: number;
-  /** Average requests per time bucket */
+  /** Average requests per time bucket (uses zoomed range if zoomed) */
   avgRequests: number;
   /** Whether data is currently being fetched */
   isLoading: boolean;
@@ -22,6 +27,8 @@ export interface UseTraceRequestsChartDataResult {
   error: unknown;
   /** Whether there are any data points */
   hasData: boolean;
+  /** Zoom state and handlers */
+  zoom: ChartZoomState<RequestsChartDataPoint>;
 }
 
 /**
@@ -74,12 +81,24 @@ export function useTraceRequestsChartData(): UseTraceRequestsChartDataResult {
     }));
   }, [timeBuckets, countByTimestamp, timeIntervalSeconds]);
 
+  // Zoom functionality
+  const zoom = useChartZoom(chartData, 'name');
+
+  // Calculate average for zoomed data when zoomed, otherwise use overall average
+  const displayAvgRequests = useMemo(() => {
+    if (!zoom.isZoomed) return avgRequests;
+    if (zoom.zoomedData.length === 0) return 0;
+    const total = zoom.zoomedData.reduce((sum, d) => sum + d.count, 0);
+    return total / zoom.zoomedData.length;
+  }, [zoom.isZoomed, zoom.zoomedData, avgRequests]);
+
   return {
     chartData,
     totalRequests,
-    avgRequests,
+    avgRequests: displayAvgRequests,
     isLoading,
     error,
     hasData: traceCountDataPoints.length > 0,
+    zoom,
   };
 }
