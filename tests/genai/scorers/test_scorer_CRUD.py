@@ -130,6 +130,7 @@ def test_databricks_backend_scorer_operations():
 
         # Verify add_registered_scorer was called during registration
         mock_add.assert_called_once_with(
+            name="test_databricks_scorer",
             scorer=ANY,
             sample_rate=0.0,
             filter_string=None,

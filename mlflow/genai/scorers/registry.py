@@ -354,6 +354,7 @@ class DatabricksStore(AbstractScorerStore):
     @staticmethod
     def add_registered_scorer(
         *,
+        name: str,
         scorer: Scorer,
         sample_rate: float,
         filter_string: str | None = None,
@@ -367,7 +368,7 @@ class DatabricksStore(AbstractScorerStore):
 
         scheduled_scorer = add_scheduled_scorer(
             experiment_id=experiment_id,
-            scheduled_scorer_name=scorer.name,
+            scheduled_scorer_name=name,
             scorer=scorer,
             sample_rate=sample_rate,
             filter_string=filter_string,
@@ -434,6 +435,7 @@ class DatabricksStore(AbstractScorerStore):
     def register_scorer(self, experiment_id: str | None, scorer: Scorer) -> int | None:
         # Add the scorer to the server with sample_rate=0 (not actively sampling)
         DatabricksStore.add_registered_scorer(
+            name=scorer.name,
             scorer=scorer,
             sample_rate=0.0,
             filter_string=None,
