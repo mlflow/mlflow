@@ -136,6 +136,7 @@ async def stream_response(session_id: str) -> StreamingResponse:
             prompt=pending_message.content,
             session_id=session.provider_session_id,
             cwd=session.working_dir,
+            context=session.context,
         ):
             # Store provider session ID if returned (for conversation continuity)
             if event.type == EventType.DONE:

@@ -6,6 +6,21 @@ export interface ChatMessage {
   isStreaming?: boolean;
 }
 
+/**
+ * Known context keys for the assistant.
+ * Type-safe registration for common context values.
+ */
+export interface KnownAssistantContext {
+  experimentId?: string;
+  traceId?: string;
+  selectedTraceIds?: string[];
+  runId?: string;
+  selectedRunIds?: string[];
+}
+
+/** All known context keys */
+export type AssistantContextKey = keyof KnownAssistantContext;
+
 export interface AssistantAgentState {
   /** Whether the Assistant panel is open */
   isPanelOpen: boolean;
@@ -40,4 +55,6 @@ export type AssistantAgentContextType = AssistantAgentState & AssistantAgentActi
 export interface MessageRequest {
   session_id?: string;
   message: string;
+  experiment_id?: string;
+  context?: KnownAssistantContext & Record<string, unknown>;
 }
