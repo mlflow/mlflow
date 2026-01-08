@@ -8,7 +8,7 @@ from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
-from mlflow.tracing.provider import _initialize_tracer_provider, provider
+from mlflow.tracing.provider import provider, set_destination
 from mlflow.utils.os import is_windows
 
 from tests.tracing.helper import get_traces
@@ -178,12 +178,13 @@ def test_mlflow_and_opentelemetry_isolated_tracing(monkeypatch):
 
 def test_mlflow_adds_processors_to_existing_tracer_provider(monkeypatch):
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+    experiment_id = mlflow.set_experiment("test_experiment").experiment_id
 
     external_provider = TracerProvider()
     otel_trace.set_tracer_provider(external_provider)
 
     # Trigger MLflow initialization - this adds MLflow's processors to the external provider
-    _initialize_tracer_provider()
+    set_destination(MlflowExperimentLocation(experiment_id))
 
     # Verify the external provider was NOT replaced
     assert otel_trace.get_tracer_provider() is external_provider
@@ -219,19 +220,20 @@ def test_mlflow_adds_processors_to_existing_tracer_provider(monkeypatch):
 
 def test_mlflow_does_not_add_duplicate_processors_global_mode(monkeypatch):
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+    experiment_id = mlflow.set_experiment("test_experiment").experiment_id
 
     external_provider = TracerProvider()
     otel_trace.set_tracer_provider(external_provider)
 
     # First call to initialize tracer provider - adds MLflow's processors
-    _initialize_tracer_provider()
+    set_destination(MlflowExperimentLocation(experiment_id))
 
     processors = external_provider._active_span_processor._span_processors
     assert len(processors) == 1
     assert isinstance(processors[0], MlflowV3SpanProcessor)
 
     # Second call to initialize tracer provider - should NOT add duplicate processors
-    _initialize_tracer_provider()
+    set_destination(MlflowExperimentLocation(experiment_id))
 
     latest_processors = external_provider._active_span_processor._span_processors
     assert latest_processors == processors
@@ -239,6 +241,7 @@ def test_mlflow_does_not_add_duplicate_processors_global_mode(monkeypatch):
 
 def test_mlflow_does_not_add_duplicate_processors_isolated_mode(monkeypatch):
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+    experiment_id = mlflow.set_experiment("test_experiment").experiment_id
 
     with mlflow.start_span("mlflow_span"):
         pass
@@ -249,7 +252,7 @@ def test_mlflow_does_not_add_duplicate_processors_isolated_mode(monkeypatch):
     assert isinstance(processors[0], MlflowV3SpanProcessor)
 
     # Second call to initialize tracer provider - should NOT add duplicate processors
-    _initialize_tracer_provider()
+    set_destination(MlflowExperimentLocation(experiment_id))
 
     latest_processors = current_provider._active_span_processor._span_processors
     assert latest_processors == processors
@@ -263,7 +266,8 @@ def test_initialize_tracer_provider_without_otel_provider_set(
     monkeypatch, use_default_tracer_provider
 ):
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, str(use_default_tracer_provider))
-    _initialize_tracer_provider()
+    experiment_id = mlflow.set_experiment("test_experiment").experiment_id
+    set_destination(MlflowExperimentLocation(experiment_id))
     # no external provider set, we should always use mlflow own tracer provider
     processors = provider.get()._active_span_processor._span_processors
     assert len(processors) == 1

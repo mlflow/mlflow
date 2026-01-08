@@ -383,8 +383,8 @@ def _initialize_tracer_provider(disabled=False):
     suppress_warning("opentelemetry.sdk.trace", "Calling end() on an ended span")
 
     # When using the global tracer provider mode (MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false),
-    # check if a TracerProvider is already set by an external library (e.g., auto-instrumentation
-    # from Uvicorn, FastAPI, etc.). If so, add MLflow's span processors to the existing provider
+    # check if a TracerProvider is already set (e.g., set with `set_tracer_provider` API for
+    # Uvicorn, FastAPI, etc.). If so, add MLflow's span processors to the existing provider
     # instead of replacing it. This enables unified tracing where both external and MLflow spans
     # are captured in the same trace.
     if not MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
