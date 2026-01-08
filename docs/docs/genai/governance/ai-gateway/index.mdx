@@ -1,7 +1,7 @@
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
-import { Shield, Globe, Zap, Settings, Users, Wrench, Play, Database, BarChart3 } from "lucide-react";
+import { Shield, Globe, Zap, Users, Wrench, Play, Database, BarChart3 } from "lucide-react";
 
 # MLflow AI Gateway
 
@@ -91,17 +91,17 @@ Ready to dive deeper? Start with the setup guide or explore the legacy YAML-base
     linkText="Get started →"
   />
   <TileCard
+    icon={Database}
+    title="Advanced Routing"
+    description="Configure traffic splitting and fallbacks for high availability"
+    href="./routing"
+    linkText="Learn routing →"
+  />
+  <TileCard
     icon={Play}
     title="Query Guide"
     description="Learn how to call endpoints with unified and passthrough APIs"
     href="./query"
     linkText="View query guide →"
-  />
-  <TileCard
-    icon={Settings}
-    title="Gateway Server (Legacy)"
-    description="YAML-based configuration for endpoints and routing"
-    href="./legacy"
-    linkText="View legacy docs →"
   />
 </TilesGrid>
