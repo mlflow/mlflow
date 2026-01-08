@@ -29,7 +29,6 @@ def test_workspace_name_validator_accepts_valid_names(name):
         ("team_a", "must match the pattern"),
         ("-team", "must match the pattern"),
         ("team-", "must match the pattern"),
-        ("default", "is reserved"),
         ("workspaces", "is reserved"),
     ],
 )

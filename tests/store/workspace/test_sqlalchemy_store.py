@@ -72,10 +72,11 @@ def test_get_workspace_not_found(workspace_store):
 
 def test_create_workspace_persists_record(workspace_store):
     created = workspace_store.create_workspace(
-        Workspace(name="team-a", description="Team A"),
+        Workspace(name="team-a", description="Team A", default_artifact_root="s3://root/team-a"),
     )
     assert created.name == "team-a"
     assert created.description == "Team A"
+    assert created.default_artifact_root == "s3://root/team-a"
     assert ("team-a", "Team A") in _workspace_rows(workspace_store)
 
 
@@ -107,6 +108,31 @@ def test_update_workspace_changes_description(workspace_store):
     )
     assert updated.description == "new description"
     assert ("team-a", "new description") in _workspace_rows(workspace_store)
+
+
+def test_update_workspace_sets_default_artifact_root(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description="old"))
+
+    updated = workspace_store.update_workspace(
+        Workspace(name="team-a", default_artifact_root="s3://bucket/team-a"),
+    )
+    assert updated.default_artifact_root == "s3://bucket/team-a"
+    fetched = workspace_store.get_workspace("team-a")
+    assert fetched.default_artifact_root == "s3://bucket/team-a"
+
+
+def test_update_workspace_can_clear_default_artifact_root(workspace_store):
+    workspace_store.create_workspace(
+        Workspace(name="team-a", description="old", default_artifact_root="s3://bucket/team-a")
+    )
+
+    # Empty string signals "clear this field"
+    cleared = workspace_store.update_workspace(
+        Workspace(name="team-a", default_artifact_root=""),
+    )
+    assert cleared.default_artifact_root is None
+    fetched = workspace_store.get_workspace("team-a")
+    assert fetched.default_artifact_root is None
 
 
 def test_delete_workspace_removes_empty_workspace(workspace_store):
@@ -148,8 +174,88 @@ def test_delete_workspace_not_found(workspace_store):
 
 def test_resolve_artifact_root_returns_default(workspace_store):
     default_root = "/default/path"
-    assert workspace_store.resolve_artifact_root(default_root) == (default_root, True)
+    assert workspace_store.resolve_artifact_root(default_root, DEFAULT_WORKSPACE_NAME) == (
+        default_root,
+        True,
+    )
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
     assert workspace_store.resolve_artifact_root(default_root, workspace_name="team-a") == (
+        default_root,
+        True,
+    )
+
+
+def test_resolve_artifact_root_prefers_workspace_override(workspace_store):
+    workspace_store.create_workspace(
+        Workspace(
+            name="team-a",
+            description=None,
+            default_artifact_root="s3://team-a-artifacts",
+        )
+    )
+
+    resolved_root, should_append = workspace_store.resolve_artifact_root(
+        "/default/path", workspace_name="team-a"
+    )
+    assert resolved_root == "s3://team-a-artifacts"
+    assert not should_append
+
+
+def test_resolve_artifact_root_cache_updates_on_override_change(workspace_store):
+    default_root = "/default/path"
+    workspace_store.create_workspace(Workspace(name="team-cache", description=None))
+
+    assert workspace_store.resolve_artifact_root(default_root, "team-cache") == (
+        default_root,
+        True,
+    )
+
+    workspace_store.update_workspace(
+        Workspace(name="team-cache", default_artifact_root="s3://cache/team")
+    )
+
+    assert workspace_store.resolve_artifact_root(default_root, "team-cache") == (
+        "s3://cache/team",
+        False,
+    )
+
+
+def test_resolve_artifact_root_cache_handles_delete_and_recreate(workspace_store):
+    default_root = "/default/path"
+    workspace_store.create_workspace(
+        Workspace(name="team-cache", description=None, default_artifact_root="s3://cache/a")
+    )
+
+    assert workspace_store.resolve_artifact_root(default_root, "team-cache") == (
+        "s3://cache/a",
+        False,
+    )
+
+    workspace_store.delete_workspace("team-cache")
+    workspace_store.create_workspace(
+        Workspace(name="team-cache", description=None, default_artifact_root="s3://cache/b")
+    )
+
+    assert workspace_store.resolve_artifact_root(default_root, "team-cache") == (
+        "s3://cache/b",
+        False,
+    )
+
+
+def test_resolve_artifact_root_cache_clears_when_override_removed(workspace_store):
+    default_root = "/default/path"
+    workspace_store.create_workspace(
+        Workspace(name="team-cache", description=None, default_artifact_root="s3://cache/a")
+    )
+
+    assert workspace_store.resolve_artifact_root(default_root, "team-cache") == (
+        "s3://cache/a",
+        False,
+    )
+
+    workspace_store.update_workspace(Workspace(name="team-cache", default_artifact_root=""))
+
+    assert workspace_store.resolve_artifact_root(default_root, "team-cache") == (
         default_root,
         True,
     )

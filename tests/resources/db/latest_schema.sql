@@ -127,6 +127,7 @@ CREATE TABLE webhooks (
 CREATE TABLE workspaces (
 	name VARCHAR(63) NOT NULL,
 	description TEXT,
+	default_artifact_root TEXT,
 	CONSTRAINT workspaces_pk PRIMARY KEY (name)
 )
 

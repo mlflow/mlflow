@@ -16,12 +16,14 @@ from mlflow.protos.service_pb2 import (
 from mlflow.store.workspace.abstract_store import AbstractStore, WorkspaceNameValidator
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import call_endpoint
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 WORKSPACES_ENDPOINT = "/api/2.0/mlflow/workspaces"
 
 
 def _quote_workspace(workspace_name: str) -> str:
-    WorkspaceNameValidator.validate(workspace_name)
+    if workspace_name != DEFAULT_WORKSPACE_NAME:
+        WorkspaceNameValidator.validate(workspace_name)
     return quote(workspace_name, safe="")
 
 
@@ -64,6 +66,8 @@ class RestWorkspaceStore(AbstractStore):
         request_message = CreateWorkspace(name=workspace.name)
         if workspace.description is not None:
             request_message.description = workspace.description
+        if workspace.default_artifact_root is not None:
+            request_message.default_artifact_root = workspace.default_artifact_root
         try:
             proto = call_endpoint(
                 host_creds=self.get_host_creds(),
@@ -85,6 +89,8 @@ class RestWorkspaceStore(AbstractStore):
         request_message = UpdateWorkspace()
         if workspace.description is not None:
             request_message.description = workspace.description
+        if workspace.default_artifact_root is not None:
+            request_message.default_artifact_root = workspace.default_artifact_root
         proto = call_endpoint(
             host_creds=self.get_host_creds(),
             endpoint=f"{WORKSPACES_ENDPOINT}/{_quote_workspace(workspace.name)}",

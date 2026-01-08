@@ -62,23 +62,57 @@ def get_workspace(name: str) -> Workspace:
 
 
 @experimental(version="3.9.0")
-def create_workspace(name: str, description: str | None = None) -> Workspace:
-    """Create a new workspace."""
+def create_workspace(
+    name: str, description: str | None = None, default_artifact_root: str | None = None
+) -> Workspace:
+    """Create a new workspace.
 
+    Args:
+        name: The workspace name (alphanumeric, hyphens, underscores only).
+        description: Optional description of the workspace.
+        default_artifact_root: Optional artifact root URI; falls back to server default.
+
+    Returns:
+        The newly created workspace.
+
+    Raises:
+        MlflowException: If the name is invalid, already exists, or no artifact root available.
+    """
     WorkspaceNameValidator.validate(name)
     return _workspace_client_call(
-        lambda client: client.create_workspace(name=name, description=description)
+        lambda client: client.create_workspace(
+            name=name,
+            description=description,
+            default_artifact_root=default_artifact_root,
+        )
     )
 
 
 @experimental(version="3.9.0")
-def update_workspace(name: str, description: str | None = None) -> Workspace:
-    """Update metadata for an existing workspace."""
+def update_workspace(
+    name: str, description: str | None = None, default_artifact_root: str | None = None
+) -> Workspace:
+    """Update metadata for an existing workspace.
 
+    Args:
+        name: The name of the workspace to update.
+        description: New description, or ``None`` to leave unchanged.
+        default_artifact_root: New artifact root URI, empty string to clear, or ``None``.
+
+    Returns:
+        The updated workspace.
+
+    Raises:
+        MlflowException: If the workspace does not exist or no artifact root available.
+    """
     if name != DEFAULT_WORKSPACE_NAME:
         WorkspaceNameValidator.validate(name)
     return _workspace_client_call(
-        lambda client: client.update_workspace(name=name, description=description)
+        lambda client: client.update_workspace(
+            name=name,
+            description=description,
+            default_artifact_root=default_artifact_root,
+        )
     )
 
 
