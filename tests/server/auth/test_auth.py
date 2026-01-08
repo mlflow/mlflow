@@ -2083,6 +2083,7 @@ def test_gateway_endpoint_requires_fallback_model_definition_use_permission(clie
         ).raise_for_status()
 
 
+
 def test_gateway_endpoint_invocation_requires_use_permission(client, monkeypatch):
     user1, password1 = create_user(client.tracking_uri)
     user2, password2 = create_user(client.tracking_uri)
