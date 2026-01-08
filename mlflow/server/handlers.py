@@ -799,7 +799,11 @@ def catch_mlflow_exception(func):
             response.set_data(e.serialize_as_json())
             response.status_code = e.get_http_status_code()
             if response.status_code >= 500:
-                _logger.debug(f"Error in {func.__name__}: {e}", exc_info=True)
+                is_debug = _logger.isEnabledFor(logging.DEBUG)
+                msg = f"Error in {func.__name__}: {e}"
+                if not is_debug:
+                    msg += ". Set MLFLOW_LOGGING_LEVEL=DEBUG for traceback."
+                _logger.error(msg, exc_info=is_debug)
             return response
 
     return wrapper
