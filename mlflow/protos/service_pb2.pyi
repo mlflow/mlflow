@@ -2023,12 +2023,14 @@ class GetSecretsConfig(_message.Message):
     def __init__(self) -> None: ...
 
 class Workspace(_message.Message):
-    __slots__ = ("name", "description")
+    __slots__ = ("name", "description", "default_artifact_root")
     NAME_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_ARTIFACT_ROOT_FIELD_NUMBER: _ClassVar[int]
     name: str
     description: str
-    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
+    default_artifact_root: str
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., default_artifact_root: _Optional[str] = ...) -> None: ...
 
 class ListWorkspaces(_message.Message):
     __slots__ = ()
@@ -2040,7 +2042,7 @@ class ListWorkspaces(_message.Message):
     def __init__(self) -> None: ...
 
 class CreateWorkspace(_message.Message):
-    __slots__ = ("name", "description")
+    __slots__ = ("name", "description", "default_artifact_root")
     class Response(_message.Message):
         __slots__ = ("workspace",)
         WORKSPACE_FIELD_NUMBER: _ClassVar[int]
@@ -2048,9 +2050,11 @@ class CreateWorkspace(_message.Message):
         def __init__(self, workspace: _Optional[_Union[Workspace, _Mapping]] = ...) -> None: ...
     NAME_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_ARTIFACT_ROOT_FIELD_NUMBER: _ClassVar[int]
     name: str
     description: str
-    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
+    default_artifact_root: str
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., default_artifact_root: _Optional[str] = ...) -> None: ...
 
 class GetWorkspace(_message.Message):
     __slots__ = ("workspace_name",)
@@ -2064,7 +2068,7 @@ class GetWorkspace(_message.Message):
     def __init__(self, workspace_name: _Optional[str] = ...) -> None: ...
 
 class UpdateWorkspace(_message.Message):
-    __slots__ = ("workspace_name", "description")
+    __slots__ = ("workspace_name", "description", "default_artifact_root")
     class Response(_message.Message):
         __slots__ = ("workspace",)
         WORKSPACE_FIELD_NUMBER: _ClassVar[int]
@@ -2072,9 +2076,11 @@ class UpdateWorkspace(_message.Message):
         def __init__(self, workspace: _Optional[_Union[Workspace, _Mapping]] = ...) -> None: ...
     WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_ARTIFACT_ROOT_FIELD_NUMBER: _ClassVar[int]
     workspace_name: str
     description: str
-    def __init__(self, workspace_name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
+    default_artifact_root: str
+    def __init__(self, workspace_name: _Optional[str] = ..., description: _Optional[str] = ..., default_artifact_root: _Optional[str] = ...) -> None: ...
 
 class DeleteWorkspace(_message.Message):
     __slots__ = ("workspace_name",)

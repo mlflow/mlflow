@@ -338,22 +338,26 @@ def test_serving_artifacts_auto_scopes_workspace_paths(workspace_tracking_store,
     monkeypatch.setenv("_MLFLOW_SERVER_SERVE_ARTIFACTS", "true")
     workspace_tracking_store.artifact_root_uri = "mlflow-artifacts:/artifacts"
 
-    class RaisingProvider:
-        def resolve_artifact_root(self, *_args, **_kwargs):
-            raise AssertionError(
-                "Workspace provider should not be consulted when serving artifacts"
-            )
+    calls = []
 
+    class TrackingProvider:
+        def resolve_artifact_root(self, default_root, workspace_name):
+            calls.append((default_root, workspace_name))
+            return default_root, True
+
+    provider = TrackingProvider()
     monkeypatch.setattr(
         WorkspaceAwareSqlAlchemyStore,
         "_get_workspace_provider_instance",
-        lambda self: RaisingProvider(),
+        lambda self, provider=provider: provider,
     )
 
     with WorkspaceContext("team-prefix"):
         exp_id = workspace_tracking_store.create_experiment("auto-scoped")
         experiment = workspace_tracking_store.get_experiment(exp_id)
         assert f"/workspaces/team-prefix/{exp_id}" in experiment.artifact_location
+
+    assert calls == [("mlflow-artifacts:/artifacts", "team-prefix")]
 
 
 def test_serving_artifacts_allows_pre_scoped_roots(workspace_tracking_store, monkeypatch):
@@ -368,16 +372,60 @@ def test_serving_artifacts_allows_pre_scoped_roots(workspace_tracking_store, mon
             scoped = append_to_uri_path(artifact_root, f"workspaces/{workspace_name}")
             return scoped, False
 
+    provider = PrefixedProvider(workspace_tracking_store)
     monkeypatch.setattr(
         WorkspaceAwareSqlAlchemyStore,
         "_get_workspace_provider_instance",
-        lambda self: PrefixedProvider(self),
+        lambda self, provider=provider: provider,
     )
 
     with WorkspaceContext("team-ready"):
         exp_id = workspace_tracking_store.create_experiment("with-prefix")
         experiment = workspace_tracking_store.get_experiment(exp_id)
     assert "/workspaces/team-ready/" in experiment.artifact_location
+
+
+def test_serving_artifacts_honors_workspace_override(workspace_tracking_store, monkeypatch):
+    monkeypatch.setenv("_MLFLOW_SERVER_SERVE_ARTIFACTS", "true")
+    workspace_tracking_store.artifact_root_uri = "mlflow-artifacts:/artifacts"
+
+    class OverrideProvider:
+        def resolve_artifact_root(self, _default_root, workspace_name):
+            return f"s3://{workspace_name}-bucket/root", False
+
+    provider = OverrideProvider()
+    monkeypatch.setattr(
+        WorkspaceAwareSqlAlchemyStore,
+        "_get_workspace_provider_instance",
+        lambda self, provider=provider: provider,
+    )
+
+    with WorkspaceContext("team-override"):
+        exp_id = workspace_tracking_store.create_experiment("custom-root")
+        experiment = workspace_tracking_store.get_experiment(exp_id)
+
+    assert experiment.artifact_location.startswith("s3://team-override-bucket/root/")
+    assert "/workspaces/" not in experiment.artifact_location
+
+
+def test_create_experiment_requires_effective_artifact_root(workspace_tracking_store, monkeypatch):
+    monkeypatch.delenv("_MLFLOW_SERVER_SERVE_ARTIFACTS", raising=False)
+    workspace_tracking_store.artifact_root_uri = None
+
+    class EmptyProvider:
+        def resolve_artifact_root(self, *_args, **_kwargs):
+            return None, False
+
+    provider = EmptyProvider()
+    monkeypatch.setattr(
+        WorkspaceAwareSqlAlchemyStore,
+        "_get_workspace_provider_instance",
+        lambda self, provider=provider: provider,
+    )
+
+    with WorkspaceContext("team-misconfigured"):
+        with pytest.raises(MlflowException, match="Cannot determine an artifact root"):
+            workspace_tracking_store.create_experiment("should-fail")
 
 
 def test_default_workspace_experiment_uses_zero_id(workspace_tracking_store):
@@ -738,6 +786,11 @@ def test_log_spans_update_is_workspace_scoped(workspace_tracking_store):
         assert updated_trace.info.request_time == original_trace.info.request_time
         assert updated_trace.info.execution_duration == original_trace.info.execution_duration
         assert len(updated_trace.data.spans) == 2
+
+
+def test_validate_constraints_allows_missing_global_root(workspace_tracking_store):
+    workspace_tracking_store.artifact_root_uri = None
+    workspace_tracking_store._validate_artifact_isolation_constraints()
 
 
 def test_workspace_startup_rejects_root_ending_with_workspaces(tmp_path, monkeypatch):

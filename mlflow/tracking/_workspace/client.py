@@ -28,14 +28,36 @@ class WorkspaceProviderClient:
     def list_workspaces(self) -> list[Workspace]:
         return list(self.store.list_workspaces())
 
-    def create_workspace(self, name: str, description: str | None = None) -> Workspace:
-        return self.store.create_workspace(Workspace(name=name, description=description))
+    def create_workspace(
+        self,
+        name: str,
+        description: str | None = None,
+        default_artifact_root: str | None = None,
+    ) -> Workspace:
+        return self.store.create_workspace(
+            Workspace(
+                name=name,
+                description=description,
+                default_artifact_root=default_artifact_root,
+            )
+        )
 
     def get_workspace(self, name: str) -> Workspace:
         return self.store.get_workspace(name)
 
-    def update_workspace(self, name: str, description: str | None = None) -> Workspace:
-        return self.store.update_workspace(Workspace(name=name, description=description))
+    def update_workspace(
+        self,
+        name: str,
+        description: str | None = None,
+        default_artifact_root: str | None = None,
+    ) -> Workspace:
+        return self.store.update_workspace(
+            Workspace(
+                name=name,
+                description=description,
+                default_artifact_root=default_artifact_root,
+            )
+        )
 
     def delete_workspace(self, name: str) -> None:
         self.store.delete_workspace(name)

@@ -332,20 +332,28 @@ class MlflowClient:
 
         return self._get_workspace_client().list_workspaces()
 
-    def create_workspace(self, name: str, description: str | None = None) -> Workspace:
+    def create_workspace(
+        self, name: str, description: str | None = None, default_artifact_root: str | None = None
+    ) -> Workspace:
         """Create a new workspace."""
 
-        return self._get_workspace_client().create_workspace(name, description)
+        return self._get_workspace_client().create_workspace(
+            name, description, default_artifact_root=default_artifact_root
+        )
 
     def get_workspace(self, name: str) -> Workspace:
         """Return metadata for the specified workspace."""
 
         return self._get_workspace_client().get_workspace(name)
 
-    def update_workspace(self, name: str, description: str | None = None) -> Workspace:
+    def update_workspace(
+        self, name: str, description: str | None = None, default_artifact_root: str | None = None
+    ) -> Workspace:
         """Update metadata for an existing workspace."""
 
-        return self._get_workspace_client().update_workspace(name, description)
+        return self._get_workspace_client().update_workspace(
+            name, description, default_artifact_root=default_artifact_root
+        )
 
     def delete_workspace(self, name: str) -> None:
         """Delete an existing workspace."""

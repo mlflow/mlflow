@@ -66,8 +66,8 @@ class AbstractStore(ABC):
         raise NotImplementedError
 
     def resolve_artifact_root(
-        self, default_artifact_root: str, workspace_name: str | None = None
-    ) -> tuple[str, bool]:
+        self, default_artifact_root: str | None, workspace_name: str
+    ) -> tuple[str | None, bool]:
         """
         Allow a provider to customize artifact storage roots per workspace.
 

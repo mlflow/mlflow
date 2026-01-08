@@ -4472,6 +4472,9 @@ message Workspace {
 
   // Optional workspace description.
   optional string description = 2;
+
+  // Optional default artifact root override for this workspace.
+  optional string default_artifact_root = 3;
 }
 
 // List workspaces available to the current principal.
@@ -4493,6 +4496,9 @@ message CreateWorkspace {
 
   // Optional workspace description.
   optional string description = 2;
+
+  // Optional default artifact root override to apply at creation time.
+  optional string default_artifact_root = 3;
 
   message Response {
     // Metadata describing the created workspace.
@@ -4522,6 +4528,9 @@ message UpdateWorkspace {
 
   // Optional description update.
   optional string description = 2;
+
+  // Optional default artifact root override update.
+  optional string default_artifact_root = 3;
 
   message Response {
     // Metadata describing the updated workspace.

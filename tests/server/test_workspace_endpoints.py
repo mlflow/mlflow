@@ -63,7 +63,7 @@ def test_create_workspace_endpoint(app, mock_workspace_store):
 
     assert response.status_code == 201
     payload = _workspace_to_json(response.get_data(True))
-    assert payload == {"workspace": created.to_dict()}
+    assert payload == {"workspace": {"name": "team-b", "description": "Team B"}}
     mock_workspace_store.create_workspace.assert_called_once()
 
 
@@ -89,8 +89,27 @@ def test_update_workspace_endpoint(app, mock_workspace_store):
 
     assert response.status_code == 200
     payload = _workspace_to_json(response.get_data(True))
-    assert payload == {"workspace": updated.to_dict()}
+    assert payload == {"workspace": {"name": "team-d", "description": "Updated"}}
     mock_workspace_store.update_workspace.assert_called_once()
+
+
+def test_update_workspace_can_clear_default_artifact_root(app, mock_workspace_store):
+    cleared = Workspace(name="team-clear", description=None, default_artifact_root=None)
+    mock_workspace_store.update_workspace.return_value = cleared
+    with app.test_client() as client:
+        response = client.patch(
+            "/api/2.0/mlflow/workspaces/team-clear",
+            json={"default_artifact_root": " "},
+        )
+
+    assert response.status_code == 200
+    payload = _workspace_to_json(response.get_data(True))
+    assert payload == {"workspace": {"name": "team-clear"}}
+    args, _ = mock_workspace_store.update_workspace.call_args
+    assert isinstance(args[0], Workspace)
+    assert args[0].name == "team-clear"
+    # Handler passes "" to indicate "clear"; the store converts "" to None
+    assert args[0].default_artifact_root == ""
 
 
 def test_delete_workspace_endpoint(app, mock_workspace_store):
