@@ -61,9 +61,6 @@ yarn prettier:check     # Check Prettier formatting
 yarn prettier:fix       # Fix Prettier formatting
 yarn type-check         # Run TypeScript type checking
 
-# Combined Checks
-yarn check-all          # Run all checks (lint, prettier, i18n, type-check)
-
 # Other Commands
 yarn storybook          # Start Storybook for component development
 yarn build-storybook    # Build static Storybook
@@ -76,7 +73,12 @@ yarn i18n:check         # Check i18n translations
 
 ```bash
 # From repository root
-pushd mlflow/server/js && yarn check-all; popd
+pushd mlflow/server/js
+yarn lint
+yarn prettier:check
+yarn i18n:check
+yarn type-check
+popd
 
 # Fix any issues that are reported
 ```

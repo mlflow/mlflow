@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { useSearchParams } from '../../common/utils/RoutingUtils';
 import { useMonitoringConfig } from './useMonitoringConfig';
 
@@ -22,25 +22,40 @@ export interface MonitoringFilters {
   endTime?: string;
 }
 
+export const MonitoringFiltersUpdateContext = createContext<{
+  params: MonitoringFilters;
+  setParams: (params: MonitoringFilters, replace?: boolean) => void;
+  disableAutomaticInitialization?: boolean;
+} | null>(null);
+
 /**
  * Query param-powered hook that returns the monitoring filters from the URL.
+ * Uses MonitoringFiltersUpdateContext if provided, otherwise falls back to URL search params.
  */
 export const useMonitoringFilters = () => {
   const monitoringConfig = useMonitoringConfig();
-
+  const context = useContext(MonitoringFiltersUpdateContext);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const startTimeLabel =
-    (searchParams.get(START_TIME_LABEL_QUERY_PARAM_KEY) as START_TIME_LABEL | undefined) || DEFAULT_START_TIME_LABEL;
-  let startTime = searchParams.get(START_TIME_QUERY_PARAM_KEY) || undefined;
-  let endTime = searchParams.get(END_TIME_QUERY_PARAM_KEY) ?? undefined;
+  let startTimeLabel: START_TIME_LABEL;
+  let startTime: string | undefined;
+  let endTime: string | undefined;
+
+  if (!context) {
+    startTimeLabel =
+      (searchParams.get(START_TIME_LABEL_QUERY_PARAM_KEY) as START_TIME_LABEL | undefined) || DEFAULT_START_TIME_LABEL;
+    startTime = searchParams.get(START_TIME_QUERY_PARAM_KEY) || undefined;
+    endTime = searchParams.get(END_TIME_QUERY_PARAM_KEY) ?? undefined;
+  } else {
+    startTimeLabel = context.params.startTimeLabel || DEFAULT_START_TIME_LABEL;
+    startTime = context.params.startTime;
+    endTime = context.params.endTime;
+  }
+
   if (startTimeLabel !== 'CUSTOM') {
     const absoluteStartEndTime = getAbsoluteStartEndTime(monitoringConfig.dateNow, { startTimeLabel });
     startTime = absoluteStartEndTime.startTime;
     endTime = absoluteStartEndTime.endTime;
-  } else {
-    startTime = searchParams.get(START_TIME_QUERY_PARAM_KEY) || undefined;
-    endTime = searchParams.get(END_TIME_QUERY_PARAM_KEY) ?? undefined;
   }
 
   const monitoringFilters = useMemo<MonitoringFilters>(
@@ -54,6 +69,13 @@ export const useMonitoringFilters = () => {
 
   const setMonitoringFilters = useCallback(
     (monitoringFilters: MonitoringFilters | undefined, replace = false) => {
+      if (context) {
+        context.setParams(
+          monitoringFilters ?? { startTimeLabel: undefined, startTime: undefined, endTime: undefined },
+          replace,
+        );
+        return;
+      }
       setSearchParams(
         (params) => {
           if (monitoringFilters?.startTime === undefined) {
@@ -76,10 +98,27 @@ export const useMonitoringFilters = () => {
         { replace },
       );
     },
-    [setSearchParams],
+    [context, setSearchParams],
   );
 
-  return [monitoringFilters, setMonitoringFilters] as const;
+  const disableAutomaticInitialization = Boolean(
+    searchParams.has(START_TIME_LABEL_QUERY_PARAM_KEY) || context?.disableAutomaticInitialization,
+  );
+
+  return [monitoringFilters, setMonitoringFilters, disableAutomaticInitialization] as const;
+};
+
+export const useMonitoringFiltersTimeRange = (referenceTime?: Date) => {
+  const [monitoringFilters] = useMonitoringFilters();
+  const [dateNow] = useState(() => referenceTime ?? new Date());
+
+  return useMemo(() => {
+    const { startTime, endTime } = getAbsoluteStartEndTime(dateNow, monitoringFilters);
+    return {
+      startTime: startTime ? new Date(startTime).getTime().toString() : undefined,
+      endTime: endTime ? new Date(endTime).getTime().toString() : undefined,
+    };
+  }, [dateNow, monitoringFilters]);
 };
 
 export function getAbsoluteStartEndTime(
