@@ -343,6 +343,12 @@ class ConversationSimulator:
         all_trace_ids: list[list[str]] = [[] for _ in range(num_test_cases)]
         max_workers = min(num_test_cases, MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
 
+        progress_bar = tqdm(
+            total=num_test_cases,
+            desc="Simulating conversations",
+            unit="conversation",
+        )
+
         with (
             _suppress_tracing_logging(),
             ThreadPoolExecutor(
@@ -354,22 +360,19 @@ class ConversationSimulator:
                 executor.submit(self._run_conversation, test_case, predict_fn): i
                 for i, test_case in enumerate(self.test_cases)
             }
-
-            with tqdm(
-                total=num_test_cases,
-                desc="Simulating conversations",
-                unit="conversation",
-            ) as pbar:
+            try:
                 for future in as_completed(futures):
                     idx = futures[future]
-                    test_case = self.test_cases[idx]
                     try:
                         all_trace_ids[idx] = future.result()
                     except Exception as e:
                         _logger.error(
-                            f"Failed to run conversation for test case {test_case.get('goal')}: {e}"
+                            f"Failed to run conversation for test case "
+                            f"{self.test_cases[idx].get('goal')}: {e}"
                         )
-                    pbar.update(1)
+                    progress_bar.update(1)
+            finally:
+                progress_bar.close()
 
         return all_trace_ids
 
@@ -438,26 +441,43 @@ class ConversationSimulator:
         turn: int,
         **context,
     ) -> tuple[dict[str, Any], str | None]:
-        # NB: We trace the predict_fn call to add session and simulation metadata to the trace.
-        #     This adds a new root span to the trace, with the same inputs and outputs as the
-        #     predict_fn call. The goal/persona/turn metadata is used for trace comparison UI
-        #     since message content may differ between simulation runs.
-        @mlflow.trace(name=f"simulation_turn_{turn}", span_type="CHAIN")
-        def traced_predict(input: list[dict[str, Any]], **context):
-            mlflow.update_current_trace(
-                metadata={
-                    TraceMetadataKey.TRACE_SESSION: trace_session_id,
-                    "mlflow.simulation.goal": goal[:_MAX_METADATA_LENGTH],
-                    "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[
-                        :_MAX_METADATA_LENGTH
-                    ],
-                    "mlflow.simulation.turn": str(turn),
-                },
-            )
-            return predict_fn(input=input, **context)
+        # Use set_prediction_context to tag the trace with a custom request_id, similar to how
+        # the evaluation harness does it. This approach is reliable in multi-threaded contexts
+        # because it uses ContextVar which properly propagates to the tracing system.
+        from mlflow.pyfunc.context import Context, set_prediction_context
+        from mlflow.tracing.provider import is_tracing_enabled
 
-        response = traced_predict(input=input_messages, **context)
-        trace_id = mlflow.get_last_active_trace_id(thread_local=True)
+        request_id = str(uuid.uuid4())
+        trace_id = None
+
+        # Ensure tracing is enabled before starting the span. The @trace_disabled decorator
+        # on _invoke_model uses global state, which can cause race conditions in threaded contexts.
+        # We explicitly check and re-enable if needed.
+        if not is_tracing_enabled():
+            mlflow.tracing.enable()
+
+        with set_prediction_context(Context(request_id=request_id, is_evaluate=True)):
+            with mlflow.start_span(name=f"simulation_turn_{turn}", span_type="CHAIN") as span:
+                # Capture trace_id directly from the span object
+                span_trace_id = span.request_id
+                # Filter out no-op span trace IDs that indicate tracing was disabled
+                if span_trace_id and span_trace_id != "MLFLOW_NO_OP_SPAN_TRACE_ID":
+                    trace_id = span_trace_id
+                    span.set_inputs({"input": input_messages, **context})
+                    mlflow.update_current_trace(
+                        metadata={
+                            TraceMetadataKey.TRACE_SESSION: trace_session_id,
+                            "mlflow.simulation.goal": goal[:_MAX_METADATA_LENGTH],
+                            "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[
+                                :_MAX_METADATA_LENGTH
+                            ],
+                            "mlflow.simulation.turn": str(turn),
+                        },
+                    )
+                response = predict_fn(input=input_messages, **context)
+                if trace_id:
+                    span.set_outputs(response)
+
         return response, trace_id
 
     def _check_goal_achieved(
