@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos.service_pb2 import FallbackConfig as ProtoFallbackConfig
+from mlflow.protos.service_pb2 import FallbackStrategy as ProtoFallbackStrategy
 from mlflow.protos.service_pb2 import (
     GatewayEndpoint as ProtoGatewayEndpoint,
 )
@@ -9,17 +13,150 @@ from mlflow.protos.service_pb2 import (
     GatewayEndpointBinding as ProtoGatewayEndpointBinding,
 )
 from mlflow.protos.service_pb2 import (
+    GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
+)
+from mlflow.protos.service_pb2 import (
     GatewayEndpointModelMapping as ProtoGatewayEndpointModelMapping,
 )
 from mlflow.protos.service_pb2 import (
     GatewayModelDefinition as ProtoGatewayModelDefinition,
 )
+from mlflow.protos.service_pb2 import GatewayModelLinkageType as ProtoGatewayModelLinkageType
+from mlflow.protos.service_pb2 import RoutingStrategy as ProtoRoutingStrategy
 
 
 class GatewayResourceType(str, Enum):
     """Valid MLflow resource types that can use gateway endpoints."""
 
     SCORER_JOB = "scorer_job"
+
+
+class RoutingStrategy(str, Enum):
+    """Routing strategy for gateway endpoints."""
+
+    REQUEST_BASED_TRAFFIC_SPLIT = "REQUEST_BASED_TRAFFIC_SPLIT"
+
+    @classmethod
+    def from_proto(cls, proto: ProtoRoutingStrategy) -> "RoutingStrategy":
+        try:
+            return cls(ProtoRoutingStrategy.Name(proto))
+        except ValueError:
+            # unspecified in proto is treated as None
+            return None
+
+    def to_proto(self) -> ProtoRoutingStrategy:
+        return ProtoRoutingStrategy.Value(self.value)
+
+
+class FallbackStrategy(str, Enum):
+    """Fallback strategy for routing."""
+
+    SEQUENTIAL = "SEQUENTIAL"
+
+    @classmethod
+    def from_proto(cls, proto: ProtoFallbackStrategy) -> "FallbackStrategy":
+        try:
+            return cls(ProtoFallbackStrategy.Name(proto))
+        except ValueError:
+            # unspecified in proto is treated as None
+            return None
+
+    def to_proto(self) -> ProtoFallbackStrategy:
+        return ProtoFallbackStrategy.Value(self.value)
+
+
+class GatewayModelLinkageType(str, Enum):
+    """Type of linkage between endpoint and model definition."""
+
+    PRIMARY = "PRIMARY"
+    FALLBACK = "FALLBACK"
+
+    @classmethod
+    def from_proto(cls, proto: ProtoGatewayModelLinkageType) -> "GatewayModelLinkageType":
+        try:
+            return cls(ProtoGatewayModelLinkageType.Name(proto))
+        except ValueError:
+            # unspecified in proto is treated as None
+            return None
+
+    def to_proto(self) -> ProtoGatewayModelLinkageType:
+        return ProtoGatewayModelLinkageType.Value(self.value)
+
+
+@dataclass
+class FallbackConfig(_MlflowObject):
+    """
+    Configuration for fallback routing strategy.
+
+    Defines how requests should be routed across multiple models when using
+    fallback routing. Fallback models are defined via GatewayEndpointModelMapping
+    with linkage_type=FALLBACK and ordered by fallback_order.
+
+    Args:
+        strategy: The fallback strategy to use (e.g., FallbackStrategy.SEQUENTIAL).
+        max_attempts: Maximum number of fallback models to try (None = try all).
+    """
+
+    strategy: FallbackStrategy | None = None
+    max_attempts: int | None = None
+
+    def to_proto(self) -> ProtoFallbackConfig:
+        proto = ProtoFallbackConfig()
+        if self.strategy is not None:
+            proto.strategy = self.strategy.to_proto()
+        if self.max_attempts is not None:
+            proto.max_attempts = self.max_attempts
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto: ProtoFallbackConfig) -> "FallbackConfig":
+        strategy = (
+            FallbackStrategy.from_proto(proto.strategy) if proto.HasField("strategy") else None
+        )
+        return cls(
+            strategy=strategy,
+            max_attempts=proto.max_attempts,
+        )
+
+
+@dataclass
+class GatewayEndpointModelConfig(_MlflowObject):
+    """
+    Configuration for a model attached to an endpoint.
+
+    This structured object combines all configuration needed to attach a model
+    to an endpoint, including the model definition ID, linkage type, weight,
+    and fallback order.
+
+    Args:
+        model_definition_id: ID of the model definition to attach.
+        linkage_type: Type of linkage (PRIMARY or FALLBACK).
+        weight: Routing weight for traffic distribution (default 1.0).
+        fallback_order: Order for fallback attempts (only for FALLBACK linkages, None for PRIMARY).
+    """
+
+    model_definition_id: str
+    linkage_type: GatewayModelLinkageType
+    weight: float = 1.0
+    fallback_order: int | None = None
+
+    def to_proto(self) -> ProtoGatewayEndpointModelConfig:
+        proto = ProtoGatewayEndpointModelConfig()
+        proto.model_definition_id = self.model_definition_id
+        proto.linkage_type = self.linkage_type.to_proto()
+        proto.weight = self.weight
+        if self.fallback_order is not None:
+            proto.fallback_order = self.fallback_order
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto: ProtoGatewayEndpointModelConfig) -> "GatewayEndpointModelConfig":
+        return cls(
+            model_definition_id=proto.model_definition_id,
+            linkage_type=GatewayModelLinkageType.from_proto(proto.linkage_type),
+            weight=proto.weight if proto.HasField("weight") else 1.0,
+            fallback_order=proto.fallback_order if proto.HasField("fallback_order") else None,
+        )
 
 
 @dataclass
@@ -58,8 +195,10 @@ class GatewayModelDefinition(_MlflowObject):
         proto = ProtoGatewayModelDefinition()
         proto.model_definition_id = self.model_definition_id
         proto.name = self.name
-        proto.secret_id = self.secret_id
-        proto.secret_name = self.secret_name
+        if self.secret_id is not None:
+            proto.secret_id = self.secret_id
+        if self.secret_name is not None:
+            proto.secret_name = self.secret_name
         proto.provider = self.provider
         proto.model_name = self.model_name
         proto.created_at = self.created_at
@@ -75,8 +214,8 @@ class GatewayModelDefinition(_MlflowObject):
         return cls(
             model_definition_id=proto.model_definition_id,
             name=proto.name,
-            secret_id=proto.secret_id,
-            secret_name=proto.secret_name,
+            secret_id=proto.secret_id or None,
+            secret_name=proto.secret_name or None,
             provider=proto.provider,
             model_name=proto.model_name,
             created_at=proto.created_at,
@@ -100,6 +239,8 @@ class GatewayEndpointModelMapping(_MlflowObject):
         model_definition_id: ID of the model definition.
         model_definition: The full model definition (populated via JOIN).
         weight: Routing weight for traffic distribution (default 1).
+        linkage_type: Type of linkage (PRIMARY or FALLBACK).
+        fallback_order: Zero-indexed order for fallback attempts (only for FALLBACK linkages)
         created_at: Timestamp (milliseconds) when the mapping was created.
         created_by: User ID who created the mapping.
     """
@@ -109,6 +250,8 @@ class GatewayEndpointModelMapping(_MlflowObject):
     model_definition_id: str
     model_definition: GatewayModelDefinition | None
     weight: float
+    linkage_type: GatewayModelLinkageType
+    fallback_order: int | None
     created_at: int
     created_by: str | None = None
 
@@ -120,6 +263,9 @@ class GatewayEndpointModelMapping(_MlflowObject):
         if self.model_definition is not None:
             proto.model_definition.CopyFrom(self.model_definition.to_proto())
         proto.weight = self.weight
+        proto.linkage_type = self.linkage_type.to_proto()
+        if self.fallback_order is not None:
+            proto.fallback_order = self.fallback_order
         proto.created_at = self.created_at
         if self.created_by is not None:
             proto.created_by = self.created_by
@@ -136,6 +282,8 @@ class GatewayEndpointModelMapping(_MlflowObject):
             model_definition_id=proto.model_definition_id,
             model_definition=model_def,
             weight=proto.weight,
+            linkage_type=GatewayModelLinkageType.from_proto(proto.linkage_type),
+            fallback_order=proto.fallback_order if proto.HasField("fallback_order") else None,
             created_at=proto.created_at,
             created_by=proto.created_by or None,
         )
@@ -187,6 +335,8 @@ class GatewayEndpoint(_MlflowObject):
         tags: List of tags associated with this endpoint.
         created_by: User ID who created the endpoint.
         last_updated_by: User ID who last updated the endpoint.
+        routing_strategy: Routing strategy for the endpoint (e.g., "FALLBACK").
+        fallback_config: Fallback configuration entity (if routing_strategy is FALLBACK).
     """
 
     endpoint_id: str
@@ -197,6 +347,8 @@ class GatewayEndpoint(_MlflowObject):
     tags: list["GatewayEndpointTag"] = field(default_factory=list)
     created_by: str | None = None
     last_updated_by: str | None = None
+    routing_strategy: RoutingStrategy | None = None
+    fallback_config: FallbackConfig | None = None
 
     def to_proto(self):
         proto = ProtoGatewayEndpoint()
@@ -208,10 +360,26 @@ class GatewayEndpoint(_MlflowObject):
         proto.tags.extend([t.to_proto() for t in self.tags])
         proto.created_by = self.created_by or ""
         proto.last_updated_by = self.last_updated_by or ""
+
+        if self.routing_strategy:
+            proto.routing_strategy = ProtoRoutingStrategy.Value(self.routing_strategy.value)
+
+        if self.fallback_config:
+            proto.fallback_config.CopyFrom(self.fallback_config.to_proto())
+
         return proto
 
     @classmethod
     def from_proto(cls, proto):
+        routing_strategy = None
+        if proto.HasField("routing_strategy"):
+            strategy_name = ProtoRoutingStrategy.Name(proto.routing_strategy)
+            routing_strategy = RoutingStrategy(strategy_name)
+
+        fallback_config = None
+        if proto.HasField("fallback_config"):
+            fallback_config = FallbackConfig.from_proto(proto.fallback_config)
+
         return cls(
             endpoint_id=proto.endpoint_id,
             name=proto.name or None,
@@ -223,6 +391,8 @@ class GatewayEndpoint(_MlflowObject):
             tags=[GatewayEndpointTag.from_proto(t) for t in proto.tags],
             created_by=proto.created_by or None,
             last_updated_by=proto.last_updated_by or None,
+            routing_strategy=routing_strategy,
+            fallback_config=fallback_config,
         )
 
 

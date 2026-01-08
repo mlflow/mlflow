@@ -5,7 +5,7 @@ import { postProcessSidebar, apiReferencePrefix } from './docusaurusConfigUtils'
 import tailwindPlugin from './src/plugins/tailwind-config.cjs';
 
 // ensure baseUrl always ends in `/`
-const baseUrl = (process.env.DOCS_BASE_URL ?? '/').replace(/\/?$/, '/');
+const baseUrl = (process.env.DOCS_BASE_URL ?? '/docs/latest/').replace(/\/?$/, '/');
 
 const config: Config = {
   title: 'MLflow',
@@ -378,7 +378,13 @@ const config: Config = {
           },
           {
             to: '/genai/tracing/quickstart',
-            from: ['/genai/tracing/quickstart/typescript-openai', '/genai/tracing/quickstart/python-openai'],
+            from: [
+              '/genai/tracing/quickstart/typescript-openai',
+              '/genai/tracing/quickstart/python-openai',
+              '/genai/tracing/app-instrumentation/typescript-sdk',
+              '/genai/tracing/app-instrumentation',
+              '/tracing/api',
+            ],
           },
           {
             to: '/genai/tracing/faq',
@@ -403,10 +409,6 @@ const config: Config = {
           {
             to: '/genai/tracing/app-instrumentation/manual-tracing',
             from: ['/tracing/api/manual-instrumentation'],
-          },
-          {
-            to: '/genai/tracing/app-instrumentation',
-            from: ['/tracing/api'],
           },
           {
             to: '/genai/tracing/search-traces',
@@ -736,24 +738,30 @@ const config: Config = {
             ],
           },
           {
-            to: '/genai/governance/ai-gateway/setup',
+            to: '/genai/governance/ai-gateway/legacy/setup',
             from: [
               '/llms/deployments/guides/step1-create-deployments',
               '/llms/gateway/guides/step1-create-gateway',
               '/genai/governance/ai-gateway/guides/step1-create-deployments',
+              '/genai/governance/ai-gateway/setup',
             ],
           },
           {
-            to: '/genai/governance/ai-gateway/usage',
+            to: '/genai/governance/ai-gateway/legacy/usage',
             from: [
               '/llms/deployments/guides/step2-query-deployments',
               '/llms/gateway/guides/step2-query-gateway',
               '/genai/governance/ai-gateway/guides/step2-query-deployments',
+              '/genai/governance/ai-gateway/usage',
             ],
           },
           {
-            to: '/genai/governance/unity-catalog',
-            from: ['/llms/deployments/uc_integration'],
+            to: '/genai/governance/ai-gateway',
+            from: [
+              '/llms/deployments/uc_integration',
+              '/genai/governance/unity-catalog',
+              '/genai/governance/ai-gateway/integration',
+            ],
           },
 
           // Traditional ML and Core MLflow Redirects

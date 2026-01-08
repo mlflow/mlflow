@@ -22,7 +22,6 @@ export { GenAiTracesTable } from './GenAITracesTable';
 export { useGenAiExperimentRunsForComparison } from './hooks/useGenAiExperimentRunsForComparison';
 export { useGenAiTraceEvaluationArtifacts } from './hooks/useGenAiTraceEvaluationArtifacts';
 export {
-  useMlflowTraces,
   useSearchMlflowTraces,
   useMlflowTracesTableMetadata,
   invalidateMlflowSearchTracesCache,
@@ -31,6 +30,7 @@ export {
 } from './hooks/useMlflowTraces';
 export { getEvalTabTotalTracesLimit } from './utils/FeatureUtils';
 export { GenAITracesTableToolbar } from './GenAITracesTableToolbar';
+export { GenAiTracesTableSearchInput } from './GenAiTracesTableSearchInput';
 export { GenAITracesTableBodyContainer } from './GenAITracesTableBodyContainer';
 export { useTableColumns } from './hooks/useTableColumns';
 export { getAssessmentInfos } from './utils/AggregationUtils';
@@ -44,6 +44,8 @@ export { MarkdownConverterProvider as GenAiTracesMarkdownConverterProvider } fro
 export { RunColorCircle } from './components/RunColorCircle';
 
 export { useSelectedColumns } from './hooks/useGenAITracesUIState';
+export { useTableSortURL } from './hooks/useTableSortURL';
+export { useColumnsURL } from './hooks/useColumnsURL';
 
 export { GenAiEvaluationTracesReviewModal } from './components/GenAiEvaluationTracesReviewModal';
 
@@ -72,6 +74,8 @@ export {
   getTraceInfoInputs,
   getTraceInfoOutputs,
   convertTraceInfoV3ToRunEvalEntry,
+  getSpanAttribute,
+  formatTraceId,
 } from './utils/TraceUtils';
 
 export {
@@ -95,7 +99,8 @@ export {
 export { shouldUseTracesV4API } from './utils/FeatureUtils';
 export { createTraceLocationForExperiment, createTraceLocationForUCSchema } from './utils/TraceLocationUtils';
 export type { GetTraceFunction } from './hooks/useGetTrace';
-export { useFetchTraceV4LazyQuery } from './hooks/useFetchTraceV4';
+export { useFetchTraceV4LazyQuery, useFetchTraceV4Query, getTraceV4QueryKey } from './hooks/useFetchTraceV4';
 export { doesTraceSupportV4API } from './utils/TraceLocationUtils';
 export { GenAIChatSessionsTable } from './sessions-table/GenAIChatSessionsTable';
 export { useGetTraces } from './hooks/useGetTraces';
+export { useGetTrace } from './hooks/useGetTrace';

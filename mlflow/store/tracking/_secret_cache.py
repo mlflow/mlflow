@@ -40,7 +40,7 @@ from collections import OrderedDict
 from threading import RLock, Thread
 from typing import Any
 
-from mlflow.utils.crypto import decrypt_with_aes_gcm, encrypt_with_aes_gcm
+from mlflow.utils.crypto import _encrypt_with_aes_gcm, decrypt_with_aes_gcm
 
 _MIN_TTL = 10
 _MAX_TTL = 300
@@ -163,11 +163,9 @@ class EphemeralCacheEncryption:
         bucket = self._get_time_bucket()
         bucket_key = self._get_bucket_key(bucket)
 
-        result = encrypt_with_aes_gcm(
+        result = _encrypt_with_aes_gcm(
             plaintext.encode("utf-8"),
             bucket_key,
-            nonce=None,
-            aad=None,
         )
 
         blob = result.nonce + result.ciphertext

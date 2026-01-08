@@ -22,6 +22,7 @@ from mlflow.entities.model_registry.prompt_version import (
 )
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.prompt.constants import (
+    PROMPT_MODEL_CONFIG_TAG_KEY,
     PROMPT_TYPE_CHAT,
     PROMPT_TYPE_TAG_KEY,
     PROMPT_TYPE_TEXT,
@@ -159,7 +160,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_ID,
     MLFLOW_DATABRICKS_JOB_RUN_ID,
     MLFLOW_DATABRICKS_NOTEBOOK_ID,
-    MLFLOW_PROMPT_MODEL_CONFIG,
 )
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import (
@@ -1529,7 +1529,7 @@ class UcModelRegistryStore(BaseRestStore):
             else:
                 config_dict = model_config
 
-            final_tags[MLFLOW_PROMPT_MODEL_CONFIG] = json.dumps(config_dict)
+            final_tags[PROMPT_MODEL_CONFIG_TAG_KEY] = json.dumps(config_dict)
         if isinstance(template, str):
             final_tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_TEXT
         else:

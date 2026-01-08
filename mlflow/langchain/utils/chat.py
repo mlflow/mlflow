@@ -14,6 +14,7 @@ from langchain_core.messages import (
     SystemMessage,
     ToolMessage,
 )
+from langchain_core.outputs import ChatGenerationChunk
 from langchain_core.outputs.generation import Generation
 
 from mlflow.environment_variables import MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN
@@ -357,6 +358,24 @@ def parse_token_usage(
     lc_generations: list[Generation],
 ) -> dict[str, int] | None:
     """Parse the token usage from the LangChain generations."""
+
+    # Check if this is streaming (contains ChatGenerationChunk)
+    is_streaming = any(isinstance(gen, ChatGenerationChunk) for gen in lc_generations)
+
+    if is_streaming:
+        # Streaming mode: collect all generations with usage, use only the last one
+        # (which contains the final cumulative token counts)
+        generations_with_usage = [
+            token_usage
+            for generation in lc_generations
+            if (token_usage := _parse_token_usage_from_generation(generation))
+        ]
+
+        if generations_with_usage:
+            return generations_with_usage[-1]
+        return None
+
+    # Non-streaming mode: existing behavior (sum all generations)
     aggregated = defaultdict(int)
     for generation in lc_generations:
         if token_usage := _parse_token_usage_from_generation(generation):

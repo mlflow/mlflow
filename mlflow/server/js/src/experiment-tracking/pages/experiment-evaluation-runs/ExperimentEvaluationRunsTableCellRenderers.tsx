@@ -28,6 +28,7 @@ import { useMemo } from 'react';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { RunPageTabName } from '../../constants';
+import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
 
 export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   row,
@@ -173,7 +174,7 @@ export const DatasetCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       </Typography.Text>
     </div>
   );
-  const tagContent = baseTagContent;
+  const tagContent = <DatasetLink dataset={displayedDataset}>{baseTagContent}</DatasetLink>;
 
   return (
     <div>
@@ -258,7 +259,10 @@ export const SortableHeaderCell = ({
         ':hover': { cursor: 'pointer', '& > div': { display: 'inline' } },
       }}
     >
-      <Tooltip componentId={`mlflow.eval-runs.sortable-header-cell.tooltip-${column.id}`} content={displayedKey}>
+      <Tooltip
+        componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_evaluation_runs_experimentevaluationrunstablecellrenderers_284"
+        content={displayedKey}
+      >
         <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', textWrap: 'nowrap' }}>
           <Typography.Text bold>{title ?? displayedKey}</Typography.Text>
         </span>

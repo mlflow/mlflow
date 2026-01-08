@@ -102,19 +102,27 @@ object DatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
 /** Datasource attribute extractor for REPL-ID aware environments (e.g. Databricks) */
 object ReplAwareDatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
   override protected def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = {
-    leafNode match {
-      case lr: LogicalRelation =>
-        // First, check whether LogicalRelation is a Delta table
-        val obj = ReflectionUtils.getScalaObjectByName("com.databricks.sql.transaction.tahoe.DeltaTable")
-        val deltaFileIndexOpt = ReflectionUtils.callMethod(obj, "unapply", Seq(lr)).asInstanceOf[Option[Any]]
-        deltaFileIndexOpt.map(fileIndex => {
-          val path = ReflectionUtils.getField(fileIndex, "path").toString
-          val versionOpt = ReflectionUtils.maybeCallMethod(fileIndex, "tableVersion", Seq.empty).orElse(
-            ReflectionUtils.maybeCallMethod(fileIndex, "version", Seq.empty)
-          ).map(_.toString)
-          SparkTableInfo(path, versionOpt, Option("delta"))
-        })
-      case other => None
+    try {
+      leafNode match {
+        case lr: LogicalRelation =>
+          // First, check whether LogicalRelation is a Delta table
+          val obj = ReflectionUtils.getScalaObjectByName("com.databricks.sql.transaction.tahoe.DeltaTable")
+          val deltaFileIndexOpt = ReflectionUtils.callMethod(obj, "unapply", Seq(lr)).asInstanceOf[Option[Any]]
+          deltaFileIndexOpt.map(fileIndex => {
+            val path = ReflectionUtils.getField(fileIndex, "path").toString
+            val versionOpt = ReflectionUtils.maybeCallMethod(fileIndex, "tableVersion", Seq.empty).orElse(
+              ReflectionUtils.maybeCallMethod(fileIndex, "version", Seq.empty)
+            ).map(_.toString)
+            SparkTableInfo(path, versionOpt, Option("delta"))
+          })
+        case other => None
+      }
+    } catch {
+      case NonFatal(e) =>
+        if (logger.isTraceEnabled) {
+          logger.trace(s"Unable to extract Delta table info: ${e.getMessage}")
+        }
+        None
     }
   }
 

@@ -1,12 +1,15 @@
 from typing import Any
 
 from mlflow.entities import (
+    FallbackConfig,
     GatewayEndpoint,
     GatewayEndpointBinding,
+    GatewayEndpointModelConfig,
     GatewayEndpointModelMapping,
     GatewayEndpointTag,
     GatewayModelDefinition,
     GatewaySecretInfo,
+    RoutingStrategy,
 )
 
 
@@ -177,6 +180,7 @@ class GatewayStoreMixin:
         secret_id: str | None = None,
         model_name: str | None = None,
         updated_by: str | None = None,
+        provider: str | None = None,
     ) -> GatewayModelDefinition:
         """
         Update a model definition.
@@ -187,6 +191,7 @@ class GatewayStoreMixin:
             secret_id: Optional new secret ID.
             model_name: Optional new model name.
             updated_by: Username of the updater.
+            provider: Optional new provider.
 
         Returns:
             Updated ModelDefinition entity.
@@ -208,17 +213,22 @@ class GatewayStoreMixin:
     def create_gateway_endpoint(
         self,
         name: str,
-        model_definition_ids: list[str],
+        model_configs: list[GatewayEndpointModelConfig],
         created_by: str | None = None,
+        routing_strategy: RoutingStrategy | None = None,
+        fallback_config: FallbackConfig | None = None,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
 
         Args:
             name: User-friendly name for the endpoint.
-            model_definition_ids: List of model definition IDs to attach to the endpoint.
-                                  At least one model definition is required.
+            model_configs: List of model configurations specifying model_definition_id,
+                          linkage_type, weight, and fallback_order for each model.
+                          At least one model configuration is required.
             created_by: Username of the creator.
+            routing_strategy: Routing strategy for the endpoint.
+            fallback_config: Fallback configuration (includes strategy and max_attempts).
 
         Returns:
             Endpoint entity with model_mappings populated.
@@ -243,16 +253,22 @@ class GatewayStoreMixin:
     def update_gateway_endpoint(
         self,
         endpoint_id: str,
-        name: str,
+        name: str | None = None,
         updated_by: str | None = None,
+        routing_strategy: RoutingStrategy | None = None,
+        fallback_config: FallbackConfig | None = None,
+        model_configs: list[GatewayEndpointModelConfig] | None = None,
     ) -> GatewayEndpoint:
         """
-        Update an endpoint's name.
+        Update an endpoint's configuration.
 
         Args:
             endpoint_id: ID of the endpoint to update.
-            name: New name for the endpoint.
+            name: Optional new name for the endpoint.
             updated_by: Username of the updater.
+            routing_strategy: Optional new routing strategy for the endpoint.
+            fallback_config: Optional fallback configuration (includes strategy and max_attempts).
+            model_configs: Optional new list of model configurations (replaces all linkages).
 
         Returns:
             Updated Endpoint entity.
@@ -290,8 +306,7 @@ class GatewayStoreMixin:
     def attach_model_to_endpoint(
         self,
         endpoint_id: str,
-        model_definition_id: str,
-        weight: float = 1.0,
+        model_config: GatewayEndpointModelConfig,
         created_by: str | None = None,
     ) -> GatewayEndpointModelMapping:
         """
@@ -299,8 +314,7 @@ class GatewayStoreMixin:
 
         Args:
             endpoint_id: ID of the endpoint to attach the model to.
-            model_definition_id: ID of the model definition to attach.
-            weight: Routing weight for traffic distribution (default 1.0).
+            model_config: Configuration for the model to attach.
             created_by: Username of the creator.
 
         Returns:

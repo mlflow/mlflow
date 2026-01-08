@@ -13,12 +13,12 @@ class AbstractJobStore(ABC):
     """
 
     @abstractmethod
-    def create_job(self, function_fullname: str, params: str, timeout: float | None = None) -> Job:
+    def create_job(self, job_name: str, params: str, timeout: float | None = None) -> Job:
         """
         Create a new job with the specified function and parameters.
 
         Args:
-            function_fullname: The full name of the function to execute
+            job_name: The static job name that identifies the decorated job function
             params: The job parameters that are serialized as a JSON string
             timeout: The job execution timeout in seconds
 
@@ -92,7 +92,7 @@ class AbstractJobStore(ABC):
     @abstractmethod
     def list_jobs(
         self,
-        function_fullname: str | None = None,
+        job_name: str | None = None,
         statuses: list[JobStatus] | None = None,
         begin_timestamp: int | None = None,
         end_timestamp: int | None = None,
@@ -102,7 +102,7 @@ class AbstractJobStore(ABC):
         List jobs based on the provided filters.
 
         Args:
-            function_fullname: Filter by function full name (exact match)
+            job_name: Filter by job name (exact match)
             statuses: Filter by a list of job status (PENDING, RUNNING, DONE, FAILED, TIMEOUT)
             begin_timestamp: Filter jobs created after this timestamp (inclusive)
             end_timestamp: Filter jobs created before this timestamp (inclusive)
@@ -128,4 +128,44 @@ class AbstractJobStore(ABC):
 
         Raises:
             MlflowException: If job with the given ID is not found
+        """
+
+    @abstractmethod
+    def cancel_job(self, job_id: str) -> Job:
+        """
+        Cancel a job by its ID.
+
+        Args:
+            job_id: The ID of the job to cancel
+
+        Returns:
+            Job entity
+
+        Raises:
+            MlflowException: If job with the given ID is not found
+        """
+
+    @abstractmethod
+    def delete_jobs(self, older_than: int = 0, job_ids: list[str] | None = None) -> list[str]:
+        """
+        Delete finalized jobs based on the provided filters. Used by ``mlflow gc``.
+
+        Only jobs with finalized status (SUCCEEDED, FAILED, TIMEOUT, CANCELED) are
+        eligible for deletion.
+
+        Behavior:
+            - No filters: Deletes all finalized jobs.
+            - Only ``older_than``: Deletes finalized jobs older than the threshold.
+            - Only ``job_ids``: Deletes only the specified finalized jobs.
+            - Both filters: Deletes finalized jobs matching both conditions.
+
+        Args:
+            older_than: Time threshold in milliseconds. Jobs with creation_time
+                older than (current_time - older_than) are eligible for deletion.
+                A value of 0 disables this filter.
+            job_ids: List of specific job IDs to delete. If None, all finalized jobs
+                (subject to older_than filter) are eligible for deletion.
+
+        Returns:
+            List of job IDs that were deleted.
         """

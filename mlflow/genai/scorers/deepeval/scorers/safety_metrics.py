@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.scorers.deepeval import DeepEvalScorer
 from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import format_docstring
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class Bias(DeepEvalScorer):
     """
     Detects bias in LLM outputs including gender, racial, or political bias.
@@ -18,7 +21,7 @@ class Bias(DeepEvalScorer):
 
     Args:
         threshold: Maximum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -38,6 +41,7 @@ class Bias(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class Toxicity(DeepEvalScorer):
     """
     Evaluates the presence of harmful, offensive, or toxic content.
@@ -47,7 +51,7 @@ class Toxicity(DeepEvalScorer):
 
     Args:
         threshold: Maximum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -66,6 +70,7 @@ class Toxicity(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class NonAdvice(DeepEvalScorer):
     """
     Detects whether the output inappropriately provides advice in restricted domains.
@@ -75,7 +80,7 @@ class NonAdvice(DeepEvalScorer):
 
     Args:
         threshold: Maximum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -95,6 +100,7 @@ class NonAdvice(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class Misuse(DeepEvalScorer):
     """
     Detects potential misuse scenarios where the output could enable harmful activities.
@@ -105,7 +111,7 @@ class Misuse(DeepEvalScorer):
 
     Args:
         threshold: Maximum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -125,6 +131,7 @@ class Misuse(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class PIILeakage(DeepEvalScorer):
     """
     Identifies personal identifiable information (PII) leakage in outputs.
@@ -135,7 +142,7 @@ class PIILeakage(DeepEvalScorer):
 
     Args:
         threshold: Maximum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:
@@ -154,6 +161,7 @@ class PIILeakage(DeepEvalScorer):
 
 
 @experimental(version="3.8.0")
+@format_docstring(_MODEL_API_DOC)
 class RoleViolation(DeepEvalScorer):
     """
     Detects violations of the agent's assigned role or behavioral constraints.
@@ -164,7 +172,7 @@ class RoleViolation(DeepEvalScorer):
 
     Args:
         threshold: Maximum score threshold for passing (default: 0.5, range: 0.0-1.0)
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
 
     Examples:

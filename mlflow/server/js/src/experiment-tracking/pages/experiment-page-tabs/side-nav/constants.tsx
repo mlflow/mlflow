@@ -2,6 +2,7 @@ import React from 'react';
 import { ExperimentKind } from '../../../constants';
 import { ExperimentPageTabName } from '../../../constants';
 import {
+  ChartLineIcon,
   DatabaseIcon,
   ForkHorizontalIcon,
   GavelIcon,
@@ -13,12 +14,13 @@ import {
   UserGroupIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { enableScorersUI } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { enableScorersUI, shouldEnableExperimentOverviewTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 export const FULL_WIDTH_CLASS_NAME = 'mlflow-experiment-page-side-nav-full';
 export const COLLAPSED_CLASS_NAME = 'mlflow-experiment-page-side-nav-collapsed';
 
 export type ExperimentPageSideNavItem = {
+  componentId: string;
   label: React.ReactNode;
   icon: React.ReactNode;
   tabName: ExperimentPageTabName;
@@ -41,6 +43,18 @@ const ExperimentPageSideNavGenAIConfig = {
       ),
       icon: <ForkHorizontalIcon />,
       tabName: ExperimentPageTabName.Traces,
+      componentId: 'mlflow.experiment-side-nav.genai.traces',
+    },
+    {
+      label: (
+        <FormattedMessage
+          defaultMessage="Sessions"
+          description="Label for the chat sessions tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <SpeechBubbleIcon />,
+      tabName: ExperimentPageTabName.ChatSessions,
+      componentId: 'mlflow.experiment-side-nav.genai.sessions',
     },
   ],
   evaluation: [
@@ -53,6 +67,7 @@ const ExperimentPageSideNavGenAIConfig = {
       ),
       icon: <DatabaseIcon />,
       tabName: ExperimentPageTabName.Datasets,
+      componentId: 'mlflow.experiment-side-nav.genai.datasets',
     },
     {
       label: (
@@ -63,6 +78,7 @@ const ExperimentPageSideNavGenAIConfig = {
       ),
       icon: <PlusMinusSquareIcon />,
       tabName: ExperimentPageTabName.EvaluationRuns,
+      componentId: 'mlflow.experiment-side-nav.genai.evaluation-runs',
     },
   ],
   'prompts-versions': [
@@ -75,6 +91,7 @@ const ExperimentPageSideNavGenAIConfig = {
       ),
       icon: <TextBoxIcon />,
       tabName: ExperimentPageTabName.Prompts,
+      componentId: 'mlflow.experiment-side-nav.genai.prompts',
     },
     {
       label: (
@@ -85,6 +102,7 @@ const ExperimentPageSideNavGenAIConfig = {
       ),
       icon: <ModelsIcon />,
       tabName: ExperimentPageTabName.Models,
+      componentId: 'mlflow.experiment-side-nav.genai.agent-versions',
     },
   ],
 };
@@ -97,6 +115,7 @@ const ExperimentPageSideNavCustomModelConfig = {
       ),
       icon: <ListIcon />,
       tabName: ExperimentPageTabName.Runs,
+      componentId: 'mlflow.experiment-side-nav.classic-ml.runs',
     },
     {
       label: (
@@ -107,6 +126,7 @@ const ExperimentPageSideNavCustomModelConfig = {
       ),
       icon: <ModelsIcon />,
       tabName: ExperimentPageTabName.Models,
+      componentId: 'mlflow.experiment-side-nav.classic-ml.models',
     },
     {
       label: (
@@ -117,12 +137,14 @@ const ExperimentPageSideNavCustomModelConfig = {
       ),
       icon: <ForkHorizontalIcon />,
       tabName: ExperimentPageTabName.Traces,
+      componentId: 'mlflow.experiment-side-nav.classic-ml.traces',
     },
   ],
 };
 
 export const getExperimentPageSideNavSectionLabel = (
   section: ExperimentPageSideNavSectionKey,
+  items: ExperimentPageSideNavItem[],
 ): React.ReactNode | undefined => {
   switch (section) {
     case 'observability':
@@ -164,10 +186,24 @@ export const useExperimentPageSideNavConfig = ({
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED
   ) {
     return {
-      ...(hasTrainingRuns
-        ? {
-            // append training runs to top-level if they exist
-            'top-level': [
+      'top-level': [
+        ...(shouldEnableExperimentOverviewTab()
+          ? [
+              {
+                label: (
+                  <FormattedMessage
+                    defaultMessage="Overview"
+                    description="Label for the overview tab in the MLflow experiment navbar"
+                  />
+                ),
+                icon: <ChartLineIcon />,
+                tabName: ExperimentPageTabName.Overview,
+                componentId: 'mlflow.experiment-side-nav.genai.overview',
+              },
+            ]
+          : []),
+        ...(hasTrainingRuns
+          ? [
               {
                 label: (
                   <FormattedMessage
@@ -177,26 +213,12 @@ export const useExperimentPageSideNavConfig = ({
                 ),
                 icon: <ListIcon />,
                 tabName: ExperimentPageTabName.Runs,
+                componentId: 'mlflow.experiment-side-nav.genai.training-runs',
               },
-            ],
-          }
-        : {
-            'top-level': [],
-          }),
-      ...ExperimentPageSideNavGenAIConfig,
-      observability: [
-        ...ExperimentPageSideNavGenAIConfig.observability,
-        {
-          label: (
-            <FormattedMessage
-              defaultMessage="Sessions"
-              description="Label for the chat sessions tab in the MLflow experiment navbar"
-            />
-          ),
-          icon: <SpeechBubbleIcon />,
-          tabName: ExperimentPageTabName.ChatSessions,
-        },
+            ]
+          : []),
       ],
+      ...ExperimentPageSideNavGenAIConfig,
       evaluation: enableScorersUI()
         ? [
             ...ExperimentPageSideNavGenAIConfig.evaluation,
@@ -209,6 +231,7 @@ export const useExperimentPageSideNavConfig = ({
               ),
               icon: <GavelIcon />,
               tabName: ExperimentPageTabName.Judges,
+              componentId: 'mlflow.experiment-side-nav.genai.judges',
             },
           ]
         : ExperimentPageSideNavGenAIConfig.evaluation,

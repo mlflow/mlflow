@@ -1,7 +1,6 @@
 import logging
 from typing import Any
 
-import mlflow
 import mlflow.anthropic
 from mlflow.anthropic.chat import convert_tool_to_mlflow_chat_tool
 from mlflow.entities import SpanType

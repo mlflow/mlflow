@@ -7,6 +7,8 @@ Usage
     mlflow server --app-name basic-auth
 """
 
+from __future__ import annotations
+
 import functools
 import importlib
 import logging
@@ -30,7 +32,11 @@ from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
-from mlflow.environment_variables import _MLFLOW_SGI_NAME, MLFLOW_FLASK_SERVER_SECRET_KEY
+from mlflow.environment_variables import (
+    _MLFLOW_SGI_NAME,
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
+)
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -1443,6 +1449,170 @@ def delete_scorer_permission():
     return make_response({})
 
 
+# =============================================================================
+# GraphQL Authorization
+# =============================================================================
+
+_auth_initialized = False
+
+
+def is_auth_enabled() -> bool:
+    return _auth_initialized
+
+
+def _graphql_get_permission_for_experiment(experiment_id: str, username: str) -> Permission:
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission
+    )
+
+
+def _graphql_get_permission_for_run(run_id: str, username: str) -> Permission:
+    run = _get_tracking_store().get_run(run_id)
+    experiment_id = run.info.experiment_id
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission
+    )
+
+
+def _graphql_get_permission_for_model(model_name: str, username: str) -> Permission:
+    return _get_permission_from_store_or_default(
+        lambda: store.get_registered_model_permission(model_name, username).permission
+    )
+
+
+def _graphql_can_read_experiment(experiment_id: str, username: str) -> bool:
+    return _graphql_get_permission_for_experiment(experiment_id, username).can_read
+
+
+def _graphql_can_read_run(run_id: str, username: str) -> bool:
+    return _graphql_get_permission_for_run(run_id, username).can_read
+
+
+def _graphql_can_read_model(model_name: str, username: str) -> bool:
+    return _graphql_get_permission_for_model(model_name, username).can_read
+
+
+class GraphQLAuthorizationMiddleware:
+    """
+    Graphene middleware that enforces per-object authorization for GraphQL queries.
+
+    This middleware checks user permissions before resolving protected fields.
+    It integrates with MLflow's basic-auth permission system.
+    """
+
+    PROTECTED_FIELDS = {
+        "mlflowGetExperiment",
+        "mlflowGetRun",
+        "mlflowListArtifacts",
+        "mlflowGetMetricHistoryBulkInterval",
+        "mlflowSearchRuns",
+        "mlflowSearchDatasets",
+    }
+
+    def resolve(self, next, root, info, **args):
+        """
+        Middleware resolve function called for every field resolution.
+
+        Args:
+            next: The next resolver in the chain
+            root: The root value object
+            info: GraphQL resolve info containing field name and context
+            args: Field arguments as keyword arguments
+
+        Returns:
+            The resolved value or an error response
+        """
+        field_name = info.field_name
+
+        if field_name not in self.PROTECTED_FIELDS:
+            return next(root, info, **args)
+
+        try:
+            authorization = authenticate_request()
+            if isinstance(authorization, Response):
+                return None
+            username = authorization.username
+
+            if store.get_user(username).is_admin:
+                return next(root, info, **args)
+        except Exception:
+            _logger.warning("GraphQL authorization failed: auth system error", exc_info=True)
+            return None
+
+        try:
+            if not self._check_authorization(field_name, args, username):
+                _logger.debug(f"GraphQL authorization denied for {field_name} by user {username}")
+                return None
+        except MlflowException:
+            return None
+        except Exception:
+            _logger.warning(f"GraphQL authorization error for {field_name}", exc_info=True)
+            return None
+
+        return next(root, info, **args)
+
+    def _check_authorization(self, field_name: str, args: dict[str, Any], username: str) -> bool:
+        """
+        Check if the user is authorized to access the requested field.
+
+        Args:
+            field_name: The GraphQL field being resolved
+            args: The field arguments
+            username: The authenticated username
+
+        Returns:
+            True if authorized, False otherwise
+        """
+        input_obj = args.get("input")
+        if input_obj is None:
+            # No input means no specific resource to check
+            return True
+
+        if field_name == "mlflowGetExperiment":
+            if experiment_id := getattr(input_obj, "experiment_id", None):
+                return _graphql_can_read_experiment(experiment_id, username)
+
+        elif field_name in ("mlflowGetRun", "mlflowListArtifacts"):
+            if run_id := (
+                getattr(input_obj, "run_id", None) or getattr(input_obj, "run_uuid", None)
+            ):
+                return _graphql_can_read_run(run_id, username)
+
+        elif field_name == "mlflowGetMetricHistoryBulkInterval":
+            run_ids = getattr(input_obj, "run_ids", None) or []
+            for run_id in run_ids:
+                if not _graphql_can_read_run(run_id, username):
+                    return False
+
+        elif field_name in ("mlflowSearchRuns", "mlflowSearchDatasets"):
+            if experiment_ids := (getattr(input_obj, "experiment_ids", None) or []):
+                readable_ids = [
+                    exp_id
+                    for exp_id in experiment_ids
+                    if _graphql_can_read_experiment(exp_id, username)
+                ]
+                if not readable_ids:
+                    return False
+                input_obj.experiment_ids = readable_ids
+
+        return True
+
+
+def get_graphql_authorization_middleware():
+    """
+    Get the GraphQL authorization middleware instance if auth is enabled.
+
+    Returns:
+        A list containing the middleware instance if auth is enabled,
+        empty list otherwise. Suitable for passing to schema.execute(middleware=...).
+    """
+    if not MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.get():
+        return []
+    if not is_auth_enabled():
+        return []
+    return [GraphQLAuthorizationMiddleware()]
+
+
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -1453,6 +1623,8 @@ def create_app(app: Flask = app):
     Returns:
         The app with authentication and authorization enabled.
     """
+    global _auth_initialized
+
     _logger.warning(
         "This feature is still experimental and may change in a future release without warning"
     )
@@ -1481,6 +1653,8 @@ def create_app(app: Flask = app):
 
     store.init_db(auth_config.database_uri)
     create_admin_user(auth_config.admin_username, auth_config.admin_password)
+
+    _auth_initialized = True
 
     app.add_url_rule(
         rule=SIGNUP,

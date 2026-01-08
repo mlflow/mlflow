@@ -11,12 +11,12 @@ from mlflow.entities.model_registry.prompt_version import (
     PromptModelConfig,
     PromptVersion,
 )
+from mlflow.prompt.constants import PROMPT_MODEL_CONFIG_TAG_KEY
 from mlflow.prompt.registry_utils import PromptCache as PromptCache
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
-from mlflow.utils.mlflow_tags import MLFLOW_PROMPT_MODEL_CONFIG
 
 
 @contextmanager
@@ -390,7 +390,7 @@ def set_prompt_model_config(
 
     with suppress_genai_migration_warning():
         MlflowClient().set_prompt_version_tag(
-            name=name, version=version, key=MLFLOW_PROMPT_MODEL_CONFIG, value=config_json
+            name=name, version=version, key=PROMPT_MODEL_CONFIG_TAG_KEY, value=config_json
         )
 
 
@@ -418,5 +418,5 @@ def delete_prompt_model_config(name: str, version: str | int) -> None:
     """
     with suppress_genai_migration_warning():
         MlflowClient().delete_prompt_version_tag(
-            name=name, version=version, key=MLFLOW_PROMPT_MODEL_CONFIG
+            name=name, version=version, key=PROMPT_MODEL_CONFIG_TAG_KEY
         )

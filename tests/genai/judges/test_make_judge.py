@@ -23,6 +23,7 @@ from mlflow.entities.assessment import (
     Expectation,
     Feedback,
 )
+from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
@@ -389,9 +390,9 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     result = judge(outputs={"text": "test output"})
     assert isinstance(result, Feedback)
     assert result.error is not None
-    # For JSON decode errors, parser handles it directly
-    assert isinstance(result.error, str)
-    assert "Invalid JSON response" in result.error
+    # String errors are converted to AssessmentError objects
+    assert isinstance(result.error, AssessmentError)
+    assert "Invalid JSON response" in result.error.error_message
 
     class MockLLMResultMissingField:
         def __init__(self):
@@ -414,9 +415,9 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     result = judge(outputs={"text": "test output"})
     assert isinstance(result, Feedback)
     assert result.error is not None
-    # For missing field errors, error is a plain string
-    assert isinstance(result.error, str)
-    assert "Response missing 'result' field" in result.error
+    # String errors are converted to AssessmentError objects
+    assert isinstance(result.error, AssessmentError)
+    assert "Response missing 'result' field" in result.error.error_message
 
     class MockLLMResultNone:
         def __init__(self):
@@ -436,9 +437,9 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     result = judge(outputs={"text": "test output"})
     assert isinstance(result, Feedback)
     assert result.error is not None
-    # For empty response errors, error is a plain string
-    assert isinstance(result.error, str)
-    assert "Empty response from Databricks judge" in result.error
+    # String errors are converted to AssessmentError objects
+    assert isinstance(result.error, AssessmentError)
+    assert "Empty response from Databricks judge" in result.error.error_message
 
 
 def test_databricks_model_works_with_trace(mock_databricks_rag_eval):
@@ -3308,6 +3309,55 @@ def test_conversation_with_expectations(mock_invoke_judge_model):
 ]
 expectations: {
   "criteria": "Should be accurate and helpful"
+}"""
+    assert user_msg.content == expected_content
+
+
+def test_conversation_with_session_level_expectations(mock_invoke_judge_model):
+    judge = make_judge(
+        name="conversation_expectations_judge",
+        instructions="Evaluate {{ conversation }} against {{ expectations }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    session_id = "test-session"
+
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"question": "What is MLflow?"})
+        span.set_outputs({"answer": "MLflow is a platform"})
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+
+    trace_id = span.trace_id
+
+    expectation = Expectation(
+        name="accuracy",
+        value="Should provide accurate information",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+        metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+    )
+    mlflow.log_assessment(trace_id=trace_id, assessment=expectation)
+
+    trace = mlflow.get_trace(trace_id)
+
+    result = judge(session=[trace])
+
+    assert isinstance(result, Feedback)
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+    user_msg = prompt[1]
+
+    expected_content = """conversation: [
+  {
+    "role": "user",
+    "content": "{'question': 'What is MLflow?'}"
+  },
+  {
+    "role": "assistant",
+    "content": "{\\"answer\\": \\"MLflow is a platform\\"}"
+  }
+]
+expectations: {
+  "accuracy": "Should provide accurate information"
 }"""
     assert user_msg.content == expected_content
 

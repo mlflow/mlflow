@@ -1,5 +1,4 @@
 import hashlib
-import json
 import threading
 import uuid
 
@@ -7,7 +6,7 @@ import mlflow
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX, call_endpoint
+from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX, http_request
 from mlflow.utils.uri import is_databricks_uri
 from mlflow.version import VERSION
 
@@ -56,17 +55,17 @@ def emit_custom_metric_event(
         "eval_count": eval_count,
         "metrics": metric_stats,
     }
-    call_endpoint(
+    http_request(
         host_creds=get_databricks_host_creds(),
         endpoint=_EVAL_TELEMETRY_ENDPOINT,
         method="POST",
-        headers={
+        extra_headers={
             _CLIENT_VERSION_HEADER: VERSION,
             _SESSION_ID_HEADER: _get_or_create_session_id(),
-            _BATCH_SIZE_HEADER: eval_count,
+            _BATCH_SIZE_HEADER: str(eval_count),
             _CLIENT_NAME_HEADER: "mlflow",
         },
-        json_body=json.dumps(event_payload),
+        json=event_payload,
     )
 
 

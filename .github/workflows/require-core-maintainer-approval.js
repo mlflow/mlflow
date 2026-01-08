@@ -13,20 +13,23 @@ const EXEMPTION_RULES = [
   // Exemption for GenAI evaluation PRs.
   {
     authors: ["alkispoly-db", "AveshCSingh", "danielseong1", "smoorjani", "SomtochiUmeh", "xsh310"],
-    allowed: ["mlflow/genai/", "tests/genai/", "docs/"],
-    excludes: [
-      "mlflow/genai/agent_server/",
-      "mlflow/genai/git_versioning/",
-      "mlflow/genai/prompts/",
-      "mlflow/genai/optimize/",
+    allowedPatterns: [
+      /^mlflow\/genai\//,
+      /^tests\/genai\//,
+      /^docs\//,
+      /^mlflow\/entities\/(assessment|dataset|evaluation|scorer)/,
     ],
+    excludedPatterns: [/^mlflow\/genai\/(agent_server|git_versioning|prompts|optimize)\//],
   },
 ];
 
+function matchesAnyPattern(path, patterns) {
+  return patterns.some((pattern) => pattern.test(path));
+}
+
 function isAllowedPath(path, rule) {
   return (
-    rule.allowed.some((allowedPath) => path.startsWith(allowedPath)) &&
-    !rule.excludes.some((exclude) => path.startsWith(exclude))
+    matchesAnyPattern(path, rule.allowedPatterns) && !matchesAnyPattern(path, rule.excludedPatterns)
   );
 }
 

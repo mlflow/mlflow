@@ -13,6 +13,7 @@ import subprocess
 import sys
 import time
 import urllib.parse
+from dataclasses import asdict
 from io import StringIO
 from pathlib import Path
 from unittest import mock
@@ -31,10 +32,15 @@ from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
     Dataset,
     DatasetInput,
+    FallbackConfig,
+    FallbackStrategy,
+    GatewayEndpointModelConfig,
+    GatewayModelLinkageType,
     GatewayResourceType,
     InputTag,
     Metric,
     Param,
+    RoutingStrategy,
     RunInputs,
     RunTag,
     Span,
@@ -49,6 +55,11 @@ from mlflow.entities.span import SpanAttributeKey
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_metrics import (
+    AggregationType,
+    MetricAggregation,
+    MetricViewType,
+)
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -71,7 +82,11 @@ from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import (
+    TRACE_SCHEMA_VERSION_KEY,
+    TraceMetricDimensionKey,
+    TraceMetricKey,
+)
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
@@ -2641,12 +2656,12 @@ def test_search_traces(mlflow_client):
         return [t.info.request_id for t in traces]
 
     # Validate search
-    traces = mlflow_client.search_traces(experiment_ids=[experiment_id])
+    traces = mlflow_client.search_traces(locations=[experiment_id])
     assert _get_request_ids(traces) == [request_id_3, request_id_2, request_id_1]
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id],
+        locations=[experiment_id],
         filter_string="status = 'OK'",
         order_by=["timestamp ASC"],
     )
@@ -2654,13 +2669,13 @@ def test_search_traces(mlflow_client):
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id],
+        locations=[experiment_id],
         max_results=2,
     )
     assert _get_request_ids(traces) == [request_id_3, request_id_2]
     assert traces.token is not None
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id],
+        locations=[experiment_id],
         page_token=traces.token,
     )
     assert _get_request_ids(traces) == [request_id_1]
@@ -2693,23 +2708,23 @@ def test_search_traces_match_text(mlflow_client, store_type):
     trace_id_2 = _create_trace(name="trace2", attributes={"test": "value2"})
     trace_id_3 = _create_trace(name="trace3", attributes={"test3": "I like it"})
 
-    traces = mlflow_client.search_traces(experiment_ids=[experiment_id])
+    traces = mlflow_client.search_traces(locations=[experiment_id])
     assert len([t.info.trace_id for t in traces]) == 3
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%trace%'"
+        locations=[experiment_id], filter_string="trace.text LIKE '%trace%'"
     )
     assert len([t.info.trace_id for t in traces]) == 3
     assert traces.token is None
 
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%value%'"
+        locations=[experiment_id], filter_string="trace.text LIKE '%value%'"
     )
     assert {t.info.trace_id for t in traces} == {trace_id_1, trace_id_2}
 
     traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%I like it%'"
+        locations=[experiment_id], filter_string="trace.text LIKE '%I like it%'"
     )
     assert [t.info.trace_id for t in traces] == [trace_id_3]
 
@@ -2864,6 +2879,44 @@ def test_set_and_delete_trace_tag(mlflow_client):
     assert "tag2" not in trace_info.tags
 
 
+def test_query_trace_metrics(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support query trace metrics")
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow_client.create_experiment("query trace metrics")
+
+    # Create test traces
+    def _create_trace(name, status):
+        span = mlflow_client.start_trace(name=name, experiment_id=experiment_id)
+        mlflow_client.end_trace(request_id=span.request_id, status=status)
+        return span.request_id
+
+    _create_trace(name="trace1", status=TraceStatus.OK)
+    _create_trace(name="trace2", status=TraceStatus.OK)
+    _create_trace(name="trace3", status=TraceStatus.ERROR)
+
+    metrics = mlflow_client._tracing_client.store.query_trace_metrics(
+        experiment_ids=[experiment_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.TRACE_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[TraceMetricDimensionKey.TRACE_STATUS],
+    )
+    assert len(metrics) == 2
+    assert asdict(metrics[0]) == {
+        "metric_name": TraceMetricKey.TRACE_COUNT,
+        "dimensions": {TraceMetricDimensionKey.TRACE_STATUS: "ERROR"},
+        "values": {"COUNT": 1},
+    }
+
+    assert asdict(metrics[1]) == {
+        "metric_name": TraceMetricKey.TRACE_COUNT,
+        "dimensions": {TraceMetricDimensionKey.TRACE_STATUS: "OK"},
+        "values": {"COUNT": 2},
+    }
+
+
 @pytest.mark.parametrize("allow_partial", [True, False])
 def test_get_trace_handler(mlflow_client, allow_partial: bool, store_type):
     if store_type == "file":
@@ -2937,12 +2990,12 @@ def test_link_traces_to_run_and_search_traces(mlflow_client, store_type):
     trace_id_3 = span3.trace_id
 
     # Search traces without run_id filter - should return all traces in experiment
-    all_traces = mlflow_client.search_traces(experiment_ids=[experiment_id])
+    all_traces = mlflow_client.search_traces(locations=[experiment_id])
     assert {t.info.trace_id for t in all_traces} == {trace_id_1, trace_id_2, trace_id_3}
 
     # Search traces with run_id filter - should return only linked traces
     linked_traces = mlflow_client.search_traces(
-        experiment_ids=[experiment_id], filter_string=f"attribute.run_id = '{run_id}'"
+        locations=[experiment_id], filter_string=f"attribute.run_id = '{run_id}'"
     )
     linked_trace_ids = [t.info.trace_id for t in linked_traces]
     assert len(linked_trace_ids) == 2
@@ -3993,6 +4046,68 @@ def test_scorer_CRUD(mlflow_client, store_type):
     mlflow_client.delete_experiment(experiment_id)
 
 
+def test_online_scoring_config(mlflow_client_with_secrets):
+    """
+    Smoke test for online scoring configuration REST APIs.
+    Tests upsert_online_scoring_config and get_online_scoring_configs.
+    """
+    experiment_id = mlflow_client_with_secrets.create_experiment("test_online_scoring")
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="test-secret", secret_value={"api_key": "sk-test"}, provider="openai"
+    )
+    model_def = store.create_gateway_model_definition(
+        name="test-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+            )
+        ],
+    )
+
+    scorer_data = {"instructions_judge_pydantic_data": {"model": f"gateway:/{endpoint.name}"}}
+    serialized_scorer = json.dumps(scorer_data)
+    scorer_version = store.register_scorer(experiment_id, "my_scorer", serialized_scorer)
+    scorer_id = scorer_version.scorer_id
+
+    config = store.upsert_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="my_scorer",
+        sample_rate=0.5,
+        filter_string="status = 'OK'",
+    )
+    assert config.scorer_id == scorer_id
+    assert config.sample_rate == 0.5
+    assert config.filter_string == "status = 'OK'"
+    assert config.experiment_id == experiment_id
+
+    configs = store.get_online_scoring_configs([scorer_id])
+    assert len(configs) == 1
+    assert configs[0].scorer_id == scorer_id
+    assert configs[0].sample_rate == 0.5
+    assert configs[0].filter_string == "status = 'OK'"
+
+    updated_config = store.upsert_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="my_scorer",
+        sample_rate=0.8,
+        filter_string="status = 'COMPLETED'",
+    )
+    assert updated_config.scorer_id == scorer_id
+    assert updated_config.sample_rate == 0.8
+    assert updated_config.filter_string == "status = 'COMPLETED'"
+
+    configs_after_update = store.get_online_scoring_configs([scorer_id])
+    assert len(configs_after_update) == 1
+    assert configs_after_update[0].sample_rate == 0.8
+    assert configs_after_update[0].filter_string == "status = 'COMPLETED'"
+
+
 @pytest.mark.parametrize("use_async", [False, True])
 @pytest.mark.asyncio
 async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type, use_async):
@@ -4126,15 +4241,18 @@ def test_create_secret_with_dict_value(mlflow_client_with_secrets):
 
     secret = store.create_gateway_secret(
         secret_name="aws-creds",
-        secret_value={"aws_access_key_id": "AKIATEST", "aws_secret_access_key": "secret123"},
+        secret_value={"aws_access_key_id": "AKIATEST1234", "aws_secret_access_key": "secret123abc"},
         provider="bedrock",
     )
 
     assert secret.secret_name == "aws-creds"
     assert secret.provider == "bedrock"
     assert secret.secret_id is not None
-    assert "aws_access_key_id" in secret.masked_value
-    assert "aws_secret_access_key" in secret.masked_value
+    assert isinstance(secret.masked_values, dict)
+    assert secret.masked_values == {
+        "aws_access_key_id": "AKI...1234",
+        "aws_secret_access_key": "sec...3abc",
+    }
 
 
 def test_update_secret_with_dict_value(mlflow_client_with_secrets):
@@ -4142,19 +4260,28 @@ def test_update_secret_with_dict_value(mlflow_client_with_secrets):
 
     secret = store.create_gateway_secret(
         secret_name="aws-creds-update",
-        secret_value={"api_key": "initial-value"},
+        secret_value={"api_key": "initial-value-1234"},
         provider="bedrock",
     )
 
+    assert isinstance(secret.masked_values, dict)
+    assert secret.masked_values == {"api_key": "ini...1234"}
+
     updated = store.update_gateway_secret(
         secret_id=secret.secret_id,
-        secret_value={"aws_access_key_id": "NEWKEY", "aws_secret_access_key": "newsecret"},
+        secret_value={
+            "aws_access_key_id": "NEWKEY123456",
+            "aws_secret_access_key": "newsecret1234",
+        },
     )
 
     assert updated.secret_id == secret.secret_id
     assert updated.secret_name == "aws-creds-update"
-    assert "aws_access_key_id" in updated.masked_value
-    assert "aws_secret_access_key" in updated.masked_value
+    assert isinstance(updated.masked_values, dict)
+    assert updated.masked_values == {
+        "aws_access_key_id": "NEW...3456",
+        "aws_secret_access_key": "new...1234",
+    }
 
 
 def test_create_and_update_compound_secret_via_rest(mlflow_client_with_secrets):
@@ -4163,8 +4290,8 @@ def test_create_and_update_compound_secret_via_rest(mlflow_client_with_secrets):
     secret = store.create_gateway_secret(
         secret_name="bedrock-aws-creds",
         secret_value={
-            "aws_access_key_id": "AKIAORIGINAL",
-            "aws_secret_access_key": "original-secret-key",
+            "aws_access_key_id": "AKIAORIGINAL1234",
+            "aws_secret_access_key": "original-secret-key-1234",
         },
         provider="bedrock",
         auth_config={"auth_mode": "access_keys", "aws_region_name": "us-east-1"},
@@ -4172,25 +4299,32 @@ def test_create_and_update_compound_secret_via_rest(mlflow_client_with_secrets):
 
     assert secret.secret_name == "bedrock-aws-creds"
     assert secret.provider == "bedrock"
-    assert "aws_access_key_id" in secret.masked_value
-    assert "aws_secret_access_key" in secret.masked_value
+    assert isinstance(secret.masked_values, dict)
+    assert secret.masked_values == {
+        "aws_access_key_id": "AKI...1234",
+        "aws_secret_access_key": "ori...1234",
+    }
 
     fetched = store.get_secret_info(secret_id=secret.secret_id)
     assert fetched.secret_id == secret.secret_id
-    assert "aws_access_key_id" in fetched.masked_value
+    assert isinstance(fetched.masked_values, dict)
+    assert fetched.masked_values == secret.masked_values
 
     updated = store.update_gateway_secret(
         secret_id=secret.secret_id,
         secret_value={
-            "aws_access_key_id": "AKIAROTATED",
-            "aws_secret_access_key": "rotated-secret-key",
+            "aws_access_key_id": "AKIAROTATED5678",
+            "aws_secret_access_key": "rotated-secret-key-5678",
         },
     )
 
     assert updated.secret_id == secret.secret_id
     assert updated.last_updated_at > secret.created_at
-    assert "aws_access_key_id" in updated.masked_value
-    assert "aws_secret_access_key" in updated.masked_value
+    assert isinstance(updated.masked_values, dict)
+    assert updated.masked_values == {
+        "aws_access_key_id": "AKI...5678",
+        "aws_secret_access_key": "rot...5678",
+    }
 
 
 def test_create_and_get_endpoint(mlflow_client_with_secrets):
@@ -4201,6 +4335,11 @@ def test_create_and_get_endpoint(mlflow_client_with_secrets):
         secret_value={"api_key": "sk-test-12345"},
         provider="openai",
     )
+    secret2 = store.create_gateway_secret(
+        secret_name="test-api-key-fallback",
+        secret_value={"api_key": "sk-test-67890"},
+        provider="anthropic",
+    )
 
     model_def = store.create_gateway_model_definition(
         name="test-model-def",
@@ -4208,21 +4347,52 @@ def test_create_and_get_endpoint(mlflow_client_with_secrets):
         provider="openai",
         model_name="gpt-4",
     )
+    model_def_fallback = store.create_gateway_model_definition(
+        name="test-model-def-fallback",
+        secret_id=secret2.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet",
+    )
 
     endpoint = store.create_gateway_endpoint(
         name="test-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def_fallback.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+        ],
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
     )
 
     assert endpoint.name == "test-endpoint"
     assert endpoint.endpoint_id is not None
-    assert len(endpoint.model_mappings) == 1
+    assert len(endpoint.model_mappings) == 2
     assert endpoint.model_mappings[0].model_definition.model_name == "gpt-4"
+    assert endpoint.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert endpoint.fallback_config is not None
+    assert endpoint.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert endpoint.fallback_config.max_attempts == 2
 
     fetched = store.get_gateway_endpoint(endpoint.endpoint_id)
     assert fetched.name == "test-endpoint"
     assert fetched.endpoint_id == endpoint.endpoint_id
-    assert len(fetched.model_mappings) == 1
+    assert len(fetched.model_mappings) == 2
+    assert fetched.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert fetched.fallback_config is not None
+    assert fetched.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert fetched.fallback_config.max_attempts == 2
 
 
 def test_update_endpoint(mlflow_client_with_secrets):
@@ -4233,6 +4403,11 @@ def test_update_endpoint(mlflow_client_with_secrets):
         secret_value={"api_key": "sk-test-67890"},
         provider="anthropic",
     )
+    secret2 = store.create_gateway_secret(
+        secret_name="test-api-key-2-fallback",
+        secret_value={"api_key": "sk-test-99999"},
+        provider="openai",
+    )
 
     model_def = store.create_gateway_model_definition(
         name="test-model-def-2",
@@ -4240,19 +4415,54 @@ def test_update_endpoint(mlflow_client_with_secrets):
         provider="anthropic",
         model_name="claude-3-5-sonnet",
     )
+    model_def_fallback = store.create_gateway_model_definition(
+        name="test-model-def-2-fallback",
+        secret_id=secret2.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
 
     endpoint = store.create_gateway_endpoint(
         name="initial-name",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     updated = store.update_gateway_endpoint(
         endpoint_id=endpoint.endpoint_id,
         name="updated-name",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def_fallback.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+        ],
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=3,
+        ),
     )
 
     assert updated.endpoint_id == endpoint.endpoint_id
     assert updated.name == "updated-name"
+    assert updated.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert updated.fallback_config is not None
+    assert updated.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert updated.fallback_config.max_attempts == 3
+    assert len(updated.model_mappings) == 2
 
 
 def test_list_endpoints(mlflow_client_with_secrets):
@@ -4268,6 +4478,11 @@ def test_list_endpoints(mlflow_client_with_secrets):
         secret_value={"api_key": "sk-test-22222"},
         provider="openai",
     )
+    secret3 = store.create_gateway_secret(
+        secret_name="test-api-key-fallback-3",
+        secret_value={"api_key": "sk-test-44444"},
+        provider="anthropic",
+    )
 
     model_def1 = store.create_gateway_model_definition(
         name="test-model-def-3",
@@ -4281,14 +4496,45 @@ def test_list_endpoints(mlflow_client_with_secrets):
         provider="openai",
         model_name="gpt-3.5-turbo",
     )
+    model_def3 = store.create_gateway_model_definition(
+        name="test-model-def-fallback-3",
+        secret_id=secret3.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet",
+    )
 
+    # Create endpoint without fallback
     endpoint1 = store.create_gateway_endpoint(
         name="endpoint-1",
-        model_definition_ids=[model_def1.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
+    # Create endpoint with fallback
     endpoint2 = store.create_gateway_endpoint(
         name="endpoint-2",
-        model_definition_ids=[model_def2.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def3.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+        ],
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=2,
+        ),
     )
 
     all_endpoints = store.list_gateway_endpoints()
@@ -4296,6 +4542,18 @@ def test_list_endpoints(mlflow_client_with_secrets):
     endpoint_ids = {e.endpoint_id for e in all_endpoints}
     assert endpoint1.endpoint_id in endpoint_ids
     assert endpoint2.endpoint_id in endpoint_ids
+
+    # Find and verify endpoints
+    found_ep1 = next(e for e in all_endpoints if e.endpoint_id == endpoint1.endpoint_id)
+    found_ep2 = next(e for e in all_endpoints if e.endpoint_id == endpoint2.endpoint_id)
+
+    assert found_ep1.routing_strategy is None
+    assert found_ep1.fallback_config is None
+
+    assert found_ep2.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT
+    assert found_ep2.fallback_config is not None
+    assert found_ep2.fallback_config.strategy == FallbackStrategy.SEQUENTIAL
+    assert found_ep2.fallback_config.max_attempts == 2
 
 
 def test_delete_endpoint(mlflow_client_with_secrets):
@@ -4316,7 +4574,13 @@ def test_delete_endpoint(mlflow_client_with_secrets):
 
     endpoint = store.create_gateway_endpoint(
         name="temp-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     store.delete_gateway_endpoint(endpoint.endpoint_id)
@@ -4392,7 +4656,13 @@ def test_attach_detach_model_to_endpoint(mlflow_client_with_secrets):
 
     endpoint = store.create_gateway_endpoint(
         name="attach-test-endpoint",
-        model_definition_ids=[model_def1.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     assert len(endpoint.model_mappings) == 1
@@ -4400,7 +4670,11 @@ def test_attach_detach_model_to_endpoint(mlflow_client_with_secrets):
 
     mapping = store.attach_model_to_endpoint(
         endpoint_id=endpoint.endpoint_id,
-        model_definition_id=model_def2.model_definition_id,
+        model_config=GatewayEndpointModelConfig(
+            model_definition_id=model_def2.model_definition_id,
+            linkage_type=GatewayModelLinkageType.PRIMARY,
+            weight=1.0,
+        ),
     )
 
     assert mapping.endpoint_id == endpoint.endpoint_id
@@ -4443,12 +4717,24 @@ def test_endpoint_bindings(mlflow_client_with_secrets):
 
     endpoint1 = store.create_gateway_endpoint(
         name="binding-test-endpoint-1",
-        model_definition_ids=[model_def1.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     endpoint2 = store.create_gateway_endpoint(
         name="binding-test-endpoint-2",
-        model_definition_ids=[model_def2.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     binding1 = store.create_endpoint_binding(
@@ -4529,12 +4815,22 @@ def test_secrets_and_endpoints_integration(mlflow_client_with_secrets):
 
     endpoint = store.create_gateway_endpoint(
         name="integration-endpoint",
-        model_definition_ids=[model_def1.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     mapping = store.attach_model_to_endpoint(
         endpoint_id=endpoint.endpoint_id,
-        model_definition_id=model_def2.model_definition_id,
+        model_config=GatewayEndpointModelConfig(
+            model_definition_id=model_def2.model_definition_id,
+            linkage_type=GatewayModelLinkageType.PRIMARY,
+            weight=1.0,
+        ),
     )
 
     binding = store.create_endpoint_binding(
@@ -4574,7 +4870,7 @@ def test_list_providers(mlflow_client_with_secrets):
     import requests
 
     base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
-    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/endpoints/supported-providers")
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-providers")
     assert response.status_code == 200
     data = response.json()
     assert "providers" in data
@@ -4590,7 +4886,7 @@ def test_list_models(mlflow_client_with_secrets):
     import requests
 
     base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
-    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/endpoints/supported-models")
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-models")
     assert response.status_code == 200
     data = response.json()
     assert "models" in data
@@ -4603,7 +4899,7 @@ def test_list_models(mlflow_client_with_secrets):
     assert "mode" in model
 
     response = requests.get(
-        f"{base_url}/ajax-api/3.0/mlflow/endpoints/supported-models", params={"provider": "openai"}
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-models", params={"provider": "openai"}
     )
     assert response.status_code == 200
     filtered_data = response.json()
@@ -4620,7 +4916,7 @@ def test_get_provider_config(mlflow_client_with_secrets):
 
     # Test simple provider (openai) - should have single api_key auth mode
     response = requests.get(
-        f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config",
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config",
         params={"provider": "openai"},
     )
     assert response.status_code == 200
@@ -4634,14 +4930,14 @@ def test_get_provider_config(mlflow_client_with_secrets):
 
     # Test multi-mode provider (bedrock) - should have multiple auth modes
     response = requests.get(
-        f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config",
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config",
         params={"provider": "bedrock"},
     )
     assert response.status_code == 200
     data = response.json()
     assert "auth_modes" in data
-    assert data["default_mode"] == "access_keys"
-    assert len(data["auth_modes"]) >= 2  # access_keys, iam_role, session_token
+    assert data["default_mode"] == "api_key"
+    assert len(data["auth_modes"]) >= 2  # api_key, access_keys, iam_role
 
     # Check access_keys mode structure
     access_keys_mode = next(m for m in data["auth_modes"] if m["mode"] == "access_keys")
@@ -4655,7 +4951,7 @@ def test_get_provider_config(mlflow_client_with_secrets):
 
     # Unknown providers get a generic fallback
     response = requests.get(
-        f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config",
+        f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config",
         params={"provider": "unknown_provider"},
     )
     assert response.status_code == 200
@@ -4664,5 +4960,113 @@ def test_get_provider_config(mlflow_client_with_secrets):
     assert data["auth_modes"][0]["mode"] == "api_key"
 
     # Missing provider parameter returns 400
-    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/endpoints/provider-config")
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config")
     assert response.status_code == 400
+
+
+def test_get_secrets_config_with_custom_passphrase(mlflow_client_with_secrets):
+    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
+
+    response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/secrets/config")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["secrets_available"] is True
+    assert data["using_default_passphrase"] is False
+
+
+def test_get_secrets_config_with_default_passphrase(tmp_path: Path, monkeypatch):
+    from tests.tracking.integration_test_utils import ServerThread, get_safe_port
+
+    monkeypatch.delenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", raising=False)
+
+    backend_uri = f"sqlite:///{tmp_path}/mlflow.db"
+    artifact_uri = (tmp_path / "artifacts").as_uri()
+
+    store = SqlAlchemyStore(backend_uri, artifact_uri)
+    store.engine.dispose()
+
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(backend_uri, default_artifact_root=artifact_uri)
+
+    with ServerThread(app, get_safe_port()) as url:
+        response = requests.get(f"{url}/ajax-api/3.0/mlflow/gateway/secrets/config")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["secrets_available"] is True
+        assert data["using_default_passphrase"] is True
+
+
+def test_endpoint_with_orphaned_model_definition(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="orphan-test-key",
+        secret_value={"api_key": "sk-orphan-test"},
+        provider="openai",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="orphan-model-def",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="orphan-test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    assert len(endpoint.model_mappings) == 1
+    assert endpoint.model_mappings[0].model_definition.secret_id == secret.secret_id
+    assert endpoint.model_mappings[0].model_definition.secret_name == "orphan-test-key"
+
+    store.delete_gateway_secret(secret.secret_id)
+
+    fetched_endpoint = store.get_gateway_endpoint(endpoint.endpoint_id)
+    assert len(fetched_endpoint.model_mappings) == 1
+    assert fetched_endpoint.model_mappings[0].model_definition.secret_id is None
+    assert fetched_endpoint.model_mappings[0].model_definition.secret_name is None
+
+
+def test_update_model_definition_provider(mlflow_client_with_secrets):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="provider-update-secret",
+        secret_value={"api_key": "sk-provider-test"},
+        provider="openai",
+    )
+
+    model_def = store.create_gateway_model_definition(
+        name="provider-update-model-def",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+    assert model_def.provider == "openai"
+    assert model_def.model_name == "gpt-4"
+
+    updated = store.update_gateway_model_definition(
+        model_definition_id=model_def.model_definition_id,
+        provider="anthropic",
+        model_name="claude-3-5-haiku-latest",
+    )
+
+    assert updated.provider == "anthropic"
+    assert updated.model_name == "claude-3-5-haiku-latest"
+
+    fetched = store.get_gateway_model_definition(model_def.model_definition_id)
+    assert fetched.provider == "anthropic"
+    assert fetched.model_name == "claude-3-5-haiku-latest"
+
+    store.delete_gateway_model_definition(model_def.model_definition_id)
+    store.delete_gateway_secret(secret.secret_id)

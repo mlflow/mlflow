@@ -26,10 +26,10 @@
 
     // Test and storybook files
     "**/*.test.{js,jsx,ts,tsx}",
-    "**/*.stories.{js,jsx,ts,tsx}"
+    "**/*.stories.{js,jsx,ts,tsx}",
   ],
   // Only warn on unused files and exports
   "include": ["files", "exports"],
   "ignore": ["**/*.d.ts", "src/shared/{databricks_edge,web-shared}/**/*.{js,jsx,ts,tsx}", "**/*.{js,jsx,ts,tsx}"],
-  "project": ["src/**/*.{js,jsx,ts,tsx}"]
+  "project": ["src/**/*.{js,jsx,ts,tsx}"],
 }
