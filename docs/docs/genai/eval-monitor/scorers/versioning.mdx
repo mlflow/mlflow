@@ -87,7 +87,7 @@ latest_judge = get_scorer(name="response_quality")
 The `list_scorers` function returns a list of the scorers registered in the experiment.
 
 ```python
-from mlflow.genai.scorers import list_scorers
+from mlflow.genai import list_scorers
 
 all_scorers = list_scorers(experiment_id=experiment_id)
 for scorer in all_scorers:
