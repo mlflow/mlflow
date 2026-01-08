@@ -5,13 +5,10 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from mlflow.assistant.providers.base import AssistantProvider
-from mlflow.server.assistant.api import (
-    SESSION_DIR,
-    _require_localhost,
-    _validate_session_id,
-    assistant_router,
-)
+from mlflow.assistant.providers.base import AssistantProvider, ProviderConfig
+from mlflow.assistant.types import Event, Message
+from mlflow.server.assistant.api import _require_localhost, assistant_router
+from mlflow.server.assistant.session import SESSION_DIR, SessionManager
 
 
 class MockProvider(AssistantProvider):
@@ -24,12 +21,12 @@ class MockProvider(AssistantProvider):
     def is_available(self) -> bool:
         return True
 
-    def load_config(self) -> dict[str, str]:
-        return {}
+    def load_config(self) -> ProviderConfig:
+        return ProviderConfig()
 
-    async def run(self, prompt: str, session_id: str | None = None):
-        yield {"type": "message", "data": {"text": "Hello from mock"}}
-        yield {"type": "done", "data": {"status": "complete", "session_id": "mock-session-123"}}
+    async def astream(self, prompt: str, session_id: str | None = None):
+        yield Event.from_message(message=Message(role="user", content="Hello from mock"))
+        yield Event.from_result(result="complete", session_id="mock-session-123")
 
 
 @pytest.fixture(autouse=True)
@@ -144,7 +141,16 @@ async def test_localhost_blocks_external_ip():
     mock_request = MagicMock()
     mock_request.client.host = "192.168.1.100"
 
-    with pytest.raises(HTTPException, match="localhost"):
+    with pytest.raises(HTTPException, match="same host"):
+        await _require_localhost(mock_request)
+
+
+@pytest.mark.asyncio
+async def test_localhost_blocks_external_hostname():
+    mock_request = MagicMock()
+    mock_request.client.host = "external.example.com"
+
+    with pytest.raises(HTTPException, match="same host"):
         await _require_localhost(mock_request)
 
 
@@ -153,20 +159,20 @@ async def test_localhost_blocks_when_no_client():
     mock_request = MagicMock()
     mock_request.client = None
 
-    with pytest.raises(HTTPException, match="localhost"):
+    with pytest.raises(HTTPException, match="same host"):
         await _require_localhost(mock_request)
 
 
 def test_validate_session_id_accepts_valid_uuid():
     valid_uuid = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
-    _validate_session_id(valid_uuid)  # Should not raise
+    SessionManager.validate_session_id(valid_uuid)  # Should not raise
 
 
 def test_validate_session_id_rejects_invalid_format():
     with pytest.raises(ValueError, match="Invalid session ID format"):
-        _validate_session_id("invalid-session-id")
+        SessionManager.validate_session_id("invalid-session-id")
 
 
 def test_validate_session_id_rejects_path_traversal():
     with pytest.raises(ValueError, match="Invalid session ID format"):
-        _validate_session_id("../../../etc/passwd")
+        SessionManager.validate_session_id("../../../etc/passwd")

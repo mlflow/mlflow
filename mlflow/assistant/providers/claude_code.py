@@ -12,11 +12,24 @@ import shutil
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
-from mlflow.assistant.providers.base import AssistantProvider
+from mlflow.assistant.providers.base import MLFLOW_ASSISTANT_HOME, AssistantProvider, ProviderConfig
+from mlflow.assistant.types import (
+    ContentBlock,
+    Event,
+    Message,
+    TextBlock,
+    ThinkingBlock,
+    ToolResultBlock,
+    ToolUseBlock,
+)
 
 _logger = logging.getLogger(__name__)
 
-CLAUDE_CONFIG_FILE = Path.home() / ".mlflow" / "assistant" / "claude-config.json"
+
+class ClaudeCodeAssistantConfig(ProviderConfig):
+    model: str = "default"
+    project_path: str | None = None
+
 
 # TODO: to be updated
 CLAUDE_SYSTEM_PROMPT = """You are an MLflow assistant helping users with their MLflow projects."""
@@ -29,46 +42,45 @@ class ClaudeCodeProvider(AssistantProvider):
     def name(self) -> str:
         return "claude_code"
 
+    @property
+    def config_path(self) -> Path:
+        return MLFLOW_ASSISTANT_HOME / "claude-config.json"
+
     def is_available(self) -> bool:
-        """Check if Claude Code CLI is available."""
         return shutil.which("claude") is not None
 
-    def load_config(self) -> dict[str, Any]:
-        """Load Claude config from file."""
-        if CLAUDE_CONFIG_FILE.exists():
-            try:
-                with open(CLAUDE_CONFIG_FILE) as f:
-                    return json.load(f)
-            except (json.JSONDecodeError, IOError):
-                pass
-        return {}
+    def load_config(self) -> ProviderConfig:
+        # Use default config if no config file exists
+        if not self.config_path.exists():
+            return ClaudeCodeAssistantConfig()
 
-    async def run(
+        with open(self.config_path) as f:
+            return ClaudeCodeAssistantConfig.model_validate_json(f.read())
+
+    async def astream(
         self,
         prompt: str,
         session_id: str | None = None,
-    ) -> AsyncGenerator[dict[str, Any], None]:
+    ) -> AsyncGenerator[Event, None]:
         """
-        Run Claude Code CLI and stream responses.
+        Stream responses from Claude Code CLI asynchronously.
 
         Args:
             prompt: The prompt to send to Claude
             session_id: Claude session ID for resume
 
         Yields:
-            Event dictionaries with type and data
+            Event objects
         """
         claude_path = shutil.which("claude")
         if not claude_path:
-            yield {
-                "type": "error",
-                "data": {"error": "Claude CLI not found. Please install Claude Code CLI."},
-            }
+            yield Event.from_error(
+                "Claude CLI not found. Please install Claude Code CLI and ensure it's in your PATH."
+            )
             return
 
         config = self.load_config()
-        cwd = config.get("projectPath")
-        model = config.get("model")
+        cwd = config.project_path
 
         # Build command
         # Note: --verbose is required when using --output-format=stream-json with -p
@@ -77,8 +89,8 @@ class ClaudeCodeProvider(AssistantProvider):
         # Add system prompt
         cmd.extend(["--append-system-prompt", CLAUDE_SYSTEM_PROMPT])
 
-        if model and model != "default":
-            cmd.extend(["--model", model])
+        if config.model and config.model != "default":
+            cmd.extend(["--model", config.model])
 
         if session_id:
             cmd.extend(["--resume", session_id])
@@ -91,7 +103,6 @@ class ClaudeCodeProvider(AssistantProvider):
                 cwd=cwd,
             )
 
-            new_session_id = None
             async for line in process.stdout:
                 line_str = line.decode("utf-8").strip()
                 if not line_str:
@@ -99,37 +110,12 @@ class ClaudeCodeProvider(AssistantProvider):
 
                 try:
                     data = json.loads(line_str)
-                    msg_type = data.get("type", "")
-
-                    # Extract session ID if present
-                    if "session_id" in data:
-                        new_session_id = data["session_id"]
-
-                    # Handle different message types
-                    if msg_type == "assistant":
-                        content = data.get("message", {}).get("content", [])
-                        text_parts = [
-                            block.get("text", "")
-                            for block in content
-                            if block.get("type") == "text"
-                        ]
-                        if text_parts:
-                            text = " ".join(text_parts)
-                            yield {"type": "message", "data": {"text": text}}
-
-                    elif msg_type == "result":
-                        yield {
-                            "type": "done",
-                            "data": {"status": "complete", "session_id": new_session_id},
-                        }
-
-                    elif msg_type == "error":
-                        error_msg = data.get("error", {}).get("message", "Unknown error")
-                        yield {"type": "error", "data": {"error": error_msg}}
+                    if msg := self._parse_message_to_event(data):
+                        yield msg
 
                 except json.JSONDecodeError:
                     # Non-JSON output, treat as plain text
-                    yield {"type": "message", "data": {"text": line_str}}
+                    yield Event.from_message(Message(role="user", content=line_str))
 
             # Wait for process to complete
             await process.wait()
@@ -140,8 +126,125 @@ class ClaudeCodeProvider(AssistantProvider):
                     stderr.decode("utf-8").strip()
                     or f"Process exited with code {process.returncode}"
                 )
-                yield {"type": "error", "data": {"error": error_msg}}
+                yield Event.from_error(error_msg)
 
         except Exception as e:
             _logger.exception("Error running Claude Code CLI")
-            yield {"type": "error", "data": {"error": str(e)}}
+            yield Event.from_error(str(e))
+
+    def _parse_message_to_event(self, data: dict[str, Any]) -> Event | None:
+        """
+        Parse json message from Claude Code CLI output.
+
+        Reference: https://github.com/anthropics/claude-agent-sdk-python/blob/29c12cd80b256e88f321b2b8f1f5a88445077aa5/src/claude_agent_sdk/_internal/message_parser.py#L24
+
+        Args:
+            data: Raw message dictionary from CLI output
+
+        Returns:
+            Parsed Event object
+        """
+        message_type = data.get("type")
+        if not message_type:
+            return Event.from_error("Message missing 'type' field")
+
+        match message_type:
+            case "user":
+                try:
+                    if isinstance(data["message"]["content"], list):
+                        user_content_blocks = []
+                        for block in data["message"]["content"]:
+                            match block["type"]:
+                                case "text":
+                                    user_content_blocks.append(TextBlock(text=block["text"]))
+                                case "tool_use":
+                                    user_content_blocks.append(
+                                        ToolUseBlock(
+                                            id=block["id"],
+                                            name=block["name"],
+                                            input=block["input"],
+                                        )
+                                    )
+                                case "tool_result":
+                                    user_content_blocks.append(
+                                        ToolResultBlock(
+                                            tool_use_id=block["tool_use_id"],
+                                            content=block.get("content"),
+                                            is_error=block.get("is_error"),
+                                        )
+                                    )
+                            msg = Message(role="user", content=user_content_blocks)
+                    else:
+                        msg = Message(role="user", content=data["message"]["content"])
+                    return Event.from_message(msg)
+                except KeyError as e:
+                    return Event.from_error(f"Failed to parse user message: {e}")
+
+            case "assistant":
+                try:
+                    if data["message"].get("error"):
+                        return Event.from_error(data["message"]["error"])
+
+                    content_blocks: list[ContentBlock] = []
+                    for block in data["message"]["content"]:
+                        match block["type"]:
+                            case "text":
+                                content_blocks.append(TextBlock(text=block["text"]))
+                            case "thinking":
+                                content_blocks.append(
+                                    ThinkingBlock(
+                                        thinking=block["thinking"],
+                                        signature=block["signature"],
+                                    )
+                                )
+                            case "tool_use":
+                                content_blocks.append(
+                                    ToolUseBlock(
+                                        id=block["id"],
+                                        name=block["name"],
+                                        input=block["input"],
+                                    )
+                                )
+                            case "tool_result":
+                                content_blocks.append(
+                                    ToolResultBlock(
+                                        tool_use_id=block["tool_use_id"],
+                                        content=block.get("content"),
+                                        is_error=block.get("is_error"),
+                                    )
+                                )
+
+                    msg = Message(role="assistant", content=content_blocks)
+                    return Event.from_message(msg)
+                except KeyError as e:
+                    return Event.from_error(f"Failed to parse assistant message: {e}")
+
+            case "system":
+                # NB: Skip system message. The system message from Claude Code CLI contains
+                # the various metadata about runtime, which is not used by the assistant UX.
+                return None
+
+            case "error":
+                try:
+                    error_msg = data.get("error", {}).get("message", str(data.get("error")))
+                    return Event.from_error(error_msg)
+                except Exception as e:
+                    return Event.from_error(f"Failed to parse error message: {e}")
+
+            case "result":
+                try:
+                    return Event.from_result(
+                        result=data.get("result"),
+                        session_id=data["session_id"],
+                    )
+                except KeyError as e:
+                    return Event.from_error(f"Failed to parse result message: {e}")
+
+            case "stream_event":
+                try:
+                    return Event.from_stream_event(event=data["event"])
+                except KeyError as e:
+                    return Event.from_error(f"Failed to parse stream_event message: {e}")
+
+            case _:
+                return Event.from_error(f"Unknown message type: {message_type}")
