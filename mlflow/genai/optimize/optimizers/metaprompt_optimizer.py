@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import textwrap
 from typing import Any
 
 import mlflow
@@ -14,8 +15,10 @@ _logger = logging.getLogger(__name__)
 
 
 # Unified meta-prompt template that supports both zero-shot and few-shot modes
-META_PROMPT_TEMPLATE = """You are an expert prompt engineer. Your task is to improve
-the following prompts to achieve better performance.
+META_PROMPT_TEMPLATE = textwrap.dedent(
+    """\
+    You are an expert prompt engineer. Your task is to improve
+    the following prompts to achieve better performance.
 
 CURRENT PROMPTS:
 {current_prompts_formatted}
@@ -80,7 +83,8 @@ REMINDER:
 
 Do not include any text before or after the JSON object. Do not include
 explanations or reasoning.
-"""
+    """
+)
 
 
 @experimental(version="3.9.0")
@@ -261,6 +265,9 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         try:
             improved_prompts = self._call_reflection_model(meta_prompt)
 
+            # Validate prompt names match
+            self._validate_prompt_names(target_prompts, improved_prompts)
+
             # Validate template variables are preserved in improved prompts
             self._validate_template_variables(target_prompts, improved_prompts)
 
@@ -319,6 +326,9 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         try:
             improved_prompts = self._call_reflection_model(meta_prompt)
 
+            # Validate prompt names match
+            self._validate_prompt_names(target_prompts, improved_prompts)
+
             # Validate template variables are preserved
             self._validate_template_variables(target_prompts, improved_prompts)
 
@@ -365,6 +375,36 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             variables[name] = set(matches)
         return variables
 
+    def _validate_prompt_names(
+        self, original_prompts: dict[str, str], new_prompts: dict[str, str]
+    ) -> bool:
+        """
+        Validate that prompt names match between original and new prompts.
+
+        Args:
+            original_prompts: Original prompt templates
+            new_prompts: New prompt templates to validate
+
+        Returns:
+            True if valid
+
+        Raises:
+            MlflowException: If prompt names don't match
+        """
+        # Check for unexpected prompts in the improved prompts
+        if unexpected_prompts := set(new_prompts) - set(original_prompts):
+            raise MlflowException(
+                f"Unexpected prompts found in improved prompts: {sorted(unexpected_prompts)}"
+            )
+
+        # Check for missing prompts in the improved prompts
+        if missing_prompts := set(original_prompts) - set(new_prompts):
+            raise MlflowException(
+                f"Prompts missing from improved prompts: {sorted(missing_prompts)}"
+            )
+
+        return True
+
     def _validate_template_variables(
         self, original_prompts: dict[str, str], new_prompts: dict[str, str]
     ) -> bool:
@@ -373,9 +413,6 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         new_vars = self._extract_template_variables(new_prompts)
 
         for name in original_prompts:
-            if name not in new_prompts:
-                raise MlflowException(f"Prompt '{name}' missing from improved prompts")
-
             if original_vars[name] != new_vars[name]:
                 missing = original_vars[name] - new_vars[name]
                 extra = new_vars[name] - original_vars[name]
@@ -445,6 +482,11 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         )
 
         # Calculate current score from evaluation results
+        if not eval_results:
+            raise MlflowException(
+                "Few-shot metaprompting requires evaluation results. "
+                "No evaluation results were provided to _build_few_shot_meta_prompt."
+            )
         current_score = sum(result.score for result in eval_results) / len(eval_results)
 
         # Format examples and their evaluation results in the meta-prompt
@@ -546,6 +588,7 @@ have prevented the failures you identified."""
                 # Set span inputs
                 span.set_inputs({"meta_prompt": meta_prompt, "model": litellm_model})
 
+                content = None  # Initialize to avoid NameError in exception handler
                 response = litellm.completion(**litellm_params)
 
                 # Extract and parse response
@@ -580,8 +623,10 @@ have prevented the failures you identified."""
                 return improved_prompts
 
         except json.JSONDecodeError as e:
+            response_preview = content[:2000] if content else "No content received"
             raise MlflowException(
-                f"Failed to parse reflection model response as JSON: {e}\nResponse: {content[:500]}"
+                f"Failed to parse reflection model response as JSON: {e}\n"
+                f"Response: {response_preview}"
             ) from e
         except Exception as e:
             raise MlflowException(f"Failed to call reflection model {litellm_model}: {e}") from e

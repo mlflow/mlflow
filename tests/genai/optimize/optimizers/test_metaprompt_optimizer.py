@@ -144,13 +144,33 @@ def test_validate_template_variables_extra_var():
         optimizer._validate_template_variables(original, new)
 
 
-def test_validate_template_variables_missing_prompt():
+def test_validate_prompt_names_missing():
     optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
     original = {"instruction": "Answer {{question}}", "system": "You are helpful"}
-    new = {"instruction": "Answer {{question}}"}  # Missing system prompt
+    new = {"instruction": "Answer {{question}}"}
 
-    with pytest.raises(MlflowException, match="Prompt 'system' missing"):
-        optimizer._validate_template_variables(original, new)
+    with pytest.raises(MlflowException, match="Prompts missing.*system"):
+        optimizer._validate_prompt_names(original, new)
+
+
+def test_validate_prompt_names_unexpected():
+    optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
+    original = {"instruction": "Answer {{question}}"}
+    new = {
+        "instruction": "Answer {{question}}",
+        "extra_prompt": "This is unexpected",
+    }
+
+    with pytest.raises(MlflowException, match="Unexpected prompts.*extra_prompt"):
+        optimizer._validate_prompt_names(original, new)
+
+
+def test_validate_prompt_names_success():
+    optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
+    original = {"instruction": "Answer {{question}}", "system": "You are helpful"}
+    new = {"instruction": "Answer {{question}}", "system": "You are an expert"}
+
+    assert optimizer._validate_prompt_names(original, new) is True
 
 
 def test_build_zero_shot_meta_prompt(sample_target_prompts):
@@ -178,6 +198,14 @@ def test_build_few_shot_meta_prompt(sample_train_data, sample_target_prompts, mo
     assert "Example 1:" in meta_prompt
     assert "Score:" in meta_prompt
     assert "JSON" in meta_prompt
+
+
+def test_build_few_shot_meta_prompt_empty_eval_results(sample_target_prompts):
+    optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
+    template_vars = optimizer._extract_template_variables(sample_target_prompts)
+
+    with pytest.raises(MlflowException, match="Few-shot metaprompting requires evaluation results"):
+        optimizer._build_few_shot_meta_prompt(sample_target_prompts, template_vars, [])
 
 
 def test_format_examples(sample_train_data, mock_eval_fn):
