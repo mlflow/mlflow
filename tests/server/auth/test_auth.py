@@ -365,13 +365,13 @@ def test_create_and_delete_registered_model(client, monkeypatch):
 
 def _wait(url: str):
     t = time.time()
-    while time.time() - t < 5:
+    while time.time() - t < 10:
         try:
-            if requests.get(f"{url}/health").ok:
+            if requests.get(f"{url}/api/2.0/mlflow/version").ok:
                 yield
         except requests.exceptions.ConnectionError:
             pass
-        time.sleep(1)
+        time.sleep(0.5)
 
     pytest.fail("Server did not start")
 
