@@ -59,6 +59,8 @@ interface LLMTemplateSectionProps {
   currentTemplate: string;
 }
 
+const TEMPLATES_WITH_GUIDELINES = [LLM_TEMPLATE.GUIDELINES, LLM_TEMPLATE.CONVERSATIONAL_GUIDELINES];
+
 const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, setValue, currentTemplate }) => {
   const { theme } = useDesignSystemTheme();
   const { watch } = useFormContext<LLMScorerFormData>();
@@ -209,12 +211,24 @@ interface InstructionsSectionProps {
   control: Control<LLMScorerFormData>;
   setValue: UseFormSetValue<LLMScorerFormData>;
   getValues: UseFormGetValues<LLMScorerFormData>;
+  selectedTemplate: string;
 }
 
-const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control, setValue, getValues }) => {
+const InstructionsSection: React.FC<InstructionsSectionProps> = ({
+  mode,
+  control,
+  setValue,
+  getValues,
+  selectedTemplate,
+}) => {
   const intl = useIntl();
   const { watch } = useFormContext<LLMScorerFormData>();
   const scope = watch('evaluationScope');
+
+  // Don't show instructions for templates that use guidelines instead
+  if (TEMPLATES_WITH_GUIDELINES.includes(selectedTemplate as LLM_TEMPLATE)) {
+    return null;
+  }
 
   const stopPropagationClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -439,7 +453,7 @@ interface GuidelinesSectionProps {
 const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control, selectedTemplate }) => {
   const intl = useIntl();
 
-  if (selectedTemplate !== 'Guidelines') {
+  if (!TEMPLATES_WITH_GUIDELINES.includes(selectedTemplate as LLM_TEMPLATE)) {
     return null;
   }
 
@@ -451,48 +465,91 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control, se
     return 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/';
   };
 
+  const isSessionLevel = selectedTemplate === LLM_TEMPLATE.CONVERSATIONAL_GUIDELINES;
+
+  const validateGuidelines = (value: string | undefined) => {
+    if (!value || value.trim() === '') {
+      return intl.formatMessage({
+        defaultMessage: 'Guidelines should not be empty',
+        description: 'Error message when guidelines are empty',
+      });
+    }
+    const guidelines = value
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (guidelines.length === 0) {
+      return intl.formatMessage({
+        defaultMessage: 'Guidelines should not be empty',
+        description: 'Error message when guidelines are empty',
+      });
+    }
+    return true;
+  };
+
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
       <FormUI.Label htmlFor="mlflow-experiment-scorers-guidelines" required>
         <FormattedMessage defaultMessage="Guidelines" description="Section header for scorer guidelines" />
       </FormUI.Label>
       <FormUI.Hint>
-        <FormattedMessage
-          defaultMessage="Add a set of instructions for the scorer. Enter one guideline per line. {learnMore}"
-          description="Hint text for Guidelines section with documentation link"
-          values={{
-            learnMore: (
-              <Typography.Link
-                componentId={`${COMPONENT_ID_PREFIX}.guidelines-learn-more-link`}
-                href={getLlmJudgeDocUrl()}
-                openInNewTab
-              >
-                <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
-              </Typography.Link>
-            ),
-          }}
-        />
+        {isSessionLevel ? (
+          <FormattedMessage
+            defaultMessage="Add a set of guidelines for the conversation. {learnMore}"
+            description="Hint text for session-level Guidelines section with documentation link"
+            values={{
+              learnMore: (
+                <Typography.Link
+                  componentId={`${COMPONENT_ID_PREFIX}.guidelines-learn-more-link`}
+                  href={getLlmJudgeDocUrl()}
+                  openInNewTab
+                >
+                  <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
+                </Typography.Link>
+              ),
+            }}
+          />
+        ) : (
+          <FormattedMessage
+            defaultMessage="Add a set of guidelines for the response. {learnMore}"
+            description="Hint text for trace-level Guidelines section with documentation link"
+            values={{
+              learnMore: (
+                <Typography.Link
+                  componentId={`${COMPONENT_ID_PREFIX}.guidelines-learn-more-link`}
+                  href={getLlmJudgeDocUrl()}
+                  openInNewTab
+                >
+                  <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
+                </Typography.Link>
+              ),
+            }}
+          />
+        )}
       </FormUI.Hint>
       <Controller
         name="guidelines"
         control={control}
         rules={{
-          required: selectedTemplate === 'Guidelines',
+          validate: validateGuidelines,
         }}
-        render={({ field }) => (
-          <Input.TextArea
-            {...field}
-            componentId={`${COMPONENT_ID_PREFIX}.guidelines-text-area`}
-            id="mlflow-experiment-scorers-guidelines"
-            readOnly={mode === SCORER_FORM_MODE.DISPLAY}
-            rows={3}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'The response must be in English',
-              description: 'Placeholder text for guidelines textarea',
-            })}
-            css={{ resize: 'vertical', cursor: mode === SCORER_FORM_MODE.DISPLAY ? 'auto' : 'text' }}
-            onClick={stopPropagationClick}
-          />
+        render={({ field, fieldState }) => (
+          <>
+            <Input.TextArea
+              {...field}
+              componentId={`${COMPONENT_ID_PREFIX}.guidelines-text-area`}
+              id="mlflow-experiment-scorers-guidelines"
+              readOnly={mode === SCORER_FORM_MODE.DISPLAY}
+              rows={3}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'The response must be in English',
+                description: 'Placeholder text for guidelines textarea',
+              })}
+              css={{ resize: 'vertical', cursor: mode === SCORER_FORM_MODE.DISPLAY ? 'auto' : 'text' }}
+              onClick={stopPropagationClick}
+            />
+            {fieldState.error && <FormUI.Message type="error" message={fieldState.error.message} />}
+          </>
         )}
       />
     </div>
@@ -522,7 +579,13 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
       <LLMTemplateSection mode={mode} control={control} setValue={setValue} currentTemplate={selectedTemplate} />
       <NameSection mode={mode} control={control} />
       <GuidelinesSection mode={mode} control={control} selectedTemplate={selectedTemplate} />
-      <InstructionsSection mode={mode} control={control} setValue={setValue} getValues={getValues} />
+      <InstructionsSection
+        mode={mode}
+        control={control}
+        setValue={setValue}
+        getValues={getValues}
+        selectedTemplate={selectedTemplate}
+      />
       <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />
       <EvaluateTracesSectionRenderer control={control} mode={mode} />
     </div>

@@ -22,6 +22,7 @@ export const ASSESSMENT_NAME_TEMPLATE_MAPPING = {
   RetrievalSufficiency: 'context_sufficiency',
   Safety: 'harmfulness',
   Guidelines: 'guidelines',
+  ConversationalGuidelines: 'conversational_guidelines',
 } as const;
 
 export const SCORER_TYPE = {

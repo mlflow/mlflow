@@ -66,7 +66,10 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
         is_instructions_judge: true,
       } as LLMScorer;
       return result;
-    } else if (serializedData.builtin_scorer_class === LLM_TEMPLATE.GUIDELINES) {
+    } else if (
+      serializedData.builtin_scorer_class === LLM_TEMPLATE.GUIDELINES ||
+      serializedData.builtin_scorer_class === LLM_TEMPLATE.CONVERSATIONAL_GUIDELINES
+    ) {
       const rawGuidelines = serializedData.builtin_scorer_pydantic_data?.guidelines || [];
       // Ensure guidelines is always an array - if it's a string, put it in an array
       const guidelines = Array.isArray(rawGuidelines) ? rawGuidelines : [rawGuidelines].filter(Boolean);
@@ -74,7 +77,7 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
       return {
         ...baseFields,
         type: 'llm',
-        llmTemplate: LLM_TEMPLATE.GUIDELINES,
+        llmTemplate: serializedData.builtin_scorer_class,
         guidelines,
         model,
         is_instructions_judge: false,
@@ -180,8 +183,12 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
         required_columns: ['outputs', 'inputs'],
       };
 
-      // Add guidelines if this is a Guidelines scorer
-      if (llmScorer.llmTemplate === LLM_TEMPLATE.GUIDELINES && llmScorer.guidelines) {
+      // Add guidelines if this is a Guidelines or ConversationalGuidelines scorer
+      if (
+        (llmScorer.llmTemplate === LLM_TEMPLATE.GUIDELINES ||
+          llmScorer.llmTemplate === LLM_TEMPLATE.CONVERSATIONAL_GUIDELINES) &&
+        llmScorer.guidelines
+      ) {
         pydanticData.guidelines = llmScorer.guidelines;
       }
 
@@ -287,18 +294,20 @@ export function convertFormDataToScheduledScorer(
 
     if (formData.scorerType === 'llm') {
       const llmFormData = formData as LLMScorerFormData;
+      const hasGuidelines =
+        llmFormData.llmTemplate === LLM_TEMPLATE.GUIDELINES ||
+        llmFormData.llmTemplate === LLM_TEMPLATE.CONVERSATIONAL_GUIDELINES;
       const result = {
         ...newScorer,
         type: 'llm' as const,
         llmTemplate: llmFormData.llmTemplate as LLMTemplate,
-        // Add guidelines if this is a Guidelines scorer
-        guidelines:
-          llmFormData.llmTemplate === LLM_TEMPLATE.GUIDELINES
-            ? (llmFormData.guidelines || '')
-                .split('\n')
-                .map((line) => line.trim())
-                .filter(Boolean)
-            : undefined,
+        // Add guidelines if this is a Guidelines or ConversationalGuidelines scorer
+        guidelines: hasGuidelines
+          ? (llmFormData.guidelines || '')
+              .split('\n')
+              .map((line) => line.trim())
+              .filter(Boolean)
+          : undefined,
         // Add instructions for instructions judges (Custom, Safety, RelevanceToQuery)
         instructions: llmFormData.isInstructionsJudge ? llmFormData.instructions : undefined,
         // Add model for all LLM scorers
@@ -338,8 +347,11 @@ export function convertFormDataToScheduledScorer(
     const llmFormData = formData as LLMScorerFormData;
     (updatedScorer as LLMScorer).llmTemplate = llmFormData.llmTemplate as LLMTemplate;
 
-    // Add guidelines if this is a Guidelines scorer
-    if (llmFormData.llmTemplate === LLM_TEMPLATE.GUIDELINES) {
+    // Add guidelines if this is a Guidelines or ConversationalGuidelines scorer
+    if (
+      llmFormData.llmTemplate === LLM_TEMPLATE.GUIDELINES ||
+      llmFormData.llmTemplate === LLM_TEMPLATE.CONVERSATIONAL_GUIDELINES
+    ) {
       (updatedScorer as LLMScorer).guidelines = (llmFormData.guidelines || '')
         .split('\n')
         .map((line) => line.trim())

@@ -754,6 +754,10 @@
     "defaultMessage": "Search Endpoints",
     "description": "Placeholder for endpoint search filter"
   },
+  "4I7acA": {
+    "defaultMessage": "Add a set of guidelines for the response. {learnMore}",
+    "description": "Hint text for trace-level Guidelines section with documentation link"
+  },
   "4Itm9y": {
     "defaultMessage": "Large trace",
     "description": "Modal title for when a trace is very large. The modal warns the user that the trace may cause UI slowness, but allows them to attempt to display it anyway by clicking a button."
@@ -1622,6 +1626,10 @@
     "defaultMessage": "Assessment Name",
     "description": "Field label for assessment name in a creation form"
   },
+  "AeRhuI": {
+    "defaultMessage": "Conversational guidelines",
+    "description": "Evaluation results > known type of evaluation result assessment > conversational guidelines assessment. Used to indicate if the assistant adheres to the guidelines throughout a conversation."
+  },
   "AgPtkL": {
     "defaultMessage": "(new)",
     "description": "Summary new secret indicator"
@@ -2430,6 +2438,10 @@
     "defaultMessage": "All",
     "description": "Option for the start select dropdown to filter runs from the beginning of time"
   },
+  "HfcIG/": {
+    "defaultMessage": "Does the assistant follow the provided guidelines throughout the conversation?",
+    "description": "Hint for ConversationalGuidelines template"
+  },
   "Hk0RSH": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for Y-axis in box plot comparison in MLflow"
@@ -2950,6 +2962,10 @@
     "defaultMessage": "Loading endpoints...",
     "description": "Loading endpoints message"
   },
+  "MJILab": {
+    "defaultMessage": "Violates guidelines",
+    "description": "Evaluation results > conversational guidelines assessment > negative value label. Displayed if the assistant violates guidelines at any point in the conversation."
+  },
   "ML+mQa": {
     "defaultMessage": "Overall assessment:",
     "description": "Evaluation review > assessments > overall assessment > title"
@@ -3017,6 +3033,10 @@
   "MxiIan": {
     "defaultMessage": "Add message",
     "description": "Button to insert a new chat message row"
+  },
+  "N/Svk+": {
+    "defaultMessage": "Guidelines",
+    "description": "LLM template option"
   },
   "N1G2a5": {
     "defaultMessage": "Expected facts",
@@ -5383,6 +5403,10 @@
     "defaultMessage": "Examples:",
     "description": "Text header for examples of logged models search syntax"
   },
+  "g++0mY": {
+    "defaultMessage": "Does the response follow the provided guidelines?",
+    "description": "Hint for Guidelines template"
+  },
   "g+YDB/": {
     "defaultMessage": "Group by",
     "description": "Label for the grouping selector button in the logged model list page when no grouping is selected"
@@ -5690,6 +5714,10 @@
   "iC2Owx": {
     "defaultMessage": "Stop sequences: {stopSequences}",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > stop sequences parameter"
+  },
+  "iCdWsS": {
+    "defaultMessage": "Adheres to guidelines",
+    "description": "Evaluation results > conversational guidelines assessment > positive value label. Displayed if the assistant adheres to guidelines throughout the conversation."
   },
   "iDpAK8": {
     "defaultMessage": "Add tags",
@@ -6038,6 +6066,10 @@
   "lDGQGa": {
     "defaultMessage": "Toggle detailed view",
     "description": "Experiment page > artifact compare view > table header > label for \"toggle detailed view\" button"
+  },
+  "lDQtCN": {
+    "defaultMessage": "The conversational guidelines LLM judge evaluates whether the assistant's responses throughout a conversation comply with the provided guidelines.",
+    "description": "Evaluation results > known type of evaluation result assessment > conversational guidelines judge."
   },
   "lFnpMi": {
     "defaultMessage": "AutoML",
@@ -6567,10 +6599,6 @@
     "defaultMessage": "Run example code:",
     "description": "Instruction for running example GenAI code in order to log MLflow 3 models"
   },
-  "pDz/Mf": {
-    "defaultMessage": "Add a set of instructions for the scorer. Enter one guideline per line. {learnMore}",
-    "description": "Hint text for Guidelines section with documentation link"
-  },
   "pEpexK": {
     "defaultMessage": "Clear filters",
     "description": "Label for a button that clears all filters, visible on a experiment runs page next to a empty state when all runs have been filtered out"
@@ -6670,6 +6698,10 @@
   "qAdWdK": {
     "defaultMessage": "Error",
     "description": "Title of editor error fallback component"
+  },
+  "qB4ZRq": {
+    "defaultMessage": "Conversational guidelines",
+    "description": "LLM template option"
   },
   "qDiJI2": {
     "defaultMessage": "Forecasting",
@@ -6826,6 +6858,10 @@
   "rFJSWc": {
     "defaultMessage": "Attempt to display",
     "description": "Button label for forcing the display of a large trace"
+  },
+  "rHq/5E": {
+    "defaultMessage": "Guidelines should not be empty",
+    "description": "Error message when guidelines are empty"
   },
   "rJitqj": {
     "defaultMessage": "Permission denied for {modelName}. Error: \"{errorMsg}\"",
@@ -7494,6 +7530,10 @@
   "xIcbik": {
     "defaultMessage": "Created",
     "description": "Header title for the creation timestamp column in the logged model list table"
+  },
+  "xJAM/d": {
+    "defaultMessage": "Add a set of guidelines for the conversation. {learnMore}",
+    "description": "Hint text for session-level Guidelines section with documentation link"
   },
   "xKpbD3": {
     "defaultMessage": "Chat",
