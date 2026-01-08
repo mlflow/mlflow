@@ -4,7 +4,8 @@ import ServerSetup from "@site/src/content/setup_server.mdx";
 
 # GenAI Evaluation Quickstart
 
-This quickstart guide will walk you through evaluating your GenAI applications with MLflow's comprehensive evaluation framework. In less than 5 minutes, you'll learn how to evaluate LLM outputs, use built-in and custom evaluation criteria, and analyze results in the MLflow UI.
+This quickstart guide will walk you through evaluating your GenAI applications with MLflow's comprehensive evaluation framework.
+In less than 5 minutes, you'll learn how to evaluate LLM outputs, use built-in and custom evaluation criteria, and analyze results in the MLflow UI.
 
 <ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-hero.png" alt="Simple Evaluation Results" />
 
@@ -24,9 +25,9 @@ The code examples in this guide use the OpenAI SDK; however, MLflow's evaluation
 
 ## Step 1: Set up your environment
 
-### Connect to MLflow
+MLflow stores evaluation results in a [MLflow Tracking Server](/self-hosting/architecture/tracking-server/).
 
-MLflow stores evaluation results in a tracking server. Connect your local environment to the tracking server by one of the following methods.
+Start a local MLflow Tracking Server by executing one of the following methods.
 
 <ServerSetup />
 
@@ -72,8 +73,8 @@ def my_agent(question: str) -> str:
     return response.choices[0].message.content
 
 
-# Wrapper function for evaluation
 def qa_predict_fn(question: str) -> str:
+    """Wrapper function for evaluation using ``my_agent``."""
     return my_agent(question)
 ```
 
