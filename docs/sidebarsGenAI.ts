@@ -630,7 +630,7 @@ const sidebarsGenAI: SidebarsConfig = {
         {
           type: 'doc',
           id: 'governance/ai-gateway/query',
-          label: 'Query',
+          label: 'Querying Endpoints',
         },
         {
           type: 'category',

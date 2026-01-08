@@ -24,8 +24,8 @@ MLflow AI Gateway also offers passthrough endpoints, enabling requests to be for
   },
   {
     icon: Database,
-    title: "Provider Abstraction",
-    description: "Switch between OpenAI, Anthropic, Google, and other providers without changing your application code."
+    title: "Advanced Routing",
+    description: "Traffic splitting for A/B testing and automatic fallbacks ensure high availability across providers."
   },
   {
     icon: Zap,
@@ -54,15 +54,17 @@ Get your AI Gateway running in minutes:
 pip install 'mlflow[genai]'
 ```
 
-**2. Start the MLflow server with a SQL backend:**
+**2. Start the MLflow Tracking Server:**
 
 ```bash
-mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000
+mlflow server --port 5000
 ```
+
+The AI Gateway runs within the MLflow Tracking Server itself. By default, MLflow uses a SQL-based backend store.
 
 **3. Configure your first endpoint:**
 
-Navigate to `http://localhost:5000/#/gateway` and create your first endpoint `my-chat-endpoint` through the web interface. Select your provider, model, and configure your API key.
+Navigate to `http://localhost:5000/#/gateway` and create your first endpoint `my-chat-endpoint` through the web interface. Select your provider, model, and configure your API key. API keys are encrypted and stored securely in the MLflow backend.
 
 ![Create Endpoint](/images/genai/governance/ai-gateway/create-endpoint.png)
 

@@ -77,24 +77,24 @@ Endpoints define how requests are routed to AI models. Beyond basic routing, end
 
 ### Basic Endpoint Setup
 
-Navigate to the Endpoints tab and click Create Endpoint to begin configuring a new endpoint. Start by choosing a unique name for your endpoint, such as `my-chat-endpoint`. This name becomes part of the API path you'll use to call the endpoint.
+To create an endpoint:
+
+1. Navigate to the Endpoints tab and click **Create Endpoint**
+2. Enter a unique endpoint name (e.g., `my-chat-endpoint`) - this becomes part of your API path
+3. Select your provider from 100+ supported options
+   - Common providers (OpenAI, Anthropic, Google Gemini) appear first
+   - Click "View all providers" for the full LiteLLM catalog
+4. Choose your model - the selector displays:
+   - Capability badges (Tools, Reasoning, Caching)
+   - Context window size and token costs
+   - Search function for quick filtering
+5. Configure API key:
+   - **Create new API key**: Configure credentials inline (convenient for first-time setup)
+   - **Use existing API key**: Select from previously created keys (recommended for consistency)
+6. Review your configuration in the summary panel
+7. Click **Create Endpoint**
 
 ![Create Endpoint](/images/genai/governance/ai-gateway/create-endpoint.png)
-
-Next, select your provider from the comprehensive list of 100+ supported providers. Common providers like OpenAI, Anthropic, and Google Gemini appear at the top of the list, while clicking "View all providers" reveals the full catalog powered by LiteLLM.
-
-After selecting a provider, choose your specific model. The model selector displays:
-
-- Capability badges (Tools, Reasoning, Caching)
-- Context window size and token costs
-- Search function for quick filtering
-
-For API key configuration, you have two options:
-
-- **Create new API key**: Configure credentials inline (convenient for first-time setup)
-- **Use existing API key**: Select from previously created keys (recommended for consistency)
-
-The interface provides a live preview of your configuration in the summary panel, so you can verify everything before creating the endpoint. Click Create Endpoint when you're satisfied with the configuration.
 
 ### Traffic Splitting (Load Balancing)
 
