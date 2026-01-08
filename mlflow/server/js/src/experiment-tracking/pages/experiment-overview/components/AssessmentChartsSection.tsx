@@ -1,9 +1,10 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import { SparkleIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useAssessmentChartsSectionData } from '../hooks/useAssessmentChartsSectionData';
 import { OverviewChartLoadingState, OverviewChartErrorState, OverviewChartEmptyState } from './OverviewChartComponents';
 import { LazyTraceAssessmentChart } from './LazyTraceAssessmentChart';
+import { useChartColors } from '../utils/chartUtils';
 
 interface AssessmentChartsSectionProps {
   /** Optional search query to filter assessments by name */
@@ -26,26 +27,8 @@ export const AssessmentChartsSection: React.FC<AssessmentChartsSectionProps> = (
     return assessmentNames.filter((name) => name.toLowerCase().includes(query));
   }, [assessmentNames, searchQuery]);
 
-  // Color palette using design system colors
-  const assessmentColors = useMemo(
-    () => [
-      theme.colors.green500,
-      theme.colors.red500,
-      theme.colors.blue500,
-      theme.colors.yellow500,
-      theme.colors.green300,
-      theme.colors.red300,
-      theme.colors.blue300,
-      theme.colors.yellow300,
-    ],
-    [theme],
-  );
-
-  // Get a color for an assessment based on its index
-  const getAssessmentColor = useCallback(
-    (index: number): string => assessmentColors[index % assessmentColors.length],
-    [assessmentColors],
-  );
+  // Get chart colors for consistent coloring
+  const { getChartColor } = useChartColors();
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -97,7 +80,7 @@ export const AssessmentChartsSection: React.FC<AssessmentChartsSectionProps> = (
           <LazyTraceAssessmentChart
             key={name}
             assessmentName={name}
-            lineColor={getAssessmentColor(originalIndex)}
+            lineColor={getChartColor(originalIndex)}
             avgValue={avgValuesByName.get(name)}
           />
         );

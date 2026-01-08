@@ -3,7 +3,7 @@ import { useToolCallChartsSectionData } from '../hooks/useToolCallChartsSectionD
 import { OverviewChartLoadingState, OverviewChartErrorState } from './OverviewChartComponents';
 import { ChartGrid } from './OverviewLayoutComponents';
 import { LazyToolErrorRateChart } from './LazyToolErrorRateChart';
-import { useToolColors } from '../utils/chartUtils';
+import { useChartColors } from '../utils/chartUtils';
 
 interface ToolCallChartsSectionProps {
   /** Optional search query to filter tools by name */
@@ -14,7 +14,7 @@ interface ToolCallChartsSectionProps {
  * Component that fetches available tools and renders an error rate chart for each one.
  */
 export const ToolCallChartsSection: React.FC<ToolCallChartsSectionProps> = ({ searchQuery }) => {
-  const { getToolColor } = useToolColors();
+  const { getChartColor } = useChartColors();
 
   // Fetch and process tool call data using the custom hook
   const { toolNames, errorRateByTool, isLoading, error, hasData } = useToolCallChartsSectionData();
@@ -48,7 +48,7 @@ export const ToolCallChartsSection: React.FC<ToolCallChartsSectionProps> = ({ se
           <LazyToolErrorRateChart
             key={name}
             toolName={name}
-            lineColor={getToolColor(originalIndex)}
+            lineColor={getChartColor(originalIndex)}
             overallErrorRate={errorRateByTool.get(name) ?? 0}
           />
         );
