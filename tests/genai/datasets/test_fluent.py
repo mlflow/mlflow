@@ -2135,13 +2135,6 @@ def test_wrapper_isinstance_checks_for_dataset_interfaces(tracking_uri, experime
 @pytest.mark.parametrize(
     "records",
     [
-        # Top-level fields
-        [
-            {"persona": "Graduate Student", "goal": "Find peer-reviewed articles"},
-            {"persona": "Student", "goal": "Get help", "context": {"user_id": "U1"}},
-            {"goal": "Just a goal without persona"},
-        ],
-        # Nested in inputs
         [
             {"inputs": {"persona": "Student", "goal": "Find articles"}},
             {"inputs": {"persona": "Researcher", "goal": "Review", "context": {"dept": "CS"}}},
@@ -2162,15 +2155,10 @@ def test_multiturn_valid_formats(tracking_uri, experiments, records):
 @pytest.mark.parametrize(
     ("records", "error_pattern"),
     [
-        # inputs with top-level fields
-        (
-            [{"inputs": {"question": "What is MLflow?"}, "goal": "Answer question"}],
-            "Cannot specify both 'inputs' and top-level session fields",
-        ),
-        # Unknown top-level columns
+        # Top-level session fields
         (
             [{"persona": "Student", "goal": "Find articles", "custom_field": "value"}],
-            "Unknown columns in session format",
+            "Each record must have an 'inputs' field",
         ),
         # Mixed fields in inputs
         (
@@ -2220,15 +2208,19 @@ def test_multiturn_with_expectations_and_tags(tracking_uri, experiments):
     dataset = create_dataset(name="multiturn_full_test", experiment_id=experiments[0])
     records = [
         {
-            "persona": "Graduate Student",
-            "goal": "Find peer-reviewed articles on machine learning",
-            "context": {"user_id": "U0001", "department": "CS"},
+            "inputs": {
+                "persona": "Graduate Student",
+                "goal": "Find peer-reviewed articles on machine learning",
+                "context": {"user_id": "U0001", "department": "CS"},
+            },
             "expectations": {"expected_output": "relevant articles", "quality": "high"},
             "tags": {"difficulty": "medium"},
         },
         {
-            "persona": "Librarian",
-            "goal": "Help with inter-library loan",
+            "inputs": {
+                "persona": "Librarian",
+                "goal": "Help with inter-library loan",
+            },
             "expectations": {"expected_output": "loan information"},
         },
     ]

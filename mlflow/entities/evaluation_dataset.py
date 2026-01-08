@@ -261,7 +261,6 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         else:
             record_dicts = records
 
-        record_dicts = self._normalize_session_records(record_dicts)
         self._validate_record_dicts(record_dicts)
 
         self._infer_source_types(record_dicts)
