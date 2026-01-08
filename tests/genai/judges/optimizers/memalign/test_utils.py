@@ -10,8 +10,16 @@ from mlflow.genai.judges.optimizers.memalign.utils import (
 )
 
 
-def test_get_default_embedding_model():
-    assert get_default_embedding_model() == "openai/text-embedding-3-small"
+def test_get_default_embedding_model_non_databricks():
+    with patch("mlflow.genai.judges.optimizers.memalign.utils.mlflow.get_tracking_uri") as mock_uri:
+        mock_uri.return_value = "http://localhost:5000"
+        assert get_default_embedding_model() == "openai/text-embedding-3-small"
+
+
+def test_get_default_embedding_model_databricks():
+    with patch("mlflow.genai.judges.optimizers.memalign.utils.mlflow.get_tracking_uri") as mock_uri:
+        mock_uri.return_value = "databricks"
+        assert get_default_embedding_model() == "databricks:/databricks-bge-large-en"
 
 
 def test_distill_guidelines_empty_examples():
@@ -87,7 +95,7 @@ def test_distill_guidelines_filters_existing():
         assert result[0] == "Be clear"
 
 
-def test_distill_guidelines_handles_error():
+def test_distill_guidelines_raises_on_error():
     with patch(
         "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
     ) as mock_construct_lm:
@@ -100,15 +108,14 @@ def test_distill_guidelines_handles_error():
 
         signature = MagicMock()
 
-        result = distill_guidelines(
-            examples=[example1],
-            signature=signature,
-            judge_instructions="Evaluate quality",
-            reflection_lm="openai:/gpt-4",
-            existing_guidelines=[],
-        )
-
-        assert result == []
+        with pytest.raises(Exception, match="API Error"):
+            distill_guidelines(
+                examples=[example1],
+                signature=signature,
+                judge_instructions="Evaluate quality",
+                reflection_lm="openai:/gpt-4",
+                existing_guidelines=[],
+            )
 
 
 def test_retrieve_relevant_examples_empty():

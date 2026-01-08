@@ -11,6 +11,7 @@ from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.optimizers.dspy_utils import (
+    _check_dspy_installed,
     agreement_metric,
     construct_dspy_lm,
     convert_litellm_to_mlflow_uri,
@@ -21,14 +22,8 @@ from mlflow.genai.judges.utils import _suppress_litellm_nonfatal_errors, get_def
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
-# Import dspy - raise exception if not installed
-try:
-    import dspy
-except ImportError:
-    raise MlflowException(
-        "DSPy library is required but not installed. Please install it with: pip install dspy",
-        error_code=INTERNAL_ERROR,
-    )
+_check_dspy_installed()
+import dspy
 
 _logger = logging.getLogger(__name__)
 

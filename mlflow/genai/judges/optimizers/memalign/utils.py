@@ -1,12 +1,16 @@
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import dspy
 from jinja2 import Template
 from pydantic import BaseModel
 
+import mlflow
 from mlflow.genai.judges.optimizers.dspy_utils import construct_dspy_lm
 from mlflow.genai.judges.optimizers.memalign.prompts import DISTILLATION_PROMPT_TEMPLATE
+from mlflow.utils.uri import is_databricks_uri
+
+if TYPE_CHECKING:
+    import dspy
 
 _logger = logging.getLogger(__name__)
 
@@ -21,6 +25,8 @@ class Guidelines(BaseModel):
 
 
 def get_default_embedding_model() -> str:
+    if is_databricks_uri(mlflow.get_tracking_uri()):
+        return "databricks:/databricks-bge-large-en"
     return "openai/text-embedding-3-small"
 
 
@@ -46,6 +52,7 @@ def distill_guidelines(
     if not examples:
         return []
 
+    # TODO: Handle the case where examples are too large to fit into a single prompt
     examples_data = [dict(example) for example in examples]
 
     template = Template(DISTILLATION_PROMPT_TEMPLATE)
@@ -59,23 +66,16 @@ def distill_guidelines(
         len=len,
     )
 
-    try:
-        distillation_lm = construct_dspy_lm(reflection_lm)
-        response = distillation_lm(
-            messages=[{"role": "user", "content": prompt}],
-            response_format=Guidelines,
-        )[0]
-        result = Guidelines.model_validate_json(response)
+    distillation_lm = construct_dspy_lm(reflection_lm)
+    response = distillation_lm(
+        messages=[{"role": "user", "content": prompt}],
+        response_format=Guidelines,
+    )[0]
+    result = Guidelines.model_validate_json(response)
 
-        return [
-            g.guideline_text
-            for g in result.guidelines
-            if g.guideline_text not in existing_guidelines
-        ]
-
-    except Exception as e:
-        _logger.error(f"Failed to distill guidelines: {e}")
-        return []
+    return [
+        g.guideline_text for g in result.guidelines if g.guideline_text not in existing_guidelines
+    ]
 
 
 def retrieve_relevant_examples(

@@ -7,6 +7,7 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
 from mlflow.genai.judges.optimizers.dspy_utils import (
+    _check_dspy_installed,
     construct_dspy_lm,
     create_dspy_signature,
     trace_to_dspy_example,
@@ -110,9 +111,9 @@ class MemoryAugmentedJudge(Judge):
         retrieval_k: Number of similar examples to retrieve from episodic memory
         embedding_model: {{ embedding_model }}
         embedding_dim: Dimension of embeddings
-        examples: Initial examples to add to memory
-        inherit_guidelines: Whether to inherit guidelines from base_judge if it's a
-            MemoryAugmentedJudge. If False, guidelines are redistilled from scratch.
+        episodic_memory: Initial examples to add to episodic memory
+        semantic_memory: Initial guidelines to add to semantic memory. If None and base_judge
+            is a MemoryAugmentedJudge, inherits semantic memory from base_judge.
     """
 
     def __init__(
@@ -122,19 +123,20 @@ class MemoryAugmentedJudge(Judge):
         retrieval_k: int = 5,
         embedding_model: str | None = None,
         embedding_dim: int = 512,
-        examples: list["dspy.Example"] | None = None,
-        inherit_guidelines: bool = True,
+        episodic_memory: list["dspy.Example"] | None = None,
+        semantic_memory: list[str] | None = None,
     ):
         import dspy
 
         effective_base_judge = (
             base_judge._base_judge if isinstance(base_judge, MemoryAugmentedJudge) else base_judge
         )
-        initial_guidelines = (
-            list(base_judge._semantic_memory)
-            if isinstance(base_judge, MemoryAugmentedJudge) and inherit_guidelines
-            else []
-        )
+        if semantic_memory is not None:
+            initial_guidelines = list(semantic_memory)
+        elif isinstance(base_judge, MemoryAugmentedJudge):
+            initial_guidelines = list(base_judge._semantic_memory)
+        else:
+            initial_guidelines = []
 
         super().__init__(
             name=effective_base_judge.name,
@@ -161,8 +163,8 @@ class MemoryAugmentedJudge(Judge):
         self._predict_module = dspy.Predict(extended_signature)
         self._predict_module.set_lm(construct_dspy_lm(effective_base_judge.model))
 
-        if examples:
-            self._add_examples(examples)
+        if episodic_memory:
+            self._add_examples(episodic_memory)
 
     def __call__(self, **kwargs) -> Assessment:
         guidelines = self._semantic_memory
@@ -256,8 +258,8 @@ class MemoryAugmentedJudge(Judge):
             retrieval_k=self._retrieval_k,
             embedding_model=self._embedding_model,
             embedding_dim=self._embedding_dim,
-            examples=filtered_examples,
-            inherit_guidelines=False,
+            episodic_memory=filtered_examples,
+            semantic_memory=[],
         )
 
     def _create_extended_signature(self) -> "dspy.Signature":
@@ -348,6 +350,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
         embedding_model: str | None = None,
         embedding_dim: int = 512,
     ):
+        _check_dspy_installed()
         self._reflection_lm = reflection_lm if reflection_lm is not None else get_default_model()
         self._retrieval_k = retrieval_k
         self._embedding_model = (
@@ -355,7 +358,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
         )
         self._embedding_dim = embedding_dim
 
-    def align(self, judge: Judge, traces: list[Trace]) -> Judge:
+    def align(self, judge: Judge, traces: list[Trace]) -> MemoryAugmentedJudge:
         """
         Align judge with human feedback from traces.
 
@@ -404,7 +407,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 retrieval_k=self._retrieval_k,
                 embedding_model=self._embedding_model,
                 embedding_dim=self._embedding_dim,
-                examples=all_examples,
+                episodic_memory=all_examples,
             )
 
             _logger.debug(
