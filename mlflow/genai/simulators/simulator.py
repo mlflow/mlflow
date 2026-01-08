@@ -287,7 +287,7 @@ class ConversationSimulator:
 
             import mlflow
             from mlflow.genai.simulators import ConversationSimulator
-            from mlflow.genai.scorers import Safety
+            from mlflow.genai.scorers import ConversationalSafety, Safety
 
 
             def predict_fn(input: list[dict], **kwargs) -> dict:
@@ -309,7 +309,7 @@ class ConversationSimulator:
             mlflow.genai.evaluate(
                 data=simulator,
                 predict_fn=predict_fn,
-                scorers=[Safety()],
+                scorers=[ConversationalSafety(), Safety()],
             )
     """
 
@@ -392,7 +392,8 @@ class ConversationSimulator:
                         )
                     progress_bar.update(1)
             finally:
-                progress_bar.close()
+                if progress_bar:
+                    progress_bar.close()
 
         return all_trace_ids
 
@@ -461,6 +462,10 @@ class ConversationSimulator:
         turn: int,
         **context,
     ) -> tuple[dict[str, Any], str | None]:
+        # NB: We trace the predict_fn call to add session and simulation metadata to the trace.
+        #     This adds a new root span to the trace, with the same inputs and outputs as the
+        #     predict_fn call. The goal/persona/turn metadata is used for trace comparison UI
+        #     since message content may differ between simulation runs.
         @mlflow.trace(name=f"simulation_turn_{turn}", span_type="CHAIN")
         def traced_predict(input: list[dict[str, Any]], **ctx):
             mlflow.update_current_trace(
