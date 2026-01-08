@@ -6,6 +6,7 @@ import { AggregationType, SpanMetricKey, SpanDimensionKey } from '@databricks/we
 import type { ReactNode } from 'react';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create a tool latency data point
 const createToolLatencyDataPoint = (timeBucket: string, toolName: string, avgLatency: number) => ({
@@ -29,7 +30,7 @@ describe('useToolLatencyChartData', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  const defaultProps = {
+  const contextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
@@ -48,10 +49,13 @@ describe('useToolLatencyChartData', () => {
       },
     });
 
-  const createWrapper = () => {
+  const createWrapper = (contextOverrides: Partial<typeof contextProps> = {}) => {
     const queryClient = createQueryClient();
+    const mergedContextProps = { ...contextProps, ...contextOverrides };
     return ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <OverviewChartProvider {...mergedContextProps}>{children}</OverviewChartProvider>
+      </QueryClientProvider>
     );
   };
 
@@ -78,7 +82,7 @@ describe('useToolLatencyChartData', () => {
         }),
       );
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -95,7 +99,7 @@ describe('useToolLatencyChartData', () => {
         }),
       );
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -109,7 +113,7 @@ describe('useToolLatencyChartData', () => {
     it('should return hasData false when no data points', async () => {
       // Default handler returns empty array
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -125,16 +129,13 @@ describe('useToolLatencyChartData', () => {
     it('should return hasData false when time range is not provided', async () => {
       // Default handler returns empty array
 
-      const { result } = renderHook(
-        () =>
-          useToolLatencyChartData({
-            ...defaultProps,
-            startTimeMs: undefined,
-            endTimeMs: undefined,
-            timeBuckets: [],
-          }),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useToolLatencyChartData(), {
+        wrapper: createWrapper({
+          startTimeMs: undefined,
+          endTimeMs: undefined,
+          timeBuckets: [],
+        }),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -152,7 +153,7 @@ describe('useToolLatencyChartData', () => {
         createToolLatencyDataPoint('2025-12-22T11:00:00Z', 'beta_tool', 150),
       ]);
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -170,7 +171,7 @@ describe('useToolLatencyChartData', () => {
         createToolLatencyDataPoint('2025-12-22T12:00:00Z', 'tool_a', 200),
       ]);
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -191,7 +192,7 @@ describe('useToolLatencyChartData', () => {
         createToolLatencyDataPoint('2025-12-22T10:00:00Z', 'tool_a', 100),
       ]);
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -218,7 +219,7 @@ describe('useToolLatencyChartData', () => {
         createToolLatencyDataPoint('2025-12-22T10:00:00Z', 'tool_b', 50),
       ]);
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -248,7 +249,7 @@ describe('useToolLatencyChartData', () => {
         createToolLatencyDataPoint('2025-12-22T10:00:00Z', 'valid_tool', 50),
       ]);
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -263,7 +264,7 @@ describe('useToolLatencyChartData', () => {
     it('should return hasData true when there are tool names', async () => {
       setupTraceMetricsHandler([createToolLatencyDataPoint('2025-12-22T10:00:00Z', 'tool_a', 100)]);
 
-      const { result } = renderHook(() => useToolLatencyChartData(defaultProps), {
+      const { result } = renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -286,7 +287,7 @@ describe('useToolLatencyChartData', () => {
         }),
       );
 
-      renderHook(() => useToolLatencyChartData(defaultProps), {
+      renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -307,7 +308,7 @@ describe('useToolLatencyChartData', () => {
         }),
       );
 
-      renderHook(() => useToolLatencyChartData(defaultProps), {
+      renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -328,7 +329,7 @@ describe('useToolLatencyChartData', () => {
         }),
       );
 
-      renderHook(() => useToolLatencyChartData(defaultProps), {
+      renderHook(() => useToolLatencyChartData(), {
         wrapper: createWrapper(),
       });
 

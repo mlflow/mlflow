@@ -11,21 +11,12 @@ import { useToolCallStatisticsData } from '../hooks/useToolCallStatisticsData';
 import { formatCount, formatLatency } from '../utils/chartUtils';
 import { StatCard } from './OverviewLayoutComponents';
 import { OverviewChartErrorState } from './OverviewChartComponents';
-import type { OverviewChartProps } from '../types';
 
-export const ToolCallStatistics: React.FC<Omit<OverviewChartProps, 'timeIntervalSeconds' | 'timeBuckets'>> = ({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-}) => {
+export const ToolCallStatistics: React.FC = () => {
   const { theme } = useDesignSystemTheme();
 
   // Fetch and process tool call statistics using the custom hook
-  const { totalCalls, failedCalls, successRate, avgLatency, isLoading, error } = useToolCallStatisticsData({
-    experimentId,
-    startTimeMs,
-    endTimeMs,
-  });
+  const { totalCalls, failedCalls, successRate, avgLatency, isLoading, error } = useToolCallStatisticsData();
 
   if (error) {
     return <OverviewChartErrorState />;

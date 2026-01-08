@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create a single data point
 const createTraceCountDataPoint = (timeBucket: string, count: number) => ({
@@ -29,8 +30,8 @@ describe('TraceRequestsChart', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  // Default props reused across tests
-  const defaultProps = {
+  // Context props reused across tests
+  const defaultContextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
@@ -49,12 +50,15 @@ describe('TraceRequestsChart', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = (contextOverrides: Partial<typeof defaultContextProps> = {}) => {
     const queryClient = createQueryClient();
+    const contextProps = { ...defaultContextProps, ...contextOverrides };
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <TraceRequestsChart {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <TraceRequestsChart />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );

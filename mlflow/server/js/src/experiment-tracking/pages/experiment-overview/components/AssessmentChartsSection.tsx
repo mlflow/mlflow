@@ -4,16 +4,15 @@ import { FormattedMessage } from 'react-intl';
 import { useAssessmentChartsSectionData } from '../hooks/useAssessmentChartsSectionData';
 import { OverviewChartLoadingState, OverviewChartErrorState, OverviewChartEmptyState } from './OverviewChartComponents';
 import { LazyTraceAssessmentChart } from './LazyTraceAssessmentChart';
-import type { OverviewChartProps } from '../types';
 
 /**
  * Component that fetches available feedback assessments and renders a chart for each one.
  */
-export const AssessmentChartsSection: React.FC<OverviewChartProps> = (props) => {
+export const AssessmentChartsSection: React.FC = () => {
   const { theme } = useDesignSystemTheme();
 
   // Fetch and process assessment data
-  const { assessmentNames, avgValuesByName, isLoading, error, hasData } = useAssessmentChartsSectionData(props);
+  const { assessmentNames, avgValuesByName, isLoading, error, hasData } = useAssessmentChartsSectionData();
 
   // Color palette using design system colors
   const assessmentColors = useMemo(
@@ -82,7 +81,6 @@ export const AssessmentChartsSection: React.FC<OverviewChartProps> = (props) => 
       {assessmentNames.map((name, index) => (
         <LazyTraceAssessmentChart
           key={name}
-          {...props}
           assessmentName={name}
           lineColor={getAssessmentColor(index)}
           avgValue={avgValuesByName.get(name)}

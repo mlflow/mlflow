@@ -26,9 +26,9 @@ import {
   useChartLegendFormatter,
 } from './OverviewChartComponents';
 import { formatTimestampForTraceMetrics } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
-export interface ToolErrorRateChartProps extends OverviewChartProps {
+export interface ToolErrorRateChartProps {
   /** The name of the tool to display */
   toolName: string;
   /** Optional color for the line chart */
@@ -37,16 +37,8 @@ export interface ToolErrorRateChartProps extends OverviewChartProps {
   overallErrorRate: number;
 }
 
-export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-  toolName,
-  lineColor,
-  overallErrorRate,
-}) => {
+export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName, lineColor, overallErrorRate }) => {
+  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
