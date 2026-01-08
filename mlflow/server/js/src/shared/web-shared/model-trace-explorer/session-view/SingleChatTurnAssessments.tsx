@@ -24,6 +24,9 @@ export const SingleChatTurnAssessments = ({
   const info = isV3ModelTraceInfo(trace.info) ? trace.info : null;
 
   if (!info?.assessments || isEmpty(info?.assessments)) {
+    if (!onAddAssessmentsClick) {
+      return null;
+    }
     return (
       <div css={{ display: 'flex', justifyContent: 'flex-start' }}>
         <Button

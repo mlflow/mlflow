@@ -93,7 +93,19 @@ def my_custom_scorer(
     # TODO: Implement your custom scoring logic
     return 1.0`;
 
-    const step3Code = `custom_scorer = my_custom_scorer.register(name="my_custom_scorer")`;
+    const step3Code = `import mlflow
+
+eval_dataset = [
+    {
+        "inputs": {"question": "What is the capital of France?"},
+        "outputs": "The capital of France is Paris.",
+    },
+]
+
+mlflow.genai.evaluate(
+    data=eval_dataset,
+    scorers=[my_custom_scorer],
+)`;
 
     return (
       <div css={{ display: 'flex', flexDirection: 'column' }}>
@@ -168,18 +180,21 @@ def my_custom_scorer(
             theme={theme}
           />
         </div>
-        {/* Step 3: Register and start the scorer */}
+        {/* Step 3: Run the scorer */}
         <div>
           <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
             <FormattedMessage
-              defaultMessage="Step 3: Register the judge"
+              defaultMessage="Step 3: Run the judge"
               description="Step 3 title for custom judge creation"
             />
           </Typography.Title>
           <Typography.Text css={{ display: 'block', marginBottom: theme.spacing.md, maxWidth: 800 }}>
             <FormattedMessage
-              defaultMessage="Register your judge. The judge will then show up in this UI."
-              description="Step 3 description for registering and starting judge"
+              defaultMessage="Pass the function directly to {evaluate}, just like other predefined or LLM-based judges."
+              description="Step 3 description for running the judge"
+              values={{
+                evaluate: <Typography.Text code>mlflow.genai.evaluate</Typography.Text>,
+              }}
             />
           </Typography.Text>
           <CodeBlockWithCopy

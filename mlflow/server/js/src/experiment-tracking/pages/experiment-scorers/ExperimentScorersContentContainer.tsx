@@ -3,6 +3,7 @@ import {
   useDesignSystemTheme,
   ParagraphSkeleton,
   PlusIcon,
+  CodeIcon,
   Spacer,
   SplitButton,
   DropdownMenu,
@@ -116,7 +117,7 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
                 onClick={handleNewCustomCodeScorerClick}
                 css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}
               >
-                <PlusIcon />
+                <CodeIcon />
                 <FormattedMessage
                   defaultMessage="Custom code judge"
                   description="Menu item text to create a new custom code judge"

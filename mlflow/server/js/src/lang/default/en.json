@@ -1122,10 +1122,6 @@
     "defaultMessage": "Cancel",
     "description": "experiment page > description modal > cancel button"
   },
-  "75AaFb": {
-    "defaultMessage": "Enter a model identifier (e.g., openai:/gpt-4.1-mini). Scorers using direct models can only be run via the SDK, and API keys must be configured in your environment.",
-    "description": "Hint text for direct model input"
-  },
   "79dD5F": {
     "defaultMessage": "There was an error submitting your note.",
     "description": "Error message text when saving an editable note in MLflow"
@@ -1585,6 +1581,10 @@
   "AGi/De": {
     "defaultMessage": "Loading traces…",
     "description": "Loading traces message"
+  },
+  "AHRvpU": {
+    "defaultMessage": "Pass the function directly to {evaluate}, just like other predefined or LLM-based judges.",
+    "description": "Step 3 description for running the judge"
   },
   "AHaom4": {
     "defaultMessage": "No assessments available",
@@ -2429,6 +2429,10 @@
   "HnGOwk": {
     "defaultMessage": "Registered models",
     "description": "Title for the registered models section on the run details page"
+  },
+  "Hq/PKm": {
+    "defaultMessage": "Enter a model identifier (e.g., openai:/gpt-4.1-mini). Scorers using direct models must configure API keys in your local environment.",
+    "description": "Hint text for direct model input"
   },
   "Hq/vjk": {
     "defaultMessage": "All",
@@ -4196,10 +4200,6 @@
     "defaultMessage": "Violates guidelines",
     "description": "Evaluation results > guidelines assessment > negative value label. Displayed if evaluation result does not adhere to the guidelines."
   },
-  "WncPgl": {
-    "defaultMessage": "Register your judge. The judge will then show up in this UI.",
-    "description": "Step 3 description for registering and starting judge"
-  },
   "WpD2MA": {
     "defaultMessage": "View All",
     "description": "View all traces button"
@@ -5207,10 +5207,6 @@
     "defaultMessage": "Error during metric page load: invalid URL",
     "description": "Error message when loading metric page fails"
   },
-  "eVpwlz": {
-    "defaultMessage": "Step 3: Register the judge",
-    "description": "Step 3 title for custom judge creation"
-  },
   "eWm+AG": {
     "defaultMessage": "Remove model",
     "description": "Tooltip for remove traffic split model button"
@@ -5286,10 +5282,6 @@
   "f/An1W": {
     "defaultMessage": "Ready.",
     "description": "Default status message for model versions that are ready"
-  },
-  "f3Jrpu": {
-    "defaultMessage": "LiteLLM ({count} matches)",
-    "description": "Navigation showing matching LiteLLM providers"
   },
   "f3LAjV": {
     "defaultMessage": "Select ({count})",
@@ -7810,6 +7802,10 @@
   "zC/uKl": {
     "defaultMessage": "Auto-refresh",
     "description": "Run page > Charts tab > Auto-refresh toggle button"
+  },
+  "zDEFn7": {
+    "defaultMessage": "Step 3: Run the judge",
+    "description": "Step 3 title for custom judge creation"
   },
   "zE5aGj": {
     "defaultMessage": "Guidelines",

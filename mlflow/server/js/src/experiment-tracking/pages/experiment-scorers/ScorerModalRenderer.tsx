@@ -46,22 +46,25 @@ const ScorerModalRenderer: React.FC<ScorerModalRendererProps> = ({
       onCancel={onClose}
       footer={null}
       destroyOnClose
-      size="wide"
-      css={{
-        width: '100% !important',
-      }}
-      {...(isRunningScorersFeatureEnabled && {
-        verticalSizing: 'maxed_out' as const,
-        dangerouslySetAntdProps: {
-          bodyStyle: {
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            minHeight: 0,
-            overflow: 'hidden',
-          },
+      {...(initialScorerType !== 'custom-code' && {
+        size: 'wide' as const,
+        css: {
+          width: '100% !important',
         },
       })}
+      {...(isRunningScorersFeatureEnabled &&
+        initialScorerType !== 'custom-code' && {
+          verticalSizing: 'maxed_out' as const,
+          dangerouslySetAntdProps: {
+            bodyStyle: {
+              display: 'flex',
+              flexDirection: 'column',
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+            },
+          },
+        })}
     >
       {mode === SCORER_FORM_MODE.EDIT && existingScorer ? (
         <ScorerFormEditContainer experimentId={experimentId} onClose={onClose} existingScorer={existingScorer} />
