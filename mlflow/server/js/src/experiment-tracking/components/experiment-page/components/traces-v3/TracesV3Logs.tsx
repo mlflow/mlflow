@@ -1,7 +1,12 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { isEmpty as isEmptyFn } from 'lodash';
 import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
-import type { TracesTableColumn, TraceActions, GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
+import type {
+  TracesTableColumn,
+  TraceActions,
+  GetTraceFunction,
+  TableFilter,
+} from '@databricks/web-shared/genai-traces-table';
 import { shouldUseTracesV4API, useUnifiedTraceTagsModal } from '@databricks/web-shared/model-trace-explorer';
 import {
   EXECUTION_DURATION_COLUMN_ID,
@@ -62,6 +67,7 @@ const TracesV3LogsImpl = React.memo(
     timeRange,
     isLoadingExperiment,
     loggedModelId,
+    additionalFilters,
     disableActions = false,
     customDefaultSelectedColumns,
     toolbarAddons,
@@ -71,6 +77,7 @@ const TracesV3LogsImpl = React.memo(
     timeRange?: { startTime: string | undefined; endTime: string | undefined };
     isLoadingExperiment?: boolean;
     loggedModelId?: string;
+    additionalFilters?: TableFilter[];
     disableActions?: boolean;
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
     toolbarAddons?: React.ReactNode;
@@ -115,6 +122,13 @@ const TracesV3LogsImpl = React.memo(
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [filters, setFilters] = useFilters();
     const queryClient = useQueryClient();
+
+    const combinedFilters = useMemo(() => {
+      if (!additionalFilters || additionalFilters.length === 0) {
+        return filters;
+      }
+      return [...additionalFilters, ...filters];
+    }, [additionalFilters, filters]);
 
     const defaultSelectedColumns = useCallback(
       (allColumns: TracesTableColumn[]) => {
@@ -169,7 +183,7 @@ const TracesV3LogsImpl = React.memo(
       locations: traceSearchLocations,
       currentRunDisplayName: endpointName,
       searchQuery,
-      filters,
+      filters: combinedFilters,
       timeRange,
       filterByLoggedModelId: loggedModelId,
       tableSort,

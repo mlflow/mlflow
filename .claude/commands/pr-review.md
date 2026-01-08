@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Skill, Bash, Grep, Glob, mcp__review__fetch_diff, mcp__review__add_pr_review_comment
+allowed-tools: Read, Skill, Bash, Grep, Glob
 argument-hint: [extra_context]
 description: Review a GitHub pull request and add review comments for issues found
 ---
@@ -41,14 +41,17 @@ Automatically review a GitHub pull request and provide feedback on code quality,
 
 ### 2. Fetch PR Diff
 
-- Use `mcp__review__fetch_diff` tool to fetch the PR diff
+- Run the fetch-diff skill to fetch the PR diff:
+  ```bash
+  uv run .claude/skills/fetch-diff/fetch_diff.py <pr_url>
+  ```
 - **If reviewing Python files**: Read `dev/guides/python.md` and create a checklist of all style rules with their exceptions before proceeding
 
 ### 3. Review Changed Lines
 
 **Apply additional filtering** from user instructions if provided (e.g., focus on specific issues or areas)
 
-Carefully examine **only the changed lines** (added or modified) in the diff for:
+Carefully examine **only the changed lines** (added, modified, or deleted) in the diff for:
 
 - Style guide violations (using your checklist if Python files)
 - Potential bugs and code quality issues
@@ -63,30 +66,4 @@ Carefully examine **only the changed lines** (added or modified) in the diff for
 
 ### 5. Add Review Comments
 
-For each issue found, use `mcp__review__add_pr_review_comment` with:
-
-**What to comment on:**
-
-- **Only** lines marked as added (+) or modified in the diff
-- Never unchanged context lines or pre-existing code
-
-**How to write comments:**
-
-- Use suggestion blocks (three backticks + "suggestion") for simple fixes that maintainers can apply with one click
-
-  ````
-  ```suggestion
-  <corrected code here>
-  ```
-  ````
-
-- Copy original indentation exactly in suggestion blocks
-- For repetitive issues, leave one representative comment instead of flagging every instance
-- Be specific about the issue and why it needs changing
-- For bugs, explain the potential problem and suggested fix clearly
-- End each comment with `🤖 Generated with Claude Code`
-
-**Tool parameters:**
-
-- Single-line comment: Set `subject_type` to `line`, specify `line`
-- Multi-line comment: Set `subject_type` to `line`, specify both `start_line` and `line`
+For each issue found, use the `add-review-comment` skill to post review comments.

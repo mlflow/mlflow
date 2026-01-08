@@ -818,6 +818,11 @@ class Linter(ast.NodeVisitor):
             self._check(Range.from_node(node), rules.OsEnvironDeleteInTest())
         self.generic_visit(node)
 
+    def visit_Dict(self, node: ast.Dict) -> None:
+        if rules.PreferDictUnion.check(node):
+            self._check(Range.from_node(node), rules.PreferDictUnion())
+        self.generic_visit(node)
+
     def visit_Compare(self, node: ast.Compare) -> None:
         if rules.MajorVersionCheck.check(node, self.resolver):
             self._check(Range.from_node(node), rules.MajorVersionCheck())

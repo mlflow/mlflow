@@ -173,12 +173,14 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               componentId={`${COMPONENT_ID_PREFIX}.rerun-scorer-button-tooltip`}
               content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
             >
-              <RunScorerButton
-                variant={BUTTON_VARIANT.RERUN}
-                onClick={handleRunScorer}
-                loading={isLoading}
-                disabled={isRunScorerDisabled}
-              />
+              <span>
+                <RunScorerButton
+                  variant={BUTTON_VARIANT.RERUN}
+                  onClick={handleRunScorer}
+                  loading={isLoading}
+                  disabled={isRunScorerDisabled}
+                />
+              </span>
             </Tooltip>
           )}
         </div>
@@ -269,12 +271,14 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               componentId={`${COMPONENT_ID_PREFIX}.run-scorer-button-error-tooltip`}
               content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
             >
-              <RunScorerButton
-                variant={BUTTON_VARIANT.RUN}
-                onClick={handleRunScorer}
-                loading={isLoading}
-                disabled={isRunScorerDisabled}
-              />
+              <span>
+                <RunScorerButton
+                  variant={BUTTON_VARIANT.RUN}
+                  onClick={handleRunScorer}
+                  loading={isLoading}
+                  disabled={isRunScorerDisabled}
+                />
+              </span>
             </Tooltip>
           </div>
         ) : (
@@ -312,12 +316,14 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               componentId={`${COMPONENT_ID_PREFIX}.run-scorer-button-initial-tooltip`}
               content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
             >
-              <RunScorerButton
-                variant={BUTTON_VARIANT.RUN}
-                onClick={handleRunScorer}
-                loading={isLoading}
-                disabled={isRunScorerDisabled}
-              />
+              <span>
+                <RunScorerButton
+                  variant={BUTTON_VARIANT.RUN}
+                  onClick={handleRunScorer}
+                  loading={isLoading}
+                  disabled={isRunScorerDisabled}
+                />
+              </span>
             </Tooltip>
           </div>
         )}

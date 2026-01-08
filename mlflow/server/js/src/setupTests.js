@@ -66,7 +66,7 @@ jest.mock('recharts', () => ({
     </div>
   ),
   BarChart: ({ children, data }) => (
-    <div data-testid="bar-chart" data-count={data?.length || 0}>
+    <div data-testid="bar-chart" data-count={data?.length || 0} data-labels={data?.map((d) => d.name).join(',')}>
       {children}
     </div>
   ),

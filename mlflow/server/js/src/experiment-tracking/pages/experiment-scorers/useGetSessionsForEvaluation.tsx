@@ -4,7 +4,7 @@ import { QueryClient, useQueryClient } from '@databricks/web-shared/query-client
 import { groupTracesBySession } from '@databricks/web-shared/genai-traces-table/sessions-table/utils';
 import { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { EvaluateTracesParams } from './types';
-import { isEmpty } from 'lodash';
+import { isEmpty, sortBy } from 'lodash';
 
 const fetchSessions = async (
   queryClient: QueryClient,
@@ -37,7 +37,7 @@ const fetchSessions = async (
 
   const sessionArray = Object.entries(sessions).map(([sessionId, traceInfos]) => ({
     sessionId,
-    traceInfos,
+    traceInfos: sortBy(traceInfos, (trace) => new Date(trace.request_time)),
   }));
 
   if (itemIds && !isEmpty(itemIds)) {

@@ -25,6 +25,7 @@ from mlflow.entities.trace_metrics import (
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
+    from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
@@ -1449,5 +1450,58 @@ class AbstractStore(GatewayStoreMixin):
 
         Raises:
             MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def upsert_online_scoring_config(
+        self,
+        experiment_id: str,
+        scorer_name: str,
+        sample_rate: float,
+        filter_string: str | None = None,
+    ) -> "OnlineScoringConfig":
+        """
+        Create or update online scoring configuration for a scorer.
+
+        Args:
+            experiment_id: The ID of the Experiment containing the scorer.
+            scorer_name: The scorer name.
+            sample_rate: The sampling rate (0.0 to 1.0).
+            filter_string: Optional filter expression for trace selection.
+
+        Returns:
+            The created or updated OnlineScoringConfig object.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_online_scoring_configs(self, scorer_ids: list[str]) -> list["OnlineScoringConfig"]:
+        """
+        Get online scoring configurations for multiple scorers by their IDs.
+
+        A single scorer can have multiple configurations (e.g., running in different
+        experiments or with different filter strings).
+
+        Args:
+            scorer_ids: List of scorer IDs to fetch configurations for.
+
+        Returns:
+            A list of OnlineScoringConfig objects for the specified scorers.
+            Scorers without configurations are not included.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_active_online_scorers(self) -> list["OnlineScorer"]:
+        """
+        Get all active online scorers across all experiments.
+
+        Active online scorers are those with a sample_rate greater than zero.
+        Each OnlineScorer contains the serialized scorer and sampling configuration.
+
+        Returns:
+            List of OnlineScorer entities with serialized_scorer, sample_rate,
+            and filter_string fields populated.
         """
         raise NotImplementedError(self.__class__.__name__)

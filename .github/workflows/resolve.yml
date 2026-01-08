@@ -136,7 +136,7 @@ jobs:
 
       - name: Install Claude CLI
         run: |
-          npm install -g @anthropic-ai/claude-code@2.0.24
+          npm install -g @anthropic-ai/claude-code@2.0.76
 
       - name: Run Claude resolve command
         id: claude-fix

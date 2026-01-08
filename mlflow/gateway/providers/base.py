@@ -362,9 +362,12 @@ class FallbackProvider(BaseProvider):
         return await self._execute_with_fallback("embeddings", payload)
 
     async def passthrough(
-        self, action: PassthroughAction, payload: dict[str, Any]
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[bytes]:
-        return await self._execute_with_fallback("passthrough", action, payload)
+        return await self._execute_with_fallback("passthrough", action, payload, headers)
 
 
 class ProviderAdapter(ABC):

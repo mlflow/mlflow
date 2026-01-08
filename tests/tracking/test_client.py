@@ -636,7 +636,7 @@ def test_client_search_traces_trace_data_download_error(mock_store, include_span
             ),
         ]
         mock_store.search_traces.return_value = (mock_traces, None)
-        traces = MlflowClient().search_traces(experiment_ids=["1"], include_spans=include_spans)
+        traces = MlflowClient().search_traces(locations=["1"], include_spans=include_spans)
 
         if include_spans:
             assert traces == []
@@ -888,7 +888,7 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
-    traces = MlflowClient().search_traces(experiment_ids=[exp_id])
+    traces = MlflowClient().search_traces(locations=[exp_id])
     assert len(traces) == 1
 
     trace_info = traces[0].info
@@ -1025,7 +1025,7 @@ def test_start_and_end_trace_does_not_log_trace_when_disabled(
     res = func()
 
     assert res == "done"
-    assert client.search_traces(experiment_ids=[experiment_id]) == []
+    assert client.search_traces(locations=[experiment_id]) == []
     # No warning should be issued
     mock_logger.warning.assert_not_called()
 
@@ -1044,7 +1044,7 @@ def test_start_trace_within_active_run(async_logging_enabled):
     if async_logging_enabled:
         mlflow.flush_trace_async_logging(terminate=True)
 
-    traces = client.search_traces(experiment_ids=[exp_id])
+    traces = client.search_traces(locations=[exp_id])
     assert len(traces) == 1
     assert traces[0].info.experiment_id == exp_id
 
@@ -1121,13 +1121,13 @@ def test_log_trace(tracking_uri):
 
     # Purge all traces in the backend once
     client.delete_traces(experiment_id=experiment_id, trace_ids=[trace.info.trace_id])
-    assert client.search_traces(experiment_ids=[experiment_id]) == []
+    assert client.search_traces(locations=[experiment_id]) == []
 
     # Log the trace manually
     new_trace_id = client._log_trace(trace)
 
     # Validate the trace is added to the backend
-    backend_traces = client.search_traces(experiment_ids=[experiment_id])
+    backend_traces = client.search_traces(locations=[experiment_id])
     assert len(backend_traces) == 1
     assert backend_traces[0].info.trace_id == new_trace_id  # new request ID is assigned
     assert backend_traces[0].info.experiment_id == experiment_id
@@ -1141,10 +1141,11 @@ def test_log_trace(tracking_uri):
     # If the experiment ID is None in the given trace, it should be set to the default experiment
     trace.info.experiment_id = None
     new_trace_id = client._log_trace(trace)
-    backend_traces = client.search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
+    backend_traces = client.search_traces(locations=[DEFAULT_EXPERIMENT_ID])
     assert len(backend_traces) == 1
 
 
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_search_traces_experiment_ids_deprecation_warning():
     client = MlflowClient()
     exp_id = mlflow.set_experiment("test_experiment_deprecation").experiment_id

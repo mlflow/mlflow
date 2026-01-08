@@ -47,7 +47,13 @@ type GeminiContent = {
   parts: GeminiContentPart[];
 };
 
-type GeminiContentPart = { text: string };
+// Gemini parts can have a `thought` boolean flag indicating thinking content
+// When thought=true, the text contains the model's thinking/reasoning
+// When thought is null/undefined, the text contains the regular response
+type GeminiContentPart = {
+  text: string;
+  thought?: boolean | null;
+};
 // | { inlineData: GeminiBlob }
 // | { functionCall: GeminiFunctionCall }
 // | { functionResponse: GeminiFunctionResponse }
@@ -93,6 +99,10 @@ const isGeminiContentPart = (obj: unknown): obj is GeminiContentPart => {
   return isObject(obj) && 'text' in obj && isString(obj.text);
 };
 
+const isThinkingPart = (part: GeminiContentPart): boolean => {
+  return part.thought === true;
+};
+
 const isGeminiContent = (obj: unknown): obj is GeminiContent => {
   return (
     isObject(obj) &&
@@ -107,6 +117,29 @@ const isGeminiContent = (obj: unknown): obj is GeminiContent => {
 
 const isGeminiCandidate = (obj: unknown): obj is GeminiCandidate => {
   return isObject(obj) && 'content' in obj && isGeminiContent(obj.content);
+};
+
+const processGeminiContentParts = (
+  parts: GeminiContentPart[],
+): {
+  textParts: { type: 'text'; text: string }[];
+  thinking: string | null;
+} => {
+  const textParts: { type: 'text'; text: string }[] = [];
+  const thinkingParts: string[] = [];
+
+  for (const part of parts) {
+    if (isThinkingPart(part)) {
+      // Thinking parts have thought=true and the thinking content in text
+      thinkingParts.push(part.text);
+    } else {
+      // Regular text parts have thought=null/undefined
+      textParts.push({ type: 'text', text: part.text });
+    }
+  }
+
+  const thinking = thinkingParts.length > 0 ? thinkingParts.join('\n\n') : null;
+  return { textParts, thinking };
 };
 
 export const normalizeGeminiChatInput = (obj: unknown): ModelTraceChatMessage[] | null => {
@@ -124,11 +157,16 @@ export const normalizeGeminiChatInput = (obj: unknown): ModelTraceChatMessage[] 
       return compact(
         obj.contents.map((item) => {
           const role = item.role === 'model' ? 'assistant' : item.role;
-          return prettyPrintChatMessage({
+          const { textParts, thinking } = processGeminiContentParts(item.parts);
+          const message = prettyPrintChatMessage({
             type: 'message',
-            content: item.parts.map((part) => ({ type: 'text', text: part.text })),
+            content: textParts.length > 0 ? textParts : undefined,
             role,
           });
+          if (message && thinking) {
+            return { ...message, reasoning: thinking };
+          }
+          return message;
         }),
       );
     }
@@ -148,11 +186,16 @@ export const normalizeGeminiChatOutput = (obj: unknown): ModelTraceChatMessage[]
         .flatMap((item) => item.content)
         .map((item) => {
           const role = item.role === 'model' ? 'assistant' : item.role;
-          return prettyPrintChatMessage({
+          const { textParts, thinking } = processGeminiContentParts(item.parts);
+          const message = prettyPrintChatMessage({
             type: 'message',
-            content: item.parts.map((part) => ({ type: 'text', text: part.text })),
+            content: textParts.length > 0 ? textParts : undefined,
             role,
           });
+          if (message && thinking) {
+            return { ...message, reasoning: thinking };
+          }
+          return message;
         }),
     );
   }
