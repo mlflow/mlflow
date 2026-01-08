@@ -3428,7 +3428,8 @@ def get_ordered_runs(store, order_clauses, experiment_id):
 
 
 def _generate_large_data(store, nb_runs=1000):
-    experiment_id = store.create_experiment("test_experiment")
+    experiment_name = f"test_experiment_{uuid.uuid4().hex}"
+    experiment_id = store.create_experiment(experiment_name)
 
     current_run = 0
 
@@ -4169,9 +4170,10 @@ def test_log_inputs_with_duplicates_in_single_request(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "test exp")
     run1 = _run_factory(store, config=_get_run_configs(experiment_id, start_time=1))
 
+    dataset_digest = uuid.uuid4().hex
     dataset1 = entities.Dataset(
         name="name1",
-        digest="digest1",
+        digest=dataset_digest,
         source_type="st1",
         source="source1",
         schema="schema1",
