@@ -29,7 +29,7 @@ Automatically review a GitHub pull request and provide feedback on code quality,
 
 ## Important Note
 
-The current local branch may not be the PR branch being reviewed. Always rely on the PR diff fetched via the GitHub API rather than local file contents.
+The current local branch may not be the PR branch being reviewed. Always rely on the PR diff fetched via the `fetch-diff` skill.
 
 ## Instructions
 
@@ -45,10 +45,7 @@ The current local branch may not be the PR branch being reviewed. Always rely on
 
 ### 2. Fetch PR Diff
 
-- Run the fetch-diff skill to fetch the PR diff:
-  ```bash
-  uv run .claude/skills/fetch-diff/fetch_diff.py <pr_url>
-  ```
+Run the `fetch-diff` skill to fetch the PR diff for the identified PR.
 
 ### 3. Review Changed Lines
 
