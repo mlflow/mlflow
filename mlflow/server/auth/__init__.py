@@ -1111,8 +1111,92 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             ),
             None,
         )
+    elif _is_gateway_invocation_route(req.path):
+        return _validate_gateway_use_permission
     else:
         return BEFORE_REQUEST_VALIDATORS.get((req.path, req.method))
+
+
+def _is_gateway_invocation_route(path: str) -> bool:
+    """
+    Check if the path is a gateway invocation route that requires USE permission.
+
+    Returns:
+        True if this is a gateway invocation route, False otherwise.
+    """
+    # Pattern 1: /gateway/{endpoint_name}/mlflow/invocations
+    if re.match(r"^/gateway/([^/]+)/mlflow/invocations$", path):
+        return True
+    # Pattern 2-6: Passthrough routes (endpoint in request body)
+    if path in (
+        "/gateway/mlflow/v1/chat/completions",
+        "/gateway/openai/v1/chat/completions",
+        "/gateway/openai/v1/embeddings",
+        "/gateway/openai/v1/responses",
+        "/gateway/anthropic/v1/messages",
+    ):
+        return True
+    # Pattern 7-8: Gemini routes (endpoint in URL path)
+    if re.match(r"^/gateway/gemini/v1beta/models/([^/:]+):generateContent$", path):
+        return True
+    if re.match(r"^/gateway/gemini/v1beta/models/([^/:]+):streamGenerateContent$", path):
+        return True
+    return False
+
+
+@catch_mlflow_exception
+def _validate_gateway_use_permission() -> bool:
+    """
+    Validate use permission for AI Gateway invocation routes.
+
+    Returns:
+        True if permission is granted, False otherwise.
+    """
+    path = request.path
+    endpoint_name = None
+
+    # Extract endpoint name from route
+    # Pattern 1: /gateway/{endpoint_name}/mlflow/invocations
+    if match := re.match(r"^/gateway/([^/]+)/mlflow/invocations$", path):
+        endpoint_name = match.group(1)
+    # Pattern 2-6: Passthrough routes (endpoint in request body)
+    elif path in (
+        "/gateway/mlflow/v1/chat/completions",
+        "/gateway/openai/v1/chat/completions",
+        "/gateway/openai/v1/embeddings",
+        "/gateway/openai/v1/responses",
+        "/gateway/anthropic/v1/messages",
+    ):
+        try:
+            if request.is_json and request.json:
+                endpoint_name = request.json.get("model")
+        except Exception:
+            pass
+    # Pattern 7-8: Gemini routes (endpoint in URL path)
+    elif (match := re.match(r"^/gateway/gemini/v1beta/models/([^/:]+):generateContent$", path)) or (
+        match := re.match(r"^/gateway/gemini/v1beta/models/([^/:]+):streamGenerateContent$", path)
+    ):
+        endpoint_name = match.group(1)
+
+    # If we couldn't extract endpoint name, let it through and let handler return 400
+    if not endpoint_name:
+        return True
+
+    username = authenticate_request().username
+    try:
+        # TODO: we need to query endpoint ID by name from the database.
+        # Revisit the mutability of the endpoint name if it causes latency issues.
+        from mlflow.tracking._tracking_service.utils import _get_store
+
+        tracking_store = _get_store()
+        endpoint = tracking_store.get_gateway_endpoint(name=endpoint_name)
+        endpoint_id = endpoint.endpoint_id
+
+        permission_str = store.get_gateway_endpoint_permission(endpoint_id, username).permission
+        permission = get_permission(permission_str)
+        return permission.can_use
+    except MlflowException:
+        return False
 
 
 @catch_mlflow_exception
