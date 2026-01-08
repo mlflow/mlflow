@@ -240,6 +240,7 @@ def upgrade():
             "workspaces",
             sa.Column("name", sa.String(length=63), nullable=False),
             sa.Column("description", sa.Text(), nullable=True),
+            sa.Column("default_artifact_root", sa.Text(), nullable=True),
             sa.PrimaryKeyConstraint("name", name="workspaces_pk"),
         )
 
@@ -249,6 +250,7 @@ def upgrade():
             metadata,
             sa.Column("name", sa.String(length=63)),
             sa.Column("description", sa.Text()),
+            sa.Column("default_artifact_root", sa.Text()),
         )
 
         conn.execute(

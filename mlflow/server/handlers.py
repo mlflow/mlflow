@@ -273,6 +273,8 @@ from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
 from mlflow.utils.validation import (
     _validate_batch_log_api_req,
+    _validate_experiment_artifact_location,
+    _validate_experiment_artifact_location_length,
     invalid_value,
     missing_value,
 )
@@ -618,13 +620,6 @@ def initialize_backend_stores(
         pass
 
     if MLFLOW_ENABLE_WORKSPACES.get():
-        if not default_artifact_root:
-            raise MlflowException.invalid_parameter_value(
-                "--enable-workspaces requires --default-artifact-root to be set. "
-                "Workspace mode disables per-experiment artifact locations, so this value "
-                "becomes the base path for workspace-scoped artifacts."
-            )
-
         # Initialize the workspace store to verify it's correctly configured
         _get_workspace_store(
             workspace_uri=workspace_store_uri,
@@ -1040,6 +1035,56 @@ def _workspace_not_supported(message: str) -> MlflowException:
     return MlflowException(message, FEATURE_DISABLED)
 
 
+def _validate_artifact_root_uri(value: str, field_name: str) -> str:
+    parsed = urllib.parse.urlparse(value)
+    if parsed.fragment or parsed.params:
+        raise MlflowException.invalid_parameter_value(
+            f"'{field_name}' URL can't include fragments or params."
+        )
+
+    validate_query_string(parsed.query)
+    _validate_experiment_artifact_location(value)
+    _validate_experiment_artifact_location_length(value)
+    return value
+
+
+def _validate_workspace_default_artifact_root(value: str | None) -> str | None:
+    if value is None:
+        return None
+
+    trimmed = value.strip()
+    if not trimmed:
+        return ""
+
+    return _validate_artifact_root_uri(trimmed, "default_artifact_root")
+
+
+def _ensure_artifact_root_available(workspace_artifact_root: str | None) -> None:
+    """Ensure an artifact root is available either at workspace or server level.
+
+    Args:
+        workspace_artifact_root: The workspace's default_artifact_root value.
+            - None means "not specified" (fallback to server default)
+            - "" means "clear/unset" (fallback to server default)
+            - non-empty string means "use this workspace-specific root"
+
+    Raises:
+        MlflowException: If neither workspace nor server has an artifact root configured.
+    """
+    # If workspace has a non-empty artifact root, it's valid
+    if workspace_artifact_root:
+        return
+
+    # Otherwise, check if server has a default artifact root
+    server_artifact_root = _get_tracking_store().artifact_root_uri
+    if not server_artifact_root:
+        raise MlflowException.invalid_parameter_value(
+            "Cannot create or update workspace without an artifact root. Either specify "
+            "'default_artifact_root' for this workspace or start the server with "
+            "'--default-artifact-root'."
+        )
+
+
 @catch_mlflow_exception
 def _server_features_handler():
     """
@@ -1076,15 +1121,31 @@ def _create_workspace_handler():
         schema={
             "name": [_assert_required, _assert_string],
             "description": [_assert_string],
+            "default_artifact_root": [_assert_string],
         },
     )
 
+    if request_message.name == DEFAULT_WORKSPACE_NAME:
+        raise MlflowException.invalid_parameter_value(
+            f"The '{DEFAULT_WORKSPACE_NAME}' workspace is reserved and cannot be created"
+        )
     WorkspaceNameValidator.validate(request_message.name)
     description = request_message.description if request_message.HasField("description") else None
+    default_artifact_root = (
+        request_message.default_artifact_root
+        if request_message.HasField("default_artifact_root")
+        else None
+    )
+    default_artifact_root = _validate_workspace_default_artifact_root(default_artifact_root)
+    _ensure_artifact_root_available(default_artifact_root)
     store = _get_workspace_store()
     try:
         workspace = store.create_workspace(
-            Workspace(name=request_message.name, description=description)
+            Workspace(
+                name=request_message.name,
+                description=description,
+                default_artifact_root=default_artifact_root,
+            )
         )
     except NotImplementedError:
         raise _workspace_not_supported("Workspace creation is not supported by this provider")
@@ -1099,7 +1160,8 @@ def _create_workspace_handler():
 @catch_mlflow_exception
 @_disable_if_workspaces_disabled
 def _get_workspace_handler(workspace_name: str):
-    WorkspaceNameValidator.validate(workspace_name)
+    if workspace_name != DEFAULT_WORKSPACE_NAME:
+        WorkspaceNameValidator.validate(workspace_name)
     workspace = _get_workspace_store().get_workspace(workspace_name)
     response_message = GetWorkspace.Response()
     response_message.workspace.MergeFrom(workspace.to_proto())
@@ -1109,19 +1171,39 @@ def _get_workspace_handler(workspace_name: str):
 @catch_mlflow_exception
 @_disable_if_workspaces_disabled
 def _update_workspace_handler(workspace_name: str):
-    WorkspaceNameValidator.validate(workspace_name)
+    if workspace_name != DEFAULT_WORKSPACE_NAME:
+        WorkspaceNameValidator.validate(workspace_name)
     request_message = _get_request_message(
         UpdateWorkspace(),
-        schema={"description": [_assert_string]},
+        schema={
+            "description": [_assert_string],
+            "default_artifact_root": [_assert_string],
+        },
     )
 
-    if not request_message.HasField("description"):
+    has_description = request_message.HasField("description")
+    has_artifact_root = request_message.HasField("default_artifact_root")
+
+    if not has_description and not has_artifact_root:
         raise MlflowException.invalid_parameter_value("Workspace update must have at least one key")
+
+    description = request_message.description if has_description else None
+    default_artifact_root = request_message.default_artifact_root if has_artifact_root else None
+    default_artifact_root = _validate_workspace_default_artifact_root(default_artifact_root)
+
+    # If the user is clearing the workspace artifact root (empty string), ensure the server
+    # has a default artifact root configured
+    if default_artifact_root == "":
+        _ensure_artifact_root_available(default_artifact_root)
 
     store = _get_workspace_store()
     try:
         workspace = store.update_workspace(
-            Workspace(name=workspace_name, description=request_message.description)
+            Workspace(
+                name=workspace_name,
+                description=description,
+                default_artifact_root=default_artifact_root,
+            )
         )
     except NotImplementedError:
         raise _workspace_not_supported("Workspace updates are not supported by this provider")
@@ -1134,6 +1216,10 @@ def _update_workspace_handler(workspace_name: str):
 @catch_mlflow_exception
 @_disable_if_workspaces_disabled
 def _delete_workspace_handler(workspace_name: str):
+    if workspace_name == DEFAULT_WORKSPACE_NAME:
+        raise MlflowException.invalid_parameter_value(
+            f"The '{DEFAULT_WORKSPACE_NAME}' workspace is reserved and cannot be deleted"
+        )
     WorkspaceNameValidator.validate(workspace_name)
     store = _get_workspace_store()
     try:
@@ -1187,14 +1273,8 @@ def _create_experiment():
 
     tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]
 
-    # Validate query string in artifact location to prevent attacks
-    parsed_artifact_location = urllib.parse.urlparse(request_message.artifact_location)
-    if parsed_artifact_location.fragment or parsed_artifact_location.params:
-        raise MlflowException(
-            "'artifact_location' URL can't include fragments or params.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-    validate_query_string(parsed_artifact_location.query)
+    if request_message.artifact_location:
+        _validate_artifact_root_uri(request_message.artifact_location, "artifact_location")
     experiment_id = _get_tracking_store().create_experiment(
         request_message.name, request_message.artifact_location, tags
     )

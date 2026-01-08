@@ -6,7 +6,6 @@ from typing import Iterable
 
 from mlflow.entities import Workspace
 from mlflow.exceptions import MlflowException
-from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
 # The workspace store can be backed by something other than the tracking store. For example,
@@ -66,8 +65,8 @@ class AbstractStore(ABC):
         raise NotImplementedError
 
     def resolve_artifact_root(
-        self, default_artifact_root: str, workspace_name: str | None = None
-    ) -> tuple[str, bool]:
+        self, default_artifact_root: str | None, workspace_name: str
+    ) -> tuple[str | None, bool]:
         """
         Allow a provider to customize artifact storage roots per workspace.
 
@@ -86,7 +85,7 @@ class WorkspaceNameValidator:
     _PATTERN = r"^[a-z0-9][-a-z0-9]*[a-z0-9]$"
     _MIN_LENGTH = 2
     _MAX_LENGTH = 63
-    _RESERVED = {DEFAULT_WORKSPACE_NAME, "workspaces", "api", "ajax-api", "static-files"}
+    _RESERVED = {"workspaces", "api", "ajax-api", "static-files"}
 
     @classmethod
     def pattern(cls) -> str:

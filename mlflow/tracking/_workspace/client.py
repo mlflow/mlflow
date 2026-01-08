@@ -28,14 +28,56 @@ class WorkspaceProviderClient:
     def list_workspaces(self) -> list[Workspace]:
         return list(self.store.list_workspaces())
 
-    def create_workspace(self, name: str, description: str | None = None) -> Workspace:
-        return self.store.create_workspace(Workspace(name=name, description=description))
+    def create_workspace(
+        self,
+        name: str,
+        description: str | None = None,
+        default_artifact_root: str | None = None,
+    ) -> Workspace:
+        """Create a new workspace.
+
+        Args:
+            name: The workspace name (alphanumeric, hyphens, underscores only).
+            description: Optional description of the workspace.
+            default_artifact_root: Optional artifact root URI; falls back to server default.
+
+        Returns:
+            The newly created workspace.
+        """
+        return self.store.create_workspace(
+            Workspace(
+                name=name,
+                description=description,
+                default_artifact_root=default_artifact_root,
+            )
+        )
 
     def get_workspace(self, name: str) -> Workspace:
         return self.store.get_workspace(name)
 
-    def update_workspace(self, name: str, description: str | None = None) -> Workspace:
-        return self.store.update_workspace(Workspace(name=name, description=description))
+    def update_workspace(
+        self,
+        name: str,
+        description: str | None = None,
+        default_artifact_root: str | None = None,
+    ) -> Workspace:
+        """Update metadata for an existing workspace.
+
+        Args:
+            name: The name of the workspace to update.
+            description: New description, or ``None`` to leave unchanged.
+            default_artifact_root: New artifact root URI, empty string to clear, or ``None``.
+
+        Returns:
+            The updated workspace.
+        """
+        return self.store.update_workspace(
+            Workspace(
+                name=name,
+                description=description,
+                default_artifact_root=default_artifact_root,
+            )
+        )
 
     def delete_workspace(self, name: str) -> None:
         self.store.delete_workspace(name)
