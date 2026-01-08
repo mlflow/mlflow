@@ -228,3 +228,117 @@ class ScorerPermission:
             user_id=dictionary["user_id"],
             permission=dictionary["permission"],
         )
+
+
+class GatewaySecretPermission:
+    def __init__(self, secret_id, user_id, permission):
+        self._secret_id = secret_id
+        self._user_id = user_id
+        self._permission = permission
+
+    @property
+    def secret_id(self):
+        return self._secret_id
+
+    @property
+    def user_id(self):
+        return self._user_id
+
+    @property
+    def permission(self):
+        return self._permission
+
+    @permission.setter
+    def permission(self, permission):
+        self._permission = permission
+
+    def to_json(self):
+        return {
+            "secret_id": self.secret_id,
+            "user_id": self.user_id,
+            "permission": self.permission,
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            secret_id=dictionary["secret_id"],
+            user_id=dictionary["user_id"],
+            permission=dictionary["permission"],
+        )
+
+
+class GatewayEndpointPermission:
+    def __init__(self, endpoint_id, user_id, permission):
+        self._endpoint_id = endpoint_id
+        self._user_id = user_id
+        self._permission = permission
+
+    @property
+    def endpoint_id(self):
+        return self._endpoint_id
+
+    @property
+    def user_id(self):
+        return self._user_id
+
+    @property
+    def permission(self):
+        return self._permission
+
+    @permission.setter
+    def permission(self, permission):
+        self._permission = permission
+
+    def to_json(self):
+        return {
+            "endpoint_id": self.endpoint_id,
+            "user_id": self.user_id,
+            "permission": self.permission,
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            endpoint_id=dictionary["endpoint_id"],
+            user_id=dictionary["user_id"],
+            permission=dictionary["permission"],
+        )
+
+
+class GatewayModelDefinitionPermission:
+    def __init__(self, model_definition_id, user_id, permission):
+        self._model_definition_id = model_definition_id
+        self._user_id = user_id
+        self._permission = permission
+
+    @property
+    def model_definition_id(self):
+        return self._model_definition_id
+
+    @property
+    def user_id(self):
+        return self._user_id
+
+    @property
+    def permission(self):
+        return self._permission
+
+    @permission.setter
+    def permission(self, permission):
+        self._permission = permission
+
+    def to_json(self):
+        return {
+            "model_definition_id": self.model_definition_id,
+            "user_id": self.user_id,
+            "permission": self.permission,
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            model_definition_id=dictionary["model_definition_id"],
+            user_id=dictionary["user_id"],
+            permission=dictionary["permission"],
+        )
