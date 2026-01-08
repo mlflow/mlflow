@@ -166,7 +166,13 @@ def submit_job(
             "environment variable 'MLFLOW_SERVER_ENABLE_JOB_EXECUTION' to 'true' to enable it."
         )
 
-    _check_requirements()
+    try:
+        _check_requirements()
+    except MlflowException as e:
+        raise MlflowException(
+            f"Job invocation failed: {e.message}. "
+            "Please address the issue and restart the MLflow server."
+        )
 
     if not (isinstance(function, FunctionType) and "." not in function.__qualname__):
         raise MlflowException("The job function must be a python global function.")
