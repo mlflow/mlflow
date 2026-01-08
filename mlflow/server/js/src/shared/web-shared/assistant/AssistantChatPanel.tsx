@@ -9,11 +9,13 @@ import {
   Card,
   CloseIcon,
   CopyIcon,
+  ForkHorizontalIcon,
   PlusIcon,
   RefreshIcon,
   SparkleDoubleIcon,
   SparkleIcon,
   Spinner,
+  Tag,
   Tooltip,
   Typography,
   useDesignSystemTheme,
@@ -24,6 +26,7 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
+import { useAssistantPageContextValue } from './AssistantPageContext';
 import type { ChatMessage } from './types';
 import { GenAIMarkdownRenderer } from '../genai-markdown-renderer';
 
@@ -276,6 +279,63 @@ const StatusIndicator = () => {
 };
 
 /**
+ * Context tags showing current page context (compact version for input area).
+ */
+const AssistantContextTags = () => {
+  const { theme } = useDesignSystemTheme();
+  const context = useAssistantPageContextValue();
+
+  const traceId = context['traceId'] as string | undefined;
+  const selectedTraceIds = context['selectedTraceIds'] as string[] | undefined;
+
+  // Don't render if no context
+  if (!traceId && !selectedTraceIds?.length) {
+    return null;
+  }
+
+  const truncate = (id: string, maxLen = 8) => (id.length > maxLen ? `${id.slice(0, maxLen)}...` : id);
+
+  return (
+    <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs, paddingTop: theme.spacing.sm }}>
+      {traceId && (
+        <Tooltip componentId={`${COMPONENT_ID}.context.trace.tooltip`} content={`Trace: ${traceId}`}>
+          <Tag componentId={`${COMPONENT_ID}.context.trace`} color="indigo">
+            <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+              <ForkHorizontalIcon css={{ fontSize: 12 }} />
+              <span>{truncate(traceId)}</span>
+            </span>
+          </Tag>
+        </Tooltip>
+      )}
+      {selectedTraceIds && selectedTraceIds.length > 0 && (
+        <>
+          {selectedTraceIds.slice(0, 3).map((id) => (
+            <Tooltip key={id} componentId={`${COMPONENT_ID}.context.selected.tooltip`} content={`Trace: ${id}`}>
+              <Tag componentId={`${COMPONENT_ID}.context.selected`} color="indigo">
+                <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                  <ForkHorizontalIcon css={{ fontSize: 12 }} />
+                  <span>{truncate(id)}</span>
+                </span>
+              </Tag>
+            </Tooltip>
+          ))}
+          {selectedTraceIds.length > 3 && (
+            <Tooltip
+              componentId={`${COMPONENT_ID}.context.more.tooltip`}
+              content={`${selectedTraceIds.length - 3} more traces selected`}
+            >
+              <Tag componentId={`${COMPONENT_ID}.context.more`} color="indigo">
+                +{selectedTraceIds.length - 3}
+              </Tag>
+            </Tooltip>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+/**
  * Chat panel content component.
  */
 const ChatPanelContent = () => {
@@ -360,14 +420,15 @@ const ChatPanelContent = () => {
         <div
           css={{
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: 'column',
             border: `1px solid ${theme.colors.border}`,
             borderRadius: theme.borders.borderRadiusMd,
-            padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+            padding: `${theme.spacing.sm}px ${theme.spacing.sm}px`,
             backgroundColor: theme.colors.backgroundPrimary,
           }}
         >
-          <input
+          <div css={{ display: 'flex', alignItems: 'center' }}>
+            <input
             placeholder="Ask a question about this trace..."
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -419,6 +480,8 @@ const ChatPanelContent = () => {
           >
             {isStreaming ? <Spinner size="small" /> : <SendIcon />}
           </button>
+          </div>
+          <AssistantContextTags />
         </div>
       </div>
     </div>

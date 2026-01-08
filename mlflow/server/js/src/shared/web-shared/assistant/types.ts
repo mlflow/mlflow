@@ -6,6 +6,16 @@ export interface ChatMessage {
   isStreaming?: boolean;
 }
 
+/**
+ * Known context keys for the assistant.
+ * Type-safe registration for common context values.
+ */
+export interface KnownAssistantContext {
+  experimentId?: string;
+  traceId?: string;
+  selectedTraceIds?: string[];
+}
+
 export interface AssistantAgentState {
   /** Whether the Assistant panel is open */
   isPanelOpen: boolean;
@@ -40,4 +50,8 @@ export type AssistantAgentContextType = AssistantAgentState & AssistantAgentActi
 export interface MessageRequest {
   session_id?: string;
   message: string;
+  /** Experiment ID for linking to MLflow experiment */
+  experiment_id?: string;
+  /** Page-specific context (traceId, selectedTraceIds, etc.) */
+  context?: KnownAssistantContext & Record<string, unknown>;
 }
