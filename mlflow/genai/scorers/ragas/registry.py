@@ -1,60 +1,95 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from mlflow.exceptions import MlflowException
 
-# (classpath, is_deterministic)
-_METRIC_REGISTRY = {
+
+@dataclass(frozen=True)
+class MetricConfig:
+    """Configuration for a RAGAS metric."""
+
+    classpath: str
+    is_deterministic: bool = False
+    is_agentic: bool = False
+    requires_embeddings: bool = False
+    llm_in_constructor: bool = True
+    llm_at_score_time: bool = False
+
+
+# fmt: off
+_METRIC_REGISTRY: dict[str, MetricConfig] = {
     # Retrieval Augmented Generation
-    "ContextPrecision": ("ragas.metrics.collections.ContextPrecision", False),
-    "ContextUtilization": ("ragas.metrics.collections.ContextUtilization", False),
-    "NonLLMContextPrecisionWithReference": (
+    "ContextPrecision": MetricConfig("ragas.metrics.collections.ContextPrecision"),
+    "ContextUtilization": MetricConfig("ragas.metrics.collections.ContextUtilization"),
+    "NonLLMContextPrecisionWithReference": MetricConfig(
         "ragas.metrics.NonLLMContextPrecisionWithReference",
-        True,
+        is_deterministic=True
     ),
-    "ContextRecall": ("ragas.metrics.collections.ContextRecall", False),
-    "NonLLMContextRecall": ("ragas.metrics.NonLLMContextRecall", True),
-    "ContextEntityRecall": ("ragas.metrics.collections.ContextEntityRecall", False),
-    "NoiseSensitivity": ("ragas.metrics.collections.NoiseSensitivity", False),
-    "AnswerRelevancy": ("ragas.metrics.collections.AnswerRelevancy", False),
-    "Faithfulness": ("ragas.metrics.collections.Faithfulness", False),
+    "ContextRecall": MetricConfig("ragas.metrics.collections.ContextRecall"),
+    "NonLLMContextRecall": MetricConfig("ragas.metrics.NonLLMContextRecall", is_deterministic=True),
+    "ContextEntityRecall": MetricConfig("ragas.metrics.collections.ContextEntityRecall"),
+    "NoiseSensitivity": MetricConfig("ragas.metrics.collections.NoiseSensitivity"),
+    "AnswerRelevancy": MetricConfig(
+        "ragas.metrics.collections.AnswerRelevancy",
+        requires_embeddings=True
+    ),
+    "Faithfulness": MetricConfig("ragas.metrics.collections.Faithfulness"),
     # Nvidia Metrics
-    "AnswerAccuracy": ("ragas.metrics.collections.AnswerAccuracy", False),
-    "ContextRelevance": ("ragas.metrics.collections.ContextRelevance", False),
-    "ResponseGroundedness": ("ragas.metrics.collections.ResponseGroundedness", False),
+    "AnswerAccuracy": MetricConfig("ragas.metrics.collections.AnswerAccuracy"),
+    "ContextRelevance": MetricConfig("ragas.metrics.collections.ContextRelevance"),
+    "ResponseGroundedness": MetricConfig("ragas.metrics.collections.ResponseGroundedness"),
     # Agents or Tool Use Cases
-    "TopicAdherence": ("ragas.metrics.collections.TopicAdherence", False),
-    "ToolCallAccuracy": ("ragas.metrics.collections.ToolCallAccuracy", True),
-    "ToolCallF1": ("ragas.metrics.collections.ToolCallF1", True),
-    "AgentGoalAccuracyWithReference": (
-        "ragas.metrics.collections.AgentGoalAccuracyWithReference",
-        False,
+    "TopicAdherence": MetricConfig("ragas.metrics.collections.TopicAdherence", is_agentic=True),
+    "ToolCallAccuracy": MetricConfig(
+        "ragas.metrics.collections.ToolCallAccuracy",
+        is_deterministic=True,
+        is_agentic=True
     ),
-    "AgentGoalAccuracyWithoutReference": (
+    "ToolCallF1": MetricConfig(
+        "ragas.metrics.collections.ToolCallF1",
+        is_deterministic=True,
+        is_agentic=True
+    ),
+    "AgentGoalAccuracyWithReference": MetricConfig(
+        "ragas.metrics.collections.AgentGoalAccuracyWithReference",
+        is_agentic=True
+    ),
+    "AgentGoalAccuracyWithoutReference": MetricConfig(
         "ragas.metrics.collections.AgentGoalAccuracyWithoutReference",
-        False,
+        is_agentic=True
     ),
     # Natural Language Comparison
-    "FactualCorrectness": ("ragas.metrics.collections.FactualCorrectness", False),
-    "SemanticSimilarity": ("ragas.metrics.collections.SemanticSimilarity", False),
-    "NonLLMStringSimilarity": (
-        "ragas.metrics.collections.NonLLMStringSimilarity",
-        True,
+    "FactualCorrectness": MetricConfig("ragas.metrics.collections.FactualCorrectness"),
+    "SemanticSimilarity": MetricConfig(
+        "ragas.metrics.collections.SemanticSimilarity",
+        is_deterministic=True,
+        requires_embeddings=True,
+        llm_in_constructor=False
     ),
-    "BleuScore": ("ragas.metrics.collections.BleuScore", True),
-    "ChrfScore": ("ragas.metrics.collections.ChrfScore", True),
-    "RougeScore": ("ragas.metrics.collections.RougeScore", True),
-    "StringPresence": ("ragas.metrics.collections.StringPresence", True),
-    "ExactMatch": ("ragas.metrics.collections.ExactMatch", True),
-    # TODO: SQL metrics not yet supported
-    # "DatacompyScore": ("ragas.metrics.DatacompyScore", False),
-    # "SQLSemanticEquivalence": ("ragas.metrics.SQLSemanticEquivalence", False),
+    "NonLLMStringSimilarity": MetricConfig(
+        "ragas.metrics.collections.NonLLMStringSimilarity",
+        is_deterministic=True
+    ),
+    "BleuScore": MetricConfig("ragas.metrics.collections.BleuScore", is_deterministic=True),
+    "ChrfScore": MetricConfig("ragas.metrics.collections.ChrfScore", is_deterministic=True),
+    "RougeScore": MetricConfig("ragas.metrics.collections.RougeScore", is_deterministic=True),
+    "StringPresence": MetricConfig(
+        "ragas.metrics.collections.StringPresence",
+        is_deterministic=True
+    ),
+    "ExactMatch": MetricConfig("ragas.metrics.collections.ExactMatch", is_deterministic=True),
     # General Purpose
-    "AspectCritic": ("ragas.metrics.AspectCritic", False),
-    "DiscreteMetric": ("ragas.metrics.DiscreteMetric", False),
-    "RubricsScore": ("ragas.metrics.RubricsScore", False),
-    "InstanceRubrics": ("ragas.metrics.InstanceRubrics", False),
+    "AspectCritic": MetricConfig("ragas.metrics.AspectCritic"),
+    "DiscreteMetric": MetricConfig(
+        "ragas.metrics.DiscreteMetric",
+        llm_in_constructor=False,
+        llm_at_score_time=True,
+    ),
+    "RubricsScore": MetricConfig("ragas.metrics.RubricsScore"),
+    "InstanceRubrics": MetricConfig("ragas.metrics.InstanceRubrics"),
     # Other Tasks
-    "SummarizationScore": ("ragas.metrics.SummarizationScore", False),
+    "SummarizationScore": MetricConfig("ragas.metrics.SummarizationScore"),
 }
 
 
@@ -71,14 +106,8 @@ def get_metric_class(metric_name: str):
     Raises:
         MlflowException: If the metric name is not recognized or ragas is not installed
     """
-    if metric_name not in _METRIC_REGISTRY:
-        available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
-        raise MlflowException.invalid_parameter_value(
-            f"Unknown metric: '{metric_name}'. Available metrics: {available_metrics}"
-        )
-
-    classpath, _ = _METRIC_REGISTRY[metric_name]
-    module_path, class_name = classpath.rsplit(".", 1)
+    config = _get_config(metric_name)
+    module_path, class_name = config.classpath.rsplit(".", 1)
 
     try:
         module = __import__(module_path, fromlist=[class_name])
@@ -90,35 +119,29 @@ def get_metric_class(metric_name: str):
 
 
 def is_deterministic_metric(metric_name: str) -> bool:
-    _, is_deterministic = _METRIC_REGISTRY[metric_name]
-    return is_deterministic
+    return _get_config(metric_name).is_deterministic
 
 
 def is_agentic_metric(metric_name: str) -> bool:
-    agentic_metrics = {
-        "TopicAdherence",
-        "ToolCallAccuracy",
-        "ToolCallF1",
-        "AgentGoalAccuracyWithReference",
-        "AgentGoalAccuracyWithoutReference",
-    }
-    return metric_name in agentic_metrics
-
-
-_NO_LLM_IN_CONSTRUCTOR = {
-    "SemanticSimilarity",  # Only needs embeddings
-    "DiscreteMetric",  # llm passed to score() instead
-}
-_REQUIRES_EMBEDDINGS = {"SemanticSimilarity", "AnswerRelevancy"}
+    return _get_config(metric_name).is_agentic
 
 
 def llm_in_constructor(metric_name: str) -> bool:
-    return metric_name not in _NO_LLM_IN_CONSTRUCTOR
+    return _get_config(metric_name).llm_in_constructor
 
 
 def requires_embeddings(metric_name: str) -> bool:
-    return metric_name in _REQUIRES_EMBEDDINGS
+    return _get_config(metric_name).requires_embeddings
 
 
 def requires_llm_at_score_time(metric_name: str) -> bool:
-    return metric_name == "DiscreteMetric"
+    return _get_config(metric_name).llm_at_score_time
+
+
+def _get_config(metric_name: str) -> MetricConfig:
+    if metric_name not in _METRIC_REGISTRY:
+        available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
+        raise MlflowException.invalid_parameter_value(
+            f"Unknown metric: '{metric_name}'. Available metrics: {available_metrics}"
+        )
+    return _METRIC_REGISTRY[metric_name]

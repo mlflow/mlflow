@@ -186,10 +186,8 @@ class AnswerRelevancy(RagasScorer):
         .. code-block:: python
 
             from mlflow.genai.scorers.ragas import AnswerRelevancy
-            from ragas.embeddings.base import embedding_factory
 
-            embeddings = embedding_factory("openai", model="text-embedding-3-small")
-            scorer = AnswerRelevancy(embeddings=embeddings)
+            scorer = AnswerRelevancy(model="openai:/gpt-4")
             feedback = scorer(
                 inputs="What is MLflow?",
                 outputs="MLflow is an open-source platform for managing ML workflows.",
@@ -198,8 +196,18 @@ class AnswerRelevancy(RagasScorer):
 
     metric_name: ClassVar[str] = "AnswerRelevancy"
 
-    def __init__(self, embeddings: Embeddings | None = None, **metric_kwargs):
-        super().__init__(metric_name=self.metric_name, embeddings=embeddings, **metric_kwargs)
+    def __init__(
+        self,
+        model: str | None = None,
+        embeddings: Embeddings | None = None,
+        **metric_kwargs,
+    ):
+        super().__init__(
+            metric_name=self.metric_name,
+            model=model,
+            embeddings=embeddings,
+            **metric_kwargs,
+        )
 
 
 @experimental(version="3.9.0")
@@ -211,7 +219,6 @@ class SemanticSimilarity(RagasScorer):
     Note: This metric requires embeddings
 
     Args:
-        model: {{ model }}
         embeddings: Embeddings for computing similarity
         **metric_kwargs: Additional metric-specific parameters
 
@@ -219,11 +226,13 @@ class SemanticSimilarity(RagasScorer):
         .. code-block:: python
 
             from mlflow.genai.scorers.ragas import SemanticSimilarity
-            from ragas.embeddings.base import embedding_factory
 
-            embeddings = embedding_factory("openai", model="text-embedding-3-small")
-            scorer = SemanticSimilarity(embeddings=embeddings)
+            scorer = SemanticSimilarity()
             feedback = scorer(trace=trace)
     """
 
     metric_name: ClassVar[str] = "SemanticSimilarity"
+
+    def __init__(self, embeddings: Embeddings | None = None, **metric_kwargs):
+        self._validate_kwargs(**metric_kwargs)
+        super().__init__(metric_name=self.metric_name, embeddings=embeddings, **metric_kwargs)
