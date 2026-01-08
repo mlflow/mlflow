@@ -17,6 +17,7 @@ class SqlWorkspace(Base):
 
     name = Column(String(63), nullable=False)
     description = Column(Text, nullable=True)
+    default_artifact_root = Column(Text, nullable=True)
 
     __table_args__ = (sa.PrimaryKeyConstraint("name", name="workspaces_pk"),)
 
@@ -24,4 +25,8 @@ class SqlWorkspace(Base):
         return f"<SqlWorkspace ({self.name})>"
 
     def to_mlflow_entity(self) -> Workspace:
-        return Workspace(name=self.name, description=self.description)
+        return Workspace(
+            name=self.name,
+            description=self.description,
+            default_artifact_root=self.default_artifact_root,
+        )

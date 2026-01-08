@@ -119,6 +119,21 @@ MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES
 #: (default: ``None``)
 MLFLOW_WORKSPACE = _EnvironmentVariable("MLFLOW_WORKSPACE", str, None)
 
+#: Specifies the maximum number of entries in the workspace artifact root resolution cache.
+#: Increase this value if the server manages many workspaces.
+#: (default: ``128``)
+MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_CAPACITY = _EnvironmentVariable(
+    "MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_CAPACITY", int, 128
+)
+
+#: Specifies the time-to-live in seconds for entries in the workspace artifact root resolution
+#: cache. Lower values improve consistency when running multiple server replicas; higher values
+#: reduce database load.
+#: (default: ``60``)
+MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS", int, 60
+)
+
 #: Specifies the ``dfs_tmpdir`` parameter to use for ``mlflow.spark.save_model``,
 #: ``mlflow.spark.log_model`` and ``mlflow.spark.load_model``. See
 #: https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.save_model
