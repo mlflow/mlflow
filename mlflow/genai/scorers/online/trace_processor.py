@@ -26,6 +26,7 @@ class TraceScoringTask:
 
     trace: Trace
     scorers: list[Scorer]
+    timestamp_ms: int
 
 
 class OnlineTraceScoringProcessor:
@@ -75,10 +76,6 @@ class OnlineTraceScoringProcessor:
         Fetches traces since the last checkpoint, applies sampling to select
         scorers, runs scoring in parallel, and updates the checkpoint.
         """
-        if not self._sampler._online_scorers:
-            _logger.info("No scorer configs provided, skipping")
-            return
-
         time_window = self._checkpoint_manager.calculate_time_window()
         checkpoint = self._checkpoint_manager.get_checkpoint()
 
@@ -88,7 +85,7 @@ class OnlineTraceScoringProcessor:
             f"{time_window.max_trace_timestamp_ms}]"
         )
 
-        tasks = self._fetch_and_sample_traces(time_window, checkpoint)
+        tasks = self._build_scoring_tasks(time_window, checkpoint)
 
         if not tasks:
             _logger.info("No traces selected after sampling, skipping")
@@ -112,22 +109,29 @@ class OnlineTraceScoringProcessor:
         self._execute_scoring(tasks)
 
         # Find the trace with the latest timestamp to use for checkpoint
-        latest_trace = max(full_traces, key=lambda t: (t.info.timestamp_ms, t.info.trace_id))
-        checkpoint = OnlineTraceScoringCheckpoint(
-            timestamp_ms=latest_trace.info.timestamp_ms,
-            trace_id=latest_trace.info.trace_id,
-        )
+        if full_traces:
+            latest_trace = max(full_traces, key=lambda t: (t.info.timestamp_ms, t.info.trace_id))
+            checkpoint = OnlineTraceScoringCheckpoint(
+                timestamp_ms=latest_trace.info.timestamp_ms,
+                trace_id=latest_trace.info.trace_id,
+            )
+        else:
+            # If no traces were fetched, use the end of the time window as checkpoint
+            checkpoint = OnlineTraceScoringCheckpoint(
+                timestamp_ms=time_window.max_trace_timestamp_ms,
+                trace_id=None,
+            )
         self._checkpoint_manager.persist_checkpoint(checkpoint)
 
         _logger.info(f"Online trace scoring completed for experiment {self._experiment_id}")
 
-    def _fetch_and_sample_traces(
+    def _build_scoring_tasks(
         self,
         time_window,
         checkpoint,
     ) -> dict[str, TraceScoringTask]:
         """
-        Fetch traces for each filter and apply sampling.
+        Build scoring tasks by fetching trace infos and applying sampling.
 
         Args:
             time_window: OnlineTraceScoringTimeWindow with timestamp bounds.
@@ -179,10 +183,15 @@ class OnlineTraceScoringProcessor:
                 if selected := self._sampler.sample(trace_id, scorers):
                     # Store just the trace_id and scorers - we'll fetch full traces later
                     if trace_id not in tasks:
-                        tasks[trace_id] = TraceScoringTask(trace=None, scorers=[])
+                        tasks[trace_id] = TraceScoringTask(
+                            trace=None, scorers=[], timestamp_ms=trace_info.timestamp_ms
+                        )
                     tasks[trace_id].scorers.extend(selected)
 
-        return tasks
+        # Sort tasks by timestamp (ascending) to ensure chronological processing
+        # and truncate to MAX_TRACES_PER_JOB (list slicing handles len < MAX).
+        sorted_trace_ids = sorted(tasks.keys(), key=lambda tid: (tasks[tid].timestamp_ms, tid))
+        return {tid: tasks[tid] for tid in sorted_trace_ids[:MAX_TRACES_PER_JOB]}
 
     def _execute_scoring(
         self,

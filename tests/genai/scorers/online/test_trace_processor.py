@@ -82,8 +82,13 @@ def test_process_traces_skips_when_no_scorers(
 
     processor.process_traces()
 
-    mock_checkpoint_manager.calculate_time_window.assert_not_called()
-    mock_trace_loader.fetch_trace_infos_in_range.assert_not_called()
+    # When there are no scorers, _build_scoring_tasks returns empty dict,
+    # so checkpoint is still advanced but no trace fetching occurs
+    mock_checkpoint_manager.persist_checkpoint.assert_called_once()
+    checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
+    assert checkpoint.timestamp_ms == 2000
+    assert checkpoint.trace_id is None
+    mock_trace_loader.fetch_traces.assert_not_called()
 
 
 def test_process_traces_updates_checkpoint_when_no_traces(
@@ -98,6 +103,36 @@ def test_process_traces_updates_checkpoint_when_no_traces(
     )
 
     processor.process_traces()
+
+    mock_checkpoint_manager.persist_checkpoint.assert_called_once()
+    checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
+    assert checkpoint.timestamp_ms == 2000
+    assert checkpoint.trace_id is None
+
+
+def test_process_traces_updates_checkpoint_when_full_traces_empty(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
+):
+    """
+    Test that when traces are sampled but fetch_traces returns empty
+    (e.g., traces deleted between sampling and fetching), we still
+    advance the checkpoint using the time window end.
+    """
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [
+        make_trace_info("tr-001", 1500),
+        make_trace_info("tr-002", 1800),
+    ]
+    mock_trace_loader.fetch_traces.return_value = []
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    with patch("mlflow.genai.evaluation.harness._compute_eval_scores") as mock_compute:
+        mock_compute.return_value = []
+        processor.process_traces()
 
     mock_checkpoint_manager.persist_checkpoint.assert_called_once()
     checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
@@ -256,6 +291,95 @@ def test_execute_scoring_handles_failures(
         assert mock_log.call_count == 1
 
     mock_checkpoint_manager.persist_checkpoint.assert_called_once()
+
+
+def test_process_traces_truncates_and_sorts_across_filters(
+    mock_trace_loader, mock_checkpoint_manager
+):
+    """
+    Test that when multiple filters return MAX_TRACES_PER_JOB traces each,
+    we truncate to MAX_TRACES_PER_JOB total while preserving chronological order.
+    This ensures we don't skip earlier traces from certain filters.
+
+    Uses overlapping timestamp ranges to verify correct chronological sorting
+    across filters when truncating.
+    """
+    from mlflow.genai.scorers.online.constants import MAX_TRACES_PER_JOB
+
+    # Create two scorers with different filters
+    configs = [
+        make_online_scorer(Completeness(), filter_string="tags.env = 'prod'"),
+        make_online_scorer(Completeness(name="c2"), filter_string="tags.env = 'staging'"),
+    ]
+    sampler = OnlineScorerSampler(configs)
+
+    # Mock filter 1 (prod): timestamps 500-999 (500 traces)
+    # Mock filter 2 (staging): timestamps 100-599 (500 traces)
+    # Overlap: timestamps 500-599 (100 traces overlap in timestamp range)
+    filter1_traces = [make_trace_info(f"tr-prod-{i}", 500 + i) for i in range(MAX_TRACES_PER_JOB)]
+    filter2_traces = [
+        make_trace_info(f"tr-staging-{i}", 100 + i) for i in range(MAX_TRACES_PER_JOB)
+    ]
+
+    def mock_fetch_trace_infos(exp_id, min_ts, max_ts, filter_str, limit):
+        if "tags.env = 'prod'" in filter_str:
+            return filter1_traces
+        elif "tags.env = 'staging'" in filter_str:
+            return filter2_traces
+        return []
+
+    mock_trace_loader.fetch_trace_infos_in_range.side_effect = mock_fetch_trace_infos
+
+    # Mock fetch_traces to return full traces for sampled IDs
+    def mock_fetch_traces(trace_ids):
+        result = []
+        for tid in trace_ids:
+            if tid.startswith("tr-prod-"):
+                idx = int(tid.split("-")[-1])
+                result.append(make_trace(tid, 500 + idx))
+            elif tid.startswith("tr-staging-"):
+                idx = int(tid.split("-")[-1])
+                result.append(make_trace(tid, 100 + idx))
+        return result
+
+    mock_trace_loader.fetch_traces.side_effect = mock_fetch_traces
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler,
+        experiment_id="exp1",
+    )
+
+    with patch("mlflow.genai.evaluation.harness._compute_eval_scores") as mock_compute:
+        mock_compute.return_value = []
+        processor.process_traces()
+
+    # Verify we only processed MAX_TRACES_PER_JOB traces total
+    fetched_trace_ids = mock_trace_loader.fetch_traces.call_args[0][0]
+    assert len(fetched_trace_ids) == MAX_TRACES_PER_JOB
+
+    # Build expected list of traces in chronological order:
+    # 1. tr-staging-0 to tr-staging-399 (timestamps 100-499, 400 traces)
+    # 2. Interleaved at timestamps 500-549 (100 traces):
+    #    - At each timestamp, tr-prod-X comes before tr-staging-X alphabetically
+    #    - ts 500: tr-prod-0, tr-staging-400
+    #    - ts 501: tr-prod-1, tr-staging-401
+    #    - ...
+    #    - ts 549: tr-prod-49, tr-staging-449
+    # Total: 400 + 100 = 500 traces (we stop here, not processing remaining traces)
+    expected_trace_ids = [f"tr-staging-{i}" for i in range(400)]  # timestamps 100-499
+    for i in range(50):  # timestamps 500-549, alternating prod/staging
+        expected_trace_ids.append(f"tr-prod-{i}")
+        expected_trace_ids.append(f"tr-staging-{400 + i}")
+
+    # Verify exact traces processed in exact order
+    assert fetched_trace_ids == expected_trace_ids
+
+    # Verify checkpoint was updated to the last processed trace
+    checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
+    assert checkpoint.timestamp_ms == 549  # Last trace: tr-staging-449 at timestamp 549
+    assert checkpoint.trace_id == "tr-staging-449"
 
 
 def test_create_factory_method():
