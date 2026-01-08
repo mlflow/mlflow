@@ -63,9 +63,9 @@
     "defaultMessage" : "Partagez et gérez des fonctionnalités de machine learning.",
     "description" : "Text on the popover for feature store onboarding."
   },
-  "+RYBrq" : {
+  "Qv7cZx" : {
     "defaultMessage" : "Promouvoir le modèle",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+X8JmT" : {
     "defaultMessage" : "Veuillez saisir des valeurs entières non négatives pour toutes les limites de débit.",

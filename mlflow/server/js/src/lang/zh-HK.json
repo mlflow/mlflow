@@ -63,9 +63,9 @@
     "defaultMessage" : "分享和管理機器學習功能。",
     "description" : "Text on the popover for feature store onboarding."
   },
-  "+RYBrq" : {
+  "Qv7cZx" : {
     "defaultMessage" : "推廣模型",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+X8JmT" : {
     "defaultMessage" : "請為所有速率限制輸入非負整數值。",

@@ -63,9 +63,9 @@
     "defaultMessage" : "Condividi e gestisci funzioni di apprendimento automatico.",
     "description" : "Text on the popover for feature store onboarding."
   },
-  "+RYBrq" : {
+  "Qv7cZx" : {
     "defaultMessage" : "Promuovi il modello",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+X8JmT" : {
     "defaultMessage" : "Inserisci valori interi non negativi per tutti i limiti di velocità.",

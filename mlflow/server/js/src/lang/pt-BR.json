@@ -63,9 +63,9 @@
     "defaultMessage" : "Compartilhe e gerencie recursos de aprendizagem automática.",
     "description" : "Text on the popover for feature store onboarding."
   },
-  "+RYBrq" : {
+  "Qv7cZx" : {
     "defaultMessage" : "Promover modelo",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+X8JmT" : {
     "defaultMessage" : "Insira valores inteiros não negativos para todos os limites de taxa.",

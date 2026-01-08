@@ -63,9 +63,9 @@
     "defaultMessage" : "기계 학습 기능을 공유하고 관리합니다.",
     "description" : "Text on the popover for feature store onboarding."
   },
-  "+RYBrq" : {
+  "Qv7cZx" : {
     "defaultMessage" : "모델 프로모션",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+X8JmT" : {
     "defaultMessage" : "모든 속도 제한에 대해 음수가 아닌 정수 값을 입력하세요.",

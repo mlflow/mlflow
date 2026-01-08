@@ -63,9 +63,9 @@
     "defaultMessage" : "Hier können Sie Funktionen für maschinelles Lernen teilen und verwalten.",
     "description" : "Text on the popover for feature store onboarding."
   },
-  "+RYBrq" : {
+  "Qv7cZx" : {
     "defaultMessage" : "Modell bewerben",
-    "description" : "Button text to pomote the model to a different registered model"
+    "description" : "Button text to promote the model to a different registered model"
   },
   "+X8JmT" : {
     "defaultMessage" : "Bitte geben Sie für alle Ratenbegrenzungen nicht-negative Ganzzahlwerte ein.",
