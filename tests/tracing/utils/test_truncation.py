@@ -222,3 +222,32 @@ def test_truncate_invalid_content_falls_back_to_json(content_value, expected_in_
     input_str = json.dumps(request_data)
     result = _get_truncated_preview(input_str, role="user")
     assert expected_in_result in result or result.endswith("...")
+
+
+def test_truncate_double_encoded_genai_messages_list():
+    # Some span attributes are JSON-encoded twice (a JSON string containing a JSON list).
+    input_messages = [
+        {
+            "role": "system",
+            "parts": [{"type": "text", "content": "You are helpful"}],
+        },
+        {
+            "role": "user",
+            "parts": [{"type": "text", "content": "Plan me a day trip"}],
+        },
+    ]
+    double_encoded_input = json.dumps(json.dumps(input_messages))
+    assert _get_truncated_preview(double_encoded_input, role="user") == "Plan me a day trip"
+
+    output_messages = [
+        {
+            "role": "assistant",
+            "parts": [{"type": "tool_call", "id": "1", "name": "tool", "arguments": "{}"}],
+        },
+        {
+            "role": "assistant",
+            "parts": [{"type": "text", "content": "Final answer"}],
+        },
+    ]
+    double_encoded_output = json.dumps(json.dumps(output_messages))
+    assert _get_truncated_preview(double_encoded_output, role="assistant") == "Final answer"

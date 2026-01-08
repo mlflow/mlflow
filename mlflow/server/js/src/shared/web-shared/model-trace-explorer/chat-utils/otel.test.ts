@@ -23,6 +23,31 @@ describe('normalizeConversation (OTEL GenAI)', () => {
     ]);
   });
 
+  it('normalizes OTEL messages nested under gen_ai.input.messages', () => {
+    const input = [
+      {
+        role: 'system',
+        parts: [{ type: 'text', content: 'You are helpful.' }],
+      },
+      {
+        role: 'user',
+        parts: [{ type: 'text', content: 'Hello there' }],
+      },
+    ];
+
+    const resultFromString = normalizeConversation({ 'gen_ai.input.messages': JSON.stringify(input) });
+    expect(resultFromString).toEqual([
+      expect.objectContaining({ role: 'system', content: 'You are helpful.' }),
+      expect.objectContaining({ role: 'user', content: 'Hello there' }),
+    ]);
+
+    const resultFromArray = normalizeConversation({ 'gen_ai.input.messages': input });
+    expect(resultFromArray).toEqual([
+      expect.objectContaining({ role: 'system', content: 'You are helpful.' }),
+      expect.objectContaining({ role: 'user', content: 'Hello there' }),
+    ]);
+  });
+
   it('normalizes tool call request and response', () => {
     const input = [
       {
@@ -63,5 +88,24 @@ describe('normalizeConversation (OTEL GenAI)', () => {
         content: expect.stringContaining('tempC'),
       }),
     );
+  });
+
+  it('repairs malformed JSON strings with embedded tool response JSON', () => {
+    const brokenPayload =
+      '[{' +
+      '"role":"assistant","parts":[{"type":"tool_call","id":"call_1","name":"get_random_destination","arguments":"{}"}]' +
+      '},{' +
+      '"role":"tool","parts":[{"type":"tool_call_response","id":"call_1","response":"{"type":"function_result","call_id":"call_1","result":"Tokyo, Japan"}"}]' +
+      '},{' +
+      '"role":"assistant","parts":[{"type":"text","content":"done"}]' +
+      '}]';
+
+    const result = normalizeConversation(brokenPayload);
+
+    expect(result).toEqual([
+      expect.objectContaining({ role: 'assistant', tool_calls: expect.any(Array) }),
+      expect.objectContaining({ role: 'tool', tool_call_id: 'call_1', content: expect.stringContaining('Tokyo') }),
+      expect.objectContaining({ role: 'assistant', content: expect.stringContaining('done') }),
+    ]);
   });
 });

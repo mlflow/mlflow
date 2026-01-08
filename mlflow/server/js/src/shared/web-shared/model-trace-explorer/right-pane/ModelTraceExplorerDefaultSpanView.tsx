@@ -5,9 +5,10 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import type { ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
-import { createListFromObject } from '../ModelTraceExplorer.utils';
+import { createListFromObject, normalizeConversation } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
+import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
 
 export function ModelTraceExplorerDefaultSpanView({
   activeSpan,
@@ -23,6 +24,19 @@ export function ModelTraceExplorerDefaultSpanView({
   const { theme } = useDesignSystemTheme();
   const inputList = useMemo(() => createListFromObject(activeSpan?.inputs), [activeSpan]);
   const outputList = useMemo(() => createListFromObject(activeSpan?.outputs), [activeSpan]);
+  const chatMessageFormat = activeSpan?.chatMessageFormat;
+
+  const containsChatMessages = useMemo(() => {
+    return ({ key, value }: { key: string; value: string }) => {
+      try {
+        const parsedValue = JSON.parse(value);
+        const messages = normalizeConversation(key ? { [key]: parsedValue } : parsedValue, chatMessageFormat);
+        return Boolean(messages && messages.length > 0);
+      } catch {
+        return false;
+      }
+    };
+  }, [chatMessageFormat]);
 
   if (isNil(activeSpan)) {
     return null;
@@ -58,16 +72,27 @@ export function ModelTraceExplorerDefaultSpanView({
           }
         >
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-            {inputList.map(({ key, value }, index) => (
-              <ModelTraceExplorerCodeSnippet
-                key={key || index}
-                title={key}
-                data={value}
-                searchFilter={searchFilter}
-                activeMatch={activeMatch}
-                containsActiveMatch={isActiveMatchSpan && activeMatch.section === 'inputs' && activeMatch.key === key}
-              />
-            ))}
+            {inputList.map(({ key, value }, index) =>
+              containsChatMessages({ key, value }) ? (
+                <ModelTraceExplorerFieldRenderer
+                  key={key || index}
+                  title={key}
+                  data={value}
+                  renderMode="default"
+                  chatMessageFormat={chatMessageFormat}
+                  maxVisibleMessages={Number.POSITIVE_INFINITY}
+                />
+              ) : (
+                <ModelTraceExplorerCodeSnippet
+                  key={key || index}
+                  title={key}
+                  data={value}
+                  searchFilter={searchFilter}
+                  activeMatch={activeMatch}
+                  containsActiveMatch={isActiveMatchSpan && activeMatch.section === 'inputs' && activeMatch.key === key}
+                />
+              ),
+            )}
           </div>
         </ModelTraceExplorerCollapsibleSection>
       )}
@@ -85,16 +110,27 @@ export function ModelTraceExplorerDefaultSpanView({
           }
         >
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-            {outputList.map(({ key, value }) => (
-              <ModelTraceExplorerCodeSnippet
-                key={key}
-                title={key}
-                data={value}
-                searchFilter={searchFilter}
-                activeMatch={activeMatch}
-                containsActiveMatch={isActiveMatchSpan && activeMatch.section === 'outputs' && activeMatch.key === key}
-              />
-            ))}
+            {outputList.map(({ key, value }, index) =>
+              containsChatMessages({ key, value }) ? (
+                <ModelTraceExplorerFieldRenderer
+                  key={key || index}
+                  title={key}
+                  data={value}
+                  renderMode="default"
+                  chatMessageFormat={chatMessageFormat}
+                  maxVisibleMessages={Number.POSITIVE_INFINITY}
+                />
+              ) : (
+                <ModelTraceExplorerCodeSnippet
+                  key={key || index}
+                  title={key}
+                  data={value}
+                  searchFilter={searchFilter}
+                  activeMatch={activeMatch}
+                  containsActiveMatch={isActiveMatchSpan && activeMatch.section === 'outputs' && activeMatch.key === key}
+                />
+              ),
+            )}
           </div>
         </ModelTraceExplorerCollapsibleSection>
       )}

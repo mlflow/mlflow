@@ -6,6 +6,7 @@ import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerColla
 import {
   ModelTraceExplorerFieldRenderer,
   DEFAULT_MAX_VISIBLE_CHAT_MESSAGES,
+  type ChatMessagesDisplayMode,
 } from '../field-renderers/ModelTraceExplorerFieldRenderer';
 
 const DEFAULT_MAX_VISIBLE_ITEMS = 3;
@@ -19,6 +20,7 @@ export const ModelTraceExplorerSummarySection = ({
   maxVisibleChatMessages = DEFAULT_MAX_VISIBLE_CHAT_MESSAGES,
   className,
   chatMessageFormat,
+  chatMessagesDisplayMode,
 }: {
   title: React.ReactElement;
   data: { key: string; value: string }[];
@@ -28,6 +30,7 @@ export const ModelTraceExplorerSummarySection = ({
   maxVisibleChatMessages?: number;
   className?: string;
   chatMessageFormat?: string;
+  chatMessagesDisplayMode?: ChatMessagesDisplayMode;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [expanded, setExpanded] = useState(false);
@@ -55,6 +58,7 @@ export const ModelTraceExplorerSummarySection = ({
             data={value}
             renderMode={renderMode}
             chatMessageFormat={chatMessageFormat}
+            chatMessagesDisplayMode={chatMessagesDisplayMode}
             maxVisibleMessages={maxVisibleChatMessages}
           />
         ))}

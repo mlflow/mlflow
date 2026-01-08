@@ -149,7 +149,11 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
   }
 }
 
-export function tryDeserializeAttribute(value: string): any {
+export function tryDeserializeAttribute(value: any): any {
+  if (!isString(value)) {
+    return value;
+  }
+
   try {
     return JSON.parse(value);
   } catch (e) {
@@ -411,6 +415,106 @@ const getChatToolsFromSpan = (toolsAttributeValue: any, inputs: any): ModelTrace
   return undefined;
 };
 
+const getFirstEventAttributeValue = (events: ModelTraceEvent[] | undefined, attributeKey: string) => {
+  if (!events || events.length === 0) {
+    return undefined;
+  }
+
+  for (const event of events) {
+    const attributes = event.attributes;
+    if (attributes && !isNil(attributes[attributeKey])) {
+      return attributes[attributeKey];
+    }
+  }
+
+  return undefined;
+};
+
+const OTEL_GEN_AI_INPUT_MESSAGES_KEY = 'gen_ai.input.messages';
+const OTEL_GEN_AI_OUTPUT_MESSAGES_KEY = 'gen_ai.output.messages';
+
+const maybeMoveOtelGenAiMessageField = ({
+  from,
+  to,
+  key,
+}: {
+  from: any;
+  to: any;
+  key: typeof OTEL_GEN_AI_INPUT_MESSAGES_KEY | typeof OTEL_GEN_AI_OUTPUT_MESSAGES_KEY;
+}): { from: any; to: any; moved: boolean } => {
+  if (!isObject(from) || isArray(from) || !has(from, key)) {
+    return { from, to, moved: false };
+  }
+
+  // Do not overwrite if the destination already contains this key.
+  if (isObject(to) && !isArray(to) && has(to, key)) {
+    return { from, to, moved: false };
+  }
+
+  const fromRecord = from as Record<string, any>;
+  const valueToMove = fromRecord[key];
+  const rest: Record<string, any> = { ...fromRecord };
+  delete rest[key];
+
+  const toBase = isObject(to) && !isArray(to) ? (to as Record<string, any>) : {};
+  const toRecord: Record<string, any> = { ...toBase, [key]: tryDeserializeAttribute(valueToMove) };
+
+  return { from: rest, to: toRecord, moved: true };
+};
+
+/**
+ * Some integrations nest OTEL GenAI message attributes inside a single inputs/outputs object.
+ * When both input and output messages are present, move them into their respective sections.
+ */
+const normalizeOtelGenAiMessageFields = ({
+  inputs,
+  outputs,
+}: {
+  inputs: any;
+  outputs: any;
+}): { inputs: any; outputs: any } => {
+  let nextInputs = inputs;
+  let nextOutputs = outputs;
+
+  // If output messages are incorrectly stored under inputs, move them to outputs.
+  const movedOutputs = maybeMoveOtelGenAiMessageField({
+    from: nextInputs,
+    to: nextOutputs,
+    key: OTEL_GEN_AI_OUTPUT_MESSAGES_KEY,
+  });
+  nextInputs = movedOutputs.from;
+  nextOutputs = movedOutputs.to;
+
+  // If input messages are incorrectly stored under outputs, move them to inputs.
+  const movedInputs = maybeMoveOtelGenAiMessageField({
+    from: nextOutputs,
+    to: nextInputs,
+    key: OTEL_GEN_AI_INPUT_MESSAGES_KEY,
+  });
+  nextOutputs = movedInputs.from;
+  nextInputs = movedInputs.to;
+
+  // Ensure any remaining OTEL message fields are deserialized.
+  if (isObject(nextInputs) && !isArray(nextInputs) && has(nextInputs, OTEL_GEN_AI_INPUT_MESSAGES_KEY)) {
+    const record = nextInputs as Record<string, any>;
+    nextInputs = { ...record, [OTEL_GEN_AI_INPUT_MESSAGES_KEY]: tryDeserializeAttribute(record[OTEL_GEN_AI_INPUT_MESSAGES_KEY]) };
+  }
+  if (isObject(nextInputs) && !isArray(nextInputs) && has(nextInputs, OTEL_GEN_AI_OUTPUT_MESSAGES_KEY)) {
+    const record = nextInputs as Record<string, any>;
+    nextInputs = { ...record, [OTEL_GEN_AI_OUTPUT_MESSAGES_KEY]: tryDeserializeAttribute(record[OTEL_GEN_AI_OUTPUT_MESSAGES_KEY]) };
+  }
+  if (isObject(nextOutputs) && !isArray(nextOutputs) && has(nextOutputs, OTEL_GEN_AI_INPUT_MESSAGES_KEY)) {
+    const record = nextOutputs as Record<string, any>;
+    nextOutputs = { ...record, [OTEL_GEN_AI_INPUT_MESSAGES_KEY]: tryDeserializeAttribute(record[OTEL_GEN_AI_INPUT_MESSAGES_KEY]) };
+  }
+  if (isObject(nextOutputs) && !isArray(nextOutputs) && has(nextOutputs, OTEL_GEN_AI_OUTPUT_MESSAGES_KEY)) {
+    const record = nextOutputs as Record<string, any>;
+    nextOutputs = { ...record, [OTEL_GEN_AI_OUTPUT_MESSAGES_KEY]: tryDeserializeAttribute(record[OTEL_GEN_AI_OUTPUT_MESSAGES_KEY]) };
+  }
+
+  return { inputs: nextInputs, outputs: nextOutputs };
+};
+
 export const normalizeNewSpanData = (
   span: ModelTraceSpan,
   rootStartTime: number,
@@ -420,8 +524,24 @@ export const normalizeNewSpanData = (
   traceId: string,
 ): ModelTraceSpanNode => {
   const spanType = tryDeserializeAttribute(span.attributes?.['mlflow.spanType']);
-  const inputs = tryDeserializeAttribute(span.attributes?.['mlflow.spanInputs']);
-  const outputs = tryDeserializeAttribute(span.attributes?.['mlflow.spanOutputs']);
+  let inputs = tryDeserializeAttribute(span.attributes?.['mlflow.spanInputs']);
+  let outputs = tryDeserializeAttribute(span.attributes?.['mlflow.spanOutputs']);
+
+  // OTel GenAI semantic conventions may log chat messages in span attributes or span events.
+  // Populate inputs/outputs from `gen_ai.*.messages` when the MLflow-native fields are missing.
+  if (isNil(inputs)) {
+    const inputMessages =
+      span.attributes?.['gen_ai.input.messages'] ?? getFirstEventAttributeValue(span.events, 'gen_ai.input.messages');
+    inputs = tryDeserializeAttribute(inputMessages);
+  }
+  if (isNil(outputs)) {
+    const outputMessages =
+      span.attributes?.['gen_ai.output.messages'] ?? getFirstEventAttributeValue(span.events, 'gen_ai.output.messages');
+    outputs = tryDeserializeAttribute(outputMessages);
+  }
+
+  ({ inputs, outputs } = normalizeOtelGenAiMessageFields({ inputs, outputs }));
+
   const parentId = getModelTraceSpanParentId(span);
   const spanId = getModelTraceSpanId(span);
 
@@ -1005,74 +1125,226 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
   // and formatting, and it's possible that we miss some edge cases. in case of an error,
   // simply return null to signify that the input is not a chat input.
   try {
+    const repairOtelToolCallResponseJsonString = (raw: string): string => {
+      // Some integrations incorrectly embed a JSON object inside a JSON string without escaping quotes, e.g.
+      //   "response": "{"type": "function_result", ... }"
+      // which makes the whole payload invalid JSON.
+      //
+      // This heuristic repairs just the `tool_call_response.response` field by escaping the nested JSON.
+      if (
+        !raw.includes('"tool_call_response"') ||
+        !(raw.includes('"response": "{') || raw.includes('"response":"{'))
+      ) {
+        return raw;
+      }
+
+      const prefixes = ['"response": "', '"response":"'];
+      let out = '';
+      let i = 0;
+
+      while (i < raw.length) {
+        const matchingPrefix = prefixes.find((prefix) => raw.startsWith(prefix, i));
+        if (matchingPrefix) {
+          out += matchingPrefix;
+          i += matchingPrefix.length;
+
+          // Only repair response values that look like an unescaped JSON object.
+          if (raw[i] !== '{') {
+            continue;
+          }
+
+          const start = i;
+          let braceDepth = 0;
+          while (i < raw.length) {
+            const ch = raw[i];
+            if (ch === '{') braceDepth++;
+            if (ch === '}') braceDepth--;
+            i++;
+            if (braceDepth === 0) {
+              break;
+            }
+          }
+
+          const jsonCandidate = raw.slice(start, i);
+          const escaped = JSON.stringify(jsonCandidate).slice(1, -1);
+          out += escaped;
+
+          // Consume the original closing quote (if present) and emit a single quote.
+          if (raw[i] === '"') {
+            i++;
+          }
+          out += '"';
+
+          continue;
+        }
+
+        out += raw[i];
+        i++;
+      }
+
+      return out;
+    };
+
+    const tryDeserializeNestedJson = (value: unknown) => {
+      let current: unknown = value;
+
+      const tryDeserializeAttributeLenient = (raw: unknown): unknown => {
+        if (!isString(raw)) {
+          return raw;
+        }
+
+        try {
+          return JSON.parse(raw);
+        } catch {
+          // Try to repair invalid JSON produced by malformed OTEL tool_call_response payloads.
+          const repaired = repairOtelToolCallResponseJsonString(raw);
+          if (repaired !== raw) {
+            try {
+              return JSON.parse(repaired);
+            } catch {
+              // fall through
+            }
+          }
+          return raw;
+        }
+      };
+
+      // At most two rounds of JSON parsing to support cases like:
+      //   "[{...}]" (a JSON string containing a JSON array)
+      for (let i = 0; i < 2; i++) {
+        if (!isString(current)) {
+          break;
+        }
+
+        // Avoid parsing scalar JSON literals like `123` / `true`.
+        const trimmed = current.trimStart();
+        if (!trimmed || !['{', '[', '"'].includes(trimmed[0])) {
+          break;
+        }
+
+        const parsed = tryDeserializeAttributeLenient(current);
+        if (parsed === current) {
+          break;
+        }
+        current = parsed;
+      }
+
+      return current;
+    };
+
+    const extractOtelGenAIMessages = (value: unknown): unknown[] | null => {
+      const deserialized = tryDeserializeNestedJson(value);
+
+      if (Array.isArray(deserialized) && deserialized.length > 0 && deserialized.every(isOtelGenAIChatMessage)) {
+        return deserialized;
+      }
+
+      if (isObject(deserialized) && !isArray(deserialized)) {
+        const record = deserialized as Record<string, any>;
+
+        const candidates = [
+          record[OTEL_GEN_AI_INPUT_MESSAGES_KEY],
+          record[OTEL_GEN_AI_OUTPUT_MESSAGES_KEY],
+          record.messages,
+          record.output,
+        ];
+
+        for (const candidate of candidates) {
+          const maybeMessages = tryDeserializeNestedJson(candidate);
+          if (Array.isArray(maybeMessages) && maybeMessages.length > 0 && maybeMessages.every(isOtelGenAIChatMessage)) {
+            return maybeMessages;
+          }
+        }
+
+        const values = Object.values(record);
+        if (values.length === 1) {
+          const maybeMessages = tryDeserializeNestedJson(values[0]);
+          if (Array.isArray(maybeMessages) && maybeMessages.length > 0 && maybeMessages.every(isOtelGenAIChatMessage)) {
+            return maybeMessages;
+          }
+        }
+      }
+
+      return null;
+    };
+
+    const deserializedInput: any = tryDeserializeNestedJson(input);
+
+    // Always try OTEL parsing first, even if messageFormat is set to 'openai'.
+    // Otherwise, OTEL message arrays stored as JSON strings get treated as a single user message.
+    const otelMessages = extractOtelGenAIMessages(deserializedInput);
+    if (otelMessages) {
+      return compact(otelMessages.map(normalizeOtelGenAIChatMessage));
+    }
+
     // if the input is already in the correct format, return it
-    if (Array.isArray(input) && input.length > 0 && input.every(isRawModelTraceChatMessage)) {
-      return compact(input.map(prettyPrintChatMessage));
+    if (
+      Array.isArray(deserializedInput) &&
+      deserializedInput.length > 0 &&
+      deserializedInput.every(isRawModelTraceChatMessage)
+    ) {
+      return compact(deserializedInput.map(prettyPrintChatMessage));
     }
 
     switch (messageFormat) {
       case 'langchain':
-        const langchainMessages = normalizeLangchainChatInput(input) ?? normalizeLangchainChatResult(input);
+        const langchainMessages = normalizeLangchainChatInput(deserializedInput) ?? normalizeLangchainChatResult(deserializedInput);
         if (langchainMessages) return langchainMessages;
         break;
       case 'llamaindex':
-        const llamaIndexMessages = normalizeLlamaIndexChatInput(input) ?? normalizeLlamaIndexChatResponse(input);
+        const llamaIndexMessages = normalizeLlamaIndexChatInput(deserializedInput) ?? normalizeLlamaIndexChatResponse(deserializedInput);
         if (llamaIndexMessages) return llamaIndexMessages;
         break;
       case 'openai':
         const openAIMessages =
-          normalizeOpenAIChatInput(input) ??
-          normalizeOpenAIChatResponse(input) ??
-          normalizeOpenAIResponsesOutput(input) ??
-          normalizeOpenAIResponsesInput(input) ??
-          normalizeOpenAIResponsesStreamingOutput(input);
+          normalizeOpenAIChatInput(deserializedInput) ??
+          normalizeOpenAIChatResponse(deserializedInput) ??
+          normalizeOpenAIResponsesOutput(deserializedInput) ??
+          normalizeOpenAIResponsesInput(deserializedInput) ??
+          normalizeOpenAIResponsesStreamingOutput(deserializedInput);
         if (openAIMessages) return openAIMessages;
         break;
       case 'dspy':
-        const dspyMessages = normalizeDspyChatInput(input) ?? normalizeDspyChatOutput(input);
+        const dspyMessages = normalizeDspyChatInput(deserializedInput) ?? normalizeDspyChatOutput(deserializedInput);
         if (dspyMessages) return dspyMessages;
         break;
       case 'gemini':
-        const geminiMessages = normalizeGeminiChatInput(input) ?? normalizeGeminiChatOutput(input);
+        const geminiMessages = normalizeGeminiChatInput(deserializedInput) ?? normalizeGeminiChatOutput(deserializedInput);
         if (geminiMessages) return geminiMessages;
         break;
       case 'anthropic':
-        const anthropicMessages = normalizeAnthropicChatInput(input) ?? normalizeAnthropicChatOutput(input);
+        const anthropicMessages = normalizeAnthropicChatInput(deserializedInput) ?? normalizeAnthropicChatOutput(deserializedInput);
         if (anthropicMessages) return anthropicMessages;
         break;
       case 'openai-agent':
-        const openAIAgentMessages = normalizeOpenAIAgentInput(input) ?? normalizeOpenAIAgentOutput(input);
+        const openAIAgentMessages = normalizeOpenAIAgentInput(deserializedInput) ?? normalizeOpenAIAgentOutput(deserializedInput);
         if (openAIAgentMessages) return openAIAgentMessages;
         break;
       case 'autogen':
-        const autogenMessages = normalizeAutogenChatInput(input) ?? normalizeAutogenChatOutput(input);
+        const autogenMessages = normalizeAutogenChatInput(deserializedInput) ?? normalizeAutogenChatOutput(deserializedInput);
         if (autogenMessages) return autogenMessages;
         break;
       case 'bedrock':
-        const bedrockMessages = normalizeBedrockChatInput(input) ?? normalizeBedrockChatOutput(input);
+        const bedrockMessages = normalizeBedrockChatInput(deserializedInput) ?? normalizeBedrockChatOutput(deserializedInput);
         if (bedrockMessages) return bedrockMessages;
         break;
       case 'vercel_ai':
-        const vercelAIMessages = normalizeVercelAIChatInput(input) ?? normalizeVercelAIChatOutput(input);
+        const vercelAIMessages = normalizeVercelAIChatInput(deserializedInput) ?? normalizeVercelAIChatOutput(deserializedInput);
         if (vercelAIMessages) return vercelAIMessages;
         break;
       case 'pydantic_ai':
-        const pydanticAIMessages = normalizePydanticAIChatInput(input) ?? normalizePydanticAIChatOutput(input);
+        const pydanticAIMessages = normalizePydanticAIChatInput(deserializedInput) ?? normalizePydanticAIChatOutput(deserializedInput);
         if (pydanticAIMessages) return pydanticAIMessages;
         break;
       case 'voltagent':
-        const voltAgentMessages = normalizeVoltAgentChatInput(input) ?? normalizeVoltAgentChatOutput(input);
+        const voltAgentMessages = normalizeVoltAgentChatInput(deserializedInput) ?? normalizeVoltAgentChatOutput(deserializedInput);
         if (voltAgentMessages) return voltAgentMessages;
         break;
       default:
         // Fallback to OpenAI chat format
-        const chatMessages = normalizeOpenAIChatInput(input) ?? normalizeOpenAIChatResponse(input);
+        const chatMessages = normalizeOpenAIChatInput(deserializedInput) ?? normalizeOpenAIChatResponse(deserializedInput);
         if (chatMessages) return chatMessages;
         break;
-    }
-
-    if (Array.isArray(input) && input.length > 0 && input.every(isOtelGenAIChatMessage)) {
-      return compact(input.map(normalizeOtelGenAIChatMessage));
     }
 
     return null;

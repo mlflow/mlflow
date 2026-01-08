@@ -41,12 +41,24 @@ def _get_truncated_preview(request_or_response: str | dict[str, Any] | None, rol
     elif isinstance(request_or_response, str):
         try:
             obj = json.loads(request_or_response)
+            # Some attributes are JSON-encoded twice (e.g. a JSON string that itself contains
+            # a JSON list/dict). Attempt a second decode so we can still extract message previews.
+            if isinstance(obj, str):
+                try:
+                    obj = json.loads(obj)
+                except json.JSONDecodeError:
+                    pass
         except json.JSONDecodeError:
             pass
 
     if obj is not None:
         if messages := _try_extract_messages(obj):
-            msg = _get_last_message(messages, role=role)
+            # For GenAI semconv `gen_ai.*.messages`, users typically want the initial user prompt
+            # and the final assistant response as quick previews.
+            if isinstance(obj, list) and role == "user":
+                msg = _get_first_message(messages, role=role)
+            else:
+                msg = _get_last_message(messages, role=role)
             content = _get_text_content_from_message(msg)
 
     content = content or request_or_response
@@ -67,7 +79,11 @@ def _get_max_length() -> int:
     )
 
 
-def _try_extract_messages(obj: dict[str, Any]) -> list[dict[str, Any]] | None:
+def _try_extract_messages(obj: Any) -> list[dict[str, Any]] | None:
+    # GenAI semconv `gen_ai.*.messages` is a JSON array of messages.
+    if isinstance(obj, list):
+        return [item for item in obj if _is_message(item)]
+
     if not isinstance(obj, dict):
         return None
 
@@ -102,7 +118,36 @@ def _try_extract_messages(obj: dict[str, Any]) -> list[dict[str, Any]] | None:
 
 
 def _is_message(item: Any) -> bool:
-    return isinstance(item, dict) and "role" in item and "content" in item
+    if not isinstance(item, dict) or "role" not in item:
+        return False
+
+    # OpenAI ChatCompletion / Responses formats
+    if "content" in item:
+        return True
+
+    # GenAI semconv format: {"role": "user", "parts": [{"type": "text", "content": "..."}]}
+    if "parts" in item and isinstance(item["parts"], list):
+        return True
+
+    return False
+
+
+def _get_first_message(messages: list[dict[str, Any]], role: str) -> dict[str, Any]:
+    """Return first message with the given role.
+
+    If no message with the given role exists, return the first message.
+
+    Args:
+        messages: List of message dictionaries.
+        role: Role to search for (e.g. "user", "assistant", "system").
+
+    Returns:
+        The first message with the specified role, or the first message if no match is found.
+    """
+    for message in messages:
+        if message.get("role") == role:
+            return message
+    return messages[0]
 
 
 def _get_last_message(messages: list[dict[str, Any]], role: str) -> dict[str, Any]:
@@ -117,14 +162,29 @@ def _get_last_message(messages: list[dict[str, Any]], role: str) -> dict[str, An
 
 
 def _get_text_content_from_message(message: dict[str, Any]) -> str:
+    # OpenAI ChatCompletion / Responses formats
     content = message.get("content")
     if isinstance(content, list):
         # content is a list of content parts
         for part in content:
             if isinstance(part, str):
                 return part
-            elif isinstance(part, dict) and part.get("type") in ["text", "output_text"]:
-                return part.get("text")
+            if isinstance(part, dict) and part.get("type") in ["text", "output_text"]:
+                text = part.get("text")
+                return text if isinstance(text, str) else ""
     elif isinstance(content, str):
         return content
+
+    # GenAI semconv format: message.parts[].content
+    parts = message.get("parts")
+    if isinstance(parts, list):
+        for part in parts:
+            if not isinstance(part, dict):
+                continue
+            if part.get("type") != "text":
+                continue
+            text = part.get("content") or part.get("text")
+            if isinstance(text, str):
+                return text
+
     return ""
