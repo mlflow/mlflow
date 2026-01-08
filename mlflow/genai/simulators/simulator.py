@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable
@@ -146,10 +145,7 @@ def _invoke_model(
     if inference_params:
         kwargs.update(inference_params)
 
-    # Suppress Pydantic serialization warnings from litellm's response objects
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
-        response = litellm.completion(**kwargs)
+    response = litellm.completion(**kwargs)
     return response.choices[0].message.content
 
 
@@ -360,7 +356,9 @@ class ConversationSimulator:
             }
 
             with tqdm(
-                total=num_test_cases, desc="Simulating conversations", unit="conversation"
+                total=num_test_cases,
+                desc="Simulating conversations",
+                unit="conversation",
             ) as pbar:
                 for future in as_completed(futures):
                     idx = futures[future]
@@ -459,7 +457,8 @@ class ConversationSimulator:
             return predict_fn(input=input, **context)
 
         response = traced_predict(input=input_messages, **context)
-        return response, mlflow.get_last_active_trace_id(thread_local=True)
+        trace_id = mlflow.get_last_active_trace_id(thread_local=True)
+        return response, trace_id
 
     def _check_goal_achieved(
         self,

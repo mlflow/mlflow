@@ -296,29 +296,6 @@ def evaluate(
         This function is not thread-safe. Please do not use it in multi-threaded
         environments.
     """
-    # Handle ConversationSimulator: run simulation first, then evaluate traces
-    if isinstance(data, ConversationSimulator):
-        if predict_fn is None:
-            raise MlflowException.invalid_parameter_value(
-                "predict_fn is required when using ConversationSimulator as data. "
-                "The simulator needs a predict function to generate conversations."
-            )
-        # Run simulation to get trace IDs (list[list[str]] - trace IDs per test case)
-        all_trace_ids = data._simulate(predict_fn)
-        # Flatten trace IDs and fetch traces
-        flat_trace_ids = [tid for session_ids in all_trace_ids for tid in session_ids]
-
-        if not flat_trace_ids:
-            raise MlflowException.invalid_parameter_value(
-                "Simulation produced no traces. This may indicate that all conversations "
-                "failed during simulation. Check the logs above for error details."
-            )
-
-        traces = [mlflow.get_trace(tid) for tid in flat_trace_ids]
-        # Evaluate traces (predict_fn already used during simulation, don't pass again)
-        result, _ = _run_harness(traces, scorers, predict_fn=None, model_id=model_id)
-        return result
-
     result, _ = _run_harness(data, scorers, predict_fn, model_id)
     return result
 
@@ -336,9 +313,36 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
     """
     from mlflow.genai.evaluation import harness
 
-    is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
-
     scorers = validate_scorers(scorers)
+
+    # Handle ConversationSimulator: run simulation first, then evaluate the generated traces
+    if isinstance(data, ConversationSimulator):
+        if predict_fn is None:
+            raise MlflowException.invalid_parameter_value(
+                "predict_fn is required when using ConversationSimulator as data. "
+                "The simulator needs a predict function to generate conversations."
+            )
+        all_trace_ids = data._simulate(predict_fn)
+        logger.info(
+            f"Simulation produced {len(all_trace_ids)} conversation(s) with "
+            f"{[len(ids) for ids in all_trace_ids]} trace(s) each"
+        )
+        flat_trace_ids = [tid for session_ids in all_trace_ids for tid in session_ids]
+
+        if not flat_trace_ids:
+            raise MlflowException.invalid_parameter_value(
+                "Simulation produced no traces. This may indicate that all conversations "
+                "failed during simulation. Check the logs above for error details."
+            )
+
+        data = [mlflow.get_trace(tid) for tid in flat_trace_ids]
+        predict_fn = None  # predict_fn was already used during simulation
+        logger.info(f"Fetched {len(data)} traces for evaluation")
+        for t in data:
+            session = t.info.trace_metadata.get("mlflow.trace.session", "N/A")
+            logger.info(f"  - {t.info.trace_id[:16]}... session={session}")
+
+    is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
 
     # Validate session-level input if session-level scorers are present
     validate_session_level_evaluation_inputs(scorers, predict_fn)
