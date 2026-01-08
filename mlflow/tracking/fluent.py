@@ -2539,7 +2539,8 @@ def import_checkpoints(
 
         if existing_models and overwrite_checkpoints:
             for model in existing_models:
-                client.delete_logged_model(model.model_id)
+                if model.source_run_id == source_run_id:
+                    client.delete_logged_model(model.model_id)
 
         if not existing_models or overwrite_checkpoints:
             # create new model points to the latest checkpoint.
