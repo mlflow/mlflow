@@ -360,26 +360,26 @@ def test_process_traces_truncates_and_sorts_across_filters(
     assert len(fetched_trace_ids) == MAX_TRACES_PER_JOB
 
     # Build expected list of traces in chronological order:
-    # 1. tr-staging-0 to tr-staging-399 (timestamps 100-499, 400 traces)
-    # 2. Interleaved at timestamps 500-549 (100 traces):
-    #    - At each timestamp, tr-prod-X comes before tr-staging-X alphabetically
-    #    - ts 500: tr-prod-0, tr-staging-400
-    #    - ts 501: tr-prod-1, tr-staging-401
-    #    - ...
-    #    - ts 549: tr-prod-49, tr-staging-449
-    # Total: 400 + 100 = 500 traces (we stop here, not processing remaining traces)
-    expected_trace_ids = [f"tr-staging-{i}" for i in range(400)]  # timestamps 100-499
-    for i in range(50):  # timestamps 500-549, alternating prod/staging
+    # Staging traces start at ts 100, prod traces start at ts 500
+    # The overlap starts at ts 500 where both filters have traces
+    # We process staging-only traces (ts 100-499), then interleaved (ts 500+)
+    staging_only_count = 400  # timestamps 100-499 (staging only, no prod yet)
+    overlap_pairs = (MAX_TRACES_PER_JOB - staging_only_count) // 2  # remaining capacity / 2
+
+    expected_trace_ids = [f"tr-staging-{i}" for i in range(staging_only_count)]
+    for i in range(overlap_pairs):
         expected_trace_ids.append(f"tr-prod-{i}")
-        expected_trace_ids.append(f"tr-staging-{400 + i}")
+        expected_trace_ids.append(f"tr-staging-{staging_only_count + i}")
 
     # Verify exact traces processed in exact order
     assert fetched_trace_ids == expected_trace_ids
 
     # Verify checkpoint was updated to the last processed trace
     checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
-    assert checkpoint.timestamp_ms == 549  # Last trace: tr-staging-449 at timestamp 549
-    assert checkpoint.trace_id == "tr-staging-449"
+    last_timestamp = 500 + overlap_pairs - 1
+    last_trace_id = f"tr-staging-{staging_only_count + overlap_pairs - 1}"
+    assert checkpoint.timestamp_ms == last_timestamp
+    assert checkpoint.trace_id == last_trace_id
 
 
 def test_create_factory_method():
