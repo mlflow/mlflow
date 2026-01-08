@@ -134,8 +134,9 @@ def test_transitive_import_capture(tmp_path, monkeypatch):
         infer_code_paths=True,
     )
 
-    # The bug: transitive_dependency.py should be captured but currently isn't
-    # because it's imported as "from ... import some_function" (importing a function, not a module)
+    # Verify that transitive_dependency.py is captured correctly
+    # This file is imported as "from ... import some_function" (importing a function)
+    # The fix ensures that we record the parent module when the imported item is not a module
     assert _walk_dir(pyfunc_model_path / "code") == {
         "custom_model/transitive_test/__init__.py",
         "custom_model/transitive_test/model_with_transitive.py",

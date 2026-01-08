@@ -71,6 +71,8 @@ class _CaptureImportedModules:
                         # Try to find the module in sys.modules by checking parent modules
                         # if the full path (including from_name) is not found.
                         # This handles cases where from_name is a class/function, not a submodule.
+                        # We iterate from the full path down to the root module, stopping when
+                        # we find a match (range ends at 1, not 0, to avoid empty module names).
                         for i in range(len(full_modules), 0, -1):
                             test_module = ".".join(full_modules[:i])
                             if test_module in sys.modules:
