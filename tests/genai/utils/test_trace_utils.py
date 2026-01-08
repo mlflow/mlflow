@@ -531,6 +531,67 @@ def test_parse_inputs_to_str(input_data, expected):
             {"messages": ["a", "b", "c"]},
             '{"messages": ["a", "b", "c"]}',
         ),
+        # OpenAI Responses API format with output_text content type
+        (
+            {
+                "output": [
+                    {
+                        "id": "msg_123",
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Response from Responses API"}],
+                    }
+                ]
+            },
+            "Response from Responses API",
+        ),
+        # OpenAI Responses API format with text content type
+        (
+            {
+                "output": [
+                    {
+                        "id": "msg_456",
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "Text type response"}],
+                    }
+                ]
+            },
+            "Text type response",
+        ),
+        # OpenAI Responses API format with string content
+        (
+            {
+                "output": [
+                    {
+                        "id": "msg_789",
+                        "type": "message",
+                        "role": "assistant",
+                        "content": "Direct string content",
+                    }
+                ]
+            },
+            "Direct string content",
+        ),
+        # OpenAI Responses API format with multiple output items (gets last assistant message)
+        (
+            {
+                "output": [
+                    {
+                        "id": "item_1",
+                        "type": "function_call",
+                        "name": "get_weather",
+                    },
+                    {
+                        "id": "msg_final",
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Final response"}],
+                    },
+                ]
+            },
+            "Final response",
+        ),
     ],
 )
 def test_parse_outputs_to_str(output_data, expected):

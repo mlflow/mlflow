@@ -92,7 +92,6 @@ async def test_completions():
             json={
                 "messages": [{"role": "user", "content": TEST_STRING}],
                 "model": "mistral-tiny",
-                "temperature": 0.0,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )

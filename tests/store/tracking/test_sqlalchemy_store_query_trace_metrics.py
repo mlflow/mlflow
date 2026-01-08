@@ -1053,6 +1053,85 @@ def test_query_span_metrics_count_by_span_type(store: SqlAlchemyStore):
     }
 
 
+def test_query_span_metrics_count_by_span_status(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_count_by_span_status")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans with different statuses
+    spans = [
+        create_test_span(
+            "trace1",
+            "span1",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            status=trace_api.StatusCode.OK,
+        ),
+        create_test_span(
+            "trace1",
+            "span2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            status=trace_api.StatusCode.OK,
+        ),
+        create_test_span(
+            "trace1",
+            "span3",
+            span_id=3,
+            span_type="LLM",
+            start_ns=1200000000,
+            status=trace_api.StatusCode.OK,
+        ),
+        create_test_span(
+            "trace1",
+            "span4",
+            span_id=4,
+            span_type="CHAIN",
+            start_ns=1300000000,
+            status=trace_api.StatusCode.ERROR,
+        ),
+        create_test_span(
+            "trace1",
+            "span5",
+            span_id=5,
+            span_type="CHAIN",
+            start_ns=1400000000,
+            status=trace_api.StatusCode.ERROR,
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[SpanMetricDimensionKey.SPAN_STATUS],
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {SpanMetricDimensionKey.SPAN_STATUS: "ERROR"},
+        "values": {"COUNT": 2},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {SpanMetricDimensionKey.SPAN_STATUS: "OK"},
+        "values": {"COUNT": 3},
+    }
+
+
 def test_query_span_metrics_with_time_interval(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_span_with_time_interval")
 

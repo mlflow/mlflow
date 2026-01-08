@@ -24,6 +24,7 @@ from mlflow.entities.trace_metrics import (
     MetricViewType,
 )
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -1629,6 +1630,53 @@ def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_s
     assert response_data == {}
 
 
+def test_get_online_scoring_configs_batch(mock_tracking_store):
+    mock_configs = [
+        OnlineScoringConfig(
+            online_scoring_config_id="cfg-1",
+            scorer_id="scorer-1",
+            sample_rate=0.5,
+            filter_string="status = 'OK'",
+            experiment_id="exp1",
+        ),
+        OnlineScoringConfig(
+            online_scoring_config_id="cfg-2",
+            scorer_id="scorer-2",
+            sample_rate=0.8,
+            experiment_id="exp1",
+        ),
+    ]
+    mock_tracking_store.get_online_scoring_configs.return_value = mock_configs
+
+    with app.test_client() as c:
+        resp = c.get(
+            "/ajax-api/3.0/mlflow/scorers/online-configs",
+            query_string=[("scorer_ids", "scorer-1"), ("scorer_ids", "scorer-2")],
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "configs" in data
+        assert isinstance(data["configs"], list)
+        assert len(data["configs"]) == 2
+        configs_by_id = {c["scorer_id"]: c for c in data["configs"]}
+        assert configs_by_id["scorer-1"]["sample_rate"] == 0.5
+        assert configs_by_id["scorer-1"]["filter_string"] == "status = 'OK'"
+        assert configs_by_id["scorer-2"]["sample_rate"] == 0.8
+        assert configs_by_id["scorer-2"].get("filter_string") is None
+
+    mock_tracking_store.get_online_scoring_configs.assert_called_once_with(["scorer-1", "scorer-2"])
+
+
+def test_get_online_scoring_configs_missing_param(mock_tracking_store):
+    with app.test_client() as c:
+        resp = c.get(
+            "/ajax-api/3.0/mlflow/scorers/online-configs",
+        )
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert "scorer_ids" in data["message"]
+
+
 def test_calculate_trace_filter_correlation(mock_get_request_message, mock_tracking_store):
     experiment_ids = ["123", "456"]
     filter_string1 = "span.type = 'LLM'"
@@ -2530,7 +2578,7 @@ def test_get_provider_config_with_multiple_auth_modes():
         data = response.get_json()
 
         assert "auth_modes" in data
-        assert data["default_mode"] == "access_keys"
+        assert data["default_mode"] == "api_key"
         assert len(data["auth_modes"]) >= 2
 
         access_keys_mode = next(m for m in data["auth_modes"] if m["mode"] == "access_keys")

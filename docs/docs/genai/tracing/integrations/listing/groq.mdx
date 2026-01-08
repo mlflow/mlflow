@@ -4,28 +4,57 @@ sidebar_label: Groq
 ---
 
 import { APILink } from "@site/src/components/APILink";
+import StepHeader from "@site/src/components/StepHeader";
+import ServerSetup from "@site/src/content/setup_server_slim.mdx";
+import ImageBox from "@site/src/components/ImageBox";
 
 # Tracing Groq
 
-![Groq tracing via autolog](/images/llms/groq/groq-tracing.png)
+<ImageBox src="/images/llms/groq/groq-tracing.png" alt="Groq tracing via autolog" />
 
-MLflow Tracing provides automatic tracing capability when using Groq.
+[MLflow Tracing](/genai/tracing) provides automatic tracing capability when using Groq.
 When Groq auto-tracing is enabled by calling the <APILink fn="mlflow.groq.autolog" /> function,
 usage of the Groq SDK will automatically record generated traces during interactive development.
 
-Note that only synchronous calls are supported, and that asynchronous API and streaming methods are not traced.
+MLflow automatically captures the following information about Groq calls:
 
-### Example Usage
+- Prompts and completion responses
+- Latencies
+- Model name
+- Token usage (input, output, and total tokens)
+- Additional metadata such as `temperature`, `max_tokens`, if specified
+- Any exception if raised
+
+## Getting Started
+
+<StepHeader number={1} title="Install Dependencies" />
+
+```bash
+pip install mlflow groq
+```
+
+<StepHeader number={2} title="Start MLflow Server" />
+
+<ServerSetup />
+
+<StepHeader number={3} title="Enable Tracing and Make API Calls" />
+
+Enable tracing with `mlflow.groq.autolog()` and make API calls as usual.
 
 ```python
 import groq
-
 import mlflow
+import os
 
-# Turn on auto tracing for Groq by calling mlflow.groq.autolog()
+# Enable auto-tracing for Groq
 mlflow.groq.autolog()
 
-client = groq.Groq()
+# Set a tracking URI and an experiment
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("Groq")
+
+# Initialize Groq client
+client = groq.Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # Use the create method to create new message
 message = client.chat.completions.create(
@@ -40,6 +69,18 @@ message = client.chat.completions.create(
 
 print(message.choices[0].message.content)
 ```
+
+<StepHeader number={4} title="View Traces in MLflow UI" />
+
+Browse to the MLflow UI at http://localhost:5000 (or your MLflow server URL) and you should see the traces for the Groq API calls.
+
+## Supported APIs
+
+Note that only synchronous calls are supported, and that asynchronous API and streaming methods are not traced.
+
+| Normal | Streaming | Async |
+| :----: | :-------: | :---: |
+|   ✅   |     -     |   -   |
 
 ## Token usage
 
