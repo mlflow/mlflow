@@ -8,7 +8,6 @@ from mlflow.genai.judges.utils import CategoricalRating
 
 @pytest.fixture
 def mock_trulens_dependencies():
-    """Fixture that mocks TruLens dependencies for scorer tests."""
     mock_provider = mock.MagicMock()
     mock_method = mock.MagicMock()
     mock_provider.mock_method = mock_method

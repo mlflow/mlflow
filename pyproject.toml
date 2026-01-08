@@ -456,6 +456,7 @@ selectin = "selectin"              # SQLAlchemy lazy loading strategy
 tpe = "tpe"                        # Tree-structured Parzen Estimator (hyperopt/optuna)
 TPE = "TPE"                        # Tree-structured Parzen Estimator (hyperopt/optuna)
 indx = "indx"                      # intentional shorthand for index
+Tru = "Tru"                        # TruLens library name prefix
 
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]
