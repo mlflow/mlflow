@@ -1,8 +1,10 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
+from mlflow.assistant.types import EventType
 
 
 class AsyncIterator:
@@ -37,43 +39,42 @@ def test_is_available(which_return, expected):
         assert provider.is_available() is expected
 
 
-@pytest.mark.parametrize(
-    ("file_content", "expected_config"),
-    [
-        (None, {}),  # No file
-        ("not valid json", {}),  # Invalid JSON
-        (
-            '{"projectPath": "/my/project", "model": "opus"}',
-            {"projectPath": "/my/project", "model": "opus"},
-        ),
-    ],
-)
-def test_load_config(tmp_path, file_content, expected_config, monkeypatch):
+def test_load_config(tmp_path, monkeypatch):
     config_file = tmp_path / "config.json"
-    if file_content is not None:
-        config_file.write_text(file_content)
+    config_file.write_text('{"model": "claude-opus-4"}')
 
-    monkeypatch.setattr("mlflow.assistant.providers.claude_code.CLAUDE_CONFIG_FILE", config_file)
+    monkeypatch.setattr(ClaudeCodeProvider, "config_path", config_file)
     provider = ClaudeCodeProvider()
-    assert provider.load_config() == expected_config
+    assert provider.load_config().model_dump() == {"model": "claude-opus-4", "project_path": None}
+
+
+def test_load_config_invalid_json(tmp_path, monkeypatch):
+    config_file = tmp_path / "config.json"
+    config_file.write_text("not valid json")
+
+    monkeypatch.setattr(ClaudeCodeProvider, "config_path", config_file)
+    provider = ClaudeCodeProvider()
+    with pytest.raises(ValidationError, match="1 validation error"):
+        provider.load_config()
 
 
 @pytest.mark.asyncio
-async def test_run_yields_error_when_claude_not_found():
+async def test_astream_yields_error_when_claude_not_found():
     with patch(
         "mlflow.assistant.providers.claude_code.shutil.which",
         return_value=None,
     ):
         provider = ClaudeCodeProvider()
-        events = [e async for e in provider.run("test prompt")]
+        events = [e async for e in provider.astream("test prompt")]
 
     assert len(events) == 1
-    assert events[0]["type"] == "error"
-    assert "not found" in events[0]["data"]["error"]
+    assert events[0].type == EventType.ERROR
+    assert "not found" in events[0].data["error"]
+    assert "PATH" in events[0].data["error"]
 
 
 @pytest.mark.asyncio
-async def test_run_builds_correct_command():
+async def test_astream_builds_correct_command(tmp_path):
     mock_process = MagicMock()
     mock_process.stdout = AsyncIterator([b'{"type": "result"}\n'])
     mock_process.stderr = MagicMock()
@@ -81,10 +82,17 @@ async def test_run_builds_correct_command():
     mock_process.wait = AsyncMock()
     mock_process.returncode = 0
 
+    test_project_path = str(tmp_path)
+
     with (
         patch(
             "mlflow.assistant.providers.claude_code.shutil.which",
             return_value="/usr/bin/claude",
+        ),
+        patch.object(
+            ClaudeCodeProvider,
+            "load_config",
+            return_value=MagicMock(project_path=test_project_path, model="default"),
         ),
         patch(
             "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
@@ -92,7 +100,7 @@ async def test_run_builds_correct_command():
         ) as mock_exec,
     ):
         provider = ClaudeCodeProvider()
-        _ = [e async for e in provider.run("test prompt")]
+        _ = [e async for e in provider.astream("test prompt")]
 
     call_args = mock_exec.call_args[0]
     assert "/usr/bin/claude" in call_args
@@ -103,9 +111,13 @@ async def test_run_builds_correct_command():
     assert "--verbose" in call_args
     assert "--append-system-prompt" in call_args
 
+    # Verify project path is used as cwd
+    call_kwargs = mock_exec.call_args[1]
+    assert call_kwargs["cwd"] == test_project_path
+
 
 @pytest.mark.asyncio
-async def test_run_streams_assistant_messages():
+async def test_astream_streams_assistant_messages():
     mock_stdout = AsyncIterator(
         [
             b'{"type": "assistant", "message": {"content": [{"type": "text", "text": "Hi!"}]}}\n',
@@ -131,17 +143,17 @@ async def test_run_streams_assistant_messages():
         ),
     ):
         provider = ClaudeCodeProvider()
-        events = [e async for e in provider.run("test prompt")]
+        events = [e async for e in provider.astream("test prompt")]
 
     assert len(events) == 2
-    assert events[0]["type"] == "message"
-    assert events[0]["data"]["text"] == "Hi!"
-    assert events[1]["type"] == "done"
-    assert events[1]["data"]["session_id"] == "session-123"
+    assert events[0].type == EventType.MESSAGE
+    assert events[0].data["message"]["content"][0]["text"] == "Hi!"
+    assert events[1].type == EventType.DONE
+    assert events[1].data["session_id"] == "session-123"
 
 
 @pytest.mark.asyncio
-async def test_run_handles_process_error():
+async def test_astream_handles_process_error():
     mock_process = MagicMock()
     mock_process.stdout = AsyncIterator([])
     mock_process.stderr = MagicMock()
@@ -160,14 +172,14 @@ async def test_run_handles_process_error():
         ),
     ):
         provider = ClaudeCodeProvider()
-        events = [e async for e in provider.run("test prompt")]
+        events = [e async for e in provider.astream("test prompt")]
 
-    assert events[-1]["type"] == "error"
-    assert "Command failed" in events[-1]["data"]["error"]
+    assert events[-1].type == EventType.ERROR
+    assert "Command failed" in events[-1].data["error"]
 
 
 @pytest.mark.asyncio
-async def test_run_passes_session_id_for_resume():
+async def test_astream_passes_session_id_for_resume():
     mock_process = MagicMock()
     mock_process.stdout = AsyncIterator([b'{"type": "result"}\n'])
     mock_process.stderr = MagicMock()
@@ -186,7 +198,7 @@ async def test_run_passes_session_id_for_resume():
         ) as mock_exec,
     ):
         provider = ClaudeCodeProvider()
-        _ = [e async for e in provider.run("prompt", session_id="existing-session")]
+        _ = [e async for e in provider.astream("prompt", session_id="existing-session")]
 
     call_args = mock_exec.call_args[0]
     assert "--resume" in call_args
@@ -194,7 +206,7 @@ async def test_run_passes_session_id_for_resume():
 
 
 @pytest.mark.asyncio
-async def test_run_handles_non_json_output():
+async def test_astream_handles_non_json_output():
     mock_stdout = AsyncIterator(
         [
             b"Some plain text output\n",
@@ -220,14 +232,14 @@ async def test_run_handles_non_json_output():
         ),
     ):
         provider = ClaudeCodeProvider()
-        events = [e async for e in provider.run("test prompt")]
+        events = [e async for e in provider.astream("test prompt")]
 
-    assert events[0]["type"] == "message"
-    assert events[0]["data"]["text"] == "Some plain text output"
+    assert events[0].type == EventType.MESSAGE
+    assert events[0].data["message"]["content"] == "Some plain text output"
 
 
 @pytest.mark.asyncio
-async def test_run_handles_error_message_type():
+async def test_astream_handles_error_message_type():
     mock_stdout = AsyncIterator(
         [
             b'{"type": "error", "error": {"message": "API rate limit exceeded"}}\n',
@@ -252,7 +264,7 @@ async def test_run_handles_error_message_type():
         ),
     ):
         provider = ClaudeCodeProvider()
-        events = [e async for e in provider.run("test prompt")]
+        events = [e async for e in provider.astream("test prompt")]
 
-    assert events[0]["type"] == "error"
-    assert "rate limit" in events[0]["data"]["error"]
+    assert events[0].type == EventType.ERROR
+    assert "rate limit" in events[0].data["error"]
