@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, AsyncGenerator, Callable
 
-from mlflow.assistant.providers.base import MLFLOW_ASSISTANT_HOME, AssistantProvider, ProviderConfig
+from mlflow.assistant.providers.base import AssistantProvider, load_config
 from mlflow.assistant.types import (
     ContentBlock,
     Event,
@@ -27,11 +27,6 @@ from mlflow.assistant.types import (
 _logger = logging.getLogger(__name__)
 
 
-class ClaudeCodeAssistantConfig(ProviderConfig):
-    model: str = "default"
-    project_path: str | None = None
-
-
 # TODO: to be updated
 CLAUDE_SYSTEM_PROMPT = """You are an MLflow assistant helping users with their MLflow projects."""
 
@@ -43,6 +38,7 @@ class ClaudeCodeProvider(AssistantProvider):
     def name(self) -> str:
         return "claude_code"
 
+    @property
     def display_name(self) -> str:
         return "Claude Code"
 
@@ -51,23 +47,11 @@ class ClaudeCodeProvider(AssistantProvider):
         return "AI-powered assistant using Claude Code CLI"
 
     @property
-    def config_path(self) -> Path:
-        return MLFLOW_ASSISTANT_HOME / "claude-config.json"
-
-    @property
     def skill_path(self) -> Path:
         return Path.home() / ".claude" / "skills"
 
     def is_available(self) -> bool:
         return shutil.which("claude") is not None
-
-    def load_config(self) -> ProviderConfig:
-        # Use default config if no config file exists
-        if not self.config_path.exists():
-            return ClaudeCodeAssistantConfig()
-
-        with open(self.config_path) as f:
-            return ClaudeCodeAssistantConfig.model_validate_json(f.read())
 
     def check_connection(self, echo: Callable[[str], None] = print) -> None:
         """
@@ -107,7 +91,6 @@ class ClaudeCodeProvider(AssistantProvider):
     def install_skills(self, skills: list[str]) -> list[str]:
         """Install MLflow-specific Claude skills."""
         # Get the skills directory from this package
-        print(Path(__file__).parent.parent)
         skills_source = Path(__file__).parent.parent / "skills"
         skills_dest = Path.home() / ".claude" / "skills"
 
@@ -133,6 +116,7 @@ class ClaudeCodeProvider(AssistantProvider):
         self,
         prompt: str,
         session_id: str | None = None,
+        cwd: Path | None = None,
     ) -> AsyncGenerator[Event, None]:
         """
         Stream responses from Claude Code CLI asynchronously.
@@ -140,6 +124,7 @@ class ClaudeCodeProvider(AssistantProvider):
         Args:
             prompt: The prompt to send to Claude
             session_id: Claude session ID for resume
+            cwd: Working directory for Claude Code CLI
 
         Yields:
             Event objects
@@ -151,9 +136,6 @@ class ClaudeCodeProvider(AssistantProvider):
             )
             return
 
-        config = self.load_config()
-        cwd = config.project_path
-
         # Build command
         # Note: --verbose is required when using --output-format=stream-json with -p
         cmd = [claude_path, "-p", prompt, "--output-format", "stream-json", "--verbose"]
@@ -161,6 +143,7 @@ class ClaudeCodeProvider(AssistantProvider):
         # Add system prompt
         cmd.extend(["--append-system-prompt", CLAUDE_SYSTEM_PROMPT])
 
+        config = load_config(self.name)
         if config.model and config.model != "default":
             cmd.extend(["--model", config.model])
 

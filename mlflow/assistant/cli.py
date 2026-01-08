@@ -1,31 +1,45 @@
 """MLflow CLI commands for Assistant integration."""
 
-import json
-import os
 import shutil
 from pathlib import Path
-from urllib.parse import urlparse
 
 import click
 
-import mlflow
+from mlflow.assistant.config import AssistantConfig, ProjectConfig
 from mlflow.assistant.providers import AssistantProvider, list_providers
 
-# Tag key for storing project path on experiments
-ASSISTANT_PROJECT_PATH_TAG = "mlflow.assistant.projectPath"
 
+@click.command("assistant")
+@click.option(
+    "--configure",
+    is_flag=True,
+    help="Configure or reconfigure the assistant settings",
+)
+def commands(configure: bool):
+    """MLflow Assistant - AI-powered trace analysis.
 
-@click.group("assistant")
-def commands():
-    """Commands for MLflow Assistant setup and configuration.
-
-    Use 'mlflow assistant init' to set up the AI assistant feature in MLflow UI.
+    Run 'mlflow assistant --configure' to set up the assistant.
     """
+    if configure:
+        _run_configuration()
+    else:
+        # Check if already configured
+        config = AssistantConfig.load()
+        if not config.providers:
+            click.secho(
+                "Assistant is not configured. Please run: mlflow assistant --configure",
+                fg="yellow",
+            )
+        else:
+            click.secho(
+                "Assistant launch is not yet implemented. To use Assistant, run `mlflow assistant "
+                "--configure` to setup, then launch the MLflow UI manually.",
+                fg="yellow",
+            )
 
 
-@commands.command("init")
-def init():
-    """Initialize MLflow Assistant for the UI.
+def _run_configuration():
+    """Configure MLflow Assistant for the UI.
 
     This interactive command sets up the AI assistant feature that allows you
     to analyze MLflow traces directly from the UI.
@@ -39,7 +53,7 @@ def init():
     6. Save configuration
 
     Example:
-        mlflow assistant init
+        mlflow assistant --configure
     """
     click.echo()
     click.secho("╔══════════════════════════════════════════╗", fg="cyan")
@@ -59,7 +73,7 @@ def init():
         return
 
     # Step 3: Optionally connect experiment with code repository
-    if not _prompt_experiment_connection():
+    if not _prompt_experiment_path():
         return
 
     # Step 4: Ask for model
@@ -84,10 +98,7 @@ def _prompt_provider() -> AssistantProvider | None:
     click.echo()
 
     for i, provider in enumerate(providers, 1):
-        if i == 1:
-            marker = click.style(" [recommended]", fg="green")
-        else:
-            marker = ""
+        marker = click.style(" [recommended]", fg="green") if i == 1 else ""
         click.echo(f"  {i}. {provider.display_name}{marker}")
         click.secho(f"     {provider.description}", dim=True)
 
@@ -95,11 +106,13 @@ def _prompt_provider() -> AssistantProvider | None:
     click.secho("  More providers coming soon...", dim=True)
     click.echo()
 
+    default_provider = providers[0]
     choice = click.prompt(
-        "Select provider",
+        f"Select provider [1: {default_provider.display_name}]",
         default="1",
         type=click.Choice([str(i) for i in range(1, len(providers) + 1)]),
         show_choices=False,
+        show_default=False,
     )
 
     provider = providers[int(choice) - 1]
@@ -122,14 +135,7 @@ def _check_provider(provider: AssistantProvider) -> bool:
         return False
 
 
-def _is_localhost(url: str) -> bool:
-    """Check if a URL points to localhost."""
-    parsed = urlparse(url)
-    hostname = parsed.hostname or ""
-    return hostname in ("localhost", "127.0.0.1", "::1", "0.0.0.0")
-
-
-def _prompt_experiment_connection() -> bool:
+def _prompt_experiment_path() -> bool:
     """Prompt user to optionally connect an experiment with code repository."""
     click.secho("Experiment & Code Context ", fg="cyan", bold=True, nl=False)
     click.secho("[Recommended]", fg="green", bold=True)
@@ -151,58 +157,15 @@ def _prompt_experiment_connection() -> bool:
 
     click.echo()
 
-    # Ask for tracking URI
-    default_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
-    tracking_uri = click.prompt("Tracking URI", default=default_uri)
-
-    # Check if it's a remote URL
-    parsed = urlparse(tracking_uri)
-    if parsed.scheme in ("http", "https") and not _is_localhost(tracking_uri):
-        click.echo()
-        click.secho(
-            "Error: MLflow Assistant is only supported for locally hosted MLflow servers.",
-            fg="red",
-        )
-        click.secho(
-            f"The URL '{tracking_uri}' appears to be a remote server.",
-            fg="red",
-        )
-        click.echo()
-        return False
-
-    mlflow.set_tracking_uri(tracking_uri)
+    # Ask for experiment ID
+    click.echo("Enter the experiment ID to connect to the code repository:")
+    click.secho("  Example: 123456789", dim=True)
     click.echo()
 
-    # Ask for experiment ID or name
-    click.echo("Enter the experiment ID or name to connect:")
-    click.secho("  - Experiment ID: numeric ID (e.g., 123456789)", dim=True)
-    click.secho("  - Experiment name: string name (e.g., 'my-experiment')", dim=True)
-    click.echo()
+    experiment_id = click.prompt("Experiment ID", default="")
 
-    experiment_input = click.prompt("Experiment ID or name", default="")
-
-    if not experiment_input:
+    if not experiment_id:
         click.secho("No experiment specified, skipping.", fg="yellow")
-        click.echo()
-        return True
-
-    # Get the experiment
-    try:
-        # Try to parse as integer (experiment ID)
-        try:
-            int(experiment_input)
-            experiment = mlflow.get_experiment(experiment_input)
-        except ValueError:
-            experiment = mlflow.get_experiment_by_name(experiment_input)
-
-        if experiment is None:
-            click.secho(f"Experiment '{experiment_input}' not found, skipping.", fg="yellow")
-            click.echo()
-            return True
-
-        experiment_id = experiment.experiment_id
-    except Exception as e:
-        click.secho(f"Error getting experiment: {e}", fg="red")
         click.echo()
         return True
 
@@ -219,12 +182,15 @@ def _prompt_experiment_connection() -> bool:
         type=click.Path(exists=True, file_okay=False, dir_okay=True, resolve_path=True),
     )
 
-    # Set the project path as an experiment tag
+    # Save the project path mapping locally
     try:
-        mlflow.MlflowClient().set_experiment_tag(
-            experiment_id, ASSISTANT_PROJECT_PATH_TAG, project_path
+        config = AssistantConfig.load()
+        config.projects[experiment_id] = ProjectConfig(type="local", location=project_path)
+        config.save()
+        click.secho(
+            f"Project path saved for experiment '{experiment_id}' -> {project_path}",
+            fg="green",
         )
-        click.secho(f"Project path saved to experiment '{experiment_input}'", fg="green")
     except Exception as e:
         click.secho(f"Error saving project path: {e}", fg="red")
 
@@ -270,19 +236,11 @@ def _save_config(
     click.secho("Saving Configuration", fg="cyan", bold=True)
     click.secho("-" * 30, fg="cyan")
 
-    config = {
-        "provider": provider.name,
-        "model": model,
-    }
+    config = AssistantConfig.load()
+    config.set_provider(provider.name, model)
+    config.save()
 
-    # Use provider's config path
-    config_file = provider.config_path
-    config_file.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(config_file, "w") as f:
-        json.dump(config, f, indent=2)
-
-    click.secho(f"Configuration saved to: {config_file}", fg="green")
+    click.secho("Configuration saved", fg="green")
     click.echo()
 
 
@@ -308,4 +266,4 @@ def _show_init_success(
     click.echo("  3. Click 'Ask Assistant'")
     click.echo()
     click.secho("To reconfigure, run: ", nl=False)
-    click.secho("mlflow assistant init", fg="cyan")
+    click.secho("mlflow assistant --configure", fg="cyan")
