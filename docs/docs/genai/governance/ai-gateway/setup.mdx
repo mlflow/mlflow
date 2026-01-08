@@ -14,11 +14,15 @@ To use the AI Gateway, you'll need MLflow installed with the GenAI extras, which
 pip install "mlflow[genai]"
 ```
 
-The gateway requires a SQL-based tracking store such as SQLite, PostgreSQL, MySQL, or MSSQL. Start your MLflow server with a SQL backend:
+The AI Gateway runs within the MLflow Tracking Server and requires a SQL-based backend store (SQLite, PostgreSQL, MySQL, or MSSQL) with the FastAPI tracking server. Start your MLflow server:
 
 ```bash
-mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000
+mlflow server --port 5000
 ```
+
+:::note
+File-based tracking stores are not supported by the AI Gateway. By default, `mlflow server` uses a SQL-based backend (SQLite).
+:::
 
 For production deployments, you'll want to configure encryption for secrets. Generate a secure passphrase and set it as an environment variable before starting the server:
 
