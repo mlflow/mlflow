@@ -1,9 +1,17 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
+import pandas as pd
 import pytest
 
+from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.simulators import ConversationSimulator
 from mlflow.genai.simulators.simulator import SimulatedUserAgent
+
+
+def create_mock_evaluation_dataset(inputs: list[dict[str, object]]) -> Mock:
+    mock_dataset = Mock(spec=EvaluationDataset)
+    mock_dataset.to_df.return_value = pd.DataFrame({"inputs": inputs})
+    return mock_dataset
 
 
 def test_simulated_user_agent_generate_initial_message():
@@ -286,13 +294,21 @@ def test_conversation_simulator_multiple_test_cases(
     [
         ([], "test_cases cannot be empty"),
         ([{"persona": "test"}], r"indices \[0\].*'goal' field"),
-        ([{"goal": "valid"}, {"persona": "missing goal"}], r"indices \[1\].*'goal' field"),
+        (
+            [{"goal": "valid"}, {"persona": "missing goal"}],
+            r"indices \[1\].*'goal' field",
+        ),
         (
             [{"persona": "a"}, {"goal": "valid"}, {"persona": "b"}],
             r"indices \[0, 2\].*'goal' field",
         ),
     ],
-    ids=["empty_test_cases", "missing_goal", "second_case_missing_goal", "multiple_missing_goals"],
+    ids=[
+        "empty_test_cases",
+        "missing_goal",
+        "second_case_missing_goal",
+        "multiple_missing_goals",
+    ],
 )
 def test_conversation_simulator_validation(test_cases, expected_error):
     with pytest.raises(ValueError, match=expected_error):
@@ -300,3 +316,32 @@ def test_conversation_simulator_validation(test_cases, expected_error):
             test_cases=test_cases,
             max_turns=2,
         )
+
+
+@pytest.mark.parametrize(
+    ("inputs", "should_succeed"),
+    [
+        # Valid conversational datasets with 'goal' field
+        ([{"goal": "Learn about MLflow"}], True),
+        ([{"goal": "Debug issue", "persona": "Engineer"}], True),
+        (
+            [{"goal": "Ask questions", "persona": "Student", "context": {"id": "1"}}],
+            True,
+        ),
+        # Invalid single-turn datasets without 'goal' field
+        ([{"request": "What is MLflow?"}], False),
+        ([{"inputs": {"query": "Help me"}, "expected_response": "Sure!"}], False),
+        ([{"question": "How to log?", "answer": "Use mlflow.log"}], False),
+        ([], False),
+    ],
+)
+def test_conversation_simulator_evaluation_dataset_validation(inputs, should_succeed):
+    mock_dataset = create_mock_evaluation_dataset(inputs)
+
+    if should_succeed:
+        simulator = ConversationSimulator(test_cases=mock_dataset, max_turns=2)
+        assert len(simulator.test_cases) == len(inputs)
+        assert simulator.test_cases == inputs
+    else:
+        with pytest.raises(ValueError, match="conversational test cases with a 'goal' field"):
+            ConversationSimulator(test_cases=mock_dataset, max_turns=2)
