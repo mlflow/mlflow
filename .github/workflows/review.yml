@@ -23,7 +23,7 @@ jobs:
     # Security: Only run for authorized users.
     # - pull_request_target: Only run for maintainers
     # - issue_comment: BOTH PR author and commenter must be authorized (can't trust external PRs)
-    # TODO: Remove `github.event.pull_request.user.login == 'harupy')` after testing
+    # TODO: Remove `github.event.pull_request.user.login == 'harupy'` after testing
     if: >
       (github.event_name == 'pull_request_target' &&
        github.event.pull_request.draft == false &&
