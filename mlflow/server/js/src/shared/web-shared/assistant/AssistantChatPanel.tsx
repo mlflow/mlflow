@@ -10,12 +10,12 @@ import {
   CloseIcon,
   CopyIcon,
   ForkHorizontalIcon,
+  PlayIcon,
   PlusIcon,
   RefreshIcon,
   SparkleDoubleIcon,
   SparkleIcon,
   Spinner,
-  Tag,
   Tooltip,
   Typography,
   useDesignSystemTheme,
@@ -287,9 +287,15 @@ const AssistantContextTags = () => {
 
   const traceId = context['traceId'] as string | undefined;
   const selectedTraceIds = context['selectedTraceIds'] as string[] | undefined;
+  const runId = context['runId'] as string | undefined;
+  const selectedRunIds = context['selectedRunIds'] as string[] | undefined;
+
+  // Dedupe: exclude the currently open item from selected lists
+  const filteredSelectedTraceIds = selectedTraceIds?.filter((id) => id !== traceId);
+  const filteredSelectedRunIds = selectedRunIds?.filter((id) => id !== runId);
 
   // Don't render if no context
-  if (!traceId && !selectedTraceIds?.length) {
+  if (!traceId && !filteredSelectedTraceIds?.length && !runId && !filteredSelectedRunIds?.length) {
     return null;
   }
 
@@ -297,6 +303,7 @@ const AssistantContextTags = () => {
 
   return (
     <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs, paddingTop: theme.spacing.sm }}>
+      {/* Trace context */}
       {traceId && (
         <Tooltip componentId={`${COMPONENT_ID}.context.trace.tooltip`} content={`Trace: ${traceId}`}>
           <Tag componentId={`${COMPONENT_ID}.context.trace`} color="indigo">
@@ -307,11 +314,11 @@ const AssistantContextTags = () => {
           </Tag>
         </Tooltip>
       )}
-      {selectedTraceIds && selectedTraceIds.length > 0 && (
+      {filteredSelectedTraceIds && filteredSelectedTraceIds.length > 0 && (
         <>
-          {selectedTraceIds.slice(0, 3).map((id) => (
-            <Tooltip key={id} componentId={`${COMPONENT_ID}.context.selected.tooltip`} content={`Trace: ${id}`}>
-              <Tag componentId={`${COMPONENT_ID}.context.selected`} color="indigo">
+          {filteredSelectedTraceIds.slice(0, 3).map((id) => (
+            <Tooltip key={id} componentId={`${COMPONENT_ID}.context.selected-trace.tooltip`} content={`Trace: ${id}`}>
+              <Tag componentId={`${COMPONENT_ID}.context.selected-trace`} color="indigo">
                 <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
                   <ForkHorizontalIcon css={{ fontSize: 12 }} />
                   <span>{truncate(id)}</span>
@@ -319,13 +326,48 @@ const AssistantContextTags = () => {
               </Tag>
             </Tooltip>
           ))}
-          {selectedTraceIds.length > 3 && (
+          {filteredSelectedTraceIds.length > 3 && (
             <Tooltip
-              componentId={`${COMPONENT_ID}.context.more.tooltip`}
-              content={`${selectedTraceIds.length - 3} more traces selected`}
+              componentId={`${COMPONENT_ID}.context.more-traces.tooltip`}
+              content={`${filteredSelectedTraceIds.length - 3} more traces selected`}
             >
-              <Tag componentId={`${COMPONENT_ID}.context.more`} color="indigo">
-                +{selectedTraceIds.length - 3}
+              <Tag componentId={`${COMPONENT_ID}.context.more-traces`} color="indigo">
+                +{filteredSelectedTraceIds.length - 3}
+              </Tag>
+            </Tooltip>
+          )}
+        </>
+      )}
+      {/* Run context */}
+      {runId && (
+        <Tooltip componentId={`${COMPONENT_ID}.context.run.tooltip`} content={`Run: ${runId}`}>
+          <Tag componentId={`${COMPONENT_ID}.context.run`} color="turquoise">
+            <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+              <PlayIcon css={{ fontSize: 12 }} />
+              <span>{truncate(runId)}</span>
+            </span>
+          </Tag>
+        </Tooltip>
+      )}
+      {filteredSelectedRunIds && filteredSelectedRunIds.length > 0 && (
+        <>
+          {filteredSelectedRunIds.slice(0, 3).map((id) => (
+            <Tooltip key={id} componentId={`${COMPONENT_ID}.context.selected-run.tooltip`} content={`Run: ${id}`}>
+              <Tag componentId={`${COMPONENT_ID}.context.selected-run`} color="turquoise">
+                <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                  <PlayIcon css={{ fontSize: 12 }} />
+                  <span>{truncate(id)}</span>
+                </span>
+              </Tag>
+            </Tooltip>
+          ))}
+          {filteredSelectedRunIds.length > 3 && (
+            <Tooltip
+              componentId={`${COMPONENT_ID}.context.more-runs.tooltip`}
+              content={`${filteredSelectedRunIds.length - 3} more runs selected`}
+            >
+              <Tag componentId={`${COMPONENT_ID}.context.more-runs`} color="turquoise">
+                +{filteredSelectedRunIds.length - 3}
               </Tag>
             </Tooltip>
           )}
@@ -429,57 +471,57 @@ const ChatPanelContent = () => {
         >
           <div css={{ display: 'flex', alignItems: 'center' }}>
             <input
-            placeholder="Ask a question about this trace..."
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isStreaming}
-            css={{
-              flex: 1,
-              border: 'none',
-              outline: 'none',
-              backgroundColor: 'transparent',
-              fontSize: theme.typography.fontSizeBase,
-              color: theme.colors.textPrimary,
-              padding: theme.spacing.xs,
-              '&::placeholder': {
-                color: theme.colors.textPlaceholder,
-              },
-              '&:focus': {
+              placeholder="Ask a question about this trace..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={isStreaming}
+              css={{
+                flex: 1,
                 border: 'none',
                 outline: 'none',
-              },
-              '&:disabled': {
-                cursor: 'not-allowed',
-                opacity: 0.5,
-              },
-            }}
-          />
-          <button
-            onClick={handleSend}
-            disabled={!inputValue.trim() || isStreaming}
-            css={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: theme.spacing.xs,
-              border: 'none',
-              background: 'transparent',
-              cursor: !inputValue.trim() || isStreaming ? 'not-allowed' : 'pointer',
-              borderRadius: theme.borders.borderRadiusSm,
-              color: theme.colors.actionPrimaryBackgroundDefault,
-              opacity: !inputValue.trim() || isStreaming ? 0.3 : 1,
-              '&:hover:not(:disabled)': {
-                backgroundColor: theme.colors.actionDefaultBackgroundHover,
-              },
-              '&:active:not(:disabled)': {
-                backgroundColor: theme.colors.actionDefaultBackgroundPress,
-              },
-            }}
-            aria-label="Send message"
-          >
-            {isStreaming ? <Spinner size="small" /> : <SendIcon />}
-          </button>
+                backgroundColor: 'transparent',
+                fontSize: theme.typography.fontSizeBase,
+                color: theme.colors.textPrimary,
+                padding: theme.spacing.xs,
+                '&::placeholder': {
+                  color: theme.colors.textPlaceholder,
+                },
+                '&:focus': {
+                  border: 'none',
+                  outline: 'none',
+                },
+                '&:disabled': {
+                  cursor: 'not-allowed',
+                  opacity: 0.5,
+                },
+              }}
+            />
+            <button
+              onClick={handleSend}
+              disabled={!inputValue.trim() || isStreaming}
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: theme.spacing.xs,
+                border: 'none',
+                background: 'transparent',
+                cursor: !inputValue.trim() || isStreaming ? 'not-allowed' : 'pointer',
+                borderRadius: theme.borders.borderRadiusSm,
+                color: theme.colors.actionPrimaryBackgroundDefault,
+                opacity: !inputValue.trim() || isStreaming ? 0.3 : 1,
+                '&:hover:not(:disabled)': {
+                  backgroundColor: theme.colors.actionDefaultBackgroundHover,
+                },
+                '&:active:not(:disabled)': {
+                  backgroundColor: theme.colors.actionDefaultBackgroundPress,
+                },
+              }}
+              aria-label="Send message"
+            >
+              {isStreaming ? <Spinner size="small" /> : <SendIcon />}
+            </button>
           </div>
           <AssistantContextTags />
         </div>
