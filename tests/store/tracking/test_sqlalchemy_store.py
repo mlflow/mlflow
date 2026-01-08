@@ -4137,6 +4137,50 @@ def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_de
     SqlAlchemyStore(tmp_sqlite_uri, ARTIFACT_URI)
 
 
+def test_sqlalchemy_store_does_not_create_artifact_root_directory_on_init(tmp_path):
+    """
+    Verify that SqlAlchemyStore does NOT create the artifact root directory during initialization.
+
+    The directory should only be created lazily when the first artifact is logged. This allows
+    MLflow servers to run in read-only environments (e.g., K8s containers) when artifacts are
+    stored remotely and the local artifact root is never actually used.
+
+    See: https://github.com/mlflow/mlflow/issues/19658
+    """
+    db_path = tmp_path / "mlflow.db"
+    artifact_root = tmp_path / "artifacts"
+
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", str(artifact_root))
+
+    assert not artifact_root.exists()
+
+    store._dispose_engine()
+
+
+def test_sqlalchemy_store_creates_artifact_directory_on_log_artifact(tmp_path):
+    from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+    from mlflow.utils.file_utils import path_to_local_file_uri
+
+    db_path = tmp_path / "mlflow.db"
+    artifact_root = tmp_path / "artifacts"
+
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", path_to_local_file_uri(str(artifact_root)))
+    exp_id = store.create_experiment("test")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="run")
+
+    assert not artifact_root.exists()
+
+    src_file = tmp_path / "test.txt"
+    src_file.write_text("hello")
+
+    artifact_repo = get_artifact_repository(run.info.artifact_uri)
+    artifact_repo.log_artifact(str(src_file))
+
+    assert artifact_root.exists()
+
+    store._dispose_engine()
+
+
 class TextClauseMatcher:
     def __init__(self, text):
         self.text = text
@@ -4244,29 +4288,29 @@ def test_get_orderby_clauses(tmp_sqlite_uri):
 def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
     artifact_root_uri, expected_artifact_uri_format
 ):
-    # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
-    # filesystem directories for file URI and POSIX path test cases
-    with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
-        with TempDir() as tmp:
-            dbfile_path = tmp.path("db")
-            store = SqlAlchemyStore(
-                db_uri="sqlite:///" + dbfile_path,
-                default_artifact_root=artifact_root_uri,
-            )
-            exp_id = store.create_experiment(name="exp")
-            exp = store.get_experiment(exp_id)
+    # Note: Previously this test patched `is_local_uri` to prevent directory creation,
+    # but SqlAlchemyStore no longer creates the artifact root directory during initialization.
+    # The directory is now created lazily when the first artifact is logged.
+    with TempDir() as tmp:
+        dbfile_path = tmp.path("db")
+        store = SqlAlchemyStore(
+            db_uri="sqlite:///" + dbfile_path,
+            default_artifact_root=artifact_root_uri,
+        )
+        exp_id = store.create_experiment(name="exp")
+        exp = store.get_experiment(exp_id)
 
-            if hasattr(store, "__del__"):
-                store.__del__()
+        if hasattr(store, "__del__"):
+            store.__del__()
 
-            cwd = Path.cwd().as_posix()
-            drive = Path.cwd().drive
-            if is_windows() and expected_artifact_uri_format.startswith("file:"):
-                cwd = f"/{cwd}"
-                drive = f"{drive}/"
-            assert exp.artifact_location == expected_artifact_uri_format.format(
-                e=exp_id, cwd=cwd, drive=drive
-            )
+        cwd = Path.cwd().as_posix()
+        drive = Path.cwd().drive
+        if is_windows() and expected_artifact_uri_format.startswith("file:"):
+            cwd = f"/{cwd}"
+            drive = f"{drive}/"
+        assert exp.artifact_location == expected_artifact_uri_format.format(
+            e=exp_id, cwd=cwd, drive=drive
+        )
 
 
 @pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
@@ -4352,35 +4396,35 @@ def test_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, exp
 def _assert_create_run_appends_to_artifact_uri_path_correctly(
     artifact_root_uri, expected_artifact_uri_format
 ):
-    # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
-    # filesystem directories for file URI and POSIX path test cases
-    with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
-        with TempDir() as tmp:
-            dbfile_path = tmp.path("db")
-            store = SqlAlchemyStore(
-                db_uri="sqlite:///" + dbfile_path,
-                default_artifact_root=artifact_root_uri,
-            )
-            exp_id = store.create_experiment(name="exp")
-            run = store.create_run(
-                experiment_id=exp_id,
-                user_id="user",
-                start_time=0,
-                tags=[],
-                run_name="name",
-            )
+    # Note: Previously this test patched `is_local_uri` to prevent directory creation,
+    # but SqlAlchemyStore no longer creates the artifact root directory during initialization.
+    # The directory is now created lazily when the first artifact is logged.
+    with TempDir() as tmp:
+        dbfile_path = tmp.path("db")
+        store = SqlAlchemyStore(
+            db_uri="sqlite:///" + dbfile_path,
+            default_artifact_root=artifact_root_uri,
+        )
+        exp_id = store.create_experiment(name="exp")
+        run = store.create_run(
+            experiment_id=exp_id,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            run_name="name",
+        )
 
-            if hasattr(store, "__del__"):
-                store.__del__()
+        if hasattr(store, "__del__"):
+            store.__del__()
 
-            cwd = Path.cwd().as_posix()
-            drive = Path.cwd().drive
-            if is_windows() and expected_artifact_uri_format.startswith("file:"):
-                cwd = f"/{cwd}"
-                drive = f"{drive}/"
-            assert run.info.artifact_uri == expected_artifact_uri_format.format(
-                e=exp_id, r=run.info.run_id, cwd=cwd, drive=drive
-            )
+        cwd = Path.cwd().as_posix()
+        drive = Path.cwd().drive
+        if is_windows() and expected_artifact_uri_format.startswith("file:"):
+            cwd = f"/{cwd}"
+            drive = f"{drive}/"
+        assert run.info.artifact_uri == expected_artifact_uri_format.format(
+            e=exp_id, r=run.info.run_id, cwd=cwd, drive=drive
+        )
 
 
 @pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
@@ -10860,7 +10904,7 @@ def test_upsert_online_scoring_config_validates_filter_string(store: SqlAlchemyS
     )
     assert config.filter_string == "status = 'OK'"
 
-    with pytest.raises(MlflowException, match="Invalid filter"):
+    with pytest.raises(MlflowException, match="Invalid clause"):
         store.upsert_online_scoring_config(
             experiment_id=experiment_id,
             scorer_name="test_scorer",
@@ -10918,11 +10962,13 @@ def test_get_active_online_scorers_filters_by_sample_rate(store: SqlAlchemyStore
     active_scorers = store.get_active_online_scorers()
     # Filter to only scorers we created in this test using name and experiment_id
     test_scorers = [
-        s for s in active_scorers if s.name == "active" and s.experiment_id == experiment_id
+        s
+        for s in active_scorers
+        if s.name == "active" and s.online_config.experiment_id == experiment_id
     ]
 
     assert len(test_scorers) == 1
-    assert test_scorers[0].sample_rate == 0.1
+    assert test_scorers[0].online_config.sample_rate == 0.1
 
 
 def test_get_active_online_scorers_returns_scorer_fields(store: SqlAlchemyStore):
@@ -10940,13 +10986,15 @@ def test_get_active_online_scorers_returns_scorer_fields(store: SqlAlchemyStore)
 
     active_scorers = store.get_active_online_scorers()
     active_scorer = next(
-        s for s in active_scorers if s.name == "scorer" and s.experiment_id == experiment_id
+        s
+        for s in active_scorers
+        if s.name == "scorer" and s.online_config.experiment_id == experiment_id
     )
 
     assert active_scorer.name == "scorer"
-    assert active_scorer.experiment_id == experiment_id
-    assert active_scorer.sample_rate == 0.5
-    assert active_scorer.filter_string == "status = 'OK'"
+    assert active_scorer.online_config.experiment_id == experiment_id
+    assert active_scorer.online_config.sample_rate == 0.5
+    assert active_scorer.online_config.filter_string == "status = 'OK'"
 
 
 def test_get_active_online_scorers_filters_non_gateway_model(store: SqlAlchemyStore):
@@ -10966,7 +11014,9 @@ def test_get_active_online_scorers_filters_non_gateway_model(store: SqlAlchemySt
     # Verify scorer is returned initially (max version uses gateway model)
     active_scorers = store.get_active_online_scorers()
     test_scorers = [
-        s for s in active_scorers if s.name == "scorer" and s.experiment_id == experiment_id
+        s
+        for s in active_scorers
+        if s.name == "scorer" and s.online_config.experiment_id == experiment_id
     ]
     assert len(test_scorers) == 1
 
@@ -10976,7 +11026,9 @@ def test_get_active_online_scorers_filters_non_gateway_model(store: SqlAlchemySt
     # Verify scorer is NOT returned now (max version uses non-gateway model)
     active_scorers = store.get_active_online_scorers()
     test_scorers = [
-        s for s in active_scorers if s.name == "scorer" and s.experiment_id == experiment_id
+        s
+        for s in active_scorers
+        if s.name == "scorer" and s.online_config.experiment_id == experiment_id
     ]
     assert len(test_scorers) == 0
 

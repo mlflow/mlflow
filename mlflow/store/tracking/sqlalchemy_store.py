@@ -148,7 +148,6 @@ from mlflow.tracing.utils import (
     generate_request_id_v2,
 )
 from mlflow.tracing.utils.truncation import _get_truncated_preview
-from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_DATASET_CONTEXT,
@@ -170,7 +169,6 @@ from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import (
     append_to_uri_path,
     extract_db_type_from_uri,
-    is_local_uri,
     resolve_uri_if_local,
 )
 from mlflow.utils.validation import (
@@ -281,8 +279,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         )
         mlflow.store.db.utils._verify_schema(self.engine)
 
-        if is_local_uri(default_artifact_root):
-            mkdir(local_file_uri_to_path(default_artifact_root))
+        # Note: We intentionally do NOT create the artifact root directory here.
+        # The LocalArtifactRepository creates it lazily when the first artifact is logged.
+        # This avoids permission errors in read-only environments (e.g., K8s containers)
+        # when the artifact root is local but never actually used.
 
         # Check if default experiment exists (not just if any experiments exist)
         # This is important for databases that persist across test runs
@@ -2618,9 +2618,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         if is_gateway_model(model):
             endpoint_id = extract_endpoint_ref(model)
-            if endpoint := self.get_gateway_endpoint(endpoint_id):
+            try:
+                endpoint = self.get_gateway_endpoint(endpoint_id)
                 new_model = build_gateway_model(endpoint.name)
                 serialized_data = update_model_in_serialized_scorer(serialized_data, new_model)
+            except MlflowException:
+                # Endpoint not found - keep original serialized scorer
+                pass
 
         return json.dumps(serialized_data)
 
