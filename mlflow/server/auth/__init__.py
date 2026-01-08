@@ -67,25 +67,42 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateRegisteredModel,
 )
 from mlflow.protos.service_pb2 import (
+    AttachModelToGatewayEndpoint,
     CreateExperiment,
-    # Routes for logged models
+    CreateGatewayEndpoint,
+    CreateGatewayEndpointBinding,
+    CreateGatewayModelDefinition,
+    CreateGatewaySecret,
     CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
     DeleteExperimentTag,
+    DeleteGatewayEndpoint,
+    DeleteGatewayEndpointBinding,
+    DeleteGatewayEndpointTag,
+    DeleteGatewayModelDefinition,
+    DeleteGatewaySecret,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
     DeleteScorer,
     DeleteTag,
+    DetachModelFromGatewayEndpoint,
     FinalizeLoggedModel,
     GetExperiment,
     GetExperimentByName,
+    GetGatewayEndpoint,
+    GetGatewayModelDefinition,
+    GetGatewaySecretInfo,
     GetLoggedModel,
     GetMetricHistory,
     GetRun,
     GetScorer,
     ListArtifacts,
+    ListGatewayEndpointBindings,
+    ListGatewayEndpoints,
+    ListGatewayModelDefinitions,
+    ListGatewaySecretInfos,
     ListScorers,
     ListScorerVersions,
     LogBatch,
@@ -99,9 +116,13 @@ from mlflow.protos.service_pb2 import (
     SearchExperiments,
     SearchLoggedModels,
     SetExperimentTag,
+    SetGatewayEndpointTag,
     SetLoggedModelTags,
     SetTag,
     UpdateExperiment,
+    UpdateGatewayEndpoint,
+    UpdateGatewayModelDefinition,
+    UpdateGatewaySecret,
     UpdateRun,
 )
 from mlflow.server import app
@@ -119,7 +140,11 @@ from mlflow.server.auth.routes import (
     DELETE_REGISTERED_MODEL_PERMISSION,
     DELETE_SCORER_PERMISSION,
     DELETE_USER,
+    GATEWAY_PROVIDER_CONFIG,
     GATEWAY_PROXY,
+    GATEWAY_SECRETS_CONFIG,
+    GATEWAY_SUPPORTED_MODELS,
+    GATEWAY_SUPPORTED_PROVIDERS,
     GET_ARTIFACT,
     GET_EXPERIMENT_PERMISSION,
     GET_METRIC_HISTORY_BULK,
@@ -130,6 +155,7 @@ from mlflow.server.auth.routes import (
     GET_TRACE_ARTIFACT,
     GET_USER,
     HOME,
+    INVOKE_SCORER,
     SEARCH_DATASETS,
     SIGNUP,
     UPDATE_EXPERIMENT_PERMISSION,
@@ -487,6 +513,21 @@ def validate_can_delete_user():
     return False
 
 
+def validate_can_manage_gateway_secrets():
+    # TODO: add resource-level permissions for gateway secrets
+    return False
+
+
+def validate_can_manage_gateway_endpoints():
+    # TODO: add resource-level permissions for gateway endpoints
+    return False
+
+
+def validate_can_manage_gateway_model_definitions():
+    # TODO: add resource-level permissions for gateway model definitions
+    return False
+
+
 def _get_permission_from_run_id_or_uuid() -> Permission:
     """
     Get permission for Flask routes that use either run_id or run_uuid parameter.
@@ -703,6 +744,34 @@ BEFORE_REQUEST_HANDLERS = {
     GetScorer: validate_can_read_scorer,
     DeleteScorer: validate_can_delete_scorer,
     ListScorerVersions: validate_can_read_scorer,
+    # Routes for gateway secrets
+    CreateGatewaySecret: validate_can_manage_gateway_secrets,
+    GetGatewaySecretInfo: validate_can_manage_gateway_secrets,
+    UpdateGatewaySecret: validate_can_manage_gateway_secrets,
+    DeleteGatewaySecret: validate_can_manage_gateway_secrets,
+    ListGatewaySecretInfos: validate_can_manage_gateway_secrets,
+    # Routes for gateway endpoints
+    CreateGatewayEndpoint: validate_can_manage_gateway_endpoints,
+    GetGatewayEndpoint: validate_can_manage_gateway_endpoints,
+    UpdateGatewayEndpoint: validate_can_manage_gateway_endpoints,
+    DeleteGatewayEndpoint: validate_can_manage_gateway_endpoints,
+    ListGatewayEndpoints: validate_can_manage_gateway_endpoints,
+    # Routes for gateway model definitions
+    CreateGatewayModelDefinition: validate_can_manage_gateway_model_definitions,
+    GetGatewayModelDefinition: validate_can_manage_gateway_model_definitions,
+    UpdateGatewayModelDefinition: validate_can_manage_gateway_model_definitions,
+    DeleteGatewayModelDefinition: validate_can_manage_gateway_model_definitions,
+    ListGatewayModelDefinitions: validate_can_manage_gateway_model_definitions,
+    # Routes for gateway endpoint-model mappings
+    AttachModelToGatewayEndpoint: validate_can_manage_gateway_endpoints,
+    DetachModelFromGatewayEndpoint: validate_can_manage_gateway_endpoints,
+    # Routes for gateway endpoint bindings
+    CreateGatewayEndpointBinding: validate_can_manage_gateway_endpoints,
+    DeleteGatewayEndpointBinding: validate_can_manage_gateway_endpoints,
+    ListGatewayEndpointBindings: validate_can_manage_gateway_endpoints,
+    # Routes for gateway endpoint tags
+    SetGatewayEndpointTag: validate_can_manage_gateway_endpoints,
+    DeleteGatewayEndpointTag: validate_can_manage_gateway_endpoints,
 }
 
 
@@ -761,6 +830,11 @@ BEFORE_REQUEST_VALIDATORS.update(
         (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
         (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
         (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
+        (GATEWAY_SUPPORTED_PROVIDERS, "GET"): validate_can_manage_gateway_endpoints,
+        (GATEWAY_SUPPORTED_MODELS, "GET"): validate_can_manage_gateway_endpoints,
+        (GATEWAY_PROVIDER_CONFIG, "GET"): validate_can_manage_gateway_endpoints,
+        (GATEWAY_SECRETS_CONFIG, "GET"): validate_can_manage_gateway_secrets,
+        (INVOKE_SCORER, "POST"): validate_can_manage_gateway_endpoints,
     }
 )
 
@@ -1145,7 +1219,10 @@ AFTER_REQUEST_HANDLERS = {
     (http_path, method): handler
     for http_path, handler, methods in get_endpoints(get_after_request_handler)
     for method in methods
-    if handler is not None and "/graphql" not in http_path
+    if handler is not None
+    and "/graphql" not in http_path
+    and "/mlflow/gateway/" not in http_path
+    and "/mlflow/scorer/" not in http_path
 }
 
 
