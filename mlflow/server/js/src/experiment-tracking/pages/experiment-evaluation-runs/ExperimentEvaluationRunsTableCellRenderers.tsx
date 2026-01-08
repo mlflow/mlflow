@@ -28,6 +28,7 @@ import { useMemo } from 'react';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { RunPageTabName } from '../../constants';
+import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
 
 export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   row,
@@ -173,7 +174,7 @@ export const DatasetCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       </Typography.Text>
     </div>
   );
-  const tagContent = baseTagContent;
+  const tagContent = <DatasetLink dataset={displayedDataset}>{baseTagContent}</DatasetLink>;
 
   return (
     <div>
