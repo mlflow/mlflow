@@ -686,6 +686,7 @@ class Scorer(BaseModel):
         *,
         name: str | None = None,
         sampling_config: ScorerSamplingConfig,
+        experiment_id: str | None = None,
     ) -> "Scorer":
         """
         Start registered scoring with the specified sampling configuration.
@@ -700,6 +701,8 @@ class Scorer(BaseModel):
             sampling_config: Configuration object containing:
                 - sample_rate: Fraction of traces to evaluate (0.0 to 1.0). Required.
                 - filter_string: Optional MLflow search_traces compatible filter string.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
 
         Returns:
             A new Scorer instance with updated sampling configuration.
@@ -744,14 +747,21 @@ class Scorer(BaseModel):
                 scorer=self,
                 sample_rate=sampling_config.sample_rate,
                 filter_string=sampling_config.filter_string,
-                experiment_id=None,
+                experiment_id=experiment_id,
             )
 
-        return store.upsert_online_scoring_config(
-            scorer=self,
-            sample_rate=sampling_config.sample_rate,
-            filter_string=sampling_config.filter_string,
-        )
+        # For MLflow backend, temporarily set experiment_id if provided
+        original_exp_id = self._experiment_id
+        if experiment_id is not None:
+            self._experiment_id = experiment_id
+        try:
+            return store.upsert_online_scoring_config(
+                scorer=self,
+                sample_rate=sampling_config.sample_rate,
+                filter_string=sampling_config.filter_string,
+            )
+        finally:
+            self._experiment_id = original_exp_id
 
     @experimental(version="3.9.0")
     def update(
@@ -759,6 +769,7 @@ class Scorer(BaseModel):
         *,
         name: str | None = None,
         sampling_config: ScorerSamplingConfig,
+        experiment_id: str | None = None,
     ) -> "Scorer":
         """
         Update the sampling configuration for this scorer.
@@ -774,6 +785,8 @@ class Scorer(BaseModel):
             sampling_config: Configuration object containing:
                 - sample_rate: New fraction of traces to evaluate (0.0 to 1.0). Optional.
                 - filter_string: New MLflow search_traces compatible filter string. Optional.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
 
         Returns:
             A new Scorer instance with updated configuration.
@@ -818,14 +831,21 @@ class Scorer(BaseModel):
                 scorer=self,
                 sample_rate=sampling_config.sample_rate,
                 filter_string=sampling_config.filter_string,
-                experiment_id=None,
+                experiment_id=experiment_id,
             )
 
-        return store.upsert_online_scoring_config(
-            scorer=self,
-            sample_rate=sampling_config.sample_rate,
-            filter_string=sampling_config.filter_string,
-        )
+        # For MLflow backend, temporarily set experiment_id if provided
+        original_exp_id = self._experiment_id
+        if experiment_id is not None:
+            self._experiment_id = experiment_id
+        try:
+            return store.upsert_online_scoring_config(
+                scorer=self,
+                sample_rate=sampling_config.sample_rate,
+                filter_string=sampling_config.filter_string,
+            )
+        finally:
+            self._experiment_id = original_exp_id
 
     @experimental(version="3.9.0")
     def stop(self, *, name: str | None = None) -> "Scorer":

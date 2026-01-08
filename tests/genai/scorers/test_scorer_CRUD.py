@@ -187,6 +187,7 @@ def test_mlflow_backend_online_scoring_config_operations():
         assert registered_scorer.status == ScorerStatus.STOPPED
 
         started_scorer = registered_scorer.start(
+            experiment_id=experiment_id,
             sampling_config=ScorerSamplingConfig(sample_rate=0.75, filter_string="status = 'OK'"),
         )
         assert started_scorer.sample_rate == 0.75
@@ -230,12 +231,14 @@ def test_mlflow_backend_online_scoring_config_chained_update():
 
         registered_scorer = test_scorer.register(experiment_id=experiment_id)
         started_scorer = registered_scorer.start(
+            experiment_id=experiment_id,
             sampling_config=ScorerSamplingConfig(sample_rate=0.5),
         )
         assert started_scorer.sample_rate == 0.5
         assert started_scorer.filter_string is None
 
         updated_scorer = get_scorer(name="test_chained_scorer", experiment_id=experiment_id).update(
+            experiment_id=experiment_id,
             sampling_config=ScorerSamplingConfig(sample_rate=0.8, filter_string="status = 'OK'"),
         )
         assert updated_scorer.sample_rate == 0.8
@@ -257,6 +260,7 @@ def test_mlflow_backend_online_scoring_config_chained_update():
         restarted_scorer = get_scorer(
             name="test_chained_scorer", experiment_id=experiment_id
         ).start(
+            experiment_id=experiment_id,
             sampling_config=ScorerSamplingConfig(sample_rate=0.3),
         )
         assert restarted_scorer.sample_rate == 0.3
