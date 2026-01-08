@@ -848,7 +848,7 @@ class Scorer(BaseModel):
             self._experiment_id = original_exp_id
 
     @experimental(version="3.9.0")
-    def stop(self, *, name: str | None = None) -> "Scorer":
+    def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Stop registered scoring by setting sample rate to 0.
 
@@ -858,6 +858,8 @@ class Scorer(BaseModel):
         Args:
             name: Optional scorer name. If not provided, uses the scorer's registered name
                 or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
 
         Returns:
             A new Scorer instance with sample rate set to 0.
@@ -889,6 +891,7 @@ class Scorer(BaseModel):
         scorer_name = name or self.name
         return self.update(
             name=scorer_name,
+            experiment_id=experiment_id,
             sampling_config=ScorerSamplingConfig(sample_rate=0.0),
         )
 

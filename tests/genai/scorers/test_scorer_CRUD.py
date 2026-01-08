@@ -249,7 +249,9 @@ def test_mlflow_backend_online_scoring_config_chained_update():
         assert retrieved_scorer.sample_rate == 0.8
         assert retrieved_scorer.filter_string == "status = 'OK'"
 
-        stopped_scorer = get_scorer(name="test_chained_scorer", experiment_id=experiment_id).stop()
+        stopped_scorer = get_scorer(name="test_chained_scorer", experiment_id=experiment_id).stop(
+            experiment_id=experiment_id
+        )
         assert stopped_scorer.sample_rate == 0.0
         assert stopped_scorer.status == ScorerStatus.STOPPED
 
