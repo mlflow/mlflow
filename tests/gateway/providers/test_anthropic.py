@@ -417,6 +417,35 @@ async def test_chat_function_calling():
         )
 
 
+@pytest.mark.parametrize(
+    ("openai_tool_choice", "anthropic_tool_choice"),
+    [
+        ("none", {"type": "none"}),
+        ("auto", {"type": "auto"}),
+        ("required", {"type": "any"}),
+        (
+            {"type": "function", "function": {"name": "get_weather"}},
+            {"type": "tool", "name": "get_weather"},
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_chat_function_calling_with_tool_choice(openai_tool_choice, anthropic_tool_choice):
+    resp = chat_function_calling_response()
+    config = chat_config()
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = chat_function_calling_payload()
+        payload["tool_choice"] = openai_tool_choice
+        await provider.chat(chat.RequestPayload(**payload))
+
+        call_kwargs = mock_post.call_args[1]
+        assert call_kwargs["json"]["tool_choice"] == anthropic_tool_choice
+
+
 @pytest.mark.asyncio
 async def test_chat_stream():
     resp = chat_stream_response()

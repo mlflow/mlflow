@@ -123,6 +123,22 @@ class AnthropicAdapter(ProviderAdapter):
 
             payload["tools"] = converted_tools
 
+        # convert tool_choice to Anthropic format
+        # OpenAI format: "none", "auto", "required", {"type": "...", "function": {"name": "..."}}
+        # Anthropic format: {"type": "auto"}, {"type": "tool", "name": "..."}
+        if tool_choice := payload.pop("tool_choice", None):
+            if tool_choice == "none":
+                payload["tool_choice"] = {"type": "none"}
+            elif tool_choice == "auto":
+                payload["tool_choice"] = {"type": "auto"}
+            elif tool_choice == "required":
+                payload["tool_choice"] = {"type": "any"}
+            elif isinstance(tool_choice, dict) and tool_choice.get("type") == "function":
+                payload["tool_choice"] = {
+                    "type": "tool",
+                    "name": tool_choice["function"]["name"],
+                }
+
         # Transform response_format for Anthropic structured outputs
         # Anthropic uses output_format with {"type": "json_schema", "schema": {...}}
         if response_format := payload.pop("response_format", None):
