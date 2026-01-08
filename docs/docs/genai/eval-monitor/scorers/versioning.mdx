@@ -74,7 +74,7 @@ registered_v2 = quality_judge_v2.register(experiment_id=experiment_id)
 To load a registered scorer, use the `get_scorer` function.
 
 ```python
-from mlflow.genai.scorers import get_scorer
+from mlflow.genai import get_scorer
 
 # Get the latest version
 latest_judge = get_scorer(name="response_quality")

@@ -1,6 +1,7 @@
 from unittest.mock import ANY, Mock, patch
 
 import mlflow
+import mlflow.genai
 from mlflow.genai.scorers import Scorer, scorer
 from mlflow.genai.scorers.base import ScorerSamplingConfig, ScorerStatus
 from mlflow.genai.scorers.registry import (
@@ -9,6 +10,10 @@ from mlflow.genai.scorers.registry import (
     list_scorer_versions,
     list_scorers,
 )
+
+
+def test_get_scorer_accessible_from_mlflow_genai():
+    assert mlflow.genai.get_scorer is get_scorer
 
 
 def test_mlflow_backend_scorer_operations():
