@@ -222,7 +222,6 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         Args:
             records: Records to merge. Can be:
                 - List of dictionaries with 'inputs' and optionally 'expectations' and 'tags'
-                - Session format with top-level 'persona', 'goal', 'context' fields
                 - Session format with 'persona', 'goal', 'context' nested inside 'inputs'
                 - DataFrame from mlflow.search_traces() - automatically parsed and converted
                 - DataFrame with 'inputs' column and optionally 'expectations' and 'tags' columns
@@ -242,10 +241,15 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 df = pd.DataFrame([{"inputs": {"q": "What?"}, "expectations": {"a": "Answer"}}])
                 dataset.merge_records(df)
 
-                # Session format with top-level fields
+                # Session format in inputs
                 test_cases = [
-                    {"persona": "Student", "goal": "Find articles"},
-                    {"persona": "Student", "goal": "Get help", "context": {"id": "U1"}},
+                    {
+                        "inputs": {
+                            "persona": "Student",
+                            "goal": "Find articles",
+                            "context": {"student_id": "U1"},
+                        }
+                    },
                 ]
                 dataset.merge_records(test_cases)
         """
@@ -338,54 +342,6 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                     "source_type": DatasetRecordSourceType.CODE.value,
                     "source_data": {},
                 }
-
-    def _normalize_session_records(
-        self, record_dicts: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
-        """
-        Normalize records by moving top-level persona, goal, context into inputs.
-
-        {"persona": "Student", "goal": "Find articles"} becomes
-        {"inputs": {"persona": "Student", "goal": "Find articles"}}
-
-        Args:
-            record_dicts: List of record dictionaries to normalize
-
-        Returns:
-            List of normalized record dictionaries with session fields inside inputs
-
-        Raises:
-            MlflowException: If record has both 'inputs' and top-level session fields,
-                or contains unknown columns in session format
-        """
-        normalized = []
-
-        for record in record_dicts:
-            if not (set(record.keys()) & SESSION_IDENTIFIER_FIELDS):
-                normalized.append(record.copy())
-                continue
-
-            if "inputs" in record:
-                raise MlflowException.invalid_parameter_value(
-                    "Cannot specify both 'inputs' and top-level session fields "
-                    "(goal, persona, context). Use one or the other."
-                )
-
-            if unknown_columns := set(record.keys()) - SESSION_ALLOWED_COLUMNS:
-                raise MlflowException.invalid_parameter_value(
-                    f"Unknown columns in session format: {list(unknown_columns)}. "
-                    "Custom fields should be placed inside 'context'."
-                )
-
-            new_record = {"inputs": {}}
-            for key, value in record.items():
-                if key in SESSION_INPUT_FIELDS:
-                    new_record["inputs"][key] = value
-                else:
-                    new_record[key] = value
-            normalized.append(new_record)
-
-        return normalized
 
     def _validate_schema(self, record_dicts: list[dict[str, Any]]) -> None:
         """
