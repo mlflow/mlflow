@@ -251,7 +251,7 @@ class AuthServiceClient:
         Args:
             experiment_id: The id of the experiment.
             username: The username.
-            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+            permission: Permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
                 "NO_PERMISSIONS".
 
         Raises:
@@ -350,7 +350,7 @@ class AuthServiceClient:
         Args:
             experiment_id: The id of the experiment.
             username: The username.
-            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+            permission: New permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
                 "NO_PERMISSIONS".
 
         Raises:
@@ -421,7 +421,7 @@ class AuthServiceClient:
         Args:
             name: The name of the registered model.
             username: The username.
-            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+            permission: Permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
                 "NO_PERMISSIONS".
 
         Raises:
@@ -496,7 +496,7 @@ class AuthServiceClient:
         Args:
             name: The name of the registered model.
             username: The username.
-            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+            permission: New permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
                 "NO_PERMISSIONS".
 
         Raises:
@@ -570,7 +570,7 @@ class AuthServiceClient:
             experiment_id: The id of the experiment containing the scorer.
             scorer_name: The name of the scorer.
             username: The username.
-            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+            permission: Permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
                 "NO_PERMISSIONS".
 
         Raises:
@@ -629,7 +629,7 @@ class AuthServiceClient:
             experiment_id: The id of the experiment containing the scorer.
             scorer_name: The name of the scorer.
             username: The username.
-            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+            permission: New permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
                 "NO_PERMISSIONS".
 
         Raises:
@@ -680,7 +680,7 @@ class AuthServiceClient:
         Args:
             secret_id: The id of the gateway secret.
             username: The username.
-            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+            permission: Permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
                 "NO_PERMISSIONS".
 
         Returns:
@@ -718,7 +718,7 @@ class AuthServiceClient:
         Args:
             secret_id: The id of the gateway secret.
             username: The username.
-            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+            permission: New permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
                 "NO_PERMISSIONS".
         """
         self._request(
@@ -750,7 +750,7 @@ class AuthServiceClient:
         Args:
             endpoint_id: The id of the gateway endpoint.
             username: The username.
-            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+            permission: Permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
                 "NO_PERMISSIONS".
 
         Returns:
@@ -788,7 +788,7 @@ class AuthServiceClient:
         Args:
             endpoint_id: The id of the gateway endpoint.
             username: The username.
-            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+            permission: New permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
                 "NO_PERMISSIONS".
         """
         self._request(
@@ -822,7 +822,7 @@ class AuthServiceClient:
         Args:
             model_definition_id: The id of the gateway model definition.
             username: The username.
-            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+            permission: Permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
                 "NO_PERMISSIONS".
 
         Returns:
@@ -872,7 +872,7 @@ class AuthServiceClient:
         Args:
             model_definition_id: The id of the gateway model definition.
             username: The username.
-            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+            permission: New permission to grant. Must be one of "READ", "USE", "EDIT", "MANAGE" and
                 "NO_PERMISSIONS".
         """
         self._request(
