@@ -12,6 +12,7 @@ import {
 } from './common/utils/RoutingUtils';
 import { MlflowHeader } from './common/components/MlflowHeader';
 import { useDarkThemeContext } from './common/contexts/DarkThemeContext';
+import { useDocumentTitle } from './common/hooks/useDocumentTitle';
 
 // Route definition imports:
 import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tracking/route-defs';
@@ -28,6 +29,7 @@ const landingRoute = {
   path: '/',
   element: createLazyRouteElement(() => import('./experiment-tracking/components/HomePage')),
   pageId: 'mlflow.experiments.list',
+  handle: { title: 'Experiments' },
 };
 
 /**
@@ -35,6 +37,7 @@ const landingRoute = {
  */
 const MlflowRootRoute = () => {
   useInitializeExperimentRunColors();
+  useDocumentTitle();
 
   const [showSidebar, setShowSidebar] = useState(true);
   const { theme } = useDesignSystemTheme();
