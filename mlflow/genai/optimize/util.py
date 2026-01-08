@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 from contextlib import contextmanager, nullcontext
 from typing import TYPE_CHECKING, Any, Callable
@@ -20,7 +22,7 @@ def prompt_optimization_autolog(
     optimizer_name: str,
     num_prompts: int,
     num_training_samples: int,
-    train_data_df: "pd.DataFrame",
+    train_data_df: "pd.DataFrame" | None,
 ):
     """
     Context manager for autologging prompt optimization runs.
@@ -29,7 +31,8 @@ def prompt_optimization_autolog(
         optimizer_name: Name of the optimizer being used
         num_prompts: Number of prompts being optimized
         num_training_samples: Number of training samples
-        train_data_df: Training data as a pandas DataFrame
+        train_data_df: Training data as a pandas DataFrame. If None or empty, it means zero-shot
+            optimization.
 
     Yields:
         Tuple of (run_id, results_dict) where results_dict should be populated with

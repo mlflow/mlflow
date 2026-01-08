@@ -1,7 +1,6 @@
 import json
 import logging
 import re
-import textwrap
 from typing import Any
 
 import mlflow
@@ -13,12 +12,14 @@ from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
+# Compiled regex pattern for extracting template variables
+_TEMPLATE_VAR_PATTERN = re.compile(r"\{\{(\w+)\}\}")
+
 
 # Unified meta-prompt template that supports both zero-shot and few-shot modes
-META_PROMPT_TEMPLATE = textwrap.dedent(
-    """\
-    You are an expert prompt engineer. Your task is to improve
-    the following prompts to achieve better performance.
+META_PROMPT_TEMPLATE = """\
+You are an expert prompt engineer. Your task is to improve
+the following prompts to achieve better performance.
 
 CURRENT PROMPTS:
 {current_prompts_formatted}
@@ -29,22 +30,22 @@ PROMPT ENGINEERING BEST PRACTICES:
 Apply these proven techniques to create effective prompts:
 
 1. **Clarity & Specificity**: Be explicit about the task, expected output format,
-   and any constraints
+and any constraints
 2. **Structured Formatting**: Use numbered lists, sections, or delimiters to
-   organize complex instructions clearly
+organize complex instructions clearly
 3. **Few-Shot Examples**: Include concrete examples showing desired input/output
-   pairs when appropriate
+pairs when appropriate
 4. **Role/Persona**: Specify expertise level if relevant (e.g., "You are an expert
-   mathematician...")
+mathematician...")
 5. **Step-by-Step Decomposition**: Break complex reasoning tasks into explicit
-   steps or phases
+steps or phases
 6. **Output Format Specification**: Explicitly define the format, structure, and
-   constraints for outputs
+constraints for outputs
 7. **Constraint Specification**: Clearly state what to avoid, exclude, or not do
 8. **Verification Instructions**: Add self-checking steps for calculation-heavy
-   or error-prone tasks
+or error-prone tasks
 9. **Chain-of-Thought Prompting**: For reasoning tasks, explicitly instruct to
-   show intermediate steps
+show intermediate steps
 
 CRITICAL REQUIREMENT - TEMPLATE VARIABLES:
 The following variables MUST be preserved EXACTLY as shown in the original prompts.
@@ -76,15 +77,14 @@ structure:
 
 REMINDER:
 1. Use the exact prompt names as JSON keys (e.g., if the prompt is named
-   "aime_solver", use "aime_solver" as the key)
+"aime_solver", use "aime_solver" as the key)
 2. Every template variable from the original prompt must appear unchanged in your
-   improved version
+improved version
 3. Apply best practices that are most relevant to the task at hand
 
 Do not include any text before or after the JSON object. Do not include
 explanations or reasoning.
-    """
-)
+"""
 
 
 @experimental(version="3.9.0")
@@ -102,10 +102,10 @@ class MetaPromptOptimizer(BasePromptOptimizer):
 
     Args:
         reflection_model: Name of the model to use for prompt optimization.
-            Format: "<provider>:/<model>" (e.g., "openai:/gpt-4o",
-            "anthropic:/claude-3-5-sonnet-20241022")
+            Format: "<provider>:/<model>" (e.g., "openai:/gpt-5.2",
+            "anthropic:/claude-sonnet-4-5-20250929")
         lm_kwargs: Optional dictionary of additional parameters to pass to the reflection
-            model (e.g., {"temperature": 0.7, "max_tokens": 4096}). These are passed
+            model (e.g., {"temperature": 1.0, "max_tokens": 4096}). These are passed
             directly to the underlying litellm.completion() call. Default: None
         guidelines: Optional custom guidelines to provide domain-specific or task-specific
             context for prompt optimization (e.g., "This is for a finance advisor to
@@ -231,7 +231,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         template_variables = self._extract_template_variables(target_prompts)
 
         # Auto-detect mode based on training data
-        if not train_data or len(train_data) == 0:
+        if not train_data:
             _logger.info("No training data provided, using zero-shot metaprompting")
             return self._optimize_zero_shot(target_prompts, template_variables)
         else:
@@ -265,10 +265,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         try:
             improved_prompts = self._call_reflection_model(meta_prompt)
 
-            # Validate prompt names match
             self._validate_prompt_names(target_prompts, improved_prompts)
-
-            # Validate template variables are preserved in improved prompts
             self._validate_template_variables(target_prompts, improved_prompts)
 
             _logger.info("Successfully generated improved prompts")
@@ -371,7 +368,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         variables = {}
         for name, template in prompts.items():
             # Match {{variable}} pattern (MLflow uses double braces)
-            matches = re.findall(r"\{\{(\w+)\}\}", template)
+            matches = _TEMPLATE_VAR_PATTERN.findall(template)
             variables[name] = set(matches)
         return variables
 
@@ -575,20 +572,21 @@ have prevented the failures you identified."""
 
         litellm_model = f"{self.provider}/{self.model}"
 
-        try:
-            with mlflow.start_span(name="metaprompt_reflection", span_type=SpanType.LLM) as span:
-                litellm_params = {
-                    "model": litellm_model,
-                    "messages": [{"role": "user", "content": meta_prompt}],
-                    "response_format": {"type": "json_object"},  # Request JSON output
-                    "max_retries": 3,
-                    **self.lm_kwargs,  # Merge user-provided parameters
-                }
+        litellm_params = {
+            "model": litellm_model,
+            "messages": [{"role": "user", "content": meta_prompt}],
+            "response_format": {"type": "json_object"},  # Request JSON output
+            "max_retries": 3,
+            **self.lm_kwargs,  # Merge user-provided parameters
+        }
 
-                # Set span inputs
-                span.set_inputs({"meta_prompt": meta_prompt, "model": litellm_model})
+        content = None  # Initialize to avoid NameError in exception handler
 
-                content = None  # Initialize to avoid NameError in exception handler
+        with mlflow.start_span(name="metaprompt_reflection", span_type=SpanType.LLM) as span:
+            # Set span inputs
+            span.set_inputs({"meta_prompt": meta_prompt, "model": litellm_model})
+
+            try:
                 response = litellm.completion(**litellm_params)
 
                 # Extract and parse response
@@ -622,14 +620,16 @@ have prevented the failures you identified."""
 
                 return improved_prompts
 
-        except json.JSONDecodeError as e:
-            response_preview = content[:2000] if content else "No content received"
-            raise MlflowException(
-                f"Failed to parse reflection model response as JSON: {e}\n"
-                f"Response: {response_preview}"
-            ) from e
-        except Exception as e:
-            raise MlflowException(f"Failed to call reflection model {litellm_model}: {e}") from e
+            except json.JSONDecodeError as e:
+                response_preview = content[:2000] if content else "No content received"
+                raise MlflowException(
+                    f"Failed to parse reflection model response as JSON: {e}\n"
+                    f"Response: {response_preview}"
+                ) from e
+            except Exception as e:
+                raise MlflowException(
+                    f"Failed to call reflection model {litellm_model}: {e}"
+                ) from e
 
     def _compute_aggregate_score(self, results: list[EvaluationResultRecord]) -> float:
         """
@@ -639,9 +639,9 @@ have prevented the failures you identified."""
             results: List of evaluation results
 
         Returns:
-            Average score across all examples
+            Average score across all examples, or NaN if no results
         """
         if not results:
-            return 0.0
+            return float("nan")
 
         return sum(r.score for r in results) / len(results)

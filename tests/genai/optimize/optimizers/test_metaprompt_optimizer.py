@@ -47,26 +47,21 @@ def sample_target_prompts_multiple():
     }
 
 
-@pytest.fixture
-def mock_eval_fn():
+def mock_eval_fn(candidate_prompts: dict[str, str], dataset: list[dict[str, Any]]):
     """Mock evaluation function that returns varied scores."""
-
-    def eval_fn(candidate_prompts: dict[str, str], dataset: list[dict[str, Any]]):
-        # Return varied scores for diverse sampling
-        scores = [0.9, 0.7, 0.4, 0.2]  # High to low
-        return [
-            EvaluationResultRecord(
-                inputs=record["inputs"],
-                outputs="mock output",
-                expectations=record["outputs"],
-                score=scores[i % len(scores)],
-                trace=Mock(),  # Use Mock for trace
-                rationales={"correctness": f"Score {scores[i % len(scores)]}"},
-            )
-            for i, record in enumerate(dataset)
-        ]
-
-    return eval_fn
+    # Return varied scores for diverse sampling
+    scores = [0.9, 0.7, 0.4, 0.2]  # High to low
+    return [
+        EvaluationResultRecord(
+            inputs=record["inputs"],
+            outputs="mock output",
+            expectations=record["outputs"],
+            score=scores[i % len(scores)],
+            trace=Mock(),  # Use Mock for trace
+            rationales={"correctness": f"Score {scores[i % len(scores)]}"},
+        )
+        for i, record in enumerate(dataset)
+    ]
 
 
 @pytest.fixture
@@ -185,7 +180,7 @@ def test_build_zero_shot_meta_prompt(sample_target_prompts):
     assert "JSON" in meta_prompt
 
 
-def test_build_few_shot_meta_prompt(sample_train_data, sample_target_prompts, mock_eval_fn):
+def test_build_few_shot_meta_prompt(sample_train_data, sample_target_prompts):
     optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
     template_vars = optimizer._extract_template_variables(sample_target_prompts)
     eval_results = mock_eval_fn(sample_target_prompts, sample_train_data)
@@ -208,7 +203,7 @@ def test_build_few_shot_meta_prompt_empty_eval_results(sample_target_prompts):
         optimizer._build_few_shot_meta_prompt(sample_target_prompts, template_vars, [])
 
 
-def test_format_examples(sample_train_data, mock_eval_fn):
+def test_format_examples(sample_train_data):
     optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
     eval_results = mock_eval_fn({}, sample_train_data)
 
@@ -316,12 +311,7 @@ def test_optimize_zero_shot_mode(sample_target_prompts, mock_litellm_response):
         assert mock_completion.call_count == 1
 
 
-def test_optimize_few_shot_mode(
-    sample_train_data,
-    sample_target_prompts,
-    mock_eval_fn,
-    mock_litellm_response,
-):
+def test_optimize_few_shot_mode(sample_train_data, sample_target_prompts, mock_litellm_response):
     with patch("litellm.completion", return_value=mock_litellm_response) as mock_completion:
         optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
@@ -378,7 +368,7 @@ def test_optimize_few_shot_with_baseline_eval(sample_train_data, sample_target_p
         assert "Better" in result.optimized_prompts["instruction"]
 
 
-def test_optimize_preserves_template_variables(sample_train_data, mock_eval_fn):
+def test_optimize_preserves_template_variables(sample_train_data):
     # Mock response that drops the {{question}} variable
     mock_response = Mock()
     mock_response.choices = [Mock()]
@@ -404,11 +394,7 @@ def test_optimize_preserves_template_variables(sample_train_data, mock_eval_fn):
         assert "{{question}}" in result.optimized_prompts["instruction"]
 
 
-def test_optimize_with_multiple_prompts(
-    sample_train_data,
-    sample_target_prompts_multiple,
-    mock_eval_fn,
-):
+def test_optimize_with_multiple_prompts(sample_train_data, sample_target_prompts_multiple):
     mock_response = Mock()
     mock_response.choices = [Mock()]
     mock_response.choices[0].message = Mock()
