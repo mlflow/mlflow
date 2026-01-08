@@ -34,3 +34,18 @@ class OnlineScoringConfig:
         if self.filter_string is not None:
             result["filter_string"] = self.filter_string
         return result
+
+
+@dataclass
+class OnlineScorer:
+    """
+    Internal entity representing a serialized scorer and its online execution configuration.
+
+    This entity combines the scorer's executable form (name and serialized_scorer) with
+    its configuration (OnlineScoringConfig) that specifies how it should be applied to
+    traces in an online/real-time manner.
+    """
+
+    name: str
+    serialized_scorer: str
+    online_config: OnlineScoringConfig

@@ -68,6 +68,7 @@ from mlflow.entities.trace_metrics import (
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException, MlflowTracingException
+from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.scorer_utils import (
     build_gateway_model,
     extract_endpoint_ref,
@@ -111,6 +112,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlLoggedModelParam,
     SqlLoggedModelTag,
     SqlMetric,
+    SqlOnlineScoringConfig,
     SqlParam,
     SqlRun,
     SqlScorer,
@@ -2425,6 +2427,206 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 for i, sv in enumerate(sql_scorer_versions)
             ]
+
+    def get_online_scoring_configs(self, scorer_ids: list[str]) -> list[OnlineScoringConfig]:
+        """
+        Get online scoring configurations for multiple scorers by their IDs.
+
+        A single scorer can have multiple configurations (e.g., running in different
+        experiments or with different filter strings).
+
+        Args:
+            scorer_ids: List of scorer IDs to fetch configurations for.
+
+        Returns:
+            A list of OnlineScoringConfig objects for the specified scorers.
+            Scorers without configurations are not included.
+        """
+        if not scorer_ids:
+            return []
+
+        with self.ManagedSessionMaker() as session:
+            results = (
+                session.query(SqlOnlineScoringConfig)
+                .filter(SqlOnlineScoringConfig.scorer_id.in_(scorer_ids))
+                .all()
+            )
+
+            return [config.to_mlflow_entity() for config in results]
+
+    def upsert_online_scoring_config(
+        self,
+        experiment_id: str,
+        scorer_name: str,
+        sample_rate: float,
+        filter_string: str | None = None,
+    ) -> OnlineScoringConfig:
+        """
+        Create or update online scoring configuration for a scorer.
+
+        Args:
+            experiment_id: The ID of the Experiment containing the scorer.
+            scorer_name: The scorer name.
+            sample_rate: The sampling rate (0.0 to 1.0).
+            filter_string: Optional filter expression for trace selection.
+
+        Returns:
+            The created or updated OnlineScoringConfig entity.
+
+        Raises:
+            MlflowException: If scorer is not found or does not use a gateway model.
+        """
+        if not 0.0 <= sample_rate <= 1.0:
+            raise MlflowException.invalid_parameter_value(
+                f"sample_rate must be between 0.0 and 1.0, got {sample_rate}"
+            )
+
+        if filter_string:
+            # Validate the filter string syntax before storing
+            SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+
+        with self.ManagedSessionMaker() as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            scorer = (
+                session.query(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment.experiment_id,
+                    SqlScorer.scorer_name == scorer_name,
+                )
+                .first()
+            )
+            if scorer is None:
+                raise MlflowException(
+                    f"Scorer with name '{scorer_name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Get the latest scorer version to validate online scoring compatibility
+            latest_version = (
+                session.query(SqlScorerVersion)
+                .filter(SqlScorerVersion.scorer_id == scorer.scorer_id)
+                .order_by(SqlScorerVersion.scorer_version.desc())
+                .first()
+            )
+            if latest_version is not None and sample_rate > 0:
+                serialized_data = json.loads(latest_version.serialized_scorer)
+
+                model = extract_model_from_serialized_scorer(serialized_data)
+                if not is_gateway_model(model):
+                    raise MlflowException(
+                        f"Scorer '{scorer_name}' does not use a gateway model. "
+                        "Online scoring is only supported for scorers that use gateway models.",
+                        INVALID_PARAMETER_VALUE,
+                    )
+
+            # Delete existing online configs for this scorer
+            session.query(SqlOnlineScoringConfig).filter(
+                SqlOnlineScoringConfig.scorer_id == scorer.scorer_id
+            ).delete()
+            # Create new online config
+            config = SqlOnlineScoringConfig(
+                online_scoring_config_id=uuid.uuid4().hex,
+                scorer_id=scorer.scorer_id,
+                sample_rate=sample_rate,
+                experiment_id=int(experiment_id),
+                filter_string=filter_string,
+            )
+            session.add(config)
+            session.flush()
+
+            return config.to_mlflow_entity()
+
+    def get_active_online_scorers(self) -> list["OnlineScorer"]:
+        """
+        Get all active online scorers across all experiments.
+
+        Active online scorers are those with a sample_rate greater than zero.
+        Gateway endpoint IDs in the serialized scorers are resolved to endpoint names.
+
+        Returns:
+            List of OnlineScorer entities with name, experiment_id, serialized_scorer,
+            sample_rate, and filter_string fields populated.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Subquery to get the max version for each scorer
+            max_version_subquery = (
+                session.query(
+                    SqlScorerVersion.scorer_id,
+                    func.max(SqlScorerVersion.scorer_version).label("max_version"),
+                )
+                .group_by(SqlScorerVersion.scorer_id)
+                .subquery()
+            )
+
+            # Get all online configs with sample_rate > 0, joined with their latest version
+            results = (
+                session.query(
+                    SqlOnlineScoringConfig,
+                    SqlScorer,
+                    SqlScorerVersion,
+                )
+                .filter(SqlOnlineScoringConfig.sample_rate > 0)
+                .join(SqlScorer, SqlOnlineScoringConfig.scorer_id == SqlScorer.scorer_id)
+                .join(
+                    max_version_subquery,
+                    SqlScorer.scorer_id == max_version_subquery.c.scorer_id,
+                )
+                .join(
+                    SqlScorerVersion,
+                    and_(
+                        SqlScorerVersion.scorer_id == max_version_subquery.c.scorer_id,
+                        SqlScorerVersion.scorer_version == max_version_subquery.c.max_version,
+                    ),
+                )
+                .all()
+            )
+
+            # Filter to only include scorers whose max version uses a gateway model
+            gateway_results = []
+            for config, scorer, version in results:
+                serialized_data = json.loads(version.serialized_scorer)
+                model = extract_model_from_serialized_scorer(serialized_data)
+                if is_gateway_model(model):
+                    gateway_results.append((config, scorer, version))
+
+            # Resolve gateway endpoint IDs to names
+            return [
+                OnlineScorer(
+                    name=scorer.scorer_name,
+                    serialized_scorer=self._resolve_endpoint_in_serialized_scorer(
+                        version.serialized_scorer
+                    ),
+                    online_config=config.to_mlflow_entity(),
+                )
+                for config, scorer, version in gateway_results
+            ]
+
+    def _resolve_endpoint_in_serialized_scorer(self, serialized_scorer: str) -> str:
+        """
+        Resolve gateway endpoint ID to name in a serialized scorer string.
+
+        Args:
+            serialized_scorer: Serialized scorer JSON string.
+
+        Returns:
+            Serialized scorer JSON string with resolved endpoint name.
+        """
+        serialized_data = json.loads(serialized_scorer)
+        model = extract_model_from_serialized_scorer(serialized_data)
+
+        if is_gateway_model(model):
+            endpoint_id = extract_endpoint_ref(model)
+            try:
+                endpoint = self.get_gateway_endpoint(endpoint_id)
+                new_model = build_gateway_model(endpoint.name)
+                serialized_data = update_model_in_serialized_scorer(serialized_data, new_model)
+            except MlflowException:
+                # Endpoint not found - keep original serialized scorer
+                pass
+
+        return json.dumps(serialized_data)
 
     def _apply_order_by_search_logged_models(
         self,
