@@ -35,6 +35,7 @@ from clint.rules.no_shebang import NoShebang
 from clint.rules.os_chdir_in_test import OsChdirInTest
 from clint.rules.os_environ_delete_in_test import OsEnvironDeleteInTest
 from clint.rules.os_environ_set_in_test import OsEnvironSetInTest
+from clint.rules.prefer_dict_union import PreferDictUnion
 from clint.rules.pytest_mark_repeat import PytestMarkRepeat
 from clint.rules.redundant_test_docstring import RedundantTestDocstring
 from clint.rules.subprocess_check_call import SubprocessCheckCall
@@ -90,6 +91,7 @@ __all__ = [
     "OsChdirInTest",
     "OsEnvironDeleteInTest",
     "OsEnvironSetInTest",
+    "PreferDictUnion",
     "PytestMarkRepeat",
     "RedundantTestDocstring",
     "SubprocessCheckCall",

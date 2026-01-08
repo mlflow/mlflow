@@ -8,6 +8,7 @@ from mlflow.entities import (
     FallbackStrategy,
     GatewayEndpoint,
     GatewayEndpointBinding,
+    GatewayEndpointModelConfig,
     GatewayEndpointModelMapping,
     GatewayEndpointTag,
     GatewayModelDefinition,
@@ -455,7 +456,14 @@ def test_delete_gateway_model_definition_in_use_raises(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     store.create_gateway_endpoint(
-        name="uses-model", model_definition_ids=[model_def.model_definition_id]
+        name="uses-model",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     with pytest.raises(MlflowException, match="currently in use") as exc:
@@ -476,7 +484,13 @@ def test_create_gateway_endpoint(store: SqlAlchemyStore):
 
     endpoint = store.create_gateway_endpoint(
         name="my-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
         created_by="test-user",
     )
 
@@ -489,13 +503,22 @@ def test_create_gateway_endpoint(store: SqlAlchemyStore):
 
 def test_create_gateway_endpoint_empty_models_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="at least one") as exc:
-        store.create_gateway_endpoint(name="empty-endpoint", model_definition_ids=[])
+        store.create_gateway_endpoint(name="empty-endpoint", model_configs=[])
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_create_gateway_endpoint_nonexistent_model_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="not found") as exc:
-        store.create_gateway_endpoint(name="orphan-endpoint", model_definition_ids=["nonexistent"])
+        store.create_gateway_endpoint(
+            name="orphan-endpoint",
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id="nonexistent",
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                    weight=1.0,
+                ),
+            ],
+        )
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
@@ -507,7 +530,14 @@ def test_get_gateway_endpoint_by_id(store: SqlAlchemyStore):
         name="get-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     created = store.create_gateway_endpoint(
-        name="get-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="get-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     retrieved = store.get_gateway_endpoint(endpoint_id=created.endpoint_id)
@@ -524,7 +554,14 @@ def test_get_gateway_endpoint_by_name(store: SqlAlchemyStore):
         name="name-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     created = store.create_gateway_endpoint(
-        name="named-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="named-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     retrieved = store.get_gateway_endpoint(name="named-endpoint")
@@ -580,7 +617,13 @@ def test_update_gateway_endpoint(store: SqlAlchemyStore):
     # Create endpoint with model1 as PRIMARY
     created = store.create_gateway_endpoint(
         name="update-endpoint",
-        model_definition_ids=[model_def1.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Verify initial state
@@ -608,9 +651,24 @@ def test_update_gateway_endpoint(store: SqlAlchemyStore):
             strategy=FallbackStrategy.SEQUENTIAL,
             max_attempts=2,
         ),
-        fallback_model_definition_ids=[
-            model_def2.model_definition_id,
-            model_def3.model_definition_id,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def3.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=1,
+            ),
         ],
         updated_by="updater2",
     )
@@ -631,12 +689,28 @@ def test_update_gateway_endpoint(store: SqlAlchemyStore):
     # Test 3: Update PRIMARY models and FALLBACK models
     with_new_models = store.update_gateway_endpoint(
         endpoint_id=created.endpoint_id,
-        model_definition_ids=[model_def2.model_definition_id, model_def3.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def3.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def4.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+        ],
         fallback_config=FallbackConfig(
             strategy=FallbackStrategy.SEQUENTIAL,
             max_attempts=1,
         ),
-        fallback_model_definition_ids=[model_def4.model_definition_id],
         updated_by="updater3",
     )
 
@@ -661,7 +735,14 @@ def test_delete_gateway_endpoint(store: SqlAlchemyStore):
         name="del-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     created = store.create_gateway_endpoint(
-        name="delete-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="delete-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     store.delete_gateway_endpoint(created.endpoint_id)
@@ -690,19 +771,37 @@ def test_list_gateway_endpoints(store: SqlAlchemyStore):
 
     # Create endpoint without fallback
     ep1 = store.create_gateway_endpoint(
-        name="list-endpoint-1", model_definition_ids=[model_def.model_definition_id]
+        name="list-endpoint-1",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Create endpoint with fallback config and routing strategy
     ep2 = store.create_gateway_endpoint(
         name="list-endpoint-2",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def_fallback.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+        ],
         routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
         fallback_config=FallbackConfig(
             strategy=FallbackStrategy.SEQUENTIAL,
             max_attempts=2,
         ),
-        fallback_model_definition_ids=[model_def_fallback.model_definition_id],
     )
 
     endpoints = store.list_gateway_endpoints()
@@ -735,13 +834,23 @@ def test_attach_model_to_gateway_endpoint(store: SqlAlchemyStore):
         model_name="claude-3",
     )
     endpoint = store.create_gateway_endpoint(
-        name="attach-endpoint", model_definition_ids=[model_def1.model_definition_id]
+        name="attach-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     mapping = store.attach_model_to_endpoint(
         endpoint_id=endpoint.endpoint_id,
-        model_definition_id=model_def2.model_definition_id,
-        weight=2.0,
+        model_config=GatewayEndpointModelConfig(
+            model_definition_id=model_def2.model_definition_id,
+            linkage_type=GatewayModelLinkageType.PRIMARY,
+            weight=2.0,
+        ),
         created_by="attacher",
     )
 
@@ -763,13 +872,24 @@ def test_attach_duplicate_model_raises(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
-        name="dup-attach-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="dup-attach-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     with pytest.raises(MlflowException, match="already attached") as exc:
         store.attach_model_to_endpoint(
             endpoint_id=endpoint.endpoint_id,
-            model_definition_id=model_def.model_definition_id,
+            model_config=GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
         )
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
 
@@ -792,7 +912,18 @@ def test_detach_model_from_gateway_endpoint(store: SqlAlchemyStore):
     )
     endpoint = store.create_gateway_endpoint(
         name="detach-endpoint",
-        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     store.detach_model_from_endpoint(
@@ -814,7 +945,14 @@ def test_detach_nonexistent_mapping_raises(store: SqlAlchemyStore):
         name="no-map-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="no-map-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="no-map-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     with pytest.raises(MlflowException, match="not attached") as exc:
@@ -836,7 +974,14 @@ def test_create_gateway_endpoint_binding(store: SqlAlchemyStore):
         name="bind-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="bind-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="bind-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     binding = store.create_endpoint_binding(
@@ -861,7 +1006,14 @@ def test_delete_gateway_endpoint_binding(store: SqlAlchemyStore):
         name="del-bind-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="del-bind-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="del-bind-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
     store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
@@ -890,7 +1042,14 @@ def test_list_gateway_endpoint_bindings(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
-        name="list-bind-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="list-bind-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     store.create_endpoint_binding(
@@ -930,7 +1089,14 @@ def test_get_resource_gateway_endpoint_configs(store: SqlAlchemyStore):
         model_name="gpt-4-turbo",
     )
     endpoint = store.create_gateway_endpoint(
-        name="resolver-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="resolver-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
     store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
@@ -971,7 +1137,14 @@ def test_get_resource_endpoint_configs_with_auth_config(store: SqlAlchemyStore):
         model_name="anthropic.claude-3",
     )
     endpoint = store.create_gateway_endpoint(
-        name="auth-resolver-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="auth-resolver-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
     store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
@@ -1006,7 +1179,14 @@ def test_get_resource_endpoint_configs_with_dict_secret(store: SqlAlchemyStore):
         model_name="anthropic.claude-3",
     )
     endpoint = store.create_gateway_endpoint(
-        name="aws-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="aws-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
     store.create_endpoint_binding(
         endpoint_id=endpoint.endpoint_id,
@@ -1056,10 +1236,24 @@ def test_get_resource_endpoint_configs_multiple_endpoints(store: SqlAlchemyStore
         model_name="claude-3",
     )
     endpoint1 = store.create_gateway_endpoint(
-        name="multi-endpoint-1", model_definition_ids=[model_def1.model_definition_id]
+        name="multi-endpoint-1",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
     endpoint2 = store.create_gateway_endpoint(
-        name="multi-endpoint-2", model_definition_ids=[model_def2.model_definition_id]
+        name="multi-endpoint-2",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     store.create_endpoint_binding(
@@ -1097,7 +1291,14 @@ def test_get_gateway_endpoint_config(store: SqlAlchemyStore):
         model_name="gpt-4o",
     )
     endpoint = store.create_gateway_endpoint(
-        name="ep-config-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="ep-config-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     config = get_endpoint_config(
@@ -1130,7 +1331,14 @@ def test_get_gateway_endpoint_config_with_auth_config(store: SqlAlchemyStore):
         model_name="anthropic.claude-3-sonnet",
     )
     endpoint = store.create_gateway_endpoint(
-        name="ep-auth-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="ep-auth-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     config = get_endpoint_config(
@@ -1165,7 +1373,18 @@ def test_get_gateway_endpoint_config_multiple_models(store: SqlAlchemyStore):
 
     endpoint = store.create_gateway_endpoint(
         name="ep-multi-endpoint",
-        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     config = get_endpoint_config(
@@ -1200,7 +1419,14 @@ def test_set_gateway_endpoint_tag(store: SqlAlchemyStore):
         name="tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="tag-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     tag = GatewayEndpointTag(key="env", value="production")
@@ -1220,7 +1446,14 @@ def test_set_gateway_endpoint_tag_update_existing(store: SqlAlchemyStore):
         name="tag-upd-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="tag-upd-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="tag-upd-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     store.set_gateway_endpoint_tag(endpoint.endpoint_id, GatewayEndpointTag(key="env", value="dev"))
@@ -1242,7 +1475,14 @@ def test_set_multiple_endpoint_tags(store: SqlAlchemyStore):
         name="multi-tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="multi-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="multi-tag-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     store.set_gateway_endpoint_tag(
@@ -1274,7 +1514,14 @@ def test_delete_gateway_endpoint_tag(store: SqlAlchemyStore):
         name="del-tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="del-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="del-tag-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
     store.set_gateway_endpoint_tag(
         endpoint.endpoint_id, GatewayEndpointTag(key="env", value="production")
@@ -1302,7 +1549,14 @@ def test_delete_gateway_endpoint_tag_nonexistent_key_no_op(store: SqlAlchemyStor
         name="del-noop-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     endpoint = store.create_gateway_endpoint(
-        name="del-noop-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="del-noop-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Should not raise even if tag doesn't exist
@@ -1323,7 +1577,14 @@ def test_endpoint_tags_deleted_with_endpoint(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
-        name="cascade-tag-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="cascade-tag-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
     store.set_gateway_endpoint_tag(
         endpoint.endpoint_id, GatewayEndpointTag(key="env", value="production")
@@ -1349,7 +1610,14 @@ def _create_gateway_endpoint(store: SqlAlchemyStore, name: str) -> GatewayEndpoi
         name=f"{name}-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     return store.create_gateway_endpoint(
-        name=name, model_definition_ids=[model_def.model_definition_id]
+        name=name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
 
@@ -1536,17 +1804,31 @@ def test_create_gateway_endpoint_with_fallback_routing(store: SqlAlchemyStore):
     # Create endpoint with fallback configuration
     endpoint = store.create_gateway_endpoint(
         name="fallback-endpoint",
-        model_definition_ids=[model_def3.model_definition_id],  # PRIMARY model
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def3.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=1,
+            ),
+        ],
         created_by="test-user",
         routing_strategy=None,  # Fallback is independent of routing strategy
         fallback_config=FallbackConfig(
             strategy=FallbackStrategy.SEQUENTIAL,
             max_attempts=2,
         ),
-        fallback_model_definition_ids=[
-            model_def1.model_definition_id,
-            model_def2.model_definition_id,
-        ],
     )
 
     # Verify endpoint was created with fallback config
@@ -1599,7 +1881,18 @@ def test_create_gateway_endpoint_with_traffic_split(store: SqlAlchemyStore):
 
     endpoint = store.create_gateway_endpoint(
         name="traffic-split-endpoint",
-        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
         routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
     )
 

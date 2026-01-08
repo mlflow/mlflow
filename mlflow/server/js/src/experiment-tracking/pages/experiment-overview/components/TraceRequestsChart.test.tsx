@@ -5,22 +5,8 @@ import { TraceRequestsChart } from './TraceRequestsChart';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
-
-// Mock FetchUtils
-jest.mock('../../../../common/utils/FetchUtils', () => ({
-  fetchOrFail: jest.fn(),
-  getAjaxUrl: (url: string) => url,
-}));
-
-import { fetchOrFail } from '../../../../common/utils/FetchUtils';
-const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
-
-// Helper to create mock API response
-const mockApiResponse = (dataPoints: any[] | undefined) => {
-  mockFetchOrFail.mockResolvedValue({
-    json: () => Promise.resolve({ data_points: dataPoints }),
-  } as Response);
-};
+import { setupServer } from '../../../../common/utils/setup-msw';
+import { rest } from 'msw';
 
 // Helper to create a single data point
 const createTraceCountDataPoint = (timeBucket: string, count: number) => ({
@@ -29,34 +15,30 @@ const createTraceCountDataPoint = (timeBucket: string, count: number) => ({
   values: { [AggregationType.COUNT]: count },
 });
 
-// Mock recharts components to avoid rendering issues in tests
-jest.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="responsive-container">{children}</div>
-  ),
-  BarChart: ({ children, data }: { children: React.ReactNode; data: any[] }) => (
-    <div data-testid="bar-chart" data-count={data?.length || 0}>
-      {children}
-    </div>
-  ),
-  Bar: () => <div data-testid="bar" />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-}));
-
 describe('TraceRequestsChart', () => {
   const testExperimentId = 'test-experiment-123';
-  const now = Date.now();
-  const oneHourAgo = now - 60 * 60 * 1000;
+  // Use fixed timestamps for predictable bucket generation
+  const startTimeMs = new Date('2025-12-22T10:00:00Z').getTime();
+  const endTimeMs = new Date('2025-12-22T12:00:00Z').getTime(); // 2 hours = 3 buckets with 1hr interval
+  const timeIntervalSeconds = 3600; // 1 hour
+
+  // Pre-computed time buckets for the test range
+  const timeBuckets = [
+    new Date('2025-12-22T10:00:00Z').getTime(),
+    new Date('2025-12-22T11:00:00Z').getTime(),
+    new Date('2025-12-22T12:00:00Z').getTime(),
+  ];
 
   // Default props reused across tests
   const defaultProps = {
     experimentId: testExperimentId,
-    startTimeMs: oneHourAgo,
-    endTimeMs: now,
-    timeIntervalSeconds: 3600, // 1 hour
+    startTimeMs,
+    endTimeMs,
+    timeIntervalSeconds,
+    timeBuckets,
   };
+
+  const server = setupServer();
 
   const createQueryClient = () =>
     new QueryClient({
@@ -78,26 +60,43 @@ describe('TraceRequestsChart', () => {
     );
   };
 
+  // Helper to setup MSW handler for trace metrics endpoint
+  const setupTraceMetricsHandler = (dataPoints: any[]) => {
+    server.use(
+      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        return res(ctx.json({ data_points: dataPoints }));
+      }),
+    );
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockApiResponse([]);
+    // Default: return empty data points
+    setupTraceMetricsHandler([]);
   });
 
   describe('loading state', () => {
-    it('should render loading spinner while data is being fetched', async () => {
-      // Create a promise that never resolves to keep the component in loading state
-      mockFetchOrFail.mockReturnValue(new Promise(() => {}));
+    it('should render loading skeleton while data is being fetched', async () => {
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.delay('infinite'));
+        }),
+      );
 
       renderComponent();
 
-      // Check for spinner (loading state)
-      expect(screen.getByRole('img')).toBeInTheDocument();
+      // Check that actual chart content is not rendered during loading
+      expect(screen.queryByText('Requests')).not.toBeInTheDocument();
     });
   });
 
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
-      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
+        }),
+      );
 
       renderComponent();
 
@@ -108,8 +107,8 @@ describe('TraceRequestsChart', () => {
   });
 
   describe('empty data state', () => {
-    it('should render empty state message when no data points are returned', async () => {
-      mockApiResponse([]);
+    it('should render empty state when no data points are returned', async () => {
+      setupTraceMetricsHandler([]);
 
       renderComponent();
 
@@ -118,10 +117,10 @@ describe('TraceRequestsChart', () => {
       });
     });
 
-    it('should render empty state when data_points is undefined', async () => {
-      mockApiResponse(undefined);
+    it('should render empty state when time range is not provided', async () => {
+      setupTraceMetricsHandler([]);
 
-      renderComponent();
+      renderComponent({ startTimeMs: undefined, endTimeMs: undefined, timeBuckets: [] });
 
       await waitFor(() => {
         expect(screen.getByText('No data available for the selected time range')).toBeInTheDocument();
@@ -136,8 +135,8 @@ describe('TraceRequestsChart', () => {
       createTraceCountDataPoint('2025-12-22T12:00:00Z', 100),
     ];
 
-    it('should render chart with data points', async () => {
-      mockApiResponse(mockDataPoints);
+    it('should render chart with all time buckets', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -145,12 +144,12 @@ describe('TraceRequestsChart', () => {
         expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
       });
 
-      // Verify the bar chart has the correct number of data points
+      // Verify the bar chart has all 3 time buckets
       expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
     });
 
     it('should display the total request count', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -161,7 +160,7 @@ describe('TraceRequestsChart', () => {
     });
 
     it('should display the "Requests" title', async () => {
-      mockApiResponse(mockDataPoints);
+      setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
@@ -171,7 +170,7 @@ describe('TraceRequestsChart', () => {
     });
 
     it('should format large numbers with locale formatting', async () => {
-      mockApiResponse([createTraceCountDataPoint('2025-12-22T10:00:00Z', 1234567)]);
+      setupTraceMetricsHandler([createTraceCountDataPoint('2025-12-22T10:00:00Z', 1234567)]);
 
       renderComponent();
 
@@ -180,88 +179,135 @@ describe('TraceRequestsChart', () => {
         expect(screen.getByText('1,234,567')).toBeInTheDocument();
       });
     });
+
+    it('should fill missing time buckets with zeros', async () => {
+      // Only provide data for one time bucket
+      setupTraceMetricsHandler([createTraceCountDataPoint('2025-12-22T10:00:00Z', 100)]);
+
+      renderComponent();
+
+      // Chart should still show all 3 time buckets
+      await waitFor(() => {
+        expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
+      });
+
+      // Total should only count the one data point
+      expect(screen.getByText('100')).toBeInTheDocument();
+    });
   });
 
   describe('API call parameters', () => {
-    it('should call fetchOrFail with correct parameters', async () => {
+    it('should call API with correct parameters', async () => {
+      let capturedRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedRequest = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent();
 
       await waitFor(() => {
-        expect(mockFetchOrFail).toHaveBeenCalledWith(
-          'ajax-api/3.0/mlflow/traces/metrics',
-          expect.objectContaining({
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: expect.stringContaining(testExperimentId),
-          }),
-        );
+        expect(capturedRequest).toMatchObject({
+          experiment_ids: [testExperimentId],
+          view_type: MetricViewType.TRACES,
+          metric_name: TraceMetricKey.TRACE_COUNT,
+          aggregations: [{ aggregation_type: AggregationType.COUNT }],
+        });
       });
     });
 
     it('should use provided time interval', async () => {
+      let capturedRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedRequest = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent({ timeIntervalSeconds: 60 });
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.time_interval_seconds).toBe(60);
+        expect(capturedRequest?.time_interval_seconds).toBe(60);
       });
     });
 
     it('should use provided time interval for hourly grouping', async () => {
+      let capturedRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedRequest = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent({ timeIntervalSeconds: 3600 });
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.time_interval_seconds).toBe(3600);
+        expect(capturedRequest?.time_interval_seconds).toBe(3600);
       });
     });
 
     it('should use provided time interval for daily grouping', async () => {
+      let capturedRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedRequest = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent({ timeIntervalSeconds: 86400 });
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.time_interval_seconds).toBe(86400);
+        expect(capturedRequest?.time_interval_seconds).toBe(86400);
       });
     });
   });
 
   describe('data transformation', () => {
     it('should handle data points with missing values gracefully', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         {
           metric_name: TraceMetricKey.TRACE_COUNT,
           dimensions: { time_bucket: '2025-12-22T10:00:00Z' },
-          values: {}, // Missing COUNT value
+          values: {}, // Missing COUNT value - will be treated as 0
         },
         createTraceCountDataPoint('2025-12-22T11:00:00Z', 50),
       ]);
 
       renderComponent();
 
-      // Should still render and show total of 50 (0 + 50)
+      // Should still render with all time buckets and show total of 50 (0 + 50)
       await waitFor(() => {
-        expect(screen.getByText('50')).toBeInTheDocument();
+        expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
       });
+      expect(screen.getByText('50')).toBeInTheDocument();
     });
 
     it('should handle data points with missing time_bucket', async () => {
-      mockApiResponse([
+      setupTraceMetricsHandler([
         {
           metric_name: TraceMetricKey.TRACE_COUNT,
-          dimensions: {}, // Missing time_bucket
+          dimensions: {}, // Missing time_bucket - won't be mapped to any bucket
           values: { [AggregationType.COUNT]: 25 },
         },
       ]);
 
       renderComponent();
 
-      // Should still render with the count
+      // Should still render with all time buckets (all with 0 values in chart, but total still counts)
       await waitFor(() => {
-        expect(screen.getByText('25')).toBeInTheDocument();
+        expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
       });
+      // Total count still includes the data point
+      expect(screen.getByText('25')).toBeInTheDocument();
     });
   });
 });

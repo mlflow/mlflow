@@ -31,12 +31,27 @@ interface JudgeSimplifiedAssessmentResult {
   span_name?: string;
 }
 
-export interface JudgeEvaluationResult {
+export interface TraceJudgeEvaluationResult {
   trace: ModelTrace | null;
   results: (FeedbackAssessment | JudgeSimplifiedAssessmentResult)[]; // Always an array, even for single-result assessments
   error: string | null;
 }
 
+export interface SessionJudgeEvaluationResult {
+  sessionId: string;
+  traces: ModelTrace[] | null;
+  results: FeedbackAssessment[]; // Always an array, even for single-result assessments
+  error: string | null;
+}
+
+export type JudgeEvaluationResult = TraceJudgeEvaluationResult | SessionJudgeEvaluationResult;
+
 export const isFeedbackAssessmentInJudgeEvaluationResult = (result: any): result is FeedbackAssessment => {
   return 'assessment_name' in result && 'feedback' in result;
+};
+
+export const isSessionJudgeEvaluationResult = (
+  result: JudgeEvaluationResult,
+): result is SessionJudgeEvaluationResult => {
+  return 'sessionId' in result;
 };

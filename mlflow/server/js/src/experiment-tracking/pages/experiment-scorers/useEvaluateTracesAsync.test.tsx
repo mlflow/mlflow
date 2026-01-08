@@ -5,13 +5,15 @@ import { useEvaluateTracesAsync } from './useEvaluateTracesAsync';
 import type { ModelTrace, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { ScorerEvaluationScope } from './constants';
+import { isSessionJudgeEvaluationResult } from './useEvaluateTraces.common';
 
 jest.useFakeTimers();
 
 /**
  * Helper to create mock trace data with proper V3 structure
  */
-function createMockTrace(traceId: string): ModelTrace {
+function createMockTrace(traceId: string, sessionId?: string): ModelTrace {
   return {
     info: {
       trace_id: traceId,
@@ -20,7 +22,10 @@ function createMockTrace(traceId: string): ModelTrace {
         type: 'MLFLOW_EXPERIMENT',
         mlflow_experiment: { experiment_id: 'exp-123' },
       },
-    } as ModelTraceInfoV3,
+      request_time: Date.now(),
+      state: 'OK',
+      ...(sessionId && { trace_metadata: { 'mlflow.trace.session': sessionId } }),
+    } as unknown as ModelTraceInfoV3,
     data: {
       spans: [
         {
@@ -628,6 +633,152 @@ describe('useEvaluateTracesAsync', () => {
       // Poll count should not increase significantly after job succeeded
       // Allow for one additional poll that might have been in-flight
       expect(pollCount).toBeLessThanOrEqual(pollCountAfterSuccess + 1);
+    });
+  });
+
+  describe('Session Level Evaluation', () => {
+    it('should successfully evaluate traces grouped by session and return SessionJudgeEvaluationResult', async () => {
+      const sessionId = 'session-123';
+      const traceId1 = 'trace-1';
+      const traceId2 = 'trace-2';
+      const experimentId = 'exp-123';
+      const jobId = 'job-session';
+      const serializedScorer = 'mock-serialized-scorer';
+
+      // Create traces that belong to the same session
+      const mockTrace1 = createMockTrace(traceId1, sessionId);
+      const mockTrace2 = createMockTrace(traceId2, sessionId);
+      const traces = new Map([
+        [traceId1, mockTrace1],
+        [traceId2, mockTrace2],
+      ]);
+
+      // Setup trace search handler - returns traces with session metadata
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/search', (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              traces: [
+                { trace_id: traceId1, trace_metadata: { 'mlflow.trace.session': sessionId } },
+                { trace_id: traceId2, trace_metadata: { 'mlflow.trace.session': sessionId } },
+              ],
+              next_page_token: undefined,
+            }),
+          );
+        }),
+      );
+
+      // Setup scorer invoke handler
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/scorer/invoke', (_req, res, ctx) => {
+          return res(ctx.json({ jobs: [{ job_id: jobId }] }));
+        }),
+      );
+
+      // Setup job status handler - returns assessments for both traces
+      server.use(
+        rest.get(`ajax-api/3.0/jobs/${jobId}`, (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              status: 'SUCCEEDED',
+              result: {
+                [traceId1]: {
+                  assessments: [
+                    {
+                      assessment_name: 'session_scorer',
+                      numeric_value: 0.8,
+                      rationale: 'First turn good',
+                    },
+                  ],
+                },
+                [traceId2]: {
+                  assessments: [
+                    {
+                      assessment_name: 'session_scorer',
+                      numeric_value: 0.9,
+                      rationale: 'Second turn excellent',
+                    },
+                  ],
+                },
+              },
+            }),
+          );
+        }),
+      );
+
+      // Setup trace fetching handlers
+      setupTraceFetchHandlers(server, traces);
+
+      const onScorerFinished = jest.fn();
+
+      const { result } = renderHook(
+        () =>
+          useEvaluateTracesAsync({
+            onScorerFinished,
+          }),
+        { wrapper },
+      );
+
+      // Start evaluation
+      act(() => {
+        const [evaluateFunction] = result.current;
+        evaluateFunction({
+          itemCount: 1,
+          locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
+          experimentId,
+          judgeInstructions: 'Evaluate the session',
+          evaluationScope: ScorerEvaluationScope.SESSIONS,
+          serializedScorer,
+        });
+      });
+
+      // Wait for job to complete and results to be available
+      await waitFor(() => {
+        expect(result.current[1].isLoading).toBe(false);
+        expect(result.current[1].data).not.toBeNull();
+      });
+
+      const [, finalState] = result.current;
+
+      // Verify final state - should have one session result
+      expect(finalState.data).toHaveLength(1);
+
+      const sessionResult = finalState.data![0];
+
+      // Verify it's a SessionJudgeEvaluationResult
+      expect(isSessionJudgeEvaluationResult(sessionResult)).toBe(true);
+
+      if (isSessionJudgeEvaluationResult(sessionResult)) {
+        // Verify session ID
+        expect(sessionResult.sessionId).toBe(sessionId);
+
+        // Verify traces array contains both traces from the session
+        expect(sessionResult.traces).toHaveLength(2);
+        expect(sessionResult.traces?.map((t) => (t.info as ModelTraceInfoV3).trace_id)).toContain(traceId1);
+        expect(sessionResult.traces?.map((t) => (t.info as ModelTraceInfoV3).trace_id)).toContain(traceId2);
+
+        // Verify aggregated results from all traces in the session
+        expect(sessionResult.results).toHaveLength(2);
+        expect(sessionResult.results).toContainEqual(
+          expect.objectContaining({
+            assessment_name: 'session_scorer',
+            numeric_value: 0.8,
+            rationale: 'First turn good',
+          }),
+        );
+        expect(sessionResult.results).toContainEqual(
+          expect.objectContaining({
+            assessment_name: 'session_scorer',
+            numeric_value: 0.9,
+            rationale: 'Second turn excellent',
+          }),
+        );
+
+        expect(sessionResult.error).toBeNull();
+      }
+
+      expect(finalState.error).toBeNull();
+      expect(onScorerFinished).toHaveBeenCalledTimes(1);
     });
   });
 });

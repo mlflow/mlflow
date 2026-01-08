@@ -108,7 +108,7 @@ def test_get_trace_for_otel_sent_span(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) > 0, "No traces found in the database"
@@ -156,7 +156,7 @@ def test_get_trace_for_otel_nested_spans(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) > 0, "No traces found in the database"
@@ -196,7 +196,7 @@ def test_get_trace_with_otel_span_events(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     trace_id = traces[0].info.trace_id
@@ -236,7 +236,7 @@ def test_get_trace_with_otel_span_status(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     trace_id = traces[0].info.trace_id
@@ -263,7 +263,7 @@ def test_set_trace_tag_on_otel_trace(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
     trace_id = traces[0].info.trace_id
 
@@ -290,7 +290,7 @@ def test_log_expectation_on_otel_trace(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
     trace_id = traces[0].info.trace_id
 
@@ -329,7 +329,7 @@ def test_log_feedback_on_otel_trace(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
     assert len(traces) > 0, "No traces found in the database"
     trace_id = traces[0].info.trace_id
@@ -388,7 +388,7 @@ def test_multiple_assessments_on_otel_trace(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
     trace_id = traces[0].info.trace_id
 
@@ -443,7 +443,7 @@ def test_multiple_assessments_on_otel_trace(mlflow_server: str, is_async):
     assert span_names == {"conversation", "retrieval", "generation"}
 
     tagged_traces = mlflow.search_traces(
-        experiment_ids=[experiment_id],
+        locations=[experiment_id],
         filter_string='tags.topic = "quantum_computing"',
         return_type="list",
     )
@@ -470,7 +470,7 @@ def test_span_kind_translation(mlflow_server: str, is_async):
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) == 3
@@ -506,7 +506,7 @@ def test_span_inputs_outputs_translation(
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
     assert len(traces) == 1
     retrieved_trace = mlflow.get_trace(traces[0].info.trace_id)
@@ -537,7 +537,7 @@ def test_span_token_usage_translation(
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
     assert len(traces) > 0
     for trace_info in traces:
@@ -580,7 +580,7 @@ def test_aggregated_token_usage_from_multiple_spans(
         _flush_async_logging()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     trace_id = traces[0].info.trace_id

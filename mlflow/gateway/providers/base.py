@@ -186,8 +186,8 @@ class TrafficRouteProvider(BaseProvider):
             )
 
         self._providers = [get_provider(config.model.provider)(config) for config in configs]
-
-        self._weights = np.array(traffic_splits, dtype=np.float32) / 100
+        # Normalize the weights to sum to 1
+        self._weights = np.array(traffic_splits, dtype=np.float32) / np.sum(traffic_splits)
         self._indices = np.arange(len(self._providers))
 
     def _get_provider(self):
@@ -362,9 +362,12 @@ class FallbackProvider(BaseProvider):
         return await self._execute_with_fallback("embeddings", payload)
 
     async def passthrough(
-        self, action: PassthroughAction, payload: dict[str, Any]
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[bytes]:
-        return await self._execute_with_fallback("passthrough", action, payload)
+        return await self._execute_with_fallback("passthrough", action, payload, headers)
 
 
 class ProviderAdapter(ABC):

@@ -265,8 +265,8 @@ def test_score_model_bedrock(monkeypatch):
         # and requires "anthropic_version" put within the body not headers.
         body=json.dumps(
             {
-                "temperature": 0,
                 "max_tokens": 1000,
+                "temperature": 0,
                 "messages": [{"role": "user", "content": "input prompt"}],
                 "anthropic_version": "2023-06-01",
             }

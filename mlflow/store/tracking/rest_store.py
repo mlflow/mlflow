@@ -7,6 +7,7 @@ from mlflow.entities.model_registry.prompt_version import PromptVersion
 
 if TYPE_CHECKING:
     from mlflow.entities import DatasetRecord, EvaluationDataset
+    from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from packaging.version import Version
@@ -48,6 +49,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     BatchGetTraces,
@@ -1361,6 +1363,123 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
             req_body,
             endpoint="/api/3.0/mlflow/scorers/delete",
         )
+
+    def upsert_online_scoring_config(
+        self,
+        experiment_id: str,
+        scorer_name: str,
+        sample_rate: float,
+        filter_string: str | None = None,
+    ) -> "OnlineScoringConfig":
+        """
+        Create or update the online scoring configuration for a registered scorer.
+
+        Args:
+            experiment_id: The ID of the Experiment containing the scorer.
+            scorer_name: The scorer name.
+            sample_rate: The sampling rate (0.0 to 1.0).
+            filter_string: Optional filter expression for trace selection.
+
+        Returns:
+            The created or updated OnlineScoringConfig object.
+        """
+        endpoint = "/api/3.0/mlflow/scorers/online-config"
+        request_body = {
+            "experiment_id": experiment_id,
+            "name": scorer_name,
+            "sample_rate": sample_rate,
+        }
+        if filter_string is not None:
+            request_body["filter_string"] = filter_string
+
+        response = http_request(
+            host_creds=self.get_host_creds(),
+            endpoint=endpoint,
+            method="PUT",
+            json=request_body,
+        )
+
+        verify_rest_response(response, endpoint)
+        return self._parse_online_scoring_config_from_response(response, endpoint)
+
+    def get_online_scoring_configs(self, scorer_ids: list[str]) -> list["OnlineScoringConfig"]:
+        """
+        Get online scoring configurations for multiple scorers by their IDs.
+
+        A single scorer can have multiple configurations (e.g., running in different
+        experiments or with different filter strings).
+
+        Args:
+            scorer_ids: List of scorer IDs to fetch configurations for.
+
+        Returns:
+            A list of OnlineScoringConfig objects for the specified scorers.
+            Scorers without configurations are not included.
+        """
+        # Import locally to avoid circular import of RestStore
+        from mlflow.genai.scorers.online.entities import OnlineScoringConfig
+
+        if not scorer_ids:
+            return []
+
+        endpoint = "/api/3.0/mlflow/scorers/online-configs"
+        response = http_request(
+            host_creds=self.get_host_creds(),
+            endpoint=endpoint,
+            method="GET",
+            params=[("scorer_ids", sid) for sid in scorer_ids],
+        )
+
+        verify_rest_response(response, endpoint)
+        try:
+            configs_list = response.json()["configs"]
+            return [
+                OnlineScoringConfig(
+                    online_scoring_config_id=config["online_scoring_config_id"],
+                    scorer_id=config["scorer_id"],
+                    sample_rate=config["sample_rate"],
+                    filter_string=config.get("filter_string"),
+                    experiment_id=config["experiment_id"],
+                )
+                for config in configs_list
+            ]
+        except (KeyError, TypeError, ValueError) as e:
+            raise MlflowException(
+                f"Unexpected malformed response from {endpoint}: {e}",
+                error_code=INTERNAL_ERROR,
+            ) from e
+
+    def _parse_online_scoring_config_from_response(self, response, endpoint: str):
+        """
+        Parse an OnlineScoringConfig from an HTTP response.
+
+        Args:
+            response: The HTTP response object.
+            endpoint: The API endpoint for error reporting.
+
+        Returns:
+            An OnlineScoringConfig instance.
+
+        Raises:
+            MlflowException: If the response is malformed.
+        """
+        # Import locally to avoid circular import of RestStore
+        from mlflow.genai.scorers.online.entities import OnlineScoringConfig
+
+        try:
+            config_dict = response.json()["config"]
+            return OnlineScoringConfig(
+                online_scoring_config_id=config_dict["online_scoring_config_id"],
+                scorer_id=config_dict["scorer_id"],
+                sample_rate=config_dict["sample_rate"],
+                filter_string=config_dict.get("filter_string"),
+                experiment_id=config_dict["experiment_id"],
+            )
+        except (KeyError, TypeError, ValueError) as e:
+            raise MlflowException(
+                f"Unexpected malformed response from {endpoint}: {e}",
+                error_code=INTERNAL_ERROR,
+            ) from e
 
     ############################################################################################
     # Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.

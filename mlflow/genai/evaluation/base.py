@@ -433,7 +433,7 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
         # Inject `{"databricks_options": {"return_trace": True}}` to the input payload
         # to return the trace in the response.
         databricks_options = {DATABRICKS_OPTIONS_KEY: {RETURN_TRACE_OPTION_KEY: True}}
-        payload = kwargs if is_fmapi else {**kwargs, **databricks_options}
+        payload = kwargs if is_fmapi else kwargs | databricks_options
         result = client.predict(endpoint=endpoint, inputs=payload)
         end_time_ms = int(time.time_ns() / 1e6)
 

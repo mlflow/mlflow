@@ -370,6 +370,68 @@ def test_invoke_databricks_serving_endpoint_response_format_fallback(mock_databr
         assert output.response == '{"result": 8, "rationale": "Good quality"}'
 
 
+def test_invoke_databricks_serving_endpoint_response_schema_fallback(mock_databricks_creds):
+    """Test that fallback works when error contains 'response_schema' instead of 'response_format'.
+
+    This regression test covers GitHub issue #19739: Databricks endpoints may return errors
+    referencing 'response_schema' rather than 'response_format', and the fallback logic
+    should handle both variants.
+    """
+
+    class ResponseFormat(BaseModel):
+        result: int
+        rationale: str
+
+    call_count = 0
+    captured_payloads = []
+
+    def mock_post(*args, **kwargs):
+        nonlocal call_count
+        captured_payloads.append(kwargs.get("json"))
+        call_count += 1
+
+        mock_response = mock.Mock()
+        if call_count == 1:
+            # First call with response_format fails with response_schema error (issue #19739)
+            mock_response.status_code = 400
+            mock_response.text = (
+                '{"error_code":"BAD_REQUEST",'
+                '"message":"Bad request: json: unknown field \\"response_schema\\""}'
+            )
+        else:
+            # Second call without response_format succeeds
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                "choices": [{"message": {"content": '{"result": 8, "rationale": "Good quality"}'}}],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+                "id": "test-request-id",
+            }
+        return mock_response
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
+            side_effect=mock_post,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            return_value=mock_databricks_creds,
+        ),
+    ):
+        output = _invoke_databricks_serving_endpoint(
+            model_name="databricks-claude-sonnet-4",
+            prompt="Rate this",
+            num_retries=1,
+            response_format=ResponseFormat,
+        )
+
+        # Verify we made 2 calls, the first with response_format, the second without
+        assert call_count == 2
+        assert "response_format" in captured_payloads[0]
+        assert "response_format" not in captured_payloads[1]
+        assert output.response == '{"result": 8, "rationale": "Good quality"}'
+
+
 def test_invoke_databricks_serving_endpoint_with_inference_params(mock_databricks_creds) -> None:
     captured_payload = None
 

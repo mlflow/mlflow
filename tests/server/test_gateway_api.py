@@ -7,12 +7,15 @@ from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
 import mlflow
-from mlflow.entities import FallbackConfig, FallbackStrategy, RoutingStrategy
+from mlflow.entities import (
+    FallbackConfig,
+    FallbackStrategy,
+    GatewayEndpointModelConfig,
+    GatewayModelLinkageType,
+    RoutingStrategy,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
-    AWSBaseConfig,
-    AWSIdAndKey,
-    AWSRole,
     EndpointType,
     GeminiConfig,
     LiteLLMConfig,
@@ -22,7 +25,6 @@ from mlflow.gateway.config import (
 )
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.base import FallbackProvider, TrafficRouteProvider
-from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
 from mlflow.gateway.providers.gemini import GeminiProvider
 from mlflow.gateway.providers.litellm import LiteLLMProvider
 from mlflow.gateway.providers.mistral import MistralProvider
@@ -78,7 +80,14 @@ def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):
         model_name="gpt-4o",
     )
     endpoint = store.create_gateway_endpoint(
-        name="test-openai-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="test-openai-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
@@ -108,7 +117,14 @@ def test_create_provider_from_endpoint_name_azure_openai(store: SqlAlchemyStore)
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
-        name="test-azure-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="test-azure-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
@@ -142,7 +158,14 @@ def test_create_provider_from_endpoint_name_azure_openai_with_azuread(store: Sql
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
-        name="test-azuread-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="test-azuread-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
@@ -169,104 +192,20 @@ def test_create_provider_from_endpoint_name_anthropic(store: SqlAlchemyStore):
         model_name="claude-3-sonnet",
     )
     endpoint = store.create_gateway_endpoint(
-        name="test-anthropic-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="test-anthropic-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
 
     assert isinstance(provider, AnthropicProvider)
     assert provider.config.model.config.anthropic_api_key == "sk-ant-test"
-
-
-def test_create_provider_from_endpoint_name_bedrock_base_config(store: SqlAlchemyStore):
-    # Test Bedrock with base config (default credentials chain)
-    secret = store.create_gateway_secret(
-        secret_name="bedrock-base-key",
-        secret_value={"api_key": "placeholder"},
-        provider="bedrock",
-        auth_config={"aws_region": "us-east-1"},
-    )
-    model_def = store.create_gateway_model_definition(
-        name="bedrock-base-model",
-        secret_id=secret.secret_id,
-        provider="bedrock",
-        model_name="anthropic.claude-3-sonnet",
-    )
-    endpoint = store.create_gateway_endpoint(
-        name="test-bedrock-base-endpoint", model_definition_ids=[model_def.model_definition_id]
-    )
-
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
-
-    assert isinstance(provider, AmazonBedrockProvider)
-    assert isinstance(provider.config.model.config.aws_config, AWSBaseConfig)
-    assert provider.config.model.config.aws_config.aws_region == "us-east-1"
-
-
-def test_create_provider_from_endpoint_name_bedrock_access_keys(store: SqlAlchemyStore):
-    # Test Bedrock with access key authentication
-    secret = store.create_gateway_secret(
-        secret_name="bedrock-keys",
-        secret_value={
-            "aws_access_key_id": "AKIA1234567890",
-            "aws_secret_access_key": "secret-key-value",
-            "aws_session_token": "session-token",
-        },
-        provider="bedrock",
-        auth_config={"aws_region": "us-west-2"},
-    )
-    model_def = store.create_gateway_model_definition(
-        name="bedrock-keys-model",
-        secret_id=secret.secret_id,
-        provider="bedrock",
-        model_name="anthropic.claude-3-sonnet",
-    )
-    endpoint = store.create_gateway_endpoint(
-        name="test-bedrock-keys-endpoint", model_definition_ids=[model_def.model_definition_id]
-    )
-
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
-
-    assert isinstance(provider, AmazonBedrockProvider)
-    assert isinstance(provider.config.model.config.aws_config, AWSIdAndKey)
-    assert provider.config.model.config.aws_config.aws_access_key_id == "AKIA1234567890"
-    assert provider.config.model.config.aws_config.aws_secret_access_key == "secret-key-value"
-    assert provider.config.model.config.aws_config.aws_session_token == "session-token"
-    assert provider.config.model.config.aws_config.aws_region == "us-west-2"
-
-
-def test_create_provider_from_endpoint_name_bedrock_role(store: SqlAlchemyStore):
-    # Test Bedrock with role-based authentication
-    secret = store.create_gateway_secret(
-        secret_name="bedrock-role-key",
-        secret_value={"api_key": "placeholder"},
-        provider="bedrock",
-        auth_config={
-            "aws_role_arn": "arn:aws:iam::123456789012:role/MyBedrockRole",
-            "session_length_seconds": 3600,
-            "aws_region": "eu-west-1",
-        },
-    )
-    model_def = store.create_gateway_model_definition(
-        name="bedrock-role-model",
-        secret_id=secret.secret_id,
-        provider="bedrock",
-        model_name="anthropic.claude-3-sonnet",
-    )
-    endpoint = store.create_gateway_endpoint(
-        name="test-bedrock-role-endpoint", model_definition_ids=[model_def.model_definition_id]
-    )
-
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
-
-    assert isinstance(provider, AmazonBedrockProvider)
-    assert isinstance(provider.config.model.config.aws_config, AWSRole)
-    assert (
-        provider.config.model.config.aws_config.aws_role_arn
-        == "arn:aws:iam::123456789012:role/MyBedrockRole"
-    )
-    assert provider.config.model.config.aws_config.session_length_seconds == 3600
-    assert provider.config.model.config.aws_config.aws_region == "eu-west-1"
 
 
 def test_create_provider_from_endpoint_name_mistral(store: SqlAlchemyStore):
@@ -283,7 +222,14 @@ def test_create_provider_from_endpoint_name_mistral(store: SqlAlchemyStore):
         model_name="mistral-large-latest",
     )
     endpoint = store.create_gateway_endpoint(
-        name="test-mistral-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="test-mistral-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
@@ -307,7 +253,14 @@ def test_create_provider_from_endpoint_name_gemini(store: SqlAlchemyStore):
         model_name="gemini-1.5-pro",
     )
     endpoint = store.create_gateway_endpoint(
-        name="test-gemini-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="test-gemini-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
@@ -330,7 +283,14 @@ def test_create_provider_from_endpoint_name_litellm(store: SqlAlchemyStore):
         model_name="claude-3-5-sonnet-20241022",
     )
     endpoint = store.create_gateway_endpoint(
-        name="test-litellm-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="test-litellm-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
@@ -355,7 +315,14 @@ def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlch
         model_name="custom-model",
     )
     endpoint = store.create_gateway_endpoint(
-        name="test-litellm-custom-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="test-litellm-custom-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
@@ -387,7 +354,14 @@ async def test_invocations_handler_chat(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
-        name="chat-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="chat-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Mock the provider's chat method
@@ -448,7 +422,14 @@ async def test_invocations_handler_embeddings(store: SqlAlchemyStore):
         model_name="text-embedding-ada-002",
     )
     endpoint = store.create_gateway_endpoint(
-        name="embed-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="embed-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Mock the provider's embeddings method
@@ -500,7 +481,14 @@ async def test_invocations_handler_invalid_json(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
-        name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Mock request that raises exception when parsing JSON
@@ -527,7 +515,14 @@ async def test_invocations_handler_missing_fields(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
-        name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Create request with neither messages nor input
@@ -562,7 +557,14 @@ async def test_invocations_handler_invalid_chat_payload(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
-        name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Create request with invalid messages structure
@@ -600,7 +602,14 @@ async def test_invocations_handler_invalid_embeddings_payload(store: SqlAlchemyS
         model_name="text-embedding-ada-002",
     )
     endpoint = store.create_gateway_endpoint(
-        name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Create request with invalid input structure
@@ -637,7 +646,14 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
-        name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Create streaming request
@@ -687,7 +703,14 @@ def test_create_provider_from_endpoint_name_no_models(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
-        name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Mock get_endpoint_config to return an empty models list
@@ -720,7 +743,14 @@ async def test_chat_completions_endpoint(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     store.create_gateway_endpoint(
-        name="my-chat-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="my-chat-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Mock the provider's chat method
@@ -781,7 +811,14 @@ async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
         model_name="gpt-4",
     )
     store.create_gateway_endpoint(
-        name="stream-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="stream-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Create streaming request
@@ -876,7 +913,14 @@ async def test_openai_passthrough_chat(store: SqlAlchemyStore):
         model_name="gpt-4o",
     )
     store.create_gateway_endpoint(
-        name="openai-passthrough-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="openai-passthrough-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Mock OpenAI API response
@@ -938,7 +982,13 @@ async def test_openai_passthrough_embeddings(store: SqlAlchemyStore):
     )
     store.create_gateway_endpoint(
         name="openai-embed-passthrough-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Mock OpenAI API response
@@ -990,7 +1040,14 @@ async def test_openai_passthrough_responses(store: SqlAlchemyStore):
         model_name="gpt-4o",
     )
     store.create_gateway_endpoint(
-        name="openai-responses-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="openai-responses-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Mock OpenAI Responses API response (using correct Responses API schema)
@@ -1057,7 +1114,13 @@ async def test_openai_passthrough_chat_streaming(store: SqlAlchemyStore):
     )
     store.create_gateway_endpoint(
         name="openai-stream-passthrough-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Create mock request with streaming enabled
@@ -1114,7 +1177,13 @@ async def test_openai_passthrough_responses_streaming(store: SqlAlchemyStore):
     )
     store.create_gateway_endpoint(
         name="openai-responses-stream-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     # Create mock request with streaming enabled
@@ -1187,7 +1256,13 @@ async def test_anthropic_passthrough_messages(store: SqlAlchemyStore):
     )
     store.create_gateway_endpoint(
         name="anthropic-passthrough-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     mock_request = MagicMock()
@@ -1242,7 +1317,13 @@ async def test_anthropic_passthrough_messages_streaming(store: SqlAlchemyStore):
     )
     store.create_gateway_endpoint(
         name="anthropic-stream-passthrough-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     mock_request = MagicMock()
@@ -1313,7 +1394,13 @@ async def test_gemini_passthrough_generate_content(store: SqlAlchemyStore):
     )
     store.create_gateway_endpoint(
         name="gemini-passthrough-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     mock_request = MagicMock()
@@ -1381,7 +1468,13 @@ async def test_gemini_passthrough_stream_generate_content(store: SqlAlchemyStore
     )
     store.create_gateway_endpoint(
         name="gemini-stream-passthrough-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     mock_request = MagicMock()
@@ -1441,13 +1534,24 @@ def test_create_fallback_provider_single_model(store: SqlAlchemyStore):
     )
     endpoint = store.create_gateway_endpoint(
         name="test-fallback-single-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+        ],
         routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
         fallback_config=FallbackConfig(
             strategy=FallbackStrategy.SEQUENTIAL,
             max_attempts=1,
         ),
-        fallback_model_definition_ids=[model_def.model_definition_id],
     )
 
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
@@ -1486,16 +1590,35 @@ def test_create_fallback_provider_multiple_models(store: SqlAlchemyStore):
 
     endpoint = store.create_gateway_endpoint(
         name="test-fallback-multi-endpoint",
-        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=1,
+            ),
+        ],
         routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
         fallback_config=FallbackConfig(
             strategy=FallbackStrategy.SEQUENTIAL,
             max_attempts=2,
         ),
-        fallback_model_definition_ids=[
-            model_def1.model_definition_id,
-            model_def2.model_definition_id,
-        ],
     )
 
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
@@ -1524,13 +1647,24 @@ def test_create_fallback_provider_max_attempts_exceeds_providers(store: SqlAlche
     )
     endpoint = store.create_gateway_endpoint(
         name="test-fallback-max-attempts-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+        ],
         routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
         fallback_config=FallbackConfig(
             strategy=FallbackStrategy.SEQUENTIAL,
             max_attempts=10,
         ),
-        fallback_model_definition_ids=[model_def.model_definition_id],
     )
 
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
@@ -1566,16 +1700,35 @@ def test_create_fallback_provider_no_max_attempts(store: SqlAlchemyStore):
 
     endpoint = store.create_gateway_endpoint(
         name="test-fallback-no-max-endpoint",
-        model_definition_ids=[model_def1.model_definition_id, model_def2.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def1.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def2.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=1,
+            ),
+        ],
         routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
         fallback_config=FallbackConfig(
             strategy=FallbackStrategy.SEQUENTIAL,
             max_attempts=None,
         ),
-        fallback_model_definition_ids=[
-            model_def1.model_definition_id,
-            model_def2.model_definition_id,
-        ],
     )
 
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
@@ -1599,7 +1752,13 @@ def test_create_provider_default_routing_single_model(store: SqlAlchemyStore):
     )
     endpoint = store.create_gateway_endpoint(
         name="test-default-routing-endpoint",
-        model_definition_ids=[model_def.model_definition_id],
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
     )
 
     provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)

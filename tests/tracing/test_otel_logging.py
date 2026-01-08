@@ -125,7 +125,7 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypa
     traces = []
     for _ in range(30):
         traces = mlflow.search_traces(
-            experiment_ids=[experiment_id], include_spans=False, return_type="list"
+            locations=[experiment_id], include_spans=False, return_type="list"
         )
         if traces:
             break
@@ -371,7 +371,7 @@ def test_batch_span_processor_with_multiple_traces(mlflow_server: str):
     span_processor.force_flush()
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) == 3
@@ -434,7 +434,7 @@ def test_multiple_traces_in_single_request(mlflow_server: str):
     assert response.status_code == 200
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) == 3
@@ -484,7 +484,7 @@ def test_logging_many_traces_in_single_request(mlflow_server: str):
     )
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) == num_traces
@@ -547,9 +547,7 @@ def test_mixed_trace_spans_in_single_request(mlflow_server: str):
 
     assert response.status_code == 200
 
-    traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=True, return_type="list"
-    )
+    traces = mlflow.search_traces(locations=[experiment_id], include_spans=True, return_type="list")
 
     assert len(traces) == 3
     span_counts = [len(trace.data.spans) for trace in traces]
@@ -610,7 +608,7 @@ def test_error_logging_spans(mlflow_server: str):
         assert any("test_error" in error[0][2] for error in mock_error.call_args_list)
 
     traces = mlflow.search_traces(
-        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+        locations=[experiment_id], include_spans=False, return_type="list"
     )
 
     assert len(traces) == 1
