@@ -150,5 +150,5 @@ export const shouldEnableExperimentPageSideTabs = () => {
  * Determines if the Overview tab is enabled on the experiment page
  */
 export const shouldEnableExperimentOverviewTab = () => {
-  return false;
+  return true;
 };
