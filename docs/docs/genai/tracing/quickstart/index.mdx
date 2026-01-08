@@ -203,17 +203,17 @@ Many GenAI applications maintain multi-turn conversations with users. MLflow pro
     import * as mlflow from "mlflow-tracing";
 
     const chatCompletion = mlflow.trace(
-        (message: list[dict], user_id: str, session_id: str) => {
+        (message: Array<Record<string, any>>, userId: string, sessionId: string) => {
             // Add user and session context to the current trace
             mlflow.updateCurrentTrace({
                 metadata: {
-                    "mlflow.trace.user": user_id,
-                    "mlflow.trace.session": session_id,
+                    "mlflow.trace.user": userId,
+                    "mlflow.trace.session": sessionId,
                 },
             });
 
             // Your chat logic here
-            return generate_response(message);
+            return generateResponse(message);
         },
         { name: "chat_completion" }
     );
@@ -223,9 +223,7 @@ Many GenAI applications maintain multi-turn conversations with users. MLflow pro
 </Tabs>
 </TabsWrapper>
 
-Once you add session IDs to your traces, you can filter and group them in the MLflow UI using the search query `metadata.`mlflow.trace.session` = 'session-123'`.
-
-For more details on tracking users and sessions, including web application examples and programmatic analysis, see the [Track Users & Sessions guide](/genai/tracing/track-users-sessions).
+For more details on tracking users and sessions, see the [Track Users & Sessions guide](/genai/tracing/track-users-sessions).
 
 ## Next Step
 
@@ -236,4 +234,3 @@ Congrats on sending your first trace with MLflow! Now that you've got the basics
     Explore how MLflow supports both automatic tracing and manual tracing for custom logic, plus how you can combine the two to get more insightful traces.
     </TitleCard>
 </CardGroup>
-````
