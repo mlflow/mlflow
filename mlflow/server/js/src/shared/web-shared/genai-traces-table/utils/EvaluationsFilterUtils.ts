@@ -32,8 +32,8 @@ function filterEval(
 
     const assessments =
       assessmentName === KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT
-        ? runValue.overallAssessments ?? []
-        : runValue.responseAssessmentsByName[assessmentName] ?? [];
+        ? (runValue.overallAssessments ?? [])
+        : (runValue.responseAssessmentsByName[assessmentName] ?? []);
 
     if (filter.filterType === 'rca') {
       const currentIsAssessmentRootCause =
@@ -46,10 +46,10 @@ function filterEval(
         filterValue === undefined
           ? assessments.length === 0
           : filterValue === ERROR_KEY
-          ? assessments.some((assessment) => Boolean(assessment.errorMessage))
-          : assessments.some(
-              (assessment) => (getEvaluationResultAssessmentValue(assessment) ?? undefined) === filterValue,
-            );
+            ? assessments.some((assessment) => Boolean(assessment.errorMessage))
+            : assessments.some(
+                (assessment) => (getEvaluationResultAssessmentValue(assessment) ?? undefined) === filterValue,
+              );
       includeEval = includeEval && matchesFilter;
     }
   }

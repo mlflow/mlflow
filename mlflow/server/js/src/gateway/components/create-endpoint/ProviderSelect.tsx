@@ -93,7 +93,7 @@ export const ProviderSelect = ({
     ): number => {
       if (item.type === 'modal-trigger') return Infinity;
       const providerKey = item.type === 'group' ? item.children[0]?.value : item.value;
-      const index = COMMON_PROVIDERS.indexOf(providerKey as typeof COMMON_PROVIDERS[number]);
+      const index = COMMON_PROVIDERS.indexOf(providerKey as (typeof COMMON_PROVIDERS)[number]);
       return index === -1 ? Infinity : index;
     };
     items.sort((a, b) => getCommonProviderIndex(a) - getCommonProviderIndex(b));

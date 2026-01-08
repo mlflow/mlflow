@@ -54,7 +54,7 @@ const createMockRun = (name: string): RunRowType =>
       { key: 'max_tokens', value: '100' },
       { key: 'temperature', value: '0.5' },
     ],
-  } as any);
+  }) as any;
 
 // Create three mocked runs
 const mockRun1 = createMockRun('run_1');

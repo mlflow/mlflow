@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 
+import { createTraceV4LongIdentifier, type ModelTraceInfoV3 } from '../../model-trace-explorer';
 import { useSearchParams } from '../utils/RoutingUtils';
+import { doesTraceSupportV4API } from '../utils/TraceLocationUtils';
 
 const QUERY_PARAM_KEY = 'selectedEvaluationId';
 
@@ -14,12 +16,20 @@ export const useActiveEvaluation = () => {
   const selectedEvaluationId = searchParams.get(QUERY_PARAM_KEY) ?? undefined;
 
   const setSelectedEvaluationId = useCallback(
-    (selectedEvaluationId: string | undefined) => {
+    (selectedEvaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => {
       setSearchParams((params) => {
         if (selectedEvaluationId === undefined) {
           params.delete(QUERY_PARAM_KEY);
           return params;
         }
+        // If the trace supports V4 identifiers, use this format instead.
+        if (traceInfo && doesTraceSupportV4API(traceInfo)) {
+          const longIdentifier = createTraceV4LongIdentifier(traceInfo);
+          params.set(QUERY_PARAM_KEY, longIdentifier);
+
+          return params;
+        }
+
         params.set(QUERY_PARAM_KEY, selectedEvaluationId);
         return params;
       });
