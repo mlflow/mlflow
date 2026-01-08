@@ -14,7 +14,7 @@ import {
   useChartXAxisProps,
   useChartLegendFormatter,
 } from './OverviewChartComponents';
-import { formatTokenCount, useLegendHighlight } from '../utils/chartUtils';
+import { formatCount, useLegendHighlight } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
 
 export const TraceTokenUsageChart: React.FC<OverviewChartProps> = (props) => {
@@ -47,8 +47,8 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = (props) => {
       <OverviewChartHeader
         icon={<LightningIcon />}
         title={<FormattedMessage defaultMessage="Token Usage" description="Title for the token usage chart" />}
-        value={formatTokenCount(totalTokens)}
-        subtitle={`(${formatTokenCount(totalInputTokens)} input, ${formatTokenCount(totalOutputTokens)} output)`}
+        value={formatCount(totalTokens)}
+        subtitle={`(${formatCount(totalInputTokens)} input, ${formatCount(totalOutputTokens)} output)`}
       />
 
       <OverviewChartTimeLabel />
@@ -63,7 +63,7 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = (props) => {
               <Tooltip
                 contentStyle={tooltipStyle}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatTokenCount(value), name]}
+                formatter={(value: number, name: string) => [formatCount(value), name]}
               />
               <Area
                 type="monotone"

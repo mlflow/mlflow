@@ -10,11 +10,13 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, UseFormReturn } from 'react-hook-form';
+import { useState } from 'react';
 import GatewayRoutes from '../../routes';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
+import { EndpointUsageModal } from '../endpoints/EndpointUsageModal';
 
 export interface EditEndpointFormRendererProps {
   form: UseFormReturn<EditEndpointFormData>;
@@ -47,6 +49,7 @@ export const EditEndpointFormRenderer = ({
 }: EditEndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
 
   const trafficSplitModels = form.watch('trafficSplitModels');
   const fallbackModels = form.watch('fallbackModels');
@@ -94,8 +97,13 @@ export const EditEndpointFormRenderer = ({
             </Link>
           </Breadcrumb.Item>
         </Breadcrumb>
-        <div css={{ marginTop: theme.spacing.sm }}>
+        <div
+          css={{ marginTop: theme.spacing.sm, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+        >
           <Typography.Title level={2}>{endpointName}</Typography.Title>
+          <Button componentId="mlflow.gateway.edit-endpoint.use-button" onClick={() => setIsUsageModalOpen(true)}>
+            <FormattedMessage defaultMessage="Use" description="Use endpoint button" />
+          </Button>
         </div>
       </div>
 
@@ -332,6 +340,12 @@ export const EditEndpointFormRenderer = ({
           </Button>
         </Tooltip>
       </div>
+
+      <EndpointUsageModal
+        open={isUsageModalOpen}
+        onClose={() => setIsUsageModalOpen(false)}
+        endpointName={endpointName || ''}
+      />
     </div>
   );
 };

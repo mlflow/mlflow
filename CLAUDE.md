@@ -4,6 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **For contribution guidelines, code standards, and additional development information not covered here, please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).**
 
+## Knowledge Cutoff Note
+
+Claude's training data has a knowledge cutoff that may lag behind the current date. When reviewing documentation or code that references AI models, be aware that newer models may exist beyond the cutoff. Do not flag model names as "speculative" or "non-existent". Trust the documentation authors' knowledge of current model availability.
+
+Example: If documentation references "GPT-5" or "Claude 4.5", do not suggest changing these to older model names just because they are unfamiliar.
+
 ## Code Style Principles
 
 - Use top-level imports (only use lazy imports when necessary)
@@ -179,7 +185,7 @@ git push origin <your-branch>
 
 ### Creating Pull Requests
 
-Follow [the PR template](./.github/pull_request_template.md) when creating pull requests. Remove any unused checkboxes from the template to keep your PR clean and focused.
+When creating pull requests, read the instructions at the top of [the PR template](./.github/pull_request_template.md) and follow them carefully.
 
 ### Checking CI Status
 

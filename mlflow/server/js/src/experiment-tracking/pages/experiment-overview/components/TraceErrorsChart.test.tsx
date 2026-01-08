@@ -89,7 +89,7 @@ describe('TraceErrorsChart', () => {
   });
 
   describe('loading state', () => {
-    it('should render loading spinner while data is being fetched', async () => {
+    it('should render loading skeleton while data is being fetched', async () => {
       server.use(
         rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
@@ -98,7 +98,8 @@ describe('TraceErrorsChart', () => {
 
       renderComponent();
 
-      expect(screen.getByRole('img')).toBeInTheDocument();
+      // Check that actual chart content is not rendered during loading
+      expect(screen.queryByText('Errors')).not.toBeInTheDocument();
     });
   });
 

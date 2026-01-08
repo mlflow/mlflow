@@ -415,7 +415,6 @@ typing-extensions-allowlist = [
   # Docs: https://typing-extensions.readthedocs.io/en/latest/
   "typing_extensions.Self",        # Added in 4.0.0
   "typing_extensions.NotRequired", # Added in 4.0.0
-  "typing_extensions.overload",    # Added in 4.2.0
 ]
 # Rules that are only enabled for code examples.
 example-rules = [
