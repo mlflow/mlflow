@@ -160,7 +160,7 @@ def _is_tool_enabled(category: str) -> bool:
 def create_mcp() -> "FastMCP":
     from fastmcp import FastMCP
 
-    tools: list = []
+    tools: list["FunctionTool"] = []
 
     # Traces CLI tools
     if _is_tool_enabled("traces"):
