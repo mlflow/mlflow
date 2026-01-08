@@ -20,7 +20,7 @@ import { getRouteDefs as getCommonRouteDefs } from './common/route-defs';
 import { getGatewayRouteDefs } from './gateway/route-defs';
 import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
 import { MlflowSidebar } from './common/components/MlflowSidebar';
-import { AssistantProvider } from './shared/web-shared/assistant';
+import { AssistantProvider, AssistantPageContextProvider } from './shared/web-shared/assistant';
 import { RootAssistantLayout } from './common/components/RootAssistantLayout';
 
 /**
@@ -42,45 +42,47 @@ const MlflowRootRoute = () => {
   }, [isSingleExperimentPage]);
 
   return (
-    <AssistantProvider>
-      <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <ErrorModal />
-        <AppErrorBoundary>
-          <MlflowHeader
-            isDarkTheme={isDarkTheme}
-            setIsDarkTheme={setIsDarkTheme}
-            sidebarOpen={showSidebar}
-            toggleSidebar={() => setShowSidebar((isOpen) => !isOpen)}
-          />
-          <RootAssistantLayout>
-            <div
-              css={{
-                backgroundColor: theme.colors.backgroundSecondary,
-                display: 'flex',
-                flexDirection: 'row',
-                width: '100%',
-              }}
-            >
-              {showSidebar && <MlflowSidebar />}
-              <main
+    <AssistantPageContextProvider>
+      <AssistantProvider>
+        <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <ErrorModal />
+          <AppErrorBoundary>
+            <MlflowHeader
+              isDarkTheme={isDarkTheme}
+              setIsDarkTheme={setIsDarkTheme}
+              sidebarOpen={showSidebar}
+              toggleSidebar={() => setShowSidebar((isOpen) => !isOpen)}
+            />
+            <RootAssistantLayout>
+              <div
                 css={{
+                  backgroundColor: theme.colors.backgroundSecondary,
+                  display: 'flex',
+                  flexDirection: 'row',
                   width: '100%',
-                  backgroundColor: theme.colors.backgroundPrimary,
-                  margin: theme.spacing.sm,
-                  borderRadius: theme.borders.borderRadiusMd,
-                  boxShadow: theme.shadows.md,
-                  overflowX: 'auto',
                 }}
               >
-                <React.Suspense fallback={<LegacySkeleton />}>
-                  <Outlet />
-                </React.Suspense>
-              </main>
-            </div>
-          </RootAssistantLayout>
-        </AppErrorBoundary>
-      </div>
-    </AssistantProvider>
+                {showSidebar && <MlflowSidebar />}
+                <main
+                  css={{
+                    width: '100%',
+                    backgroundColor: theme.colors.backgroundPrimary,
+                    margin: theme.spacing.sm,
+                    borderRadius: theme.borders.borderRadiusMd,
+                    boxShadow: theme.shadows.md,
+                    overflowX: 'auto',
+                  }}
+                >
+                  <React.Suspense fallback={<LegacySkeleton />}>
+                    <Outlet />
+                  </React.Suspense>
+                </main>
+              </div>
+            </RootAssistantLayout>
+          </AppErrorBoundary>
+        </div>
+      </AssistantProvider>
+    </AssistantPageContextProvider>
   );
 };
 export const MlflowRouter = () => {

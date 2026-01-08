@@ -6,6 +6,12 @@
 export { AssistantProvider, useAssistant } from './AssistantContext';
 export { AssistantChatPanel } from './AssistantChatPanel';
 export { AssistantButton } from './AssistantButton';
+export {
+  AssistantPageContextProvider,
+  useRegisterAssistantContext,
+  useAssistantPageContextGetter,
+  useAssistantPageContextValue,
+} from './AssistantPageContext';
 
 export * from './AssistantService';
 
@@ -15,4 +21,5 @@ export type {
   AssistantAgentActions,
   AssistantAgentContextType,
   MessageRequest,
+  KnownAssistantContext,
 } from './types';
