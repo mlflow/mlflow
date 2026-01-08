@@ -188,7 +188,9 @@ The Passthrough API relays requests to the provider's LLM endpoint using its nat
 
 ### OpenAI Passthrough
 
-The OpenAI passthrough API exposes OpenAI-specific parameters and features:
+The OpenAI passthrough API exposes the full OpenAI API including Chat Completions, Embeddings, and Responses (Realtime) endpoints. See [OpenAI API Reference](https://platform.openai.com/docs/api-reference) for complete documentation.
+
+#### Chat Completions
 
 <Tabs>
 <TabItem value="curl" label="cURL" default>
@@ -222,9 +224,68 @@ print(response.choices[0].message.content)
 </TabItem>
 </Tabs>
 
+#### Embeddings
+
+<Tabs>
+<TabItem value="curl" label="cURL" default>
+
+```bash
+curl -X POST http://localhost:5000/gateway/openai/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-endpoint",
+    "input": "The food was delicious and the waiter..."
+  }'
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:5000/gateway/openai/v1",
+    api_key="dummy",  # API key not needed, configured server-side
+)
+
+response = client.embeddings.create(
+    model="my-endpoint",
+    input="The food was delicious and the waiter..."
+)
+print(response.data[0].embedding)
+```
+
+</TabItem>
+</Tabs>
+
+#### Realtime (Responses API)
+
+The Responses API provides a WebSocket-based interface for real-time bidirectional communication with speech-to-speech models.
+
+<Tabs>
+<TabItem value="python" label="Python">
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:5000/gateway/openai/v1",
+    api_key="dummy",  # API key not needed, configured server-side
+)
+
+# Use the realtime.sessions.create() method for WebSocket connections
+# See OpenAI Realtime API documentation for full examples
+```
+
+</TabItem>
+</Tabs>
+
+For detailed Realtime API usage, see [OpenAI Realtime API Guide](https://platform.openai.com/docs/guides/realtime).
+
 ### Anthropic Passthrough
 
-Access Anthropic's Messages API directly through the gateway, including Claude-specific features:
+Access Anthropic's Messages API directly through the gateway, including Claude-specific features. See [Anthropic API Reference](https://docs.anthropic.com/en/api) for complete documentation.
 
 <Tabs>
 <TabItem value="curl" label="cURL" default>
@@ -263,7 +324,7 @@ print(response.content[0].text)
 
 ### Google Gemini Passthrough
 
-The Gemini passthrough API follows Google's API structure, with the endpoint name embedded in the URL path:
+The Gemini passthrough API follows Google's API structure, with the endpoint name embedded in the URL path. See [Google Gemini API Reference](https://ai.google.dev/gemini-api/docs) for complete documentation.
 
 <Tabs>
 <TabItem value="curl" label="cURL" default>
