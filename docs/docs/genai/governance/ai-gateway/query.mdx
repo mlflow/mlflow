@@ -55,12 +55,14 @@ print(response.json())
 
 #### API Specification
 
+The MLflow Invocations API supports both OpenAI-style chat completions and embeddings endpoints.
+
 **Endpoint URL Pattern:**
 ```
 POST /gateway/{endpoint_name}/mlflow/invocations
 ```
 
-**Request Body:**
+**Chat Completions Request Body:**
 
 The request body follows the OpenAI chat completions format with these supported parameters:
 
@@ -112,6 +114,33 @@ data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1677652288
 data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1677652288,"model":"gpt-4","choices":[{"index":0,"delta":{"content":"!"},"finish_reason":null}]}
 
 data: [DONE]
+```
+
+**Embeddings Request Body:**
+
+For embeddings endpoints, the request body follows the OpenAI embeddings format:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `input` | string or array | Yes | Input text(s) to embed. Can be a single string or array of strings. |
+| `encoding_format` | string | No | Format to return embeddings. Options: "float" (default) or "base64". |
+
+**Embeddings Response Format:**
+
+```json
+{
+  "object": "list",
+  "data": [{
+    "object": "embedding",
+    "embedding": [0.0023064255, -0.009327292, ...],
+    "index": 0
+  }],
+  "model": "text-embedding-ada-002",
+  "usage": {
+    "prompt_tokens": 8,
+    "total_tokens": 8
+  }
+}
 ```
 
 ### OpenAI-Compatible Chat Completions API
