@@ -10,8 +10,8 @@ export const getPromptEngineeringErrorMessage = (e: GatewayErrorWrapper | ErrorW
     e instanceof GatewayErrorWrapper
       ? e.getGatewayErrorMessage()
       : e instanceof ErrorWrapper
-      ? e.getMessageField()
-      : e.message;
+        ? e.getMessageField()
+        : e.message;
 
   return errorMessage;
 };

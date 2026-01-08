@@ -64,7 +64,7 @@ describe('RunsChartsDraggableCardsGrid', () => {
 
   const mockGridElementSize = (element: Element, width: number, height: number) => {
     // @ts-expect-error Argument is not assignable to parameter of type '() => DOMRect'
-    element.getBoundingClientRect = jest.fn<() => DOMRect>(() => ({
+    jest.spyOn(element, 'getBoundingClientRect').mockImplementation(() => ({
       top: 0,
       left: 0,
       width,

@@ -1,0 +1,36 @@
+diff --git a/dist/cjs/utils/paths.js b/dist/cjs/utils/paths.js
+index b7878136f1c4d854516a170efc0d4f2a01c7675e..c120cff7c78d3306b093f4cc64d4386a4c4520a1 100644
+--- a/dist/cjs/utils/paths.js
++++ b/dist/cjs/utils/paths.js
+@@ -13,6 +13,7 @@ var _findUp = _interopRequireDefault(require("find-up"));
+ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+ 
+ var getProjectRoot = function () {
++  if (process.env.CONFIG_STORYBOOK) return process.cwd();
+   var result;
+ 
+   try {
+diff --git a/dist/esm/utils/paths.js b/dist/esm/utils/paths.js
+index 61bafed53ec08bc78692f92c1e78e6b7494c2c03..85f59e79175b2f01855df0ad422f3715a4413cf1 100644
+--- a/dist/esm/utils/paths.js
++++ b/dist/esm/utils/paths.js
+@@ -1,6 +1,7 @@
+ import path from 'path';
+ import findUp from 'find-up';
+ export var getProjectRoot = function () {
++  if (process.env.CONFIG_STORYBOOK) return process.cwd();
+   var result;
+ 
+   try {
+diff --git a/dist/modern/utils/paths.js b/dist/modern/utils/paths.js
+index 61bafed53ec08bc78692f92c1e78e6b7494c2c03..85f59e79175b2f01855df0ad422f3715a4413cf1 100644
+--- a/dist/modern/utils/paths.js
++++ b/dist/modern/utils/paths.js
+@@ -1,6 +1,7 @@
+ import path from 'path';
+ import findUp from 'find-up';
+ export var getProjectRoot = function () {
++  if (process.env.CONFIG_STORYBOOK) return process.cwd();
+   var result;
+ 
+   try {

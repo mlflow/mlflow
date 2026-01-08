@@ -27,6 +27,10 @@ Automatically review a GitHub pull request and provide feedback on code quality,
 /pr-review Check for performance issues       # Focus on specific concern
 ```
 
+## Important Note
+
+The current local branch may not be the PR branch being reviewed. Always rely on the PR diff fetched via the `fetch-diff` skill.
+
 ## Instructions
 
 ### 1. Auto-detect PR context
@@ -41,11 +45,7 @@ Automatically review a GitHub pull request and provide feedback on code quality,
 
 ### 2. Fetch PR Diff
 
-- Run the fetch-diff skill to fetch the PR diff:
-  ```bash
-  uv run .claude/skills/fetch-diff/fetch_diff.py <pr_url>
-  ```
-- **If reviewing Python files**: Read `dev/guides/python.md` and create a checklist of all style rules with their exceptions before proceeding
+Run the `fetch-diff` skill to fetch the PR diff for the identified PR.
 
 ### 3. Review Changed Lines
 
@@ -53,7 +53,7 @@ Automatically review a GitHub pull request and provide feedback on code quality,
 
 Carefully examine **only the changed lines** (added, modified, or deleted) in the diff for:
 
-- Style guide violations (using your checklist if Python files)
+- Style guide violations (see `.claude/rules/` for language-specific rules)
 - Potential bugs and code quality issues
 - Common mistakes
 
