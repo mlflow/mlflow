@@ -12,24 +12,27 @@ import { EvaluateTracesParams, LLM_TEMPLATE } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
 import { JudgeEvaluationResult } from './useEvaluateTraces.common';
+import { isEvaluatingSessionsInScorersEnabled } from '../../../common/utils/FeatureUtils';
 
 interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
   experimentId: string;
   onScorerFinished?: () => void;
+  isSessionLevelScorer?: boolean;
 }
 
 const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContainerProps> = ({
   control,
   experimentId,
   onScorerFinished,
+  isSessionLevelScorer,
 }) => {
   const intl = useIntl();
   const judgeInstructions = useWatch({ control, name: 'instructions' });
   const scorerName = useWatch({ control, name: 'name' });
   const llmTemplate = useWatch({ control, name: 'llmTemplate' });
   const guidelines = useWatch({ control, name: 'guidelines' });
-  const scorerType = useWatch({ control, name: 'scorerType' });
+  const modelValue = useWatch({ control, name: 'model' });
   const { resetField } = useFormContext<ScorerFormData>();
   const { errors } = useFormState({ control });
   const evaluationScopeFormValue = useWatch({ control, name: 'evaluationScope' });
@@ -181,12 +184,22 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   const hasInstructionsError = Boolean((errors as any).instructions?.message);
   const isRetrievalRelevance = llmTemplate === LLM_TEMPLATE.RETRIEVAL_RELEVANCE;
 
-  const isRunScorerDisabled = isCustomMode
-    ? !judgeInstructions || hasInstructionsError || hasTraceVariable
-    : hasNameError || isRetrievalRelevance;
-
   // Determine tooltip message based on why the button is disabled
-  const runScorerDisabledTooltip = useMemo(() => {
+  const runScorerDisabledReason = useMemo(() => {
+    if (!modelValue) {
+      return intl.formatMessage({
+        defaultMessage: 'Please select a model to run the judge',
+        description: 'Tooltip message when model is not selected',
+      });
+    }
+
+    if (!isEvaluatingSessionsInScorersEnabled() && isSessionLevelScorer) {
+      return intl.formatMessage({
+        defaultMessage: 'Session-level scorers cannot be run on individual traces',
+        description: 'Tooltip message when scorer is session-level',
+      });
+    }
+
     if (isCustomMode) {
       // Custom judge mode
       if (!judgeInstructions) {
@@ -224,6 +237,8 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     }
     return undefined;
   }, [
+    isSessionLevelScorer,
+    modelValue,
     isCustomMode,
     judgeInstructions,
     hasInstructionsError,
@@ -233,11 +248,13 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     intl,
   ]);
 
+  const isRunScorerDisabled = Boolean(runScorerDisabledReason);
+
   return (
     <SampleScorerOutputPanelRenderer
       isLoading={isLoading}
       isRunScorerDisabled={isRunScorerDisabled}
-      runScorerDisabledTooltip={runScorerDisabledTooltip}
+      runScorerDisabledTooltip={runScorerDisabledReason}
       error={error}
       currentEvalResultIndex={currentTraceIndex}
       currentEvalResult={currentEvalResult}

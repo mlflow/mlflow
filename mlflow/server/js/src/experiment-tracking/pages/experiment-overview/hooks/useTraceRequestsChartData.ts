@@ -14,6 +14,8 @@ export interface UseTraceRequestsChartDataResult {
   chartData: RequestsChartDataPoint[];
   /** Total number of requests in the time range */
   totalRequests: number;
+  /** Average requests per time bucket */
+  avgRequests: number;
   /** Whether data is currently being fetched */
   isLoading: boolean;
   /** Error if data fetching failed */
@@ -59,6 +61,9 @@ export function useTraceRequestsChartData({
     [traceCountDataPoints],
   );
 
+  // Calculate average requests per time bucket
+  const avgRequests = useMemo(() => totalRequests / timeBuckets.length, [totalRequests, timeBuckets.length]);
+
   // Create a map of counts by timestamp using shared utility
   const countExtractor = useCallback(
     (dp: { values?: Record<string, number> }) => dp.values?.[AggregationType.COUNT] || 0,
@@ -77,6 +82,7 @@ export function useTraceRequestsChartData({
   return {
     chartData,
     totalRequests,
+    avgRequests,
     isLoading,
     error,
     hasData: traceCountDataPoints.length > 0,

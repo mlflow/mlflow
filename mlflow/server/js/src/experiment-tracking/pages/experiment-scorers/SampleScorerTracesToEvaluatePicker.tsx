@@ -14,7 +14,7 @@ import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { SelectTracesModal } from '../../components/SelectTracesModal';
 import { ScorerFormData } from './utils/scorerTransformUtils';
 import { useFormContext } from 'react-hook-form';
-import { ScorerEvaluationScope } from './constants';
+import { MAX_SELECTED_ITEM_COUNT, ScorerEvaluationScope } from './constants';
 import { SelectSessionsModal } from '../../components/SelectSessionsModal';
 
 enum PickerOption {
@@ -134,6 +134,7 @@ export const SampleScorerTracesToEvaluatePicker = ({
             setDisplayPickCustomTracesModal(false);
           }}
           initialTraceIdsSelected={itemsToEvaluate.itemIds}
+          maxTraceCount={MAX_SELECTED_ITEM_COUNT}
         />
       )}
       {displayPickCustomTracesModal && evaluationScope === ScorerEvaluationScope.SESSIONS && (
@@ -149,6 +150,7 @@ export const SampleScorerTracesToEvaluatePicker = ({
             setDisplayPickCustomTracesModal(false);
           }}
           initialSessionIdsSelected={itemsToEvaluate.itemIds}
+          maxSessionCount={MAX_SELECTED_ITEM_COUNT}
         />
       )}
     </>

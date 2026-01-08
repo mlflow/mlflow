@@ -95,7 +95,7 @@ import mlflow
 
 # Search for traces to add to the dataset
 traces = mlflow.search_traces(
-    experiment_ids=["0"],
+    locations=["0"],
     filter_string="attributes.name = 'chat_completion'",
     max_results=50,
     return_type="list",
@@ -433,11 +433,11 @@ Records from MLflow traces are automatically assigned the `TRACE` source type:
 
 ```python
 # When adding traces directly (automatic TRACE source)
-traces = mlflow.search_traces(experiment_ids=["0"], return_type="list")
+traces = mlflow.search_traces(locations=["0"], return_type="list")
 dataset.merge_records(traces)
 
 # Or when using DataFrame from search_traces
-traces_df = mlflow.search_traces(experiment_ids=["0"])  # Returns DataFrame
+traces_df = mlflow.search_traces(locations=["0"])  # Returns DataFrame
 # Automatically detects traces and assigns TRACE source
 dataset.merge_records(traces_df)
 ```

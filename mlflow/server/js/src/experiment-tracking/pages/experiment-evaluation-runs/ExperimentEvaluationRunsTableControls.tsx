@@ -1,7 +1,6 @@
 import {
   useDesignSystemTheme,
   Button,
-  Modal,
   DialogCombobox,
   DialogComboboxTrigger,
   DialogComboboxContent,
@@ -23,9 +22,8 @@ import { RunsSearchAutoComplete } from '../../components/experiment-page/compone
 import type { RunEntity } from '../../types';
 import type { ExperimentRunsSelectorResult } from '../../components/experiment-page/utils/experimentRuns.selector';
 import type { KeyValueEntity } from '../../../common/types';
-import { ErrorWrapper } from '@mlflow/mlflow/src/common/utils/ErrorWrapper';
-import { useCallback, useMemo, useState } from 'react';
-import { useDeleteRuns } from '../../components/experiment-page/hooks/useDeleteRuns';
+import type { ErrorWrapper } from '@mlflow/mlflow/src/common/utils/ErrorWrapper';
+import { useMemo } from 'react';
 import type { EvalRunsTableColumnId } from './ExperimentEvaluationRunsTable.constants';
 import {
   EVAL_RUNS_COLUMN_LABELS,
@@ -38,6 +36,7 @@ import { groupBy } from 'lodash';
 import { ExperimentEvaluationRunsTableGroupBySelector } from './ExperimentEvaluationRunsTableGroupBySelector';
 import type { RunsGroupByConfig } from '../../components/experiment-page/utils/experimentPage.group-row-utils';
 import { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
+import { ExperimentEvaluationRunsTableActions } from './ExperimentEvaluationRunsTableActions';
 
 // function to mimic the data structure of the legacy runs response
 // so we can reuse the RunsSearchAutoComplete component
@@ -84,6 +83,9 @@ export const ExperimentEvaluationRunsTableControls = ({
   setGroupByConfig,
   viewMode,
   setViewMode,
+  onCompare,
+  selectedRunUuid,
+  compareToRunUuid,
 }: {
   rowSelection: RowSelectionState;
   setRowSelection: (selection: RowSelectionState) => void;
@@ -99,26 +101,16 @@ export const ExperimentEvaluationRunsTableControls = ({
   setGroupByConfig: (groupBy: RunsGroupByConfig | null) => void;
   viewMode?: ExperimentEvaluationRunsPageMode;
   setViewMode?: (mode: ExperimentEvaluationRunsPageMode) => void;
+  onCompare: (runUuid1: string, runUuid2: string) => void;
+  selectedRunUuid?: string;
+  compareToRunUuid?: string;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
-  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const selectedRunUuids = Object.entries(rowSelection)
     .filter(([_, value]) => value)
     .map(([key]) => key);
-
-  const { mutate, isLoading } = useDeleteRuns({
-    onSuccess: () => {
-      refetchRuns();
-      setRowSelection({});
-      setDeleteModalVisible(false);
-    },
-  });
-
-  const handleDelete = useCallback(() => {
-    mutate({ runUuids: selectedRunUuids });
-  }, [mutate, selectedRunUuids]);
 
   const columnPartitions = useMemo(
     () =>
@@ -184,13 +176,26 @@ export const ExperimentEvaluationRunsTableControls = ({
           onClear={() => setSearchFilter('')}
           requestError={searchRunsError}
         />
-        <Button
-          css={{ flexShrink: 0 }}
-          icon={<RefreshIcon />}
-          disabled={isFetching}
-          onClick={refetchRuns}
-          componentId="mlflow.eval-runs.table-refresh-button"
-        />
+        <Tooltip
+          componentId="mlflow.eval-runs.table-refresh-button.tooltip"
+          content={intl.formatMessage({
+            defaultMessage: 'Refresh evaluation runs',
+            description: 'Tooltip for the refresh evaluation runs button in the evaluation runs table controls',
+          })}
+        >
+          <Button
+            componentId="mlflow.eval-runs.table-refresh-button"
+            icon={<RefreshIcon />}
+            onClick={refetchRuns}
+            loading={isFetching}
+            css={{ flexShrink: 0 }}
+            disabled={isFetching}
+            aria-label={intl.formatMessage({
+              defaultMessage: 'Refresh evaluation runs',
+              description: 'Aria label for the refresh evaluation runs button in the evaluation runs table controls',
+            })}
+          />
+        </Tooltip>
       </div>
       <div css={{ display: 'flex', gap: theme.spacing.sm }}>
         <DialogCombobox componentId="mlflow.eval-runs.table-column-selector" label="Columns" multiSelect>
@@ -214,7 +219,7 @@ export const ExperimentEvaluationRunsTableControls = ({
                       const labelDescriptorForKnownColumn = EVAL_RUNS_COLUMN_LABELS[column as EvalRunsTableColumnId];
                       const label = labelDescriptorForKnownColumn
                         ? intl.formatMessage(labelDescriptorForKnownColumn)
-                        : parseEvalRunsTableKeyedColumnKey(column)?.key ?? column;
+                        : (parseEvalRunsTableKeyedColumnKey(column)?.key ?? column);
 
                       if (EVAL_RUNS_UNSELECTABLE_COLUMNS.has(column)) {
                         return null;
@@ -246,41 +251,15 @@ export const ExperimentEvaluationRunsTableControls = ({
           setGroupByConfig={setGroupByConfig}
           runs={runs}
         />
-        {selectedRunUuids.length > 0 && (
-          <div css={{ display: 'flex', flexDirection: 'row', gap: theme.spacing.sm }}>
-            <Button danger componentId="select-all-runs-button" onClick={() => setDeleteModalVisible(true)}>
-              <FormattedMessage defaultMessage="Delete" description="Delete runs" />
-            </Button>
-            <Modal
-              componentId="mlflow.eval-runs.runs-delete-modal"
-              visible={deleteModalVisible}
-              onOk={handleDelete}
-              okButtonProps={{ danger: true, loading: isLoading }}
-              okText={
-                <FormattedMessage defaultMessage="Delete" description="Delete evaluation runs modal button text" />
-              }
-              onCancel={() => {
-                setDeleteModalVisible(false);
-              }}
-              cancelText={
-                <FormattedMessage defaultMessage="Cancel" description="Delete evaluation runs cancel button text" />
-              }
-              confirmLoading={isLoading}
-              title={
-                <FormattedMessage
-                  defaultMessage="Delete {numRuns, plural, =1 {1 run} other {# runs}}"
-                  description="Delete evaluation runs modal title"
-                  values={{ numRuns: selectedRunUuids.length }}
-                />
-              }
-            >
-              <FormattedMessage
-                defaultMessage="Are you sure you want to delete these runs?"
-                description="Delete evaluation runs modal confirmation text"
-              />
-            </Modal>
-          </div>
-        )}
+
+        <ExperimentEvaluationRunsTableActions
+          rowSelection={rowSelection}
+          setRowSelection={setRowSelection}
+          refetchRuns={refetchRuns}
+          onCompare={onCompare}
+          selectedRunUuid={selectedRunUuid}
+          compareToRunUuid={compareToRunUuid}
+        />
       </div>
     </div>
   );
