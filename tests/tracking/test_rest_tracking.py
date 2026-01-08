@@ -4060,8 +4060,19 @@ def test_online_scoring_config(mlflow_client_with_secrets):
     model_def = store.create_gateway_model_definition(
         name="test-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
+    from mlflow.entities.gateway_endpoint import (
+        GatewayEndpointModelConfig,
+        GatewayModelLinkageType,
+    )
+
     endpoint = store.create_gateway_endpoint(
-        name="test-endpoint", model_definition_ids=[model_def.model_definition_id]
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+            )
+        ],
     )
 
     scorer_data = {"instructions_judge_pydantic_data": {"model": f"gateway:/{endpoint.name}"}}
