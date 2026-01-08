@@ -97,7 +97,8 @@ class RagasScorer(Scorer):
             constructor_kwargs["llm"] = ragas_llm
 
         if requires_embeddings(metric_name):
-            constructor_kwargs.setdefault("embeddings", create_default_embeddings())
+            if constructor_kwargs.get("embeddings") is None:
+                constructor_kwargs["embeddings"] = create_default_embeddings()
 
         if requires_llm_at_score_time(metric_name):
             self._llm = ragas_llm

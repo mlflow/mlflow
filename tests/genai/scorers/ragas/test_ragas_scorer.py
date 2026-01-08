@@ -10,10 +10,14 @@ from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.base import ScorerKind
 from mlflow.genai.scorers.ragas import (
+    AgentGoalAccuracyWithoutReference,
+    AgentGoalAccuracyWithReference,
+    AnswerRelevancy,
     AspectCritic,
     ContextEntityRecall,
     ContextPrecision,
     ContextRecall,
+    DiscreteMetric,
     ExactMatch,
     FactualCorrectness,
     Faithfulness,
@@ -22,8 +26,12 @@ from mlflow.genai.scorers.ragas import (
     RagasScorer,
     RougeScore,
     RubricsScore,
+    SemanticSimilarity,
     StringPresence,
     SummarizationScore,
+    ToolCallAccuracy,
+    ToolCallF1,
+    TopicAdherence,
     get_scorer,
 )
 from mlflow.telemetry.client import TelemetryClient
@@ -178,10 +186,20 @@ def test_missing_reference_parameter_returns_mlflow_error():
         (ExactMatch, "ExactMatch", {}),
         # General Purpose Metrics
         (AspectCritic, "AspectCritic", {"name": "test", "definition": "test"}),
+        (DiscreteMetric, "DiscreteMetric", {"name": "test", "prompt": "test"}),
         (RubricsScore, "RubricsScore", {}),
         (InstanceRubrics, "InstanceRubrics", {}),
         # Summarization Metrics
         (SummarizationScore, "SummarizationScore", {}),
+        # Agentic Metrics
+        (TopicAdherence, "TopicAdherence", {}),
+        (ToolCallAccuracy, "ToolCallAccuracy", {}),
+        (ToolCallF1, "ToolCallF1", {}),
+        (AgentGoalAccuracyWithReference, "AgentGoalAccuracyWithReference", {}),
+        (AgentGoalAccuracyWithoutReference, "AgentGoalAccuracyWithoutReference", {}),
+        # Embeddings-based Metrics
+        (AnswerRelevancy, "AnswerRelevancy", {}),
+        (SemanticSimilarity, "SemanticSimilarity", {}),
     ],
 )
 def test_namespaced_class_properly_instantiates(scorer_class, expected_metric_name, metric_kwargs):
@@ -302,3 +320,41 @@ def test_ragas_scorer_telemetry_in_genai_evaluate(
             "eval_data_provided_fields": ["expectations", "inputs", "outputs"],
         },
     )
+
+
+@pytest.mark.parametrize(
+    ("scorer_class", "expectations", "sample_assertion"),
+    [
+        (
+            ToolCallAccuracy,
+            {
+                "expected_tool_calls": [
+                    {"name": "weather_check", "arguments": {"location": "Paris"}},
+                ]
+            },
+            lambda sample: sample.reference_tool_calls is not None,
+        ),
+        (
+            TopicAdherence,
+            {"reference_topics": ["machine learning", "data science"]},
+            lambda sample: sample.reference_topics == ["machine learning", "data science"],
+        ),
+        (
+            AgentGoalAccuracyWithReference,
+            {"expected_output": "Table booked at a Chinese restaurant for 8pm"},
+            lambda sample: sample.reference == "Table booked at a Chinese restaurant for 8pm",
+        ),
+    ],
+)
+def test_agentic_scorer_with_expectations(scorer_class, expectations, sample_assertion):
+    scorer = scorer_class()
+
+    async def mock_ascore(sample):
+        assert sample_assertion(sample)
+        return 0.9
+
+    with patch.object(scorer._metric, "ascore", mock_ascore):
+        result = scorer(expectations=expectations)
+
+    assert isinstance(result, Feedback)
+    assert result.name == scorer_class.metric_name
