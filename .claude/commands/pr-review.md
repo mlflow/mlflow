@@ -27,6 +27,10 @@ Automatically review a GitHub pull request and provide feedback on code quality,
 /pr-review Check for performance issues       # Focus on specific concern
 ```
 
+## Important Note
+
+The current local branch may not be the PR branch being reviewed. Always rely on the PR diff fetched via the GitHub API rather than local file contents.
+
 ## Instructions
 
 ### 1. Auto-detect PR context
