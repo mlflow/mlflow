@@ -45,7 +45,6 @@ Automatically review a GitHub pull request and provide feedback on code quality,
   ```bash
   uv run .claude/skills/fetch-diff/fetch_diff.py <pr_url>
   ```
-- **If reviewing Python files**: Read `dev/guides/python.md` and create a checklist of all style rules with their exceptions before proceeding
 
 ### 3. Review Changed Lines
 
@@ -53,7 +52,7 @@ Automatically review a GitHub pull request and provide feedback on code quality,
 
 Carefully examine **only the changed lines** (added, modified, or deleted) in the diff for:
 
-- Style guide violations (using your checklist if Python files)
+- Style guide violations (see `.claude/rules/` for language-specific rules)
 - Potential bugs and code quality issues
 - Common mistakes
 

@@ -153,10 +153,6 @@ cd docs && npm run serve --port 8080
 
 See `mlflow/server/js/` for frontend development.
 
-## Language-Specific Style Guides
-
-- [Python](/dev/guides/python.md)
-
 ## Git Workflow
 
 ### Committing Changes
