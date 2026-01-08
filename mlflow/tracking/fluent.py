@@ -2520,14 +2520,15 @@ def import_checkpoints(
     exp_id = MlflowClient().get_run(source_run_id).info.experiment_id
 
     ws = WorkspaceClient()
-    top_level_paths = [entry.path for entry in ws.files.list_directory_contents(checkpoint_path)]
+    top_level_paths = [
+        entry.path.rstrip("/") for entry in ws.files.list_directory_contents(checkpoint_path)
+    ]
 
     created_models: list[LoggedModel] = []
     client = MlflowClient()
 
-    created_models = []
     for sub_checkpoint_path in top_level_paths:
-        model_name = os.path.basename(checkpoint_path)
+        model_name = os.path.basename(sub_checkpoint_path)
         if model_prefix:
             model_name = model_prefix + model_name
 
