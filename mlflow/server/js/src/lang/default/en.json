@@ -2682,6 +2682,10 @@
     "defaultMessage": "Latency",
     "description": "Label for the latency section"
   },
+  "K2IAP7": {
+    "defaultMessage": "Success",
+    "description": "Column header for success rate"
+  },
   "K5rmCE": {
     "defaultMessage": "S3",
     "description": "Experiment dataset drawer > source type > S3 source type label"
@@ -2957,6 +2961,10 @@
   "ML+mQa": {
     "defaultMessage": "Overall assessment:",
     "description": "Evaluation review > assessments > overall assessment > title"
+  },
+  "MNCAQh": {
+    "defaultMessage": "Calls",
+    "description": "Column header for call count"
   },
   "MQ4Voz": {
     "defaultMessage": "{count, plural, one {Input} other {Inputs}}",
@@ -3920,6 +3928,10 @@
     "defaultMessage": "Edit",
     "description": "Edit assessment menu item"
   },
+  "URGtLz": {
+    "defaultMessage": "Tool Performance Summary",
+    "description": "Title for the tool performance summary section"
+  },
   "UWHfmZ": {
     "defaultMessage": "Group:",
     "description": "Label for a group of runs in the evaluation runs table"
@@ -4215,6 +4227,10 @@
   "Ws58cc": {
     "defaultMessage": "Groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
+  },
+  "WtTgz+": {
+    "defaultMessage": "Tool",
+    "description": "Column header for tool name"
   },
   "WtUqxc": {
     "defaultMessage": "Error",
@@ -7526,6 +7542,10 @@
   "x/YJtF": {
     "defaultMessage": "MLflow MCP server",
     "description": "Home page news card title one"
+  },
+  "x/rA/e": {
+    "defaultMessage": "Latency",
+    "description": "Column header for average latency"
   },
   "x03ytD": {
     "defaultMessage": "e.g., END, ###, STOP",

@@ -17,6 +17,7 @@ import { ToolCallStatistics } from './components/ToolCallStatistics';
 import { ToolCallChartsSection } from './components/ToolCallChartsSection';
 import { LazyToolUsageChart } from './components/LazyToolUsageChart';
 import { LazyToolLatencyChart } from './components/LazyToolLatencyChart';
+import { LazyToolPerformanceSummary } from './components/LazyToolPerformanceSummary';
 import { TabContentContainer, ChartGrid } from './components/OverviewLayoutComponents';
 import { calculateTimeInterval } from './hooks/useTraceMetricsQuery';
 import { generateTimeBuckets } from './utils/chartUtils';
@@ -154,6 +155,9 @@ const ExperimentGenAIOverviewPageImpl = () => {
           <TabContentContainer>
             {/* Tool call statistics */}
             <ToolCallStatistics experimentId={experimentId} startTimeMs={startTimeMs} endTimeMs={endTimeMs} />
+
+            {/* Tool performance summary */}
+            <LazyToolPerformanceSummary experimentId={experimentId} startTimeMs={startTimeMs} endTimeMs={endTimeMs} />
 
             {/* Tool error rate charts - dynamically rendered based on available tools */}
             <ToolCallChartsSection {...chartProps} />
