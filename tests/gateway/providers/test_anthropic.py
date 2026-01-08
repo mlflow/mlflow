@@ -16,7 +16,7 @@ from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse
+from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
 
 
 def completions_response():
@@ -111,7 +111,6 @@ async def test_completions_with_default_max_tokens():
             "https://api.anthropic.com/v1/complete",
             json={
                 "model": "claude-instant-1",
-                "temperature": 0.0,
                 "max_tokens_to_sample": 8192,
                 "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             },
@@ -764,22 +763,36 @@ def passthrough_messages_stream_response():
 async def test_passthrough_anthropic_messages():
     resp = passthrough_messages_response()
     config = chat_config()
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
+
+    captured_session_headers = {}
+    mock_session_client = mock_http_client(MockAsyncResponse(resp))
+
+    def mock_client_session(headers=None):
+        captured_session_headers.update(headers or {})
+        return mock_session_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
         provider = AnthropicProvider(EndpointConfig(**config))
         payload = {
             "messages": [{"role": "user", "content": "Hello"}],
             "max_tokens": 1024,
             "temperature": 0.7,
         }
-        response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
+        custom_headers = {
+            "X-Custom-Header": "custom-value",
+            "X-Request-ID": "req-789",
+            "host": "example.com",
+            "content-length": "100",
+        }
+        response = await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES, payload, headers=custom_headers
+        )
 
         assert payload["model"] == "claude-2.1"
 
         assert response == resp
 
-        mock_post.assert_called_once_with(
+        mock_session_client.post.assert_called_once_with(
             "https://api.anthropic.com/v1/messages",
             json={
                 "messages": [{"role": "user", "content": "Hello"}],
@@ -790,21 +803,42 @@ async def test_passthrough_anthropic_messages():
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
 
+        # Verify provider headers are propagated correctly
+        assert captured_session_headers["x-api-key"] == "key"
+        assert captured_session_headers["anthropic-version"] == "2023-06-01"
+
+        # Verify custom headers are propagated correctly
+        assert captured_session_headers["X-Custom-Header"] == "custom-value"
+        assert captured_session_headers["X-Request-ID"] == "req-789"
+
+        # Verify gateway specific headers are not propagated
+        assert "host" not in captured_session_headers
+        assert "content-length" not in captured_session_headers
+
 
 @pytest.mark.asyncio
 async def test_passthrough_anthropic_messages_streaming():
     resp = passthrough_messages_stream_response()
     config = chat_config()
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
-    ) as mock_post:
+
+    captured_session_headers = {}
+    mock_session_client = mock_http_client(MockAsyncStreamingResponse(resp))
+
+    def mock_client_session(headers=None):
+        captured_session_headers.update(headers or {})
+        return mock_session_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
         provider = AnthropicProvider(EndpointConfig(**config))
         payload = {
             "messages": [{"role": "user", "content": "Hello"}],
             "max_tokens": 1024,
             "stream": True,
         }
-        response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
+        custom_headers = {"X-Stream-ID": "stream-123"}
+        response = await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES, payload, headers=custom_headers
+        )
 
         assert payload["model"] == "claude-2.1"
 
@@ -820,7 +854,7 @@ async def test_passthrough_anthropic_messages_streaming():
         assert b"message_delta" in chunks[5]
         assert b"message_stop" in chunks[6]
 
-        mock_post.assert_called_once_with(
+        mock_session_client.post.assert_called_once_with(
             "https://api.anthropic.com/v1/messages",
             json={
                 "messages": [{"role": "user", "content": "Hello"}],
@@ -830,3 +864,77 @@ async def test_passthrough_anthropic_messages_streaming():
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
+
+        # Verify provider headers are propagated correctly
+        assert captured_session_headers["x-api-key"] == "key"
+        assert captured_session_headers["anthropic-version"] == "2023-06-01"
+
+        # Verify custom headers are propagated correctly
+        assert captured_session_headers["X-Stream-ID"] == "stream-123"
+
+
+@pytest.mark.asyncio
+async def test_chat_with_structured_output():
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "anthropic",
+            "name": "claude-sonnet-4-5",
+            "config": {
+                "anthropic_api_key": "key",
+            },
+        },
+    }
+
+    json_schema = {
+        "name": "user_info",
+        "schema": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "email": {"type": "string"}},
+            "required": ["name", "email"],
+            "additionalProperties": False,
+        },
+    }
+
+    resp = {
+        "id": "msg_013Zva2CMHLNnXjNJJKqJ2EF",
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "text", "text": '{"name": "John Doe", "email": "john@example.com"}'}],
+        "model": "claude-sonnet-4-5",
+        "stop_reason": "end_turn",
+        "usage": {"input_tokens": 10, "output_tokens": 25},
+    }
+
+    captured_session_headers = {}
+    mock_session_client = mock_http_client(MockAsyncResponse(resp))
+
+    def mock_client_session(headers=None):
+        captured_session_headers.update(headers or {})
+        return mock_session_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Extract user info"}],
+            "response_format": {"type": "json_schema", "json_schema": json_schema},
+        }
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+        assert len(response.choices[0].message.content) == 1
+        assert (
+            response.choices[0].message.content[0].text
+            == '{"name": "John Doe", "email": "john@example.com"}'
+        )
+        assert response.choices[0].finish_reason == "stop"
+
+        call_kwargs = mock_session_client.post.call_args[1]
+        assert call_kwargs["json"]["output_format"] == {
+            "type": "json_schema",
+            "schema": json_schema,
+        }
+
+        assert captured_session_headers["x-api-key"] == "key"
+        assert captured_session_headers["anthropic-version"] == "2023-06-01"
+        assert captured_session_headers["anthropic-beta"] == "structured-outputs-2025-11-13"

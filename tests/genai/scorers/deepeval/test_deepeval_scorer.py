@@ -2,11 +2,22 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.deepeval import AnswerRelevancy, KnowledgeRetention, get_scorer
+from mlflow.genai.scorers.base import ScorerKind
+from mlflow.genai.scorers.deepeval import (
+    AnswerRelevancy,
+    ExactMatch,
+    KnowledgeRetention,
+    get_scorer,
+)
+from mlflow.telemetry.client import TelemetryClient
+from mlflow.telemetry.events import GenAIEvaluateEvent, ScorerCallEvent
+
+from tests.telemetry.helper_functions import validate_telemetry_record
 
 
 @pytest.fixture
@@ -31,6 +42,12 @@ def mock_deepeval_model():
             return "mock-model"
 
     return MockDeepEvalModel()
+
+
+@pytest.fixture(autouse=True)
+def mock_get_telemetry_client(mock_telemetry_client: TelemetryClient):
+    with patch("mlflow.telemetry.track.get_telemetry_client", return_value=mock_telemetry_client):
+        yield
 
 
 def test_deepeval_scorer_with_exact_match_metric():
@@ -211,3 +228,124 @@ def test_single_turn_metric_ignores_session_parameter():
         # Verify result
         assert isinstance(result, Feedback)
         assert result.value == CategoricalRating.YES
+
+
+def test_deepeval_scorer_kind_property():
+    scorer = get_scorer("ExactMatch")
+    assert scorer.kind == ScorerKind.THIRD_PARTY
+
+
+@pytest.mark.parametrize("method_name", ["register", "start", "update", "stop"])
+def test_deepeval_scorer_registration_methods_not_supported(method_name):
+    from mlflow.exceptions import MlflowException
+
+    scorer = get_scorer("ExactMatch")
+    method = getattr(scorer, method_name)
+
+    with pytest.raises(MlflowException, match=f"'{method_name}\\(\\)' is not supported"):
+        method()
+
+
+def test_deepeval_scorer_align_not_supported():
+    from mlflow.exceptions import MlflowException
+
+    scorer = get_scorer("ExactMatch")
+
+    with pytest.raises(MlflowException, match="'align\\(\\)' is not supported"):
+        scorer.align()
+
+
+def test_deepeval_scorer_kind_property_with_llm_metric(mock_deepeval_model):
+    with patch(
+        "mlflow.genai.scorers.deepeval.create_deepeval_model", return_value=mock_deepeval_model
+    ):
+        scorer = AnswerRelevancy()
+        assert scorer.kind == ScorerKind.THIRD_PARTY
+
+
+@pytest.mark.parametrize(
+    ("scorer_factory", "expected_class"),
+    [
+        (lambda: ExactMatch(), "DeepEval:ExactMatch"),
+        (lambda: get_scorer("ExactMatch"), "DeepEval:ExactMatch"),
+    ],
+    ids=["direct_instantiation", "get_scorer"],
+)
+def test_deepeval_scorer_telemetry_direct_call(
+    enable_telemetry_in_tests, mock_requests, mock_telemetry_client, scorer_factory, expected_class
+):
+    deepeval_scorer = scorer_factory()
+
+    with patch.object(deepeval_scorer._metric, "measure") as mock_measure:
+        mock_measure.return_value = None
+        deepeval_scorer._metric.score = 1.0
+        deepeval_scorer._metric.reason = "Match"
+        deepeval_scorer._metric.threshold = 0.5
+        deepeval_scorer._metric.is_successful = Mock(return_value=True)
+
+        deepeval_scorer(
+            inputs="What is MLflow?",
+            outputs="MLflow is a platform",
+            expectations={"expected_output": "MLflow is a platform"},
+        )
+
+    mock_telemetry_client.flush()
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        ScorerCallEvent.name,
+        {
+            "scorer_class": expected_class,
+            "scorer_kind": "third_party",
+            "is_session_level_scorer": False,
+            "callsite": "direct_scorer_call",
+            "has_feedback_error": False,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    ("scorer_factory", "expected_class"),
+    [
+        (lambda: ExactMatch(), "DeepEval:ExactMatch"),
+        (lambda: get_scorer("ExactMatch"), "DeepEval:ExactMatch"),
+    ],
+    ids=["direct_instantiation", "get_scorer"],
+)
+def test_deepeval_scorer_telemetry_in_genai_evaluate(
+    enable_telemetry_in_tests, mock_requests, mock_telemetry_client, scorer_factory, expected_class
+):
+    deepeval_scorer = scorer_factory()
+
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a platform",
+            "expectations": {"expected_output": "MLflow is a platform"},
+        }
+    ]
+
+    with patch.object(deepeval_scorer._metric, "measure") as mock_measure:
+        mock_measure.return_value = None
+        deepeval_scorer._metric.score = 1.0
+        deepeval_scorer._metric.reason = "Match"
+        deepeval_scorer._metric.threshold = 0.5
+        deepeval_scorer._metric.is_successful = Mock(return_value=True)
+
+        mlflow.genai.evaluate(data=data, scorers=[deepeval_scorer])
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GenAIEvaluateEvent.name,
+        {
+            "predict_fn_provided": False,
+            "scorer_info": [
+                {"class": expected_class, "kind": "third_party", "scope": "response"},
+            ],
+            "eval_data_type": "list[dict]",
+            "eval_data_size": 1,
+            "eval_data_provided_fields": ["expectations", "inputs", "outputs"],
+        },
+    )

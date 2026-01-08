@@ -25,8 +25,8 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
-      type: 'doc',
-      id: 'eval-monitor/quickstart',
+      type: 'link',
+      href: '/genai/eval-monitor/quickstart/',
       label: 'Evaluate LLMs and Agents',
       className: 'sidebar-top-level-category',
     },
@@ -445,6 +445,27 @@ const sidebarsGenAI: SidebarsConfig = {
                   label: 'Agent-as-a-Judge',
                 },
                 {
+                  type: 'category',
+                  label: 'Third-party Scorers',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/deepeval',
+                      label: 'DeepEval',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/ragas',
+                      label: 'RAGAS',
+                    },
+                  ],
+                  collapsed: false,
+                  link: {
+                    type: 'doc',
+                    id: 'eval-monitor/scorers/third-party/index',
+                  },
+                },
+                {
                   type: 'doc',
                   id: 'eval-monitor/scorers/custom',
                   label: 'Code-based Scorers',
@@ -602,29 +623,25 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'doc',
-          id: 'governance/ai-gateway/setup',
-          label: 'Setup',
-        },
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/configuration',
-          label: 'Configuration',
-        },
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/usage',
-          label: 'Usage',
-        },
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/integration',
-          label: 'Integration',
-        },
-        {
-          type: 'doc',
-          id: 'governance/unity-catalog',
-          label: 'Unity Catalog',
+          type: 'category',
+          label: 'Gateway Server (Legacy)',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/setup',
+              label: 'Setup',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/configuration',
+              label: 'Configuration',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/usage',
+              label: 'Usage',
+            },
+          ],
         },
       ],
       link: {

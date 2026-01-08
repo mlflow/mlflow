@@ -28,6 +28,7 @@ FRAMEWORK_METADATA_KEY = "mlflow.scorer.framework"
 # Define the attributes that should be lazily loaded
 _LAZY_IMPORTS = {
     "Completeness",
+    "ConversationalGuidelines",
     "ConversationalRoleAdherence",
     "ConversationalSafety",
     "ConversationCompleteness",
@@ -37,6 +38,7 @@ _LAZY_IMPORTS = {
     "Fluency",
     "Guidelines",
     "Equivalence",
+    "KnowledgeRetention",
     "RelevanceToQuery",
     "RetrievalGroundedness",
     "RetrievalRelevance",
@@ -79,6 +81,7 @@ def __dir__():
 if TYPE_CHECKING:
     from mlflow.genai.scorers.builtin_scorers import (
         Completeness,
+        ConversationalGuidelines,
         ConversationalRoleAdherence,
         ConversationalSafety,
         ConversationalToolCallEfficiency,
@@ -88,6 +91,7 @@ if TYPE_CHECKING:
         ExpectationsGuidelines,
         Fluency,
         Guidelines,
+        KnowledgeRetention,
         RelevanceToQuery,
         RetrievalGroundedness,
         RetrievalRelevance,
@@ -102,6 +106,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "Completeness",
+    "ConversationalGuidelines",
     "ConversationalRoleAdherence",
     "ConversationalSafety",
     "ConversationalToolCallEfficiency",
@@ -111,6 +116,7 @@ __all__ = [
     "Fluency",
     "Guidelines",
     "Equivalence",
+    "KnowledgeRetention",
     "RelevanceToQuery",
     "RetrievalGroundedness",
     "RetrievalRelevance",

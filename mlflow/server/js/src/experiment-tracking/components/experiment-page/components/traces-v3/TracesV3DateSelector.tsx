@@ -31,7 +31,13 @@ export interface DateRange {
   endDate: string;
 }
 
-export const TracesV3DateSelector = React.memo(() => {
+interface TracesV3DateSelectorProps {
+  /** Optional list of time label keys to exclude from the dropdown */
+  excludeOptions?: string[];
+}
+
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
+export const TracesV3DateSelector = React.memo(({ excludeOptions }: TracesV3DateSelectorProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const queryClient = useQueryClient();
@@ -39,7 +45,13 @@ export const TracesV3DateSelector = React.memo(() => {
 
   const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters();
 
-  const namedDateFilters = useMemo(() => getNamedDateFilters(intl), [intl]);
+  const namedDateFilters = useMemo(() => {
+    const filters = getNamedDateFilters(intl);
+    if (excludeOptions?.length) {
+      return filters.filter((f) => !excludeOptions.includes(f.key));
+    }
+    return filters;
+  }, [intl, excludeOptions]);
 
   // List of labels for "start time" filter
   const currentStartTimeFilterLabel = intl.formatMessage({

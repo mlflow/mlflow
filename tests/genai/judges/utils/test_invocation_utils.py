@@ -19,6 +19,7 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
 from mlflow.genai.judges.adapters.litellm_adapter import _MODEL_RESPONSE_FORMAT_CAPABILITIES
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.judges.utils.invocation_utils import (
+    _invoke_databricks_structured_output,
     get_chat_completions_with_structured_output,
     invoke_judge_model,
 )
@@ -1075,3 +1076,72 @@ def test_inference_params_in_tool_calling_loop(mock_trace):
     assert mock_litellm.call_count == 2
     for call in mock_litellm.call_args_list:
         assert call.kwargs["temperature"] == 0.2
+
+
+# Tests for _invoke_databricks_structured_output
+
+
+@pytest.mark.parametrize(
+    ("input_messages", "mock_response", "has_existing_system_message"),
+    [
+        pytest.param(
+            [
+                ChatMessage(role="system", content="You are a helpful assistant."),
+                ChatMessage(role="user", content="Extract the outputs"),
+            ],
+            '{"outputs": "test result"}',
+            True,
+            id="with_existing_system_message",
+        ),
+        pytest.param(
+            [
+                ChatMessage(role="user", content="Extract the outputs"),
+            ],
+            '{"outputs": "test result"}',
+            False,
+            id="without_system_message",
+        ),
+    ],
+)
+def test_structured_output_schema_injection(
+    input_messages, mock_response, has_existing_system_message
+):
+    class TestSchema(BaseModel):
+        outputs: str = Field(description="The outputs")
+
+    captured_messages = []
+
+    def mock_loop(messages, trace, on_final_answer):
+        captured_messages.extend(messages)
+        return on_final_answer(mock_response)
+
+    with mock.patch(
+        "mlflow.genai.judges.utils.invocation_utils._run_databricks_agentic_loop",
+        side_effect=mock_loop,
+    ):
+        result = _invoke_databricks_structured_output(
+            messages=input_messages,
+            output_schema=TestSchema,
+            trace=None,
+        )
+
+    # Verify schema injection result
+    # With existing system message, schema is appended; without, a new system message is added
+    expected_message_count = len(input_messages) + (0 if has_existing_system_message else 1)
+    assert len(captured_messages) == expected_message_count
+    assert captured_messages[0].role == "system"
+    assert "You must return your response as JSON matching this schema:" in (
+        captured_messages[0].content
+    )
+    assert '"outputs"' in captured_messages[0].content
+
+    if has_existing_system_message:
+        # Verify schema was appended to existing system message
+        assert "You are a helpful assistant." in captured_messages[0].content
+    else:
+        # Verify user message remains unchanged
+        assert captured_messages[1].role == "user"
+        assert captured_messages[1].content == "Extract the outputs"
+
+    assert isinstance(result, TestSchema)
+    assert result.outputs == "test result"

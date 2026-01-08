@@ -2,11 +2,13 @@ from unittest.mock import patch
 
 import pytest
 
+import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
+from mlflow.genai.scorers.base import ScorerKind
 from mlflow.genai.scorers.ragas import (
     AspectCritic,
     ContextEntityRecall,
@@ -24,6 +26,16 @@ from mlflow.genai.scorers.ragas import (
     SummarizationScore,
     get_scorer,
 )
+from mlflow.telemetry.client import TelemetryClient
+from mlflow.telemetry.events import GenAIEvaluateEvent, ScorerCallEvent
+
+from tests.telemetry.helper_functions import validate_telemetry_record
+
+
+@pytest.fixture(autouse=True)
+def mock_get_telemetry_client(mock_telemetry_client: TelemetryClient):
+    with patch("mlflow.telemetry.track.get_telemetry_client", return_value=mock_telemetry_client):
+        yield
 
 
 def test_ragas_scorer_with_exact_match_metric():
@@ -161,3 +173,108 @@ def test_namespaced_class_properly_instantiates(scorer_class, expected_metric_na
     scorer = scorer_class(**metric_kwargs)
     assert isinstance(scorer, RagasScorer)
     assert scorer.name == expected_metric_name
+
+
+def test_ragas_scorer_kind_property():
+    scorer = get_scorer("ExactMatch")
+    assert scorer.kind == ScorerKind.THIRD_PARTY
+
+
+@pytest.mark.parametrize("method_name", ["register", "start", "update", "stop"])
+def test_ragas_scorer_registration_methods_not_supported(method_name):
+    scorer = get_scorer("ExactMatch")
+    method = getattr(scorer, method_name)
+
+    with pytest.raises(MlflowException, match=f"'{method_name}\\(\\)' is not supported"):
+        method()
+
+
+def test_ragas_scorer_align_not_supported():
+    scorer = get_scorer("ExactMatch")
+
+    with pytest.raises(MlflowException, match="'align\\(\\)' is not supported"):
+        scorer.align()
+
+
+def test_ragas_scorer_kind_property_with_llm_metric():
+    with patch("mlflow.genai.scorers.ragas.create_ragas_model"):
+        scorer = Faithfulness()
+        assert scorer.kind == ScorerKind.THIRD_PARTY
+
+
+@pytest.mark.parametrize(
+    ("scorer_factory", "expected_class"),
+    [
+        (lambda: ExactMatch(), "Ragas:ExactMatch"),
+        (lambda: get_scorer("ExactMatch"), "Ragas:ExactMatch"),
+    ],
+    ids=["direct_instantiation", "get_scorer"],
+)
+def test_ragas_scorer_telemetry_direct_call(
+    enable_telemetry_in_tests, mock_requests, mock_telemetry_client, scorer_factory, expected_class
+):
+    ragas_scorer = scorer_factory()
+
+    with patch.object(ragas_scorer._metric, "single_turn_score", return_value=1.0):
+        result = ragas_scorer(
+            inputs="What is MLflow?",
+            outputs="MLflow is a platform",
+            expectations={"expected_output": "MLflow is a platform"},
+        )
+
+    assert result.value == 1.0
+
+    mock_telemetry_client.flush()
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        ScorerCallEvent.name,
+        {
+            "scorer_class": expected_class,
+            "scorer_kind": "third_party",
+            "is_session_level_scorer": False,
+            "callsite": "direct_scorer_call",
+            "has_feedback_error": False,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    ("scorer_factory", "expected_class"),
+    [
+        (lambda: ExactMatch(), "Ragas:ExactMatch"),
+        (lambda: get_scorer("ExactMatch"), "Ragas:ExactMatch"),
+    ],
+    ids=["direct_instantiation", "get_scorer"],
+)
+def test_ragas_scorer_telemetry_in_genai_evaluate(
+    enable_telemetry_in_tests, mock_requests, mock_telemetry_client, scorer_factory, expected_class
+):
+    ragas_scorer = scorer_factory()
+
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a platform",
+            "expectations": {"expected_output": "MLflow is a platform"},
+        }
+    ]
+
+    with patch.object(ragas_scorer._metric, "single_turn_score", return_value=1.0):
+        mlflow.genai.evaluate(data=data, scorers=[ragas_scorer])
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GenAIEvaluateEvent.name,
+        {
+            "predict_fn_provided": False,
+            "scorer_info": [
+                {"class": expected_class, "kind": "third_party", "scope": "response"},
+            ],
+            "eval_data_type": "list[dict]",
+            "eval_data_size": 1,
+            "eval_data_provided_fields": ["expectations", "inputs", "outputs"],
+        },
+    )

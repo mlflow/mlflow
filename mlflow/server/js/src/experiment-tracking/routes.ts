@@ -7,6 +7,7 @@ import type { ExperimentPageTabName } from './constants';
  */
 export enum PageId {
   home = 'mlflow.home',
+  settingsPage = 'mlflow.settings',
   promptsPage = 'mlflow.prompts',
   promptDetailsPage = 'mlflow.prompts.details',
   experimentPageTabbed = 'mlflow.experiment.details.tab',
@@ -14,6 +15,7 @@ export enum PageId {
   experimentLoggedModelDetailsPage = 'mlflow.logged-model.details',
   experimentPage = 'mlflow.experiment.details',
   // Child routes for experiment page:
+  experimentPageTabOverview = 'mlflow.experiment.tab.overview',
   experimentPageTabRuns = 'mlflow.experiment.tab.runs',
   experimentPageTabModels = 'mlflow.experiment.tab.models',
   experimentPageTabTraces = 'mlflow.experiment.tab.traces',
@@ -46,6 +48,9 @@ export class RoutePaths {
     return createMLflowRoutePath('/experiments/:experimentId');
   }
   // Child routes for experiment page:
+  static get experimentPageTabOverview() {
+    return createMLflowRoutePath('/experiments/:experimentId/overview');
+  }
   static get experimentPageTabRuns() {
     return createMLflowRoutePath('/experiments/:experimentId/runs');
   }
@@ -126,6 +131,9 @@ export class RoutePaths {
   static get promptDetailsPage() {
     return createMLflowRoutePath('/prompts/:promptName');
   }
+  static get settingsPage() {
+    return createMLflowRoutePath('/settings');
+  }
 }
 
 // Concrete routes and functions for generating parametrized paths
@@ -145,6 +153,10 @@ class Routes {
 
   static get experimentPageSearchRoute() {
     return RoutePaths.experimentPageSearch;
+  }
+
+  static get settingsPageRoute() {
+    return RoutePaths.settingsPage;
   }
 
   static getExperimentPageRoute(experimentId: string, isComparingRuns = false, shareState?: string) {

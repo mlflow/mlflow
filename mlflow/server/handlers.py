@@ -10,10 +10,11 @@ import tempfile
 import time
 import urllib
 from functools import partial, wraps
-from typing import Any
+from typing import Any, Callable
 
 import requests
-from flask import Response, current_app, jsonify, request, send_file
+from cachetools import TTLCache
+from flask import Request, Response, current_app, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 
@@ -22,14 +23,20 @@ from mlflow.entities import (
     DatasetInput,
     Expectation,
     ExperimentTag,
+    FallbackConfig,
+    FallbackStrategy,
     Feedback,
     FileInfo,
+    GatewayEndpointModelConfig,
     GatewayEndpointTag,
     GatewayResourceType,
     Metric,
     Param,
     RunTag,
     ViewType,
+)
+from mlflow.entities import (
+    RoutingStrategy as RoutingStrategyEntity,
 )
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -42,6 +49,7 @@ from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
+from mlflow.entities.trace_metrics import MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
@@ -169,6 +177,7 @@ from mlflow.protos.service_pb2 import (
     LogOutputs,
     LogParam,
     MlflowService,
+    QueryTraceMetrics,
     RegisterScorer,
     RemoveDatasetFromExperiments,
     RestoreExperiment,
@@ -214,8 +223,16 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.telemetry import get_telemetry_client
+from mlflow.telemetry.schemas import Record, Status
+from mlflow.telemetry.utils import (
+    FALLBACK_UI_CONFIG,
+    fetch_ui_telemetry_config,
+    is_telemetry_disabled,
+)
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -231,7 +248,12 @@ from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-from mlflow.utils.providers import get_all_providers, get_models, get_provider_config_response
+from mlflow.utils.providers import (
+    _PROVIDER_BACKEND_AVAILABLE,
+    get_all_providers,
+    get_models,
+    get_provider_config_response,
+)
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
 from mlflow.utils.validation import (
@@ -265,6 +287,8 @@ _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
 MAX_RESULTS_PER_RUN = 2500
+# Chunk size for streaming artifact uploads and downloads (1 MB)
+ARTIFACT_STREAM_CHUNK_SIZE = 1024 * 1024
 
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
@@ -678,6 +702,62 @@ def _get_request_json(flask_request=request):
     return flask_request.get_json(force=True, silent=True)
 
 
+def _get_normalized_request_json(flask_request: Request = request) -> dict[str, Any]:
+    """
+    Get request JSON with normalization for legacy clients.
+
+    Handles double-encoded JSON strings from older clients and empty request bodies.
+
+    Args:
+        flask_request: The Flask request object.
+
+    Returns:
+        The request data as a dictionary (empty dict if no body).
+    """
+    request_json = _get_request_json(flask_request)
+
+    # Older clients may post their JSON double-encoded as strings, so the get_json
+    # above actually converts it to a string. Therefore, we check this condition
+    # (which we can tell for sure because any proper request should be a dictionary),
+    # and decode it a second time.
+    if is_string_type(request_json):
+        request_json = json.loads(request_json)
+
+    # If request doesn't have json body then assume it's empty.
+    if request_json is None:
+        request_json = {}
+
+    return request_json
+
+
+def _validate_request_json_with_schema(
+    request_json: dict[str, Any],
+    schema: dict[str, list[Callable[..., Any]]] | None,
+    proto_parsing_succeeded: bool | None,
+) -> None:
+    """
+    Validate request JSON against a schema without requiring protobuf messages.
+
+    Args:
+        request_json: The request data as a dictionary.
+        schema: Dictionary mapping parameter names to lists of validation functions.
+        proto_parsing_succeeded: Whether protobuf parsing succeeded. None indicates the
+            request was not parsed from protobuf.
+    """
+    schema = schema or {}
+    for schema_key, schema_validation_fns in schema.items():
+        if schema_key in request_json or _assert_required in schema_validation_fns:
+            value = request_json.get(schema_key)
+            if schema_key == "run_id" and value is None and "run_uuid" in request_json:
+                value = request_json.get("run_uuid")
+            _validate_param_against_schema(
+                schema=schema_validation_fns,
+                param=schema_key,
+                value=value,
+                proto_parsing_succeeded=proto_parsing_succeeded,
+            )
+
+
 def _get_request_message(request_message, flask_request=request, schema=None):
     if flask_request.method == "GET" and flask_request.args:
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
@@ -709,18 +789,7 @@ def _get_request_message(request_message, flask_request=request, schema=None):
                     value = value.lower() == "true"
                 request_json[field.name] = value
     else:
-        request_json = _get_request_json(flask_request)
-
-        # Older clients may post their JSON double-encoded as strings, so the get_json
-        # above actually converts it to a string. Therefore, we check this condition
-        # (which we can tell for sure because any proper request should be a dictionary),
-        # and decode it a second time.
-        if is_string_type(request_json):
-            request_json = json.loads(request_json)
-
-        # If request doesn't have json body then assume it's empty.
-        if request_json is None:
-            request_json = {}
+        request_json = _get_normalized_request_json(flask_request)
 
     proto_parsing_succeeded = True
     try:
@@ -728,20 +797,50 @@ def _get_request_message(request_message, flask_request=request, schema=None):
     except ParseError:
         proto_parsing_succeeded = False
 
-    schema = schema or {}
-    for schema_key, schema_validation_fns in schema.items():
-        if schema_key in request_json or _assert_required in schema_validation_fns:
-            value = request_json.get(schema_key)
-            if schema_key == "run_id" and value is None and "run_uuid" in request_json:
-                value = request_json.get("run_uuid")
-            _validate_param_against_schema(
-                schema=schema_validation_fns,
-                param=schema_key,
-                value=value,
-                proto_parsing_succeeded=proto_parsing_succeeded,
-            )
+    _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded)
 
     return request_message
+
+
+def _get_validated_flask_request_json(
+    flask_request: Request = request,
+    schema: dict[str, list[Callable[..., Any]]] | None = None,
+) -> dict[str, Any]:
+    """
+    Get and validate request data without protobuf parsing.
+
+    This is an alternative to _get_request_message for endpoints that don't
+    use protobuf message definitions. Supports both GET and POST/PUT requests.
+
+    Args:
+        flask_request: The Flask request object.
+        schema: Dictionary mapping parameter names to lists of validation functions.
+
+    Returns:
+        The validated request data as a dictionary.
+
+    Raises:
+        MlflowException: If validation fails.
+    """
+    if flask_request.method == "GET" and flask_request.args:
+        # Extract query parameters for GET requests
+        request_json = {}
+        schema = schema or {}
+        for key in flask_request.args:
+            # Get all values for this key (supports repeated parameters)
+            values = flask_request.args.getlist(key)
+            # Check if this field is a list type by looking for _assert_array validator
+            is_list_type = _assert_array in schema.get(key, [])
+            # If list type, always keep as list; otherwise use scalar if only one value
+            request_json[key] = (
+                values if is_list_type else (values[0] if len(values) == 1 else values)
+            )
+    else:
+        request_json = _get_normalized_request_json(flask_request)
+
+    _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded=None)
+
+    return request_json
 
 
 def _response_with_file_attachment_headers(file_path, response):
@@ -774,6 +873,12 @@ def catch_mlflow_exception(func):
             response = Response(mimetype="application/json")
             response.set_data(e.serialize_as_json())
             response.status_code = e.get_http_status_code()
+            if response.status_code >= 500:
+                is_debug = _logger.isEnabledFor(logging.DEBUG)
+                msg = f"Error in {func.__name__}: {e}"
+                if not is_debug:
+                    msg += ". Set MLFLOW_LOGGING_LEVEL=DEBUG for traceback."
+                _logger.error(msg, exc_info=is_debug)
             return response
 
     return wrapper
@@ -2740,7 +2845,8 @@ def _download_artifact(artifact_path):
     file_handle = open(dst, "rb")  # noqa: SIM115
 
     def stream_and_remove_file():
-        yield from file_handle
+        while chunk := file_handle.read(ARTIFACT_STREAM_CHUNK_SIZE):
+            yield chunk
         file_handle.close()
         tmp_dir.cleanup()
 
@@ -2761,11 +2867,7 @@ def _upload_artifact(artifact_path):
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, tail)
         with open(tmp_path, "wb") as f:
-            chunk_size = 1024 * 1024  # 1 MB
-            while True:
-                chunk = request.stream.read(chunk_size)
-                if len(chunk) == 0:
-                    break
+            while chunk := request.stream.read(ARTIFACT_STREAM_CHUNK_SIZE):
                 f.write(chunk)
 
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -2813,6 +2915,22 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     return response
 
 
+def _get_graphql_auth_middleware():
+    """
+    Get GraphQL authorization middleware if basic-auth is enabled.
+
+    Returns:
+        A list of middleware instances if auth is enabled, empty list otherwise.
+    """
+    try:
+        from mlflow.server.auth import get_graphql_authorization_middleware
+
+        return get_graphql_authorization_middleware()
+    except Exception:
+        # Auth not configured or other error
+        return []
+
+
 @catch_mlflow_exception
 def _graphql():
     from graphql import parse
@@ -2830,8 +2948,16 @@ def _graphql():
     if check_result := check_query_safety(node):
         result = check_result
     else:
+        # Get auth middleware if basic-auth is enabled
+        middleware = _get_graphql_auth_middleware()
+
         # Executing the GraphQL query using the Graphene schema
-        result = schema.execute(query, variables=variables, operation_name=operation_name)
+        result = schema.execute(
+            query,
+            variables=variables,
+            operation_name=operation_name,
+            middleware=middleware,
+        )
 
     # Convert execution result into json.
     result_data = {
@@ -3295,6 +3421,60 @@ def get_trace_artifact_handler() -> Response:
         download_name=TRACE_DATA_FILE_NAME,
     )
     return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _query_trace_metrics() -> Response:
+    request_message = _get_request_message(
+        QueryTraceMetrics(),
+        schema={
+            "experiment_ids": [_assert_array, _assert_required, _assert_item_type_string],
+            "view_type": [_assert_required],
+            "metric_name": [_assert_string, _assert_required],
+            "aggregations": [_assert_array, _assert_required],
+            "dimensions": [_assert_array, _assert_item_type_string],
+            "filters": [_assert_array, _assert_item_type_string],
+            "time_interval_seconds": [_assert_intlike],
+            "start_time_ms": [_assert_intlike],
+            "end_time_ms": [_assert_intlike],
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+        },
+    )
+    max_results = (
+        request_message.max_results
+        if request_message.HasField("max_results")
+        else MAX_RESULTS_QUERY_TRACE_METRICS
+    )
+    time_interval_seconds = (
+        request_message.time_interval_seconds
+        if request_message.HasField("time_interval_seconds")
+        else None
+    )
+    start_time_ms = (
+        request_message.start_time_ms if request_message.HasField("start_time_ms") else None
+    )
+    end_time_ms = request_message.end_time_ms if request_message.HasField("end_time_ms") else None
+
+    result = _get_tracking_store().query_trace_metrics(
+        experiment_ids=request_message.experiment_ids,
+        view_type=MetricViewType.from_proto(request_message.view_type),
+        metric_name=request_message.metric_name,
+        aggregations=[MetricAggregation.from_proto(agg) for agg in request_message.aggregations],
+        dimensions=request_message.dimensions or None,
+        filters=request_message.filters or None,
+        time_interval_seconds=time_interval_seconds,
+        start_time_ms=start_time_ms,
+        end_time_ms=end_time_ms,
+        max_results=max_results,
+        page_token=request_message.page_token or None,
+    )
+    response_message = QueryTraceMetrics.Response()
+    response_message.data_points.extend([dp.to_proto() for dp in result])
+    if result.token:
+        response_message.next_page_token = result.token
+    return _wrap_response(response_message)
 
 
 # Assessments API handlers
@@ -3844,6 +4024,70 @@ def _delete_scorer():
     return response
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_online_scoring_configs():
+    """
+    Get online scoring configurations for a list of scorer IDs.
+
+    Query Parameters:
+        scorer_ids: List of scorer IDs to fetch configurations for.
+
+    Returns:
+        JSON response containing a list of configurations.
+    """
+    request_json = _get_validated_flask_request_json(
+        flask_request=request,
+        schema={
+            "scorer_ids": [_assert_required, _assert_array, _assert_item_type_string],
+        },
+    )
+
+    scorer_ids = request_json["scorer_ids"]
+    configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
+
+    response = Response(mimetype="application/json")
+    response.set_data(json.dumps({"configs": [c.to_dict() for c in configs]}))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _upsert_online_scoring_config():
+    """
+    Update the online scoring configuration for a registered scorer.
+
+    Request Body (JSON):
+        experiment_id: The ID of the Experiment containing the scorer.
+        name: The scorer name.
+        sample_rate: The sampling rate (0.0 to 1.0).
+        filter_string: Optional filter string for trace selection.
+
+    Returns:
+        JSON response containing the updated configuration.
+    """
+    request_json = _get_validated_flask_request_json(
+        flask_request=request,
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "sample_rate": [_assert_required],
+            "filter_string": [_assert_string],
+        },
+    )
+
+    config = _get_tracking_store().upsert_online_scoring_config(
+        experiment_id=request_json["experiment_id"],
+        scorer_name=request_json["name"],
+        sample_rate=float(request_json["sample_rate"]),
+        filter_string=request_json.get("filter_string"),
+    )
+
+    response = Response(mimetype="application/json")
+    response.set_data(json.dumps({"config": config.to_dict()}))
+    return response
+
+
 # =============================================================================
 # Secrets Management Handlers
 # =============================================================================
@@ -3858,13 +4102,11 @@ def _create_gateway_secret():
             "secret_name": [_assert_required, _assert_string],
             "secret_value": [_assert_secret_value],
             "provider": [_assert_string],
-            "auth_config_json": [_assert_string],
             "created_by": [_assert_string],
         },
     )
-    auth_config = None
-    if request_message.auth_config_json:
-        auth_config = json.loads(request_message.auth_config_json)
+    # Empty map means no auth_config was provided
+    auth_config = dict(request_message.auth_config) or None
 
     secret = _get_tracking_store().create_gateway_secret(
         secret_name=request_message.secret_name,
@@ -3900,13 +4142,11 @@ def _update_gateway_secret():
         UpdateGatewaySecret(),
         schema={
             "secret_id": [_assert_required, _assert_string],
-            "auth_config_json": [_assert_string],
             "updated_by": [_assert_string],
         },
     )
-    auth_config = None
-    if request_message.auth_config_json:
-        auth_config = json.loads(request_message.auth_config_json)
+    # Empty map means no auth_config was provided
+    auth_config = dict(request_message.auth_config) or None
 
     # Empty map means no update to secret_value
     secret_value = dict(request_message.secret_value) or None
@@ -3964,14 +4204,36 @@ def _create_gateway_endpoint():
     request_message = _get_request_message(
         CreateGatewayEndpoint(),
         schema={
-            "name": [_assert_string],
+            "name": [_assert_required, _assert_string],
             "created_by": [_assert_string],
+            "model_configs": [_assert_required],
+            "routing_strategy": [_assert_string],
         },
     )
+    # Convert proto fallback_config to entity FallbackConfig
+    fallback_config = None
+    if request_message.HasField("fallback_config"):
+        fallback_config = FallbackConfig(
+            strategy=FallbackStrategy.from_proto(request_message.fallback_config.strategy)
+            if request_message.fallback_config.HasField("strategy")
+            else None,
+            max_attempts=request_message.fallback_config.max_attempts
+            if request_message.fallback_config.HasField("max_attempts")
+            else None,
+        )
+
+    model_configs = [
+        GatewayEndpointModelConfig.from_proto(config) for config in request_message.model_configs
+    ]
+
     endpoint = _get_tracking_store().create_gateway_endpoint(
         name=request_message.name or None,
-        model_definition_ids=list(request_message.model_definition_ids),
+        model_configs=model_configs,
         created_by=request_message.created_by or None,
+        routing_strategy=RoutingStrategyEntity.from_proto(request_message.routing_strategy)
+        if request_message.HasField("routing_strategy")
+        else None,
+        fallback_config=fallback_config,
     )
     response_message = CreateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4002,12 +4264,38 @@ def _update_gateway_endpoint():
             "endpoint_id": [_assert_required, _assert_string],
             "name": [_assert_string],
             "updated_by": [_assert_string],
+            "routing_strategy": [_assert_string],
         },
     )
+    # Convert proto fallback_config to entity FallbackConfig
+    fallback_config = None
+    if request_message.HasField("fallback_config"):
+        fallback_config = FallbackConfig(
+            strategy=FallbackStrategy.from_proto(request_message.fallback_config.strategy)
+            if request_message.fallback_config.HasField("strategy")
+            else None,
+            max_attempts=request_message.fallback_config.max_attempts
+            if request_message.fallback_config.HasField("max_attempts")
+            else None,
+        )
+
+    # Convert proto model_configs to entity GatewayEndpointModelConfig list
+    model_configs = None
+    if request_message.model_configs:
+        model_configs = [
+            GatewayEndpointModelConfig.from_proto(config)
+            for config in request_message.model_configs
+        ]
+
     endpoint = _get_tracking_store().update_gateway_endpoint(
         endpoint_id=request_message.endpoint_id,
         name=request_message.name or None,
+        model_configs=model_configs,
         updated_by=request_message.updated_by or None,
+        routing_strategy=RoutingStrategyEntity.from_proto(request_message.routing_strategy)
+        if request_message.HasField("routing_strategy")
+        else None,
+        fallback_config=fallback_config,
     )
     response_message = UpdateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4164,14 +4452,16 @@ def _attach_model_to_gateway_endpoint():
         AttachModelToGatewayEndpoint(),
         schema={
             "endpoint_id": [_assert_required, _assert_string],
-            "model_definition_id": [_assert_required, _assert_string],
+            "model_config": [_assert_required],
             "created_by": [_assert_string],
         },
     )
+
+    model_config = GatewayEndpointModelConfig.from_proto(request_message.model_config)
+
     mapping = _get_tracking_store().attach_model_to_endpoint(
         endpoint_id=request_message.endpoint_id,
-        model_definition_id=request_message.model_definition_id,
-        weight=request_message.weight or 1,
+        model_config=model_config,
         created_by=request_message.created_by or None,
     )
     response_message = AttachModelToGatewayEndpoint.Response()
@@ -4339,6 +4629,13 @@ def _get_provider_config():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_secrets_config():
+    if not _PROVIDER_BACKEND_AVAILABLE:
+        return jsonify(
+            {
+                "secrets_available": False,
+                "using_default_passphrase": False,
+            }
+        )
     kek_manager = KEKManager()
     return jsonify(
         {
@@ -4346,6 +4643,77 @@ def _get_secrets_config():
             "using_default_passphrase": kek_manager.using_default_passphrase,
         }
     )
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _invoke_scorer_handler():
+    """
+    Invoke a scorer on traces asynchronously.
+
+    This is a UI-only AJAX endpoint for invoking scorers from the frontend.
+    """
+    _validate_content_type(request, ["application/json"])
+
+    args = request.json
+    experiment_id = args.get("experiment_id")
+    serialized_scorer = args.get("serialized_scorer")
+    trace_ids = args.get("trace_ids", [])
+    log_assessments = args.get("log_assessments", False)
+
+    if not experiment_id:
+        raise MlflowException(
+            "Missing required parameter: experiment_id",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not serialized_scorer:
+        raise MlflowException(
+            "Missing required parameter: serialized_scorer",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not trace_ids:
+        raise MlflowException(
+            "Missing required parameter: trace_ids",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    try:
+        scorer_dict = json.loads(serialized_scorer)
+    except json.JSONDecodeError as e:
+        raise MlflowException(
+            f"Invalid JSON in serialized_scorer: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    from mlflow.genai.scorers.base import Scorer
+    from mlflow.genai.scorers.job import get_trace_batches_for_scorer, invoke_scorer_job
+    from mlflow.server.jobs import submit_job
+
+    try:
+        scorer = Scorer.model_validate(scorer_dict)
+    except Exception as e:
+        raise MlflowException(
+            f"Failed to validate scorer: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    tracking_store = _get_tracking_store()
+    batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
+
+    jobs = []
+    for batch_trace_ids in batches:
+        job = submit_job(
+            function=invoke_scorer_job,
+            params={
+                "experiment_id": experiment_id,
+                "serialized_scorer": serialized_scorer,
+                "trace_ids": batch_trace_ids,
+                "log_assessments": log_assessments,
+            },
+        )
+        jobs.append({"job_id": job.job_id, "trace_ids": batch_trace_ids})
+
+    return jsonify({"jobs": jobs})
 
 
 def _get_rest_path(base_path, version=2):
@@ -4416,6 +4784,7 @@ def get_endpoints(get_handler=get_handler):
     """
     return (
         get_service_endpoints(MlflowService, get_handler)
+        + get_internal_online_scoring_endpoints()
         + get_service_endpoints(ModelRegistryService, get_handler)
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
@@ -4425,7 +4794,7 @@ def get_endpoints(get_handler=get_handler):
 
 
 def get_gateway_endpoints():
-    """Returns endpoint tuples for gateway provider/model discovery APIs."""
+    """Returns endpoint tuples for gateway provider/model discovery APIs and scorer invocation."""
     return [
         (
             _get_ajax_path("/mlflow/gateway/supported-providers", version=3),
@@ -4443,9 +4812,40 @@ def get_gateway_endpoints():
             ["GET"],
         ),
         (
-            _get_ajax_path("/mlflow/secrets/config", version=3),
+            _get_ajax_path("/mlflow/gateway/secrets/config", version=3),
             _get_secrets_config,
             ["GET"],
+        ),
+        (
+            _get_ajax_path("/mlflow/scorer/invoke", version=3),
+            _invoke_scorer_handler,
+            ["POST"],
+        ),
+    ]
+
+
+def get_internal_online_scoring_endpoints():
+    """Returns endpoint definitions for internal (non public) online scoring APIs."""
+    return [
+        (
+            _get_ajax_path("/mlflow/scorers/online-configs", version=3),
+            _get_online_scoring_configs,
+            ["GET"],
+        ),
+        (
+            _get_rest_path("/mlflow/scorers/online-configs", version=3),
+            _get_online_scoring_configs,
+            ["GET"],
+        ),
+        (
+            _get_ajax_path("/mlflow/scorers/online-config", version=3),
+            _upsert_online_scoring_config,
+            ["PUT"],
+        ),
+        (
+            _get_rest_path("/mlflow/scorers/online-config", version=3),
+            _upsert_online_scoring_config,
+            ["PUT"],
         ),
     ]
 
@@ -4670,6 +5070,93 @@ def _get_dataset_records_handler(dataset_id):
     return _wrap_response(response_message)
 
 
+# Cache for telemetry config with 3 hour TTL
+_telemetry_config_cache = TTLCache(maxsize=1, ttl=10800)
+
+
+def _get_or_fetch_ui_telemetry_config():
+    if (config := _telemetry_config_cache.get("config")) is None:
+        config = fetch_ui_telemetry_config()
+        _telemetry_config_cache["config"] = config
+    return config
+
+
+@catch_mlflow_exception
+def get_ui_telemetry_handler():
+    """
+    GET handler for /telemetry endpoint.
+    Returns the telemetry client configuration by fetching it directly.
+    """
+    if is_telemetry_disabled():
+        return jsonify(FALLBACK_UI_CONFIG)
+
+    config = _get_or_fetch_ui_telemetry_config()
+
+    # UI telemetry should be also disabled if overall telemetry is disabled
+    disable_ui_telemetry = config.get("disable_ui_telemetry", True) or config.get(
+        "disable_telemetry", True
+    )
+    response = {
+        "disable_ui_telemetry": disable_ui_telemetry,
+        "disable_ui_events": config.get("disable_ui_events", []),
+        "ui_rollout_percentage": config.get("ui_rollout_percentage", 0),
+    }
+    return jsonify(response)
+
+
+@catch_mlflow_exception
+def post_ui_telemetry_handler():
+    """
+    POST handler for /telemetry endpoint.
+    Accepts telemetry records and adds them to the telemetry client.
+    """
+    try:
+        if is_telemetry_disabled():
+            return jsonify({"status": "disabled"})
+
+        data = request.json.get("records", [])
+
+        if not data:
+            return jsonify({"status": "success"})
+
+        if (client := get_telemetry_client()) is None:
+            return jsonify({"status": "disabled"})
+
+        # check cached config to see if telemetry is disabled
+        # if so, don't process the records. we don't rely on the
+        # config from the telemetry client because it is only fetched
+        # once, so it won't be updated unless the server is restarted.
+        config = _get_or_fetch_ui_telemetry_config()
+
+        # if updated telemetry config is disabled / missing, tell the UI to stop sending records
+        if config.get("disable_ui_telemetry", True) or config.get("disable_telemetry", True):
+            return jsonify({"status": "disabled"})
+
+        records = [
+            Record(
+                event_name=event["event_name"],
+                timestamp_ns=event["timestamp_ns"],
+                params=event["params"],
+                status=Status.SUCCESS,
+                installation_id=event["installation_id"],
+                session_id=event["session_id"],
+                duration_ms=0,
+            )
+            for event in data
+        ]
+
+        client.add_records(records)
+
+        return jsonify({"status": "success"})
+    except Exception as e:
+        _logger.debug(f"Failed to process UI telemetry records: {e}")
+        # if we run into unexpected errors, likely something is wrong
+        # with the data format. if we return success, the UI will continue
+        # to send records. if we return an error, the UI will retry sending
+        # records. the safest thing to do is to tell the UI to stop sending
+        return jsonify({"status": "disabled"})
+
+
 HANDLERS = {
     # Tracking Server APIs
     CreateExperiment: _create_experiment,
@@ -4759,6 +5246,7 @@ HANDLERS = {
     LinkPromptsToTrace: _link_prompts_to_trace,
     BatchGetTraces: _batch_get_traces,
     GetTrace: _get_trace,
+    QueryTraceMetrics: _query_trace_metrics,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,

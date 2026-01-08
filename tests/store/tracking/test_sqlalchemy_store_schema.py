@@ -177,7 +177,7 @@ def test_secrets_and_endpoints_tables(tmp_path, db_url):
             "unique_model_definition_name",
             "index_endpoint_model_mappings_endpoint_id",
             "index_endpoint_model_mappings_model_definition_id",
-            "unique_endpoint_model_mapping",
+            "unique_endpoint_model_linkage_mapping",
             # endpoint_bindings uses composite PK (endpoint_id, resource_type, resource_id)
             # which serves as an implicit index
             "unique_secret_name",

@@ -13,6 +13,7 @@ from mlflow.entities import EvaluationDataset, Expectation, Feedback, Metric, Pa
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
+from mlflow.gateway.cli import start
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer
@@ -25,6 +26,7 @@ from mlflow.genai.scorers.builtin_scorers import (
     Safety,
     UserFrustration,
 )
+from mlflow.genai.simulators import ConversationSimulator
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
@@ -40,6 +42,7 @@ from mlflow.telemetry.events import (
     CreateRunEvent,
     CreateWebhookEvent,
     EvaluateEvent,
+    GatewayStartEvent,
     GenAIEvaluateEvent,
     GetLoggedModelEvent,
     GitModelVersioningEvent,
@@ -55,9 +58,11 @@ from mlflow.telemetry.events import (
     MergeRecordsEvent,
     PromptOptimizationEvent,
     ScorerCallEvent,
+    SimulateConversationEvent,
     StartTraceEvent,
 )
 from mlflow.tracking.fluent import _create_dataset_input, _initialize_logged_model
+from mlflow.utils.os import is_windows
 
 from tests.telemetry.helper_functions import validate_telemetry_record
 
@@ -563,6 +568,45 @@ def test_genai_evaluate_telemetry_data_fields(
         )
 
 
+def test_simulate_conversation(mock_requests, mock_telemetry_client: TelemetryClient):
+    simulator = ConversationSimulator(
+        test_cases=[
+            {"goal": "Learn about MLflow"},
+            {"goal": "Debug an issue"},
+        ],
+        max_turns=2,
+    )
+
+    def mock_predict_fn(input, **kwargs):
+        return {"role": "assistant", "content": "Mock response"}
+
+    with (
+        mock.patch(
+            "mlflow.genai.simulators.simulator._invoke_model",
+            return_value="Mock user message",
+        ),
+        mock.patch(
+            "mlflow.genai.simulators.simulator.ConversationSimulator._check_goal_achieved",
+            return_value=False,
+        ),
+    ):
+        result = simulator._simulate(predict_fn=mock_predict_fn)
+
+    assert len(result) == 2
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        SimulateConversationEvent.name,
+        {
+            "simulated_conversation_info": [
+                {"turn_count": len(result[0])},
+                {"turn_count": len(result[1])},
+            ]
+        },
+    )
+
+
 def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClient):
     from mlflow.genai.optimize import optimize_prompts
     from mlflow.genai.optimize.optimizers import BasePromptOptimizer
@@ -856,6 +900,30 @@ def test_mcp_run(mock_requests, mock_telemetry_client: TelemetryClient):
     mock_run_server.assert_called_once()
     mock_telemetry_client.flush()
     validate_telemetry_record(mock_telemetry_client, mock_requests, McpRunEvent.name)
+
+
+@pytest.mark.skipif(is_windows(), reason="Windows does not support gateway start")
+def test_gateway_start(tmp_path, mock_requests, mock_telemetry_client: TelemetryClient):
+    config = tmp_path.joinpath("config.yml")
+    config.write_text(
+        """
+endpoints:
+  - name: test-endpoint
+    endpoint_type: llm/v1/completions
+    model:
+      provider: openai
+      name: gpt-3.5-turbo
+      config:
+        openai_api_key: test-key
+"""
+    )
+
+    runner = CliRunner(catch_exceptions=False)
+    with mock.patch("mlflow.gateway.cli.run_app"):
+        runner.invoke(start, ["--config-path", str(config)])
+
+    mock_telemetry_client.flush()
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GatewayStartEvent.name)
 
 
 def test_ai_command_run(mock_requests, mock_telemetry_client: TelemetryClient):

@@ -12,12 +12,17 @@ from mlflow.entities import (
     EvaluationDataset,
     Experiment,
     ExperimentTag,
+    FallbackConfig,
+    FallbackStrategy,
+    GatewayEndpointModelConfig,
+    GatewayModelLinkageType,
     GatewayResourceType,
     InputTag,
     LifecycleStage,
     LoggedModelParameter,
     Metric,
     Param,
+    RoutingStrategy,
     RunTag,
     SourceType,
     ViewType,
@@ -38,6 +43,12 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_metrics import (
+    AggregationType,
+    MetricAggregation,
+    MetricDataPoint,
+    MetricViewType,
+)
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -3071,7 +3082,7 @@ def test_update_gateway_secret():
             UpdateGatewaySecret(
                 secret_id="secret-123",
                 secret_value={"api_key": "sk-new-value"},
-                auth_config_json='{"region": "us-east-1"}',
+                auth_config={"region": "us-east-1"},
             )
         )
         _verify_requests(mock_http, creds, "gateway/secrets/update", "POST", body, use_v3=True)
@@ -3104,12 +3115,65 @@ def test_create_gateway_endpoint():
     with mock_http_request() as mock_http:
         store.create_gateway_endpoint(
             name="my-endpoint",
-            model_definition_ids=["model-def-123"],
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-123",
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                    weight=1.0,
+                ),
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-456",
+                    linkage_type=GatewayModelLinkageType.FALLBACK,
+                    weight=1.0,
+                    fallback_order=0,
+                ),
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-789",
+                    linkage_type=GatewayModelLinkageType.FALLBACK,
+                    weight=1.0,
+                    fallback_order=1,
+                ),
+            ],
+            routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+            fallback_config=FallbackConfig(
+                strategy=FallbackStrategy.SEQUENTIAL,
+                max_attempts=2,
+            ),
         )
+        from mlflow.protos.service_pb2 import (
+            FallbackConfig as ProtoFallbackConfig,
+        )
+        from mlflow.protos.service_pb2 import (
+            GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
+        )
+
         body = message_to_json(
             CreateGatewayEndpoint(
                 name="my-endpoint",
-                model_definition_ids=["model-def-123"],
+                model_configs=[
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-123",
+                        linkage_type=GatewayModelLinkageType.PRIMARY.to_proto(),
+                        weight=1.0,
+                    ),
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-456",
+                        linkage_type=GatewayModelLinkageType.FALLBACK.to_proto(),
+                        weight=1.0,
+                        fallback_order=0,
+                    ),
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-789",
+                        linkage_type=GatewayModelLinkageType.FALLBACK.to_proto(),
+                        weight=1.0,
+                        fallback_order=1,
+                    ),
+                ],
+                routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT.to_proto(),
+                fallback_config=ProtoFallbackConfig(
+                    strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
+                    max_attempts=2,
+                ),
             )
         )
         _verify_requests(mock_http, creds, "gateway/endpoints/create", "POST", body, use_v3=True)
@@ -3130,8 +3194,81 @@ def test_update_gateway_endpoint():
     store = RestStore(lambda: creds)
 
     with mock_http_request() as mock_http:
-        store.update_gateway_endpoint(endpoint_id="endpoint-123", name="new-name")
-        body = message_to_json(UpdateGatewayEndpoint(endpoint_id="endpoint-123", name="new-name"))
+        store.update_gateway_endpoint(
+            endpoint_id="endpoint-123",
+            name="updated-endpoint",
+            model_configs=[
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-123",
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                    weight=1.0,
+                ),
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-456",
+                    linkage_type=GatewayModelLinkageType.PRIMARY,
+                    weight=1.0,
+                ),
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-fallback-1",
+                    linkage_type=GatewayModelLinkageType.FALLBACK,
+                    weight=1.0,
+                    fallback_order=0,
+                ),
+                GatewayEndpointModelConfig(
+                    model_definition_id="model-def-fallback-2",
+                    linkage_type=GatewayModelLinkageType.FALLBACK,
+                    weight=1.0,
+                    fallback_order=1,
+                ),
+            ],
+            routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+            fallback_config=FallbackConfig(
+                strategy=FallbackStrategy.SEQUENTIAL,
+                max_attempts=3,
+            ),
+        )
+        from mlflow.protos.service_pb2 import (
+            FallbackConfig as ProtoFallbackConfig,
+        )
+        from mlflow.protos.service_pb2 import (
+            GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
+        )
+
+        body = message_to_json(
+            UpdateGatewayEndpoint(
+                endpoint_id="endpoint-123",
+                name="updated-endpoint",
+                model_configs=[
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-123",
+                        linkage_type=GatewayModelLinkageType.PRIMARY.to_proto(),
+                        weight=1.0,
+                    ),
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-456",
+                        linkage_type=GatewayModelLinkageType.PRIMARY.to_proto(),
+                        weight=1.0,
+                    ),
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-fallback-1",
+                        linkage_type=GatewayModelLinkageType.FALLBACK.to_proto(),
+                        weight=1.0,
+                        fallback_order=0,
+                    ),
+                    ProtoGatewayEndpointModelConfig(
+                        model_definition_id="model-def-fallback-2",
+                        linkage_type=GatewayModelLinkageType.FALLBACK.to_proto(),
+                        weight=1.0,
+                        fallback_order=1,
+                    ),
+                ],
+                routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT.to_proto(),
+                fallback_config=ProtoFallbackConfig(
+                    strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
+                    max_attempts=3,
+                ),
+            )
+        )
         _verify_requests(mock_http, creds, "gateway/endpoints/update", "POST", body, use_v3=True)
 
 
@@ -3244,13 +3381,24 @@ def test_attach_model_to_gateway_endpoint():
     with mock_http_request() as mock_http:
         store.attach_model_to_endpoint(
             endpoint_id="endpoint-123",
-            model_definition_id="model-def-456",
+            model_config=GatewayEndpointModelConfig(
+                model_definition_id="model-def-456",
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
         )
+        from mlflow.protos.service_pb2 import (
+            GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
+        )
+
         body = message_to_json(
             AttachModelToGatewayEndpoint(
                 endpoint_id="endpoint-123",
-                model_definition_id="model-def-456",
-                weight=1,
+                model_config=ProtoGatewayEndpointModelConfig(
+                    model_definition_id="model-def-456",
+                    linkage_type=GatewayModelLinkageType.PRIMARY.to_proto(),
+                    weight=1.0,
+                ),
             )
         )
         _verify_requests(
@@ -3346,3 +3494,83 @@ def test_list_gateway_endpoint_bindings():
         _verify_requests(
             mock_http, creds, "gateway/endpoints/bindings/list", "GET", body, use_v3=True
         )
+
+
+def test_query_trace_metrics():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+
+    # Format the response
+    response.text = json.dumps(
+        {
+            "data_points": [
+                {
+                    "metric_name": "latency",
+                    "dimensions": {"span_name": "chat", "status": "OK"},
+                    "values": {"AVG": 123.45, "COUNT": 10.0},
+                },
+                {
+                    "metric_name": "latency",
+                    "dimensions": {"span_name": "embeddings", "status": "OK"},
+                    "values": {"AVG": 50.0, "COUNT": 5.0},
+                },
+            ],
+            "next_page_token": "next_token",
+        }
+    )
+
+    # Parameters for query_trace_metrics
+    experiment_ids = ["1234", "5678"]
+    view_type = MetricViewType.SPANS
+    metric_name = "latency"
+    aggregations = [
+        MetricAggregation(AggregationType.AVG),
+        MetricAggregation(AggregationType.COUNT),
+    ]
+    dimensions = ["span_name", "status"]
+    filters = ["status = 'OK'"]
+    max_results = 100
+    page_token = "page_token_123"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        result = store.query_trace_metrics(
+            experiment_ids=experiment_ids,
+            view_type=view_type,
+            metric_name=metric_name,
+            aggregations=aggregations,
+            dimensions=dimensions,
+            filters=filters,
+            max_results=max_results,
+            page_token=page_token,
+        )
+
+        # Verify the correct endpoint was called
+        call_args = mock_http.call_args[1]
+        assert call_args["endpoint"] == f"{_V3_TRACE_REST_API_PATH_PREFIX}/metrics"
+
+        # Verify the correct parameters were passed
+        json_body = call_args["json"]
+        assert json_body["experiment_ids"] == experiment_ids
+        assert json_body["view_type"] == "SPANS"
+        assert json_body["metric_name"] == metric_name
+        assert json_body["max_results"] == max_results
+        assert json_body["dimensions"] == dimensions
+        assert json_body["filters"] == filters
+        assert json_body["page_token"] == page_token
+        assert len(json_body["aggregations"]) == 2
+
+    # Verify the correct data points were returned
+    assert len(result) == 2
+    assert isinstance(result[0], MetricDataPoint)
+    assert result[0].metric_name == "latency"
+    assert result[0].dimensions == {"span_name": "chat", "status": "OK"}
+    assert result[0].values == {"AVG": 123.45, "COUNT": 10.0}
+
+    assert result[1].metric_name == "latency"
+    assert result[1].dimensions == {"span_name": "embeddings", "status": "OK"}
+    assert result[1].values == {"AVG": 50.0, "COUNT": 5.0}
+
+    # Verify pagination token
+    assert result.token == "next_token"

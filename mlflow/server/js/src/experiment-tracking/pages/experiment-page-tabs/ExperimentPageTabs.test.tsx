@@ -210,7 +210,7 @@ describe('ExperimentLoggedModelListPage', () => {
 
     const modal = screen.getByRole('dialog');
 
-    await userEvent.click(within(modal).getByRole('radio', { name: 'GenAI apps & agents' }));
+    // GenAI apps & agents is selected by default, just click Confirm
     await userEvent.click(within(modal).getByRole('button', { name: 'Confirm' }));
 
     await waitFor(() => {

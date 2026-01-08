@@ -1,0 +1,40 @@
+import { RowSelectionState } from '@tanstack/react-table';
+import { createContext, SetStateAction, useContext, useState } from 'react';
+
+export const useGenAiTraceTableRowSelection = () => {
+  const context = useContext(GenAiTraceTableRowSelectionContext);
+
+  // In a regular use case, we use the local state to manage the row selection.
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+
+  // However, if context is provided, we use the context to manage the row selection.
+  if (context) {
+    return context;
+  }
+  return { rowSelection, setRowSelection };
+};
+
+const GenAiTraceTableRowSelectionContext = createContext<{
+  rowSelection: RowSelectionState;
+  setRowSelection: (rowSelection: SetStateAction<RowSelectionState>) => void;
+} | null>(null);
+
+/**
+ * Use this provider to manage selected rows across the table using a context.
+ * If not used, the consumers of `useGenAiTraceTableRowSelection()` will use the local state to manage the row selection.
+ */
+export const GenAiTraceTableRowSelectionProvider = ({
+  children,
+  rowSelection,
+  setRowSelection,
+}: {
+  children: React.ReactNode;
+  rowSelection: RowSelectionState;
+  setRowSelection: (rowSelection: SetStateAction<RowSelectionState>) => void;
+}) => {
+  return (
+    <GenAiTraceTableRowSelectionContext.Provider value={{ rowSelection, setRowSelection }}>
+      {children}
+    </GenAiTraceTableRowSelectionContext.Provider>
+  );
+};

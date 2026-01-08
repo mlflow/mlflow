@@ -26,6 +26,7 @@ from mlflow.genai.utils.prompts.available_tools_extraction import (
     get_available_tools_extraction_prompts,
 )
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import (
     AssessmentMetadataKey,
     SpanAttributeKey,
@@ -51,6 +52,7 @@ _MESSAGE_KEY = "message"
 _MESSAGES_KEY = "messages"
 _CHOICES_KEY = "choices"
 _CONTENT_KEY = "content"
+_OUTPUT_KEY = "output"
 
 
 def extract_request_from_trace(trace: Trace) -> str | None:
@@ -263,6 +265,47 @@ def parse_tool_call_messages_from_trace(trace: Trace) -> list[dict[str, str]]:
     return tool_messages
 
 
+def validate_session(session: list[Trace]) -> None:
+    """
+    Validate that all traces in session belong to the same session.
+
+    Args:
+        session: List of traces to validate.
+
+    Raises:
+        MlflowException: If traces are missing session_id or belong to different sessions.
+    """
+    session_id_to_trace_ids: dict[str, list[str]] = {}
+    for trace in session:
+        session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
+        if session_id is None:
+            raise MlflowException(
+                f"All traces in 'session' must have a session_id. "
+                f"Trace {trace.info.trace_id} is missing session_id. "
+                f"See https://mlflow.org/docs/latest/genai/tracing/track-users-sessions/ "
+                f"for information on how to set session_id on traces.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if session_id not in session_id_to_trace_ids:
+            session_id_to_trace_ids[session_id] = []
+        session_id_to_trace_ids[session_id].append(trace.info.trace_id)
+
+    if len(session_id_to_trace_ids) != 1:
+        session_details = "\n".join(
+            f"session_id '{sid}': trace_ids {trace_ids[:3]}"
+            + (
+                f" and {len(trace_ids) - 3} more trace{'s' if len(trace_ids) - 3 != 1 else ''}"
+                if len(trace_ids) > 3
+                else ""
+            )
+            for sid, trace_ids in session_id_to_trace_ids.items()
+        )
+        raise MlflowException.invalid_parameter_value(
+            f"All traces in 'session' must belong to the same session. "
+            f"Found {len(session_id_to_trace_ids)} different session(s):\n{session_details}"
+        )
+
+
 def resolve_conversation_from_session(
     session: list[Trace],
     *,
@@ -311,7 +354,7 @@ def resolve_conversation_from_session(
 def resolve_expectations_from_trace(
     expectations: dict[str, Any] | None,
     trace: Trace,
-    source: AssessmentSourceType = AssessmentSourceType.HUMAN,
+    source_type: AssessmentSourceType = AssessmentSourceType.HUMAN,
     *,
     extract_if_none: bool = True,
 ) -> dict[str, Any] | None:
@@ -321,7 +364,7 @@ def resolve_expectations_from_trace(
     Args:
         expectations: Dictionary of expected outcomes. If None, will be extracted from trace.
         trace: MLflow trace object containing the execution to evaluate.
-        source: Assessment source type to filter expectations by. Defaults to HUMAN.
+        source_type: Assessment source type to filter expectations by. Defaults to HUMAN.
         extract_if_none: If True, extract from trace when expectations is None. If False, only
                         return the provided expectations value. Defaults to True.
 
@@ -331,28 +374,71 @@ def resolve_expectations_from_trace(
     """
     if expectations is None and trace is not None and extract_if_none:
         try:
-            return extract_expectations_from_trace(trace, source=source)
+            return extract_expectations_from_trace(trace, source_type=source_type)
         except Exception as e:
             _logger.debug(f"Could not extract expectations from trace: {e}")
     return expectations
 
 
+def resolve_expectations_from_session(
+    expectations: dict[str, Any] | None,
+    session: list[Trace],
+    source_type: AssessmentSourceType = AssessmentSourceType.HUMAN,
+) -> dict[str, Any] | None:
+    """
+    Extract session-level expectations from the first trace in a session if not provided.
+
+    Args:
+        expectations: Dictionary of expected outcomes. If provided, this is returned as-is
+                     (ground truth). If None, will be extracted from session.
+        session: List of traces from the same session.
+        source_type: Assessment source type to filter expectations by. Defaults to HUMAN.
+
+    Returns:
+        The provided expectations if not None (ground truth), otherwise extracted
+        session-level expectations from the first trace, or None if extraction fails.
+    """
+    if expectations is None and session:
+        try:
+            sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
+            first_trace = sorted_traces[0]
+
+            expectation_assessments = first_trace.search_assessments(type="expectation")
+
+            expectation_assessments = [
+                exp
+                for exp in expectation_assessments
+                if exp.source
+                and exp.source.source_type == source_type
+                and exp.metadata
+                and TraceMetadataKey.TRACE_SESSION in exp.metadata
+            ]
+
+            return {exp.name: exp.expectation.value for exp in expectation_assessments} or None
+        except Exception as e:
+            _logger.debug(f"Could not extract expectations from session: {e}")
+    return expectations
+
+
 def extract_expectations_from_trace(
-    trace: Trace, source: str | None = None
+    trace: Trace,
+    source_type: str | None = None,
 ) -> dict[str, Any] | None:
     """
     Extract expectations from trace assessments.
 
     Args:
         trace: MLflow trace object
-        source: If specified, only extract expectations from the given source type.
-                Must be one of the valid AssessmentSourceType values
-                If None, extract all expectations regardless of source.
+        source_type: If specified, only extract expectations from the given source type.
+                     Must be one of the valid AssessmentSourceType values
+                     If None, extract all expectations regardless of source.
 
     Returns:
         Dictionary of expectations, or None if no expectations found
     """
-    validated_source = AssessmentSourceType._standardize(source) if source is not None else None
+    validated_source = (
+        AssessmentSourceType._standardize(source_type) if source_type is not None else None
+    )
 
     expectation_assessments = trace.search_assessments(type="expectation")
 
@@ -529,9 +615,37 @@ def parse_outputs_to_str(value: Any) -> str:
         content = value[_CHOICES_KEY][0][_MESSAGE_KEY][_CONTENT_KEY]
     elif _is_chat_messages(value.get(_MESSAGES_KEY)):
         content = value[_MESSAGES_KEY][-1][_CONTENT_KEY]
+    elif _is_responses_api_output(value.get(_OUTPUT_KEY)):
+        content = _extract_responses_api_content(value[_OUTPUT_KEY])
     else:
         content = json.dumps(value, cls=TraceJSONEncoder)
     return content
+
+
+def _is_responses_api_output(maybe_output: Any) -> bool:
+    """Check if the value is an OpenAI Responses API output format."""
+    if not maybe_output or not isinstance(maybe_output, list) or len(maybe_output) == 0:
+        return False
+    last_item = maybe_output[-1]
+    return (
+        isinstance(last_item, dict)
+        and last_item.get("type") == "message"
+        and "content" in last_item
+    )
+
+
+def _extract_responses_api_content(output: list[dict[str, Any]]) -> str:
+    """Extract text content from OpenAI Responses API output format."""
+    for item in reversed(output):
+        if item.get("role") == "assistant" and "content" in item:
+            content = item["content"]
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                for part in content:
+                    if isinstance(part, dict) and part.get("type") in ("text", "output_text"):
+                        return part.get("text", json.dumps(output))
+    return json.dumps(output)
 
 
 def _is_chat_choices(maybe_choices: Any) -> bool:

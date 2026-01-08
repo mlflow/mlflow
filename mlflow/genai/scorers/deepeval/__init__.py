@@ -28,7 +28,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.deepeval.models import create_deepeval_model
 from mlflow.genai.scorers.deepeval.registry import (
     get_metric_class,
@@ -89,6 +89,35 @@ class DeepEvalScorer(Scorer):
                 async_mode=False,
                 **metric_kwargs,
             )
+
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.THIRD_PARTY
+
+    def _raise_registration_not_supported(self, method_name: str):
+        raise MlflowException.invalid_parameter_value(
+            f"'{method_name}()' is not supported for third-party scorers like DeepEval. "
+            f"Third-party scorers cannot be registered, started, updated, or stopped. "
+            f"Use them directly in mlflow.genai.evaluate() instead."
+        )
+
+    def register(self, **kwargs):
+        self._raise_registration_not_supported("register")
+
+    def start(self, **kwargs):
+        self._raise_registration_not_supported("start")
+
+    def update(self, **kwargs):
+        self._raise_registration_not_supported("update")
+
+    def stop(self, **kwargs):
+        self._raise_registration_not_supported("stop")
+
+    def align(self, **kwargs):
+        raise MlflowException.invalid_parameter_value(
+            "'align()' is not supported for third-party scorers like DeepEval. "
+            "Alignment is only available for MLflow's built-in judges."
+        )
 
     @property
     def is_session_level_scorer(self) -> bool:
