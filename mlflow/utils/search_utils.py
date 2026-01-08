@@ -126,7 +126,7 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
             )
             continue
 
-        # IS NOT NULL (for trace metadata) - "NOT NULL" may be parsed as single token
+        # IS NOT NULL (for trace metadata)
         if (
             search_traces
             and isinstance(first, Identifier)
@@ -140,20 +140,6 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
             continue
 
         (_, fourth) = next(iterator, (None, None))
-
-        # IS NOT NULL (for trace metadata) - "NOT" and "NULL" as separate tokens
-        if (
-            search_traces
-            and isinstance(first, Identifier)
-            and second.match(ttype=TokenType.Keyword, values=["IS"])
-            and third.match(ttype=TokenType.Keyword, values=["NOT"])
-            and fourth is not None
-            and fourth.match(ttype=TokenType.Keyword, values=["NULL"])
-        ):
-            joined_tokens.append(
-                Comparison(TokenList([first, Token(TokenType.Keyword, "IS NOT NULL")]))
-            )
-            continue
         if fourth is None:
             joined_tokens.extend([first, second, third])
             break
