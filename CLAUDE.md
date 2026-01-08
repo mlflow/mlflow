@@ -4,6 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **For contribution guidelines, code standards, and additional development information not covered here, please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).**
 
+## Knowledge Cutoff Note
+
+Claude's training data has a knowledge cutoff that may lag behind the current date. When reviewing documentation or code that references AI models, be aware that newer models may exist beyond the cutoff. Do not flag model names as "speculative" or "non-existent". Trust the documentation authors' knowledge of current model availability.
+
+Example: If documentation references "GPT-5" or "Claude 4.5", do not suggest changing these to older model names just because they are unfamiliar.
+
 ## Code Style Principles
 
 - Use top-level imports (only use lazy imports when necessary)
@@ -38,6 +44,14 @@ tail -f /tmp/mlflow-dev-server.log
 ```
 
 This uses `uv` (fast Python package manager) to automatically manage dependencies and run the development environment.
+
+## Debugging
+
+For debugging errors, enable debug logging (must be set before importing mlflow):
+
+```bash
+export MLFLOW_LOGGING_LEVEL=DEBUG
+```
 
 ### Start Development Server with Databricks Backend
 
@@ -145,41 +159,29 @@ cd docs && npm run serve --port 8080
 
 See `mlflow/server/js/` for frontend development.
 
-## Language-Specific Style Guides
-
-- [Python](/dev/guides/python.md)
-
 ## Git Workflow
 
 ### Committing Changes
 
-**IMPORTANT**: Before committing, run pre-commit hooks to ensure code quality. See the [Pre-commit Hooks](#pre-commit-hooks) section for setup and usage details.
+When committing changes:
+
+- DCO sign-off: All commits MUST use the `-s` flag (otherwise CI will reject them)
+- Co-Authored-By trailer: Include when Claude Code authors or co-authors changes
+- Pre-commit hooks: Run before committing (see [Pre-commit Hooks](#pre-commit-hooks))
 
 ```bash
-# Commit with DCO sign-off
-git commit -s -m "Your commit message"
+# Commit with required DCO sign-off
+git commit -s -m "Your commit message
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
 
 # Push your changes
 git push origin <your-branch>
 ```
 
-**IMPORTANT**: You MUST sign all commits with DCO (Developer Certificate of Origin). Always use the `-s` flag. When Claude Code authors or co-authors changes, include the Co-Authored-By trailer:
-
-```bash
-# REQUIRED: Always use -s flag and include Co-Authored-By when Claude helped
-git commit -s -m "Your commit message
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
-
-# This will NOT work - missing -s flag
-# git commit -m "Your commit message"  ❌
-```
-
-Commits without DCO sign-off will be rejected by CI.
-
 ### Creating Pull Requests
 
-Follow [the PR template](./.github/pull_request_template.md) when creating pull requests. Remove any unused checkboxes from the template to keep your PR clean and focused.
+When creating pull requests, read the instructions at the top of [the PR template](./.github/pull_request_template.md) and follow them carefully.
 
 ### Checking CI Status
 

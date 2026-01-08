@@ -2,6 +2,7 @@ import { Global } from '@emotion/react';
 import { clamp } from 'lodash';
 import React, { forwardRef, useCallback, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { ResizableBox } from 'react-resizable';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
 
@@ -15,6 +16,7 @@ interface ModelTraceExplorerResizablePaneProps {
   leftMinWidth: number;
   rightChild: React.ReactNode;
   rightMinWidth: number;
+  onRatioChange?: (ratio: number) => void;
 }
 
 export interface ModelTraceExplorerResizablePaneRef {
@@ -33,7 +35,10 @@ export interface ModelTraceExplorerResizablePaneRef {
 const ModelTraceExplorerResizablePane = forwardRef<
   ModelTraceExplorerResizablePaneRef,
   ModelTraceExplorerResizablePaneProps
->(({ initialRatio, paneWidth, setPaneWidth, leftChild, leftMinWidth, rightChild, rightMinWidth }, ref) => {
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
+>((props, ref) => {
+  const { initialRatio, paneWidth, setPaneWidth, leftChild, leftMinWidth, rightChild, rightMinWidth, onRatioChange } =
+    props;
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const containerWidth = useResizeObserver({ ref: containerRef })?.width;
@@ -53,6 +58,8 @@ const ModelTraceExplorerResizablePane = forwardRef<
     },
     [containerWidth],
   );
+
+  const onRatioChangeDebounced = useDebouncedCallback(onRatioChange ?? (() => {}), 200);
 
   const getContainerWidth = useCallback(() => containerWidth, [containerWidth]);
 
@@ -114,6 +121,7 @@ const ModelTraceExplorerResizablePane = forwardRef<
           setPaneWidth(clampedSize);
           if (containerWidth) {
             ratio.current = clampedSize / containerWidth;
+            onRatioChangeDebounced(ratio.current);
           }
         }}
         onResizeStart={() => setIsResizing(true)}

@@ -14,7 +14,7 @@ import {
   useChartXAxisProps,
   useChartLegendFormatter,
 } from './OverviewChartComponents';
-import { formatTokenCount, useLegendHighlight } from '../utils/chartUtils';
+import { formatCount, useLegendHighlight } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
 
 export const TraceTokenStatsChart: React.FC<OverviewChartProps> = (props) => {
@@ -47,7 +47,7 @@ export const TraceTokenStatsChart: React.FC<OverviewChartProps> = (props) => {
       <OverviewChartHeader
         icon={<BarChartIcon />}
         title={<FormattedMessage defaultMessage="Tokens per Trace" description="Title for the token stats chart" />}
-        value={avgTokens !== undefined ? formatTokenCount(Math.round(avgTokens)) : undefined}
+        value={avgTokens !== undefined ? formatCount(Math.round(avgTokens)) : undefined}
         subtitle={
           avgTokens !== undefined ? (
             <FormattedMessage defaultMessage="avg per trace" description="Subtitle for average tokens per trace" />
@@ -67,7 +67,7 @@ export const TraceTokenStatsChart: React.FC<OverviewChartProps> = (props) => {
               <Tooltip
                 contentStyle={tooltipStyle}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatTokenCount(value), name]}
+                formatter={(value: number, name: string) => [formatCount(value), name]}
               />
               <Line
                 type="monotone"
@@ -102,7 +102,7 @@ export const TraceTokenStatsChart: React.FC<OverviewChartProps> = (props) => {
                   stroke={theme.colors.textSecondary}
                   strokeDasharray="4 4"
                   label={{
-                    value: `AVG (${formatTokenCount(Math.round(avgTokens))})`,
+                    value: `AVG (${formatCount(Math.round(avgTokens))})`,
                     position: 'insideTopRight',
                     fill: theme.colors.textSecondary,
                     fontSize: 10,

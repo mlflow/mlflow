@@ -400,6 +400,18 @@ class TracesReceivedByServerEvent(Event):
     name: str = "traces_received_by_server"
 
 
+class SimulateConversationEvent(Event):
+    name: str = "simulate_conversation"
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any] | None:
+        return {
+            "simulated_conversation_info": [
+                {"turn_count": len(conversation)} for conversation in result
+            ]
+        }
+
+
 class ScorerCallEvent(Event):
     name: str = "scorer_call"
 
