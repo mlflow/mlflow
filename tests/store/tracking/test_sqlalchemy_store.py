@@ -10860,7 +10860,7 @@ def test_upsert_online_scoring_config_validates_filter_string(store: SqlAlchemyS
     )
     assert config.filter_string == "status = 'OK'"
 
-    with pytest.raises(MlflowException, match="Invalid filter"):
+    with pytest.raises(MlflowException, match="Invalid clause"):
         store.upsert_online_scoring_config(
             experiment_id=experiment_id,
             scorer_name="test_scorer",
@@ -10918,11 +10918,13 @@ def test_get_active_online_scorers_filters_by_sample_rate(store: SqlAlchemyStore
     active_scorers = store.get_active_online_scorers()
     # Filter to only scorers we created in this test using name and experiment_id
     test_scorers = [
-        s for s in active_scorers if s.name == "active" and s.experiment_id == experiment_id
+        s
+        for s in active_scorers
+        if s.name == "active" and s.online_config.experiment_id == experiment_id
     ]
 
     assert len(test_scorers) == 1
-    assert test_scorers[0].sample_rate == 0.1
+    assert test_scorers[0].online_config.sample_rate == 0.1
 
 
 def test_get_active_online_scorers_returns_scorer_fields(store: SqlAlchemyStore):
@@ -10940,13 +10942,15 @@ def test_get_active_online_scorers_returns_scorer_fields(store: SqlAlchemyStore)
 
     active_scorers = store.get_active_online_scorers()
     active_scorer = next(
-        s for s in active_scorers if s.name == "scorer" and s.experiment_id == experiment_id
+        s
+        for s in active_scorers
+        if s.name == "scorer" and s.online_config.experiment_id == experiment_id
     )
 
     assert active_scorer.name == "scorer"
-    assert active_scorer.experiment_id == experiment_id
-    assert active_scorer.sample_rate == 0.5
-    assert active_scorer.filter_string == "status = 'OK'"
+    assert active_scorer.online_config.experiment_id == experiment_id
+    assert active_scorer.online_config.sample_rate == 0.5
+    assert active_scorer.online_config.filter_string == "status = 'OK'"
 
 
 def test_get_active_online_scorers_filters_non_gateway_model(store: SqlAlchemyStore):
@@ -10966,7 +10970,9 @@ def test_get_active_online_scorers_filters_non_gateway_model(store: SqlAlchemySt
     # Verify scorer is returned initially (max version uses gateway model)
     active_scorers = store.get_active_online_scorers()
     test_scorers = [
-        s for s in active_scorers if s.name == "scorer" and s.experiment_id == experiment_id
+        s
+        for s in active_scorers
+        if s.name == "scorer" and s.online_config.experiment_id == experiment_id
     ]
     assert len(test_scorers) == 1
 
@@ -10976,7 +10982,9 @@ def test_get_active_online_scorers_filters_non_gateway_model(store: SqlAlchemySt
     # Verify scorer is NOT returned now (max version uses non-gateway model)
     active_scorers = store.get_active_online_scorers()
     test_scorers = [
-        s for s in active_scorers if s.name == "scorer" and s.experiment_id == experiment_id
+        s
+        for s in active_scorers
+        if s.name == "scorer" and s.online_config.experiment_id == experiment_id
     ]
     assert len(test_scorers) == 0
 

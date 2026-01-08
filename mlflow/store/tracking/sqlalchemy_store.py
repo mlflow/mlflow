@@ -2618,9 +2618,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         if is_gateway_model(model):
             endpoint_id = extract_endpoint_ref(model)
-            if endpoint := self.get_gateway_endpoint(endpoint_id):
+            try:
+                endpoint = self.get_gateway_endpoint(endpoint_id)
                 new_model = build_gateway_model(endpoint.name)
                 serialized_data = update_model_in_serialized_scorer(serialized_data, new_model)
+            except MlflowException:
+                # Endpoint not found - keep original serialized scorer
+                pass
 
         return json.dumps(serialized_data)
 
