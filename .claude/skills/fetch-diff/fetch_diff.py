@@ -2,7 +2,8 @@
 Fetch PR diff with filtering and line numbers.
 
 Filters out auto-generated and non-reviewable files, then adds line numbers
-for easier review comment placement.
+for easier review comment placement. Supports stacked PRs by detecting the
+"Stacked PR" section and fetching only incremental changes.
 
 Example:
     uv run .claude/skills/fetch-diff/fetch_diff.py https://github.com/<owner>/<repo>/pull/<number>
@@ -10,11 +11,13 @@ Example:
 # ruff: noqa: T201
 
 import argparse
+import json
 import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -47,7 +50,57 @@ def github_api_request(
         raise RuntimeError(f"GitHub API error: {e.code} {e.reason} {body}") from e
 
 
+def get_pr(owner: str, repo: str, pull_number: int, token: str) -> dict[str, Any]:
+    url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}"
+    response = github_api_request(url, token)
+    return json.loads(response)
+
+
+def extract_stacked_pr_base_sha(pr_body: str | None, head_ref: str) -> str | None:
+    """Extract the base SHA from the stacked PR incremental diff link.
+
+    In stacked PR descriptions, the current PR is marked with bold (double
+    asterisks). Example stack tree::
+
+        ## Stacked PR
+        - [branch_a](url) [Files changed](url)
+          - [**branch_b**](url) [Files changed](url/files/abc123..def456)
+            - [branch_c](url) [Files changed](url/files/def456..789ghi)
+
+    We find the bold entry matching the branch name and extract the base SHA
+    from ``/files/<base>..<head>``.
+    """  # clint: disable=markdown-link
+    if not pr_body or "Stacked PR" not in pr_body:
+        return None
+
+    # Find the line with bold branch name [**<branch>**], then extract /files/<base>..<head>
+    marker = f"[**{head_ref}**]"
+    for line in pr_body.split("\n"):
+        if marker in line:
+            if m := re.search(r"/files/(?P<base>[a-f0-9]{7,40})\.\.(?P<head>[a-f0-9]{7,40})", line):
+                return m.group("base")
+
+    return None
+
+
+def fetch_compare_diff(owner: str, repo: str, base: str, head: str, token: str) -> str:
+    url = f"https://api.github.com/repos/{owner}/{repo}/compare/{base}...{head}"
+    return github_api_request(url, token, accept_header="application/vnd.github.v3.diff")
+
+
 def fetch_pr_diff(owner: str, repo: str, pull_number: int, token: str) -> str:
+    pr = get_pr(owner, repo, pull_number, token)
+    head_sha = pr["head"]["sha"]
+    head_ref = pr["head"]["ref"]
+    if base_sha := extract_stacked_pr_base_sha(pr.get("body"), head_ref):
+        # Stacked PR: fetch incremental diff from parent's head to current head
+        print(
+            f"Detected stacked PR, fetching incremental diff: {base_sha[:7]}..{head_sha[:7]}",
+            file=sys.stderr,
+        )
+        return fetch_compare_diff(owner, repo, base_sha, head_sha, token)
+
+    # Regular PR: fetch full diff
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}"
     return github_api_request(url, token, accept_header="application/vnd.github.v3.diff")
 
