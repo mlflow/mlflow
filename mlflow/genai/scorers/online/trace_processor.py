@@ -186,7 +186,11 @@ class OnlineTraceScoringProcessor:
                         tasks[trace_id] = TraceScoringTask(
                             trace=None, scorers=[], timestamp_ms=trace_info.timestamp_ms
                         )
-                    tasks[trace_id].scorers.extend(selected)
+                    # Add scorers, avoiding duplicates (same scorer from different filters)
+                    existing_scorer_names = {s.name for s in tasks[trace_id].scorers}
+                    tasks[trace_id].scorers.extend(
+                        s for s in selected if s.name not in existing_scorer_names
+                    )
 
         # Sort tasks by timestamp (ascending) to ensure chronological processing
         # and truncate to MAX_TRACES_PER_JOB (list slicing handles len < MAX).
