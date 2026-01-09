@@ -15,7 +15,7 @@ def create_mock_evaluation_dataset(inputs: list[dict[str, object]]) -> Mock:
 
 
 def test_simulated_user_agent_generate_initial_message():
-    with patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Hello, I have a question about ML."
 
         agent = SimulatedUserAgent(
@@ -37,7 +37,7 @@ def test_simulated_user_agent_generate_initial_message():
 
 
 def test_simulated_user_agent_generate_followup_message():
-    with patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Can you tell me more?"
 
         agent = SimulatedUserAgent(
@@ -62,7 +62,7 @@ def test_simulated_user_agent_generate_followup_message():
 
 
 def test_simulated_user_agent_default_persona():
-    with patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Test message"
 
         agent = SimulatedUserAgent(
@@ -82,7 +82,7 @@ def test_simulated_user_agent_default_persona():
 
 def test_conversation_simulator_basic_simulation(simple_test_case, mock_predict_fn):
     with (
-        patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke,
+        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace") as mock_update_current_trace,
@@ -114,7 +114,7 @@ def test_conversation_simulator_basic_simulation(simple_test_case, mock_predict_
 
 def test_conversation_simulator_max_turns_stopping(simple_test_case, mock_predict_fn):
     with (
-        patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke,
+        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
@@ -145,7 +145,7 @@ def test_conversation_simulator_max_turns_stopping(simple_test_case, mock_predic
 
 def test_conversation_simulator_empty_response_stopping(simple_test_case):
     with (
-        patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke,
+        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
@@ -181,7 +181,7 @@ def test_conversation_simulator_empty_response_stopping(simple_test_case):
 
 def test_conversation_simulator_goal_achieved_stopping(simple_test_case, mock_predict_fn):
     with (
-        patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke,
+        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
@@ -213,7 +213,7 @@ def test_conversation_simulator_goal_achieved_stopping(simple_test_case, mock_pr
 
 def test_conversation_simulator_context_passing(test_case_with_context):
     with (
-        patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke,
+        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
@@ -258,7 +258,7 @@ def test_conversation_simulator_multiple_test_cases(
     simple_test_case, test_case_with_persona, mock_predict_fn
 ):
     with (
-        patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke,
+        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
