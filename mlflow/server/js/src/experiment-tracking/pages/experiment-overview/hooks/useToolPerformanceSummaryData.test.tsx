@@ -11,6 +11,7 @@ import {
 import type { ReactNode } from 'react';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create a count data point (grouped by tool name and status)
 const createCountDataPoint = (toolName: string, status: string, count: number) => ({
@@ -35,11 +36,20 @@ describe('useToolPerformanceSummaryData', () => {
   const testExperimentId = 'test-experiment-123';
   const startTimeMs = new Date('2025-12-22T10:00:00Z').getTime();
   const endTimeMs = new Date('2025-12-22T12:00:00Z').getTime();
+  const timeIntervalSeconds = 3600; // 1 hour
 
-  const defaultProps = {
+  const timeBuckets = [
+    new Date('2025-12-22T10:00:00Z').getTime(),
+    new Date('2025-12-22T11:00:00Z').getTime(),
+    new Date('2025-12-22T12:00:00Z').getTime(),
+  ];
+
+  const contextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
+    timeIntervalSeconds,
+    timeBuckets,
   };
 
   const server = setupServer();
@@ -56,7 +66,9 @@ describe('useToolPerformanceSummaryData', () => {
   const createWrapper = () => {
     const queryClient = createQueryClient();
     return ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <OverviewChartProvider {...contextProps}>{children}</OverviewChartProvider>
+      </QueryClientProvider>
     );
   };
 
@@ -90,7 +102,7 @@ describe('useToolPerformanceSummaryData', () => {
         }),
       );
 
-      const { result } = renderHook(() => useToolPerformanceSummaryData(defaultProps), {
+      const { result } = renderHook(() => useToolPerformanceSummaryData(), {
         wrapper: createWrapper(),
       });
 
@@ -107,7 +119,7 @@ describe('useToolPerformanceSummaryData', () => {
         }),
       );
 
-      const { result } = renderHook(() => useToolPerformanceSummaryData(defaultProps), {
+      const { result } = renderHook(() => useToolPerformanceSummaryData(), {
         wrapper: createWrapper(),
       });
 
@@ -121,7 +133,7 @@ describe('useToolPerformanceSummaryData', () => {
     it('should return hasData false when no data points', async () => {
       // Default handler returns empty array
 
-      const { result } = renderHook(() => useToolPerformanceSummaryData(defaultProps), {
+      const { result } = renderHook(() => useToolPerformanceSummaryData(), {
         wrapper: createWrapper(),
       });
 
@@ -141,7 +153,7 @@ describe('useToolPerformanceSummaryData', () => {
         [createLatencyDataPoint('tool_a', 150)],
       );
 
-      const { result } = renderHook(() => useToolPerformanceSummaryData(defaultProps), {
+      const { result } = renderHook(() => useToolPerformanceSummaryData(), {
         wrapper: createWrapper(),
       });
 
@@ -162,7 +174,7 @@ describe('useToolPerformanceSummaryData', () => {
         [createLatencyDataPoint('tool_a', 200)],
       );
 
-      const { result } = renderHook(() => useToolPerformanceSummaryData(defaultProps), {
+      const { result } = renderHook(() => useToolPerformanceSummaryData(), {
         wrapper: createWrapper(),
       });
 
@@ -179,7 +191,7 @@ describe('useToolPerformanceSummaryData', () => {
         [createLatencyDataPoint('tool_a', 100)],
       );
 
-      const { result } = renderHook(() => useToolPerformanceSummaryData(defaultProps), {
+      const { result } = renderHook(() => useToolPerformanceSummaryData(), {
         wrapper: createWrapper(),
       });
 
@@ -205,7 +217,7 @@ describe('useToolPerformanceSummaryData', () => {
         ],
       );
 
-      const { result } = renderHook(() => useToolPerformanceSummaryData(defaultProps), {
+      const { result } = renderHook(() => useToolPerformanceSummaryData(), {
         wrapper: createWrapper(),
       });
 
@@ -230,7 +242,7 @@ describe('useToolPerformanceSummaryData', () => {
         [createLatencyDataPoint('tool_a', 100), createLatencyDataPoint('tool_b', 200)],
       );
 
-      const { result } = renderHook(() => useToolPerformanceSummaryData(defaultProps), {
+      const { result } = renderHook(() => useToolPerformanceSummaryData(), {
         wrapper: createWrapper(),
       });
 
@@ -254,7 +266,7 @@ describe('useToolPerformanceSummaryData', () => {
         [], // No latency data
       );
 
-      const { result } = renderHook(() => useToolPerformanceSummaryData(defaultProps), {
+      const { result } = renderHook(() => useToolPerformanceSummaryData(), {
         wrapper: createWrapper(),
       });
 
@@ -271,7 +283,7 @@ describe('useToolPerformanceSummaryData', () => {
         [createLatencyDataPoint('tool_a', 50)],
       );
 
-      const { result } = renderHook(() => useToolPerformanceSummaryData(defaultProps), {
+      const { result } = renderHook(() => useToolPerformanceSummaryData(), {
         wrapper: createWrapper(),
       });
 
@@ -294,7 +306,7 @@ describe('useToolPerformanceSummaryData', () => {
         }),
       );
 
-      renderHook(() => useToolPerformanceSummaryData(defaultProps), {
+      renderHook(() => useToolPerformanceSummaryData(), {
         wrapper: createWrapper(),
       });
 
@@ -317,7 +329,7 @@ describe('useToolPerformanceSummaryData', () => {
         }),
       );
 
-      renderHook(() => useToolPerformanceSummaryData(defaultProps), {
+      renderHook(() => useToolPerformanceSummaryData(), {
         wrapper: createWrapper(),
       });
 
@@ -339,7 +351,7 @@ describe('useToolPerformanceSummaryData', () => {
         }),
       );
 
-      renderHook(() => useToolPerformanceSummaryData(defaultProps), {
+      renderHook(() => useToolPerformanceSummaryData(), {
         wrapper: createWrapper(),
       });
 
@@ -363,7 +375,7 @@ describe('useToolPerformanceSummaryData', () => {
         }),
       );
 
-      renderHook(() => useToolPerformanceSummaryData(defaultProps), {
+      renderHook(() => useToolPerformanceSummaryData(), {
         wrapper: createWrapper(),
       });
 

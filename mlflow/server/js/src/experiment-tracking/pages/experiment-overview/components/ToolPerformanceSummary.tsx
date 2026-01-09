@@ -10,26 +10,17 @@ import {
   OverviewChartContainer,
 } from './OverviewChartComponents';
 import { formatCount, formatLatency, useToolColors } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
 
 /**
  * Tool Performance Summary component displaying per-tool metrics in a table-like view.
  * Shows tool name, call count, success rate, and average latency for each tool.
  */
-export const ToolPerformanceSummary: React.FC<Omit<OverviewChartProps, 'timeIntervalSeconds' | 'timeBuckets'>> = ({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-}) => {
+export const ToolPerformanceSummary: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const { getToolColor } = useToolColors();
 
   // Fetch tool performance data
-  const { toolsData, isLoading, error, hasData } = useToolPerformanceSummaryData({
-    experimentId,
-    startTimeMs,
-    endTimeMs,
-  });
+  const { toolsData, isLoading, error, hasData } = useToolPerformanceSummaryData();
 
   if (isLoading) {
     return <OverviewChartLoadingState />;

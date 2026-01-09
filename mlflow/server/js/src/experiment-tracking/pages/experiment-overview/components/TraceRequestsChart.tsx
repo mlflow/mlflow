@@ -13,15 +13,14 @@ import {
   useChartTooltipStyle,
   useChartXAxisProps,
 } from './OverviewChartComponents';
-import type { OverviewChartProps } from '../types';
 
-export const TraceRequestsChart: React.FC<OverviewChartProps> = (props) => {
+export const TraceRequestsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
 
   // Fetch and process requests chart data
-  const { chartData, totalRequests, avgRequests, isLoading, error, hasData } = useTraceRequestsChartData(props);
+  const { chartData, totalRequests, avgRequests, isLoading, error, hasData } = useTraceRequestsChartData();
 
   if (isLoading) {
     return <OverviewChartLoadingState />;

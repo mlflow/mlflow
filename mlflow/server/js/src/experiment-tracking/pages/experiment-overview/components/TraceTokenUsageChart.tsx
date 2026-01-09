@@ -15,9 +15,8 @@ import {
   useChartLegendFormatter,
 } from './OverviewChartComponents';
 import { formatCount, useLegendHighlight } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
 
-export const TraceTokenUsageChart: React.FC<OverviewChartProps> = (props) => {
+export const TraceTokenUsageChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
@@ -26,7 +25,7 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = (props) => {
 
   // Fetch and process token usage chart data
   const { chartData, totalTokens, totalInputTokens, totalOutputTokens, isLoading, error, hasData } =
-    useTraceTokenUsageChartData(props);
+    useTraceTokenUsageChartData();
 
   // Area colors
   const areaColors = {

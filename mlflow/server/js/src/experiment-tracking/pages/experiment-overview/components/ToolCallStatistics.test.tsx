@@ -14,6 +14,7 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create a count data point grouped by status
 const createCountByStatusDataPoint = (status: string, count: number) => ({
@@ -34,10 +35,15 @@ describe('ToolCallStatistics', () => {
   const startTimeMs = new Date('2025-12-22T10:00:00Z').getTime();
   const endTimeMs = new Date('2025-12-22T12:00:00Z').getTime();
 
-  const defaultProps = {
+  const timeIntervalSeconds = 3600;
+  const timeBuckets = [startTimeMs, startTimeMs + 3600000, endTimeMs];
+
+  const contextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
+    timeIntervalSeconds,
+    timeBuckets,
   };
 
   const server = setupServer();
@@ -51,12 +57,14 @@ describe('ToolCallStatistics', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = () => {
     const queryClient = createQueryClient();
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <ToolCallStatistics {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <ToolCallStatistics />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );

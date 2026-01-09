@@ -13,6 +13,7 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create an assessment value data point (for time series)
 const createAssessmentDataPoint = (timeBucket: string, avgValue: number) => ({
@@ -43,13 +44,17 @@ describe('TraceAssessmentChart', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  // Default props reused across tests
-  const defaultProps = {
+  // Context props reused across tests
+  const defaultContextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
     timeBuckets,
+  };
+
+  // Default component props
+  const defaultProps = {
     assessmentName: testAssessmentName,
   };
 
@@ -64,12 +69,20 @@ describe('TraceAssessmentChart', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps & { lineColor?: string; avgValue?: number }> = {}) => {
+  const renderComponent = (
+    props: Partial<typeof defaultProps & { lineColor?: string; avgValue?: number }> &
+      Partial<typeof defaultContextProps> = {},
+  ) => {
+    const { timeIntervalSeconds: ti, ...componentProps } = props;
+    const contextOverrides = ti !== undefined ? { timeIntervalSeconds: ti } : {};
+    const contextProps = { ...defaultContextProps, ...contextOverrides };
     const queryClient = createQueryClient();
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <TraceAssessmentChart {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <TraceAssessmentChart {...defaultProps} {...componentProps} />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );

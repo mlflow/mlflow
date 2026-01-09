@@ -2,7 +2,7 @@ import { useMemo, useCallback } from 'react';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface RequestsChartDataPoint {
   name: string;
@@ -27,17 +27,12 @@ export interface UseTraceRequestsChartDataResult {
 /**
  * Custom hook that fetches and processes requests chart data.
  * Encapsulates all data-fetching and processing logic for the requests chart.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId, time range, and buckets
  * @returns Processed chart data, loading state, and error state
  */
-export function useTraceRequestsChartData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-}: OverviewChartProps): UseTraceRequestsChartDataResult {
+export function useTraceRequestsChartData(): UseTraceRequestsChartDataResult {
+  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Fetch trace count metrics grouped by time bucket
   const {
     data: traceCountData,

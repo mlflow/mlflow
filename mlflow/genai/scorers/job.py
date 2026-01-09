@@ -5,7 +5,6 @@ This module provides the job function for invoking scorers on traces asynchronou
 It reuses the core scoring and logging logic from the evaluation harness for consistency.
 """
 
-import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -77,8 +76,7 @@ def invoke_scorer_job(
     from mlflow.server.handlers import _get_tracking_store
 
     # Deserialize scorer
-    scorer_dict = json.loads(serialized_scorer)
-    scorer = Scorer.model_validate(scorer_dict)
+    scorer = Scorer.model_validate_json(serialized_scorer)
 
     tracking_store = _get_tracking_store()
 
