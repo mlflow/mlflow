@@ -288,7 +288,14 @@ def test_execute_scoring_handles_failures(
         processor.process_traces()
 
         assert mock_compute.call_count == 2
-        assert mock_log.call_count == 1
+        # Now we log error assessments for failures + successful assessments
+        assert mock_log.call_count == 2
+
+        # Verify error assessments were logged for the failed trace
+        error_log_call = mock_log.call_args_list[0]
+        error_assessments = error_log_call[1]["assessments"]
+        assert len(error_assessments) == 1  # One error per scorer
+        assert error_assessments[0].error is not None
 
     mock_checkpoint_manager.persist_checkpoint.assert_called_once()
 
