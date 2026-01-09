@@ -1296,7 +1296,6 @@ async def test_chat_with_nested_structured_output():
 
 @pytest.mark.asyncio
 async def test_chat_with_complex_schema_defs_and_refs():
-    """Test that complex JSON schemas with $defs and $ref are properly converted."""
     config = {
         "name": "chat",
         "endpoint_type": "llm/v1/chat",
