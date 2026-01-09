@@ -2567,11 +2567,11 @@ def import_checkpoints(
 
         # '?', '%', ':' are not allowed in logged model name
         # Quotes in model name makes SQL filter hard to handle, so disable it too.
-        for special_char in ["?", "%", ":", "'", '"']:
+        for special_char in ["?", "%", ":", ".", "'", '"']:
             if special_char in model_name:
                 raise MlflowException.invalid_parameter_value(
                     f"The model name can't include the following special character: "
-                    f"`?`, `%`, ':', `'`, `\"`, but got model name '{model_name}'.",
+                    f"`?`, `%`, ':', '.', `'` and `\"`, but got model name '{model_name}'.",
                 )
 
         existing_models = [
