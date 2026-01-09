@@ -49,9 +49,11 @@ class OnlineTraceCheckpointManager:
             experiment = self._tracking_store.get_experiment(self._experiment_id)
             if checkpoint_str := experiment.tags.get(MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT):
                 return OnlineTraceScoringCheckpoint.from_json(checkpoint_str)
-        except (TypeError, ValueError, json.JSONDecodeError):
-            pass
-        return None
+        except (TypeError, ValueError, json.JSONDecodeError) as e:
+            _logger.debug(
+                f"Failed to parse checkpoint for experiment {self._experiment_id}: {e}",
+                exc_info=True,
+            )
 
     def persist_checkpoint(self, checkpoint: OnlineTraceScoringCheckpoint) -> None:
         """
