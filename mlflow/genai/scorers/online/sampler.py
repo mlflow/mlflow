@@ -27,9 +27,12 @@ class OnlineScorerSampler:
         self._sample_rates: dict[str, float] = {}
         self._scorers: dict[str, Scorer] = {}
         for online_scorer in online_scorers:
-            scorer = Scorer.model_validate_json(online_scorer.serialized_scorer)
-            self._sample_rates[scorer.name] = online_scorer.online_config.sample_rate
-            self._scorers[scorer.name] = scorer
+            try:
+                scorer = Scorer.model_validate_json(online_scorer.serialized_scorer)
+                self._sample_rates[scorer.name] = online_scorer.online_config.sample_rate
+                self._scorers[scorer.name] = scorer
+            except Exception as e:
+                _logger.info(f"Skipping scorer '{online_scorer.name}': {e}")
 
     def group_scorers_by_filter(self, session_level: bool) -> dict[str | None, list[Scorer]]:
         """
