@@ -65,12 +65,12 @@ def map_scorer_inputs_to_ragas_sample(
     )
 
 
-def create_mlflow_error_message_from_ragas_param(ragas_param: str, metric_name: str) -> str:
+def create_mlflow_error_message_from_ragas_param(error_msg: str, metric_name: str) -> str:
     """
     Create an mlflow error message for missing RAGAS parameters.
 
     Args:
-        ragas_param: The RAGAS parameter name that is missing
+        error_msg: The error message from RAGAS
         metric_name: The name of the RAGAS metric
 
     Returns:
@@ -79,12 +79,21 @@ def create_mlflow_error_message_from_ragas_param(ragas_param: str, metric_name: 
     ragas_to_mlflow_param_mapping = {
         "user_input": "inputs",
         "response": "outputs",
+        "reference_contexts": "trace with retrieval spans",
         "reference": "expectations['expected_output']",
         "retrieved_contexts": "trace with retrieval spans",
-        "reference_contexts": "trace with retrieval spans",
         "rubrics": "expectations['rubrics']",
     }
-    mlflow_param = ragas_to_mlflow_param_mapping.get(ragas_param, ragas_param)
+    mlflow_param = error_msg
+    for (
+        ragas_param,
+        corresponding_mlflow_param,
+    ) in ragas_to_mlflow_param_mapping.items():
+        if ragas_param in error_msg:
+            mlflow_param = corresponding_mlflow_param
+            break
+
+    ragas_to_mlflow_param_mapping.get(ragas_param, ragas_param)
 
     message_parts = [
         f"RAGAS metric '{metric_name}' requires '{mlflow_param}' parameter, which is missing."
@@ -100,7 +109,7 @@ def create_mlflow_error_message_from_ragas_param(ragas_param: str, metric_name: 
             "expectations={'expected_output': ...}) or log an expectation to the trace: "
             "mlflow.log_expectation(trace_id, name='expected_output', value=..., source=...)"
         )
-    elif ragas_param in ["retrieved_contexts", "reference_contexts"]:
+    elif ragas_param in {"retrieved_contexts", "reference_contexts"}:
         message_parts.append(
             "\nMake sure your trace includes retrieval spans. "
             "Example: use @mlflow.trace(span_type=SpanType.RETRIEVER) decorator"
