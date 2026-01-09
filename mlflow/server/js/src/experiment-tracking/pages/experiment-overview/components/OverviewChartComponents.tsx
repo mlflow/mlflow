@@ -172,18 +172,82 @@ export const OverviewChartEmptyState: React.FC<OverviewChartEmptyStateProps> = (
   );
 };
 
-/**
- * Returns common tooltip style configuration for Recharts tooltips
- */
-export function useChartTooltipStyle() {
-  const { theme } = useDesignSystemTheme();
-  return {
-    backgroundColor: theme.colors.backgroundPrimary,
-    border: `1px solid ${theme.colors.border}`,
-    borderRadius: theme.borders.borderRadiusMd,
-    fontSize: theme.typography.fontSizeSm,
-  };
+interface ScrollableTooltipProps {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; color: string }>;
+  label?: string;
+  formatter?: (value: number, name: string) => [string | number, string];
 }
+
+/**
+ * Custom scrollable tooltip component for Recharts.
+ * Use with: <Tooltip content={<ScrollableTooltip formatter={...} />} />
+ */
+export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, payload, label, formatter }) => {
+  const { theme } = useDesignSystemTheme();
+
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  return (
+    <div
+      style={{
+        // This ensures the tooltip is semi-transparent so the chart is visible through it.
+        backgroundColor: `color-mix(in srgb, ${theme.colors.backgroundPrimary} 50%, transparent)`,
+        backdropFilter: 'blur(2px)',
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        fontSize: theme.typography.fontSizeSm,
+        padding: theme.spacing.sm,
+        pointerEvents: 'auto',
+        // This is to ensure the tooltip renders on the cursor position, so users can hover
+        // over the tooltip and scroll if applicable.
+        marginLeft: -20,
+        marginRight: -20,
+      }}
+    >
+      {label && <div style={{ fontWeight: 500, marginBottom: theme.spacing.xs }}>{label}</div>}
+      <div
+        style={{
+          maxHeight: '120px',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+        }}
+      >
+        {payload.map((entry, index) => {
+          const [formattedValue, formattedName] = formatter
+            ? formatter(entry.value, entry.name)
+            : [entry.value, entry.name];
+          return (
+            <div
+              key={index}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs,
+                paddingTop: 2,
+                paddingBottom: 2,
+              }}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: entry.color,
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{ color: entry.color }}>{formattedName}:</span>
+              <span>{formattedValue}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 /**
  * Returns common XAxis props for time-series charts

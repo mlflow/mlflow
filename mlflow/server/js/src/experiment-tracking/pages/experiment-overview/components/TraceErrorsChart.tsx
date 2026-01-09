@@ -10,7 +10,7 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
   useScrollableLegendProps,
 } from './OverviewChartComponents';
@@ -19,7 +19,6 @@ import type { OverviewChartProps } from '../types';
 
 export const TraceErrorsChart: React.FC<OverviewChartProps> = (props) => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
@@ -56,14 +55,17 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = (props) => {
               <YAxis yAxisId="left" hide />
               <YAxis yAxisId="right" domain={[0, 100]} hide />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={
+                  <ScrollableTooltip
+                    formatter={(value, name) => {
+                      if (name === 'Error Count') {
+                        return [value.toLocaleString(), name];
+                      }
+                      return [`${value.toFixed(1)}%`, name];
+                    }}
+                  />
+                }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => {
-                  if (name === 'Error Count') {
-                    return [value.toLocaleString(), name];
-                  }
-                  return [`${value.toFixed(1)}%`, name];
-                }}
               />
               <Bar
                 yAxisId="left"

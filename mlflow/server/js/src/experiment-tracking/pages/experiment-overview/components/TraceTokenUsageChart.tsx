@@ -10,7 +10,7 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
   useScrollableLegendProps,
 } from './OverviewChartComponents';
@@ -19,7 +19,6 @@ import type { OverviewChartProps } from '../types';
 
 export const TraceTokenUsageChart: React.FC<OverviewChartProps> = (props) => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight(0.8, 0.2);
@@ -61,9 +60,8 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = (props) => {
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis hide />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={(value, name) => [formatCount(value), name]} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatCount(value), name]}
               />
               <Area
                 type="monotone"

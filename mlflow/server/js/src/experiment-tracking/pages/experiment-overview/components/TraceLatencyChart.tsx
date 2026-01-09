@@ -10,7 +10,7 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
   useScrollableLegendProps,
 } from './OverviewChartComponents';
@@ -29,7 +29,6 @@ function formatLatency(ms: number): string {
 
 export const TraceLatencyChart: React.FC<OverviewChartProps> = (props) => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
@@ -70,9 +69,8 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = (props) => {
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis hide />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={(value, name) => [formatLatency(value), name]} />}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatLatency(value), name]}
               />
               <Line
                 type="monotone"

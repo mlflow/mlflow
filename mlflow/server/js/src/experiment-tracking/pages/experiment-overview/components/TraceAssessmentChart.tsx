@@ -20,7 +20,7 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
   useScrollableLegendProps,
 } from './OverviewChartComponents';
@@ -59,7 +59,6 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
   ...chartProps
 }) => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
 
@@ -117,9 +116,8 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
             <XAxis dataKey="name" {...xAxisProps} />
             <YAxis allowDecimals={false} {...xAxisProps} />
             <Tooltip
-              contentStyle={tooltipStyle}
+              content={<ScrollableTooltip formatter={(value) => [value, 'count']} />}
               cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-              formatter={(value: number) => [value, 'count']}
             />
             <Legend {...scrollableLegendProps} />
             <Bar dataKey="count" fill={chartLineColor} radius={[4, 4, 0, 0]} />
@@ -139,9 +137,8 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
             <XAxis dataKey="name" {...xAxisProps} />
             <YAxis hide />
             <Tooltip
-              contentStyle={tooltipStyle}
+              content={<ScrollableTooltip formatter={(value) => [value.toFixed(2), assessmentName]} />}
               cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-              formatter={(value: number) => [value.toFixed(2), assessmentName]}
             />
             <Legend {...scrollableLegendProps} />
             <Line
