@@ -75,7 +75,7 @@ export const TabContentContainer: React.FC<{ children?: React.ReactNode }> = ({ 
         display: 'flex',
         flexDirection: 'column',
         gap: theme.spacing.lg,
-        padding: `${theme.spacing.sm}px 0`,
+        padding: `${theme.spacing.md}px 0`,
       }}
     >
       {children}
