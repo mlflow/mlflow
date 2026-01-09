@@ -269,9 +269,8 @@ def save_model(
                 "to allow unsafe deserialization."
             )
     warnings.warn(
-        "Saving scikit-learn models using an unsafe serialization method is deprecated and "
-        "will no longer be supported by default in a future MLflow version. The recommended "
-        "alternative is the 'skops' format.",
+        "Saving scikit-learn models in 'pickle' or 'cloudpickle' format is unsafe. "
+        "The recommended safe alternative is the 'skops' format.",
         FutureWarning,
         stacklevel=2,
     )
