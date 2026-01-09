@@ -1,7 +1,7 @@
 """
 Claude Code provider for MLflow Assistant.
 
-This module provides the Claude Code CLI integration for the assistant API,
+This module provides the Claude Code integration for the assistant API,
 enabling AI-powered trace analysis through the Claude Code CLI.
 """
 
@@ -95,6 +95,7 @@ class ClaudeCodeProvider(AssistantProvider):
         if session_id:
             cmd.extend(["--resume", session_id])
 
+        process = None
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -131,6 +132,10 @@ class ClaudeCodeProvider(AssistantProvider):
         except Exception as e:
             _logger.exception("Error running Claude Code CLI")
             yield Event.from_error(str(e))
+        finally:
+            if process is not None and process.returncode is None:
+                process.kill()
+                await process.wait()
 
     def _parse_message_to_event(self, data: dict[str, Any]) -> Event | None:
         """
