@@ -4,11 +4,10 @@ import {
   type Control,
   type UseFormSetValue,
   type UseFormGetValues,
-  Controller,
   useWatch,
 } from 'react-hook-form';
-import { useDesignSystemTheme, Button, FormUI, Alert, Radio, Tag } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from '@databricks/i18n';
+import { useDesignSystemTheme, Button, Alert } from '@databricks/design-system';
+import { FormattedMessage } from '@databricks/i18n';
 import { isEvaluatingSessionsInScorersEnabled, isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
 import {
   ModelTraceExplorerResizablePane,
@@ -17,8 +16,6 @@ import {
 import LLMScorerFormRenderer, { type LLMScorerFormData } from './LLMScorerFormRenderer';
 import CustomCodeScorerFormRenderer, { type CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
 import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer';
-import type { ScheduledScorer } from './types';
-import { getTypeDisplayName, getTypeIcon } from './scorerCardUtils';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, ScorerEvaluationScope, type ScorerFormMode } from './constants';
 import { ScorerFormEvaluationScopeSelect } from './ScorerFormEvaluationScopeSelect';
@@ -65,65 +62,12 @@ const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
   componentError,
 }) => {
   const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
 
   return (
     <>
-      {isEvaluatingSessionsInScorersEnabled() && (
+      {isEvaluatingSessionsInScorersEnabled() && scorerType === 'llm' && (
         <div>
           <ScorerFormEvaluationScopeSelect mode={mode} />
-        </div>
-      )}
-      {/* Scorer Type Selection - only show in create mode */}
-      {mode === SCORER_FORM_MODE.CREATE && (
-        <div>
-          <FormUI.Label>
-            <FormattedMessage defaultMessage="Judge type" description="Label for judge type selection" />
-          </FormUI.Label>
-          <Controller
-            name="scorerType"
-            control={control}
-            rules={{ required: true }}
-            render={({ field }) => (
-              <Radio.Group
-                {...field}
-                componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_84"
-                name="scorer-type"
-              >
-                <Radio value="llm">
-                  <Tag
-                    componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_90"
-                    color="purple"
-                    icon={getTypeIcon({ type: 'llm' } as ScheduledScorer)}
-                  >
-                    {getTypeDisplayName({ type: 'llm' } as ScheduledScorer, intl)}
-                  </Tag>
-                </Radio>
-                <FormUI.Hint>
-                  <FormattedMessage
-                    defaultMessage="Use a large language model to automatically evaluate traces."
-                    description="Hint text for LLM scorer type option"
-                  />
-                </FormUI.Hint>
-
-                <Radio value="custom-code">
-                  <Tag
-                    componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_107"
-                    color="pink"
-                    icon={getTypeIcon({ type: 'custom-code' } as ScheduledScorer)}
-                  >
-                    {getTypeDisplayName({ type: 'custom-code' } as ScheduledScorer, intl)}
-                  </Tag>
-                </Radio>
-                <FormUI.Hint>
-                  <FormattedMessage
-                    defaultMessage="Create your own judge using a Python function. Useful if your requirements are not met by LLM-as-a-judge judges."
-                    description="Hint text for custom code judge type option"
-                  />
-                </FormUI.Hint>
-              </Radio.Group>
-            )}
-          />
         </div>
       )}
       {/* Conditional Form Content */}
