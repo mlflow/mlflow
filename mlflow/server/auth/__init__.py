@@ -273,22 +273,6 @@ def _get_permission_from_store_or_default(store_permission_func: Callable[[], st
     return get_permission(perm)
 
 
-def _get_permission_from_store_or_no_permissions(store_permission_func: Callable[[], str]) -> Permission:
-    """
-    Attempts to get permission from store for gateway resources,
-    and returns NO_PERMISSIONS if no record is found.
-    Gateway resources use NO_PERMISSIONS as default instead of the configurable default_permission.
-    """
-    try:
-        perm = store_permission_func()
-    except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            perm = "NO_PERMISSIONS"
-        else:
-            raise
-    return get_permission(perm)
-
-
 def _get_permission_from_experiment_id() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     username = authenticate_request().username
@@ -382,7 +366,7 @@ def _get_permission_from_scorer_permission_request() -> Permission:
 def _get_permission_from_gateway_secret_id() -> Permission:
     secret_id = _get_request_param("secret_id")
     username = authenticate_request().username
-    return _get_permission_from_store_or_no_permissions(
+    return _get_permission_from_store_or_default(
         lambda: store.get_gateway_secret_permission(secret_id, username).permission
     )
 
@@ -390,7 +374,7 @@ def _get_permission_from_gateway_secret_id() -> Permission:
 def _get_permission_from_gateway_endpoint_id() -> Permission:
     endpoint_id = _get_request_param("endpoint_id")
     username = authenticate_request().username
-    return _get_permission_from_store_or_no_permissions(
+    return _get_permission_from_store_or_default(
         lambda: store.get_gateway_endpoint_permission(endpoint_id, username).permission
     )
 
@@ -398,7 +382,7 @@ def _get_permission_from_gateway_endpoint_id() -> Permission:
 def _get_permission_from_gateway_model_definition_id() -> Permission:
     model_definition_id = _get_request_param("model_definition_id")
     username = authenticate_request().username
-    return _get_permission_from_store_or_no_permissions(
+    return _get_permission_from_store_or_default(
         lambda: store.get_gateway_model_definition_permission(
             model_definition_id, username
         ).permission
@@ -625,7 +609,7 @@ def validate_can_create_gateway_model_definition():
         return True
 
     username = authenticate_request().username
-    permission = _get_permission_from_store_or_no_permissions(
+    permission = _get_permission_from_store_or_default(
         lambda: store.get_gateway_secret_permission(secret_id, username).permission
     )
     return permission.can_use
@@ -649,13 +633,13 @@ def validate_can_update_gateway_model_definition():
         return True
 
     username = authenticate_request().username
-    permission = _get_permission_from_store_or_no_permissions(
+    permission = _get_permission_from_store_or_default(
         lambda: store.get_gateway_secret_permission(secret_id, username).permission
     )
     return permission.can_use
 
 
-def _validate_can_use_model_definitions(model_configs: list) -> bool:
+def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> bool:
     """
     Helper to validate USE permission on all model definitions in model_configs.
     Returns True if all model definitions have USE permission, False otherwise.
@@ -674,7 +658,7 @@ def _validate_can_use_model_definitions(model_configs: list) -> bool:
 
     username = authenticate_request().username
     for model_def_id in model_def_ids:
-        permission = _get_permission_from_store_or_no_permissions(
+        permission = _get_permission_from_store_or_default(
             lambda md_id=model_def_id: store.get_gateway_model_definition_permission(
                 md_id, username
             ).permission
