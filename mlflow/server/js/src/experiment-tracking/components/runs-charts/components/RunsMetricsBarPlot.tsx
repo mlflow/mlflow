@@ -80,6 +80,7 @@ const getFixedPointValue = (val: string | number, places = 2) => (typeof val ===
  * set of experiments runs
  */
 export const RunsMetricsBarPlot = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     runsData,
     metricKey,

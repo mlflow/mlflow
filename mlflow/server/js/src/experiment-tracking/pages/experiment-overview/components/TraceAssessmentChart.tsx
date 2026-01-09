@@ -24,7 +24,6 @@ import {
   useChartXAxisProps,
   useChartLegendFormatter,
 } from './OverviewChartComponents';
-import type { OverviewChartProps } from '../types';
 
 /** Local component for chart panel with label */
 const ChartPanel: React.FC<{ label: React.ReactNode; children: React.ReactElement }> = ({ label, children }) => {
@@ -43,7 +42,7 @@ const ChartPanel: React.FC<{ label: React.ReactNode; children: React.ReactElemen
   );
 };
 
-export interface TraceAssessmentChartProps extends OverviewChartProps {
+export interface TraceAssessmentChartProps {
   /** The name of the assessment to display (e.g., "Correctness", "Relevance") */
   assessmentName: string;
   /** Optional color for the line chart. Defaults to green. */
@@ -52,12 +51,7 @@ export interface TraceAssessmentChartProps extends OverviewChartProps {
   avgValue?: number;
 }
 
-export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
-  assessmentName,
-  lineColor,
-  avgValue,
-  ...chartProps
-}) => {
+export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ assessmentName, lineColor, avgValue }) => {
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
@@ -67,10 +61,8 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
   const chartLineColor = lineColor || theme.colors.green500;
 
   // Fetch and process all chart data using the custom hook
-  const { timeSeriesChartData, distributionChartData, isLoading, error, hasData } = useTraceAssessmentChartData({
-    ...chartProps,
-    assessmentName,
-  });
+  const { timeSeriesChartData, distributionChartData, isLoading, error, hasData } =
+    useTraceAssessmentChartData(assessmentName);
 
   if (isLoading) {
     return <OverviewChartLoadingState />;

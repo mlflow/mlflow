@@ -2,7 +2,7 @@ import { useMemo, useCallback } from 'react';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface RequestsChartDataPoint {
   name: string;
@@ -14,6 +14,8 @@ export interface UseTraceRequestsChartDataResult {
   chartData: RequestsChartDataPoint[];
   /** Total number of requests in the time range */
   totalRequests: number;
+  /** Average requests per time bucket */
+  avgRequests: number;
   /** Whether data is currently being fetched */
   isLoading: boolean;
   /** Error if data fetching failed */
@@ -25,17 +27,12 @@ export interface UseTraceRequestsChartDataResult {
 /**
  * Custom hook that fetches and processes requests chart data.
  * Encapsulates all data-fetching and processing logic for the requests chart.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId, time range, and buckets
  * @returns Processed chart data, loading state, and error state
  */
-export function useTraceRequestsChartData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-}: OverviewChartProps): UseTraceRequestsChartDataResult {
+export function useTraceRequestsChartData(): UseTraceRequestsChartDataResult {
+  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Fetch trace count metrics grouped by time bucket
   const {
     data: traceCountData,
@@ -59,6 +56,9 @@ export function useTraceRequestsChartData({
     [traceCountDataPoints],
   );
 
+  // Calculate average requests per time bucket
+  const avgRequests = useMemo(() => totalRequests / timeBuckets.length, [totalRequests, timeBuckets.length]);
+
   // Create a map of counts by timestamp using shared utility
   const countExtractor = useCallback(
     (dp: { values?: Record<string, number> }) => dp.values?.[AggregationType.COUNT] || 0,
@@ -77,6 +77,7 @@ export function useTraceRequestsChartData({
   return {
     chartData,
     totalRequests,
+    avgRequests,
     isLoading,
     error,
     hasData: traceCountDataPoints.length > 0,

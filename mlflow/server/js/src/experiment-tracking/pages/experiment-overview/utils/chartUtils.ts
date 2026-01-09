@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { TIME_BUCKET_DIMENSION_KEY, type MetricDataPoint } from '@databricks/web-shared/model-trace-explorer';
+import { useDesignSystemTheme } from '@databricks/design-system';
 
 /**
  * Custom hook for managing legend highlight state in charts.
@@ -152,4 +153,30 @@ export function formatLatency(ms: number): string {
     return `${ms.toFixed(2)}ms`;
   }
   return `${(ms / 1000).toFixed(2)}s`;
+}
+
+/**
+ * Custom hook providing a color palette for tool charts.
+ * Returns a memoized color array and a getter function for consistent tool coloring.
+ */
+export function useToolColors() {
+  const { theme } = useDesignSystemTheme();
+
+  const toolColors = useMemo(
+    () => [
+      theme.colors.blue500,
+      theme.colors.green500,
+      theme.colors.yellow500,
+      theme.colors.red500,
+      theme.colors.blue300,
+      theme.colors.green300,
+      theme.colors.yellow300,
+      theme.colors.red300,
+    ],
+    [theme],
+  );
+
+  const getToolColor = useCallback((index: number): string => toolColors[index % toolColors.length], [toolColors]);
+
+  return { toolColors, getToolColor };
 }
