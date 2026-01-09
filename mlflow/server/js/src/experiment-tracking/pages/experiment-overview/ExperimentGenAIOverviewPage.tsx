@@ -21,18 +21,13 @@ import { LazyToolPerformanceSummary } from './components/LazyToolPerformanceSumm
 import { TabContentContainer, ChartGrid } from './components/OverviewLayoutComponents';
 import { calculateTimeInterval } from './hooks/useTraceMetricsQuery';
 import { generateTimeBuckets } from './utils/chartUtils';
-
-enum OverviewTab {
-  Usage = 'usage',
-  Quality = 'quality',
-  ToolCalls = 'tool-calls',
-}
+import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
 
 const ExperimentGenAIOverviewPageImpl = () => {
   const { experimentId } = useParams();
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const [activeTab, setActiveTab] = useState<OverviewTab>(OverviewTab.Usage);
+  const [activeTab, setActiveTab] = useOverviewTab();
   const [searchQuery, setSearchQuery] = useState('');
 
   invariant(experimentId, 'Experiment ID must be defined');
