@@ -180,6 +180,7 @@ class BaseRequestPayload(BaseModel):
     n: int = Field(1, ge=1)
     stop: list[str] | None = Field(None, min_length=1)
     max_tokens: int | None = Field(None, ge=1)
+    max_completion_tokens: int | None = Field(None, ge=1)
     stream: bool | None = None
     stream_options: dict[str, Any] | None = None
     model: str | None = None

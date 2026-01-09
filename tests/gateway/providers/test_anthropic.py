@@ -301,6 +301,26 @@ async def test_chat():
         )
 
 
+@pytest.mark.asyncio
+async def test_chat_with_max_completion_tokens():
+    resp = chat_response()
+    config = chat_config()
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_completion_tokens": 500,
+        }
+        await provider.chat(chat.RequestPayload(**payload))
+
+        call_kwargs = mock_post.call_args[1]
+        assert call_kwargs["json"]["max_tokens"] == 500
+        assert "max_completion_tokens" not in call_kwargs["json"]
+
+
 def chat_function_calling_payload(stream: bool = False):
     payload = {
         "messages": [

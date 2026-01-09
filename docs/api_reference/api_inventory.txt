@@ -1618,6 +1618,8 @@ mlflow.types.chat.ResponseFormat
 mlflow.types.chat.TextContentPart
 mlflow.types.chat.ToolCall
 mlflow.types.chat.ToolCallDelta
+mlflow.types.chat.ToolChoice
+mlflow.types.chat.ToolChoiceFunction
 mlflow.types.llm.ChatChoice
 mlflow.types.llm.ChatChoiceDelta
 mlflow.types.llm.ChatChoiceLogProbs
