@@ -1,4 +1,4 @@
-import { Modal } from '@databricks/design-system';
+import { Button, Modal, Tooltip } from '@databricks/design-system';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useParams } from '../../common/utils/RoutingUtils';
@@ -10,6 +10,13 @@ import {
   TracesTableColumnType,
 } from '@databricks/web-shared/genai-traces-table';
 import { INPUTS_COLUMN_ID, RESPONSE_COLUMN_ID } from '@databricks/web-shared/genai-traces-table/hooks/useTableColumns';
+import { TracesV3DateSelector } from './experiment-page/components/traces-v3/TracesV3DateSelector';
+import {
+  MonitoringFilters,
+  MonitoringFiltersUpdateContext,
+  useMonitoringFilters,
+  useMonitoringFiltersTimeRange,
+} from '../hooks/useMonitoringFilters';
 
 /**
  * Default columns to be visible when selecting traces.
@@ -21,26 +28,32 @@ const defaultCustomDefaultSelectedColumns = (column: TracesTableColumn) => {
   return [TRACE_ID_COLUMN_ID, INPUTS_COLUMN_ID, RESPONSE_COLUMN_ID].includes(column.id);
 };
 
-export const SelectTracesModal = ({
-  onClose,
-  onSuccess,
-  maxTraceCount,
-  customDefaultSelectedColumns = defaultCustomDefaultSelectedColumns,
-  initialTraceIdsSelected = [],
-}: {
+interface SelectTracesModalProps {
   onClose?: () => void;
   onSuccess?: (traceIds: string[]) => void;
   maxTraceCount?: number;
   customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
   initialTraceIdsSelected?: string[];
-}) => {
+}
+
+const SelectTracesModalImpl = ({
+  onClose,
+  onSuccess,
+  maxTraceCount,
+  customDefaultSelectedColumns = defaultCustomDefaultSelectedColumns,
+  initialTraceIdsSelected = [],
+}: SelectTracesModalProps) => {
   const { experimentId } = useParams();
+  const timeRange = useMonitoringFiltersTimeRange();
 
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>(
-    initialTraceIdsSelected.reduce((acc, traceId) => {
-      acc[traceId] = true;
-      return acc;
-    }, {} as Record<string, boolean>),
+    initialTraceIdsSelected.reduce(
+      (acc, traceId) => {
+        acc[traceId] = true;
+        return acc;
+      },
+      {} as Record<string, boolean>,
+    ),
   );
 
   const handleOk = async () => {
@@ -50,13 +63,17 @@ export const SelectTracesModal = ({
     onSuccess?.(selectedTraceIds);
   };
 
+  const selectedCount = useMemo(() => {
+    return Object.values(rowSelection).filter((isSelected) => isSelected).length;
+  }, [rowSelection]);
+
   const isMaxTraceCountReached = useMemo(() => {
     if (!maxTraceCount) {
       return false;
     }
 
-    return Object.values(rowSelection).filter((isSelected) => isSelected).length > maxTraceCount;
-  }, [maxTraceCount, rowSelection]);
+    return selectedCount > maxTraceCount;
+  }, [maxTraceCount, selectedCount]);
 
   if (!experimentId) {
     return null;
@@ -71,21 +88,66 @@ export const SelectTracesModal = ({
       css={{ width: '90% !important' }}
       size="wide"
       verticalSizing="maxed_out"
-      okText={<FormattedMessage defaultMessage="Select" description="Confirm button in the select traces modal" />}
-      okButtonProps={{
-        type: 'primary',
-        disabled: Object.values(rowSelection).every((isSelected) => !isSelected) || isMaxTraceCountReached,
-      }}
-      onOk={handleOk}
-      cancelText={<FormattedMessage defaultMessage="Cancel" description="Cancel button in the select traces modal" />}
+      footer={
+        <>
+          <Button componentId="mlflow.experiment-scorers.form.select-traces-modal.cancel" onClick={onClose}>
+            <FormattedMessage defaultMessage="Cancel" description="Cancel button in the select traces modal" />
+          </Button>
+          <Tooltip
+            componentId="mlflow.experiment-scorers.form.select-traces-modal.ok-tooltip"
+            content={
+              isMaxTraceCountReached ? (
+                <FormattedMessage
+                  defaultMessage="Maximum of {max} traces can be selected"
+                  description="Tooltip shown when too many traces are selected"
+                  values={{ max: maxTraceCount }}
+                />
+              ) : undefined
+            }
+          >
+            <Button
+              componentId="mlflow.experiment-scorers.form.select-traces-modal.ok"
+              type="primary"
+              onClick={handleOk}
+              disabled={selectedCount === 0 || isMaxTraceCountReached}
+            >
+              <FormattedMessage
+                defaultMessage="Select ({count})"
+                description="Confirm button in the select traces modal showing number of selected traces"
+                values={{ count: selectedCount }}
+              />
+            </Button>
+          </Tooltip>
+        </>
+      }
     >
       <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
         <TracesV3Logs
           disableActions
           experimentId={experimentId}
+          timeRange={timeRange}
           customDefaultSelectedColumns={customDefaultSelectedColumns}
+          // TODO: Move date selector to the toolbar in all callsites permanently
+          toolbarAddons={<TracesV3DateSelector />}
         />
       </GenAiTraceTableRowSelectionProvider>
     </Modal>
+  );
+};
+
+export const SelectTracesModal = (props: SelectTracesModalProps) => {
+  const [monitoringFilters, setMonitoringFilters] = useState<MonitoringFilters>({
+    startTimeLabel: 'LAST_7_DAYS',
+    startTime: undefined,
+    endTime: undefined,
+  });
+  const contextValue = useMemo(
+    () => ({ params: monitoringFilters, setParams: setMonitoringFilters, disableAutomaticInitialization: true }),
+    [monitoringFilters, setMonitoringFilters],
+  );
+  return (
+    <MonitoringFiltersUpdateContext.Provider value={contextValue}>
+      <SelectTracesModalImpl {...props} />
+    </MonitoringFiltersUpdateContext.Provider>
   );
 };

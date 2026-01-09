@@ -12,7 +12,7 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.mistral import MistralProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse
+from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
 
 TEST_STRING = "This is a test"
 CONTENT_TYPE = "application/json"
@@ -352,3 +352,97 @@ async def test_chat_with_structured_output():
             "type": "json_schema",
             "json_schema": json_schema,
         }
+
+
+def chat_stream_response():
+    return [
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1677858242,'
+        b'"model":"mistral-large-latest","choices":[{"index":0,"finish_reason":null,'
+        b'"delta":{"role":"assistant"}}]}\n',
+        b"\n",
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1677858242,'
+        b'"model":"mistral-large-latest","choices":[{"index":0,"finish_reason":null,'
+        b'"delta":{"content":"Hello"}}]}\n',
+        b"\n",
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1677858242,'
+        b'"model":"mistral-large-latest","choices":[{"index":0,"finish_reason":null,'
+        b'"delta":{"content":" there"}}]}\n',
+        b"\n",
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1677858242,'
+        b'"model":"mistral-large-latest","choices":[{"index":0,"finish_reason":"stop",'
+        b'"delta":{}}]}\n',
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+
+
+def chat_stream_response_incomplete():
+    return [
+        # contains first half of a chunk
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1677858242,'
+        b'"model":"mistral-large-latest","choi',
+        # contains second half of first chunk and first half of second chunk
+        b'ces":[{"index":0,"finish_reason":null,"delta":{"role":"assistant"}}]}\n\n'
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1677858242,'
+        b'"model":"mistral-large-la',
+        # contains second half of second chunk
+        b'test","choices":[{"index":0,"finish_reason":null,"delta":{"content":"test"}}]}\n',
+        b"\n",
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1677858242,'
+        b'"model":"mistral-large-latest","choices":[{"index":0,"finish_reason":"stop",'
+        b'"delta":{}}]}\n',
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+
+
+async def _run_test_chat_stream(resp, provider):
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
+        payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
+        response = provider.chat_stream(chat.RequestPayload(**payload))
+
+        chunks = [jsonable_encoder(chunk) async for chunk in response]
+
+        # Verify we got the expected number of chunks (excluding [DONE])
+        assert len(chunks) >= 3
+
+        # Verify the first chunk has the assistant role
+        assert chunks[0]["choices"][0]["delta"]["role"] == "assistant"
+
+        # Verify the last chunk has finish_reason "stop"
+        assert chunks[-1]["choices"][0]["finish_reason"] == "stop"
+
+        # Verify all chunks have the expected structure
+        for chunk in chunks:
+            assert "id" in chunk
+            assert chunk["object"] == "chat.completion.chunk"
+            assert "created" in chunk
+            assert "model" in chunk
+            assert "choices" in chunk
+            assert len(chunk["choices"]) == 1
+            assert "delta" in chunk["choices"][0]
+
+        mock_build_client.assert_called_once_with(
+            headers={
+                "Authorization": "Bearer key",
+            }
+        )
+        mock_client.post.assert_called_once_with(
+            "https://api.mistral.ai/v1/chat/completions",
+            json={
+                "model": "mistral-large-latest",
+                "n": 1,
+                **payload,
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
+
+
+@pytest.mark.parametrize("resp", [chat_stream_response(), chat_stream_response_incomplete()])
+@pytest.mark.asyncio
+async def test_chat_stream(resp):
+    config = chat_config()
+    provider = MistralProvider(EndpointConfig(**config))
+    await _run_test_chat_stream(resp, provider)

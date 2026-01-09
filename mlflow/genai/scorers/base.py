@@ -1,10 +1,11 @@
 import functools
 import inspect
+import json
 import logging
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Callable, Literal, TypeAlias
+from typing import Any, Callable, Literal, TypeAlias, TypeVar, overload
 
 from pydantic import BaseModel, PrivateAttr
 
@@ -16,6 +17,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.telemetry.events import ScorerCallEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking import get_tracking_uri
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.uri import is_databricks_uri
@@ -381,6 +383,30 @@ class Scorer(BaseModel):
             )
 
     @classmethod
+    def model_validate_json(cls, json_data: str) -> "Scorer":
+        """
+        Override model_validate_json to parse JSON and delegate to custom model_validate.
+
+        Args:
+            json_data: JSON string containing serialized scorer data.
+
+        Returns:
+            Scorer instance with correct subclass (BuiltInScorer, InstructionsJudge, etc.).
+
+        Raises:
+            mlflow.exceptions.MlflowException: If JSON parsing or scorer validation fails.
+        """
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError as e:
+            raise MlflowException.invalid_parameter_value(f"Invalid JSON in serialized scorer: {e}")
+
+        try:
+            return cls.model_validate(data)
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(f"Failed to validate scorer: {e}")
+
+    @classmethod
     def _reconstruct_decorator_scorer(cls, serialized: SerializedScorer) -> "Scorer":
         from mlflow.genai.scorers.scorer_utils import recreate_function
 
@@ -685,6 +711,7 @@ class Scorer(BaseModel):
         self,
         *,
         name: str | None = None,
+        experiment_id: str | None = None,
         sampling_config: ScorerSamplingConfig,
     ) -> "Scorer":
         """
@@ -697,6 +724,8 @@ class Scorer(BaseModel):
         Args:
             name: Optional scorer name. If not provided, uses the scorer's registered
                 name or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
             sampling_config: Configuration object containing:
                 - sample_rate: Fraction of traces to evaluate (0.0 to 1.0). Required.
                 - filter_string: Optional MLflow search_traces compatible filter string.
@@ -744,11 +773,17 @@ class Scorer(BaseModel):
                 scorer=self,
                 sample_rate=sampling_config.sample_rate,
                 filter_string=sampling_config.filter_string,
-                experiment_id=None,
+                experiment_id=experiment_id,
             )
 
-        return store.update_online_scoring_config(
+        # For MLflow backend, use provided experiment_id or fall back to scorer's experiment_id
+        exp_id = experiment_id or self._experiment_id
+        if exp_id is None:
+            exp_id = _get_experiment_id()
+
+        return store.upsert_online_scoring_config(
             scorer=self,
+            experiment_id=exp_id,
             sample_rate=sampling_config.sample_rate,
             filter_string=sampling_config.filter_string,
         )
@@ -758,6 +793,7 @@ class Scorer(BaseModel):
         self,
         *,
         name: str | None = None,
+        experiment_id: str | None = None,
         sampling_config: ScorerSamplingConfig,
     ) -> "Scorer":
         """
@@ -771,6 +807,8 @@ class Scorer(BaseModel):
         Args:
             name: Optional scorer name. If not provided, uses the scorer's registered name
                 or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
             sampling_config: Configuration object containing:
                 - sample_rate: New fraction of traces to evaluate (0.0 to 1.0). Optional.
                 - filter_string: New MLflow search_traces compatible filter string. Optional.
@@ -818,17 +856,23 @@ class Scorer(BaseModel):
                 scorer=self,
                 sample_rate=sampling_config.sample_rate,
                 filter_string=sampling_config.filter_string,
-                experiment_id=None,
+                experiment_id=experiment_id,
             )
 
-        return store.update_online_scoring_config(
+        # For MLflow backend, use provided experiment_id or fall back to scorer's experiment_id
+        exp_id = experiment_id or self._experiment_id
+        if exp_id is None:
+            exp_id = _get_experiment_id()
+
+        return store.upsert_online_scoring_config(
             scorer=self,
+            experiment_id=exp_id,
             sample_rate=sampling_config.sample_rate,
             filter_string=sampling_config.filter_string,
         )
 
     @experimental(version="3.9.0")
-    def stop(self, *, name: str | None = None) -> "Scorer":
+    def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Stop registered scoring by setting sample rate to 0.
 
@@ -838,6 +882,8 @@ class Scorer(BaseModel):
         Args:
             name: Optional scorer name. If not provided, uses the scorer's registered name
                 or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
 
         Returns:
             A new Scorer instance with sample rate set to 0.
@@ -869,6 +915,7 @@ class Scorer(BaseModel):
         scorer_name = name or self.name
         return self.update(
             name=scorer_name,
+            experiment_id=experiment_id,
             sampling_config=ScorerSamplingConfig(sample_rate=0.0),
         )
 
@@ -927,13 +974,36 @@ class Scorer(BaseModel):
             )
 
 
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
+@overload
 def scorer(
-    func=None,
+    func: _F,
     *,
     name: str | None = None,
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
-):
+) -> Scorer: ...
+
+
+@overload
+def scorer(
+    func: None = None,
+    *,
+    name: str | None = None,
+    description: str | None = None,
+    aggregations: list[_AggregationType] | None = None,
+) -> Callable[[_F], Scorer]: ...
+
+
+def scorer(
+    func: _F | None = None,
+    *,
+    name: str | None = None,
+    description: str | None = None,
+    aggregations: list[_AggregationType] | None = None,
+) -> Scorer | Callable[[_F], Scorer]:
     """
     A decorator to define a custom scorer that can be used in ``mlflow.genai.evaluate()``.
 

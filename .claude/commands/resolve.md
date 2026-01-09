@@ -50,7 +50,6 @@ Automatically fetch and address PR review comments. This command examines review
 
    - Read the file and surrounding code for context
    - Make minimal, precise changes to address the feedback
-   - Follow project style guides (Python: see `dev/guides/python.md`)
 
 5. After making all changes, commit them:
 

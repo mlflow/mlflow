@@ -5,7 +5,6 @@ This module provides the job function for invoking scorers on traces asynchronou
 It reuses the core scoring and logging logic from the evaluation harness for consistency.
 """
 
-import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -77,8 +76,7 @@ def invoke_scorer_job(
     from mlflow.server.handlers import _get_tracking_store
 
     # Deserialize scorer
-    scorer_dict = json.loads(serialized_scorer)
-    scorer = Scorer.model_validate(scorer_dict)
+    scorer = Scorer.model_validate_json(serialized_scorer)
 
     tracking_store = _get_tracking_store()
 
@@ -278,18 +276,15 @@ def _group_traces_by_session_id(
     # trace_id -> (session_id, timestamp_ms)
     trace_info_cache: dict[str, tuple[str, int | None]] = {}
 
-    for trace_id in trace_ids:
-        try:
-            if trace_info := tracking_store.get_trace_info(trace_id):
-                trace_metadata = trace_info.trace_metadata or {}
-                if session_id := trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
-                    if session_id not in session_groups:
-                        session_groups[session_id] = []
-                    session_groups[session_id].append(trace_id)
-                    trace_info_cache[trace_id] = (session_id, trace_info.timestamp_ms)
-        except Exception:
-            # Skip traces that can't be fetched
-            pass
+    trace_infos = tracking_store.batch_get_trace_infos(trace_ids)
+
+    for trace_info in trace_infos:
+        trace_metadata = trace_info.trace_metadata or {}
+        if session_id := trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
+            if session_id not in session_groups:
+                session_groups[session_id] = []
+            session_groups[session_id].append(trace_info.trace_id)
+            trace_info_cache[trace_info.trace_id] = (session_id, trace_info.timestamp_ms)
 
     # Sort trace_ids within each session by trace timestamp (None timestamps sort last)
     for session_id in session_groups:
