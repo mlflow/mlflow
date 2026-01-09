@@ -30,7 +30,10 @@ def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
     )
     mock_gepa.compile.return_value = mock_compiled_program
 
-    with patch("dspy.GEPA", MagicMock()) as mock_gepa_class, patch("dspy.LM", MagicMock()):
+    with (
+        patch("dspy.GEPA", MagicMock(), create=True) as mock_gepa_class,
+        patch("dspy.LM", MagicMock()),
+    ):
         mock_gepa_class.return_value = mock_gepa
         optimizer = GePaAlignmentOptimizer()
         # Mock get_min_traces_required to work with 5 traces from fixture
@@ -57,7 +60,7 @@ def test_custom_gepa_parameters(mock_judge, sample_traces_with_assessments):
     def custom_metric(example, pred, trace=None):
         return True
 
-    with patch("dspy.GEPA") as mock_gepa_class, patch("dspy.LM", MagicMock()):
+    with patch("dspy.GEPA", create=True) as mock_gepa_class, patch("dspy.LM", MagicMock()):
         mock_gepa_class.return_value = mock_gepa
         optimizer = GePaAlignmentOptimizer(
             max_metric_calls=50,
@@ -88,7 +91,7 @@ def test_default_parameters(mock_judge, sample_traces_with_assessments):
     )
     mock_gepa.compile.return_value = mock_compiled_program
 
-    with patch("dspy.GEPA") as mock_gepa_class, patch("dspy.LM", MagicMock()):
+    with patch("dspy.GEPA", create=True) as mock_gepa_class, patch("dspy.LM", MagicMock()):
         mock_gepa_class.return_value = mock_gepa
         optimizer = GePaAlignmentOptimizer()
         with patch.object(GePaAlignmentOptimizer, "get_min_traces_required", return_value=5):
@@ -115,7 +118,7 @@ def test_gepa_kwargs_override_defaults(mock_judge, sample_traces_with_assessment
     def custom_metric(example, pred, trace=None):
         return True
 
-    with patch("dspy.GEPA") as mock_gepa_class, patch("dspy.LM", MagicMock()):
+    with patch("dspy.GEPA", create=True) as mock_gepa_class, patch("dspy.LM", MagicMock()):
         mock_gepa_class.return_value = mock_gepa
         optimizer = GePaAlignmentOptimizer(
             max_metric_calls=30,
