@@ -32,7 +32,9 @@ class OnlineScorerSampler:
                 self._sample_rates[scorer.name] = online_scorer.online_config.sample_rate
                 self._scorers[scorer.name] = scorer
             except Exception as e:
-                _logger.info(f"Failed to load scorer '{online_scorer.name}', skipping: {e}")
+                _logger.info(
+                    f"Failed to load scorer '{online_scorer.name}'; scorer will be skipped: {e}"
+                )
 
     def group_scorers_by_filter(self, session_level: bool) -> dict[str | None, list[Scorer]]:
         """
