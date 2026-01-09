@@ -1616,21 +1616,21 @@ def test_gateway_endpoint_use_permission(client, monkeypatch):
 
     # Cleanup
     with User(user1, password1, monkeypatch):
-        requests.delete(
+        requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
             json={"endpoint_id": endpoint_id},
             auth=(user1, password1),
-        )
-        requests.delete(
+        ).raise_for_status()
+        requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
             json={"model_definition_id": model_definition_id},
             auth=(user1, password1),
-        )
-        requests.delete(
+        ).raise_for_status()
+        requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
             json={"secret_id": secret_id},
             auth=(user1, password1),
-        )
+        ).raise_for_status()
 
 
 def test_gateway_model_definition_requires_secret_use_permission(client, monkeypatch):
