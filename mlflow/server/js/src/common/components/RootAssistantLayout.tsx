@@ -76,6 +76,7 @@ export const RootAssistantLayout = ({ children }: RootAssistantLayoutProps) => {
         {/* Assistant panel */}
         {showPanel && (
           <div
+            data-assistant-ui="true"
             css={{
               position: 'relative',
               width: `${panelWidthPercent}%`,
@@ -86,6 +87,7 @@ export const RootAssistantLayout = ({ children }: RootAssistantLayoutProps) => {
               margin: `${theme.spacing.sm}px ${theme.spacing.sm}px ${theme.spacing.sm}px 0`,
               borderRadius: theme.borders.borderRadiusMd,
               boxShadow: theme.shadows.md,
+              zIndex: 1500,
             }}
           >
             {/* Resize handle */}
