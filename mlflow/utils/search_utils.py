@@ -120,31 +120,6 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
             joined_tokens.append(Comparison(TokenList([first, second, third])))
             continue
 
-        # IS NULL (for trace metadata)
-        if (
-            search_traces
-            and isinstance(first, Identifier)
-            and second.match(ttype=TokenType.Keyword, values=["IS"])
-            and third.match(ttype=TokenType.Keyword, values=["NULL"])
-        ):
-            joined_tokens.append(
-                Comparison(TokenList([first, Token(TokenType.Keyword, "IS NULL")]))
-            )
-            continue
-
-        # IS NOT NULL (for trace metadata)
-        if (
-            search_traces
-            and isinstance(first, Identifier)
-            and second.match(ttype=TokenType.Keyword, values=["IS"])
-            and third.ttype == TokenType.Keyword
-            and third.value.upper() == "NOT NULL"
-        ):
-            joined_tokens.append(
-                Comparison(TokenList([first, Token(TokenType.Keyword, "IS NOT NULL")]))
-            )
-            continue
-
         (_, fourth) = next(iterator, (None, None))
         if fourth is None:
             joined_tokens.extend([first, second, third])
@@ -1674,7 +1649,6 @@ class SearchTraceUtils(SearchUtils):
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE"}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
     VALID_SPAN_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
-    VALID_METADATA_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
 
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
     _TAG_IDENTIFIER = "tag"
@@ -1825,10 +1799,10 @@ class SearchTraceUtils(SearchUtils):
     @classmethod
     def is_request_metadata(cls, key_type, comparator):
         if key_type == cls._REQUEST_METADATA_IDENTIFIER:
-            if comparator not in cls.VALID_METADATA_COMPARATORS:
+            # Request metadata accepts the same set of comparators as tags
+            if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of "
-                    f"'{cls.VALID_METADATA_COMPARATORS}'",
+                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -2094,23 +2068,6 @@ class SearchTraceUtils(SearchUtils):
     @classmethod
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
-
-        # Handle IS NULL / IS NOT NULL (2 tokens: identifier + comparator, no value)
-        if len(stripped_comparison) == 2:
-            comparator = stripped_comparison[1].value.upper()
-            if comparator in ("IS NULL", "IS NOT NULL"):
-                comp = cls._get_identifier(
-                    stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS
-                )
-                comp["comparator"] = comparator
-                comp["value"] = None
-                return comp
-            raise MlflowException(
-                f"Invalid comparison clause. Expected 3 tokens, found 2 with "
-                f"comparator '{comparator}'",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
         cls._validate_comparison(stripped_comparison, search_traces=True)
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
