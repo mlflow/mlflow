@@ -28,14 +28,15 @@ class DatabricksRagasLLM(InstructorBaseRagasLLM):
 
     def __init__(self):
         super().__init__()
-
-    async def agenerate(self, prompt: str, response_model: type[T]) -> T:
-        return self.generate(prompt, response_model)
+        self.is_async = False
 
     def generate(self, prompt: str, response_model: type[T]) -> T:
         full_prompt = _build_json_prompt(prompt, response_model)
         result = call_chat_completions(user_prompt=full_prompt, system_prompt="")
         return _parse_json_response(result.output, response_model)
+
+    async def agenerate(self, prompt: str, response_model: type[T]) -> T:
+        return self.generate(prompt, response_model)
 
     def get_model_name(self) -> str:
         return _DATABRICKS_DEFAULT_JUDGE_MODEL
@@ -51,6 +52,7 @@ class DatabricksServingEndpointRagasLLM(InstructorBaseRagasLLM):
     def __init__(self, endpoint_name: str):
         super().__init__()
         self._endpoint_name = endpoint_name
+        self.is_async = False
 
     def generate(self, prompt: str, response_model: type[T]) -> T:
         try:
