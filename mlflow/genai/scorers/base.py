@@ -392,8 +392,15 @@ class Scorer(BaseModel):
 
         Returns:
             Scorer instance with correct subclass (BuiltInScorer, InstructionsJudge, etc.).
+
+        Raises:
+            MlflowException: If JSON parsing or scorer validation fails.
         """
-        data = json.loads(json_data)
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError as e:
+            raise MlflowException.invalid_parameter_value(f"Invalid JSON in serialized scorer: {e}")
+
         return cls.model_validate(data)
 
     @classmethod
