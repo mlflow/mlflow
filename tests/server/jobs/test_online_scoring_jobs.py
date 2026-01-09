@@ -9,6 +9,7 @@ import pytest
 from mlflow.entities._job_status import JobStatus
 from mlflow.genai.scorers.builtin_scorers import Completeness, RelevanceToQuery
 from mlflow.genai.scorers.job import run_online_trace_scorer_job
+from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.server.jobs import (
     get_job,
     submit_job,
@@ -22,9 +23,6 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_run_online_trace_scorer_job_calls_processor():
-    from mlflow.genai.scorers.job import run_online_trace_scorer_job
-    from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
-
     mock_processor = MagicMock()
     mock_tracking_store = MagicMock()
 
@@ -64,8 +62,6 @@ def test_run_online_trace_scorer_job_runs_exclusively_per_experiment(monkeypatch
     When two jobs are submitted for the same experiment with different scorers,
     only one should run and the other should be canceled due to exclusivity.
     """
-    from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
-
     with _setup_job_runner(
         monkeypatch,
         tmp_path,
