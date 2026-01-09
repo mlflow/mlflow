@@ -2532,8 +2532,9 @@ def import_checkpoints(
         )
 
     # Resolve source_run_id from the active run if not provided
-    if source_run_id is None and (run := active_run()):
-        source_run_id = run.info.run_id
+    if source_run_id is None:
+        if run := active_run():
+            source_run_id = run.info.run_id
 
     if source_run_id is None:
         raise MlflowException.invalid_parameter_value(
@@ -2567,6 +2568,10 @@ def import_checkpoints(
                 f"The checkpoint '{sub_checkpoint_path}' file name contains quotes which is not "
                 "supported, skip importing it.'"
             )
+
+        # These special chars are not allowed in model name, replace them with '_'
+        for special_char in ["?", "%", ":"]:
+            base_name.replace(special_char, "_")
 
         model_name = model_prefix + base_name if model_prefix else base_name
 
