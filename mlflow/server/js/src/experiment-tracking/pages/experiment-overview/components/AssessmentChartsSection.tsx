@@ -65,8 +65,8 @@ export const AssessmentChartsSection: React.FC<OverviewChartProps> = (props) => 
           <SparkleIcon css={{ color: theme.colors.yellow500 }} />
           <Typography.Text bold size="lg">
             <FormattedMessage
-              defaultMessage="Scorer Insights"
-              description="Title for the scorer insights section in quality tab"
+              defaultMessage="Quality Insights"
+              description="Title for the quality insights section in quality tab"
             />
           </Typography.Text>
         </div>

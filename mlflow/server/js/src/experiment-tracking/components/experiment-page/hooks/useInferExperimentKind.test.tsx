@@ -5,7 +5,7 @@ import { useInferExperimentKind } from './useInferExperimentKind';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
-import { ExperimentKind } from '../../../constants';
+import { ExperimentKind, ExperimentPageTabName } from '../../../constants';
 
 describe('useInferExperimentKind', () => {
   const server = setupServer();
@@ -47,10 +47,11 @@ describe('useInferExperimentKind', () => {
     });
 
     expect(result.current.inferredExperimentKind).toBe(ExperimentKind.NO_INFERRED_TYPE);
+    expect(result.current.inferredExperimentPageTab).toBeUndefined();
     expect(updateExperimentKind).not.toHaveBeenCalled();
   });
 
-  test('it should infer GenAI type when traces are present', async () => {
+  test('it should infer GenAI type when traces are present and return Overview tab', async () => {
     server.use(
       rest.get('/ajax-api/2.0/mlflow/traces', (req, res, ctx) => {
         return res(ctx.json({ traces: [{ id: 'trace1' }] }));
@@ -67,10 +68,11 @@ describe('useInferExperimentKind', () => {
     });
 
     expect(result.current.inferredExperimentKind).toBe(ExperimentKind.GENAI_DEVELOPMENT_INFERRED);
+    expect(result.current.inferredExperimentPageTab).toBe(ExperimentPageTabName.Overview);
     expect(updateExperimentKind).not.toHaveBeenCalled();
   });
 
-  test('it should infer custom model development when no traces, but training runs are present', async () => {
+  test('it should infer custom model development when no traces, but training runs are present and return Runs tab', async () => {
     server.use(
       rest.get('/ajax-api/2.0/mlflow/traces', (req, res, ctx) => {
         return res(ctx.json({ traces: [] }));
@@ -87,6 +89,7 @@ describe('useInferExperimentKind', () => {
     });
 
     expect(result.current.inferredExperimentKind).toBe(ExperimentKind.CUSTOM_MODEL_DEVELOPMENT_INFERRED);
+    expect(result.current.inferredExperimentPageTab).toBe(ExperimentPageTabName.Runs);
     expect(updateExperimentKind).not.toHaveBeenCalled();
   });
 
