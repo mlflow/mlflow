@@ -2274,10 +2274,6 @@
     "defaultMessage": "Inputs",
     "description": "Table subtitle for schema inputs in the model comparison page"
   },
-  "GJjAMy": {
-    "defaultMessage": "The trace variable is not supported when running the judge on a sample of traces",
-    "description": "Tooltip message when instructions contain trace variable"
-  },
   "GKVTw4": {
     "defaultMessage": "JSON",
     "description": "JSON select menu option for assessment data type"
