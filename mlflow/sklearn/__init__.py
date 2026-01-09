@@ -57,6 +57,7 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     update_wrapper_extended,
 )
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -260,14 +261,15 @@ def save_model(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    warnings.warn(
-        "Saving scikit-learn models in the pickle or cloudpickle format requires exercising "
-        "caution because these formats rely on Python's object serialization mechanism, "
-        "which can execute arbitrary code during deserialization."
-        "The recommended safe alternative is the 'skops' format.",
-        FutureWarning,
-        stacklevel=2,
-    )
+    if serialization_format != SERIALIZATION_FORMAT_SKOPS and not is_in_databricks_runtime():
+        warnings.warn(
+            "Saving scikit-learn models in the pickle or cloudpickle format requires exercising "
+            "caution because these formats rely on Python's object serialization mechanism, "
+            "which can execute arbitrary code during deserialization."
+            "The recommended safe alternative is the 'skops' format.",
+            FutureWarning,
+            stacklevel=2,
+        )
 
     _validate_and_prepare_target_save_path(path)
     code_path_subdir = _validate_and_copy_code_paths(code_paths, path)
