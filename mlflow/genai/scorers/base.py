@@ -401,7 +401,10 @@ class Scorer(BaseModel):
         except json.JSONDecodeError as e:
             raise MlflowException.invalid_parameter_value(f"Invalid JSON in serialized scorer: {e}")
 
-        return cls.model_validate(data)
+        try:
+            return cls.model_validate(data)
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(f"Failed to validate scorer: {e}")
 
     @classmethod
     def _reconstruct_decorator_scorer(cls, serialized: SerializedScorer) -> "Scorer":
