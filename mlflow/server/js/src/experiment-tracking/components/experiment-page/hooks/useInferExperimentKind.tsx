@@ -53,7 +53,7 @@ export const useInferExperimentKind = ({
 
   const inferredExperimentPageTab = useMemo(() => {
     if (inferredExperimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED) {
-      return ExperimentPageTabName.Traces;
+      return ExperimentPageTabName.Overview;
     }
     if (inferredExperimentKind === ExperimentKind.CUSTOM_MODEL_DEVELOPMENT_INFERRED) {
       return ExperimentPageTabName.Runs;
