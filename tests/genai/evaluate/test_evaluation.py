@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 from unittest import mock
-from unittest.mock import ANY, MagicMock
+from unittest.mock import ANY, MagicMock, Mock
 
 import pandas as pd
 import pytest
@@ -15,7 +15,8 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
-from mlflow.genai.evaluation.entities import EvaluationResult
+from mlflow.genai.evaluation.entities import EvalItem, EvaluationResult
+from mlflow.genai.evaluation.harness import _get_new_expectations
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.server import handlers
@@ -1275,3 +1276,53 @@ def test_max_scorer_workers_env_var(monkeypatch):
     # set to 1 for sequential execution
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", "1")
     _validate_scorer_max_workers(expected_max_workers=1, num_scorers=3)
+
+
+@pytest.mark.parametrize(
+    "trace_setup",
+    [
+        None,  # trace is None
+        Mock(info=None),  # trace.info is None
+    ],
+    ids=["trace_none", "trace_info_none"],
+)
+def test_get_new_expectations_raises_exception_when_trace_unavailable(trace_setup):
+    eval_item = EvalItem(
+        inputs={"question": "What is the capital of France?"},
+        outputs="Paris",
+        expectations={"expected_response": "Paris"},
+        trace=trace_setup,  # Backend that does not support tracing
+        request_id="test-request-1",
+    )
+
+    with pytest.raises(MlflowException, match="GenAI evaluation requires trace support"):
+        _get_new_expectations(eval_item)
+
+
+def test_get_new_expectations_filters_existing_expectations():
+    existing_assessment = Mock()
+    existing_assessment.name = "existing_expectation"
+    existing_assessment.expectation = Mock()
+
+    mock_trace = Mock()
+    mock_trace.info = Mock()
+    mock_trace.info.assessments = [existing_assessment]
+
+    eval_item = EvalItem(
+        inputs={"question": "test"},
+        outputs="test output",
+        expectations={"expected": "test"},
+        trace=mock_trace,
+        request_id="test-request-3",
+    )
+
+    new_expectation = Expectation(name="new_expectation", value=True)
+    existing_expectation_obj = Expectation(name="existing_expectation", value=True)
+    eval_item.get_expectation_assessments = Mock(
+        return_value=[new_expectation, existing_expectation_obj]
+    )
+
+    result = _get_new_expectations(eval_item)
+
+    assert len(result) == 1
+    assert result[0].name == "new_expectation"
