@@ -74,9 +74,7 @@ def prompt_optimization_autolog(
 
 
 def validate_train_data(
-    train_data: "pd.DataFrame",
-    scorers: list[Scorer],
-    predict_fn: Callable[..., Any] | None = None,
+    train_data: "pd.DataFrame", scorers: list[Scorer], predict_fn: Callable[..., Any] | None = None
 ) -> None:
     """
     Validate that training data has required fields for prompt optimization.

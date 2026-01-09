@@ -280,10 +280,7 @@ def _build_eval_fn(
             trace = mlflow.get_trace(eval_request_id, silent=True)
             # Use metric function created from scorers
             score, rationales = metric_fn(
-                inputs=inputs,
-                outputs=program_outputs,
-                expectations=expectations,
-                trace=trace,
+                inputs=inputs, outputs=program_outputs, expectations=expectations, trace=trace
             )
             return EvaluationResultRecord(
                 inputs=inputs,
