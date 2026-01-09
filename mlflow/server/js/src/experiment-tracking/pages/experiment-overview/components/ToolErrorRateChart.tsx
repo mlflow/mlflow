@@ -21,7 +21,7 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
   useScrollableLegendProps,
 } from './OverviewChartComponents';
@@ -40,7 +40,6 @@ export interface ToolErrorRateChartProps {
 export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName, lineColor, overallErrorRate }) => {
   const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
 
@@ -145,9 +144,8 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
             <XAxis dataKey="name" {...xAxisProps} />
             <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} {...xAxisProps} />
             <Tooltip
-              contentStyle={tooltipStyle}
+              content={<ScrollableTooltip formatter={(value) => [`${value.toFixed(2)}%`, 'Error Rate']} />}
               cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-              formatter={(value: number) => [`${value.toFixed(2)}%`, 'Error Rate']}
             />
             <Legend iconType="plainline" {...scrollableLegendProps} />
             <Line

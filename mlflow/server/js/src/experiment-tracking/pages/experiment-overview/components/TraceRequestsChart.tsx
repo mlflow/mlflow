@@ -10,14 +10,13 @@ import {
   OverviewChartHeader,
   OverviewChartTimeLabel,
   OverviewChartContainer,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
   useChartZoomSelectionProps,
 } from './OverviewChartComponents';
 
 export const TraceRequestsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
   const zoomSelectionProps = useChartZoomSelectionProps();
 
@@ -65,9 +64,8 @@ export const TraceRequestsChart: React.FC = () => {
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis hide />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={(value) => [`${value}`, 'Requests']} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number) => [`${value}`, 'Requests']}
               />
               <Bar dataKey="count" fill={theme.colors.blue400} radius={[4, 4, 0, 0]} />
               {avgRequests > 0 && (
