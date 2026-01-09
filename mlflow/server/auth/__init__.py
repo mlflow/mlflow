@@ -273,6 +273,22 @@ def _get_permission_from_store_or_default(store_permission_func: Callable[[], st
     return get_permission(perm)
 
 
+def _get_permission_from_store_or_no_permissions(store_permission_func: Callable[[], str]) -> Permission:
+    """
+    Attempts to get permission from store for gateway resources,
+    and returns NO_PERMISSIONS if no record is found.
+    Gateway resources use NO_PERMISSIONS as default instead of the configurable default_permission.
+    """
+    try:
+        perm = store_permission_func()
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            perm = "NO_PERMISSIONS"
+        else:
+            raise
+    return get_permission(perm)
+
+
 def _get_permission_from_experiment_id() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     username = authenticate_request().username
@@ -363,20 +379,10 @@ def _get_permission_from_scorer_permission_request() -> Permission:
     )
 
 
-def _get_permission_from_gateway_resource(store_permission_func: Callable[[], str]) -> Permission:
-    try:
-        perm = store_permission_func()
-    except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            return get_permission("NO_PERMISSIONS")
-        raise
-    return get_permission(perm)
-
-
 def _get_permission_from_gateway_secret_id() -> Permission:
     secret_id = _get_request_param("secret_id")
     username = authenticate_request().username
-    return _get_permission_from_gateway_resource(
+    return _get_permission_from_store_or_no_permissions(
         lambda: store.get_gateway_secret_permission(secret_id, username).permission
     )
 
@@ -384,7 +390,7 @@ def _get_permission_from_gateway_secret_id() -> Permission:
 def _get_permission_from_gateway_endpoint_id() -> Permission:
     endpoint_id = _get_request_param("endpoint_id")
     username = authenticate_request().username
-    return _get_permission_from_gateway_resource(
+    return _get_permission_from_store_or_no_permissions(
         lambda: store.get_gateway_endpoint_permission(endpoint_id, username).permission
     )
 
@@ -392,7 +398,7 @@ def _get_permission_from_gateway_endpoint_id() -> Permission:
 def _get_permission_from_gateway_model_definition_id() -> Permission:
     model_definition_id = _get_request_param("model_definition_id")
     username = authenticate_request().username
-    return _get_permission_from_gateway_resource(
+    return _get_permission_from_store_or_no_permissions(
         lambda: store.get_gateway_model_definition_permission(
             model_definition_id, username
         ).permission
@@ -619,7 +625,7 @@ def validate_can_create_gateway_model_definition():
         return True
 
     username = authenticate_request().username
-    permission = _get_permission_from_gateway_resource(
+    permission = _get_permission_from_store_or_no_permissions(
         lambda: store.get_gateway_secret_permission(secret_id, username).permission
     )
     return permission.can_use
@@ -643,20 +649,17 @@ def validate_can_update_gateway_model_definition():
         return True
 
     username = authenticate_request().username
-    permission = _get_permission_from_gateway_resource(
+    permission = _get_permission_from_store_or_no_permissions(
         lambda: store.get_gateway_secret_permission(secret_id, username).permission
     )
     return permission.can_use
 
 
-def validate_can_create_gateway_endpoint():
+def _validate_can_use_model_definitions(model_configs: list) -> bool:
     """
-    Validate that the user can create a gateway endpoint.
-    This requires USE permission on all referenced model definitions.
+    Helper to validate USE permission on all model definitions in model_configs.
+    Returns True if all model definitions have USE permission, False otherwise.
     """
-    body = request.json or {}
-    model_configs = body.get("model_configs", [])
-
     if not model_configs:
         return True
 
@@ -671,15 +674,25 @@ def validate_can_create_gateway_endpoint():
 
     username = authenticate_request().username
     for model_def_id in model_def_ids:
-
-        def get_perm(md_id=model_def_id):
-            return store.get_gateway_model_definition_permission(md_id, username).permission
-
-        permission = _get_permission_from_gateway_resource(get_perm)
+        permission = _get_permission_from_store_or_no_permissions(
+            lambda md_id=model_def_id: store.get_gateway_model_definition_permission(
+                md_id, username
+            ).permission
+        )
         if not permission.can_use:
             return False
 
     return True
+
+
+def validate_can_create_gateway_endpoint():
+    """
+    Validate that the user can create a gateway endpoint.
+    This requires USE permission on all referenced model definitions.
+    """
+    body = request.json or {}
+    model_configs = body.get("model_configs", [])
+    return _validate_can_use_model_definitions(model_configs)
 
 
 def validate_can_update_gateway_endpoint():
@@ -693,30 +706,7 @@ def validate_can_update_gateway_endpoint():
 
     body = request.json or {}
     model_configs = body.get("model_configs", [])
-
-    if not model_configs:
-        return True
-
-    model_def_ids = [
-        config.get("model_definition_id")
-        for config in model_configs
-        if config.get("model_definition_id")
-    ]
-
-    if not model_def_ids:
-        return True
-
-    username = authenticate_request().username
-    for model_def_id in model_def_ids:
-
-        def get_perm(md_id=model_def_id):
-            return store.get_gateway_model_definition_permission(md_id, username).permission
-
-        permission = _get_permission_from_gateway_resource(get_perm)
-        if not permission.can_use:
-            return False
-
-    return True
+    return _validate_can_use_model_definitions(model_configs)
 
 
 def _get_permission_from_run_id_or_uuid() -> Permission:
