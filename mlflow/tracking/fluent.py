@@ -2488,10 +2488,11 @@ def import_checkpoints(
     checkpoint path.
 
     Args:
-        checkpoint_path: String path to the UC Volume location that contains the checkpoints.
+        checkpoint_path: String path to the Unity Catalog Volume location that contains the
+            checkpoints.
             NOTE: Each path must be isolated from other models and runs. This can be specified
             in the path directory structure, e.g.
-            "dbfs:/Volumes/mycatalog/myschema/myvolume/mytrainingmodel/trainingrun1/checkpoints"
+            "/Volumes/mycatalog/myschema/myvolume/mytrainingmodel/trainingrun1/checkpoints"
         source_run_id: ID of the MLflow source run that these checkpoints were trained with.
             If not provided, uses the current active run if available.
         model_prefix: String prefix to prepend to the name of each external model created from
@@ -2502,10 +2503,35 @@ def import_checkpoints(
 
     Returns:
         List of created :py:class:`mlflow.entities.LoggedModel` instances.
+
+    Example::
+        import mlflow
+
+        # Optionally start a run so `source_run_id` can be inferred
+        with mlflow.start_run() as run:
+            # ... training code that writes checkpoints to a UC Volume ...
+            logged_models = mlflow.import_checkpoints(
+                checkpoint_path=(
+                    "/Volumes/mycatalog/myschema/myvolume/"
+                    "mytrainingmodel/trainingrun1/checkpoints"
+                ),
+                # You can omit `source_run_id` if there is an active run.
+                # source_run_id=run.info.run_id,
+                model_prefix="my_model_",
+                overwrite_checkpoints=True,
+            )
     """
     from databricks.sdk import WorkspaceClient
 
     from mlflow.entities import LoggedModel
+
+    # Validate checkpoint_path before accessing workspace files
+    if not isinstance(checkpoint_path, str) or not checkpoint_path.strip().startswith("/Volumes/"):
+        raise MlflowException(
+            "Parameter 'checkpoint_path' must be a non-empty string pointing to a Unity Catalog "
+            "Volume path that contains checkpoints, e.g. '/Volumes/...'",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     # Resolve source_run_id from the active run if not provided
     if source_run_id is None and (run := active_run()):
@@ -2527,20 +2553,31 @@ def import_checkpoints(
     created_models: list[LoggedModel] = []
     client = MlflowClient()
 
-    for sub_checkpoint_path in top_level_paths:
-        model_name = os.path.basename(sub_checkpoint_path)
-        if model_prefix:
-            model_name = model_prefix + model_name
+    if not top_level_paths:
+        logging.getLogger(__name__).warning(
+            "No checkpoints were found at path '%s'. "
+            "Please verify that 'checkpoint_path' is correct and accessible.",
+            checkpoint_path,
+        )
+        return []
 
-        existing_models = [
-            model
-            for model in search_logged_models(
-                experiment_ids=[exp_id] if exp_id else None,
-                filter_string=f"name = '{model_name}'",
-                output_format="list",
+    for sub_checkpoint_path in top_level_paths:
+        base_name = os.path.basename(sub_checkpoint_path)
+
+        if '"' in base_name or "'" in base_name:
+            _logger.warning(
+                f"The checkpoint '{sub_checkpoint_path}' file name contains quotes which is not "
+                "supported, skip importing it.'"
             )
-            if model.source_run_id == source_run_id
-        ]
+
+        if model_prefix:
+            model_name = model_prefix + base_name
+
+        existing_models = search_logged_models(
+            experiment_ids=[exp_id] if exp_id else None,
+            filter_string=f"name = '{model_name}' and source_run_id = '{source_run_id}'",
+            output_format="list",
+        )
 
         if existing_models and overwrite_checkpoints:
             for model in existing_models:
