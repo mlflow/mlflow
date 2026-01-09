@@ -428,12 +428,6 @@ class AbstractStore(GatewayStoreMixin):
         """
         Find completed sessions within a time window based on their last trace timestamp.
 
-        This efficiently identifies completed sessions in a single query by:
-        1. Finding all sessions with last trace in [min_last_trace_timestamp_ms,
-           max_last_trace_timestamp_ms]
-        2. Checking if each session has any traces after max_last_trace_timestamp_ms
-        3. Returning sessions with no traces after max_last_trace_timestamp_ms
-
         Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) for
         deterministic pagination when timestamp ties occur.
 
