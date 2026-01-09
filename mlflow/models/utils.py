@@ -1798,7 +1798,16 @@ def _convert_llm_input_data(data: Any) -> list[Any] | dict[str, Any]:
         else:
             data = data.to_dict(orient="records")
 
-    return _convert_llm_ndarray_to_list(data)
+    data = _convert_llm_ndarray_to_list(data)
+
+    # For mlflow.evaluate() call, the input dataset will be a pandas DataFrame. The DF should have
+    # a column named "inputs" which contains the actual query data. After the preprocessing, the
+    # each row will be passed here as a dictionary with the key "inputs". Therefore, we need to
+    # extract the actual query data from the dictionary.
+    if isinstance(data, dict) and (INPUTS in data):
+        data = data[INPUTS]
+
+    return data
 
 
 def _databricks_path_exists(path: Path) -> bool:
