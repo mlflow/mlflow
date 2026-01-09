@@ -14,19 +14,19 @@ class Permission:
     can_manage: bool
 
 
-USE = Permission(
-    name="USE",
+READ = Permission(
+    name="READ",
     can_read=True,
-    can_use=True,
+    can_use=False,
     can_update=False,
     can_delete=False,
     can_manage=False,
 )
 
-READ = Permission(
-    name="READ",
+USE = Permission(
+    name="USE",
     can_read=True,
-    can_use=False,
+    can_use=True,
     can_update=False,
     can_delete=False,
     can_manage=False,
