@@ -428,8 +428,9 @@ class AbstractStore(GatewayStoreMixin):
         """
         Find completed sessions within a time window based on their last trace timestamp.
 
-        Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) for
-        deterministic pagination when timestamp ties occur.
+        Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) to ensure
+        deterministic and stable ordering, especially when timestamp ties occur. This is
+        useful when repeatedly calling this method with a ``max_results`` limit.
 
         Args:
             experiment_id: The experiment to search.

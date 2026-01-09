@@ -3114,8 +3114,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         Find completed sessions based on their last trace timestamp.
 
-        Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) for
-        deterministic pagination when timestamp ties occur.
+        Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) to ensure
+        deterministic and stable ordering, especially when timestamp ties occur. This is
+        useful when repeatedly calling this method with a ``max_results`` limit.
 
         Args:
             experiment_id: The experiment to search.
@@ -3187,9 +3188,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         min_last_trace_timestamp_ms: int,
     ) -> Subquery:
         """
-        Build subquery for sessions with at least one trace in the time window.
+        Build subquery for sessions with at least one trace after the minimum timestamp.
 
-        This optimization avoids aggregating stats for sessions with no traces in the window.
+        This optimization avoids aggregating stats for sessions with no recent traces.
         """
         candidate_metadata = aliased(SqlTraceMetadata)
         return (
