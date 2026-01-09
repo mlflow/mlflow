@@ -1159,7 +1159,6 @@ async def test_chat_with_structured_output():
         },
     }
 
-    # OpenAI-style JSON Schema with lowercase types
     json_schema = {
         "type": "object",
         "properties": {"location": {"type": "string"}, "temperature": {"type": "number"}},
