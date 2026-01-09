@@ -266,6 +266,19 @@ export function useChartXAxisProps() {
 }
 
 /**
+ * Returns common YAxis props for charts
+ */
+export function useChartYAxisProps() {
+  const { theme } = useDesignSystemTheme();
+  return {
+    tick: { fontSize: 10, fill: theme.colors.textSecondary },
+    axisLine: false,
+    tickLine: false,
+    width: 40,
+  };
+}
+
+/**
  * Configuration for scrollable legend
  */
 interface ScrollableLegendConfig {

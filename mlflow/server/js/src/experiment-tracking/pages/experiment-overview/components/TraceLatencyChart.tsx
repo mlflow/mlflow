@@ -12,6 +12,7 @@ import {
   OverviewChartTimeLabel,
   ScrollableTooltip,
   useChartXAxisProps,
+  useChartYAxisProps,
   useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { useLegendHighlight } from '../utils/chartUtils';
@@ -29,6 +30,7 @@ function formatLatency(ms: number): string {
 export const TraceLatencyChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const xAxisProps = useChartXAxisProps();
+  const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
 
@@ -69,9 +71,9 @@ export const TraceLatencyChart: React.FC = () => {
       <div css={{ height: 200, marginTop: theme.spacing.sm }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
               <XAxis dataKey="name" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
                 content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
