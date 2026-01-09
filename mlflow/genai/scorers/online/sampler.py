@@ -76,7 +76,7 @@ class OnlineScorerSampler:
         # Sort by sample rate descending
         sorted_scorers = sorted(
             scorers,
-            key=lambda s: self._sample_rates.get(s.name, 1.0),
+            key=lambda s: self._sample_rates.get(s.name, 0.0),
             reverse=True,
         )
 
@@ -84,7 +84,7 @@ class OnlineScorerSampler:
         prev_rate = 1.0
 
         for scorer in sorted_scorers:
-            rate = self._sample_rates.get(scorer.name, 1.0)
+            rate = self._sample_rates.get(scorer.name, 0.0)
             conditional_rate = rate / prev_rate if prev_rate > 0 else 0
 
             # Hash entity_id + scorer name to get deterministic value in [0, 1]

@@ -1,5 +1,7 @@
 """Constants for online scoring."""
 
+from mlflow.tracing.constant import TraceMetadataKey
+
 # Checkpoint tag for tracking last processed trace
 TRACE_CHECKPOINT_TAG = "mlflow.latestOnlineScoring.trace.checkpoint"
 
@@ -10,4 +12,4 @@ MAX_LOOKBACK_MS = 60 * 60 * 1000
 MAX_TRACES_PER_JOB = 500
 
 # Filter to exclude eval run traces (traces generated from MLflow runs)
-EXCLUDE_EVAL_RUN_TRACES_FILTER = "metadata.mlflow.sourceRun IS NULL"
+EXCLUDE_EVAL_RUN_TRACES_FILTER = f"metadata.{TraceMetadataKey.SOURCE_RUN} IS NULL"
