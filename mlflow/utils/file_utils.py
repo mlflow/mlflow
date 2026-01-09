@@ -1027,11 +1027,10 @@ def check_tarfile_security(archive_path: str) -> None:
     with tarfile.open(archive_path, "r") as tar:
         symlink_set = set()
         for m in tar.getmembers():
+            path = posixpath.normpath(m.name)
             if m.issym():
-                symlink_set.add(posixpath.normpath(m.name))
-        for m in tar.getmembers():
-            if not m.issym():
-                path = posixpath.normpath(m.name)
+                symlink_set.add(path)
+            else:
                 if path.startswith("/"):
                     raise MlflowException(
                         "Absolute path destination in the archive file is not allowed, "
@@ -1043,6 +1042,8 @@ def check_tarfile_security(archive_path: str) -> None:
                         "Escaped path destination in the archive file is not allowed, "
                         f"but got path {path}."
                     )
+        for m in tar.getmembers():
+            if not m.issym():
                 for prefix_len in range(1, len(path_parts) + 1):
                     prefix_path = "/".join(path_parts[:prefix_len])
                     if prefix_path in symlink_set:
