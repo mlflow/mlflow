@@ -94,7 +94,7 @@ describe('AssessmentChartsSection', () => {
       renderComponent();
 
       // Check that actual chart content is not rendered during loading
-      expect(screen.queryByText('Scorer Insights')).not.toBeInTheDocument();
+      expect(screen.queryByText('Quality Insights')).not.toBeInTheDocument();
     });
   });
 
@@ -139,7 +139,7 @@ describe('AssessmentChartsSection', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText('Scorer Insights')).toBeInTheDocument();
+        expect(screen.getByText('Quality Insights')).toBeInTheDocument();
       });
     });
 
