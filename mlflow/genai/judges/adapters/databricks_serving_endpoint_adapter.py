@@ -29,6 +29,15 @@ from mlflow.telemetry.utils import _log_error
 
 _logger = logging.getLogger(__name__)
 
+_RESPONSE_FORMAT_ERROR_MESSAGES = (
+    "response_format",
+    "response_schema",
+    "response format",
+    "responseformatobject",
+    'unknown field "properties"',
+    'unknown field \\"properties\\"',
+)
+
 
 @dataclass
 class InvokeDatabricksModelOutput:
@@ -176,8 +185,8 @@ def _invoke_databricks_serving_endpoint(
             # If so, drop the parameter and retry. This mimics LiteLLM's drop_params behavior.
             # Some endpoints return errors about 'response_format', others about 'response_schema'.
             error_text_lower = res.text.lower()
-            is_response_format_error = (
-                "response_format" in error_text_lower or "response_schema" in error_text_lower
+            is_response_format_error = any(
+                s in error_text_lower for s in _RESPONSE_FORMAT_ERROR_MESSAGES
             )
             if res.status_code == 400 and include_response_format and is_response_format_error:
                 _logger.debug(

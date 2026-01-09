@@ -1,4 +1,4 @@
-import { Empty, Modal } from '@databricks/design-system';
+import { Button, Empty, Modal, Tooltip } from '@databricks/design-system';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useParams } from '../../common/utils/RoutingUtils';
@@ -15,10 +15,16 @@ import {
 interface SelectSessionsModalProps {
   onClose?: () => void;
   onSuccess?: (sessionIds: string[]) => void;
+  maxSessionCount?: number;
   initialSessionIdsSelected?: string[];
 }
 
-const SelectSessionsModalImpl = ({ onClose, onSuccess, initialSessionIdsSelected = [] }: SelectSessionsModalProps) => {
+const SelectSessionsModalImpl = ({
+  onClose,
+  onSuccess,
+  maxSessionCount,
+  initialSessionIdsSelected = [],
+}: SelectSessionsModalProps) => {
   const { experimentId } = useParams();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,6 +47,18 @@ const SelectSessionsModalImpl = ({ onClose, onSuccess, initialSessionIdsSelected
       .map(([traceId]) => traceId);
     onSuccess?.(selectedSessionIds);
   };
+
+  const selectedCount = useMemo(() => {
+    return Object.values(rowSelection).filter((isSelected) => isSelected).length;
+  }, [rowSelection]);
+
+  const isMaxSessionCountReached = useMemo(() => {
+    if (!maxSessionCount) {
+      return false;
+    }
+
+    return selectedCount > maxSessionCount;
+  }, [maxSessionCount, selectedCount]);
 
   const filters = useMemo(() => getChatSessionsFilter({ sessionId: null }), []);
 
@@ -65,13 +83,38 @@ const SelectSessionsModalImpl = ({ onClose, onSuccess, initialSessionIdsSelected
       css={{ width: '90% !important' }}
       size="wide"
       verticalSizing="maxed_out"
-      okText={<FormattedMessage defaultMessage="Select" description="Confirm button in the select sessions modal" />}
-      okButtonProps={{
-        type: 'primary',
-        disabled: Object.values(rowSelection).every((isSelected) => !isSelected),
-      }}
-      onOk={handleOk}
-      cancelText={<FormattedMessage defaultMessage="Cancel" description="Cancel button in the select sessions modal" />}
+      footer={
+        <>
+          <Button componentId="mlflow.experiment-scorers.form.select-sessions-modal.cancel" onClick={onClose}>
+            <FormattedMessage defaultMessage="Cancel" description="Cancel button in the select sessions modal" />
+          </Button>
+          <Tooltip
+            componentId="mlflow.experiment-scorers.form.select-sessions-modal.ok-tooltip"
+            content={
+              isMaxSessionCountReached ? (
+                <FormattedMessage
+                  defaultMessage="Maximum of {max} sessions can be selected"
+                  description="Tooltip shown when too many sessions are selected"
+                  values={{ max: maxSessionCount }}
+                />
+              ) : undefined
+            }
+          >
+            <Button
+              componentId="mlflow.experiment-scorers.form.select-sessions-modal.ok"
+              type="primary"
+              onClick={handleOk}
+              disabled={selectedCount === 0 || isMaxSessionCountReached}
+            >
+              <FormattedMessage
+                defaultMessage="Select ({count})"
+                description="Confirm button in the select sessions modal showing number of selected sessions"
+                values={{ count: selectedCount }}
+              />
+            </Button>
+          </Tooltip>
+        </>
+      }
     >
       <div css={{ height: '100%', display: 'flex', overflow: 'hidden' }}>
         <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>

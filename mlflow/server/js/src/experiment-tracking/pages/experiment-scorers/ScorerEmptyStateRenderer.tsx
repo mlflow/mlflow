@@ -4,6 +4,7 @@ import {
   Empty,
   Button,
   PlusIcon,
+  CodeIcon,
   Spacer,
   GavelIcon,
   Typography,
@@ -16,10 +17,14 @@ const getProductionMonitoringDocUrl = () => {
 };
 
 interface ScorerEmptyStateRendererProps {
-  onAddScorerClick: () => void;
+  onAddLLMScorerClick: () => void;
+  onAddCustomCodeScorerClick: () => void;
 }
 
-const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({ onAddScorerClick }) => {
+const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({
+  onAddLLMScorerClick,
+  onAddCustomCodeScorerClick,
+}) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -65,13 +70,29 @@ const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({ onA
           </div>
         }
         button={
-          <Button
-            icon={<PlusIcon />}
-            componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scoreremptystaterenderer_77"
-            onClick={onAddScorerClick}
-          >
-            <FormattedMessage defaultMessage="New judge" description="Button text to add a judge from empty state" />
-          </Button>
+          <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+            <Button
+              type="primary"
+              icon={<PlusIcon />}
+              componentId={`${COMPONENT_ID_PREFIX}.empty-state-add-llm-scorer-button`}
+              onClick={onAddLLMScorerClick}
+            >
+              <FormattedMessage
+                defaultMessage="New LLM judge"
+                description="Button text to add an LLM judge from empty state"
+              />
+            </Button>
+            <Button
+              icon={<CodeIcon />}
+              componentId={`${COMPONENT_ID_PREFIX}.empty-state-add-custom-code-scorer-button`}
+              onClick={onAddCustomCodeScorerClick}
+            >
+              <FormattedMessage
+                defaultMessage="New custom code judge"
+                description="Button text to add a custom code judge from empty state"
+              />
+            </Button>
+          </div>
         }
       />
     </div>

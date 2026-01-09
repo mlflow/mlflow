@@ -1,4 +1,4 @@
-import { Modal } from '@databricks/design-system';
+import { Button, Modal, Tooltip } from '@databricks/design-system';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useParams } from '../../common/utils/RoutingUtils';
@@ -44,8 +44,6 @@ const SelectTracesModalImpl = ({
   initialTraceIdsSelected = [],
 }: SelectTracesModalProps) => {
   const { experimentId } = useParams();
-  const [monitoringFilters] = useMonitoringFilters();
-
   const timeRange = useMonitoringFiltersTimeRange();
 
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>(
@@ -65,13 +63,17 @@ const SelectTracesModalImpl = ({
     onSuccess?.(selectedTraceIds);
   };
 
+  const selectedCount = useMemo(() => {
+    return Object.values(rowSelection).filter((isSelected) => isSelected).length;
+  }, [rowSelection]);
+
   const isMaxTraceCountReached = useMemo(() => {
     if (!maxTraceCount) {
       return false;
     }
 
-    return Object.values(rowSelection).filter((isSelected) => isSelected).length > maxTraceCount;
-  }, [maxTraceCount, rowSelection]);
+    return selectedCount > maxTraceCount;
+  }, [maxTraceCount, selectedCount]);
 
   if (!experimentId) {
     return null;
@@ -86,13 +88,38 @@ const SelectTracesModalImpl = ({
       css={{ width: '90% !important' }}
       size="wide"
       verticalSizing="maxed_out"
-      okText={<FormattedMessage defaultMessage="Select" description="Confirm button in the select traces modal" />}
-      okButtonProps={{
-        type: 'primary',
-        disabled: Object.values(rowSelection).every((isSelected) => !isSelected) || isMaxTraceCountReached,
-      }}
-      onOk={handleOk}
-      cancelText={<FormattedMessage defaultMessage="Cancel" description="Cancel button in the select traces modal" />}
+      footer={
+        <>
+          <Button componentId="mlflow.experiment-scorers.form.select-traces-modal.cancel" onClick={onClose}>
+            <FormattedMessage defaultMessage="Cancel" description="Cancel button in the select traces modal" />
+          </Button>
+          <Tooltip
+            componentId="mlflow.experiment-scorers.form.select-traces-modal.ok-tooltip"
+            content={
+              isMaxTraceCountReached ? (
+                <FormattedMessage
+                  defaultMessage="Maximum of {max} traces can be selected"
+                  description="Tooltip shown when too many traces are selected"
+                  values={{ max: maxTraceCount }}
+                />
+              ) : undefined
+            }
+          >
+            <Button
+              componentId="mlflow.experiment-scorers.form.select-traces-modal.ok"
+              type="primary"
+              onClick={handleOk}
+              disabled={selectedCount === 0 || isMaxTraceCountReached}
+            >
+              <FormattedMessage
+                defaultMessage="Select ({count})"
+                description="Confirm button in the select traces modal showing number of selected traces"
+                values={{ count: selectedCount }}
+              />
+            </Button>
+          </Tooltip>
+        </>
+      }
     >
       <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
         <TracesV3Logs

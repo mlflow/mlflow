@@ -39,6 +39,9 @@ export const SingleChatTurnAssessments = ({
   }, [info?.assessments]);
 
   if (isEmpty(assessmentsToDisplay)) {
+    if (!onAddAssessmentsClick) {
+      return null;
+    }
     return (
       <div css={{ display: 'flex', justifyContent: 'flex-start' }}>
         <Button

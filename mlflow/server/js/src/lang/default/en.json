@@ -27,10 +27,6 @@
     "defaultMessage": "Follow these steps to enable the AI Gateway feature for managing AI provider credentials.",
     "description": "AI Gateway setup guide > Subtitle"
   },
-  "+9xfKv": {
-    "defaultMessage": "Select",
-    "description": "Confirm button in the select traces modal"
-  },
   "+CGMk6": {
     "defaultMessage": "On",
     "description": "Telemetry enabled label"
@@ -794,10 +790,6 @@
     "defaultMessage": "This version",
     "description": "Model registry > model version alias select > Indicator for alias of selected version"
   },
-  "4PhvDM": {
-    "defaultMessage": "Select",
-    "description": "Confirm button in the select sessions modal"
-  },
   "4TDvGX": {
     "defaultMessage": "edited {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > edited history entry"
@@ -1022,10 +1014,6 @@
     "defaultMessage": "Model definition",
     "description": "Label for model definition selector"
   },
-  "6TFZpM": {
-    "defaultMessage": "Create your own judge using a Python function. Useful if your requirements are not met by LLM-as-a-judge judges.",
-    "description": "Hint text for custom code judge type option"
-  },
   "6TuRTf": {
     "defaultMessage": "LLM-as-a-judge",
     "description": "Label for LLM scorer type"
@@ -1133,10 +1121,6 @@
   "757GVc": {
     "defaultMessage": "Cancel",
     "description": "experiment page > description modal > cancel button"
-  },
-  "75AaFb": {
-    "defaultMessage": "Enter a model identifier (e.g., openai:/gpt-4.1-mini). Scorers using direct models can only be run via the SDK, and API keys must be configured in your environment.",
-    "description": "Hint text for direct model input"
   },
   "79dD5F": {
     "defaultMessage": "There was an error submitting your note.",
@@ -1598,6 +1582,10 @@
     "defaultMessage": "Add tags",
     "description": "Tag assignment modal > Title of the add tags modal"
   },
+  "AHRvpU": {
+    "defaultMessage": "Pass the function directly to {evaluate}, just like other predefined or LLM-based judges.",
+    "description": "Step 3 description for running the judge"
+  },
   "AHaom4": {
     "defaultMessage": "No assessments available",
     "description": "Message shown when there are no assessments to display"
@@ -1653,6 +1641,10 @@
   "AupQl+": {
     "defaultMessage": "Killed",
     "description": "Run page > Overview > Run status cell > Value for killed state"
+  },
+  "Aw8IHc": {
+    "defaultMessage": "Evaluate individual traces for quality and correctness.",
+    "description": "Hint for the scorer evaluation scope selection for traces"
   },
   "AxdKIr": {
     "defaultMessage": "Versions",
@@ -1777,6 +1769,10 @@
   "BdV0qk": {
     "defaultMessage": "Human judge",
     "description": "Label for human judge in the tooltip for the assessment in the evaluation metrics."
+  },
+  "BefOVw": {
+    "defaultMessage": "New LLM judge",
+    "description": "Button text to add an LLM judge from empty state"
   },
   "BfMFME": {
     "defaultMessage": "Attributes",
@@ -2434,6 +2430,10 @@
     "defaultMessage": "Registered models",
     "description": "Title for the registered models section on the run details page"
   },
+  "Hq/PKm": {
+    "defaultMessage": "Enter a model identifier (e.g., openai:/gpt-4.1-mini). Scorers using direct models must configure API keys in your local environment.",
+    "description": "Hint text for direct model input"
+  },
   "Hq/vjk": {
     "defaultMessage": "All",
     "description": "Evaluation review > sidebar list of evaluation results > filter control > option for filtering evaluation results with no filter"
@@ -2786,6 +2786,10 @@
     "defaultMessage": "Pass",
     "description": "Passing evaluation status in the evaluations table."
   },
+  "Kyw/aU": {
+    "defaultMessage": "New custom code judge",
+    "description": "Button text to add a custom code judge from empty state"
+  },
   "KzC+38": {
     "defaultMessage": "Prompt template examples",
     "description": "Experiment page > new run modal > prompt examples > modal title"
@@ -3030,9 +3034,9 @@
     "defaultMessage": "Expected facts",
     "description": "Evaluation review > Response section > expected facts > title"
   },
-  "N4wIiU": {
-    "defaultMessage": "New judge",
-    "description": "Button text to create a new judge"
+  "N53jAt": {
+    "defaultMessage": "Create custom code judge",
+    "description": "Title for new custom code judge modal"
   },
   "N79Rdb": {
     "defaultMessage": "{count, plural, =1 {1 month} other {# months}} ago",
@@ -3198,10 +3202,6 @@
     "defaultMessage": "Value",
     "description": "Tag filter input for value field in the tags filter popover for experiments page search by tags"
   },
-  "OLornd": {
-    "defaultMessage": "New judge",
-    "description": "Button text to add a judge from empty state"
-  },
   "ONIiUE": {
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
@@ -3310,6 +3310,10 @@
     "defaultMessage": "A GraphQL error occurred.",
     "description": "Generic message for a GraphQL error, typically due to query parsing or validation issues"
   },
+  "PRCcZe": {
+    "defaultMessage": "Select ({count})",
+    "description": "Confirm button in the select traces modal showing number of selected traces"
+  },
   "PRe/8y": {
     "defaultMessage": "None",
     "description": "Default text for no content in an editable note in MLflow"
@@ -3344,6 +3348,10 @@
   "PewjIJ": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments focused on generative AI model development"
+  },
+  "Pne4Lp": {
+    "defaultMessage": "Maximum of {max} sessions can be selected",
+    "description": "Tooltip shown when too many sessions are selected"
   },
   "Potju2": {
     "defaultMessage": "Restore",
@@ -3681,6 +3689,10 @@
     "defaultMessage": "Last session",
     "description": "Option for last session"
   },
+  "SVNXvf": {
+    "defaultMessage": "Create LLM judge",
+    "description": "Title for new LLM judge modal"
+  },
   "SZj964": {
     "defaultMessage": "Copy S3 URI to clipboard",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
@@ -3704,10 +3716,6 @@
   "Shv28w": {
     "defaultMessage": "Save",
     "description": "Default text for save button on editable notes in MLflow"
-  },
-  "SknPqh": {
-    "defaultMessage": "Judge type",
-    "description": "Label for judge type selection"
   },
   "Sm0bXt": {
     "defaultMessage": "None",
@@ -4208,10 +4216,6 @@
     "defaultMessage": "Violates guidelines",
     "description": "Evaluation results > guidelines assessment > negative value label. Displayed if evaluation result does not adhere to the guidelines."
   },
-  "WncPgl": {
-    "defaultMessage": "Register your judge. The judge will then show up in this UI.",
-    "description": "Step 3 description for registering and starting judge"
-  },
   "WpD2MA": {
     "defaultMessage": "View All",
     "description": "View all traces button"
@@ -4459,6 +4463,10 @@
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Breadcrumb nav item to link to compare-experiments page on compare runs page"
   },
+  "Yl/0Tk": {
+    "defaultMessage": "Maximum of {max} traces can be selected",
+    "description": "Tooltip shown when too many traces are selected"
+  },
   "YlavFP": {
     "defaultMessage": "Add section",
     "description": "Experiment page > compare runs > chart section > add section bar"
@@ -4506,10 +4514,6 @@
   "ZBRK9J": {
     "defaultMessage": "Export traces to datasets",
     "description": "Export traces to dataset modal title"
-  },
-  "ZF/84G": {
-    "defaultMessage": "Use a large language model to automatically evaluate traces.",
-    "description": "Hint for the scorer evaluation scope selection for traces"
   },
   "ZGrkWk": {
     "defaultMessage": "Perform inference via model.transform()",
@@ -4646,10 +4650,6 @@
   "a3G5A7": {
     "defaultMessage": "Provider",
     "description": "Summary provider label"
-  },
-  "a6adM5": {
-    "defaultMessage": "Use a large language model to automatically evaluate traces.",
-    "description": "Hint text for LLM scorer type option"
   },
   "a6bpXQ": {
     "defaultMessage": "{numRootCause}/{numEvals} ({percentage}%) runs failed due to the {assessment} judge failing for the current run \"{currentRun}\".",
@@ -5235,10 +5235,6 @@
     "defaultMessage": "Error during metric page load: invalid URL",
     "description": "Error message when loading metric page fails"
   },
-  "eVpwlz": {
-    "defaultMessage": "Step 3: Register the judge",
-    "description": "Step 3 title for custom judge creation"
-  },
   "eWm+AG": {
     "defaultMessage": "Remove model",
     "description": "Tooltip for remove traffic split model button"
@@ -5310,6 +5306,10 @@
   "f/An1W": {
     "defaultMessage": "Ready.",
     "description": "Default status message for model versions that are ready"
+  },
+  "f3LAjV": {
+    "defaultMessage": "Select ({count})",
+    "description": "Confirm button in the select sessions modal showing number of selected sessions"
   },
   "f4CfIz": {
     "defaultMessage": "(edited)",
@@ -5450,10 +5450,6 @@
   "g7xNvF": {
     "defaultMessage": "Display points",
     "description": "Runs charts > line chart > display points > label"
-  },
-  "gBzvDD": {
-    "defaultMessage": "Create judge",
-    "description": "Title for new judge modal"
   },
   "gC2Kxm": {
     "defaultMessage": "Give instructions to the model. Use '{{ }}' or the \"Add new variable\" button to add variables to your prompt.",
@@ -6495,6 +6491,10 @@
     "defaultMessage": "Invalid log value",
     "description": "Experiment tracking > runs charts > line chart configuration > invalid log value message"
   },
+  "o5AS8R": {
+    "defaultMessage": "Custom code judge",
+    "description": "Menu item text to create a new custom code judge"
+  },
   "o7dzKo": {
     "defaultMessage": "Last Modified",
     "description": "Label name for last modified timestamp metadata in model version page"
@@ -6898,6 +6898,10 @@
   "rJitqj": {
     "defaultMessage": "Permission denied for {modelName}. Error: \"{errorMsg}\"",
     "description": "Permission denied error message on registered model detail page"
+  },
+  "rMIdMr": {
+    "defaultMessage": "New LLM judge",
+    "description": "Button text to create a new LLM judge"
   },
   "rNj11o": {
     "defaultMessage": "Switch to the {tracesTab} tab to inspect trace inputs, outputs, and tokens.",
@@ -7834,6 +7838,10 @@
   "zC/uKl": {
     "defaultMessage": "Auto-refresh",
     "description": "Run page > Charts tab > Auto-refresh toggle button"
+  },
+  "zDEFn7": {
+    "defaultMessage": "Step 3: Run the judge",
+    "description": "Step 3 title for custom judge creation"
   },
   "zE5aGj": {
     "defaultMessage": "Guidelines",
