@@ -683,10 +683,11 @@ def _save_model(sk_model, output_path, serialization_format, skops_trusted_types
         except Exception as e:
             shutil.rmtree(output_path, ignore_errors=True)
             raise MlflowException(
-                "The sklearn model could not be serialized using the skops serialization format. "
+                "The sklearn model could not be serialized in the skops serialization format. "
                 "skops does not support custom functions or classes that are not defined at the "
-                "top level. You can set the 'serialization_format' parameter to 'cloudpickle' to "
-                "address this issue."
+                "top level. To work around this limitation, you can set the serialization_format "
+                "'cloudpickle', while exercising caution due to the possible arbitrary "
+                "code during model deserialization using CloudPickle."
             ) from e
         return
 
