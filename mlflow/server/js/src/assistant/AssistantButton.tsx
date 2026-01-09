@@ -27,6 +27,7 @@ export const AssistantButton = () => {
 
   return isPanelOpen ? null : (
     <div
+      data-assistant-ui="true"
       css={{
         position: 'fixed',
         bottom: theme.spacing.lg,
