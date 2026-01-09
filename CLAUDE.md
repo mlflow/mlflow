@@ -99,9 +99,6 @@ uv run --with abc==1.2.3 --with xyz==4.5.6 pytest tests/test_version.py
 # Run tests with optional dependencies/extras
 uv run --with transformers pytest tests/transformers
 uv run --extra gateway pytest tests/gateway
-
-# Run JavaScript tests
-(cd mlflow/server/js && yarn test)
 ```
 
 ### Code Quality
@@ -116,14 +113,6 @@ uv run clint .                    # Run MLflow custom linter
 
 # Check for MLflow spelling typos
 uv run bash dev/mlflow-typo.sh .
-
-# JavaScript linting and formatting
-(cd mlflow/server/js && yarn lint)
-(cd mlflow/server/js && yarn prettier:check)
-(cd mlflow/server/js && yarn prettier:fix)
-
-# Type checking
-(cd mlflow/server/js && yarn type-check)
 ```
 
 ### Special Testing
@@ -157,7 +146,12 @@ cd docs && npm run serve --port 8080
 
 ### Modifying the UI
 
-See `mlflow/server/js/` for frontend development.
+For frontend development (React, TypeScript, UI components), see [mlflow/server/js/CLAUDE.md](./mlflow/server/js/CLAUDE.md) which covers:
+
+- Development server setup with hot reload
+- Available yarn scripts (testing, linting, formatting, type checking)
+- UI components and design system usage
+- Project structure and best practices
 
 ## Git Workflow
 
