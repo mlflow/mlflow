@@ -14,33 +14,25 @@ _logger = logging.getLogger(__name__)
 
 @dataclass
 class OnlineTraceScoringCheckpoint:
-    """Checkpoint for trace-level online scoring."""
-
     timestamp_ms: int  # Timestamp of the last processed trace in milliseconds
     trace_id: str | None = None  # Trace ID used as tie breaker when traces have same timestamp
 
     def to_json(self) -> str:
-        """Serialize checkpoint to JSON string."""
         return json.dumps(asdict(self))
 
     @classmethod
     def from_json(cls, json_str: str) -> "OnlineTraceScoringCheckpoint":
-        """Deserialize checkpoint from JSON string."""
         data = json.loads(json_str)
         return cls(**data)
 
 
 @dataclass
 class OnlineTraceScoringTimeWindow:
-    """Time window for trace-level online scoring."""
-
     min_trace_timestamp_ms: int
     max_trace_timestamp_ms: int
 
 
 class OnlineTraceCheckpointManager:
-    """Manages checkpoint timestamps for trace-level online scoring."""
-
     def __init__(self, tracking_store: AbstractStore, experiment_id: str):
         self._tracking_store = tracking_store
         self._experiment_id = experiment_id
