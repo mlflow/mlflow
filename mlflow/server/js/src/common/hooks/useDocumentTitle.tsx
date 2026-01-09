@@ -9,6 +9,7 @@ import { useMatches } from '../utils/RoutingUtils';
  * {
  *   path: '/experiments',
  *   element: <ExperimentPage />,
+ *   pageId: 'mlflow.experiments.list',
  *   handle: { title: 'Experiments' }
  * }
  *
