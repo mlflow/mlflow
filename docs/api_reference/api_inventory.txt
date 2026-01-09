@@ -1135,6 +1135,7 @@ mlflow.h2o.load_model
 mlflow.h2o.log_model
 mlflow.h2o.save_model
 mlflow.haystack.autolog
+mlflow.import_checkpoints
 mlflow.initialize_logged_model
 mlflow.is_tracking_uri_set
 mlflow.johnsnowlabs.get_default_conda_env

@@ -2523,8 +2523,6 @@ def import_checkpoints(
     """
     from databricks.sdk import WorkspaceClient
 
-    from mlflow.entities import LoggedModel
-
     # Validate checkpoint_path before accessing workspace files
     if not isinstance(checkpoint_path, str) or not checkpoint_path.strip().startswith("/Volumes/"):
         raise MlflowException(
@@ -2570,11 +2568,10 @@ def import_checkpoints(
                 "supported, skip importing it.'"
             )
 
-        if model_prefix:
-            model_name = model_prefix + base_name
+        model_name = model_prefix + base_name if model_prefix else base_name
 
         existing_models = search_logged_models(
-            experiment_ids=[exp_id] if exp_id else None,
+            experiment_ids=[exp_id],
             filter_string=f"name = '{model_name}' and source_run_id = '{source_run_id}'",
             output_format="list",
         )
@@ -2584,7 +2581,7 @@ def import_checkpoints(
                 client.delete_logged_model(model.model_id)
 
         if not existing_models or overwrite_checkpoints:
-            # create new model points to the latest checkpoint.
+            # Create a new model pointing to this checkpoint path.
             created_model = create_external_model(
                 name=model_name,
                 source_run_id=source_run_id,
