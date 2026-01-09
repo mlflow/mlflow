@@ -388,7 +388,7 @@ class Scorer(BaseModel):
         Override model_validate_json to parse JSON and delegate to custom model_validate.
 
         Args:
-            json_data: JSON string to deserialize.
+            json_data: JSON string containing serialized scorer data.
 
         Returns:
             Scorer instance with correct subclass (BuiltInScorer, InstructionsJudge, etc.).
