@@ -2,9 +2,6 @@
 
 from mlflow.tracing.constant import TraceMetadataKey
 
-# Checkpoint tag for tracking last processed trace
-TRACE_CHECKPOINT_TAG = "mlflow.latestOnlineScoring.trace.checkpoint"
-
 # Maximum lookback period to prevent getting stuck on old failing traces (1 hour)
 MAX_LOOKBACK_MS = 60 * 60 * 1000
 

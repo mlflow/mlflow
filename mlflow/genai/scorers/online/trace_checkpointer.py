@@ -6,8 +6,9 @@ import time
 from dataclasses import asdict, dataclass
 
 from mlflow.entities.experiment_tag import ExperimentTag
-from mlflow.genai.scorers.online.constants import MAX_LOOKBACK_MS, TRACE_CHECKPOINT_TAG
+from mlflow.genai.scorers.online.constants import MAX_LOOKBACK_MS
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.utils.mlflow_tags import MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT
 
 _logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class OnlineTraceCheckpointManager:
         """
         try:
             experiment = self._tracking_store.get_experiment(self._experiment_id)
-            if checkpoint_str := experiment.tags.get(TRACE_CHECKPOINT_TAG):
+            if checkpoint_str := experiment.tags.get(MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT):
                 return OnlineTraceScoringCheckpoint.from_json(checkpoint_str)
         except (TypeError, ValueError, json.JSONDecodeError):
             pass
@@ -61,7 +62,7 @@ class OnlineTraceCheckpointManager:
         """
         self._tracking_store.set_experiment_tag(
             self._experiment_id,
-            ExperimentTag(TRACE_CHECKPOINT_TAG, checkpoint.to_json()),
+            ExperimentTag(MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT, checkpoint.to_json()),
         )
 
     def calculate_time_window(self) -> OnlineTraceScoringTimeWindow:
