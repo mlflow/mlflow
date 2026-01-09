@@ -383,12 +383,12 @@ class Scorer(BaseModel):
             )
 
     @classmethod
-    def model_validate_json(cls, json_data: str | bytes) -> "Scorer":
+    def model_validate_json(cls, json_data: str) -> "Scorer":
         """
         Override model_validate_json to parse JSON and delegate to custom model_validate.
 
         Args:
-            json_data: JSON string or bytes to deserialize.
+            json_data: JSON string to deserialize.
 
         Returns:
             Scorer instance with correct subclass (BuiltInScorer, InstructionsJudge, etc.).
