@@ -179,13 +179,14 @@ class SessionManager:
         return Session.from_dict(data)
 
     @staticmethod
-    def create(context: dict[str, Any] | None = None) -> Session:
+    def create(context: dict[str, Any] | None = None, working_dir: Path | None = None) -> Session:
         """Create a new session.
 
         Args:
             context: Initial context data, or None
+            working_dir: Working directory for the session
 
         Returns:
             New Session instance
         """
-        return Session(context=context or {})
+        return Session(context=context or {}, working_dir=working_dir)

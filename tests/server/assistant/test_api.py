@@ -40,7 +40,10 @@ class MockProvider(AssistantProvider):
     def check_connection(self, echo=print) -> None:
         pass
 
-    async def astream(self, prompt: str, session_id: str | None = None):
+    def install_skills(self) -> list[str]:
+        pass
+
+    async def astream(self, prompt: str, session_id: str | None = None, cwd: Path | None = None):
         yield Event.from_message(message=Message(role="user", content="Hello from mock"))
         yield Event.from_result(result="complete", session_id="mock-session-123")
 

@@ -3,9 +3,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
 MLFLOW_ASSISTANT_HOME = Path.home() / ".mlflow" / "assistant"
 CONFIG_PATH = MLFLOW_ASSISTANT_HOME / "config.json"
+
 
 class ProviderConfig(BaseModel):
     model: str = "default"
