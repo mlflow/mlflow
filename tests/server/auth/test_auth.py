@@ -1574,7 +1574,12 @@ def test_gateway_endpoint_use_permission(client, monkeypatch):
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
             json={
                 "name": "test_endpoint",
-                "model_definition_ids": [model_definition_id],
+                "model_configs": [
+                    {
+                        "model_definition_id": model_definition_id,
+                        "linkage_type": "PRIMARY",
+                    }
+                ],
             },
             auth=(user1, password1),
         )
