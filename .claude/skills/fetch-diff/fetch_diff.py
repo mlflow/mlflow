@@ -3,7 +3,7 @@ Fetch PR diff with filtering and line numbers.
 
 Filters out auto-generated and non-reviewable files, then adds line numbers
 for easier review comment placement. Supports stacked PRs by detecting the
-"🥞 Stacked PR" section and fetching only incremental changes.
+"Stacked PR" section and fetching only incremental changes.
 
 Example:
     uv run .claude/skills/fetch-diff/fetch_diff.py https://github.com/<owner>/<repo>/pull/<number>
@@ -62,7 +62,7 @@ def extract_stacked_pr_base_sha(pr_body: str | None, head_ref: str) -> str | Non
     In stacked PR descriptions, the current PR is marked with bold (double
     asterisks). Example stack tree::
 
-        ## 🥞 Stacked PR
+        ## Stacked PR
         - [branch_a](url) [Files changed](url)
           - [**branch_b**](url) [Files changed](url/files/abc123..def456)
             - [branch_c](url) [Files changed](url/files/def456..789ghi)
