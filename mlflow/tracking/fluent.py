@@ -2563,17 +2563,16 @@ def import_checkpoints(
     for sub_checkpoint_path in top_level_paths:
         base_name = os.path.basename(sub_checkpoint_path)
 
-        if '"' in base_name or "'" in base_name:
-            _logger.warning(
-                f"The checkpoint '{sub_checkpoint_path}' file name contains quotes which is not "
-                "supported, skip importing it.'"
-            )
-
-        # These special chars are not allowed in model name, replace them with '_'
-        for special_char in ["?", "%", ":"]:
-            base_name = base_name.replace(special_char, "_")
-
         model_name = model_prefix + base_name if model_prefix else base_name
+
+        # '?', '%', ':' are not allowed in logged model name
+        # Quotes in model name makes SQL filter hard to handle, so disable it too.
+        for special_char in ["?", "%", ":", "'", '"']:
+            if special_char in model_name:
+                raise MlflowException.invalid_parameter_value(
+                    f"The model name can't include the following special character: "
+                    f"`?`, `%`, ':', `'`, `\"`, but got model name '{model_name}'.",
+                )
 
         existing_models = [
             model
