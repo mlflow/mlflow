@@ -319,29 +319,30 @@ def test_conversation_simulator_validation(test_cases, expected_error):
 
 
 @pytest.mark.parametrize(
-    ("inputs", "should_succeed"),
+    "inputs",
     [
-        # Valid conversational datasets with 'goal' field
-        ([{"goal": "Learn about MLflow"}], True),
-        ([{"goal": "Debug issue", "persona": "Engineer"}], True),
-        (
-            [{"goal": "Ask questions", "persona": "Student", "context": {"id": "1"}}],
-            True,
-        ),
-        # Invalid single-turn datasets without 'goal' field
-        ([{"request": "What is MLflow?"}], False),
-        ([{"inputs": {"query": "Help me"}, "expected_response": "Sure!"}], False),
-        ([{"question": "How to log?", "answer": "Use mlflow.log"}], False),
-        ([], False),
+        [{"goal": "Learn about MLflow"}],
+        [{"goal": "Debug issue", "persona": "Engineer"}],
+        [{"goal": "Ask questions", "persona": "Student", "context": {"id": "1"}}],
     ],
 )
-def test_conversation_simulator_evaluation_dataset_validation(inputs, should_succeed):
+def test_conversation_simulator_evaluation_dataset_valid(inputs):
     mock_dataset = create_mock_evaluation_dataset(inputs)
+    simulator = ConversationSimulator(test_cases=mock_dataset, max_turns=2)
+    assert len(simulator.test_cases) == len(inputs)
+    assert simulator.test_cases == inputs
 
-    if should_succeed:
-        simulator = ConversationSimulator(test_cases=mock_dataset, max_turns=2)
-        assert len(simulator.test_cases) == len(inputs)
-        assert simulator.test_cases == inputs
-    else:
-        with pytest.raises(ValueError, match="conversational test cases with a 'goal' field"):
-            ConversationSimulator(test_cases=mock_dataset, max_turns=2)
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        [{"request": "What is MLflow?"}],
+        [{"inputs": {"query": "Help me"}, "expected_response": "Sure!"}],
+        [{"inputs": {"question": "How to log?", "answer": "Use mlflow.log"}}],
+        [],
+    ],
+)
+def test_conversation_simulator_evaluation_dataset_invalid(inputs):
+    mock_dataset = create_mock_evaluation_dataset(inputs)
+    with pytest.raises(ValueError, match="conversational test cases with a 'goal' field"):
+        ConversationSimulator(test_cases=mock_dataset, max_turns=2)
