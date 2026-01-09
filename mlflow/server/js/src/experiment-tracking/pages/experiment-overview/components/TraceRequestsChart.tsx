@@ -12,12 +12,14 @@ import {
   OverviewChartContainer,
   ScrollableTooltip,
   useChartXAxisProps,
+  useChartYAxisProps,
 } from './OverviewChartComponents';
 import type { OverviewChartProps } from '../types';
 
 export const TraceRequestsChart: React.FC<OverviewChartProps> = (props) => {
   const { theme } = useDesignSystemTheme();
   const xAxisProps = useChartXAxisProps();
+  const yAxisProps = useChartYAxisProps();
 
   // Fetch and process requests chart data
   const { chartData, totalRequests, avgRequests, isLoading, error, hasData } = useTraceRequestsChartData(props);
@@ -43,9 +45,9 @@ export const TraceRequestsChart: React.FC<OverviewChartProps> = (props) => {
       <div css={{ height: 200 }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <BarChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
               <XAxis dataKey="name" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
                 content={<ScrollableTooltip formatter={(value) => [`${value}`, 'Requests']} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
