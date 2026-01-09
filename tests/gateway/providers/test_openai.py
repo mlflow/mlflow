@@ -120,7 +120,7 @@ async def _run_test_chat(provider):
         }
         mock_build_client.assert_called_once_with(
             headers={
-                "Authorization": "Bearer key",
+                "authorization": "Bearer key",
             }
         )
         mock_client.post.assert_called_once_with(
@@ -237,7 +237,7 @@ async def _run_test_chat_stream(resp, provider):
 
         mock_build_client.assert_called_once_with(
             headers={
-                "Authorization": "Bearer key",
+                "authorization": "Bearer key",
             }
         )
         mock_client.post.assert_called_once_with(
@@ -398,7 +398,7 @@ async def _run_test_completions(resp, provider):
         }
         mock_build_client.assert_called_once_with(
             headers={
-                "Authorization": "Bearer key",
+                "authorization": "Bearer key",
                 "OpenAI-Organization": "test-organization",
             }
         )
@@ -518,7 +518,7 @@ async def _run_test_completions_stream(resp, provider):
 
         mock_build_client.assert_called_once_with(
             headers={
-                "Authorization": "Bearer key",
+                "authorization": "Bearer key",
                 "OpenAI-Organization": "test-organization",
             }
         )
@@ -599,7 +599,7 @@ async def _run_test_embeddings(provider):
         }
         mock_build_client.assert_called_once_with(
             headers={
-                "Authorization": "Bearer key",
+                "authorization": "Bearer key",
             }
         )
         mock_client.post.assert_called_once_with(
@@ -678,7 +678,7 @@ async def test_embeddings_batch_input():
         }
         mock_build_client.assert_called_once_with(
             headers={
-                "Authorization": "Bearer key",
+                "authorization": "Bearer key",
             }
         )
         mock_client.post.assert_called_once_with(
@@ -769,7 +769,7 @@ async def test_azuread_openai():
         }
         mock_build_client.assert_called_once_with(
             headers={
-                "Authorization": "Bearer key",
+                "authorization": "Bearer key",
             }
         )
         mock_client.post.assert_called_once_with(
@@ -926,7 +926,7 @@ async def test_openai_passthrough_chat():
         assert call_kwargs["payload"]["messages"] == [{"role": "user", "content": "Hello"}]
 
         # Verify provider headers are propagated correctly
-        assert call_kwargs["headers"]["Authorization"] == "Bearer key"
+        assert call_kwargs["headers"]["authorization"] == "Bearer key"
 
         # Verify custom headers are propagated correctly
         assert call_kwargs["headers"]["X-Custom-Header"] == "custom-value"
@@ -935,7 +935,6 @@ async def test_openai_passthrough_chat():
         # Verify gateway specific headers are not propagated
         assert "host" not in call_kwargs["headers"]
         assert "content-length" not in call_kwargs["headers"]
-        assert "authorization" not in call_kwargs["headers"]
 
         # Verify response is raw OpenAI format
         assert response == mock_response
@@ -982,7 +981,7 @@ async def test_openai_passthrough_embeddings():
         assert call_kwargs["payload"]["input"] == "Test input"
 
         # Verify provider headers are propagated correctly
-        assert call_kwargs["headers"]["Authorization"] == "Bearer key"
+        assert call_kwargs["headers"]["authorization"] == "Bearer key"
 
         # Verify custom headers are propagated correctly
         assert call_kwargs["headers"]["X-Custom-Header"] == "custom-value"
@@ -1030,7 +1029,7 @@ async def test_openai_passthrough_responses():
         assert call_kwargs["payload"]["instructions"] == "You are a helpful assistant"
 
         # Verify provider headers are propagated correctly
-        assert call_kwargs["headers"]["Authorization"] == "Bearer key"
+        assert call_kwargs["headers"]["authorization"] == "Bearer key"
 
         # Verify custom headers are propagated correctly
         assert call_kwargs["headers"]["X-Trace-ID"] == "trace-456"
