@@ -2571,7 +2571,7 @@ def import_checkpoints(
 
         # These special chars are not allowed in model name, replace them with '_'
         for special_char in ["?", "%", ":"]:
-            base_name.replace(special_char, "_")
+            base_name = base_name.replace(special_char, "_")
 
         model_name = model_prefix + base_name if model_prefix else base_name
 
