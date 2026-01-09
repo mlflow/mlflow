@@ -192,9 +192,7 @@ class GePaAlignmentOptimizer(AlignmentOptimizer):
         optimized_instructions = gepa_result.best_candidate["instructions"]
 
         # Validate that optimized instructions have exactly the same template variables
-        original_template_vars = set(
-            PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(judge.instructions)
-        )
+        original_template_vars = set(PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(judge.instructions))
         optimized_template_vars = set(
             PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(optimized_instructions)
         )

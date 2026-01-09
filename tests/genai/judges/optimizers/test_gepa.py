@@ -59,9 +59,7 @@ def sample_trace_with_human_feedback():
                 name="relevance",
                 value="yes",
                 rationale="The output is relevant",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.HUMAN, source_id="user_1"
-                ),
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
             )
         ],
     )
@@ -108,9 +106,7 @@ def sample_traces_mixed_assessments():
                 name="relevance",
                 value="yes" if i % 2 == 0 else "no",
                 rationale=f"Human feedback {i}",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.HUMAN, source_id="user_1"
-                ),
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
             ),
             Feedback(
                 trace_id=f"trace_{i}",
@@ -243,9 +239,7 @@ def test_align_with_different_model_providers(
         "gepa.core.adapter": MagicMock(),
     }
     optimized_instr = "Optimized: Check if {{ outputs }} directly addresses {{ inputs }}"
-    mock_gepa_module.optimize.return_value = Mock(
-        best_candidate={"instructions": optimized_instr}
-    )
+    mock_gepa_module.optimize.return_value = Mock(best_candidate={"instructions": optimized_instr})
     mock_gepa_module.EvaluationBatch = MagicMock()
 
     optimizer = GePaAlignmentOptimizer(
@@ -327,14 +321,16 @@ def test_has_human_feedback_for_judge(mock_judge, sample_trace_with_human_feedba
     optimizer = GePaAlignmentOptimizer(model="openai:/gpt-4o")
 
     # Should find human feedback for "relevance" judge
-    assert optimizer._has_human_feedback_for_judge(
-        sample_trace_with_human_feedback, "relevance"
-    ) is True
+    assert (
+        optimizer._has_human_feedback_for_judge(sample_trace_with_human_feedback, "relevance")
+        is True
+    )
 
     # Should not find for different judge name
-    assert optimizer._has_human_feedback_for_judge(
-        sample_trace_with_human_feedback, "correctness"
-    ) is False
+    assert (
+        optimizer._has_human_feedback_for_judge(sample_trace_with_human_feedback, "correctness")
+        is False
+    )
 
 
 def test_has_human_feedback_case_insensitive():
@@ -349,9 +345,7 @@ def test_has_human_feedback_case_insensitive():
                 trace_id="trace_1",
                 name="ReLeVaNcE",  # Mixed case
                 value="yes",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.HUMAN, source_id="user_1"
-                ),
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
             )
         ],
     )
@@ -377,9 +371,7 @@ def test_adapter_evaluate_basic(mock_judge):
                 trace_id="trace_1",
                 name="relevance",
                 value="yes",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.HUMAN, source_id="user_1"
-                ),
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
             )
         ],
     )
@@ -387,9 +379,7 @@ def test_adapter_evaluate_basic(mock_judge):
 
     # Mock gepa module
     mock_gepa_module = MagicMock()
-    eval_batch_cls = (
-        gepa.EvaluationBatch if hasattr(gepa, "EvaluationBatch") else MagicMock()
-    )
+    eval_batch_cls = gepa.EvaluationBatch if hasattr(gepa, "EvaluationBatch") else MagicMock()
     mock_gepa_module.EvaluationBatch = eval_batch_cls
 
     adapter = GePaAlignmentOptimizer._MlflowGEPAAdapter(
@@ -462,9 +452,7 @@ def test_adapter_extract_human_feedback():
                 name="relevance",
                 value="yes",
                 rationale="Good answer",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.HUMAN, source_id="user_1"
-                ),
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
             )
         ],
     )
@@ -493,9 +481,7 @@ def test_adapter_extract_human_feedback_most_recent():
                 name="relevance",
                 value="no",
                 rationale="First assessment",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.HUMAN, source_id="user_1"
-                ),
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
                 create_time_ms=1000,
             ),
             Feedback(
@@ -503,9 +489,7 @@ def test_adapter_extract_human_feedback_most_recent():
                 name="relevance",
                 value="yes",
                 rationale="Updated assessment",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.HUMAN, source_id="user_1"
-                ),
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
                 create_time_ms=2000,  # More recent
             ),
         ],
@@ -543,9 +527,7 @@ def test_adapter_ignores_llm_judge_feedback():
                 trace_id="trace_1",
                 name="relevance",
                 value="yes",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.HUMAN, source_id="user_1"
-                ),
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
                 create_time_ms=2000,
             ),
         ],
@@ -592,8 +574,7 @@ def test_align_raises_error_on_invalid_template_variables(
 
     with patch.dict(sys.modules, mock_modules):
         with pytest.raises(
-            MlflowException,
-            match="Optimized instructions have different template variables"
+            MlflowException, match="Optimized instructions have different template variables"
         ):
             optimizer.align(mock_judge, sample_traces_with_assessments)
 
@@ -611,9 +592,7 @@ def test_adapter_handles_trace_with_missing_data():
                 trace_id="trace_1",
                 name="relevance",
                 value="yes",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.HUMAN, source_id="user_1"
-                ),
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
             )
         ],
     )
@@ -627,9 +606,7 @@ def test_adapter_handles_trace_with_missing_data():
     # Mock the judge evaluation to test error handling
     with patch("mlflow.genai.judges.optimizers.gepa.make_judge") as mock_make_judge:
         mock_judge_instance = Mock()
-        mock_judge_instance.return_value = Feedback(
-            name="relevance", value="yes", rationale="test"
-        )
+        mock_judge_instance.return_value = Feedback(name="relevance", value="yes", rationale="test")
         mock_make_judge.return_value = mock_judge_instance
 
         with (
@@ -662,9 +639,7 @@ def test_adapter_handles_judge_evaluation_exception():
                 trace_id="trace_1",
                 name="relevance",
                 value="yes",
-                source=AssessmentSource(
-                    source_type=AssessmentSourceType.HUMAN, source_id="user_1"
-                ),
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_1"),
             )
         ],
     )
@@ -700,16 +675,13 @@ def test_align_raises_error_on_empty_optimized_instructions(
         "gepa.core.adapter": MagicMock(),
     }
     # Return empty instructions
-    mock_gepa_module.optimize.return_value = Mock(
-        best_candidate={"instructions": ""}
-    )
+    mock_gepa_module.optimize.return_value = Mock(best_candidate={"instructions": ""})
     mock_gepa_module.EvaluationBatch = MagicMock()
 
     optimizer = GePaAlignmentOptimizer(model="openai:/gpt-4o")
 
     with patch.dict(sys.modules, mock_modules):
         with pytest.raises(
-            MlflowException,
-            match="Optimized instructions have different template variables"
+            MlflowException, match="Optimized instructions have different template variables"
         ):
             optimizer.align(mock_judge, sample_traces_with_assessments)
