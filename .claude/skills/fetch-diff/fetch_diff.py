@@ -77,7 +77,7 @@ def extract_stacked_pr_base_sha(pr_body: str | None, head_ref: str) -> str | Non
     marker = f"[**{head_ref}**]"
     for line in pr_body.split("\n"):
         if marker in line:
-            if m := re.search(r"/files/(?P<base>[a-f0-9]{40})\.\.(?P<head>[a-f0-9]{40})", line):
+            if m := re.search(r"/files/(?P<base>[a-f0-9]{7,40})\.\.(?P<head>[a-f0-9]{7,40})", line):
                 return m.group("base")
 
     return None
