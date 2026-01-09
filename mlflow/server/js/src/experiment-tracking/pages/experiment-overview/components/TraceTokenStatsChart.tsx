@@ -12,7 +12,7 @@ import {
   OverviewChartContainer,
   useChartTooltipStyle,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { formatCount, useLegendHighlight } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
@@ -21,7 +21,7 @@ export const TraceTokenStatsChart: React.FC<OverviewChartProps> = (props) => {
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
 
   // Fetch and process token stats chart data
@@ -112,10 +112,9 @@ export const TraceTokenStatsChart: React.FC<OverviewChartProps> = (props) => {
               <Legend
                 verticalAlign="bottom"
                 iconType="plainline"
-                height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={legendFormatter}
+                {...scrollableLegendProps}
               />
             </LineChart>
           </ResponsiveContainer>

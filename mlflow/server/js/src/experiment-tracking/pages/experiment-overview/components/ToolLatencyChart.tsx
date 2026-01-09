@@ -12,7 +12,7 @@ import {
   OverviewChartTimeLabel,
   useChartTooltipStyle,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { formatLatency, useLegendHighlight, useToolColors } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
@@ -25,7 +25,7 @@ export const ToolLatencyChart: React.FC<OverviewChartProps> = (props) => {
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
   const { getToolColor } = useToolColors();
 
@@ -80,10 +80,9 @@ export const ToolLatencyChart: React.FC<OverviewChartProps> = (props) => {
               <Legend
                 verticalAlign="bottom"
                 iconType="plainline"
-                height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={legendFormatter}
+                {...scrollableLegendProps}
               />
             </LineChart>
           </ResponsiveContainer>
