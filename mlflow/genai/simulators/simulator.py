@@ -12,6 +12,7 @@ import pydantic
 import mlflow
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
@@ -46,6 +47,7 @@ _logger = logging.getLogger(__name__)
 
 _MAX_METADATA_LENGTH = 250
 _EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context"}
+_REQUIRED_TEST_CASE_KEYS = {"goal"}
 
 _MODEL_API_DOC = {
     "model": """Model to use for generating user messages. Must be one of:
@@ -246,7 +248,8 @@ class ConversationSimulator:
     various user goals and personas.
 
     Args:
-        test_cases: List of test case dictionaries or DataFrame with the following fields:
+        test_cases: List of test case dicts, a DataFrame, or an EvaluationDataset,
+            with the following fields:
 
             - "goal": Describing what the simulated user wants to achieve.
             - "persona" (optional): Custom persona for the simulated user.
@@ -276,7 +279,7 @@ class ConversationSimulator:
 
     def __init__(
         self,
-        test_cases: list[dict[str, Any]] | "DataFrame",
+        test_cases: list[dict[str, Any]] | "DataFrame" | EvaluationDataset,
         max_turns: int = 10,
         user_model: str | None = None,
         **user_llm_params,
@@ -288,12 +291,22 @@ class ConversationSimulator:
         self.user_llm_params = user_llm_params
 
     def _normalize_test_cases(
-        self, test_cases: list[dict[str, Any]] | "DataFrame"
+        self, test_cases: list[dict[str, Any]] | "DataFrame" | EvaluationDataset
     ) -> list[dict[str, Any]]:
         from pandas import DataFrame
 
+        if isinstance(test_cases, EvaluationDataset):
+            records = test_cases.to_df()["inputs"].to_list()
+            if not records or not (records[0].keys() & _REQUIRED_TEST_CASE_KEYS):
+                raise ValueError(
+                    "EvaluationDataset passed to ConversationSimulator must contain "
+                    "conversational test cases with a 'goal' field in the 'inputs' column"
+                )
+            return records
+
         if isinstance(test_cases, DataFrame):
             return test_cases.to_dict("records")
+
         return test_cases
 
     def _validate_test_cases(self) -> None:
