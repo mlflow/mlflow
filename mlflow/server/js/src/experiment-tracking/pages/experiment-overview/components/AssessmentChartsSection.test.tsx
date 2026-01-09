@@ -34,14 +34,7 @@ describe('AssessmentChartsSection', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  const defaultProps: {
-    experimentId: string;
-    startTimeMs: number;
-    endTimeMs: number;
-    timeIntervalSeconds: number;
-    timeBuckets: number[];
-    searchQuery?: string;
-  } = {
+  const defaultProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
@@ -279,98 +272,6 @@ describe('AssessmentChartsSection', () => {
         // Should not render any charts
         expect(screen.queryAllByTestId(/^assessment-chart-/)).toHaveLength(0);
       });
-    });
-  });
-
-  describe('searchQuery filtering', () => {
-    it('should filter assessments by searchQuery', async () => {
-      setupTraceMetricsHandler([
-        createAssessmentDataPoint('Correctness', 0.85),
-        createAssessmentDataPoint('Relevance', 0.72),
-        createAssessmentDataPoint('Fluency', 0.9),
-      ]);
-
-      renderComponent({ searchQuery: 'Correct' });
-
-      await waitFor(() => {
-        expect(screen.getByTestId('assessment-chart-Correctness')).toBeInTheDocument();
-      });
-
-      expect(screen.queryByTestId('assessment-chart-Relevance')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('assessment-chart-Fluency')).not.toBeInTheDocument();
-    });
-
-    it('should filter assessments case-insensitively', async () => {
-      setupTraceMetricsHandler([
-        createAssessmentDataPoint('Correctness', 0.85),
-        createAssessmentDataPoint('Relevance', 0.72),
-      ]);
-
-      renderComponent({ searchQuery: 'correctness' });
-
-      await waitFor(() => {
-        expect(screen.getByTestId('assessment-chart-Correctness')).toBeInTheDocument();
-      });
-
-      expect(screen.queryByTestId('assessment-chart-Relevance')).not.toBeInTheDocument();
-    });
-
-    it('should show all assessments when searchQuery is empty', async () => {
-      setupTraceMetricsHandler([
-        createAssessmentDataPoint('Correctness', 0.85),
-        createAssessmentDataPoint('Relevance', 0.72),
-      ]);
-
-      renderComponent({ searchQuery: '' });
-
-      await waitFor(() => {
-        expect(screen.getByTestId('assessment-chart-Correctness')).toBeInTheDocument();
-        expect(screen.getByTestId('assessment-chart-Relevance')).toBeInTheDocument();
-      });
-    });
-
-    it('should show all assessments when searchQuery is whitespace only', async () => {
-      setupTraceMetricsHandler([
-        createAssessmentDataPoint('Correctness', 0.85),
-        createAssessmentDataPoint('Relevance', 0.72),
-      ]);
-
-      renderComponent({ searchQuery: '   ' });
-
-      await waitFor(() => {
-        expect(screen.getByTestId('assessment-chart-Correctness')).toBeInTheDocument();
-        expect(screen.getByTestId('assessment-chart-Relevance')).toBeInTheDocument();
-      });
-    });
-
-    it('should show empty state when searchQuery matches no assessments', async () => {
-      setupTraceMetricsHandler([
-        createAssessmentDataPoint('Correctness', 0.85),
-        createAssessmentDataPoint('Relevance', 0.72),
-      ]);
-
-      renderComponent({ searchQuery: 'nonexistent' });
-
-      await waitFor(() => {
-        expect(screen.getByText('No assessments available')).toBeInTheDocument();
-      });
-    });
-
-    it('should support partial matching in searchQuery', async () => {
-      setupTraceMetricsHandler([
-        createAssessmentDataPoint('Correctness', 0.85),
-        createAssessmentDataPoint('Relevance', 0.72),
-        createAssessmentDataPoint('Fluency', 0.9),
-      ]);
-
-      renderComponent({ searchQuery: 'ness' });
-
-      await waitFor(() => {
-        expect(screen.getByTestId('assessment-chart-Correctness')).toBeInTheDocument();
-      });
-
-      expect(screen.queryByTestId('assessment-chart-Relevance')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('assessment-chart-Fluency')).not.toBeInTheDocument();
     });
   });
 });

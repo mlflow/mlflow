@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useToolCallChartsSectionData } from '../hooks/useToolCallChartsSectionData';
 import { OverviewChartLoadingState, OverviewChartErrorState } from './OverviewChartComponents';
 import { ChartGrid } from './OverviewLayoutComponents';
@@ -6,21 +6,15 @@ import { LazyToolErrorRateChart } from './LazyToolErrorRateChart';
 import { useToolColors } from '../utils/chartUtils';
 import type { OverviewChartProps } from '../types';
 
-interface ToolCallChartsSectionProps extends OverviewChartProps {
-  /** Optional search query to filter tools by name */
-  searchQuery?: string;
-}
-
 /**
  * Component that fetches available tools and renders an error rate chart for each one.
  */
-export const ToolCallChartsSection: React.FC<ToolCallChartsSectionProps> = ({
+export const ToolCallChartsSection: React.FC<OverviewChartProps> = ({
   experimentId,
   startTimeMs,
   endTimeMs,
   timeIntervalSeconds,
   timeBuckets,
-  searchQuery,
 }) => {
   const { getToolColor } = useToolColors();
 
@@ -31,13 +25,6 @@ export const ToolCallChartsSection: React.FC<ToolCallChartsSectionProps> = ({
     endTimeMs,
   });
 
-  // Filter tool names based on search query (matches tool name which is the chart title)
-  const filteredToolNames = useMemo(() => {
-    if (!searchQuery?.trim()) return toolNames;
-    const query = searchQuery.toLowerCase().trim();
-    return toolNames.filter((name) => name.toLowerCase().includes(query));
-  }, [toolNames, searchQuery]);
-
   if (isLoading) {
     return <OverviewChartLoadingState />;
   }
@@ -46,30 +33,26 @@ export const ToolCallChartsSection: React.FC<ToolCallChartsSectionProps> = ({
     return <OverviewChartErrorState />;
   }
 
-  // Don't render anything if there are no tools or no matches
-  if (!hasData || filteredToolNames.length === 0) {
+  // Don't render anything if there are no tools, other charts handle the empty states as well
+  if (!hasData) {
     return null;
   }
 
   return (
     <ChartGrid>
-      {filteredToolNames.map((name) => {
-        // Use original index for consistent colors
-        const originalIndex = toolNames.indexOf(name);
-        return (
-          <LazyToolErrorRateChart
-            key={name}
-            experimentId={experimentId}
-            startTimeMs={startTimeMs}
-            endTimeMs={endTimeMs}
-            timeIntervalSeconds={timeIntervalSeconds}
-            timeBuckets={timeBuckets}
-            toolName={name}
-            lineColor={getToolColor(originalIndex)}
-            overallErrorRate={errorRateByTool.get(name) ?? 0}
-          />
-        );
-      })}
+      {toolNames.map((name, index) => (
+        <LazyToolErrorRateChart
+          key={name}
+          experimentId={experimentId}
+          startTimeMs={startTimeMs}
+          endTimeMs={endTimeMs}
+          timeIntervalSeconds={timeIntervalSeconds}
+          timeBuckets={timeBuckets}
+          toolName={name}
+          lineColor={getToolColor(index)}
+          overallErrorRate={errorRateByTool.get(name) ?? 0}
+        />
+      ))}
     </ChartGrid>
   );
 };
