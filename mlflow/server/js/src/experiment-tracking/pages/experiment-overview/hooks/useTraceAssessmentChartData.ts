@@ -15,7 +15,7 @@ import {
   createHistogramBuckets,
   findBucketIndexForValue,
 } from '../utils/distributionUtils';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface AssessmentChartDataPoint {
   name: string;
@@ -40,27 +40,17 @@ export interface UseTraceAssessmentChartDataResult {
   hasData: boolean;
 }
 
-export interface UseTraceAssessmentChartDataParams extends OverviewChartProps {
-  /** The name of the assessment to fetch data for */
-  assessmentName: string;
-}
-
 /**
  * Custom hook that fetches and processes assessment chart data.
  * Encapsulates all data-fetching and processing logic for individual assessment charts,
  * including both time series data and distribution data.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId, time range, buckets, and assessment name
+ * @param assessmentName - The name of the assessment to fetch data for
  * @returns Processed chart data (time series and distribution), loading state, and error state
  */
-export function useTraceAssessmentChartData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-  assessmentName,
-}: UseTraceAssessmentChartDataParams): UseTraceAssessmentChartDataResult {
+export function useTraceAssessmentChartData(assessmentName: string): UseTraceAssessmentChartDataResult {
+  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Create filters for feedback assessments with the given name
   const filters = useMemo(() => [createAssessmentFilter(AssessmentFilterKey.NAME, assessmentName)], [assessmentName]);
 

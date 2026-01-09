@@ -15,9 +15,8 @@ import {
   useChartLegendFormatter,
 } from './OverviewChartComponents';
 import { useLegendHighlight } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
 
-export const TraceErrorsChart: React.FC<OverviewChartProps> = (props) => {
+export const TraceErrorsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
@@ -26,7 +25,7 @@ export const TraceErrorsChart: React.FC<OverviewChartProps> = (props) => {
 
   // Fetch and process errors chart data
   const { chartData, totalErrors, overallErrorRate, avgErrorRate, isLoading, error, hasData } =
-    useTraceErrorsChartData(props);
+    useTraceErrorsChartData();
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
