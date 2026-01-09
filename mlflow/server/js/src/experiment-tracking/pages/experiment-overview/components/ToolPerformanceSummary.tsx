@@ -33,12 +33,12 @@ export const ToolPerformanceSummary: React.FC = () => {
   // Common styles
   const rowStyle = {
     display: 'grid',
-    gridTemplateColumns: '1fr auto auto auto',
+    gridTemplateColumns: 'minmax(80px, 2fr) 1fr 1fr 1fr',
     gap: theme.spacing.lg,
     borderBottom: `1px solid ${theme.colors.border}`,
   } as const;
 
-  const cellStyle = { textAlign: 'right', minWidth: 70 } as const;
+  const cellStyle = { textAlign: 'center' } as const;
 
   return (
     <OverviewChartContainer>
@@ -55,7 +55,7 @@ export const ToolPerformanceSummary: React.FC = () => {
       {hasData ? (
         <div css={{ display: 'flex', flexDirection: 'column' }}>
           {/* Table header (sticky) */}
-          <div css={{ ...rowStyle, padding: `${theme.spacing.sm}px 0` }}>
+          <div css={{ ...rowStyle, padding: `${theme.spacing.sm}px ${theme.spacing.lg}px ${theme.spacing.sm}px 0` }}>
             <Typography.Text color="secondary" size="sm" bold>
               <FormattedMessage defaultMessage="Tool" description="Column header for tool name" />
             </Typography.Text>
@@ -77,7 +77,7 @@ export const ToolPerformanceSummary: React.FC = () => {
                 key={tool.toolName}
                 css={{
                   ...rowStyle,
-                  padding: `${theme.spacing.md}px 0`,
+                  padding: `${theme.spacing.md}px ${theme.spacing.lg}px ${theme.spacing.md}px 0`,
                   alignItems: 'center',
                   '&:last-child': { borderBottom: 'none' },
                 }}
