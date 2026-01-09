@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -17,6 +16,7 @@ from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
 )
@@ -55,6 +55,7 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
     def __init__(self, db_uri, default_artifact_root):
         self._workspace_provider = None
+        self._workspace_store_uri = workspace_utils.resolve_workspace_store_uri(tracking_uri=db_uri)
         super().__init__(db_uri, default_artifact_root)
 
     def _get_query(self, session, model):
@@ -312,12 +313,16 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
     def _get_workspace_provider_instance(self):
         if self._workspace_provider is None:
-            workspace_uri = workspace_utils.resolve_workspace_store_uri(tracking_uri=self.db_uri)
-            self._workspace_provider = get_workspace_store(workspace_uri=workspace_uri)
+            self._workspace_provider = get_workspace_store(workspace_uri=self._workspace_store_uri)
         return self._workspace_provider
 
     def _validate_artifact_isolation_constraints(self) -> None:
         """Ensure the default artifact root and existing artifacts do not occupy reserved paths."""
+
+        if not self.artifact_root_uri:
+            # No global default root configured. Workspace-specific overrides (if any) will
+            # determine artifact paths, so skip reserved-path validation.
+            return
 
         segments = self._artifact_path_segments(self.artifact_root_uri.rstrip("/"))
         if segments and segments[-1] == WORKSPACES_DIR_NAME:
@@ -454,24 +459,27 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
         workspace = workspace or self._get_active_workspace()
         base_root = self.artifact_root_uri
 
-        serving_artifacts = os.environ.get("_MLFLOW_SERVER_SERVE_ARTIFACTS", "").lower() == "true"
-        if serving_artifacts:
-            scoped_root = append_to_uri_path(base_root, WORKSPACES_DIR_NAME)
-            base_root = append_to_uri_path(scoped_root, workspace)
+        provider = self._get_workspace_provider_instance()
+        if provider and hasattr(provider, "resolve_artifact_root"):
+            resolution = provider.resolve_artifact_root(self.artifact_root_uri, workspace)
+            resolved_root = resolution[0]
+            should_append = resolution[1]
         else:
             resolved_root = self.artifact_root_uri
             should_append = True
-            provider = self._get_workspace_provider_instance()
-            if provider and hasattr(provider, "resolve_artifact_root"):
-                resolved_root, should_append = provider.resolve_artifact_root(
-                    self.artifact_root_uri, workspace
-                )
-            resolved_root = resolved_root or base_root
-            scoped_root = resolved_root
-            if should_append:
-                scoped_root = append_to_uri_path(scoped_root, WORKSPACES_DIR_NAME)
-                scoped_root = append_to_uri_path(scoped_root, workspace)
-            base_root = scoped_root
+
+        if not resolved_root:
+            raise MlflowException(
+                f"Cannot determine an artifact root for workspace '{workspace}'. "
+                "Set --default-artifact-root when starting the server or configure the "
+                "workspace's default_artifact_root.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        base_root = resolved_root
+        if should_append:
+            base_root = append_to_uri_path(base_root, WORKSPACES_DIR_NAME)
+            base_root = append_to_uri_path(base_root, workspace)
 
         return append_to_uri_path(base_root, str(experiment_id))
 
