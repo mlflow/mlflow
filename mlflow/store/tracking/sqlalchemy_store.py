@@ -3135,12 +3135,20 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session_id ASC).
         """
         with self.ManagedSessionMaker() as session:
+            # Example: Given min=200, max=400
+            #   Session A (traces at [100, 200, 300]): last=300, no traces >400 → INCLUDED
+            #   Session B (traces at [100, 200, 500]): has trace >400 → EXCLUDED (ongoing)
+            #   Session C (traces at [50, 100]): no traces >=200 → EXCLUDED (too old)
+
+            # Step 1: Find sessions with at least one trace >= min timestamp (optimization)
+            # Example: Sessions A, B pass (have traces >=200); Session C excluded
             candidate_sessions = self._build_candidate_sessions_subquery(
                 session=session,
                 experiment_id=experiment_id,
                 min_last_trace_timestamp_ms=min_last_trace_timestamp_ms,
             )
 
+            # Step 2: Optional filter on first trace (e.g., tags.myTag = "value")
             filtered_sessions = self._build_first_trace_filter_subquery(
                 session=session,
                 experiment_id=experiment_id,
@@ -3148,6 +3156,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 candidate_sessions=candidate_sessions,
             )
 
+            # Step 3: Compute first/last trace timestamps for each session
+            # Example: Session A → {first: 100, last: 300}, Session B → {first: 100, last: 500}
             sessions_with_stats = self._build_session_stats_subquery(
                 session=session,
                 experiment_id=experiment_id,
@@ -3156,12 +3166,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 ),
             )
 
+            # Step 4: Find sessions with any trace > max timestamp (still ongoing)
+            # Example: Session B has trace at 500 > 400
             sessions_with_recent_traces = self._build_sessions_with_recent_traces_subquery(
                 session=session,
                 experiment_id=experiment_id,
                 max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
             )
 
+            # Step 5: Get sessions where last trace in [min, max] AND NOT in ongoing sessions
+            # Example: Session A (last=300 in [200,400], not ongoing) → INCLUDED
+            #          Session B (ongoing) → EXCLUDED
             query = self._build_completed_sessions_query(
                 session=session,
                 sessions_with_stats=sessions_with_stats,
