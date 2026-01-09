@@ -20,6 +20,11 @@ UNRECOVERABLE_ERRORS = [
     404,  # Not Found
 ]
 
+GENAI_EVALUATION_PATH = "mlflow/genai/evaluation/base"
+GENAI_SCORERS_PATH = "mlflow/genai/scorers/base"
+GENAI_EVALUATE_FUNCTION = "_run_harness"
+SCORER_RUN_FUNCTION = "run"
+
 GENAI_MODULES = {
     "agno",
     "anthropic",

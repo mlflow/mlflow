@@ -226,3 +226,8 @@ def test_prompt_optimization_parse_params(arguments, expected_params):
 )
 def test_simulate_conversation_parse_result(result, expected_params):
     assert SimulateConversationEvent.parse_result(result) == expected_params
+
+
+def test_simulate_conversation_parse_params():
+    result = SimulateConversationEvent.parse({})
+    assert result == {"callsite": "conversation_simulator"}
