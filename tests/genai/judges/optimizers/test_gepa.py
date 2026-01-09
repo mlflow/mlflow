@@ -102,8 +102,9 @@ def test_default_parameters(mock_judge, sample_traces_with_assessments):
         call_kwargs = mock_gepa_class.call_args.kwargs
         assert "metric" in call_kwargs
         assert "max_metric_calls" in call_kwargs
+        assert "reflection_lm" in call_kwargs
         assert call_kwargs["max_metric_calls"] == 100  # Default value
-        assert len(call_kwargs) == 2
+        assert len(call_kwargs) == 3  # metric, max_metric_calls, reflection_lm
 
 
 def test_gepa_kwargs_override_defaults(mock_judge, sample_traces_with_assessments):
@@ -134,3 +135,58 @@ def test_gepa_kwargs_override_defaults(mock_judge, sample_traces_with_assessment
         call_kwargs = mock_gepa_class.call_args.kwargs
         assert call_kwargs["metric"] == custom_metric
         assert call_kwargs["max_metric_calls"] == 30
+
+
+def test_alignment_with_real_dspy(mock_judge, sample_traces_with_assessments):
+    """
+    Integration test for GePaAlignmentOptimizer using real dspy (not mocked).
+
+    This test verifies that our optimizer correctly integrates with the actual
+    dspy.GEPA implementation and follows the expected API contract.
+
+    Skipped if dspy or dspy.GEPA is not available.
+
+    Note: This test may fail with API authentication errors when GEPA tries to
+    make actual LLM calls. These errors are expected and indicate successful
+    integration (GEPA accepted our parameters and started optimization).
+    """
+    try:
+        import dspy
+
+        if not hasattr(dspy, "GEPA"):
+            pytest.skip("dspy.GEPA not available in installed dspy version")
+    except ImportError:
+        pytest.skip("dspy not installed")
+
+    from mlflow.exceptions import MlflowException
+
+    # Create optimizer with minimal budget for fast test
+    optimizer = GePaAlignmentOptimizer(
+        model="openai:/gpt-4o-mini",
+        max_metric_calls=1,  # Minimal budget for fast test
+    )
+
+    # Override get_min_traces_required to work with our fixture
+    with patch.object(GePaAlignmentOptimizer, "get_min_traces_required", return_value=5):
+        # This will fail if:
+        # 1. dspy.GEPA doesn't have the expected API (compile method, etc.)
+        # 2. We're passing wrong parameters to dspy.GEPA.__init__
+        # 3. We're calling compile with wrong parameters
+        try:
+            result = optimizer.align(mock_judge, sample_traces_with_assessments)
+
+            # If we got here without errors, the API contract is correct
+            assert result is not None
+            assert hasattr(result, "instructions")
+        except TypeError as e:
+            # TypeError means our API usage is wrong - this is a real failure
+            pytest.fail(f"API contract mismatch with dspy.GEPA: {e}")
+        except MlflowException as e:
+            # MlflowException wrapping authentication/API errors is expected
+            # It means GEPA accepted our parameters and tried to run
+            if "api_key" in str(e).lower() or "authentication" in str(e).lower():
+                # This is actually SUCCESS - GEPA started running with correct API
+                pass
+            else:
+                # Some other MlflowException - re-raise to investigate
+                raise

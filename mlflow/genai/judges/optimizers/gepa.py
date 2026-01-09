@@ -110,16 +110,32 @@ class GePaAlignmentOptimizer(DSPyAlignmentOptimizer):
         Args:
             program: The DSPy program to optimize
             examples: Examples for optimization
-            metric_fn: Default metric function for optimization
+            metric_fn: Default metric function for optimization (3-arg signature)
 
         Returns:
             Optimized DSPy program
         """
+
+        # GEPA requires a metric with signature: (gold, pred, trace, pred_name, pred_trace)
+        # But our metric_fn has signature: (example, pred, trace)
+        # Create an adapter that bridges the two signatures
+        def gepa_metric_adapter(gold, pred, trace, pred_name, pred_trace):
+            """Adapt DSPy's 3-argument metric to GEPA's 5-argument format."""
+            # gold is the dspy.Example
+            # pred is the prediction output
+            # We ignore pred_name and pred_trace for now, use the standard metric
+            return metric_fn(gold, pred, trace)
+
+        # Get the current LM from dspy context (set by parent class's align() method)
+        # This LM will be used for reflection in GEPA
+        reflection_lm = dspy.settings.lm
+
         # Build GEPA optimizer kwargs starting with required parameters
-        # If metric is in gepa_kwargs, it will override the default metric_fn
+        # If metric or reflection_lm is in gepa_kwargs, they will override defaults
         optimizer_kwargs = {
-            "metric": metric_fn,
+            "metric": gepa_metric_adapter,
             "max_metric_calls": self._max_metric_calls,
+            "reflection_lm": reflection_lm,
             **self._gepa_kwargs,  # Pass through any additional GEPA parameters
         }
 
