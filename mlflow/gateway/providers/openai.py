@@ -340,6 +340,7 @@ class OpenAIProvider(BaseProvider):
             client_headers = headers.copy()
             client_headers.pop("host", None)
             client_headers.pop("content-length", None)
+            client_headers.pop("authorization", None)
             # Don't override api key or organization headers
             result_headers = client_headers | result_headers
 

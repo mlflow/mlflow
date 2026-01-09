@@ -912,6 +912,7 @@ async def test_openai_passthrough_chat():
             "X-Request-ID": "req-123",
             "host": "example.com",
             "content-length": "100",
+            "authorization": "Bearer key",
         }
         response = await provider.passthrough(
             PassthroughAction.OPENAI_CHAT, payload, headers=custom_headers
@@ -934,6 +935,7 @@ async def test_openai_passthrough_chat():
         # Verify gateway specific headers are not propagated
         assert "host" not in call_kwargs["headers"]
         assert "content-length" not in call_kwargs["headers"]
+        assert "authorization" not in call_kwargs["headers"]
 
         # Verify response is raw OpenAI format
         assert response == mock_response
