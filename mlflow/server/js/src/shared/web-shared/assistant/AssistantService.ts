@@ -24,6 +24,7 @@ export const sendMessageStream = async (
   onError: (error: string) => void,
   onDone: () => void,
   onStatus?: (status: string) => void,
+  onSessionId?: (sessionId: string) => void,
 ): Promise<void> => {
   try {
     // Step 1: POST the message to initiate processing
@@ -49,6 +50,9 @@ export const sendMessageStream = async (
       onError('No session_id returned from server');
       return;
     }
+
+    // Notify caller of the session ID
+    onSessionId?.(sessionId);
 
     // Step 3: Connect to the SSE endpoint to receive the stream
     const eventSource = createEventSource(sessionId);
