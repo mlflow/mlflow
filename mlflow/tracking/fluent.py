@@ -2504,7 +2504,10 @@ def import_checkpoints(
     Returns:
         List of created :py:class:`mlflow.entities.LoggedModel` instances.
 
-    Example::
+    Example:
+
+    .. code-block:: python
+
         import mlflow
 
         # Optionally start a run so `source_run_id` can be inferred
@@ -2575,8 +2578,8 @@ def import_checkpoints(
 
         if not is_model_name_valid:
             _logger.warning(
-                f"The model name can't include the following special character: "
-                f"`?`, `%`, ':', '.', `'` and `\"`, skip importing the model with "
+                "The model name can't include the following special character: "
+                "`?`, `%`, ':', '.', `'` and `\"`, skip importing the model with "
                 f"name '{model_name}'.",
             )
             continue

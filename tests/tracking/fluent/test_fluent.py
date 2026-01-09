@@ -2607,8 +2607,8 @@ def test_start_run_sgc_resumption_handles_tag_set_error(empty_active_run_stack, 
         mock_set_tag.assert_called_once()
 
 
-def test_import_checkpoints():
-    exp_id = mlflow.create_experiment("test_import_checkpoints")
+def test_import_checkpoints_overwrite():
+    exp_id = mlflow.create_experiment("test_import_checkpoints_overwrite")
     mlflow.set_experiment(experiment_id=exp_id)
 
     ws = mock.MagicMock()
@@ -2703,3 +2703,76 @@ def test_import_checkpoints():
                 )
                 == 2
             )
+
+
+def test_import_checkpoints_skip_name_with_invalid_char():
+    exp_id = mlflow.create_experiment("test_import_checkpoints_skip_name_with_invalid_char")
+    mlflow.set_experiment(experiment_id=exp_id)
+
+    ws = mock.MagicMock()
+
+    def patched_list_directory_contents(dir_path):
+        return [
+            SimpleNamespace(path=os.path.join(dir_path, "ckpt1.a")),
+            SimpleNamespace(path=os.path.join(dir_path, "ckpt1?a")),
+            SimpleNamespace(path=os.path.join(dir_path, "ckpt1:a")),
+            SimpleNamespace(path=os.path.join(dir_path, "ckpt1%a")),
+            SimpleNamespace(path=os.path.join(dir_path, "ckpt1'a")),
+            SimpleNamespace(path=os.path.join(dir_path, 'ckpt1"a')),
+            SimpleNamespace(path=os.path.join(dir_path, "ckpt2")),
+        ]
+
+    ws.files.list_directory_contents = patched_list_directory_contents
+
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient", return_value=ws),
+        mock.patch("mlflow.tracking.fluent._logger.warning") as mock_warning,
+    ):
+        with mlflow.start_run():
+            logged_models = mlflow.import_checkpoints(
+                "/Volumes/checkpoints",
+            )
+
+        assert len(logged_models) == 1
+        assert logged_models[0].name == "ckpt2"
+
+        msg = (
+            "The model name can't include the following special character: "
+            "`?`, `%`, ':', '.', `'` and `\"`, skip importing the model with "
+            "name '{name}'."
+        )
+        mock_warning.assert_has_calls(
+            [
+                mock.call(msg.format(name="ckpt1.a")),
+                mock.call(msg.format(name="ckpt1?a")),
+                mock.call(msg.format(name="ckpt1:a")),
+                mock.call(msg.format(name="ckpt1%a")),
+                mock.call(msg.format(name="ckpt1'a")),
+                mock.call(msg.format(name='ckpt1"a')),
+            ]
+        )
+
+
+def test_import_checkpoints_without_run():
+    exp_id = mlflow.create_experiment("test_import_checkpoints_without_run")
+    mlflow.set_experiment(experiment_id=exp_id)
+
+    ws = mock.MagicMock()
+
+    def patched_list_directory_contents(dir_path):
+        return [
+            SimpleNamespace(path=os.path.join(dir_path, "ckpt")),
+        ]
+
+    ws.files.list_directory_contents = patched_list_directory_contents
+
+    mlflow.end_run()
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=ws):
+        with pytest.raises(
+            MlflowException,
+            match=(
+                "Please set 'source_run_id' or start an active run before "
+                "calling 'import_checkpoints'"
+            ),
+        ):
+            mlflow.import_checkpoints("/Volumes/checkpoints")
