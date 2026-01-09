@@ -23,11 +23,12 @@ export const AssistantButton = () => {
 
   return isPanelOpen ? null : (
     <div
+      data-assistant-ui="true"
       css={{
         position: 'fixed',
         bottom: theme.spacing.lg,
         right: theme.spacing.lg + theme.spacing.sm,
-        zIndex: 2200,
+        zIndex: 1500,
       }}
     >
       <Tooltip
