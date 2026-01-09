@@ -288,7 +288,14 @@ def test_execute_scoring_handles_failures(
         processor.process_traces()
 
         assert mock_compute.call_count == 2
-        assert mock_log.call_count == 1
+        # Now we log error assessments for failures + successful assessments
+        assert mock_log.call_count == 2
+
+        # Verify error assessments were logged for the failed trace
+        error_log_call = mock_log.call_args_list[0]
+        error_assessments = error_log_call[1]["assessments"]
+        assert len(error_assessments) == 1  # One error per scorer
+        assert error_assessments[0].error is not None
 
     mock_checkpoint_manager.persist_checkpoint.assert_called_once()
 
@@ -385,6 +392,52 @@ def test_process_traces_truncates_and_sorts_across_filters(
     last_trace_id = f"tr-staging-{staging_only_count + overlap_pairs - 1}"
     assert checkpoint.timestamp_ms == last_timestamp
     assert checkpoint.trace_id == last_trace_id
+
+
+def test_process_traces_deduplicates_scorers_across_filters(
+    mock_trace_loader, mock_checkpoint_manager
+):
+    """
+    Test that when a trace matches multiple filters that would select the same scorer,
+    the scorer only appears once in the task's scorer list.
+    """
+    # Create the same scorer with two different filters
+    completeness_scorer = Completeness()
+    configs = [
+        make_online_scorer(completeness_scorer, filter_string="tags.env = 'prod'"),
+        make_online_scorer(completeness_scorer, filter_string="tags.priority = 'high'"),
+    ]
+    sampler = OnlineScorerSampler(configs)
+
+    # Same trace returned by both filters (trace matches both conditions)
+    shared_trace = make_trace_info("tr-001", 1500)
+
+    def mock_fetch_trace_infos(exp_id, min_ts, max_ts, filter_str, limit):
+        # Both filters return the same trace
+        return [shared_trace]
+
+    mock_trace_loader.fetch_trace_infos_in_range.side_effect = mock_fetch_trace_infos
+    mock_trace_loader.fetch_traces.return_value = [make_trace("tr-001", 1500)]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler,
+        experiment_id="exp1",
+    )
+
+    with patch("mlflow.genai.evaluation.harness._compute_eval_scores") as mock_compute:
+        mock_compute.return_value = []
+        processor.process_traces()
+
+        # Verify the scorer was called only once per trace (not duplicated)
+        assert mock_compute.call_count == 1
+        call_args = mock_compute.call_args[1]
+        scorers_used = call_args["scorers"]
+
+        # Should only have one instance of Completeness scorer despite matching 2 filters
+        assert len(scorers_used) == 1
+        assert scorers_used[0].name == completeness_scorer.name
 
 
 def test_create_factory_method():

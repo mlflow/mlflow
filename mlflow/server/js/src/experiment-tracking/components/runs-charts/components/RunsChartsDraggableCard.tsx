@@ -23,6 +23,7 @@ interface RunsChartsDraggableCardProps extends RunsChartsCardProps {
   onResizeStop: () => void;
 }
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps) => {
   const { setElementRef, isInViewport } = useIsInViewport<HTMLDivElement>();
   const { uuid, translateBy, onResizeStart, onResize, onResizeStop, ...cardProps } = props;
@@ -146,6 +147,7 @@ export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps
   );
 });
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 const ResizableHandle = forwardRef((props, ref) => {
   const { theme } = useDesignSystemTheme();
   return (

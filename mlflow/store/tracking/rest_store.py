@@ -1422,14 +1422,14 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         if not scorer_ids:
             return []
 
+        endpoint = "/api/3.0/mlflow/scorers/online-configs"
         response = http_request(
             host_creds=self.get_host_creds(),
-            endpoint="/api/3.0/mlflow/scorers/online-configs",
+            endpoint=endpoint,
             method="GET",
             params=[("scorer_ids", sid) for sid in scorer_ids],
         )
 
-        endpoint = "/api/3.0/mlflow/scorers/online-configs"
         verify_rest_response(response, endpoint)
         try:
             configs_list = response.json()["configs"]

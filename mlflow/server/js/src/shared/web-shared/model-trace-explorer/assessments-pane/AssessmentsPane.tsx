@@ -58,10 +58,16 @@ export const AssessmentsPane = ({
   assessments,
   traceId,
   activeSpanId,
+  className,
+  assessmentsTitleOverride,
+  disableCloseButton,
 }: {
   assessments: Assessment[];
   traceId: string;
   activeSpanId?: string;
+  className?: string;
+  assessmentsTitleOverride?: (count?: number) => JSX.Element;
+  disableCloseButton?: boolean;
 }) => {
   const reconstructAssessments = useTraceCachedActions((state) => state.reconstructAssessments);
   const cachedActions = useTraceCachedActions((state) => state.assessmentActions[traceId]);
@@ -102,14 +108,16 @@ export const AssessmentsPane = ({
         width: '100%',
         boxSizing: 'border-box',
       }}
+      className={className}
     >
       <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        {!isInComparisonView && (
-          <Typography.Text bold>
+        {!isInComparisonView &&
+          (assessmentsTitleOverride ? (
+            assessmentsTitleOverride()
+          ) : (
             <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
-          </Typography.Text>
-        )}
-        {!isInComparisonView && setAssessmentsPaneExpanded && (
+          ))}
+        {!isInComparisonView && setAssessmentsPaneExpanded && !disableCloseButton && (
           <Tooltip
             componentId="shared.model-trace-explorer.close-assessments-pane-tooltip"
             content={

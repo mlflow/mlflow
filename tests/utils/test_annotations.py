@@ -5,6 +5,9 @@ import pytest
 
 from mlflow.utils.annotations import _get_min_indent_of_docstring, deprecated, keyword_only
 
+# Suppress expected deprecation warnings from test fixtures
+pytestmark = pytest.mark.filterwarnings("ignore:.*is deprecated.*:FutureWarning")
+
 
 class MyClass:
     @deprecated()

@@ -27,6 +27,7 @@ from mlflow.entities import (
     FallbackStrategy,
     Feedback,
     FileInfo,
+    GatewayEndpointModelConfig,
     GatewayEndpointTag,
     GatewayResourceType,
     Metric,
@@ -247,7 +248,12 @@ from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-from mlflow.utils.providers import get_all_providers, get_models, get_provider_config_response
+from mlflow.utils.providers import (
+    _PROVIDER_BACKEND_AVAILABLE,
+    get_all_providers,
+    get_models,
+    get_provider_config_response,
+)
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
 from mlflow.utils.validation import (
@@ -867,6 +873,12 @@ def catch_mlflow_exception(func):
             response = Response(mimetype="application/json")
             response.set_data(e.serialize_as_json())
             response.status_code = e.get_http_status_code()
+            if response.status_code >= 500:
+                is_debug = _logger.isEnabledFor(logging.DEBUG)
+                msg = f"Error in {func.__name__}: {e}"
+                if not is_debug:
+                    msg += ". Set MLFLOW_LOGGING_LEVEL=DEBUG for traceback."
+                _logger.error(msg, exc_info=is_debug)
             return response
 
     return wrapper
@@ -4041,7 +4053,7 @@ def _get_online_scoring_configs():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _update_online_scoring_config():
+def _upsert_online_scoring_config():
     """
     Update the online scoring configuration for a registered scorer.
 
@@ -4194,7 +4206,7 @@ def _create_gateway_endpoint():
         schema={
             "name": [_assert_required, _assert_string],
             "created_by": [_assert_string],
-            "model_definition_ids": [_assert_required],
+            "model_configs": [_assert_required],
             "routing_strategy": [_assert_string],
         },
     )
@@ -4210,15 +4222,18 @@ def _create_gateway_endpoint():
             else None,
         )
 
+    model_configs = [
+        GatewayEndpointModelConfig.from_proto(config) for config in request_message.model_configs
+    ]
+
     endpoint = _get_tracking_store().create_gateway_endpoint(
         name=request_message.name or None,
-        model_definition_ids=list(request_message.model_definition_ids),
+        model_configs=model_configs,
         created_by=request_message.created_by or None,
         routing_strategy=RoutingStrategyEntity.from_proto(request_message.routing_strategy)
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
-        fallback_model_definition_ids=list(request_message.fallback_model_definition_ids),
     )
     response_message = CreateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4264,16 +4279,23 @@ def _update_gateway_endpoint():
             else None,
         )
 
+    # Convert proto model_configs to entity GatewayEndpointModelConfig list
+    model_configs = None
+    if request_message.model_configs:
+        model_configs = [
+            GatewayEndpointModelConfig.from_proto(config)
+            for config in request_message.model_configs
+        ]
+
     endpoint = _get_tracking_store().update_gateway_endpoint(
         endpoint_id=request_message.endpoint_id,
         name=request_message.name or None,
-        model_definition_ids=list(request_message.model_definition_ids),
+        model_configs=model_configs,
         updated_by=request_message.updated_by or None,
         routing_strategy=RoutingStrategyEntity.from_proto(request_message.routing_strategy)
         if request_message.HasField("routing_strategy")
         else None,
         fallback_config=fallback_config,
-        fallback_model_definition_ids=list(request_message.fallback_model_definition_ids),
     )
     response_message = UpdateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -4430,14 +4452,16 @@ def _attach_model_to_gateway_endpoint():
         AttachModelToGatewayEndpoint(),
         schema={
             "endpoint_id": [_assert_required, _assert_string],
-            "model_definition_id": [_assert_required, _assert_string],
+            "model_config": [_assert_required],
             "created_by": [_assert_string],
         },
     )
+
+    model_config = GatewayEndpointModelConfig.from_proto(request_message.model_config)
+
     mapping = _get_tracking_store().attach_model_to_endpoint(
         endpoint_id=request_message.endpoint_id,
-        model_definition_id=request_message.model_definition_id,
-        weight=request_message.weight or 1,
+        model_config=model_config,
         created_by=request_message.created_by or None,
     )
     response_message = AttachModelToGatewayEndpoint.Response()
@@ -4605,6 +4629,13 @@ def _get_provider_config():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_secrets_config():
+    if not _PROVIDER_BACKEND_AVAILABLE:
+        return jsonify(
+            {
+                "secrets_available": False,
+                "using_default_passphrase": False,
+            }
+        )
     kek_manager = KEKManager()
     return jsonify(
         {
@@ -4646,25 +4677,11 @@ def _invoke_scorer_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    try:
-        scorer_dict = json.loads(serialized_scorer)
-    except json.JSONDecodeError as e:
-        raise MlflowException(
-            f"Invalid JSON in serialized_scorer: {e}",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
     from mlflow.genai.scorers.base import Scorer
     from mlflow.genai.scorers.job import get_trace_batches_for_scorer, invoke_scorer_job
     from mlflow.server.jobs import submit_job
 
-    try:
-        scorer = Scorer.model_validate(scorer_dict)
-    except Exception as e:
-        raise MlflowException(
-            f"Failed to validate scorer: {e}",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    scorer = Scorer.model_validate_json(serialized_scorer)
 
     tracking_store = _get_tracking_store()
     batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
@@ -4808,12 +4825,12 @@ def get_internal_online_scoring_endpoints():
         ),
         (
             _get_ajax_path("/mlflow/scorers/online-config", version=3),
-            _update_online_scoring_config,
+            _upsert_online_scoring_config,
             ["PUT"],
         ),
         (
             _get_rest_path("/mlflow/scorers/online-config", version=3),
-            _update_online_scoring_config,
+            _upsert_online_scoring_config,
             ["PUT"],
         ),
     ]

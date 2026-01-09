@@ -1,6 +1,6 @@
 # tensorflow 2.x core api
 import tensorflow as tf
-from sklearn.datasets import fetch_california_housing
+from sklearn.datasets import load_diabetes
 
 import mlflow
 from mlflow.models import infer_signature
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     tf.random.set_seed(42)
 
     # Load dataset
-    dataset = fetch_california_housing(as_frame=True)["frame"]
+    dataset = load_diabetes(as_frame=True)["frame"]
     # Drop missing values
     dataset = dataset.dropna()
     # using only 1500
