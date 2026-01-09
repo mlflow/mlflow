@@ -10,7 +10,6 @@ import logging
 import lzma
 import os
 import shutil
-import warnings
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import Any, Generator, Iterator
@@ -1254,15 +1253,6 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
         if callable(python_model):
             python_model = _FunctionPythonModel(python_model, signature=signature)
     else:
-        warnings.warn(
-            "The python model is serialized by CloudPickle, which is unsafe, "
-            "and will be disabled by default in future MLflow versions. Saving python model as "
-            "the 'model from code' artifacts is the recommended way, see "
-            "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details.",
-            FutureWarning,
-            stacklevel=2,
-        )
-
         python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
         if python_model_cloudpickle_version is None:
             mlflow.pyfunc._logger.warning(

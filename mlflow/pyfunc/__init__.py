@@ -2896,7 +2896,9 @@ def save_model(
             for details;
             or an instance of a subclass of :class:`~PythonModel` or a callable object with a single
             argument (see the examples below), the passed-in object is serialized using the
-            CloudPickle library, note that this way is unsafe.
+            CloudPickle library, it requires exercising caution because these formats rely on
+            Python's object serialization mechanism, which can execute arbitrary code during
+            deserialization.
             Any dependencies of the class should be included in one of the
             following locations:
 
@@ -3039,10 +3041,12 @@ def save_model(
         auth_policy: {{ auth_policy }}
         kwargs: Extra keyword arguments.
     """
-    if not isinstance(python_model, (Path, str)):
+    if not isinstance(python_model, (Path, str)) and not is_in_databricks_runtime():
         warnings.warn(
             "Passing a Python object for `python_model` will serialize it using CloudPickle, "
-            "which may be unsafe. Consider using a file path (str or Path) instead. See "
+            "it requires exercising caution because these formats rely on Python's object "
+            "serialization mechanism, which can execute arbitrary code during deserialization. "
+            "Consider using a file path (str or Path) instead. See "
             "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details.",
             FutureWarning,
             stacklevel=2,
@@ -3443,7 +3447,9 @@ def log_model(
             for details;
             or an instance of a subclass of :class:`~PythonModel` or a callable object with a single
             argument (see the examples below), the passed-in object is serialized using the
-            CloudPickle library, note that this way is unsafe.
+            CloudPickle library, it requires exercising caution because these formats rely on
+            Python's object serialization mechanism, which can execute arbitrary code during
+            deserialization.
             Any dependencies of the class should be included in one of the
             following locations:
 
