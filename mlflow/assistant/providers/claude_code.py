@@ -61,6 +61,7 @@ class ClaudeCodeProvider(AssistantProvider):
         self,
         prompt: str,
         session_id: str | None = None,
+        cwd: Path | None = None,
     ) -> AsyncGenerator[Event, None]:
         """
         Stream responses from Claude Code CLI asynchronously.
@@ -68,6 +69,7 @@ class ClaudeCodeProvider(AssistantProvider):
         Args:
             prompt: The prompt to send to Claude
             session_id: Claude session ID for resume
+            cwd: Working directory for the session
 
         Yields:
             Event objects
@@ -79,9 +81,6 @@ class ClaudeCodeProvider(AssistantProvider):
             )
             return
 
-        config = self.load_config()
-        cwd = config.project_path
-
         # Build command
         # Note: --verbose is required when using --output-format=stream-json with -p
         cmd = [claude_path, "-p", prompt, "--output-format", "stream-json", "--verbose"]
@@ -89,6 +88,7 @@ class ClaudeCodeProvider(AssistantProvider):
         # Add system prompt
         cmd.extend(["--append-system-prompt", CLAUDE_SYSTEM_PROMPT])
 
+        config = self.load_config()
         if config.model and config.model != "default":
             cmd.extend(["--model", config.model])
 

@@ -6,7 +6,6 @@ enabling AI-powered helper through a chat interface.
 """
 
 import ipaddress
-import json
 import uuid
 from typing import Any, AsyncGenerator
 
@@ -14,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from mlflow.assistant import get_project_path
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
 from mlflow.assistant.types import EventType
 from mlflow.server.assistant.session import SessionManager
@@ -61,6 +61,7 @@ assistant_router = APIRouter(
 class MessageRequest(BaseModel):
     message: str
     session_id: str | None = None  # empty for the first message
+    experiment_id: str | None = None
     context: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -72,11 +73,6 @@ class MessageResponse(BaseModel):
 class GetStatusResponse(BaseModel):
     provider: str
     available: bool
-
-
-def _format_sse_event(event_type: str, data: dict[str, Any]) -> str:
-    """Format an event as SSE."""
-    return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
 
 @assistant_router.post("/message")
@@ -93,10 +89,12 @@ async def send_message(request: MessageRequest) -> MessageResponse:
     # Generate or use existing session ID
     session_id = request.session_id or str(uuid.uuid4())
 
+    project_path = get_project_path(request.experiment_id) if request.experiment_id else None
+
     # Create or update session
     session = SessionManager.load(session_id)
     if session is None:
-        session = SessionManager.create(context=request.context)
+        session = SessionManager.create(context=request.context, working_dir=project_path)
     elif request.context:
         session.update_context(request.context)
 
@@ -137,6 +135,7 @@ async def stream_response(session_id: str) -> StreamingResponse:
         async for event in _provider.astream(
             prompt=pending_message.content,
             session_id=session.provider_session_id,
+            cwd=session.working_dir,
         ):
             # Store provider session ID if returned (for conversation continuity)
             if event.type == EventType.DONE:

@@ -28,8 +28,6 @@ export interface AssistantAgentActions {
   closePanel: () => void;
   /** Send a message to Assistant */
   sendMessage: (message: string) => void;
-  /** Start analysis with optional prompt */
-  startAnalysis: (prompt?: string) => Promise<void>;
   /** Reset the conversation */
   reset: () => void;
 }
