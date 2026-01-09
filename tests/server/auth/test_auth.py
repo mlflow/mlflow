@@ -1199,14 +1199,16 @@ def test_gateway_secrets_permissions(client, monkeypatch):
         )
         response.raise_for_status()
 
+    # User2 can read secrets by default (READ permission is default)
     with User(user2, password2, monkeypatch):
         response = requests.get(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/get",
             params={"secret_id": user1_secret_id},
             auth=(user2, password2),
         )
-        assert response.status_code == 403
+        response.raise_for_status()
 
+    # User2 cannot update secrets without explicit permission
     with User(user2, password2, monkeypatch):
         response = requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/update",
@@ -1218,6 +1220,7 @@ def test_gateway_secrets_permissions(client, monkeypatch):
         )
         assert response.status_code == 403
 
+    # User2 cannot delete secrets without explicit permission
     with User(user2, password2, monkeypatch):
         response = requests.delete(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
@@ -1324,14 +1327,16 @@ def test_gateway_endpoints_permissions(client, monkeypatch):
         )
         response.raise_for_status()
 
+    # User2 can read endpoints by default (READ permission is default)
     with User(user2, password2, monkeypatch):
         response = requests.get(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/get",
             params={"endpoint_id": endpoint_id},
             auth=(user2, password2),
         )
-        assert response.status_code == 403
+        response.raise_for_status()
 
+    # User2 cannot update endpoints without explicit permission
     with User(user2, password2, monkeypatch):
         response = requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/update",
@@ -1343,6 +1348,7 @@ def test_gateway_endpoints_permissions(client, monkeypatch):
         )
         assert response.status_code == 403
 
+    # User2 cannot delete endpoints without explicit permission
     with User(user2, password2, monkeypatch):
         response = requests.delete(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
@@ -1433,14 +1439,16 @@ def test_gateway_model_definitions_permissions(client, monkeypatch):
         )
         response.raise_for_status()
 
+    # User2 can read model definitions by default (READ permission is default)
     with User(user2, password2, monkeypatch):
         response = requests.get(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/get",
             params={"model_definition_id": model_definition_id},
             auth=(user2, password2),
         )
-        assert response.status_code == 403
+        response.raise_for_status()
 
+    # User2 cannot update model definitions without explicit permission
     with User(user2, password2, monkeypatch):
         response = requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/update",
@@ -1452,6 +1460,7 @@ def test_gateway_model_definitions_permissions(client, monkeypatch):
         )
         assert response.status_code == 403
 
+    # User2 cannot delete model definitions without explicit permission
     with User(user2, password2, monkeypatch):
         response = requests.delete(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
