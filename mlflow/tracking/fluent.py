@@ -2570,11 +2570,15 @@ def import_checkpoints(
 
         model_name = model_prefix + base_name if model_prefix else base_name
 
-        existing_models = search_logged_models(
-            experiment_ids=[exp_id],
-            filter_string=f"name = '{model_name}' and source_run_id = '{source_run_id}'",
-            output_format="list",
-        )
+        existing_models = [
+            model
+            for model in search_logged_models(
+                experiment_ids=[exp_id],
+                filter_string=f"name = '{model_name}'",
+                output_format="list",
+            )
+            if model.source_run_id == source_run_id
+        ]
 
         if existing_models and overwrite_checkpoints:
             for model in existing_models:
