@@ -752,6 +752,7 @@ mlflow.genai.Scorer
 mlflow.genai.Scorer.model_dump
 mlflow.genai.Scorer.model_post_init
 mlflow.genai.Scorer.model_validate
+mlflow.genai.Scorer.model_validate_json
 mlflow.genai.Scorer.register
 mlflow.genai.Scorer.run
 mlflow.genai.Scorer.start

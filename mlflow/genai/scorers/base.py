@@ -394,7 +394,7 @@ class Scorer(BaseModel):
             Scorer instance with correct subclass (BuiltInScorer, InstructionsJudge, etc.).
 
         Raises:
-            MlflowException: If JSON parsing or scorer validation fails.
+            mlflow.MlflowException: If JSON parsing or scorer validation fails.
         """
         try:
             data = json.loads(json_data)
