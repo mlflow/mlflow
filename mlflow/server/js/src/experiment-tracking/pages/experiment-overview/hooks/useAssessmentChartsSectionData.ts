@@ -9,7 +9,7 @@ import {
   createAssessmentFilter,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface UseAssessmentChartsSectionDataResult {
   /** Sorted list of assessment names */
@@ -27,15 +27,12 @@ export interface UseAssessmentChartsSectionDataResult {
 /**
  * Custom hook that fetches and processes assessment data for the charts section.
  * Queries assessments grouped by name and extracts their average values.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId and time range
  * @returns Assessment names, average values, loading state, and error state
  */
-export function useAssessmentChartsSectionData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-}: Pick<OverviewChartProps, 'experimentId' | 'startTimeMs' | 'endTimeMs'>): UseAssessmentChartsSectionDataResult {
+export function useAssessmentChartsSectionData(): UseAssessmentChartsSectionDataResult {
+  const { experimentId, startTimeMs, endTimeMs } = useOverviewChartContext();
   // Filter for feedback assessments only
   const filters = useMemo(() => [createAssessmentFilter(AssessmentFilterKey.TYPE, AssessmentTypeValue.FEEDBACK)], []);
 

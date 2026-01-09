@@ -4897,6 +4897,7 @@ def test_list_models(mlflow_client_with_secrets):
     assert "model" in model
     assert "provider" in model
     assert "mode" in model
+    assert all(not m["model"].startswith("ft:") for m in data["models"])
 
     response = requests.get(
         f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-models", params={"provider": "openai"}

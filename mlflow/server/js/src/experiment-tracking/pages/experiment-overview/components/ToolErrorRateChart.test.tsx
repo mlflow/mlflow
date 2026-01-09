@@ -16,6 +16,7 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create a data point with time bucket and status
 const createDataPoint = (timeBucket: string, status: string, count: number) => ({
@@ -34,12 +35,15 @@ describe('ToolErrorRateChart', () => {
   const timeIntervalSeconds = 3600; // 1 hour
   const timeBuckets = [new Date('2025-12-22T10:00:00Z').getTime(), new Date('2025-12-22T11:00:00Z').getTime()];
 
-  const defaultProps = {
+  const defaultContextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
     timeBuckets,
+  };
+
+  const defaultProps = {
     toolName: 'get_weather',
     overallErrorRate: 10.5,
   };
@@ -55,12 +59,17 @@ describe('ToolErrorRateChart', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = (props: Partial<typeof defaultProps> & Partial<typeof defaultContextProps> = {}) => {
+    const { timeIntervalSeconds: ti, ...componentProps } = props;
+    const contextOverrides = ti !== undefined ? { timeIntervalSeconds: ti } : {};
+    const contextProps = { ...defaultContextProps, ...contextOverrides };
     const queryClient = createQueryClient();
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <ToolErrorRateChart {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <ToolErrorRateChart {...defaultProps} {...componentProps} />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );

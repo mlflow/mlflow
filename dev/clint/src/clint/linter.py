@@ -390,8 +390,10 @@ class Linter(ast.NodeVisitor):
         # Skip rules that are not selected in the config
         if rule.name not in self.config.select:
             return
-        # Check line-level ignores
-        if (lines := self.ignore.get(rule.name)) and range.start.line in lines:
+        # Check line-level ignores (supports both start and end of range)
+        if (lines := self.ignore.get(rule.name)) and (
+            range.start.line in lines or range.end.line in lines
+        ):
             return
         # Check per-file ignores
         if rule.name in self.ignored_rules:

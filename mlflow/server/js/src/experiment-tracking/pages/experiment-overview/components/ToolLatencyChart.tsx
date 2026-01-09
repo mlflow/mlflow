@@ -15,13 +15,12 @@ import {
   useChartLegendFormatter,
 } from './OverviewChartComponents';
 import { formatLatency, useLegendHighlight, useToolColors } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
 
 /**
  * Chart showing average latency comparison for each tool over time as a line chart.
  * Each line represents a different tool with its average latency.
  */
-export const ToolLatencyChart: React.FC<OverviewChartProps> = (props) => {
+export const ToolLatencyChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
@@ -30,7 +29,7 @@ export const ToolLatencyChart: React.FC<OverviewChartProps> = (props) => {
   const { getToolColor } = useToolColors();
 
   // Fetch and process tool latency chart data
-  const { chartData, toolNames, isLoading, error, hasData } = useToolLatencyChartData(props);
+  const { chartData, toolNames, isLoading, error, hasData } = useToolLatencyChartData();
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
