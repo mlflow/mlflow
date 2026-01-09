@@ -23,6 +23,46 @@ from mlflow.gateway.schemas import (
 from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
 from mlflow.types.chat import Function, ToolCall
 
+
+def _convert_json_schema_to_gemini_schema(
+    schema: dict[str, Any], defs: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """
+    Convert an OpenAI-style JSON Schema to OpenAPI's Schema format.
+    https://ai.google.dev/api/caching#Schema
+    """
+    if defs is None:
+        defs = schema.get("$defs", {})
+
+    if "$ref" in schema:
+        ref_path = schema["$ref"]
+        if ref_path.startswith("#/$defs/"):
+            def_name = ref_path[len("#/$defs/") :]
+            if def_name in defs:
+                return _convert_json_schema_to_gemini_schema(defs[def_name], defs)
+        return {}
+
+    result = {}
+    for key, value in schema.items():
+        if key == "$defs":
+            continue
+
+        match key:
+            case "type" if isinstance(value, str):
+                result[key] = value.upper()
+            case "properties" if isinstance(value, dict):
+                result[key] = {
+                    k: _convert_json_schema_to_gemini_schema(v, defs) for k, v in value.items()
+                }
+            case "items" if isinstance(value, dict):
+                result[key] = _convert_json_schema_to_gemini_schema(value, defs)
+            case "anyOf" | "oneOf" | "allOf" if isinstance(value, list):
+                result[key] = [_convert_json_schema_to_gemini_schema(item, defs) for item in value]
+            case "required" | "title" | "description" | "enum":
+                result[key] = value
+    return result
+
+
 GENERATION_CONFIG_KEY_MAPPING = {
     "stop": "stopSequences",
     "n": "candidateCount",
@@ -160,14 +200,13 @@ class GeminiAdapter(ProviderAdapter):
             gemini_payload["generationConfig"] = generation_config
 
         # Transform response_format for Gemini structured outputs
-        # Gemini uses responseSchema in generationConfig
         if response_format := payload.pop("response_format", None):
             if response_format.get("type") == "json_schema" and "json_schema" in response_format:
                 if "generationConfig" not in gemini_payload:
                     gemini_payload["generationConfig"] = {}
-                gemini_payload["generationConfig"]["responseSchema"] = response_format[
-                    "json_schema"
-                ]
+                gemini_payload["generationConfig"]["responseSchema"] = (
+                    _convert_json_schema_to_gemini_schema(response_format["json_schema"]["schema"])
+                )
                 gemini_payload["generationConfig"]["responseMimeType"] = "application/json"
 
         # convert tool definition to Gemini format
