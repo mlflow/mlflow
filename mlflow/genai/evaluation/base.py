@@ -1,3 +1,4 @@
+import inspect
 import logging
 import os
 import time
@@ -23,7 +24,7 @@ from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 from mlflow.genai.simulators import ConversationSimulator
 from mlflow.genai.utils.display_utils import display_evaluation_output
-from mlflow.genai.utils.trace_utils import convert_predict_fn
+from mlflow.genai.utils.trace_utils import _wrap_async_predict_fn, convert_predict_fn
 from mlflow.models.evaluation.base import (
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
@@ -322,7 +323,13 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
                 "predict_fn is required when using ConversationSimulator as data. "
                 "The simulator needs a predict function to generate conversations."
             )
-        all_trace_ids = data._simulate(predict_fn)
+
+        # Wrap async predict_fn for synchronous execution during simulation
+        sim_predict_fn = predict_fn
+        if inspect.iscoroutinefunction(predict_fn):
+            sim_predict_fn = _wrap_async_predict_fn(predict_fn)
+
+        all_trace_ids = data._simulate(sim_predict_fn)
         logger.debug(
             f"Simulation produced {len(all_trace_ids)} conversation(s) with "
             f"{[len(ids) for ids in all_trace_ids]} trace(s) each"
@@ -336,7 +343,9 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
             )
 
         data = [mlflow.get_trace(tid) for tid in flat_trace_ids]
-        # predict_fn was used during simulation
+        # Set predict_fn to None since the simulation already invoked it for each conversation
+        # turn. The resulting traces contain all the prediction outputs, so the evaluation
+        # harness will use those traces directly rather than calling predict_fn again.
         predict_fn = None
 
     is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))

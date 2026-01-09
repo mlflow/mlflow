@@ -36,6 +36,11 @@ from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
+try:
+    from tqdm.auto import tqdm
+except ImportError:
+    tqdm = None
+
 if TYPE_CHECKING:
     from pandas import DataFrame
 
@@ -300,10 +305,16 @@ class ConversationSimulator:
                 return response
 
 
+            # Each test case requires a "goal". "persona" and "context" are optional.
             simulator = ConversationSimulator(
                 test_cases=[
-                    {"goal": "Learn about MLflow tracking", "persona": "A beginner"},
-                    {"goal": "Debug deployment issue", "context": {"user_id": "123"}},
+                    {"goal": "Learn about MLflow tracking"},
+                    {"goal": "Debug deployment issue", "persona": "A data scientist"},
+                    {
+                        "goal": "Set up model registry",
+                        "persona": "A beginner",
+                        "context": {"user_id": "123"},
+                    },
                 ],
                 max_turns=5,
             )
@@ -360,16 +371,18 @@ class ConversationSimulator:
 
     @record_usage_event(SimulateConversationEvent)
     def _simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list[str]]:
-        from tqdm import tqdm
-
         num_test_cases = len(self.test_cases)
         all_trace_ids: list[list[str]] = [[] for _ in range(num_test_cases)]
         max_workers = min(num_test_cases, MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
 
-        progress_bar = tqdm(
-            total=num_test_cases,
-            desc="Simulating conversations",
-            unit="conversation",
+        progress_bar = (
+            tqdm(
+                total=num_test_cases,
+                desc="Simulating conversations",
+                unit="conversation",
+            )
+            if tqdm
+            else None
         )
 
         with (
@@ -393,7 +406,8 @@ class ConversationSimulator:
                             f"Failed to run conversation for test case "
                             f"{self.test_cases[idx].get('goal')}: {e}"
                         )
-                    progress_bar.update(1)
+                    if progress_bar:
+                        progress_bar.update(1)
             finally:
                 if progress_bar:
                     progress_bar.close()
