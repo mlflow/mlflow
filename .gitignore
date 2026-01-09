@@ -2,7 +2,7 @@
 mlruns/
 mlartifacts/
 outputs/
-mlruns.db
+mlruns*.db
 mlflow.db
 **/basic_auth.db
 
