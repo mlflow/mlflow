@@ -2,6 +2,10 @@ import { APILink } from "@site/src/components/APILink";
 import ImageBox from '@site/src/components/ImageBox';
 import ServerSetup from "@site/src/content/setup_server.mdx";
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import TabsWrapper from '@site/src/components/TabsWrapper';
+
 # GenAI Evaluation Quickstart
 
 This quickstart guide will walk you through evaluating your GenAI applications with MLflow's comprehensive evaluation framework.
@@ -11,7 +15,7 @@ In less than 5 minutes, you'll learn how to evaluate LLM outputs, use built-in a
 
 ## Prerequisites
 
-Install the required packages by running the following command:
+Depending on your Python environment, you may want to install the required packages by running the following command:
 
 ```bash
 pip install openai
@@ -181,9 +185,24 @@ if __name__ == "__main__":
 
 Now run your evaluation script:
 
-```bash
+<TabsWrapper>
+<Tabs>
+<TabItem value="uv" label="uv" default>
+
+```shell
+uv run --with openai,mlflow quickstart_eval.py
+```
+
+</TabItem>
+<TabItem value="python" label="Python" default>
+
+```shell
 python quickstart_eval.py
 ```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Complete Script
 
@@ -267,13 +286,17 @@ if __name__ == "__main__":
 
 </details>
 
-After running the code above, go to the MLflow UI and navigate to your experiment. You'll see the evaluation results with detailed metrics for each scorer.
+After running the code above, go to the MLflow UI and navigate to the "GenAI Evaluation Quickstart" experiment. You'll see the evaluation results with detailed metrics for each scorer.
 
 <ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-result.png" alt="Detailed Evaluation Results" width="90%" />
 
 By clicking on the each row in the table, you can see the detailed rationale behind the score and the trace of the prediction.
 
-<ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-trace.png" alt="Detailed Evaluation Results" width="90%" />
+<ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-trace.png" alt="Detailed Score Rationale" width="90%" />
+
+You can compare evaluation runs, too. Click on "Evaluation runs" menu (on the left) and select a run that you want to compare to a baseline run.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-runs-compare.png" alt="Compare Evaluation Runs" width="90%" />
 
 ## Summary
 
