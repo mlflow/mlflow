@@ -55,7 +55,7 @@ def _extract_failures_from_feedbacks(feedbacks: list[Any]) -> list[ScorerFailure
 @job(
     name="run_online_trace_scorer",
     max_workers=MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS.get(),
-    exclusive=True,
+    exclusive=["experiment_id"],
 )
 def run_online_trace_scorer_job(
     experiment_id: str,
@@ -64,8 +64,9 @@ def run_online_trace_scorer_job(
     """
     Job that fetches samples of individual traces and runs scorers on them.
 
-    This job is exclusive per (experiment_id, online_scorers) combination to prevent
-    duplicate scoring of the same traces.
+    This job is exclusive per experiment_id to prevent duplicate scoring of the same
+    experiment. Multiple jobs with different scorers for the same experiment will not
+    run simultaneously, ensuring consistent checkpoint management.
 
     Args:
         experiment_id: The experiment ID to fetch traces from.

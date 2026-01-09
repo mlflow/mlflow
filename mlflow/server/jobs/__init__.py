@@ -57,7 +57,7 @@ class JobFunctionMetadata:
     max_workers: int
     transient_error_classes: list[type[Exception]] | None = None
     python_env: _PythonEnv | None = None
-    exclusive: bool = False
+    exclusive: bool | list[str] = False
 
 
 def job(
@@ -66,7 +66,7 @@ def job(
     transient_error_classes: list[type[Exception]] | None = None,
     python_version: str | None = None,
     pip_requirements: list[str] | None = None,
-    exclusive: bool = False,
+    exclusive: bool | list[str] = False,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     The decorator for the custom job function for setting max parallel workers that
@@ -83,7 +83,8 @@ def job(
         pip_requirements: (optional) The required pip requirements to run the job function,
             relative file references such as "-r requirements.txt" are not supported.
         exclusive: (optional) If True, only one instance of this job with the same params
-            can run at a time. Default is False.
+            can run at a time. If a list of parameter names is provided, only those
+            parameters are considered when determining exclusivity. Default is False.
     """
     from mlflow.utils import PYTHON_VERSION
     from mlflow.utils.requirements_utils import _parse_requirements

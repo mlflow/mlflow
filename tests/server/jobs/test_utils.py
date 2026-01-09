@@ -111,6 +111,26 @@ def test_compute_exclusive_lock_key():
     key5 = _compute_exclusive_lock_key("other_job", {"a": 1, "b": 2})
     assert key1 != key5
 
+    # Test with filtered params (simulating exclusive parameter list)
+    # When only "a" is used, different "b" values should produce same key
+    key6 = _compute_exclusive_lock_key("job_name", {"a": 1})
+    key7 = _compute_exclusive_lock_key("job_name", {"a": 1})
+    assert key6 == key7
+
+    # But different "a" values should produce different keys
+    key8 = _compute_exclusive_lock_key("job_name", {"a": 2})
+    assert key6 != key8
+
+    # Test that same filtered params produce same key
+    filtered_params = {"a": 1, "b": 2}
+    key9 = _compute_exclusive_lock_key("job_name", filtered_params)
+    key10 = _compute_exclusive_lock_key("job_name", {"a": 1, "b": 2})
+    assert key9 == key10
+
+    # Different filtered params produce different keys
+    key11 = _compute_exclusive_lock_key("job_name", {"a": 1, "b": 3})
+    assert key9 != key11
+
     # Key format is job_name:hash
     assert key1.startswith("job_name:")
     assert key5.startswith("other_job:")

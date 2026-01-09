@@ -232,7 +232,16 @@ def _exec_job_in_subproc(
 
 
 def _compute_exclusive_lock_key(job_name: str, params: dict[str, Any]) -> str:
-    """Compute a lock key based on job name and params hash."""
+    """
+    Compute a lock key based on job name and params hash.
+
+    Args:
+        job_name: Name of the job.
+        params: Parameter dictionary to use for the lock key.
+
+    Returns:
+        Lock key string.
+    """
     params_json = json.dumps(params, sort_keys=True)
     params_hash = hashlib.sha256(params_json.encode()).hexdigest()[:16]
     return f"{job_name}:{params_hash}"
@@ -243,7 +252,7 @@ def _exec_job(
     job_name: str,
     params: dict[str, Any],
     timeout: float | None,
-    exclusive: bool = False,
+    exclusive: bool | list[str] = False,
 ) -> None:
     """
     Execute a job in a subprocess.
@@ -254,7 +263,8 @@ def _exec_job(
         params: Parameters to pass to the job function.
         timeout: Maximum execution time in seconds, or None for no timeout.
         exclusive: If True, only one instance of this job with the same params can run
-            at a time.
+            at a time. If a list of parameter names, only those parameters are considered
+            for exclusivity.
     """
     from mlflow.server.handlers import _get_job_store
 
@@ -266,7 +276,13 @@ def _exec_job(
         from huey.exceptions import TaskLockedException
 
         huey_instance = _get_or_init_huey_instance(job_name).instance
-        lock_key = _compute_exclusive_lock_key(job_name, params)
+        # If exclusive is a list, filter params to only those specified
+        lock_params = (
+            {k: v for k, v in params.items() if k in exclusive}
+            if isinstance(exclusive, list)
+            else params
+        )
+        lock_key = _compute_exclusive_lock_key(job_name, lock_params)
         lock = huey_instance.lock_task(lock_key)
         try:
             lock.acquire()
