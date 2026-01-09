@@ -1,5 +1,6 @@
 import functools
 import inspect
+import json
 import logging
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass
@@ -380,6 +381,20 @@ class Scorer(BaseModel):
                 f"serialization version: {serialized.serialization_version or 'unknown'}, "
                 f"current MLflow version: {mlflow.__version__}."
             )
+
+    @classmethod
+    def model_validate_json(cls, json_data: str | bytes) -> "Scorer":
+        """
+        Override model_validate_json to parse JSON and delegate to custom model_validate.
+
+        Args:
+            json_data: JSON string or bytes to deserialize.
+
+        Returns:
+            Scorer instance with correct subclass (BuiltInScorer, InstructionsJudge, etc.).
+        """
+        data = json.loads(json_data)
+        return cls.model_validate(data)
 
     @classmethod
     def _reconstruct_decorator_scorer(cls, serialized: SerializedScorer) -> "Scorer":

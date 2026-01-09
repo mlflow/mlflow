@@ -1,7 +1,6 @@
 """Dense sampling strategy for online scoring."""
 
 import hashlib
-import json
 import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING
@@ -28,8 +27,7 @@ class OnlineScorerSampler:
         self._sample_rates: dict[str, float] = {}
         self._scorers: dict[str, Scorer] = {}
         for online_scorer in online_scorers:
-            scorer_dict = json.loads(online_scorer.serialized_scorer)
-            scorer = Scorer.model_validate(scorer_dict)
+            scorer = Scorer.model_validate_json(online_scorer.serialized_scorer)
             self._sample_rates[scorer.name] = online_scorer.online_config.sample_rate
             self._scorers[scorer.name] = scorer
 
