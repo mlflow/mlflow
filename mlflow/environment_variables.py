@@ -1210,6 +1210,6 @@ MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
 
 
 #: Specifies whether to allow unsafe pickle deserialization for loading model
-MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
-    "MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION", True
+MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
+    "MLFLOW_ALLOW_PICKLE_DESERIALIZATION", True
 )

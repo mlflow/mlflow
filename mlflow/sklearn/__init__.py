@@ -34,7 +34,7 @@ from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
-from mlflow.environment_variables import MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION
+from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -260,16 +260,10 @@ def save_model(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if serialization_format != SERIALIZATION_FORMAT_SKOPS:
-        if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
-            raise MlflowException(
-                "Unsafe pickle deserialization is disallowed. Please set 'serialization_format' "
-                "parameter to 'skops', or set "
-                "environment variable 'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true' "
-                "to allow unsafe deserialization."
-            )
     warnings.warn(
-        "Saving scikit-learn models in 'pickle' or 'cloudpickle' format is unsafe. "
+        "Saving scikit-learn models in the pickle or cloudpickle format requires exercising "
+        "caution because these formats rely on Python's object serialization mechanism, "
+        "which can execute arbitrary code during deserialization."
         "The recommended safe alternative is the 'skops' format.",
         FutureWarning,
         stacklevel=2,
@@ -513,11 +507,11 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
         )
 
     if serialization_format != SERIALIZATION_FORMAT_SKOPS:
-        if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
+        if not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get():
             raise MlflowException(
-                "Unsafe pickle deserialization is disallowed, but this model is saved "
+                "Deserializing model using pickle is disallowed, but this model is saved "
                 "in pickle format. To address this issue, you need to set environment variable "
-                "'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true', or save the model in "
+                "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true', or save the model in "
                 "'skops' format."
             )
 
