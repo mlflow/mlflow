@@ -7,6 +7,7 @@ import { ExperimentKind, ExperimentPageTabName } from '../../../constants';
 import { MemoryRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '../../../../common/utils/reactQueryHooks';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
+
 jest.mock('../../../components/experiment-page/hooks/useExperimentEvaluationRunsData', () => ({
   useExperimentEvaluationRunsData: jest.fn(() => ({ trainingRuns: [] })),
 }));

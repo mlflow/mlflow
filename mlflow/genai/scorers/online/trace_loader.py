@@ -9,8 +9,6 @@ _logger = logging.getLogger(__name__)
 
 
 class OnlineTraceLoader:
-    """Loads traces from the tracking store for online scoring."""
-
     def __init__(self, tracking_store: AbstractStore):
         self._tracking_store = tracking_store
 

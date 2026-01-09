@@ -62,6 +62,7 @@ const labels = {
 };
 
 export const RowActionsCellRenderer = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (props: {
     data: RunRowType;
     value: { pinned: boolean; hidden: boolean };
@@ -99,16 +100,16 @@ export const RowActionsCellRenderer = React.memo(
         ? labels.visibility.groups.unhide
         : labels.visibility.groups.hide
       : isRowHidden
-      ? labels.visibility.runs.unhide
-      : labels.visibility.runs.hide;
+        ? labels.visibility.runs.unhide
+        : labels.visibility.runs.hide;
 
     const pinningMessageDescriptor = isGroupRow
       ? pinned
         ? labels.pinning.groups.unpin
         : labels.pinning.groups.pin
       : pinned
-      ? labels.pinning.runs.unpin
-      : labels.pinning.runs.pin;
+        ? labels.pinning.runs.unpin
+        : labels.pinning.runs.pin;
 
     const isVisibilityButtonHidden = visibilityControl === RunRowVisibilityControl.Hidden;
 
@@ -166,6 +167,7 @@ export const RowActionsCellRenderer = React.memo(
       </div>
     );
   },
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (prevProps, nextProps) =>
     prevProps.value.hidden === nextProps.value.hidden &&
     prevProps.value.pinned === nextProps.value.pinned &&

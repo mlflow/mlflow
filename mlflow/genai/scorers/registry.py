@@ -295,6 +295,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         self,
         *,
         scorer: Scorer,
+        experiment_id: str,
         sample_rate: float,
         filter_string: str | None = None,
     ) -> Scorer:
@@ -303,6 +304,7 @@ class MlflowTrackingStore(AbstractScorerStore):
 
         Args:
             scorer: The scorer instance to update.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
             sample_rate: The sampling rate (0.0 to 1.0).
             filter_string: Optional filter string.
 
@@ -319,20 +321,14 @@ class MlflowTrackingStore(AbstractScorerStore):
                 "or use get_scorer() to load a registered scorer."
             )
 
-        if scorer._experiment_id is None:
-            raise MlflowException.invalid_parameter_value(
-                "Scorer does not have an experiment_id. This should have been set during "
-                "registration or when loading the scorer."
-            )
-
         self._tracking_store.upsert_online_scoring_config(
-            experiment_id=scorer._experiment_id,
+            experiment_id=experiment_id,
             scorer_name=scorer.name,
             sample_rate=sample_rate,
             filter_string=filter_string,
         )
 
-        return self.get_scorer(scorer._experiment_id, scorer.name)
+        return self.get_scorer(experiment_id, scorer.name)
 
 
 class DatabricksStore(AbstractScorerStore):
@@ -358,6 +354,7 @@ class DatabricksStore(AbstractScorerStore):
     @staticmethod
     def add_registered_scorer(
         *,
+        name: str,
         scorer: Scorer,
         sample_rate: float,
         filter_string: str | None = None,
@@ -371,7 +368,7 @@ class DatabricksStore(AbstractScorerStore):
 
         scheduled_scorer = add_scheduled_scorer(
             experiment_id=experiment_id,
-            scheduled_scorer_name=scorer.name,
+            scheduled_scorer_name=name,
             scorer=scorer,
             sample_rate=sample_rate,
             filter_string=filter_string,
@@ -438,6 +435,7 @@ class DatabricksStore(AbstractScorerStore):
     def register_scorer(self, experiment_id: str | None, scorer: Scorer) -> int | None:
         # Add the scorer to the server with sample_rate=0 (not actively sampling)
         DatabricksStore.add_registered_scorer(
+            name=scorer.name,
             scorer=scorer,
             sample_rate=0.0,
             filter_string=None,

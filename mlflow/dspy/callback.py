@@ -422,7 +422,7 @@ class MlflowCallback(BaseCallback):
         # NB: Not using pop() to avoid modifying the original inputs dictionary
         kwargs = inputs.get("kwargs", {})
         inputs_wo_kwargs = {k: v for k, v in inputs.items() if k != "kwargs"}
-        merged = {**inputs_wo_kwargs, **kwargs}
+        merged = inputs_wo_kwargs | kwargs
         return {k: _convert_signature(v) for k, v in merged.items()}
 
     def _generate_result_table(

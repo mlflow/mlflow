@@ -29,6 +29,15 @@ from mlflow.telemetry.utils import _log_error
 
 _logger = logging.getLogger(__name__)
 
+_RESPONSE_FORMAT_ERROR_MESSAGES = (
+    "response_format",
+    "response_schema",
+    "response format",
+    "responseformatobject",
+    'unknown field "properties"',
+    'unknown field \\"properties\\"',
+)
+
 
 @dataclass
 class InvokeDatabricksModelOutput:
@@ -172,9 +181,14 @@ def _invoke_databricks_serving_endpoint(
 
         # Check HTTP status before parsing JSON
         if res.status_code in [400, 401, 403, 404]:
-            # Check if this is an error related to response_format parameter. If so, drop the
-            # parameter and retry. This mimics LiteLLM's drop_params behavior
-            if res.status_code == 400 and include_response_format and "response_format" in res.text:
+            # Check if this is an error related to response_format/response_schema parameter.
+            # If so, drop the parameter and retry. This mimics LiteLLM's drop_params behavior.
+            # Some endpoints return errors about 'response_format', others about 'response_schema'.
+            error_text_lower = res.text.lower()
+            is_response_format_error = any(
+                s in error_text_lower for s in _RESPONSE_FORMAT_ERROR_MESSAGES
+            )
+            if res.status_code == 400 and include_response_format and is_response_format_error:
                 _logger.debug(
                     f"Model '{model_name}' may not support structured outputs (response_format). "
                     f"Retrying without structured output enforcement. The response may not follow "

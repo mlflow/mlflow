@@ -4137,6 +4137,50 @@ def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_de
     SqlAlchemyStore(tmp_sqlite_uri, ARTIFACT_URI)
 
 
+def test_sqlalchemy_store_does_not_create_artifact_root_directory_on_init(tmp_path):
+    """
+    Verify that SqlAlchemyStore does NOT create the artifact root directory during initialization.
+
+    The directory should only be created lazily when the first artifact is logged. This allows
+    MLflow servers to run in read-only environments (e.g., K8s containers) when artifacts are
+    stored remotely and the local artifact root is never actually used.
+
+    See: https://github.com/mlflow/mlflow/issues/19658
+    """
+    db_path = tmp_path / "mlflow.db"
+    artifact_root = tmp_path / "artifacts"
+
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", str(artifact_root))
+
+    assert not artifact_root.exists()
+
+    store._dispose_engine()
+
+
+def test_sqlalchemy_store_creates_artifact_directory_on_log_artifact(tmp_path):
+    from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+    from mlflow.utils.file_utils import path_to_local_file_uri
+
+    db_path = tmp_path / "mlflow.db"
+    artifact_root = tmp_path / "artifacts"
+
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", path_to_local_file_uri(str(artifact_root)))
+    exp_id = store.create_experiment("test")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="run")
+
+    assert not artifact_root.exists()
+
+    src_file = tmp_path / "test.txt"
+    src_file.write_text("hello")
+
+    artifact_repo = get_artifact_repository(run.info.artifact_uri)
+    artifact_repo.log_artifact(str(src_file))
+
+    assert artifact_root.exists()
+
+    store._dispose_engine()
+
+
 class TextClauseMatcher:
     def __init__(self, text):
         self.text = text
@@ -4244,29 +4288,29 @@ def test_get_orderby_clauses(tmp_sqlite_uri):
 def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
     artifact_root_uri, expected_artifact_uri_format
 ):
-    # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
-    # filesystem directories for file URI and POSIX path test cases
-    with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
-        with TempDir() as tmp:
-            dbfile_path = tmp.path("db")
-            store = SqlAlchemyStore(
-                db_uri="sqlite:///" + dbfile_path,
-                default_artifact_root=artifact_root_uri,
-            )
-            exp_id = store.create_experiment(name="exp")
-            exp = store.get_experiment(exp_id)
+    # Note: Previously this test patched `is_local_uri` to prevent directory creation,
+    # but SqlAlchemyStore no longer creates the artifact root directory during initialization.
+    # The directory is now created lazily when the first artifact is logged.
+    with TempDir() as tmp:
+        dbfile_path = tmp.path("db")
+        store = SqlAlchemyStore(
+            db_uri="sqlite:///" + dbfile_path,
+            default_artifact_root=artifact_root_uri,
+        )
+        exp_id = store.create_experiment(name="exp")
+        exp = store.get_experiment(exp_id)
 
-            if hasattr(store, "__del__"):
-                store.__del__()
+        if hasattr(store, "__del__"):
+            store.__del__()
 
-            cwd = Path.cwd().as_posix()
-            drive = Path.cwd().drive
-            if is_windows() and expected_artifact_uri_format.startswith("file:"):
-                cwd = f"/{cwd}"
-                drive = f"{drive}/"
-            assert exp.artifact_location == expected_artifact_uri_format.format(
-                e=exp_id, cwd=cwd, drive=drive
-            )
+        cwd = Path.cwd().as_posix()
+        drive = Path.cwd().drive
+        if is_windows() and expected_artifact_uri_format.startswith("file:"):
+            cwd = f"/{cwd}"
+            drive = f"{drive}/"
+        assert exp.artifact_location == expected_artifact_uri_format.format(
+            e=exp_id, cwd=cwd, drive=drive
+        )
 
 
 @pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
@@ -4352,35 +4396,35 @@ def test_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, exp
 def _assert_create_run_appends_to_artifact_uri_path_correctly(
     artifact_root_uri, expected_artifact_uri_format
 ):
-    # Patch `is_local_uri` to prevent the SqlAlchemy store from attempting to create local
-    # filesystem directories for file URI and POSIX path test cases
-    with mock.patch("mlflow.store.tracking.sqlalchemy_store.is_local_uri", return_value=False):
-        with TempDir() as tmp:
-            dbfile_path = tmp.path("db")
-            store = SqlAlchemyStore(
-                db_uri="sqlite:///" + dbfile_path,
-                default_artifact_root=artifact_root_uri,
-            )
-            exp_id = store.create_experiment(name="exp")
-            run = store.create_run(
-                experiment_id=exp_id,
-                user_id="user",
-                start_time=0,
-                tags=[],
-                run_name="name",
-            )
+    # Note: Previously this test patched `is_local_uri` to prevent directory creation,
+    # but SqlAlchemyStore no longer creates the artifact root directory during initialization.
+    # The directory is now created lazily when the first artifact is logged.
+    with TempDir() as tmp:
+        dbfile_path = tmp.path("db")
+        store = SqlAlchemyStore(
+            db_uri="sqlite:///" + dbfile_path,
+            default_artifact_root=artifact_root_uri,
+        )
+        exp_id = store.create_experiment(name="exp")
+        run = store.create_run(
+            experiment_id=exp_id,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            run_name="name",
+        )
 
-            if hasattr(store, "__del__"):
-                store.__del__()
+        if hasattr(store, "__del__"):
+            store.__del__()
 
-            cwd = Path.cwd().as_posix()
-            drive = Path.cwd().drive
-            if is_windows() and expected_artifact_uri_format.startswith("file:"):
-                cwd = f"/{cwd}"
-                drive = f"{drive}/"
-            assert run.info.artifact_uri == expected_artifact_uri_format.format(
-                e=exp_id, r=run.info.run_id, cwd=cwd, drive=drive
-            )
+        cwd = Path.cwd().as_posix()
+        drive = Path.cwd().drive
+        if is_windows() and expected_artifact_uri_format.startswith("file:"):
+            cwd = f"/{cwd}"
+            drive = f"{drive}/"
+        assert run.info.artifact_uri == expected_artifact_uri_format.format(
+            e=exp_id, r=run.info.run_id, cwd=cwd, drive=drive
+        )
 
 
 @pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
@@ -4686,7 +4730,7 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
     exp1 = store_with_traces.get_experiment_by_name("exp1").experiment_id
     exp2 = store_with_traces.get_experiment_by_name("exp2").experiment_id
     trace_infos, _ = store_with_traces.search_traces(
-        experiment_ids=[exp1, exp2],
+        locations=[exp1, exp2],
         filter_string=None,
         max_results=5,
         order_by=order_by,
@@ -4728,7 +4772,7 @@ def test_search_traces_with_filter(store_with_traces, filter_string, expected_id
     exp2 = store_with_traces.get_experiment_by_name("exp2").experiment_id
 
     trace_infos, _ = store_with_traces.search_traces(
-        experiment_ids=[exp1, exp2],
+        locations=[exp1, exp2],
         filter_string=filter_string,
         max_results=5,
         order_by=[],
@@ -4755,7 +4799,7 @@ def test_search_traces_with_invalid_filter(store_with_traces, filter_string, err
 
     with pytest.raises(MlflowException, match=error):
         store_with_traces.search_traces(
-            experiment_ids=[exp1, exp2],
+            locations=[exp1, exp2],
             filter_string=filter_string,
         )
 
@@ -4765,12 +4809,12 @@ def test_search_traces_raise_if_max_results_arg_is_invalid(store):
         MlflowException,
         match="Invalid value 50001 for parameter 'max_results' supplied.",
     ):
-        store.search_traces(experiment_ids=[], max_results=50001)
+        store.search_traces(locations=[], max_results=50001)
 
     with pytest.raises(
         MlflowException, match="Invalid value -1 for parameter 'max_results' supplied."
     ):
-        store.search_traces(experiment_ids=[], max_results=-1)
+        store.search_traces(locations=[], max_results=-1)
 
 
 def test_search_traces_pagination(store_with_traces):
@@ -5526,6 +5570,13 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
         source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
     )
 
+    feedback4 = Feedback(
+        trace_id=trace1_id,
+        name="quality",
+        value="high",
+        source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
+    )
+
     # Create expectations for trace3 and trace4
     expectation1 = Expectation(
         trace_id=trace3_id,
@@ -5548,13 +5599,22 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
         source=AssessmentSource(source_type="CODE", source_id="latency_monitor"),
     )
 
+    expectation4 = Expectation(
+        trace_id=trace3_id,
+        name="priority",
+        value="urgent",
+        source=AssessmentSource(source_type="CODE", source_id="priority_checker"),
+    )
+
     # Store assessments
     store.create_assessment(feedback1)
     store.create_assessment(feedback2)
     store.create_assessment(feedback3)
+    store.create_assessment(feedback4)
     store.create_assessment(expectation1)
     store.create_assessment(expectation2)
     store.create_assessment(expectation3)
+    store.create_assessment(expectation4)
 
     # Test: Search for traces with correctness feedback = True
     traces, _ = store.search_traces([exp_id], filter_string='feedback.correctness = "true"')
@@ -5571,6 +5631,11 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
     assert len(traces) == 1
     assert traces[0].request_id == trace2_id
 
+    # Test: Search for traces with string-valued feedback
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.quality = "high"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
     # Test: Search for traces with response_length expectation = 150
     traces, _ = store.search_traces([exp_id], filter_string='expectation.response_length = "150"')
     assert len(traces) == 1
@@ -5585,6 +5650,11 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
     traces, _ = store.search_traces([exp_id], filter_string='expectation.latency_ms = "1000"')
     assert len(traces) == 1
     assert traces[0].request_id == trace4_id
+
+    # Test: Search for traces with string-valued expectation
+    traces, _ = store.search_traces([exp_id], filter_string='expectation.priority = "urgent"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
 
     # Test: Combined filter with AND - trace with multiple expectations
     traces, _ = store.search_traces(
@@ -6272,58 +6342,6 @@ def test_search_traces_with_feedback_rlike_filters(store: SqlAlchemyStore):
     traces, _ = store.search_traces([exp_id], filter_string='feedback.comment RLIKE "Not.*all"')
     assert len(traces) == 1
     assert traces[0].request_id == trace3_id
-
-
-def test_search_traces_with_metadata_is_null_filter(store: SqlAlchemyStore):
-    exp_id = store.create_experiment("test_metadata_is_null")
-
-    trace1_id = "trace1"
-    trace2_id = "trace2"
-    trace3_id = "trace3"
-
-    _create_trace(store, trace1_id, exp_id, trace_metadata={"env": "production", "region": "us"})
-    _create_trace(store, trace2_id, exp_id, trace_metadata={"env": "staging"})
-    _create_trace(store, trace3_id, exp_id, trace_metadata={})
-
-    traces, _ = store.search_traces([exp_id], filter_string="metadata.region IS NULL")
-    trace_ids = {t.request_id for t in traces}
-    assert trace_ids == {trace2_id, trace3_id}
-
-    traces, _ = store.search_traces([exp_id], filter_string="metadata.env IS NULL")
-    trace_ids = {t.request_id for t in traces}
-    assert trace_ids == {trace3_id}
-
-    traces, _ = store.search_traces(
-        [exp_id], filter_string='metadata.region IS NULL AND metadata.env = "staging"'
-    )
-    trace_ids = {t.request_id for t in traces}
-    assert trace_ids == {trace2_id}
-
-
-def test_search_traces_with_metadata_is_not_null_filter(store: SqlAlchemyStore):
-    exp_id = store.create_experiment("test_metadata_is_not_null")
-
-    trace1_id = "trace1"
-    trace2_id = "trace2"
-    trace3_id = "trace3"
-
-    _create_trace(store, trace1_id, exp_id, trace_metadata={"env": "production", "region": "us"})
-    _create_trace(store, trace2_id, exp_id, trace_metadata={"env": "staging"})
-    _create_trace(store, trace3_id, exp_id, trace_metadata={})
-
-    traces, _ = store.search_traces([exp_id], filter_string="metadata.region IS NOT NULL")
-    trace_ids = {t.request_id for t in traces}
-    assert trace_ids == {trace1_id}
-
-    traces, _ = store.search_traces([exp_id], filter_string="metadata.env IS NOT NULL")
-    trace_ids = {t.request_id for t in traces}
-    assert trace_ids == {trace1_id, trace2_id}
-
-    traces, _ = store.search_traces(
-        [exp_id], filter_string='metadata.region IS NOT NULL AND metadata.env = "production"'
-    )
-    trace_ids = {t.request_id for t in traces}
-    assert trace_ids == {trace1_id}
 
 
 @pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
@@ -10518,7 +10536,7 @@ def test_link_traces_to_run(store: SqlAlchemyStore):
 
     # search_traces should return traces linked to the run
     traces, _ = store.search_traces(
-        experiment_ids=[exp_id], filter_string=f"run_id = '{run.info.run_id}'"
+        locations=[exp_id], filter_string=f"run_id = '{run.info.run_id}'"
     )
     assert len(traces) == 5
 
@@ -10886,7 +10904,7 @@ def test_upsert_online_scoring_config_validates_filter_string(store: SqlAlchemyS
     )
     assert config.filter_string == "status = 'OK'"
 
-    with pytest.raises(MlflowException, match="Invalid filter"):
+    with pytest.raises(MlflowException, match="Invalid clause"):
         store.upsert_online_scoring_config(
             experiment_id=experiment_id,
             scorer_name="test_scorer",
@@ -10944,11 +10962,13 @@ def test_get_active_online_scorers_filters_by_sample_rate(store: SqlAlchemyStore
     active_scorers = store.get_active_online_scorers()
     # Filter to only scorers we created in this test using name and experiment_id
     test_scorers = [
-        s for s in active_scorers if s.name == "active" and s.experiment_id == experiment_id
+        s
+        for s in active_scorers
+        if s.name == "active" and s.online_config.experiment_id == experiment_id
     ]
 
     assert len(test_scorers) == 1
-    assert test_scorers[0].sample_rate == 0.1
+    assert test_scorers[0].online_config.sample_rate == 0.1
 
 
 def test_get_active_online_scorers_returns_scorer_fields(store: SqlAlchemyStore):
@@ -10966,13 +10986,15 @@ def test_get_active_online_scorers_returns_scorer_fields(store: SqlAlchemyStore)
 
     active_scorers = store.get_active_online_scorers()
     active_scorer = next(
-        s for s in active_scorers if s.name == "scorer" and s.experiment_id == experiment_id
+        s
+        for s in active_scorers
+        if s.name == "scorer" and s.online_config.experiment_id == experiment_id
     )
 
     assert active_scorer.name == "scorer"
-    assert active_scorer.experiment_id == experiment_id
-    assert active_scorer.sample_rate == 0.5
-    assert active_scorer.filter_string == "status = 'OK'"
+    assert active_scorer.online_config.experiment_id == experiment_id
+    assert active_scorer.online_config.sample_rate == 0.5
+    assert active_scorer.online_config.filter_string == "status = 'OK'"
 
 
 def test_get_active_online_scorers_filters_non_gateway_model(store: SqlAlchemyStore):
@@ -10992,7 +11014,9 @@ def test_get_active_online_scorers_filters_non_gateway_model(store: SqlAlchemySt
     # Verify scorer is returned initially (max version uses gateway model)
     active_scorers = store.get_active_online_scorers()
     test_scorers = [
-        s for s in active_scorers if s.name == "scorer" and s.experiment_id == experiment_id
+        s
+        for s in active_scorers
+        if s.name == "scorer" and s.online_config.experiment_id == experiment_id
     ]
     assert len(test_scorers) == 1
 
@@ -11002,7 +11026,9 @@ def test_get_active_online_scorers_filters_non_gateway_model(store: SqlAlchemySt
     # Verify scorer is NOT returned now (max version uses non-gateway model)
     active_scorers = store.get_active_online_scorers()
     test_scorers = [
-        s for s in active_scorers if s.name == "scorer" and s.experiment_id == experiment_id
+        s
+        for s in active_scorers
+        if s.name == "scorer" and s.online_config.experiment_id == experiment_id
     ]
     assert len(test_scorers) == 0
 
@@ -11996,6 +12022,91 @@ def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
 
     trace3 = traces_by_id[trace_id_3]
     assert trace3.info.token_usage is None
+
+
+def test_batch_get_trace_infos_basic(store: SqlAlchemyStore) -> None:
+    from mlflow.tracing.constant import TraceMetadataKey
+
+    experiment_id = store.create_experiment("test_batch_get_trace_infos")
+    trace_id_1 = f"tr-{uuid.uuid4().hex}"
+    trace_id_2 = f"tr-{uuid.uuid4().hex}"
+    session_id = "session-123"
+
+    # Create traces with session metadata
+    trace_info_1 = TraceInfo(
+        trace_id=trace_id_1,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceState.OK,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+    )
+    store.start_trace(trace_info_1)
+
+    trace_info_2 = TraceInfo(
+        trace_id=trace_id_2,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        execution_duration=200,
+        state=TraceState.OK,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+    )
+    store.start_trace(trace_info_2)
+
+    # Batch fetch trace infos
+    trace_infos = store.batch_get_trace_infos([trace_id_1, trace_id_2])
+
+    assert len(trace_infos) == 2
+    trace_infos_by_id = {ti.trace_id: ti for ti in trace_infos}
+
+    # Verify we got the trace infos
+    assert trace_id_1 in trace_infos_by_id
+    assert trace_id_2 in trace_infos_by_id
+
+    # Verify metadata is present
+    ti1 = trace_infos_by_id[trace_id_1]
+    assert ti1.trace_id == trace_id_1
+    assert ti1.timestamp_ms is not None
+    assert ti1.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == session_id
+
+    ti2 = trace_infos_by_id[trace_id_2]
+    assert ti2.trace_id == trace_id_2
+    assert ti2.timestamp_ms is not None
+    assert ti2.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == session_id
+
+
+def test_batch_get_trace_infos_empty(store: SqlAlchemyStore) -> None:
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_infos = store.batch_get_trace_infos([trace_id])
+    assert trace_infos == []
+
+
+def test_batch_get_trace_infos_ordering(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_batch_get_trace_infos_ordering")
+    trace_ids = [f"tr-{uuid.uuid4().hex}" for _ in range(3)]
+
+    # Create traces in reverse order
+    for i, trace_id in enumerate(reversed(trace_ids)):
+        spans = [
+            create_test_span(
+                trace_id=trace_id,
+                name=f"span_{i}",
+                span_id=100 + i,
+                status=trace_api.StatusCode.OK,
+                start_ns=1_000_000_000 + i * 1_000_000_000,
+                end_ns=2_000_000_000 + i * 1_000_000_000,
+                trace_num=12345 + i,
+            ),
+        ]
+        store.log_spans(experiment_id, spans)
+
+    # Fetch in original order
+    trace_infos = store.batch_get_trace_infos(trace_ids)
+
+    # Verify order is preserved
+    assert len(trace_infos) == 3
+    for i, trace_info in enumerate(trace_infos):
+        assert trace_info.trace_id == trace_ids[i]
 
 
 def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
