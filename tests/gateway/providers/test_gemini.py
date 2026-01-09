@@ -1210,7 +1210,10 @@ async def test_chat_with_structured_output():
         provider = GeminiProvider(EndpointConfig(**config))
         payload = {
             "messages": [{"role": "user", "content": "What's the weather?"}],
-            "response_format": {"type": "json_schema", "json_schema": json_schema},
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"schema": json_schema, "name": "weather_response"},
+            },
         }
         response = await provider.chat(chat.RequestPayload(**payload))
 
@@ -1221,7 +1224,7 @@ async def test_chat_with_structured_output():
         assert response.choices[0].finish_reason == "stop"
 
         call_kwargs = mock_post.call_args[1]
-        assert call_kwargs["json"]["generationConfig"]["responseSchema"] == json_schema
+        assert call_kwargs["json"]["generationConfig"]["responseJsonSchema"] == json_schema
         assert call_kwargs["json"]["generationConfig"]["responseMimeType"] == "application/json"
 
 

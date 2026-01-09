@@ -164,14 +164,13 @@ class GeminiAdapter(ProviderAdapter):
             gemini_payload["generationConfig"] = generation_config
 
         # Transform response_format for Gemini structured outputs
-        # Gemini uses responseSchema in generationConfig
         if response_format := payload.pop("response_format", None):
             if response_format.get("type") == "json_schema" and "json_schema" in response_format:
                 if "generationConfig" not in gemini_payload:
                     gemini_payload["generationConfig"] = {}
-                gemini_payload["generationConfig"]["responseSchema"] = response_format[
+                gemini_payload["generationConfig"]["responseJsonSchema"] = response_format[
                     "json_schema"
-                ]
+                ]["schema"]
                 gemini_payload["generationConfig"]["responseMimeType"] = "application/json"
 
         # convert tool definition to Gemini format
