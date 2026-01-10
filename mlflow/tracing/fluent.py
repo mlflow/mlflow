@@ -31,7 +31,12 @@ from mlflow.tracing.constant import (
     SpanAttributeKey,
     TraceMetadataKey,
 )
-from mlflow.tracing.provider import is_tracing_enabled, safe_set_span_in_context
+from mlflow.tracing.provider import (
+    get_context,
+    is_tracing_enabled,
+    safe_set_span_in_context,
+    with_active_span,
+)
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
@@ -502,9 +507,7 @@ def start_span(
         return
 
     try:
-        # Setting end_on_exit = False to suppress the default span
-        # export and instead invoke MLflow span's end() method.
-        with trace_api.use_span(mlflow_span._span, end_on_exit=False):
+        with with_active_span(mlflow_span):
             yield mlflow_span
     finally:
         try:
@@ -915,7 +918,7 @@ def get_current_active_span() -> LiveSpan | None:
     Returns:
         The current active span if exists, otherwise None.
     """
-    otel_span = trace_api.get_current_span()
+    otel_span = trace_api.get_current_span(context=get_context())
     # NonRecordingSpan is returned if a tracer is not instantiated.
     if otel_span is None or isinstance(otel_span, trace_api.NonRecordingSpan):
         return None

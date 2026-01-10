@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Callable, ParamSpec, TypeVar
 
 from opentelemetry import context as context_api
 from opentelemetry import trace
+from opentelemetry.context.contextvars_context import ContextVarsRuntimeContext
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
 from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
@@ -114,6 +115,13 @@ class _TracerProviderWrapper:
 
 
 provider = _TracerProviderWrapper()
+mlflow_runtime_context = ContextVarsRuntimeContext()
+
+
+def get_context() -> context_api.Context:
+    return (
+        mlflow_runtime_context.get_current() if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get() else None
+    )
 
 
 def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.Span:
@@ -134,7 +142,7 @@ def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.
     attributes = {}
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
-    span = _get_tracer(__name__).start_span(name, attributes=attributes)
+    span = _get_tracer(__name__).start_span(name, attributes=attributes, context=get_context())
 
     if experiment_id and getattr(span, "_parent", None):
         _logger.warning(
@@ -143,6 +151,26 @@ def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.
         )
         span._span.attributes.pop(SpanAttributeKey.EXPERIMENT_ID, None)
     return span
+
+
+@contextmanager
+def with_active_span(span: "Span"):
+    """
+    A context manager that sets the given MLflow span as the active span in the current context.
+
+    A fork of OpenTelemetry's `use_span` context manager, but use MLflow's `set_span_in_context` and
+    `detach_span_from_context` functions to set and detach the span from the context, in order to
+    switch the context depending on the `MLFLOW_USE_DEFAULT_TRACER_PROVIDER` environment variable.
+    """
+    try:
+        token = set_span_in_context(span)
+        try:
+            yield
+        finally:
+            detach_span_from_context(token)
+    except Exception as exc:
+        span.record_exception(exc)
+        raise
 
 
 def start_detached_span(
@@ -168,7 +196,7 @@ def start_detached_span(
         The newly created OpenTelemetry span.
     """
     tracer = _get_tracer(__name__)
-    context = trace.set_span_in_context(parent) if parent else None
+    context = trace.set_span_in_context(parent, context=get_context()) if parent else None
     attributes = {}
 
     # Set start time and experiment to attribute so we can pass it to the span processor
@@ -225,9 +253,14 @@ def set_span_in_context(span: "Span") -> contextvars.Token:
     Returns:
         A token object that will be required when detaching the span from the context.
     """
-    context = trace.set_span_in_context(span._span)
-    token = context_api.attach(context)
-    return token  # noqa: RET504
+    context = trace.set_span_in_context(span._span, context=get_context())
+    if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+        # When using the default tracer provider, attach to MLflow's runtime context so that span
+        # will not get mixed with the native OpenTelemetry runtime context.
+        token = mlflow_runtime_context.attach(context)
+    else:
+        token = context_api.attach(context)
+    return token
 
 
 def detach_span_from_context(token: contextvars.Token):
@@ -237,7 +270,10 @@ def detach_span_from_context(token: contextvars.Token):
     Args:
         token: The token returned by `_set_span_to_active` function.
     """
-    context_api.detach(token)
+    if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+        mlflow_runtime_context.detach(token)
+    else:
+        context_api.detach(token)
 
 
 def set_destination(destination: TraceLocationBase, *, context_local: bool = False):
