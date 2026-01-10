@@ -2,10 +2,50 @@
  * Service layer for Assistant Agent API calls.
  */
 
-import type { MessageRequest, ToolUseInfo } from './types';
+import type { MessageRequest, ToolUseInfo, AssistantConfig, HealthCheckResult } from './types';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
+
+/**
+ * Check if a provider is healthy (CLI installed and authenticated).
+ * Returns { ok: true } on success, or { ok: false, error, status } if not set up.
+ * Status codes: 412 = CLI not installed, 401 = not authenticated, 404 = provider not found
+ */
+export const checkProviderHealth = async (provider: string): Promise<HealthCheckResult> => {
+  const response = await fetch(`${API_BASE}/providers/${provider}/health`);
+  if (response.ok) {
+    return { ok: true };
+  }
+  const data = await response.json();
+  return { ok: false, error: data.detail || 'Unknown error', status: response.status };
+};
+
+/**
+ * Get the assistant configuration.
+ */
+export const getConfig = async (): Promise<AssistantConfig> => {
+  const response = await fetch(`${API_BASE}/config`);
+  if (!response.ok) {
+    throw new Error(`Failed to get config: ${response.statusText}`);
+  }
+  return response.json();
+};
+
+/**
+ * Update the assistant configuration.
+ */
+export const updateConfig = async (config: Partial<AssistantConfig>): Promise<AssistantConfig> => {
+  const response = await fetch(`${API_BASE}/config`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to update config: ${response.statusText}`);
+  }
+  return response.json();
+};
 
 /**
  * Create an EventSource for streaming responses.
@@ -100,7 +140,7 @@ export const sendMessageStream = async (
           }
         }
       } catch (err) {
-        console.error('Failed to parse message event:', err);
+        // Silent fail - errors are handled by error event listener
       }
     });
 
@@ -119,7 +159,7 @@ export const sendMessageStream = async (
           }
         }
       } catch (err) {
-        console.error('Failed to parse stream_event:', err);
+        // Silent fail - errors are handled by error event listener
       }
     });
 

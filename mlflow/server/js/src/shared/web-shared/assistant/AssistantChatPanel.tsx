@@ -30,6 +30,7 @@ import { useAssistant } from './AssistantContext';
 import { useAssistantPageContextValue } from './AssistantPageContext';
 import type { ChatMessage, ToolUseInfo } from './types';
 import { GenAIMarkdownRenderer } from '../genai-markdown-renderer';
+import { AssistantSetupWizard } from './setup';
 
 const COMPONENT_ID = 'mlflow.assistant.chat_panel';
 
@@ -165,7 +166,13 @@ const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; i
 /**
  * Initial prompt suggestions empty state.
  */
-const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void }) => {
+const PromptSuggestions = ({
+  onSelect,
+  disabled = false,
+}: {
+  onSelect: (prompt: string) => void;
+  disabled?: boolean;
+}) => {
   const { theme } = useDesignSystemTheme();
 
   const suggestions = [
@@ -207,20 +214,23 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
           gap: theme.spacing.sm,
           width: '100%',
           maxWidth: 400,
+          opacity: disabled ? 0.5 : 1,
         }}
       >
         {suggestions.map((suggestion) => (
           <Card
             componentId={`${COMPONENT_ID}.suggestion.card`}
             key={suggestion}
-            onClick={() => onSelect(suggestion)}
+            onClick={disabled ? undefined : () => onSelect(suggestion)}
             css={{
-              cursor: 'pointer',
+              cursor: disabled ? 'not-allowed' : 'pointer',
               padding: theme.spacing.sm,
               transition: 'all 0.2s ease',
-              '&:hover': {
-                borderColor: theme.colors.actionPrimaryBackgroundDefault,
-              },
+              '&:hover': disabled
+                ? {}
+                : {
+                    borderColor: theme.colors.actionPrimaryBackgroundDefault,
+                  },
             }}
           >
             <div
@@ -528,10 +538,14 @@ const AssistantContextTags = () => {
   );
 };
 
+interface ChatPanelContentProps {
+  disabled?: boolean;
+}
+
 /**
  * Chat panel content component.
  */
-const ChatPanelContent = () => {
+const ChatPanelContent = ({ disabled = false }: ChatPanelContentProps) => {
   const { theme } = useDesignSystemTheme();
   const { messages, isStreaming, error, currentStatus, activeTools, sendMessage } = useAssistant();
 
@@ -589,7 +603,9 @@ const ChatPanelContent = () => {
         }}
         onWheel={(e) => e.stopPropagation()}
       >
-        {messages.length === 0 && !isStreaming && <PromptSuggestions onSelect={handleSuggestionSelect} />}
+        {messages.length === 0 && !isStreaming && (
+          <PromptSuggestions onSelect={handleSuggestionSelect} disabled={disabled} />
+        )}
 
         {messages.map((message, index) => {
           // Check if this is the last assistant message
@@ -629,7 +645,7 @@ const ChatPanelContent = () => {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={isStreaming}
+              disabled={isStreaming || disabled}
               css={{
                 flex: 1,
                 border: 'none',
@@ -653,7 +669,7 @@ const ChatPanelContent = () => {
             />
             <button
               onClick={handleSend}
-              disabled={!inputValue.trim() || isStreaming}
+              disabled={!inputValue.trim() || isStreaming || disabled}
               css={{
                 display: 'flex',
                 alignItems: 'center',
@@ -661,10 +677,10 @@ const ChatPanelContent = () => {
                 padding: theme.spacing.xs,
                 border: 'none',
                 background: 'transparent',
-                cursor: !inputValue.trim() || isStreaming ? 'not-allowed' : 'pointer',
+                cursor: !inputValue.trim() || isStreaming || disabled ? 'not-allowed' : 'pointer',
                 borderRadius: theme.borders.borderRadiusSm,
                 color: theme.colors.actionPrimaryBackgroundDefault,
-                opacity: !inputValue.trim() || isStreaming ? 0.3 : 1,
+                opacity: !inputValue.trim() || isStreaming || disabled ? 0.3 : 1,
                 '&:hover:not(:disabled)': {
                   backgroundColor: theme.colors.actionDefaultBackgroundHover,
                 },
@@ -685,12 +701,77 @@ const ChatPanelContent = () => {
 };
 
 /**
+ * Loading state while fetching setup status.
+ */
+const SetupLoadingState = () => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        gap: theme.spacing.md,
+      }}
+    >
+      <Spinner size="default" />
+      <Typography.Text color="secondary">Loading...</Typography.Text>
+    </div>
+  );
+};
+
+/**
+ * Banner shown when assistant is not set up yet.
+ */
+const SetupBanner = ({ onSetup }: { onSetup: () => void }) => {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: theme.spacing.md,
+        padding: theme.spacing.lg,
+        margin: theme.spacing.md,
+        backgroundColor: theme.colors.backgroundPrimary,
+        borderRadius: theme.borders.borderRadiusMd,
+        border: `1px solid ${theme.colors.border}`,
+      }}
+    >
+      <SparkleDoubleIcon color="ai" css={{ fontSize: 32 }} />
+      <div css={{ textAlign: 'center' }}>
+        <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+          Welcome to MLflow Assistant!
+        </Typography.Text>
+        <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+          Complete a quick setup to start chatting.
+        </Typography.Text>
+      </div>
+      <Button componentId={`${COMPONENT_ID}.setup`} type="primary" onClick={onSetup}>
+        Get Started
+      </Button>
+    </div>
+  );
+};
+
+/**
  * Assistant Chat Panel.
  * Shows the chat header and the chat interface.
+ * When setup is incomplete, shows a banner prompting the user to set up.
  */
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
-  const { closePanel, reset } = useAssistant();
+  const { closePanel, reset, setupComplete, isLoadingConfig, completeSetup } = useAssistant();
+  const context = useAssistantPageContextValue();
+  const experimentId = context['experimentId'] as string | undefined;
+
+  // Track whether the user is in the setup wizard
+  const [isInSetupWizard, setIsInSetupWizard] = useState(false);
 
   const handleClose = () => {
     closePanel();
@@ -699,6 +780,37 @@ export const AssistantChatPanel = () => {
   const handleReset = () => {
     reset();
   };
+
+  const handleStartSetup = () => {
+    setIsInSetupWizard(true);
+  };
+
+  const handleSetupComplete = () => {
+    setIsInSetupWizard(false);
+    completeSetup();
+  };
+
+  // Determine if setup is needed
+  const needsSetup = !setupComplete;
+
+  // Determine what to show in the content area
+  const renderContent = () => {
+    // Show loading state while fetching config
+    if (isLoadingConfig) {
+      return <SetupLoadingState />;
+    }
+
+    // Show setup wizard if user clicked "Setup"
+    if (isInSetupWizard) {
+      return <AssistantSetupWizard experimentId={experimentId} onComplete={handleSetupComplete} />;
+    }
+
+    // Show chat panel content (with disabled input if setup incomplete)
+    return <ChatPanelContent disabled={needsSetup} />;
+  };
+
+  // Determine if we should show the chat controls (new chat button)
+  const showChatControls = setupComplete && !isInSetupWizard;
 
   return (
     <div
@@ -735,15 +847,17 @@ export const AssistantChatPanel = () => {
           </Tag>
         </span>
         <div css={{ display: 'flex', gap: theme.spacing.xs }}>
-          <Tooltip componentId={`${COMPONENT_ID}.reset.tooltip`} content="New Chat">
-            <Button
-              componentId={`${COMPONENT_ID}.reset`}
-              size="small"
-              icon={<PlusIcon />}
-              onClick={handleReset}
-              aria-label="New Chat"
-            />
-          </Tooltip>
+          {showChatControls && (
+            <Tooltip componentId={`${COMPONENT_ID}.reset.tooltip`} content="New Chat">
+              <Button
+                componentId={`${COMPONENT_ID}.reset`}
+                size="small"
+                icon={<PlusIcon />}
+                onClick={handleReset}
+                aria-label="New Chat"
+              />
+            </Tooltip>
+          )}
           <Tooltip componentId={`${COMPONENT_ID}.close.tooltip`} content="Close">
             <Button
               componentId={`${COMPONENT_ID}.close`}
@@ -755,7 +869,8 @@ export const AssistantChatPanel = () => {
           </Tooltip>
         </div>
       </div>
-      <ChatPanelContent />
+      {needsSetup && !isInSetupWizard && <SetupBanner onSetup={handleStartSetup} />}
+      {renderContent()}
     </div>
   );
 };

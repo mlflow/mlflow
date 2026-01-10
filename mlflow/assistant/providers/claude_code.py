@@ -13,7 +13,12 @@ import subprocess
 from pathlib import Path
 from typing import Any, AsyncGenerator, Callable
 
-from mlflow.assistant.providers.base import AssistantProvider, load_config
+from mlflow.assistant.providers.base import (
+    AssistantProvider,
+    CLINotInstalledError,
+    NotAuthenticatedError,
+    load_config,
+)
 from mlflow.assistant.types import (
     ContentBlock,
     Event,
@@ -35,7 +40,9 @@ ALLOWED_TOOLS = [
 # TODO: to be updated
 CLAUDE_SYSTEM_PROMPT = """You are an MLflow assistant helping users with their MLflow projects.
 
-User messages may include a <context> block containing JSON that represents what the user is currently viewing on screen (e.g., traceId, experimentId, selectedTraceIds). Use this context to understand what entities the user is referring to when they ask questions.
+User messages may include a <context> block containing JSON that represents what the user is
+currently viewing on screen (e.g., traceId, experimentId, selectedTraceIds). Use this context
+to understand what entities the user is referring to when they ask questions."""
 
 ## Skills
 
@@ -72,40 +79,61 @@ class ClaudeCodeProvider(AssistantProvider):
     def is_available(self) -> bool:
         return shutil.which("claude") is not None
 
-    def check_connection(self, echo: Callable[[str], None] = print) -> None:
+    def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
         """
         Check if Claude CLI is installed and authenticated.
 
         Args:
-            echo: Function to print status messages. Defaults to print().
+            echo: Optional function to print status messages.
 
         Raises:
-            RuntimeError: If Claude CLI is not installed.
+            ProviderNotConfiguredError: If CLI is not installed or not authenticated.
         """
         claude_path = shutil.which("claude")
         if not claude_path:
-            raise RuntimeError(
-                "Claude CLI not found.\n\n"
-                "Please install Claude CLI first:\n"
-                "  npm install -g @anthropic-ai/claude-code\n\n"
-                "Then authenticate:\n"
-                "  claude login"
+            if echo:
+                echo("Claude CLI not found")
+            raise CLINotInstalledError(
+                "Claude Code CLI is not installed. "
+                "Install it with: npm install -g @anthropic-ai/claude-code"
             )
 
-        echo(f"Claude CLI found: {claude_path}")
+        if echo:
+            echo(f"Claude CLI found: {claude_path}")
 
-        # Check version
+        # Check authentication by running a minimal test prompt
         try:
             result = subprocess.run(
-                ["claude", "--version"],
+                ["claude", "-p", "hi", "--max-turns", "1", "--output-format", "json"],
                 capture_output=True,
                 text=True,
-                timeout=10,
+                timeout=30,
             )
-            version = result.stdout.strip() or result.stderr.strip()
-            echo(f"Version: {version}")
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError):
-            echo("(Could not determine version)")
+
+            if result.returncode == 0:
+                if echo:
+                    echo("Authentication verified")
+                return
+
+            # Check for common auth errors in stderr
+            stderr = result.stderr.lower()
+            if "auth" in stderr or "login" in stderr or "unauthorized" in stderr:
+                error_msg = "Not authenticated. Please run: claude login"
+            else:
+                error_msg = result.stderr.strip() or f"Process exited with code {result.returncode}"
+
+            if echo:
+                echo(f"Authentication failed: {error_msg}")
+            raise NotAuthenticatedError(error_msg)
+
+        except subprocess.TimeoutExpired:
+            if echo:
+                echo("Authentication check timed out")
+            raise NotAuthenticatedError("Authentication check timed out")
+        except subprocess.SubprocessError as e:
+            if echo:
+                echo(f"Error checking authentication: {e}")
+            raise NotAuthenticatedError(str(e))
 
     def install_skills(self, skills: list[str]) -> list[str]:
         """Install MLflow-specific Claude skills."""

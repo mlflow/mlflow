@@ -43,6 +43,10 @@ export interface AssistantAgentState {
   currentStatus: string | null;
   /** Active tools being used by the assistant */
   activeTools: ToolUseInfo[];
+  /** Whether setup is complete (provider selected in config) */
+  setupComplete: boolean;
+  /** Whether config is being loaded */
+  isLoadingConfig: boolean;
 }
 
 export interface AssistantAgentActions {
@@ -54,6 +58,10 @@ export interface AssistantAgentActions {
   sendMessage: (message: string) => void;
   /** Reset the conversation */
   reset: () => void;
+  /** Fetch/refresh config from backend */
+  refreshConfig: () => Promise<void>;
+  /** Mark setup as complete (after wizard finishes) */
+  completeSetup: () => void;
 }
 
 export type AssistantAgentContextType = AssistantAgentState & AssistantAgentActions;
@@ -69,3 +77,40 @@ export interface MessageRequest {
   /** Page-specific context (traceId, selectedTraceIds, etc.) */
   context?: KnownAssistantContext & Record<string, unknown>;
 }
+
+// Health Check Types
+
+/**
+ * Result from the /health endpoint.
+ * Status codes: 412 = CLI not installed, 401 = not authenticated, 404 = provider not found
+ */
+export type HealthCheckResult = { ok: true } | { ok: false; error: string; status: number };
+
+/**
+ * Provider configuration.
+ */
+export interface ProviderConfig {
+  model: string;
+  selected: boolean;
+}
+
+/**
+ * Project configuration (experiment to workspace mapping).
+ */
+export interface ProjectConfig {
+  type: 'local';
+  location: string;
+}
+
+/**
+ * Full assistant configuration from /config endpoint.
+ */
+export interface AssistantConfig {
+  providers: Record<string, ProviderConfig>;
+  projects: Record<string, ProjectConfig>;
+}
+
+/**
+ * Setup wizard step type.
+ */
+export type SetupStep = 'provider' | 'connection' | 'project' | 'complete';

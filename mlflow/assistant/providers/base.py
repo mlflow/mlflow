@@ -15,6 +15,18 @@ def load_config(name: str) -> ProviderConfig:
     return cfg.providers[name]
 
 
+class ProviderNotConfiguredError(Exception):
+    """Raised when a provider is not properly configured."""
+
+
+class CLINotInstalledError(ProviderNotConfiguredError):
+    """Raised when the provider CLI is not installed."""
+
+
+class NotAuthenticatedError(ProviderNotConfiguredError):
+    """Raised when the user is not authenticated with the provider."""
+
+
 class AssistantProvider(ABC):
     """Abstract base class for assistant providers."""
 
@@ -38,15 +50,15 @@ class AssistantProvider(ABC):
         """Check if the provider is available and ready to use."""
 
     @abstractmethod
-    def check_connection(self, echo: Callable[[str], None] = print) -> None:
+    def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
         """
         Check if the provider is properly configured and can connect.
 
         Args:
-            echo: Function to print status messages. Defaults to print().
+            echo: Optional function to print status messages.
 
         Raises:
-            RuntimeError: If the provider is not accessible.
+            ProviderNotConfiguredError: If the provider is not properly configured.
         """
 
     @abstractmethod
