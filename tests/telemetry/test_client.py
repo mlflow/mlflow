@@ -968,3 +968,52 @@ def test_fetch_config_after_first_record():
             telemetry_client._config_thread.join(timeout=1)
             assert telemetry_client._is_config_fetched is True
         mock_requests_get.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "http://localhost",
+        "http://localhost:5000",
+        "http://127.0.0.1",
+        "http://127.0.0.1:5000/api/2.0/mlflow",
+        "http://[::1]",
+    ],
+)
+def test_is_localhost_uri_returns_true_for_localhost(uri):
+    from mlflow.telemetry.client import _is_localhost_uri
+
+    assert _is_localhost_uri(uri) is True
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "http://example.com",
+        "http://example.com:5000",
+        "https://mlflow.example.com",
+        "http://192.168.1.1",
+        "http://192.168.1.1:5000",
+        "http://10.0.0.1:5000",
+        "https://my-tracking-server.com/api/2.0/mlflow",
+    ],
+)
+def test_is_localhost_uri_returns_false_for_remote(uri):
+    from mlflow.telemetry.client import _is_localhost_uri
+
+    assert _is_localhost_uri(uri) is False
+
+
+def test_is_localhost_uri_returns_false_for_empty_hostname():
+    from mlflow.telemetry.client import _is_localhost_uri
+
+    assert _is_localhost_uri("file:///tmp/mlruns") is False
+
+
+def test_is_localhost_uri_returns_none_on_parse_error():
+    from mlflow.telemetry.client import _is_localhost_uri
+
+    # urlparse doesn't raise on most inputs, but we test the fallback behavior
+    # by mocking urlparse to raise
+    with mock.patch("urllib.parse.urlparse", side_effect=ValueError("Invalid URI")):
+        assert _is_localhost_uri("http://localhost") is None
