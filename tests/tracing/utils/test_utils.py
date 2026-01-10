@@ -34,13 +34,14 @@ from mlflow.tracing.utils import (
     maybe_get_request_id,
     parse_trace_id_v4,
 )
-
 from tests.tracing.helper import create_mock_otel_span
 
 
 def test_capture_function_input_args_does_not_raise():
     # Exception during inspecting inputs: trace should be logged without inputs field
-    with patch("inspect.signature", side_effect=ValueError("Some error")) as mock_input_args:
+    with patch(
+        "inspect.signature", side_effect=ValueError("Some error")
+    ) as mock_input_args:
         args = capture_function_input_args(lambda: None, (), {})
 
     assert args is None
@@ -51,18 +52,26 @@ def test_duplicate_span_names():
     span_names = ["red", "red", "blue", "red", "green", "blue"]
 
     spans = [
-        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=span_name), trace_id="tr-123")
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=i, name=span_name),
+            trace_id="tr-123",
+        )
         for i, span_name in enumerate(span_names)
     ]
 
     assert [span.name for span in spans] == span_names
     # Check if the span order is preserved
-    assert [span.span_id for span in spans] == [encode_span_id(i) for i in [0, 1, 2, 3, 4, 5]]
+    assert [span.span_id for span in spans] == [
+        encode_span_id(i) for i in [0, 1, 2, 3, 4, 5]
+    ]
 
 
 def test_aggregate_usage_from_spans():
     spans = [
-        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=f"span_{i}"), trace_id="tr-123")
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=i, name=f"span_{i}"),
+            trace_id="tr-123",
+        )
         for i in range(3)
     ]
     spans[0].set_attribute(
@@ -96,17 +105,22 @@ def test_aggregate_usage_from_spans():
 
 def test_aggregate_usage_from_spans_skips_descendant_usage():
     spans = [
-        LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="root"), trace_id="tr-123"),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=1, name="root"), trace_id="tr-123"
+        ),
         LiveSpan(
             create_mock_otel_span("trace_id", span_id=2, name="child", parent_id=1),
             trace_id="tr-123",
         ),
         LiveSpan(
-            create_mock_otel_span("trace_id", span_id=3, name="grandchild", parent_id=2),
+            create_mock_otel_span(
+                "trace_id", span_id=3, name="grandchild", parent_id=2
+            ),
             trace_id="tr-123",
         ),
         LiveSpan(
-            create_mock_otel_span("trace_id", span_id=4, name="independent"), trace_id="tr-123"
+            create_mock_otel_span("trace_id", span_id=4, name="independent"),
+            trace_id="tr-123",
         ),
     ]
 
@@ -146,13 +160,100 @@ def test_aggregate_usage_from_spans_skips_descendant_usage():
     }
 
 
+def test_aggregate_usage_from_spans_with_cache_tokens():
+    """Test that cache tokens are aggregated at trace level."""
+    spans = [
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=i, name=f"span_{i}"),
+            trace_id="tr-123",
+        )
+        for i in range(3)
+    ]
+
+    # First span with cache tokens
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 100,
+            TokenUsageKey.OUTPUT_TOKENS: 50,
+            TokenUsageKey.TOTAL_TOKENS: 150,
+            TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 80,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 20,
+        },
+    )
+
+    # Second span with only cache_read
+    spans[1].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 50,
+            TokenUsageKey.OUTPUT_TOKENS: 25,
+            TokenUsageKey.TOTAL_TOKENS: 75,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 40,
+        },
+    )
+
+    # Third span without cache tokens
+    spans[2].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 5,
+            TokenUsageKey.TOTAL_TOKENS: 15,
+        },
+    )
+
+    usage = aggregate_usage_from_spans(spans)
+
+    # Verify all tokens including cache tokens are aggregated
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 160,
+        TokenUsageKey.OUTPUT_TOKENS: 80,
+        TokenUsageKey.TOTAL_TOKENS: 240,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 80,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 60,
+    }
+
+
+def test_aggregate_usage_from_spans_no_cache_tokens():
+    """Test that cache tokens are not included when they are zero."""
+    spans = [
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=0, name="span_0"),
+            trace_id="tr-123",
+        )
+    ]
+
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 20,
+            TokenUsageKey.TOTAL_TOKENS: 30,
+        },
+    )
+
+    usage = aggregate_usage_from_spans(spans)
+
+    # Cache tokens should not be in result when they're zero
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }
+    assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage
+    assert TokenUsageKey.CACHE_READ_INPUT_TOKENS not in usage
+
+
 def test_maybe_get_request_id():
     assert maybe_get_request_id(is_evaluate=True) is None
 
     try:
         from mlflow.pyfunc.context import Context, set_prediction_context
     except ImportError:
-        pytest.skip("Skipping the rest of tests as mlflow.pyfunc module is not available.")
+        pytest.skip(
+            "Skipping the rest of tests as mlflow.pyfunc module is not available."
+        )
 
     with set_prediction_context(Context(request_id="eval", is_evaluate=True)):
         assert maybe_get_request_id(is_evaluate=True) == "eval"
@@ -204,7 +305,9 @@ def test_openai_parse_tools_enum_validation(enum_values, param_type):
                     "description": "Select an option from the given choices",
                     "parameters": {
                         "type": "object",
-                        "properties": {"option": {"type": param_type, "enum": enum_values}},
+                        "properties": {
+                            "option": {"type": param_type, "enum": enum_values}
+                        },
                         "required": ["option"],
                     },
                 },
@@ -311,7 +414,9 @@ def test_parse_trace_id_v4_invalid_format():
         parse_trace_id_v4(f"{TRACE_ID_V4_PREFIX}catalog.schema/../invalid-trace-id")
 
     with pytest.raises(MlflowException, match="Invalid trace ID format"):
-        parse_trace_id_v4(f"{TRACE_ID_V4_PREFIX}catalog.schema/invalid-trace-id/invalid-format")
+        parse_trace_id_v4(
+            f"{TRACE_ID_V4_PREFIX}catalog.schema/invalid-trace-id/invalid-format"
+        )
 
 
 def test_get_otel_attribute_existing_attribute():
@@ -397,7 +502,8 @@ def test_generate_trace_id_v4_with_uc_schema():
     uc_schema = "catalog.schema"
 
     with mock.patch(
-        "mlflow.tracing.utils.construct_trace_id_v4", return_value="trace:/catalog.schema/abc123"
+        "mlflow.tracing.utils.construct_trace_id_v4",
+        return_value="trace:/catalog.schema/abc123",
     ) as mock_construct:
         result = generate_trace_id_v4(span, uc_schema)
 
@@ -408,7 +514,9 @@ def test_generate_trace_id_v4_with_uc_schema():
 def test_get_spans_table_name_for_trace_with_destination():
     mock_destination = UCSchemaLocation(catalog_name="catalog", schema_name="schema")
 
-    with mock.patch("mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION") as mock_ctx:
+    with mock.patch(
+        "mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION"
+    ) as mock_ctx:
         mock_ctx.get.return_value = mock_destination
 
         result = get_active_spans_table_name()
@@ -416,7 +524,9 @@ def test_get_spans_table_name_for_trace_with_destination():
 
 
 def test_get_spans_table_name_for_trace_no_destination():
-    with mock.patch("mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION") as mock_ctx:
+    with mock.patch(
+        "mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION"
+    ) as mock_ctx:
         mock_ctx.get.return_value = None
 
         result = get_active_spans_table_name()
