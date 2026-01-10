@@ -90,10 +90,14 @@ def _set_span_type(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
     # "invoke_agent" for single agent and "invoke_{agent_name}" for multi agents
     if isinstance(operation, str) and operation.startswith("invoke_"):
         mlflow_span.set_span_type(SpanType.AGENT)
+        # Set message format for chat UI rendering on AGENT spans
+        mlflow_span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "strands")
     elif operation == "execute_tool":
         mlflow_span.set_span_type(SpanType.TOOL)
     elif operation == "chat":
         mlflow_span.set_span_type(SpanType.CHAT_MODEL)
+        # Set message format for chat UI rendering on CHAT_MODEL spans
+        mlflow_span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "strands")
     else:
         pass
 
