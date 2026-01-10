@@ -1,7 +1,8 @@
 """Utility functions for DSPy-based alignment optimizers."""
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any, Iterator, Optional
 
 from mlflow import __version__ as VERSION
 from mlflow.entities.assessment_source import AssessmentSourceType
@@ -30,6 +31,38 @@ if TYPE_CHECKING:
     from mlflow.genai.judges.base import Judge
 
 _logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def suppress_verbose_logging(
+    logger_name: str, threshold_level: int = logging.DEBUG
+) -> Iterator[None]:
+    """
+    Context manager to suppress verbose logging from a specific logger.
+
+    This is useful when running optimization algorithms that produce verbose output
+    by default. The suppression only applies if the parent MLflow logger is above
+    the threshold level, allowing users to see detailed output when they explicitly
+    set logging to DEBUG.
+
+    Args:
+        logger_name: Name of the logger to control.
+        threshold_level: Only suppress if MLflow logger is above this level.
+            Defaults to logging.DEBUG.
+
+    Example:
+        >>> with suppress_verbose_logging("some.verbose.library"):
+        ...     # Run operations that would normally log verbosely
+        ...     result = run_optimization()
+    """
+    logger = logging.getLogger(logger_name)
+    original_level = logger.level
+    try:
+        if _logger.getEffectiveLevel() > threshold_level:
+            logger.setLevel(logging.WARNING)
+        yield
+    finally:
+        logger.setLevel(original_level)
 
 
 def construct_dspy_lm(model: str):

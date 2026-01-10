@@ -5,6 +5,7 @@ from typing import Any, Callable, Collection
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
+from mlflow.genai.judges.optimizers.dspy_utils import suppress_verbose_logging
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.utils.annotations import experimental
 
@@ -82,8 +83,6 @@ class GePaAlignmentOptimizer(DSPyAlignmentOptimizer):
         **kwargs,
     ):
         """
-        Initialize GEPA optimizer with customizable parameters.
-
         Args:
             model: Model to use for DSPy/GEPA optimization. If None, uses get_default_model().
             max_metric_calls: Maximum number of evaluation calls during optimization.
@@ -96,35 +95,42 @@ class GePaAlignmentOptimizer(DSPyAlignmentOptimizer):
         self._max_metric_calls = max_metric_calls
         self._gepa_kwargs = gepa_kwargs or {}
 
+    @staticmethod
+    def _create_gepa_metric_adapter(
+        metric_fn: Callable[["dspy.Example", Any, Any | None], bool]
+    ) -> Callable[[Any, Any, Any | None, Any | None, Any | None], bool]:
+        """
+        Create a metric adapter that bridges DSPy's standard metric to GEPA's format.
+
+        GEPA requires a metric with signature: (gold, pred, trace, pred_name, pred_trace)
+        but our standard metric_fn has signature: (example, pred, trace).
+        This method creates an adapter that bridges the two signatures.
+
+        Args:
+            metric_fn: Standard metric function with signature (example, pred, trace)
+
+        Returns:
+            Adapter function with GEPA's expected signature
+        """
+
+        def gepa_metric_adapter(gold, pred, trace=None, pred_name=None, pred_trace=None):
+            """Adapt DSPy's 3-argument metric to GEPA's 5-argument format."""
+            # gold is the dspy.Example
+            # pred is the prediction output
+            # trace/pred_name/pred_trace are optional GEPA-specific args
+            # We pass None for our metric's trace parameter since GEPA's trace is different
+            return metric_fn(gold, pred, trace=None)
+
+        return gepa_metric_adapter
+
     def _dspy_optimize(
         self,
         program: "dspy.Module",
         examples: Collection["dspy.Example"],
         metric_fn: Callable[["dspy.Example", Any, Any | None], bool],
     ) -> "dspy.Module":
-        """
-        Perform GEPA optimization with algorithm-specific parameters.
-
-        GEPA uses all examples as training data (no separate validation set).
-
-        Args:
-            program: The DSPy program to optimize
-            examples: Examples for optimization
-            metric_fn: Default metric function for optimization (3-arg signature)
-
-        Returns:
-            Optimized DSPy program
-        """
-
-        # GEPA requires a metric with signature: (gold, pred, trace, pred_name, pred_trace)
-        # But our metric_fn has signature: (example, pred, trace)
-        # Create an adapter that bridges the two signatures
-        def gepa_metric_adapter(gold, pred, trace, pred_name, pred_trace):
-            """Adapt DSPy's 3-argument metric to GEPA's 5-argument format."""
-            # gold is the dspy.Example
-            # pred is the prediction output
-            # We ignore pred_name and pred_trace for now, use the standard metric
-            return metric_fn(gold, pred, trace)
+        # Create metric adapter for GEPA's expected signature
+        gepa_metric_adapter = self._create_gepa_metric_adapter(metric_fn)
 
         # Get the current LM from dspy context (set by parent class's align() method)
         # This LM will be used for reflection in GEPA
@@ -146,11 +152,12 @@ class GePaAlignmentOptimizer(DSPyAlignmentOptimizer):
             f"and max {self._max_metric_calls} metric calls"
         )
 
-        # Compile with GEPA-specific parameters
-        result = optimizer.compile(
-            student=program,
-            trainset=examples,
-        )
+        # Compile with GEPA-specific parameters, suppressing verbose DSPy output
+        with suppress_verbose_logging("dspy.teleprompt.gepa.gepa"):
+            result = optimizer.compile(
+                student=program,
+                trainset=examples,
+            )
 
         self._logger.info("GEPA optimization completed")
         return result
