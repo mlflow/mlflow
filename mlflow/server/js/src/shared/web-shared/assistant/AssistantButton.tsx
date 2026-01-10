@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { Button, SparkleFillIcon, SparkleIcon, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, SparkleFillIcon, SparkleIcon, Tag, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
@@ -92,6 +92,9 @@ export const AssistantButton = () => {
             }}
           >
             <FormattedMessage defaultMessage="Assistant" description="Label for global Assistant button" />
+            <Tag componentId={`${COMPONENT_ID}.beta`} color="turquoise" css={{ marginLeft: 4 }}>
+              Beta
+            </Tag>
           </Button>
         </div>
       </Tooltip>
