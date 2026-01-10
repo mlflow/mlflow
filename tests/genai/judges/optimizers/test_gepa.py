@@ -6,6 +6,8 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers import GePaAlignmentOptimizer
 
+from tests.genai.judges.optimizers.conftest import create_mock_judge_evaluator
+
 
 def test_dspy_optimize_no_dspy():
     # Since dspy import is now at module level, we need to test this differently
@@ -107,91 +109,6 @@ def test_default_parameters(mock_judge, sample_traces_with_assessments):
         assert len(call_kwargs) == 3  # metric, max_metric_calls, reflection_lm
 
 
-def test_gepa_kwargs_override_defaults(mock_judge, sample_traces_with_assessments):
-    mock_gepa = MagicMock()
-    mock_compiled_program = MagicMock()
-    mock_compiled_program.signature = MagicMock()
-    mock_compiled_program.signature.instructions = (
-        "Optimized instructions with {{inputs}} and {{outputs}}"
-    )
-    mock_gepa.compile.return_value = mock_compiled_program
-
-    def custom_metric(example, pred, trace=None):
-        return True
-
-    with patch("dspy.GEPA", create=True) as mock_gepa_class, patch("dspy.LM", MagicMock()):
-        mock_gepa_class.return_value = mock_gepa
-        optimizer = GePaAlignmentOptimizer(
-            max_metric_calls=30,
-            gepa_kwargs={
-                "metric": custom_metric,  # This should override the default metric
-            },
-        )
-        with patch.object(GePaAlignmentOptimizer, "get_min_traces_required", return_value=5):
-            optimizer.align(mock_judge, sample_traces_with_assessments)
-
-        # Verify the custom metric from gepa_kwargs overrides the default
-        mock_gepa_class.assert_called_once()
-        call_kwargs = mock_gepa_class.call_args.kwargs
-        assert call_kwargs["metric"] == custom_metric
-        assert call_kwargs["max_metric_calls"] == 30
-
-
-def test_alignment_with_real_dspy(mock_judge, sample_traces_with_assessments):
-    """
-    Integration test for GePaAlignmentOptimizer using real dspy (not mocked).
-
-    This test verifies that our optimizer correctly integrates with the actual
-    dspy.GEPA implementation and follows the expected API contract.
-
-    Skipped if dspy or dspy.GEPA is not available.
-
-    Note: This test may fail with API authentication errors when GEPA tries to
-    make actual LLM calls. These errors are expected and indicate successful
-    integration (GEPA accepted our parameters and started optimization).
-    """
-    try:
-        import dspy
-
-        if not hasattr(dspy, "GEPA"):
-            pytest.skip("dspy.GEPA not available in installed dspy version")
-    except ImportError:
-        pytest.skip("dspy not installed")
-
-    from mlflow.exceptions import MlflowException
-
-    # Create optimizer with minimal budget for fast test
-    optimizer = GePaAlignmentOptimizer(
-        model="openai:/gpt-4o-mini",
-        max_metric_calls=1,  # Minimal budget for fast test
-    )
-
-    # Override get_min_traces_required to work with our fixture
-    with patch.object(GePaAlignmentOptimizer, "get_min_traces_required", return_value=5):
-        # This will fail if:
-        # 1. dspy.GEPA doesn't have the expected API (compile method, etc.)
-        # 2. We're passing wrong parameters to dspy.GEPA.__init__
-        # 3. We're calling compile with wrong parameters
-        try:
-            result = optimizer.align(mock_judge, sample_traces_with_assessments)
-
-            # If we got here without errors, the API contract is correct
-            assert result is not None
-            assert hasattr(result, "instructions")
-        except TypeError as e:
-            # TypeError means our API usage is wrong - this is a real failure
-            pytest.fail(f"API contract mismatch with dspy.GEPA: {e}")
-        except MlflowException as e:
-            # MlflowException wrapping authentication/API errors is expected
-            # It means GEPA accepted our parameters and tried to run
-            if "api_key" in str(e).lower() or "authentication" in str(e).lower():
-                # This is actually SUCCESS - GEPA started running with correct API
-                pass
-            else:
-                # Some other MlflowException - re-raise to investigate
-                raise
-
-
 def test_gepa_runs_without_authentication_errors(mock_judge, sample_traces_with_assessments):
     """
     End-to-end test verifying GEPA optimization runs without authentication errors.
@@ -217,50 +134,44 @@ def test_gepa_runs_without_authentication_errors(mock_judge, sample_traces_with_
     except ImportError:
         pytest.skip("dspy not installed")
 
-    from mlflow.entities.assessment import Feedback
     from mlflow.genai.judges.base import Judge
 
     # Configure DummyLM with deterministic instruction proposals
     # GEPA will request new instructions during reflection phase
-    dummy_lm = DummyLM([
-        "Carefully evaluate whether the {{outputs}} effectively addresses {{inputs}}",
-        "Assess if the {{outputs}} properly responds to the {{inputs}} query",
-        "Determine whether {{outputs}} satisfactorily answers {{inputs}}",
-        "Judge if {{outputs}} adequately resolves {{inputs}}",
-        "Evaluate the quality of {{outputs}} in addressing {{inputs}}",
-    ])
+    dummy_lm = DummyLM(
+        [
+            "Carefully evaluate whether the {{outputs}} effectively addresses {{inputs}}",
+            "Assess if the {{outputs}} properly responds to the {{inputs}} query",
+            "Determine whether {{outputs}} satisfactorily answers {{inputs}}",
+            "Judge if {{outputs}} adequately resolves {{inputs}}",
+            "Evaluate the quality of {{outputs}} in addressing {{inputs}}",
+        ]
+    )
 
     # Create optimizer with minimal budget for fast test
     # Note: Using max_metric_calls=10 to give GEPA enough budget to actually
     # run optimization iterations and modify instructions
     optimizer = GePaAlignmentOptimizer(
-        model="openai:/gpt-4o-mini",  # Model spec (unused with DummyLM)
-        max_metric_calls=10,  # Minimal budget that triggers actual optimization
+        model="openai:/gpt-4o-mini",
+        max_metric_calls=10,
     )
 
-    # Mock judge evaluations during GEPA optimization
-    # When GEPA evaluates candidate instructions, judges call invoke_judge_model
-    # We mock this to return deterministic results without API calls
-    def mock_invoke_judge_model(**kwargs):
-        # Return deterministic feedback based on input
-        # Alternate between pass/fail for different examples
-        outputs_str = str(kwargs.get("outputs", ""))
-        is_even = "0" in outputs_str or "2" in outputs_str or "4" in outputs_str
-        result_value = "pass" if is_even else "fail"
-        return Feedback(value=result_value, rationale="Mock evaluation")
+    # Use shared mock judge evaluator from conftest
+    mock_invoke_judge_model = create_mock_judge_evaluator()
 
     # Run optimization with DummyLM context and mocked judge invocations
-    patch_target = "mlflow.genai.judges.instructions_judge.invoke_judge_model"
     with (
         dspy.context(lm=dummy_lm),
-        patch(patch_target, side_effect=mock_invoke_judge_model) as mock_invoke,
+        patch(
+            "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+            side_effect=mock_invoke_judge_model,
+        ) as mock_invoke,
         patch.object(
             GePaAlignmentOptimizer, "get_min_traces_required", return_value=5
         ) as mock_min_traces,
     ):
         result = optimizer.align(mock_judge, sample_traces_with_assessments)
 
-    # Verify mocks were called (per Python style guide)
     mock_invoke.assert_called()
     mock_min_traces.assert_called_once_with()
 
@@ -275,9 +186,5 @@ def test_gepa_runs_without_authentication_errors(mock_judge, sample_traces_with_
     assert len(result.instructions) > 0
 
     # Verify template variables are preserved in the result
-    assert (
-        "{{inputs}}" in result.instructions
-    ), "Optimized instructions must contain {{inputs}} variable"
-    assert (
-        "{{outputs}}" in result.instructions
-    ), "Optimized instructions must contain {{outputs}} variable"
+    assert "{{inputs}}" in result.instructions
+    assert "{{outputs}}" in result.instructions

@@ -65,6 +65,34 @@ def suppress_verbose_logging(
         logger.setLevel(original_level)
 
 
+def create_gepa_metric_adapter(
+    metric_fn: Any,
+) -> Any:
+    """
+    Create a metric adapter that bridges DSPy's standard metric to GEPA's format.
+
+    GEPA requires a metric with signature: (gold, pred, trace, pred_name, pred_trace)
+    but our standard metric_fn has signature: (example, pred, trace).
+    This function creates an adapter that bridges the two signatures.
+
+    Args:
+        metric_fn: Standard metric function with signature (example, pred, trace)
+
+    Returns:
+        Adapter function with GEPA's expected signature
+    """
+
+    def gepa_metric_adapter(gold, pred, trace=None, pred_name=None, pred_trace=None):
+        """Adapt DSPy's 3-argument metric to GEPA's 5-argument format."""
+        # gold is the dspy.Example
+        # pred is the prediction output
+        # trace/pred_name/pred_trace are optional GEPA-specific args
+        # We pass None for our metric's trace parameter since GEPA's trace is different
+        return metric_fn(gold, pred, trace=None)
+
+    return gepa_metric_adapter
+
+
 def construct_dspy_lm(model: str):
     """
     Create a dspy.LM instance from a given model.

@@ -5,7 +5,10 @@ from typing import Any, Callable, Collection
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
-from mlflow.genai.judges.optimizers.dspy_utils import suppress_verbose_logging
+from mlflow.genai.judges.optimizers.dspy_utils import (
+    create_gepa_metric_adapter,
+    suppress_verbose_logging,
+)
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.utils.annotations import experimental
 
@@ -95,49 +98,16 @@ class GePaAlignmentOptimizer(DSPyAlignmentOptimizer):
         self._max_metric_calls = max_metric_calls
         self._gepa_kwargs = gepa_kwargs or {}
 
-    @staticmethod
-    def _create_gepa_metric_adapter(
-        metric_fn: Callable[["dspy.Example", Any, Any | None], bool]
-    ) -> Callable[[Any, Any, Any | None, Any | None, Any | None], bool]:
-        """
-        Create a metric adapter that bridges DSPy's standard metric to GEPA's format.
-
-        GEPA requires a metric with signature: (gold, pred, trace, pred_name, pred_trace)
-        but our standard metric_fn has signature: (example, pred, trace).
-        This method creates an adapter that bridges the two signatures.
-
-        Args:
-            metric_fn: Standard metric function with signature (example, pred, trace)
-
-        Returns:
-            Adapter function with GEPA's expected signature
-        """
-
-        def gepa_metric_adapter(gold, pred, trace=None, pred_name=None, pred_trace=None):
-            """Adapt DSPy's 3-argument metric to GEPA's 5-argument format."""
-            # gold is the dspy.Example
-            # pred is the prediction output
-            # trace/pred_name/pred_trace are optional GEPA-specific args
-            # We pass None for our metric's trace parameter since GEPA's trace is different
-            return metric_fn(gold, pred, trace=None)
-
-        return gepa_metric_adapter
-
     def _dspy_optimize(
         self,
         program: "dspy.Module",
         examples: Collection["dspy.Example"],
         metric_fn: Callable[["dspy.Example", Any, Any | None], bool],
     ) -> "dspy.Module":
-        # Create metric adapter for GEPA's expected signature
-        gepa_metric_adapter = self._create_gepa_metric_adapter(metric_fn)
+        gepa_metric_adapter = create_gepa_metric_adapter(metric_fn)
 
-        # Get the current LM from dspy context (set by parent class's align() method)
-        # This LM will be used for reflection in GEPA
         reflection_lm = dspy.settings.lm
 
-        # Build GEPA optimizer kwargs starting with required parameters
-        # If metric or reflection_lm is in gepa_kwargs, they will override defaults
         optimizer_kwargs = {
             "metric": gepa_metric_adapter,
             "max_metric_calls": self._max_metric_calls,
@@ -152,7 +122,6 @@ class GePaAlignmentOptimizer(DSPyAlignmentOptimizer):
             f"and max {self._max_metric_calls} metric calls"
         )
 
-        # Compile with GEPA-specific parameters, suppressing verbose DSPy output
         with suppress_verbose_logging("dspy.teleprompt.gepa.gepa"):
             result = optimizer.compile(
                 student=program,
