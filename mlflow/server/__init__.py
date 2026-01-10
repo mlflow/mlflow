@@ -83,6 +83,9 @@ if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
         os.makedirs(prometheus_metrics_path)
     activate_prometheus_exporter(app)
 
+if interval := MLFLOW_GC_INTERVAL_SECONDS.get():
+    start_gc_worker(interval, MLFLOW_GC_OLDER_THAN.get())
+
 
 # Provide a health check endpoint to ensure the application is responsive
 @app.route(_add_static_prefix("/health"))
