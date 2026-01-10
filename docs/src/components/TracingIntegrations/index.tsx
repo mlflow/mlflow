@@ -328,6 +328,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/togetherai',
     category: 'Model Providers',
   },
+  {
+    id: 'vllm',
+    name: 'vLLM',
+    logoPath: '/images/logos/vllm-logo.png',
+    link: '/genai/tracing/integrations/listing/vllm',
+    category: 'Model Providers',
+  },
   // Tools
   {
     id: 'instructor',
