@@ -93,8 +93,6 @@ def create_mlflow_error_message_from_ragas_param(error_msg: str, metric_name: st
             mlflow_param = corresponding_mlflow_param
             break
 
-    ragas_to_mlflow_param_mapping.get(ragas_param, ragas_param)
-
     message_parts = [
         f"RAGAS metric '{metric_name}' requires '{mlflow_param}' parameter, which is missing."
     ]

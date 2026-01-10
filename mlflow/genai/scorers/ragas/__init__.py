@@ -206,7 +206,8 @@ class RagasScorer(Scorer):
     def _evaluate(self, sample: SingleTurnSample):
         if hasattr(self._metric, "single_turn_score"):
             return self._metric.single_turn_score(sample)
-        elif hasattr(self._metric, "ascore"):
+        elif hasattr(self._metric, "score"):
+            # need to inspect the signature as each metric has a different one for the ascore method
             sig = inspect.signature(self._metric.ascore)
             kwargs = {}
             for param_name in sig.parameters:
