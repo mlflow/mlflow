@@ -289,7 +289,7 @@ jobs:
           uv sync --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
-            deepeval ragas
+            deepeval ragas trulens trulens-providers-openai
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run GenAI Tests (OSS)
