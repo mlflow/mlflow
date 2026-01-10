@@ -415,7 +415,7 @@ def log_model(
     )
 
 
-def _get_load_kwargs():
+def _get_load_kwargs() -> dict[str, Any]:
     import sentence_transformers
 
     load_kwargs = {}
@@ -429,24 +429,29 @@ def _get_load_kwargs():
     return load_kwargs
 
 
-def _load_pyfunc(path, model_config: dict[str, Any] | None = None):
+def _load_pyfunc(
+    path, model_config: dict[str, Any] | None = None, **kwargs: Any
+) -> "_SentenceTransformerModelWrapper":
     """
     Load PyFunc implementation for SentenceTransformer. Called by ``pyfunc.load_model``.
 
     Args:
         path: Local filesystem path to the MLflow Model with the ``sentence_transformer`` flavor.
+        model_config: Model configuration
+        kwargs: Additional kwargs passed directly to SentenceTransformer
     """
     import sentence_transformers
 
-    load_kwargs = _get_load_kwargs()
-    model = sentence_transformers.SentenceTransformer(path, **load_kwargs)
+    kwargs.update(_get_load_kwargs())
+
+    model = sentence_transformers.SentenceTransformer(path, **kwargs)
     model_config = model_config or {}
     task = model_config.get("task", None)
     return _SentenceTransformerModelWrapper(model, task)
 
 
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
-def load_model(model_uri: str, dst_path: str | None = None):
+def load_model(model_uri: str, dst_path: str | None = None, **kwargs: Any):
     """
     Load a ``sentence_transformers`` object from a local file or a run.
 
@@ -465,6 +470,7 @@ def load_model(model_uri: str, dst_path: str | None = None):
         dst_path: The local filesystem path to utilize for downloading the model artifact.
             This directory must already exist if provided. If unspecified, a local output
             path will be created.
+        kwargs: Additional keyword arguments passed directly to SentenceTransformer
 
     Returns:
         A ``sentence_transformers`` model instance
@@ -482,8 +488,9 @@ def load_model(model_uri: str, dst_path: str | None = None):
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
-    load_kwargs = _get_load_kwargs()
-    return sentence_transformers.SentenceTransformer(str(local_model_dir), **load_kwargs)
+    kwargs.update(_get_load_kwargs())
+
+    return sentence_transformers.SentenceTransformer(str(local_model_dir), **kwargs)
 
 
 def _get_default_signature():
