@@ -33,11 +33,15 @@ class GitHubClient:
             await self._session.close()
 
     async def _get_json(self, endpoint: str) -> dict[str, Any]:
+        if self._session is None:
+            raise RuntimeError("GitHubClient must be used as async context manager")
         async with self._session.get(endpoint) as resp:
             resp.raise_for_status()
             return await resp.json()
 
     async def _get_text(self, endpoint: str, accept: str) -> str:
+        if self._session is None:
+            raise RuntimeError("GitHubClient must be used as async context manager")
         headers = {"Accept": accept}
         async with self._session.get(endpoint, headers=headers) as resp:
             resp.raise_for_status()

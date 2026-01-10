@@ -1,7 +1,7 @@
 import argparse
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(prog="skills")
     subparsers = parser.add_subparsers(dest="command", required=True)  # noqa: F841
 
