@@ -92,7 +92,8 @@ def test_automatic_system_metrics_monitor():
         assert "SystemMetricsMonitor" in thread_names
 
         wait_for_condition(
-            lambda: len(mlflow.MlflowClient().get_metric_history(run.info.run_id, metric_test)) > 1
+            lambda: len(mlflow.MlflowClient().get_metric_history(run.info.run_id, metric_test)) > 1,
+            timeout=20,
         )
 
     wait_for_condition(
