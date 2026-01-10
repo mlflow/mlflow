@@ -17,7 +17,7 @@ from urllib.request import Request, urlopen
 
 def get_github_token() -> str:
     """Get GitHub token from environment or gh CLI."""
-    if token := os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN"):
+    if token := os.environ.get("GITHUB_TOKEN"):
         return token
     try:
         return subprocess.check_output(["gh", "auth", "token"], text=True).strip()
