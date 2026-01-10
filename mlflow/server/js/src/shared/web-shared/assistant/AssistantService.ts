@@ -2,7 +2,7 @@
  * Service layer for Assistant Agent API calls.
  */
 
-import type { MessageRequest } from './types';
+import type { MessageRequest, ToolUseInfo } from './types';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
@@ -25,6 +25,8 @@ export const sendMessageStream = async (
   onDone: () => void,
   onStatus?: (status: string) => void,
   onSessionId?: (sessionId: string) => void,
+  onToolUse?: (tools: ToolUseInfo[]) => void,
+  onToolRemove?: (toolIds: string[]) => void,
 ): Promise<void> => {
   try {
     // Step 1: POST the message to initiate processing
@@ -61,21 +63,40 @@ export const sendMessageStream = async (
     eventSource.addEventListener('message', (event) => {
       try {
         const data = JSON.parse(event.data);
+
         // Backend sends: {"message": {"role": "assistant", "content": "..."}}
         if (data.message && data.message.content) {
           const content = data.message.content;
+
           // Handle string content
           if (typeof content === 'string') {
             onMessage(content);
           }
           // Handle ContentBlock array (TextBlock, ThinkingBlock, etc.)
           else if (Array.isArray(content)) {
+            // Extract tool_use blocks (identified by having 'name' and 'input' fields)
+            const toolUses = content
+              .filter((block: any) => block.name && block.input && !block.tool_use_id)
+              .map((block: any) => ({
+                id: block.id,
+                name: block.name,
+                description: block.input?.description,
+                input: block.input,
+              }));
+            if (toolUses.length > 0 && onToolUse) {
+              onToolUse(toolUses);
+            }
+
             // Extract text from TextBlock items
             const text = content
               .filter((block: any) => 'text' in block)
               .map((block: any) => block.text)
               .join('');
-            if (text) onMessage(text);
+            if (text) {
+              // Clear tools when we receive text content (assistant is responding after using tools)
+              onToolUse?.([]);
+              onMessage(text);
+            }
           }
         }
       } catch (err) {
@@ -87,6 +108,7 @@ export const sendMessageStream = async (
     eventSource.addEventListener('stream_event', (event) => {
       try {
         const data = JSON.parse(event.data);
+
         // Backend sends: {"event": {...}}
         if (data.event) {
           // Handle different stream event types
@@ -105,11 +127,15 @@ export const sendMessageStream = async (
     eventSource.addEventListener('done', (event) => {
       try {
         const data = JSON.parse(event.data);
+
         // Backend sends: {"result": null, "session_id": "..."}
+        // Clear tools when done
+        onToolUse?.([]);
         onDone();
         eventSource.close();
       } catch (err) {
         console.error('Failed to parse done event:', err);
+        onToolUse?.([]);
         onDone();
         eventSource.close();
       }
