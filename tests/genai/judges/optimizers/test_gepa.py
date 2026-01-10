@@ -6,7 +6,7 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers import GePaAlignmentOptimizer
 
-from tests.genai.judges.optimizers.conftest import create_mock_judge_evaluator
+from tests.genai.judges.optimizers.conftest import create_mock_judge_invocator
 
 
 def test_dspy_optimize_no_dspy():
@@ -23,7 +23,7 @@ def test_dspy_optimize_no_dspy():
             _reload_module()
 
 
-def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
+def test_alignment_results(mock_judge, sample_traces_with_assessments):
     mock_gepa = MagicMock()
     mock_compiled_program = MagicMock()
     mock_compiled_program.signature = MagicMock()
@@ -109,22 +109,7 @@ def test_default_parameters(mock_judge, sample_traces_with_assessments):
         assert len(call_kwargs) == 3  # metric, max_metric_calls, reflection_lm
 
 
-def test_gepa_runs_without_authentication_errors(mock_judge, sample_traces_with_assessments):
-    """
-    End-to-end test verifying GEPA optimization runs without authentication errors.
-
-    This test exercises the complete GEPA optimization loop using mocked components:
-    - GEPA proposes new instructions via reflection_lm (DummyLM)
-    - Metric evaluates proposals against human assessments
-    - GEPA iterates through optimization attempts
-    - Returns a valid judge without requiring API authentication
-
-    Note: GEPA may not modify instructions in this test because the mocking
-    prevents it from collecting valid predictions for reflection. The primary
-    goal is to verify the integration works without authentication errors.
-
-    Skipped if dspy or dspy.GEPA is not available.
-    """
+def test_gepa_e2e_run(mock_judge, sample_traces_with_assessments):
     try:
         import dspy
         from dspy.utils.dummies import DummyLM
@@ -156,10 +141,8 @@ def test_gepa_runs_without_authentication_errors(mock_judge, sample_traces_with_
         max_metric_calls=10,
     )
 
-    # Use shared mock judge evaluator from conftest
-    mock_invoke_judge_model = create_mock_judge_evaluator()
+    mock_invoke_judge_model = create_mock_judge_invocator()
 
-    # Run optimization with DummyLM context and mocked judge invocations
     with (
         dspy.context(lm=dummy_lm),
         patch(

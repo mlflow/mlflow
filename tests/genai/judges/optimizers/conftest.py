@@ -652,9 +652,9 @@ class MockDSPyLM(dspy.BaseLM):
         return self._context_calls
 
 
-def create_mock_judge_evaluator():
+def create_mock_judge_invocator():
     """
-    Create a mock judge evaluator for testing GEPA optimization.
+    Create a mock judge invocator.
 
     Returns a callable that mocks invoke_judge_model, returning deterministic
     feedback based on the outputs parameter.
