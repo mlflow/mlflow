@@ -126,7 +126,8 @@ class MlflowV3SpanExporter(SpanExporter):
         """
         manager = InMemoryTraceManager.get_instance()
         for span in spans:
-            if span._parent is not None:
+            should_be_root_span = span.name == "abatch"
+            if span._parent is not None and not should_be_root_span:
                 continue
 
             manager_trace = manager.pop_trace(span.context.trace_id)
