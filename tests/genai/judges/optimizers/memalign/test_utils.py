@@ -64,7 +64,8 @@ def test_distill_guidelines_with_examples():
         )
 
         assert len(result) == 1
-        assert result[0] == "Be concise"
+        assert result[0].guideline_text == "Be concise"
+        assert result[0].source_ids == [0, 1]
         mock_construct_lm.assert_called_once_with("openai:/gpt-4")
 
 
@@ -92,7 +93,7 @@ def test_distill_guidelines_filters_existing():
         )
 
         assert len(result) == 1
-        assert result[0] == "Be clear"
+        assert result[0].guideline_text == "Be clear"
 
 
 def test_distill_guidelines_raises_on_error():

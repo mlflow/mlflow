@@ -198,8 +198,9 @@ def test_judge_call_uses_semantic_memory(sample_judge, sample_traces):
         aligned_judge = optimizer.align(sample_judge, sample_traces[:1])
 
         assert len(aligned_judge._semantic_memory) == 2
-        assert "Be concise" in aligned_judge._semantic_memory
-        assert "Be clear" in aligned_judge._semantic_memory
+        guideline_texts = [g.guideline_text for g in aligned_judge._semantic_memory]
+        assert "Be concise" in guideline_texts
+        assert "Be clear" in guideline_texts
 
 
 def test_judge_call_retrieves_relevant_examples(sample_judge, sample_traces):
@@ -264,28 +265,32 @@ def test_incremental_alignment_redistills_guidelines(sample_judge, sample_traces
         optimizer = MemAlignOptimizer()
         judge_v2 = optimizer.align(sample_judge, sample_traces[:2])
         assert len(judge_v2._semantic_memory) == 1
-        assert "Guideline A" in judge_v2._semantic_memory
+        guideline_texts = [g.guideline_text for g in judge_v2._semantic_memory]
+        assert "Guideline A" in guideline_texts
 
     # Second alignment: distills "Guideline B" from ALL examples (old + new)
     with mock_apis(guidelines=["Guideline B"]):
         judge_v3 = optimizer.align(judge_v2, sample_traces[2:4])
         # Should have both old + new guidelines (re-distilled from all examples)
         assert len(judge_v3._semantic_memory) == 2
-        assert "Guideline A" in judge_v3._semantic_memory
-        assert "Guideline B" in judge_v3._semantic_memory
+        guideline_texts = [g.guideline_text for g in judge_v3._semantic_memory]
+        assert "Guideline A" in guideline_texts
+        assert "Guideline B" in guideline_texts
 
 
-def test_unalign_redistills_guidelines(sample_judge, sample_traces):
-    # First alignment: distills "Guideline 1" and "Guideline 2"
+def test_unalign_filters_guidelines_by_source_ids(sample_judge, sample_traces):
+    # Test that unalign() filters guidelines based on source_ids
     with mock_apis(guidelines=["Guideline 1", "Guideline 2"]):
         optimizer = MemAlignOptimizer()
         aligned_judge = optimizer.align(sample_judge, sample_traces)
         assert len(aligned_judge._semantic_memory) == 2
 
-    # Unalign some traces and redistill - should get "Guideline 3" from remaining examples
-    with mock_apis(guidelines=["Guideline 3"]):
+        # Unalign some traces - should filter guidelines based on source_ids
         traces_to_remove = [sample_traces[1], sample_traces[3]]
         unaligned_judge = aligned_judge.unalign(traces=traces_to_remove)
-        # Should only have "Guideline 3" (redistilled from remaining examples)
-        assert len(unaligned_judge._semantic_memory) == 1
-        assert "Guideline 3" in unaligned_judge._semantic_memory
+        # Unalign doesn't redistill, it filters guidelines based on source_ids
+        # Guidelines without source_ids are retained
+        # Guidelines where any source_id was removed are deleted
+        # Since mock_apis doesn't provide source_ids, all guidelines are retained
+        assert len(unaligned_judge._examples) == 2
+        assert len(unaligned_judge._semantic_memory) == 2

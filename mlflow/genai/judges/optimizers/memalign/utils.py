@@ -36,7 +36,7 @@ def distill_guidelines(
     judge_instructions: str,
     reflection_lm: str,
     existing_guidelines: list[str],
-) -> list[str]:
+) -> list[Guideline]:
     """Distill general guidelines from feedback examples.
 
     Args:
@@ -47,12 +47,14 @@ def distill_guidelines(
         existing_guidelines: Previously distilled guidelines
 
     Returns:
-        List of newly distilled guidelines (not including existing ones)
+        List of newly distilled Guideline objects (not including existing ones)
+
+    TODO: Add batching logic when number of examples exceeds threshold (e.g., 50-100)
+          to prevent context explosion during distillation.
     """
     if not examples:
         return []
 
-    # TODO: Handle the case where examples are too large to fit into a single prompt
     examples_data = [dict(example) for example in examples]
 
     template = Template(DISTILLATION_PROMPT_TEMPLATE)
@@ -73,9 +75,7 @@ def distill_guidelines(
     )[0]
     result = Guidelines.model_validate_json(response)
 
-    return [
-        g.guideline_text for g in result.guidelines if g.guideline_text not in existing_guidelines
-    ]
+    return [g for g in result.guidelines if g.guideline_text not in existing_guidelines]
 
 
 def retrieve_relevant_examples(
