@@ -379,6 +379,11 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
+              id: 'eval-monitor/running-evaluation/eval-examples',
+              label: 'Examples',
+            },
+            {
+              type: 'doc',
               id: 'eval-monitor/running-evaluation/prompts',
               label: 'Evaluate Prompts',
             },
@@ -490,13 +495,13 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'datasets/end-to-end-workflow',
-              label: 'End-to-End Workflow',
+              id: 'datasets/sdk-guide',
+              label: 'SDK Guide',
             },
             {
               type: 'doc',
-              id: 'datasets/sdk-guide',
-              label: 'SDK Guide',
+              id: 'datasets/end-to-end-workflow',
+              label: 'End-to-End Workflow',
             },
           ],
           link: {
