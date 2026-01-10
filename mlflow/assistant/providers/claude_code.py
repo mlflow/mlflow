@@ -26,12 +26,29 @@ from mlflow.assistant.types import (
 
 _logger = logging.getLogger(__name__)
 
+# Allowed tools for Claude Code CLI
+# Restrict to only Bash commands that use MLflow CLI
+ALLOWED_TOOLS = [
+    "Bash(mlflow:*)",
+]
 
 # TODO: to be updated
 CLAUDE_SYSTEM_PROMPT = """You are an MLflow assistant helping users with their MLflow projects.
 
-User messages may include a <context> block containing JSON that represents what the user is currently viewing on screen (e.g., traceId, experimentId, selectedTraceIds). Use this context to understand what entities the user is referring to when they ask questions."""
+User messages may include a <context> block containing JSON that represents what the user is currently viewing on screen (e.g., traceId, experimentId, selectedTraceIds). Use this context to understand what entities the user is referring to when they ask questions.
 
+## Skills
+
+You have access to MLflow-specific skills that provide guidance on using CLI commands.
+
+## Command Preferences (IMPORTANT)
+
+* When working with MLflow data and operations, ALWAYS use MLflow CLI commands directly.
+* Never combine two bash command with `&&` or `||`. That will error out.
+* Trust that MLflow CLI commands will work. Do not add error handling or fallbacks to Python.
+* When using MLflow CLI, always use `--help` to discover all available
+options. Do not skip this step or you will not get the correct command.
+"""
 
 class ClaudeCodeProvider(AssistantProvider):
     """Assistant provider using Claude Code CLI."""
@@ -152,6 +169,10 @@ class ClaudeCodeProvider(AssistantProvider):
 
         # Add system prompt
         cmd.extend(["--append-system-prompt", CLAUDE_SYSTEM_PROMPT])
+
+        # Add allowed tools restriction
+        for tool in ALLOWED_TOOLS:
+            cmd.extend(["--allowed-tools", tool])
 
         config = load_config(self.name)
         if config.model and config.model != "default":

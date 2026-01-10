@@ -301,37 +301,37 @@ const RunViewEvaluationsTabInner = ({
           getTrace={getTrace}
           renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
         >
-        <div
-          css={{
-            overflowY: 'hidden',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <GenAITracesTableToolbar
-            experimentId={experimentId}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            filters={filters}
-            setFilters={setFilters}
-            assessmentInfos={assessmentInfos}
-            countInfo={countInfo}
-            traceActions={traceActions}
-            tableSort={tableSort}
-            setTableSort={setTableSort}
-            allColumns={allColumns}
-            selectedColumns={selectedColumns}
-            setSelectedColumns={setSelectedColumns}
-            toggleColumns={toggleColumns}
-            traceInfos={traceInfos}
-            tableFilterOptions={tableFilterOptions}
-            onRefresh={showRefreshButton ? refetchMlflowTraces : undefined}
-            isRefreshing={showRefreshButton ? traceInfosFetching : undefined}
-          />
-          {
-            // prettier-ignore
-            isTableLoading ? (
+          <div
+            css={{
+              overflowY: 'hidden',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <GenAITracesTableToolbar
+              experimentId={experimentId}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              filters={filters}
+              setFilters={setFilters}
+              assessmentInfos={assessmentInfos}
+              countInfo={countInfo}
+              traceActions={traceActions}
+              tableSort={tableSort}
+              setTableSort={setTableSort}
+              allColumns={allColumns}
+              selectedColumns={selectedColumns}
+              setSelectedColumns={setSelectedColumns}
+              toggleColumns={toggleColumns}
+              traceInfos={traceInfos}
+              tableFilterOptions={tableFilterOptions}
+              onRefresh={showRefreshButton ? refetchMlflowTraces : undefined}
+              isRefreshing={showRefreshButton ? traceInfosFetching : undefined}
+            />
+            {
+              // prettier-ignore
+              isTableLoading ? (
             <LoadingSkeleton />
           ) : traceInfosError ? (
             <div>
@@ -359,9 +359,9 @@ const RunViewEvaluationsTabInner = ({
               />
             </ContextProviders>
           )
-          }
-          {EditTagsModal}
-        </div>
+            }
+            {EditTagsModal}
+          </div>
         </GenAITracesTableProvider>
       </GenAiTraceTableRowSelectionProvider>
     </div>

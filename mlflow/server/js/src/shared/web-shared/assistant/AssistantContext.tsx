@@ -5,7 +5,7 @@
 
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 
-import type { AssistantAgentContextType, ChatMessage } from './types';
+import type { AssistantAgentContextType, ChatMessage, ToolUseInfo } from './types';
 import { sendMessageStream } from './AssistantService';
 import { useAssistantPageContextGetter } from './AssistantPageContext';
 
@@ -25,6 +25,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
+  const [activeTools, setActiveTools] = useState<ToolUseInfo[]>([]);
 
   // Use ref to track current streaming message
   const streamingMessageRef = useRef<string>('');
@@ -54,6 +55,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     streamingMessageRef.current = '';
     setIsStreaming(false);
     setCurrentStatus(null);
+    setActiveTools([]);
   }, []);
 
   const handleStatus = useCallback((status: string) => {
@@ -64,10 +66,19 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setSessionId(newSessionId);
   }, []);
 
+  const handleToolUse = useCallback((tools: ToolUseInfo[]) => {
+    setActiveTools(tools);
+  }, []);
+
+  const handleToolRemove = useCallback((toolIds: string[]) => {
+    setActiveTools((prevTools) => prevTools.filter((tool) => !toolIds.includes(tool.id)));
+  }, []);
+
   const handleStreamError = useCallback((errorMsg: string) => {
     setError(errorMsg);
     setIsStreaming(false);
     setCurrentStatus(null);
+    setActiveTools([]);
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
@@ -142,6 +153,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           finalizeStreamingMessage,
           handleStatus,
           handleSessionId,
+          handleToolUse,
+          handleToolRemove,
         );
       } catch (err) {
         handleStreamError(err instanceof Error ? err.message : 'Failed to start chat');
@@ -155,6 +168,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       finalizeStreamingMessage,
       handleStatus,
       handleSessionId,
+      handleToolUse,
+      handleToolRemove,
     ],
   );
 
@@ -208,16 +223,21 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         finalizeStreamingMessage,
         handleStatus,
         handleSessionId,
+        handleToolUse,
+        handleToolRemove,
       );
     },
     [
       sessionId,
+      startChat,
       getPageContext,
       appendToStreamingMessage,
       handleStreamError,
       finalizeStreamingMessage,
       handleStatus,
       handleSessionId,
+      handleToolUse,
+      handleToolRemove,
     ],
   );
 
@@ -229,6 +249,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     isStreaming,
     error,
     currentStatus,
+    activeTools,
     // Actions
     openPanel,
     closePanel,
