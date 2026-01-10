@@ -213,8 +213,21 @@ def _register_model(
     # Validate early; `_validate_env_pack` will raise on invalid inputs.
     validated_env_pack = _validate_env_pack(env_pack)
 
-    # If env_pack is supported and indicates Databricks Model Serving, pack env and
-    # log the resulting artifacts.
+    # Helper to avoid parameter drift below.
+    def _create_model_version(local_model_path: str | None) -> ModelVersion:
+         return client._create_model_version(
+            name=name,
+            source=source,
+            run_id=run_id,
+            tags=tags,
+            await_creation_for=await_registration_for,
+            local_model_path=local_model_path,
+            model_id=model_id,
+        )
+    
+    # If env_pack is supported and indicates Databricks Model Serving,
+    # pack env locally and directly register the resulting artifacts.
+    # This avoids storing artifacts prior to the final registered model version.
     if validated_env_pack:
         eprint(
             "Packing environment for Databricks Model Serving with install_dependencies "
@@ -223,18 +236,11 @@ def _register_model(
         with pack_env_for_databricks_model_serving(
             model_uri,
             enforce_pip_requirements=validated_env_pack.install_dependencies,
+            local_model_path=local_model_path,
         ) as artifacts_path_with_env:
-            client.log_model_artifacts(model_id, artifacts_path_with_env)
-
-    create_version_response = client._create_model_version(
-        name=name,
-        source=source,
-        run_id=run_id,
-        tags=tags,
-        await_creation_for=await_registration_for,
-        local_model_path=local_model_path,
-        model_id=model_id,
-    )
+            create_version_response = _create_model_version(artifacts_path_with_env)
+    else:
+        create_version_response = _create_model_version(local_model_path)
     created_message = (
         f"Created version '{create_version_response.version}' of model "
         f"'{create_version_response.name}'"
