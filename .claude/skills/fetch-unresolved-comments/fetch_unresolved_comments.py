@@ -1,7 +1,7 @@
 """Fetch unresolved PR review comments using GitHub GraphQL API.
 
 Example usage:
-    uv run --no-project .claude/skills/fetch-unresolved-comments/fetch_unresolved_comments.py https://github.com/mlflow/mlflow/pull/18327
+    uv run .claude/skills/fetch-unresolved-comments/fetch_unresolved_comments.py https://github.com/mlflow/mlflow/pull/18327
 """
 # ruff: noqa: T201
 

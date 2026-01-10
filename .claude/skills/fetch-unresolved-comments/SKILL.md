@@ -24,13 +24,13 @@ Uses GitHub's GraphQL API to fetch only unresolved review thread comments from a
 2. **Run the Python script**:
 
    ```bash
-   uv run python .claude/skills/fetch-unresolved-comments/fetch_unresolved_comments.py <pr_url>
+   uv run .claude/skills/fetch-unresolved-comments/fetch_unresolved_comments.py <pr_url>
    ```
 
    Example:
 
    ```bash
-   uv run python .claude/skills/fetch-unresolved-comments/fetch_unresolved_comments.py https://github.com/mlflow/mlflow/pull/18327
+   uv run .claude/skills/fetch-unresolved-comments/fetch_unresolved_comments.py https://github.com/mlflow/mlflow/pull/18327
    ```
 
    The script automatically reads the GitHub token from:
@@ -38,12 +38,7 @@ Uses GitHub's GraphQL API to fetch only unresolved review thread comments from a
    - `GITHUB_TOKEN` or `GH_TOKEN` environment variables, or
    - `gh auth token` command if environment variables are not set
 
-3. **Parse the JSON output**:
-   The script always outputs JSON with:
-   - `total`: Total number of unresolved comments across all threads
-   - `by_file`: Review threads grouped by file path (each thread contains multiple comments in a conversation)
-
-## Example JSON Output
+## Example Output
 
 ```json
 {
