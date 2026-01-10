@@ -521,6 +521,20 @@ MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING = _EnvironmentVariable(
 #: training) setup.
 MLFLOW_SYSTEM_METRICS_NODE_ID = _EnvironmentVariable("MLFLOW_SYSTEM_METRICS_NODE_ID", str, None)
 
+#: Specifies whether to include process-level metrics (CPU, memory, threads of the current process
+#: and its children) in addition to system-wide metrics. Useful in shared/multi-tenant environments.
+#: (default: ``False``)
+MLFLOW_SYSTEM_METRICS_INCLUDE_PROCESS = _BooleanEnvironmentVariable(
+    "MLFLOW_SYSTEM_METRICS_INCLUDE_PROCESS", False
+)
+
+#: Specifies whether to include child processes when collecting process-level metrics.
+#: Only effective when MLFLOW_SYSTEM_METRICS_INCLUDE_PROCESS is True.
+#: (default: ``True``)
+MLFLOW_SYSTEM_METRICS_INCLUDE_CHILD_PROCESSES = _BooleanEnvironmentVariable(
+    "MLFLOW_SYSTEM_METRICS_INCLUDE_CHILD_PROCESSES", True
+)
+
 
 # Private environment variable to specify the number of chunk download retries for multipart
 # download.
