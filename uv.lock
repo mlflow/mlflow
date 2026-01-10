@@ -7896,6 +7896,7 @@ source = { editable = ".claude/skills" }
 dependencies = [
     { name = "aiohttp" },
     { name = "claude-agent-sdk" },
+    { name = "pydantic" },
     { name = "tiktoken" },
     { name = "typing-extensions" },
 ]
@@ -7904,6 +7905,7 @@ dependencies = [
 requires-dist = [
     { name = "aiohttp" },
     { name = "claude-agent-sdk" },
+    { name = "pydantic" },
     { name = "tiktoken" },
     { name = "typing-extensions" },
 ]
