@@ -318,7 +318,8 @@ const ChatPanelContent = () => {
       css={{
         display: 'flex',
         flexDirection: 'column',
-        height: '100%',
+        flex: 1,
+        minHeight: 0,
       }}
     >
       {/* Messages area */}
