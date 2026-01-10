@@ -19,6 +19,7 @@ import {
   useDesignSystemTheme,
   SendIcon,
   WrenchSparkleIcon,
+  Tag,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
@@ -470,6 +471,9 @@ export const AssistantChatPanel = () => {
         >
           <SparkleDoubleIcon color="ai" css={{ fontSize: 20 }} />
           <FormattedMessage defaultMessage="MLflow Assistant" description="Title for the global Assistant chat panel" />
+          <Tag componentId={`${COMPONENT_ID}.beta`} color="turquoise">
+            Beta
+          </Tag>
         </span>
         <div css={{ display: 'flex', gap: theme.spacing.xs }}>
           <Tooltip componentId={`${COMPONENT_ID}.reset.tooltip`} content="New Chat">
