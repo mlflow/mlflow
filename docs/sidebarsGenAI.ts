@@ -341,11 +341,6 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
-                  id: 'tracing/integrations/listing/vllm',
-                  label: 'vLLM',
-                },
-                {
-                  type: 'doc',
                   id: 'tracing/integrations/listing/xai-grok',
                   label: 'xAI / Grok',
                 },
