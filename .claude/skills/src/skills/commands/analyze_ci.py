@@ -71,16 +71,16 @@ async def iter_job_logs(
         end_secs = to_seconds(completed_at)
         in_range = False
 
-        async for line in response.content:
-            line = line.decode("utf-8").rstrip("\r\n")
-            if TIMESTAMP_PATTERN.match(line):
-                ts_secs = to_seconds(line)
+        async for line_bytes in response.content:
+            line_str = line_bytes.decode("utf-8").rstrip("\r\n")
+            if TIMESTAMP_PATTERN.match(line_str):
+                ts_secs = to_seconds(line_str)
                 if ts_secs > end_secs:
                     return  # Past end time, stop reading
                 in_range = ts_secs >= start_secs
-                line = line.split(" ", 1)[1]  # strip timestamp
+                line_str = line_str.split(" ", 1)[1]  # strip timestamp
             if in_range:
-                yield line
+                yield line_str
 
 
 ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
