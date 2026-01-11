@@ -27,14 +27,31 @@ _logger = logging.getLogger(__name__)
 
 @dataclass
 class SessionScoringTask:
-    """A task to score a single session with multiple scorers."""
-
     session: CompletedSession
     scorers: list[Scorer] = field(default_factory=list)
 
 
 class OnlineSessionScoringProcessor:
-    """Orchestrates online scoring of completed sessions."""
+    """
+    Orchestrates online scoring of completed sessions.
+
+    This processor identifies sessions that have been inactive for a completion buffer
+    period (no new traces added), applies session-level scorers to them, and maintains
+    a checkpoint to avoid reprocessing. Sessions are processed in parallel with one
+    thread per session.
+
+    The processor:
+    - Fetches completed sessions within a time window based on checkpoint state
+    - Applies sampling to determine which scorers should run on each session
+    - Loads all traces for each session and evaluates session-level scorers
+    - Logs assessments with session metadata for cleanup tracking
+    - Removes old assessments when a session is re-scored (e.g., if new traces are
+      added since the last time it was scored)
+    - Updates the checkpoint to the last processed session
+
+    Sessions are processed in chronological order (sorted by last_trace_timestamp_ms
+    and session_id) to ensure deterministic, resumable processing.
+    """
 
     def __init__(
         self,
