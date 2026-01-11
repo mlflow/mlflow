@@ -52,8 +52,11 @@ class OnlineSessionCheckpointManager:
             experiment = self._tracking_store.get_experiment(self._experiment_id)
             if checkpoint_str := experiment.tags.get(SESSION_CHECKPOINT_TAG):
                 return OnlineSessionScoringCheckpoint.from_json(checkpoint_str)
-        except (TypeError, ValueError, json.JSONDecodeError):
-            pass
+        except (TypeError, ValueError, json.JSONDecodeError) as e:
+            _logger.debug(
+                f"Failed to parse checkpoint for experiment {self._experiment_id}: {e}",
+                exc_info=True,
+            )
         return None
 
     def persist_checkpoint(self, checkpoint: OnlineSessionScoringCheckpoint) -> None:
