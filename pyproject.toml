@@ -183,6 +183,10 @@ lint = [
   "clint",
   "pyyaml>=6.0.2",
   "packaging>=25.0",
+  "aiohttp",
+  "tiktoken",
+  "claude-agent-sdk",
+  "pytest",
 ]
 test = [
   "pytest==8.4.0",
@@ -522,7 +526,7 @@ filterwarnings = [
 ]
 timeout = 1200
 
-# Currently, type checking is only enabled for `dev/clint`.
+# Currently, type checking is only enabled for `dev/clint` and `.claude/skills`.
 [tool.mypy]
 python_version = "3.10"
 disallow_untyped_defs = true
