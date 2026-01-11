@@ -156,13 +156,14 @@ export function formatLatency(ms: number): string {
 }
 
 /**
- * Custom hook providing a color palette for tool charts.
- * Returns a memoized color array and a getter function for consistent tool coloring.
+ * Custom hook providing a color palette for charts.
+ * Returns a memoized color array and a getter function for consistent coloring by index.
+ * Used for tool charts, assessment charts, and other visualizations needing distinct colors.
  */
-export function useToolColors() {
+export function useChartColors() {
   const { theme } = useDesignSystemTheme();
 
-  const toolColors = useMemo(
+  const chartColors = useMemo(
     () => [
       theme.colors.blue500,
       theme.colors.green500,
@@ -172,11 +173,23 @@ export function useToolColors() {
       theme.colors.green300,
       theme.colors.yellow300,
       theme.colors.red300,
+      theme.colors.blue400,
+      theme.colors.green400,
+      theme.colors.yellow400,
+      theme.colors.red400,
+      theme.colors.blue600,
+      theme.colors.green600,
+      theme.colors.yellow600,
+      theme.colors.red600,
+      theme.colors.blue700,
+      theme.colors.green700,
+      theme.colors.yellow700,
+      theme.colors.red700,
     ],
     [theme],
   );
 
-  const getToolColor = useCallback((index: number): string => toolColors[index % toolColors.length], [toolColors]);
+  const getChartColor = useCallback((index: number): string => chartColors[index % chartColors.length], [chartColors]);
 
-  return { toolColors, getToolColor };
+  return { chartColors, getChartColor };
 }
