@@ -141,10 +141,14 @@ async def get_failed_jobs_from_pr(
     failed_runs = [r async for r in runs if r.conclusion == "failure"]
     log(f"Found {len(failed_runs)} failed workflow run(s)")
 
-    async def failed_jobs(run_id: int) -> list[Job]:
-        return [j async for j in client.get_jobs(owner, repo, run_id) if j.conclusion == "failure"]
+    async def failed_jobs_with_details(run_id: int) -> list[Job]:
+        jobs = [j async for j in client.get_jobs(owner, repo, run_id) if j.conclusion == "failure"]
+        # Fetch detailed job info (including steps) for each failed job
+        return await asyncio.gather(*[client.get_job(owner, repo, job.id) for job in jobs])
 
-    failed_jobs_results = await asyncio.gather(*[failed_jobs(run.id) for run in failed_runs])
+    failed_jobs_results = await asyncio.gather(
+        *[failed_jobs_with_details(run.id) for run in failed_runs]
+    )
 
     all_failed_jobs = [job for jobs in failed_jobs_results for job in jobs]
     log(f"Found {len(all_failed_jobs)} failed job(s)")
