@@ -224,12 +224,15 @@ def test_scheduler_submits_jobs_via_submit_job():
         assert len(trace_scorer_calls) == 1
         assert len(session_scorer_calls) == 1
 
-        # Verify trace job has 2 scorers
+        # Verify trace job has 2 scorers with correct names
         trace_params = trace_scorer_calls[0].args[1]
         assert len(trace_params["online_scorers"]) == 2
         assert trace_params["experiment_id"] == "exp1"
+        trace_scorer_names = {s["name"] for s in trace_params["online_scorers"]}
+        assert trace_scorer_names == {"completeness", "relevance_to_query"}
 
-        # Verify session job has 1 scorer
+        # Verify session job has 1 scorer with correct name
         session_params = session_scorer_calls[0].args[1]
         assert len(session_params["online_scorers"]) == 1
         assert session_params["experiment_id"] == "exp1"
+        assert session_params["online_scorers"][0]["name"] == "conversation_judge"
