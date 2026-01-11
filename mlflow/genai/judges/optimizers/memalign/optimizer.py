@@ -152,6 +152,10 @@ class MemoryAugmentedJudge(Judge):
             base_judge._base_judge if isinstance(base_judge, MemoryAugmentedJudge) else base_judge
         )
 
+        # Determine if we should skip distillation during initialization
+        # Skip if user explicitly provides semantic_memory (they want to use those exact guidelines)
+        skip_initial_distillation = semantic_memory is not None
+
         if semantic_memory is not None:
             initial_guidelines = list(semantic_memory)
         elif isinstance(base_judge, MemoryAugmentedJudge):
@@ -195,7 +199,13 @@ class MemoryAugmentedJudge(Judge):
         self._predict_module.set_lm(construct_dspy_lm(effective_base_judge.model))
 
         if episodic_memory:
-            self._add_examples(episodic_memory, semantic_memory=semantic_memory)
+            if skip_initial_distillation:
+                # User provided explicit guidelines, just add examples without distilling
+                self._examples.extend(episodic_memory)
+                self._build_episodic_memory()
+            else:
+                # Normal flow: add examples and distill guidelines
+                self._add_examples(episodic_memory)
 
     def __call__(self, **kwargs) -> Assessment:
         guidelines = [g.guideline_text for g in self._semantic_memory]
@@ -350,21 +360,14 @@ class MemoryAugmentedJudge(Judge):
         )
         _logger.debug(f"Episodic memory corpus contains {len(corpus)} examples")
 
-    def _add_examples(
-        self, examples: list["dspy.Example"], semantic_memory: list[Guideline] | None = None
-    ) -> None:
-        """Add examples to episodic memory and optionally distill new guidelines.
+    def _add_examples(self, examples: list["dspy.Example"]) -> None:
+        """Add examples to episodic memory and distill new guidelines.
 
         Args:
             examples: Examples to add to episodic memory
-            semantic_memory: If provided, skip distillation (guidelines already set in __init__).
-                           If None, distill new guidelines from the newly added examples.
         """
         self._examples.extend(examples)
-
-        if semantic_memory is None:
-            self._distill_new_guidelines(examples)
-
+        self._distill_new_guidelines(examples)
         self._build_episodic_memory()
 
 
