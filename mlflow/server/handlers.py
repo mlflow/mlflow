@@ -151,6 +151,8 @@ from mlflow.protos.service_pb2 import (
     GetGatewayEndpoint,
     GetGatewayModelDefinition,
     GetGatewaySecretInfo,
+    GetGatewayUsageMetrics,
+    GatewayUsageMetricsEntry,
     GetLoggedModel,
     GetMetricHistory,
     GetMetricHistoryBulkInterval,
@@ -4763,6 +4765,68 @@ def get_service_endpoints(service, get_handler):
     return ret
 
 
+# =============================================================================
+# Gateway Usage Tracking Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_gateway_usage_metrics():
+    """
+    Get aggregated usage metrics for gateway endpoints.
+
+    Returns metrics including token usage, error rates, latency, and costs
+    aggregated by time bucket.
+    """
+    request_message = _get_request_message(
+        GetGatewayUsageMetrics(),
+        schema={
+            "endpoint_id": [_assert_string],
+            "start_time": [_assert_intlike],
+            "end_time": [_assert_intlike],
+            "bucket_size": [_assert_intlike],
+        },
+    )
+
+    endpoint_id = request_message.endpoint_id if request_message.endpoint_id else None
+    start_time = request_message.start_time if request_message.start_time else None
+    end_time = request_message.end_time if request_message.end_time else None
+    # Default to 86400 seconds (1 day) if not specified
+    bucket_size = request_message.bucket_size if request_message.bucket_size else 86400
+
+    metrics = _get_tracking_store().get_gateway_usage_metrics(
+        endpoint_id=endpoint_id,
+        start_time=start_time,
+        end_time=end_time,
+        bucket_size=bucket_size,
+    )
+
+    response_message = GetGatewayUsageMetrics.Response()
+    for m in metrics:
+        success_rate = m.successful_invocations / m.total_invocations if m.total_invocations > 0 else 0.0
+        error_rate = m.failed_invocations / m.total_invocations if m.total_invocations > 0 else 0.0
+
+        entry = GatewayUsageMetricsEntry(
+            endpoint_id=m.endpoint_id,
+            time_bucket=m.time_bucket,
+            bucket_size=m.bucket_size,
+            total_invocations=m.total_invocations,
+            successful_invocations=m.successful_invocations,
+            failed_invocations=m.failed_invocations,
+            total_prompt_tokens=m.total_prompt_tokens,
+            total_completion_tokens=m.total_completion_tokens,
+            total_tokens=m.total_tokens,
+            total_cost=m.total_cost,
+            avg_latency_ms=m.avg_latency_ms,
+            success_rate=success_rate,
+            error_rate=error_rate,
+        )
+        response_message.metrics.append(entry)
+
+    return _wrap_response(response_message)
+
+
 def get_endpoints(get_handler=get_handler):
     """
     Returns:
@@ -5290,4 +5354,6 @@ HANDLERS = {
     # Endpoint Tags APIs
     SetGatewayEndpointTag: _set_gateway_endpoint_tag,
     DeleteGatewayEndpointTag: _delete_gateway_endpoint_tag,
+    # Usage Tracking APIs
+    GetGatewayUsageMetrics: _get_gateway_usage_metrics,
 }
