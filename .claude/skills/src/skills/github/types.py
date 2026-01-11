@@ -27,4 +27,36 @@ class ReviewThread(BaseModel):
     comments: list[ReviewComment]
 
 
+class JobStep(BaseModel):
+    name: str
+    status: str
+    conclusion: str | None
+    number: int
+    started_at: str | None
+    completed_at: str | None
+
+
+class Job(BaseModel):
+    id: int
+    run_id: int
+    name: str
+    status: str
+    conclusion: str | None
+    html_url: str
+    started_at: str | None
+    completed_at: str | None
+    steps: list[JobStep] = []
+
+
+class JobRun(BaseModel):
+    id: int
+    name: str
+    head_sha: str
+    status: str
+    conclusion: str | None
+    html_url: str
+    created_at: str
+    updated_at: str
+
+
 # TODO: Add more models when needed (no need to add them in this task tho)
