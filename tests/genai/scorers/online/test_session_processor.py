@@ -238,6 +238,10 @@ def test_session_rescored_when_new_trace_added_after_checkpoint(
         processor.process_sessions()
 
         mock_evaluate.assert_called_once()
+        call_kwargs = mock_evaluate.call_args[1]
+        assert call_kwargs["session_id"] == "sess-001"
+        assert len(call_kwargs["session_items"]) == 2
+        assert len(call_kwargs["multi_turn_scorers"]) == 1
 
 
 def test_process_sessions_samples_and_scores(
@@ -271,6 +275,10 @@ def test_process_sessions_samples_and_scores(
         processor.process_sessions()
 
         mock_evaluate.assert_called_once()
+        call_kwargs = mock_evaluate.call_args[1]
+        assert call_kwargs["session_id"] == "sess-001"
+        assert len(call_kwargs["session_items"]) == 1
+        assert len(call_kwargs["multi_turn_scorers"]) == 1
         mock_log.assert_called_once()
 
 
