@@ -2194,6 +2194,10 @@
     "defaultMessage": "Comparing {count} traces",
     "description": "Comparing traces title"
   },
+  "FcddG+": {
+    "defaultMessage": "Zoom Out",
+    "description": "Button to reset chart zoom"
+  },
   "FdDWTo": {
     "defaultMessage": "Clear All",
     "description": "String for the clear button to clear any selected parameters and metrics"
