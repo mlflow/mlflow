@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { TIME_BUCKET_DIMENSION_KEY, type MetricDataPoint } from '@databricks/web-shared/model-trace-explorer';
 import { useDesignSystemTheme } from '@databricks/design-system';
 
@@ -156,13 +156,14 @@ export function formatLatency(ms: number): string {
 }
 
 /**
- * Custom hook providing a color palette for tool charts.
- * Returns a memoized color array and a getter function for consistent tool coloring.
+ * Custom hook providing a color palette for charts.
+ * Returns a memoized color array and a getter function for consistent coloring by index.
+ * Used for tool charts, assessment charts, and other visualizations needing distinct colors.
  */
-export function useToolColors() {
+export function useChartColors() {
   const { theme } = useDesignSystemTheme();
 
-  const toolColors = useMemo(
+  const chartColors = useMemo(
     () => [
       theme.colors.blue500,
       theme.colors.green500,
@@ -172,11 +173,140 @@ export function useToolColors() {
       theme.colors.green300,
       theme.colors.yellow300,
       theme.colors.red300,
+      theme.colors.blue400,
+      theme.colors.green400,
+      theme.colors.yellow400,
+      theme.colors.red400,
+      theme.colors.blue600,
+      theme.colors.green600,
+      theme.colors.yellow600,
+      theme.colors.red600,
+      theme.colors.blue700,
+      theme.colors.green700,
+      theme.colors.yellow700,
+      theme.colors.red700,
     ],
     [theme],
   );
 
-  const getToolColor = useCallback((index: number): string => toolColors[index % toolColors.length], [toolColors]);
+  const getChartColor = useCallback((index: number): string => chartColors[index % chartColors.length], [chartColors]);
 
-  return { toolColors, getToolColor };
+  return { chartColors, getChartColor };
+}
+
+/**
+ * State and handlers for chart zoom functionality.
+ * Implements click-and-drag range selection to zoom into a portion of the chart.
+ */
+export interface ChartZoomState<T> {
+  /** Currently displayed (potentially zoomed) data */
+  zoomedData: T[];
+  /** Whether the chart is currently zoomed in */
+  isZoomed: boolean;
+  /** Left boundary of current selection (index or value) */
+  refAreaLeft: string | number | null;
+  /** Right boundary of current selection (index or value) */
+  refAreaRight: string | number | null;
+  /** Handler for mouse down event - starts selection */
+  handleMouseDown: (e: { activeLabel?: string }) => void;
+  /** Handler for mouse move event - updates selection */
+  handleMouseMove: (e: { activeLabel?: string }) => void;
+  /** Handler for mouse up event - completes zoom */
+  handleMouseUp: () => void;
+  /** Reset zoom to show all data */
+  zoomOut: () => void;
+}
+
+/**
+ * Custom hook for implementing zoom functionality in Recharts.
+ * Allows users to click and drag to select a range, then zooms to that range.
+ *
+ * @param data - The full dataset for the chart
+ * @param labelKey - The key used for x-axis labels (e.g., 'name')
+ * @returns Zoom state and handlers
+ */
+export function useChartZoom<T>(data: T[], labelKey: keyof T): ChartZoomState<T> {
+  const [zoomedData, setZoomedData] = useState<T[]>(data);
+  const [refAreaLeft, setRefAreaLeft] = useState<string | number | null>(null);
+  const [refAreaRight, setRefAreaRight] = useState<string | number | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
+
+  // Track previous data to detect when source data changes
+  const prevDataRef = useRef<T[]>(data);
+
+  // Reset zoom when source data changes (e.g., time range changed)
+  useEffect(() => {
+    // Check if data reference or length changed (indicates new data, not just same data)
+    const dataChanged = prevDataRef.current !== data;
+    if (dataChanged) {
+      setZoomedData(data);
+      setIsZoomed(false);
+      setRefAreaLeft(null);
+      setRefAreaRight(null);
+      prevDataRef.current = data;
+    }
+  }, [data]);
+
+  const handleMouseDown = useCallback((e: { activeLabel?: string }) => {
+    if (e.activeLabel) {
+      setRefAreaLeft(e.activeLabel);
+      setRefAreaRight(e.activeLabel);
+      setIsSelecting(true);
+    }
+  }, []);
+
+  const handleMouseMove = useCallback(
+    (e: { activeLabel?: string }) => {
+      if (isSelecting && e.activeLabel) {
+        setRefAreaRight(e.activeLabel);
+      }
+    },
+    [isSelecting],
+  );
+
+  const handleMouseUp = useCallback(() => {
+    if (!isSelecting || refAreaLeft === null || refAreaRight === null) {
+      setIsSelecting(false);
+      return;
+    }
+
+    // Find indices of the selected range
+    let leftIndex = data.findIndex((d) => d[labelKey] === refAreaLeft);
+    let rightIndex = data.findIndex((d) => d[labelKey] === refAreaRight);
+
+    // Ensure left is before right
+    if (leftIndex > rightIndex) {
+      [leftIndex, rightIndex] = [rightIndex, leftIndex];
+    }
+
+    // Only zoom if we have a valid range with at least 2 points
+    if (leftIndex >= 0 && rightIndex >= 0 && rightIndex - leftIndex >= 1) {
+      setZoomedData(data.slice(leftIndex, rightIndex + 1));
+      setIsZoomed(true);
+    }
+
+    // Reset selection state
+    setRefAreaLeft(null);
+    setRefAreaRight(null);
+    setIsSelecting(false);
+  }, [isSelecting, refAreaLeft, refAreaRight, data, labelKey]);
+
+  const zoomOut = useCallback(() => {
+    setZoomedData(data);
+    setIsZoomed(false);
+    setRefAreaLeft(null);
+    setRefAreaRight(null);
+  }, [data]);
+
+  return {
+    zoomedData,
+    isZoomed,
+    refAreaLeft,
+    refAreaRight,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    zoomOut,
+  };
 }
