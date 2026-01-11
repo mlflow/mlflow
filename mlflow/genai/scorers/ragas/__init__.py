@@ -18,10 +18,13 @@ Example usage:
 
 from __future__ import annotations
 
+import inspect
 import logging
 from typing import Any
 
 from pydantic import PrivateAttr
+from ragas.dataset_schema import MultiTurnSample, SingleTurnSample
+from ragas.llms import BaseRagasLLM
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -31,12 +34,23 @@ from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.base import Scorer, ScorerKind
-from mlflow.genai.scorers.ragas.models import create_ragas_model
-from mlflow.genai.scorers.ragas.registry import get_metric_class, is_deterministic_metric
+from mlflow.genai.scorers.ragas.models import (
+    create_default_embeddings,
+    create_ragas_model,
+)
+from mlflow.genai.scorers.ragas.registry import (
+    get_metric_class,
+    is_agentic_metric,
+    is_deterministic_metric,
+    llm_in_constructor,
+    requires_embeddings,
+    requires_llm_at_score_time,
+)
 from mlflow.genai.scorers.ragas.utils import (
     create_mlflow_error_message_from_ragas_param,
     map_scorer_inputs_to_ragas_sample,
 )
+from mlflow.genai.utils.trace_utils import _wrap_async_predict_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
@@ -58,6 +72,7 @@ class RagasScorer(Scorer):
     _metric: Any = PrivateAttr()
     _is_deterministic: bool = PrivateAttr(default=False)
     _model: str = PrivateAttr()
+    _llm: BaseRagasLLM | None = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -72,13 +87,23 @@ class RagasScorer(Scorer):
         model = model or get_default_model()
         self._model = model
         metric_class = get_metric_class(metric_name)
+        ragas_llm = create_ragas_model(model)
+        constructor_kwargs = dict(metric_kwargs)
 
         if is_deterministic_metric(metric_name):
-            self._metric = metric_class(**metric_kwargs)
             self._is_deterministic = True
-        else:
-            ragas_llm = create_ragas_model(model)
-            self._metric = metric_class(llm=ragas_llm, **metric_kwargs)
+
+        if llm_in_constructor(metric_name):
+            constructor_kwargs["llm"] = ragas_llm
+
+        if requires_embeddings(metric_name):
+            if constructor_kwargs.get("embeddings") is None:
+                constructor_kwargs["embeddings"] = create_default_embeddings()
+
+        if requires_llm_at_score_time(metric_name):
+            self._llm = ragas_llm
+
+        self._metric = metric_class(**constructor_kwargs)
 
     @property
     def kind(self) -> ScorerKind:
@@ -116,6 +141,7 @@ class RagasScorer(Scorer):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
+        session: list[Trace] | None = None,
     ) -> Feedback:
         """
         Evaluate using the wrapped RAGAS metric.
@@ -125,6 +151,7 @@ class RagasScorer(Scorer):
             outputs: The output to evaluate
             expectations: Expected values and context for evaluation
             trace: MLflow trace for evaluation
+            session: List of MLflow traces for multi-turn/agentic evaluation
 
         Returns:
             Feedback object with score, rationale, and metadata
@@ -146,29 +173,29 @@ class RagasScorer(Scorer):
                 outputs=outputs,
                 expectations=expectations,
                 trace=trace,
+                session=session,
+                is_agentic=is_agentic_metric(self.name),
             )
 
-            if hasattr(self._metric, "single_turn_score"):
-                result = self._metric.single_turn_score(sample)
-            elif hasattr(self._metric, "score"):
-                result = self._metric.score(sample)
-            else:
-                raise MlflowException(f"RAGAS metric {self.name} is currently not supported")
-
-            score = float(result)
-
+            result = self._evaluate(sample)
+            raw_value = getattr(result, "value", result)
             reason = getattr(result, "reason", None)
+
+            try:
+                score = float(raw_value)
+            except (TypeError, ValueError):
+                score = None
 
             # RAGAS metrics may have thresholds to map to binary feedback
             threshold = getattr(self._metric, "threshold", None)
             metadata = {FRAMEWORK_METADATA_KEY: "ragas"}
 
-            if threshold is not None:
+            if score is not None and threshold is not None:
                 metadata["threshold"] = threshold
                 metadata["score"] = score
                 value = CategoricalRating.YES if score >= threshold else CategoricalRating.NO
             else:
-                value = score
+                value = score if score is not None else raw_value
 
             return Feedback(
                 name=self.name,
@@ -178,8 +205,8 @@ class RagasScorer(Scorer):
                 trace_id=None,
                 metadata=metadata,
             )
-        except (KeyError, IndexError) as e:
-            # RAGAS raises KeyError/IndexError when required parameters are missing
+        except (KeyError, IndexError, ValueError) as e:
+            # RAGAS raises KeyError/IndexError/ValueError when required parameters are missing
             error_msg = str(e).strip("'\"")
             mlflow_error_message = create_mlflow_error_message_from_ragas_param(
                 error_msg, self.name
@@ -202,12 +229,38 @@ class RagasScorer(Scorer):
                 source=assessment_source,
             )
 
+    def _evaluate(self, sample: SingleTurnSample | MultiTurnSample):
+        if hasattr(self._metric, "single_turn_ascore"):
+            sync_score = _wrap_async_predict_fn(self._metric.single_turn_ascore)
+            return sync_score(sample)
+        elif hasattr(self._metric, "ascore"):
+            # DiscreteMetric requires llm passed into score method
+            if requires_llm_at_score_time(self.name):
+                sync_score = _wrap_async_predict_fn(self._metric.ascore)
+                return sync_score(response=sample.response, llm=self._llm)
+
+            sig = inspect.signature(self._metric.ascore)
+            kwargs = {}
+            for param_name in sig.parameters:
+                if param_name == "self":
+                    continue
+
+                if hasattr(sample, param_name):
+                    value = getattr(sample, param_name)
+                    kwargs[param_name] = value
+
+            sync_score = _wrap_async_predict_fn(self._metric.ascore)
+            return sync_score(**kwargs)
+        else:
+            raise MlflowException(f"RAGAS metric {self.name} is not currently supported")
+
     def _validate_kwargs(self, **metric_kwargs):
-        if is_deterministic_metric(self.metric_name):
-            if "model" in metric_kwargs:
-                raise MlflowException.invalid_parameter_value(
-                    f"{self.metric_name} got an unexpected keyword argument 'model'"
-                )
+        if (
+            is_deterministic_metric(self.metric_name) or not llm_in_constructor(self.metric_name)
+        ) and "model" in metric_kwargs:
+            raise MlflowException.invalid_parameter_value(
+                f"{self.metric_name} got an unexpected keyword argument 'model'"
+            )
 
 
 @experimental(version="3.8.0")
@@ -253,12 +306,18 @@ def get_scorer(
 
 
 from mlflow.genai.scorers.ragas.scorers import (
+    AgentGoalAccuracyWithoutReference,
+    AgentGoalAccuracyWithReference,
+    AnswerAccuracy,
+    AnswerRelevancy,
     AspectCritic,
     BleuScore,
     ChrfScore,
     ContextEntityRecall,
     ContextPrecision,
     ContextRecall,
+    ContextRelevance,
+    DiscreteMetric,
     ExactMatch,
     FactualCorrectness,
     Faithfulness,
@@ -267,10 +326,15 @@ from mlflow.genai.scorers.ragas.scorers import (
     NonLLMContextPrecisionWithReference,
     NonLLMContextRecall,
     NonLLMStringSimilarity,
+    ResponseGroundedness,
     RougeScore,
     RubricsScore,
+    SemanticSimilarity,
     StringPresence,
     SummarizationScore,
+    ToolCallAccuracy,
+    ToolCallF1,
+    TopicAdherence,
 )
 
 __all__ = [
@@ -285,6 +349,12 @@ __all__ = [
     "ContextEntityRecall",
     "NoiseSensitivity",
     "Faithfulness",
+    "AnswerRelevancy",
+    "SemanticSimilarity",
+    # NVIDIA metrics
+    "AnswerAccuracy",
+    "ContextRelevance",
+    "ResponseGroundedness",
     # Comparison metrics
     "FactualCorrectness",
     "NonLLMStringSimilarity",
@@ -295,8 +365,15 @@ __all__ = [
     "ExactMatch",
     # General purpose metrics
     "AspectCritic",
+    "DiscreteMetric",
     "RubricsScore",
     "InstanceRubrics",
+    # Agentic metrics
+    "TopicAdherence",
+    "ToolCallAccuracy",
+    "ToolCallF1",
+    "AgentGoalAccuracyWithReference",
+    "AgentGoalAccuracyWithoutReference",
     # Other tasks
     "SummarizationScore",
 ]

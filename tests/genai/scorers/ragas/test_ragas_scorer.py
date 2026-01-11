@@ -1,6 +1,7 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
+from ragas.embeddings.base import BaseRagasEmbedding
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -10,10 +11,14 @@ from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.base import ScorerKind
 from mlflow.genai.scorers.ragas import (
+    AgentGoalAccuracyWithoutReference,
+    AgentGoalAccuracyWithReference,
+    AnswerRelevancy,
     AspectCritic,
     ContextEntityRecall,
     ContextPrecision,
     ContextRecall,
+    DiscreteMetric,
     ExactMatch,
     FactualCorrectness,
     Faithfulness,
@@ -22,8 +27,12 @@ from mlflow.genai.scorers.ragas import (
     RagasScorer,
     RougeScore,
     RubricsScore,
+    SemanticSimilarity,
     StringPresence,
     SummarizationScore,
+    ToolCallAccuracy,
+    ToolCallF1,
+    TopicAdherence,
     get_scorer,
 )
 from mlflow.telemetry.client import TelemetryClient
@@ -34,7 +43,10 @@ from tests.telemetry.helper_functions import validate_telemetry_record
 
 @pytest.fixture(autouse=True)
 def mock_get_telemetry_client(mock_telemetry_client: TelemetryClient):
-    with patch("mlflow.telemetry.track.get_telemetry_client", return_value=mock_telemetry_client):
+    with patch(
+        "mlflow.telemetry.track.get_telemetry_client",
+        return_value=mock_telemetry_client,
+    ):
         yield
 
 
@@ -78,7 +90,11 @@ def test_deterministic_metric_does_not_require_model():
 def test_ragas_scorer_with_threshold_returns_categorical():
     judge = get_scorer("ExactMatch")
     judge._metric.threshold = 0.5
-    with patch.object(judge._metric, "single_turn_score", return_value=0.8):
+
+    async def mock_ascore(response=None, reference=None):
+        return 0.8
+
+    with patch.object(judge._metric, "ascore", mock_ascore):
         result = judge(
             inputs="What is MLflow?",
             outputs="MLflow is a platform",
@@ -93,7 +109,11 @@ def test_ragas_scorer_with_threshold_returns_categorical():
 def test_ragas_scorer_with_threshold_returns_no_when_below():
     judge = get_scorer("ExactMatch")
     judge._metric.threshold = 0.5
-    with patch.object(judge._metric, "single_turn_score", return_value=0.0):
+
+    async def mock_ascore(response=None, reference=None):
+        return 0.0
+
+    with patch.object(judge._metric, "ascore", mock_ascore):
         result = judge(
             inputs="What is MLflow?",
             outputs="Databricks is a company",
@@ -119,7 +139,10 @@ def test_ragas_scorer_without_threshold_returns_float():
 def test_ragas_scorer_returns_error_feedback_on_exception():
     judge = get_scorer("ExactMatch")
 
-    with patch.object(judge._metric, "single_turn_score", side_effect=RuntimeError("Test error")):
+    async def mock_ascore(response=None, reference=None):
+        raise RuntimeError("Test error")
+
+    with patch.object(judge._metric, "ascore", mock_ascore):
         result = judge(inputs="What is MLflow?", outputs="Test output")
 
     assert isinstance(result, Feedback)
@@ -138,7 +161,10 @@ def test_unknown_metric_raises_error():
 
 def test_missing_reference_parameter_returns_mlflow_error():
     judge = get_scorer("ContextPrecision")
-    result = judge(inputs="What is MLflow?")
+    result = judge(
+        inputs="What is MLflow?",
+        expectations={"expected_output": "MLflow is a platform"},
+    )
     assert isinstance(result, Feedback)
     assert result.error is not None
     assert "ContextPrecision" in result.error.error_message  # metric name
@@ -161,10 +187,28 @@ def test_missing_reference_parameter_returns_mlflow_error():
         (ExactMatch, "ExactMatch", {}),
         # General Purpose Metrics
         (AspectCritic, "AspectCritic", {"name": "test", "definition": "test"}),
+        (DiscreteMetric, "DiscreteMetric", {"name": "test", "prompt": "test"}),
         (RubricsScore, "RubricsScore", {}),
         (InstanceRubrics, "InstanceRubrics", {}),
         # Summarization Metrics
         (SummarizationScore, "SummarizationScore", {}),
+        # Agentic Metrics
+        (TopicAdherence, "TopicAdherence", {}),
+        (ToolCallAccuracy, "ToolCallAccuracy", {}),
+        (ToolCallF1, "ToolCallF1", {}),
+        (AgentGoalAccuracyWithReference, "AgentGoalAccuracyWithReference", {}),
+        (AgentGoalAccuracyWithoutReference, "AgentGoalAccuracyWithoutReference", {}),
+        # Embeddings-based Metrics
+        (
+            AnswerRelevancy,
+            "AnswerRelevancy",
+            {"embeddings": MagicMock(spec=BaseRagasEmbedding)},
+        ),
+        (
+            SemanticSimilarity,
+            "SemanticSimilarity",
+            {"embeddings": MagicMock(spec=BaseRagasEmbedding)},
+        ),
     ],
 )
 def test_namespaced_class_properly_instantiates(scorer_class, expected_metric_name, metric_kwargs):
@@ -197,9 +241,8 @@ def test_ragas_scorer_align_not_supported():
 
 
 def test_ragas_scorer_kind_property_with_llm_metric():
-    with patch("mlflow.genai.scorers.ragas.create_ragas_model"):
-        scorer = Faithfulness()
-        assert scorer.kind == ScorerKind.THIRD_PARTY
+    scorer = Faithfulness()
+    assert scorer.kind == ScorerKind.THIRD_PARTY
 
 
 @pytest.mark.parametrize(
@@ -211,11 +254,15 @@ def test_ragas_scorer_kind_property_with_llm_metric():
     ids=["direct_instantiation", "get_scorer"],
 )
 def test_ragas_scorer_telemetry_direct_call(
-    enable_telemetry_in_tests, mock_requests, mock_telemetry_client, scorer_factory, expected_class
+    enable_telemetry_in_tests,
+    mock_requests,
+    mock_telemetry_client,
+    scorer_factory,
+    expected_class,
 ):
     ragas_scorer = scorer_factory()
 
-    with patch.object(ragas_scorer._metric, "single_turn_score", return_value=1.0):
+    with patch.object(ragas_scorer._metric, "score", return_value=1.0):
         result = ragas_scorer(
             inputs="What is MLflow?",
             outputs="MLflow is a platform",
@@ -249,7 +296,11 @@ def test_ragas_scorer_telemetry_direct_call(
     ids=["direct_instantiation", "get_scorer"],
 )
 def test_ragas_scorer_telemetry_in_genai_evaluate(
-    enable_telemetry_in_tests, mock_requests, mock_telemetry_client, scorer_factory, expected_class
+    enable_telemetry_in_tests,
+    mock_requests,
+    mock_telemetry_client,
+    scorer_factory,
+    expected_class,
 ):
     ragas_scorer = scorer_factory()
 
@@ -261,7 +312,7 @@ def test_ragas_scorer_telemetry_in_genai_evaluate(
         }
     ]
 
-    with patch.object(ragas_scorer._metric, "single_turn_score", return_value=1.0):
+    with patch.object(ragas_scorer._metric, "score", return_value=1.0):
         mlflow.genai.evaluate(data=data, scorers=[ragas_scorer])
 
     validate_telemetry_record(
@@ -278,3 +329,41 @@ def test_ragas_scorer_telemetry_in_genai_evaluate(
             "eval_data_provided_fields": ["expectations", "inputs", "outputs"],
         },
     )
+
+
+@pytest.mark.parametrize(
+    ("scorer_class", "expectations", "sample_assertion"),
+    [
+        (
+            ToolCallAccuracy,
+            {
+                "expected_tool_calls": [
+                    {"name": "weather_check", "arguments": {"location": "Paris"}},
+                ]
+            },
+            lambda sample: sample.reference_tool_calls is not None,
+        ),
+        (
+            TopicAdherence,
+            {"reference_topics": ["machine learning", "data science"]},
+            lambda sample: sample.reference_topics == ["machine learning", "data science"],
+        ),
+        (
+            AgentGoalAccuracyWithReference,
+            {"expected_output": "Table booked at a Chinese restaurant for 8pm"},
+            lambda sample: sample.reference == "Table booked at a Chinese restaurant for 8pm",
+        ),
+    ],
+)
+def test_agentic_scorer_with_expectations(scorer_class, expectations, sample_assertion):
+    scorer = scorer_class()
+
+    async def mock_ascore(sample):
+        assert sample_assertion(sample)
+        return 0.9
+
+    with patch.object(scorer._metric, "ascore", mock_ascore):
+        result = scorer(expectations=expectations)
+
+    assert isinstance(result, Feedback)
+    assert result.name == scorer_class.metric_name
