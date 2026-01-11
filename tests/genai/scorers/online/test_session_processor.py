@@ -401,7 +401,10 @@ def test_score_session_excludes_eval_run_traces(
 
     call_args = mock_trace_loader.fetch_trace_infos_in_range.call_args[1]
     filter_string = call_args["filter_string"]
-    assert "metadata.mlflow.sourceRun IS NULL" in filter_string
+    assert (
+        filter_string
+        == "metadata.mlflow.sourceRun IS NULL AND metadata.`mlflow.trace.session` = 'sess-001'"
+    )
 
 
 def test_score_session_adds_session_metadata_to_assessments(
