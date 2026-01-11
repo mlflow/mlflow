@@ -1,12 +1,13 @@
 import argparse
 
+from skills.commands import fetch_diff
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="skills")
-    subparsers = parser.add_subparsers(dest="command", required=True)  # noqa: F841
+    subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # Subcommands will be registered here
-    # e.g., fetch_diff.register(subparsers)
+    fetch_diff.register(subparsers)
 
     args = parser.parse_args()
     args.func(args)
