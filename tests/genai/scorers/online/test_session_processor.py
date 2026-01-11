@@ -371,6 +371,9 @@ def test_create_factory_method(mock_tracking_store):
     assert isinstance(processor._checkpoint_manager, OnlineSessionCheckpointManager)
     assert isinstance(processor._sampler, OnlineScorerSampler)
     assert processor._tracking_store == mock_tracking_store
+    assert processor._checkpoint_manager._tracking_store == mock_tracking_store
+    assert processor._checkpoint_manager._experiment_id == "exp1"
+    assert processor._sampler._online_scorers == configs
 
 
 def test_score_session_excludes_eval_run_traces(
