@@ -60,6 +60,12 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
+from mlflow.entities.gateway_usage import (
+    GatewayInvocation,
+    GatewayProviderCall,
+    InvocationStatus,
+    ProviderCallStatus,
+)
 from mlflow.entities.dataset_record import DATASET_RECORD_WRAPPED_OUTPUT_KEY
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
@@ -2631,3 +2637,209 @@ class SqlGatewayEndpointTag(Base):
 
     def to_mlflow_entity(self):
         return GatewayEndpointTag(key=self.key, value=self.value)
+
+
+class SqlGatewayInvocation(Base):
+    """
+    DB model for gateway invocations. These are recorded in ``gateway_invocations`` table.
+    Stores each API invocation to a gateway endpoint for usage tracking and metrics.
+    """
+
+    __tablename__ = "gateway_invocations"
+
+    invocation_id = Column(String(36), nullable=False)
+    """
+    Invocation ID: `String` (limit 36 characters). *Primary Key* for ``gateway_invocations`` table.
+    Format: `i-{uuid}`.
+    """
+    endpoint_id = Column(String(36), nullable=False)
+    """
+    Endpoint ID: `String` (limit 36 characters). ID of the gateway endpoint that was called.
+    """
+    endpoint_type = Column(String(64), nullable=False)
+    """
+    Endpoint type: `String` (limit 64 characters). Type of endpoint (e.g., "llm/v1/chat").
+    """
+    status = Column(String(32), nullable=False)
+    """
+    Invocation status: `String` (limit 32 characters). SUCCESS, ERROR, or PARTIAL.
+    """
+    total_prompt_tokens = Column(Integer, default=0, nullable=False)
+    """
+    Total prompt tokens: `Integer`. Sum of prompt tokens across all provider calls.
+    """
+    total_completion_tokens = Column(Integer, default=0, nullable=False)
+    """
+    Total completion tokens: `Integer`. Sum of completion tokens across all provider calls.
+    """
+    total_tokens = Column(Integer, default=0, nullable=False)
+    """
+    Total tokens: `Integer`. Sum of all tokens across all provider calls.
+    """
+    total_cost = Column(Float, default=0.0, nullable=False)
+    """
+    Total cost: `Float`. Sum of costs in USD across all provider calls.
+    """
+    total_latency_ms = Column(BigInteger, default=0, nullable=False)
+    """
+    Total latency: `BigInteger`. Total time taken for the invocation in milliseconds.
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`. When the invocation started.
+    """
+    username = Column(String(255), nullable=True)
+    """
+    Username: `String` (limit 255 characters). Identity of the caller if available.
+    """
+    error_message = Column(Text, nullable=True)
+    """
+    Error message: `Text`. Error details if the invocation failed.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("invocation_id", name="gateway_invocations_pk"),
+        Index("index_gateway_invocations_endpoint_id", "endpoint_id"),
+        Index("index_gateway_invocations_created_at", "created_at"),
+        Index("index_gateway_invocations_status", "status"),
+        Index("index_gateway_invocations_username", "username"),
+    )
+
+    def __repr__(self):
+        return f"<SqlGatewayInvocation ({self.invocation_id}, {self.endpoint_id})>"
+
+    def to_mlflow_entity(self):
+        provider_calls = [pc.to_mlflow_entity() for pc in self.provider_calls]
+        return GatewayInvocation(
+            invocation_id=self.invocation_id,
+            endpoint_id=self.endpoint_id,
+            endpoint_type=self.endpoint_type,
+            status=InvocationStatus(self.status),
+            total_prompt_tokens=self.total_prompt_tokens,
+            total_completion_tokens=self.total_completion_tokens,
+            total_tokens=self.total_tokens,
+            total_cost=self.total_cost,
+            total_latency_ms=self.total_latency_ms,
+            provider_calls=provider_calls,
+            created_at=self.created_at,
+            username=self.username,
+            error_message=self.error_message,
+        )
+
+
+class SqlGatewayProviderCall(Base):
+    """
+    DB model for gateway provider calls. These are recorded in ``gateway_provider_calls`` table.
+    Stores each individual LLM provider call within a gateway invocation (1:N relationship).
+    """
+
+    __tablename__ = "gateway_provider_calls"
+
+    provider_call_id = Column(String(36), nullable=False)
+    """
+    Provider call ID: `String` (limit 36 characters). *Primary Key* for ``gateway_provider_calls``.
+    Format: `pc-{uuid}`.
+    """
+    invocation_id = Column(
+        String(36),
+        ForeignKey("gateway_invocations.invocation_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Invocation ID: `String` (limit 36 characters). *Foreign Key* into ``gateway_invocations``.
+    Cascades on delete.
+    """
+    provider = Column(String(64), nullable=False)
+    """
+    Provider: `String` (limit 64 characters). LLM provider name (e.g., "openai", "anthropic").
+    """
+    model_name = Column(String(256), nullable=False)
+    """
+    Model name: `String` (limit 256 characters). Provider-specific model identifier.
+    """
+    attempt_number = Column(Integer, nullable=False)
+    """
+    Attempt number: `Integer`. The attempt number within the invocation (1-indexed).
+    """
+    status = Column(String(32), nullable=False)
+    """
+    Call status: `String` (limit 32 characters). SUCCESS or ERROR.
+    """
+    error_message = Column(Text, nullable=True)
+    """
+    Error message: `Text`. Error details if the call failed.
+    """
+    prompt_tokens = Column(Integer, default=0, nullable=False)
+    """
+    Prompt tokens: `Integer`. Number of tokens in the prompt.
+    """
+    completion_tokens = Column(Integer, default=0, nullable=False)
+    """
+    Completion tokens: `Integer`. Number of tokens in the completion.
+    """
+    total_tokens = Column(Integer, default=0, nullable=False)
+    """
+    Total tokens: `Integer`. Total number of tokens used.
+    """
+    prompt_cost = Column(Float, default=0.0, nullable=False)
+    """
+    Prompt cost: `Float`. Cost for prompt tokens in USD.
+    """
+    completion_cost = Column(Float, default=0.0, nullable=False)
+    """
+    Completion cost: `Float`. Cost for completion tokens in USD.
+    """
+    total_cost = Column(Float, default=0.0, nullable=False)
+    """
+    Total cost: `Float`. Total cost in USD.
+    """
+    latency_ms = Column(BigInteger, default=0, nullable=False)
+    """
+    Latency: `BigInteger`. Time taken for this provider call in milliseconds.
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`. When the call was made.
+    """
+
+    invocation = relationship(
+        "SqlGatewayInvocation", backref=backref("provider_calls", cascade="all")
+    )
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlGatewayInvocation`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("provider_call_id", name="gateway_provider_calls_pk"),
+        Index("index_gateway_provider_calls_invocation_id", "invocation_id"),
+        Index("index_gateway_provider_calls_provider", "provider"),
+        Index("index_gateway_provider_calls_model_name", "model_name"),
+        Index("index_gateway_provider_calls_created_at", "created_at"),
+        Index("index_gateway_provider_calls_status", "status"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlGatewayProviderCall ({self.provider_call_id}, "
+            f"invocation={self.invocation_id}, provider={self.provider})>"
+        )
+
+    def to_mlflow_entity(self):
+        return GatewayProviderCall(
+            provider_call_id=self.provider_call_id,
+            invocation_id=self.invocation_id,
+            provider=self.provider,
+            model_name=self.model_name,
+            attempt_number=self.attempt_number,
+            status=ProviderCallStatus(self.status),
+            error_message=self.error_message,
+            prompt_tokens=self.prompt_tokens,
+            completion_tokens=self.completion_tokens,
+            total_tokens=self.total_tokens,
+            prompt_cost=self.prompt_cost,
+            completion_cost=self.completion_cost,
+            total_cost=self.total_cost,
+            latency_ms=self.latency_ms,
+            created_at=self.created_at,
+        )
