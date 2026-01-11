@@ -1,9 +1,10 @@
+from collections.abc import AsyncIterator
 from typing import Any
 
 import aiohttp
 from typing_extensions import Self
 
-from skills.github.types import PullRequest
+from skills.github.types import Job, JobRun, PullRequest
 from skills.github.utils import get_github_token
 
 
@@ -32,10 +33,12 @@ class GitHubClient:
         if self._session:
             await self._session.close()
 
-    async def _get_json(self, endpoint: str) -> dict[str, Any]:
+    async def _get_json(
+        self, endpoint: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         if self._session is None:
             raise RuntimeError("GitHubClient must be used as async context manager")
-        async with self._session.get(endpoint) as resp:
+        async with self._session.get(endpoint, params=params) as resp:
             resp.raise_for_status()
             return await resp.json()
 
@@ -73,3 +76,63 @@ class GitHubClient:
         ) as resp:
             resp.raise_for_status()
             return await resp.json()
+
+    async def get_raw(self, endpoint: str) -> aiohttp.ClientResponse:
+        """Get raw response for streaming."""
+        if self._session is None:
+            raise RuntimeError("GitHubClient must be used as async context manager")
+        return await self._session.get(endpoint, allow_redirects=True)
+
+    async def get_workflow_runs(
+        self,
+        owner: str,
+        repo: str,
+        head_sha: str | None = None,
+        status: str | None = None,
+    ) -> AsyncIterator[JobRun]:
+        """Get workflow runs for a repository."""
+        params: dict[str, Any] = {"per_page": 100}
+        if head_sha:
+            params["head_sha"] = head_sha
+        if status:
+            params["status"] = status
+
+        page = 1
+        while True:
+            params["page"] = page
+            data = await self._get_json(f"/repos/{owner}/{repo}/actions/runs", params)
+            runs = data.get("workflow_runs", [])
+            if not runs:
+                break
+            for run in runs:
+                yield JobRun.model_validate(run)
+            if len(runs) < 100:
+                break
+            page += 1
+
+    async def get_jobs(self, owner: str, repo: str, run_id: int) -> AsyncIterator[Job]:
+        """Get jobs for a workflow run."""
+        page = 1
+        while True:
+            data = await self._get_json(
+                f"/repos/{owner}/{repo}/actions/runs/{run_id}/jobs",
+                {"per_page": 100, "page": page},
+            )
+            jobs = data.get("jobs", [])
+            if not jobs:
+                break
+            for job in jobs:
+                yield Job.model_validate(job)
+            if len(jobs) < 100:
+                break
+            page += 1
+
+    async def get_job(self, owner: str, repo: str, job_id: int) -> Job:
+        """Get a specific job."""
+        data = await self._get_json(f"/repos/{owner}/{repo}/actions/jobs/{job_id}")
+        return Job.model_validate(data)
+
+    async def get_job_run(self, owner: str, repo: str, run_id: int) -> JobRun:
+        """Get a specific workflow run."""
+        data = await self._get_json(f"/repos/{owner}/{repo}/actions/runs/{run_id}")
+        return JobRun.model_validate(data)
