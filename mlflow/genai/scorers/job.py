@@ -1,6 +1,5 @@
 """Huey job functions for async scorer invocation."""
 
-import json
 import logging
 import random
 from collections import defaultdict
@@ -62,7 +61,7 @@ def _extract_failures_from_feedbacks(feedbacks: list[Any]) -> list[ScorerFailure
 @job(
     name="run_online_trace_scorer",
     max_workers=MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS.get(),
-    exclusive=True,
+    exclusive=["experiment_id"],
 )
 def run_online_trace_scorer_job(
     experiment_id: str,
@@ -71,7 +70,9 @@ def run_online_trace_scorer_job(
     """
     Job that fetches samples of individual traces and runs scorers on them.
 
-    This job is exclusive per (experiment_id, online_scorers) combination to prevent
+    This job is exclusive per experiment_id to prevent duplicate scoring of the same
+    experiment. Multiple jobs with different scorers for the same experiment will not
+    run simultaneously, ensuring consistent checkpoint management.
     duplicate scoring of the same traces.
 
     Args:
@@ -88,7 +89,7 @@ def run_online_trace_scorer_job(
 @job(
     name="run_online_session_scorer",
     max_workers=MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS.get(),
-    exclusive=True,
+    exclusive=["experiment_id"],
 )
 def run_online_session_scorer_job(
     experiment_id: str,
@@ -97,8 +98,9 @@ def run_online_session_scorer_job(
     """
     Job that finds completed sessions and runs session-level scorers on them.
 
-    This job is exclusive per (experiment_id, online_scorers) combination to prevent
-    duplicate scoring of the same sessions.
+    This job is exclusive per experiment_id to prevent duplicate scoring of the same
+    experiment. Multiple jobs with different scorers for the same experiment will not
+    run simultaneously, ensuring consistent checkpoint management.
 
     Args:
         experiment_id: The experiment ID to fetch sessions from.
@@ -134,8 +136,7 @@ def invoke_scorer_job(
         Dict mapping trace_id to TraceResult (assessments and failures).
     """
     # Deserialize scorer
-    scorer_dict = json.loads(serialized_scorer)
-    scorer = Scorer.model_validate(scorer_dict)
+    scorer = Scorer.model_validate_json(serialized_scorer)
 
     tracking_store = _get_tracking_store()
 
@@ -420,8 +421,7 @@ def run_online_scoring_scheduler() -> None:
         trace_level_scorers = []
 
         for scorer in scorers:
-            scorer_dict = json.loads(scorer.serialized_scorer)
-            scorer_obj = Scorer.model_validate(scorer_dict)
+            scorer_obj = Scorer.model_validate_json(scorer.serialized_scorer)
             if scorer_obj.is_session_level_scorer:
                 session_level_scorers.append(scorer)
             else:
