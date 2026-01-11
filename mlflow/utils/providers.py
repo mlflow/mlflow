@@ -395,6 +395,12 @@ def _build_simple_api_key_mode(provider: str, description: str | None = None) ->
                 "secret": True,
                 "required": True,
             },
+            {
+                "name": "api_base",
+                "description": f"{provider.title()} API Base URL",
+                "secret": False,
+                "required": False,
+            },
         ],
     }
 
