@@ -2998,29 +2998,39 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         for non_attr_filter in non_attribute_filters:
             statement = statement.join(non_attr_filter)
 
-        # Apply span filters
+        # Apply span filters with explicit join condition
         for span_filter in span_filters:
             statement = statement.join(
                 span_filter, SqlTraceInfo.request_id == span_filter.c.request_id
             )
 
-        # Build filter conditions starting with attribute filters
+        # Build the filter conditions
         filter_conditions = [*attribute_filters]
 
-        # Handle run_id filter if present
+        # If run_id filter is present, we need to handle it specially to include linked traces
         if run_id_filter:
+            # Create a subquery to check if a trace is linked to the run via entity associations
             linked_trace_exists = exists().where(
                 (SqlEntityAssociation.source_id == SqlTraceInfo.request_id)
                 & (SqlEntityAssociation.source_type == EntityAssociationType.TRACE)
                 & (SqlEntityAssociation.destination_type == EntityAssociationType.RUN)
                 & (SqlEntityAssociation.destination_id == run_id_filter)
             )
+
+            # Create a subquery to check if trace has run_id in metadata
             metadata_exists = exists().where(
                 (SqlTraceMetadata.request_id == SqlTraceInfo.request_id)
                 & (SqlTraceMetadata.key == TraceMetadataKey.SOURCE_RUN)
                 & (SqlTraceMetadata.value == run_id_filter)
             )
-            filter_conditions.append(or_(linked_trace_exists, metadata_exists))
+
+            # If run_id filter is present, add OR condition for linked traces
+            filter_conditions.append(
+                or_(
+                    linked_trace_exists,  # Trace is linked via entity associations
+                    metadata_exists,  # Trace has run_id in metadata
+                )
+            )
 
         # Apply all filter conditions
         if filter_conditions:
