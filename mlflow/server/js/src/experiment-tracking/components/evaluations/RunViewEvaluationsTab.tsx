@@ -1,3 +1,4 @@
+import type { RowSelectionState } from '@tanstack/react-table';
 import { isNil } from 'lodash';
 import { ParagraphSkeleton, Typography, Empty } from '@databricks/design-system';
 import { type KeyValueEntity } from '../../../common/types';
@@ -37,6 +38,8 @@ import {
   useFetchTraceV4LazyQuery,
   doesTraceSupportV4API,
 } from '@databricks/web-shared/genai-traces-table';
+import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
+import { useTracesAssistantContext } from '../experiment-page/components/traces-v3/hooks/useTracesAssistantContext';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
 import { useEditExperimentTraceTags } from '../traces/hooks/useEditExperimentTraceTags';
@@ -71,6 +74,15 @@ const ContextProviders = ({
       {children}
     </GenAiTracesMarkdownConverterProvider>
   );
+};
+
+/**
+ * Component that registers trace context with the assistant.
+ * Must be rendered inside GenAiTraceTableRowSelectionProvider to access shared row selection state.
+ */
+const TracesAssistantContextRegistrar = ({ experimentId }: { experimentId: string }) => {
+  useTracesAssistantContext(experimentId);
+  return null;
 };
 
 const RunViewEvaluationsTabInner = ({
@@ -117,6 +129,8 @@ const RunViewEvaluationsTabInner = ({
   });
 
   // Setup table states
+  // Row selection state - lifted to provide shared state via context
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filters, setFilters] = useFilters();
   const getRunColor = useGetExperimentRunColor();
@@ -280,11 +294,13 @@ const RunViewEvaluationsTabInner = ({
           </span>
         </div>
       )}
-      <GenAITracesTableProvider
-        experimentId={experimentId}
-        getTrace={getTrace}
-        renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
-      >
+      <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
+        <TracesAssistantContextRegistrar experimentId={experimentId} />
+        <GenAITracesTableProvider
+          experimentId={experimentId}
+          getTrace={getTrace}
+          renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+        >
         <div
           css={{
             overflowY: 'hidden',
@@ -346,7 +362,8 @@ const RunViewEvaluationsTabInner = ({
           }
           {EditTagsModal}
         </div>
-      </GenAITracesTableProvider>
+        </GenAITracesTableProvider>
+      </GenAiTraceTableRowSelectionProvider>
     </div>
   );
 };
