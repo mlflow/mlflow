@@ -207,7 +207,7 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
 
 
 @pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows")
-def test_run_server_with_jobs_without_uv(monkeypatch: pytest.MonkeyPatch):
+def test_run_server_with_jobs_without_uv(monkeypatch: pytest.MonkeyPatch, mock_exec_cmd):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
     original_which = shutil.which
 
@@ -218,8 +218,9 @@ def test_run_server_with_jobs_without_uv(monkeypatch: pytest.MonkeyPatch):
 
     with (
         mock.patch("shutil.which", side_effect=patched_which) as which_patch,
-        pytest.raises(MlflowException, match="MLflow job backend requires 'uv'"),
+        mock.patch("mlflow.server._logger") as mock_logger,
     ):
+        # Server should start without raising an exception
         server._run_server(
             file_store_path="",
             registry_store_uri="",
@@ -230,4 +231,14 @@ def test_run_server_with_jobs_without_uv(monkeypatch: pytest.MonkeyPatch):
             host="",
             port="",
         )
+
+    # Verify uv was checked
     which_patch.assert_called_once_with("uv")
+
+    # Verify warning was logged about job execution requirements not being met
+    mock_logger.warning.assert_called_once()
+    warning_message = mock_logger.warning.call_args[0][0]
+    assert "job execution requirements not met" in warning_message.lower()
+
+    # Verify server was still started
+    mock_exec_cmd.assert_called_once()
