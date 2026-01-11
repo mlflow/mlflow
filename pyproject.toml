@@ -186,7 +186,6 @@ lint = [
   "aiohttp<4",
   "tiktoken<1",
   "claude-agent-sdk",
-  "pytest==8.4.0",
 ]
 test = [
   "pytest==8.4.0",
