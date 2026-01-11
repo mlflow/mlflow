@@ -26,6 +26,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.import_hooks import register_post_import_hook
+from mlflow.utils.process import _exec_cmd
 
 if TYPE_CHECKING:
     import huey
@@ -463,8 +464,6 @@ def _launch_periodic_tasks_consumer() -> None:
 
 
 def _start_periodic_tasks_consumer_proc():
-    from mlflow.utils.process import _exec_cmd
-
     return _exec_cmd(
         [
             sys.executable,
