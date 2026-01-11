@@ -10,9 +10,9 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { formatCount, useLegendHighlight, useToolColors } from '../utils/chartUtils';
 
@@ -22,9 +22,8 @@ import { formatCount, useLegendHighlight, useToolColors } from '../utils/chartUt
  */
 export const ToolUsageChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
   const { getToolColor } = useToolColors();
 
@@ -56,9 +55,8 @@ export const ToolUsageChart: React.FC = () => {
               <XAxis dataKey="timestamp" {...xAxisProps} />
               <YAxis hide />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={(value, name) => [formatCount(value), name]} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatCount(value), name]}
               />
               {toolNames.map((toolName, index) => (
                 <Bar
@@ -72,10 +70,9 @@ export const ToolUsageChart: React.FC = () => {
               <Legend
                 verticalAlign="bottom"
                 iconType="square"
-                height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={legendFormatter}
+                {...scrollableLegendProps}
               />
             </BarChart>
           </ResponsiveContainer>

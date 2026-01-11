@@ -10,17 +10,16 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { useLegendHighlight } from '../utils/chartUtils';
 
 export const TraceErrorsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
 
   // Fetch and process errors chart data
@@ -55,14 +54,17 @@ export const TraceErrorsChart: React.FC = () => {
               <YAxis yAxisId="left" hide />
               <YAxis yAxisId="right" domain={[0, 100]} hide />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={
+                  <ScrollableTooltip
+                    formatter={(value, name) => {
+                      if (name === 'Error Count') {
+                        return [value.toLocaleString(), name];
+                      }
+                      return [`${value.toFixed(1)}%`, name];
+                    }}
+                  />
+                }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => {
-                  if (name === 'Error Count') {
-                    return [value.toLocaleString(), name];
-                  }
-                  return [`${value.toFixed(1)}%`, name];
-                }}
               />
               <Bar
                 yAxisId="left"
@@ -100,10 +102,9 @@ export const TraceErrorsChart: React.FC = () => {
               />
               <Legend
                 verticalAlign="bottom"
-                height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={legendFormatter}
+                {...scrollableLegendProps}
               />
             </ComposedChart>
           </ResponsiveContainer>

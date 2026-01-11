@@ -20,9 +20,9 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
 
 /** Local component for chart panel with label */
@@ -53,9 +53,8 @@ export interface TraceAssessmentChartProps {
 
 export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ assessmentName, lineColor, avgValue }) => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const scrollableLegendProps = useScrollableLegendProps();
 
   // Use provided color or default to green
   const chartLineColor = lineColor || theme.colors.green500;
@@ -109,11 +108,10 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
             <XAxis dataKey="name" {...xAxisProps} />
             <YAxis allowDecimals={false} {...xAxisProps} />
             <Tooltip
-              contentStyle={tooltipStyle}
+              content={<ScrollableTooltip formatter={(value) => [value, 'count']} />}
               cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-              formatter={(value: number) => [value, 'count']}
             />
-            <Legend formatter={legendFormatter} />
+            <Legend {...scrollableLegendProps} />
             <Bar dataKey="count" fill={chartLineColor} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ChartPanel>
@@ -131,11 +129,10 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
             <XAxis dataKey="name" {...xAxisProps} />
             <YAxis hide />
             <Tooltip
-              contentStyle={tooltipStyle}
+              content={<ScrollableTooltip formatter={(value) => [value.toFixed(2), assessmentName]} />}
               cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-              formatter={(value: number) => [value.toFixed(2), assessmentName]}
             />
-            <Legend formatter={legendFormatter} />
+            <Legend {...scrollableLegendProps} />
             <Line
               type="monotone"
               dataKey="value"

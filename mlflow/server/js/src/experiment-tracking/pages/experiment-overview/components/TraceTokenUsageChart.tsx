@@ -10,17 +10,16 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { formatCount, useLegendHighlight } from '../utils/chartUtils';
 
 export const TraceTokenUsageChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight(0.8, 0.2);
 
   // Fetch and process token usage chart data
@@ -60,9 +59,8 @@ export const TraceTokenUsageChart: React.FC = () => {
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis hide />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={(value, name) => [formatCount(value), name]} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatCount(value), name]}
               />
               <Area
                 type="monotone"
@@ -89,10 +87,9 @@ export const TraceTokenUsageChart: React.FC = () => {
               <Legend
                 verticalAlign="bottom"
                 iconType="plainline"
-                height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={legendFormatter}
+                {...scrollableLegendProps}
               />
             </AreaChart>
           </ResponsiveContainer>
