@@ -111,7 +111,7 @@ async def send_message(request: MessageRequest) -> MessageResponse:
     )
 
 
-@assistant_router.get("/stream/{session_id}")
+@assistant_router.get("/sessions/{session_id}/stream")
 async def stream_response(session_id: str) -> StreamingResponse:
     """
     Stream the assistant's response via Server-Sent Events.

@@ -81,7 +81,7 @@ def test_message(client):
 
 
 def test_stream_not_found_for_invalid_session(client):
-    response = client.get("/ajax-api/3.0/mlflow/assistant/stream/invalid-session-id")
+    response = client.get("/ajax-api/3.0/mlflow/assistant/sessions/invalid-session-id/stream")
     assert response.status_code == 404
     assert "Session not found" in response.json()["detail"]
 
@@ -90,10 +90,10 @@ def test_stream_bad_request_when_no_pending_message(client):
     # Create session and consume the pending message
     r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
     session_id = r.json()["session_id"]
-    client.get(f"/ajax-api/3.0/mlflow/assistant/stream/{session_id}")
+    client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
 
     # Try to stream again without a new message
-    response = client.get(f"/ajax-api/3.0/mlflow/assistant/stream/{session_id}")
+    response = client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
 
     assert response.status_code == 400
     assert "No pending message" in response.json()["detail"]
@@ -103,7 +103,7 @@ def test_stream_returns_sse_events(client):
     r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
     session_id = r.json()["session_id"]
 
-    response = client.get(f"/ajax-api/3.0/mlflow/assistant/stream/{session_id}")
+    response = client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
 
     assert response.status_code == 200
     assert "text/event-stream" in response.headers["content-type"]
