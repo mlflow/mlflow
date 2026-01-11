@@ -18,33 +18,25 @@ _logger = logging.getLogger(__name__)
 
 @dataclass
 class OnlineSessionScoringCheckpoint:
-    """Checkpoint for session-level online scoring."""
-
     timestamp_ms: int
     session_id: str | None = None
 
     def to_json(self) -> str:
-        """Serialize checkpoint to JSON string."""
         return json.dumps(asdict(self))
 
     @classmethod
     def from_json(cls, json_str: str) -> "OnlineSessionScoringCheckpoint":
-        """Deserialize checkpoint from JSON string."""
         data = json.loads(json_str)
         return cls(**data)
 
 
 @dataclass
 class OnlineSessionScoringTimeWindow:
-    """Time window for session-level online scoring."""
-
     min_last_trace_timestamp_ms: int
     max_last_trace_timestamp_ms: int
 
 
 class OnlineSessionCheckpointManager:
-    """Manages checkpoint timestamps for session-level online scoring."""
-
     def __init__(self, tracking_store: AbstractStore, experiment_id: str):
         self._tracking_store = tracking_store
         self._experiment_id = experiment_id
