@@ -3,6 +3,7 @@ import random
 import sys
 import threading
 import time
+import urllib.parse
 import uuid
 import warnings
 from dataclasses import asdict
@@ -23,6 +24,26 @@ from mlflow.telemetry.installation_id import get_or_create_installation_id
 from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get_source_sdk
 from mlflow.telemetry.utils import _get_config_url, _log_error, is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
+
+
+def _is_localhost_uri(uri: str) -> bool | None:
+    """
+    Check if the given URI points to localhost.
+
+    Returns:
+        True if the URI points to localhost, False if it points to a remote host,
+        or None if the URI cannot be parsed.
+    """
+    try:
+        parsed = urllib.parse.urlparse(uri)
+        hostname = parsed.hostname or ""
+        return (
+            hostname in (".", "::1")
+            or hostname.startswith("localhost")
+            or hostname.startswith("127.0.0.1")
+        )
+    except Exception:
+        return None
 
 
 class TelemetryClient:
@@ -348,9 +369,17 @@ class TelemetryClient:
         """
         try:
             # import here to avoid circular import
-            from mlflow.tracking._tracking_service.utils import _get_tracking_scheme
+            from mlflow.tracking._tracking_service.utils import (
+                _get_tracking_scheme,
+                get_tracking_uri,
+            )
 
-            self.info["tracking_uri_scheme"] = _get_tracking_scheme()
+            scheme = _get_tracking_scheme()
+            self.info["tracking_uri_scheme"] = scheme
+
+            # Check if http/https points to localhost
+            if scheme in ("http", "https"):
+                self.info["is_localhost"] = _is_localhost_uri(get_tracking_uri())
         except Exception as e:
             _log_error(f"Failed to update backend store: {e}")
 
