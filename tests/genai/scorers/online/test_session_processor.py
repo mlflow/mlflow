@@ -86,6 +86,16 @@ def make_processor(loader, checkpoint_mgr, sampler, store):
     )
 
 
+def make_assessment(assessment_id: str, name: str, session_id: str | None = None):
+    assessment = MagicMock(spec=Assessment)
+    assessment.assessment_id = assessment_id
+    assessment.name = name
+    assessment.metadata = (
+        {AssessmentMetadataKey.ONLINE_SCORING_SESSION_ID: session_id} if session_id else {}
+    )
+    return assessment
+
+
 @pytest.fixture
 def mock_trace_loader():
     return MagicMock(spec=OnlineTraceLoader)
@@ -114,6 +124,26 @@ def sampler_with_scorers():
 @pytest.fixture
 def empty_sampler():
     return OnlineScorerSampler([])
+
+
+@pytest.fixture
+def mock_evaluate():
+    with patch("mlflow.genai.evaluation.session_utils.evaluate_session_level_scorers") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_log_assessments():
+    with patch("mlflow.genai.evaluation.harness._log_assessments") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_score_session():
+    with patch(
+        "mlflow.genai.scorers.online.session_processor.OnlineSessionScoringProcessor._score_session"
+    ) as mock:
+        yield mock
 
 
 def test_process_sessions_skips_when_no_scorers(
@@ -155,7 +185,11 @@ def test_process_sessions_updates_checkpoint_when_no_sessions(
 
 
 def test_process_sessions_filters_checkpoint_boundary(
-    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store, sampler_with_scorers
+    mock_trace_loader,
+    mock_checkpoint_manager,
+    mock_tracking_store,
+    sampler_with_scorers,
+    mock_score_session,
 ):
     """
     Scenario: Four sessions exist at the checkpoint boundary (timestamp=1000),
@@ -178,19 +212,20 @@ def test_process_sessions_filters_checkpoint_boundary(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
+    processor.process_sessions()
 
-    with patch(
-        "mlflow.genai.scorers.online.session_processor.OnlineSessionScoringProcessor._score_session"
-    ) as mock_score:
-        processor.process_sessions()
-        assert mock_score.call_count == 2
-        scored_tasks = [call[0][0] for call in mock_score.call_args_list]
-        assert scored_tasks[0].session.session_id == "sess-003"
-        assert scored_tasks[1].session.session_id == "sess-004"
+    assert mock_score_session.call_count == 2
+    scored_tasks = [call[0][0] for call in mock_score_session.call_args_list]
+    assert scored_tasks[0].session.session_id == "sess-003"
+    assert scored_tasks[1].session.session_id == "sess-004"
 
 
 def test_session_rescored_when_new_trace_added_after_checkpoint(
-    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store, sampler_with_scorers
+    mock_trace_loader,
+    mock_checkpoint_manager,
+    mock_tracking_store,
+    sampler_with_scorers,
+    mock_evaluate,
 ):
     """
     Scenario: A session (sess-001) was previously scored when its last trace was at
@@ -217,21 +252,22 @@ def test_session_rescored_when_new_trace_added_after_checkpoint(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
+    mock_evaluate.return_value = {}
+    processor.process_sessions()
 
-    with patch(
-        "mlflow.genai.evaluation.session_utils.evaluate_session_level_scorers"
-    ) as mock_evaluate:
-        mock_evaluate.return_value = {}
-        processor.process_sessions()
-
-        call_kwargs = mock_evaluate.call_args[1]
-        assert call_kwargs["session_id"] == "sess-001"
-        assert len(call_kwargs["session_items"]) == 2
-        assert len(call_kwargs["multi_turn_scorers"]) == 1
+    call_kwargs = mock_evaluate.call_args[1]
+    assert call_kwargs["session_id"] == "sess-001"
+    assert len(call_kwargs["session_items"]) == 2
+    assert len(call_kwargs["multi_turn_scorers"]) == 1
 
 
 def test_process_sessions_samples_and_scores(
-    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store, sampler_with_scorers
+    mock_trace_loader,
+    mock_checkpoint_manager,
+    mock_tracking_store,
+    sampler_with_scorers,
+    mock_evaluate,
+    mock_log_assessments,
 ):
     """
     Scenario: A completed session is found with traces, and sampling selects scorers to run.
@@ -247,25 +283,22 @@ def test_process_sessions_samples_and_scores(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
+    mock_evaluate.return_value = {"tr-001": [MagicMock()]}
+    processor.process_sessions()
 
-    with (
-        patch(
-            "mlflow.genai.evaluation.session_utils.evaluate_session_level_scorers"
-        ) as mock_evaluate,
-        patch("mlflow.genai.evaluation.harness._log_assessments") as mock_log,
-    ):
-        mock_evaluate.return_value = {"tr-001": [MagicMock()]}
-        processor.process_sessions()
-
-        call_kwargs = mock_evaluate.call_args[1]
-        assert call_kwargs["session_id"] == "sess-001"
-        assert len(call_kwargs["session_items"]) == 1
-        assert len(call_kwargs["multi_turn_scorers"]) == 1
-        mock_log.assert_called_once()
+    call_kwargs = mock_evaluate.call_args[1]
+    assert call_kwargs["session_id"] == "sess-001"
+    assert len(call_kwargs["session_items"]) == 1
+    assert len(call_kwargs["multi_turn_scorers"]) == 1
+    mock_log_assessments.assert_called_once()
 
 
 def test_process_sessions_updates_checkpoint_on_success(
-    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store, sampler_with_scorers
+    mock_trace_loader,
+    mock_checkpoint_manager,
+    mock_tracking_store,
+    sampler_with_scorers,
+    mock_score_session,
 ):
     """
     Scenario: Two sessions are successfully scored (sess-001 at timestamp 1000,
@@ -281,11 +314,7 @@ def test_process_sessions_updates_checkpoint_on_success(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
-
-    with patch(
-        "mlflow.genai.scorers.online.session_processor.OnlineSessionScoringProcessor._score_session"
-    ):
-        processor.process_sessions()
+    processor.process_sessions()
 
     checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
     assert checkpoint.timestamp_ms == 1500
@@ -293,7 +322,11 @@ def test_process_sessions_updates_checkpoint_on_success(
 
 
 def test_execute_session_scoring_handles_failures(
-    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store, sampler_with_scorers
+    mock_trace_loader,
+    mock_checkpoint_manager,
+    mock_tracking_store,
+    sampler_with_scorers,
+    mock_score_session,
 ):
     """
     Scenario: Two sessions need scoring, but the first one (sess-001) fails with an error
@@ -310,14 +343,10 @@ def test_execute_session_scoring_handles_failures(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
+    mock_score_session.side_effect = [Exception("Session failed"), None]
+    processor.process_sessions()
 
-    with patch(
-        "mlflow.genai.scorers.online.session_processor.OnlineSessionScoringProcessor._score_session"
-    ) as mock_score:
-        mock_score.side_effect = [Exception("Session failed"), None]
-        processor.process_sessions()
-        assert mock_score.call_count == 2
-
+    assert mock_score_session.call_count == 2
     checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
     assert checkpoint.timestamp_ms == 1500
     assert checkpoint.session_id == "sess-002"
@@ -372,7 +401,12 @@ def test_score_session_excludes_eval_run_traces(
 
 
 def test_score_session_adds_session_metadata_to_assessments(
-    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store, sampler_with_scorers
+    mock_trace_loader,
+    mock_checkpoint_manager,
+    mock_tracking_store,
+    sampler_with_scorers,
+    mock_evaluate,
+    mock_log_assessments,
 ):
     """
     Scenario: Session scoring produces assessments that need to be logged.
@@ -389,27 +423,22 @@ def test_score_session_adds_session_metadata_to_assessments(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
+    feedback = make_assessment("new-id", "ConversationCompleteness/v1")
+    mock_evaluate.return_value = {"tr-001": [feedback]}
+    processor.process_sessions()
 
-    with (
-        patch(
-            "mlflow.genai.evaluation.session_utils.evaluate_session_level_scorers"
-        ) as mock_evaluate,
-        patch("mlflow.genai.evaluation.harness._log_assessments") as mock_log,
-    ):
-        feedback = MagicMock(spec=Assessment)
-        feedback.metadata = {}
-        mock_evaluate.return_value = {"tr-001": [feedback]}
-        processor.process_sessions()
-
-        logged_feedbacks = mock_log.call_args[1]["assessments"]
-        assert (
-            logged_feedbacks[0].metadata[AssessmentMetadataKey.ONLINE_SCORING_SESSION_ID]
-            == "sess-001"
-        )
+    logged_feedbacks = mock_log_assessments.call_args[1]["assessments"]
+    assert (
+        logged_feedbacks[0].metadata[AssessmentMetadataKey.ONLINE_SCORING_SESSION_ID] == "sess-001"
+    )
 
 
 def test_score_session_skips_when_no_traces_found(
-    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store, sampler_with_scorers
+    mock_trace_loader,
+    mock_checkpoint_manager,
+    mock_tracking_store,
+    sampler_with_scorers,
+    mock_evaluate,
 ):
     """
     Scenario: A session is marked as completed, but no traces are found for it
@@ -425,16 +454,13 @@ def test_score_session_skips_when_no_traces_found(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
+    processor.process_sessions()
 
-    with patch(
-        "mlflow.genai.evaluation.session_utils.evaluate_session_level_scorers"
-    ) as mock_evaluate:
-        processor.process_sessions()
-        mock_evaluate.assert_not_called()
+    mock_evaluate.assert_not_called()
 
 
 def test_score_session_skips_when_no_applicable_scorers(
-    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store
+    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store, mock_evaluate
 ):
     """
     Scenario: A session exists with traces, but sampling excludes all scorers
@@ -452,12 +478,9 @@ def test_score_session_skips_when_no_applicable_scorers(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler, mock_tracking_store
     )
+    processor.process_sessions()
 
-    with patch(
-        "mlflow.genai.evaluation.session_utils.evaluate_session_level_scorers"
-    ) as mock_evaluate:
-        processor.process_sessions()
-        mock_evaluate.assert_not_called()
+    mock_evaluate.assert_not_called()
 
 
 def test_checkpoint_advances_when_all_traces_are_from_eval_runs(
@@ -487,7 +510,12 @@ def test_checkpoint_advances_when_all_traces_are_from_eval_runs(
 
 
 def test_clean_up_old_assessments_removes_duplicates(
-    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store, sampler_with_scorers
+    mock_trace_loader,
+    mock_checkpoint_manager,
+    mock_tracking_store,
+    sampler_with_scorers,
+    mock_evaluate,
+    mock_log_assessments,
 ):
     """
     Scenario: A session is re-scored, and there's an old assessment from a previous
@@ -497,11 +525,7 @@ def test_clean_up_old_assessments_removes_duplicates(
     preventing accumulation of duplicate assessments when sessions are re-scored
     (e.g., when new traces are added).
     """
-    old_assessment = MagicMock(spec=Assessment)
-    old_assessment.assessment_id = "old-id"
-    old_assessment.name = "ConversationCompleteness/v1"
-    old_assessment.metadata = {AssessmentMetadataKey.ONLINE_SCORING_SESSION_ID: "sess-001"}
-
+    old_assessment = make_assessment("old-id", "ConversationCompleteness/v1", session_id="sess-001")
     mock_tracking_store.find_completed_sessions.return_value = [
         make_completed_session("sess-001", 500, 1500)
     ]
@@ -512,27 +536,22 @@ def test_clean_up_old_assessments_removes_duplicates(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
+    new_assessment = make_assessment("new-id", "ConversationCompleteness/v1")
+    mock_evaluate.return_value = {"tr-001": [new_assessment]}
+    processor.process_sessions()
 
-    with (
-        patch(
-            "mlflow.genai.evaluation.session_utils.evaluate_session_level_scorers"
-        ) as mock_evaluate,
-        patch("mlflow.genai.evaluation.harness._log_assessments"),
-    ):
-        new_assessment = MagicMock(spec=Assessment)
-        new_assessment.assessment_id = "new-id"
-        new_assessment.name = "ConversationCompleteness/v1"
-        new_assessment.metadata = {}
-        mock_evaluate.return_value = {"tr-001": [new_assessment]}
-        processor.process_sessions()
-
-        mock_tracking_store.delete_assessment.assert_called_once_with(
-            trace_id="tr-001", assessment_id="old-id"
-        )
+    mock_tracking_store.delete_assessment.assert_called_once_with(
+        trace_id="tr-001", assessment_id="old-id"
+    )
 
 
 def test_clean_up_old_assessments_preserves_different_sessions(
-    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store, sampler_with_scorers
+    mock_trace_loader,
+    mock_checkpoint_manager,
+    mock_tracking_store,
+    sampler_with_scorers,
+    mock_evaluate,
+    mock_log_assessments,
 ):
     """
     Scenario: A trace has an old assessment from a different session (sess-002),
@@ -541,11 +560,7 @@ def test_clean_up_old_assessments_preserves_different_sessions(
     The processor should NOT delete the old assessment since it belongs to a different
     session, preserving assessments from all sessions that the trace participates in.
     """
-    old_assessment = MagicMock(spec=Assessment)
-    old_assessment.assessment_id = "old-id"
-    old_assessment.name = "ConversationCompleteness/v1"
-    old_assessment.metadata = {AssessmentMetadataKey.ONLINE_SCORING_SESSION_ID: "sess-002"}
-
+    old_assessment = make_assessment("old-id", "ConversationCompleteness/v1", session_id="sess-002")
     mock_tracking_store.find_completed_sessions.return_value = [
         make_completed_session("sess-001", 500, 1500)
     ]
@@ -556,21 +571,11 @@ def test_clean_up_old_assessments_preserves_different_sessions(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
+    new_assessment = make_assessment("new-id", "ConversationCompleteness/v1")
+    mock_evaluate.return_value = {"tr-001": [new_assessment]}
+    processor.process_sessions()
 
-    with (
-        patch(
-            "mlflow.genai.evaluation.session_utils.evaluate_session_level_scorers"
-        ) as mock_evaluate,
-        patch("mlflow.genai.evaluation.harness._log_assessments"),
-    ):
-        new_assessment = MagicMock(spec=Assessment)
-        new_assessment.assessment_id = "new-id"
-        new_assessment.name = "ConversationCompleteness/v1"
-        new_assessment.metadata = {}
-        mock_evaluate.return_value = {"tr-001": [new_assessment]}
-        processor.process_sessions()
-
-        mock_tracking_store.delete_assessment.assert_not_called()
+    mock_tracking_store.delete_assessment.assert_not_called()
 
 
 def test_fetch_sessions_calls_once_per_filter_when_scorers_have_different_filters(
