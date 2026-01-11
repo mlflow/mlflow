@@ -1,11 +1,11 @@
 """SIMBA alignment optimizer implementation."""
 
 import logging
-from contextlib import contextmanager
-from typing import Any, Callable, ClassVar, Collection, Iterator
+from typing import Any, Callable, ClassVar, Collection
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
+from mlflow.genai.judges.optimizers.dspy_utils import suppress_verbose_logging
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.utils.annotations import experimental
 
@@ -19,27 +19,6 @@ except ImportError:
     )
 
 _logger = logging.getLogger(__name__)
-
-
-@contextmanager
-def _suppress_verbose_logging(
-    logger_name: str, threshold_level: int = logging.DEBUG
-) -> Iterator[None]:
-    """
-    Context manager to suppress verbose logging from a specific logger.
-
-    Args:
-        logger_name: Name of the logger to control
-        threshold_level: Only suppress if MLflow logger is above this level
-    """
-    logger = logging.getLogger(logger_name)
-    original_level = logger.level
-    try:
-        if _logger.getEffectiveLevel() > threshold_level:
-            logger.setLevel(logging.WARNING)
-        yield
-    finally:
-        logger.setLevel(original_level)
 
 
 @experimental(version="3.4.0")
@@ -119,7 +98,7 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
         Returns:
             Optimized DSPy program
         """
-        with _suppress_verbose_logging("dspy.teleprompt.simba"):
+        with suppress_verbose_logging("dspy.teleprompt.simba"):
             # Build SIMBA optimizer kwargs starting with required parameters
             # If metric is in simba_kwargs, it will override the default metric_fn
             optimizer_kwargs = {
