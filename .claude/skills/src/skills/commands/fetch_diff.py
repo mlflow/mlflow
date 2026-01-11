@@ -112,7 +112,6 @@ def filter_diff(full_diff: str) -> str:
 
 
 async def fetch_diff(pr_url: str) -> str:
-    """Fetch and filter PR diff."""
     owner, repo, pr_number = parse_pr_url(pr_url)
 
     async with GitHubClient() as client:
@@ -133,13 +132,11 @@ async def fetch_diff(pr_url: str) -> str:
 
 
 def register(subparsers) -> None:
-    """Register fetch-diff subcommand."""
     parser = subparsers.add_parser("fetch-diff", help="Fetch PR diff with line numbers")
     parser.add_argument("pr_url", help="GitHub PR URL")
     parser.set_defaults(func=run)
 
 
 def run(args) -> None:
-    """Execute fetch-diff command."""
     result = asyncio.run(fetch_diff(args.pr_url))
     print(result)
