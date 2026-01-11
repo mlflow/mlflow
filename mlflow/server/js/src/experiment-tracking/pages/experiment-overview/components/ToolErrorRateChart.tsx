@@ -23,7 +23,7 @@ import {
   OverviewChartTimeLabel,
   useChartTooltipStyle,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { formatTimestampForTraceMetrics } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
@@ -42,7 +42,7 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const scrollableLegendProps = useScrollableLegendProps();
 
   const chartLineColor = lineColor || theme.colors.red500;
 
@@ -149,7 +149,7 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
               cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
               formatter={(value: number) => [`${value.toFixed(2)}%`, 'Error Rate']}
             />
-            <Legend iconType="plainline" formatter={legendFormatter} />
+            <Legend iconType="plainline" {...scrollableLegendProps} />
             <Line
               type="monotone"
               dataKey="errorRate"
