@@ -529,5 +529,5 @@ timeout = 1200
 # Currently, type checking is only enabled for `dev/clint` and `.claude/skills`.
 [tool.mypy]
 python_version = "3.10"
-disallow_untyped_defs = true
+strict = true
 exclude_gitignore = true

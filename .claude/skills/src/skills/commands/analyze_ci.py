@@ -1,6 +1,8 @@
 # ruff: noqa: T201
 """Analyze failed GitHub Action jobs."""
 
+from __future__ import annotations
+
 import argparse
 import asyncio
 import json
@@ -302,7 +304,7 @@ async def cmd_analyze_async(urls: list[str], debug: bool = False) -> None:
     print(summary)
 
 
-def register(subparsers: argparse._SubParsersAction) -> None:
+def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = subparsers.add_parser("analyze-ci", help="Analyze failed CI jobs")
     parser.add_argument("urls", nargs="+", help="PR URL or job URL(s)")
     parser.add_argument("--debug", action="store_true", help="Show token/cost info")
