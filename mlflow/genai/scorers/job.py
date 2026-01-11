@@ -73,7 +73,6 @@ def run_online_trace_scorer_job(
     This job is exclusive per experiment_id to prevent duplicate scoring of the same
     experiment. Multiple jobs with different scorers for the same experiment will not
     run simultaneously, ensuring consistent checkpoint management.
-    duplicate scoring of the same traces.
 
     Args:
         experiment_id: The experiment ID to fetch traces from.
