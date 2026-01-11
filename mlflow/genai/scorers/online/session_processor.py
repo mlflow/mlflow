@@ -160,8 +160,8 @@ class OnlineSessionScoringProcessor:
             checkpoint: Current checkpoint with timestamp and session_id
 
         Returns:
-            List of SessionScoringTask objects sorted by (session.last_trace_timestamp_ms ASC,
-            session.session_id ASC), each containing a session and applicable scorers
+            List of SessionScoringTask objects, each containing a session and applicable scorers,
+            sorted by (session.last_trace_timestamp_ms ASC, session.session_id ASC)
         """
         # Group session-level scorers by their filter_string
         session_scorers_by_filter = self._sampler.group_scorers_by_filter(session_level=True)
