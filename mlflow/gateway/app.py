@@ -122,8 +122,7 @@ def _create_chat_endpoint(prov: Provider):
     ) -> chat.ResponsePayload | chat.StreamResponsePayload:
         if payload.stream:
             return await make_streaming_response(prov.chat_stream(payload))
-        else:
-            return await prov.chat(payload)
+        return await prov.chat(payload)
 
     return _chat
 
@@ -135,8 +134,7 @@ def _create_completions_endpoint(prov: Provider):
     ) -> completions.ResponsePayload | completions.StreamResponsePayload:
         if payload.stream:
             return await make_streaming_response(prov.completions_stream(payload))
-        else:
-            return await prov.completions(payload)
+        return await prov.completions(payload)
 
     return _completions
 
@@ -230,41 +228,6 @@ class ListEndpointsResponse(BaseModel):
 
 class _LegacySearchRoutesResponse(BaseModel):
     routes: list[_LegacyRoute]
-    next_page_token: str | None = None
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "endpoints": [
-                    {
-                        "name": "openai-chat",
-                        "route_type": "llm/v1/chat",
-                        "model": {
-                            "name": "gpt-4o-mini",
-                            "provider": "openai",
-                        },
-                    },
-                    {
-                        "name": "anthropic-completions",
-                        "route_type": "llm/v1/completions",
-                        "model": {
-                            "name": "claude-instant-100k",
-                            "provider": "anthropic",
-                        },
-                    },
-                    {
-                        "name": "cohere-embeddings",
-                        "route_type": "llm/v1/embeddings",
-                        "model": {
-                            "name": "embed-english-v2.0",
-                            "provider": "cohere",
-                        },
-                    },
-                ],
-                "next_page_token": "eyJpbmRleCI6IDExfQ==",
-            }
-        }
-    )
 
 
 def create_app_from_config(config: GatewayConfig) -> GatewayAPI:

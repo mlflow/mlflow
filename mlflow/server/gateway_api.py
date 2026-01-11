@@ -7,12 +7,14 @@ functionality directly into the MLflow tracking server.
 """
 
 import logging
+import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
+from mlflow.entities.gateway_usage import InvocationStatus, ProviderCallInput, ProviderCallStatus
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AnthropicConfig,
@@ -29,7 +31,9 @@ from mlflow.gateway.providers.base import (
     PASSTHROUGH_ROUTES,
     BaseProvider,
     FallbackProvider,
+    ProviderCallResult,
     PassthroughAction,
+    ProviderCallAttempt,
     TrafficRouteProvider,
 )
 from mlflow.gateway.schemas import chat, embeddings
@@ -48,6 +52,183 @@ from mlflow.tracking._tracking_service.utils import _get_store
 _logger = logging.getLogger(__name__)
 
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
+
+
+def _extract_usage_from_response(response: Any) -> dict[str, int]:
+    """Extract token usage from a provider response."""
+    usage = {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+    }
+
+    if response is None:
+        return usage
+
+    usage_obj = None
+    if hasattr(response, "usage") and response.usage is not None:
+        usage_obj = response.usage
+    elif isinstance(response, dict) and "usage" in response:
+        usage_obj = response["usage"]
+
+    if usage_obj is not None:
+        if hasattr(usage_obj, "prompt_tokens"):
+            usage["prompt_tokens"] = usage_obj.prompt_tokens or 0
+            usage["completion_tokens"] = usage_obj.completion_tokens or 0
+            usage["total_tokens"] = usage_obj.total_tokens or 0
+        elif isinstance(usage_obj, dict):
+            usage["prompt_tokens"] = usage_obj.get("prompt_tokens", 0) or 0
+            usage["completion_tokens"] = usage_obj.get("completion_tokens", 0) or 0
+            usage["total_tokens"] = usage_obj.get("total_tokens", 0) or 0
+
+    return usage
+
+
+def _calculate_cost(
+    model: str,
+    provider: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+) -> dict[str, float]:
+    """Calculate the cost of a provider call using litellm if available."""
+    cost = {
+        "prompt_cost": 0.0,
+        "completion_cost": 0.0,
+        "total_cost": 0.0,
+    }
+
+    try:
+        from litellm import cost_per_token
+
+        provider_model = f"{provider}/{model}" if provider else model
+        prompt_cost, completion_cost = cost_per_token(
+            model=provider_model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+        )
+        cost["prompt_cost"] = prompt_cost
+        cost["completion_cost"] = completion_cost
+        cost["total_cost"] = prompt_cost + completion_cost
+    except ImportError:
+        _logger.debug("litellm not installed, skipping cost calculation")
+    except Exception as e:
+        _logger.debug(f"Failed to calculate cost: {e}")
+
+    return cost
+
+
+def _create_provider_call_input(
+    attempt: ProviderCallAttempt,
+) -> ProviderCallInput:
+    """Create ProviderCallInput from a ProviderCallAttempt, extracting usage and cost."""
+    if attempt.success and attempt.response is not None:
+        usage = _extract_usage_from_response(attempt.response)
+        cost = _calculate_cost(
+            model=attempt.model_name,
+            provider=attempt.provider_name,
+            prompt_tokens=usage["prompt_tokens"],
+            completion_tokens=usage["completion_tokens"],
+        )
+    else:
+        usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        cost = {"prompt_cost": 0.0, "completion_cost": 0.0, "total_cost": 0.0}
+
+    return ProviderCallInput(
+        provider=attempt.provider_name,
+        model_name=attempt.model_name,
+        attempt_number=attempt.attempt_number,
+        status=ProviderCallStatus.SUCCESS if attempt.success else ProviderCallStatus.ERROR,
+        latency_ms=attempt.latency_ms,
+        prompt_tokens=usage["prompt_tokens"],
+        completion_tokens=usage["completion_tokens"],
+        total_tokens=usage["total_tokens"],
+        prompt_cost=cost["prompt_cost"],
+        completion_cost=cost["completion_cost"],
+        total_cost=cost["total_cost"],
+        error_message=attempt.error_message,
+    )
+
+
+def _log_invocation(
+    store: SqlAlchemyStore,
+    endpoint_id: str,
+    endpoint_type: str,
+    fallback_result: ProviderCallResult,
+    total_latency_ms: int,
+) -> None:
+    """
+    Log a gateway invocation with all provider attempts to the tracking store.
+
+    This unified function handles both single-provider and fallback scenarios.
+    All provider call attempts (including failed ones) are logged for metrics tracking.
+
+    Args:
+        store: The SQLAlchemy store instance.
+        endpoint_id: ID of the gateway endpoint.
+        endpoint_type: Type of the endpoint (e.g., "llm/v1/chat").
+        fallback_result: The ProviderCallResult containing all provider attempts.
+        total_latency_ms: Total latency in milliseconds for the entire invocation.
+    """
+    try:
+        provider_calls = [
+            _create_provider_call_input(attempt)
+            for attempt in fallback_result.attempts
+        ]
+
+        # Determine overall status
+        if fallback_result.success:
+            failed_attempts = sum(1 for a in fallback_result.attempts if not a.success)
+            status = InvocationStatus.PARTIAL if failed_attempts > 0 else InvocationStatus.SUCCESS
+            error_message = None
+        else:
+            status = InvocationStatus.ERROR
+            error_messages = [
+                a.error_message for a in fallback_result.attempts if a.error_message
+            ]
+            error_message = (
+                "; ".join(error_messages) if error_messages else "All attempts failed"
+            )
+
+        store.log_gateway_invocation(
+            endpoint_id=endpoint_id,
+            endpoint_type=endpoint_type,
+            status=status,
+            provider_calls=provider_calls,
+            total_latency_ms=total_latency_ms,
+            username=None,  # TODO: Extract from request context if available
+            error_message=error_message,
+        )
+    except Exception as e:
+        _logger.warning(f"Failed to log gateway invocation: {e}")
+
+
+def _create_single_attempt_result(
+    provider_name: str,
+    model_name: str,
+    response: Any,
+    latency_ms: int,
+    success: bool,
+    error_message: str | None = None,
+) -> ProviderCallResult:
+    """
+    Create a ProviderCallResult for a single provider call (non-fallback scenario).
+
+    This allows unified logging for both single-provider and fallback scenarios.
+    """
+    attempt = ProviderCallAttempt(
+        provider_name=provider_name,
+        model_name=model_name,
+        attempt_number=1,
+        success=success,
+        latency_ms=latency_ms,
+        response=response,
+        error_message=error_message,
+    )
+    return ProviderCallResult(
+        response=response,
+        attempts=[attempt],
+        success=success,
+    )
 
 
 def _build_endpoint_config(
@@ -246,9 +427,9 @@ def _create_provider_from_endpoint_name(
     store: SqlAlchemyStore,
     endpoint_name: str,
     endpoint_type: EndpointType,
-) -> BaseProvider:
+) -> tuple[BaseProvider, str]:
     """
-    Create a provider from an endpoint name (backward compatibility helper for tests).
+    Create a provider from an endpoint name.
 
     Args:
         store: The SQLAlchemy store instance.
@@ -256,10 +437,10 @@ def _create_provider_from_endpoint_name(
         endpoint_type: Endpoint type (chat or embeddings).
 
     Returns:
-        Provider instance
+        Tuple of (provider instance, endpoint_id)
     """
     endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
-    return _create_provider(endpoint_config, endpoint_type)
+    return _create_provider(endpoint_config, endpoint_type), endpoint_config.endpoint_id
 
 
 def _validate_store(store: AbstractStore) -> None:
@@ -293,6 +474,23 @@ def _extract_endpoint_name_from_model(body: dict[str, Any]) -> str:
     return endpoint_name
 
 
+def _get_provider_info(provider: BaseProvider) -> tuple[str, str]:
+    """Extract provider name and model name from a provider instance."""
+    if hasattr(provider, "NAME"):
+        provider_name = provider.NAME
+    elif hasattr(provider, "config") and hasattr(provider.config, "model"):
+        provider_name = provider.config.model.provider
+    else:
+        provider_name = "unknown"
+
+    if hasattr(provider, "config") and hasattr(provider.config, "model"):
+        model_name = provider.config.model.name
+    else:
+        model_name = "unknown"
+
+    return provider_name, model_name
+
+
 @gateway_router.post("/{endpoint_name}/mlflow/invocations", response_model=None)
 @translate_http_exception
 async def invocations(endpoint_name: str, request: Request):
@@ -321,12 +519,42 @@ async def invocations(endpoint_name: str, request: Request):
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-        provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
+        provider, endpoint_id = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
+        provider_name, model_name = _get_provider_info(provider)
 
         if payload.stream:
+            # For streaming, we can't easily track usage as tokens come incrementally
             return await make_streaming_response(provider.chat_stream(payload))
         else:
-            return await provider.chat(payload)
+            start_time = time.time()
+            try:
+                # FallbackProvider returns (response, fallback_result) tuple
+                if isinstance(provider, FallbackProvider):
+                    response, fallback_result = await provider.chat(payload)
+                else:
+                    response = await provider.chat(payload)
+                    latency_ms = int((time.time() - start_time) * 1000)
+                    fallback_result = _create_single_attempt_result(
+                        provider_name, model_name, response, latency_ms, success=True
+                    )
+                latency_ms = int((time.time() - start_time) * 1000)
+                _log_invocation(
+                    store, endpoint_id, endpoint_type.value, fallback_result, latency_ms
+                )
+                return response
+            except Exception as e:
+                latency_ms = int((time.time() - start_time) * 1000)
+                # Check if exception has fallback_result attached (from FallbackProvider)
+                fallback_result = getattr(e, "fallback_result", None)
+                if not fallback_result:
+                    fallback_result = _create_single_attempt_result(
+                        provider_name, model_name, None, latency_ms,
+                        success=False, error_message=str(e)
+                    )
+                _log_invocation(
+                    store, endpoint_id, endpoint_type.value, fallback_result, latency_ms
+                )
+                raise
 
     elif "input" in body:
         # Embeddings request
@@ -336,9 +564,38 @@ async def invocations(endpoint_name: str, request: Request):
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid embeddings payload: {e!s}")
 
-        provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
+        provider, endpoint_id = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
+        provider_name, model_name = _get_provider_info(provider)
 
-        return await provider.embeddings(payload)
+        start_time = time.time()
+        try:
+            # FallbackProvider returns (response, fallback_result) tuple
+            if isinstance(provider, FallbackProvider):
+                response, fallback_result = await provider.embeddings(payload)
+            else:
+                response = await provider.embeddings(payload)
+                latency_ms = int((time.time() - start_time) * 1000)
+                fallback_result = _create_single_attempt_result(
+                    provider_name, model_name, response, latency_ms, success=True
+                )
+            latency_ms = int((time.time() - start_time) * 1000)
+            _log_invocation(
+                store, endpoint_id, endpoint_type.value, fallback_result, latency_ms
+            )
+            return response
+        except Exception as e:
+            latency_ms = int((time.time() - start_time) * 1000)
+            # Check if exception has fallback_result attached (from FallbackProvider)
+            fallback_result = getattr(e, "fallback_result", None)
+            if not fallback_result:
+                fallback_result = _create_single_attempt_result(
+                    provider_name, model_name, None, latency_ms,
+                    success=False, error_message=str(e)
+                )
+            _log_invocation(
+                store, endpoint_id, endpoint_type.value, fallback_result, latency_ms
+            )
+            raise
 
     else:
         raise HTTPException(
@@ -383,12 +640,42 @@ async def chat_completions(request: Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-    provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
+    provider, endpoint_id = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
+    provider_name, model_name = _get_provider_info(provider)
 
     if payload.stream:
+        # For streaming, we can't easily track usage as tokens come incrementally
         return await make_streaming_response(provider.chat_stream(payload))
     else:
-        return await provider.chat(payload)
+        start_time = time.time()
+        try:
+            # FallbackProvider returns (response, fallback_result) tuple
+            if isinstance(provider, FallbackProvider):
+                response, fallback_result = await provider.chat(payload)
+            else:
+                response = await provider.chat(payload)
+                latency_ms = int((time.time() - start_time) * 1000)
+                fallback_result = _create_single_attempt_result(
+                    provider_name, model_name, response, latency_ms, success=True
+                )
+            latency_ms = int((time.time() - start_time) * 1000)
+            _log_invocation(
+                store, endpoint_id, endpoint_type.value, fallback_result, latency_ms
+            )
+            return response
+        except Exception as e:
+            latency_ms = int((time.time() - start_time) * 1000)
+            # Check if exception has fallback_result attached (from FallbackProvider)
+            fallback_result = getattr(e, "fallback_result", None)
+            if not fallback_result:
+                fallback_result = _create_single_attempt_result(
+                    provider_name, model_name, None, latency_ms,
+                    success=False, error_message=str(e)
+                )
+            _log_invocation(
+                store, endpoint_id, endpoint_type.value, fallback_result, latency_ms
+            )
+            raise
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)
@@ -423,7 +710,7 @@ async def openai_passthrough_chat(request: Request):
     _validate_store(store)
 
     headers = dict(request.headers)
-    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
     response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
 
     if body.get("stream"):
@@ -459,7 +746,7 @@ async def openai_passthrough_embeddings(request: Request):
     _validate_store(store)
 
     headers = dict(request.headers)
-    provider = _create_provider_from_endpoint_name(
+    provider, _ = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
     )
     return await provider.passthrough(PassthroughAction.OPENAI_EMBEDDINGS, body, headers)
@@ -497,7 +784,7 @@ async def openai_passthrough_responses(request: Request):
     _validate_store(store)
 
     headers = dict(request.headers)
-    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
     response = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
 
     if body.get("stream"):
@@ -537,7 +824,7 @@ async def anthropic_passthrough_messages(request: Request):
     _validate_store(store)
 
     headers = dict(request.headers)
-    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
     response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
 
     if body.get("stream"):
@@ -577,7 +864,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     _validate_store(store)
 
     headers = dict(request.headers)
-    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
     return await provider.passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, body, headers)
 
 
@@ -613,7 +900,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     _validate_store(store)
 
     headers = dict(request.headers)
-    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
+    provider, _ = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
     response = await provider.passthrough(
         PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, body, headers
     )
