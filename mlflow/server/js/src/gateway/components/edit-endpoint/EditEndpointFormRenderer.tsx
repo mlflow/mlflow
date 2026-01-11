@@ -3,6 +3,8 @@ import {
   Alert,
   Breadcrumb,
   Button,
+  SimpleSelect,
+  SimpleSelectOption,
   Spinner,
   Tooltip,
   Typography,
@@ -10,13 +12,54 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, UseFormReturn } from 'react-hook-form';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import GatewayRoutes from '../../routes';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
 import { EndpointUsageModal } from '../endpoints/EndpointUsageModal';
+import { TokenVolumeChart, ErrorRateChart } from '../metrics';
+
+type TimeRange = '24h' | '7d' | '30d';
+
+const SECONDS_PER_HOUR = 3600;
+const SECONDS_PER_DAY = 86400;
+
+const getTimeRangeParams = (
+  timeRange: TimeRange,
+): { startTime: number; endTime: number; bucketSize: number } => {
+  const now = Date.now();
+  const hourMs = 60 * 60 * 1000;
+  const dayMs = 24 * hourMs;
+
+  switch (timeRange) {
+    case '24h':
+      return {
+        startTime: now - dayMs,
+        endTime: now,
+        bucketSize: SECONDS_PER_HOUR,
+      };
+    case '7d':
+      return {
+        startTime: now - 7 * dayMs,
+        endTime: now,
+        bucketSize: SECONDS_PER_DAY,
+      };
+    case '30d':
+      return {
+        startTime: now - 30 * dayMs,
+        endTime: now,
+        bucketSize: SECONDS_PER_DAY,
+      };
+    default:
+      return {
+        startTime: now - 7 * dayMs,
+        endTime: now,
+        bucketSize: SECONDS_PER_DAY,
+      };
+  }
+};
 
 export interface EditEndpointFormRendererProps {
   form: UseFormReturn<EditEndpointFormData>;
@@ -26,6 +69,7 @@ export interface EditEndpointFormRendererProps {
   mutationError: Error | null;
   errorMessage: string | null;
   resetErrors: () => void;
+  endpointId: string | undefined;
   endpointName: string | undefined;
   isFormComplete: boolean;
   hasChanges: boolean;
@@ -41,6 +85,7 @@ export const EditEndpointFormRenderer = ({
   loadError,
   mutationError,
   errorMessage,
+  endpointId,
   endpointName,
   isFormComplete,
   hasChanges,
@@ -50,6 +95,9 @@ export const EditEndpointFormRenderer = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
+  const [timeRange, setTimeRange] = useState<TimeRange>('7d');
+
+  const { startTime, endTime, bucketSize } = useMemo(() => getTimeRangeParams(timeRange), [timeRange]);
 
   const trafficSplitModels = form.watch('trafficSplitModels');
   const fallbackModels = form.watch('fallbackModels');
@@ -218,6 +266,70 @@ export const EditEndpointFormRenderer = ({
                     componentIdPrefix="mlflow.gateway.edit-endpoint.fallback"
                   />
                 )}
+              />
+            </div>
+          </div>
+
+          {/* Metrics Section */}
+          <div
+            css={{
+              padding: theme.spacing.md,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              backgroundColor: theme.colors.backgroundSecondary,
+            }}
+          >
+            <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography.Title level={3}>
+                <FormattedMessage defaultMessage="Metrics" description="Section title for endpoint metrics" />
+              </Typography.Title>
+              <SimpleSelect
+                id="mlflow-gateway-endpoint-metrics-time-range"
+                componentId="mlflow.gateway.endpoint-metrics.time-range"
+                value={timeRange}
+                onChange={({ target }) => setTimeRange(target.value as TimeRange)}
+                css={{ minWidth: 140 }}
+              >
+                <SimpleSelectOption value="24h">
+                  {intl.formatMessage({
+                    defaultMessage: 'Last 24 hours',
+                    description: '24 hour time range option',
+                  })}
+                </SimpleSelectOption>
+                <SimpleSelectOption value="7d">
+                  {intl.formatMessage({
+                    defaultMessage: 'Last 7 days',
+                    description: '7 day time range option',
+                  })}
+                </SimpleSelectOption>
+                <SimpleSelectOption value="30d">
+                  {intl.formatMessage({
+                    defaultMessage: 'Last 30 days',
+                    description: '30 day time range option',
+                  })}
+                </SimpleSelectOption>
+              </SimpleSelect>
+            </div>
+
+            <div
+              css={{
+                marginTop: theme.spacing.md,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                gap: theme.spacing.md,
+              }}
+            >
+              <TokenVolumeChart
+                endpointId={endpointId}
+                startTime={startTime}
+                endTime={endTime}
+                bucketSize={bucketSize}
+              />
+              <ErrorRateChart
+                endpointId={endpointId}
+                startTime={startTime}
+                endTime={endTime}
+                bucketSize={bucketSize}
               />
             </div>
           </div>
