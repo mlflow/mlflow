@@ -5,18 +5,18 @@ from mlflow.exceptions import MlflowException
 # (classpath, is_deterministic)
 _METRIC_REGISTRY = {
     # Retrieval Augmented Generation
-    "ContextPrecision": ("ragas.metrics.ContextPrecision", False),
+    "ContextPrecision": ("ragas.metrics.collections.ContextPrecision", False),
     "NonLLMContextPrecisionWithReference": (
         "ragas.metrics.NonLLMContextPrecisionWithReference",
         True,
     ),
-    "ContextRecall": ("ragas.metrics.ContextRecall", False),
+    "ContextRecall": ("ragas.metrics.collections.ContextRecall", False),
     "NonLLMContextRecall": ("ragas.metrics.NonLLMContextRecall", True),
-    "ContextEntityRecall": ("ragas.metrics.ContextEntityRecall", False),
-    "NoiseSensitivity": ("ragas.metrics.NoiseSensitivity", False),
+    "ContextEntityRecall": ("ragas.metrics.collections.ContextEntityRecall", False),
+    "NoiseSensitivity": ("ragas.metrics.collections.NoiseSensitivity", False),
     # TODO: ResponseRelevancy requires embeddings model instead of LLM
     # "ResponseRelevancy": ("ragas.metrics.ResponseRelevancy", False),
-    "Faithfulness": ("ragas.metrics.Faithfulness", False),
+    "Faithfulness": ("ragas.metrics.collections.Faithfulness", False),
     # TODO: Nvidia Metrics not yet supported
     # "AnswerAccuracy": ("ragas.metrics.AnswerAccuracy", False),
     # "ContextRelevance": ("ragas.metrics.ContextRelevance", False),
@@ -27,15 +27,18 @@ _METRIC_REGISTRY = {
     # "ToolCallF1": ("ragas.metrics.ToolCallF1", False),
     # "AgentGoalAccuracy": ("ragas.metrics.AgentGoalAccuracy", False),
     # Natural Language Comparison
-    "FactualCorrectness": ("ragas.metrics.FactualCorrectness", False),
+    "FactualCorrectness": ("ragas.metrics.collections.FactualCorrectness", False),
     # TODO: SemanticSimilarity requires embeddings model instead of LLM
     # "SemanticSimilarity": ("ragas.metrics.SemanticSimilarity", False),
-    "NonLLMStringSimilarity": ("ragas.metrics.NonLLMStringSimilarity", True),
-    "BleuScore": ("ragas.metrics.BleuScore", True),
-    "ChrfScore": ("ragas.metrics.ChrfScore", True),
-    "RougeScore": ("ragas.metrics.RougeScore", True),
-    "StringPresence": ("ragas.metrics.StringPresence", True),
-    "ExactMatch": ("ragas.metrics.ExactMatch", True),
+    "NonLLMStringSimilarity": (
+        "ragas.metrics.collections.NonLLMStringSimilarity",
+        True,
+    ),
+    "BleuScore": ("ragas.metrics.collections.BleuScore", True),
+    "CHRFScore": ("ragas.metrics.collections.CHRFScore", True),
+    "RougeScore": ("ragas.metrics.collections.RougeScore", True),
+    "StringPresence": ("ragas.metrics.collections.StringPresence", True),
+    "ExactMatch": ("ragas.metrics.collections.ExactMatch", True),
     # TODO: SQL metrics not yet supported
     # "DatacompyScore": ("ragas.metrics.DatacompyScore", False),
     # "SQLSemanticEquivalence": ("ragas.metrics.SQLSemanticEquivalence", False),
