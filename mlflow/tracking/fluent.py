@@ -2477,6 +2477,140 @@ def log_model_params(params: dict[str, str], model_id: str | None = None) -> Non
     MlflowClient().log_model_params(model_id, params)
 
 
+def import_checkpoints(
+    checkpoint_path: str,
+    source_run_id: str | None = None,
+    model_prefix: str | None = None,
+    overwrite_checkpoints: bool = False,
+) -> list[LoggedModel]:
+    """
+    Create external models for all top-level files and directories under the specified
+    checkpoint path.
+
+    Args:
+        checkpoint_path: String path to the Unity Catalog Volume location that contains the
+            checkpoints.
+            NOTE: Each path must be isolated from other models and runs. This can be specified
+            in the path directory structure, e.g.
+            "/Volumes/mycatalog/myschema/myvolume/mytrainingmodel/trainingrun1/checkpoints"
+        source_run_id: ID of the MLflow source run that these checkpoints were trained with.
+            If not provided, uses the current active run if available.
+        model_prefix: String prefix to prepend to the name of each external model created from
+            each checkpoint. If not provided, no prefix is applied.
+        overwrite_checkpoints: If True and existing models are found with the same name in the
+            associated experiment, they will be deleted and recreated to point to the latest
+            checkpoint. Defaults to False.
+
+    Returns:
+        List of created :py:class:`mlflow.entities.LoggedModel` instances.
+
+    Example:
+
+    .. code-block:: python
+
+        import mlflow
+
+        # Optionally start a run so `source_run_id` can be inferred
+        with mlflow.start_run() as run:
+            # ... training code that writes checkpoints to a UC Volume ...
+            logged_models = mlflow.import_checkpoints(
+                checkpoint_path=(
+                    "/Volumes/mycatalog/myschema/myvolume/"
+                    "mytrainingmodel/trainingrun1/checkpoints"
+                ),
+                # You can omit `source_run_id` if there is an active run.
+                # source_run_id=run.info.run_id,
+                model_prefix="my_model_",
+                overwrite_checkpoints=True,
+            )
+    """
+    from databricks.sdk import WorkspaceClient
+
+    # Validate checkpoint_path before accessing workspace files
+    if not isinstance(checkpoint_path, str) or not checkpoint_path.strip().startswith("/Volumes/"):
+        raise MlflowException(
+            "Parameter 'checkpoint_path' must be a non-empty string pointing to a Unity Catalog "
+            "Volume path that contains checkpoints, e.g. '/Volumes/...'",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Resolve source_run_id from the active run if not provided
+    if source_run_id is None:
+        if run := active_run():
+            source_run_id = run.info.run_id
+
+    if source_run_id is None:
+        raise MlflowException.invalid_parameter_value(
+            "Please set 'source_run_id' or start an active run before calling 'import_checkpoints'"
+        )
+
+    # Resolve experiment ID to operate against
+    exp_id = MlflowClient().get_run(source_run_id).info.experiment_id
+
+    ws = WorkspaceClient()
+    top_level_paths = [
+        entry.path.rstrip("/") for entry in ws.files.list_directory_contents(checkpoint_path)
+    ]
+
+    created_models: list[LoggedModel] = []
+    client = MlflowClient()
+
+    if not top_level_paths:
+        logging.getLogger(__name__).warning(
+            "No checkpoints were found at path '%s'. "
+            "Please verify that 'checkpoint_path' is correct and accessible.",
+            checkpoint_path,
+        )
+        return []
+
+    for sub_checkpoint_path in top_level_paths:
+        base_name = os.path.basename(sub_checkpoint_path)
+
+        model_name = model_prefix + base_name if model_prefix else base_name
+
+        # '?', '%', ':' are not allowed in logged model name
+        # Quotes in model name makes SQL filter hard to handle, so disable it too.
+        is_model_name_valid = True
+        for special_char in ["?", "%", ":", ".", "'", '"']:
+            if special_char in model_name:
+                is_model_name_valid = False
+                break
+
+        if not is_model_name_valid:
+            _logger.warning(
+                "The model name can't include the following special character: "
+                "`?`, `%`, ':', '.', `'` and `\"`, skip importing the model with "
+                f"name '{model_name}'.",
+            )
+            continue
+
+        existing_models = [
+            model
+            for model in search_logged_models(
+                experiment_ids=[exp_id],
+                filter_string=f"name = '{model_name}'",
+                output_format="list",
+            )
+            if model.source_run_id == source_run_id
+        ]
+
+        if existing_models and overwrite_checkpoints:
+            for model in existing_models:
+                client.delete_logged_model(model.model_id)
+
+        if not existing_models or overwrite_checkpoints:
+            # Create a new model pointing to this checkpoint path.
+            created_model = create_external_model(
+                name=model_name,
+                source_run_id=source_run_id,
+                tags={"original_artifact_path": sub_checkpoint_path},
+                experiment_id=exp_id,
+            )
+            created_models.append(created_model)
+
+    return created_models
+
+
 def finalize_logged_model(
     model_id: str, status: Literal["READY", "FAILED"] | LoggedModelStatus
 ) -> LoggedModel:
