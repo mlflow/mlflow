@@ -39,7 +39,9 @@ class JobStep(BaseModel):
 class Job(BaseModel):
     id: int
     run_id: int
+    url: str
     name: str
+    workflow_name: str
     status: str
     conclusion: str | None
     html_url: str
@@ -57,6 +59,3 @@ class JobRun(BaseModel):
     html_url: str
     created_at: str
     updated_at: str
-
-
-# TODO: Add more models when needed (no need to add them in this task tho)

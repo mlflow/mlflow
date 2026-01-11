@@ -54,21 +54,19 @@ def to_seconds(ts: str) -> str:
 
 async def iter_job_logs(
     client: GitHubClient,
-    owner: str,
-    repo: str,
-    job_id: int,
-    started_at: str,
-    completed_at: str,
+    job: Job,
+    failed_step: JobStep,
 ) -> AsyncIterator[str]:
     """Yield log lines filtered by time range."""
-    async with await client.get_raw(
-        f"/repos/{owner}/{repo}/actions/jobs/{job_id}/logs"
-    ) as response:
+    if not failed_step.started_at or not failed_step.completed_at:
+        raise ValueError(f"Failed step missing timestamps for job {job.id}")
+
+    async with await client.get_raw(f"{job.url}/logs") as response:
         response.raise_for_status()
 
         # ISO 8601 timestamps are lexicographically sortable, so we can compare as strings
-        start_secs = to_seconds(started_at)
-        end_secs = to_seconds(completed_at)
+        start_secs = to_seconds(failed_step.started_at)
+        end_secs = to_seconds(failed_step.completed_at)
         in_range = False
 
         async for line_bytes in response.content:
@@ -127,35 +125,13 @@ def truncate_logs(logs: str, max_tokens: int = MAX_LOG_TOKENS) -> str:
     return f"(showing last {max_tokens:,} tokens)\n{truncated}"
 
 
-def get_failed_step(steps: list[JobStep]) -> JobStep | None:
-    for step in steps:
-        if step.conclusion == "failure":
-            return step
-    return None
-
-
 PR_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/pull/(\d+)")
 JOB_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)/job/(\d+)")
 
 
-@dataclass
-class JobTarget:
-    owner: str
-    repo: str
-    run_id: int
-    job_id: int
-
-    @property
-    def job_url(self) -> str:
-        return (
-            f"https://github.com/{self.owner}/{self.repo}/actions/runs/"
-            f"{self.run_id}/job/{self.job_id}"
-        )
-
-
 async def get_failed_jobs_from_pr(
     client: GitHubClient, owner: str, repo: str, pr_number: int
-) -> list[JobTarget]:
+) -> list[Job]:
     log(f"Fetching https://github.com/{owner}/{repo}/pull/{pr_number}")
     pr = await client.get_pr(owner, repo, pr_number)
     head_sha = pr.head.sha
@@ -170,69 +146,50 @@ async def get_failed_jobs_from_pr(
 
     failed_jobs_results = await asyncio.gather(*[failed_jobs(run.id) for run in failed_runs])
 
-    run_job_pairs = [
-        (run, job) for run, jobs in zip(failed_runs, failed_jobs_results) for job in jobs
-    ]
-    log(f"Found {len(run_job_pairs)} failed job(s)")
+    jobs = [job for jobs in failed_jobs_results for job in jobs]
+    log(f"Found {len(jobs)} failed job(s)")
 
-    return [JobTarget(owner, repo, run.id, job.id) for run, job in run_job_pairs]
+    return jobs
 
 
-async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[JobTarget]:
-    job_runs: list[JobTarget] = []
+async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[Job]:
+    jobs: list[Job] = []
 
     for url in urls:
         if match := JOB_URL_PATTERN.search(url):
             repo_full = match.group(1)
             owner, repo = repo_full.split("/")
-            job_runs.append(JobTarget(owner, repo, int(match.group(2)), int(match.group(3))))
+            job_id = int(match.group(3))
+            job = await client.get_job(owner, repo, job_id)
+            jobs.append(job)
         elif match := PR_URL_PATTERN.search(url):
             repo_full = match.group(1)
             owner, repo = repo_full.split("/")
-            jobs = await get_failed_jobs_from_pr(client, owner, repo, int(match.group(2)))
-            job_runs.extend(jobs)
+            pr_jobs = await get_failed_jobs_from_pr(client, owner, repo, int(match.group(2)))
+            jobs.extend(pr_jobs)
         else:
             log(f"Error: Invalid URL: {url}")
             log("Expected PR URL (github.com/owner/repo/pull/123)")
             log("Or job URL (github.com/owner/repo/actions/runs/123/job/456)")
             sys.exit(1)
 
-    return job_runs
+    return jobs
 
 
-async def fetch_single_job_logs(client: GitHubClient, job: JobTarget) -> JobLogs:
-    log(f"Fetching job {job.job_id} from {job.owner}/{job.repo}")
+async def fetch_single_job_logs(client: GitHubClient, job: Job) -> JobLogs:
+    log(f"Fetching logs for '{job.workflow_name} / {job.name}'")
 
-    job_details = await client.get_job(job.owner, job.repo, job.job_id)
-    run_details = await client.get_job_run(job.owner, job.repo, job.run_id)
-
-    workflow_name = run_details.name
-    job_name = job_details.name
-    failed_step = get_failed_step(job_details.steps)
+    failed_step = next((s for s in job.steps if s.conclusion == "failure"), None)
     if not failed_step:
-        raise ValueError(f"No failed step found for job {job.job_id}")
-
-    if not failed_step.started_at or not failed_step.completed_at:
-        raise ValueError(f"Failed step missing timestamps for job {job.job_id}")
-
-    log(f"Fetching logs for '{workflow_name} / {job_name}'")
-    cleaned_logs = await compact_logs(
-        iter_job_logs(
-            client,
-            job.owner,
-            job.repo,
-            job.job_id,
-            started_at=failed_step.started_at,
-            completed_at=failed_step.completed_at,
-        )
-    )
+        raise ValueError(f"No failed step found for job {job.id}")
+    cleaned_logs = await compact_logs(iter_job_logs(client, job, failed_step))
     truncated_logs = truncate_logs(cleaned_logs)
     failed_step_name = failed_step.name
 
     return JobLogs(
-        workflow_name=workflow_name,
-        job_name=job_name,
-        job_url=job.job_url,
+        workflow_name=job.workflow_name,
+        job_name=job.name,
+        job_url=job.html_url,
         failed_step=failed_step_name,
         logs=truncated_logs,
     )
