@@ -1,16 +1,36 @@
 """Fetch unresolved PR review comments using GitHub GraphQL API.
 
 Example usage:
-    GITHUB_TOKEN=$(gh auth token) uv run --no-project .claude/skills/fetch-unresolved-comments/fetch_unresolved_comments.py mlflow mlflow 18327
-"""  # noqa: E501
+    uv run .claude/skills/fetch-unresolved-comments/fetch_unresolved_comments.py https://github.com/mlflow/mlflow/pull/18327
+"""
 # ruff: noqa: T201
 
 import argparse
 import json
 import os
+import re
+import subprocess
 import sys
 from typing import Any
 from urllib.request import Request, urlopen
+
+
+def get_github_token() -> str:
+    """Get GitHub token from environment or gh CLI."""
+    if token := os.environ.get("GITHUB_TOKEN"):
+        return token
+    try:
+        return subprocess.check_output(["gh", "auth", "token"], text=True).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("Error: GITHUB_TOKEN not found (set env var or install gh CLI)", file=sys.stderr)
+        sys.exit(1)
+
+
+def parse_pr_url(url: str) -> tuple[str, str, int]:
+    """Parse GitHub PR URL into owner, repo, and PR number."""
+    if m := re.match(r"https://github\.com/([^/]+)/([^/]+)/pull/(\d+)", url):
+        return m.group(1), m.group(2), int(m.group(3))
+    raise ValueError(f"Invalid PR URL: {url}")
 
 
 def fetch_unresolved_comments(owner: str, repo: str, pr_number: int, token: str) -> dict[str, Any]:
@@ -133,25 +153,16 @@ def main():
     parser = argparse.ArgumentParser(
         description="Fetch unresolved PR review comments using GitHub GraphQL API"
     )
-    parser.add_argument("owner", help="Repository owner")
-    parser.add_argument("repo", help="Repository name")
-    parser.add_argument("pr_number", type=int, help="Pull request number")
     parser.add_argument(
-        "--token",
-        default=os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN"),
-        help="GitHub token (default: GITHUB_TOKEN or GH_TOKEN env var)",
+        "pr_url", help="GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)"
     )
 
     args = parser.parse_args()
 
-    if not args.token:
-        print(
-            "Error: GitHub token required (use --token or set GITHUB_TOKEN/GH_TOKEN)",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    token = get_github_token()
+    owner, repo, pr_number = parse_pr_url(args.pr_url)
 
-    data = fetch_unresolved_comments(args.owner, args.repo, args.pr_number, args.token)
+    data = fetch_unresolved_comments(owner, repo, pr_number, token)
     formatted = format_comments(data)
     formatted["by_file"] = {
         path: [thread for thread in threads if not thread["isOutdated"]]
