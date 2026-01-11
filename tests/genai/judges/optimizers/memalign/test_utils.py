@@ -10,16 +10,8 @@ from mlflow.genai.judges.optimizers.memalign.utils import (
 )
 
 
-def test_get_default_embedding_model_non_databricks():
-    with patch("mlflow.genai.judges.optimizers.memalign.utils.mlflow.get_tracking_uri") as mock_uri:
-        mock_uri.return_value = "http://localhost:5000"
-        assert get_default_embedding_model() == "openai/text-embedding-3-small"
-
-
-def test_get_default_embedding_model_databricks():
-    with patch("mlflow.genai.judges.optimizers.memalign.utils.mlflow.get_tracking_uri") as mock_uri:
-        mock_uri.return_value = "databricks"
-        assert get_default_embedding_model() == "databricks:/databricks-bge-large-en"
+def test_get_default_embedding_model():
+    assert get_default_embedding_model() == "openai/text-embedding-3-small"
 
 
 def test_distill_guidelines_empty_examples():
@@ -44,12 +36,14 @@ def test_distill_guidelines_with_examples():
     ) as mock_construct_lm:
         example1 = MagicMock(spec=dspy.Example)
         example1.__iter__ = lambda self: iter([("input", "test input"), ("output", "good")])
+        example1._trace_id = "trace_1"
         example2 = MagicMock(spec=dspy.Example)
         example2.__iter__ = lambda self: iter([("input", "test input 2"), ("output", "bad")])
+        example2._trace_id = "trace_2"
 
         mock_lm = MagicMock()
         mock_lm.return_value = [
-            '{"guidelines": [{"guideline_text": "Be concise", "source_ids": [0, 1]}]}'
+            '{"guidelines": [{"guideline_text": "Be concise", "source_trace_ids": [0, 1]}]}'
         ]
         mock_construct_lm.return_value = mock_lm
 
@@ -65,7 +59,8 @@ def test_distill_guidelines_with_examples():
 
         assert len(result) == 1
         assert result[0].guideline_text == "Be concise"
-        assert result[0].source_ids == [0, 1]
+        # The LLM returns indices [0, 1] which get mapped to trace IDs
+        assert result[0].source_trace_ids == ["trace_1", "trace_2"]
         mock_construct_lm.assert_called_once_with("openai:/gpt-4")
 
 
@@ -144,8 +139,11 @@ def test_retrieve_relevant_examples_no_search():
 
 def test_retrieve_relevant_examples_success():
     example1 = MagicMock()
+    example1._trace_id = "trace_1"
     example2 = MagicMock()
+    example2._trace_id = "trace_2"
     example3 = MagicMock()
+    example3._trace_id = "trace_3"
     examples = [example1, example2, example3]
 
     # Mock search results
@@ -158,7 +156,7 @@ def test_retrieve_relevant_examples_success():
     signature = MagicMock()
     signature.input_fields = ["inputs", "outputs"]
 
-    result_examples, result_indices = retrieve_relevant_examples(
+    result_examples, result_trace_ids = retrieve_relevant_examples(
         search=mock_search,
         examples=examples,
         query_kwargs={"inputs": "test query", "outputs": "test output"},
@@ -168,7 +166,7 @@ def test_retrieve_relevant_examples_success():
     assert len(result_examples) == 2
     assert result_examples[0] is example3
     assert result_examples[1] is example1
-    assert result_indices == [2, 0]
+    assert result_trace_ids == ["trace_3", "trace_1"]
     mock_search.assert_called_once_with("test query test output")
 
 

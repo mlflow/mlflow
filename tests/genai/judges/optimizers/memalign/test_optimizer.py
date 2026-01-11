@@ -122,6 +122,16 @@ def test_init_custom_config():
     assert optimizer._embedding_dim == 256
 
 
+def test_databricks_embedding_model_raises_error(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer(embedding_model="databricks:/databricks-bge-large-en")
+        with pytest.raises(
+            MlflowException,
+            match="Databricks embedding models are not currently supported for MemAlign",
+        ):
+            optimizer.align(sample_judge, sample_traces[:1])
+
+
 def test_align_empty_traces_raises_error(sample_judge):
     optimizer = MemAlignOptimizer()
     with pytest.raises(MlflowException, match="No traces provided"):
@@ -221,8 +231,13 @@ def test_judge_call_retrieves_relevant_examples(sample_judge, sample_traces):
 
         assessment = aligned_judge(inputs="test input", outputs="test output")
         mocks["search"].assert_called_once()
-        assert "retrieved_example_indices" in assessment.metadata
-        assert assessment.metadata["retrieved_example_indices"] == [0, 2]
+        assert "retrieved_example_trace_ids" in assessment.metadata
+        # Should return trace IDs, not indices
+        retrieved_trace_ids = assessment.metadata["retrieved_example_trace_ids"]
+        assert len(retrieved_trace_ids) == 2
+        # Verify they're actual trace IDs from the sample traces
+        expected_trace_ids = [sample_traces[0].info.trace_id, sample_traces[2].info.trace_id]
+        assert retrieved_trace_ids == expected_trace_ids
 
 
 def test_memory_augmented_judge_properties(sample_judge, sample_traces):
@@ -285,12 +300,12 @@ def test_unalign_filters_guidelines_by_source_ids(sample_judge, sample_traces):
         aligned_judge = optimizer.align(sample_judge, sample_traces)
         assert len(aligned_judge._semantic_memory) == 2
 
-        # Unalign some traces - should filter guidelines based on source_ids
+        # Unalign some traces - should filter guidelines based on source_trace_ids
         traces_to_remove = [sample_traces[1], sample_traces[3]]
         unaligned_judge = aligned_judge.unalign(traces=traces_to_remove)
-        # Unalign doesn't redistill, it filters guidelines based on source_ids
-        # Guidelines without source_ids are retained
-        # Guidelines where any source_id was removed are deleted
-        # Since mock_apis doesn't provide source_ids, all guidelines are retained
+        # Unalign doesn't redistill, it filters guidelines based on source_trace_ids
+        # Guidelines without source_trace_ids are retained
+        # Guidelines where any source trace was removed are deleted
+        # Since mock_apis doesn't provide source_trace_ids, all guidelines are retained
         assert len(unaligned_judge._examples) == 2
         assert len(unaligned_judge._semantic_memory) == 2

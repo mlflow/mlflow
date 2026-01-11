@@ -1,4 +1,5 @@
 import logging
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from mlflow.entities.assessment import Assessment, AssessmentSource, Feedback
@@ -12,12 +13,9 @@ from mlflow.genai.judges.optimizers.dspy_utils import (
     create_dspy_signature,
     trace_to_dspy_example,
 )
-from mlflow.genai.judges.optimizers.memalign.prompts import (
-    create_examples_field,
-    create_guidelines_field,
-)
 from mlflow.genai.judges.optimizers.memalign.utils import (
     Guideline,
+    create_extended_signature,
     distill_guidelines,
     get_default_embedding_model,
     retrieve_relevant_examples,
@@ -69,8 +67,8 @@ except ImportError:
     _LITELLM_AVAILABLE = False
 
 
-def _get_max_tokens_for_model(embedding_model: str) -> int:
-    """Get maximum token limit for embedding model."""
+@lru_cache(maxsize=1)
+def _get_embedding_model_max_tokens(embedding_model: str) -> int:
     if not _LITELLM_AVAILABLE:
         return _MAX_EMBEDDING_TOKENS
 
@@ -83,14 +81,22 @@ def _get_max_tokens_for_model(embedding_model: str) -> int:
     return _MAX_EMBEDDING_TOKENS
 
 
+@lru_cache(maxsize=1000)
 def _truncate_to_token_limit(text: str, embedding_model: str) -> str:
-    if not _LITELLM_AVAILABLE:
-        raise MlflowException(
-            "The 'litellm' package is required for token truncation. "
-            "Please install it using: pip install litellm"
-        )
+    max_tokens = _get_embedding_model_max_tokens(embedding_model)
 
-    max_tokens = _get_max_tokens_for_model(embedding_model)
+    if not _LITELLM_AVAILABLE:
+        # Naive truncation to `max_tokens` characters in the text if litellm is not available
+        _logger.warning(
+            f"LiteLLM is required for accurate token counting, using naive truncation to "
+            f"{max_tokens} characters. Please install litellm using: `pip install litellm`"
+        )
+        return text[:max_tokens]
+
+    # Optimization to avoid token counting if number of characters is less than max tokens.
+    if len(text) <= max_tokens:
+        return text
+
     token_count = token_counter(model=embedding_model, text=text)
     if token_count <= max_tokens:
         return text
@@ -138,17 +144,16 @@ class MemoryAugmentedJudge(Judge):
         embedding_model: str | None = None,
         embedding_dim: int = 512,
         episodic_memory: list["dspy.Example"] | None = None,
-        semantic_memory: list[str] | None = None,
+        semantic_memory: list[Guideline] | None = None,
     ):
         import dspy
 
         effective_base_judge = (
             base_judge._base_judge if isinstance(base_judge, MemoryAugmentedJudge) else base_judge
         )
+
         if semantic_memory is not None:
-            initial_guidelines = [
-                Guideline(guideline_text=g, source_ids=None) for g in semantic_memory
-            ]
+            initial_guidelines = list(semantic_memory)
         elif isinstance(base_judge, MemoryAugmentedJudge):
             initial_guidelines = list(base_judge._semantic_memory)
         else:
@@ -171,11 +176,21 @@ class MemoryAugmentedJudge(Judge):
         self._embedding_model = (
             embedding_model if embedding_model is not None else get_default_embedding_model()
         )
+
+        # TODO: Add support for Databricks embedding models with DSPy embedder
+        if self._embedding_model.startswith("databricks:/"):
+            raise MlflowException(
+                "Databricks embedding models are not currently supported for MemAlign. "
+                f"Please use a different embedding model (e.g., 'openai/text-embedding-3-small'). "
+                f"Got: {self._embedding_model}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         self._embedding_dim = embedding_dim
         self._embedder = dspy.Embedder(self._embedding_model, dimensions=self._embedding_dim)
         self._search = None
 
-        extended_signature = self._create_extended_signature()
+        extended_signature = create_extended_signature(self._base_signature)
         self._predict_module = dspy.Predict(extended_signature)
         self._predict_module.set_lm(construct_dspy_lm(effective_base_judge.model))
 
@@ -184,7 +199,7 @@ class MemoryAugmentedJudge(Judge):
 
     def __call__(self, **kwargs) -> Assessment:
         guidelines = [g.guideline_text for g in self._semantic_memory]
-        relevant_examples, retrieved_indices = retrieve_relevant_examples(
+        relevant_examples, retrieved_trace_ids = retrieve_relevant_examples(
             search=self._search,
             examples=self._examples,
             query_kwargs=kwargs,
@@ -205,7 +220,9 @@ class MemoryAugmentedJudge(Judge):
             ),
             value=prediction.result,
             rationale=prediction.rationale,
-            metadata={"retrieved_example_indices": retrieved_indices} if retrieved_indices else {},
+            metadata={"retrieved_example_trace_ids": retrieved_trace_ids}
+            if retrieved_trace_ids
+            else {},
         )
 
     @property
@@ -240,10 +257,10 @@ class MemoryAugmentedJudge(Judge):
         - Update the judge in case your evaluation criteria change
         - Remove feedback from specific users or time periods
 
-        The returned judge will have guidelines selectively deleted based on source_ids:
-        - Guidelines where any source_id was removed are deleted
-        - Guidelines with no removed source_ids are retained
-        - Guidelines without source_ids are always retained
+        The returned judge will have guidelines selectively deleted based on source_trace_ids:
+        - Guidelines where any source trace was removed are deleted
+        - Guidelines with no removed source traces are retained
+        - Guidelines without source_trace_ids are always retained
 
         Args:
             traces: Traces containing feedback to remove from memory. Only traces with
@@ -261,27 +278,25 @@ class MemoryAugmentedJudge(Judge):
         trace_ids_to_remove = {trace.info.trace_id for trace in traces}
 
         # Filter examples to remove
-        filtered_examples = []
-        removed_indices = set()
-        for i, example in enumerate(self._examples):
-            if hasattr(example, "_trace_id") and example._trace_id in trace_ids_to_remove:
-                removed_indices.add(i)
-            else:
-                filtered_examples.append(example)
+        filtered_examples = [
+            example
+            for example in self._examples
+            if not (hasattr(example, "_trace_id") and example._trace_id in trace_ids_to_remove)
+        ]
 
         if len(filtered_examples) == len(self._examples):
             _logger.warning("No feedback records found for the provided traces")
             return self
 
-        # Filter guidelines based on source_ids
-        retained_guidelines = []
-        for guideline in self._semantic_memory:
-            if guideline.source_ids is None:
-                # Guidelines without source_ids are always retained (directly given by user)
-                retained_guidelines.append(guideline)
-            elif not any(sid in removed_indices for sid in guideline.source_ids):
-                # Keep guideline only if none of its sources were removed
-                retained_guidelines.append(guideline)
+        # Filter guidelines based on source_trace_ids
+        # - Always retain user-provided guidelines
+        # - Keep guideline only if none of its source traces were removed
+        retained_guidelines = [
+            guideline
+            for guideline in self._semantic_memory
+            if guideline.source_trace_ids is None
+            or not any(tid in trace_ids_to_remove for tid in guideline.source_trace_ids)
+        ]
 
         return MemoryAugmentedJudge(
             base_judge=self._base_judge,
@@ -290,15 +305,12 @@ class MemoryAugmentedJudge(Judge):
             embedding_model=self._embedding_model,
             embedding_dim=self._embedding_dim,
             episodic_memory=filtered_examples,
-            semantic_memory=[g.guideline_text for g in retained_guidelines],
+            semantic_memory=retained_guidelines,
         )
 
-    def _create_extended_signature(self) -> "dspy.Signature":
-        extended_sig = self._base_signature.prepend("guidelines", create_guidelines_field())
-        return extended_sig.prepend("example_judgements", create_examples_field())
-
     def _distill_new_guidelines(self, new_examples: list["dspy.Example"]) -> None:
-        """Distill new guidelines from newly added examples and add to semantic memory.
+        """
+        Distill new guidelines from newly added examples and add to semantic memory.
 
         Args:
             new_examples: The examples that were just added (not all examples)
@@ -339,13 +351,13 @@ class MemoryAugmentedJudge(Judge):
         _logger.debug(f"Episodic memory corpus contains {len(corpus)} examples")
 
     def _add_examples(
-        self, examples: list["dspy.Example"], semantic_memory: list[str] | None = None
+        self, examples: list["dspy.Example"], semantic_memory: list[Guideline] | None = None
     ) -> None:
         """Add examples to episodic memory and optionally distill new guidelines.
 
         Args:
             examples: Examples to add to episodic memory
-            semantic_memory: If provided, skip distillation (guidelines already determined).
+            semantic_memory: If provided, skip distillation (guidelines already set in __init__).
                            If None, distill new guidelines from the newly added examples.
         """
         self._examples.extend(examples)
