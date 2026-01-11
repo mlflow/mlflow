@@ -111,7 +111,7 @@ async def fetch_unresolved_comments(pr_url: str) -> UnresolvedCommentsResult:
     return format_comments(data)
 
 
-def register(subparsers: argparse._SubParsersAction) -> None:
+def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = subparsers.add_parser(
         "fetch-unresolved-comments",
         help="Fetch unresolved PR review comments",
