@@ -6,23 +6,25 @@ import { type ScorerFormData } from './utils/scorerTransformUtils';
 import { useEvaluateTraces } from './useEvaluateTraces';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import { convertEvaluationResultToAssessment } from './llmScorerUtils';
-import { extractTemplateVariables } from '../../utils/evaluationUtils';
 import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope, SCORER_TYPE } from './constants';
 import { EvaluateTracesParams, LLM_TEMPLATE } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
 import { JudgeEvaluationResult } from './useEvaluateTraces.common';
+import { isEvaluatingSessionsInScorersEnabled } from '../../../common/utils/FeatureUtils';
 
 interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
   experimentId: string;
   onScorerFinished?: () => void;
+  isSessionLevelScorer?: boolean;
 }
 
 const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContainerProps> = ({
   control,
   experimentId,
   onScorerFinished,
+  isSessionLevelScorer,
 }) => {
   const intl = useIntl();
   const judgeInstructions = useWatch({ control, name: 'instructions' });
@@ -169,13 +171,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     });
   }, [currentEvalResult, isCustomMode, llmTemplate, scorerName]);
 
-  // Check if instructions contain {{trace}} variable (custom judges only)
-  const hasTraceVariable = useMemo(() => {
-    if (!isCustomMode || !judgeInstructions) return false;
-    const templateVariables = extractTemplateVariables(judgeInstructions);
-    return templateVariables.includes('trace');
-  }, [isCustomMode, judgeInstructions]);
-
   // Determine if run scorer button should be disabled
   const hasNameError = Boolean((errors as any).name?.message);
   const hasInstructionsError = Boolean((errors as any).instructions?.message);
@@ -189,6 +184,14 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
         description: 'Tooltip message when model is not selected',
       });
     }
+
+    if (!isEvaluatingSessionsInScorersEnabled() && isSessionLevelScorer) {
+      return intl.formatMessage({
+        defaultMessage: 'Session-level scorers cannot be run on individual traces',
+        description: 'Tooltip message when scorer is session-level',
+      });
+    }
+
     if (isCustomMode) {
       // Custom judge mode
       if (!judgeInstructions) {
@@ -201,12 +204,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
         return intl.formatMessage({
           defaultMessage: 'Please fix the validation errors in the instructions',
           description: 'Tooltip message when instructions have validation errors',
-        });
-      }
-      if (hasTraceVariable) {
-        return intl.formatMessage({
-          defaultMessage: 'The trace variable is not supported when running the judge on a sample of traces',
-          description: 'Tooltip message when instructions contain trace variable',
         });
       }
     } else {
@@ -226,11 +223,11 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     }
     return undefined;
   }, [
+    isSessionLevelScorer,
     modelValue,
     isCustomMode,
     judgeInstructions,
     hasInstructionsError,
-    hasTraceVariable,
     hasNameError,
     isRetrievalRelevance,
     intl,

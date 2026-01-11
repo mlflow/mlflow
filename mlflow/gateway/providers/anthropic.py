@@ -35,7 +35,10 @@ class AnthropicAdapter(ProviderAdapter):
                 status_code=422, detail="Cannot set both 'temperature' and 'top_p' parameters."
             )
 
-        max_tokens = payload.get("max_tokens", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS)
+        max_completion_tokens = payload.pop("max_completion_tokens", None)
+        max_tokens = payload.get("max_tokens") or max_completion_tokens
+        if max_tokens is None:
+            max_tokens = MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS
         if max_tokens > MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS:
             raise AIGatewayException(
                 status_code=422,
@@ -122,6 +125,20 @@ class AnthropicAdapter(ProviderAdapter):
                 )
 
             payload["tools"] = converted_tools
+
+        # convert tool_choice to Anthropic format
+        # OpenAI format: "none", "auto", "required", {"type": "...", "function": {"name": "..."}}
+        # Anthropic format: {"type": "auto"}, {"type": "tool", "name": "..."}
+        if tool_choice := payload.pop("tool_choice", None):
+            match tool_choice:
+                case "none":
+                    payload["tool_choice"] = {"type": "none"}
+                case "auto":
+                    payload["tool_choice"] = {"type": "auto"}
+                case "required":
+                    payload["tool_choice"] = {"type": "any"}
+                case {"type": "function", "function": {"name": name}}:
+                    payload["tool_choice"] = {"type": "tool", "name": name}
 
         # Transform response_format for Anthropic structured outputs
         # Anthropic uses output_format with {"type": "json_schema", "schema": {...}}

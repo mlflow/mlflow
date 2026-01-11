@@ -1,0 +1,26 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 513a2d6837e437d8209394aa3f1296a0541e0966..4a6e12a5388e471d784709b636c083443c943e43 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -211,7 +211,9 @@ const $6cc32821e9371a1c$export$479f0f2f71193efe = /*#__PURE__*/ $epM9y$forwardRe
+     $epM9y$useEffect(()=>{
+         const content = ref.current;
+         if (content) return $epM9y$hideOthers(content);
+-    }, []);
++    }, []); // Make sure the whole tree has focus guards as our `MenuContent` may be
++    // the last element in the DOM (beacuse of the `Portal`)
++    $epM9y$useFocusGuards();
+     return /*#__PURE__*/ $epM9y$createElement($6cc32821e9371a1c$var$MenuContentImpl, $epM9y$babelruntimehelpersesmextends({}, props, {
+         ref: composedRefs // we make sure we're not trapping once it's been closed
+         ,
+@@ -286,9 +288,7 @@ const $6cc32821e9371a1c$var$MenuRootContentNonModal = /*#__PURE__*/ $epM9y$forwa
+     $epM9y$useEffect(()=>{
+         return ()=>window.clearTimeout(timerRef.current)
+         ;
+-    }, []); // Make sure the whole tree has focus guards as our `MenuContent` may be
+-    // the last element in the DOM (beacuse of the `Portal`)
+-    $epM9y$useFocusGuards();
++    }, []);
+     const isPointerMovingToSubmenu = $epM9y$useCallback((event)=>{
+         var _pointerGraceIntentRe, _pointerGraceIntentRe2;
+         const isMovingTowards = pointerDirRef.current === ((_pointerGraceIntentRe = pointerGraceIntentRef.current) === null || _pointerGraceIntentRe === void 0 ? void 0 : _pointerGraceIntentRe.side);

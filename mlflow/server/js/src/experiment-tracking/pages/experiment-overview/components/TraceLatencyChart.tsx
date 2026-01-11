@@ -15,7 +15,6 @@ import {
   useChartLegendFormatter,
 } from './OverviewChartComponents';
 import { useLegendHighlight } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
 
 /**
  * Format latency value in human-readable format
@@ -27,7 +26,7 @@ function formatLatency(ms: number): string {
   return `${ms.toFixed(0)} ms`;
 }
 
-export const TraceLatencyChart: React.FC<OverviewChartProps> = (props) => {
+export const TraceLatencyChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
@@ -35,7 +34,7 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = (props) => {
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
 
   // Fetch and process latency chart data
-  const { chartData, avgLatency, isLoading, error, hasData } = useTraceLatencyChartData(props);
+  const { chartData, avgLatency, isLoading, error, hasData } = useTraceLatencyChartData();
 
   // Line colors
   const lineColors = {

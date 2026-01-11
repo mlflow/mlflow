@@ -38,10 +38,17 @@ const ScorerCardOverflowMenu: React.FC<ScorerCardOverflowMenuProps> = ({ onDelet
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <Button componentId={`${COMPONENT_ID_PREFIX}.overflow-button`} size="small" icon={<OverflowIcon />} />
+        <Button
+          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorercardrenderer_41"
+          size="small"
+          icon={<OverflowIcon />}
+        />
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end">
-        <DropdownMenu.Item componentId={`${COMPONENT_ID_PREFIX}.delete-button`} onClick={handleClick}>
+        <DropdownMenu.Item
+          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorercardrenderer_45"
+          onClick={handleClick}
+        >
           <DropdownMenu.IconWrapper>
             <TrashIcon />
           </DropdownMenu.IconWrapper>
@@ -80,7 +87,7 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
 
   return (
     <Card
-      componentId={`${COMPONENT_ID_PREFIX}.scorer-card`}
+      componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorercardrenderer_85"
       css={{
         padding: theme.spacing.md,
         position: 'relative',
@@ -100,7 +107,7 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
         }}
       >
         <Button
-          componentId={`${COMPONENT_ID_PREFIX}.expand-button`}
+          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorercardrenderer_106"
           icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
           size="small"
           type="tertiary"
@@ -116,7 +123,7 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
               {scorer.name}
             </Typography.Title>
             <Tag
-              componentId={`${COMPONENT_ID_PREFIX}.scorer-type-tag`}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorercardrenderer_123"
               color={getTypeColor(scorer)}
               icon={getTypeIcon(scorer)}
             >
@@ -181,7 +188,7 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
             </Tag>
           )}
           <Button
-            componentId={`${COMPONENT_ID_PREFIX}.edit-button`}
+            componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorercardrenderer_179"
             size="small"
             icon={<PencilIcon />}
             onClick={onEditClick}

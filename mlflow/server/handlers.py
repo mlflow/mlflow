@@ -10,11 +10,11 @@ import tempfile
 import time
 import urllib
 from functools import partial, wraps
-from typing import Any
+from typing import Any, Callable
 
 import requests
 from cachetools import TTLCache
-from flask import Response, current_app, jsonify, request, send_file
+from flask import Request, Response, current_app, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 
@@ -702,6 +702,62 @@ def _get_request_json(flask_request=request):
     return flask_request.get_json(force=True, silent=True)
 
 
+def _get_normalized_request_json(flask_request: Request = request) -> dict[str, Any]:
+    """
+    Get request JSON with normalization for legacy clients.
+
+    Handles double-encoded JSON strings from older clients and empty request bodies.
+
+    Args:
+        flask_request: The Flask request object.
+
+    Returns:
+        The request data as a dictionary (empty dict if no body).
+    """
+    request_json = _get_request_json(flask_request)
+
+    # Older clients may post their JSON double-encoded as strings, so the get_json
+    # above actually converts it to a string. Therefore, we check this condition
+    # (which we can tell for sure because any proper request should be a dictionary),
+    # and decode it a second time.
+    if is_string_type(request_json):
+        request_json = json.loads(request_json)
+
+    # If request doesn't have json body then assume it's empty.
+    if request_json is None:
+        request_json = {}
+
+    return request_json
+
+
+def _validate_request_json_with_schema(
+    request_json: dict[str, Any],
+    schema: dict[str, list[Callable[..., Any]]] | None,
+    proto_parsing_succeeded: bool | None,
+) -> None:
+    """
+    Validate request JSON against a schema without requiring protobuf messages.
+
+    Args:
+        request_json: The request data as a dictionary.
+        schema: Dictionary mapping parameter names to lists of validation functions.
+        proto_parsing_succeeded: Whether protobuf parsing succeeded. None indicates the
+            request was not parsed from protobuf.
+    """
+    schema = schema or {}
+    for schema_key, schema_validation_fns in schema.items():
+        if schema_key in request_json or _assert_required in schema_validation_fns:
+            value = request_json.get(schema_key)
+            if schema_key == "run_id" and value is None and "run_uuid" in request_json:
+                value = request_json.get("run_uuid")
+            _validate_param_against_schema(
+                schema=schema_validation_fns,
+                param=schema_key,
+                value=value,
+                proto_parsing_succeeded=proto_parsing_succeeded,
+            )
+
+
 def _get_request_message(request_message, flask_request=request, schema=None):
     if flask_request.method == "GET" and flask_request.args:
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
@@ -733,18 +789,7 @@ def _get_request_message(request_message, flask_request=request, schema=None):
                     value = value.lower() == "true"
                 request_json[field.name] = value
     else:
-        request_json = _get_request_json(flask_request)
-
-        # Older clients may post their JSON double-encoded as strings, so the get_json
-        # above actually converts it to a string. Therefore, we check this condition
-        # (which we can tell for sure because any proper request should be a dictionary),
-        # and decode it a second time.
-        if is_string_type(request_json):
-            request_json = json.loads(request_json)
-
-        # If request doesn't have json body then assume it's empty.
-        if request_json is None:
-            request_json = {}
+        request_json = _get_normalized_request_json(flask_request)
 
     proto_parsing_succeeded = True
     try:
@@ -752,20 +797,50 @@ def _get_request_message(request_message, flask_request=request, schema=None):
     except ParseError:
         proto_parsing_succeeded = False
 
-    schema = schema or {}
-    for schema_key, schema_validation_fns in schema.items():
-        if schema_key in request_json or _assert_required in schema_validation_fns:
-            value = request_json.get(schema_key)
-            if schema_key == "run_id" and value is None and "run_uuid" in request_json:
-                value = request_json.get("run_uuid")
-            _validate_param_against_schema(
-                schema=schema_validation_fns,
-                param=schema_key,
-                value=value,
-                proto_parsing_succeeded=proto_parsing_succeeded,
-            )
+    _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded)
 
     return request_message
+
+
+def _get_validated_flask_request_json(
+    flask_request: Request = request,
+    schema: dict[str, list[Callable[..., Any]]] | None = None,
+) -> dict[str, Any]:
+    """
+    Get and validate request data without protobuf parsing.
+
+    This is an alternative to _get_request_message for endpoints that don't
+    use protobuf message definitions. Supports both GET and POST/PUT requests.
+
+    Args:
+        flask_request: The Flask request object.
+        schema: Dictionary mapping parameter names to lists of validation functions.
+
+    Returns:
+        The validated request data as a dictionary.
+
+    Raises:
+        MlflowException: If validation fails.
+    """
+    if flask_request.method == "GET" and flask_request.args:
+        # Extract query parameters for GET requests
+        request_json = {}
+        schema = schema or {}
+        for key in flask_request.args:
+            # Get all values for this key (supports repeated parameters)
+            values = flask_request.args.getlist(key)
+            # Check if this field is a list type by looking for _assert_array validator
+            is_list_type = _assert_array in schema.get(key, [])
+            # If list type, always keep as list; otherwise use scalar if only one value
+            request_json[key] = (
+                values if is_list_type else (values[0] if len(values) == 1 else values)
+            )
+    else:
+        request_json = _get_normalized_request_json(flask_request)
+
+    _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded=None)
+
+    return request_json
 
 
 def _response_with_file_attachment_headers(file_path, response):
@@ -799,7 +874,11 @@ def catch_mlflow_exception(func):
             response.set_data(e.serialize_as_json())
             response.status_code = e.get_http_status_code()
             if response.status_code >= 500:
-                _logger.debug(f"Error in {func.__name__}: {e}", exc_info=True)
+                is_debug = _logger.isEnabledFor(logging.DEBUG)
+                msg = f"Error in {func.__name__}: {e}"
+                if not is_debug:
+                    msg += ". Set MLFLOW_LOGGING_LEVEL=DEBUG for traceback."
+                _logger.error(msg, exc_info=is_debug)
             return response
 
     return wrapper
@@ -3945,6 +4024,70 @@ def _delete_scorer():
     return response
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_online_scoring_configs():
+    """
+    Get online scoring configurations for a list of scorer IDs.
+
+    Query Parameters:
+        scorer_ids: List of scorer IDs to fetch configurations for.
+
+    Returns:
+        JSON response containing a list of configurations.
+    """
+    request_json = _get_validated_flask_request_json(
+        flask_request=request,
+        schema={
+            "scorer_ids": [_assert_required, _assert_array, _assert_item_type_string],
+        },
+    )
+
+    scorer_ids = request_json["scorer_ids"]
+    configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
+
+    response = Response(mimetype="application/json")
+    response.set_data(json.dumps({"configs": [c.to_dict() for c in configs]}))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _upsert_online_scoring_config():
+    """
+    Update the online scoring configuration for a registered scorer.
+
+    Request Body (JSON):
+        experiment_id: The ID of the Experiment containing the scorer.
+        name: The scorer name.
+        sample_rate: The sampling rate (0.0 to 1.0).
+        filter_string: Optional filter string for trace selection.
+
+    Returns:
+        JSON response containing the updated configuration.
+    """
+    request_json = _get_validated_flask_request_json(
+        flask_request=request,
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "sample_rate": [_assert_required],
+            "filter_string": [_assert_string],
+        },
+    )
+
+    config = _get_tracking_store().upsert_online_scoring_config(
+        experiment_id=request_json["experiment_id"],
+        scorer_name=request_json["name"],
+        sample_rate=float(request_json["sample_rate"]),
+        filter_string=request_json.get("filter_string"),
+    )
+
+    response = Response(mimetype="application/json")
+    response.set_data(json.dumps({"config": config.to_dict()}))
+    return response
+
+
 # =============================================================================
 # Secrets Management Handlers
 # =============================================================================
@@ -4534,25 +4677,11 @@ def _invoke_scorer_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    try:
-        scorer_dict = json.loads(serialized_scorer)
-    except json.JSONDecodeError as e:
-        raise MlflowException(
-            f"Invalid JSON in serialized_scorer: {e}",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
     from mlflow.genai.scorers.base import Scorer
     from mlflow.genai.scorers.job import get_trace_batches_for_scorer, invoke_scorer_job
     from mlflow.server.jobs import submit_job
 
-    try:
-        scorer = Scorer.model_validate(scorer_dict)
-    except Exception as e:
-        raise MlflowException(
-            f"Failed to validate scorer: {e}",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    scorer = Scorer.model_validate_json(serialized_scorer)
 
     tracking_store = _get_tracking_store()
     batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
@@ -4641,6 +4770,7 @@ def get_endpoints(get_handler=get_handler):
     """
     return (
         get_service_endpoints(MlflowService, get_handler)
+        + get_internal_online_scoring_endpoints()
         + get_service_endpoints(ModelRegistryService, get_handler)
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
@@ -4676,6 +4806,32 @@ def get_gateway_endpoints():
             _get_ajax_path("/mlflow/scorer/invoke", version=3),
             _invoke_scorer_handler,
             ["POST"],
+        ),
+    ]
+
+
+def get_internal_online_scoring_endpoints():
+    """Returns endpoint definitions for internal (non public) online scoring APIs."""
+    return [
+        (
+            _get_ajax_path("/mlflow/scorers/online-configs", version=3),
+            _get_online_scoring_configs,
+            ["GET"],
+        ),
+        (
+            _get_rest_path("/mlflow/scorers/online-configs", version=3),
+            _get_online_scoring_configs,
+            ["GET"],
+        ),
+        (
+            _get_ajax_path("/mlflow/scorers/online-config", version=3),
+            _upsert_online_scoring_config,
+            ["PUT"],
+        ),
+        (
+            _get_rest_path("/mlflow/scorers/online-config", version=3),
+            _upsert_online_scoring_config,
+            ["PUT"],
         ),
     ]
 
