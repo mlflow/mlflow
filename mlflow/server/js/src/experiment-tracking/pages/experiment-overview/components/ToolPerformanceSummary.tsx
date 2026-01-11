@@ -9,7 +9,7 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
 } from './OverviewChartComponents';
-import { formatCount, formatLatency, useToolColors } from '../utils/chartUtils';
+import { formatCount, formatLatency, useChartColors } from '../utils/chartUtils';
 
 /**
  * Tool Performance Summary component displaying per-tool metrics in a table-like view.
@@ -17,7 +17,7 @@ import { formatCount, formatLatency, useToolColors } from '../utils/chartUtils';
  */
 export const ToolPerformanceSummary: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const { getToolColor } = useToolColors();
+  const { getChartColor } = useChartColors();
 
   // Fetch tool performance data
   const { toolsData, isLoading, error, hasData } = useToolPerformanceSummaryData();
@@ -88,7 +88,7 @@ export const ToolPerformanceSummary: React.FC = () => {
                     width: 8,
                     height: 8,
                     borderRadius: '50%',
-                    backgroundColor: getToolColor(index),
+                    backgroundColor: getChartColor(index),
                     flexShrink: 0,
                   }}
                 />
