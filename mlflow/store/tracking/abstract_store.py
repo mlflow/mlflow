@@ -444,7 +444,11 @@ class AbstractStore(GatewayStoreMixin):
         filter_string: str | None = None,
     ) -> list["CompletedSession"]:
         """
-        Find completed sessions within a time window based on their last trace timestamp.
+        Find completed sessions based on their last trace timestamp.
+
+        A completed session is one whose last trace timestamp falls within the specified
+        time window [min_last_trace_timestamp_ms, max_last_trace_timestamp_ms] and has
+        no traces after max_last_trace_timestamp_ms (i.e., the session is not ongoing).
 
         Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) to ensure
         deterministic and stable ordering, especially when timestamp ties occur. This is
