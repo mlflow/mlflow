@@ -22,7 +22,10 @@ from mlflow.server.assistant.session import SessionManager
 _provider = ClaudeCodeProvider()
 
 
-_BLOCK_REMOTE_ACCESS_ERROR_MSG = "Assistant API is only accessible from the same host"
+# Update the message when we support proxy access
+_BLOCK_REMOTE_ACCESS_ERROR_MSG = (
+    "Assistant API is only accessible from the same host where the mLflow server is running."
+)
 
 
 async def _require_localhost(request: Request) -> None:

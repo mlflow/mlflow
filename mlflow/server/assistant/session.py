@@ -1,5 +1,3 @@
-"""Session management for assistant API."""
-
 import json
 import os
 import tempfile
