@@ -6,6 +6,12 @@ import pytest
 
 from mlflow.entities import Trace, TraceData, TraceInfo
 from mlflow.entities.assessment import Assessment
+from mlflow.entities.trace_location import (
+    MlflowExperimentLocation,
+    TraceLocation,
+    TraceLocationType,
+)
+from mlflow.entities.trace_state import TraceState
 from mlflow.genai.scorers.builtin_scorers import ConversationCompleteness
 from mlflow.genai.scorers.online.entities import CompletedSession, OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
@@ -45,15 +51,31 @@ def make_completed_session(
 
 
 def make_trace_info(trace_id: str, timestamp_ms: int = 1000):
-    return MagicMock(spec=TraceInfo, trace_id=trace_id, timestamp_ms=timestamp_ms)
+    return TraceInfo(
+        trace_id=trace_id,
+        trace_location=TraceLocation(
+            type=TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflow_experiment=MlflowExperimentLocation(experiment_id="exp1"),
+        ),
+        request_time=timestamp_ms,
+        state=TraceState.OK,
+    )
 
 
 def make_trace(trace_id: str, timestamp_ms: int = 1000, assessments=None):
-    info = MagicMock(
-        spec=TraceInfo, trace_id=trace_id, timestamp_ms=timestamp_ms, assessments=assessments or []
+    return Trace(
+        info=TraceInfo(
+            trace_id=trace_id,
+            trace_location=TraceLocation(
+                type=TraceLocationType.MLFLOW_EXPERIMENT,
+                mlflow_experiment=MlflowExperimentLocation(experiment_id="exp1"),
+            ),
+            request_time=timestamp_ms,
+            state=TraceState.OK,
+            assessments=assessments or [],
+        ),
+        data=TraceData(spans=[]),
     )
-    data = MagicMock(spec=TraceData)
-    return MagicMock(spec=Trace, info=info, data=data)
 
 
 @pytest.fixture
