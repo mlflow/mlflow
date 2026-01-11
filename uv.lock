@@ -4433,7 +4433,7 @@ build = [
     { name = "wheel" },
 ]
 dev = [
-    { name = "aiohttp", specifier = "<4" },
+    { name = "aiohttp" },
     { name = "black", specifier = "==23.7.0" },
     { name = "blacken-docs", specifier = "==1.18.0" },
     { name = "build" },
@@ -4458,7 +4458,7 @@ dev = [
     { name = "ruff", specifier = "==0.14.10" },
     { name = "setuptools" },
     { name = "skills", editable = ".claude/skills" },
-    { name = "tiktoken", specifier = "<1" },
+    { name = "tiktoken" },
     { name = "toml", specifier = "==0.10.2" },
     { name = "wheel" },
 ]
@@ -4494,7 +4494,7 @@ docs = [
     { name = "torchvision", specifier = ">=0.12.0,<0.24.0", index = "https://download.pytorch.org/whl/cpu" },
 ]
 lint = [
-    { name = "aiohttp", specifier = "<4" },
+    { name = "aiohttp" },
     { name = "black", specifier = "==23.7.0" },
     { name = "blacken-docs", specifier = "==1.18.0" },
     { name = "claude-agent-sdk" },
@@ -4505,7 +4505,7 @@ lint = [
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "ruff", specifier = "==0.14.10" },
-    { name = "tiktoken", specifier = "<1" },
+    { name = "tiktoken" },
     { name = "toml", specifier = "==0.10.2" },
 ]
 test = [

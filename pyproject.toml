@@ -183,8 +183,8 @@ lint = [
   "clint",
   "pyyaml>=6.0.2",
   "packaging>=25.0",
-  "aiohttp<4",
-  "tiktoken<1",
+  "aiohttp",
+  "tiktoken",
   "claude-agent-sdk",
 ]
 test = [
