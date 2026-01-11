@@ -312,6 +312,8 @@ class OnlineSessionScoringProcessor:
 
         full_traces.sort(key=lambda t: t.info.timestamp_ms)
 
+        trace_map = {t.info.trace_id: t for t in full_traces}
+
         session_items = [EvalItem.from_trace(t) for t in full_traces]
 
         try:
@@ -322,9 +324,7 @@ class OnlineSessionScoringProcessor:
             )
 
             for trace_id, feedbacks in result.items():
-                if feedbacks and (
-                    trace := next((t for t in full_traces if t.info.trace_id == trace_id), None)
-                ):
+                if feedbacks and (trace := trace_map.get(trace_id)):
                     # Add session ID metadata to identify these as online scoring assessments
                     for feedback in feedbacks:
                         feedback.metadata = {
