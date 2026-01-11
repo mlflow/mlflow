@@ -39,7 +39,9 @@ class JobStep(BaseModel):
 class Job(BaseModel):
     id: int
     run_id: int
+    url: str  # API URL (e.g., "https://api.github.com/repos/owner/repo/actions/jobs/123")
     name: str
+    workflow_name: str  # Name of the workflow
     status: str
     conclusion: str | None
     html_url: str
