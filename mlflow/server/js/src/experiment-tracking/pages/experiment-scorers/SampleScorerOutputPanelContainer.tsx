@@ -175,6 +175,9 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   const hasNameError = Boolean((errors as any).name?.message);
   const hasInstructionsError = Boolean((errors as any).instructions?.message);
   const isRetrievalRelevance = llmTemplate === LLM_TEMPLATE.RETRIEVAL_RELEVANCE;
+  const isGuidelinesTemplate =
+    llmTemplate === LLM_TEMPLATE.GUIDELINES || llmTemplate === LLM_TEMPLATE.CONVERSATIONAL_GUIDELINES;
+  const hasEmptyGuidelines = isGuidelinesTemplate && (!guidelines || !guidelines.trim());
 
   // Determine tooltip message based on why the button is disabled
   const runScorerDisabledReason = useMemo(() => {
@@ -208,6 +211,12 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       }
     } else {
       // Built-in judge mode
+      if (hasEmptyGuidelines) {
+        return intl.formatMessage({
+          defaultMessage: 'Guidelines should not be empty',
+          description: 'Tooltip message when guidelines are empty',
+        });
+      }
       if (isRetrievalRelevance) {
         return intl.formatMessage({
           defaultMessage: 'Retrieval Relevance is not yet supported for sample judge output',
@@ -230,6 +239,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     hasInstructionsError,
     hasNameError,
     isRetrievalRelevance,
+    hasEmptyGuidelines,
     intl,
   ]);
 

@@ -31,6 +31,7 @@ export enum LLM_TEMPLATE {
   CONVERSATION_COMPLETENESS = 'ConversationCompleteness',
   KNOWLEDGE_RETENTION = 'KnowledgeRetention',
   USER_FRUSTRATION = 'UserFrustration',
+  CONVERSATIONAL_GUIDELINES = 'ConversationalGuidelines',
 }
 
 export const TRACE_LEVEL_LLM_TEMPLATES = [
@@ -48,6 +49,7 @@ export const SESSION_LEVEL_LLM_TEMPLATES = [
   LLM_TEMPLATE.CONVERSATION_COMPLETENESS,
   LLM_TEMPLATE.KNOWLEDGE_RETENTION,
   LLM_TEMPLATE.USER_FRUSTRATION,
+  LLM_TEMPLATE.CONVERSATIONAL_GUIDELINES,
   LLM_TEMPLATE.CUSTOM,
 ];
 
@@ -59,7 +61,12 @@ export type LLMTemplate =
   | 'RetrievalRelevance'
   | 'RetrievalSufficiency'
   | 'Safety'
-  | 'Custom';
+  | 'Custom'
+  // Session-level templates:
+  | 'ConversationCompleteness'
+  | 'KnowledgeRetention'
+  | 'UserFrustration'
+  | 'ConversationalGuidelines';
 
 export interface LLMScorer extends ScheduledScorerBase {
   type: 'llm';
