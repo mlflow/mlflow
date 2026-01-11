@@ -371,8 +371,6 @@ def test_optimize_prompts_with_custom_scorers(
 @pytest.mark.parametrize(
     ("train_data", "error_match"),
     [
-        # Empty dataset validation (handled by _convert_eval_set_to_df)
-        ([], "The dataset is empty"),
         # Missing inputs validation (handled by _convert_eval_set_to_df)
         ([{"outputs": "Hola"}], "Either `inputs` or `trace` column is required"),
         # Empty inputs validation
