@@ -10,9 +10,10 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useChartYAxisProps,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { formatLatency, useLegendHighlight, useToolColors } from '../utils/chartUtils';
 
@@ -22,9 +23,9 @@ import { formatLatency, useLegendHighlight, useToolColors } from '../utils/chart
  */
 export const ToolLatencyChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const yAxisProps = useChartYAxisProps();
+  const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
   const { getToolColor } = useToolColors();
 
@@ -59,11 +60,10 @@ export const ToolLatencyChart: React.FC = () => {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <XAxis dataKey="timestamp" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={(value, name) => [formatLatency(value), name]} />}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatLatency(value), name]}
               />
               {toolNames.map((toolName, index) => (
                 <Line
@@ -79,10 +79,9 @@ export const ToolLatencyChart: React.FC = () => {
               <Legend
                 verticalAlign="bottom"
                 iconType="plainline"
-                height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={legendFormatter}
+                {...scrollableLegendProps}
               />
             </LineChart>
           </ResponsiveContainer>

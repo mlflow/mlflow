@@ -20,9 +20,10 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useChartYAxisProps,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
 
 /** Local component for chart panel with label */
@@ -53,9 +54,9 @@ export interface TraceAssessmentChartProps {
 
 export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ assessmentName, lineColor, avgValue }) => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const yAxisProps = useChartYAxisProps();
+  const scrollableLegendProps = useScrollableLegendProps();
 
   // Use provided color or default to green
   const chartLineColor = lineColor || theme.colors.green500;
@@ -107,13 +108,12 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
         >
           <BarChart data={distributionChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
             <XAxis dataKey="name" {...xAxisProps} />
-            <YAxis allowDecimals={false} {...xAxisProps} />
+            <YAxis allowDecimals={false} {...yAxisProps} />
             <Tooltip
-              contentStyle={tooltipStyle}
+              content={<ScrollableTooltip formatter={(value) => [value, 'count']} />}
               cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-              formatter={(value: number) => [value, 'count']}
             />
-            <Legend formatter={legendFormatter} />
+            <Legend {...scrollableLegendProps} />
             <Bar dataKey="count" fill={chartLineColor} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ChartPanel>
@@ -129,13 +129,12 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
         >
           <LineChart data={timeSeriesChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
             <XAxis dataKey="name" {...xAxisProps} />
-            <YAxis hide />
+            <YAxis {...yAxisProps} />
             <Tooltip
-              contentStyle={tooltipStyle}
+              content={<ScrollableTooltip formatter={(value) => [value.toFixed(2), assessmentName]} />}
               cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-              formatter={(value: number) => [value.toFixed(2), assessmentName]}
             />
-            <Legend formatter={legendFormatter} />
+            <Legend {...scrollableLegendProps} />
             <Line
               type="monotone"
               dataKey="value"

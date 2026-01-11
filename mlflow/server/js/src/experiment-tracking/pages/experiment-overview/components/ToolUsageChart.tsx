@@ -10,9 +10,10 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useChartYAxisProps,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { formatCount, useLegendHighlight, useToolColors } from '../utils/chartUtils';
 
@@ -22,9 +23,9 @@ import { formatCount, useLegendHighlight, useToolColors } from '../utils/chartUt
  */
 export const ToolUsageChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const yAxisProps = useChartYAxisProps();
+  const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
   const { getToolColor } = useToolColors();
 
@@ -54,11 +55,10 @@ export const ToolUsageChart: React.FC = () => {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <XAxis dataKey="timestamp" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={(value, name) => [formatCount(value), name]} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatCount(value), name]}
               />
               {toolNames.map((toolName, index) => (
                 <Bar
@@ -72,10 +72,9 @@ export const ToolUsageChart: React.FC = () => {
               <Legend
                 verticalAlign="bottom"
                 iconType="square"
-                height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={legendFormatter}
+                {...scrollableLegendProps}
               />
             </BarChart>
           </ResponsiveContainer>
