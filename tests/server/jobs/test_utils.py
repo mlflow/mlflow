@@ -89,3 +89,48 @@ def test_load_function_module_not_found():
 def test_load_function_function_not_found():
     with pytest.raises(MlflowException, match="Function not found in module"):
         _load_function("os.non_exist_function")
+
+
+def test_compute_exclusive_lock_key():
+    from mlflow.server.jobs.utils import _compute_exclusive_lock_key
+
+    # Same params produce same key
+    key1 = _compute_exclusive_lock_key("job_name", {"a": 1, "b": 2})
+    key2 = _compute_exclusive_lock_key("job_name", {"a": 1, "b": 2})
+    assert key1 == key2
+
+    # Order doesn't matter for params
+    key3 = _compute_exclusive_lock_key("job_name", {"b": 2, "a": 1})
+    assert key1 == key3
+
+    # Different params produce different keys
+    key4 = _compute_exclusive_lock_key("job_name", {"a": 1, "b": 3})
+    assert key1 != key4
+
+    # Different job names produce different keys
+    key5 = _compute_exclusive_lock_key("other_job", {"a": 1, "b": 2})
+    assert key1 != key5
+
+    # Test with filtered params (simulating exclusive parameter list)
+    # When only "a" is used, different "b" values should produce same key
+    key6 = _compute_exclusive_lock_key("job_name", {"a": 1})
+    key7 = _compute_exclusive_lock_key("job_name", {"a": 1})
+    assert key6 == key7
+
+    # But different "a" values should produce different keys
+    key8 = _compute_exclusive_lock_key("job_name", {"a": 2})
+    assert key6 != key8
+
+    # Test that same filtered params produce same key
+    filtered_params = {"a": 1, "b": 2}
+    key9 = _compute_exclusive_lock_key("job_name", filtered_params)
+    key10 = _compute_exclusive_lock_key("job_name", {"a": 1, "b": 2})
+    assert key9 == key10
+
+    # Different filtered params produce different keys
+    key11 = _compute_exclusive_lock_key("job_name", {"a": 1, "b": 3})
+    assert key9 != key11
+
+    # Key format is job_name:hash
+    assert key1.startswith("job_name:")
+    assert key5.startswith("other_job:")

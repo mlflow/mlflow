@@ -154,7 +154,13 @@ def _invoke_databricks_serving_endpoint(
             payload = {"messages": messages}
 
             if include_response_format:
-                payload["response_format"] = response_format.model_json_schema()
+                payload["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "response",
+                        "schema": response_format.model_json_schema(),
+                    },
+                }
 
             # Add inference parameters if provided (e.g., temperature, top_p, max_tokens)
             if inference_params:

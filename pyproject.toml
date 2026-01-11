@@ -170,6 +170,7 @@ dev = [
   { include-group = "test" },
   { include-group = "build" },
   "mlflow-test-plugin",
+  "skills",
 ]
 lint = [
   "ruff==0.14.10",
@@ -182,6 +183,10 @@ lint = [
   "clint",
   "pyyaml>=6.0.2",
   "packaging>=25.0",
+  "aiohttp",
+  "tiktoken",
+  "claude-agent-sdk",
+  "pytest",
 ]
 test = [
   "pytest==8.4.0",
@@ -242,11 +247,12 @@ constraint-dependencies = [
 torch-backend = "cpu"
 
 [tool.uv.workspace]
-members = ["dev/clint", "tests/resources/mlflow-test-plugin"]
+members = ["dev/clint", "tests/resources/mlflow-test-plugin", ".claude/skills"]
 
 [tool.uv.sources]
 clint = { workspace = true }
 mlflow-test-plugin = { workspace = true }
+skills = { workspace = true }
 torch = { index = "pytorch-cpu" }
 torchvision = { index = "pytorch-cpu" }
 
@@ -520,8 +526,8 @@ filterwarnings = [
 ]
 timeout = 1200
 
-# Currently, type checking is only enabled for `dev/clint`.
+# Currently, type checking is only enabled for `dev/clint` and `.claude/skills`.
 [tool.mypy]
 python_version = "3.10"
-disallow_untyped_defs = true
+strict = true
 exclude_gitignore = true
