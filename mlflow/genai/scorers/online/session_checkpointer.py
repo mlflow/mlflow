@@ -18,8 +18,8 @@ _logger = logging.getLogger(__name__)
 
 @dataclass
 class OnlineSessionScoringCheckpoint:
-    timestamp_ms: int
-    session_id: str | None = None
+    timestamp_ms: int  # Last trace timestamp of the last processed session
+    session_id: str | None = None  # Session ID for tiebreaking when timestamps match
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))
