@@ -1,6 +1,8 @@
 # ruff: noqa: T201
 """Fetch unresolved PR review comments using GitHub GraphQL API."""
 
+from __future__ import annotations
+
 import argparse
 import asyncio
 from typing import Any

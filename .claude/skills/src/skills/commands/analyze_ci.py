@@ -1,6 +1,8 @@
 # ruff: noqa: T201
 """Analyze failed GitHub Action jobs."""
 
+from __future__ import annotations
+
 import argparse
 import asyncio
 import json

@@ -1,6 +1,8 @@
 # ruff: noqa: T201
 """Fetch PR diff with filtering and line numbers for code review."""
 
+from __future__ import annotations
+
 import argparse
 import asyncio
 import re
