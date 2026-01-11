@@ -62,3 +62,14 @@ class GitHubClient:
             f"/repos/{owner}/{repo}/compare/{base}...{head}",
             accept="application/vnd.github.v3.diff",
         )
+
+    async def graphql(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
+        if self._session is None:
+            raise RuntimeError("GitHubClient must be used as async context manager")
+        payload = {"query": query, "variables": variables}
+        async with self._session.post(
+            "https://api.github.com/graphql",
+            json=payload,
+        ) as resp:
+            resp.raise_for_status()
+            return await resp.json()

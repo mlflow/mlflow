@@ -1,6 +1,8 @@
 ---
 name: fetch-unresolved-comments
 description: Fetch unresolved PR review comments using GitHub GraphQL API, filtering out resolved and outdated feedback.
+allowed-tools:
+  - Bash(uv run skills fetch-unresolved-comments:*)
 ---
 
 # Fetch Unresolved PR Review Comments
@@ -21,16 +23,16 @@ Uses GitHub's GraphQL API to fetch only unresolved review thread comments from a
    - Otherwise:
      - Use `gh pr view --json url -q '.url'` to get the current branch's PR URL
 
-2. **Run the Python script**:
+2. **Run the skill**:
 
    ```bash
-   uv run .claude/skills/fetch-unresolved-comments/fetch_unresolved_comments.py <pr_url>
+   uv run skills fetch-unresolved-comments <pr_url>
    ```
 
    Example:
 
    ```bash
-   uv run .claude/skills/fetch-unresolved-comments/fetch_unresolved_comments.py https://github.com/mlflow/mlflow/pull/18327
+   uv run skills fetch-unresolved-comments https://github.com/mlflow/mlflow/pull/18327
    ```
 
    The script automatically reads the GitHub token from:
@@ -47,7 +49,6 @@ Uses GitHub's GraphQL API to fetch only unresolved review thread comments from a
     ".github/workflows/resolve.yml": [
       {
         "thread_id": "PRRT_kwDOAL...",
-        "isOutdated": false,
         "line": 40,
         "startLine": null,
         "diffHunk": "@@ -0,0 +1,245 @@\n+name: resolve...",
@@ -70,7 +71,6 @@ Uses GitHub's GraphQL API to fetch only unresolved review thread comments from a
     ".gitignore": [
       {
         "thread_id": "PRRT_kwDOAL...",
-        "isOutdated": false,
         "line": 133,
         "startLine": null,
         "diffHunk": "@@ -130,0 +133,2 @@\n+.claude/*",
