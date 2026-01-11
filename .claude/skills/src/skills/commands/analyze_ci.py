@@ -141,19 +141,15 @@ async def get_failed_jobs_from_pr(
     failed_runs = [r async for r in runs if r.conclusion == "failure"]
     log(f"Found {len(failed_runs)} failed workflow run(s)")
 
-    async def failed_jobs_with_details(run_id: int) -> list[Job]:
-        jobs = [j async for j in client.get_jobs(owner, repo, run_id) if j.conclusion == "failure"]
-        # Fetch detailed job info (including steps) for each failed job
-        return await asyncio.gather(*[client.get_job(owner, repo, job.id) for job in jobs])
+    async def failed_jobs(run_id: int) -> list[Job]:
+        return [j async for j in client.get_jobs(owner, repo, run_id) if j.conclusion == "failure"]
 
-    failed_jobs_results = await asyncio.gather(
-        *[failed_jobs_with_details(run.id) for run in failed_runs]
-    )
+    failed_jobs_results = await asyncio.gather(*[failed_jobs(run.id) for run in failed_runs])
 
-    all_failed_jobs = [job for jobs in failed_jobs_results for job in jobs]
-    log(f"Found {len(all_failed_jobs)} failed job(s)")
+    jobs = [job for jobs in failed_jobs_results for job in jobs]
+    log(f"Found {len(jobs)} failed job(s)")
 
-    return all_failed_jobs
+    return jobs
 
 
 async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[Job]:
@@ -181,16 +177,11 @@ async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[Job]:
 
 
 async def fetch_single_job_logs(client: GitHubClient, job: Job) -> JobLogs:
-    log(f"Fetching job {job.id} ({job.workflow_name} / {job.name})")
+    log(f"Fetching logs for '{job.workflow_name} / {job.name}'")
 
     failed_step = next((s for s in job.steps if s.conclusion == "failure"), None)
     if not failed_step:
         raise ValueError(f"No failed step found for job {job.id}")
-
-    if not failed_step.started_at or not failed_step.completed_at:
-        raise ValueError(f"Failed step missing timestamps for job {job.id}")
-
-    log(f"Fetching logs for '{job.workflow_name} / {job.name}'")
     cleaned_logs = await compact_logs(iter_job_logs(client, job, failed_step))
     truncated_logs = truncate_logs(cleaned_logs)
     failed_step_name = failed_step.name
