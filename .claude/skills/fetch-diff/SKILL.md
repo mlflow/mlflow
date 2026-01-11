@@ -2,7 +2,7 @@
 name: fetch-diff
 description: Fetch PR diff with filtering and line numbers for code review.
 allowed-tools:
-  - Bash
+  - Bash(uv run skills fetch-diff:*)
 ---
 
 # Fetch PR Diff
