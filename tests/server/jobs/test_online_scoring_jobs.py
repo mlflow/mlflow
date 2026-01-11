@@ -146,7 +146,8 @@ def test_run_online_session_scorer_job_calls_processor():
 
 def test_scheduler_submits_jobs_via_submit_job():
     # Create trace-level scorers (2)
-    trace_scorer = Completeness()
+    trace_scorer_1 = Completeness()
+    trace_scorer_2 = RelevanceToQuery()
 
     # Create session-level scorer (1) using make_judge with {{ conversation }}
     session_scorer = make_judge(
@@ -180,12 +181,12 @@ def test_scheduler_submits_jobs_via_submit_job():
 
     mock_scorer1 = OnlineScorer(
         name="completeness",
-        serialized_scorer=json.dumps(trace_scorer.model_dump()),
+        serialized_scorer=json.dumps(trace_scorer_1.model_dump()),
         online_config=config1,
     )
     mock_scorer2 = OnlineScorer(
-        name="relevance",
-        serialized_scorer=json.dumps(trace_scorer.model_dump()),
+        name="relevance_to_query",
+        serialized_scorer=json.dumps(trace_scorer_2.model_dump()),
         online_config=config2,
     )
     mock_scorer3 = OnlineScorer(
