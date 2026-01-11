@@ -346,6 +346,9 @@ def test_execute_session_scoring_handles_failures(
         assert mock_score.call_count == 2
 
     mock_checkpoint_manager.persist_checkpoint.assert_called_once()
+    checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
+    assert checkpoint.timestamp_ms == 1500
+    assert checkpoint.session_id == "sess-002"
 
 
 def test_create_factory_method(mock_tracking_store):
