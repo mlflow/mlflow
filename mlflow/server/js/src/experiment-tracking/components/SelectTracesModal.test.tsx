@@ -53,7 +53,11 @@ describe('SelectTracesModal', () => {
     jest.mocked(TracesV3Logs).mockImplementation(MockTracesV3Logs as any);
   });
 
-  const renderTestComponent = (props: { onClose?: () => void; onSuccess?: (traceIds: string[]) => void }) => {
+  const renderTestComponent = (props: {
+    onClose?: () => void;
+    onSuccess?: (traceIds: string[]) => void;
+    maxTraceCount?: number;
+  }) => {
     return render(
       <IntlProvider locale="en">
         <TestRouter
@@ -108,5 +112,28 @@ describe('SelectTracesModal', () => {
     // The Select button should be disabled again
     selectButton = screen.getByRole('button', { name: /select/i });
     expect(selectButton).toBeDisabled();
+  });
+
+  test('should disable OK button when max trace count is exceeded', async () => {
+    renderTestComponent({ maxTraceCount: 2 });
+
+    // Select 3 traces (exceeds max of 2)
+    await userEvent.click(screen.getByTestId('checkbox-trace-1'));
+    await userEvent.click(screen.getByTestId('checkbox-trace-2'));
+    await userEvent.click(screen.getByTestId('checkbox-trace-3'));
+
+    const selectButton = screen.getByRole('button', { name: /select/i });
+    expect(selectButton).toBeDisabled();
+  });
+
+  test('should enable OK button when selection is within max trace count', async () => {
+    renderTestComponent({ maxTraceCount: 2 });
+
+    // Select 2 traces (within max of 2)
+    await userEvent.click(screen.getByTestId('checkbox-trace-1'));
+    await userEvent.click(screen.getByTestId('checkbox-trace-2'));
+
+    const selectButton = screen.getByRole('button', { name: /select/i });
+    expect(selectButton).toBeEnabled();
   });
 });

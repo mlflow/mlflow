@@ -52,6 +52,7 @@ export type PromptsVersionsTableMetadata = {
 export enum PromptVersionsTableMode {
   PREVIEW = 'preview',
   COMPARE = 'compare',
+  TRACES = 'traces',
 }
 
 export const getPromptContentTagValue = (promptVersion: RegisteredPromptVersion) => {

@@ -64,6 +64,7 @@ const GroupLabel = ({ groupValues }: { groupValues: RunGroupByGroupingValue }): 
 };
 
 export const ExperimentEvaluationRunsTableRow = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({ row, isActive }: TracesViewTableRowProps) => {
     const { theme } = useDesignSystemTheme();
 
@@ -112,6 +113,7 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
       </TableRow>
     );
   },
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (prev, next) => {
     return (
       prev.isActive === next.isActive &&

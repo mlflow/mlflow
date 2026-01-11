@@ -1,117 +1,76 @@
-import React, { useMemo } from 'react';
-import { useDesignSystemTheme, Typography, ChartLineIcon } from '@databricks/design-system';
+import React from 'react';
+import { useDesignSystemTheme, ChartLineIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
-import { useTraceMetricsQuery, calculateTimeInterval } from '../hooks/useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from '../utils/chartUtils';
-import { ChartLoadingState, ChartErrorState, ChartEmptyState } from './ChartCardWrapper';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { useTraceRequestsChartData } from '../hooks/useTraceRequestsChartData';
+import {
+  OverviewChartLoadingState,
+  OverviewChartErrorState,
+  OverviewChartEmptyState,
+  OverviewChartHeader,
+  OverviewChartTimeLabel,
+  OverviewChartContainer,
+  useChartTooltipStyle,
+  useChartXAxisProps,
+} from './OverviewChartComponents';
 
-export interface TraceRequestsChartProps {
-  experimentId: string;
-  startTimeMs?: number;
-  endTimeMs?: number;
-}
-
-export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ experimentId, startTimeMs, endTimeMs }) => {
+export const TraceRequestsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
+  const tooltipStyle = useChartTooltipStyle();
+  const xAxisProps = useChartXAxisProps();
 
-  // Calculate time interval for grouping
-  const timeIntervalSeconds = calculateTimeInterval(startTimeMs, endTimeMs);
-
-  // Fetch trace count metrics grouped by time bucket
-  const {
-    data: traceCountData,
-    isLoading,
-    error,
-  } = useTraceMetricsQuery({
-    experimentId,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
-    metricName: TraceMetricKey.TRACE_COUNT,
-    aggregations: [{ aggregation_type: AggregationType.COUNT }],
-    timeIntervalSeconds,
-  });
-
-  const traceCountDataPoints = useMemo(() => traceCountData?.data_points || [], [traceCountData?.data_points]);
-
-  // Get total requests
-  const totalRequests = useMemo(
-    () => traceCountDataPoints.reduce((sum, dp) => sum + (dp.values?.[AggregationType.COUNT] || 0), 0),
-    [traceCountDataPoints],
-  );
-
-  // Prepare chart data for recharts (data is already sorted by time_bucket from backend)
-  const chartData = useMemo(() => {
-    return traceCountDataPoints.map((dp) => {
-      const timestampMs = getTimestampFromDataPoint(dp);
-      return {
-        name: timestampMs ? formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds) : '',
-        count: dp.values?.[AggregationType.COUNT] || 0,
-      };
-    });
-  }, [traceCountDataPoints, timeIntervalSeconds]);
+  // Fetch and process requests chart data
+  const { chartData, totalRequests, avgRequests, isLoading, error, hasData } = useTraceRequestsChartData();
 
   if (isLoading) {
-    return <ChartLoadingState />;
+    return <OverviewChartLoadingState />;
   }
 
   if (error) {
-    return <ChartErrorState />;
+    return <OverviewChartErrorState />;
   }
 
   return (
-    <div
-      css={{
-        border: `1px solid ${theme.colors.border}`,
-        borderRadius: theme.borders.borderRadiusMd,
-        padding: theme.spacing.lg,
-        backgroundColor: theme.colors.backgroundPrimary,
-      }}
-    >
-      {/* Chart header */}
-      <div css={{ marginBottom: theme.spacing.lg }}>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-          <ChartLineIcon css={{ color: theme.colors.textSecondary }} />
-          <Typography.Text bold>
-            <FormattedMessage defaultMessage="Requests" description="Title for the trace requests chart" />
-          </Typography.Text>
-        </div>
-        <Typography.Title level={3} css={{ margin: 0, marginTop: theme.spacing.sm, marginBottom: theme.spacing.sm }}>
-          {totalRequests.toLocaleString()}
-        </Typography.Title>
-      </div>
+    <OverviewChartContainer>
+      <OverviewChartHeader
+        icon={<ChartLineIcon />}
+        title={<FormattedMessage defaultMessage="Requests" description="Title for the trace requests chart" />}
+        value={totalRequests.toLocaleString()}
+      />
+      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: 200 }}>
-        {chartData.length > 0 ? (
+        {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-              <XAxis
-                dataKey="name"
-                tick={{ fontSize: 10, fill: theme.colors.textSecondary, dy: theme.spacing.sm }}
-                axisLine={false}
-                tickLine={false}
-              />
+              <XAxis dataKey="name" {...xAxisProps} />
               <YAxis hide />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: theme.colors.backgroundPrimary,
-                  border: `1px solid ${theme.colors.border}`,
-                  borderRadius: theme.borders.borderRadiusMd,
-                  fontSize: 12,
-                }}
+                contentStyle={tooltipStyle}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
                 formatter={(value: number) => [`${value}`, 'Requests']}
               />
               <Bar dataKey="count" fill={theme.colors.blue400} radius={[4, 4, 0, 0]} />
+              {avgRequests > 0 && (
+                <ReferenceLine
+                  y={avgRequests}
+                  stroke={theme.colors.textSecondary}
+                  strokeDasharray="4 4"
+                  label={{
+                    value: `AVG (${Math.round(avgRequests).toLocaleString()})`,
+                    position: 'insideTopRight',
+                    fill: theme.colors.textSecondary,
+                    fontSize: 10,
+                  }}
+                />
+              )}
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <ChartEmptyState />
+          <OverviewChartEmptyState />
         )}
       </div>
-    </div>
+    </OverviewChartContainer>
   );
 };

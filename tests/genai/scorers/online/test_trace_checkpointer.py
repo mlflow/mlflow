@@ -3,11 +3,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from mlflow.genai.scorers.online.constants import MAX_LOOKBACK_MS, TRACE_CHECKPOINT_TAG
+from mlflow.genai.scorers.online.constants import MAX_LOOKBACK_MS
 from mlflow.genai.scorers.online.trace_checkpointer import (
     OnlineTraceCheckpointManager,
     OnlineTraceScoringCheckpoint,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT
 
 
 @pytest.fixture
@@ -41,7 +42,9 @@ def test_get_checkpoint_returns_none_when_no_tag(checkpoint_manager, mock_store)
 
 def test_get_checkpoint_deserializes_correctly(checkpoint_manager, mock_store):
     experiment = MagicMock()
-    experiment.tags = {TRACE_CHECKPOINT_TAG: '{"timestamp_ms": 1000, "trace_id": "tr-1"}'}
+    experiment.tags = {
+        MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT: '{"timestamp_ms": 1000, "trace_id": "tr-1"}'
+    }
     mock_store.get_experiment.return_value = experiment
 
     result = checkpoint_manager.get_checkpoint()
@@ -52,7 +55,7 @@ def test_get_checkpoint_deserializes_correctly(checkpoint_manager, mock_store):
 
 def test_get_checkpoint_handles_invalid_json(checkpoint_manager, mock_store):
     experiment = MagicMock()
-    experiment.tags = {TRACE_CHECKPOINT_TAG: "invalid json"}
+    experiment.tags = {MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT: "invalid json"}
     mock_store.get_experiment.return_value = experiment
 
     result = checkpoint_manager.get_checkpoint()
@@ -68,7 +71,7 @@ def test_persist_checkpoint_sets_experiment_tag(checkpoint_manager, mock_store):
     mock_store.set_experiment_tag.assert_called_once()
     call_args = mock_store.set_experiment_tag.call_args
     assert call_args[0][0] == "exp1"
-    assert call_args[0][1].key == TRACE_CHECKPOINT_TAG
+    assert call_args[0][1].key == MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT
 
 
 def test_calculate_time_window_no_checkpoint(checkpoint_manager, mock_store, monkeypatch):
@@ -89,7 +92,8 @@ def test_calculate_time_window_recent_checkpoint(checkpoint_manager, mock_store,
     fixed_time = 1000000
     recent_checkpoint_time = (fixed_time * 1000) - 60000  # 1 minute ago
     experiment = MagicMock()
-    experiment.tags = {TRACE_CHECKPOINT_TAG: f'{{"timestamp_ms": {recent_checkpoint_time}}}'}
+    checkpoint_json = f'{{"timestamp_ms": {recent_checkpoint_time}}}'
+    experiment.tags = {MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT: checkpoint_json}
     mock_store.get_experiment.return_value = experiment
     monkeypatch.setattr(time, "time", lambda: fixed_time)
 
@@ -105,7 +109,9 @@ def test_calculate_time_window_old_checkpoint(checkpoint_manager, mock_store, mo
         (fixed_time * 1000) - MAX_LOOKBACK_MS - 1000000
     )  # Way older than max lookback
     experiment = MagicMock()
-    experiment.tags = {TRACE_CHECKPOINT_TAG: f'{{"timestamp_ms": {old_checkpoint_time}}}'}
+    experiment.tags = {
+        MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT: f'{{"timestamp_ms": {old_checkpoint_time}}}'
+    }
     mock_store.get_experiment.return_value = experiment
     monkeypatch.setattr(time, "time", lambda: fixed_time)
 

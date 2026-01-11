@@ -1,4 +1,4 @@
-import { FormUI, Input, Modal } from '@databricks/design-system';
+import { FormUI, Input, Modal, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useCreateEvaluationDatasetMutation } from '../hooks/useCreateEvaluationDatasetMutation';
 import { useCallback, useState } from 'react';
@@ -12,6 +12,7 @@ export const CreateEvaluationDatasetModal = ({
   experimentId: string;
   onCancel: () => void;
 }) => {
+  const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [datasetName, setDatasetName] = useState('');
   const [datasetNameError, setDatasetNameError] = useState('');
@@ -53,6 +54,7 @@ export const CreateEvaluationDatasetModal = ({
           description="Create evaluation dataset modal title"
         />
       }
+      zIndex={theme.options.zIndexBase + 20}
     >
       <FormUI.Label htmlFor="dataset-name-input">
         <FormattedMessage defaultMessage="Dataset name" description="Dataset name label" />
