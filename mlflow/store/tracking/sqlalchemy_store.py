@@ -3190,6 +3190,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 session=session,
                 experiment_id=experiment_id,
                 max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
+                sessions=(
+                    filtered_sessions if filtered_sessions is not None else candidate_sessions
+                ),
             )
 
             # Step 5: Get sessions where last trace in [min, max] AND NOT in ongoing sessions
@@ -3356,11 +3359,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         session: Session,
         experiment_id: str,
         max_last_trace_timestamp_ms: int,
+        sessions: Subquery,
     ) -> Subquery:
         """
         Build subquery for sessions with traces after the cutoff timestamp.
 
-        These sessions are NOT completed yet.
+        These sessions are NOT completed yet. Only checks sessions in the provided
+        sessions subquery to avoid full table scan.
         """
         recent_session_metadata = aliased(SqlTraceMetadata)
         return (
@@ -3371,6 +3376,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 (SqlTraceInfo.request_id == recent_session_metadata.request_id)
                 & (recent_session_metadata.key == TraceMetadataKey.TRACE_SESSION),
             )
+            .join(sessions, recent_session_metadata.value == sessions.c.session_id)
             .filter(
                 SqlTraceInfo.experiment_id == experiment_id,
                 SqlTraceInfo.timestamp_ms > max_last_trace_timestamp_ms,
