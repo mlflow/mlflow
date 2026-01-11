@@ -19,7 +19,7 @@ from claude_agent_sdk import (
     query,
 )
 
-from skills.github import GitHubClient, get_github_token
+from skills.github import GitHubClient, Job, JobStep, get_github_token
 
 MAX_LOG_TOKENS = 100_000
 
@@ -127,9 +127,9 @@ def truncate_logs(logs: str, max_tokens: int = MAX_LOG_TOKENS) -> str:
     return f"(showing last {max_tokens:,} tokens)\n{truncated}"
 
 
-def get_failed_step(steps: list[dict[str, Any]]) -> dict[str, Any] | None:
+def get_failed_step(steps: list[JobStep]) -> JobStep | None:
     for step in steps:
-        if step.get("conclusion") == "failure":
+        if step.conclusion == "failure":
             return step
     return None
 
@@ -139,7 +139,7 @@ JOB_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)/job/
 
 
 @dataclass
-class JobRun:
+class JobTarget:
     owner: str
     repo: str
     run_id: int
@@ -155,7 +155,7 @@ class JobRun:
 
 async def get_failed_jobs_from_pr(
     client: GitHubClient, owner: str, repo: str, pr_number: int
-) -> list[JobRun]:
+) -> list[JobTarget]:
     log(f"Fetching https://github.com/{owner}/{repo}/pull/{pr_number}")
     pr = await client.get_pr(owner, repo, pr_number)
     head_sha = pr.head.sha
@@ -165,7 +165,7 @@ async def get_failed_jobs_from_pr(
     failed_runs = [r async for r in runs if r.conclusion == "failure"]
     log(f"Found {len(failed_runs)} failed workflow run(s)")
 
-    async def failed_jobs(run_id: int) -> list[Any]:
+    async def failed_jobs(run_id: int) -> list[Job]:
         return [j async for j in client.get_jobs(owner, repo, run_id) if j.conclusion == "failure"]
 
     failed_jobs_results = await asyncio.gather(*[failed_jobs(run.id) for run in failed_runs])
@@ -175,17 +175,17 @@ async def get_failed_jobs_from_pr(
     ]
     log(f"Found {len(run_job_pairs)} failed job(s)")
 
-    return [JobRun(owner, repo, run.id, job.id) for run, job in run_job_pairs]
+    return [JobTarget(owner, repo, run.id, job.id) for run, job in run_job_pairs]
 
 
-async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[JobRun]:
-    job_runs: list[JobRun] = []
+async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[JobTarget]:
+    job_runs: list[JobTarget] = []
 
     for url in urls:
         if match := JOB_URL_PATTERN.search(url):
             repo_full = match.group(1)
             owner, repo = repo_full.split("/")
-            job_runs.append(JobRun(owner, repo, int(match.group(2)), int(match.group(3))))
+            job_runs.append(JobTarget(owner, repo, int(match.group(2)), int(match.group(3))))
         elif match := PR_URL_PATTERN.search(url):
             repo_full = match.group(1)
             owner, repo = repo_full.split("/")
@@ -200,7 +200,7 @@ async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[JobRun]:
     return job_runs
 
 
-async def fetch_single_job_logs(client: GitHubClient, job: JobRun) -> JobLogs:
+async def fetch_single_job_logs(client: GitHubClient, job: JobTarget) -> JobLogs:
     log(f"Fetching job {job.job_id} from {job.owner}/{job.repo}")
 
     job_details = await client.get_job(job.owner, job.repo, job.job_id)
@@ -208,9 +208,12 @@ async def fetch_single_job_logs(client: GitHubClient, job: JobRun) -> JobLogs:
 
     workflow_name = run_details.name
     job_name = job_details.name
-    failed_step = get_failed_step([step.model_dump() for step in job_details.steps])
+    failed_step = get_failed_step(job_details.steps)
     if not failed_step:
         raise ValueError(f"No failed step found for job {job.job_id}")
+
+    if not failed_step.started_at or not failed_step.completed_at:
+        raise ValueError(f"Failed step missing timestamps for job {job.job_id}")
 
     log(f"Fetching logs for '{workflow_name} / {job_name}'")
     cleaned_logs = await compact_logs(
@@ -219,12 +222,12 @@ async def fetch_single_job_logs(client: GitHubClient, job: JobRun) -> JobLogs:
             job.owner,
             job.repo,
             job.job_id,
-            started_at=failed_step["started_at"],
-            completed_at=failed_step["completed_at"],
+            started_at=failed_step.started_at,
+            completed_at=failed_step.completed_at,
         )
     )
     truncated_logs = truncate_logs(cleaned_logs)
-    failed_step_name = failed_step.get("name")
+    failed_step_name = failed_step.name
 
     return JobLogs(
         workflow_name=workflow_name,
