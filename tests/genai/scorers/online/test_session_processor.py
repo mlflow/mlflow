@@ -34,9 +34,7 @@ def make_online_scorer(scorer, sample_rate: float = 1.0, filter_string: str | No
         filter_string=filter_string,
     )
     return OnlineScorer(
-        name=scorer.name,
-        serialized_scorer=json.dumps(scorer.model_dump()),
-        online_config=config,
+        name=scorer.name, serialized_scorer=json.dumps(scorer.model_dump()), online_config=config
     )
 
 
@@ -78,6 +76,16 @@ def make_trace(trace_id: str, timestamp_ms: int = 1000, assessments=None):
     )
 
 
+def make_processor(loader, checkpoint_mgr, sampler, store):
+    return OnlineSessionScoringProcessor(
+        trace_loader=loader,
+        checkpoint_manager=checkpoint_mgr,
+        sampler=sampler,
+        experiment_id="exp1",
+        tracking_store=store,
+    )
+
+
 @pytest.fixture
 def mock_trace_loader():
     return MagicMock(spec=OnlineTraceLoader)
@@ -100,8 +108,7 @@ def mock_tracking_store():
 
 @pytest.fixture
 def sampler_with_scorers():
-    configs = [make_online_scorer(ConversationCompleteness(), sample_rate=1.0)]
-    return OnlineScorerSampler(configs)
+    return OnlineScorerSampler([make_online_scorer(ConversationCompleteness(), sample_rate=1.0)])
 
 
 @pytest.fixture
@@ -118,14 +125,9 @@ def test_process_sessions_skips_when_no_scorers(
     When there are no scorers, the processor should skip all processing work
     (no time window calculation, no session fetching) to avoid unnecessary overhead.
     """
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=empty_sampler,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, empty_sampler, mock_tracking_store
     )
-
     processor.process_sessions()
 
     mock_checkpoint_manager.calculate_time_window.assert_not_called()
@@ -142,17 +144,11 @@ def test_process_sessions_updates_checkpoint_when_no_sessions(
     (max_last_trace_timestamp_ms) to avoid reprocessing the same empty window on the next run.
     """
     mock_tracking_store.find_completed_sessions.return_value = []
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler_with_scorers,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
-
     processor.process_sessions()
 
-    mock_checkpoint_manager.persist_checkpoint.assert_called_once()
     checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
     assert checkpoint.timestamp_ms == 2000
     assert checkpoint.session_id is None
@@ -179,19 +175,14 @@ def test_process_sessions_filters_checkpoint_boundary(
         make_completed_session("sess-003", 500, 1000),
         make_completed_session("sess-004", 500, 1500),
     ]
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler_with_scorers,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
 
     with patch(
         "mlflow.genai.scorers.online.session_processor.OnlineSessionScoringProcessor._score_session"
     ) as mock_score:
         processor.process_sessions()
-
         assert mock_score.call_count == 2
         scored_tasks = [call[0][0] for call in mock_score.call_args_list]
         assert scored_tasks[0].session.session_id == "sess-003"
@@ -213,7 +204,7 @@ def test_session_rescored_when_new_trace_added_after_checkpoint(
         timestamp_ms=1000, session_id="sess-001"
     )
     mock_tracking_store.find_completed_sessions.return_value = [
-        make_completed_session("sess-001", 500, 2000),
+        make_completed_session("sess-001", 500, 2000)
     ]
     mock_trace_loader.fetch_trace_infos_in_range.return_value = [
         make_trace_info("tr-001", 500),
@@ -223,12 +214,8 @@ def test_session_rescored_when_new_trace_added_after_checkpoint(
         make_trace("tr-001", 500),
         make_trace("tr-002", 2000),
     ]
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler_with_scorers,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
 
     with patch(
@@ -237,7 +224,6 @@ def test_session_rescored_when_new_trace_added_after_checkpoint(
         mock_evaluate.return_value = {}
         processor.process_sessions()
 
-        mock_evaluate.assert_called_once()
         call_kwargs = mock_evaluate.call_args[1]
         assert call_kwargs["session_id"] == "sess-001"
         assert len(call_kwargs["session_items"]) == 2
@@ -253,16 +239,13 @@ def test_process_sessions_samples_and_scores(
     The processor should evaluate the session with the selected scorers and log the
     resulting assessments to the trace. This is the happy path for session scoring.
     """
-    session = make_completed_session("sess-001", 500, 1500)
-    mock_tracking_store.find_completed_sessions.return_value = [session]
+    mock_tracking_store.find_completed_sessions.return_value = [
+        make_completed_session("sess-001", 500, 1500)
+    ]
     mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1000)]
     mock_trace_loader.fetch_traces.return_value = [make_trace("tr-001", 1000)]
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler_with_scorers,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
 
     with (
@@ -274,7 +257,6 @@ def test_process_sessions_samples_and_scores(
         mock_evaluate.return_value = {"tr-001": [MagicMock()]}
         processor.process_sessions()
 
-        mock_evaluate.assert_called_once()
         call_kwargs = mock_evaluate.call_args[1]
         assert call_kwargs["session_id"] == "sess-001"
         assert len(call_kwargs["session_items"]) == 1
@@ -296,12 +278,8 @@ def test_process_sessions_updates_checkpoint_on_success(
         make_completed_session("sess-001", 500, 1000),
         make_completed_session("sess-002", 500, 1500),
     ]
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler_with_scorers,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
 
     with patch(
@@ -329,12 +307,8 @@ def test_execute_session_scoring_handles_failures(
         make_completed_session("sess-001", 500, 1000),
         make_completed_session("sess-002", 500, 1500),
     ]
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler_with_scorers,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
 
     with patch(
@@ -342,10 +316,8 @@ def test_execute_session_scoring_handles_failures(
     ) as mock_score:
         mock_score.side_effect = [Exception("Session failed"), None]
         processor.process_sessions()
-
         assert mock_score.call_count == 2
 
-    mock_checkpoint_manager.persist_checkpoint.assert_called_once()
     checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
     assert checkpoint.timestamp_ms == 1500
     assert checkpoint.session_id == "sess-002"
@@ -359,11 +331,8 @@ def test_create_factory_method(mock_tracking_store):
     checkpoint manager, sampler) with the correct configuration.
     """
     configs = [make_online_scorer(ConversationCompleteness())]
-
     processor = OnlineSessionScoringProcessor.create(
-        experiment_id="exp1",
-        online_scorers=configs,
-        tracking_store=mock_tracking_store,
+        experiment_id="exp1", online_scorers=configs, tracking_store=mock_tracking_store
     )
 
     assert processor._experiment_id == "exp1"
@@ -386,21 +355,16 @@ def test_score_session_excludes_eval_run_traces(
     fetching traces to exclude traces generated during MLflow evaluation runs
     (which already have assessments and shouldn't be scored again).
     """
-    session = make_completed_session("sess-001", 500, 1500)
-    mock_tracking_store.find_completed_sessions.return_value = [session]
+    mock_tracking_store.find_completed_sessions.return_value = [
+        make_completed_session("sess-001", 500, 1500)
+    ]
     mock_trace_loader.fetch_trace_infos_in_range.return_value = []
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler_with_scorers,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
-
     processor.process_sessions()
 
-    call_args = mock_trace_loader.fetch_trace_infos_in_range.call_args[1]
-    filter_string = call_args["filter_string"]
+    filter_string = mock_trace_loader.fetch_trace_infos_in_range.call_args[1]["filter_string"]
     assert (
         filter_string
         == "metadata.mlflow.sourceRun IS NULL AND metadata.`mlflow.trace.session` = 'sess-001'"
@@ -417,16 +381,13 @@ def test_score_session_adds_session_metadata_to_assessments(
     assessment before logging it, enabling cleanup of old assessments when the session
     is re-scored later.
     """
-    session = make_completed_session("sess-001", 500, 1500)
-    mock_tracking_store.find_completed_sessions.return_value = [session]
+    mock_tracking_store.find_completed_sessions.return_value = [
+        make_completed_session("sess-001", 500, 1500)
+    ]
     mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1000)]
     mock_trace_loader.fetch_traces.return_value = [make_trace("tr-001", 1000)]
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler_with_scorers,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
 
     with (
@@ -457,22 +418,18 @@ def test_score_session_skips_when_no_traces_found(
     The processor should skip scoring this session since there's no data to evaluate,
     logging a warning and moving on to process other sessions.
     """
-    session = make_completed_session("sess-001", 500, 1500)
-    mock_tracking_store.find_completed_sessions.return_value = [session]
+    mock_tracking_store.find_completed_sessions.return_value = [
+        make_completed_session("sess-001", 500, 1500)
+    ]
     mock_trace_loader.fetch_trace_infos_in_range.return_value = []
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler_with_scorers,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
 
     with patch(
         "mlflow.genai.evaluation.session_utils.evaluate_session_level_scorers"
     ) as mock_evaluate:
         processor.process_sessions()
-
         mock_evaluate.assert_not_called()
 
 
@@ -486,25 +443,20 @@ def test_score_session_skips_when_no_applicable_scorers(
     The processor should skip scoring since no scorers were selected to run,
     avoiding unnecessary evaluation work.
     """
-    configs = [make_online_scorer(ConversationCompleteness(), sample_rate=0.0)]
-    sampler = OnlineScorerSampler(configs)
-    session = make_completed_session("sess-001", 500, 1500)
-    mock_tracking_store.find_completed_sessions.return_value = [session]
+    sampler = OnlineScorerSampler([make_online_scorer(ConversationCompleteness(), sample_rate=0.0)])
+    mock_tracking_store.find_completed_sessions.return_value = [
+        make_completed_session("sess-001", 500, 1500)
+    ]
     mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1000)]
     mock_trace_loader.fetch_traces.return_value = [make_trace("tr-001", 1000)]
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler, mock_tracking_store
     )
 
     with patch(
         "mlflow.genai.evaluation.session_utils.evaluate_session_level_scorers"
     ) as mock_evaluate:
         processor.process_sessions()
-
         mock_evaluate.assert_not_called()
 
 
@@ -524,17 +476,11 @@ def test_checkpoint_advances_when_all_traces_are_from_eval_runs(
         make_completed_session("sess-002", 500, 1500),
     ]
     mock_trace_loader.fetch_trace_infos_in_range.return_value = []
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler_with_scorers,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
-
     processor.process_sessions()
 
-    mock_checkpoint_manager.persist_checkpoint.assert_called_once()
     checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
     assert checkpoint.timestamp_ms == 1500
     assert checkpoint.session_id == "sess-002"
@@ -556,17 +502,15 @@ def test_clean_up_old_assessments_removes_duplicates(
     old_assessment.name = "ConversationCompleteness/v1"
     old_assessment.metadata = {AssessmentMetadataKey.ONLINE_SCORING_SESSION_ID: "sess-001"}
 
-    trace = make_trace("tr-001", 1000, assessments=[old_assessment])
-    session = make_completed_session("sess-001", 500, 1500)
-    mock_tracking_store.find_completed_sessions.return_value = [session]
+    mock_tracking_store.find_completed_sessions.return_value = [
+        make_completed_session("sess-001", 500, 1500)
+    ]
     mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1000)]
-    mock_trace_loader.fetch_traces.return_value = [trace]
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler_with_scorers,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    mock_trace_loader.fetch_traces.return_value = [
+        make_trace("tr-001", 1000, assessments=[old_assessment])
+    ]
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
 
     with (
@@ -602,17 +546,15 @@ def test_clean_up_old_assessments_preserves_different_sessions(
     old_assessment.name = "ConversationCompleteness/v1"
     old_assessment.metadata = {AssessmentMetadataKey.ONLINE_SCORING_SESSION_ID: "sess-002"}
 
-    trace = make_trace("tr-001", 1000, assessments=[old_assessment])
-    session = make_completed_session("sess-001", 500, 1500)
-    mock_tracking_store.find_completed_sessions.return_value = [session]
+    mock_tracking_store.find_completed_sessions.return_value = [
+        make_completed_session("sess-001", 500, 1500)
+    ]
     mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1000)]
-    mock_trace_loader.fetch_traces.return_value = [trace]
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler_with_scorers,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    mock_trace_loader.fetch_traces.return_value = [
+        make_trace("tr-001", 1000, assessments=[old_assessment])
+    ]
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
 
     with (
@@ -643,23 +585,19 @@ def test_fetch_sessions_calls_once_per_filter_when_scorers_have_different_filter
     and ensuring each session is evaluated by the correct scorers.
     """
     scorer1 = ConversationCompleteness()
-    scorer1.name = "scorer1"
     scorer2 = ConversationCompleteness()
+    scorer1.name = "scorer1"
     scorer2.name = "scorer2"
-    configs = [
-        make_online_scorer(scorer1, filter_string="tag.env = 'prod'"),
-        make_online_scorer(scorer2, filter_string="tag.env = 'dev'"),
-    ]
-    sampler = OnlineScorerSampler(configs)
-    mock_tracking_store.find_completed_sessions.return_value = []
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    sampler = OnlineScorerSampler(
+        [
+            make_online_scorer(scorer1, filter_string="tag.env = 'prod'"),
+            make_online_scorer(scorer2, filter_string="tag.env = 'dev'"),
+        ]
     )
-
+    mock_tracking_store.find_completed_sessions.return_value = []
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler, mock_tracking_store
+    )
     processor.process_sessions()
 
     assert mock_tracking_store.find_completed_sessions.call_count == 2
@@ -681,23 +619,19 @@ def test_fetch_sessions_calls_once_per_filter_when_any_scorer_has_no_filter(
     and unfiltered scorers get the appropriate sessions.
     """
     scorer1 = ConversationCompleteness()
-    scorer1.name = "scorer1"
     scorer2 = ConversationCompleteness()
+    scorer1.name = "scorer1"
     scorer2.name = "scorer2"
-    configs = [
-        make_online_scorer(scorer1, filter_string="tag.env = 'prod'"),
-        make_online_scorer(scorer2, filter_string=None),
-    ]
-    sampler = OnlineScorerSampler(configs)
-    mock_tracking_store.find_completed_sessions.return_value = []
-    processor = OnlineSessionScoringProcessor(
-        trace_loader=mock_trace_loader,
-        checkpoint_manager=mock_checkpoint_manager,
-        sampler=sampler,
-        experiment_id="exp1",
-        tracking_store=mock_tracking_store,
+    sampler = OnlineScorerSampler(
+        [
+            make_online_scorer(scorer1, filter_string="tag.env = 'prod'"),
+            make_online_scorer(scorer2, filter_string=None),
+        ]
     )
-
+    mock_tracking_store.find_completed_sessions.return_value = []
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler, mock_tracking_store
+    )
     processor.process_sessions()
 
     assert mock_tracking_store.find_completed_sessions.call_count == 2
