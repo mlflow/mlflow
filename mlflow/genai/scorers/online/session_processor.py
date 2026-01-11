@@ -305,15 +305,11 @@ class OnlineSessionScoringProcessor:
 
         trace_ids = [t.trace_id for t in trace_infos]
         full_traces = self._trace_loader.fetch_traces(trace_ids)
-
         if not full_traces:
             _logger.warning(f"Failed to fetch full traces for session {session.session_id}")
             return
-
         full_traces.sort(key=lambda t: t.info.timestamp_ms)
-
         trace_map = {t.info.trace_id: t for t in full_traces}
-
         session_items = [EvalItem.from_trace(t) for t in full_traces]
 
         try:
