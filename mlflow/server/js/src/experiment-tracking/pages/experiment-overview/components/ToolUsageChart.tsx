@@ -14,7 +14,7 @@ import {
   useChartXAxisProps,
   useChartLegendFormatter,
 } from './OverviewChartComponents';
-import { formatCount, useLegendHighlight, useToolColors } from '../utils/chartUtils';
+import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartUtils';
 
 /**
  * Chart showing tool usage over time as a stacked bar chart.
@@ -26,7 +26,7 @@ export const ToolUsageChart: React.FC = () => {
   const xAxisProps = useChartXAxisProps();
   const legendFormatter = useChartLegendFormatter();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
-  const { getToolColor } = useToolColors();
+  const { getChartColor } = useChartColors();
 
   // Fetch and process tool usage chart data
   const { chartData, toolNames, isLoading, error, hasData } = useToolUsageChartData();
@@ -65,7 +65,7 @@ export const ToolUsageChart: React.FC = () => {
                   key={toolName}
                   dataKey={toolName}
                   stackId="tools"
-                  fill={getToolColor(index)}
+                  fill={getChartColor(index)}
                   fillOpacity={getOpacity(toolName)}
                 />
               ))}
