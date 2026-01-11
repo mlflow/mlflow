@@ -3,12 +3,14 @@ import os
 import uuid
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.genai.judges import make_judge
+from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.builtin_scorers import Completeness, RelevanceToQuery
 from mlflow.genai.scorers.job import (
     run_online_scoring_scheduler,
@@ -25,7 +27,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def make_online_scorer_dict(scorer, sample_rate: float = 1.0):
+def make_online_scorer_dict(scorer: Scorer, sample_rate: float = 1.0) -> dict[str, Any]:
     return {
         "name": scorer.name,
         "serialized_scorer": json.dumps(scorer.model_dump()),
