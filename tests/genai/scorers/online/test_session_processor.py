@@ -252,7 +252,10 @@ def test_session_rescored_when_new_trace_added_after_checkpoint(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
-    mock_evaluate.return_value = {}
+    mock_evaluate.return_value = {
+        "tr-001": [make_assessment("assess-1", "ConversationCompleteness/v1")],
+        "tr-002": [make_assessment("assess-2", "ConversationCompleteness/v1")],
+    }
     processor.process_sessions()
 
     call_kwargs = mock_evaluate.call_args[1]
