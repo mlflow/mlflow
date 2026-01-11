@@ -13,13 +13,13 @@ import {
   RefreshIcon,
   SparkleDoubleIcon,
   SparkleIcon,
-  Spinner,
+  StopIcon,
+  Tag,
   Tooltip,
   Typography,
   useDesignSystemTheme,
   SendIcon,
   WrenchSparkleIcon,
-  Tag,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
@@ -85,6 +85,20 @@ const ChatMessageBubble = ({ message, isLastMessage }: { message: ChatMessage; i
           <Typography.Text css={{ whiteSpace: 'pre-wrap' }}>{message.content}</Typography.Text>
         ) : (
           <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer>
+        )}
+        {/* Interrupted indicator */}
+        {message.isInterrupted && (
+          <span
+            css={{
+              display: 'block',
+              marginTop: theme.spacing.sm,
+              fontSize: theme.typography.fontSizeSm,
+              fontStyle: 'italic',
+              color: theme.colors.textValidationDanger,
+            }}
+          >
+            Assistant was interrupted
+          </span>
         )}
         {/* Loading indicator */}
         {message.isStreaming && (
@@ -281,7 +295,7 @@ const StatusIndicator = () => {
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, currentStatus, sendMessage } = useAssistant();
+  const { messages, isStreaming, error, currentStatus, sendMessage, cancelSession } = useAssistant();
 
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -397,8 +411,8 @@ const ChatPanelContent = () => {
               }}
             />
             <button
-              onClick={handleSend}
-              disabled={!inputValue.trim() || isStreaming}
+              onClick={isStreaming ? cancelSession : handleSend}
+              disabled={!isStreaming && !inputValue.trim()}
               css={{
                 display: 'flex',
                 alignItems: 'center',
@@ -406,10 +420,10 @@ const ChatPanelContent = () => {
                 padding: theme.spacing.xs,
                 border: 'none',
                 background: 'transparent',
-                cursor: !inputValue.trim() || isStreaming ? 'not-allowed' : 'pointer',
+                cursor: !isStreaming && !inputValue.trim() ? 'not-allowed' : 'pointer',
                 borderRadius: theme.borders.borderRadiusSm,
-                color: theme.colors.actionPrimaryBackgroundDefault,
-                opacity: !inputValue.trim() || isStreaming ? 0.3 : 1,
+                color: isStreaming ? theme.colors.textValidationDanger : theme.colors.actionPrimaryBackgroundDefault,
+                opacity: !isStreaming && !inputValue.trim() ? 0.3 : 1,
                 '&:hover:not(:disabled)': {
                   backgroundColor: theme.colors.actionDefaultBackgroundHover,
                 },
@@ -417,9 +431,9 @@ const ChatPanelContent = () => {
                   backgroundColor: theme.colors.actionDefaultBackgroundPress,
                 },
               }}
-              aria-label="Send message"
+              aria-label={isStreaming ? 'Stop generation' : 'Send message'}
             >
-              {isStreaming ? <Spinner size="small" /> : <SendIcon />}
+              {isStreaming ? <StopIcon /> : <SendIcon />}
             </button>
           </div>
           <AssistantContextTags />

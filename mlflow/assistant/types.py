@@ -56,6 +56,7 @@ class EventType(str, Enum):
     STREAM_EVENT = "stream_event"
     DONE = "done"
     ERROR = "error"
+    INTERRUPTED = "interrupted"
 
 
 class Event(BaseModel):
@@ -83,3 +84,7 @@ class Event(BaseModel):
     @classmethod
     def from_result(cls, result: Any, session_id: str) -> "Event":
         return cls(type=EventType.DONE, data={"result": result, "session_id": session_id})
+
+    @classmethod
+    def from_interrupted(cls) -> "Event":
+        return cls(type=EventType.INTERRUPTED, data={"message": "Assistant was interrupted"})
