@@ -6615,10 +6615,6 @@
     "defaultMessage": "MLflow Assistant",
     "description": "Title for the global Assistant chat panel"
   },
-  "p0O0uP": {
-    "defaultMessage": "Trace data not available",
-    "description": "Experiment page > traces data drawer > in-progress title"
-  },
   "p1H1KR": {
     "defaultMessage": "Last 30 days",
     "description": "Option for the start select dropdown to filter runs from the last 30 days"
