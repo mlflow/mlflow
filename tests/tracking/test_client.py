@@ -1145,6 +1145,7 @@ def test_log_trace(tracking_uri):
     assert len(backend_traces) == 1
 
 
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_search_traces_experiment_ids_deprecation_warning():
     client = MlflowClient()
     exp_id = mlflow.set_experiment("test_experiment_deprecation").experiment_id

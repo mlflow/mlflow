@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create an input tokens data point
 const createInputTokensDataPoint = (timeBucket: string, sum: number) => ({
@@ -43,8 +44,8 @@ describe('TraceTokenUsageChart', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  // Default props reused across tests
-  const defaultProps = {
+  // Context props reused across tests
+  const defaultContextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
@@ -63,12 +64,15 @@ describe('TraceTokenUsageChart', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = (contextOverrides: Partial<typeof defaultContextProps> = {}) => {
     const queryClient = createQueryClient();
+    const contextProps = { ...defaultContextProps, ...contextOverrides };
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <TraceTokenUsageChart {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <TraceTokenUsageChart />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );
@@ -99,7 +103,7 @@ describe('TraceTokenUsageChart', () => {
   });
 
   describe('loading state', () => {
-    it('should render loading spinner while data is being fetched', async () => {
+    it('should render loading skeleton while data is being fetched', async () => {
       server.use(
         rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
@@ -108,8 +112,8 @@ describe('TraceTokenUsageChart', () => {
 
       renderComponent();
 
-      // Check for spinner (loading state)
-      expect(screen.getByRole('img')).toBeInTheDocument();
+      // Check that actual chart content is not rendered during loading
+      expect(screen.queryByText('Token Usage')).not.toBeInTheDocument();
     });
   });
 

@@ -26,6 +26,7 @@ from mlflow.genai.scorers.builtin_scorers import (
     Safety,
     UserFrustration,
 )
+from mlflow.genai.simulators import ConversationSimulator
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
@@ -57,6 +58,7 @@ from mlflow.telemetry.events import (
     MergeRecordsEvent,
     PromptOptimizationEvent,
     ScorerCallEvent,
+    SimulateConversationEvent,
     StartTraceEvent,
 )
 from mlflow.tracking.fluent import _create_dataset_input, _initialize_logged_model
@@ -564,6 +566,45 @@ def test_genai_evaluate_telemetry_data_fields(
         validate_telemetry_record(
             mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
         )
+
+
+def test_simulate_conversation(mock_requests, mock_telemetry_client: TelemetryClient):
+    simulator = ConversationSimulator(
+        test_cases=[
+            {"goal": "Learn about MLflow"},
+            {"goal": "Debug an issue"},
+        ],
+        max_turns=2,
+    )
+
+    def mock_predict_fn(input, **kwargs):
+        return {"role": "assistant", "content": "Mock response"}
+
+    with (
+        mock.patch(
+            "mlflow.genai.simulators.simulator._invoke_model_without_tracing",
+            return_value="Mock user message",
+        ),
+        mock.patch(
+            "mlflow.genai.simulators.simulator.ConversationSimulator._check_goal_achieved",
+            return_value=False,
+        ),
+    ):
+        result = simulator._simulate(predict_fn=mock_predict_fn)
+
+    assert len(result) == 2
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        SimulateConversationEvent.name,
+        {
+            "simulated_conversation_info": [
+                {"turn_count": len(result[0])},
+                {"turn_count": len(result[1])},
+            ]
+        },
+    )
 
 
 def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClient):
