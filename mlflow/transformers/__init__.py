@@ -541,7 +541,7 @@ def save_model(
 
     # transformers now supports `save_pretrained` for offloaded models:
     # https://github.com/huggingface/transformers/commit/ff689f57aa111261e6c2a506a42479d99674b123
-    if version.parse(transformers_version) < version.parse("4.42.0"):
+    if version.parse(transformers.__version__) < version.parse("4.42.0"):
         # Verify that the model has not been loaded to distributed memory
         # NB: transformers does not correctly save a model whose weights have been loaded
         # using accelerate iff the model weights have been loaded using a device_map that is
