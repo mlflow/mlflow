@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { WrenchIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -21,14 +21,15 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useChartYAxisProps,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { formatTimestampForTraceMetrics } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
-export interface ToolErrorRateChartProps extends OverviewChartProps {
+export interface ToolErrorRateChartProps {
   /** The name of the tool to display */
   toolName: string;
   /** Optional color for the line chart */
@@ -37,20 +38,12 @@ export interface ToolErrorRateChartProps extends OverviewChartProps {
   overallErrorRate: number;
 }
 
-export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-  toolName,
-  lineColor,
-  overallErrorRate,
-}) => {
+export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName, lineColor, overallErrorRate }) => {
+  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const yAxisProps = useChartYAxisProps();
+  const scrollableLegendProps = useScrollableLegendProps();
 
   const chartLineColor = lineColor || theme.colors.red500;
 
@@ -117,6 +110,11 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({
   // Check if we have actual data
   const hasData = dataPoints.length > 0;
 
+  const tooltipFormatter = useCallback(
+    (value: number) => [`${value.toFixed(2)}%`, 'Error Rate'] as [string, string],
+    [],
+  );
+
   if (isLoading) {
     return <OverviewChartLoadingState />;
   }
@@ -151,13 +149,12 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
             <XAxis dataKey="name" {...xAxisProps} />
-            <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} {...xAxisProps} />
+            <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} {...yAxisProps} />
             <Tooltip
-              contentStyle={tooltipStyle}
+              content={<ScrollableTooltip formatter={tooltipFormatter} />}
               cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-              formatter={(value: number) => [`${value.toFixed(2)}%`, 'Error Rate']}
             />
-            <Legend iconType="plainline" formatter={legendFormatter} />
+            <Legend iconType="plainline" {...scrollableLegendProps} />
             <Line
               type="monotone"
               dataKey="errorRate"

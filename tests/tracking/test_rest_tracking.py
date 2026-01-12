@@ -4046,6 +4046,68 @@ def test_scorer_CRUD(mlflow_client, store_type):
     mlflow_client.delete_experiment(experiment_id)
 
 
+def test_online_scoring_config(mlflow_client_with_secrets):
+    """
+    Smoke test for online scoring configuration REST APIs.
+    Tests upsert_online_scoring_config and get_online_scoring_configs.
+    """
+    experiment_id = mlflow_client_with_secrets.create_experiment("test_online_scoring")
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store.create_gateway_secret(
+        secret_name="test-secret", secret_value={"api_key": "sk-test"}, provider="openai"
+    )
+    model_def = store.create_gateway_model_definition(
+        name="test-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+            )
+        ],
+    )
+
+    scorer_data = {"instructions_judge_pydantic_data": {"model": f"gateway:/{endpoint.name}"}}
+    serialized_scorer = json.dumps(scorer_data)
+    scorer_version = store.register_scorer(experiment_id, "my_scorer", serialized_scorer)
+    scorer_id = scorer_version.scorer_id
+
+    config = store.upsert_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="my_scorer",
+        sample_rate=0.5,
+        filter_string="status = 'OK'",
+    )
+    assert config.scorer_id == scorer_id
+    assert config.sample_rate == 0.5
+    assert config.filter_string == "status = 'OK'"
+    assert config.experiment_id == experiment_id
+
+    configs = store.get_online_scoring_configs([scorer_id])
+    assert len(configs) == 1
+    assert configs[0].scorer_id == scorer_id
+    assert configs[0].sample_rate == 0.5
+    assert configs[0].filter_string == "status = 'OK'"
+
+    updated_config = store.upsert_online_scoring_config(
+        experiment_id=experiment_id,
+        scorer_name="my_scorer",
+        sample_rate=0.8,
+        filter_string="status = 'COMPLETED'",
+    )
+    assert updated_config.scorer_id == scorer_id
+    assert updated_config.sample_rate == 0.8
+    assert updated_config.filter_string == "status = 'COMPLETED'"
+
+    configs_after_update = store.get_online_scoring_configs([scorer_id])
+    assert len(configs_after_update) == 1
+    assert configs_after_update[0].sample_rate == 0.8
+    assert configs_after_update[0].filter_string == "status = 'COMPLETED'"
+
+
 @pytest.mark.parametrize("use_async", [False, True])
 @pytest.mark.asyncio
 async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type, use_async):
@@ -4835,6 +4897,7 @@ def test_list_models(mlflow_client_with_secrets):
     assert "model" in model
     assert "provider" in model
     assert "mode" in model
+    assert all(not m["model"].startswith("ft:") for m in data["models"])
 
     response = requests.get(
         f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-models", params={"provider": "openai"}

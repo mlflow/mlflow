@@ -1,6 +1,8 @@
 ---
 name: fetch-unresolved-comments
 description: Fetch unresolved PR review comments using GitHub GraphQL API, filtering out resolved and outdated feedback.
+allowed-tools:
+  - Bash(uv run skills fetch-unresolved-comments:*)
 ---
 
 # Fetch Unresolved PR Review Comments
@@ -14,30 +16,31 @@ Uses GitHub's GraphQL API to fetch only unresolved review thread comments from a
 
 ## Instructions
 
-1. **Parse PR information**:
+1. **Get PR URL**:
 
    - First check for environment variables:
-     - If `PR_NUMBER` and `GITHUB_REPOSITORY` are set, read them and parse `GITHUB_REPOSITORY` as `owner/repo` and use `PR_NUMBER` directly
+     - If `PR_NUMBER` and `GITHUB_REPOSITORY` are set, construct URL as `https://github.com/${GITHUB_REPOSITORY}/pull/${PR_NUMBER}`
    - Otherwise:
-     - Use `gh pr view --json url -q '.url'` to get the current branch's PR URL and parse to extract owner, repo, and PR number
+     - Use `gh pr view --json url -q '.url'` to get the current branch's PR URL
 
-2. **Run the Python script**:
+2. **Run the skill**:
 
    ```bash
-   GITHUB_TOKEN=$(gh auth token) \
-       uv run python .claude/skills/fetch-unresolved-comments/fetch_unresolved_comments.py <owner> <repo> <pr_number>
+   uv run skills fetch-unresolved-comments <pr_url>
    ```
 
-3. **Script options**:
+   Example:
 
-   - `--token <token>`: Provide token explicitly (default: GITHUB_TOKEN or GH_TOKEN env var)
+   ```bash
+   uv run skills fetch-unresolved-comments https://github.com/mlflow/mlflow/pull/18327
+   ```
 
-4. **Parse the JSON output**:
-   The script always outputs JSON with:
-   - `total`: Total number of unresolved comments across all threads
-   - `by_file`: Review threads grouped by file path (each thread contains multiple comments in a conversation)
+   The script automatically reads the GitHub token from:
 
-## Example JSON Output
+   - `GITHUB_TOKEN` or `GH_TOKEN` environment variables, or
+   - `gh auth token` command if environment variables are not set
+
+## Example Output
 
 ```json
 {
@@ -46,7 +49,6 @@ Uses GitHub's GraphQL API to fetch only unresolved review thread comments from a
     ".github/workflows/resolve.yml": [
       {
         "thread_id": "PRRT_kwDOAL...",
-        "isOutdated": false,
         "line": 40,
         "startLine": null,
         "diffHunk": "@@ -0,0 +1,245 @@\n+name: resolve...",
@@ -69,7 +71,6 @@ Uses GitHub's GraphQL API to fetch only unresolved review thread comments from a
     ".gitignore": [
       {
         "thread_id": "PRRT_kwDOAL...",
-        "isOutdated": false,
         "line": 133,
         "startLine": null,
         "diffHunk": "@@ -130,0 +133,2 @@\n+.claude/*",

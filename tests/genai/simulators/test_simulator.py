@@ -1,13 +1,21 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
+import pandas as pd
 import pytest
 
+from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.simulators import ConversationSimulator
 from mlflow.genai.simulators.simulator import SimulatedUserAgent
 
 
+def create_mock_evaluation_dataset(inputs: list[dict[str, object]]) -> Mock:
+    mock_dataset = Mock(spec=EvaluationDataset)
+    mock_dataset.to_df.return_value = pd.DataFrame({"inputs": inputs})
+    return mock_dataset
+
+
 def test_simulated_user_agent_generate_initial_message():
-    with patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Hello, I have a question about ML."
 
         agent = SimulatedUserAgent(
@@ -29,7 +37,7 @@ def test_simulated_user_agent_generate_initial_message():
 
 
 def test_simulated_user_agent_generate_followup_message():
-    with patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Can you tell me more?"
 
         agent = SimulatedUserAgent(
@@ -54,7 +62,7 @@ def test_simulated_user_agent_generate_followup_message():
 
 
 def test_simulated_user_agent_default_persona():
-    with patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke:
+    with patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke:
         mock_invoke.return_value = "Test message"
 
         agent = SimulatedUserAgent(
@@ -74,7 +82,7 @@ def test_simulated_user_agent_default_persona():
 
 def test_conversation_simulator_basic_simulation(simple_test_case, mock_predict_fn):
     with (
-        patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke,
+        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace") as mock_update_current_trace,
@@ -106,7 +114,7 @@ def test_conversation_simulator_basic_simulation(simple_test_case, mock_predict_
 
 def test_conversation_simulator_max_turns_stopping(simple_test_case, mock_predict_fn):
     with (
-        patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke,
+        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
@@ -137,7 +145,7 @@ def test_conversation_simulator_max_turns_stopping(simple_test_case, mock_predic
 
 def test_conversation_simulator_empty_response_stopping(simple_test_case):
     with (
-        patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke,
+        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
@@ -173,7 +181,7 @@ def test_conversation_simulator_empty_response_stopping(simple_test_case):
 
 def test_conversation_simulator_goal_achieved_stopping(simple_test_case, mock_predict_fn):
     with (
-        patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke,
+        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
@@ -205,7 +213,7 @@ def test_conversation_simulator_goal_achieved_stopping(simple_test_case, mock_pr
 
 def test_conversation_simulator_context_passing(test_case_with_context):
     with (
-        patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke,
+        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
@@ -250,7 +258,7 @@ def test_conversation_simulator_multiple_test_cases(
     simple_test_case, test_case_with_persona, mock_predict_fn
 ):
     with (
-        patch("mlflow.genai.simulators.simulator._invoke_model") as mock_invoke,
+        patch("mlflow.genai.simulators.simulator._invoke_model_without_tracing") as mock_invoke,
         patch("mlflow.trace") as mock_trace_decorator,
         patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
         patch("mlflow.update_current_trace"),
@@ -286,13 +294,21 @@ def test_conversation_simulator_multiple_test_cases(
     [
         ([], "test_cases cannot be empty"),
         ([{"persona": "test"}], r"indices \[0\].*'goal' field"),
-        ([{"goal": "valid"}, {"persona": "missing goal"}], r"indices \[1\].*'goal' field"),
+        (
+            [{"goal": "valid"}, {"persona": "missing goal"}],
+            r"indices \[1\].*'goal' field",
+        ),
         (
             [{"persona": "a"}, {"goal": "valid"}, {"persona": "b"}],
             r"indices \[0, 2\].*'goal' field",
         ),
     ],
-    ids=["empty_test_cases", "missing_goal", "second_case_missing_goal", "multiple_missing_goals"],
+    ids=[
+        "empty_test_cases",
+        "missing_goal",
+        "second_case_missing_goal",
+        "multiple_missing_goals",
+    ],
 )
 def test_conversation_simulator_validation(test_cases, expected_error):
     with pytest.raises(ValueError, match=expected_error):
@@ -300,3 +316,33 @@ def test_conversation_simulator_validation(test_cases, expected_error):
             test_cases=test_cases,
             max_turns=2,
         )
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        [{"goal": "Learn about MLflow"}],
+        [{"goal": "Debug issue", "persona": "Engineer"}],
+        [{"goal": "Ask questions", "persona": "Student", "context": {"id": "1"}}],
+    ],
+)
+def test_conversation_simulator_evaluation_dataset_valid(inputs):
+    mock_dataset = create_mock_evaluation_dataset(inputs)
+    simulator = ConversationSimulator(test_cases=mock_dataset, max_turns=2)
+    assert len(simulator.test_cases) == len(inputs)
+    assert simulator.test_cases == inputs
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        [{"request": "What is MLflow?"}],
+        [{"inputs": {"query": "Help me"}, "expected_response": "Sure!"}],
+        [{"inputs": {"question": "How to log?", "answer": "Use mlflow.log"}}],
+        [],
+    ],
+)
+def test_conversation_simulator_evaluation_dataset_invalid(inputs):
+    mock_dataset = create_mock_evaluation_dataset(inputs)
+    with pytest.raises(ValueError, match="conversational test cases with a 'goal' field"):
+        ConversationSimulator(test_cases=mock_dataset, max_turns=2)

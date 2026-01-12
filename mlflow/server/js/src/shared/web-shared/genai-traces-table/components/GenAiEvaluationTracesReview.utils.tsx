@@ -2,9 +2,10 @@ import { isNil, isNumber, isPlainObject, orderBy } from 'lodash';
 
 import type { ThemeType } from '@databricks/design-system';
 import { CheckCircleIcon, WarningIcon, XCircleIcon } from '@databricks/design-system';
-import { defineMessage } from '@databricks/i18n';
 import type { MessageDescriptor, IntlShape } from '@databricks/i18n';
+import { defineMessage } from '@databricks/i18n';
 import { getUser } from '@databricks/web-shared/global-settings';
+import { normalizeConversation } from '@databricks/web-shared/model-trace-explorer';
 
 import type {
   AssessmentInfo,
@@ -18,6 +19,36 @@ import { getEvaluationResultAssessmentBackgroundColor, getEvaluationResultIconCo
 const ERROR_VALUE = 'Error';
 
 export const INPUT_REQUEST_KEY = 'request';
+
+const COMMON_MESSAGE_FORMATS = ['openai', 'langchain', 'anthropic'] as const;
+
+/**
+ * Attempts to extract the last user message content from various chat formats.
+ * Returns undefined if the input cannot be parsed as a chat format.
+ */
+export const tryExtractUserMessageContent = (input: unknown): string | undefined => {
+  // This prevents raw/truncated strings from being incorrectly treated as user messages
+  if (isNil(input) || typeof input !== 'object') {
+    return undefined;
+  }
+
+  try {
+    for (const format of COMMON_MESSAGE_FORMATS) {
+      const messages = normalizeConversation(input, format);
+      if (messages && messages.length > 0) {
+        const lastUserMessage = [...messages].reverse().find((msg) => msg.role === 'user');
+        if (lastUserMessage?.content) {
+          return lastUserMessage.content;
+        }
+      }
+    }
+  } catch {
+    // JSON may be truncated or malformed, silently fail
+  }
+
+  return undefined;
+};
+
 const INPUT_MESSAGES_KEY = 'messages';
 
 export enum KnownEvaluationResultAssessmentName {
@@ -669,8 +700,9 @@ export const getEvaluationResultInputTitle = (
   } else if (!isNil(input) && Array.isArray(input) && !isNil(input[0]?.content)) {
     // Try to parse OpenAI messages.
     title = input[input.length - 1]?.content;
-  } else {
-    title = input ? stringifyValue(input) : undefined;
+  } else if (input) {
+    const extractedContent = tryExtractUserMessageContent(input);
+    title = extractedContent ?? stringifyValue(input);
   }
 
   return title;

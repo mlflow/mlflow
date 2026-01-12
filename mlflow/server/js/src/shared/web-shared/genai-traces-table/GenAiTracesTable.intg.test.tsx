@@ -17,6 +17,17 @@ import { testRoute, TestRouter } from './utils/RoutingTestUtils';
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(120000); // This is quite expensive test
 
+jest.mock('../model-trace-explorer/FeatureUtils', () => ({
+  shoudlEnableURLPersistenceForSortAndColumns: () => false,
+  shouldBlockLargeTraceDisplay: () => false,
+  getLargeTraceDisplaySizeThreshold: () => 1e9,
+  shouldUseTracesV4API: () => false,
+  shouldEnableTracesTabLabelingSchemas: () => false,
+  shouldEnableAssessmentsInSessions: () => false,
+  shouldUseModelTraceExplorerDrawerUI: () => false,
+  shouldUseUnifiedModelTraceComparisonUI: () => false,
+}));
+
 // Mock necessary modules
 jest.mock('@databricks/web-shared/global-settings', () => ({
   getUser: jest.fn(),
@@ -29,6 +40,14 @@ jest.mock('@databricks/web-shared/hooks', () => {
     useLocalStorage: jest.fn().mockReturnValue([{}, jest.fn()]),
   };
 });
+
+jest.mock('./hooks/useTableSortURL', () => ({
+  useTableSortURL: () => [undefined, jest.fn()] as const,
+}));
+
+jest.mock('./hooks/useColumnsURL', () => ({
+  useColumnsURL: () => [undefined, jest.fn()] as const,
+}));
 
 const testRunUuid = 'test-run-uuid';
 

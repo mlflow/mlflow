@@ -10,6 +10,7 @@ import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTa
 const VisibleIcon = () => <Icon component={VisibleFillIcon} />;
 
 const RowActionsHeaderCellRendererV2 = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     onToggleVisibility,
   }: {
@@ -91,6 +92,7 @@ const RowActionsHeaderCellRendererV2 = React.memo(
  * A component used to render "eye" icon in the table header used to hide/show all runs
  */
 export const RowActionsHeaderCellRenderer = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (props: {
     allRunsHidden?: boolean;
     usingCustomVisibility?: boolean;

@@ -20,9 +20,7 @@ import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimen
 import { RunsChartsNoDataFoundIndicator } from '../RunsChartsNoDataFoundIndicator';
 
 export interface RunsChartsParallelChartCardProps
-  extends RunsChartCardReorderProps,
-    RunsChartCardFullScreenProps,
-    RunsChartCardVisibilityProps {
+  extends RunsChartCardReorderProps, RunsChartCardFullScreenProps, RunsChartCardVisibilityProps {
   config: RunsChartsParallelCardConfig;
   chartRunData: RunsChartsRunData[];
 

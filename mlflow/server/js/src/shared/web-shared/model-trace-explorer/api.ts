@@ -1,18 +1,23 @@
 import invariant from 'invariant';
-import { isString } from 'lodash';
+import { first, isString } from 'lodash';
 
-import {
-  type Assessment,
-  type Expectation,
-  type Feedback,
-  type ModelTraceInfoV3,
-  type ModelTraceLocation,
-  type ModelTraceLocationMlflowExperiment,
-  type ModelTraceLocationUcSchema,
-  type ModelTraceSpanV3,
+import type {
+  ModelTraceSpan,
+  Assessment,
+  Expectation,
+  Feedback,
+  ModelTraceInfoV3,
+  ModelTraceLocation,
+  ModelTraceLocationMlflowExperiment,
+  ModelTraceLocationUcSchema,
+  ModelTraceSpanV3,
 } from './ModelTrace.types';
 import { fetchAPI, getAjaxUrl } from './ModelTraceExplorer.request.utils';
-import { createTraceV4SerializedLocation } from './ModelTraceExplorer.utils';
+import {
+  createTraceV4SerializedLocation,
+  parseTraceV4SerializedLocation,
+  parseV4TraceId,
+} from './ModelTraceExplorer.utils';
 
 export const deleteAssessment = ({ traceId, assessmentId }: { traceId: string; assessmentId: string }) =>
   fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/traces/${traceId}/assessments/${assessmentId}`), 'DELETE');
@@ -65,6 +70,17 @@ export const updateAssessment = ({
 
 export type CreateAssessmentV4Response = Assessment;
 
+/**
+ * Creates an assessment for a trace using the V4 API.
+ *
+ * @param payload - The assessment data to create
+ * @param traceLocation - Location descriptor for the trace. Can be either:
+ *   - A ModelTraceLocation object
+ *   - A string in one of these formats:
+ *     - Experiment location: experiment ID
+ *     - UC Schema location: catalog.schema
+ * @param sqlWarehouseId - Optional SQL warehouse ID
+ */
 const createAssessmentV4 = ({
   // prettier-ignore
   payload: {
@@ -92,6 +108,19 @@ const createAssessmentV4 = ({
 
 export type UpdateAssessmentV4Response = Assessment;
 
+/**
+ * Updates an existing assessment using the V4 API.
+ *
+ * @param traceId - The ID of the trace containing the assessment
+ * @param assessmentId - The ID of the assessment to update
+ * @param payload - The assessment fields to update and update mask
+ * @param traceLocation - Location descriptor for the trace. Can be either:
+ *   - A ModelTraceLocation object
+ *   - A string in one of these formats:
+ *     - Experiment location: experiment ID
+ *     - UC Schema location: catalog.schema
+ * @param sqlWarehouseId - Optional SQL warehouse ID
+ */
 const updateAssessmentV4 = ({
   traceId,
   assessmentId,
@@ -104,7 +133,7 @@ const updateAssessmentV4 = ({
   traceLocation?: ModelTraceLocation | string;
 }) => {
   const { assessment, update_mask } = payload;
-  invariant(traceLocation, 'Trace location is required for creating assessment via V4 API');
+  invariant(traceLocation, 'Trace location is required for updating assessment via V4 API');
   const serializedLocation = isString(traceLocation) ? traceLocation : createTraceV4SerializedLocation(traceLocation);
   invariant(serializedLocation, 'Trace location could not be resolved');
 
@@ -117,6 +146,18 @@ const updateAssessmentV4 = ({
   return fetchAPI(urlWithParams, 'PATCH', assessment);
 };
 
+/**
+ * Deletes an assessment using the V4 API.
+ *
+ * @param traceId - The ID of the trace containing the assessment
+ * @param assessmentId - The ID of the assessment to delete
+ * @param traceLocation - Location descriptor for the trace. Can be either:
+ *   - A ModelTraceLocation object
+ *   - A string in one of these formats:
+ *     - Experiment location: experiment ID
+ *     - UC Schema location: catalog.schema
+ * @param sqlWarehouseId - Optional SQL warehouse ID
+ */
 const deleteAssessmentV4 = ({
   traceId,
   sqlWarehouseId,
@@ -126,10 +167,12 @@ const deleteAssessmentV4 = ({
   traceId: string;
   sqlWarehouseId?: string;
   assessmentId: string;
-  traceLocation: ModelTraceLocation;
+  traceLocation: ModelTraceLocation | string;
 }) => {
   const queryParams = new URLSearchParams();
-  const serializedLocation = createTraceV4SerializedLocation(traceLocation);
+  invariant(traceLocation, 'Trace location is required for deleting assessment via V4 API');
+  const serializedLocation = isString(traceLocation) ? traceLocation : createTraceV4SerializedLocation(traceLocation);
+  invariant(serializedLocation, 'Trace location could not be resolved');
   const endpointPath = getAjaxUrl(
     `ajax-api/4.0/mlflow/traces/${serializedLocation}/${traceId}/assessments/${assessmentId}`,
   );
@@ -142,16 +185,18 @@ export const searchTracesV4 = async ({
   orderBy,
   locations,
   filter,
+  pageSize,
 }: {
   signal?: AbortSignal;
   orderBy?: string[];
   filter?: string;
   locations?: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  pageSize?: number;
 }) => {
   const payload: Record<string, any> = {
     locations,
     filter,
-    max_results: 1000,
+    max_results: pageSize ?? 1000,
     order_by: orderBy,
   };
   const queryResponse = await fetchAPI(getAjaxUrl('ajax-api/4.0/mlflow/traces/search'), 'POST', payload, signal);
@@ -208,6 +253,53 @@ export const getExperimentTraceV3 = ({ traceId }: { traceId: string }) => {
   const urlWithParams = `${endpointPath}?${queryParams.toString()}`;
 
   return fetchAPI(urlWithParams, 'GET');
+};
+
+/**
+ * Fetch function for V4 traces.
+ * TraceV3 is the same format for V4 traces
+ */
+const getTraceV4 = async (
+  traceInput: Partial<ModelTraceInfoV3> | string,
+  sqlWarehouseId?: string,
+): Promise<{
+  info: ModelTraceInfoV3;
+  data: {
+    spans: ModelTraceSpan[];
+  };
+}> => {
+  let traceId: string;
+  let traceLocation: ModelTraceLocation;
+
+  if (typeof traceInput === 'string') {
+    const parsed = parseV4TraceId(traceInput);
+    invariant(parsed?.trace_id, 'Could not parse trace ID from serialized trace identifier');
+    invariant(parsed?.trace_location, 'Could not parse trace location from serialized trace identifier');
+    traceId = parsed.trace_id;
+    traceLocation = parseTraceV4SerializedLocation(parsed.trace_location);
+  } else {
+    invariant(traceInput.trace_id, 'Trace ID is required');
+    invariant(traceInput.trace_location, 'Trace location is required');
+
+    traceId = traceInput.trace_id;
+    traceLocation = traceInput.trace_location;
+  }
+
+  const traceResponse = await getBatchTracesV4({
+    traceIds: [traceId],
+    traceLocation: traceLocation,
+  });
+
+  const trace = first(
+    // Convert response to the commonly used format
+    traceResponse.traces.map((trace) => ({
+      info: trace.trace_info,
+      data: { spans: trace.spans },
+    })),
+  );
+
+  invariant(trace, 'No trace found in response');
+  return trace;
 };
 
 // prettier-ignore
@@ -268,6 +360,32 @@ export const setTraceTagV3 = async ({ tag, traceId }: { tag: { key: string; valu
   return fetchAPI(endpointPath, 'PATCH', tag);
 };
 
+export const getTraceV3Data = (traceId: string) => {
+  const endpointPath = getAjaxUrl(`ajax-api/3.0/mlflow/get-trace-artifact`);
+  const searchParams = new URLSearchParams();
+  searchParams.append('request_id', traceId);
+  const queryString = searchParams.toString();
+  const uri = `${endpointPath}?${queryString}`;
+  return fetchAPI(uri, 'GET');
+};
+
+export const getTraceV3Info = (traceId: string) => {
+  const endpointPath = getAjaxUrl(`ajax-api/3.0/mlflow/traces/${traceId}`);
+  return fetchAPI(endpointPath, 'GET');
+};
+
+/**
+ * Combines two requests (info and data) into a single response to get the full trace.
+ */
+export const getTraceV3 = async (traceId: string) => {
+  const [traceInfoResponse, traceDataResponse] = await Promise.all([getTraceV3Info(traceId), getTraceV3Data(traceId)]);
+  const traceInfo = traceInfoResponse?.trace?.trace_info;
+  return {
+    info: traceInfo,
+    data: traceDataResponse,
+  };
+};
+
 export const deleteTraceTagV3 = async ({ tagKey, traceId }: { tagKey: string; traceId: string }) => {
   const endpointPath = getAjaxUrl(`ajax-api/3.0/mlflow/traces/${traceId}/tags`);
   const searchParams = new URLSearchParams();
@@ -285,6 +403,7 @@ export const deleteTraceTagV3 = async ({ tagKey, traceId }: { tagKey: string; tr
 export const TracesServiceV4 = {
   searchTracesV4,
   getBatchTracesV4,
+  getTraceV4,
   getTraceInfoV4,
   createAssessmentV4,
   updateAssessmentV4,
@@ -300,4 +419,7 @@ export const TracesServiceV4 = {
 export const TracesServiceV3 = {
   setTraceTagV3,
   deleteTraceTagV3,
+  getTraceV3Info,
+  getTraceV3Data,
+  getTraceV3,
 };

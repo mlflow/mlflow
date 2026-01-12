@@ -1,14 +1,16 @@
 import { isNil } from 'lodash';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 
+import { useColumnsURL } from './useColumnsURL';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   SOURCE_COLUMN_ID,
   STATE_COLUMN_ID,
   TRACE_NAME_COLUMN_ID,
 } from './useTableColumns';
+import { shoudlEnableURLPersistenceForSortAndColumns } from '../../model-trace-explorer/FeatureUtils';
 import type { TracesTableColumn } from '../types';
 import { TracesTableColumnType } from '../types';
 
@@ -77,17 +79,26 @@ export const useGenAITracesUIStateColumns = (
   hiddenColumns: string[];
   toggleColumns: (cols: TracesTableColumn[]) => void;
 } => {
+  const enableURLPersistence = shoudlEnableURLPersistenceForSortAndColumns();
+
   const [columnState, setColumnState] = useLocalStorage<GenAITracesUIState | undefined>({
     key: `${LOCAL_STORAGE_KEY}-${experimentId}-${runUuid}`,
     version: LOCAL_STORAGE_VERSION,
     initialValue: undefined,
   });
 
+  const [urlColumnIds, setUrlColumnIds] = useColumnsURL();
+
   const defaultHidden = useMemo(() => {
     return getDefaultHiddenColumns(allColumns, defaultSelectedColumns);
   }, [allColumns, defaultSelectedColumns]);
 
   const hiddenColumns = useMemo(() => {
+    if (enableURLPersistence && urlColumnIds && urlColumnIds.length > 0) {
+      const urlSelectedSet = new Set(urlColumnIds);
+      return allColumns.filter((col) => !urlSelectedSet.has(col.id)).map((col) => col.id);
+    }
+
     const hidden = new Set(defaultHidden);
 
     if (!columnState?.columnOverrides) {
@@ -103,7 +114,7 @@ export const useGenAITracesUIStateColumns = (
     });
 
     return [...hidden];
-  }, [columnState, defaultHidden]);
+  }, [enableURLPersistence, columnState, defaultHidden, urlColumnIds, allColumns]);
 
   const toggleColumns = useCallback(
     (cols: TracesTableColumn[]) => {
@@ -115,13 +126,9 @@ export const useGenAITracesUIStateColumns = (
         let changed = false;
 
         cols.forEach((col) => {
-          /* derive current visibility:  true = hidden, false = visible */
-          const currentlyHidden =
-            col.id in prevOverrides
-              ? !prevOverrides[col.id] // invert, because stored flag is *show*
-              : defaultHidden.includes(col.id);
-
+          const currentlyHidden = hiddenColumns.includes(col.id);
           const newShow = currentlyHidden;
+
           if (nextOverrides[col.id] !== newShow) {
             nextOverrides[col.id] = newShow;
             changed = true;
@@ -130,9 +137,41 @@ export const useGenAITracesUIStateColumns = (
 
         return changed ? { ...prev, columnOverrides: nextOverrides } : prev;
       });
+
+      if (enableURLPersistence) {
+        const currentHiddenSet = new Set(hiddenColumns);
+        cols.forEach((col) => {
+          if (currentHiddenSet.has(col.id)) {
+            currentHiddenSet.delete(col.id);
+          } else {
+            currentHiddenSet.add(col.id);
+          }
+        });
+
+        const newSelectedIds = allColumns.filter((col) => !currentHiddenSet.has(col.id)).map((col) => col.id);
+        // Use replace=true: column visibility is UI config, not navigation state
+        setUrlColumnIds(newSelectedIds, true);
+      }
     },
-    [setColumnState, defaultHidden],
+    [enableURLPersistence, setColumnState, hiddenColumns, allColumns, setUrlColumnIds],
   );
+
+  // Migration: sync localStorage state to URL on initial mount
+  const hasSyncedToURL = useRef(false);
+  useEffect(() => {
+    if (
+      enableURLPersistence &&
+      !hasSyncedToURL.current &&
+      (!urlColumnIds || urlColumnIds.length === 0) &&
+      allColumns.length > 0
+    ) {
+      hasSyncedToURL.current = true;
+      const selectedIds = allColumns.filter((col) => !hiddenColumns.includes(col.id)).map((col) => col.id);
+      if (selectedIds.length > 0) {
+        setUrlColumnIds(selectedIds, true);
+      }
+    }
+  }, [enableURLPersistence, urlColumnIds, hiddenColumns, allColumns, setUrlColumnIds]);
 
   return { hiddenColumns, toggleColumns };
 };

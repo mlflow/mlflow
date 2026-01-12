@@ -72,10 +72,13 @@ export const useGetTrackingServerJobStatus = <T = any,>(
 
   const jobResults = useMemo(
     () =>
-      queryResult.data?.reduce((acc, response) => {
-        acc[response.jobId] = response;
-        return acc;
-      }, {} as Record<string, TrackingJobQueryResult<T>>),
+      queryResult.data?.reduce(
+        (acc, response) => {
+          acc[response.jobId] = response;
+          return acc;
+        },
+        {} as Record<string, TrackingJobQueryResult<T>>,
+      ),
     [queryResult.data],
   );
 

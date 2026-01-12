@@ -6,6 +6,7 @@ import ScorerFormCreateContainer from './ScorerFormCreateContainer';
 import ScorerFormEditContainer from './ScorerFormEditContainer';
 import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, type ScorerFormMode } from './constants';
 import type { ScheduledScorer } from './types';
+import type { ScorerFormData } from './utils/scorerTransformUtils';
 
 interface ScorerModalRendererProps {
   experimentId: string;
@@ -13,6 +14,7 @@ interface ScorerModalRendererProps {
   onClose: () => void;
   mode: ScorerFormMode;
   existingScorer?: ScheduledScorer;
+  initialScorerType?: ScorerFormData['scorerType'];
 }
 
 const ScorerModalRenderer: React.FC<ScorerModalRendererProps> = ({
@@ -21,44 +23,57 @@ const ScorerModalRenderer: React.FC<ScorerModalRendererProps> = ({
   onClose,
   mode,
   existingScorer,
+  initialScorerType,
 }) => {
   const isRunningScorersFeatureEnabled = isRunningScorersEnabled();
 
   return (
     <Modal
-      componentId={`${COMPONENT_ID_PREFIX}.scorer-modal`}
+      componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorermodalrenderer_29"
       title={
         mode === SCORER_FORM_MODE.EDIT ? (
           <FormattedMessage defaultMessage="Edit judge" description="Title for edit judge modal" />
+        ) : initialScorerType === 'custom-code' ? (
+          <FormattedMessage
+            defaultMessage="Create custom code judge"
+            description="Title for new custom code judge modal"
+          />
         ) : (
-          <FormattedMessage defaultMessage="Create judge" description="Title for new judge modal" />
+          <FormattedMessage defaultMessage="Create LLM judge" description="Title for new LLM judge modal" />
         )
       }
       visible={visible}
       onCancel={onClose}
       footer={null}
       destroyOnClose
-      size="wide"
-      css={{
-        width: '100% !important',
-      }}
-      {...(isRunningScorersFeatureEnabled && {
-        verticalSizing: 'maxed_out' as const,
-        dangerouslySetAntdProps: {
-          bodyStyle: {
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            minHeight: 0,
-            overflow: 'hidden',
-          },
+      {...(initialScorerType !== 'custom-code' && {
+        size: 'wide' as const,
+        css: {
+          width: '100% !important',
         },
       })}
+      {...(isRunningScorersFeatureEnabled &&
+        initialScorerType !== 'custom-code' && {
+          verticalSizing: 'maxed_out' as const,
+          dangerouslySetAntdProps: {
+            bodyStyle: {
+              display: 'flex',
+              flexDirection: 'column',
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+            },
+          },
+        })}
     >
       {mode === SCORER_FORM_MODE.EDIT && existingScorer ? (
         <ScorerFormEditContainer experimentId={experimentId} onClose={onClose} existingScorer={existingScorer} />
       ) : (
-        <ScorerFormCreateContainer experimentId={experimentId} onClose={onClose} />
+        <ScorerFormCreateContainer
+          experimentId={experimentId}
+          onClose={onClose}
+          initialScorerType={initialScorerType}
+        />
       )}
     </Modal>
   );

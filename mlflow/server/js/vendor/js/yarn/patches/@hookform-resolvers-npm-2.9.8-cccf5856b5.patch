@@ -1,0 +1,20 @@
+diff --git a/package.json b/package.json
+index b84ec1e875efe8c68f32c2d5879612afa7c225aa..f1f57e94b1a9621279384a7eae70f9507f65f0d8 100644
+--- a/package.json
++++ b/package.json
+@@ -10,6 +10,7 @@
+   "types": "dist/index.d.ts",
+   "exports": {
+     ".": {
++      "types": "dist/index.d.ts",
+       "umd": "./dist/resolvers.umd.js",
+       "import": "./dist/resolvers.mjs",
+       "require": "./dist/resolvers.js"
+@@ -20,6 +21,7 @@
+       "require": "./zod/dist/zod.js"
+     },
+     "./yup": {
++      "types": "./yup/dist/yup.d.ts",
+       "umd": "./yup/dist/yup.umd.js",
+       "import": "./yup/dist/yup.mjs",
+       "require": "./yup/dist/yup.js"

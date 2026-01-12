@@ -19,8 +19,8 @@ import {
   TOKENS_COLUMN_ID,
   LINKED_PROMPTS_COLUMN_ID,
 } from './hooks/useTableColumns';
-import { TracesTableColumnGroup, TracesTableColumnType } from './types';
 import type { TracesTableColumn, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
+import { TracesTableColumnGroup, TracesTableColumnType } from './types';
 import { getTraceInfoInputs, shouldUseTraceInfoV3 } from './utils/TraceUtils';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer';
 

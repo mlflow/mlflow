@@ -55,7 +55,7 @@ def test_scorer_register():
     # Check the mock was called correctly
     mock_add.assert_called_once()
     call_args = mock_add.call_args.kwargs
-    assert call_args["name"] == "my_length_check"
+    assert call_args["scorer"].name == "my_length_check"
     assert call_args["sample_rate"] == 0.0
     assert call_args["filter_string"] is None
 
@@ -67,7 +67,7 @@ def test_scorer_register_default_name():
 
     assert registered.name == "length_check"  # Uses scorer's name
     mock_add.assert_called_once()
-    assert mock_add.call_args.kwargs["name"] == "length_check"
+    assert mock_add.call_args.kwargs["scorer"].name == "length_check"
 
 
 def test_scorer_start():
@@ -187,7 +187,7 @@ def test_scorer_register_with_experiment_id():
     mock_add.assert_called_once()
     call_args = mock_add.call_args.kwargs
     assert call_args["experiment_id"] == "exp123"
-    assert call_args["name"] == "test_scorer"
+    assert call_args["scorer"].name == "test_scorer"
 
 
 def test_scorer_start_with_name_param():
@@ -228,14 +228,13 @@ def test_scorer_update_with_all_params():
 
         my_scorer.update(
             name="override_name",
-            experiment_id="exp456",
             sampling_config=ScorerSamplingConfig(sample_rate=0.9, filter_string="new_filter"),
         )
 
     mock_update.assert_called_once()
     call_args = mock_update.call_args.kwargs
     assert call_args["name"] == "override_name"
-    assert call_args["experiment_id"] == "exp456"
+    assert call_args["experiment_id"] is None
     assert call_args["sample_rate"] == 0.9
     assert call_args["filter_string"] == "new_filter"
 
@@ -378,4 +377,4 @@ def test_register_with_custom_name_updates_serialization():
 
     # Verify the server was called with the correct name
     mock_add.assert_called_once()
-    assert mock_add.call_args.kwargs["name"] == "custom_test_name"
+    assert mock_add.call_args.kwargs["scorer"].name == "custom_test_name"

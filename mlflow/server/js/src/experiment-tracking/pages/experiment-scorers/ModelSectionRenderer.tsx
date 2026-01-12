@@ -49,7 +49,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({ mode
         </FormUI.Label>
         <FormUI.Hint>
           <FormattedMessage
-            defaultMessage="Enter a model identifier (e.g., openai:/gpt-4.1-mini). Scorers using direct models can only be run via the SDK, and API keys must be configured in your environment."
+            defaultMessage="Enter a model identifier (e.g., openai:/gpt-4.1-mini). Scorers using direct models must configure API keys in your local environment."
             description="Hint text for direct model input"
           />
         </FormUI.Hint>

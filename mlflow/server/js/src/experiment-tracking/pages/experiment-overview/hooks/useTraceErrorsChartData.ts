@@ -9,7 +9,7 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 // Filter to get only error traces
 const ERROR_FILTER = createTraceFilter(TraceFilterKey.STATUS, TraceStatus.ERROR);
@@ -40,17 +40,12 @@ export interface UseTraceErrorsChartDataResult {
 /**
  * Custom hook that fetches and processes errors chart data.
  * Encapsulates all data-fetching and processing logic for the errors chart.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId, time range, and buckets
  * @returns Processed chart data, loading state, and error state
  */
-export function useTraceErrorsChartData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-}: OverviewChartProps): UseTraceErrorsChartDataResult {
+export function useTraceErrorsChartData(): UseTraceErrorsChartDataResult {
+  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Fetch error count metrics grouped by time bucket
   const {
     data: errorCountData,

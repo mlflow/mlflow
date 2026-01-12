@@ -14,3 +14,7 @@ export const SOURCE_NAME_METADATA_KEY = 'mlflow.source.name';
 export const SOURCE_TYPE_METADATA_KEY = 'mlflow.source.type';
 export const TOKEN_USAGE_METADATA_KEY = 'mlflow.trace.tokenUsage';
 export const MLFLOW_TRACE_USER_KEY = 'mlflow.trace.user';
+
+// Query parameter for selected trace ID in session pages
+export const SELECTED_TRACE_ID_QUERY_PARAM = 'selectedTraceId';
+export const ASSESSMENT_SESSION_METADATA_KEY = 'mlflow.trace.session';

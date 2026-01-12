@@ -1,0 +1,254 @@
+diff --git a/src/components/fx/hover.js b/src/components/fx/hover.js
+index c6c51e5cd6088a20cc3c89a46c8b60ed9222ba24..792676617ae15432c32f3b904965832371afcc80 100644
+--- a/src/components/fx/hover.js
++++ b/src/components/fx/hover.js
+@@ -78,11 +78,13 @@ var cartesianScatterPoints = {
+ // The actual rendering is done by private function _hover.
+ exports.hover = function hover(gd, evt, subplot, noHoverEvent) {
+     gd = Lib.getGraphDiv(gd);
+-
++    // The 'target' property changes when bubbling out of Shadow DOM.
++    // Throttling can delay reading the target, so we save the current value.
++    var eventTarget = evt.target;
+     Lib.throttle(
+         gd._fullLayout._uid + constants.HOVERID,
+         constants.HOVERMINTIME,
+-        function() { _hover(gd, evt, subplot, noHoverEvent); }
++        function() { _hover(gd, evt, subplot, noHoverEvent, eventTarget); }
+     );
+ };
+ 
+@@ -247,7 +249,7 @@ exports.loneHover = function loneHover(hoverItems, opts) {
+ };
+ 
+ // The actual implementation is here:
+-function _hover(gd, evt, subplot, noHoverEvent) {
++function _hover(gd, evt, subplot, noHoverEvent, eventTarget) {
+     if(!subplot) subplot = 'xy';
+ 
+     // if the user passed in an array of subplots,
+@@ -366,7 +368,7 @@ function _hover(gd, evt, subplot, noHoverEvent) {
+         // [x|y]px: the pixels (from top left) of the mouse location
+         // on the currently selected plot area
+         // add pointerX|Y property for drawing the spikes in spikesnap 'cursor' situation
+-        var hasUserCalledHover = !evt.target;
++        var hasUserCalledHover = !eventTarget;
+         var xpx, ypx;
+ 
+         if(hasUserCalledHover) {
+@@ -383,13 +385,7 @@ function _hover(gd, evt, subplot, noHoverEvent) {
+                 return;
+             }
+ 
+-            // Discover event target, traversing open shadow roots.
+-            var target = evt.composedPath && evt.composedPath()[0];
+-            if(!target) {
+-                // Fallback for browsers not supporting composedPath
+-                target = evt.target;
+-            }
+-            var dbb = target.getBoundingClientRect();
++            var dbb = eventTarget.getBoundingClientRect();
+ 
+             xpx = evt.clientX - dbb.left;
+             ypx = evt.clientY - dbb.top;
+@@ -837,15 +833,15 @@ function _hover(gd, evt, subplot, noHoverEvent) {
+     if(!helpers.isUnifiedHover(hovermode)) {
+         hoverAvoidOverlaps(hoverLabels, rotateLabels ? 'xa' : 'ya', fullLayout);
+         alignHoverText(hoverLabels, rotateLabels, fullLayout._invScaleX, fullLayout._invScaleY);
+-    }    // TODO: tagName hack is needed to appease geo.js's hack of using evt.target=true
++    }    // TODO: tagName hack is needed to appease geo.js's hack of using eventTarget=true
+     // we should improve the "fx" API so other plots can use it without these hack.
+-    if(evt.target && evt.target.tagName) {
++    if(eventTarget && eventTarget.tagName) {
+         var hasClickToShow = Registry.getComponentMethod('annotations', 'hasClickToShow')(gd, newhoverdata);
+-        overrideCursor(d3.select(evt.target), hasClickToShow ? 'pointer' : '');
++        overrideCursor(d3.select(eventTarget), hasClickToShow ? 'pointer' : '');
+     }
+ 
+     // don't emit events if called manually
+-    if(!evt.target || noHoverEvent || !hoverChanged(gd, evt, oldhoverdata)) return;
++    if(!eventTarget || noHoverEvent || !hoverChanged(gd, evt, oldhoverdata)) return;
+ 
+     if(oldhoverdata) {
+         gd.emit('plotly_unhover', {
+diff --git a/src/components/legend/handle_click.js b/src/components/legend/handle_click.js
+index 8b33e4bc3c3d4203cc20c4f8b7785fdd8ac28fc6..97534c8a026c1940e9e862d5cf5d96560cb2ab76 100644
+--- a/src/components/legend/handle_click.js
++++ b/src/components/legend/handle_click.js
+@@ -17,7 +17,7 @@ module.exports = function handleClick(g, gd, numClicks) {
+     if(numClicks === 1 && itemClick === 'toggle' && itemDoubleClick === 'toggleothers' &&
+         SHOWISOLATETIP && gd.data && gd._context.showTips
+     ) {
+-        Lib.notifier(Lib._(gd, 'Double-click on legend to isolate one trace'), 'long');
++        Lib.notifier(Lib._(gd, 'Double-click on legend to isolate one trace'), 'long', gd);
+         SHOWISOLATETIP = false;
+     } else {
+         SHOWISOLATETIP = false;
+diff --git a/src/components/modebar/buttons.js b/src/components/modebar/buttons.js
+index 3428489b25b9134c1f55d40bf0f24a1fcb87839d..caf3610ce2b72eed4364f5bc07e95a405c782ebb 100644
+--- a/src/components/modebar/buttons.js
++++ b/src/components/modebar/buttons.js
+@@ -49,10 +49,10 @@ modeBarButtons.toImage = {
+         var toImageButtonOptions = gd._context.toImageButtonOptions;
+         var opts = {format: toImageButtonOptions.format || 'png'};
+ 
+-        Lib.notifier(_(gd, 'Taking snapshot - this may take a few seconds'), 'long');
++        Lib.notifier(_(gd, 'Taking snapshot - this may take a few seconds'), 'long', gd);
+ 
+         if(opts.format !== 'svg' && Lib.isIE()) {
+-            Lib.notifier(_(gd, 'IE only supports svg.  Changing format to svg.'), 'long');
++            Lib.notifier(_(gd, 'IE only supports svg.  Changing format to svg.'), 'long', gd);
+             opts.format = 'svg';
+         }
+ 
+@@ -64,10 +64,10 @@ modeBarButtons.toImage = {
+ 
+         Registry.call('downloadImage', gd, opts)
+           .then(function(filename) {
+-              Lib.notifier(_(gd, 'Snapshot succeeded') + ' - ' + filename, 'long');
++              Lib.notifier(_(gd, 'Snapshot succeeded') + ' - ' + filename, 'long', gd);
+           })
+           .catch(function() {
+-              Lib.notifier(_(gd, 'Sorry, there was a problem downloading your snapshot!'), 'long');
++              Lib.notifier(_(gd, 'Sorry, there was a problem downloading your snapshot!'), 'long', gd);
+           });
+     }
+ };
+diff --git a/src/lib/notifier.js b/src/lib/notifier.js
+index b675787dbabd18e81c000b2db285c227928808be..6f94c5ef47282c8e0a84edd301ca5137c16bbdb6 100644
+--- a/src/lib/notifier.js
++++ b/src/lib/notifier.js
+@@ -10,9 +10,33 @@ var NOTEDATA = [];
+  * @param {String} text The person's user name
+  * @param {Number} [delay=1000] The delay time in milliseconds
+  *          or 'long' which provides 2000 ms delay time.
++ * @param {element} The main graph object.
+  * @return {undefined} this function does not return a value
+  */
+-module.exports = function(text, displayLength) {
++module.exports = function(text, displayLength, gd) {
++    // Until plotly.js supports custom notifications, we patch here.
++    // https://github.com/plotly/plotly.js/issues/5726
++    try {
++        const antNotification = require('antd/lib/notification').default;
++        antNotification.info({ 
++            message: text,
++            getContainer: () => {
++                if (!gd || !gd.getRootNode) return document.body;
++
++                const rootNode = gd.getRootNode();
++
++                if (!rootNode) return document.body;
++
++                const maybeMfePortal = rootNode.querySelector('[data-mfe-portal]');
++
++                return maybeMfePortal || document.body;
++            },
++        });
++        return;
++    } catch {
++        // If we failed to display the notification, we fallback to the old behavior
++    }
++
+     if(NOTEDATA.indexOf(text) !== -1) return;
+ 
+     NOTEDATA.push(text);
+diff --git a/src/plots/cartesian/dragbox.js b/src/plots/cartesian/dragbox.js
+index b12489e399c64b38a12a6e034209aac7476fa5e9..6d0b6d777379965bf8e68e0bc1d0e71106703e3c 100644
+--- a/src/plots/cartesian/dragbox.js
++++ b/src/plots/cartesian/dragbox.js
+@@ -1163,7 +1163,7 @@ function removeZoombox(gd) {
+ 
+ function showDoubleClickNotifier(gd) {
+     if(SHOWZOOMOUTTIP && gd.data && gd._context.showTips) {
+-        Lib.notifier(Lib._(gd, 'Double-click to zoom back out'), 'long');
++        Lib.notifier(Lib._(gd, 'Double-click to zoom back out'), 'long', gd);
+         SHOWZOOMOUTTIP = false;
+     }
+ }
+diff --git a/src/plots/ternary/ternary.js b/src/plots/ternary/ternary.js
+index 004cc8ef202d71f1ab0a6a80b97849bb889f1701..9745eea05d13efd53d5192d9a00e05564f9f6177 100644
+--- a/src/plots/ternary/ternary.js
++++ b/src/plots/ternary/ternary.js
+@@ -671,7 +671,7 @@ proto.initInteractions = function() {
+         Registry.call('_guiRelayout', gd, makeUpdate(mins));
+ 
+         if(SHOWZOOMOUTTIP && gd.data && gd._context.showTips) {
+-            Lib.notifier(_(gd, 'Double-click to zoom back out'), 'long');
++            Lib.notifier(_(gd, 'Double-click to zoom back out'), 'long', gd);
+             SHOWZOOMOUTTIP = false;
+         }
+     }
+diff --git a/dist/plotly.js b/dist/plotly.js
+index 1c1c986082aa..fcd35c265da6 100644
+--- a/dist/plotly.js
++++ b/dist/plotly.js
+@@ -147905,11 +147905,13 @@ var cartesianScatterPoints = {
+ // The actual rendering is done by private function _hover.
+ exports.hover = function hover(gd, evt, subplot, noHoverEvent) {
+     gd = Lib.getGraphDiv(gd);
+-
++    // The 'target' property changes when bubbling out of Shadow DOM.
++    // Throttling can delay reading the target, so we save the current value.
++    var eventTarget = evt.target;
+     Lib.throttle(
+         gd._fullLayout._uid + constants.HOVERID,
+         constants.HOVERMINTIME,
+-        function() { _hover(gd, evt, subplot, noHoverEvent); }
++        function() { _hover(gd, evt, subplot, noHoverEvent, eventTarget); }
+     );
+ };
+ 
+@@ -148074,7 +148076,7 @@ exports.loneHover = function loneHover(hoverItems, opts) {
+ };
+ 
+ // The actual implementation is here:
+-function _hover(gd, evt, subplot, noHoverEvent) {
++function _hover(gd, evt, subplot, noHoverEvent, eventTarget) {
+     if(!subplot) subplot = 'xy';
+ 
+     // if the user passed in an array of subplots,
+@@ -148193,7 +148195,7 @@ function _hover(gd, evt, subplot, noHoverEvent) {
+         // [x|y]px: the pixels (from top left) of the mouse location
+         // on the currently selected plot area
+         // add pointerX|Y property for drawing the spikes in spikesnap 'cursor' situation
+-        var hasUserCalledHover = !evt.target;
++        var hasUserCalledHover = !eventTarget;
+         var xpx, ypx;
+ 
+         if(hasUserCalledHover) {
+@@ -148210,13 +148212,7 @@ function _hover(gd, evt, subplot, noHoverEvent) {
+                 return;
+             }
+ 
+-            // Discover event target, traversing open shadow roots.
+-            var target = evt.composedPath && evt.composedPath()[0];
+-            if(!target) {
+-                // Fallback for browsers not supporting composedPath
+-                target = evt.target;
+-            }
+-            var dbb = target.getBoundingClientRect();
++            var dbb = eventTarget.getBoundingClientRect();
+ 
+             xpx = evt.clientX - dbb.left;
+             ypx = evt.clientY - dbb.top;
+@@ -148664,15 +148660,15 @@ function _hover(gd, evt, subplot, noHoverEvent) {
+     if(!helpers.isUnifiedHover(hovermode)) {
+         hoverAvoidOverlaps(hoverLabels, rotateLabels ? 'xa' : 'ya', fullLayout);
+         alignHoverText(hoverLabels, rotateLabels, fullLayout._invScaleX, fullLayout._invScaleY);
+-    }    // TODO: tagName hack is needed to appease geo.js's hack of using evt.target=true
++    }    // TODO: tagName hack is needed to appease geo.js's hack of using eventTarget=true
+     // we should improve the "fx" API so other plots can use it without these hack.
+-    if(evt.target && evt.target.tagName) {
++    if(eventTarget && eventTarget.tagName) {
+         var hasClickToShow = Registry.getComponentMethod('annotations', 'hasClickToShow')(gd, newhoverdata);
+-        overrideCursor(d3.select(evt.target), hasClickToShow ? 'pointer' : '');
++        overrideCursor(d3.select(eventTarget), hasClickToShow ? 'pointer' : '');
+     }
+ 
+     // don't emit events if called manually
+-    if(!evt.target || noHoverEvent || !hoverChanged(gd, evt, oldhoverdata)) return;
++    if(!eventTarget || noHoverEvent || !hoverChanged(gd, evt, oldhoverdata)) return;
+ 
+     if(oldhoverdata) {
+         gd.emit('plotly_unhover', {

@@ -76,7 +76,7 @@ export interface ExperimentViewRunsTableProps {
 }
 
 export const ExperimentViewRunsTable = React.memo(
-  // eslint-disable-next-line complexity
+  // eslint-disable-next-line complexity, react-component-name/react-component-name
   ({
     experiments,
     searchFacetsState,

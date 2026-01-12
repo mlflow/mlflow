@@ -9,7 +9,7 @@ import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentE
  * Header cell component for the visibility column in evaluation runs table.
  * Displays an eye icon button that opens a dropdown menu with visibility mode options.
  */
-export const EvalRunsVisibilityHeaderCell = React.memo(() => {
+export const EvalRunsVisibilityHeaderCell = React.memo(function EvalRunsVisibilityHeaderCell() {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { visibilityMode, setVisibilityMode, usingCustomVisibility, allRunsHidden } =

@@ -4,6 +4,7 @@ import Utils from '../../../../../../common/utils/Utils';
 import type { RunRowType } from '../../../utils/experimentPage.row-types';
 import { TrimmedText } from '../../../../../../common/components/TrimmedText';
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const RunDescriptionCellRenderer = React.memo(({ value }: { value: RunRowType['tags'] }) => {
   const description = Utils.getRunDescriptionFromTags(value) || '-';
   return (

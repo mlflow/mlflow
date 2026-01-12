@@ -45,10 +45,9 @@ const EvaluationsReviewSingleRunHeaderSection = ({
   }
 
   return (
-    <div css={{ width: '100%' }}>
+    <div css={{ flex: 1 }}>
       <div
         css={{
-          width: '100%',
           paddingLeft: theme.spacing.md,
           paddingRight: theme.spacing.md,
           display: 'flex',

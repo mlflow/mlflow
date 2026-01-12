@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { isEvaluatingSessionsInScorersEnabled, isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
 import { fetchOrFail, getAjaxUrl } from '../../../common/utils/FetchUtils';
-import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
+import { TracesServiceV3, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import type {
   ModelTraceLocationMlflowExperiment,
   ModelTraceLocationUcSchema,
@@ -44,6 +44,19 @@ interface ChatCompletionsRequest {
   user_prompt: string;
   system_prompt?: string | null;
   experiment_id: string;
+}
+
+/**
+ * Result from evaluating a judge on a single trace.
+ * Always returns results as an array, even for single-result assessments.
+ * This simplifies rendering logic as components can always iterate over results.
+ */
+export interface AssessmentResult {
+  assessment_id?: string;
+  result: string | null;
+  rationale: string | null;
+  error: string | null;
+  span_name?: string;
 }
 
 async function callChatCompletions(
@@ -358,7 +371,7 @@ export function useEvaluateTraces({
               // Fetch trace data with React Query caching
               fullTrace = await queryClient.fetchQuery({
                 queryKey: ['GetMlflowTraceV3', traceId],
-                queryFn: () => getMlflowTraceV3ForEvaluation(traceId),
+                queryFn: () => TracesServiceV3.getTraceV3(traceId),
                 staleTime: Infinity,
                 cacheTime: Infinity,
               });
@@ -371,10 +384,6 @@ export function useEvaluateTraces({
 
                 // Extract template variables from instructions to filter what gets included in user prompt
                 const templateVariables = extractTemplateVariables(judgeInstructions);
-
-                if (templateVariables.includes('trace')) {
-                  throw new Error('The trace variable is not supported when running the scorer on a sample of traces');
-                }
 
                 // Build prompts
                 const systemPrompt = buildSystemPrompt(judgeInstructions);
@@ -658,7 +667,7 @@ export function usePrefetchTraces({ traceCount, locations }: PrefetchTracesParam
           traceIds.map((traceId) =>
             queryClient.prefetchQuery({
               queryKey: ['GetMlflowTraceV3', traceId],
-              queryFn: () => getMlflowTraceV3ForEvaluation(traceId),
+              queryFn: () => TracesServiceV3.getTraceV3(traceId),
               staleTime: Infinity,
               cacheTime: Infinity,
             }),

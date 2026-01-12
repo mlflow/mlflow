@@ -12,16 +12,26 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import { type ModelTrace, type ModelTraceInfoV3, type ModelTraceState } from './ModelTrace.types';
-import { createTraceV4LongIdentifier, doesTraceSupportV4API, isV3ModelTraceInfo } from './ModelTraceExplorer.utils';
+import type { ModelTrace, ModelTraceInfoV3, ModelTraceState } from './ModelTrace.types';
+import {
+  createTraceV4LongIdentifier,
+  doesTraceSupportV4API,
+  getTraceTokenUsage,
+  isV3ModelTraceInfo,
+} from './ModelTraceExplorer.utils';
 import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection';
+import {
+  isTokenUsageType,
+  ModelTraceExplorerTokenUsageHoverCard,
+  type TokenUsage,
+} from './ModelTraceExplorerTokenUsageHoverCard';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { ModelTraceHeaderMetadataPill } from './ModelTraceHeaderMetadataPill';
 import { ModelTraceHeaderSessionIdTag } from './ModelTraceHeaderSessionIdTag';
 import { ModelTraceHeaderStatusTag } from './ModelTraceHeaderStatusTag';
 import { useParams } from './RoutingUtils';
-import { isUserFacingTag, parseJSONSafe, truncateToFirstLineWithMaxLength } from './TagUtils';
-import { SESSION_ID_METADATA_KEY, MLFLOW_TRACE_USER_KEY, TOKEN_USAGE_METADATA_KEY } from './constants';
+import { isUserFacingTag, truncateToFirstLineWithMaxLength } from './TagUtils';
+import { SESSION_ID_METADATA_KEY, MLFLOW_TRACE_USER_KEY } from './constants';
 import { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
 
 const BASE_NOTIFICATION_COMPONENT_ID = 'mlflow.model_trace_explorer.header_details.notification';
@@ -37,17 +47,13 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
     if (doesTraceSupportV4API(modelTraceInfo) && isV3ModelTraceInfo(modelTraceInfo)) {
       return [createTraceV4LongIdentifier(modelTraceInfo), modelTraceInfo.trace_id];
     }
-    return [isV3ModelTraceInfo(modelTraceInfo) ? modelTraceInfo.trace_id : modelTraceInfo.request_id ?? ''];
+    return [isV3ModelTraceInfo(modelTraceInfo) ? modelTraceInfo.trace_id : (modelTraceInfo.request_id ?? '')];
   }, [modelTraceInfo]);
 
-  const tokenUsage = useMemo(() => {
-    const tokenUsage = parseJSONSafe(
-      (modelTraceInfo as ModelTraceInfoV3)?.trace_metadata?.[TOKEN_USAGE_METADATA_KEY] ?? '{}',
-    );
-    return tokenUsage;
-  }, [modelTraceInfo]);
-
-  const totalTokens = useMemo(() => tokenUsage?.total_tokens, [tokenUsage]);
+  const tokenUsage = useMemo<Partial<TokenUsage> | undefined>(
+    () => getTraceTokenUsage(modelTraceInfo as ModelTraceInfoV3) as Partial<TokenUsage> | undefined,
+    [modelTraceInfo],
+  );
 
   const sessionId = useMemo(() => {
     return (modelTraceInfo as ModelTraceInfoV3)?.trace_metadata?.[SESSION_ID_METADATA_KEY];
@@ -104,14 +110,7 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
             onCopy={handleCopy}
           />
         )}
-        {totalTokens && (
-          <ModelTraceHeaderMetricSection
-            label={<FormattedMessage defaultMessage="Token count" description="Label for the token count section" />}
-            value={totalTokens.toString()}
-            getTruncatedLabel={getTruncatedLabel}
-            onCopy={handleCopy}
-          />
-        )}
+        {isTokenUsageType(tokenUsage) && <ModelTraceExplorerTokenUsageHoverCard tokenUsage={tokenUsage} />}
         {latency && (
           <ModelTraceHeaderMetricSection
             label={<FormattedMessage defaultMessage="Latency" description="Label for the latency section" />}
@@ -121,6 +120,7 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
             onCopy={handleCopy}
           />
         )}
+        {statusState && <ModelTraceHeaderStatusTag statusState={statusState} getTruncatedLabel={getTruncatedLabel} />}
         {sessionId && experimentId && (
           <ModelTraceHeaderSessionIdTag
             handleCopy={handleCopy}

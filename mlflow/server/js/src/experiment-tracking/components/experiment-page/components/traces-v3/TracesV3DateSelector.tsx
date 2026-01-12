@@ -36,6 +36,7 @@ interface TracesV3DateSelectorProps {
   excludeOptions?: string[];
 }
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const TracesV3DateSelector = React.memo(({ excludeOptions }: TracesV3DateSelectorProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();

@@ -27,10 +27,6 @@
     "defaultMessage": "Follow these steps to enable the AI Gateway feature for managing AI provider credentials.",
     "description": "AI Gateway setup guide > Subtitle"
   },
-  "+9xfKv": {
-    "defaultMessage": "Select",
-    "description": "Confirm button in the select traces modal"
-  },
   "+CGMk6": {
     "defaultMessage": "On",
     "description": "Telemetry enabled label"
@@ -62,10 +58,6 @@
   "+Oupsq": {
     "defaultMessage": "Start with a built-in LLM judge template or create your own.",
     "description": "Hint text for LLM template selection with documentation link"
-  },
-  "+RYBrq": {
-    "defaultMessage": "Promote model",
-    "description": "Button text to pomote the model to a different registered model"
   },
   "+SBxBK": {
     "defaultMessage": "Assessment Type",
@@ -150,6 +142,10 @@
   "/Aup8Q": {
     "defaultMessage": "Request time",
     "description": "Column label for request time"
+  },
+  "/C16tY": {
+    "defaultMessage": "Tool Usage Over Time",
+    "description": "Title for the tool usage chart"
   },
   "/CaNq/": {
     "defaultMessage": "A network error occurred.",
@@ -299,6 +295,10 @@
     "defaultMessage": "Evaluate and improve the quality, cost, latency of your GenAI app",
     "description": "Title of the empty state for the evaluation runs page"
   },
+  "07nYAU": {
+    "defaultMessage": "Compared IDs:",
+    "description": "Label for the compared IDs section in the model trace explorer"
+  },
   "08WP3h": {
     "defaultMessage": "Staging",
     "description": "Column title for staging phase version in the registered model page"
@@ -318,10 +318,6 @@
   "0HbGko": {
     "defaultMessage": "Model",
     "description": "Run page > Overview > Logged models > Unknown model flavor"
-  },
-  "0HqSXX": {
-    "defaultMessage": "Request ID",
-    "description": "Experiment page > traces table > request id column header"
   },
   "0IVF6w": {
     "defaultMessage": "Delete logged model",
@@ -382,6 +378,10 @@
   "0wxgDJ": {
     "defaultMessage": "Add tags",
     "description": "Add new prompt version tags button"
+  },
+  "0yvVF0": {
+    "defaultMessage": "Refresh traces",
+    "description": "Aria label for the refresh traces button in the traces table toolbar"
   },
   "0z0lH2": {
     "defaultMessage": "None",
@@ -543,6 +543,10 @@
     "defaultMessage": "(empty)",
     "description": "Models table > tags column > no value"
   },
+  "2IGC5w": {
+    "defaultMessage": "Output tokens",
+    "description": "Label for output token usage"
+  },
   "2JfWh3": {
     "defaultMessage": "Type prompt content here. Wrap variables with double curly brace e.g. '{{' name '}}'.",
     "description": "A placeholder for the prompt content in the prompt creation modal"
@@ -558,10 +562,6 @@
   "2NfDVN": {
     "defaultMessage": "Load the model",
     "description": "Heading text for stating how to load the model from the experiment run"
-  },
-  "2Ofya9": {
-    "defaultMessage": "Search traces using a simplified version of the SQL {whereBold} clause.",
-    "description": "Tooltip string to explain how to search runs from the experiments table"
   },
   "2OrFCG": {
     "defaultMessage": "Created at",
@@ -611,6 +611,10 @@
     "defaultMessage": "Text",
     "description": "Label for the text render mode of the prompt"
   },
+  "2igs1f": {
+    "defaultMessage": "Compare",
+    "description": "Compare evaluation runs action"
+  },
   "2mRfvl": {
     "defaultMessage": "Request error",
     "description": "A title shown on the experiment page if the runs request fails"
@@ -646,10 +650,6 @@
   "36g3aR": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model view page"
-  },
-  "3Cwqj9": {
-    "defaultMessage": "e.g., gpt-4, claude-3-opus",
-    "description": "Placeholder for model name input"
   },
   "3D2Znf": {
     "defaultMessage": "Filter by {columnNames}",
@@ -790,10 +790,6 @@
     "defaultMessage": "This version",
     "description": "Model registry > model version alias select > Indicator for alias of selected version"
   },
-  "4PhvDM": {
-    "defaultMessage": "Select",
-    "description": "Confirm button in the select sessions modal"
-  },
   "4TDvGX": {
     "defaultMessage": "edited {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > edited history entry"
@@ -825,10 +821,6 @@
   "4pXg9j": {
     "defaultMessage": "No results found. Try using a different search term.",
     "description": "Model trace explorer > no results found"
-  },
-  "4qVc2+": {
-    "defaultMessage": "Tags",
-    "description": "Experiment page > traces table > tags column header"
   },
   "4tpkvx": {
     "defaultMessage": "Show change from baseline",
@@ -865,6 +857,10 @@
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
+  },
+  "5IeFBG": {
+    "defaultMessage": "Session scorers{count, plural, =0 {} other { (#)}}",
+    "description": "Section title in a side panel that displays session-level scorers"
   },
   "5Mzn2b": {
     "defaultMessage": "Creator",
@@ -954,10 +950,6 @@
     "defaultMessage": "Increase or decrease the confidence level of the language model.",
     "description": "Experiment page > prompt lab > temperature parameter help text"
   },
-  "60C/WF": {
-    "defaultMessage": "Trace name",
-    "description": "Experiment page > traces table > trace name column header"
-  },
   "60b0vW": {
     "defaultMessage": "Always show spans with exceptions, regardless of filter conditions",
     "description": "Tooltip for a span filter setting that enables showing spans with exceptions"
@@ -1022,10 +1014,6 @@
     "defaultMessage": "Model definition",
     "description": "Label for model definition selector"
   },
-  "6TFZpM": {
-    "defaultMessage": "Create your own judge using a Python function. Useful if your requirements are not met by LLM-as-a-judge judges.",
-    "description": "Hint text for custom code judge type option"
-  },
   "6TuRTf": {
     "defaultMessage": "LLM-as-a-judge",
     "description": "Label for LLM scorer type"
@@ -1082,10 +1070,6 @@
     "defaultMessage": "Comparing {numVersions} Versions",
     "description": "Text for main title for the model comparison page"
   },
-  "6oYktw": {
-    "defaultMessage": "Execution time",
-    "description": "Experiment page > traces table > latency column header"
-  },
   "6sFPJF": {
     "defaultMessage": "Learn more",
     "description": "Link text for production monitoring documentation"
@@ -1137,10 +1121,6 @@
   "757GVc": {
     "defaultMessage": "Cancel",
     "description": "experiment page > description modal > cancel button"
-  },
-  "75AaFb": {
-    "defaultMessage": "Enter a model identifier (e.g., openai:/gpt-4.1-mini). Scorers using direct models can only be run via the SDK, and API keys must be configured in your environment.",
-    "description": "Hint text for direct model input"
   },
   "79dD5F": {
     "defaultMessage": "There was an error submitting your note.",
@@ -1218,9 +1198,9 @@
     "defaultMessage": "Run the following code to validate model inference works on the example input data and logged model dependencies, prior to deploying it to a serving endpoint",
     "description": "Section heading to display the code block on how we can validate a model locally prior to serving"
   },
-  "7gOeQm": {
-    "defaultMessage": "Delete",
-    "description": "Delete runs"
+  "7ZzboF": {
+    "defaultMessage": "Link prompts to your traces by loading your registered prompts inside the traced function.",
+    "description": "Helper text describing how to link prompts when no prompt records are available"
   },
   "7hHw+R": {
     "defaultMessage": "Instructions",
@@ -1265,6 +1245,10 @@
   "7teFL4": {
     "defaultMessage": "Search metric charts",
     "description": "Placeholder for chart search input on the logged model chart view"
+  },
+  "7tlSUw": {
+    "defaultMessage": "Delete runs",
+    "description": "Delete evaluation runs action"
   },
   "7x6xu8": {
     "defaultMessage": "Create prompt",
@@ -1598,9 +1582,9 @@
     "defaultMessage": "Add tags",
     "description": "Tag assignment modal > Title of the add tags modal"
   },
-  "AGi/De": {
-    "defaultMessage": "Loading traces…",
-    "description": "Loading traces message"
+  "AHRvpU": {
+    "defaultMessage": "Pass the function directly to {evaluate}, just like other predefined or LLM-based judges.",
+    "description": "Step 3 description for running the judge"
   },
   "AHaom4": {
     "defaultMessage": "No assessments available",
@@ -1657,6 +1641,10 @@
   "AupQl+": {
     "defaultMessage": "Killed",
     "description": "Run page > Overview > Run status cell > Value for killed state"
+  },
+  "Aw8IHc": {
+    "defaultMessage": "Evaluate individual traces for quality and correctness.",
+    "description": "Hint for the scorer evaluation scope selection for traces"
   },
   "AxdKIr": {
     "defaultMessage": "Versions",
@@ -1781,6 +1769,10 @@
   "BdV0qk": {
     "defaultMessage": "Human judge",
     "description": "Label for human judge in the tooltip for the assessment in the evaluation metrics."
+  },
+  "BefOVw": {
+    "defaultMessage": "New LLM judge",
+    "description": "Button text to add an LLM judge from empty state"
   },
   "BfMFME": {
     "defaultMessage": "Attributes",
@@ -1918,10 +1910,6 @@
     "defaultMessage": "Add section above",
     "description": "Experiment page > compare runs > chart section > add section above label"
   },
-  "Cj2i02": {
-    "defaultMessage": "Error",
-    "description": "Experiment page > traces table > error state title"
-  },
   "CjBv5h": {
     "defaultMessage": "Approve pending request",
     "description": "Title for a model version stage transition modal when approving a pending request"
@@ -1945,6 +1933,10 @@
   "Csmj/2": {
     "defaultMessage": "Select all runs",
     "description": "Experiment page > runs table > select all rows > accessible label"
+  },
+  "Cu5P8e": {
+    "defaultMessage": "Tokens",
+    "description": "Label for the total token count metric in chat session metrics"
   },
   "CvNffK": {
     "defaultMessage": "Provider",
@@ -2170,10 +2162,6 @@
     "defaultMessage": "Security Notice: Default Passphrase in Use",
     "description": "Gateway > Default passphrase warning banner title"
   },
-  "FPMrvd": {
-    "defaultMessage": "Search traces",
-    "description": "Experiment page > traces view filters > filter string input placeholder"
-  },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
@@ -2201,6 +2189,14 @@
   "FbAMd+": {
     "defaultMessage": "Error",
     "description": "Title for error fallback component in Trace V3 page"
+  },
+  "FbFEvH": {
+    "defaultMessage": "Comparing {count} traces",
+    "description": "Comparing traces title"
+  },
+  "FcddG+": {
+    "defaultMessage": "Zoom Out",
+    "description": "Button to reset chart zoom"
   },
   "FdDWTo": {
     "defaultMessage": "Clear All",
@@ -2281,10 +2277,6 @@
   "GJWVBA": {
     "defaultMessage": "Inputs",
     "description": "Table subtitle for schema inputs in the model comparison page"
-  },
-  "GJjAMy": {
-    "defaultMessage": "The trace variable is not supported when running the judge on a sample of traces",
-    "description": "Tooltip message when instructions contain trace variable"
   },
   "GKVTw4": {
     "defaultMessage": "JSON",
@@ -2437,6 +2429,10 @@
   "HnGOwk": {
     "defaultMessage": "Registered models",
     "description": "Title for the registered models section on the run details page"
+  },
+  "Hq/PKm": {
+    "defaultMessage": "Enter a model identifier (e.g., openai:/gpt-4.1-mini). Scorers using direct models must configure API keys in your local environment.",
+    "description": "Hint text for direct model input"
   },
   "Hq/vjk": {
     "defaultMessage": "All",
@@ -2674,13 +2670,13 @@
     "defaultMessage": "We've automatically detected the experiment type to be ''{kindLabel}''. {isEditable, select, true {You can either confirm or change the type.} other {}}",
     "description": "Popover message for inferred experiment kind"
   },
-  "K+5g8S": {
-    "defaultMessage": "Trace data is not available for in-progress traces. Please wait for the trace to complete.",
-    "description": "Experiment page > traces data drawer > in-progress description"
-  },
   "K1JLVU": {
     "defaultMessage": "Latency",
     "description": "Label for the latency section"
+  },
+  "K2IAP7": {
+    "defaultMessage": "Success",
+    "description": "Column header for success rate"
   },
   "K5rmCE": {
     "defaultMessage": "S3",
@@ -2754,6 +2750,10 @@
     "defaultMessage": "Disabled",
     "description": "Runs charts > line chart > ignore outliers > disabled label"
   },
+  "KdsrPi": {
+    "defaultMessage": "Assessments",
+    "description": "Label for the read-only assessments tab of the model trace explorer."
+  },
   "Kkr/RI": {
     "defaultMessage": "Configure charts",
     "description": "Experiment page > view controls > global settings for line chart view > dropdown button label"
@@ -2786,6 +2786,10 @@
     "defaultMessage": "Pass",
     "description": "Passing evaluation status in the evaluations table."
   },
+  "Kyw/aU": {
+    "defaultMessage": "New custom code judge",
+    "description": "Button text to add a custom code judge from empty state"
+  },
   "KzC+38": {
     "defaultMessage": "Prompt template examples",
     "description": "Experiment page > new run modal > prompt examples > modal title"
@@ -2809,6 +2813,10 @@
   "L72WxS": {
     "defaultMessage": "Please fix the validation errors",
     "description": "Tooltip message when there are validation errors"
+  },
+  "L8czct": {
+    "defaultMessage": "Latency Comparison",
+    "description": "Title for the tool latency comparison chart"
   },
   "LED2z5": {
     "defaultMessage": "To disable or enable this display, call {disableFunction} or {enableFunction} and re-run the cell",
@@ -2845,10 +2853,6 @@
   "LTbwXS": {
     "defaultMessage": "Artifact evaluation",
     "description": "A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view"
-  },
-  "LTe7m4": {
-    "defaultMessage": "No traces found with the current filter query. <button>Reset filters</button> to see all traces.",
-    "description": "Experiment page > traces table > no traces recorded"
   },
   "LXz6c5": {
     "defaultMessage": "This setting enables UI telemetry data collection. Learn more about what types of data are collected in our {documentation}.",
@@ -2954,6 +2958,10 @@
     "defaultMessage": "Overall assessment:",
     "description": "Evaluation review > assessments > overall assessment > title"
   },
+  "MNCAQh": {
+    "defaultMessage": "Calls",
+    "description": "Column header for call count"
+  },
   "MQ4Voz": {
     "defaultMessage": "{count, plural, one {Input} other {Inputs}}",
     "description": "Evaluation review > input section > title"
@@ -3018,13 +3026,17 @@
     "defaultMessage": "Add message",
     "description": "Button to insert a new chat message row"
   },
+  "N/tNrE": {
+    "defaultMessage": "Actions",
+    "description": "Experiment evaluation runs table actions button"
+  },
   "N1G2a5": {
     "defaultMessage": "Expected facts",
     "description": "Evaluation review > Response section > expected facts > title"
   },
-  "N4wIiU": {
-    "defaultMessage": "New judge",
-    "description": "Button text to create a new judge"
+  "N53jAt": {
+    "defaultMessage": "Create custom code judge",
+    "description": "Title for new custom code judge modal"
   },
   "N79Rdb": {
     "defaultMessage": "{count, plural, =1 {1 month} other {# months}} ago",
@@ -3166,13 +3178,13 @@
     "defaultMessage": "Load model as a Spark UDF. Override result_type if the model does not return double values.",
     "description": "Code comment which states how to load model using spark UDF"
   },
+  "O3RheJ": {
+    "defaultMessage": "Link prompts to traces",
+    "description": "Heading describing how to add prompts when no prompt records are available"
+  },
   "O3q/U1": {
     "defaultMessage": "Get started",
     "description": "Home page quick action section title"
-  },
-  "O5FKCr": {
-    "defaultMessage": "Tokens",
-    "description": "Experiment page > traces table > tokens column header"
   },
   "O9r1RR": {
     "defaultMessage": "Start Time:",
@@ -3190,10 +3202,6 @@
     "defaultMessage": "Value",
     "description": "Tag filter input for value field in the tags filter popover for experiments page search by tags"
   },
-  "OLornd": {
-    "defaultMessage": "New judge",
-    "description": "Button text to add a judge from empty state"
-  },
   "ONIiUE": {
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
@@ -3205,6 +3213,10 @@
   "OUPWd8": {
     "defaultMessage": "View chat session",
     "description": "Tooltip for the session id tag"
+  },
+  "OWCfFp": {
+    "defaultMessage": "Promote {sourceModelName} version {sourceModelVersion}",
+    "description": "Modal title to promote the model to a different registered model"
   },
   "OWfx/j": {
     "defaultMessage": "Regression",
@@ -3262,10 +3274,6 @@
     "defaultMessage": "You can start logging traces to this logged model by calling {code} first:",
     "description": "Introductory text for the code example for logging traces to an existing logged model. The code contains reference to \"mlflow.set_active_model\" function call"
   },
-  "PBkS4s": {
-    "defaultMessage": "Status",
-    "description": "Experiment page > traces table > status column header"
-  },
   "PEYesH": {
     "defaultMessage": "New run",
     "description": "Button used to pop up a modal to create a new run"
@@ -3302,6 +3310,10 @@
     "defaultMessage": "A GraphQL error occurred.",
     "description": "Generic message for a GraphQL error, typically due to query parsing or validation issues"
   },
+  "PRCcZe": {
+    "defaultMessage": "Select ({count})",
+    "description": "Confirm button in the select traces modal showing number of selected traces"
+  },
   "PRe/8y": {
     "defaultMessage": "None",
     "description": "Default text for no content in an editable note in MLflow"
@@ -3336,6 +3348,10 @@
   "PewjIJ": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments focused on generative AI model development"
+  },
+  "Pne4Lp": {
+    "defaultMessage": "Maximum of {max} sessions can be selected",
+    "description": "Tooltip shown when too many sessions are selected"
   },
   "Potju2": {
     "defaultMessage": "Restore",
@@ -3373,10 +3389,6 @@
     "defaultMessage": "Hide finished runs",
     "description": "Menu option for hiding all finished runs in the evaluation runs table"
   },
-  "QAyzA3": {
-    "defaultMessage": "Delete",
-    "description": "Experiment page > traces view controls > Delete button"
-  },
   "QBYbF3": {
     "defaultMessage": "Prompts",
     "description": "Sidebar link for prompts tab"
@@ -3408,6 +3420,10 @@
   "QJ5wvd": {
     "defaultMessage": "Input for the trace",
     "description": "Description for inputs variable"
+  },
+  "QK/Qyx": {
+    "defaultMessage": "Total",
+    "description": "Label for total token usage"
   },
   "QPC4hV": {
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
@@ -3472,6 +3488,10 @@
   "QuU1sl": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab text for parallel coordinates plot on the model comparison page"
+  },
+  "Qv7cZx": {
+    "defaultMessage": "Promote model",
+    "description": "Button text to promote the model to a different registered model"
   },
   "R/4/8G": {
     "defaultMessage": "Metric",
@@ -3669,6 +3689,10 @@
     "defaultMessage": "Last session",
     "description": "Option for last session"
   },
+  "SVNXvf": {
+    "defaultMessage": "Create LLM judge",
+    "description": "Title for new LLM judge modal"
+  },
   "SZj964": {
     "defaultMessage": "Copy S3 URI to clipboard",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
@@ -3692,10 +3716,6 @@
   "Shv28w": {
     "defaultMessage": "Save",
     "description": "Default text for save button on editable notes in MLflow"
-  },
-  "SknPqh": {
-    "defaultMessage": "Judge type",
-    "description": "Label for judge type selection"
   },
   "Sm0bXt": {
     "defaultMessage": "None",
@@ -3780,10 +3800,6 @@
   "TQ3N+4": {
     "defaultMessage": "Select",
     "description": "Label for the checkbox column in the evaluation runs table"
-  },
-  "TQZ+X6": {
-    "defaultMessage": "Request",
-    "description": "Experiment page > traces table > input column header"
   },
   "TSXmaB": {
     "defaultMessage": "Create",
@@ -3916,6 +3932,10 @@
     "defaultMessage": "Edit",
     "description": "Edit assessment menu item"
   },
+  "URGtLz": {
+    "defaultMessage": "Tool Performance Summary",
+    "description": "Title for the tool performance summary section"
+  },
   "UWHfmZ": {
     "defaultMessage": "Group:",
     "description": "Label for a group of runs in the evaluation runs table"
@@ -3927,6 +3947,10 @@
   "UYSMKb": {
     "defaultMessage": "Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing {currentResults} results from {allResults} total rows.",
     "description": "Text for model inputs/outputs schema table when schema is too large to display all rows"
+  },
+  "Ub+VQh": {
+    "defaultMessage": "Please select 2 runs to compare",
+    "description": "Tooltip for disabled compare action in evaluation runs table actions"
   },
   "UbXw8O": {
     "defaultMessage": "Expectations",
@@ -3975,10 +3999,6 @@
   "V0/LoE": {
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
     "description": "Tooltip message for the export button when the trace is not exportable"
-  },
-  "V3BImd": {
-    "defaultMessage": "Time created",
-    "description": "Experiment page > traces table > time created column header"
   },
   "V4CsL/": {
     "defaultMessage": "Unable to list artifacts stored under {artifactUri} for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory.",
@@ -4196,10 +4216,6 @@
     "defaultMessage": "Violates guidelines",
     "description": "Evaluation results > guidelines assessment > negative value label. Displayed if evaluation result does not adhere to the guidelines."
   },
-  "WncPgl": {
-    "defaultMessage": "Register your judge. The judge will then show up in this UI.",
-    "description": "Step 3 description for registering and starting judge"
-  },
   "WpD2MA": {
     "defaultMessage": "View All",
     "description": "View all traces button"
@@ -4211,6 +4227,10 @@
   "Ws58cc": {
     "defaultMessage": "Groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
+  },
+  "WtTgz+": {
+    "defaultMessage": "Tool",
+    "description": "Column header for tool name"
   },
   "WtUqxc": {
     "defaultMessage": "Error",
@@ -4260,9 +4280,17 @@
     "defaultMessage": "JSON",
     "description": "Label for the JSON render mode selector in the model trace explorer summary view"
   },
+  "XEcsei": {
+    "defaultMessage": "Input tokens",
+    "description": "Label for input token usage"
+  },
   "XG8dcL": {
     "defaultMessage": "Key is required if value is present",
     "description": "Error message for required key in trace tag assignment modal"
+  },
+  "XHKE0m": {
+    "defaultMessage": "Latency",
+    "description": "Label for the total latency metric in chat session metrics"
   },
   "XIWwOm": {
     "defaultMessage": "Session ID",
@@ -4435,6 +4463,10 @@
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Breadcrumb nav item to link to compare-experiments page on compare runs page"
   },
+  "Yl/0Tk": {
+    "defaultMessage": "Maximum of {max} traces can be selected",
+    "description": "Tooltip shown when too many traces are selected"
+  },
   "YlavFP": {
     "defaultMessage": "Add section",
     "description": "Experiment page > compare runs > chart section > add section bar"
@@ -4482,10 +4514,6 @@
   "ZBRK9J": {
     "defaultMessage": "Export traces to datasets",
     "description": "Export traces to dataset modal title"
-  },
-  "ZF/84G": {
-    "defaultMessage": "Use a large language model to automatically evaluate traces.",
-    "description": "Hint for the scorer evaluation scope selection for traces"
   },
   "ZGrkWk": {
     "defaultMessage": "Perform inference via model.transform()",
@@ -4550,6 +4578,10 @@
   "ZlokCq": {
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the delete prompt modal"
+  },
+  "ZmiY49": {
+    "defaultMessage": "Add to dataset",
+    "description": "Button text for adding a trace to a evaluation dataset"
   },
   "ZoBXpz": {
     "defaultMessage": "Model attributes",
@@ -4619,10 +4651,6 @@
     "defaultMessage": "Provider",
     "description": "Summary provider label"
   },
-  "a6adM5": {
-    "defaultMessage": "Use a large language model to automatically evaluate traces.",
-    "description": "Hint text for LLM scorer type option"
-  },
   "a6bpXQ": {
     "defaultMessage": "{numRootCause}/{numEvals} ({percentage}%) runs failed due to the {assessment} judge failing for the current run \"{currentRun}\".",
     "description": "Tooltip for the root cause metrics bar on the LLM evaluation page."
@@ -4654,6 +4682,10 @@
   "aFMLIO": {
     "defaultMessage": "System metrics",
     "description": "Run page > Overview > Metrics table > System charts section > title"
+  },
+  "aFk+k/": {
+    "defaultMessage": "Usage breakdown",
+    "description": "Header for token usage breakdown"
   },
   "aIP7Kb": {
     "defaultMessage": "Cancel",
@@ -4871,17 +4903,9 @@
     "defaultMessage": "Create an evaluation dataset",
     "description": "Evaluation datasets empty state title"
   },
-  "c4KA32": {
-    "defaultMessage": "An error occurred while attempting to fetch the trace data. Please wait a moment and try again.",
-    "description": "Experiment page > traces data drawer > error state description"
-  },
   "c4METn": {
     "defaultMessage": "Create",
     "description": "Create button"
-  },
-  "c4OuCI": {
-    "defaultMessage": "Compare traces",
-    "description": "Compare traces modal title"
   },
   "c5AQYh": {
     "defaultMessage": "Compare by",
@@ -4974,6 +4998,10 @@
   "cSSMIs": {
     "defaultMessage": "Copy artifact location",
     "description": "Copy tooltip to copy experiment artifact location from experiment runs table header"
+  },
+  "ckfi1K": {
+    "defaultMessage": "Refresh evaluation runs",
+    "description": "Tooltip for the refresh evaluation runs button in the evaluation runs table controls"
   },
   "cmYzGP": {
     "defaultMessage": "Dismiss",
@@ -5175,14 +5203,6 @@
     "defaultMessage": "Key",
     "description": "Tag key label in unified trace tag assignment modal"
   },
-  "eM4+ab": {
-    "defaultMessage": "Source",
-    "description": "Experiment page > traces table > source column header"
-  },
-  "eMbUhX": {
-    "defaultMessage": "e.g., openai, anthropic, google",
-    "description": "Placeholder for provider input"
-  },
   "eNUbaN": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for y-axis in scatter plot comparison in MLflow"
@@ -5215,10 +5235,6 @@
     "defaultMessage": "Error during metric page load: invalid URL",
     "description": "Error message when loading metric page fails"
   },
-  "eVpwlz": {
-    "defaultMessage": "Step 3: Register the judge",
-    "description": "Step 3 title for custom judge creation"
-  },
   "eWm+AG": {
     "defaultMessage": "Remove model",
     "description": "Tooltip for remove traffic split model button"
@@ -5242,10 +5258,6 @@
   "eapsJa": {
     "defaultMessage": "Select a type",
     "description": "Label for the experiment type selector in the experiment view header"
-  },
-  "eavoW/": {
-    "defaultMessage": "Error",
-    "description": "Experiment page > traces data drawer > error state title"
   },
   "ecUdab": {
     "defaultMessage": "Usage",
@@ -5294,6 +5306,10 @@
   "f/An1W": {
     "defaultMessage": "Ready.",
     "description": "Default status message for model versions that are ready"
+  },
+  "f3LAjV": {
+    "defaultMessage": "Select ({count})",
+    "description": "Confirm button in the select sessions modal showing number of selected sessions"
   },
   "f4CfIz": {
     "defaultMessage": "(edited)",
@@ -5434,10 +5450,6 @@
   "g7xNvF": {
     "defaultMessage": "Display points",
     "description": "Runs charts > line chart > display points > label"
-  },
-  "gBzvDD": {
-    "defaultMessage": "Create judge",
-    "description": "Title for new judge modal"
   },
   "gC2Kxm": {
     "defaultMessage": "Give instructions to the model. Use '{{ }}' or the \"Add new variable\" button to add variables to your prompt.",
@@ -5771,6 +5783,10 @@
     "defaultMessage": "Apply filters",
     "description": "Button label for applying the filters in the GenAI Traces Table"
   },
+  "iZOdRI": {
+    "defaultMessage": "{latency} sec",
+    "description": "Display format for latency value in seconds in chat session metrics"
+  },
   "iZm6YQ": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more link on the form for creating model in the model registry"
@@ -5778,6 +5794,10 @@
   "iaomsd": {
     "defaultMessage": "collapse {title}",
     "description": "Common component > collapsible section > alternative label when expand"
+  },
+  "ic8x74": {
+    "defaultMessage": "Quality Insights",
+    "description": "Title for the quality insights section in quality tab"
   },
   "icBP3T": {
     "defaultMessage": "TRUE",
@@ -5947,10 +5967,6 @@
     "defaultMessage": "Failed to load child runs",
     "description": "Run page > Overview > Child runs error"
   },
-  "k3V20c": {
-    "defaultMessage": "Scorer Insights",
-    "description": "Title for the scorer insights section in quality tab"
-  },
   "kA+QJr": {
     "defaultMessage": "Overview",
     "description": "Run details page > tab selector > overview tab"
@@ -5999,6 +6015,10 @@
     "defaultMessage": "Load model as a PyFuncModel.",
     "description": "Code comment which states how to load model using PyFuncModel"
   },
+  "kW6/lu": {
+    "defaultMessage": "Edit",
+    "description": "Chat sessions actions dropdown group label for edit actions"
+  },
   "kWUhea": {
     "defaultMessage": "Params",
     "description": "Label for 'params' option group in the compare runs chart configure modal"
@@ -6010,6 +6030,10 @@
   "kbOsmf": {
     "defaultMessage": "The AI Gateway is using the default encryption passphrase. This is acceptable for development or single-user deployments, but for multi-user production environments, you should rotate the passphrase using the CLI command: mlflow crypto rotate-kek",
     "description": "Gateway > Default passphrase warning banner description"
+  },
+  "kbWXwv": {
+    "defaultMessage": "Refresh traces",
+    "description": "Tooltip for the refresh traces button in the traces table toolbar"
   },
   "kdTxC2": {
     "defaultMessage": "Disable run grouping in order to access the evaluation view",
@@ -6042,6 +6066,10 @@
   "knJfuf": {
     "defaultMessage": "Learn more about the AI Gateway in the {gatewayDocs}.",
     "description": "AI Gateway setup guide > Documentation link"
+  },
+  "kptH4b": {
+    "defaultMessage": "Session-level scorers cannot be run on individual traces",
+    "description": "Tooltip message when scorer is session-level"
   },
   "ktiuki": {
     "defaultMessage": "Get Link",
@@ -6463,6 +6491,10 @@
     "defaultMessage": "Invalid log value",
     "description": "Experiment tracking > runs charts > line chart configuration > invalid log value message"
   },
+  "o5AS8R": {
+    "defaultMessage": "Custom code judge",
+    "description": "Menu item text to create a new custom code judge"
+  },
   "o7dzKo": {
     "defaultMessage": "Last Modified",
     "description": "Label name for last modified timestamp metadata in model version page"
@@ -6478,10 +6510,6 @@
   "oBKd1E": {
     "defaultMessage": "Value",
     "description": "Column title for value column in editable tags table view in MLflow"
-  },
-  "oBjwod": {
-    "defaultMessage": "Promote {sourceModelName} version {sourceModelVersion}",
-    "description": "Modal title to pomote the model to a different registered model"
   },
   "oDwj2g": {
     "defaultMessage": "The relevance_to_query LLM judge determines whether the response is relevant to the input request.",
@@ -6579,10 +6607,6 @@
     "defaultMessage": "Filter",
     "description": "Label for the span filters popover in the trace explorer."
   },
-  "p0O0uP": {
-    "defaultMessage": "Trace data not available",
-    "description": "Experiment page > traces data drawer > in-progress title"
-  },
   "p1H1KR": {
     "defaultMessage": "Last 30 days",
     "description": "Option for the start select dropdown to filter runs from the last 30 days"
@@ -6614,10 +6638,6 @@
   "pEpexK": {
     "defaultMessage": "Clear filters",
     "description": "Label for a button that clears all filters, visible on a experiment runs page next to a empty state when all runs have been filtered out"
-  },
-  "pHAqL+": {
-    "defaultMessage": "Response",
-    "description": "Experiment page > traces table > output column header"
   },
   "pOqgMC": {
     "defaultMessage": "Weight",
@@ -6690,6 +6710,10 @@
   "puATD8": {
     "defaultMessage": "Are you sure you want to delete this assessment?",
     "description": "Delete assessments modal confirmation text"
+  },
+  "pvjUFP": {
+    "defaultMessage": "e.g., gpt-5.2, claude-4.5-opus",
+    "description": "Placeholder for model name input"
   },
   "pye4NE": {
     "defaultMessage": "Select an endpoint",
@@ -6875,6 +6899,10 @@
     "defaultMessage": "Permission denied for {modelName}. Error: \"{errorMsg}\"",
     "description": "Permission denied error message on registered model detail page"
   },
+  "rMIdMr": {
+    "defaultMessage": "New LLM judge",
+    "description": "Button text to create a new LLM judge"
+  },
   "rNj11o": {
     "defaultMessage": "Switch to the {tracesTab} tab to inspect trace inputs, outputs, and tokens.",
     "description": "Instruction to open the traces tab in the experiment page"
@@ -6902,6 +6930,10 @@
   "raa3Ij": {
     "defaultMessage": "Registered Models",
     "description": "Text for link back to model page under the header on the model view page"
+  },
+  "rcdaen": {
+    "defaultMessage": "Refresh evaluation runs",
+    "description": "Aria label for the refresh evaluation runs button in the evaluation runs table controls"
   },
   "rdrvCs": {
     "defaultMessage": "Created",
@@ -7147,6 +7179,10 @@
     "defaultMessage": "Global guideline adherence",
     "description": "Evaluation results > known type of evaluation result assessment > global guideline adherence assessment. Used to indicate if the result adheres to the global guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Global guideline adherence: moderate\""
   },
+  "taI4Bv": {
+    "defaultMessage": "to",
+    "description": "to"
+  },
   "tatySQ": {
     "defaultMessage": "my-api-key",
     "description": "Placeholder for API key name input"
@@ -7290,6 +7326,10 @@
   "v+0HXI": {
     "defaultMessage": "Artifact loading",
     "description": "Run page > artifact view > loading skeleton label"
+  },
+  "v/njcq": {
+    "defaultMessage": "Comparing",
+    "description": "Comparing"
   },
   "v8UFxB": {
     "defaultMessage": "No datasets were recorded for this experiment's runs.",
@@ -7523,6 +7563,10 @@
     "defaultMessage": "MLflow MCP server",
     "description": "Home page news card title one"
   },
+  "x/rA/e": {
+    "defaultMessage": "Latency",
+    "description": "Column header for average latency"
+  },
   "x03ytD": {
     "defaultMessage": "e.g., END, ###, STOP",
     "description": "Placeholder for stop sequences input"
@@ -7727,17 +7771,9 @@
     "defaultMessage": "Output",
     "description": "Experiment page > new run modal > evaluation output field label"
   },
-  "yeEPjS": {
-    "defaultMessage": "No traces found",
-    "description": "Experiment page > traces table > no traces recorded"
-  },
   "yjerKR": {
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Link to model version in the model version table"
-  },
-  "yltHdB": {
-    "defaultMessage": "Run name",
-    "description": "Experiment page > traces table > run name column header"
   },
   "yltiK8": {
     "defaultMessage": "No prompts match your search",
@@ -7803,6 +7839,10 @@
     "defaultMessage": "Auto-refresh",
     "description": "Run page > Charts tab > Auto-refresh toggle button"
   },
+  "zDEFn7": {
+    "defaultMessage": "Step 3: Run the judge",
+    "description": "Step 3 title for custom judge creation"
+  },
   "zE5aGj": {
     "defaultMessage": "Guidelines",
     "description": "Section header for scorer guidelines"
@@ -7847,10 +7887,6 @@
     "defaultMessage": "Metrics",
     "description": "Header for metric columns in the evaluation runs table column configuration"
   },
-  "zd5Jw4": {
-    "defaultMessage": "Select columns",
-    "description": "Experiment page > traces table > column selector dropdown aria label"
-  },
   "zdYXP8": {
     "defaultMessage": "Parent run",
     "description": "Run page > Overview > Parent run"
@@ -7886,6 +7922,10 @@
   "zp4MBw": {
     "defaultMessage": "Token count",
     "description": "Label for the token count section"
+  },
+  "zuEXrI": {
+    "defaultMessage": "e.g., openai, anthropic, gemini",
+    "description": "Placeholder for provider input"
   },
   "zv4Ycc": {
     "defaultMessage": "View as table",

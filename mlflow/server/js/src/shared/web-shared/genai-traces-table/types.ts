@@ -135,20 +135,13 @@ export interface EvaluationsOverviewTableSort {
 }
 
 export interface TraceActions {
-  exportToEvals?: {
-    showExportTracesToDatasetsModal?: boolean;
-    setShowExportTracesToDatasetsModal?: (visible: boolean) => void;
-    renderExportTracesToDatasetsModal?: ({
-      selectedTraceInfos,
-    }: {
-      selectedTraceInfos: ModelTraceInfoV3[];
-    }) => React.ReactNode;
-  };
+  exportToEvals?: boolean;
   deleteTracesAction?: {
     deleteTraces?: (experimentId: string, traceIds: string[]) => Promise<any>;
     isDisabled?: boolean;
     disabledReason?: string;
   };
+
   editTags?: {
     showEditTagsModalForTrace: (trace: ModelTraceInfoV3) => void;
     EditTagsModal: React.ReactNode;
@@ -168,7 +161,7 @@ export type TableFilter = {
   column: TracesTableColumnGroup | string;
   // Should be defined if a column group is used.
   key?: string;
-  operator: FilterOperator;
+  operator: FilterOperator | HiddenFilterOperator;
   value: TableFilterValue;
 };
 
@@ -192,6 +185,16 @@ export enum FilterOperator {
   GREATER_THAN_OR_EQUALS = '>=',
   LESS_THAN_OR_EQUALS = '<=',
   CONTAINS = 'CONTAINS',
+  RLIKE = 'RLIKE',
+}
+
+// operators that are not displayed in the filter popover, but are
+// still supported in the backend. eventually we should implement
+// functionality for all these operators, but some of them take a
+// little more thought from the UX side (e.g. we need to remove the
+// value input for IS NOT NULL filters)
+export enum HiddenFilterOperator {
+  IS_NOT_NULL = 'IS NOT NULL',
 }
 
 export interface AssessmentDropdownSuggestionItem {
@@ -230,6 +233,7 @@ export type TraceV3 = {
  */
 export type RunEvaluationTracesDataEntry = {
   evaluationId: string;
+  fullTraceId?: string;
   requestId: string;
   inputsTitle?: string;
   inputs: Record<string, any>;
@@ -301,6 +305,8 @@ export interface TracesTableColumn {
   label: string;
   /** The label for the column used in filter dropdowns. If not provided, defaults to `label`. */
   filterLabel?: string;
+  /** The order of the column in the filter dropdowns. Lower numbers appear first. Defaults to 1. */
+  filterOrder?: number;
   type: TracesTableColumnType;
   group?: TracesTableColumnGroup;
 

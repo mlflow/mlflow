@@ -21,6 +21,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlLoggedModelParam,
     SqlLoggedModelTag,
     SqlMetric,
+    SqlOnlineScoringConfig,
     SqlParam,
     SqlRun,
     SqlTag,
@@ -70,6 +71,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlEntityAssociation,
             SqlEvaluationDataset,
             SqlExperimentTag,
+            SqlOnlineScoringConfig,
             SqlExperiment,
         ):
             session.query(model).delete()

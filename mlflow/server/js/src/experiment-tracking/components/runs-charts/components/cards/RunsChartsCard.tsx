@@ -28,7 +28,8 @@ import { RunsChartsImageChartCard } from './RunsChartsImageChartCard';
 import type { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 
 export interface RunsChartsCardProps
-  extends RunsChartCardReorderProps,
+  extends
+    RunsChartCardReorderProps,
     RunsChartCardFullScreenProps,
     RunsChartCardVisibilityProps,
     RunsChartCardSizeProps {

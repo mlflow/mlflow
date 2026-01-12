@@ -363,7 +363,7 @@ client.models.generate_content(model="gemini-1.5-flash", contents="Hello!")`,
               a: (text: string) => (
                 <Typography.Link
                   title="official documentation"
-                  componentId={`${baseComponentId}.traces_table.custom_tracing_docs_link`}
+                  componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_traces_quickstart_tracetablequickstart.utils_366"
                   href="https://mlflow.org/docs/latest/llms/tracing/index.html#tracing-fluent-apis"
                   openInNewTab
                 >

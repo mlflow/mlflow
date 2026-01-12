@@ -1,6 +1,8 @@
 import logging
 import warnings
 
+import pytest
+
 import mlflow
 from mlflow.tracing.utils.warning import suppress_warning
 
@@ -78,10 +80,11 @@ def test_request_id_backward_compatible():
     with warnings.catch_warnings(record=True):
         warnings.simplefilter("always")
 
-        try:
+        with pytest.raises(
+            ValueError,
+            match=r".*",
+            check=lambda e: (
+                "Cannot specify both" in str(e) and "request_id" in str(e) and "trace_id" in str(e)
+            ),
+        ):
             client.get_trace(request_id="abc", trace_id="def")
-            assert False, "Should have raised ValueError"
-        except ValueError as e:
-            assert "Cannot specify both" in str(e)
-            assert "request_id" in str(e)
-            assert "trace_id" in str(e)

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useDesignSystemTheme, LightningIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -10,23 +10,28 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useChartYAxisProps,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { formatCount, useLegendHighlight } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
 
-export const TraceTokenUsageChart: React.FC<OverviewChartProps> = (props) => {
+export const TraceTokenUsageChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const yAxisProps = useChartYAxisProps();
+  const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight(0.8, 0.2);
 
   // Fetch and process token usage chart data
   const { chartData, totalTokens, totalInputTokens, totalOutputTokens, isLoading, error, hasData } =
-    useTraceTokenUsageChartData(props);
+    useTraceTokenUsageChartData();
+
+  const tooltipFormatter = useCallback(
+    (value: number, name: string) => [formatCount(value), name] as [string, string],
+    [],
+  );
 
   // Area colors
   const areaColors = {
@@ -57,13 +62,12 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = (props) => {
       <div css={{ height: 200, marginTop: theme.spacing.sm }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+            <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
               <XAxis dataKey="name" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatCount(value), name]}
               />
               <Area
                 type="monotone"
@@ -90,10 +94,9 @@ export const TraceTokenUsageChart: React.FC<OverviewChartProps> = (props) => {
               <Legend
                 verticalAlign="bottom"
                 iconType="plainline"
-                height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={legendFormatter}
+                {...scrollableLegendProps}
               />
             </AreaChart>
           </ResponsiveContainer>

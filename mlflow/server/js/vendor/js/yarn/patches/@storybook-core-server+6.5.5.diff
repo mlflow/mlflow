@@ -1,0 +1,78 @@
+diff --git a/dist/cjs/utils/get-manager-builder.js b/dist/cjs/utils/get-manager-builder.js
+index 0e60e3d89cecaab668b7a513da4a15c6320b7a69..d134fb3e23c34d3bad4b83bdfcabb64d12fccc71 100644
+--- a/dist/cjs/utils/get-manager-builder.js
++++ b/dist/cjs/utils/get-manager-builder.js
+@@ -36,7 +36,7 @@ async function getManagerBuilder(configDir) {
+   // Unlike preview builders, manager building is not pluggable!
+ 
+   var builderPackage = ['webpack5', '@storybook/builder-webpack5'].includes(builderName) ? require.resolve('@storybook/manager-webpack5', {
+-    paths: [main]
++    paths: process.env.CONFIG_STORYBOOK ? undefined : [main]
+   }) : '@storybook/manager-webpack4';
+   var managerBuilder = await Promise.resolve(`${builderPackage}`).then(function (s) {
+     return _interopRequireWildcard(require(s));
+diff --git a/dist/cjs/utils/get-preview-builder.js b/dist/cjs/utils/get-preview-builder.js
+index dfb20d6e49b7c6f4a581bf9ecc946b16423673ec..8cb7fd596a9bdfebf0118035a2347a7acbdeef12 100644
+--- a/dist/cjs/utils/get-preview-builder.js
++++ b/dist/cjs/utils/get-preview-builder.js
+@@ -34,7 +34,7 @@ async function getPreviewBuilder(configDir) {
+ 
+     var builderName = typeof core.builder === 'string' ? core.builder : (_core$builder = core.builder) === null || _core$builder === void 0 ? void 0 : _core$builder.name;
+     builderPackage = require.resolve(['webpack4', 'webpack5'].includes(builderName) ? `@storybook/builder-${builderName}` : builderName, {
+-      paths: [main]
++      paths: process.env.CONFIG_STORYBOOK ? undefined : [main]
+     });
+   } else {
+     builderPackage = require.resolve('@storybook/builder-webpack4');
+diff --git a/dist/esm/utils/get-manager-builder.js b/dist/esm/utils/get-manager-builder.js
+index 409e2459be7e8cf670ce2bd3b991f94d31a5987c..acb0f79c8f22fb06e7f185f03823ffa8d2972d63 100644
+--- a/dist/esm/utils/get-manager-builder.js
++++ b/dist/esm/utils/get-manager-builder.js
+@@ -19,7 +19,7 @@ export async function getManagerBuilder(configDir) {
+   // Unlike preview builders, manager building is not pluggable!
+ 
+   var builderPackage = ['webpack5', '@storybook/builder-webpack5'].includes(builderName) ? require.resolve('@storybook/manager-webpack5', {
+-    paths: [main]
++    paths: process.env.CONFIG_STORYBOOK ? undefined : [main]
+   }) : '@storybook/manager-webpack4';
+   var managerBuilder = await import(builderPackage);
+   return managerBuilder;
+diff --git a/dist/esm/utils/get-preview-builder.js b/dist/esm/utils/get-preview-builder.js
+index 3cd2790ccbfc1d629653323239dc934ae4e4d3d4..c9351697649e49ad67888a88b8b7b4ca9aa12e4d 100644
+--- a/dist/esm/utils/get-preview-builder.js
++++ b/dist/esm/utils/get-preview-builder.js
+@@ -17,7 +17,7 @@ export async function getPreviewBuilder(configDir) {
+ 
+     var builderName = typeof core.builder === 'string' ? core.builder : (_core$builder = core.builder) === null || _core$builder === void 0 ? void 0 : _core$builder.name;
+     builderPackage = require.resolve(['webpack4', 'webpack5'].includes(builderName) ? `@storybook/builder-${builderName}` : builderName, {
+-      paths: [main]
++      paths: process.env.CONFIG_STORYBOOK ? undefined : [main]
+     });
+   } else {
+     builderPackage = require.resolve('@storybook/builder-webpack4');
+diff --git a/dist/modern/utils/get-manager-builder.js b/dist/modern/utils/get-manager-builder.js
+index 409e2459be7e8cf670ce2bd3b991f94d31a5987c..acb0f79c8f22fb06e7f185f03823ffa8d2972d63 100644
+--- a/dist/modern/utils/get-manager-builder.js
++++ b/dist/modern/utils/get-manager-builder.js
+@@ -19,7 +19,7 @@ export async function getManagerBuilder(configDir) {
+   // Unlike preview builders, manager building is not pluggable!
+ 
+   var builderPackage = ['webpack5', '@storybook/builder-webpack5'].includes(builderName) ? require.resolve('@storybook/manager-webpack5', {
+-    paths: [main]
++    paths: process.env.CONFIG_STORYBOOK ? undefined : [main]
+   }) : '@storybook/manager-webpack4';
+   var managerBuilder = await import(builderPackage);
+   return managerBuilder;
+diff --git a/dist/modern/utils/get-preview-builder.js b/dist/modern/utils/get-preview-builder.js
+index 3cd2790ccbfc1d629653323239dc934ae4e4d3d4..c9351697649e49ad67888a88b8b7b4ca9aa12e4d 100644
+--- a/dist/modern/utils/get-preview-builder.js
++++ b/dist/modern/utils/get-preview-builder.js
+@@ -17,7 +17,7 @@ export async function getPreviewBuilder(configDir) {
+ 
+     var builderName = typeof core.builder === 'string' ? core.builder : (_core$builder = core.builder) === null || _core$builder === void 0 ? void 0 : _core$builder.name;
+     builderPackage = require.resolve(['webpack4', 'webpack5'].includes(builderName) ? `@storybook/builder-${builderName}` : builderName, {
+-      paths: [main]
++      paths: process.env.CONFIG_STORYBOOK ? undefined : [main]
+     });
+   } else {
+     builderPackage = require.resolve('@storybook/builder-webpack4');

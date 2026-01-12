@@ -76,8 +76,8 @@ class MockDatabase {
 describe('useEditKeyValueTagsModal integration', () => {
   // Wire up service to the mocked "database" server
   const database = new MockDatabase();
-  ModelRegistryServices.deleteModelVersionTag = jest.fn(database.deleteTag);
-  ModelRegistryServices.setModelVersionTag = jest.fn(database.setTag);
+  jest.spyOn(ModelRegistryServices, 'deleteModelVersionTag').mockImplementation(database.deleteTag);
+  jest.spyOn(ModelRegistryServices, 'setModelVersionTag').mockImplementation(database.setTag);
 
   // Mock redux store to enable redux actions
   const mockStoreFactory = configureStore([thunk, promiseMiddleware()]);

@@ -1,0 +1,116 @@
+diff --git a/es/Dialog/Content/index.js b/es/Dialog/Content/index.js
+index 3896c68b881b2bb98c01949079a2bed125ae4d06..57897526966a77bbce8e8076cc0fb3657fefb28f 100644
+--- a/es/Dialog/Content/index.js
++++ b/es/Dialog/Content/index.js
+@@ -52,6 +52,16 @@ var Content = /*#__PURE__*/React.forwardRef(function (props, ref) {
+         var _document = document,
+             activeElement = _document.activeElement;
+ 
++        // FEINF-1134: Fix active element detection in shadow DOM
++        while(
++          activeElement &&
++          activeElement.shadowRoot &&
++          activeElement.shadowRoot.activeElement &&
++          activeElement.shadowRoot.activeElement !== activeElement
++        ){
++          activeElement = activeElement.shadowRoot.activeElement;
++        }
++
+         if (next && activeElement === sentinelEndRef.current) {
+           sentinelStartRef.current.focus();
+         } else if (!next && activeElement === sentinelStartRef.current) {
+diff --git a/es/Dialog/index.js b/es/Dialog/index.js
+index 6fd6b28bdd1c540ffa5ed93d3c80c3f1a7db4ac5..3edad961f97a7571091b69027df44e94427bbce5 100644
+--- a/es/Dialog/index.js
++++ b/es/Dialog/index.js
+@@ -56,13 +56,30 @@ export default function Dialog(props) {
+   } // ========================= Events =========================
+ 
+ 
++  function getActiveElement() {
++    var activeElement = document.activeElement;
++    while(
++      activeElement &&
++      activeElement.shadowRoot &&
++      activeElement.shadowRoot.activeElement &&
++      activeElement.shadowRoot.activeElement !== activeElement
++    ){
++      activeElement = activeElement.shadowRoot.activeElement;
++    }
++  
++    return activeElement;
++  }
++
+   function onDialogVisibleChanged(newVisible) {
+     if (newVisible) {
++      // FEINF-1134: Fix active element detection in shadow DOM
++      var activeElement = getActiveElement();
++
+       // Try to focus
+-      if (!contains(wrapperRef.current, document.activeElement)) {
++      if (!contains(wrapperRef.current, activeElement)) {
+         var _contentRef$current;
+ 
+-        lastOutSideActiveElementRef.current = document.activeElement;
++        lastOutSideActiveElementRef.current = activeElement;
+         (_contentRef$current = contentRef.current) === null || _contentRef$current === void 0 ? void 0 : _contentRef$current.focus();
+       }
+     } else {
+diff --git a/lib/Dialog/Content/index.js b/lib/Dialog/Content/index.js
+index 7546f4ecb653224e4ef27339d8c0f4eac546e8df..999be2eeab116dc340407012f5bdb7750d635b67 100644
+--- a/lib/Dialog/Content/index.js
++++ b/lib/Dialog/Content/index.js
+@@ -70,6 +70,16 @@ var Content = /*#__PURE__*/React.forwardRef(function (props, ref) {
+         var _document = document,
+             activeElement = _document.activeElement;
+ 
++        // FEINF-1134: Fix active element detection in shadow DOM
++        while(
++          activeElement &&
++          activeElement.shadowRoot &&
++          activeElement.shadowRoot.activeElement &&
++          activeElement.shadowRoot.activeElement !== activeElement
++        ){
++          activeElement = activeElement.shadowRoot.activeElement;
++        }
++
+         if (next && activeElement === sentinelEndRef.current) {
+           sentinelStartRef.current.focus();
+         } else if (!next && activeElement === sentinelStartRef.current) {
+diff --git a/lib/Dialog/index.js b/lib/Dialog/index.js
+index 189a40626227cde4696c0c4fd8820d158c4bd7c2..e4940d4e9f078b8603face64693723f4cd75bb86 100644
+--- a/lib/Dialog/index.js
++++ b/lib/Dialog/index.js
+@@ -77,13 +77,30 @@ function Dialog(props) {
+   } // ========================= Events =========================
+ 
+ 
++  function getActiveElement() {
++    var activeElement = document.activeElement;
++    while(
++      activeElement &&
++      activeElement.shadowRoot &&
++      activeElement.shadowRoot.activeElement &&
++      activeElement.shadowRoot.activeElement !== activeElement
++    ){
++      activeElement = activeElement.shadowRoot.activeElement;
++    }
++
++    return activeElement;
++  }
++  
+   function onDialogVisibleChanged(newVisible) {
+     if (newVisible) {
++      // FEINF-1134: Fix active element detection in shadow DOM
++      var activeElement = getActiveElement();
++
+       // Try to focus
+-      if (!(0, _contains.default)(wrapperRef.current, document.activeElement)) {
++      if (!(0, _contains.default)(wrapperRef.current, activeElement)) {
+         var _contentRef$current;
+ 
+-        lastOutSideActiveElementRef.current = document.activeElement;
++        lastOutSideActiveElementRef.current = activeElement;
+         (_contentRef$current = contentRef.current) === null || _contentRef$current === void 0 ? void 0 : _contentRef$current.focus();
+       }
+     } else {

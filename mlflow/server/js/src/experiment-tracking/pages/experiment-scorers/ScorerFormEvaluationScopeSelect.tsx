@@ -34,7 +34,7 @@ export const ScorerFormEvaluationScopeSelect = ({ mode }: { mode: ScorerFormMode
           <FormattedMessage defaultMessage="Traces" description="Label for the scorer evaluation scope selection" />
           <FormUI.Hint>
             <FormattedMessage
-              defaultMessage="Use a large language model to automatically evaluate traces."
+              defaultMessage="Evaluate individual traces for quality and correctness."
               description="Hint for the scorer evaluation scope selection for traces"
             />
           </FormUI.Hint>

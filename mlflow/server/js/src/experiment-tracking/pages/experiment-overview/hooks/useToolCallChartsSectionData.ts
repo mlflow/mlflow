@@ -10,7 +10,7 @@ import {
   createSpanFilter,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface UseToolCallChartsSectionDataResult {
   /** Sorted list of tool names */
@@ -28,15 +28,12 @@ export interface UseToolCallChartsSectionDataResult {
 /**
  * Custom hook that fetches and processes tool call data for the charts section.
  * Queries span metrics grouped by tool name and status to get the list of tools and their error rates.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId and time range
  * @returns Tool names, error rates, loading state, and error state
  */
-export function useToolCallChartsSectionData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-}: Pick<OverviewChartProps, 'experimentId' | 'startTimeMs' | 'endTimeMs'>): UseToolCallChartsSectionDataResult {
+export function useToolCallChartsSectionData(): UseToolCallChartsSectionDataResult {
+  const { experimentId, startTimeMs, endTimeMs } = useOverviewChartContext();
   // Filter for TOOL type spans
   const toolFilter = useMemo(() => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL)], []);
 

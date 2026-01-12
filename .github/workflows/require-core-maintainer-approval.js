@@ -21,9 +21,17 @@ const EXEMPTION_RULES = [
     ],
     excludedPatterns: [/^mlflow\/genai\/(agent_server|git_versioning|prompts|optimize)\//],
   },
+  // Exemption for UI PRs.
+  {
+    authors: ["daniellok-db", "danielseong1", "hubertzub-db"],
+    allowedPatterns: [/^mlflow\/server\/js\//],
+  },
 ];
 
 function matchesAnyPattern(path, patterns) {
+  if (!patterns) {
+    return false;
+  }
   return patterns.some((pattern) => pattern.test(path));
 }
 

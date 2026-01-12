@@ -268,10 +268,13 @@ const getBandTraceForRun = ({
  * return = [{step: 2, value: 3}, {step: 0, value: 1}, {step: 1, value: 2}]
  */
 const orderBySteps = (dataPoints: MetricEntity[], stepOrder: number[]) => {
-  const stepIndexes = stepOrder.reduce((acc, step, idx) => {
-    acc[step] = idx;
-    return acc;
-  }, {} as Record<number, number>);
+  const stepIndexes = stepOrder.reduce(
+    (acc, step, idx) => {
+      acc[step] = idx;
+      return acc;
+    },
+    {} as Record<number, number>,
+  );
 
   // if there's a step mismatch, send all non-existing values to the end
   return dataPoints.slice().sort((a, b) => (stepIndexes[a.step] ?? Infinity) - (stepIndexes[b.step] ?? Infinity));
@@ -485,6 +488,7 @@ const getXAxisPlotlyType = (
  * set of experiments runs
  */
 export const RunsMetricsLinePlot = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     runsData,
     metricKey,

@@ -1,0 +1,37 @@
+diff --git a/package.json b/package.json
+index 7c91a1520317afbab29637bbd1c3d7ecbd025804..48f45c2bcbbc95105318deb70061faabe1f7ea48 100644
+--- a/package.json
++++ b/package.json
+@@ -8,6 +8,7 @@
+   },
+   "exports": {
+     ".": {
++      "types": "./dist/index.d.ts",
+       "module": {
+         "worker": "./dist/emotion-react.worker.esm.js",
+         "browser": "./dist/emotion-react.browser.esm.js",
+@@ -17,6 +18,7 @@
+       "default": "./dist/emotion-react.cjs.js"
+     },
+     "./jsx-runtime": {
++      "types": "./dist/jsx-runtime.d.ts",
+       "module": {
+         "worker": "./jsx-runtime/dist/emotion-react-jsx-runtime.worker.esm.js",
+         "browser": "./jsx-runtime/dist/emotion-react-jsx-runtime.browser.esm.js",
+@@ -35,6 +37,7 @@
+       "default": "./_isolated-hnrs/dist/emotion-react-_isolated-hnrs.cjs.js"
+     },
+     "./jsx-dev-runtime": {
++      "types": "./dist/jsx-dev-runtime.d.ts",
+       "module": {
+         "worker": "./jsx-dev-runtime/dist/emotion-react-jsx-dev-runtime.worker.esm.js",
+         "browser": "./jsx-dev-runtime/dist/emotion-react-jsx-dev-runtime.browser.esm.js",
+@@ -44,7 +47,7 @@
+       "default": "./jsx-dev-runtime/dist/emotion-react-jsx-dev-runtime.cjs.js"
+     },
+     "./package.json": "./package.json",
+-    "./types/css-prop": "./types/css-prop.d.ts",
++    "./types/*": "./types/*.d.ts",
+     "./macro": {
+       "types": {
+         "import": "./macro.d.mts",

@@ -90,7 +90,7 @@ interface ExperimentEvaluationDatasetsTableRowProps {
 
 const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>> =
   React.memo(
-    ({ row, enableRowSelection, enableLinks = true }) => {
+    function ExperimentChatSessionsTableRow({ row, enableRowSelection, enableLinks = true }) {
       const { search } = useLocation();
       const { theme } = useDesignSystemTheme();
 
@@ -109,21 +109,7 @@ const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<Experimen
             </div>
           )}
           {row.getVisibleCells().map((cell) => (
-            <TableCell
-              key={cell.id}
-              css={{
-                backgroundColor: 'transparent',
-                flex: `calc(var(--col-${cell.column.id}-size) / 100)`,
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'center',
-                '> span:first-of-type': {
-                  padding: `${theme.spacing.xs}px 0px`,
-                  width: '100%',
-                },
-                ...(cell.column.id === 'actions' && { paddingLeft: 0, paddingRight: 0 }),
-              }}
-            >
+            <TableCell key={cell.id}>
               {enableLinks ? (
                 <Link
                   to={{
@@ -152,7 +138,9 @@ const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<Experimen
         </TableRow>
       );
     },
-    () => false,
+    function ExperimentChatSessionsTableRow() {
+      return false;
+    },
   );
 
 export const GenAIChatSessionsTable = ({

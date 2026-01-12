@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useDesignSystemTheme, BarChartIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
@@ -10,22 +10,27 @@ import {
   OverviewChartHeader,
   OverviewChartTimeLabel,
   OverviewChartContainer,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useChartYAxisProps,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { formatCount, useLegendHighlight } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
 
-export const TraceTokenStatsChart: React.FC<OverviewChartProps> = (props) => {
+export const TraceTokenStatsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const yAxisProps = useChartYAxisProps();
+  const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
 
   // Fetch and process token stats chart data
-  const { chartData, avgTokens, isLoading, error, hasData } = useTraceTokenStatsChartData(props);
+  const { chartData, avgTokens, isLoading, error, hasData } = useTraceTokenStatsChartData();
+
+  const tooltipFormatter = useCallback(
+    (value: number, name: string) => [formatCount(value), name] as [string, string],
+    [],
+  );
 
   // Line colors
   const lineColors = {
@@ -61,13 +66,12 @@ export const TraceTokenStatsChart: React.FC<OverviewChartProps> = (props) => {
       <div css={{ height: 200, marginTop: theme.spacing.sm }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
               <XAxis dataKey="name" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatCount(value), name]}
               />
               <Line
                 type="monotone"
@@ -112,10 +116,9 @@ export const TraceTokenStatsChart: React.FC<OverviewChartProps> = (props) => {
               <Legend
                 verticalAlign="bottom"
                 iconType="plainline"
-                height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={legendFormatter}
+                {...scrollableLegendProps}
               />
             </LineChart>
           </ResponsiveContainer>

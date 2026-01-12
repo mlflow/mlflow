@@ -17,6 +17,7 @@ import { getDisplayOverallScoreAndChange } from '../../utils/DisplayUtils';
 import { withAlpha } from '../GenAiEvaluationTracesReview.utils';
 
 export const AssessmentColumnSummary = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     theme,
     intl,
@@ -137,10 +138,10 @@ export const AssessmentColumnSummary = React.memo(
                     changeDirection === 'none'
                       ? ''
                       : changeDirection === 'up'
-                      ? AGGREGATE_SCORE_CHANGE_BACKGROUND_COLORS.up
-                      : changeDirection === 'down'
-                      ? AGGREGATE_SCORE_CHANGE_BACKGROUND_COLORS.down
-                      : withAlpha(theme.colors.textSecondary, 0.1),
+                        ? AGGREGATE_SCORE_CHANGE_BACKGROUND_COLORS.up
+                        : changeDirection === 'down'
+                          ? AGGREGATE_SCORE_CHANGE_BACKGROUND_COLORS.down
+                          : withAlpha(theme.colors.textSecondary, 0.1),
                 }}
               >
                 {displayScoreChange}

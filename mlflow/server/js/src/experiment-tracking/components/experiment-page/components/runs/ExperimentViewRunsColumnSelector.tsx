@@ -103,6 +103,7 @@ export interface ExperimentViewRunsColumnSelectorProps {
  * A component displaying the searchable column list - implementation.
  */
 export const ExperimentViewRunsColumnSelector = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     runsData,
     columnSelectorVisible,

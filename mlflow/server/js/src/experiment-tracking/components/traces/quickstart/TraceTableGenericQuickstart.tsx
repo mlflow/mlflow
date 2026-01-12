@@ -22,7 +22,7 @@ export const TraceTableGenericQuickstart = ({
       </Typography.Text>
       <div css={{ position: 'relative', width: 'min-content' }}>
         <CopyButton
-          componentId={`${baseComponentId}.traces_table.${flavorName}_quickstart_snippet_copy`}
+          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_traces_quickstart_tracetablegenericquickstart_25"
           css={{ zIndex: 1, position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
           showLabel={false}
           copyText={code}

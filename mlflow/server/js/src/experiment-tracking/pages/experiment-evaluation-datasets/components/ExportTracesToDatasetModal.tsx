@@ -121,6 +121,7 @@ export const ExportTracesToDatasetModal = ({
           description="Export traces to dataset modal title"
         />
       }
+      zIndex={theme.options.zIndexBase + 10}
     >
       <div css={{ height: '500px', overflow: 'hidden' }}>
         <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.sm }}>

@@ -10,7 +10,7 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface TokenStatsChartDataPoint {
   name: string;
@@ -35,17 +35,12 @@ export interface UseTraceTokenStatsChartDataResult {
 /**
  * Custom hook that fetches and processes token stats chart data.
  * Encapsulates all data-fetching and processing logic for the token stats chart.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId, time range, and buckets
  * @returns Processed chart data, loading state, and error state
  */
-export function useTraceTokenStatsChartData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-}: OverviewChartProps): UseTraceTokenStatsChartDataResult {
+export function useTraceTokenStatsChartData(): UseTraceTokenStatsChartDataResult {
+  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Fetch token stats with p50, p90, p99 aggregations grouped by time
   const {
     data: tokenStatsData,

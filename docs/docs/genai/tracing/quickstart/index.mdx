@@ -168,6 +168,63 @@ After running the code above, go to the MLflow UI and select the "My Application
 
 <ImageBox src="/images/llms/tracing/quickstart/single-openai-trace-detail.png" alt="Single Trace" />
 
+## Track Multi-Turn Conversations with Sessions
+
+Many GenAI applications maintain multi-turn conversations with users. MLflow provides built-in support for tracking user sessions by using standard metadata fields. This allows you to group related traces together and analyze conversation flows.
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
+    Here's how to add user and session tracking to your application:
+
+    ```python
+    import mlflow
+
+
+    @mlflow.trace
+    def chat_completion(message: list[dict], user_id: str, session_id: str):
+        """Process a chat message with user and session tracking."""
+
+        # Add user and session context to the current trace
+        mlflow.update_current_trace(
+            metadata={
+                "mlflow.trace.user": user_id,  # Links trace to specific user
+                "mlflow.trace.session": session_id,  # Groups trace with conversation
+            }
+        )
+
+        # Your chat logic here
+        return generate_response(message)
+    ```
+
+  </TabItem>
+  <TabItem value="typescript" label="TypeScript">
+    ```typescript
+    import * as mlflow from "mlflow-tracing";
+
+    const chatCompletion = mlflow.trace(
+        (message: Array<Record<string, any>>, userId: string, sessionId: string) => {
+            // Add user and session context to the current trace
+            mlflow.updateCurrentTrace({
+                metadata: {
+                    "mlflow.trace.user": userId,
+                    "mlflow.trace.session": sessionId,
+                },
+            });
+
+            // Your chat logic here
+            return generateResponse(message);
+        },
+        { name: "chat_completion" }
+    );
+    ```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+For more details on tracking users and sessions, see the [Track Users & Sessions guide](/genai/tracing/track-users-sessions).
+
 ## Next Step
 
 Congrats on sending your first trace with MLflow! Now that you've got the basics working, here is the recommended next step to deepen your understanding of tracing:

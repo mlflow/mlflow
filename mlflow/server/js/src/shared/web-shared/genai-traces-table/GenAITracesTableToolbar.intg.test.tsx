@@ -8,7 +8,6 @@ import { getUser } from '@databricks/web-shared/global-settings';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
 import { GenAITracesTableToolbar } from './GenAITracesTableToolbar';
-import type { GetTraceFunction } from './index';
 import { createTestTraceInfoV3, createTestAssessmentInfo, createTestColumns } from './index';
 import type { TableFilter, EvaluationsOverviewTableSort, TraceActions } from './types';
 import { TracesTableColumnType, TracesTableColumnGroup, FilterOperator } from './types';
@@ -28,6 +27,14 @@ jest.mock('@databricks/web-shared/hooks', () => {
     useLocalStorage: jest.fn().mockReturnValue([{}, jest.fn()]),
   };
 });
+
+jest.mock('./hooks/useTableSortURL', () => ({
+  useTableSortURL: () => [undefined, jest.fn()] as const,
+}));
+
+jest.mock('./hooks/useColumnsURL', () => ({
+  useColumnsURL: () => [undefined, jest.fn()] as const,
+}));
 
 const testExperimentId = 'test-experiment-id';
 
@@ -72,11 +79,7 @@ describe('GenAITracesTableToolbar - integration test', () => {
       toggleColumns: jest.fn(),
       setSelectedColumns: jest.fn(),
       traceActions: {
-        exportToEvals: {
-          showExportTracesToDatasetsModal: false,
-          setShowExportTracesToDatasetsModal: jest.fn(),
-          renderExportTracesToDatasetsModal: jest.fn(),
-        },
+        exportToEvals: false,
         deleteTracesAction: {
           deleteTraces: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
         },
@@ -220,11 +223,7 @@ describe('GenAITracesTableToolbar - integration test', () => {
 
   it('handles trace actions', async () => {
     const traceActions: TraceActions = {
-      exportToEvals: {
-        showExportTracesToDatasetsModal: false,
-        setShowExportTracesToDatasetsModal: jest.fn(),
-        renderExportTracesToDatasetsModal: jest.fn(),
-      },
+      exportToEvals: true,
       deleteTracesAction: {
         deleteTraces: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
       },

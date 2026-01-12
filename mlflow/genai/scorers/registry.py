@@ -8,14 +8,23 @@ evaluate traces in MLflow experiments.
 import json
 import warnings
 from abc import ABCMeta, abstractmethod
+from typing import TYPE_CHECKING, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
-from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
+from mlflow.genai.scorers.base import (
+    SCORER_BACKEND_DATABRICKS,
+    SCORER_BACKEND_TRACKING,
+    Scorer,
+    ScorerSamplingConfig,
+)
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.uri import get_uri_scheme
+
+if TYPE_CHECKING:
+    from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
 
 class UnsupportedScorerStoreURIException(MlflowException):
@@ -45,7 +54,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
         Register a scorer for an experiment.
 
         Args:
-            experiment_id: The experiment ID.
+            experiment_id: The ID of the Experiment containing the scorer.
             scorer: The scorer object.
 
         Returns:
@@ -58,7 +67,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
         List all scorers for an experiment.
 
         Args:
-            experiment_id: The experiment ID.
+            experiment_id: The ID of the Experiment containing the scorer.
 
         Returns:
             List of mlflow.genai.scorers.Scorer objects (latest version for each scorer name).
@@ -70,7 +79,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
         Get a specific scorer for an experiment.
 
         Args:
-            experiment_id: The experiment ID.
+            experiment_id: The ID of the Experiment containing the scorer.
             name: The scorer name.
             version: The scorer version. If None, returns the scorer with maximum version.
 
@@ -87,7 +96,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
         List all versions of a specific scorer for an experiment.
 
         Args:
-            experiment_id: The experiment ID.
+            experiment_id: The ID of the Experiment containing the scorer.
             name: The scorer name.
 
         Returns:
@@ -104,7 +113,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
         Delete a scorer by name and optional version.
 
         Args:
-            experiment_id: The experiment ID.
+            experiment_id: The ID of the Experiment containing the scorer.
             name: The scorer name.
             version: The scorer version to delete.
 
@@ -191,48 +200,84 @@ class MlflowTrackingStore(AbstractScorerStore):
     def register_scorer(self, experiment_id: str | None, scorer: Scorer) -> int | None:
         serialized_scorer = json.dumps(scorer.model_dump())
         experiment_id = experiment_id or _get_experiment_id()
-        return self._tracking_store.register_scorer(experiment_id, scorer.name, serialized_scorer)
+        version = self._tracking_store.register_scorer(
+            experiment_id, scorer.name, serialized_scorer
+        )
+        self._hydrate_scorer(scorer, experiment_id, online_config=None)
+        return version
+
+    def _hydrate_scorer(
+        self,
+        scorer: Scorer,
+        experiment_id: str,
+        online_config: Optional["OnlineScoringConfig"] = None,
+    ) -> None:
+        """
+        Hydrate a scorer with runtime state from the tracking store.
+
+        Args:
+            scorer: The scorer to hydrate.
+            experiment_id: The experiment ID the scorer belongs to.
+            online_config: Optional OnlineScoringConfig from the tracking store.
+        """
+        scorer._registered_backend = SCORER_BACKEND_TRACKING
+        scorer._experiment_id = experiment_id
+        if online_config is not None:
+            scorer._sampling_config = ScorerSamplingConfig(
+                sample_rate=online_config.sample_rate,
+                filter_string=online_config.filter_string,
+            )
 
     def list_scorers(self, experiment_id) -> list["Scorer"]:
         from mlflow.genai.scorers import Scorer
 
         experiment_id = experiment_id or _get_experiment_id()
-
-        # Get ScorerVersion entities from tracking store
         scorer_versions = self._tracking_store.list_scorers(experiment_id)
-
-        # Convert to Scorer objects
-        return [
-            Scorer.model_validate(scorer_version.serialized_scorer)
-            for scorer_version in scorer_versions
-        ]
+        scorer_ids = [sv.scorer_id for sv in scorer_versions]
+        online_configs_list = (
+            self._tracking_store.get_online_scoring_configs(scorer_ids) if scorer_ids else []
+        )
+        # Each scorer has at most one online configuration, guaranteed by the server
+        online_configs = {c.scorer_id: c for c in online_configs_list}
+        scorers = []
+        for scorer_version in scorer_versions:
+            scorer = Scorer.model_validate(scorer_version.serialized_scorer)
+            online_config = online_configs.get(scorer_version.scorer_id)
+            self._hydrate_scorer(scorer, experiment_id, online_config)
+            scorers.append(scorer)
+        return scorers
 
     def get_scorer(self, experiment_id, name, version=None) -> "Scorer":
         from mlflow.genai.scorers import Scorer
 
         experiment_id = experiment_id or _get_experiment_id()
-
-        # Get ScorerVersion entity from tracking store
         scorer_version = self._tracking_store.get_scorer(experiment_id, name, version)
-
-        # Convert to Scorer object
-        return Scorer.model_validate(scorer_version.serialized_scorer)
+        online_configs_list = self._tracking_store.get_online_scoring_configs(
+            [scorer_version.scorer_id]
+        )
+        # Each scorer has at most one online configuration, guaranteed by the server
+        online_config = online_configs_list[0] if online_configs_list else None
+        scorer = Scorer.model_validate(scorer_version.serialized_scorer)
+        self._hydrate_scorer(scorer, experiment_id, online_config)
+        return scorer
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple[Scorer, int]]:
         from mlflow.genai.scorers import Scorer
 
         experiment_id = experiment_id or _get_experiment_id()
-
-        # Get ScorerVersion entities from tracking store
         scorer_versions = self._tracking_store.list_scorer_versions(experiment_id, name)
-
-        # Convert to Scorer objects
+        scorer_ids = list({sv.scorer_id for sv in scorer_versions})
+        online_configs_list = (
+            self._tracking_store.get_online_scoring_configs(scorer_ids) if scorer_ids else []
+        )
+        # Each scorer has at most one online configuration, guaranteed by the server
+        online_configs = {c.scorer_id: c for c in online_configs_list}
         scorers = []
         for scorer_version in scorer_versions:
             scorer = Scorer.model_validate(scorer_version.serialized_scorer)
-            version = scorer_version.scorer_version
-            scorers.append((scorer, version))
-
+            online_config = online_configs.get(scorer_version.scorer_id)
+            self._hydrate_scorer(scorer, experiment_id, online_config)
+            scorers.append((scorer, scorer_version.scorer_version))
         return scorers
 
     def delete_scorer(self, experiment_id, name, version):
@@ -245,6 +290,45 @@ class MlflowTrackingStore(AbstractScorerStore):
 
         experiment_id = experiment_id or _get_experiment_id()
         return self._tracking_store.delete_scorer(experiment_id, name, version)
+
+    def upsert_online_scoring_config(
+        self,
+        *,
+        scorer: Scorer,
+        experiment_id: str,
+        sample_rate: float,
+        filter_string: str | None = None,
+    ) -> Scorer:
+        """
+        Create or update the online scoring configuration for a registered scorer.
+
+        Args:
+            scorer: The scorer instance to update.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+            sample_rate: The sampling rate (0.0 to 1.0).
+            filter_string: Optional filter string.
+
+        Returns:
+            A copy of the scorer with updated sampling configuration.
+
+        Raises:
+            MlflowException: If the scorer is not registered.
+        """
+        if scorer._registered_backend is None:
+            raise MlflowException.invalid_parameter_value(
+                "Cannot start/update a scorer that is not registered. "
+                "Please call register() first before calling start()/update(), "
+                "or use get_scorer() to load a registered scorer."
+            )
+
+        self._tracking_store.upsert_online_scoring_config(
+            experiment_id=experiment_id,
+            scorer_name=scorer.name,
+            sample_rate=sample_rate,
+            filter_string=filter_string,
+        )
+
+        return self.get_scorer(experiment_id, scorer.name)
 
 
 class DatabricksStore(AbstractScorerStore):
@@ -259,6 +343,7 @@ class DatabricksStore(AbstractScorerStore):
     @staticmethod
     def _scheduled_scorer_to_scorer(scheduled_scorer: ScorerScheduleConfig) -> Scorer:
         scorer = scheduled_scorer.scorer
+        scorer._registered_backend = SCORER_BACKEND_DATABRICKS
         scorer._sampling_config = ScorerSamplingConfig(
             sample_rate=scheduled_scorer.sample_rate,
             filter_string=scheduled_scorer.filter_string,

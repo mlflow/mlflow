@@ -3,7 +3,7 @@ import { FormattedMessage } from 'react-intl';
 import { homeQuickActions } from '../quick-actions';
 import { useHomePageViewState } from '../HomePageViewStateContext';
 
-type QuickAction = typeof homeQuickActions[number];
+type QuickAction = (typeof homeQuickActions)[number];
 
 const GetStartedCard = ({ action }: { action: QuickAction }) => {
   const { theme } = useDesignSystemTheme();
@@ -118,3 +118,5 @@ export const GetStarted = () => {
     </section>
   );
 };
+
+export default GetStarted;

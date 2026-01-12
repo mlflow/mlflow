@@ -9,9 +9,14 @@ import { SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 interface ScorerFormCreateContainerProps {
   experimentId: string;
   onClose: () => void;
+  initialScorerType?: ScorerFormData['scorerType'];
 }
 
-const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({ experimentId, onClose }) => {
+const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({
+  experimentId,
+  onClose,
+  initialScorerType = 'llm',
+}) => {
   // Local error state for synchronous errors
   const [componentError, setComponentError] = useState<string | null>(null);
 
@@ -24,7 +29,7 @@ const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({ e
   const form = useForm<ScorerFormData>({
     mode: 'onChange', // Enable real-time validation
     defaultValues: {
-      scorerType: 'llm',
+      scorerType: initialScorerType,
       name: '',
       sampleRate: 100,
       filterString: '',

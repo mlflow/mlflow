@@ -6,6 +6,7 @@ import { useIntl } from '@databricks/i18n';
 import type { NumericAggregate } from '../../types';
 import { displayFloat } from '../../utils/DisplayUtils';
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const NumericAggregateChart = React.memo(({ numericAggregate }: { numericAggregate: NumericAggregate }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();

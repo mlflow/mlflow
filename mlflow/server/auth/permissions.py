@@ -8,6 +8,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 class Permission:
     name: str
     can_read: bool
+    can_use: bool
     can_update: bool
     can_delete: bool
     can_manage: bool
@@ -16,6 +17,16 @@ class Permission:
 READ = Permission(
     name="READ",
     can_read=True,
+    can_use=False,
+    can_update=False,
+    can_delete=False,
+    can_manage=False,
+)
+
+USE = Permission(
+    name="USE",
+    can_read=True,
+    can_use=True,
     can_update=False,
     can_delete=False,
     can_manage=False,
@@ -24,6 +35,7 @@ READ = Permission(
 EDIT = Permission(
     name="EDIT",
     can_read=True,
+    can_use=True,
     can_update=True,
     can_delete=False,
     can_manage=False,
@@ -32,6 +44,7 @@ EDIT = Permission(
 MANAGE = Permission(
     name="MANAGE",
     can_read=True,
+    can_use=True,
     can_update=True,
     can_delete=True,
     can_manage=True,
@@ -40,6 +53,7 @@ MANAGE = Permission(
 NO_PERMISSIONS = Permission(
     name="NO_PERMISSIONS",
     can_read=False,
+    can_use=False,
     can_update=False,
     can_delete=False,
     can_manage=False,
@@ -47,6 +61,7 @@ NO_PERMISSIONS = Permission(
 
 ALL_PERMISSIONS = {
     READ.name: READ,
+    USE.name: USE,
     EDIT.name: EDIT,
     MANAGE.name: MANAGE,
     NO_PERMISSIONS.name: NO_PERMISSIONS,

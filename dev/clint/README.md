@@ -35,6 +35,18 @@ foo()  # clint: disable=<rule_name>
 
 Replace `<rule_name>` with the actual rule you want to disable.
 
+**For multi-line constructs (docstrings, etc.), place the disable comment on the closing line:**
+
+```python
+def func():
+    """
+    Docstring with [markdown link](url).
+    """  # clint: disable=markdown-link
+    pass
+```
+
+This works because the linter checks both the start and end lines of the violation range.
+
 **To ignore a rule for an entire file:**
 
 Add the file path to the `exclude` list in your `pyproject.toml`:
