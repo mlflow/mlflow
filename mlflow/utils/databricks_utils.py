@@ -545,15 +545,6 @@ def get_job_type_info():
         return None
 
 
-@_use_repl_context_if_available("commandRunId")
-def get_command_run_id():
-    try:
-        return _get_command_context().commandRunId().get()
-    except Exception:
-        # Older runtimes may not have the commandRunId available
-        return None
-
-
 @_use_repl_context_if_available("workloadId")
 def get_workload_id():
     try:
