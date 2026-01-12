@@ -2194,6 +2194,10 @@
     "defaultMessage": "Comparing {count} traces",
     "description": "Comparing traces title"
   },
+  "FcddG+": {
+    "defaultMessage": "Zoom Out",
+    "description": "Button to reset chart zoom"
+  },
   "FdDWTo": {
     "defaultMessage": "Clear All",
     "description": "String for the clear button to clear any selected parameters and metrics"
@@ -5791,6 +5795,10 @@
     "defaultMessage": "collapse {title}",
     "description": "Common component > collapsible section > alternative label when expand"
   },
+  "ic8x74": {
+    "defaultMessage": "Quality Insights",
+    "description": "Title for the quality insights section in quality tab"
+  },
   "icBP3T": {
     "defaultMessage": "TRUE",
     "description": "Header label for boolean assessment type for the true rate"
@@ -5958,10 +5966,6 @@
   "k0m460": {
     "defaultMessage": "Failed to load child runs",
     "description": "Run page > Overview > Child runs error"
-  },
-  "k3V20c": {
-    "defaultMessage": "Scorer Insights",
-    "description": "Title for the scorer insights section in quality tab"
   },
   "kA+QJr": {
     "defaultMessage": "Overview",

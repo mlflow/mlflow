@@ -1,6 +1,8 @@
 # ruff: noqa: T201
 """Fetch PR diff with filtering and line numbers for code review."""
 
+from __future__ import annotations
+
 import argparse
 import asyncio
 import re
@@ -132,7 +134,7 @@ async def fetch_diff(pr_url: str) -> str:
     return filter_diff(diff)
 
 
-def register(subparsers: argparse._SubParsersAction) -> None:
+def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = subparsers.add_parser("fetch-diff", help="Fetch PR diff with line numbers")
     parser.add_argument("pr_url", help="GitHub PR URL")
     parser.set_defaults(func=run)

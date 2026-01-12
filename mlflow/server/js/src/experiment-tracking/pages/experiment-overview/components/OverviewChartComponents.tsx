@@ -199,11 +199,27 @@ export function useChartXAxisProps() {
 }
 
 /**
- * Returns a legend formatter function with consistent styling
+ * Configuration for scrollable legend
  */
-export function useChartLegendFormatter() {
+interface ScrollableLegendConfig {
+  /** Maximum height for the legend container before scrolling. Defaults to 60. */
+  maxHeight?: number;
+}
+
+/**
+ * Returns legend props for a scrollable legend with consistent styling.
+ * Use this when there may be many legend items to prevent overwhelming the chart.
+ * Spread the returned object onto the Recharts Legend component.
+ *
+ * @example
+ * const scrollableLegendProps = useScrollableLegendProps();
+ * <Legend {...scrollableLegendProps} />
+ */
+export function useScrollableLegendProps(config?: ScrollableLegendConfig) {
   const { theme } = useDesignSystemTheme();
-  return (value: string) => (
+  const maxHeight = config?.maxHeight ?? 60;
+
+  const formatter = (value: string) => (
     <span
       style={{
         color: theme.colors.textPrimary,
@@ -214,6 +230,18 @@ export function useChartLegendFormatter() {
       {value}
     </span>
   );
+
+  const wrapperStyle: React.CSSProperties = {
+    maxHeight,
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    paddingTop: theme.spacing.xs,
+  };
+
+  return {
+    formatter,
+    wrapperStyle,
+  };
 }
 
 /**
@@ -242,3 +270,26 @@ export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ 
     </div>
   );
 };
+
+/**
+ * Hook that returns props for ReferenceArea to show zoom selection highlight.
+ * Use this with Recharts ReferenceArea component directly since Recharts
+ * components must be direct children of the chart.
+ *
+ * @example
+ * const zoomSelectionProps = useChartZoomSelectionProps();
+ * <BarChart>
+ *   {refAreaLeft && refAreaRight && (
+ *     <ReferenceArea x1={refAreaLeft} x2={refAreaRight} {...zoomSelectionProps} />
+ *   )}
+ * </BarChart>
+ */
+export function useChartZoomSelectionProps() {
+  const { theme } = useDesignSystemTheme();
+
+  return {
+    strokeOpacity: 0.3,
+    fill: theme.colors.blue200,
+    fillOpacity: 0.3,
+  };
+}

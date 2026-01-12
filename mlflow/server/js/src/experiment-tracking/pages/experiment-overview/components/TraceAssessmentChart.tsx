@@ -22,7 +22,7 @@ import {
   OverviewChartContainer,
   useChartTooltipStyle,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
 
 /** Local component for chart panel with label */
@@ -47,7 +47,7 @@ export interface TraceAssessmentChartProps {
   assessmentName: string;
   /** Optional color for the line chart. Defaults to green. */
   lineColor?: string;
-  /** Optional pre-computed average value (to avoid redundant queries) */
+  /** Optional pre-computed average value (to avoid redundant queries). If undefined, moving average chart is hidden. */
   avgValue?: number;
 }
 
@@ -55,7 +55,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const scrollableLegendProps = useScrollableLegendProps();
 
   // Use provided color or default to green
   const chartLineColor = lineColor || theme.colors.green500;
@@ -94,9 +94,9 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
         }
       />
 
-      {/* Two charts side by side */}
+      {/* Charts side by side: distribution always shown, moving average only for numeric assessments */}
       <div css={{ display: 'flex', gap: theme.spacing.lg, marginTop: theme.spacing.sm }}>
-        {/* Left: Distribution bar chart */}
+        {/* Left: Distribution bar chart (always shown) */}
         <ChartPanel
           label={
             <FormattedMessage
@@ -113,39 +113,39 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
               cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
               formatter={(value: number) => [value, 'count']}
             />
-            <Legend formatter={legendFormatter} />
+            <Legend {...scrollableLegendProps} />
             <Bar dataKey="count" fill={chartLineColor} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ChartPanel>
 
-        {/* Right: Time series line chart */}
-        <ChartPanel
-          label={
-            <FormattedMessage
-              defaultMessage="Moving average over time"
-              description="Label for assessment score over time chart"
-            />
-          }
-        >
-          <LineChart data={timeSeriesChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-            <XAxis dataKey="name" {...xAxisProps} />
-            <YAxis hide />
-            <Tooltip
-              contentStyle={tooltipStyle}
-              cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-              formatter={(value: number) => [value.toFixed(2), assessmentName]}
-            />
-            <Legend formatter={legendFormatter} />
-            <Line
-              type="monotone"
-              dataKey="value"
-              name={assessmentName}
-              stroke={chartLineColor}
-              strokeWidth={2}
-              dot={false}
-              legendType="plainline"
-            />
-            {avgValue !== undefined && (
+        {/* Right: Time series line chart (only for numeric assessments with avgValue) */}
+        {avgValue !== undefined && (
+          <ChartPanel
+            label={
+              <FormattedMessage
+                defaultMessage="Moving average over time"
+                description="Label for assessment score over time chart"
+              />
+            }
+          >
+            <LineChart data={timeSeriesChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+              <XAxis dataKey="name" {...xAxisProps} />
+              <YAxis hide />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+                formatter={(value: number) => [value.toFixed(2), assessmentName]}
+              />
+              <Legend {...scrollableLegendProps} />
+              <Line
+                type="monotone"
+                dataKey="value"
+                name={assessmentName}
+                stroke={chartLineColor}
+                strokeWidth={2}
+                dot={false}
+                legendType="plainline"
+              />
               <ReferenceLine
                 y={avgValue}
                 stroke={theme.colors.textSecondary}
@@ -157,9 +157,9 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
                   fontSize: 10,
                 }}
               />
-            )}
-          </LineChart>
-        </ChartPanel>
+            </LineChart>
+          </ChartPanel>
+        )}
       </div>
     </OverviewChartContainer>
   );
