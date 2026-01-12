@@ -4,7 +4,7 @@ import { withErrorBoundary } from '@mlflow/mlflow/src/common/utils/withErrorBoun
 import { TracesV3Toolbar } from '../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
 import invariant from 'invariant';
 import { useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   CUSTOM_METADATA_COLUMN_ID,
   GenAIChatSessionsTable,

@@ -10,10 +10,14 @@ import { FormattedMessage } from '@databricks/i18n';
 import { useAssistant } from './AssistantContext';
 
 const COMPONENT_ID = 'mlflow.assistant.button';
-const RAINBOW_GRADIENT = 'linear-gradient(90deg, #64B5F6, #BA68C8, #E57373)';
 
 export const AssistantButton = () => {
   const { theme } = useDesignSystemTheme();
+  const {
+    gradientStart: aiGradientStart,
+    gradientMid: aiGradientMid,
+    gradientEnd: aiGradientEnd,
+  } = theme.colors.branded.ai;
   const { openPanel, isPanelOpen } = useAssistant();
   const [isHovered, setIsHovered] = useState(false);
 
@@ -26,8 +30,7 @@ export const AssistantButton = () => {
       css={{
         position: 'fixed',
         bottom: theme.spacing.lg,
-        right: theme.spacing.lg + theme.spacing.sm,
-        zIndex: 2200,
+        right: theme.spacing.lg,
       }}
     >
       <Tooltip
@@ -42,7 +45,7 @@ export const AssistantButton = () => {
         {/* Rainbow gradient border wrapper */}
         <div
           css={{
-            background: RAINBOW_GRADIENT,
+            background: `linear-gradient(90deg, ${aiGradientStart}, ${aiGradientMid}, ${aiGradientEnd})`,
             borderRadius: 24,
             padding: 2, // Border width
             boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',

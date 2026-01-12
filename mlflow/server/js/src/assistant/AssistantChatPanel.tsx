@@ -25,7 +25,7 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
 import type { ChatMessage } from './types';
-import { GenAIMarkdownRenderer } from '../genai-markdown-renderer';
+import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 
 const COMPONENT_ID = 'mlflow.assistant.chat_panel';
 
