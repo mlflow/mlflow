@@ -833,20 +833,16 @@ def get_databricks_host_creds(server_uri=None):
     )
 
 
-def get_databricks_workspace_client_config(server_uri: str, scopes=None):
+def get_databricks_workspace_client_config(server_uri: str, scopes: list[str] | None = None):
     from databricks.sdk import WorkspaceClient
 
     profile, key_prefix = get_db_info_from_uri(server_uri)
     profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
     if key_prefix is not None:
         config = TrackingURIConfigProvider(server_uri).get_config()
-        if scopes is not None:
-            return WorkspaceClient(host=config.host, token=config.token, scopes=scopes).config
-        return WorkspaceClient(host=config.host, token=config.token).config
+        return WorkspaceClient(host=config.host, token=config.token, scopes=scopes).config
 
-    if scopes is not None:
-        return WorkspaceClient(profile=profile, scopes=scopes).config
-    return WorkspaceClient(profile=profile).config
+    return WorkspaceClient(profile=profile, scopes=scopes).config
 
 
 @_use_repl_context_if_available("mlflowGitRepoUrl")
@@ -1515,19 +1511,17 @@ def databricks_api_disabled(api_name: str = "This API", alternative: str | None 
     return decorator
 
 
-def invoke_databricks_app(
-    app_url: str, payload: dict[str, Any], config
-) -> dict[str, Any]:
+def invoke_databricks_app(app_url: str, payload: dict[str, Any], config) -> dict[str, Any]:
     """
     Invoke Databricks App /invocations endpoint with OAuth authentication.
 
     Databricks Apps require OAuth authentication and do not support PAT tokens. This function
-    validates that the provided config has OAuth credentials before making the request.
+    uses the provided config to authenticate to the app.
 
     Args:
         app_url: Full app invocation URL (e.g., "https://app-123.aws.databricksapps.com/invocations")
-        payload: Request payload in the format expected by the app (typically {"input": [...]})
-        config: Databricks SDK Config object https://github.com/databricks/databricks-sdk-py/blob/main/databricks/sdk/config.py
+        payload: Request payload in the format expected by the app.
+        config: Databricks SDK Config object with OAuth credentials.
 
     Returns:
         Response dictionary from the app
@@ -1543,63 +1537,32 @@ def invoke_databricks_app(
         >>> result = invoke_databricks_app(
         ...     f"{app.url}/invocations",
         ...     {"input": [{"role": "user", "content": "Hello"}]},
-        ...     w.config
+        ...     w.config,
         ... )
     """
-    import requests
-
-    # Verify OAuth authentication is being used
-    # config.oauth_token() will raise ValueError if not using OAuth provider
+    # Verify OAuth authentication and get access token.
+    # config.oauth_token() raises an exception if not using an OAuth provider.
     try:
-        _ = config.oauth_token()
-    except ValueError as e:
-        raise MlflowException(
-            f"Databricks Apps require OAuth authentication. {e}\n\n"
-            "To authenticate with OAuth, use one of the following methods:\n\n"
-            "  1. OAuth U2M - Interactive login (recommended for local development):\n"
-            "     databricks auth login --host https://your-workspace.cloud.databricks.com\n\n"
-            "  2. OAuth M2M - Service principal (for automated/production use):\n"
-            "     export DATABRICKS_HOST=https://your-workspace.cloud.databricks.com\n"
-            "     export DATABRICKS_CLIENT_ID=<service-principal-client-id>\n"
-            "     export DATABRICKS_CLIENT_SECRET=<service-principal-secret>\n\n"
-            "  3. Inside Databricks notebook: OAuth is automatic.\n\n"
-            "Note: PAT tokens are not supported for Databricks Apps.\n"
-            "See: https://docs.databricks.com/aws/en/dev-tools/auth/oauth-u2m (U2M)\n"
-            "     https://docs.databricks.com/aws/en/dev-tools/auth/oauth-m2m (M2M)",
-            error_code=INVALID_PARAMETER_VALUE,
-        ) from e
+        oauth_token = config.oauth_token().access_token
     except Exception as e:
         raise MlflowException(
-            f"Failed to validate OAuth authentication: {e}",
+            f"Databricks Apps require OAuth authentication. {e}\n\n"
+            "PAT tokens are not supported for Databricks Apps.\n"
+            "See https://docs.databricks.com/en/dev-tools/auth/oauth.html for details.",
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
 
-    auth_headers = config.authenticate()
+    # Parse app URL into host and endpoint for http_request
+    parsed = urlparse(app_url)
+    host = f"{parsed.scheme}://{parsed.netloc}"
+    endpoint = parsed.path
 
-    headers = {
-        **auth_headers,
-        "Content-Type": "application/json",
-    }
-
-    # Send POST request to app's invocations endpoint
-    try:
-        response = requests.post(
-            url=app_url,
-            headers=headers,
-            json=payload,
-            timeout=300,
-        )
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.HTTPError as e:
-        raise MlflowException(
-            f"Failed to invoke Databricks App at {app_url}. "
-            f"Status code: {e.response.status_code}. "
-            f"Response: {e.response.text}",
-            error_code=INVALID_PARAMETER_VALUE,
-        ) from e
-    except requests.exceptions.RequestException as e:
-        raise MlflowException(
-            f"Failed to invoke Databricks App at {app_url}. Error: {e}",
-            error_code=INVALID_PARAMETER_VALUE,
-        ) from e
+    # Create host creds with OAuth token for the app host
+    host_creds = MlflowHostCreds(host=host, token=oauth_token)
+    response = http_request(
+        host_creds=host_creds,
+        endpoint=endpoint,
+        method="POST",
+        json=payload,
+    )
+    return response.json()

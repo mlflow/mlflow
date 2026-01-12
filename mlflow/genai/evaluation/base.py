@@ -356,9 +356,9 @@ def _log_dataset_input(
     )
 
 
-def _setup_databricks_app_client(app_name: str):
+def _setup_databricks_app_client(app_name: str) -> tuple[str, Any]:
     """
-    Set up the Databricks App client configuration.
+    Set up the Databricks App client and return the app URL and config.
 
     Args:
         app_name: Name of the Databricks App
@@ -368,27 +368,13 @@ def _setup_databricks_app_client(app_name: str):
             - app_url: Full invocation URL for the app
             - config: Databricks SDK config object for authentication
     """
-    try:
-        from databricks.sdk import WorkspaceClient
+    from databricks.sdk import WorkspaceClient
 
+    try:
         # Create WorkspaceClient with all-apis scopes passed in
         # so notebook oauth token generation works
         w = WorkspaceClient(scopes=["all-apis"])
         app = w.apps.get(name=app_name)
-
-        if not app.url:
-            raise MlflowException(
-                f"App '{app_name}' does not have a URL. "
-                "Please ensure the app is deployed.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-        # Append /invocations endpoint
-        app_url = f"{app.url}/invocations"
-        return app_url, w.config
-
-    except MlflowException:
-        raise
     except Exception as e:
         raise MlflowException(
             f"Failed to get Databricks App '{app_name}'. "
@@ -396,6 +382,15 @@ def _setup_databricks_app_client(app_name: str):
             f"Error: {e}",
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
+
+    if not app.url:
+        raise MlflowException(
+            f"App '{app_name}' does not have a URL. Please ensure the app is deployed.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Append /invocations to endpoint
+    return f"{app.url}/invocations", w.config
 
 
 def _create_app_predict_fn(app_url: str, config) -> Callable[..., Any]:
@@ -411,31 +406,14 @@ def _create_app_predict_fn(app_url: str, config) -> Callable[..., Any]:
     """
 
     def predict_fn(**kwargs):
-        start_time_ms = int(time.time_ns() / 1e6)
-        result = invoke_databricks_app(app_url, kwargs, config)
-        end_time_ms = int(time.time_ns() / 1e6)
+        """
+        A wrapper function for invoking the Databricks App.
 
-        # Create trace for the app invocation
-        span = mlflow.start_span_no_context(
-            name="predict",
-            inputs=kwargs,
-            start_time_ns=start_time_ms * 1000000,
-        )
-        span.end(
-            outputs=result,
-            end_time_ns=end_time_ms * 1000000,
-        )
-        return result
+        Args:
+            **kwargs: Parameters to pass to the app
+        """
+        return mlflow.trace(invoke_databricks_app, name="predict")(app_url, kwargs, config)
 
-    predict_fn.__doc__ = f"""
-A wrapper function for invoking the Databricks App at `{app_url}`.
-
-Args:
-    input: List of messages (required). Example: [{{"role": "user", "content": "hi"}}]
-    custom_inputs: Optional dict of custom parameters
-    stream: Optional boolean for streaming responses
-    **kwargs: Any other parameters supported by the app
-"""
     return predict_fn
 
 
@@ -524,12 +502,26 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
     if schema == "apps":
         app_url, config = _setup_databricks_app_client(path)
         return _create_app_predict_fn(app_url, config)
+    elif schema == "endpoints":
+        return _create_endpoint_predict_fn(endpoint_uri, path)
+    else:
+        raise ValueError(f"Unsupported endpoint schema: {schema}. Expected 'endpoints' or 'apps'.")
 
-    # Handle non-app endpoints
+
+def _create_endpoint_predict_fn(endpoint_uri: str, endpoint: str) -> Callable[..., Any]:
+    """
+    Create a predict function for invoking a Databricks model serving endpoint.
+
+    Args:
+        endpoint_uri: The original endpoint URI (for docstring)
+        endpoint: The endpoint name
+
+    Returns:
+        A predict function that invokes the endpoint
+    """
     from mlflow.deployments import get_deploy_client
 
     client = get_deploy_client("databricks")
-    _, endpoint = _parse_model_uri(endpoint_uri)
     endpoint_info = client.get_endpoint(endpoint)
 
     # Databricks Foundation Model API does not allow passing "databricks_options" in the payload,
@@ -542,6 +534,14 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
     #   to unnamed keyword arguments. This is necessary because we pass input samples as
     #   keyword arguments to the predict function.
     def predict_fn(**kwargs):
+        """
+        A wrapper function for invoking a Databricks model serving endpoint.
+
+        Args:
+            **kwargs: The input samples to be passed to the model serving endpoint.
+                For example, if the endpoint accepts a JSON object with a `messages` key,
+                the function also expects to get `messages` as an argument.
+        """
         start_time_ms = int(time.time_ns() / 1e6)
         # Inject `{"databricks_options": {"return_trace": True}}` to the input payload
         # to return the trace in the response.
@@ -596,12 +596,4 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
         )
         return result
 
-    predict_fn.__doc__ = f"""
-A wrapper function for invoking the model serving endpoint `{endpoint_uri}`.
-
-Args:
-    **kwargs: The input samples to be passed to the model serving endpoint.
-        For example, if the endpoint accepts a JSON object with a `messages` key,
-        the function also expects to get `messages` as an argument.
-    """
     return predict_fn
