@@ -1,5 +1,5 @@
-import React from 'react';
 import type { ComponentProps } from 'react';
+import React from 'react';
 
 import { MemoryRouter, Route, Routes } from './RoutingUtils';
 

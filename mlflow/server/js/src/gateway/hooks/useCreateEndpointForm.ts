@@ -1,13 +1,11 @@
 import { useForm } from 'react-hook-form';
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { useNavigate } from '../../common/utils/RoutingUtils';
+import { useCallback, useEffect, useRef } from 'react';
 import { useCreateEndpointMutation } from './useCreateEndpointMutation';
 import { useCreateSecret } from './useCreateSecret';
 import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMutation';
 import { useModelsQuery } from './useModelsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
-import GatewayRoutes from '../routes';
-import type { ProviderModel } from '../types';
+import type { ProviderModel, Endpoint } from '../types';
 import type { SecretMode } from '../components/model-configuration/types';
 
 export interface CreateEndpointFormData {
@@ -24,6 +22,11 @@ export interface CreateEndpointFormData {
   };
 }
 
+export interface UseCreateEndpointFormOptions {
+  onSuccess?: (endpoint: Endpoint) => void;
+  onCancel?: () => void;
+}
+
 export interface UseCreateEndpointFormResult {
   form: ReturnType<typeof useForm<CreateEndpointFormData>>;
   isLoading: boolean;
@@ -37,9 +40,10 @@ export interface UseCreateEndpointFormResult {
   handleNameBlur: () => void;
 }
 
-export function useCreateEndpointForm(): UseCreateEndpointFormResult {
-  const navigate = useNavigate();
-
+export function useCreateEndpointForm({
+  onSuccess,
+  onCancel,
+}: UseCreateEndpointFormOptions = {}): UseCreateEndpointFormResult {
   const form = useForm<CreateEndpointFormData>({
     defaultValues: {
       name: '',
@@ -77,17 +81,14 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
     reset: resetModelDefinitionError,
   } = useCreateModelDefinitionMutation();
 
-  const [customError, setCustomError] = useState<Error | null>(null);
-
   const resetErrors = useCallback(() => {
     resetEndpointError();
     resetSecretError();
     resetModelDefinitionError();
-    setCustomError(null);
   }, [resetEndpointError, resetSecretError, resetModelDefinitionError]);
 
   const isLoading = isCreatingEndpoint || isCreatingSecret || isCreatingModelDefinition;
-  const error = (customError || createEndpointError || createSecretError || createModelDefinitionError) as Error | null;
+  const error = (createEndpointError || createSecretError || createModelDefinitionError) as Error | null;
 
   const handleSubmit = async (values: CreateEndpointFormData) => {
     try {
@@ -120,17 +121,23 @@ export function useCreateEndpointForm(): UseCreateEndpointFormResult {
 
       const endpointResponse = await createEndpoint({
         name: values.name || undefined,
-        model_definition_ids: [modelDefinitionId],
+        model_configs: [
+          {
+            model_definition_id: modelDefinitionId,
+            linkage_type: 'PRIMARY',
+            weight: 1.0,
+          },
+        ],
       });
 
-      navigate(GatewayRoutes.getEndpointDetailsRoute(endpointResponse.endpoint.endpoint_id));
+      onSuccess?.(endpointResponse.endpoint);
     } catch {
       // Errors are handled by mutation error state
     }
   };
 
   const handleCancel = () => {
-    navigate(GatewayRoutes.gatewayPageRoute);
+    onCancel?.();
   };
 
   const provider = form.watch('provider');

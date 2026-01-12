@@ -120,7 +120,7 @@ async def _run_test_chat(provider):
         }
         mock_build_client.assert_called_once_with(
             headers={
-                "Authorization": "Bearer key",
+                "authorization": "Bearer key",
             }
         )
         mock_client.post.assert_called_once_with(
@@ -237,14 +237,13 @@ async def _run_test_chat_stream(resp, provider):
 
         mock_build_client.assert_called_once_with(
             headers={
-                "Authorization": "Bearer key",
+                "authorization": "Bearer key",
             }
         )
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/chat/completions",
             json={
                 "model": "gpt-4o-mini",
-                "temperature": 0,
                 "n": 1,
                 **payload,
             },
@@ -399,7 +398,7 @@ async def _run_test_completions(resp, provider):
         }
         mock_build_client.assert_called_once_with(
             headers={
-                "Authorization": "Bearer key",
+                "authorization": "Bearer key",
                 "OpenAI-Organization": "test-organization",
             }
         )
@@ -407,7 +406,6 @@ async def _run_test_completions(resp, provider):
             "https://api.openai.com/v1/completions",
             json={
                 "model": "gpt-4-32k",
-                "temperature": 0,
                 "n": 1,
                 "prompt": "This is a test",
             },
@@ -520,7 +518,7 @@ async def _run_test_completions_stream(resp, provider):
 
         mock_build_client.assert_called_once_with(
             headers={
-                "Authorization": "Bearer key",
+                "authorization": "Bearer key",
                 "OpenAI-Organization": "test-organization",
             }
         )
@@ -528,7 +526,6 @@ async def _run_test_completions_stream(resp, provider):
             "https://api.openai.com/v1/completions",
             json={
                 "model": "gpt-4-32k",
-                "temperature": 0,
                 "n": 1,
                 "prompt": "This is a test",
             },
@@ -602,7 +599,7 @@ async def _run_test_embeddings(provider):
         }
         mock_build_client.assert_called_once_with(
             headers={
-                "Authorization": "Bearer key",
+                "authorization": "Bearer key",
             }
         )
         mock_client.post.assert_called_once_with(
@@ -681,7 +678,7 @@ async def test_embeddings_batch_input():
         }
         mock_build_client.assert_called_once_with(
             headers={
-                "Authorization": "Bearer key",
+                "authorization": "Bearer key",
             }
         )
         mock_client.post.assert_called_once_with(
@@ -743,7 +740,6 @@ async def test_azure_openai():
                 "/completions?api-version=2023-05-15"
             ),
             json={
-                "temperature": 0,
                 "n": 1,
                 "prompt": "This is a test",
             },
@@ -773,7 +769,7 @@ async def test_azuread_openai():
         }
         mock_build_client.assert_called_once_with(
             headers={
-                "Authorization": "Bearer key",
+                "authorization": "Bearer key",
             }
         )
         mock_client.post.assert_called_once_with(
@@ -782,7 +778,6 @@ async def test_azuread_openai():
                 "/completions?api-version=2023-05-15"
             ),
             json={
-                "temperature": 0,
                 "n": 1,
                 "prompt": "This is a test",
             },
@@ -912,7 +907,13 @@ async def test_openai_passthrough_chat():
         "mlflow.gateway.providers.openai.send_request", return_value=mock_response
     ) as mock_send:
         payload = {"messages": [{"role": "user", "content": "Hello"}]}
-        custom_headers = {"X-Custom-Header": "custom-value", "X-Request-ID": "req-123"}
+        custom_headers = {
+            "X-Custom-Header": "custom-value",
+            "X-Request-ID": "req-123",
+            "host": "example.com",
+            "content-length": "100",
+            "authorization": "Bearer key",
+        }
         response = await provider.passthrough(
             PassthroughAction.OPENAI_CHAT, payload, headers=custom_headers
         )
@@ -925,11 +926,15 @@ async def test_openai_passthrough_chat():
         assert call_kwargs["payload"]["messages"] == [{"role": "user", "content": "Hello"}]
 
         # Verify provider headers are propagated correctly
-        assert call_kwargs["headers"]["Authorization"] == "Bearer key"
+        assert call_kwargs["headers"]["authorization"] == "Bearer key"
 
         # Verify custom headers are propagated correctly
         assert call_kwargs["headers"]["X-Custom-Header"] == "custom-value"
         assert call_kwargs["headers"]["X-Request-ID"] == "req-123"
+
+        # Verify gateway specific headers are not propagated
+        assert "host" not in call_kwargs["headers"]
+        assert "content-length" not in call_kwargs["headers"]
 
         # Verify response is raw OpenAI format
         assert response == mock_response
@@ -976,7 +981,7 @@ async def test_openai_passthrough_embeddings():
         assert call_kwargs["payload"]["input"] == "Test input"
 
         # Verify provider headers are propagated correctly
-        assert call_kwargs["headers"]["Authorization"] == "Bearer key"
+        assert call_kwargs["headers"]["authorization"] == "Bearer key"
 
         # Verify custom headers are propagated correctly
         assert call_kwargs["headers"]["X-Custom-Header"] == "custom-value"
@@ -1024,7 +1029,7 @@ async def test_openai_passthrough_responses():
         assert call_kwargs["payload"]["instructions"] == "You are a helpful assistant"
 
         # Verify provider headers are propagated correctly
-        assert call_kwargs["headers"]["Authorization"] == "Bearer key"
+        assert call_kwargs["headers"]["authorization"] == "Bearer key"
 
         # Verify custom headers are propagated correctly
         assert call_kwargs["headers"]["X-Trace-ID"] == "trace-456"

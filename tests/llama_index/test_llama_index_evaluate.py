@@ -2,8 +2,6 @@ import pandas as pd
 import pytest
 
 import mlflow
-import mlflow.utils
-import mlflow.utils.autologging_utils
 from mlflow.metrics import latency
 from mlflow.tracing.constant import TraceMetadataKey
 

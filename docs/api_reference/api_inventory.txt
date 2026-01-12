@@ -107,6 +107,7 @@ mlflow.client.MlflowClient.log_model_artifacts
 mlflow.client.MlflowClient.log_model_params
 mlflow.client.MlflowClient.log_outputs
 mlflow.client.MlflowClient.log_param
+mlflow.client.MlflowClient.log_stream
 mlflow.client.MlflowClient.log_table
 mlflow.client.MlflowClient.log_text
 mlflow.client.MlflowClient.parse_prompt_uri
@@ -366,6 +367,9 @@ mlflow.entities.GatewayEndpoint.to_proto
 mlflow.entities.GatewayEndpointBinding
 mlflow.entities.GatewayEndpointBinding.from_proto
 mlflow.entities.GatewayEndpointBinding.to_proto
+mlflow.entities.GatewayEndpointModelConfig
+mlflow.entities.GatewayEndpointModelConfig.from_proto
+mlflow.entities.GatewayEndpointModelConfig.to_proto
 mlflow.entities.GatewayEndpointModelMapping
 mlflow.entities.GatewayEndpointModelMapping.from_proto
 mlflow.entities.GatewayEndpointModelMapping.to_proto
@@ -580,6 +584,7 @@ mlflow.entities.gateway_endpoint.FallbackConfig
 mlflow.entities.gateway_endpoint.FallbackStrategy
 mlflow.entities.gateway_endpoint.GatewayEndpoint
 mlflow.entities.gateway_endpoint.GatewayEndpointBinding
+mlflow.entities.gateway_endpoint.GatewayEndpointModelConfig
 mlflow.entities.gateway_endpoint.GatewayEndpointModelMapping
 mlflow.entities.gateway_endpoint.GatewayEndpointTag
 mlflow.entities.gateway_endpoint.GatewayModelDefinition
@@ -734,6 +739,7 @@ mlflow.gateway.get_gateway_uri
 mlflow.gateway.set_gateway_uri
 mlflow.gemini.autolog
 mlflow.genai.Agent
+mlflow.genai.ConversationSimulator
 mlflow.genai.LabelingSession
 mlflow.genai.LabelingSession.add_dataset
 mlflow.genai.LabelingSession.add_traces
@@ -746,6 +752,7 @@ mlflow.genai.Scorer
 mlflow.genai.Scorer.model_dump
 mlflow.genai.Scorer.model_post_init
 mlflow.genai.Scorer.model_validate
+mlflow.genai.Scorer.model_validate_json
 mlflow.genai.Scorer.register
 mlflow.genai.Scorer.run
 mlflow.genai.Scorer.start
@@ -790,6 +797,7 @@ mlflow.genai.delete_prompt_alias
 mlflow.genai.delete_prompt_model_config
 mlflow.genai.delete_prompt_tag
 mlflow.genai.delete_prompt_version_tag
+mlflow.genai.delete_scorer
 mlflow.genai.disable_git_model_versioning
 mlflow.genai.enable_git_model_versioning
 mlflow.genai.evaluate
@@ -798,6 +806,7 @@ mlflow.genai.get_labeling_session
 mlflow.genai.get_labeling_sessions
 mlflow.genai.get_prompt_tags
 mlflow.genai.get_review_app
+mlflow.genai.get_scorer
 mlflow.genai.judges.AlignmentOptimizer
 mlflow.genai.judges.AlignmentOptimizer.align
 mlflow.genai.judges.CategoricalRating
@@ -839,6 +848,7 @@ mlflow.genai.label_schemas.label_schemas.LabelSchemaType
 mlflow.genai.labeling.labeling.Agent
 mlflow.genai.labeling.labeling.LabelingSession
 mlflow.genai.labeling.labeling.ReviewApp
+mlflow.genai.list_scorers
 mlflow.genai.load_prompt
 mlflow.genai.make_judge
 mlflow.genai.optimize.BasePromptOptimizer
@@ -867,6 +877,8 @@ mlflow.genai.scorers.Completeness.get_input_fields
 mlflow.genai.scorers.Completeness.model_post_init
 mlflow.genai.scorers.ConversationCompleteness
 mlflow.genai.scorers.ConversationCompleteness.model_post_init
+mlflow.genai.scorers.ConversationalGuidelines
+mlflow.genai.scorers.ConversationalGuidelines.model_post_init
 mlflow.genai.scorers.ConversationalRoleAdherence
 mlflow.genai.scorers.ConversationalRoleAdherence.model_post_init
 mlflow.genai.scorers.ConversationalSafety
@@ -916,6 +928,7 @@ mlflow.genai.scorers.Summarization.model_post_init
 mlflow.genai.scorers.ToolCallCorrectness
 mlflow.genai.scorers.ToolCallCorrectness.get_input_fields
 mlflow.genai.scorers.ToolCallCorrectness.model_post_init
+mlflow.genai.scorers.ToolCallCorrectness.validate_columns
 mlflow.genai.scorers.ToolCallEfficiency
 mlflow.genai.scorers.ToolCallEfficiency.get_input_fields
 mlflow.genai.scorers.ToolCallEfficiency.model_post_init
@@ -925,6 +938,7 @@ mlflow.genai.scorers.base.Scorer
 mlflow.genai.scorers.base.ScorerSamplingConfig
 mlflow.genai.scorers.builtin_scorers.Completeness
 mlflow.genai.scorers.builtin_scorers.ConversationCompleteness
+mlflow.genai.scorers.builtin_scorers.ConversationalGuidelines
 mlflow.genai.scorers.builtin_scorers.ConversationalRoleAdherence
 mlflow.genai.scorers.builtin_scorers.ConversationalSafety
 mlflow.genai.scorers.builtin_scorers.ConversationalToolCallEfficiency
@@ -1102,6 +1116,7 @@ mlflow.genai.set_prompt_alias
 mlflow.genai.set_prompt_model_config
 mlflow.genai.set_prompt_tag
 mlflow.genai.set_prompt_version_tag
+mlflow.genai.simulators.simulator.ConversationSimulator
 mlflow.genai.to_predict_fn
 mlflow.get_active_model_id
 mlflow.get_active_trace_id
@@ -1182,6 +1197,7 @@ mlflow.log_model_params
 mlflow.log_outputs
 mlflow.log_param
 mlflow.log_params
+mlflow.log_stream
 mlflow.log_table
 mlflow.log_text
 mlflow.log_trace
@@ -1417,18 +1433,30 @@ mlflow.sentence_transformers.log_model
 mlflow.sentence_transformers.save_model
 mlflow.server.auth.client.AuthServiceClient
 mlflow.server.auth.client.AuthServiceClient.create_experiment_permission
+mlflow.server.auth.client.AuthServiceClient.create_gateway_endpoint_permission
+mlflow.server.auth.client.AuthServiceClient.create_gateway_model_definition_permission
+mlflow.server.auth.client.AuthServiceClient.create_gateway_secret_permission
 mlflow.server.auth.client.AuthServiceClient.create_registered_model_permission
 mlflow.server.auth.client.AuthServiceClient.create_scorer_permission
 mlflow.server.auth.client.AuthServiceClient.create_user
 mlflow.server.auth.client.AuthServiceClient.delete_experiment_permission
+mlflow.server.auth.client.AuthServiceClient.delete_gateway_endpoint_permission
+mlflow.server.auth.client.AuthServiceClient.delete_gateway_model_definition_permission
+mlflow.server.auth.client.AuthServiceClient.delete_gateway_secret_permission
 mlflow.server.auth.client.AuthServiceClient.delete_registered_model_permission
 mlflow.server.auth.client.AuthServiceClient.delete_scorer_permission
 mlflow.server.auth.client.AuthServiceClient.delete_user
 mlflow.server.auth.client.AuthServiceClient.get_experiment_permission
+mlflow.server.auth.client.AuthServiceClient.get_gateway_endpoint_permission
+mlflow.server.auth.client.AuthServiceClient.get_gateway_model_definition_permission
+mlflow.server.auth.client.AuthServiceClient.get_gateway_secret_permission
 mlflow.server.auth.client.AuthServiceClient.get_registered_model_permission
 mlflow.server.auth.client.AuthServiceClient.get_scorer_permission
 mlflow.server.auth.client.AuthServiceClient.get_user
 mlflow.server.auth.client.AuthServiceClient.update_experiment_permission
+mlflow.server.auth.client.AuthServiceClient.update_gateway_endpoint_permission
+mlflow.server.auth.client.AuthServiceClient.update_gateway_model_definition_permission
+mlflow.server.auth.client.AuthServiceClient.update_gateway_secret_permission
 mlflow.server.auth.client.AuthServiceClient.update_registered_model_permission
 mlflow.server.auth.client.AuthServiceClient.update_scorer_permission
 mlflow.server.auth.client.AuthServiceClient.update_user_admin
@@ -1436,6 +1464,15 @@ mlflow.server.auth.client.AuthServiceClient.update_user_password
 mlflow.server.auth.entities.ExperimentPermission
 mlflow.server.auth.entities.ExperimentPermission.from_json
 mlflow.server.auth.entities.ExperimentPermission.to_json
+mlflow.server.auth.entities.GatewayEndpointPermission
+mlflow.server.auth.entities.GatewayEndpointPermission.from_json
+mlflow.server.auth.entities.GatewayEndpointPermission.to_json
+mlflow.server.auth.entities.GatewayModelDefinitionPermission
+mlflow.server.auth.entities.GatewayModelDefinitionPermission.from_json
+mlflow.server.auth.entities.GatewayModelDefinitionPermission.to_json
+mlflow.server.auth.entities.GatewaySecretPermission
+mlflow.server.auth.entities.GatewaySecretPermission.from_json
+mlflow.server.auth.entities.GatewaySecretPermission.to_json
 mlflow.server.auth.entities.RegisteredModelPermission
 mlflow.server.auth.entities.RegisteredModelPermission.from_json
 mlflow.server.auth.entities.RegisteredModelPermission.to_json
@@ -1606,6 +1643,8 @@ mlflow.types.chat.ResponseFormat
 mlflow.types.chat.TextContentPart
 mlflow.types.chat.ToolCall
 mlflow.types.chat.ToolCallDelta
+mlflow.types.chat.ToolChoice
+mlflow.types.chat.ToolChoiceFunction
 mlflow.types.llm.ChatChoice
 mlflow.types.llm.ChatChoiceDelta
 mlflow.types.llm.ChatChoiceLogProbs

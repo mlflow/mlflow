@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import threading
 from contextlib import ContextDecorator
 from typing import TYPE_CHECKING, Any
@@ -27,8 +28,11 @@ from mlflow.genai.judges.utils.parsing_utils import (
     _sanitize_justification,
     _strip_markdown_code_blocks,
 )
-from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
-from mlflow.protos.databricks_pb2 import REQUEST_LIMIT_EXCEEDED
+from mlflow.genai.judges.utils.tool_calling_utils import (
+    _process_tool_calls,
+    _raise_iteration_limit_exceeded,
+)
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.tracking import get_tracking_uri
 from mlflow.utils.uri import append_to_uri_path, is_http_uri
@@ -272,15 +276,7 @@ def _invoke_litellm_and_handle_tools(
     while True:
         iteration_count += 1
         if iteration_count > max_iterations:
-            raise MlflowException(
-                f"Completion iteration limit of {max_iterations} exceeded. "
-                f"This usually indicates the model is not powerful enough to effectively "
-                f"analyze the trace. Consider using a more intelligent/powerful model. "
-                f"In rare cases, for very complex traces where a large number of completion "
-                f"iterations might be required, you can increase the number of iterations by "
-                f"modifying the {MLFLOW_JUDGE_MAX_ITERATIONS.name} environment variable.",
-                error_code=REQUEST_LIMIT_EXCEEDED,
-            )
+            _raise_iteration_limit_exceeded(max_iterations)
         try:
             try:
                 response = _invoke_litellm(
@@ -346,7 +342,34 @@ def _invoke_litellm_and_handle_tools(
         except MlflowException:
             raise
         except Exception as e:
-            raise MlflowException(f"Failed to invoke the judge via litellm: {e}") from e
+            error_message, error_code = _extract_litellm_error(e)
+            raise MlflowException(
+                f"Failed to invoke the judge via litellm: {error_message}",
+                error_code=error_code,
+            ) from e
+
+
+def _extract_litellm_error(e: Exception) -> tuple[str, str]:
+    """
+    Extract the detail message and error code from an exception.
+
+    Tries to parse structured error info from the exception message if it contains
+    a gateway error in the format: {'detail': {'error_code': '...', 'message': '...'}}.
+    Falls back to str(e) if parsing fails.
+
+    Returns (message, error_code).
+    """
+    error_str = str(e)
+    if match := re.search(r"\{'detail':\s*\{[^}]+\}\}", error_str):
+        try:
+            parsed = json.loads(match.group(0).replace("'", '"'))
+            detail = parsed.get("detail", {})
+            if isinstance(detail, dict):
+                return detail.get("message", error_str), detail.get("error_code", INTERNAL_ERROR)
+        except json.JSONDecodeError:
+            pass
+
+    return error_str, INTERNAL_ERROR
 
 
 def _extract_response_cost(response: "litellm.Completion") -> float | None:

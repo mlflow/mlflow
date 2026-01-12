@@ -9,9 +9,14 @@ import { SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 interface ScorerFormCreateContainerProps {
   experimentId: string;
   onClose: () => void;
+  initialScorerType?: ScorerFormData['scorerType'];
 }
 
-const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({ experimentId, onClose }) => {
+const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({
+  experimentId,
+  onClose,
+  initialScorerType = 'llm',
+}) => {
   // Local error state for synchronous errors
   const [componentError, setComponentError] = useState<string | null>(null);
 
@@ -24,7 +29,7 @@ const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({ e
   const form = useForm<ScorerFormData>({
     mode: 'onChange', // Enable real-time validation
     defaultValues: {
-      scorerType: 'llm',
+      scorerType: initialScorerType,
       name: '',
       sampleRate: 100,
       filterString: '',
@@ -36,7 +41,14 @@ const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({ e
     },
   });
 
-  const { handleSubmit, control, reset, setValue, getValues } = form;
+  const {
+    handleSubmit,
+    control,
+    reset,
+    setValue,
+    getValues,
+    formState: { isValid },
+  } = form;
 
   // Watch the scorer type from form data
   const scorerType = useWatch({ control, name: 'scorerType' });
@@ -77,19 +89,7 @@ const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({ e
     createScorerMutation.reset(); // Clear mutation error state
   };
 
-  // Determine if the submit button should be disabled
-  const isSubmitButtonDisabled = () => {
-    if (createScorerMutation.isLoading) {
-      return true;
-    }
-
-    // Disable for custom-code scorers
-    if (scorerType === 'custom-code') {
-      return true;
-    }
-
-    return false;
-  };
+  const isSubmitDisabled = createScorerMutation.isLoading || scorerType === 'custom-code' || !isValid;
 
   return (
     <div
@@ -111,7 +111,7 @@ const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({ e
           mutation={createScorerMutation}
           componentError={componentError}
           handleCancel={handleCancel}
-          isSubmitButtonDisabled={isSubmitButtonDisabled}
+          isSubmitDisabled={isSubmitDisabled}
           experimentId={experimentId}
         />
       </FormProvider>
