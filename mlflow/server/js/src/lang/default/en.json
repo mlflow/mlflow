@@ -123,6 +123,10 @@
     "defaultMessage": "No traces found. Try clearing your active filters to see more traces.",
     "description": "Text displayed when no traces are found in the trace review page"
   },
+  "+um1FW": {
+    "defaultMessage": "Got it",
+    "description": "Workflow selector guidance dismiss button"
+  },
   "+w9a+1": {
     "defaultMessage": "Open runs in this group in the new tab",
     "description": "Experiment page > grouped runs table > tooltip for a button that opens runs in a group in a new tab"
@@ -270,6 +274,10 @@
   "/qIHh7": {
     "defaultMessage": "Traces",
     "description": "Label for the scorer evaluation scope selection"
+  },
+  "/rbfKX": {
+    "defaultMessage": "Sessions",
+    "description": "Sidebar link for experiment sessions tab"
   },
   "/sk75d": {
     "defaultMessage": "Experiment not found",
@@ -439,6 +447,10 @@
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label for the number of traces selected"
   },
+  "1PtVxM": {
+    "defaultMessage": "Agent versions",
+    "description": "Sidebar link for experiment agent versions tab"
+  },
   "1RxxTj": {
     "defaultMessage": "(Version {sourceModelVersion})",
     "description": "Version number of the source model version"
@@ -559,6 +571,10 @@
     "defaultMessage": "Please select parameters and/or metrics to display the comparison.",
     "description": "Explanation displayed in the metrics and params compare plot when no values are selected"
   },
+  "2NbGr8": {
+    "defaultMessage": "Select an experiment to view this tab",
+    "description": "Tooltip for disabled experiment tab"
+  },
   "2NfDVN": {
     "defaultMessage": "Load the model",
     "description": "Heading text for stating how to load the model from the experiment run"
@@ -646,6 +662,10 @@
   "2zy+D5": {
     "defaultMessage": "Add new tag",
     "description": "Experiment tracking > experiment page > runs > add new tag button"
+  },
+  "35+lCG": {
+    "defaultMessage": "Reset workflow selector guidance",
+    "description": "Reset workflow selector guidance settings title"
   },
   "36g3aR": {
     "defaultMessage": "Edit",
@@ -862,6 +882,10 @@
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
   },
+  "5C31eo": {
+    "defaultMessage": "Controls whether the workflow type selector (GenAI / Machine Learning) appears at the top or bottom of the sidebar.",
+    "description": "Workflow type selector position settings description"
+  },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
@@ -921,6 +945,10 @@
   "5fUTaz": {
     "defaultMessage": "Or {enterManually}",
     "description": "Text with link to switch to manual model entry"
+  },
+  "5hp6kR": {
+    "defaultMessage": "Bottom",
+    "description": "Workflow selector at bottom"
   },
   "5jXYY4": {
     "defaultMessage": "Detailed assessments",
@@ -1210,6 +1238,10 @@
     "defaultMessage": "Move to bottom",
     "description": "Experiment page > compare runs tab > chart header > move to bottom option"
   },
+  "7UkHyt": {
+    "defaultMessage": "Runs",
+    "description": "Sidebar link for experiment runs tab"
+  },
   "7WkP1e": {
     "defaultMessage": "Delete",
     "description": "Menu item to delete an experiment run"
@@ -1425,6 +1457,10 @@
   "961sxj": {
     "defaultMessage": "Success Rate",
     "description": "Label for success rate statistic"
+  },
+  "97AkqA": {
+    "defaultMessage": "GenAI",
+    "description": "GenAI workflow option"
   },
   "97xY+o": {
     "defaultMessage": "Loading endpoints...",
@@ -1830,6 +1866,10 @@
     "defaultMessage": "Are retrieved documents relevant to the user's request?",
     "description": "Hint for RetrievalRelevance template"
   },
+  "BzuoQc": {
+    "defaultMessage": "Evaluation runs",
+    "description": "Sidebar link for experiment evaluation runs tab"
+  },
   "C+nay+": {
     "defaultMessage": "Evaluation",
     "description": "Label for the evaluation section in the MLflow experiment navbar"
@@ -2134,6 +2174,10 @@
     "defaultMessage": "Request",
     "description": "Column label for request"
   },
+  "Ey/A0T": {
+    "defaultMessage": "Choose your workflow",
+    "description": "Workflow selector guidance title"
+  },
   "F16DNA": {
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
@@ -2165,6 +2209,10 @@
   "FFe+Ug": {
     "defaultMessage": "Type a value",
     "description": "Key-value tag editor modal > Value input placeholder"
+  },
+  "FGkJCf": {
+    "defaultMessage": "Reset",
+    "description": "Reset guidance button"
   },
   "FKoHx5": {
     "defaultMessage": "Security Notice: Default Passphrase in Use",
@@ -2309,6 +2357,14 @@
   "GdtTc/": {
     "defaultMessage": "Run evaluation",
     "description": "Home page quick action title for running evaluations"
+  },
+  "GeKTpz": {
+    "defaultMessage": "Show the workflow type selector guidance popover again on your next page navigation.",
+    "description": "Reset workflow selector guidance settings description"
+  },
+  "GewFAR": {
+    "defaultMessage": "Datasets",
+    "description": "Sidebar link for experiment datasets tab"
   },
   "Gg/vLZ": {
     "defaultMessage": "Delete Model",
@@ -2665,6 +2721,10 @@
   "JuHp/q": {
     "defaultMessage": "Hugging Face",
     "description": "Experiment dataset drawer > source type > Hugging Face source type label"
+  },
+  "JuaNHx": {
+    "defaultMessage": "Traces",
+    "description": "Sidebar link for experiment traces tab"
   },
   "JwhonN": {
     "defaultMessage": "Authentication method",
@@ -4024,6 +4084,10 @@
     "defaultMessage": "Add New Tag",
     "description": "Add new key-value tag modal > Modal title"
   },
+  "VHN4Si": {
+    "defaultMessage": "API Keys",
+    "description": "Sidebar link for gateway API keys tab"
+  },
   "VLonhQ": {
     "defaultMessage": "Requests",
     "description": "Title for the trace requests chart"
@@ -4059,6 +4123,10 @@
   "VcNdOq": {
     "defaultMessage": "No description",
     "description": "Run page > Overview > Description section > Empty value placeholder"
+  },
+  "VcrPJw": {
+    "defaultMessage": "Judges",
+    "description": "Sidebar link for experiment judges tab"
   },
   "VfGJFc": {
     "defaultMessage": "Deleted traces cannot be restored. Are you sure you want to proceed?",
@@ -4107,6 +4175,10 @@
   "W1ZIP4": {
     "defaultMessage": "Safety",
     "description": "LLM template option"
+  },
+  "W3FO1m": {
+    "defaultMessage": "Machine Learning",
+    "description": "Machine Learning workflow option"
   },
   "W60/kq": {
     "defaultMessage": "regression",
@@ -4494,6 +4566,10 @@
   "Z6kodo": {
     "defaultMessage": "Move down",
     "description": "Experiment page > compare runs tab > chart header > move down option"
+  },
+  "Z9USpa": {
+    "defaultMessage": "Workflow type selector position",
+    "description": "Workflow type selector position settings title"
   },
   "ZAqdq9": {
     "defaultMessage": "Edit API key",
@@ -5123,6 +5199,10 @@
     "defaultMessage": "You cannot select rows when comparing runs",
     "description": "Tooltip message for the select button when comparing runs"
   },
+  "drrY3e": {
+    "defaultMessage": "Select your workflow type to customize which features and tabs are shown in the sidebar. You can switch between GenAI and Machine Learning workflows at any time.",
+    "description": "Workflow selector guidance message"
+  },
   "dsPsxG": {
     "defaultMessage": "OpenAI-Compatible Chat Completions API",
     "description": "OpenAI compatible API section title"
@@ -5715,6 +5795,10 @@
     "defaultMessage": "Evaluation settings",
     "description": "Section header for evaluation settings"
   },
+  "i41nuf": {
+    "defaultMessage": "Endpoints",
+    "description": "Sidebar link for gateway endpoints tab"
+  },
   "i49wE6": {
     "defaultMessage": "We couldn't load your experiments.",
     "description": "Home page experiments error message"
@@ -5770,6 +5854,10 @@
   "iT8ODo": {
     "defaultMessage": "Minimum",
     "description": "Experiment page > group by runs control > minimum aggregate function"
+  },
+  "iTE0UW": {
+    "defaultMessage": "Prompts",
+    "description": "Sidebar link for experiment prompts tab"
   },
   "iVrgfC": {
     "defaultMessage": "Datasets",
@@ -6298,6 +6386,10 @@
   "mpHsCg": {
     "defaultMessage": "Size:",
     "description": "Label to display the size of the artifact of the experiment"
+  },
+  "mpiSER": {
+    "defaultMessage": "Top",
+    "description": "Workflow selector at top"
   },
   "mqDCNl": {
     "defaultMessage": "Unable to parse JSON file. The file should contain an object with 'columns' and 'data' keys.",
@@ -7375,6 +7467,10 @@
     "defaultMessage": "All",
     "description": "Tab text to view all versions under details tab on the model view page"
   },
+  "vjta6x": {
+    "defaultMessage": "Models",
+    "description": "Sidebar link for experiment models tab"
+  },
   "vlUEAo": {
     "defaultMessage": "Delete",
     "description": "Delete assessment modal button text"
@@ -7758,6 +7854,10 @@
   "yjerKR": {
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Link to model version in the model version table"
+  },
+  "ylqv4U": {
+    "defaultMessage": "Overview",
+    "description": "Sidebar link for experiment overview tab"
   },
   "yltHdB": {
     "defaultMessage": "Run name",

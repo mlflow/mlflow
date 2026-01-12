@@ -2,10 +2,12 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   BeakerIcon,
   Button,
+  ChainIcon,
   CloudModelIcon,
   DropdownMenu,
   GearIcon,
   HomeIcon,
+  KeyIcon,
   ModelsIcon,
   PlusIcon,
   TextBoxIcon,
@@ -57,8 +59,26 @@ const isExperimentsActive = (location: Location) => {
 };
 const isModelsActive = (location: Location) => matchPath('/models/*', location.pathname);
 const isPromptsActive = (location: Location) => matchPath('/prompts/*', location.pathname);
-const isGatewayActive = (location: Location) => matchPath('/gateway/*', location.pathname);
+// Gateway parent link should not be highlighted when nested tabs are active
+const isGatewayActive = () => false;
 const isSettingsActive = (location: Location) => matchPath('/settings/*', location.pathname);
+
+// Helper to determine active gateway tab
+type GatewayTabName = 'endpoints' | 'api-keys';
+const getActiveGatewayTab = (location: Location): GatewayTabName | null => {
+  if (matchPath('/gateway/api-keys', location.pathname)) {
+    return 'api-keys';
+  }
+  // Endpoints tab is active on /gateway and any /gateway/endpoints/* routes (details, create, etc.)
+  if (
+    matchPath('/gateway', location.pathname) ||
+    matchPath('/gateway/', location.pathname) ||
+    matchPath('/gateway/endpoints/*', location.pathname)
+  ) {
+    return 'endpoints';
+  }
+  return null;
+};
 
 // Helper to check if we're in an experiment page
 const isInExperimentPage = (location: Location) => {
@@ -169,6 +189,7 @@ export function MlflowSidebar() {
 
   const inExperimentPage = isInExperimentPage(location);
   const activeExperimentTab = getActiveExperimentTab(location);
+  const activeGatewayTab = getActiveGatewayTab(location);
 
   const topLevelMenuItems = [
     {
@@ -204,26 +225,31 @@ export function MlflowSidebar() {
   ];
 
   const bottomMenuItems = [
-    {
-      key: 'models',
-      icon: <ModelsIcon />,
-      linkProps: {
-        to: ModelRegistryRoutes.modelListPageRoute,
-        isActive: isModelsActive,
-        children: <FormattedMessage defaultMessage="Models" description="Sidebar link for models tab" />,
-      },
-      componentId: 'mlflow.sidebar.models_tab_link',
-      dropdownProps: {
-        componentId: 'mlflow_sidebar.create_model_button',
-        onClick: () => setShowCreateModelModal(true),
-        children: (
-          <FormattedMessage
-            defaultMessage="Model"
-            description="Sidebar button inside the 'new' popover to create new model"
-          />
-        ),
-      },
-    },
+    // Only show Models (model registry) in ML workflow context
+    ...(selectedExperimentType === 'ml'
+      ? [
+          {
+            key: 'models',
+            icon: <ModelsIcon />,
+            linkProps: {
+              to: ModelRegistryRoutes.modelListPageRoute,
+              isActive: isModelsActive,
+              children: <FormattedMessage defaultMessage="Models" description="Sidebar link for models tab" />,
+            },
+            componentId: 'mlflow.sidebar.models_tab_link',
+            dropdownProps: {
+              componentId: 'mlflow_sidebar.create_model_button',
+              onClick: () => setShowCreateModelModal(true),
+              children: (
+                <FormattedMessage
+                  defaultMessage="Model"
+                  description="Sidebar button inside the 'new' popover to create new model"
+                />
+              ),
+            },
+          },
+        ]
+      : []),
     {
       key: 'prompts',
       icon: <TextBoxIcon />,
@@ -448,6 +474,30 @@ export function MlflowSidebar() {
 
   const experimentTabs = selectedExperimentType === 'genai' ? experimentTabsGenAI : experimentTabsML;
 
+  // Gateway tabs - nested under AI Gateway link
+  const gatewayTabs = [
+    {
+      key: 'gateway-endpoints',
+      icon: <ChainIcon />,
+      linkProps: {
+        to: GatewayRoutes.gatewayPageRoute,
+        isActive: () => activeGatewayTab === 'endpoints',
+        children: <FormattedMessage defaultMessage="Endpoints" description="Sidebar link for gateway endpoints tab" />,
+      },
+      componentId: 'mlflow.sidebar.gateway.endpoints',
+    },
+    {
+      key: 'gateway-api-keys',
+      icon: <KeyIcon />,
+      linkProps: {
+        to: GatewayRoutes.apiKeysPageRoute,
+        isActive: () => activeGatewayTab === 'api-keys',
+        children: <FormattedMessage defaultMessage="API Keys" description="Sidebar link for gateway API keys tab" />,
+      },
+      componentId: 'mlflow.sidebar.gateway.api-keys',
+    },
+  ];
+
   // Helper function to get section label
   const getSectionLabel = (sectionKey: string): React.ReactNode | undefined => {
     switch (sectionKey) {
@@ -494,19 +544,6 @@ export function MlflowSidebar() {
           backgroundColor: theme.colors.backgroundSecondary,
         }}
       >
-        <div
-          css={{
-            fontSize: theme.typography.fontSizeSm,
-            color: theme.colors.textSecondary,
-            marginBottom: theme.spacing.xs,
-            paddingInline: theme.spacing.sm,
-            fontWeight: theme.typography.typographyBoldFontWeight,
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-          }}
-        >
-          <FormattedMessage defaultMessage="Workflow Type" description="Label for workflow type switcher" />
-        </div>
         <SegmentedControlGroup
           name="experiment-type-switcher"
           componentId="mlflow.sidebar.experiment_type_switcher"
@@ -833,6 +870,65 @@ export function MlflowSidebar() {
                   {icon}
                   {linkProps.children}
                 </Link>
+
+                {/* Nested gateway tabs under AI Gateway */}
+                {key === 'gateway' && (
+                  <div
+                    css={{
+                      paddingLeft: theme.spacing.lg,
+                      paddingBottom: theme.spacing.sm,
+                    }}
+                  >
+                    <ul
+                      css={{
+                        listStyleType: 'none',
+                        padding: 0,
+                        margin: 0,
+                      }}
+                    >
+                      {gatewayTabs.map(
+                        ({ key: tabKey, icon: tabIcon, linkProps: tabLinkProps, componentId: tabComponentId }) => (
+                          <li key={tabKey}>
+                            <Link
+                              to={tabLinkProps.to}
+                              aria-current={tabLinkProps.isActive() ? 'page' : undefined}
+                              css={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: theme.spacing.sm,
+                                color: theme.colors.textPrimary,
+                                paddingInline: theme.spacing.md,
+                                paddingBlock: theme.spacing.xs,
+                                borderRadius: theme.borders.borderRadiusSm,
+                                '&:hover': {
+                                  color: theme.colors.actionLinkHover,
+                                  backgroundColor: theme.colors.actionDefaultBackgroundHover,
+                                },
+                                '&[aria-current="page"]': {
+                                  backgroundColor: theme.colors.actionDefaultBackgroundPress,
+                                  color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
+                                  fontWeight: theme.typography.typographyBoldFontWeight,
+                                },
+                              }}
+                              onClick={() =>
+                                logTelemetryEvent({
+                                  componentId: tabComponentId,
+                                  componentViewId: viewId,
+                                  componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
+                                  componentSubType: null,
+                                  eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+                                })
+                              }
+                            >
+                              {tabIcon}
+                              {tabLinkProps.children}
+                            </Link>
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
