@@ -2891,7 +2891,7 @@ def save_model(
             **python_function** flavor.
         python_model:
             A file path to the PythonModel
-            which defines the model from code artifact rather than serializing the model object,
+            which defines the model from code artifact,
             (recommended), see https://mlflow.org/docs/latest/ml/model/models-from-code/
             for details;
             or an instance of a subclass of :class:`~PythonModel` or a callable object with a single
@@ -3043,9 +3043,10 @@ def save_model(
     """
     if not isinstance(python_model, (Path, str)) and not is_in_databricks_runtime():
         warnings.warn(
-            "Passing a Python object for `python_model` will serialize it using CloudPickle, "
-            "it requires exercising caution because these formats rely on Python's object "
-            "serialization mechanism, which can execute arbitrary code during deserialization. "
+            "Passing a Python object as `python_model` causes it to be serialized "
+            "using CloudPickle, "
+            "it requires exercising caution as Python object serialization mechanisms may "
+            "execute arbitrary code during deserialization."
             "Consider using a file path (str or Path) instead. See "
             "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details.",
             FutureWarning,
@@ -3442,7 +3443,7 @@ def log_model(
         conda_env: {{ conda_env }}
         python_model:
             A file path to the PythonModel
-            which defines the model from code artifact rather than serializing the model object,
+            which defines the model from code artifact,
             (recommended), see https://mlflow.org/docs/latest/ml/model/models-from-code/
             for details;
             or an instance of a subclass of :class:`~PythonModel` or a callable object with a single
