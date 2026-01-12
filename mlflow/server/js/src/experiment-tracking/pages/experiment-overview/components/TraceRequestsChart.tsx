@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useDesignSystemTheme, ChartLineIcon, Button } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
@@ -10,14 +10,13 @@ import {
   OverviewChartHeader,
   OverviewChartTimeLabel,
   OverviewChartContainer,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
   useChartZoomSelectionProps,
 } from './OverviewChartComponents';
 
 export const TraceRequestsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
   const zoomSelectionProps = useChartZoomSelectionProps();
 
@@ -25,6 +24,8 @@ export const TraceRequestsChart: React.FC = () => {
   const { totalRequests, avgRequests, isLoading, error, hasData, zoom } = useTraceRequestsChartData();
   const { zoomedData, isZoomed, refAreaLeft, refAreaRight, handleMouseDown, handleMouseMove, handleMouseUp, zoomOut } =
     zoom;
+
+  const tooltipFormatter = useCallback((value: number) => [`${value}`, 'Requests'] as [string, string], []);
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -65,9 +66,8 @@ export const TraceRequestsChart: React.FC = () => {
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis hide />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number) => [`${value}`, 'Requests']}
               />
               <Bar dataKey="count" fill={theme.colors.blue400} radius={[4, 4, 0, 0]} />
               {avgRequests > 0 && (

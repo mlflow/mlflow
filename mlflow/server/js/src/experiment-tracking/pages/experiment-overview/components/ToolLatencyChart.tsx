@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { LightningIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -10,7 +10,7 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
   useScrollableLegendProps,
 } from './OverviewChartComponents';
@@ -22,7 +22,6 @@ import { formatLatency, useLegendHighlight, useChartColors } from '../utils/char
  */
 export const ToolLatencyChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
@@ -30,6 +29,11 @@ export const ToolLatencyChart: React.FC = () => {
 
   // Fetch and process tool latency chart data
   const { chartData, toolNames, isLoading, error, hasData } = useToolLatencyChartData();
+
+  const tooltipFormatter = useCallback(
+    (value: number, name: string) => [formatLatency(value), name] as [string, string],
+    [],
+  );
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -61,9 +65,8 @@ export const ToolLatencyChart: React.FC = () => {
               <XAxis dataKey="timestamp" {...xAxisProps} />
               <YAxis hide />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatLatency(value), name]}
               />
               {toolNames.map((toolName, index) => (
                 <Line

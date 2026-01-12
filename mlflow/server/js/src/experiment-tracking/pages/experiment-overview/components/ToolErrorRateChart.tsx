@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { WrenchIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -21,7 +21,7 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
   useScrollableLegendProps,
 } from './OverviewChartComponents';
@@ -40,7 +40,6 @@ export interface ToolErrorRateChartProps {
 export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName, lineColor, overallErrorRate }) => {
   const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
 
@@ -109,6 +108,11 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
   // Check if we have actual data
   const hasData = dataPoints.length > 0;
 
+  const tooltipFormatter = useCallback(
+    (value: number) => [`${value.toFixed(2)}%`, 'Error Rate'] as [string, string],
+    [],
+  );
+
   if (isLoading) {
     return <OverviewChartLoadingState />;
   }
@@ -145,9 +149,8 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
             <XAxis dataKey="name" {...xAxisProps} />
             <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} {...xAxisProps} />
             <Tooltip
-              contentStyle={tooltipStyle}
+              content={<ScrollableTooltip formatter={tooltipFormatter} />}
               cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-              formatter={(value: number) => [`${value.toFixed(2)}%`, 'Error Rate']}
             />
             <Legend iconType="plainline" {...scrollableLegendProps} />
             <Line

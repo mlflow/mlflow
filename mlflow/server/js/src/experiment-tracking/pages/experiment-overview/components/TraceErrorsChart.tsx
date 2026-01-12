@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useDesignSystemTheme, DangerIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
@@ -10,7 +10,7 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
   useScrollableLegendProps,
 } from './OverviewChartComponents';
@@ -18,7 +18,6 @@ import { useLegendHighlight } from '../utils/chartUtils';
 
 export const TraceErrorsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
@@ -26,6 +25,13 @@ export const TraceErrorsChart: React.FC = () => {
   // Fetch and process errors chart data
   const { chartData, totalErrors, overallErrorRate, avgErrorRate, isLoading, error, hasData } =
     useTraceErrorsChartData();
+
+  const tooltipFormatter = useCallback((value: number, name: string) => {
+    if (name === 'Error Count') {
+      return [value.toLocaleString(), name] as [string, string];
+    }
+    return [`${value.toFixed(1)}%`, name] as [string, string];
+  }, []);
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -55,14 +61,8 @@ export const TraceErrorsChart: React.FC = () => {
               <YAxis yAxisId="left" hide />
               <YAxis yAxisId="right" domain={[0, 100]} hide />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => {
-                  if (name === 'Error Count') {
-                    return [value.toLocaleString(), name];
-                  }
-                  return [`${value.toFixed(1)}%`, name];
-                }}
               />
               <Bar
                 yAxisId="left"

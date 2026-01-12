@@ -44,8 +44,9 @@ describe('useScrollableLegendProps', () => {
     const { result } = renderHook(() => useScrollableLegendProps(), { wrapper });
 
     const formattedElement = result.current.formatter('Test');
-    expect(formattedElement.props.style).toHaveProperty('cursor', 'pointer');
-    expect(formattedElement.props.style).toHaveProperty('color');
-    expect(formattedElement.props.style).toHaveProperty('fontSize');
+    // The component uses Emotion's css prop, not style
+    expect(formattedElement.props.css).toHaveProperty('cursor', 'pointer');
+    expect(formattedElement.props.css).toHaveProperty('color');
+    expect(formattedElement.props.css).toHaveProperty('fontSize');
   });
 });
