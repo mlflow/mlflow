@@ -366,6 +366,7 @@ const GroupBySelectorBody = ({
  * A component displaying searchable "group by" selector
  */
 export const ExperimentViewRunsGroupBySelector = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     runsData,
     groupBy,

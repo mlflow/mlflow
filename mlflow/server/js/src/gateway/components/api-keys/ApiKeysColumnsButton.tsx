@@ -83,4 +83,6 @@ export const ApiKeysColumnsButton = ({ visibleColumns, onColumnsChange }: ApiKey
   );
 };
 
-export const DEFAULT_VISIBLE_COLUMNS: ToggleableApiKeysColumn[] = [...TOGGLEABLE_COLUMNS];
+export const DEFAULT_VISIBLE_COLUMNS: ToggleableApiKeysColumn[] = TOGGLEABLE_COLUMNS.filter(
+  (col) => col !== ApiKeysColumn.CREATED,
+);

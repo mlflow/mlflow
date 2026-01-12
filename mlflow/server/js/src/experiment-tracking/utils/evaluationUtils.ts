@@ -32,6 +32,7 @@ const TEMPLATE_VARIABLE_PATTERN = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][
 
 // Reserved template variables that can be used in instructions
 export const TEMPLATE_VARIABLES = ['inputs', 'outputs', 'expectations', 'trace'];
+export const SESSION_TEMPLATE_VARIABLES = ['conversation', 'expectations'];
 
 /**
  * Extracts template variables from instructions string. Variables are returned in the order they first appear.

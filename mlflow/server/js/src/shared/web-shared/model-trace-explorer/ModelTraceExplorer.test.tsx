@@ -21,8 +21,8 @@ import {
   MOCK_SPAN_ASSESSMENT,
   MOCK_TRACE,
   MOCK_V3_TRACE,
-  MOCK_V3_SPANS,
   MOCK_TRACE_INFO_V3,
+  MOCK_V3_SPANS,
 } from './ModelTraceExplorer.test-utils';
 import { AssessmentSchemaContextProvider } from './contexts/AssessmentSchemaContext';
 

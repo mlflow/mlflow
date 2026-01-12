@@ -29,7 +29,7 @@ def test_get_metric_class_raises_error_for_invalid_name():
         ("RougeScore", True),
         ("NonLLMStringSimilarity", True),
         ("StringPresence", True),
-        ("ChrfScore", True),
+        ("CHRFScore", True),
         ("Faithfulness", False),
         ("ContextPrecision", False),
         ("ToolCallAccuracy", True),

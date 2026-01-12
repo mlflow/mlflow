@@ -239,6 +239,7 @@ class RagasScorer(Scorer):
                 sync_score = _wrap_async_predict_fn(self._metric.ascore)
                 return sync_score(response=sample.response, llm=self._llm)
 
+            # need to inspect the signature as each metric has a different one for the ascore method
             sig = inspect.signature(self._metric.ascore)
             kwargs = {}
             for param_name in sig.parameters:

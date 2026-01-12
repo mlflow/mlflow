@@ -28,11 +28,14 @@ def test_databricks_ragas_llm_generate(mock_call_chat_completions):
     assert isinstance(result, DummyResponseModel)
     assert result.answer == "Test output"
     assert result.score == 42
-    mock_call_chat_completions.assert_called_once()
-
-    call_args = mock_call_chat_completions.call_args
-    assert "answer" in call_args.kwargs["user_prompt"]
-    assert "score" in call_args.kwargs["user_prompt"]
+    mock_call_chat_completions.assert_called_once_with(
+        user_prompt=(
+            "Test prompt\n\nOUTPUT FORMAT: Respond ONLY with a JSON object "
+            'containing these fields: "answer", "score", no other text. '
+            "Do not add markdown formatting to the response."
+        ),
+        system_prompt="",
+    )
 
 
 def test_create_ragas_model_databricks():

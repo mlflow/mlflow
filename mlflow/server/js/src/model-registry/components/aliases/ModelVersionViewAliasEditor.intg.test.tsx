@@ -146,8 +146,8 @@ class MockDatabase {
 describe('useEditRegisteredModelAliasesModal integration', () => {
   // Wire up service to the mocked "database" server
   const database = new MockDatabase();
-  ModelRegistryServices.setModelVersionAlias = jest.fn(database.setAlias);
-  ModelRegistryServices.deleteModelVersionAlias = jest.fn(database.deleteAlias);
+  jest.spyOn(ModelRegistryServices, 'setModelVersionAlias').mockImplementation(database.setAlias);
+  jest.spyOn(ModelRegistryServices, 'deleteModelVersionAlias').mockImplementation(database.deleteAlias);
 
   let unmountPage: () => void;
 

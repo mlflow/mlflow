@@ -19,6 +19,7 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     _invoke_databricks_serving_endpoint,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
 
 
 class DatabricksRagasLLM(InstructorBaseRagasLLM):
@@ -27,6 +28,10 @@ class DatabricksRagasLLM(InstructorBaseRagasLLM):
 
     Uses the default Databricks endpoint via call_chat_completions.
     """
+
+    def __init__(self):
+        super().__init__()
+        self.is_async = False
 
     def generate(self, prompt: str, response_model: type[T]) -> T:
         full_prompt = _build_json_prompt(prompt, response_model)
@@ -49,6 +54,7 @@ class DatabricksServingEndpointRagasLLM(InstructorBaseRagasLLM):
 
     def __init__(self, endpoint_name: str):
         self._endpoint_name = endpoint_name
+        self.is_async = False
 
     def generate(self, prompt: str, response_model: type[T]) -> T:
         try:
@@ -60,7 +66,7 @@ class DatabricksServingEndpointRagasLLM(InstructorBaseRagasLLM):
             )
             return _parse_json_response(output.response, response_model)
         except MlflowException as e:
-            if "Response format type object is not supported" in str(e):
+            if "Response format type" in str(e) and "is not supported" in str(e):
                 full_prompt = _build_json_prompt(prompt, response_model)
                 output = _invoke_databricks_serving_endpoint(
                     model_name=self._endpoint_name,
@@ -137,18 +143,13 @@ def _build_json_prompt(prompt: str, response_model: type[T]) -> str:
     return (
         f"{prompt}\n\n"
         f"OUTPUT FORMAT: Respond ONLY with a JSON object "
-        f"containing these fields: {field_desc}, no other text."
+        f"containing these fields: {field_desc}, no other text. "
+        f"Do not add markdown formatting to the response."
     )
 
 
 def _parse_json_response(response: str, response_model: type[T]) -> T:
-    text = response.strip()
-    # remove lines with ```json or ```
-    if text.startswith("```"):
-        lines = text.split("\n")[1:]
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        text = "\n".join(lines).strip()
+    text = _strip_markdown_code_blocks(response)
     try:
         return response_model.model_validate(json.loads(text))
     except json.JSONDecodeError as e:

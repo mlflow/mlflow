@@ -227,7 +227,7 @@ def create_mlflow_error_message_from_ragas_param(error_msg: str, metric_name: st
     Create an mlflow error message for missing RAGAS parameters.
 
     Args:
-        error_msg: The error message from the RAGAS metric
+        error_msg: The error message from RAGAS
         metric_name: The name of the RAGAS metric
 
     Returns:
@@ -242,13 +242,12 @@ def create_mlflow_error_message_from_ragas_param(error_msg: str, metric_name: st
         "retrieved_contexts": "trace with retrieval spans",
         "rubrics": "expectations['rubrics']",
     }
-
     mlflow_param = error_msg
     for (
         ragas_param,
         corresponding_mlflow_param,
     ) in ragas_to_mlflow_param_mapping.items():
-        if ragas_param in error_msg.lower():
+        if ragas_param in error_msg:
             mlflow_param = corresponding_mlflow_param
             break
 
