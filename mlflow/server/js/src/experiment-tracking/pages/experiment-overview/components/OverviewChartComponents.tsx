@@ -190,11 +190,14 @@ export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, pa
     return null;
   }
 
+  const maxHeight = 120;
+
   return (
     <div
-      style={{
+      css={{
         // This ensures the tooltip is semi-transparent so the chart is visible through it.
-        backgroundColor: `color-mix(in srgb, ${theme.colors.backgroundPrimary} 50%, transparent)`,
+        // 80 hex = 50% opacity
+        backgroundColor: `${theme.colors.backgroundPrimary}80`,
         backdropFilter: 'blur(2px)',
         border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.borders.borderRadiusMd,
@@ -207,10 +210,10 @@ export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, pa
         marginRight: -20,
       }}
     >
-      {label && <div style={{ fontWeight: 500, marginBottom: theme.spacing.xs }}>{label}</div>}
+      {label && <div css={{ fontWeight: 500, marginBottom: theme.spacing.xs }}>{label}</div>}
       <div
-        style={{
-          maxHeight: '120px',
+        css={{
+          maxHeight,
           overflowY: 'auto',
           overflowX: 'hidden',
         }}
@@ -222,24 +225,24 @@ export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, pa
           return (
             <div
               key={index}
-              style={{
+              css={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: theme.spacing.xs,
-                paddingTop: 2,
-                paddingBottom: 2,
+                paddingTop: theme.spacing.xs,
+                paddingBottom: theme.spacing.xs,
               }}
             >
               <span
-                style={{
-                  width: 8,
-                  height: 8,
+                css={{
+                  width: theme.spacing.sm,
+                  height: theme.spacing.sm,
                   borderRadius: '50%',
                   backgroundColor: entry.color,
                   flexShrink: 0,
                 }}
               />
-              <span style={{ color: entry.color }}>{formattedName}:</span>
+              <span css={{ color: entry.color }}>{formattedName}:</span>
               <span>{formattedValue}</span>
             </div>
           );
@@ -285,7 +288,7 @@ export function useScrollableLegendProps(config?: ScrollableLegendConfig) {
 
   const formatter = (value: string) => (
     <span
-      style={{
+      css={{
         color: theme.colors.textPrimary,
         fontSize: theme.typography.fontSizeSm,
         cursor: 'pointer',

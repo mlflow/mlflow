@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { CheckCircleIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import {
@@ -59,6 +59,13 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
   // Use provided color or default to green
   const chartLineColor = lineColor || theme.colors.green500;
 
+  const distributionTooltipFormatter = useCallback((value: number) => [value, 'count'] as [number, string], []);
+
+  const timeSeriestooltipFormatter = useCallback(
+    (value: number) => [value.toFixed(2), assessmentName] as [string, string],
+    [assessmentName],
+  );
+
   // Fetch and process all chart data using the custom hook
   const { timeSeriesChartData, distributionChartData, isLoading, error, hasData } =
     useTraceAssessmentChartData(assessmentName);
@@ -108,7 +115,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
             <XAxis dataKey="name" {...xAxisProps} />
             <YAxis allowDecimals={false} {...xAxisProps} />
             <Tooltip
-              content={<ScrollableTooltip formatter={(value) => [value, 'count']} />}
+              content={<ScrollableTooltip formatter={distributionTooltipFormatter} />}
               cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
             />
             <Legend {...scrollableLegendProps} />
@@ -130,7 +137,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis hide />
               <Tooltip
-                content={<ScrollableTooltip formatter={(value) => [value.toFixed(2), assessmentName]} />}
+                content={<ScrollableTooltip formatter={timeSeriestooltipFormatter} />}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
               />
               <Legend {...scrollableLegendProps} />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useDesignSystemTheme, ClockIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
@@ -35,6 +35,11 @@ export const TraceLatencyChart: React.FC = () => {
   // Fetch and process latency chart data
   const { chartData, avgLatency, isLoading, error, hasData } = useTraceLatencyChartData();
 
+  const tooltipFormatter = useCallback(
+    (value: number, name: string) => [formatLatency(value), name] as [string, string],
+    [],
+  );
+
   // Line colors
   const lineColors = {
     p50: theme.colors.blue300,
@@ -68,7 +73,7 @@ export const TraceLatencyChart: React.FC = () => {
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis hide />
               <Tooltip
-                content={<ScrollableTooltip formatter={(value, name) => [formatLatency(value), name]} />}
+                content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
               />
               <Line

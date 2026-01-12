@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useDesignSystemTheme, DangerIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
@@ -25,6 +25,13 @@ export const TraceErrorsChart: React.FC = () => {
   // Fetch and process errors chart data
   const { chartData, totalErrors, overallErrorRate, avgErrorRate, isLoading, error, hasData } =
     useTraceErrorsChartData();
+
+  const tooltipFormatter = useCallback((value: number, name: string) => {
+    if (name === 'Error Count') {
+      return [value.toLocaleString(), name] as [string, string];
+    }
+    return [`${value.toFixed(1)}%`, name] as [string, string];
+  }, []);
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -54,16 +61,7 @@ export const TraceErrorsChart: React.FC = () => {
               <YAxis yAxisId="left" hide />
               <YAxis yAxisId="right" domain={[0, 100]} hide />
               <Tooltip
-                content={
-                  <ScrollableTooltip
-                    formatter={(value, name) => {
-                      if (name === 'Error Count') {
-                        return [value.toLocaleString(), name];
-                      }
-                      return [`${value.toFixed(1)}%`, name];
-                    }}
-                  />
-                }
+                content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
               />
               <Bar

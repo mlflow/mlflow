@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { WrenchIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -108,6 +108,11 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
   // Check if we have actual data
   const hasData = dataPoints.length > 0;
 
+  const tooltipFormatter = useCallback(
+    (value: number) => [`${value.toFixed(2)}%`, 'Error Rate'] as [string, string],
+    [],
+  );
+
   if (isLoading) {
     return <OverviewChartLoadingState />;
   }
@@ -144,7 +149,7 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
             <XAxis dataKey="name" {...xAxisProps} />
             <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} {...xAxisProps} />
             <Tooltip
-              content={<ScrollableTooltip formatter={(value) => [`${value.toFixed(2)}%`, 'Error Rate']} />}
+              content={<ScrollableTooltip formatter={tooltipFormatter} />}
               cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
             />
             <Legend iconType="plainline" {...scrollableLegendProps} />

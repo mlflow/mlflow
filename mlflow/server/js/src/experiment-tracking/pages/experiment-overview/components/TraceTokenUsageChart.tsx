@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useDesignSystemTheme, LightningIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -25,6 +25,11 @@ export const TraceTokenUsageChart: React.FC = () => {
   // Fetch and process token usage chart data
   const { chartData, totalTokens, totalInputTokens, totalOutputTokens, isLoading, error, hasData } =
     useTraceTokenUsageChartData();
+
+  const tooltipFormatter = useCallback(
+    (value: number, name: string) => [formatCount(value), name] as [string, string],
+    [],
+  );
 
   // Area colors
   const areaColors = {
@@ -59,7 +64,7 @@ export const TraceTokenUsageChart: React.FC = () => {
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis hide />
               <Tooltip
-                content={<ScrollableTooltip formatter={(value, name) => [formatCount(value), name]} />}
+                content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
               />
               <Area
