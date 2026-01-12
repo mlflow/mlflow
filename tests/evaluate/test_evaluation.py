@@ -2157,7 +2157,7 @@ def test_metrics_logged_to_model_on_evaluation(
     with mlflow.start_run():
         # Log the model and retrieve its model_id
         model_info = mlflow.sklearn.log_model(
-            mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri), name="model"
+            mlflow.sklearn.load_model(multiclass_logistic_regressor_model_uri), name="model"
         )
         model_id = model_info.model_id
 

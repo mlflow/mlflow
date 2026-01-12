@@ -22,15 +22,6 @@ import { useInitializeExperimentRunColors } from './experiment-tracking/componen
 import { MlflowSidebar } from './common/components/MlflowSidebar';
 
 /**
- * This is the MLflow default entry/landing route.
- */
-const landingRoute = {
-  path: '/',
-  element: createLazyRouteElement(() => import('./experiment-tracking/components/HomePage')),
-  pageId: 'mlflow.experiments.list',
-};
-
-/**
  * This is root element for MLflow routes, containing app header.
  */
 const MlflowRootRoute = () => {
@@ -94,7 +85,6 @@ export const MlflowRouter = () => {
       ...getExperimentTrackingRouteDefs(),
       ...getModelRegistryRouteDefs(),
       ...getGatewayRouteDefs(),
-      landingRoute,
       ...getCommonRouteDefs(),
     ],
     [],

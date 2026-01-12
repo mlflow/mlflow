@@ -127,6 +127,89 @@ export enum AssessmentDimensionKey {
 }
 
 /**
+ * Keys for metrics on spans view type.
+ * Based on mlflow/tracing/constant.py SpanMetricKey
+ */
+export enum SpanMetricKey {
+  /** Count of spans */
+  SPAN_COUNT = 'span_count',
+  /** Span latency in milliseconds */
+  LATENCY = 'latency',
+}
+
+/**
+ * View type prefix for span-level filter expressions.
+ * Based on mlflow/tracing/constant.py SpanMetricSearchKey.VIEW_TYPE
+ */
+export const SPAN_FILTER_VIEW_TYPE = 'span';
+
+/**
+ * Search key fields for span metrics filter expressions.
+ * Based on mlflow/tracing/constant.py SpanMetricSearchKey
+ */
+export enum SpanFilterKey {
+  /** Span name field */
+  NAME = 'name',
+  /** Span status field (OK, ERROR) */
+  STATUS = 'status',
+  /** Span type field (LLM, TOOL, AGENT, etc.) */
+  TYPE = 'type',
+}
+
+/**
+ * Span type values for filter expressions.
+ * Based on mlflow/entities/span.py SpanType
+ */
+export enum SpanType {
+  LLM = 'LLM',
+  CHAIN = 'CHAIN',
+  AGENT = 'AGENT',
+  TOOL = 'TOOL',
+  CHAT_MODEL = 'CHAT_MODEL',
+  RETRIEVER = 'RETRIEVER',
+  PARSER = 'PARSER',
+  EMBEDDING = 'EMBEDDING',
+  RERANKER = 'RERANKER',
+  MEMORY = 'MEMORY',
+  UNKNOWN = 'UNKNOWN',
+  WORKFLOW = 'WORKFLOW',
+  TASK = 'TASK',
+  GUARDRAIL = 'GUARDRAIL',
+  EVALUATOR = 'EVALUATOR',
+}
+
+/**
+ * Span status values for filter expressions.
+ */
+export enum SpanStatus {
+  OK = 'OK',
+  ERROR = 'ERROR',
+  UNSET = 'UNSET',
+}
+
+/**
+ * Creates a span filter expression string.
+ * @param field - The field to filter on (e.g., SpanFilterKey.TYPE)
+ * @param value - The value to match (e.g., SpanType.TOOL)
+ * @returns Filter expression string (e.g., 'span.type = "TOOL"')
+ */
+export const createSpanFilter = (field: SpanFilterKey, value: string): string =>
+  `${SPAN_FILTER_VIEW_TYPE}.${field} = "${value}"`;
+
+/**
+ * Dimension keys for span metrics.
+ * Based on mlflow/tracing/constant.py SpanMetricDimensionKey
+ */
+export enum SpanDimensionKey {
+  /** Span name dimension */
+  SPAN_NAME = 'span_name',
+  /** Span type dimension */
+  SPAN_TYPE = 'span_type',
+  /** Span status dimension */
+  SPAN_STATUS = 'span_status',
+}
+
+/**
  * The level at which to aggregate metrics.
  */
 export enum MetricViewType {

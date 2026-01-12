@@ -5,33 +5,9 @@ import { TraceErrorsChart } from './TraceErrorsChart';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
-
-// Mock FetchUtils
-jest.mock('../../../../common/utils/FetchUtils', () => ({
-  fetchOrFail: jest.fn(),
-  getAjaxUrl: (url: string) => url,
-}));
-
-import { fetchOrFail } from '../../../../common/utils/FetchUtils';
-const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
-
-// Helper to create mock API response
-const mockApiResponse = (dataPoints: any[] | undefined) => {
-  mockFetchOrFail.mockResolvedValue({
-    json: () => Promise.resolve({ data_points: dataPoints }),
-  } as Response);
-};
-
-// Helper to chain mock API responses (for error count + total count calls)
-const mockApiResponses = (errorDataPoints: any[], totalDataPoints: any[]) => {
-  mockFetchOrFail
-    .mockResolvedValueOnce({
-      json: () => Promise.resolve({ data_points: errorDataPoints }),
-    } as Response)
-    .mockResolvedValueOnce({
-      json: () => Promise.resolve({ data_points: totalDataPoints }),
-    } as Response);
-};
+import { setupServer } from '../../../../common/utils/setup-msw';
+import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create an error count data point
 const createErrorCountDataPoint = (timeBucket: string, count: number) => ({
@@ -61,14 +37,16 @@ describe('TraceErrorsChart', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  // Default props reused across tests
-  const defaultProps = {
+  // Context props reused across tests
+  const defaultContextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
     timeBuckets,
   };
+
+  const server = setupServer();
 
   const createQueryClient = () =>
     new QueryClient({
@@ -79,35 +57,63 @@ describe('TraceErrorsChart', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = (contextOverrides: Partial<typeof defaultContextProps> = {}) => {
     const queryClient = createQueryClient();
+    const contextProps = { ...defaultContextProps, ...contextOverrides };
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <TraceErrorsChart {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <TraceErrorsChart />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );
   };
 
+  // Helper to setup MSW handler for trace metrics endpoint with routing based on filters
+  const setupTraceMetricsHandler = (errorDataPoints: any[], totalDataPoints: any[]) => {
+    server.use(
+      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        const body = await req.json();
+        // Check if this is an error count request (has error filter) or total count request
+        const hasErrorFilter = body.filters?.some((f: string) => f.includes('ERROR'));
+        if (hasErrorFilter) {
+          return res(ctx.json({ data_points: errorDataPoints }));
+        }
+        return res(ctx.json({ data_points: totalDataPoints }));
+      }),
+    );
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockApiResponse([]);
+    // Default: return empty data points
+    setupTraceMetricsHandler([], []);
   });
 
   describe('loading state', () => {
-    it('should render loading spinner while data is being fetched', async () => {
-      mockFetchOrFail.mockReturnValue(new Promise(() => {}));
+    it('should render loading skeleton while data is being fetched', async () => {
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.delay('infinite'));
+        }),
+      );
 
       renderComponent();
 
-      expect(screen.getByRole('img')).toBeInTheDocument();
+      // Check that actual chart content is not rendered during loading
+      expect(screen.queryByText('Errors')).not.toBeInTheDocument();
     });
   });
 
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
-      mockFetchOrFail.mockRejectedValue(new Error('API Error'));
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+          return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
+        }),
+      );
 
       renderComponent();
 
@@ -119,7 +125,7 @@ describe('TraceErrorsChart', () => {
 
   describe('empty data state', () => {
     it('should render empty state when no data points are returned', async () => {
-      mockApiResponses([], []);
+      setupTraceMetricsHandler([], []);
 
       renderComponent();
 
@@ -129,7 +135,7 @@ describe('TraceErrorsChart', () => {
     });
 
     it('should render empty state when time range is not provided', async () => {
-      mockApiResponse([]);
+      setupTraceMetricsHandler([], []);
 
       renderComponent({ startTimeMs: undefined, endTimeMs: undefined, timeBuckets: [] });
 
@@ -151,7 +157,7 @@ describe('TraceErrorsChart', () => {
     ];
 
     it('should render chart with all time buckets', async () => {
-      mockApiResponses(mockErrorDataPoints, mockTotalDataPoints);
+      setupTraceMetricsHandler(mockErrorDataPoints, mockTotalDataPoints);
 
       renderComponent();
 
@@ -164,7 +170,7 @@ describe('TraceErrorsChart', () => {
     });
 
     it('should display the "Errors" title', async () => {
-      mockApiResponses(mockErrorDataPoints, mockTotalDataPoints);
+      setupTraceMetricsHandler(mockErrorDataPoints, mockTotalDataPoints);
 
       renderComponent();
 
@@ -174,7 +180,7 @@ describe('TraceErrorsChart', () => {
     });
 
     it('should display the total error count', async () => {
-      mockApiResponses(mockErrorDataPoints, mockTotalDataPoints);
+      setupTraceMetricsHandler(mockErrorDataPoints, mockTotalDataPoints);
 
       renderComponent();
 
@@ -185,7 +191,7 @@ describe('TraceErrorsChart', () => {
     });
 
     it('should display the overall error rate', async () => {
-      mockApiResponses(mockErrorDataPoints, mockTotalDataPoints);
+      setupTraceMetricsHandler(mockErrorDataPoints, mockTotalDataPoints);
 
       renderComponent();
 
@@ -196,7 +202,7 @@ describe('TraceErrorsChart', () => {
     });
 
     it('should display "Over time" label', async () => {
-      mockApiResponses(mockErrorDataPoints, mockTotalDataPoints);
+      setupTraceMetricsHandler(mockErrorDataPoints, mockTotalDataPoints);
 
       renderComponent();
 
@@ -206,7 +212,7 @@ describe('TraceErrorsChart', () => {
     });
 
     it('should render both bar and line series', async () => {
-      mockApiResponses(mockErrorDataPoints, mockTotalDataPoints);
+      setupTraceMetricsHandler(mockErrorDataPoints, mockTotalDataPoints);
 
       renderComponent();
 
@@ -217,7 +223,7 @@ describe('TraceErrorsChart', () => {
     });
 
     it('should render reference line with AVG label', async () => {
-      mockApiResponses(mockErrorDataPoints, mockTotalDataPoints);
+      setupTraceMetricsHandler(mockErrorDataPoints, mockTotalDataPoints);
 
       renderComponent();
 
@@ -230,7 +236,7 @@ describe('TraceErrorsChart', () => {
 
     it('should fill missing time buckets with zeros', async () => {
       // Only provide data for one time bucket
-      mockApiResponses(
+      setupTraceMetricsHandler(
         [createErrorCountDataPoint('2025-12-22T10:00:00Z', 5)],
         [createTotalCountDataPoint('2025-12-22T10:00:00Z', 100)],
       );
@@ -245,38 +251,70 @@ describe('TraceErrorsChart', () => {
   });
 
   describe('API call parameters', () => {
-    it('should call fetchOrFail with error filter for first call', async () => {
+    it('should call API with error filter for error count request', async () => {
+      let capturedErrorRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          const hasErrorFilter = body.filters?.some((f: string) => f.includes('ERROR'));
+          if (hasErrorFilter) {
+            capturedErrorRequest = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent();
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.filters).toContain('trace.status = "ERROR"');
+        expect(capturedErrorRequest?.filters).toContain('trace.status = "ERROR"');
       });
     });
 
-    it('should call fetchOrFail without filter for total count call', async () => {
+    it('should call API without filter for total count request', async () => {
+      let capturedTotalRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          const body = await req.json();
+          const hasErrorFilter = body.filters?.some((f: string) => f.includes('ERROR'));
+          if (!hasErrorFilter) {
+            capturedTotalRequest = body;
+          }
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent();
 
       await waitFor(() => {
-        // Second call is for total count (no error filter)
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[1]?.[1] as any)?.body || '{}');
-        expect(callBody.filters).toBeUndefined();
+        expect(capturedTotalRequest).not.toBeNull();
+        expect(capturedTotalRequest?.filters).toBeUndefined();
       });
     });
 
     it('should use provided time interval', async () => {
+      let capturedRequest: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedRequest = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
       renderComponent({ timeIntervalSeconds: 60 });
 
       await waitFor(() => {
-        const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
-        expect(callBody.time_interval_seconds).toBe(60);
+        expect(capturedRequest?.time_interval_seconds).toBe(60);
       });
     });
   });
 
   describe('data transformation', () => {
     it('should handle data points with missing values gracefully', async () => {
-      mockApiResponses(
+      setupTraceMetricsHandler(
         [
           {
             metric_name: TraceMetricKey.TRACE_COUNT,
@@ -301,7 +339,7 @@ describe('TraceErrorsChart', () => {
     });
 
     it('should handle zero total count gracefully (no division by zero)', async () => {
-      mockApiResponses(
+      setupTraceMetricsHandler(
         [createErrorCountDataPoint('2025-12-22T10:00:00Z', 0)],
         [createTotalCountDataPoint('2025-12-22T10:00:00Z', 0)],
       );
@@ -316,7 +354,7 @@ describe('TraceErrorsChart', () => {
     });
 
     it('should handle data points with missing time_bucket', async () => {
-      mockApiResponses(
+      setupTraceMetricsHandler(
         [
           {
             metric_name: TraceMetricKey.TRACE_COUNT,

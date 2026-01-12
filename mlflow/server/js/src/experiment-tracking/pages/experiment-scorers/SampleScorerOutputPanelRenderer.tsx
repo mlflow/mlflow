@@ -46,7 +46,7 @@ const RunScorerButton: React.FC<{
 
   const button = (
     <Button
-      componentId={`${COMPONENT_ID_PREFIX}.${isRerun ? 'rerun-scorer-button' : 'run-scorer-button'}`}
+      componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_52"
       type="primary"
       size={isRerun ? 'small' : undefined}
       onClick={onClick}
@@ -170,15 +170,17 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
           />
           {!isInitialScreen && (
             <Tooltip
-              componentId={`${COMPONENT_ID_PREFIX}.rerun-scorer-button-tooltip`}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_178"
               content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
             >
-              <RunScorerButton
-                variant={BUTTON_VARIANT.RERUN}
-                onClick={handleRunScorer}
-                loading={isLoading}
-                disabled={isRunScorerDisabled}
-              />
+              <span>
+                <RunScorerButton
+                  variant={BUTTON_VARIANT.RERUN}
+                  onClick={handleRunScorer}
+                  loading={isLoading}
+                  disabled={isRunScorerDisabled}
+                />
+              </span>
             </Tooltip>
           )}
         </div>
@@ -224,7 +226,7 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
                   />
                 </Typography.Text>
                 <Button
-                  componentId={`${COMPONENT_ID_PREFIX}.previous-trace-button`}
+                  componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_224"
                   size="small"
                   onClick={handlePrevious}
                   disabled={currentEvalResultIndex === 0}
@@ -233,7 +235,7 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
                   <FormattedMessage defaultMessage="Previous" description="Button text for previous trace" />
                 </Button>
                 <Button
-                  componentId={`${COMPONENT_ID_PREFIX}.next-trace-button`}
+                  componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_234"
                   size="small"
                   onClick={handleNext}
                   disabled={currentEvalResultIndex === totalTraces - 1}
@@ -259,22 +261,24 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
             }}
           >
             <Alert
-              componentId={`${COMPONENT_ID_PREFIX}.scorer-error-alert`}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_263"
               type="error"
               message={error.message}
               closable={false}
               css={{ width: '100%', maxWidth: '600px' }}
             />
             <Tooltip
-              componentId={`${COMPONENT_ID_PREFIX}.run-scorer-button-error-tooltip`}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_271"
               content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
             >
-              <RunScorerButton
-                variant={BUTTON_VARIANT.RUN}
-                onClick={handleRunScorer}
-                loading={isLoading}
-                disabled={isRunScorerDisabled}
-              />
+              <span>
+                <RunScorerButton
+                  variant={BUTTON_VARIANT.RUN}
+                  onClick={handleRunScorer}
+                  loading={isLoading}
+                  disabled={isRunScorerDisabled}
+                />
+              </span>
             </Tooltip>
           </div>
         ) : (
@@ -309,15 +313,17 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               />
             </Typography.Text>
             <Tooltip
-              componentId={`${COMPONENT_ID_PREFIX}.run-scorer-button-initial-tooltip`}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_316"
               content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
             >
-              <RunScorerButton
-                variant={BUTTON_VARIANT.RUN}
-                onClick={handleRunScorer}
-                loading={isLoading}
-                disabled={isRunScorerDisabled}
-              />
+              <span>
+                <RunScorerButton
+                  variant={BUTTON_VARIANT.RUN}
+                  onClick={handleRunScorer}
+                  loading={isLoading}
+                  disabled={isRunScorerDisabled}
+                />
+              </span>
             </Tooltip>
           </div>
         )}
