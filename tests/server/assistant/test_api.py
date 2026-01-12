@@ -24,7 +24,7 @@ class MockProvider(AssistantProvider):
     def load_config(self) -> ProviderConfig:
         return ProviderConfig()
 
-    async def astream(self, prompt: str, session_id: str | None = None):
+    async def astream(self, prompt: str, session_id: str | None = None, cwd: Path | None = None):
         yield Event.from_message(message=Message(role="user", content="Hello from mock"))
         yield Event.from_result(result="complete", session_id="mock-session-123")
 
