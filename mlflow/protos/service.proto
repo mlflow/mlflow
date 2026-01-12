@@ -9,6 +9,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 import "opentelemetry/proto/trace/v1/trace.proto";
+import "prompt_optimization.proto";
 import "scalapb/scalapb.proto";
 
 option java_package = "org.mlflow.api.proto";
@@ -1999,6 +2000,136 @@ service MlflowService {
       ]
       visibility: PUBLIC
       rpc_doc_title: "Gateway Delete Endpoint Tag"
+    };
+  }
+
+  // Create a new prompt optimization job.
+  // This endpoint initiates an optimization run with the specified configuration.
+  // The optimization process runs asynchronously and can be monitored via getOptimizationJob.
+  rpc createOptimizationJob(CreateOptimizationJob) returns (CreateOptimizationJob.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/prompt-optimization/jobs"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Prompt Optimization Job"
+    };
+  }
+
+  // Get the details and status of a prompt optimization job.
+  // Returns the job configuration, current status, progress statistics,
+  // and the best prompt if the optimization has completed.
+  rpc getOptimizationJob(GetOptimizationJob) returns (GetOptimizationJob.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/prompt-optimization/jobs/{job_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Prompt Optimization Job"
+    };
+  }
+
+  // Search for prompt optimization jobs.
+  // Returns a list of optimization jobs matching the specified filters.
+  rpc searchOptimizationJobs(SearchOptimizationJobs) returns (SearchOptimizationJobs.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/prompt-optimization/jobs/search"
+          since: {
+            major: 3
+            minor: 0
+          }
+        },
+        {
+          method: "GET"
+          path: "/mlflow/prompt-optimization/jobs/search"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Search Prompt Optimization Jobs"
+    };
+  }
+
+  // Cancel an in-progress prompt optimization job.
+  // If the job is already completed or cancelled, this operation has no effect.
+  rpc cancelOptimizationJob(CancelOptimizationJob) returns (CancelOptimizationJob.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/prompt-optimization/jobs/{job_id}/cancel"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INVALID_STATE,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Cancel Prompt Optimization Job"
+    };
+  }
+
+  // Delete a prompt optimization job and its associated data.
+  // This permanently removes the job and all related information.
+  rpc deleteOptimizationJob(DeleteOptimizationJob) returns (DeleteOptimizationJob.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/prompt-optimization/jobs/{job_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Prompt Optimization Job"
     };
   }
 }
@@ -4613,5 +4744,77 @@ message GetSecretsConfig {
   message Response {
     // Whether the server is configured to handle secrets (encryption available)
     optional bool secrets_available = 1;
+  }
+}
+
+message CreateOptimizationJob {
+  // ID of the MLflow experiment to track the optimization job in.
+  optional string experiment_id = 1;
+
+  // Configuration for the optimization job.
+  // Must include target_prompt specifying the prompt to optimize.
+  optional OptimizationJobConfig config = 2;
+
+  // Optional tags for the optimization job.
+  repeated OptimizationJobTag tags = 3;
+
+  message Response {
+    // The created optimization job.
+    optional OptimizationJob job = 1;
+  }
+}
+
+message GetOptimizationJob {
+  // The unique identifier of the optimization job (same as run_id).
+  optional string job_id = 1;
+
+  message Response {
+    // The optimization job details.
+    optional OptimizationJob job = 1;
+  }
+}
+
+message SearchOptimizationJobs {
+  // ID of the MLflow experiment to search optimization jobs in.
+  optional string experiment_id = 1;
+
+  // Filter string for searching jobs (e.g., by status, prompt name).
+  // Uses the same filter syntax as MLflow search APIs.
+  optional string filter = 2;
+
+  // Maximum number of results to return.
+  optional int64 max_results = 3 [default = 100];
+
+  // Token for pagination.
+  optional string page_token = 4;
+
+  // List of columns to order by (e.g., ["creation_timestamp_ms DESC"]).
+  repeated string order_by = 5;
+
+  message Response {
+    // List of optimization jobs matching the search criteria.
+    repeated OptimizationJob jobs = 1;
+
+    // Token for fetching the next page of results.
+    optional string next_page_token = 2;
+  }
+}
+
+message CancelOptimizationJob {
+  // The unique identifier of the optimization job to cancel.
+  optional string job_id = 1;
+
+  message Response {
+    // The cancelled optimization job.
+    optional OptimizationJob job = 1;
+  }
+}
+
+message DeleteOptimizationJob {
+  // The unique identifier of the optimization job to delete.
+  optional string job_id = 1;
+
+  message Response {
+    // Empty response on successful deletion.
   }
 }

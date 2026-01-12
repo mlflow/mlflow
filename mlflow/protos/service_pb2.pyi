@@ -1,6 +1,7 @@
 import assessments_pb2 as _assessments_pb2
 import databricks_pb2 as _databricks_pb2
 import datasets_pb2 as _datasets_pb2
+import prompt_optimization_pb2 as _prompt_optimization_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -2243,6 +2244,73 @@ class GetSecretsConfig(_message.Message):
         secrets_available: bool
         def __init__(self, secrets_available: bool = ...) -> None: ...
     def __init__(self) -> None: ...
+
+class CreateOptimizationJob(_message.Message):
+    __slots__ = ("experiment_id", "config", "tags")
+    class Response(_message.Message):
+        __slots__ = ("job",)
+        JOB_FIELD_NUMBER: _ClassVar[int]
+        job: _prompt_optimization_pb2.OptimizationJob
+        def __init__(self, job: _Optional[_Union[_prompt_optimization_pb2.OptimizationJob, _Mapping]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    config: _prompt_optimization_pb2.OptimizationJobConfig
+    tags: _containers.RepeatedCompositeFieldContainer[_prompt_optimization_pb2.OptimizationJobTag]
+    def __init__(self, experiment_id: _Optional[str] = ..., config: _Optional[_Union[_prompt_optimization_pb2.OptimizationJobConfig, _Mapping]] = ..., tags: _Optional[_Iterable[_Union[_prompt_optimization_pb2.OptimizationJobTag, _Mapping]]] = ...) -> None: ...
+
+class GetOptimizationJob(_message.Message):
+    __slots__ = ("job_id",)
+    class Response(_message.Message):
+        __slots__ = ("job",)
+        JOB_FIELD_NUMBER: _ClassVar[int]
+        job: _prompt_optimization_pb2.OptimizationJob
+        def __init__(self, job: _Optional[_Union[_prompt_optimization_pb2.OptimizationJob, _Mapping]] = ...) -> None: ...
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
+class SearchOptimizationJobs(_message.Message):
+    __slots__ = ("experiment_id", "filter", "max_results", "page_token", "order_by")
+    class Response(_message.Message):
+        __slots__ = ("jobs", "next_page_token")
+        JOBS_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        jobs: _containers.RepeatedCompositeFieldContainer[_prompt_optimization_pb2.OptimizationJob]
+        next_page_token: str
+        def __init__(self, jobs: _Optional[_Iterable[_Union[_prompt_optimization_pb2.OptimizationJob, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    FILTER_FIELD_NUMBER: _ClassVar[int]
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    ORDER_BY_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    filter: str
+    max_results: int
+    page_token: str
+    order_by: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, experiment_id: _Optional[str] = ..., filter: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ..., order_by: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class CancelOptimizationJob(_message.Message):
+    __slots__ = ("job_id",)
+    class Response(_message.Message):
+        __slots__ = ("job",)
+        JOB_FIELD_NUMBER: _ClassVar[int]
+        job: _prompt_optimization_pb2.OptimizationJob
+        def __init__(self, job: _Optional[_Union[_prompt_optimization_pb2.OptimizationJob, _Mapping]] = ...) -> None: ...
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
+class DeleteOptimizationJob(_message.Message):
+    __slots__ = ("job_id",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
 
 class MlflowService(_service.service): ...
 

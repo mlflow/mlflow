@@ -10,6 +10,7 @@ from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers
 from mlflow.tracking.client import MlflowClient
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_PROMPT_OPTIMIZATION
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -43,6 +44,9 @@ def prompt_optimization_autolog(
     with run_context as run:
         client = MlflowClient()
         run_id = run.info.run_id
+
+        # Tag run as prompt optimization job for UI filtering
+        mlflow.set_tag(MLFLOW_RUN_IS_PROMPT_OPTIMIZATION, "true")
 
         mlflow.log_param("optimizer", optimizer_name)
         mlflow.log_param("num_prompts", num_prompts)

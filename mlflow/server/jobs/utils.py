@@ -267,10 +267,14 @@ def _exec_job(
     if job_result.is_transient_error:
         # For transient errors, if the retry count is less than max allowed count,
         # trigger task retry by raising `RetryTask` exception.
+        _logger.warning(
+            f"Job {job_id} ({job_name}) encountered transient error: {job_result.error}"
+        )
         retry_count = job_store.retry_or_fail_job(job_id, job_result.error)
         if retry_count is not None:
             _exponential_backoff_retry(retry_count)
     else:
+        _logger.error(f"Job {job_id} ({job_name}) failed with error: {job_result.error}")
         job_store.fail_job(job_id, job_result.error)
 
 
@@ -414,6 +418,7 @@ def _load_function(fullname: str) -> Callable[..., Any]:
 
 
 def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
+    return None
     from mlflow.server.handlers import _get_job_store
 
     job_store = _get_job_store()
