@@ -19,7 +19,6 @@ import {
   SparkleDoubleIcon,
   DialogComboboxTrigger,
   PlusIcon,
-  Tooltip,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
@@ -226,7 +225,14 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
   };
 
   const isInstructionsJudge = useWatch({ control, name: 'isInstructionsJudge' }) ?? false;
-  const isReadOnly = mode === SCORER_FORM_MODE.DISPLAY || !isInstructionsJudge;
+
+  // Hide instructions section for built-in judges that don't support editing
+  // These templates use Python-specific variables not available in the UI
+  if (!isInstructionsJudge) {
+    return null;
+  }
+
+  const isReadOnly = mode === SCORER_FORM_MODE.DISPLAY;
   const isSessionLevelScorer = scope === ScorerEvaluationScope.SESSIONS;
 
   const traceLevelTemplateVariables = (
@@ -401,23 +407,9 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
               />
             );
 
-            const showTooltip = !isInstructionsJudge && mode !== SCORER_FORM_MODE.DISPLAY;
-
             return (
               <>
-                {showTooltip ? (
-                  <Tooltip
-                    componentId={`${COMPONENT_ID_PREFIX}.instructions-readonly-tooltip`}
-                    content={intl.formatMessage({
-                      defaultMessage: 'Modifying instructions is not supported for this built-in judge.',
-                      description: 'Tooltip explaining why instructions are read-only for non-editable templates',
-                    })}
-                  >
-                    <div>{textArea}</div>
-                  </Tooltip>
-                ) : (
-                  textArea
-                )}
+                {textArea}
                 {fieldState.error && fieldState.error.type !== 'required' && (
                   <FormUI.Message type="error" message={fieldState.error.message} />
                 )}

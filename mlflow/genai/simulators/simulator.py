@@ -12,6 +12,7 @@ import pydantic
 import mlflow
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
@@ -33,9 +34,13 @@ from mlflow.genai.utils.trace_utils import parse_outputs_to_str
 from mlflow.telemetry.events import SimulateConversationEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import TraceMetadataKey
-from mlflow.tracing.provider import trace_disabled
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
+
+try:
+    from tqdm.auto import tqdm
+except ImportError:
+    tqdm = None
 
 if TYPE_CHECKING:
     from pandas import DataFrame
@@ -46,6 +51,7 @@ _logger = logging.getLogger(__name__)
 
 _MAX_METADATA_LENGTH = 250
 _EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context"}
+_REQUIRED_TEST_CASE_KEYS = {"goal"}
 
 _MODEL_API_DOC = {
     "model": """Model to use for generating user messages. Must be one of:
@@ -96,59 +102,80 @@ def _suppress_tracing_logging():
         fluent_logger.setLevel(original_fluent_level)
 
 
+@contextmanager
+def _delete_trace_if_created():
+    """Delete any trace created within this context to avoid polluting user traces."""
+    trace_id_before = mlflow.get_last_active_trace_id(thread_local=True)
+    try:
+        yield
+    finally:
+        trace_id_after = mlflow.get_last_active_trace_id(thread_local=True)
+        if trace_id_after and trace_id_after != trace_id_before:
+            try:
+                mlflow.delete_trace(trace_id_after)
+            except Exception as e:
+                _logger.debug(f"Failed to delete trace {trace_id_after}: {e}")
+
+
 # TODO: Refactor judges adapters to support returning raw responses, then use them here
 #       instead of reimplementing the invocation logic.
-@trace_disabled  # Suppress tracing for our LLM (e.g., user message generation, stopping condition)
-def _invoke_model(
+def _invoke_model_without_tracing(
     model_uri: str,
     messages: list["ChatMessage"],
     num_retries: int = 3,
     inference_params: dict[str, Any] | None = None,
 ) -> str:
+    """
+    Invoke a model without tracing. This method will delete the last trace created by the
+    invocation, if any.
+    """
     import litellm
 
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
-    # Use Databricks managed endpoint with agentic model for the default "databricks" URI
-    if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-        user_prompt = json.dumps([{"role": msg.role, "content": msg.content} for msg in messages])
-        result = call_chat_completions(
-            user_prompt=user_prompt,
-            system_prompt="",
-            model=_DATABRICKS_AGENTIC_JUDGE_MODEL,
-        )
-        if getattr(result, "error_code", None):
-            raise MlflowException(
-                f"Failed to get chat completions result from Databricks managed endpoint: "
-                f"[{result.error_code}] {result.error_message}"
+    with _delete_trace_if_created():
+        # Use Databricks managed endpoint with agentic model for the default "databricks" URI
+        if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+            user_prompt = json.dumps(
+                [{"role": msg.role, "content": msg.content} for msg in messages]
             )
-        return result.output
+            result = call_chat_completions(
+                user_prompt=user_prompt,
+                system_prompt="",
+                model=_DATABRICKS_AGENTIC_JUDGE_MODEL,
+            )
+            if getattr(result, "error_code", None):
+                raise MlflowException(
+                    f"Failed to get chat completions result from Databricks managed endpoint: "
+                    f"[{result.error_code}] {result.error_message}"
+                )
+            return result.output
 
-    provider, model_name = _parse_model_uri(model_uri)
+        provider, model_name = _parse_model_uri(model_uri)
 
-    # Use Databricks serving endpoint for databricks:/<endpoint> URIs
-    if provider in {"databricks", "endpoints"}:
-        output = _invoke_databricks_serving_endpoint(
-            model_name=model_name,
-            prompt=messages,
-            num_retries=num_retries,
-            inference_params=inference_params,
-        )
-        return output.response
+        # Use Databricks serving endpoint for databricks:/<endpoint> URIs
+        if provider in {"databricks", "endpoints"}:
+            output = _invoke_databricks_serving_endpoint(
+                model_name=model_name,
+                prompt=messages,
+                num_retries=num_retries,
+                inference_params=inference_params,
+            )
+            return output.response
 
-    # Use LiteLLM for other providers
-    litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
+        # Use LiteLLM for other providers
+        litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
-    kwargs = {
-        "model": f"{provider}/{model_name}",
-        "messages": litellm_messages,
-        "max_retries": num_retries,
-    }
-    if inference_params:
-        kwargs.update(inference_params)
+        kwargs = {
+            "model": f"{provider}/{model_name}",
+            "messages": litellm_messages,
+            "max_retries": num_retries,
+        }
+        if inference_params:
+            kwargs.update(inference_params)
 
-    response = litellm.completion(**kwargs)
-    return response.choices[0].message.content
+        response = litellm.completion(**kwargs)
+        return response.choices[0].message.content
 
 
 def _get_last_response(conversation_history: list[dict[str, Any]]) -> str | None:
@@ -227,7 +254,7 @@ class SimulatedUserAgent:
             )
 
         messages = [ChatMessage(role="user", content=prompt)]
-        return _invoke_model(
+        return _invoke_model_without_tracing(
             model_uri=self.model,
             messages=messages,
             num_retries=3,
@@ -245,8 +272,17 @@ class ConversationSimulator:
     Each conversation is traced in MLflow, allowing you to evaluate how your agent handles
     various user goals and personas.
 
+    The predict function passed to the simulator must follow the OpenAI Responses API format
+    (https://platform.openai.com/docs/api-reference/responses):
+
+    - It must accept an ``input`` parameter containing the conversation history
+      as a list of message dictionaries (e.g., ``[{"role": "user", "content": "..."}]``)
+    - It may accept additional keyword arguments from the test case's ``context`` field
+    - It should return a response (the assistant's message content will be extracted)
+
     Args:
-        test_cases: List of test case dictionaries or DataFrame with the following fields:
+        test_cases: List of test case dicts, a DataFrame, or an EvaluationDataset,
+            with the following fields:
 
             - "goal": Describing what the simulated user wants to achieve.
             - "persona" (optional): Custom persona for the simulated user.
@@ -259,24 +295,43 @@ class ConversationSimulator:
     Example:
         .. code-block:: python
 
+            import mlflow
             from mlflow.genai.simulators import ConversationSimulator
+            from mlflow.genai.scorers import ConversationalSafety, Safety
 
+
+            def predict_fn(input: list[dict], **kwargs) -> dict:
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=input,
+                )
+                return response
+
+
+            # Each test case requires a "goal". "persona" and "context" are optional.
             simulator = ConversationSimulator(
                 test_cases=[
-                    {"goal": "Learn about MLflow tracking", "persona": "A beginner data scientist"},
+                    {"goal": "Learn about MLflow tracking"},
+                    {"goal": "Debug deployment issue", "persona": "A data scientist"},
                     {
-                        "goal": "Debug a model deployment issue",
-                        "persona": "An experienced ML engineer",
+                        "goal": "Set up model registry",
+                        "persona": "A beginner",
+                        "context": {"user_id": "123"},
                     },
                 ],
                 max_turns=5,
-                user_model="openai:/gpt-4o-mini",
+            )
+
+            mlflow.genai.evaluate(
+                data=simulator,
+                predict_fn=predict_fn,
+                scorers=[ConversationalSafety(), Safety()],
             )
     """
 
     def __init__(
         self,
-        test_cases: list[dict[str, Any]] | "DataFrame",
+        test_cases: list[dict[str, Any]] | "DataFrame" | EvaluationDataset,
         max_turns: int = 10,
         user_model: str | None = None,
         **user_llm_params,
@@ -288,12 +343,22 @@ class ConversationSimulator:
         self.user_llm_params = user_llm_params
 
     def _normalize_test_cases(
-        self, test_cases: list[dict[str, Any]] | "DataFrame"
+        self, test_cases: list[dict[str, Any]] | "DataFrame" | EvaluationDataset
     ) -> list[dict[str, Any]]:
         from pandas import DataFrame
 
+        if isinstance(test_cases, EvaluationDataset):
+            records = test_cases.to_df()["inputs"].to_list()
+            if not records or not (records[0].keys() & _REQUIRED_TEST_CASE_KEYS):
+                raise ValueError(
+                    "EvaluationDataset passed to ConversationSimulator must contain "
+                    "conversational test cases with a 'goal' field in the 'inputs' column"
+                )
+            return records
+
         if isinstance(test_cases, DataFrame):
             return test_cases.to_dict("records")
+
         return test_cases
 
     def _validate_test_cases(self) -> None:
@@ -323,6 +388,16 @@ class ConversationSimulator:
         all_trace_ids: list[list[str]] = [[] for _ in range(num_test_cases)]
         max_workers = min(num_test_cases, MLFLOW_GENAI_EVAL_MAX_WORKERS.get())
 
+        progress_bar = (
+            tqdm(
+                total=num_test_cases,
+                desc="Simulating conversations",
+                unit="conversation",
+            )
+            if tqdm
+            else None
+        )
+
         with (
             _suppress_tracing_logging(),
             ThreadPoolExecutor(
@@ -334,16 +409,21 @@ class ConversationSimulator:
                 executor.submit(self._run_conversation, test_case, predict_fn): i
                 for i, test_case in enumerate(self.test_cases)
             }
-
-            for future in as_completed(futures):
-                idx = futures[future]
-                test_case = self.test_cases[idx]
-                try:
-                    all_trace_ids[idx] = future.result()
-                except Exception as e:
-                    _logger.error(
-                        f"Failed to run conversation for test case {test_case.get('goal')}: {e}"
-                    )
+            try:
+                for future in as_completed(futures):
+                    idx = futures[future]
+                    try:
+                        all_trace_ids[idx] = future.result()
+                    except Exception as e:
+                        _logger.error(
+                            f"Failed to run conversation for test case "
+                            f"{self.test_cases[idx].get('goal')}: {e}"
+                        )
+                    if progress_bar:
+                        progress_bar.update(1)
+            finally:
+                if progress_bar:
+                    progress_bar.close()
 
         return all_trace_ids
 
@@ -417,7 +497,7 @@ class ConversationSimulator:
         #     predict_fn call. The goal/persona/turn metadata is used for trace comparison UI
         #     since message content may differ between simulation runs.
         @mlflow.trace(name=f"simulation_turn_{turn}", span_type="CHAIN")
-        def traced_predict(input: list[dict[str, Any]], **context):
+        def traced_predict(input: list[dict[str, Any]], **ctx):
             mlflow.update_current_trace(
                 metadata={
                     TraceMetadataKey.TRACE_SESSION: trace_session_id,
@@ -428,10 +508,11 @@ class ConversationSimulator:
                     "mlflow.simulation.turn": str(turn),
                 },
             )
-            return predict_fn(input=input, **context)
+            return predict_fn(input=input, **ctx)
 
         response = traced_predict(input=input_messages, **context)
-        return response, mlflow.get_last_active_trace_id(thread_local=True)
+        trace_id = mlflow.get_last_active_trace_id(thread_local=True)
+        return response, trace_id
 
     def _check_goal_achieved(
         self,
@@ -450,7 +531,7 @@ class ConversationSimulator:
         messages = [ChatMessage(role="user", content=eval_prompt)]
 
         try:
-            text_result = _invoke_model(
+            text_result = _invoke_model_without_tracing(
                 model_uri=self.user_model,
                 messages=messages,
                 num_retries=3,

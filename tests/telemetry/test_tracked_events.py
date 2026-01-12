@@ -582,7 +582,7 @@ def test_simulate_conversation(mock_requests, mock_telemetry_client: TelemetryCl
 
     with (
         mock.patch(
-            "mlflow.genai.simulators.simulator._invoke_model",
+            "mlflow.genai.simulators.simulator._invoke_model_without_tracing",
             return_value="Mock user message",
         ),
         mock.patch(

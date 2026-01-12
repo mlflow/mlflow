@@ -19,6 +19,7 @@ R = TypeVar("R")
 _SUPPORTED_JOB_FUNCTION_LIST = [
     # Putting all supported job function fullname in the list
     "mlflow.genai.scorers.job.invoke_scorer_job",
+    "mlflow.genai.scorers.job.run_online_trace_scorer_job",
     "mlflow.genai.optimize.job.optimize_prompts_job",
 ]
 
@@ -29,6 +30,7 @@ if supported_job_function_list_env := os.environ.get("_MLFLOW_SUPPORTED_JOB_FUNC
 _ALLOWED_JOB_NAME_LIST = [
     # Putting all allowed job function static name in the list
     "invoke_scorer",
+    "run_online_trace_scorer",
     "optimize_prompts",
 ]
 
@@ -57,6 +59,7 @@ class JobFunctionMetadata:
     max_workers: int
     transient_error_classes: list[type[Exception]] | None = None
     python_env: _PythonEnv | None = None
+    exclusive: bool | list[str] = False
 
 
 def job(
@@ -65,6 +68,7 @@ def job(
     transient_error_classes: list[type[Exception]] | None = None,
     python_version: str | None = None,
     pip_requirements: list[str] | None = None,
+    exclusive: bool | list[str] = False,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     The decorator for the custom job function for setting max parallel workers that
@@ -80,6 +84,9 @@ def job(
         python_version: (optional) The required python version to run the job function.
         pip_requirements: (optional) The required pip requirements to run the job function,
             relative file references such as "-r requirements.txt" are not supported.
+        exclusive: (optional) If True, only one instance of this job with the same params
+            can run at a time. If a list of parameter names is provided, only those
+            parameters are considered when determining exclusivity. Default is False.
     """
     from mlflow.utils import PYTHON_VERSION
     from mlflow.utils.requirements_utils import _parse_requirements
@@ -116,6 +123,7 @@ def job(
             max_workers=max_workers,
             transient_error_classes=transient_error_classes,
             python_env=python_env,
+            exclusive=exclusive,
         )
         return fn
 
@@ -200,11 +208,13 @@ def submit_job(
     job = job_store.create_job(fn_meta.name, serialized_params, timeout)
 
     # enqueue job
-    _get_or_init_huey_instance(fn_meta.name).submit_task(
+    huey_instance = _get_or_init_huey_instance(fn_meta.name)
+    huey_instance.submit_task(
         job.job_id,
         fn_meta.name,
         params,
         timeout,
+        fn_meta.exclusive,
     )
 
     return job
