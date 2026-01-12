@@ -3179,9 +3179,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             sessions_with_stats = self._build_session_stats_subquery(
                 session=session,
                 experiment_id=experiment_id,
-                sessions=(
-                    filtered_sessions if filtered_sessions is not None else candidate_sessions
-                ),
+                sessions=filtered_sessions,
             )
 
             # Step 4: Find sessions with any trace > max timestamp (still ongoing)
@@ -3190,9 +3188,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 session=session,
                 experiment_id=experiment_id,
                 max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
-                sessions=(
-                    filtered_sessions if filtered_sessions is not None else candidate_sessions
-                ),
+                sessions=filtered_sessions,
             )
 
             # Step 5: Get sessions where last trace in [min, max] AND NOT in ongoing sessions
@@ -3250,14 +3246,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         experiment_id: str,
         filter_string: str | None,
         candidate_sessions: Subquery,
-    ) -> Subquery | None:
+    ) -> Subquery:
         """
         Build subquery for sessions whose first trace matches the filter.
 
-        Returns None if no filter_string provided.
+        Returns candidate_sessions unchanged if no filter_string provided.
         """
         if not filter_string:
-            return None
+            return candidate_sessions
 
         # Parse the filter string to get filter clauses
         attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
