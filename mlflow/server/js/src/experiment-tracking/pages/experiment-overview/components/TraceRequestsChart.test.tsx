@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
 import { TraceRequestsChart } from './TraceRequestsChart';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create a single data point
 const createTraceCountDataPoint = (timeBucket: string, count: number) => ({
@@ -29,8 +30,8 @@ describe('TraceRequestsChart', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  // Default props reused across tests
-  const defaultProps = {
+  // Context props reused across tests
+  const defaultContextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
@@ -49,12 +50,15 @@ describe('TraceRequestsChart', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = (contextOverrides: Partial<typeof defaultContextProps> = {}) => {
     const queryClient = createQueryClient();
+    const contextProps = { ...defaultContextProps, ...contextOverrides };
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <TraceRequestsChart {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <TraceRequestsChart />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );
@@ -166,6 +170,19 @@ describe('TraceRequestsChart', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Requests')).toBeInTheDocument();
+      });
+    });
+
+    it('should display average reference line', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      // Average should be (42 + 58 + 100) / 3 = 66.67, rounded to 67
+      await waitFor(() => {
+        const referenceLine = screen.getByTestId('reference-line');
+        expect(referenceLine).toBeInTheDocument();
+        expect(referenceLine).toHaveAttribute('data-label', 'AVG (67)');
       });
     });
 
@@ -308,6 +325,72 @@ describe('TraceRequestsChart', () => {
       });
       // Total count still includes the data point
       expect(screen.getByText('25')).toBeInTheDocument();
+    });
+  });
+
+  describe('zoom functionality', () => {
+    const mockDataPoints = [
+      createTraceCountDataPoint('2025-12-22T10:00:00Z', 42),
+      createTraceCountDataPoint('2025-12-22T11:00:00Z', 58),
+      createTraceCountDataPoint('2025-12-22T12:00:00Z', 100),
+    ];
+
+    it('should not show zoom out button initially', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Requests')).toBeInTheDocument();
+      });
+
+      // Zoom Out button should not be visible when not zoomed
+      expect(screen.queryByText('Zoom Out')).not.toBeInTheDocument();
+    });
+
+    it('should render chart with correct data count initially', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
+      });
+
+      // Initial state: all 3 data points visible
+      expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-count', '3');
+    });
+
+    it('should display initial average based on all data points', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      // Average should be (42 + 58 + 100) / 3 = 66.67, rounded to 67
+      await waitFor(() => {
+        const referenceLine = screen.getByTestId('reference-line');
+        expect(referenceLine).toBeInTheDocument();
+        expect(referenceLine).toHaveAttribute('data-label', 'AVG (67)');
+      });
+    });
+
+    it('should have mouse event handlers attached to chart', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
+      });
+
+      const chart = screen.getByTestId('bar-chart');
+
+      // Verify mouse events can be fired without errors (handlers are wired up)
+      expect(() => {
+        fireEvent.mouseDown(chart);
+        fireEvent.mouseMove(chart);
+        fireEvent.mouseUp(chart);
+      }).not.toThrow();
     });
   });
 });

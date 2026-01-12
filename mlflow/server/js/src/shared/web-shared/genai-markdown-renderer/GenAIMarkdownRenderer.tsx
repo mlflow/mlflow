@@ -57,6 +57,7 @@ const InlineCode = ({ children }: ReactMarkdownProps<'code'>) => <Typography.Tex
  * Since this component is quite expensive to render we memoize it so if multiple
  * code blocks are being rendered, we only update the code blocks with changing props
  */
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 const CodeBlock = React.memo(({ children, language }: ReactMarkdownProps<'code'> & { language?: string }) => {
   const { theme } = useDesignSystemTheme();
   const code = String(children).replace(/\n$/, '');
@@ -138,7 +139,7 @@ export const getMarkdownComponents = (props: { extensions?: ExtendedComponents }
     thead: ({ children }) => <>{children}</>,
     tbody: ({ children }) => <>{children}</>,
     img: ({ src, alt }) => <img src={src} alt={alt} css={{ maxWidth: '100%' }} />,
-  } satisfies ReactMarkdownComponents);
+  }) satisfies ReactMarkdownComponents;
 
 const isCodeSnippetLanguage = (languageString: string): languageString is CodeSnippetLanguage => {
   // Casting the string to string literal so we can exhaust the union

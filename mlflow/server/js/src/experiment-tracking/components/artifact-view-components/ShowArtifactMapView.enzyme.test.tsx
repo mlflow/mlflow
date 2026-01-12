@@ -93,7 +93,8 @@ describe('ShowArtifactMapView', () => {
 
   test('should fetch artifacts on component update', () => {
     instance = wrapper.instance();
-    instance.fetchArtifacts = jest.fn();
+    // @ts-expect-error -- TODO(FEINF-4162)
+    jest.spyOn(instance, 'fetchArtifacts').mockImplementation();
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
     expect(instance.fetchArtifacts).toHaveBeenCalled();
     expect(instance.props.getArtifact).toHaveBeenCalled();

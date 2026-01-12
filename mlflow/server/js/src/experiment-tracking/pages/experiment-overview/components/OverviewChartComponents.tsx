@@ -172,18 +172,85 @@ export const OverviewChartEmptyState: React.FC<OverviewChartEmptyStateProps> = (
   );
 };
 
-/**
- * Returns common tooltip style configuration for Recharts tooltips
- */
-export function useChartTooltipStyle() {
-  const { theme } = useDesignSystemTheme();
-  return {
-    backgroundColor: theme.colors.backgroundPrimary,
-    border: `1px solid ${theme.colors.border}`,
-    borderRadius: theme.borders.borderRadiusMd,
-    fontSize: theme.typography.fontSizeSm,
-  };
+interface ScrollableTooltipProps {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; color: string }>;
+  label?: string;
+  formatter?: (value: number, name: string) => [string | number, string];
 }
+
+/**
+ * Custom scrollable tooltip component for Recharts.
+ * Use with: <Tooltip content={<ScrollableTooltip formatter={...} />} />
+ */
+export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, payload, label, formatter }) => {
+  const { theme } = useDesignSystemTheme();
+
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const maxHeight = 120;
+
+  return (
+    <div
+      css={{
+        // This ensures the tooltip is semi-transparent so the chart is visible through it.
+        // 80 hex = 50% opacity
+        backgroundColor: `${theme.colors.backgroundPrimary}80`,
+        backdropFilter: 'blur(2px)',
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        fontSize: theme.typography.fontSizeSm,
+        padding: theme.spacing.sm,
+        pointerEvents: 'auto',
+        // This is to ensure the tooltip renders on the cursor position, so users can hover
+        // over the tooltip and scroll if applicable.
+        marginLeft: -20,
+        marginRight: -20,
+      }}
+    >
+      {label && <div css={{ fontWeight: 500, marginBottom: theme.spacing.xs }}>{label}</div>}
+      <div
+        css={{
+          maxHeight,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+        }}
+      >
+        {payload.map((entry, index) => {
+          const [formattedValue, formattedName] = formatter
+            ? formatter(entry.value, entry.name)
+            : [entry.value, entry.name];
+          return (
+            <div
+              key={index}
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs,
+                paddingTop: theme.spacing.xs,
+                paddingBottom: theme.spacing.xs,
+              }}
+            >
+              <span
+                css={{
+                  width: theme.spacing.sm,
+                  height: theme.spacing.sm,
+                  borderRadius: '50%',
+                  backgroundColor: entry.color,
+                  flexShrink: 0,
+                }}
+              />
+              <span css={{ color: entry.color }}>{formattedName}:</span>
+              <span>{formattedValue}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 /**
  * Returns common XAxis props for time-series charts
@@ -199,13 +266,42 @@ export function useChartXAxisProps() {
 }
 
 /**
- * Returns a legend formatter function with consistent styling
+ * Returns common YAxis props for charts
  */
-export function useChartLegendFormatter() {
+export function useChartYAxisProps() {
   const { theme } = useDesignSystemTheme();
-  return (value: string) => (
+  return {
+    tick: { fontSize: 10, fill: theme.colors.textSecondary },
+    axisLine: false,
+    tickLine: false,
+    width: 40,
+  };
+}
+
+/**
+ * Configuration for scrollable legend
+ */
+interface ScrollableLegendConfig {
+  /** Maximum height for the legend container before scrolling. Defaults to 60. */
+  maxHeight?: number;
+}
+
+/**
+ * Returns legend props for a scrollable legend with consistent styling.
+ * Use this when there may be many legend items to prevent overwhelming the chart.
+ * Spread the returned object onto the Recharts Legend component.
+ *
+ * @example
+ * const scrollableLegendProps = useScrollableLegendProps();
+ * <Legend {...scrollableLegendProps} />
+ */
+export function useScrollableLegendProps(config?: ScrollableLegendConfig) {
+  const { theme } = useDesignSystemTheme();
+  const maxHeight = config?.maxHeight ?? 60;
+
+  const formatter = (value: string) => (
     <span
-      style={{
+      css={{
         color: theme.colors.textPrimary,
         fontSize: theme.typography.fontSizeSm,
         cursor: 'pointer',
@@ -214,6 +310,18 @@ export function useChartLegendFormatter() {
       {value}
     </span>
   );
+
+  const wrapperStyle: React.CSSProperties = {
+    maxHeight,
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    paddingTop: theme.spacing.xs,
+  };
+
+  return {
+    formatter,
+    wrapperStyle,
+  };
 }
 
 /**
@@ -242,3 +350,26 @@ export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ 
     </div>
   );
 };
+
+/**
+ * Hook that returns props for ReferenceArea to show zoom selection highlight.
+ * Use this with Recharts ReferenceArea component directly since Recharts
+ * components must be direct children of the chart.
+ *
+ * @example
+ * const zoomSelectionProps = useChartZoomSelectionProps();
+ * <BarChart>
+ *   {refAreaLeft && refAreaRight && (
+ *     <ReferenceArea x1={refAreaLeft} x2={refAreaRight} {...zoomSelectionProps} />
+ *   )}
+ * </BarChart>
+ */
+export function useChartZoomSelectionProps() {
+  const { theme } = useDesignSystemTheme();
+
+  return {
+    strokeOpacity: 0.3,
+    fill: theme.colors.blue200,
+    fillOpacity: 0.3,
+  };
+}
