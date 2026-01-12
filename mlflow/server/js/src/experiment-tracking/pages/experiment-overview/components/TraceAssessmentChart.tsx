@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { CheckCircleIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import {
@@ -20,8 +20,9 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
+  useChartYAxisProps,
   useScrollableLegendProps,
 } from './OverviewChartComponents';
 
@@ -53,12 +54,19 @@ export interface TraceAssessmentChartProps {
 
 export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ assessmentName, lineColor, avgValue }) => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
+  const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
 
   // Use provided color or default to green
   const chartLineColor = lineColor || theme.colors.green500;
+
+  const distributionTooltipFormatter = useCallback((value: number) => [value, 'count'] as [number, string], []);
+
+  const timeSeriestooltipFormatter = useCallback(
+    (value: number) => [value.toFixed(2), assessmentName] as [string, string],
+    [assessmentName],
+  );
 
   // Fetch and process all chart data using the custom hook
   const { timeSeriesChartData, distributionChartData, isLoading, error, hasData } =
@@ -107,11 +115,10 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
         >
           <BarChart data={distributionChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
             <XAxis dataKey="name" {...xAxisProps} />
-            <YAxis allowDecimals={false} {...xAxisProps} />
+            <YAxis allowDecimals={false} {...yAxisProps} />
             <Tooltip
-              contentStyle={tooltipStyle}
+              content={<ScrollableTooltip formatter={distributionTooltipFormatter} />}
               cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-              formatter={(value: number) => [value, 'count']}
             />
             <Legend {...scrollableLegendProps} />
             <Bar dataKey="count" fill={chartLineColor} radius={[4, 4, 0, 0]} />
@@ -130,11 +137,10 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
           >
             <LineChart data={timeSeriesChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <XAxis dataKey="name" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={timeSeriestooltipFormatter} />}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number) => [value.toFixed(2), assessmentName]}
               />
               <Legend {...scrollableLegendProps} />
               <Line

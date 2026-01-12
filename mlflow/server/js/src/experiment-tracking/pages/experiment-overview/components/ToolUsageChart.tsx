@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { ChartLineIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -10,8 +10,9 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
+  useChartYAxisProps,
   useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartUtils';
@@ -22,14 +23,19 @@ import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartU
  */
 export const ToolUsageChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
+  const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
   const { getChartColor } = useChartColors();
 
   // Fetch and process tool usage chart data
   const { chartData, toolNames, isLoading, error, hasData } = useToolUsageChartData();
+
+  const tooltipFormatter = useCallback(
+    (value: number, name: string) => [formatCount(value), name] as [string, string],
+    [],
+  );
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -54,11 +60,10 @@ export const ToolUsageChart: React.FC = () => {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <XAxis dataKey="timestamp" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatCount(value), name]}
               />
               {toolNames.map((toolName, index) => (
                 <Bar
