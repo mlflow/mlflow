@@ -25,7 +25,7 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
 import { type SCORER_TYPE, ScorerEvaluationScope } from './constants';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
-import { LLM_TEMPLATE } from './types';
+import { LLM_TEMPLATE, isGuidelinesTemplate } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
 import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
 import { ModelSectionRenderer } from './ModelSectionRenderer';
@@ -58,8 +58,6 @@ interface LLMTemplateSectionProps {
   setValue: UseFormSetValue<LLMScorerFormData>;
   currentTemplate: string;
 }
-
-const TEMPLATES_WITH_GUIDELINES = [LLM_TEMPLATE.GUIDELINES, LLM_TEMPLATE.CONVERSATIONAL_GUIDELINES];
 
 const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, setValue, currentTemplate }) => {
   const { theme } = useDesignSystemTheme();
@@ -211,24 +209,12 @@ interface InstructionsSectionProps {
   control: Control<LLMScorerFormData>;
   setValue: UseFormSetValue<LLMScorerFormData>;
   getValues: UseFormGetValues<LLMScorerFormData>;
-  selectedTemplate: string;
 }
 
-const InstructionsSection: React.FC<InstructionsSectionProps> = ({
-  mode,
-  control,
-  setValue,
-  getValues,
-  selectedTemplate,
-}) => {
+const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control, setValue, getValues }) => {
   const intl = useIntl();
   const { watch } = useFormContext<LLMScorerFormData>();
   const scope = watch('evaluationScope');
-
-  // Don't show instructions for templates that use guidelines instead
-  if (TEMPLATES_WITH_GUIDELINES.includes(selectedTemplate as LLM_TEMPLATE)) {
-    return null;
-  }
 
   const stopPropagationClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -447,15 +433,12 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({
 interface GuidelinesSectionProps {
   mode: ScorerFormMode;
   control: Control<LLMScorerFormData>;
-  selectedTemplate: string;
 }
 
-const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control, selectedTemplate }) => {
+const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control }) => {
   const intl = useIntl();
-
-  if (!TEMPLATES_WITH_GUIDELINES.includes(selectedTemplate as LLM_TEMPLATE)) {
-    return null;
-  }
+  const { watch } = useFormContext<LLMScorerFormData>();
+  const evaluationScope = watch('evaluationScope');
 
   const stopPropagationClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -465,27 +448,7 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control, se
     return 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/';
   };
 
-  const isSessionLevel = selectedTemplate === LLM_TEMPLATE.CONVERSATIONAL_GUIDELINES;
-
-  const validateGuidelines = (value: string | undefined) => {
-    if (!value || value.trim() === '') {
-      return intl.formatMessage({
-        defaultMessage: 'Guidelines should not be empty',
-        description: 'Error message when guidelines are empty',
-      });
-    }
-    const guidelines = value
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean);
-    if (guidelines.length === 0) {
-      return intl.formatMessage({
-        defaultMessage: 'Guidelines should not be empty',
-        description: 'Error message when guidelines are empty',
-      });
-    }
-    return true;
-  };
+  const isSessionLevel = evaluationScope === ScorerEvaluationScope.SESSIONS;
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
@@ -531,7 +494,10 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control, se
         name="guidelines"
         control={control}
         rules={{
-          validate: validateGuidelines,
+          required: intl.formatMessage({
+            defaultMessage: 'Guidelines should not be empty',
+            description: 'Error message when guidelines are empty',
+          }),
         }}
         render={({ field, fieldState }) => (
           <>
@@ -578,14 +544,10 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
     >
       <LLMTemplateSection mode={mode} control={control} setValue={setValue} currentTemplate={selectedTemplate} />
       <NameSection mode={mode} control={control} />
-      <GuidelinesSection mode={mode} control={control} selectedTemplate={selectedTemplate} />
-      <InstructionsSection
-        mode={mode}
-        control={control}
-        setValue={setValue}
-        getValues={getValues}
-        selectedTemplate={selectedTemplate}
-      />
+      {isGuidelinesTemplate(selectedTemplate) && <GuidelinesSection mode={mode} control={control} />}
+      {!isGuidelinesTemplate(selectedTemplate) && (
+        <InstructionsSection mode={mode} control={control} setValue={setValue} getValues={getValues} />
+      )}
       <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />
       <EvaluateTracesSectionRenderer control={control} mode={mode} />
     </div>

@@ -53,6 +53,14 @@ export const SESSION_LEVEL_LLM_TEMPLATES = [
   LLM_TEMPLATE.CUSTOM,
 ];
 
+export const TEMPLATES_WITH_GUIDELINES: readonly LLM_TEMPLATE[] = [
+  LLM_TEMPLATE.GUIDELINES,
+  LLM_TEMPLATE.CONVERSATIONAL_GUIDELINES,
+];
+
+export const isGuidelinesTemplate = (template: string | undefined): boolean =>
+  template !== undefined && TEMPLATES_WITH_GUIDELINES.includes(template as LLM_TEMPLATE);
+
 export type LLMTemplate =
   | 'Correctness'
   | 'Guidelines'
