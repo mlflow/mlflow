@@ -153,6 +153,12 @@ from mlflow.protos.service_pb2 import (
     GetGatewaySecretInfo,
     GetGatewayUsageMetrics,
     GatewayUsageMetricsEntry,
+    CreateGatewayRateLimit,
+    GetGatewayRateLimit,
+    ListGatewayRateLimits,
+    UpdateGatewayRateLimit,
+    DeleteGatewayRateLimit,
+    GatewayRateLimitConfig as GatewayRateLimitConfigProto,
     GetLoggedModel,
     GetMetricHistory,
     GetMetricHistoryBulkInterval,
@@ -4827,6 +4833,137 @@ def _get_gateway_usage_metrics():
     return _wrap_response(response_message)
 
 
+# =============================================================================
+# Gateway Rate Limit APIs
+# =============================================================================
+
+
+def _rate_limit_entity_to_proto(rate_limit):
+    """Convert a GatewayRateLimitConfig entity to a proto message."""
+    return GatewayRateLimitConfigProto(
+        rate_limit_id=rate_limit.rate_limit_id,
+        endpoint_id=rate_limit.endpoint_id,
+        queries_per_minute=rate_limit.queries_per_minute,
+        username=rate_limit.username or "",
+        created_at=rate_limit.created_at,
+        updated_at=rate_limit.updated_at,
+        created_by=rate_limit.created_by or "",
+        updated_by=rate_limit.updated_by or "",
+    )
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_gateway_rate_limit():
+    """Create a new rate limit configuration."""
+    request_message = _get_request_message(
+        CreateGatewayRateLimit(),
+        schema={
+            "endpoint_id": [_assert_string, _assert_required],
+            "queries_per_minute": [_assert_intlike, _assert_required],
+            "username": [_assert_string],
+        },
+    )
+
+    username = request_message.username if request_message.username else None
+
+    rate_limit = _get_tracking_store().create_gateway_rate_limit(
+        endpoint_id=request_message.endpoint_id,
+        queries_per_minute=request_message.queries_per_minute,
+        username=username,
+        created_by=_get_user_id(),
+    )
+
+    response_message = CreateGatewayRateLimit.Response()
+    response_message.rate_limit.CopyFrom(_rate_limit_entity_to_proto(rate_limit))
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_gateway_rate_limit():
+    """Get a rate limit configuration by ID."""
+    request_message = _get_request_message(
+        GetGatewayRateLimit(),
+        schema={
+            "rate_limit_id": [_assert_string, _assert_required],
+        },
+    )
+
+    rate_limit = _get_tracking_store().get_gateway_rate_limit(
+        rate_limit_id=request_message.rate_limit_id,
+    )
+
+    response_message = GetGatewayRateLimit.Response()
+    if rate_limit:
+        response_message.rate_limit.CopyFrom(_rate_limit_entity_to_proto(rate_limit))
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_gateway_rate_limits():
+    """List rate limit configurations."""
+    request_message = _get_request_message(
+        ListGatewayRateLimits(),
+        schema={
+            "endpoint_id": [_assert_string],
+        },
+    )
+
+    endpoint_id = request_message.endpoint_id if request_message.endpoint_id else None
+
+    rate_limits = _get_tracking_store().list_gateway_rate_limits(
+        endpoint_id=endpoint_id,
+    )
+
+    response_message = ListGatewayRateLimits.Response()
+    for rl in rate_limits:
+        response_message.rate_limits.append(_rate_limit_entity_to_proto(rl))
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_gateway_rate_limit():
+    """Update a rate limit configuration."""
+    request_message = _get_request_message(
+        UpdateGatewayRateLimit(),
+        schema={
+            "rate_limit_id": [_assert_string, _assert_required],
+            "queries_per_minute": [_assert_intlike, _assert_required],
+        },
+    )
+
+    rate_limit = _get_tracking_store().update_gateway_rate_limit(
+        rate_limit_id=request_message.rate_limit_id,
+        queries_per_minute=request_message.queries_per_minute,
+        updated_by=_get_user_id(),
+    )
+
+    response_message = UpdateGatewayRateLimit.Response()
+    response_message.rate_limit.CopyFrom(_rate_limit_entity_to_proto(rate_limit))
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_gateway_rate_limit():
+    """Delete a rate limit configuration."""
+    request_message = _get_request_message(
+        DeleteGatewayRateLimit(),
+        schema={
+            "rate_limit_id": [_assert_string, _assert_required],
+        },
+    )
+
+    _get_tracking_store().delete_gateway_rate_limit(
+        rate_limit_id=request_message.rate_limit_id,
+    )
+
+    return _wrap_response(DeleteGatewayRateLimit.Response())
+
+
 def get_endpoints(get_handler=get_handler):
     """
     Returns:
@@ -5356,4 +5493,10 @@ HANDLERS = {
     DeleteGatewayEndpointTag: _delete_gateway_endpoint_tag,
     # Usage Tracking APIs
     GetGatewayUsageMetrics: _get_gateway_usage_metrics,
+    # Rate Limit APIs
+    CreateGatewayRateLimit: _create_gateway_rate_limit,
+    GetGatewayRateLimit: _get_gateway_rate_limit,
+    ListGatewayRateLimits: _list_gateway_rate_limits,
+    UpdateGatewayRateLimit: _update_gateway_rate_limit,
+    DeleteGatewayRateLimit: _delete_gateway_rate_limit,
 }
