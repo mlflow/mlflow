@@ -503,7 +503,7 @@ def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Cal
             f"{MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT.get()} seconds."
         )
         predict_fn = _wrap_async_predict_fn(predict_fn)
-    if not MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.get():
+    if not MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.get() and sample_input:
         with (
             NoOpTracerPatcher() as counter,
             # Enable auto-tracing before checking if the predict_fn produces traces, so that
