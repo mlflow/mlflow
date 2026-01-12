@@ -40,6 +40,7 @@ import { getGraphQLErrorMessage } from '../../../graphql/get-graphql-error';
 import { useLoggedModelsForExperimentRun } from '../experiment-page/hooks/useLoggedModelsForExperimentRun';
 import { useLoggedModelsForExperimentRunV2 } from '../experiment-page/hooks/useLoggedModelsForExperimentRunV2';
 import { useExperimentKind } from '../../utils/ExperimentKindUtils';
+import { IndexedDBInitializationContextProvider } from '@mlflow/mlflow/src/experiment-tracking/components/contexts/IndexedDBInitializationContext';
 
 const RunPageLoadingState = () => (
   <PageContainer>
@@ -269,26 +270,28 @@ export const RunPage = () => {
   return (
     <>
       <PageContainer usesFullHeight={useFullHeightPage}>
-        {/* Header fixed on top */}
-        <RunViewHeader
-          comparedExperimentIds={comparedExperimentIds}
-          experiment={experiment}
-          handleRenameRunClick={() => setRenameModalVisible(true)}
-          handleDeleteRunClick={() => setDeleteModalVisible(true)}
-          hasComparedExperimentsBefore={hasComparedExperimentsBefore}
-          runDisplayName={Utils.getRunDisplayName(runInfo, safeRunUuid)}
-          runTags={tags}
-          runParams={params}
-          runUuid={safeRunUuid}
-          runOutputs={runOutputs}
-          artifactRootUri={runInfo?.artifactUri ?? undefined}
-          registeredModelVersionSummaries={registeredModelVersionSummaries}
-          isLoading={loading || isLoadingLoggedModels}
-        />
-        {/* Scroll tab contents independently within own container */}
-        <div css={{ flex: 1, overflow: 'auto', marginBottom: theme.spacing.sm, display: 'flex' }}>
-          {renderActiveTab()}
-        </div>
+        <IndexedDBInitializationContextProvider>
+          {/* Header fixed on top */}
+          <RunViewHeader
+            comparedExperimentIds={comparedExperimentIds}
+            experiment={experiment}
+            handleRenameRunClick={() => setRenameModalVisible(true)}
+            handleDeleteRunClick={() => setDeleteModalVisible(true)}
+            hasComparedExperimentsBefore={hasComparedExperimentsBefore}
+            runDisplayName={Utils.getRunDisplayName(runInfo, safeRunUuid)}
+            runTags={tags}
+            runParams={params}
+            runUuid={safeRunUuid}
+            runOutputs={runOutputs}
+            artifactRootUri={runInfo?.artifactUri ?? undefined}
+            registeredModelVersionSummaries={registeredModelVersionSummaries}
+            isLoading={loading || isLoadingLoggedModels}
+          />
+          {/* Scroll tab contents independently within own container */}
+          <div css={{ flex: 1, overflow: 'auto', marginBottom: theme.spacing.sm, display: 'flex' }}>
+            {renderActiveTab()}
+          </div>
+        </IndexedDBInitializationContextProvider>
       </PageContainer>
       <RenameRunModal
         runUuid={safeRunUuid}

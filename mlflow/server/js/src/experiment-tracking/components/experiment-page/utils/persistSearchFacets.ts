@@ -9,9 +9,13 @@ import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageS
 /**
  * Loads current view state (UI state, view state) in the local storage.
  */
-export function loadExperimentViewState(idKey: string) {
+export function loadExperimentViewState(idKey: string, isIndexedDBAvailable?: boolean) {
   try {
-    const localStorageInstance = LocalStorageUtils.getStoreForComponent('ExperimentPage', idKey);
+    const localStorageInstance = LocalStorageUtils.getIndexedDBScopedStoreForComponent(
+      'ExperimentPage',
+      idKey,
+      !!isIndexedDBAvailable,
+    );
     return localStorageInstance.loadComponentState();
   } catch {
     Utils.logErrorAndNotifyUser(`Error: malformed persisted search state for experiment(s) ${idKey}`);
@@ -26,7 +30,15 @@ export function loadExperimentViewState(idKey: string) {
 /**
  * Persists view state (UI state, view state) in the local storage.
  */
-export function saveExperimentViewState(data: ExperimentPageUIState & ExperimentPageSearchFacetsState, idKey: string) {
-  const localStorageInstance = LocalStorageUtils.getStoreForComponent('ExperimentPage', idKey);
+export function saveExperimentViewState(
+  data: ExperimentPageUIState & ExperimentPageSearchFacetsState,
+  idKey: string,
+  isIndexedDBAvailable?: boolean,
+) {
+  const localStorageInstance = LocalStorageUtils.getIndexedDBScopedStoreForComponent(
+    'ExperimentPage',
+    idKey,
+    !!isIndexedDBAvailable,
+  );
   localStorageInstance.saveComponentState(data);
 }
