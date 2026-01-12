@@ -2,7 +2,8 @@
 name: add-review-comment
 description: Add a review comment to a GitHub pull request.
 allowed-tools:
-  - Bash
+  - Bash(gh api:*)
+  - Bash(gh pr view:*)
 ---
 
 # Add Review Comment
