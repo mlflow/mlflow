@@ -24,6 +24,7 @@ from urllib.parse import urlparse
 import numpy as np
 import pandas as pd
 import yaml
+import packaging.version as version
 from packaging.version import Version
 
 from mlflow import pyfunc
