@@ -60,6 +60,7 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
+from mlflow.entities.gateway_rate_limit import GatewayRateLimitConfig
 from mlflow.entities.gateway_usage import (
     GatewayInvocation,
     GatewayProviderCall,
@@ -2842,4 +2843,83 @@ class SqlGatewayProviderCall(Base):
             total_cost=self.total_cost,
             latency_ms=self.latency_ms,
             created_at=self.created_at,
+        )
+
+
+class SqlGatewayRateLimitConfig(Base):
+    """
+    DB model for gateway rate limit configurations.
+    These are recorded in ``gateway_rate_limits`` table.
+    Stores rate limit settings for gateway endpoints, with optional per-user overrides.
+    """
+
+    __tablename__ = "gateway_rate_limits"
+
+    rate_limit_id = Column(String(36), nullable=False)
+    """
+    Rate limit ID: `String` (limit 36 characters). *Primary Key* for rate limits table.
+    Format: `rl-{uuid}`.
+    """
+    endpoint_id = Column(
+        String(36), ForeignKey("endpoints.endpoint_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Endpoint ID: `String` (limit 36 characters). *Foreign Key* into ``endpoints`` table.
+    Cascades on delete.
+    """
+    queries_per_minute = Column(Integer, nullable=False)
+    """
+    Queries per minute: `Integer`. Maximum number of queries allowed per minute.
+    """
+    username = Column(String(255), nullable=True)
+    """
+    Username: `String` (limit 255 characters). Username for per-user rate limits.
+    Null for default endpoint-level limits.
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`. When the config was created.
+    """
+    updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Update timestamp: `BigInteger`. When the config was last updated.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+
+    endpoint = relationship("SqlGatewayEndpoint", backref=backref("rate_limits", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlGatewayEndpoint`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("rate_limit_id", name="gateway_rate_limits_pk"),
+        UniqueConstraint("endpoint_id", "username", name="uq_rate_limit_endpoint_user"),
+        Index("index_gateway_rate_limits_endpoint_id", "endpoint_id"),
+        Index("index_gateway_rate_limits_username", "username"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlGatewayRateLimitConfig ({self.rate_limit_id}, "
+            f"endpoint={self.endpoint_id}, user={self.username}, qpm={self.queries_per_minute})>"
+        )
+
+    def to_mlflow_entity(self):
+        return GatewayRateLimitConfig(
+            rate_limit_id=self.rate_limit_id,
+            endpoint_id=self.endpoint_id,
+            queries_per_minute=self.queries_per_minute,
+            username=self.username,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+            created_by=self.created_by,
+            updated_by=self.updated_by,
         )
