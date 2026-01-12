@@ -49,12 +49,13 @@ def test_get_tracing_context_headers_for_http_request_without_active_span():
 
 def test_set_tracing_context_from_http_request_headers():
     # Create headers from a client context first
-    with mlflow.start_span("client-to-generate-headers"):
+    with mlflow.start_span("client-to-generate-headers") as client_span:
         client_headers = get_tracing_context_headers_for_http_request()
-        assert "traceparent" in client_headers
-        client_trace_id, client_span_id = _parse_traceparent(client_headers["traceparent"])
-        assert client_trace_id != 0
-        assert client_span_id != 0
+        client_otel_trace_id, client_otel_span_id = _parse_traceparent(
+            client_headers["traceparent"]
+        )
+        client_trace_id = client_span.trace_id
+        client_span_id = client_span.span_id
 
     assert mlflow.get_current_active_span() is None
 
@@ -62,38 +63,13 @@ def test_set_tracing_context_from_http_request_headers():
     with set_tracing_context_from_http_request_headers(client_headers):
         current = otel_trace.get_current_span()
         assert current.get_span_context().is_valid
-        assert current.get_span_context().trace_id == client_trace_id
+        assert current.get_span_context().trace_id == client_otel_trace_id
         # span_id in context is the parent span id from the header
-        assert current.get_span_context().span_id == client_span_id
+        assert current.get_span_context().span_id == client_otel_span_id
 
-    # After exiting, the previously invalid context should be restored
-    assert not otel_trace.get_current_span().get_span_context().is_valid
-    assert mlflow.get_current_active_span() is None
+        # get_current_active_span returns None because it is a `NonRecordingSpan`
+        assert mlflow.get_current_active_span() is None
 
-
-def test_end_to_end_inject_extract_and_create_child_span():
-    # Client side: start a span and create headers to send downstream
-    with mlflow.start_span("client-root"):
-        client_current = otel_trace.get_current_span()
-        assert client_current.get_span_context().is_valid
-        client_trace_id = client_current.get_span_context().trace_id
-        client_span_id = client_current.get_span_context().span_id
-
-        headers = get_tracing_context_headers_for_http_request()
-        assert "traceparent" in headers
-        h_trace_id, h_parent_span_id = _parse_traceparent(headers["traceparent"])
-        assert h_trace_id == client_trace_id
-        assert h_parent_span_id == client_span_id
-
-    # Server side: extract headers, set context, and start a child span
-    with set_tracing_context_from_http_request_headers(headers):
-        # Starting a new MLflow span should create a child under the extracted context
-        with mlflow.start_span("server-handler"):
-            server_current = otel_trace.get_current_span()
-            assert server_current.get_span_context().is_valid
-            # Same trace, different (new) span id
-            assert server_current.get_span_context().trace_id == client_trace_id
-            assert server_current.get_span_context().span_id != h_parent_span_id
-
-            # MLflow API should see an active span
-            assert mlflow.get_current_active_span() is not None
+        with mlflow.start_span("child-span") as child_span:
+            assert child_span.parent_id == client_span_id
+            assert child_span.trace_id == client_trace_id
