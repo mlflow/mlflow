@@ -148,7 +148,7 @@ python_gencode_replacements = [
     ),
     (
         "import prompt_optimization_pb2 as prompt__optimization__pb2",
-        "from . import prompt_optimization_pb2 as prompt_optimization_pb2",
+        "from . import prompt_optimization_pb2 as prompt__optimization__pb2",
     ),
 ]
 

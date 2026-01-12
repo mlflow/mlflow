@@ -41,8 +41,14 @@ def _create_optimizer(
     optimizer_type_lower = optimizer_type.lower() if optimizer_type else ""
 
     if optimizer_type_lower == "gepa":
+        reflection_model = config.get("reflection_model")
+        if not reflection_model:
+            raise MlflowException.invalid_parameter_value(
+                "Missing required optimizer configuration: 'reflection_model' must be specified "
+                "in optimizer_config_json for the GEPA optimizer (e.g., 'openai:/gpt-4o')."
+            )
         return GepaPromptOptimizer(
-            reflection_model=config.get("reflection_model", "openai:/gpt-4o"),
+            reflection_model=reflection_model,
             max_metric_calls=config.get("max_metric_calls", 100),
             display_progress_bar=config.get("display_progress_bar", False),
             gepa_kwargs=config.get("gepa_kwargs"),
@@ -175,9 +181,9 @@ def _load_train_data_from_dataset(dataset_id: str) -> list[dict[str, Any]]:
     records = []
     for _, row in df.iterrows():
         record = {"inputs": row["inputs"]}
-        if row.get("outputs") is not None:
+        if "outputs" in row and row["outputs"] is not None:
             record["outputs"] = row["outputs"]
-        if row.get("expectations") is not None:
+        if "expectations" in row and row["expectations"] is not None:
             record["expectations"] = row["expectations"]
         records.append(record)
 

@@ -301,6 +301,15 @@ MAX_RESULTS_PER_RUN = 2500
 # Chunk size for streaming artifact uploads and downloads (1 MB)
 ARTIFACT_STREAM_CHUNK_SIZE = 1024 * 1024
 
+# Map internal job status to optimization job status proto enum
+_JOB_STATUS_TO_OPTIMIZATION_STATUS = {
+    "PENDING": OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_PENDING,
+    "RUNNING": OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_IN_PROGRESS,
+    "SUCCEEDED": OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_COMPLETED,
+    "FAILED": OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_FAILED,
+    "CANCELLED": OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_CANCELED,
+}
+
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
     def __init__(self):
@@ -5211,10 +5220,15 @@ def _create_optimization_job():
     # Convert proto enum to string for optimizer_type
     # OptimizerType enum: OPTIMIZER_TYPE_UNSPECIFIED=0, OPTIMIZER_TYPE_GEPA=1
     optimizer_type_map = {
-        0: "",  # OPTIMIZER_TYPE_UNSPECIFIED
         1: "gepa",  # OPTIMIZER_TYPE_GEPA
     }
-    optimizer_type = optimizer_type_map.get(config.optimizer_type, "")
+    optimizer_type = optimizer_type_map.get(config.optimizer_type)
+    if not optimizer_type:
+        raise MlflowException(
+            f"Invalid or unspecified optimizer_type: {config.optimizer_type}. "
+            "Supported types: OPTIMIZER_TYPE_GEPA (1).",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     params = {
         "experiment_id": request_message.experiment_id,
@@ -5256,19 +5270,10 @@ def _get_optimization_job(job_id):
 
     job_entity = get_job(job_id)
 
-    # Map job status to optimization job status
-    status_map = {
-        "PENDING": OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_PENDING,
-        "RUNNING": OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_IN_PROGRESS,
-        "SUCCEEDED": OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_COMPLETED,
-        "FAILED": OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_FAILED,
-        "CANCELLED": OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_CANCELED,
-    }
-
     response_message = GetOptimizationJob.Response()
     optimization_job = OptimizationJobProto()
     optimization_job.job_id = job_entity.job_id
-    optimization_job.status = status_map.get(
+    optimization_job.status = _JOB_STATUS_TO_OPTIMIZATION_STATUS.get(
         job_entity.status.name,
         OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_UNSPECIFIED,
     )
@@ -5280,16 +5285,6 @@ def _get_optimization_job(job_id):
         optimization_job.experiment_id = params["experiment_id"]
 
     optimization_job.run_id = job_entity.job_id
-
-    # If job completed, add result info
-    if job_entity.parsed_result and job_entity.status.name == "SUCCEEDED":
-        result = job_entity.parsed_result
-        if "optimized_prompt_uris" in result:
-            # TODO: Load optimized prompt details if needed
-            pass
-        if "final_eval_score" in result:
-            # Store in tags or other fields as needed
-            pass
 
     # If job failed, add error message
     # For failed jobs, parsed_result returns the raw error string directly
@@ -5328,21 +5323,12 @@ def _search_optimization_jobs():
         params=params_filter,
     )
 
-    # Map job status to optimization job status
-    status_map = {
-        "PENDING": OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_PENDING,
-        "RUNNING": OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_IN_PROGRESS,
-        "SUCCEEDED": OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_COMPLETED,
-        "FAILED": OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_FAILED,
-        "CANCELLED": OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_CANCELED,
-    }
-
     response_message = SearchOptimizationJobs.Response()
 
     for job_entity in jobs:
         optimization_job = OptimizationJobProto()
         optimization_job.job_id = job_entity.job_id
-        optimization_job.status = status_map.get(
+        optimization_job.status = _JOB_STATUS_TO_OPTIMIZATION_STATUS.get(
             job_entity.status.name,
             OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_UNSPECIFIED,
         )
