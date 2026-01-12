@@ -4673,7 +4673,7 @@ def _invoke_scorer_handler():
         )
     if not trace_ids:
         raise MlflowException(
-            "Missing required parameter: trace_ids",
+            "Please select at least one trace to evaluate.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
