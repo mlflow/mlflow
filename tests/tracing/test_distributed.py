@@ -1,6 +1,12 @@
 import re
+import sys
+import textwrap
+import time
+from pathlib import Path
+from subprocess import Popen
 
 import pytest
+import requests
 from opentelemetry import trace as otel_trace
 
 import mlflow
@@ -9,6 +15,8 @@ from mlflow.tracing.distributed import (
     get_tracing_context_headers_for_http_request,
     set_tracing_context_from_http_request_headers,
 )
+
+from tests.helper_functions import get_safe_port
 
 
 def _parse_traceparent(header_value: str) -> tuple[int, int]:
@@ -28,6 +36,7 @@ def _parse_traceparent(header_value: str) -> tuple[int, int]:
 
 def test_get_tracing_context_headers_for_http_request_in_active_span():
     with mlflow.start_span("client-span"):
+        breakpoint()
         current_span = otel_trace.get_current_span()
         assert current_span.get_span_context().is_valid
         client_trace_id = current_span.get_span_context().trace_id
@@ -80,3 +89,71 @@ def test_set_tracing_context_from_http_request_headers():
         with mlflow.start_span("child-span") as child_span:
             assert child_span.parent_id == client_span_id
             assert child_span.trace_id == client_trace_id
+
+
+def test_distributed_e2e_in_subprocess(tmp_path):
+    # Prepare a minimal Flask server script that extracts headers and starts a child span
+    server_code = textwrap.dedent(
+        """
+        import sys
+        import json
+        from flask import Flask, request, jsonify
+        import mlflow
+        from mlflow.tracing.distributed import set_tracing_context_from_http_request_headers
+
+        app = Flask(__name__)
+
+        @app.get("/health")
+        def health():
+            return "ok", 200
+
+        @app.post("/handle")
+        def handle():
+            # Forward all headers for extraction
+            headers = dict(request.headers)
+            with set_tracing_context_from_http_request_headers(headers):
+                with mlflow.start_span("server-handler") as span:
+                    return jsonify({
+                        "trace_id": span.trace_id,
+                        "span_id": span.span_id,
+                        "parent_id": span.parent_id,
+                    })
+
+        if __name__ == "__main__":
+            port = int(sys.argv[1])
+            app.run(host="127.0.0.1", port=port, debug=False, use_reloader=False)
+        """
+    )
+
+    server_path = Path(tmp_path) / "flask_server.py"
+    server_path.write_text(server_code)
+
+    port = get_safe_port()
+
+    # Start server in a separate process
+    proc = Popen([sys.executable, str(server_path), str(port)])
+    try:
+        base_url = f"http://127.0.0.1:{port}"
+        # Wait until server is ready
+        for _ in range(30):
+            try:
+                r = requests.get(f"{base_url}/health", timeout=1.0)
+                if r.ok:
+                    break
+            except requests.exceptions.RequestException:
+                time.sleep(0.2)
+        else:
+            raise RuntimeError("Flask server failed to start")
+
+        # Client side: create a span and send headers to server
+        with mlflow.start_span("client-root") as client_span:
+            headers = get_tracing_context_headers_for_http_request()
+            resp = requests.post(f"{base_url}/handle", headers=headers, timeout=5)
+            assert resp.ok, f"Server returned {resp.status_code}: {resp.text}"
+            payload = resp.json()
+
+            # Validate server span is a child in the same trace
+            assert payload["trace_id"] == client_span.trace_id
+            assert payload["parent_id"] == client_span.span_id
+    finally:
+        proc.terminate()

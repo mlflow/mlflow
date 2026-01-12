@@ -74,7 +74,7 @@ class InMemoryTraceManager:
         self._lock = threading.RLock()  # Lock for _traces
 
         # Store whether the trace ID points to a distributed trace.
-        self._is_distributed_trace: dict[str, bool] = {}
+        self._is_distributed_trace: dict[int, bool] = {}
 
     def register_trace(self, otel_trace_id: int, trace_info: TraceInfo, is_distributed_trace=False):
         """
@@ -90,7 +90,7 @@ class InMemoryTraceManager:
         with self._lock:
             self._traces[trace_info.trace_id] = _Trace(trace_info)
             self._otel_id_to_mlflow_trace_id[otel_trace_id] = trace_info.trace_id
-            self._is_distributed_trace[trace_info.trace_id] = is_distributed_trace
+            self._is_distributed_trace[otel_trace_id] = is_distributed_trace
 
     def register_span(self, span: LiveSpan):
         """

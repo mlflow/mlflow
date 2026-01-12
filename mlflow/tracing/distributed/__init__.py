@@ -8,12 +8,11 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 
 import mlflow
 from mlflow import MlflowException
-from mlflow.tracking.fluent import _get_experiment_id as _get_experiment_id
 
 _logger = logging.getLogger(__name__)
 
 
-_MLFLOW_TRACE_INFO_HTTP_HEADER_KEY = "__MLFLOW_TRACE_INFO__"
+_MLFLOW_TRACE_INFO_HTTP_HEADER_KEY = "Mlflow-Trace-Info"
 
 
 def get_tracing_context_headers_for_http_request():
@@ -68,6 +67,21 @@ def set_tracing_context_from_http_request_headers(headers):
     token = None
     try:
         headers = dict(headers)
+
+        if "Traceparent" in headers:
+            # Note: Some http server framework (e.g. flask) converts http header key
+            # first letter to upper case, but `TraceContextTextMapPropagator` can't
+            # recognize the key 'Traceparent', so that convert it to lower case.
+            traceparent = headers.pop("Traceparent")
+            headers["traceparent"] = traceparent
+
+        if not ("traceparent" in headers and _MLFLOW_TRACE_INFO_HTTP_HEADER_KEY in headers):
+            raise MlflowException.invalid_parameter_value(
+                "The http request headers do not contain the required key 'traceparent' or "
+                f"'{_MLFLOW_TRACE_INFO_HTTP_HEADER_KEY}', please generate the request headers "
+                f"by 'mlflow.tracing.distributed.get_tracing_context_headers_for_http_request' "
+                f"API."
+            )
         ctx = TraceContextTextMapPropagator().extract(headers)
         token = context_api.attach(ctx)
 
