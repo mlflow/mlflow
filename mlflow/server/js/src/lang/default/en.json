@@ -115,6 +115,10 @@
     "defaultMessage": "No traces found. Try clearing your active filters to see more traces.",
     "description": "Text displayed when no traces are found in the trace review page"
   },
+  "+tURAJ": {
+    "defaultMessage": "Cancel",
+    "description": "Button text for canceling evaluation"
+  },
   "+w9a+1": {
     "defaultMessage": "Open runs in this group in the new tab",
     "description": "Experiment page > grouped runs table > tooltip for a button that opens runs in a group in a new tab"
@@ -5794,6 +5798,10 @@
   "icBP3T": {
     "defaultMessage": "TRUE",
     "description": "Header label for boolean assessment type for the true rate"
+  },
+  "ieY8lf": {
+    "defaultMessage": "Evaluating {isTraces, select, true {traces} other {sessions}}...",
+    "description": "Status text while evaluating traces or sessions"
   },
   "igK5Su": {
     "defaultMessage": "Error",
