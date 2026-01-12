@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.entities.gateway_usage import InvocationStatus, ProviderCallInput, ProviderCallStatus
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.rate_limiter import get_rate_limiter
 from mlflow.gateway.config import (
     AnthropicConfig,
     EndpointConfig,
@@ -52,6 +53,47 @@ from mlflow.tracking._tracking_service.utils import _get_store
 _logger = logging.getLogger(__name__)
 
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
+
+
+def _check_rate_limit(
+    store: AbstractStore,
+    endpoint_id: str,
+    request: Request,
+) -> None:
+    """
+    Check rate limit for a request and raise HTTPException if exceeded.
+
+    Args:
+        store: The tracking store.
+        endpoint_id: The endpoint ID being called.
+        request: The FastAPI request object (used to extract username).
+
+    Raises:
+        HTTPException: With status 429 if rate limit is exceeded.
+    """
+    # Extract username from request headers if available
+    # Common patterns: X-User-Id, X-Username, Authorization header parsing
+    username = request.headers.get("X-Username") or request.headers.get("X-User-Id")
+
+    rate_limiter = get_rate_limiter()
+    allowed, limit, remaining = rate_limiter.check_rate_limit(store, endpoint_id, username)
+
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "rate_limit_exceeded",
+                "message": f"Rate limit exceeded: {limit} queries per minute",
+                "limit": limit,
+                "remaining": 0,
+                "retry_after": 60,
+            },
+            headers={
+                "X-RateLimit-Limit": str(limit),
+                "X-RateLimit-Remaining": "0",
+                "Retry-After": "60",
+            },
+        )
 
 
 def _extract_usage_from_response(response: Any) -> dict[str, int]:
@@ -522,6 +564,9 @@ async def invocations(endpoint_name: str, request: Request):
         provider, endpoint_id = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
         provider_name, model_name = _get_provider_info(provider)
 
+        # Check rate limit before processing
+        _check_rate_limit(store, endpoint_id, request)
+
         if payload.stream:
             # For streaming, we can't easily track usage as tokens come incrementally
             return await make_streaming_response(provider.chat_stream(payload))
@@ -566,6 +611,9 @@ async def invocations(endpoint_name: str, request: Request):
 
         provider, endpoint_id = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
         provider_name, model_name = _get_provider_info(provider)
+
+        # Check rate limit before processing
+        _check_rate_limit(store, endpoint_id, request)
 
         start_time = time.time()
         try:
@@ -642,6 +690,9 @@ async def chat_completions(request: Request):
 
     provider, endpoint_id = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
     provider_name, model_name = _get_provider_info(provider)
+
+    # Check rate limit before processing
+    _check_rate_limit(store, endpoint_id, request)
 
     if payload.stream:
         # For streaming, we can't easily track usage as tokens come incrementally
