@@ -187,14 +187,19 @@ def generate_requirements_from_yaml(requirements_yaml: RequirementsYaml) -> list
 
         extras = f"[{','.join(package_entry.extras)}]" if package_entry.extras else ""
 
-        max_major_version = package_entry.max_major_version
-        version_specs.append(f"<{max_major_version + 1}")
+        if package_entry.freeze:
+            if not package_entry.minimum:
+                raise ValueError(f"'freeze' requires a minimum version for {pip_release}")
+            version_specs.append(f"=={package_entry.minimum}")
+        else:
+            max_major_version = package_entry.max_major_version
+            version_specs.append(f"<{max_major_version + 1}")
 
-        if package_entry.minimum:
-            version_specs.append(f">={package_entry.minimum}")
+            if package_entry.minimum:
+                version_specs.append(f">={package_entry.minimum}")
 
-        if package_entry.unsupported:
-            version_specs.extend(f"!={version}" for version in package_entry.unsupported)
+            if package_entry.unsupported:
+                version_specs.extend(f"!={version}" for version in package_entry.unsupported)
 
         markers = f"; {package_entry.markers}" if package_entry.markers else ""
 

@@ -44,6 +44,7 @@ dependencies = [
   "scikit-learn<2",
   "scipy<2",
   "sqlalchemy<3,>=1.4.0",
+  "uv==0.9.8",
   "waitress<4; platform_system == 'Windows'",
 ]
 [[project.maintainers]]
