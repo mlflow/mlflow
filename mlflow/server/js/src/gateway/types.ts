@@ -286,3 +286,43 @@ export interface UsageMetricsEntry {
 export interface UsageMetricsResponse {
   metrics: UsageMetricsEntry[];
 }
+
+// Rate Limit Types
+
+export interface RateLimitConfig {
+  rate_limit_id: string;
+  endpoint_id: string;
+  queries_per_minute: number;
+  username?: string;
+  created_at: number;
+  updated_at: number;
+  created_by?: string;
+  updated_by?: string;
+}
+
+export interface CreateRateLimitRequest {
+  endpoint_id: string;
+  queries_per_minute: number;
+  username?: string;
+}
+
+export interface CreateRateLimitResponse {
+  rate_limit: RateLimitConfig;
+}
+
+export interface GetRateLimitResponse {
+  rate_limit: RateLimitConfig;
+}
+
+export interface ListRateLimitsResponse {
+  rate_limits: RateLimitConfig[];
+}
+
+export interface UpdateRateLimitRequest {
+  rate_limit_id: string;
+  queries_per_minute: number;
+}
+
+export interface UpdateRateLimitResponse {
+  rate_limit: RateLimitConfig;
+}

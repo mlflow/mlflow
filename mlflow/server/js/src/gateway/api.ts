@@ -30,6 +30,12 @@ import type {
   ListEndpointBindingsResponse,
   SecretsConfigResponse,
   UsageMetricsResponse,
+  CreateRateLimitRequest,
+  CreateRateLimitResponse,
+  GetRateLimitResponse,
+  ListRateLimitsResponse,
+  UpdateRateLimitRequest,
+  UpdateRateLimitResponse,
 } from './types';
 
 const defaultErrorHandler = async ({
@@ -326,5 +332,58 @@ export const GatewayApi = {
       relativeUrl,
       error: defaultErrorHandler,
     }) as Promise<UsageMetricsResponse>;
+  },
+
+  // Rate Limits Management
+  createRateLimit: (request: CreateRateLimitRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/rate-limits/create',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<CreateRateLimitResponse>;
+  },
+
+  getRateLimit: (rateLimitId: string) => {
+    const params = new URLSearchParams();
+    params.append('rate_limit_id', rateLimitId);
+    const relativeUrl = ['ajax-api/3.0/mlflow/gateway/rate-limits/get', params.toString()].join('?');
+    return fetchEndpoint({
+      relativeUrl,
+      error: defaultErrorHandler,
+    }) as Promise<GetRateLimitResponse>;
+  },
+
+  listRateLimits: (endpointId?: string) => {
+    const params = new URLSearchParams();
+    if (endpointId) {
+      params.append('endpoint_id', endpointId);
+    }
+    const queryString = params.toString();
+    const relativeUrl = queryString
+      ? `ajax-api/3.0/mlflow/gateway/rate-limits/list?${queryString}`
+      : 'ajax-api/3.0/mlflow/gateway/rate-limits/list';
+    return fetchEndpoint({
+      relativeUrl,
+      error: defaultErrorHandler,
+    }) as Promise<ListRateLimitsResponse>;
+  },
+
+  updateRateLimit: (request: UpdateRateLimitRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/rate-limits/update',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<UpdateRateLimitResponse>;
+  },
+
+  deleteRateLimit: (rateLimitId: string) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/rate-limits/delete',
+      method: 'DELETE',
+      body: JSON.stringify({ rate_limit_id: rateLimitId }),
+      error: defaultErrorHandler,
+    });
   },
 };
