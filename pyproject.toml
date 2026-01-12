@@ -322,6 +322,7 @@ select = [
   "PT012",   # pytest-raises-with-multiple-statements
   "PT013",   # pytest-incorrect-pytest-import
   "PT014",   # pytest-duplicate-parametrize-test-cases
+  "PT017",   # pytest-assert-in-except
   "PT018",   # pytest-composite-assertion
   "PT022",   # pytest-useless-yield-fixture
   "PT023",   # pytest-incorrect-mark-parentheses-style
