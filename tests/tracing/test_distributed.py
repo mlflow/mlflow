@@ -90,7 +90,7 @@ def test_set_tracing_context_from_http_request_headers():
             assert child_span.trace_id == client_trace_id
 
 
-def test_distributed_e2e_in_subprocess(tmp_path):
+def test_distributed_tracing_e2e(tmp_path):
     # Prepare a minimal Flask server script that extracts headers and starts a child span
     server_code = textwrap.dedent(
         """
@@ -156,3 +156,18 @@ def test_distributed_e2e_in_subprocess(tmp_path):
             assert payload["parent_id"] == client_span.span_id
     finally:
         proc.terminate()
+
+    mlflow.flush_trace_async_logging()
+    trace = mlflow.get_trace(client_span.trace_id)
+
+    assert trace is not None, "Trace not found"
+    spans = trace.data.spans
+    assert len(spans) == 2
+
+    # Identify root and child
+    root_span = next(s for s in spans if s.parent_id is None)
+    child_span = next(s for s in spans if s.parent_id is not None)
+
+    assert root_span.name == "client-root"
+    assert child_span.name == "server-handler"
+    assert child_span.parent_id == root_span.span_id

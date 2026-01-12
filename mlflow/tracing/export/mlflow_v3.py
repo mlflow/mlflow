@@ -66,6 +66,11 @@ class MlflowV3SpanExporter(SpanExporter):
 
         for span in spans:
             if trace_manager._is_distributed_trace[span.get_span_context().trace_id]:
+                raise RuntimeError(
+                    "The MLflow tracing store backend does not support exporting spans "
+                    "incrementally. In the case, exporting the distributed tracing span "
+                    f"{span.name} that is created in a remote process is not supported."
+                )
                 _logger.warning(
                     "The MLflow tracing store backend does not support exporting spans "
                     "incrementally. In the case, exporting the distributed tracing span "
