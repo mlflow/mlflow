@@ -98,7 +98,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
             display: 'flex',
             alignItems: 'center',
             gap: theme.spacing.sm,
-            padding: `${theme.spacing.sm}px 0`,
+            padding: `0 0`,
           }}
         >
           {/* Search input */}
