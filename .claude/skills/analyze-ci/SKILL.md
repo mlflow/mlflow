@@ -2,7 +2,7 @@
 name: analyze-ci
 description: Analyze failed GitHub Action jobs for a pull request.
 allowed-tools:
-  - Bash
+  - Bash(uv run skills analyze-ci:*)
 ---
 
 # Analyze CI Failures

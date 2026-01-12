@@ -57,6 +57,7 @@ dependencies = [
   "requests<3,>=2.17.3",
   "scikit-learn<2",
   "scipy<2",
+  "skops<1",
   "sqlalchemy<3,>=1.4.0",
   "sqlparse<1,>=0.4.0",
   "typing-extensions<5,>=4.0.0",
@@ -321,6 +322,7 @@ select = [
   "PT012",   # pytest-raises-with-multiple-statements
   "PT013",   # pytest-incorrect-pytest-import
   "PT014",   # pytest-duplicate-parametrize-test-cases
+  "PT017",   # pytest-assert-in-except
   "PT018",   # pytest-composite-assertion
   "PT022",   # pytest-useless-yield-fixture
   "PT023",   # pytest-incorrect-mark-parentheses-style
