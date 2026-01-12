@@ -58,8 +58,19 @@ class MlflowV3SpanExporter(SpanExporter):
             spans: A sequence of OpenTelemetry ReadableSpan objects passed from
                 a span processor. All spans (root and non-root) are exported.
         """
+
         if self._should_export_spans_incrementally:
             self._export_spans_incrementally(spans)
+
+        trace_manager = InMemoryTraceManager.get_instance()
+
+        for span in spans:
+            if trace_manager._is_distributed_trace[span.trace_id]:
+                _logger.warning(
+                    "The MLflow tracing store backend does not support exporting spans "
+                    "incrementally. In the case, exporting the distributed tracing span "
+                    f"{span.name} that is created in a remote process is not supported."
+                )
 
         self._export_traces(spans)
 
