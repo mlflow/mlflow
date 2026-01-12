@@ -12,12 +12,14 @@ import {
   OverviewChartContainer,
   ScrollableTooltip,
   useChartXAxisProps,
+  useChartYAxisProps,
   useChartZoomSelectionProps,
 } from './OverviewChartComponents';
 
 export const TraceRequestsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const xAxisProps = useChartXAxisProps();
+  const yAxisProps = useChartYAxisProps();
   const zoomSelectionProps = useChartZoomSelectionProps();
 
   // Fetch and process requests chart data (includes zoom state)
@@ -57,14 +59,14 @@ export const TraceRequestsChart: React.FC = () => {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={zoomedData}
-              margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+              margin={{ top: 10, right: 20, left: 10, bottom: 0 }}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
             >
               <XAxis dataKey="name" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
                 content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}

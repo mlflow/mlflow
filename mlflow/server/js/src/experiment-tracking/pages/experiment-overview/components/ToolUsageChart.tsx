@@ -12,6 +12,7 @@ import {
   OverviewChartTimeLabel,
   ScrollableTooltip,
   useChartXAxisProps,
+  useChartYAxisProps,
   useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartUtils';
@@ -23,6 +24,7 @@ import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartU
 export const ToolUsageChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const xAxisProps = useChartXAxisProps();
+  const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
   const { getChartColor } = useChartColors();
@@ -58,7 +60,7 @@ export const ToolUsageChart: React.FC = () => {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <XAxis dataKey="timestamp" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
                 content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}

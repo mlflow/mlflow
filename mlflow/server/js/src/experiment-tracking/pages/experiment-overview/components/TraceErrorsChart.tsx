@@ -12,6 +12,7 @@ import {
   OverviewChartTimeLabel,
   ScrollableTooltip,
   useChartXAxisProps,
+  useChartYAxisProps,
   useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { useLegendHighlight } from '../utils/chartUtils';
@@ -19,6 +20,7 @@ import { useLegendHighlight } from '../utils/chartUtils';
 export const TraceErrorsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const xAxisProps = useChartXAxisProps();
+  const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
 
@@ -58,8 +60,14 @@ export const TraceErrorsChart: React.FC = () => {
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <XAxis dataKey="name" {...xAxisProps} />
-              <YAxis yAxisId="left" hide />
-              <YAxis yAxisId="right" domain={[0, 100]} hide />
+              <YAxis yAxisId="left" {...yAxisProps} />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                domain={[0, 100]}
+                tickFormatter={(v) => `${v}%`}
+                {...yAxisProps}
+              />
               <Tooltip
                 content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
