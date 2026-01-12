@@ -270,3 +270,26 @@ export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ 
     </div>
   );
 };
+
+/**
+ * Hook that returns props for ReferenceArea to show zoom selection highlight.
+ * Use this with Recharts ReferenceArea component directly since Recharts
+ * components must be direct children of the chart.
+ *
+ * @example
+ * const zoomSelectionProps = useChartZoomSelectionProps();
+ * <BarChart>
+ *   {refAreaLeft && refAreaRight && (
+ *     <ReferenceArea x1={refAreaLeft} x2={refAreaRight} {...zoomSelectionProps} />
+ *   )}
+ * </BarChart>
+ */
+export function useChartZoomSelectionProps() {
+  const { theme } = useDesignSystemTheme();
+
+  return {
+    strokeOpacity: 0.3,
+    fill: theme.colors.blue200,
+    fillOpacity: 0.3,
+  };
+}
