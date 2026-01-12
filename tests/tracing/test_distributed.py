@@ -14,10 +14,6 @@ def _parse_traceparent(header_value: str) -> tuple[int, int]:
     Parse W3C traceparent header into (trace_id_int, span_id_int).
     Format: version-traceid-spanid-flags (all lowercase hex, no 0x prefix).
     """
-    # Basic validation to provide clearer error messages in case of malformed headers
-    assert isinstance(header_value, str) and header_value, (
-        "traceparent header must be a non-empty string"
-    )
     parts = header_value.split("-")
     assert len(parts) == 4, f"Invalid traceparent format: {header_value}"
     version, trace_id_hex, span_id_hex, flags = parts
@@ -37,7 +33,7 @@ def test_get_tracing_context_headers_for_http_request_in_active_span():
 
         headers: dict[str, str] = get_tracing_context_headers_for_http_request()
         assert isinstance(headers, dict)
-        assert "traceparent" in headers and headers["traceparent"]
+        assert "traceparent" in headers
 
         # Validate that the header encodes the same trace and span IDs
         header_trace_id, header_span_id = _parse_traceparent(headers["traceparent"])
@@ -48,21 +44,18 @@ def test_get_tracing_context_headers_for_http_request_in_active_span():
 def test_get_tracing_context_headers_for_http_request_without_active_span():
     # No active span: injection should not add a traceparent header
     headers: dict[str, str] = get_tracing_context_headers_for_http_request()
-    # OpenTelemetry inject typically omits headers when context is invalid
-    assert "traceparent" not in headers
-    assert headers == {} or not headers.get("traceparent")
+    assert headers == {}
 
 
-def test_set_tracing_context_from_http_request_headers_attaches_and_detaches():
+def test_set_tracing_context_from_http_request_headers():
     # Create headers from a client context first
     with mlflow.start_span("client-to-generate-headers"):
         client_headers = get_tracing_context_headers_for_http_request()
         assert "traceparent" in client_headers
         client_trace_id, client_span_id = _parse_traceparent(client_headers["traceparent"])
-        assert client_trace_id != 0 and client_span_id != 0
+        assert client_trace_id != 0
+        assert client_span_id != 0
 
-    # Outside the client span, there should be no active span
-    assert not otel_trace.get_current_span().get_span_context().is_valid
     assert mlflow.get_current_active_span() is None
 
     # Attach the context from headers and verify it becomes current inside the block
@@ -80,7 +73,7 @@ def test_set_tracing_context_from_http_request_headers_attaches_and_detaches():
 
 def test_end_to_end_inject_extract_and_create_child_span():
     # Client side: start a span and create headers to send downstream
-    with mlflow.start_span("client-root") as client_mlflow_span:
+    with mlflow.start_span("client-root"):
         client_current = otel_trace.get_current_span()
         assert client_current.get_span_context().is_valid
         client_trace_id = client_current.get_span_context().trace_id
