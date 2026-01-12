@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from contextlib import nullcontext
 from typing import Any
 
 import mlflow
@@ -94,7 +95,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
 
     Automatically detects optimization mode based on training data:
     - Zero-shot: No evaluation data - applies general prompt engineering best practices
-    - Few-shot: Has evaluation data - learns from feedback on examples
+    - Few-shot: Has evaluation data - learns from evaluation results
 
     This optimizer performs a single optimization pass, making it faster than iterative
     approaches like GEPA while requiring less data. The optimized prompt is always
@@ -233,7 +234,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         # Auto-detect mode based on training data
         if not train_data:
             _logger.info("No training data provided, using zero-shot metaprompting")
-            return self._optimize_zero_shot(target_prompts, template_variables)
+            return self._optimize_zero_shot(target_prompts, template_variables, enable_tracking)
         else:
             _logger.info(
                 f"{len(train_data)} training examples provided, using few-shot metaprompting"
@@ -251,6 +252,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         self,
         target_prompts: dict[str, str],
         template_variables: dict[str, set[str]],
+        enable_tracking: bool,
     ) -> PromptOptimizerOutput:
         """
         Optimize prompts using zero-shot metaprompting (no evaluation data).
@@ -259,11 +261,10 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         """
         _logger.info("Applying zero-shot prompt optimization with best practices")
 
-        # Build meta-prompt
         meta_prompt = self._build_zero_shot_meta_prompt(target_prompts, template_variables)
 
         try:
-            improved_prompts = self._call_reflection_model(meta_prompt)
+            improved_prompts = self._call_reflection_model(meta_prompt, enable_tracking)
 
             self._validate_prompt_names(target_prompts, improved_prompts)
             self._validate_template_variables(target_prompts, improved_prompts)
@@ -321,12 +322,9 @@ class MetaPromptOptimizer(BasePromptOptimizer):
 
         # Call LLM to generate improved prompts
         try:
-            improved_prompts = self._call_reflection_model(meta_prompt)
+            improved_prompts = self._call_reflection_model(meta_prompt, enable_tracking)
 
-            # Validate prompt names match
             self._validate_prompt_names(target_prompts, improved_prompts)
-
-            # Validate template variables are preserved
             self._validate_template_variables(target_prompts, improved_prompts)
 
             _logger.info("Successfully generated optimized prompts")
@@ -560,7 +558,9 @@ have prevented the failures you identified."""
             )
         return "\n".join(formatted)
 
-    def _call_reflection_model(self, meta_prompt: str) -> dict[str, str]:
+    def _call_reflection_model(
+        self, meta_prompt: str, enable_tracking: bool = True
+    ) -> dict[str, str]:
         """Call the reflection model to generate improved prompts."""
         try:
             import litellm
@@ -582,9 +582,15 @@ have prevented the failures you identified."""
 
         content = None  # Initialize to avoid NameError in exception handler
 
-        with mlflow.start_span(name="metaprompt_reflection", span_type=SpanType.LLM) as span:
-            # Set span inputs
-            span.set_inputs({"meta_prompt": meta_prompt, "model": litellm_model})
+        span_context = (
+            mlflow.start_span(name="metaprompt_reflection", span_type=SpanType.LLM)
+            if enable_tracking
+            else nullcontext()
+        )
+
+        with span_context as span:
+            if enable_tracking:
+                span.set_inputs({"meta_prompt": meta_prompt, "model": litellm_model})
 
             try:
                 response = litellm.completion(**litellm_params)
@@ -615,8 +621,8 @@ have prevented the failures you identified."""
                             f"Prompt '{key}' must be a string, got {type(value).__name__}"
                         )
 
-                # Set span outputs
-                span.set_outputs(improved_prompts)
+                if enable_tracking:
+                    span.set_outputs(improved_prompts)
 
                 return improved_prompts
 
