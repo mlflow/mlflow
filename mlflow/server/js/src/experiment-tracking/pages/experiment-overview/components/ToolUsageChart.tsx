@@ -12,7 +12,7 @@ import {
   OverviewChartTimeLabel,
   useChartTooltipStyle,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useScrollableLegendProps,
 } from './OverviewChartComponents';
 import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartUtils';
 
@@ -24,7 +24,7 @@ export const ToolUsageChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
   const { getChartColor } = useChartColors();
 
@@ -72,10 +72,9 @@ export const ToolUsageChart: React.FC = () => {
               <Legend
                 verticalAlign="bottom"
                 iconType="square"
-                height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={legendFormatter}
+                {...scrollableLegendProps}
               />
             </BarChart>
           </ResponsiveContainer>
