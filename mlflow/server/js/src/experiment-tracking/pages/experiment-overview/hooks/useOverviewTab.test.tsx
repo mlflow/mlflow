@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useOverviewTab, OverviewTab } from './useOverviewTab';
 
 // Mock the routing utils
@@ -67,57 +67,8 @@ describe('useOverviewTab', () => {
     });
   });
 
-  describe('redirect behavior', () => {
-    it('should redirect to default tab when no tab specified', async () => {
-      mockUseParams.mockReturnValue({ experimentId: '123', overviewTab: undefined });
-      mockUseLocation.mockReturnValue({ search: '' });
-
-      renderHook(() => useOverviewTab());
-
-      await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith('/experiments/123/overview/usage', { replace: true });
-      });
-    });
-
-    it('should redirect to default tab when invalid tab specified', async () => {
-      mockUseParams.mockReturnValue({ experimentId: '123', overviewTab: 'invalid' });
-      mockUseLocation.mockReturnValue({ search: '' });
-
-      renderHook(() => useOverviewTab());
-
-      await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith('/experiments/123/overview/usage', { replace: true });
-      });
-    });
-
-    it('should preserve query params when redirecting', async () => {
-      mockUseParams.mockReturnValue({ experimentId: '123', overviewTab: undefined });
-      mockUseLocation.mockReturnValue({ search: '?startTimeLabel=LAST_7_DAYS' });
-
-      renderHook(() => useOverviewTab());
-
-      await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith('/experiments/123/overview/usage?startTimeLabel=LAST_7_DAYS', {
-          replace: true,
-        });
-      });
-    });
-
-    it('should not redirect when valid tab is specified', async () => {
-      mockUseParams.mockReturnValue({ experimentId: '123', overviewTab: 'quality' });
-      mockUseLocation.mockReturnValue({ search: '' });
-
-      renderHook(() => useOverviewTab());
-
-      // Wait a tick to ensure useEffect has run
-      await waitFor(() => {
-        expect(mockNavigate).not.toHaveBeenCalled();
-      });
-    });
-  });
-
   describe('setActiveTab', () => {
-    it('should navigate to the new tab', async () => {
+    it('should navigate to the new tab', () => {
       mockUseParams.mockReturnValue({ experimentId: '123', overviewTab: 'usage' });
       mockUseLocation.mockReturnValue({ search: '' });
 
@@ -127,12 +78,10 @@ describe('useOverviewTab', () => {
         result.current[1](OverviewTab.Quality);
       });
 
-      await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith('/experiments/123/overview/quality', { replace: true });
-      });
+      expect(mockNavigate).toHaveBeenCalledWith('/experiments/123/overview/quality', { replace: true });
     });
 
-    it('should preserve query params when changing tabs', async () => {
+    it('should preserve query params when changing tabs', () => {
       mockUseParams.mockReturnValue({ experimentId: '123', overviewTab: 'usage' });
       mockUseLocation.mockReturnValue({ search: '?startTimeLabel=LAST_7_DAYS&foo=bar' });
 
@@ -142,15 +91,13 @@ describe('useOverviewTab', () => {
         result.current[1](OverviewTab.ToolCalls);
       });
 
-      await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith(
-          '/experiments/123/overview/tool-calls?startTimeLabel=LAST_7_DAYS&foo=bar',
-          { replace: true },
-        );
-      });
+      expect(mockNavigate).toHaveBeenCalledWith(
+        '/experiments/123/overview/tool-calls?startTimeLabel=LAST_7_DAYS&foo=bar',
+        { replace: true },
+      );
     });
 
-    it('should navigate to usage tab', async () => {
+    it('should navigate to usage tab', () => {
       mockUseParams.mockReturnValue({ experimentId: '456', overviewTab: 'quality' });
       mockUseLocation.mockReturnValue({ search: '' });
 
@@ -160,9 +107,7 @@ describe('useOverviewTab', () => {
         result.current[1](OverviewTab.Usage);
       });
 
-      await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith('/experiments/456/overview/usage', { replace: true });
-      });
+      expect(mockNavigate).toHaveBeenCalledWith('/experiments/456/overview/usage', { replace: true });
     });
   });
 

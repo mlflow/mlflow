@@ -23,13 +23,6 @@ export const useOverviewTab = () => {
     ? (overviewTab as OverviewTab)
     : DEFAULT_TAB;
 
-  // Redirect to default tab if no tab specified or invalid tab
-  useEffect(() => {
-    if (!overviewTab || !Object.values(OverviewTab).includes(overviewTab as OverviewTab)) {
-      navigate(`/experiments/${experimentId}/overview/${DEFAULT_TAB}${location.search}`, { replace: true });
-    }
-  }, [overviewTab, experimentId, navigate, location.search]);
-
   const setActiveTab = useCallback(
     (tab: OverviewTab) => {
       navigate(`/experiments/${experimentId}/overview/${tab}${location.search}`, { replace: true });
