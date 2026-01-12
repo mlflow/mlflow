@@ -28,7 +28,7 @@ import {
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
 import type { RunEvaluationTracesDataEntry } from '../types';
 import { shouldEnableUnifiedEvalTab, shouldUseTracesV4API } from '../utils/FeatureUtils';
-import { fetchFn } from '../utils/FetchUtils';
+import { fetchAPI } from '../utils/FetchUtils';
 
 // Mock shouldEnableUnifiedEvalTab
 jest.mock('../utils/FeatureUtils', () => ({
@@ -43,10 +43,12 @@ jest.mock('./useGenAiTraceEvaluationArtifacts', () => ({
   useGenAiTraceEvaluationArtifacts: jest.fn(),
 }));
 
-// Mock fetchFn
+// Mock fetch utilities
 jest.mock('../utils/FetchUtils', () => ({
   fetchFn: jest.fn(),
+  fetchAPI: jest.fn(),
   getAjaxUrl: jest.fn().mockImplementation((relativeUrl) => '/' + relativeUrl),
+  getDefaultHeaders: jest.fn().mockReturnValue({}),
 }));
 
 // Mock global window.fetch
@@ -274,19 +276,16 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('makes network call to fetch traces when enabled', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -307,7 +306,7 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(fetchFn).toHaveBeenCalledTimes(1); // only one page
+    expect(fetchAPI).toHaveBeenCalledTimes(1); // only one page
     expect(result.current.data).toHaveLength(1);
     expect(result.current.data?.[0]).toEqual({
       trace_id: 'trace_1',
@@ -317,19 +316,16 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('uses filters to fetch traces', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -415,10 +411,10 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(JSON.parse(body)).toEqual({
+    expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `attributes.run_id = 'run-xyz' AND attributes.timestamp_ms > 100 AND attributes.timestamp_ms < 200 AND tags.user = 'user_1' AND tags.user = 'user_2' AND attributes.execution_time_ms > 1000 AND request_metadata."mlflow.trace.user" = 'user_3' AND attributes.run_id = 'run_1' AND request_metadata."mlflow.modelId" = 'version_1' AND attributes.status = 'OK' AND attributes.name = 'trace_1'`,
       max_results: 10000,
@@ -426,24 +422,21 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('handles custom metadata filters correctly', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-            trace_metadata: {
-              user_id: 'user123',
-              environment: 'production',
-              'mlflow.internal.key': 'internal_value', // Should be excluded
-            },
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+          trace_metadata: {
+            user_id: 'user123',
+            environment: 'production',
+            'mlflow.internal.key': 'internal_value', // Should be excluded
           },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -481,10 +474,10 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(JSON.parse(body)).toEqual({
+    expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `request_metadata.user_id = 'user123' AND request_metadata.environment = 'production' AND request_metadata.mlflow.trace.session ILIKE '%%'`,
       max_results: 10000,
@@ -492,24 +485,21 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('excludes MLflow internal keys from custom metadata filters', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-            trace_metadata: {
-              user_id: 'user123',
-              'mlflow.run_id': 'run123', // Should be excluded
-              'mlflow.internal.key': 'internal_value', // Should be excluded
-            },
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+          trace_metadata: {
+            user_id: 'user123',
+            'mlflow.run_id': 'run123', // Should be excluded
+            'mlflow.internal.key': 'internal_value', // Should be excluded
           },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -542,10 +532,10 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(JSON.parse(body)).toEqual({
+    expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `request_metadata.user_id = 'user123' AND request_metadata.mlflow.run_id = 'run123'`,
       max_results: 10000,
@@ -553,19 +543,16 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('handles span name filters with case-insensitive equals', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -593,10 +580,10 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(JSON.parse(body)).toEqual({
+    expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `span.name ILIKE 'my_span'`,
       max_results: 10000,
@@ -604,19 +591,16 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('handles span name filters with CONTAINS operator', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -644,10 +628,10 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(JSON.parse(body)).toEqual({
+    expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `span.name ILIKE '%span%'`,
       max_results: 10000,
@@ -655,19 +639,16 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('handles span name filters with NOT_EQUALS operator', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -695,10 +676,10 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(JSON.parse(body)).toEqual({
+    expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `span.name != 'excluded_span'`,
       max_results: 10000,
@@ -706,19 +687,16 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('handles span type filters with case-insensitive equals', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -746,10 +724,10 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(JSON.parse(body)).toEqual({
+    expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `span.type ILIKE 'llm'`,
       max_results: 10000,
@@ -757,19 +735,16 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('handles span type filters with CONTAINS operator', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -797,10 +772,10 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(JSON.parse(body)).toEqual({
+    expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `span.type ILIKE '%chain%'`,
       max_results: 10000,
@@ -808,19 +783,16 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('handles multiple span filters combined', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -853,10 +825,10 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(JSON.parse(body)).toEqual({
+    expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `span.name ILIKE '%query%' AND span.type ILIKE 'llm'`,
       max_results: 10000,
@@ -864,19 +836,16 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('handles span content filter with CONTAINS operator', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -904,10 +873,10 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(JSON.parse(body)).toEqual({
+    expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `span.content ILIKE '%search text%'`,
       max_results: 10000,
@@ -915,19 +884,16 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('uses order_by to fetch traces for server sortable column', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -958,10 +924,10 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(JSON.parse(body)).toEqual({
+    expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `attributes.run_id = 'run-xyz' AND attributes.timestamp_ms > 100 AND attributes.timestamp_ms < 200`,
       max_results: 10000,
@@ -970,19 +936,16 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('Does not use order_by to fetch traces for non-server sortable column', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -1013,10 +976,10 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(JSON.parse(body)).toEqual({
+    expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `attributes.run_id = 'run-xyz' AND attributes.timestamp_ms > 100 AND attributes.timestamp_ms < 200`,
       max_results: 10000,
@@ -1025,19 +988,16 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test("use loggedModelId and sqlWarehouseId to fetch model's online traces", async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -1061,10 +1021,10 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(JSON.parse(body)).toEqual({
+    expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `attributes.run_id = 'run-xyz'`,
       max_results: 10000,
@@ -1074,60 +1034,57 @@ describe('useSearchMlflowTraces', () => {
   });
 
   it('handles client side filters', async () => {
-    jest.mocked(fetchFn).mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value1"}',
-            response: '{"output": "value"}',
-            assessments: [
-              {
-                assessment_id: 'overall_assessment',
-                assessment_name: 'overall_assessment',
-                trace_id: 'trace_1',
-                feedback: {
-                  value: 'pass',
-                },
+    jest.mocked(fetchAPI).mockResolvedValue({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value1"}',
+          response: '{"output": "value"}',
+          assessments: [
+            {
+              assessment_id: 'overall_assessment',
+              assessment_name: 'overall_assessment',
+              trace_id: 'trace_1',
+              feedback: {
+                value: 'pass',
               },
-              {
-                assessment_id: 'correctness',
-                assessment_name: 'correctness_assessment',
-                trace_id: 'trace_1',
-                feedback: {
-                  value: 'pass',
-                },
+            },
+            {
+              assessment_id: 'correctness',
+              assessment_name: 'correctness_assessment',
+              trace_id: 'trace_1',
+              feedback: {
+                value: 'pass',
               },
-            ],
-          },
-          {
-            trace_id: 'trace_2',
-            request: '{"input": "value2"}',
-            response: '{"output": "value"}',
-            assessments: [
-              {
-                assessment_id: 'overall_assessment',
-                assessment_name: 'overall_assessment',
-                trace_id: 'trace_2',
-                feedback: {
-                  value: 'fail',
-                },
+            },
+          ],
+        },
+        {
+          trace_id: 'trace_2',
+          request: '{"input": "value2"}',
+          response: '{"output": "value"}',
+          assessments: [
+            {
+              assessment_id: 'overall_assessment',
+              assessment_name: 'overall_assessment',
+              trace_id: 'trace_2',
+              feedback: {
+                value: 'fail',
               },
-              {
-                assessment_id: 'correctness',
-                assessment_name: 'correctness_assessment',
-                trace_id: 'trace_2',
-                feedback: {
-                  value: 'fail',
-                },
+            },
+            {
+              assessment_id: 'correctness',
+              assessment_name: 'correctness_assessment',
+              trace_id: 'trace_2',
+              feedback: {
+                value: 'fail',
               },
-            ],
-          },
-        ] as ModelTraceInfoV3[],
-        next_page_token: undefined,
-      }),
-    } as any);
+            },
+          ],
+        },
+      ] as ModelTraceInfoV3[],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -1296,53 +1253,50 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('filters out assessments belong to another run', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            client_request_id: 'req-1',
-            trace_location: {
-              type: 'MLFLOW_EXPERIMENT',
-              mlflow_experiment: { experiment_id: 'experiment-xyz' },
-            },
-            request_time: '2024-01-01T00:00:00Z',
-            state: 'OK',
-            assessments: [
-              {
-                assessment_id: 'a-1',
-                assessment_name: 'overall',
-                trace_id: 'trace_1',
-                create_time: '2024-01-01T00:00:00Z',
-                last_update_time: '2024-01-01T00:00:00Z',
-                metadata: { 'mlflow.assessment.sourceRunId': 'run-xyz' },
-                feedback: { value: 'pass' },
-              },
-              {
-                assessment_id: 'a-2',
-                assessment_name: 'overall',
-                trace_id: 'trace_1',
-                create_time: '2024-01-01T00:00:00Z',
-                last_update_time: '2024-01-01T00:00:00Z',
-                metadata: { 'mlflow.assessment.sourceRunId': 'other-run-1' },
-                feedback: { value: 'pass' },
-              },
-              {
-                assessment_id: 'a-3',
-                assessment_name: 'guidelines',
-                trace_id: 'trace_1',
-                create_time: '2024-01-01T00:00:00Z',
-                last_update_time: '2024-01-01T00:00:00Z',
-                metadata: { 'mlflow.assessment.sourceRunId': 'other-run-2' },
-                feedback: { value: 'pass' },
-              },
-            ],
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          client_request_id: 'req-1',
+          trace_location: {
+            type: 'MLFLOW_EXPERIMENT',
+            mlflow_experiment: { experiment_id: 'experiment-xyz' },
           },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+          request_time: '2024-01-01T00:00:00Z',
+          state: 'OK',
+          assessments: [
+            {
+              assessment_id: 'a-1',
+              assessment_name: 'overall',
+              trace_id: 'trace_1',
+              create_time: '2024-01-01T00:00:00Z',
+              last_update_time: '2024-01-01T00:00:00Z',
+              metadata: { 'mlflow.assessment.sourceRunId': 'run-xyz' },
+              feedback: { value: 'pass' },
+            },
+            {
+              assessment_id: 'a-2',
+              assessment_name: 'overall',
+              trace_id: 'trace_1',
+              create_time: '2024-01-01T00:00:00Z',
+              last_update_time: '2024-01-01T00:00:00Z',
+              metadata: { 'mlflow.assessment.sourceRunId': 'other-run-1' },
+              feedback: { value: 'pass' },
+            },
+            {
+              assessment_id: 'a-3',
+              assessment_name: 'guidelines',
+              trace_id: 'trace_1',
+              create_time: '2024-01-01T00:00:00Z',
+              last_update_time: '2024-01-01T00:00:00Z',
+              metadata: { 'mlflow.assessment.sourceRunId': 'other-run-2' },
+              feedback: { value: 'pass' },
+            },
+          ],
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -1365,24 +1319,21 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('keep traces without assessments', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            client_request_id: 'req-1',
-            trace_location: {
-              type: 'MLFLOW_EXPERIMENT',
-              mlflow_experiment: { experiment_id: 'experiment-xyz' },
-            },
-            request_time: '2024-01-01T00:00:00Z',
-            state: 'OK',
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          client_request_id: 'req-1',
+          trace_location: {
+            type: 'MLFLOW_EXPERIMENT',
+            mlflow_experiment: { experiment_id: 'experiment-xyz' },
           },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+          request_time: '2024-01-01T00:00:00Z',
+          state: 'OK',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -1401,50 +1352,47 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('keep traces with manual assessments', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            client_request_id: 'req-1',
-            trace_location: {
-              type: 'MLFLOW_EXPERIMENT',
-              mlflow_experiment: { experiment_id: 'experiment-xyz' },
-            },
-            request_time: '2024-01-01T00:00:00Z',
-            state: 'OK',
-            assessments: [
-              {
-                assessment_id: 'a-1',
-                assessment_name: 'overall',
-                trace_id: 'trace_1',
-                create_time: '2024-01-01T00:00:00Z',
-                last_update_time: '2024-01-01T00:00:00Z',
-                feedback: { value: 'pass' },
-                source: {
-                  source_type: 'HUMAN',
-                  source_id: 'user-1',
-                },
-              },
-              {
-                assessment_id: 'a-2',
-                assessment_name: 'overall',
-                trace_id: 'trace_1',
-                create_time: '2024-01-01T00:00:00Z',
-                last_update_time: '2024-01-01T00:00:00Z',
-                expectation: { value: 'expected value' },
-                source: {
-                  source_type: 'HUMAN',
-                  source_id: 'user-2',
-                },
-              },
-            ],
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          client_request_id: 'req-1',
+          trace_location: {
+            type: 'MLFLOW_EXPERIMENT',
+            mlflow_experiment: { experiment_id: 'experiment-xyz' },
           },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+          request_time: '2024-01-01T00:00:00Z',
+          state: 'OK',
+          assessments: [
+            {
+              assessment_id: 'a-1',
+              assessment_name: 'overall',
+              trace_id: 'trace_1',
+              create_time: '2024-01-01T00:00:00Z',
+              last_update_time: '2024-01-01T00:00:00Z',
+              feedback: { value: 'pass' },
+              source: {
+                source_type: 'HUMAN',
+                source_id: 'user-1',
+              },
+            },
+            {
+              assessment_id: 'a-2',
+              assessment_name: 'overall',
+              trace_id: 'trace_1',
+              create_time: '2024-01-01T00:00:00Z',
+              last_update_time: '2024-01-01T00:00:00Z',
+              expectation: { value: 'expected value' },
+              source: {
+                source_type: 'HUMAN',
+                source_id: 'user-2',
+              },
+            },
+          ],
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -1470,27 +1418,24 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('filters out scorer traces', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            client_request_id: 'req-1',
-            trace_location: {
-              type: 'MLFLOW_EXPERIMENT',
-              mlflow_experiment: { experiment_id: 'experiment-xyz' },
-            },
-            request_time: '2024-01-01T00:00:00Z',
-            state: 'OK',
-            tags: {
-              'mlflow.trace.sourceScorer': 'scorer-1',
-            },
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          client_request_id: 'req-1',
+          trace_location: {
+            type: 'MLFLOW_EXPERIMENT',
+            mlflow_experiment: { experiment_id: 'experiment-xyz' },
           },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+          request_time: '2024-01-01T00:00:00Z',
+          state: 'OK',
+          tags: {
+            'mlflow.trace.sourceScorer': 'scorer-1',
+          },
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -1508,43 +1453,40 @@ describe('useSearchMlflowTraces', () => {
   });
 
   test('keeps traces when assessments match the run or lack metadata', async () => {
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            client_request_id: 'req-1',
-            trace_location: {
-              type: 'MLFLOW_EXPERIMENT',
-              mlflow_experiment: { experiment_id: 'experiment-xyz' },
-            },
-            request_time: '2024-01-01T00:00:00Z',
-            state: 'OK',
-            assessments: [
-              {
-                assessment_id: 'a-1',
-                assessment_name: 'overall',
-                trace_id: 'trace_1',
-                create_time: '2024-01-01T00:00:00Z',
-                last_update_time: '2024-01-01T00:00:00Z',
-                metadata: { 'mlflow.assessment.sourceRunId': 'run-xyz' },
-                feedback: { value: 'pass' },
-              },
-              {
-                assessment_id: 'a-2',
-                assessment_name: 'guidelines',
-                trace_id: 'trace_1',
-                create_time: '2024-01-01T00:00:00Z',
-                last_update_time: '2024-01-01T00:00:00Z',
-                feedback: { value: 'pass' },
-              },
-            ],
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          client_request_id: 'req-1',
+          trace_location: {
+            type: 'MLFLOW_EXPERIMENT',
+            mlflow_experiment: { experiment_id: 'experiment-xyz' },
           },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+          request_time: '2024-01-01T00:00:00Z',
+          state: 'OK',
+          assessments: [
+            {
+              assessment_id: 'a-1',
+              assessment_name: 'overall',
+              trace_id: 'trace_1',
+              create_time: '2024-01-01T00:00:00Z',
+              last_update_time: '2024-01-01T00:00:00Z',
+              metadata: { 'mlflow.assessment.sourceRunId': 'run-xyz' },
+              feedback: { value: 'pass' },
+            },
+            {
+              assessment_id: 'a-2',
+              assessment_name: 'guidelines',
+              trace_id: 'trace_1',
+              create_time: '2024-01-01T00:00:00Z',
+              last_update_time: '2024-01-01T00:00:00Z',
+              feedback: { value: 'pass' },
+            },
+          ],
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(
       () =>
@@ -1591,10 +1533,10 @@ describe('useMlflowTraces', () => {
       isLoading: false,
     } as any);
 
-    jest.mocked(fetchFn).mockResolvedValue({
-      ok: true,
-      json: async () => ({ traces: [], next_page_token: undefined }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValue({
+      traces: [],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(() => useMlflowTraces('experiment-123', 'run-abc', []), { wrapper: createWrapper() });
 
@@ -1629,7 +1571,7 @@ describe('useMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(fetchFn).toHaveBeenCalledTimes(0); // should not be called
+    expect(fetchAPI).toHaveBeenCalledTimes(0); // should not be called
     expect(result.current.data).toHaveLength(1);
     expect(result.current.data[0].evaluationId).toBe('artifact-entry-1');
   });
@@ -1640,25 +1582,22 @@ describe('useMlflowTraces', () => {
       isLoading: false,
     } as any);
 
-    jest.mocked(fetchFn).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValueOnce({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(() => useMlflowTraces('experiment-xyz', 'run-xyz'), { wrapper: createWrapper() });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(fetchFn).toHaveBeenCalledTimes(1); // only one page
+    expect(fetchAPI).toHaveBeenCalledTimes(1); // only one page
     expect(result.current.data).toHaveLength(1);
     expect(result.current.data[0].inputs).toEqual({});
     expect(result.current.data[0].outputs).toEqual({});
@@ -1676,31 +1615,22 @@ describe('useMlflowTraces', () => {
     } as any);
 
     jest
-      .mocked(fetchFn)
+      .mocked(fetchAPI)
       // First call returns 1 trace and a next_page_token
       .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          traces: [{ trace_id: 'trace_page_1' }],
-          next_page_token: 'abc',
-        }),
-      } as any)
+        traces: [{ trace_id: 'trace_page_1' }],
+        next_page_token: 'abc',
+      })
       // Second call returns 1 trace and a next_page_token
       .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          traces: [{ trace_id: 'trace_page_2' }],
-          next_page_token: 'cde',
-        }),
-      } as any)
+        traces: [{ trace_id: 'trace_page_2' }],
+        next_page_token: 'cde',
+      })
       // Third call returns 1 trace and no next_page_token
       .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          traces: [{ trace_id: 'trace_page_3' }],
-          next_page_token: undefined,
-        }),
-      } as any);
+        traces: [{ trace_id: 'trace_page_3' }],
+        next_page_token: undefined,
+      });
 
     const { result } = renderHook(() => useMlflowTraces('experiment-paginated', 'run-paginated'), {
       wrapper: createWrapper(),
@@ -1709,7 +1639,7 @@ describe('useMlflowTraces', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     // We expect 2 network calls
-    expect(fetchFn).toHaveBeenCalledTimes(3);
+    expect(fetchAPI).toHaveBeenCalledTimes(3);
 
     // Should have 3 traces total
     expect(result.current.data).toHaveLength(3);
@@ -1730,11 +1660,7 @@ describe('useMlflowTraces', () => {
     } as any);
 
     // Search call fails
-    jest.mocked(fetchFn).mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({}),
-    } as any);
+    jest.mocked(fetchAPI).mockRejectedValue(new Error('Search failed'));
 
     const { result } = renderHook(() => useMlflowTraces('experiment-fail', 'run-fail'), { wrapper: createWrapper() });
 
@@ -1759,20 +1685,13 @@ describe('useMlflowTraces', () => {
 
     // First fetch call succeeds, returning a valid page plus a next_page_token
     jest
-      .mocked(fetchFn)
+      .mocked(fetchAPI)
       .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          traces: [{ trace_id: 'trace_page_1' }],
-          next_page_token: 'page2',
-        }),
-      } as any)
+        traces: [{ trace_id: 'trace_page_1' }],
+        next_page_token: 'page2',
+      })
       // Second fetch call fails
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        json: async () => ({}),
-      } as any);
+      .mockRejectedValueOnce(new Error('Search failed on page 2'));
 
     const { result } = renderHook(() => useMlflowTraces('experiment-partial-error', 'run-partial-error'), {
       wrapper: createWrapper(),
@@ -1783,7 +1702,7 @@ describe('useMlflowTraces', () => {
 
     // Since the second page fails, the entire query is considered an error,
     // and the hook falls back to artifact data instead of partial data.
-    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(fetchAPI).toHaveBeenCalledTimes(2);
 
     // The final data must come from artifacts only, ignoring the partial page-1 data
     // because the query throws an error on page 2.
@@ -1799,19 +1718,16 @@ describe('useMlflowTraces', () => {
       isLoading: false,
     } as any);
 
-    jest.mocked(fetchFn).mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValue({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(() => useMlflowTraces('experiment-all'), {
       wrapper: createWrapper(),
@@ -1840,26 +1756,23 @@ describe('useMlflowTraces', () => {
       isLoading: false,
     } as any);
 
-    jest.mocked(fetchFn).mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        traces: [
-          {
-            trace_id: 'trace_1',
-            request: '{"input": "value"}',
-            response: '{"output": "value"}',
-          },
-        ],
-        next_page_token: undefined,
-      }),
-    } as any);
+    jest.mocked(fetchAPI).mockResolvedValue({
+      traces: [
+        {
+          trace_id: 'trace_1',
+          request: '{"input": "value"}',
+          response: '{"output": "value"}',
+        },
+      ],
+      next_page_token: undefined,
+    });
 
     const { result } = renderHook(() => useMlflowTraces('experiment-xyz', 'run-xyz'), { wrapper: createWrapper() });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     // search should still be called but return data should be from artifacts
-    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(fetchAPI).toHaveBeenCalledTimes(1);
 
     expect(result.current.data).toHaveLength(1);
     expect(result.current.data[0].evaluationId).toBe('artifact-trace-1');
