@@ -41,41 +41,65 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
                 )
         return
 
-    # Check for dict[str, PbValueType]
+    # Check for dict[str, PbValueType | Union[PbValueType]]
     if origin is dict:
         args = get_args(feedback_value_type)
         if len(args) == 2:
             key_type, value_type = args
-            # Key must be str
+
             if key_type != str:
                 from mlflow.exceptions import MlflowException
-
                 raise MlflowException.invalid_parameter_value(
                     f"dict key type must be str, got {key_type}"
                 )
-            # Value must be a PbValueType
-            if value_type not in pb_value_types:
-                from mlflow.exceptions import MlflowException
 
+            def _is_valid_value_type(t):
+                if t in pb_value_types:
+                    return True
+                if get_origin(t) is type(None):
+                    return False
+                if get_origin(t) is None:
+                    return False
+                if get_origin(t) is list or get_origin(t) is dict:
+                    return False
+                if get_origin(t) is tuple:
+                    return False
+                if get_origin(t) is set:
+                    return False
+                if get_origin(t) is type:
+                    return False
+
+                if get_origin(t) is not None:
+                    return all(v in pb_value_types for v in get_args(t))
+                return False
+
+            if not _is_valid_value_type(value_type):
+                from mlflow.exceptions import MlflowException
                 raise MlflowException.invalid_parameter_value(
-                    "The `feedback_value_type` argument does not support a dict type"
-                    f"with non-primitive values, but got {value_type.__name__}"
+                    "The `feedback_value_type` argument does not support this dict value type"
                 )
+
             return
 
-    # Check for list[PbValueType]
+    # Check for list[PbValueType | Union[PbValueType]]
     if origin is list:
         args = get_args(feedback_value_type)
         if len(args) == 1:
             element_type = args[0]
-            # Element must be a PbValueType
-            if element_type not in pb_value_types:
-                from mlflow.exceptions import MlflowException
 
+            def _is_valid_element_type(t):
+                if t in pb_value_types:
+                    return True
+                if get_origin(t) is not None:
+                    return all(v in pb_value_types for v in get_args(t))
+                return False
+
+            if not _is_valid_element_type(element_type):
+                from mlflow.exceptions import MlflowException
                 raise MlflowException.invalid_parameter_value(
-                    "The `feedback_value_type` argument does not support a list type"
-                    f"with non-primitive values, but got {element_type.__name__}"
+                    "The `feedback_value_type` argument does not support this list element type"
                 )
+
             return
 
     # If we get here, it's an unsupported type
