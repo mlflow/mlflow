@@ -838,11 +838,19 @@ def get_databricks_workspace_client_config(server_uri: str, scopes: list[str] | 
 
     profile, key_prefix = get_db_info_from_uri(server_uri)
     profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
-    if key_prefix is not None:
-        config = TrackingURIConfigProvider(server_uri).get_config()
-        return WorkspaceClient(host=config.host, token=config.token, scopes=scopes).config
+    try:
+        if key_prefix is not None:
+            config = TrackingURIConfigProvider(server_uri).get_config()
+            return WorkspaceClient(host=config.host, token=config.token, scopes=scopes).config
 
-    return WorkspaceClient(profile=profile, scopes=scopes).config
+        return WorkspaceClient(profile=profile, scopes=scopes).config
+    except TypeError as e:
+        if "scopes" in str(e):
+            raise MlflowException.invalid_parameter_value(
+                "The 'scopes' parameter requires databricks-sdk>=0.74.0. "
+                "Please upgrade with: pip install --upgrade databricks-sdk",
+            ) from e
+        raise
 
 
 @_use_repl_context_if_available("mlflowGitRepoUrl")
@@ -1528,17 +1536,6 @@ def invoke_databricks_app(app_url: str, payload: dict[str, Any], config) -> dict
 
     Raises:
         MlflowException: If authentication is not OAuth-based or request fails
-
-    Example:
-        >>> from databricks.sdk import WorkspaceClient
-        >>> from mlflow.utils.databricks_utils import invoke_databricks_app
-        >>> w = WorkspaceClient(scopes=["all-apis"])
-        >>> app = w.apps.get(name="my-app")
-        >>> result = invoke_databricks_app(
-        ...     f"{app.url}/invocations",
-        ...     {"input": [{"role": "user", "content": "Hello"}]},
-        ...     w.config,
-        ... )
     """
     # Verify OAuth authentication and get access token.
     # config.oauth_token() raises an exception if not using an OAuth provider.
@@ -1547,8 +1544,7 @@ def invoke_databricks_app(app_url: str, payload: dict[str, Any], config) -> dict
     except Exception as e:
         raise MlflowException(
             f"Databricks Apps require OAuth authentication. {e}\n\n"
-            "PAT tokens are not supported for Databricks Apps.\n"
-            "See https://docs.databricks.com/en/dev-tools/auth/oauth.html for details.",
+            "See https://docs.databricks.com/aws/en/dev-tools/auth/oauth-u2m or https://docs.databricks.com/aws/en/dev-tools/auth/oauth-m2m for how to get OAuth token.",
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
 

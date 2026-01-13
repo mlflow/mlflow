@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from contextlib import nullcontext
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -28,7 +28,6 @@ from mlflow.models.evaluation.base import (
     _start_run_or_reuse_active_run,
 )
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.telemetry.events import GenAIEvaluateEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.telemetry.utils import _log_error
@@ -356,7 +355,16 @@ def _log_dataset_input(
     )
 
 
-def _setup_databricks_app_client(app_name: str) -> tuple[str, Any]:
+class _DatabricksAppConfig(NamedTuple):
+    """Configuration for a Databricks App."""
+
+    app_url: str
+    """Full invocation URL for the app (e.g., https://app.databricksapps.com/invocations)"""
+    config: Any
+    """Databricks SDK config object for authentication"""
+
+
+def _setup_databricks_app_client(app_name: str) -> _DatabricksAppConfig:
     """
     Set up the Databricks App client and return the app URL and config.
 
@@ -364,9 +372,7 @@ def _setup_databricks_app_client(app_name: str) -> tuple[str, Any]:
         app_name: Name of the Databricks App
 
     Returns:
-        Tuple of (app_url, config) where:
-            - app_url: Full invocation URL for the app
-            - config: Databricks SDK config object for authentication
+        _DatabricksAppConfig with app_url and config fields
     """
     from databricks.sdk import WorkspaceClient
 
@@ -375,22 +381,30 @@ def _setup_databricks_app_client(app_name: str) -> tuple[str, Any]:
         # so notebook oauth token generation works
         w = WorkspaceClient(scopes=["all-apis"])
         app = w.apps.get(name=app_name)
+    except TypeError as e:
+        if "scopes" in str(e):
+            raise MlflowException.invalid_parameter_value(
+                "The 'scopes' parameter requires databricks-sdk>=0.74.0. "
+                "Please upgrade with: pip install --upgrade databricks-sdk",
+            ) from e
+        raise
     except Exception as e:
-        raise MlflowException(
+        raise MlflowException.invalid_parameter_value(
             f"Failed to get Databricks App '{app_name}'. "
             f"Make sure the app exists and you have permission to access it. "
             f"Error: {e}",
-            error_code=INVALID_PARAMETER_VALUE,
         ) from e
 
     if not app.url:
-        raise MlflowException(
+        raise MlflowException.invalid_parameter_value(
             f"App '{app_name}' does not have a URL. Please ensure the app is deployed.",
-            error_code=INVALID_PARAMETER_VALUE,
         )
 
     # Append /invocations to endpoint
-    return f"{app.url}/invocations", w.config
+    return _DatabricksAppConfig(
+        app_url=f"{app.url}/invocations",
+        config=w.config,
+    )
 
 
 def _create_app_predict_fn(app_url: str, config) -> Callable[..., Any]:
@@ -499,13 +513,16 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
 
     schema, path = _parse_model_uri(endpoint_uri)
 
-    if schema == "apps":
-        app_url, config = _setup_databricks_app_client(path)
-        return _create_app_predict_fn(app_url, config)
-    elif schema == "endpoints":
-        return _create_endpoint_predict_fn(endpoint_uri, path)
-    else:
-        raise ValueError(f"Unsupported endpoint schema: {schema}. Expected 'endpoints' or 'apps'.")
+    match schema:
+        case "apps":
+            app_config = _setup_databricks_app_client(path)
+            return _create_app_predict_fn(app_config.app_url, app_config.config)
+        case "endpoints":
+            return _create_endpoint_predict_fn(endpoint_uri, path)
+        case _:
+            raise ValueError(
+                f"Unsupported endpoint schema: {schema}. Expected 'endpoints' or 'apps'."
+            )
 
 
 def _create_endpoint_predict_fn(endpoint_uri: str, endpoint: str) -> Callable[..., Any]:
@@ -596,5 +613,4 @@ Args:
         For example, if the endpoint accepts a JSON object with a `messages` key,
         the function also expects to get `messages` as an argument.
     """
-
     return predict_fn

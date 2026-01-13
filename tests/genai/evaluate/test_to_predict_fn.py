@@ -348,14 +348,15 @@ def test_to_predict_fn_apps_uri_with_app_name(mock_tracing_client):
     mock_workspace_client.apps.get.return_value = mock_app
     mock_workspace_client.config = mock_config
 
+    mock_response = mock.MagicMock()
+    mock_response.json.return_value = {"response": "test response"}
+
     with (
         mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_workspace_client),
-        mock.patch("mlflow.utils.databricks_utils.http_request") as mock_http_request,
+        mock.patch(
+            "mlflow.utils.databricks_utils.http_request", return_value=mock_response
+        ) as mock_http_request,
     ):
-        mock_response = mock.MagicMock()
-        mock_response.json.return_value = {"response": "test response"}
-        mock_http_request.return_value = mock_response
-
         predict_fn = to_predict_fn("apps:/agent-app")
         result = predict_fn(input=[{"role": "user", "content": "test"}])
 
@@ -418,6 +419,17 @@ def test_to_predict_fn_apps_no_oauth_raises_error():
             predict_fn(input=[{"role": "user", "content": "test"}])
 
 
+def test_to_predict_fn_apps_old_sdk_version_error():
+    with mock.patch(
+        "databricks.sdk.WorkspaceClient",
+        side_effect=TypeError(
+            "WorkspaceClient.__init__() got an unexpected keyword argument 'scopes'"
+        ),
+    ):
+        with pytest.raises(MlflowException, match="databricks-sdk>=0.74.0"):
+            to_predict_fn("apps:/my-app")
+
+
 def test_to_predict_fn_apps_http_error_handling():
     mock_app = mock.MagicMock()
     mock_app.url = "https://my-app-123.staging.aws.databricksapps.com"
@@ -459,14 +471,15 @@ def test_to_predict_fn_apps_payload_passthrough():
     mock_workspace_client.apps.get.return_value = mock_app
     mock_workspace_client.config = mock_config
 
+    mock_response = mock.MagicMock()
+    mock_response.json.return_value = {"output": "ok"}
+
     with (
         mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_workspace_client),
-        mock.patch("mlflow.utils.databricks_utils.http_request") as mock_http_request,
+        mock.patch(
+            "mlflow.utils.databricks_utils.http_request", return_value=mock_response
+        ) as mock_http_request,
     ):
-        mock_response = mock.MagicMock()
-        mock_response.json.return_value = {"output": "ok"}
-        mock_http_request.return_value = mock_response
-
         predict_fn = to_predict_fn("apps:/my-app")
 
         # Test 1: Standard format with input
@@ -512,14 +525,13 @@ def test_to_predict_fn_apps_creates_trace(mock_tracing_client):
     mock_workspace_client.apps.get.return_value = mock_app
     mock_workspace_client.config = mock_config
 
+    mock_response = mock.MagicMock()
+    mock_response.json.return_value = {"output": "test output"}
+
     with (
         mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_workspace_client),
-        mock.patch("mlflow.utils.databricks_utils.http_request") as mock_http_request,
+        mock.patch("mlflow.utils.databricks_utils.http_request", return_value=mock_response),
     ):
-        mock_response = mock.MagicMock()
-        mock_response.json.return_value = {"output": "test output"}
-        mock_http_request.return_value = mock_response
-
         predict_fn = to_predict_fn("apps:/my-app")
         result = predict_fn(input=[{"role": "user", "content": "test"}])
 
