@@ -24,6 +24,7 @@ from mlflow.genai.evaluation.session_utils import (
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.online import (
     OnlineScorer,
+    OnlineScoringConfig,
     OnlineSessionScoringProcessor,
     OnlineTraceScoringProcessor,
 )
@@ -78,7 +79,14 @@ def run_online_trace_scorer_job(
         experiment_id: The experiment ID to fetch traces from.
         online_scorers: List of OnlineScorer dicts specifying which scorers to run.
     """
-    scorer_objects = [OnlineScorer(**scorer_dict) for scorer_dict in online_scorers]
+    scorer_objects = [
+        OnlineScorer(
+            name=scorer_dict["name"],
+            serialized_scorer=scorer_dict["serialized_scorer"],
+            online_config=OnlineScoringConfig(**scorer_dict["online_config"]),
+        )
+        for scorer_dict in online_scorers
+    ]
 
     tracking_store = _get_tracking_store()
     processor = OnlineTraceScoringProcessor.create(experiment_id, scorer_objects, tracking_store)
@@ -105,7 +113,14 @@ def run_online_session_scorer_job(
         experiment_id: The experiment ID to fetch sessions from.
         online_scorers: List of OnlineScorer dicts specifying which scorers to run.
     """
-    scorer_objects = [OnlineScorer(**scorer_dict) for scorer_dict in online_scorers]
+    scorer_objects = [
+        OnlineScorer(
+            name=scorer_dict["name"],
+            serialized_scorer=scorer_dict["serialized_scorer"],
+            online_config=OnlineScoringConfig(**scorer_dict["online_config"]),
+        )
+        for scorer_dict in online_scorers
+    ]
 
     tracking_store = _get_tracking_store()
     processor = OnlineSessionScoringProcessor.create(experiment_id, scorer_objects, tracking_store)
