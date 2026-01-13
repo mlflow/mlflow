@@ -206,6 +206,12 @@ class CreateModelVersionEvent(Event):
         return {"is_prompt": _is_prompt(tags)}
 
 
+class DatasetType(str, Enum):
+    SESSION = "session"
+    TRACE = "trace"
+    UNKNOWN = "unknown"
+
+
 class CreateDatasetEvent(Event):
     name: str = "create_dataset"
 
@@ -213,38 +219,9 @@ class CreateDatasetEvent(Event):
 class MergeRecordsEvent(Event):
     name: str = "merge_records"
 
-    @classmethod
-    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        if arguments is None:
-            return None
 
-        records = arguments.get("records")
-        if records is None:
-            return None
-
-        try:
-            count = len(records)
-        except TypeError:
-            return None
-
-        if count == 0:
-            return None
-
-        input_type = type(records).__name__.lower()
-        if "dataframe" in input_type:
-            input_type = "pandas"
-        elif isinstance(records, list):
-            first_elem = records[0]
-            if hasattr(first_elem, "__class__") and first_elem.__class__.__name__ == "Trace":
-                input_type = "list[trace]"
-            elif isinstance(first_elem, dict):
-                input_type = "list[dict]"
-            else:
-                input_type = "list"
-        else:
-            input_type = "other"
-
-        return {"record_count": count, "input_type": input_type}
+class DatasetToDataFrameEvent(Event):
+    name: str = "dataset_to_df"
 
 
 def _is_prompt(tags: dict[str, str]) -> bool:
