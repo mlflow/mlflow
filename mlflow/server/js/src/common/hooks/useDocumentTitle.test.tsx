@@ -1,243 +1,276 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { renderHook } from '@testing-library/react';
+import React from 'react';
+import { describe, it, expect, beforeEach } from '@jest/globals';
+import { render, waitFor } from '@testing-library/react';
 import { useDocumentTitle } from './useDocumentTitle';
-import * as RoutingUtils from '../utils/RoutingUtils';
+import type { DocumentTitleHandle } from './useDocumentTitle';
+import { createMemoryRouter, RouterProvider, Outlet } from '../utils/RoutingUtils';
 
-// Mock the useMatches hook from RoutingUtils
-jest.mock('../utils/RoutingUtils', () => ({
-  useMatches: jest.fn(),
-}));
+/**
+ * Test component that uses the useDocumentTitle hook
+ */
+const DocumentTitleConsumer = ({ children }: { children?: React.ReactNode }) => {
+  useDocumentTitle();
+  return <div data-testid="content">{children}</div>;
+};
+
+/**
+ * Helper to create a router with routes and render it
+ */
+const renderWithRouter = (routes: any[], initialEntries: string[] = ['/']) => {
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/',
+        element: (
+          <DocumentTitleConsumer>
+            <Outlet />
+          </DocumentTitleConsumer>
+        ),
+        children: routes,
+      },
+    ],
+    { initialEntries },
+  );
+
+  return render(<RouterProvider router={router} />);
+};
 
 describe('useDocumentTitle', () => {
-  const mockUseMatches = RoutingUtils.useMatches as jest.MockedFunction<typeof RoutingUtils.useMatches>;
-
   beforeEach(() => {
-    jest.clearAllMocks();
     // Reset document title before each test
     document.title = '';
   });
 
-  it('sets document title from route handle getPageTitle function', () => {
-    // Mock useMatches to return a route with a getPageTitle function (after processRouteDefs)
-    mockUseMatches.mockReturnValue([
-      {
-        id: 'root',
-        pathname: '/',
-        params: {},
-        data: undefined,
-        handle: { getPageTitle: () => 'Test Page' },
-      },
-    ]);
+  it('sets document title from route handle getPageTitle function', async () => {
+    renderWithRouter(
+      [
+        {
+          path: '/',
+          element: <div>Home</div>,
+          handle: { getPageTitle: () => 'Test Page' } satisfies DocumentTitleHandle,
+        },
+      ],
+      ['/'],
+    );
 
-    renderHook(() => useDocumentTitle());
-
-    expect(document.title).toBe('Test Page - MLflow');
+    await waitFor(() => {
+      expect(document.title).toBe('Test Page - MLflow');
+    });
   });
 
-  it('passes route params to getPageTitle function', () => {
-    // Mock useMatches to return a route with params
-    mockUseMatches.mockReturnValue([
-      {
-        id: 'experiment',
-        pathname: '/experiments/123',
-        params: { experimentId: '123' },
-        data: undefined,
-        handle: { getPageTitle: (params: Record<string, string | undefined>) => `Experiment ${params['experimentId']}` },
-      },
-    ]);
+  it('passes route params to getPageTitle function', async () => {
+    renderWithRouter(
+      [
+        {
+          path: 'experiments/:experimentId',
+          element: <div>Experiment</div>,
+          handle: {
+            getPageTitle: (params) => `Experiment ${params['experimentId']}`,
+          } satisfies DocumentTitleHandle,
+        },
+      ],
+      ['/experiments/123'],
+    );
 
-    renderHook(() => useDocumentTitle());
-
-    expect(document.title).toBe('Experiment 123 - MLflow');
+    await waitFor(() => {
+      expect(document.title).toBe('Experiment 123 - MLflow');
+    });
   });
 
-  it('uses the last matching route title when multiple routes have getPageTitle', () => {
-    // Mock useMatches to return multiple routes with getPageTitle functions
-    mockUseMatches.mockReturnValue([
-      {
-        id: 'root',
-        pathname: '/',
-        params: {},
-        data: undefined,
-        handle: { getPageTitle: () => 'Root' },
-      },
-      {
-        id: 'parent',
-        pathname: '/parent',
-        params: {},
-        data: undefined,
-        handle: { getPageTitle: () => 'Parent' },
-      },
-      {
-        id: 'child',
-        pathname: '/parent/child',
-        params: {},
-        data: undefined,
-        handle: { getPageTitle: () => 'Child' },
-      },
-    ]);
+  it('uses the last matching route title when multiple routes have getPageTitle', async () => {
+    renderWithRouter(
+      [
+        {
+          path: 'parent',
+          element: (
+            <div>
+              Parent
+              <Outlet />
+            </div>
+          ),
+          handle: { getPageTitle: () => 'Parent' } satisfies DocumentTitleHandle,
+          children: [
+            {
+              path: 'child',
+              element: <div>Child</div>,
+              handle: { getPageTitle: () => 'Child' } satisfies DocumentTitleHandle,
+            },
+          ],
+        },
+      ],
+      ['/parent/child'],
+    );
 
-    renderHook(() => useDocumentTitle());
-
-    // Should use the most specific (last) route title
-    expect(document.title).toBe('Child - MLflow');
+    await waitFor(() => {
+      // Should use the most specific (last) route title
+      expect(document.title).toBe('Child - MLflow');
+    });
   });
 
-  it('falls back to "MLflow" when no route has a getPageTitle function', () => {
-    // Mock useMatches to return routes without getPageTitle
-    mockUseMatches.mockReturnValue([
-      {
-        id: 'root',
-        pathname: '/',
-        params: {},
-        data: undefined,
-        handle: undefined,
-      },
-    ]);
+  it('falls back to "MLflow" when no route has a getPageTitle function', async () => {
+    renderWithRouter(
+      [
+        {
+          path: '/',
+          element: <div>No Title</div>,
+        },
+      ],
+      ['/'],
+    );
 
-    renderHook(() => useDocumentTitle());
-
-    expect(document.title).toBe('MLflow');
+    await waitFor(() => {
+      expect(document.title).toBe('MLflow');
+    });
   });
 
-  it('falls back to "MLflow" when routes have handles but no getPageTitle function', () => {
-    // Mock useMatches to return routes with handles but no getPageTitle
-    mockUseMatches.mockReturnValue([
-      {
-        id: 'root',
-        pathname: '/',
-        params: {},
-        data: undefined,
-        handle: { someOtherProperty: 'value' },
-      },
-    ]);
+  it('falls back to "MLflow" when routes have handles but no getPageTitle function', async () => {
+    renderWithRouter(
+      [
+        {
+          path: '/',
+          element: <div>Other Handle</div>,
+          handle: { someOtherProperty: 'value' },
+        },
+      ],
+      ['/'],
+    );
 
-    renderHook(() => useDocumentTitle());
-
-    expect(document.title).toBe('MLflow');
+    await waitFor(() => {
+      expect(document.title).toBe('MLflow');
+    });
   });
 
-  it('updates document title when route changes', () => {
-    // Start with one title
-    mockUseMatches.mockReturnValue([
-      {
-        id: 'root',
-        pathname: '/',
-        params: {},
-        data: undefined,
-        handle: { getPageTitle: () => 'First Page' },
-      },
-    ]);
+  it('handles AI Gateway routes correctly', async () => {
+    renderWithRouter(
+      [
+        {
+          path: 'gateway',
+          element: <div>Gateway</div>,
+          handle: { getPageTitle: () => 'AI Gateway' } satisfies DocumentTitleHandle,
+        },
+      ],
+      ['/gateway'],
+    );
 
-    const { rerender } = renderHook(() => useDocumentTitle());
-    expect(document.title).toBe('First Page - MLflow');
-
-    // Change to a different title
-    mockUseMatches.mockReturnValue([
-      {
-        id: 'root',
-        pathname: '/other',
-        params: {},
-        data: undefined,
-        handle: { getPageTitle: () => 'Second Page' },
-      },
-    ]);
-
-    rerender();
-    expect(document.title).toBe('Second Page - MLflow');
+    await waitFor(() => {
+      expect(document.title).toBe('AI Gateway - MLflow');
+    });
   });
 
-  it('handles AI Gateway routes correctly', () => {
-    mockUseMatches.mockReturnValue([
-      {
-        id: 'gateway',
-        pathname: '/gateway',
-        params: {},
-        data: undefined,
-        handle: { getPageTitle: () => 'AI Gateway' },
-      },
-    ]);
+  it('handles nested gateway routes correctly', async () => {
+    renderWithRouter(
+      [
+        {
+          path: 'gateway',
+          element: (
+            <div>
+              Gateway
+              <Outlet />
+            </div>
+          ),
+          handle: { getPageTitle: () => 'AI Gateway' } satisfies DocumentTitleHandle,
+          children: [
+            {
+              path: 'api-keys',
+              element: <div>API Keys</div>,
+              handle: { getPageTitle: () => 'API Keys' } satisfies DocumentTitleHandle,
+            },
+          ],
+        },
+      ],
+      ['/gateway/api-keys'],
+    );
 
-    renderHook(() => useDocumentTitle());
-
-    expect(document.title).toBe('AI Gateway - MLflow');
+    await waitFor(() => {
+      expect(document.title).toBe('API Keys - MLflow');
+    });
   });
 
-  it('handles nested gateway routes correctly', () => {
-    mockUseMatches.mockReturnValue([
-      {
-        id: 'gateway',
-        pathname: '/gateway',
-        params: {},
-        data: undefined,
-        handle: { getPageTitle: () => 'AI Gateway' },
-      },
-      {
-        id: 'api-keys',
-        pathname: '/gateway/api-keys',
-        params: {},
-        data: undefined,
-        handle: { getPageTitle: () => 'API Keys' },
-      },
-    ]);
+  it('handles endpoint details page with params correctly', async () => {
+    renderWithRouter(
+      [
+        {
+          path: 'gateway',
+          element: (
+            <div>
+              Gateway
+              <Outlet />
+            </div>
+          ),
+          handle: { getPageTitle: () => 'AI Gateway' } satisfies DocumentTitleHandle,
+          children: [
+            {
+              path: 'endpoints/:endpointId',
+              element: <div>Endpoint Details</div>,
+              handle: {
+                getPageTitle: (params) => `Endpoint ${params['endpointId']}`,
+              } satisfies DocumentTitleHandle,
+            },
+          ],
+        },
+      ],
+      ['/gateway/endpoints/test-123'],
+    );
 
-    renderHook(() => useDocumentTitle());
-
-    expect(document.title).toBe('API Keys - MLflow');
+    await waitFor(() => {
+      expect(document.title).toBe('Endpoint test-123 - MLflow');
+    });
   });
 
-  it('handles endpoint details page with params correctly', () => {
-    mockUseMatches.mockReturnValue([
-      {
-        id: 'gateway',
-        pathname: '/gateway',
-        params: {},
-        data: undefined,
-        handle: { getPageTitle: () => 'AI Gateway' },
-      },
-      {
-        id: 'endpoint-details',
-        pathname: '/gateway/endpoints/test-123',
-        params: { endpointId: 'test-123' },
-        data: undefined,
-        handle: { getPageTitle: (params: Record<string, string | undefined>) => `Endpoint ${params['endpointId']}` },
-      },
-    ]);
+  it('handles experiment page with experimentId param', async () => {
+    renderWithRouter(
+      [
+        {
+          path: 'experiments/:experimentId',
+          element: <div>Experiment</div>,
+          handle: {
+            getPageTitle: (params) => `Experiment ${params['experimentId']}`,
+          } satisfies DocumentTitleHandle,
+        },
+      ],
+      ['/experiments/456'],
+    );
 
-    renderHook(() => useDocumentTitle());
-
-    expect(document.title).toBe('Endpoint test-123 - MLflow');
+    await waitFor(() => {
+      expect(document.title).toBe('Experiment 456 - MLflow');
+    });
   });
 
-  it('handles experiment page with experimentId param', () => {
-    mockUseMatches.mockReturnValue([
-      {
-        id: 'experiment',
-        pathname: '/experiments/456',
-        params: { experimentId: '456' },
-        data: undefined,
-        handle: { getPageTitle: (params: Record<string, string | undefined>) => `Experiment ${params['experimentId']}` },
-      },
-    ]);
+  it('handles run page with multiple params', async () => {
+    renderWithRouter(
+      [
+        {
+          path: 'experiments/:experimentId/runs/:runUuid',
+          element: <div>Run</div>,
+          handle: {
+            getPageTitle: (params) => `Run ${params['runUuid']}`,
+          } satisfies DocumentTitleHandle,
+        },
+      ],
+      ['/experiments/123/runs/abc-def'],
+    );
 
-    renderHook(() => useDocumentTitle());
-
-    expect(document.title).toBe('Experiment 456 - MLflow');
+    await waitFor(() => {
+      expect(document.title).toBe('Run abc-def - MLflow');
+    });
   });
 
-  it('handles run page with multiple params', () => {
-    mockUseMatches.mockReturnValue([
-      {
-        id: 'run',
-        pathname: '/experiments/123/runs/abc-def',
-        params: { experimentId: '123', runUuid: 'abc-def' },
-        data: undefined,
-        handle: { getPageTitle: (params: Record<string, string | undefined>) => `Run ${params['runUuid']}` },
-      },
-    ]);
+  it('handles model version page with multiple params', async () => {
+    renderWithRouter(
+      [
+        {
+          path: 'models/:modelName/versions/:version',
+          element: <div>Model Version</div>,
+          handle: {
+            getPageTitle: (params) => `${params['modelName']} v${params['version']}`,
+          } satisfies DocumentTitleHandle,
+        },
+      ],
+      ['/models/my-model/versions/3'],
+    );
 
-    renderHook(() => useDocumentTitle());
-
-    expect(document.title).toBe('Run abc-def - MLflow');
+    await waitFor(() => {
+      expect(document.title).toBe('my-model v3 - MLflow');
+    });
   });
 });

@@ -23,6 +23,7 @@ import {
   useSearchParams as useSearchParamsDirect,
   useMatches as useMatchesDirect,
   createHashRouter,
+  createMemoryRouter,
   RouterProvider,
   Routes,
   type To,
@@ -76,6 +77,7 @@ export {
 
   // Exports used to build hash-based data router
   createHashRouter,
+  createMemoryRouter,
   RouterProvider,
 
   // Unsafe navigation context, will be improved after full migration to react-router v6
