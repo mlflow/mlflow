@@ -136,14 +136,15 @@ export async function deleteScheduledScorers(experimentId: string, scorerNames?:
 export interface OnlineScoringConfig {
   sample_rate: number;
   filter_string?: string;
+  scorer_id?: string;
+  online_scoring_config_id?: string;
+  experiment_id?: string;
 }
 
 /**
  * Get online scoring configurations for a list of scorer IDs
  */
-export async function getOnlineScoringConfigs(
-  scorerIds: string[],
-): Promise<{ configs: Record<string, OnlineScoringConfig> }> {
+export async function getOnlineScoringConfigs(scorerIds: string[]): Promise<{ configs: OnlineScoringConfig[] }> {
   const params = new URLSearchParams();
   scorerIds.forEach((id) => params.append('scorer_ids', id));
   return fetchOrFail(getAjaxUrl(`ajax-api/3.0/mlflow/scorers/online-configs?${params.toString()}`))

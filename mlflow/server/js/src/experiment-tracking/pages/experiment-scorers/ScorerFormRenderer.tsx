@@ -228,15 +228,16 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
           />
         </div>
       )}
-      {/* Sticky footer with buttons */}
+      {/* Footer with buttons */}
       <div
         css={{
           display: 'flex',
           justifyContent: 'flex-end',
           gap: theme.spacing.sm,
           paddingTop: theme.spacing.md,
-          position: 'sticky',
-          bottom: 0,
+          borderTop: `1px solid ${theme.colors.border}`,
+          backgroundColor: theme.colors.backgroundPrimary,
+          marginTop: theme.spacing.md,
         }}
       >
         <Button

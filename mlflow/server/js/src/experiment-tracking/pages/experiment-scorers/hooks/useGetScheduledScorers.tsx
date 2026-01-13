@@ -35,11 +35,17 @@ export function useGetScheduledScorers(
       const scorerIds = response.scorers?.map((scorer) => scorer.scorer_id).filter(Boolean) || [];
 
       // Fetch online scoring configs if there are scorers
-      let onlineConfigs: Record<string, { sample_rate: number; filter_string?: string }> = {};
+      const onlineConfigs: Record<string, { sample_rate: number; filter_string?: string }> = {};
       if (scorerIds.length > 0) {
         try {
           const configsResponse = await getOnlineScoringConfigs(scorerIds);
-          onlineConfigs = configsResponse.configs || {};
+          // Backend returns an array of configs, convert to object keyed by scorer_id
+          const configsArray = configsResponse.configs || [];
+          for (const config of configsArray) {
+            if (config.scorer_id) {
+              onlineConfigs[config.scorer_id] = config;
+            }
+          }
         } catch {
           // If fetching online configs fails, continue without them
           // The UI will show default values

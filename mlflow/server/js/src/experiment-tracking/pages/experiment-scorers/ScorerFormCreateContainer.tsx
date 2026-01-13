@@ -94,7 +94,7 @@ const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({
   return (
     <div
       css={{
-        ...(isRunningScorersFeatureEnabled ? { height: '100%' } : { maxHeight: '70vh' }),
+        ...(isRunningScorersFeatureEnabled ? { height: '100%' } : { maxHeight: '85vh' }),
         display: 'flex',
         flexDirection: 'column',
       }}
