@@ -53,6 +53,7 @@ class DatabricksServingEndpointRagasLLM(InstructorBaseRagasLLM):
     """
 
     def __init__(self, endpoint_name: str):
+        super().__init__()
         self._endpoint_name = endpoint_name
         self.is_async = False
 

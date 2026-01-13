@@ -93,7 +93,7 @@ class RagasScorer(Scorer):
         if is_deterministic_metric(metric_name):
             self._is_deterministic = True
 
-        if llm_in_constructor(metric_name):
+        if llm_in_constructor(metric_name) and not self._is_deterministic:
             constructor_kwargs["llm"] = ragas_llm
 
         if requires_embeddings(metric_name):
@@ -230,9 +230,8 @@ class RagasScorer(Scorer):
             )
 
     def _evaluate(self, sample: SingleTurnSample | MultiTurnSample):
-        if hasattr(self._metric, "single_turn_ascore"):
-            sync_score = _wrap_async_predict_fn(self._metric.single_turn_ascore)
-            return sync_score(sample)
+        if hasattr(self._metric, "single_turn_score"):
+            return self._metric.single_turn_score(sample)
         elif hasattr(self._metric, "ascore"):
             # DiscreteMetric requires llm passed into score method
             if requires_llm_at_score_time(self.name):

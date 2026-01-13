@@ -7,8 +7,6 @@ from mlflow.exceptions import MlflowException
 
 @dataclass(frozen=True)
 class MetricConfig:
-    """Configuration for a RAGAS metric."""
-
     classpath: str
     is_deterministic: bool = False
     is_agentic: bool = False
@@ -17,22 +15,19 @@ class MetricConfig:
     llm_at_score_time: bool = False
 
 
-# fmt: off
 _METRIC_REGISTRY: dict[str, MetricConfig] = {
     # Retrieval Augmented Generation
     "ContextPrecision": MetricConfig("ragas.metrics.collections.ContextPrecision"),
     "ContextUtilization": MetricConfig("ragas.metrics.collections.ContextUtilization"),
     "NonLLMContextPrecisionWithReference": MetricConfig(
-        "ragas.metrics.NonLLMContextPrecisionWithReference",
-        is_deterministic=True
+        "ragas.metrics.NonLLMContextPrecisionWithReference", is_deterministic=True
     ),
     "ContextRecall": MetricConfig("ragas.metrics.collections.ContextRecall"),
     "NonLLMContextRecall": MetricConfig("ragas.metrics.NonLLMContextRecall", is_deterministic=True),
     "ContextEntityRecall": MetricConfig("ragas.metrics.collections.ContextEntityRecall"),
     "NoiseSensitivity": MetricConfig("ragas.metrics.collections.NoiseSensitivity"),
     "AnswerRelevancy": MetricConfig(
-        "ragas.metrics.collections.AnswerRelevancy",
-        requires_embeddings=True
+        "ragas.metrics.collections.AnswerRelevancy", requires_embeddings=True
     ),
     "Faithfulness": MetricConfig("ragas.metrics.collections.Faithfulness"),
     # Nvidia Metrics
@@ -44,20 +39,16 @@ _METRIC_REGISTRY: dict[str, MetricConfig] = {
     "ToolCallAccuracy": MetricConfig(
         "ragas.metrics.collections.ToolCallAccuracy",
         is_deterministic=True,
-        is_agentic=True
+        is_agentic=True,
     ),
     "ToolCallF1": MetricConfig(
-        "ragas.metrics.collections.ToolCallF1",
-        is_deterministic=True,
-        is_agentic=True
+        "ragas.metrics.collections.ToolCallF1", is_deterministic=True, is_agentic=True
     ),
     "AgentGoalAccuracyWithReference": MetricConfig(
-        "ragas.metrics.collections.AgentGoalAccuracyWithReference",
-        is_agentic=True
+        "ragas.metrics.collections.AgentGoalAccuracyWithReference", is_agentic=True
     ),
     "AgentGoalAccuracyWithoutReference": MetricConfig(
-        "ragas.metrics.collections.AgentGoalAccuracyWithoutReference",
-        is_agentic=True
+        "ragas.metrics.collections.AgentGoalAccuracyWithoutReference", is_agentic=True
     ),
     # Natural Language Comparison
     "FactualCorrectness": MetricConfig("ragas.metrics.collections.FactualCorrectness"),
@@ -65,18 +56,16 @@ _METRIC_REGISTRY: dict[str, MetricConfig] = {
         "ragas.metrics.collections.SemanticSimilarity",
         is_deterministic=True,
         requires_embeddings=True,
-        llm_in_constructor=False
+        llm_in_constructor=False,
     ),
     "NonLLMStringSimilarity": MetricConfig(
-        "ragas.metrics.collections.NonLLMStringSimilarity",
-        is_deterministic=True
+        "ragas.metrics.collections.NonLLMStringSimilarity", is_deterministic=True
     ),
     "BleuScore": MetricConfig("ragas.metrics.collections.BleuScore", is_deterministic=True),
-    "ChrfScore": MetricConfig("ragas.metrics.collections.ChrfScore", is_deterministic=True),
+    "CHRFScore": MetricConfig("ragas.metrics.collections.CHRFScore", is_deterministic=True),
     "RougeScore": MetricConfig("ragas.metrics.collections.RougeScore", is_deterministic=True),
     "StringPresence": MetricConfig(
-        "ragas.metrics.collections.StringPresence",
-        is_deterministic=True
+        "ragas.metrics.collections.StringPresence", is_deterministic=True
     ),
     "ExactMatch": MetricConfig("ragas.metrics.collections.ExactMatch", is_deterministic=True),
     # General Purpose
@@ -89,7 +78,7 @@ _METRIC_REGISTRY: dict[str, MetricConfig] = {
     "RubricsScore": MetricConfig("ragas.metrics.RubricsScore"),
     "InstanceRubrics": MetricConfig("ragas.metrics.InstanceRubrics"),
     # Other Tasks
-    "SummarizationScore": MetricConfig("ragas.metrics.SummarizationScore"),
+    "SummarizationScore": MetricConfig("ragas.metrics.collections.SummaryScore"),
 }
 
 

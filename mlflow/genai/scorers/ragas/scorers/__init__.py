@@ -84,15 +84,15 @@ class DiscreteMetric(RagasScorer):
 
             scorer = DiscreteMetric(
                 name="clarity",
-                prompt=\"\"\"Rate the clarity of the response on a scale of 0-10.
+                prompt='''Rate the clarity of the response on a scale of 0-10.
                 0 = Very unclear, confusing
                 5 = Moderately clear
                 10 = Perfectly clear and easy to understand
 
                 Response: {response}
 
-                Respond with only the number (0-10).\"\"\",
-                allowed_values=[num for num in range(10)]
+                Respond with only the number (0-10).''',
+                allowed_values=[num for num in range(10)],
             )
             feedback = scorer(trace=trace)
     """

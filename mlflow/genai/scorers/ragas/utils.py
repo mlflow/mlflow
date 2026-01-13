@@ -247,7 +247,7 @@ def create_mlflow_error_message_from_ragas_param(error_msg: str, metric_name: st
         ragas_param,
         corresponding_mlflow_param,
     ) in ragas_to_mlflow_param_mapping.items():
-        if ragas_param in error_msg:
+        if ragas_param in error_msg.split()[0].lower():
             mlflow_param = corresponding_mlflow_param
             break
 
