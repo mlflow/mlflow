@@ -13,6 +13,11 @@ import {
 import type { TracesTableColumn } from '../types';
 import { TracesTableColumnType } from '../types';
 
+// Mock feature flag - disable URL persistence for existing tests (test old behavior)
+jest.mock('../../model-trace-explorer/FeatureUtils', () => ({
+  shoudlEnableURLPersistenceForSortAndColumns: () => false,
+}));
+
 const sort = (a: string[]) => [...a].sort();
 
 const STORAGE_KEY = (expId: string, runUuid?: string) => `genaiTracesUIState-columns-${expId}-${runUuid}`;
@@ -51,6 +56,15 @@ jest.mock('@databricks/web-shared/hooks', () => {
     },
   };
 });
+
+jest.mock('./useColumnsURL', () => ({
+  useColumnsURL: () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+    const React = require('react');
+    const [urlColumnIds, setUrlColumnIds] = React.useState(undefined);
+    return [urlColumnIds, setUrlColumnIds] as const;
+  },
+}));
 
 const expId = 'exp-123';
 

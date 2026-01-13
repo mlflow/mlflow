@@ -8,10 +8,7 @@ import {
 } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 import { TracesV3PageWrapper } from './TracesV3PageWrapper';
 import { useMonitoringViewState } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringViewState';
-import {
-  getAbsoluteStartEndTime,
-  useMonitoringFilters,
-} from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
+import { useMonitoringFiltersTimeRange } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
 import { useExperiments } from '../../hooks/useExperiments';
 import { TracesV3Toolbar } from './TracesV3Toolbar';
 
@@ -50,20 +47,13 @@ const TracesV3ViewImpl = ({
   isLoadingExperiment?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const [monitoringFilters, _setMonitoringFilters] = useMonitoringFilters();
   const monitoringConfig = useMonitoringConfig();
 
   // Traces view only works with one experiment
   const experimentId = experimentIds[0];
   const [viewState] = useMonitoringViewState();
 
-  const timeRange = useMemo(() => {
-    const { startTime, endTime } = getAbsoluteStartEndTime(monitoringConfig.dateNow, monitoringFilters);
-    return {
-      startTime: startTime ? new Date(startTime).getTime().toString() : undefined,
-      endTime: endTime ? new Date(endTime).getTime().toString() : undefined,
-    };
-  }, [monitoringConfig.dateNow, monitoringFilters]);
+  const timeRange = useMonitoringFiltersTimeRange(monitoringConfig.dateNow);
 
   return (
     <div

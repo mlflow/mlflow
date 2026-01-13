@@ -34,6 +34,7 @@ export const useUnifiedTraceTagsModal = ({
   onSuccess?: () => void;
   onClose?: () => void;
 }) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const baseComponentId = `${componentIdPrefix}.tag-assignment-modal`;
   const intl = useIntl();
 
@@ -109,7 +110,7 @@ export const useUnifiedTraceTagsModal = ({
 
   const TagAssignmentModal = (
     <Modal
-      componentId={baseComponentId}
+      componentId="codegen_no_dynamic_js_packages_web_shared_src_model_trace_explorer_hooks_useunifiedtracetagsmodal_121"
       title={<FormattedMessage defaultMessage="Add tags" description="Title for unified trace tag assignment modal" />}
       visible={isVisible}
       destroyOnClose
@@ -117,7 +118,7 @@ export const useUnifiedTraceTagsModal = ({
       footer={
         <>
           <Button
-            componentId={`${baseComponentId}.submit-button`}
+            componentId="codegen_no_dynamic_js_packages_web_shared_src_model_trace_explorer_hooks_useunifiedtracetagsmodal_130"
             onClick={hideTagAssignmentModal}
             disabled={isLoading}
           >
@@ -127,7 +128,7 @@ export const useUnifiedTraceTagsModal = ({
             />
           </Button>
           <Button
-            componentId={`${baseComponentId}.submit-button`}
+            componentId="codegen_no_dynamic_js_packages_web_shared_src_model_trace_explorer_hooks_useunifiedtracetagsmodal_141"
             type="primary"
             onClick={form.handleSubmit(handleSubmit)}
             loading={isLoading}
@@ -142,7 +143,7 @@ export const useUnifiedTraceTagsModal = ({
         <Alert
           type="error"
           message={error instanceof Error ? error.message : String(error)}
-          componentId={`${baseComponentId}.error`}
+          componentId="codegen_no_dynamic_js_packages_web_shared_src_model_trace_explorer_hooks_useunifiedtracetagsmodal_157"
           closable={false}
           css={{ marginBottom: theme.spacing.sm }}
         />
@@ -191,7 +192,10 @@ export const useUnifiedTraceTagsModal = ({
                 }}
               />
               <TagAssignmentValue index={index} />
-              <TagAssignmentRemoveButton index={index} componentId={`${baseComponentId}.remove-button`} />
+              <TagAssignmentRemoveButton
+                index={index}
+                componentId="codegen_no_dynamic_js_packages_web_shared_src_model_trace_explorer_hooks_useunifiedtracetagsmodal_207"
+              />
             </TagAssignmentRow>
           );
         })}
