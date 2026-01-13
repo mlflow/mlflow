@@ -713,7 +713,7 @@ mlflow.gateway.config.HuggingFaceTextGenerationInferenceConfig
 mlflow.gateway.config.Limit
 mlflow.gateway.config.LimitsConfig
 mlflow.gateway.config.LiteLLMConfig
-mlflow.gateway.config.LiteLLMConfig.validate_litellm_api_key
+mlflow.gateway.config.LiteLLMConfig.validate_litellm_auth_config
 mlflow.gateway.config.MistralConfig
 mlflow.gateway.config.MistralConfig.validate_mistral_api_key
 mlflow.gateway.config.MlflowModelServingConfig
@@ -752,6 +752,7 @@ mlflow.genai.Scorer
 mlflow.genai.Scorer.model_dump
 mlflow.genai.Scorer.model_post_init
 mlflow.genai.Scorer.model_validate
+mlflow.genai.Scorer.model_validate_json
 mlflow.genai.Scorer.register
 mlflow.genai.Scorer.run
 mlflow.genai.Scorer.start
@@ -1642,6 +1643,8 @@ mlflow.types.chat.ResponseFormat
 mlflow.types.chat.TextContentPart
 mlflow.types.chat.ToolCall
 mlflow.types.chat.ToolCallDelta
+mlflow.types.chat.ToolChoice
+mlflow.types.chat.ToolChoiceFunction
 mlflow.types.llm.ChatChoice
 mlflow.types.llm.ChatChoiceDelta
 mlflow.types.llm.ChatChoiceLogProbs

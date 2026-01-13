@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import invariant from 'invariant';
 import { useParams } from '../../../common/utils/RoutingUtils';
-import { GenAiTracesTableSearchInput } from '@databricks/web-shared/genai-traces-table';
 import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage } from 'react-intl';
 import { TracesV3DateSelector } from '../../components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../hooks/useMonitoringFilters';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
@@ -21,19 +20,13 @@ import { LazyToolPerformanceSummary } from './components/LazyToolPerformanceSumm
 import { TabContentContainer, ChartGrid } from './components/OverviewLayoutComponents';
 import { calculateTimeInterval } from './hooks/useTraceMetricsQuery';
 import { generateTimeBuckets } from './utils/chartUtils';
-
-enum OverviewTab {
-  Usage = 'usage',
-  Quality = 'quality',
-  ToolCalls = 'tool-calls',
-}
+import { OverviewChartProvider } from './OverviewChartContext';
+import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
 
 const ExperimentGenAIOverviewPageImpl = () => {
   const { experimentId } = useParams();
   const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
-  const [activeTab, setActiveTab] = useState<OverviewTab>(OverviewTab.Usage);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useOverviewTab();
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -59,9 +52,6 @@ const ExperimentGenAIOverviewPageImpl = () => {
     () => generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds),
     [startTimeMs, endTimeMs, timeIntervalSeconds],
   );
-
-  // Common props for all chart components
-  const chartProps = { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets };
 
   return (
     <div
@@ -99,25 +89,14 @@ const ExperimentGenAIOverviewPageImpl = () => {
           </Tabs.Trigger>
         </Tabs.List>
 
-        {/* Control bar with search and time range */}
+        {/* Control bar with time range */}
         <div
           css={{
             display: 'flex',
             alignItems: 'center',
             gap: theme.spacing.sm,
-            padding: `${theme.spacing.sm}px 0`,
           }}
         >
-          {/* Search input */}
-          <GenAiTracesTableSearchInput
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'Search charts',
-              description: 'Placeholder for search charts input',
-            })}
-          />
-
           {/*
            * Time range selector - exclude 'ALL' since charts require start_time_ms and end_time_ms
            * TODO: remove this once this is supported in backend
@@ -125,50 +104,58 @@ const ExperimentGenAIOverviewPageImpl = () => {
           <TracesV3DateSelector excludeOptions={['ALL']} />
         </div>
 
-        <Tabs.Content value={OverviewTab.Usage} css={{ flex: 1, overflowY: 'auto' }}>
-          <TabContentContainer>
-            {/* Requests chart - full width */}
-            <LazyTraceRequestsChart {...chartProps} />
+        <OverviewChartProvider
+          experimentId={experimentId}
+          startTimeMs={startTimeMs}
+          endTimeMs={endTimeMs}
+          timeIntervalSeconds={timeIntervalSeconds}
+          timeBuckets={timeBuckets}
+        >
+          <Tabs.Content value={OverviewTab.Usage} css={{ flex: 1, overflowY: 'auto' }}>
+            <TabContentContainer>
+              {/* Requests chart - full width */}
+              <LazyTraceRequestsChart />
 
-            {/* Latency and Errors charts - side by side */}
-            <ChartGrid>
-              <LazyTraceLatencyChart {...chartProps} />
-              <LazyTraceErrorsChart {...chartProps} />
-            </ChartGrid>
+              {/* Latency and Errors charts - side by side */}
+              <ChartGrid>
+                <LazyTraceLatencyChart />
+                <LazyTraceErrorsChart />
+              </ChartGrid>
 
-            {/* Token Usage and Token Stats charts - side by side */}
-            <ChartGrid>
-              <LazyTraceTokenUsageChart {...chartProps} />
-              <LazyTraceTokenStatsChart {...chartProps} />
-            </ChartGrid>
-          </TabContentContainer>
-        </Tabs.Content>
+              {/* Token Usage and Token Stats charts - side by side */}
+              <ChartGrid>
+                <LazyTraceTokenUsageChart />
+                <LazyTraceTokenStatsChart />
+              </ChartGrid>
+            </TabContentContainer>
+          </Tabs.Content>
 
-        <Tabs.Content value={OverviewTab.Quality} css={{ flex: 1, overflowY: 'auto' }}>
-          <TabContentContainer>
-            {/* Assessment charts - dynamically rendered based on available assessments */}
-            <AssessmentChartsSection {...chartProps} />
-          </TabContentContainer>
-        </Tabs.Content>
+          <Tabs.Content value={OverviewTab.Quality} css={{ flex: 1, overflowY: 'auto' }}>
+            <TabContentContainer>
+              {/* Assessment charts - dynamically rendered based on available assessments */}
+              <AssessmentChartsSection />
+            </TabContentContainer>
+          </Tabs.Content>
 
-        <Tabs.Content value={OverviewTab.ToolCalls} css={{ flex: 1, overflowY: 'auto' }}>
-          <TabContentContainer>
-            {/* Tool call statistics */}
-            <ToolCallStatistics experimentId={experimentId} startTimeMs={startTimeMs} endTimeMs={endTimeMs} />
+          <Tabs.Content value={OverviewTab.ToolCalls} css={{ flex: 1, overflowY: 'auto' }}>
+            <TabContentContainer>
+              {/* Tool call statistics */}
+              <ToolCallStatistics />
 
-            {/* Tool performance summary */}
-            <LazyToolPerformanceSummary experimentId={experimentId} startTimeMs={startTimeMs} endTimeMs={endTimeMs} />
+              {/* Tool performance summary */}
+              <LazyToolPerformanceSummary />
 
-            {/* Tool error rate charts - dynamically rendered based on available tools */}
-            <ToolCallChartsSection {...chartProps} />
+              {/* Tool error rate charts - dynamically rendered based on available tools */}
+              <ToolCallChartsSection />
 
-            {/* Tool usage and latency charts - side by side */}
-            <ChartGrid>
-              <LazyToolUsageChart {...chartProps} />
-              <LazyToolLatencyChart {...chartProps} />
-            </ChartGrid>
-          </TabContentContainer>
-        </Tabs.Content>
+              {/* Tool usage and latency charts - side by side */}
+              <ChartGrid>
+                <LazyToolUsageChart />
+                <LazyToolLatencyChart />
+              </ChartGrid>
+            </TabContentContainer>
+          </Tabs.Content>
+        </OverviewChartProvider>
       </Tabs.Root>
     </div>
   );

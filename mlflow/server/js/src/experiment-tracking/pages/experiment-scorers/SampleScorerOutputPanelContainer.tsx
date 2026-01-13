@@ -6,7 +6,6 @@ import { type ScorerFormData } from './utils/scorerTransformUtils';
 import { useEvaluateTraces } from './useEvaluateTraces';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import { convertEvaluationResultToAssessment } from './llmScorerUtils';
-import { extractTemplateVariables } from '../../utils/evaluationUtils';
 import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope, SCORER_TYPE } from './constants';
 import { EvaluateTracesParams, LLM_TEMPLATE } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
@@ -172,13 +171,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     });
   }, [currentEvalResult, isCustomMode, llmTemplate, scorerName]);
 
-  // Check if instructions contain {{trace}} variable (custom judges only)
-  const hasTraceVariable = useMemo(() => {
-    if (!isCustomMode || !judgeInstructions) return false;
-    const templateVariables = extractTemplateVariables(judgeInstructions);
-    return templateVariables.includes('trace');
-  }, [isCustomMode, judgeInstructions]);
-
   // Determine if run scorer button should be disabled
   const hasNameError = Boolean((errors as any).name?.message);
   const hasInstructionsError = Boolean((errors as any).instructions?.message);
@@ -214,12 +206,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
           description: 'Tooltip message when instructions have validation errors',
         });
       }
-      if (hasTraceVariable) {
-        return intl.formatMessage({
-          defaultMessage: 'The trace variable is not supported when running the judge on a sample of traces',
-          description: 'Tooltip message when instructions contain trace variable',
-        });
-      }
     } else {
       // Built-in judge mode
       if (isRetrievalRelevance) {
@@ -242,7 +228,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     isCustomMode,
     judgeInstructions,
     hasInstructionsError,
-    hasTraceVariable,
     hasNameError,
     isRetrievalRelevance,
     intl,

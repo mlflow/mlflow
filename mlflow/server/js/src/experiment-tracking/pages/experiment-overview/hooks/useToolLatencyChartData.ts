@@ -11,7 +11,7 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface ToolLatencyDataPoint {
   timestamp: string;
@@ -34,17 +34,12 @@ export interface UseToolLatencyChartDataResult {
 /**
  * Custom hook that fetches and processes tool latency data over time.
  * Queries span metrics grouped by tool name and time bucket for average latency.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId, time range, and buckets
  * @returns Processed chart data, tool names, loading state, and error state
  */
-export function useToolLatencyChartData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-}: OverviewChartProps): UseToolLatencyChartDataResult {
+export function useToolLatencyChartData(): UseToolLatencyChartDataResult {
+  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Filter for TOOL type spans
   const toolFilter = useMemo(() => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL)], []);
 

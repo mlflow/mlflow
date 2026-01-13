@@ -684,6 +684,13 @@ MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", int, 10
 )
 
+#: Maximum number of worker threads to use for online scoring (both trace-level
+#: and session-level scoring). This controls the parallelism when processing multiple traces
+#: or sessions concurrently during background online scoring jobs. (default: ``10``)
+MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS = _EnvironmentVariable(
+    "MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS", int, 10
+)
+
 
 #: Skip trace validation during GenAI evaluation. By default (False), MLflow will validate if
 #: the given predict function generates a valid trace, and otherwise wraps it with @mlflow.trace
@@ -1178,6 +1185,12 @@ MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE = _EnvironmentVariable(
     "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE", int, 100
 )
 
+#: Specifies the maximum number of workers for online scoring jobs.
+#: (default: ``5``)
+MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS", int, 5
+)
+
 
 #: Specifies the maximum number of completion iterations allowed when invoking
 #: judge models. This prevents infinite loops in case of complex traces or
@@ -1206,4 +1219,10 @@ _SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID = _EnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH", True
+)
+
+
+#: Specifies whether to allow unsafe pickle deserialization for loading model
+MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
+    "MLFLOW_ALLOW_PICKLE_DESERIALIZATION", True
 )

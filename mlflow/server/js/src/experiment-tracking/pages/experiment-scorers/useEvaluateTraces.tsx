@@ -385,10 +385,6 @@ export function useEvaluateTraces({
                 // Extract template variables from instructions to filter what gets included in user prompt
                 const templateVariables = extractTemplateVariables(judgeInstructions);
 
-                if (templateVariables.includes('trace')) {
-                  throw new Error('The trace variable is not supported when running the scorer on a sample of traces');
-                }
-
                 // Build prompts
                 const systemPrompt = buildSystemPrompt(judgeInstructions);
                 const userPrompt = buildUserPrompt(inputs, outputs, expectations, templateVariables);

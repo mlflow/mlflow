@@ -165,8 +165,7 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "name": "api_version",
                     "description": "API version (e.g., 2024-02-01)",
                     "secret": False,
-                    "required": False,
-                    "default": "2024-02-01",
+                    "required": True,
                 },
             ],
         },
@@ -395,6 +394,12 @@ def _build_simple_api_key_mode(provider: str, description: str | None = None) ->
                 "secret": True,
                 "required": True,
             },
+            {
+                "name": "api_base",
+                "description": f"{provider.title()} API Base URL",
+                "secret": False,
+                "required": False,
+            },
         ],
     }
 
@@ -514,6 +519,10 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
         # Model names sometimes include the provider prefix, e.g. "gemini/gemini-2.5-flash"
         if provider and model_name.startswith(f"{provider}/"):
             model_name = model_name.removeprefix(f"{provider}/")
+
+        # LiteLLM contains fine-tuned models with the prefix "ft:"
+        if model_name.startswith("ft:"):
+            continue
 
         models.append(
             {
