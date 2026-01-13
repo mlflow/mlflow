@@ -10,7 +10,7 @@ export type GetPageTitleFn = (params: Params<string>) => string;
  * Route handle type for document title configuration.
  */
 export interface DocumentTitleHandle {
-  getPageTitle?: GetPageTitleFn;
+  getPageTitle: GetPageTitleFn;
 }
 
 /**
@@ -25,7 +25,7 @@ export interface DocumentTitleHandle {
  *   handle: { getPageTitle: (params) => `Experiment ${params['experimentId']}` }
  * }
  *
- * The title will be displayed as "Title - MLflow" in the browser tab.
+ * The title will be displayed as "Experiment 123 - MLflow" in the browser tab.
  */
 export const useDocumentTitle = () => {
   const matches = useMatches();
@@ -39,7 +39,7 @@ export const useDocumentTitle = () => {
 
     if (lastMatchWithTitle) {
       const handle = lastMatchWithTitle.handle as DocumentTitleHandle;
-      const title = handle.getPageTitle!(lastMatchWithTitle.params);
+      const title = handle.getPageTitle(lastMatchWithTitle.params);
       document.title = `${title} - MLflow`;
     } else {
       // Fallback to default title if no route has a title
