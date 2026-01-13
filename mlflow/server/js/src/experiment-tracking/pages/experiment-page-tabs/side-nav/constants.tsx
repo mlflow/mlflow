@@ -223,7 +223,6 @@ export const useExperimentPageSideNavConfig = ({
       ],
       evaluation: enableScorersUI()
         ? [
-            ...ExperimentPageSideNavGenAIConfig.evaluation,
             {
               label: (
                 <FormattedMessage
@@ -235,6 +234,7 @@ export const useExperimentPageSideNavConfig = ({
               tabName: ExperimentPageTabName.Judges,
               componentId: 'mlflow.experiment-side-nav.genai.judges',
             },
+            ...ExperimentPageSideNavGenAIConfig.evaluation,
           ]
         : ExperimentPageSideNavGenAIConfig.evaluation,
     };
