@@ -17,6 +17,7 @@ from mlflow.tracing.distributed import (
 )
 
 from tests.helper_functions import get_safe_port
+from tests.tracing.helper import skip_when_testing_trace_sdk
 
 
 def _parse_traceparent(header_value: str) -> tuple[int, int]:
@@ -90,6 +91,7 @@ def test_set_tracing_context_from_http_request_headers():
             assert child_span.trace_id == client_trace_id
 
 
+@skip_when_testing_trace_sdk
 def test_distributed_tracing_e2e(tmp_path):
     # Prepare a minimal Flask server script that extracts headers and starts a child span
     server_code = textwrap.dedent(
@@ -174,6 +176,7 @@ def test_distributed_tracing_e2e(tmp_path):
     assert child_span.parent_id == root_span.span_id
 
 
+@skip_when_testing_trace_sdk
 def test_distributed_tracing_e2e_nested_call(tmp_path):
     port = get_safe_port()
     port2 = get_safe_port()
