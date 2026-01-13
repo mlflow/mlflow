@@ -14,6 +14,7 @@ interface GenAiTracesTableSessionGroupedRowsProps {
   rows: Row<EvalTraceComparisonEntry>[];
   groupedRows: GroupedTraceTableRowData[];
   isComparing: boolean;
+  rowSelectionState: RowSelectionState | undefined;
   enableRowSelection?: boolean;
   virtualItems: VirtualItem<Element>[];
   virtualizerTotalSize: number;
@@ -191,16 +192,13 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
     <TableRow isHeader>
       {/* Checkbox cell for session row selection */}
       {enableRowSelection && (
-        <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0 }}>
-          <TableRowSelectCell
-            componentId="mlflow.genai-traces-table.session-select"
-            checked={allSelected}
-            indeterminate={someSelected}
-            onChange={handleToggleAll}
-            isDisabled={isComparing || exportableRows.length === 0}
-            css={{ marginRight: 0 }}
-          />
-        </div>
+        <TableRowSelectCell
+          componentId="mlflow.genai-traces-table.session-select"
+          checked={allSelected}
+          indeterminate={someSelected}
+          onChange={handleToggleAll}
+          isDisabled={isComparing || exportableRows.length === 0}
+        />
       )}
       {/* Render a cell for each visible column from the table */}
       {visibleColumns.map((column) => (
