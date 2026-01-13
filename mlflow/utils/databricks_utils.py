@@ -1544,7 +1544,8 @@ def invoke_databricks_app(app_url: str, payload: dict[str, Any], config) -> dict
     except Exception as e:
         raise MlflowException(
             f"Databricks Apps require OAuth authentication. {e}\n\n"
-            "See https://docs.databricks.com/aws/en/dev-tools/auth/oauth-u2m or https://docs.databricks.com/aws/en/dev-tools/auth/oauth-m2m for how to get OAuth token.",
+            "See https://docs.databricks.com/aws/en/dev-tools/auth/oauth-u2m or "
+            "https://docs.databricks.com/aws/en/dev-tools/auth/oauth-m2m for details.",
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
 

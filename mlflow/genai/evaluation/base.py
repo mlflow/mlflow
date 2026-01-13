@@ -359,7 +359,7 @@ class _DatabricksAppConfig(NamedTuple):
     """Configuration for a Databricks App."""
 
     app_url: str
-    """Full invocation URL for the app (e.g., https://app.databricksapps.com/invocations)"""
+    """Full invocation URL for the app (e.g., https://appname.databricksapps.com/invocations)"""
     config: Any
     """Databricks SDK config object for authentication"""
 
