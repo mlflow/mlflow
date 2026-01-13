@@ -374,6 +374,24 @@ class AbstractStore(GatewayStoreMixin):
         # TODO: ensure NotImplementedError can be translated to 501 error code in mlflow server
         raise MlflowNotImplementedException()
 
+    def batch_get_trace_infos(
+        self, trace_ids: list[str], location: str | None = None
+    ) -> list[TraceInfo]:
+        """
+        Get trace metadata (TraceInfo) for given trace IDs without loading spans.
+
+        This is more efficient than batch_get_traces when only metadata is needed,
+        as it avoids loading potentially large span data.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+            location: Location of the trace. For example, "catalog.schema" for UC schema.
+
+        Returns:
+            List of TraceInfo objects containing only metadata (no spans).
+        """
+        raise MlflowNotImplementedException()
+
     def get_online_trace_details(
         self,
         trace_id: str,
@@ -426,7 +444,11 @@ class AbstractStore(GatewayStoreMixin):
         filter_string: str | None = None,
     ) -> list["CompletedSession"]:
         """
-        Find completed sessions within a time window based on their last trace timestamp.
+        Find completed sessions based on their last trace timestamp.
+
+        A completed session is one whose last trace timestamp falls within the specified
+        time window [min_last_trace_timestamp_ms, max_last_trace_timestamp_ms] and has
+        no traces after max_last_trace_timestamp_ms (i.e., the session is not ongoing).
 
         Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) to ensure
         deterministic and stable ordering, especially when timestamp ties occur. This is
