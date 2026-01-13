@@ -228,6 +228,7 @@ class OnlineSessionScoringProcessor:
         new_assessment_names = {a.name for a in new_assessments}
         new_assessment_ids = {a.assessment_id for a in new_assessments}
 
+        deleted_count = 0
         for assessment in trace.info.assessments:
             metadata = assessment.metadata or {}
             online_session_id = metadata.get(AssessmentMetadataKey.ONLINE_SCORING_SESSION_ID)
@@ -240,10 +241,10 @@ class OnlineSessionScoringProcessor:
                 self._tracking_store.delete_assessment(
                     trace_id=trace.info.trace_id, assessment_id=assessment.assessment_id
                 )
-                _logger.info(
-                    f"Deleted old assessment {assessment.assessment_id} "
-                    f"(name={assessment.name}, session={session_id})"
-                )
+                deleted_count += 1
+
+        if deleted_count > 0:
+            _logger.info(f"Deleted {deleted_count} old assessments for session {session_id}")
 
     def _execute_session_scoring(self, tasks: list[SessionScoringTask]) -> None:
         """
