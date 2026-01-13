@@ -4959,6 +4959,7 @@ def test_get_provider_config(mlflow_client_with_secrets):
     data = response.json()
     assert data["default_mode"] == "api_key"
     assert data["auth_modes"][0]["mode"] == "api_key"
+    assert data["auth_modes"][0]["config_fields"][0]["name"] == "api_base"
 
     # Missing provider parameter returns 400
     response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config")
