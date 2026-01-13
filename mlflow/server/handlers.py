@@ -111,6 +111,7 @@ from mlflow.protos.prompt_optimization_pb2 import (
 )
 from mlflow.protos.prompt_optimization_pb2 import (
     OptimizationJobStatus,
+    OptimizerType,
 )
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
@@ -5180,22 +5181,16 @@ def _create_optimization_job():
     )
 
     config = request_message.config
-
-    # Build job params from the request
-    # Single-prompt optimization: predict_fn is built automatically from prompt's model_config
     optimizer_config = (
         json.loads(config.optimizer_config_json) if config.optimizer_config_json else {}
     )
-
-    # Get prompt URI from target_prompt (use name as URI for now)
-    prompt_uri = config.target_prompt.name or ""
+    prompt_uri = config.target_prompt_uri or ""
     if not prompt_uri:
         raise MlflowException(
-            "target_prompt.name is required for optimization job",
+            "target_prompt_uri is required for optimization job",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # Get dataset_id from optimizer_config (required)
     dataset_id = optimizer_config.get("dataset_id")
     if not dataset_id:
         raise MlflowException(
@@ -5204,41 +5199,68 @@ def _create_optimization_job():
         )
 
     # Convert proto enum to string for optimizer_type
-    # OptimizerType enum: OPTIMIZER_TYPE_UNSPECIFIED=0, OPTIMIZER_TYPE_GEPA=1
-    optimizer_type_map = {
-        1: "gepa",  # OPTIMIZER_TYPE_GEPA
-    }
-    optimizer_type = optimizer_type_map.get(config.optimizer_type)
-    if not optimizer_type:
+    # Derive optimizer type string from enum name (e.g., OPTIMIZER_TYPE_GEPA -> "gepa")
+    enum_name = OptimizerType.Name(config.optimizer_type)
+    if enum_name == "OPTIMIZER_TYPE_UNSPECIFIED":
+        supported_types = [
+            name for name in OptimizerType.keys() if name != "OPTIMIZER_TYPE_UNSPECIFIED"
+        ]
         raise MlflowException(
-            f"Invalid or unspecified optimizer_type: {config.optimizer_type}. "
-            "Supported types: OPTIMIZER_TYPE_GEPA (1).",
+            f"optimizer_type is required. Supported types: {supported_types}",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    optimizer_type = enum_name.replace("OPTIMIZER_TYPE_", "").lower()
+
+    experiment_id = request_message.experiment_id
+    scorers = optimizer_config.get("scorers", [])
+
+    # Create MLflow run upfront so run_id is immediately available
+    # The job will resume this run when it starts executing
+    from mlflow.tracking.context.default_context import _get_user
+
+    tracking_store = _get_tracking_store()
+    run = tracking_store.create_run(
+        experiment_id=experiment_id,
+        user_id=_get_user(),
+        start_time=int(time.time() * 1000),
+        tags=[],
+        run_name=None,
+    )
+    run_id = run.info.run_id
+
+    # Log optimization config as run parameters
+    params_to_log = [
+        Param("source_prompt_uri", prompt_uri),
+        Param("optimizer_type", optimizer_type),
+        Param("dataset_id", dataset_id),
+        Param("scorers", json.dumps(scorers)),
+    ]
+    if config.optimizer_config_json:
+        params_to_log.append(Param("optimizer_config_json", config.optimizer_config_json))
+    tracking_store.log_batch(run_id=run_id, metrics=[], params=params_to_log, tags=[])
 
     params = {
-        "experiment_id": request_message.experiment_id,
+        "run_id": run_id,
+        "experiment_id": experiment_id,
         "prompt_uri": prompt_uri,
         "dataset_id": dataset_id,
         "optimizer_type": optimizer_type,
         "optimizer_config_json": config.optimizer_config_json,
-        "scorers": optimizer_config.get("scorers", []),
+        "scorers": scorers,
     }
 
-    # Submit the job
     job_entity = submit_job(optimize_prompts_job, params)
 
-    # Build response
     response_message = CreateOptimizationJob.Response()
     optimization_job = OptimizationJobProto()
     optimization_job.job_id = job_entity.job_id
+    optimization_job.run_id = run_id
     optimization_job.status = OptimizationJobStatus.OPTIMIZATION_JOB_STATUS_PENDING
     optimization_job.creation_timestamp_ms = job_entity.creation_time
-    optimization_job.experiment_id = request_message.experiment_id
-    optimization_job.run_id = job_entity.job_id
+    optimization_job.experiment_id = experiment_id
     optimization_job.config.CopyFrom(config)
+    optimization_job.source_prompt_uri = prompt_uri
 
-    # Add tags if provided
     for tag in request_message.tags:
         job_tag = optimization_job.tags.add()
         job_tag.key = tag.key
@@ -5265,15 +5287,55 @@ def _get_optimization_job(job_id):
     )
     optimization_job.creation_timestamp_ms = job_entity.creation_time
 
-    # Parse params to get experiment_id
-    params = json.loads(job_entity.params)
-    if "experiment_id" in params:
-        optimization_job.experiment_id = params["experiment_id"]
+    job_params = json.loads(job_entity.params)
+    if "experiment_id" in job_params:
+        optimization_job.experiment_id = job_params["experiment_id"]
+    if "prompt_uri" in job_params:
+        optimization_job.source_prompt_uri = job_params["prompt_uri"]
 
-    optimization_job.run_id = job_entity.job_id
+    # run_id must always be present since it's created upfront by the handler
+    run_id = job_params.get("run_id")
+    if not run_id:
+        raise MlflowException(
+            f"Optimization job {job_id} is missing run_id in params. "
+            "This indicates a corrupted job state.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    optimization_job.run_id = run_id
+
+    # Get optimized_prompt_uri from job result (only available when job succeeds)
+    if job_entity.status.name == "SUCCEEDED" and job_entity.parsed_result:
+        result = job_entity.parsed_result
+        if isinstance(result, dict) and result.get("optimized_prompt_uri"):
+            optimization_job.optimized_prompt_uri = result["optimized_prompt_uri"]
+
+    # Fetch MLflow run to get config params and metrics
+    try:
+        mlflow_run = _get_tracking_store().get_run(run_id)
+        run_params = mlflow_run.data.params
+        run_metrics = mlflow_run.data.metrics
+
+        config = optimization_job.config
+        if "source_prompt_uri" in run_params:
+            config.target_prompt_uri = run_params["source_prompt_uri"]
+        if "optimizer_type" in run_params:
+            # Convert string back to enum
+            optimizer_type_str = run_params["optimizer_type"].upper()
+            enum_name = f"OPTIMIZER_TYPE_{optimizer_type_str}"
+            config.optimizer_type = OptimizerType.Value(enum_name)
+        if "optimizer_config_json" in run_params:
+            config.optimizer_config_json = run_params["optimizer_config_json"]
+
+        if "initial_eval_score" in run_metrics:
+            optimization_job.initial_eval_score = run_metrics["initial_eval_score"]
+        if "final_eval_score" in run_metrics:
+            optimization_job.final_eval_score = run_metrics["final_eval_score"]
+
+    except Exception:
+        # If run fetch fails, continue with job entity data only
+        pass
 
     # If job failed, add error message
-    # For failed jobs, parsed_result returns the raw error string directly
     if job_entity.status.name == "FAILED" and job_entity.parsed_result:
         optimization_job.error_message = str(job_entity.parsed_result)
 
@@ -5323,8 +5385,16 @@ def _search_optimization_jobs():
         params = json.loads(job_entity.params)
         if "experiment_id" in params:
             optimization_job.experiment_id = params["experiment_id"]
+        if "prompt_uri" in params:
+            optimization_job.source_prompt_uri = params["prompt_uri"]
+        if "run_id" in params:
+            optimization_job.run_id = params["run_id"]
 
-        optimization_job.run_id = job_entity.job_id
+        # Get optimized_prompt_uri from job result (only available when job succeeds)
+        if job_entity.status.name == "SUCCEEDED" and job_entity.parsed_result:
+            result = job_entity.parsed_result
+            if isinstance(result, dict) and result.get("optimized_prompt_uri"):
+                optimization_job.optimized_prompt_uri = result["optimized_prompt_uri"]
 
         # If job failed, add error message
         if job_entity.status.name == "FAILED" and job_entity.parsed_result:
@@ -5339,6 +5409,7 @@ def _search_optimization_jobs():
 @_disable_if_artifacts_only
 def _cancel_optimization_job(job_id):
     """Handler for cancelOptimizationJob RPC."""
+    # Note: cancel_job imported inline to avoid circular import with mlflow.server.jobs
     from mlflow.server.jobs import cancel_job
 
     job_entity = cancel_job(job_id)
@@ -5352,8 +5423,10 @@ def _cancel_optimization_job(job_id):
     params = json.loads(job_entity.params)
     if "experiment_id" in params:
         optimization_job.experiment_id = params["experiment_id"]
-
-    optimization_job.run_id = job_entity.job_id
+    if "prompt_uri" in params:
+        optimization_job.source_prompt_uri = params["prompt_uri"]
+    if "run_id" in params:
+        optimization_job.run_id = params["run_id"]
 
     response_message.job.CopyFrom(optimization_job)
     return _wrap_response(response_message)

@@ -20,6 +20,7 @@ class OptimizerType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     OPTIMIZER_TYPE_UNSPECIFIED: _ClassVar[OptimizerType]
     OPTIMIZER_TYPE_GEPA: _ClassVar[OptimizerType]
+    OPTIMIZER_TYPE_METAPROMPT: _ClassVar[OptimizerType]
 OPTIMIZATION_JOB_STATUS_UNSPECIFIED: OptimizationJobStatus
 OPTIMIZATION_JOB_STATUS_PENDING: OptimizationJobStatus
 OPTIMIZATION_JOB_STATUS_IN_PROGRESS: OptimizationJobStatus
@@ -28,6 +29,7 @@ OPTIMIZATION_JOB_STATUS_FAILED: OptimizationJobStatus
 OPTIMIZATION_JOB_STATUS_CANCELED: OptimizationJobStatus
 OPTIMIZER_TYPE_UNSPECIFIED: OptimizerType
 OPTIMIZER_TYPE_GEPA: OptimizerType
+OPTIMIZER_TYPE_METAPROMPT: OptimizerType
 
 class OptimizationJobTag(_message.Message):
     __slots__ = ("key", "value")
@@ -37,98 +39,42 @@ class OptimizationJobTag(_message.Message):
     value: str
     def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
-class PromptModelConfig(_message.Message):
-    __slots__ = ("provider", "model_name", "temperature", "max_tokens", "top_p", "top_k", "frequency_penalty", "presence_penalty", "stop_sequences", "extra_params_json")
-    PROVIDER_FIELD_NUMBER: _ClassVar[int]
-    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
-    TEMPERATURE_FIELD_NUMBER: _ClassVar[int]
-    MAX_TOKENS_FIELD_NUMBER: _ClassVar[int]
-    TOP_P_FIELD_NUMBER: _ClassVar[int]
-    TOP_K_FIELD_NUMBER: _ClassVar[int]
-    FREQUENCY_PENALTY_FIELD_NUMBER: _ClassVar[int]
-    PRESENCE_PENALTY_FIELD_NUMBER: _ClassVar[int]
-    STOP_SEQUENCES_FIELD_NUMBER: _ClassVar[int]
-    EXTRA_PARAMS_JSON_FIELD_NUMBER: _ClassVar[int]
-    provider: str
-    model_name: str
-    temperature: float
-    max_tokens: int
-    top_p: float
-    top_k: int
-    frequency_penalty: float
-    presence_penalty: float
-    stop_sequences: _containers.RepeatedScalarFieldContainer[str]
-    extra_params_json: str
-    def __init__(self, provider: _Optional[str] = ..., model_name: _Optional[str] = ..., temperature: _Optional[float] = ..., max_tokens: _Optional[int] = ..., top_p: _Optional[float] = ..., top_k: _Optional[int] = ..., frequency_penalty: _Optional[float] = ..., presence_penalty: _Optional[float] = ..., stop_sequences: _Optional[_Iterable[str]] = ..., extra_params_json: _Optional[str] = ...) -> None: ...
-
-class PromptVersionTag(_message.Message):
-    __slots__ = ("key", "value")
-    KEY_FIELD_NUMBER: _ClassVar[int]
-    VALUE_FIELD_NUMBER: _ClassVar[int]
-    key: str
-    value: str
-    def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-
-class PromptVersion(_message.Message):
-    __slots__ = ("name", "version", "template", "prompt_type", "model_config", "response_format_json", "commit_message", "creation_timestamp_ms", "last_updated_timestamp_ms", "user_id", "tags", "aliases")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
-    TEMPLATE_FIELD_NUMBER: _ClassVar[int]
-    PROMPT_TYPE_FIELD_NUMBER: _ClassVar[int]
-    MODEL_CONFIG_FIELD_NUMBER: _ClassVar[int]
-    RESPONSE_FORMAT_JSON_FIELD_NUMBER: _ClassVar[int]
-    COMMIT_MESSAGE_FIELD_NUMBER: _ClassVar[int]
-    CREATION_TIMESTAMP_MS_FIELD_NUMBER: _ClassVar[int]
-    LAST_UPDATED_TIMESTAMP_MS_FIELD_NUMBER: _ClassVar[int]
-    USER_ID_FIELD_NUMBER: _ClassVar[int]
-    TAGS_FIELD_NUMBER: _ClassVar[int]
-    ALIASES_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    version: int
-    template: str
-    prompt_type: str
-    model_config: PromptModelConfig
-    response_format_json: str
-    commit_message: str
-    creation_timestamp_ms: int
-    last_updated_timestamp_ms: int
-    user_id: str
-    tags: _containers.RepeatedCompositeFieldContainer[PromptVersionTag]
-    aliases: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, name: _Optional[str] = ..., version: _Optional[int] = ..., template: _Optional[str] = ..., prompt_type: _Optional[str] = ..., model_config: _Optional[_Union[PromptModelConfig, _Mapping]] = ..., response_format_json: _Optional[str] = ..., commit_message: _Optional[str] = ..., creation_timestamp_ms: _Optional[int] = ..., last_updated_timestamp_ms: _Optional[int] = ..., user_id: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[PromptVersionTag, _Mapping]]] = ..., aliases: _Optional[_Iterable[str]] = ...) -> None: ...
-
 class OptimizationJobConfig(_message.Message):
-    __slots__ = ("target_prompt", "optimizer_type", "optimizer_config_json")
-    TARGET_PROMPT_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("target_prompt_uri", "optimizer_type", "optimizer_config_json")
+    TARGET_PROMPT_URI_FIELD_NUMBER: _ClassVar[int]
     OPTIMIZER_TYPE_FIELD_NUMBER: _ClassVar[int]
     OPTIMIZER_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
-    target_prompt: PromptVersion
+    target_prompt_uri: str
     optimizer_type: OptimizerType
     optimizer_config_json: str
-    def __init__(self, target_prompt: _Optional[_Union[PromptVersion, _Mapping]] = ..., optimizer_type: _Optional[_Union[OptimizerType, str]] = ..., optimizer_config_json: _Optional[str] = ...) -> None: ...
+    def __init__(self, target_prompt_uri: _Optional[str] = ..., optimizer_type: _Optional[_Union[OptimizerType, str]] = ..., optimizer_config_json: _Optional[str] = ...) -> None: ...
 
 class OptimizationJob(_message.Message):
-    __slots__ = ("job_id", "status", "creation_timestamp_ms", "completion_timestamp_ms", "experiment_id", "run_id", "config", "tags", "source_prompt", "optimized_prompt", "error_message")
+    __slots__ = ("job_id", "run_id", "status", "experiment_id", "source_prompt_uri", "optimized_prompt_uri", "config", "creation_timestamp_ms", "completion_timestamp_ms", "error_message", "tags", "initial_eval_score", "final_eval_score")
     JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_PROMPT_URI_FIELD_NUMBER: _ClassVar[int]
+    OPTIMIZED_PROMPT_URI_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
     CREATION_TIMESTAMP_MS_FIELD_NUMBER: _ClassVar[int]
     COMPLETION_TIMESTAMP_MS_FIELD_NUMBER: _ClassVar[int]
-    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
-    RUN_ID_FIELD_NUMBER: _ClassVar[int]
-    CONFIG_FIELD_NUMBER: _ClassVar[int]
-    TAGS_FIELD_NUMBER: _ClassVar[int]
-    SOURCE_PROMPT_FIELD_NUMBER: _ClassVar[int]
-    OPTIMIZED_PROMPT_FIELD_NUMBER: _ClassVar[int]
     ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    INITIAL_EVAL_SCORE_FIELD_NUMBER: _ClassVar[int]
+    FINAL_EVAL_SCORE_FIELD_NUMBER: _ClassVar[int]
     job_id: str
+    run_id: str
     status: OptimizationJobStatus
+    experiment_id: str
+    source_prompt_uri: str
+    optimized_prompt_uri: str
+    config: OptimizationJobConfig
     creation_timestamp_ms: int
     completion_timestamp_ms: int
-    experiment_id: str
-    run_id: str
-    config: OptimizationJobConfig
-    tags: _containers.RepeatedCompositeFieldContainer[OptimizationJobTag]
-    source_prompt: PromptVersion
-    optimized_prompt: PromptVersion
     error_message: str
-    def __init__(self, job_id: _Optional[str] = ..., status: _Optional[_Union[OptimizationJobStatus, str]] = ..., creation_timestamp_ms: _Optional[int] = ..., completion_timestamp_ms: _Optional[int] = ..., experiment_id: _Optional[str] = ..., run_id: _Optional[str] = ..., config: _Optional[_Union[OptimizationJobConfig, _Mapping]] = ..., tags: _Optional[_Iterable[_Union[OptimizationJobTag, _Mapping]]] = ..., source_prompt: _Optional[_Union[PromptVersion, _Mapping]] = ..., optimized_prompt: _Optional[_Union[PromptVersion, _Mapping]] = ..., error_message: _Optional[str] = ...) -> None: ...
+    tags: _containers.RepeatedCompositeFieldContainer[OptimizationJobTag]
+    initial_eval_score: float
+    final_eval_score: float
+    def __init__(self, job_id: _Optional[str] = ..., run_id: _Optional[str] = ..., status: _Optional[_Union[OptimizationJobStatus, str]] = ..., experiment_id: _Optional[str] = ..., source_prompt_uri: _Optional[str] = ..., optimized_prompt_uri: _Optional[str] = ..., config: _Optional[_Union[OptimizationJobConfig, _Mapping]] = ..., creation_timestamp_ms: _Optional[int] = ..., completion_timestamp_ms: _Optional[int] = ..., error_message: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[OptimizationJobTag, _Mapping]]] = ..., initial_eval_score: _Optional[float] = ..., final_eval_score: _Optional[float] = ...) -> None: ...

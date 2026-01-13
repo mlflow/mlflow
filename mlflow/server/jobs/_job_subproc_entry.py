@@ -50,7 +50,7 @@ if __name__ == "__main__":
         job_result.dump(result_dump_path)
     except Exception as e:
         _logger.error(
-            f"Job function {os.environ['_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME']} failed with error:\n"
-            f"{traceback.format_exc()}"
+            f"Job function {os.environ['_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME']} failed with "
+            f"error:\n{traceback.format_exc()}"
         )
         JobResult.from_error(e, transient_error_classes).dump(result_dump_path)

@@ -29,6 +29,9 @@ enum OptimizerType {
 
   // GEPA (Guided Evolution of Prompt Attributes) optimizer.
   OPTIMIZER_TYPE_GEPA = 1;
+
+  // MetaPrompt optimizer - uses metaprompting with LLMs to improve prompts in a single pass.
+  OPTIMIZER_TYPE_METAPROMPT = 2;
 }
 
 // Tag for an optimization job.
@@ -38,97 +41,11 @@ message OptimizationJobTag {
   optional string value = 2;
 }
 
-// Model configuration for a prompt.
-// Maps to the PromptModelConfig Python class.
-message PromptModelConfig {
-  // The model provider (e.g., "openai", "anthropic", "databricks").
-  optional string provider = 1;
-
-  // The name or identifier of the model (e.g., "gpt-4", "claude-3-opus").
-  optional string model_name = 2;
-
-  // Sampling temperature for controlling randomness (typically 0.0-2.0).
-  optional double temperature = 3;
-
-  // Maximum number of tokens to generate in the response.
-  optional int32 max_tokens = 4;
-
-  // Nucleus sampling parameter (typically 0.0-1.0).
-  optional double top_p = 5;
-
-  // Top-k sampling parameter.
-  optional int32 top_k = 6;
-
-  // Penalty for token frequency (typically -2.0 to 2.0).
-  optional double frequency_penalty = 7;
-
-  // Penalty for token presence (typically -2.0 to 2.0).
-  optional double presence_penalty = 8;
-
-  // List of sequences that will cause the model to stop generating.
-  repeated string stop_sequences = 9;
-
-  // JSON-serialized additional model-specific parameters.
-  // This allows for flexibility with provider-specific parameters.
-  optional string extra_params_json = 10;
-}
-
-// Tag for a prompt version.
-message PromptVersionTag {
-  // Tag key.
-  optional string key = 1;
-
-  // Tag value.
-  optional string value = 2;
-}
-
-// Represents a prompt version entity.
-// Maps to the PromptVersion Python class.
-message PromptVersion {
-  // The name of the prompt.
-  optional string name = 1;
-
-  // The version number of the prompt.
-  optional int32 version = 2;
-
-  // The template content of the prompt.
-  // For text prompts: a string with {{variable}} placeholders.
-  // For chat prompts: JSON-serialized list of message dicts with 'role' and 'content'.
-  optional string template = 3;
-
-  // The type of prompt: "text" or "chat".
-  optional string prompt_type = 4;
-
-  // Model configuration for this prompt.
-  optional PromptModelConfig model_config = 5;
-
-  // JSON-serialized response format schema (optional).
-  optional string response_format_json = 6;
-
-  // Commit message / description for this version.
-  optional string commit_message = 7;
-
-  // Timestamp when the prompt was created (milliseconds since epoch).
-  optional int64 creation_timestamp_ms = 8;
-
-  // Timestamp when the prompt was last updated (milliseconds since epoch).
-  optional int64 last_updated_timestamp_ms = 9;
-
-  // User ID that created this prompt version.
-  optional string user_id = 10;
-
-  // Tags associated with this prompt version.
-  repeated PromptVersionTag tags = 11;
-
-  // Aliases for this prompt version.
-  repeated string aliases = 12;
-}
-
 // Configuration for a prompt optimization job.
 // Stored as run parameters in the underlying MLflow run.
 message OptimizationJobConfig {
-  // The target prompt to optimize.
-  optional PromptVersion target_prompt = 1;
+  // URI of the target prompt to optimize (e.g., "prompts:/my-prompt/1").
+  optional string target_prompt_uri = 1;
 
   // The optimizer type to use.
   optional OptimizerType optimizer_type = 2;
@@ -136,46 +53,52 @@ message OptimizationJobConfig {
   // JSON-serialized optimizer-specific configuration.
   // Different optimizers accept different parameters:
   // - GEPA: {"reflection_model": "openai:/gpt-5", "max_metric_calls": 300}
+  // - MetaPrompt: {"reflection_model": "openai:/gpt-5", "guidelines": "...", "lm_kwargs": {...}}
   optional string optimizer_config_json = 3;
 }
 
 // Represents a prompt optimization job entity.
-// This is a view constructed from the underlying MLflow run.
 message OptimizationJob {
   // Unique identifier for the optimization job.
-  // This is the same as the MLflow run_id.
+  // Used to poll job execution status (pending/running/completed/failed).
   optional string job_id = 1;
 
+  // MLflow run ID where optimization metrics and results are stored.
+  // Use this to view results in MLflow UI. Only available after job starts running.
+  optional string run_id = 2;
+
   // Current status of the job.
-  optional OptimizationJobStatus status = 2;
-
-  // Timestamp when the job was created (milliseconds since epoch).
-  optional int64 creation_timestamp_ms = 3;
-
-  // Timestamp when the job completed (milliseconds since epoch).
-  // Only set if status is COMPLETED, FAILED, or CANCELED.
-  optional int64 completion_timestamp_ms = 4;
+  optional OptimizationJobStatus status = 3;
 
   // ID of the MLflow experiment where this optimization job is tracked.
-  optional string experiment_id = 5;
+  optional string experiment_id = 4;
 
-  // ID of the MLflow run associated with this optimization job.
-  // Same as job_id for OSS MLflow.
-  optional string run_id = 6;
+  // URI of the source prompt that optimization started from (e.g., "prompts:/my-prompt/1").
+  optional string source_prompt_uri = 5;
+
+  // URI of the optimized prompt (e.g., "prompts:/my-prompt/2").
+  // Only set if optimization completed successfully.
+  optional string optimized_prompt_uri = 6;
 
   // Configuration for the optimization job.
   optional OptimizationJobConfig config = 7;
 
-  // Tags associated with this job.
-  repeated OptimizationJobTag tags = 8;
+  // Timestamp when the job was created (milliseconds since epoch).
+  optional int64 creation_timestamp_ms = 8;
 
-  // The source prompt that optimization started from.
-  optional PromptVersion source_prompt = 9;
-
-  // The optimized prompt (if optimization completed successfully).
-  // This is a new version created under the same prompt name.
-  optional PromptVersion optimized_prompt = 10;
+  // Timestamp when the job completed (milliseconds since epoch).
+  // Only set if status is COMPLETED, FAILED, or CANCELED.
+  optional int64 completion_timestamp_ms = 9;
 
   // Error message if the job failed.
-  optional string error_message = 11;
+  optional string error_message = 10;
+
+  // Tags associated with this job.
+  repeated OptimizationJobTag tags = 11;
+
+  // Initial evaluation score before optimization (from MLflow run metrics).
+  optional double initial_eval_score = 12;
+
+  // Final evaluation score after optimization (from MLflow run metrics).
+  optional double final_eval_score = 13;
 }

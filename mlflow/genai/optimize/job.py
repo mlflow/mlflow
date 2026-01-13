@@ -10,14 +10,22 @@ import logging
 from typing import Any
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.optimize.optimizers import BasePromptOptimizer, GepaPromptOptimizer
+from mlflow.genai.datasets import get_dataset
+from mlflow.genai.optimize.optimizers import (
+    BasePromptOptimizer,
+    GepaPromptOptimizer,
+    MetaPromptOptimizer,
+)
+from mlflow.genai.prompts import load_prompt
+from mlflow.genai.scorers import builtin_scorers
 from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.registry import get_scorer
 from mlflow.server.jobs import job
 
 _logger = logging.getLogger(__name__)
 
 _DEFAULT_OPTIMIZATION_JOB_MAX_WORKERS = 2
-SUPPORTED_OPTIMIZER_TYPES = {"gepa"}
+SUPPORTED_OPTIMIZER_TYPES = {"gepa", "metaprompt"}
 
 
 def _create_optimizer(
@@ -28,7 +36,7 @@ def _create_optimizer(
     Create an optimizer instance from type string and config JSON.
 
     Args:
-        optimizer_type: The optimizer type string (e.g., "gepa").
+        optimizer_type: The optimizer type string (e.g., "gepa", "metaprompt").
         optimizer_config_json: JSON string of optimizer-specific configuration.
 
     Returns:
@@ -38,9 +46,9 @@ def _create_optimizer(
         MlflowException: If optimizer type is not supported.
     """
     config = json.loads(optimizer_config_json) if optimizer_config_json else {}
-    optimizer_type_lower = optimizer_type.lower() if optimizer_type else ""
+    optimizer_type = optimizer_type.lower() if optimizer_type else ""
 
-    if optimizer_type_lower == "gepa":
+    if optimizer_type == "gepa":
         reflection_model = config.get("reflection_model")
         if not reflection_model:
             raise MlflowException.invalid_parameter_value(
@@ -53,7 +61,19 @@ def _create_optimizer(
             display_progress_bar=config.get("display_progress_bar", False),
             gepa_kwargs=config.get("gepa_kwargs"),
         )
-    elif not optimizer_type_lower:
+    elif optimizer_type == "metaprompt":
+        reflection_model = config.get("reflection_model")
+        if not reflection_model:
+            raise MlflowException.invalid_parameter_value(
+                "Missing required optimizer configuration: 'reflection_model' must be specified "
+                "in optimizer_config_json for the MetaPrompt optimizer (e.g., 'openai:/gpt-4o')."
+            )
+        return MetaPromptOptimizer(
+            reflection_model=reflection_model,
+            lm_kwargs=config.get("lm_kwargs"),
+            guidelines=config.get("guidelines"),
+        )
+    elif not optimizer_type:
         raise MlflowException.invalid_parameter_value(
             f"Optimizer type must be specified. Supported types: {SUPPORTED_OPTIMIZER_TYPES}"
         )
@@ -82,8 +102,6 @@ def _load_scorers(scorer_names: list[str], experiment_id: str) -> list[Scorer]:
     Raises:
         MlflowException: If a scorer cannot be found as either built-in or registered.
     """
-    from mlflow.genai.scorers import builtin_scorers
-    from mlflow.genai.scorers.registry import get_scorer
 
     scorers = []
     for name in scorer_names:
@@ -129,8 +147,6 @@ def _build_predict_fn(prompt_uri: str):
     """
     import litellm
 
-    from mlflow.genai.prompts import load_prompt
-
     prompt = load_prompt(prompt_uri)
     try:
         model_config = prompt.model_config
@@ -154,44 +170,9 @@ def _build_predict_fn(prompt_uri: str):
     return predict_fn
 
 
-def _load_train_data_from_dataset(dataset_id: str) -> list[dict[str, Any]]:
-    """
-    Load training data from an MLflow EvaluationDataset.
-
-    Args:
-        dataset_id: The ID of the EvaluationDataset to load.
-
-    Returns:
-        List of dicts with 'inputs', 'outputs', and 'expectations' fields.
-
-    Raises:
-        MlflowException: If the dataset cannot be loaded or has no records.
-    """
-    from mlflow.genai.datasets import get_dataset
-
-    dataset = get_dataset(dataset_id=dataset_id)
-    df = dataset.to_df()
-
-    if df.empty:
-        raise MlflowException.invalid_parameter_value(
-            f"Dataset {dataset_id} has no records. Please add records before optimization."
-        )
-
-    # Convert DataFrame to list of dicts, keeping only relevant columns
-    records = []
-    for _, row in df.iterrows():
-        record = {"inputs": row["inputs"]}
-        if "outputs" in row and row["outputs"] is not None:
-            record["outputs"] = row["outputs"]
-        if "expectations" in row and row["expectations"] is not None:
-            record["expectations"] = row["expectations"]
-        records.append(record)
-
-    return records
-
-
 @job(name="optimize_prompts", max_workers=_DEFAULT_OPTIMIZATION_JOB_MAX_WORKERS)
 def optimize_prompts_job(
+    run_id: str,
     experiment_id: str,
     prompt_uri: str,
     dataset_id: str,
@@ -203,8 +184,8 @@ def optimize_prompts_job(
     Job function for async single-prompt optimization.
 
     This function is executed as a background job by the MLflow server.
-    It builds a predict_fn from the prompt's model configuration and calls
-    mlflow.genai.optimize_prompts() with the provided configuration.
+    It resumes an existing MLflow run (created by the handler) and calls
+    mlflow.genai.optimize_prompts() which reuses the active run.
 
     Note: This job only supports single-prompt optimization. The predict_fn
     is automatically built using the prompt's model_config (provider/model_name)
@@ -212,10 +193,11 @@ def optimize_prompts_job(
     to serialize their own predict function.
 
     Args:
+        run_id: The MLflow run ID to resume (created by the handler upfront).
         experiment_id: The experiment ID to track the optimization in.
         prompt_uri: The URI of the prompt to optimize.
         dataset_id: The ID of the EvaluationDataset containing training data.
-        optimizer_type: The optimizer type string (e.g., "gepa").
+        optimizer_type: The optimizer type string (e.g., "gepa", "metaprompt").
         optimizer_config_json: JSON string of optimizer-specific configuration.
         scorers: List of scorer names. Can be built-in scorer class names
             (e.g., "Correctness", "Safety") or registered scorer names from
@@ -223,44 +205,56 @@ def optimize_prompts_job(
 
     Returns:
         Dict containing optimization results:
+        - run_id: The MLflow run ID
+        - source_prompt_uri: URI of the source prompt
         - optimized_prompt_uri: URI of the optimized prompt
         - optimizer_name: Name of the optimizer used
         - initial_eval_score: Initial evaluation score (if available)
         - final_eval_score: Final evaluation score (if available)
     """
     import mlflow
+    from mlflow import MlflowClient
     from mlflow.genai.optimize import optimize_prompts
 
-    # Set the experiment for tracking
     mlflow.set_experiment(experiment_id=experiment_id)
 
-    # Load training data from the EvaluationDataset
-    train_data = _load_train_data_from_dataset(dataset_id)
-    _logger.info(f"Loaded {len(train_data)} training samples from dataset {dataset_id}")
+    dataset = get_dataset(dataset_id=dataset_id)
+    # Convert to DataFrame since optimize_prompts expects a len()-able object
+    train_data = dataset.to_df()
+    _logger.info(f"Loaded dataset {dataset_id} with {len(train_data)} samples")
 
-    # Build predict_fn from the prompt's model config
     predict_fn = _build_predict_fn(prompt_uri)
     _logger.info(f"Built predict_fn from prompt {prompt_uri}")
 
-    # Create optimizer
     optimizer = _create_optimizer(optimizer_type, optimizer_config_json)
     _logger.info(f"Created optimizer {optimizer_type}")
 
-    # Load scorers by name (built-in or registered)
     loaded_scorers = _load_scorers(scorers, experiment_id)
     _logger.info(f"Loaded {len(loaded_scorers)} scorers: {scorers}")
 
-    # Run optimization (single prompt)
-    result = optimize_prompts(
-        predict_fn=predict_fn,
-        train_data=train_data,
-        prompt_uris=[prompt_uri],
-        optimizer=optimizer,
-        scorers=loaded_scorers,
-        enable_tracking=True,
-    )
+    source_prompt = load_prompt(prompt_uri)
+    _logger.info(f"Loaded source prompt: {prompt_uri}")
+
+    # Resume the given run ID. Params have already been logged by the handler
+    with mlflow.start_run(run_id=run_id):
+        # Link source prompt to run for lineage
+        client = MlflowClient()
+        client.link_prompt_version_to_run(run_id=run_id, prompt=source_prompt)
+        _logger.info(f"Linked source prompt {prompt_uri} to run {run_id}")
+
+        # Run optimization - reuses this active run
+        result = optimize_prompts(
+            predict_fn=predict_fn,
+            train_data=train_data,
+            prompt_uris=[prompt_uri],
+            optimizer=optimizer,
+            scorers=loaded_scorers,
+            enable_tracking=True,
+        )
 
     return {
+        "run_id": run_id,
+        "source_prompt_uri": prompt_uri,
         "optimized_prompt_uri": result.optimized_prompts[0].uri
         if result.optimized_prompts
         else None,
