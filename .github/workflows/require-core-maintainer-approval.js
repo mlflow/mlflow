@@ -29,9 +29,6 @@ const EXEMPTION_RULES = [
 ];
 
 function matchesAnyPattern(path, patterns) {
-  if (!patterns) {
-    return false;
-  }
   return patterns.some((pattern) => pattern.test(path));
 }
 
