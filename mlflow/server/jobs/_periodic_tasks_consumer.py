@@ -8,6 +8,7 @@ It is launched by the job runner and runs in a separate process from job executi
 import threading
 
 from mlflow.server.jobs.utils import (
+    HUEY_PERIODIC_TASKS_INSTANCE_KEY,
     _exit_when_orphaned,
     _get_or_init_huey_instance,
     register_periodic_tasks,
@@ -21,8 +22,6 @@ threading.Thread(
     name="exit_when_orphaned",
     daemon=True,
 ).start()
-
-from mlflow.server.jobs.utils import HUEY_PERIODIC_TASKS_INSTANCE_KEY
 
 huey_instance = _get_or_init_huey_instance(HUEY_PERIODIC_TASKS_INSTANCE_KEY).instance
 
