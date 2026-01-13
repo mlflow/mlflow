@@ -34,10 +34,17 @@ export interface DateRange {
 interface TracesV3DateSelectorProps {
   /** Optional list of time label keys to exclude from the dropdown */
   excludeOptions?: string[];
+  /** Optional custom componentId for the refresh button */
+  refreshButtonComponentId?: string;
 }
 
+const DEFAULT_REFRESH_BUTTON_COMPONENT_ID = 'mlflow.experiment-evaluation-monitoring.refresh-date-button';
+
 // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
-export const TracesV3DateSelector = React.memo(({ excludeOptions }: TracesV3DateSelectorProps) => {
+export const TracesV3DateSelector = React.memo(function TracesV3DateSelector({
+  excludeOptions,
+  refreshButtonComponentId = DEFAULT_REFRESH_BUTTON_COMPONENT_ID,
+}: TracesV3DateSelectorProps) {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const queryClient = useQueryClient();
@@ -166,7 +173,7 @@ export const TracesV3DateSelector = React.memo(({ excludeOptions }: TracesV3Date
       >
         <Button
           type="link"
-          componentId="mlflow.experiment-evaluation-monitoring.refresh-date-button"
+          componentId={refreshButtonComponentId}
           disabled={Boolean(isFetching)}
           onClick={() => {
             monitoringConfig.refresh();
