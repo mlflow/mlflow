@@ -52,7 +52,7 @@ Add the OpenTelemetry dependencies to your `pom.xml`:
         <groupId>org.springframework.ai</groupId>
         <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
     </dependency>
-    
+
     <!-- Micrometer to OpenTelemetry Bridge -->
     <dependency>
         <groupId>io.micrometer</groupId>
@@ -129,7 +129,7 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * OpenTelemetry configuration for MLflow tracing.
- * 
+ *
  * Configure via environment variables:
  *   MLFLOW_TRACKING_URI=http://localhost:5000
  *   MLFLOW_EXPERIMENT_ID=0
@@ -233,7 +233,7 @@ public class ChatController {
             return ResponseEntity.badRequest()
                 .body(Map.of("error", "Prompt is required"));
         }
-        
+
         String response = chatService.chat(prompt);
         return ResponseEntity.ok(Map.of(
             "prompt", prompt,

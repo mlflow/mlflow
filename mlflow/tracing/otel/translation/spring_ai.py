@@ -59,9 +59,7 @@ class SpringAiTranslator(OtelSchemaTranslator):
         Returns:
             Input value or None if not found
         """
-        return self._get_value_from_event(
-            events, self.PROMPT_EVENT_NAME, self.PROMPT_ATTRIBUTE_KEY
-        )
+        return self._get_value_from_event(events, self.PROMPT_EVENT_NAME, self.PROMPT_ATTRIBUTE_KEY)
 
     def get_output_value_from_events(self, events: list[dict]) -> Any:
         """
@@ -77,9 +75,7 @@ class SpringAiTranslator(OtelSchemaTranslator):
             events, self.COMPLETION_EVENT_NAME, self.COMPLETION_ATTRIBUTE_KEY
         )
 
-    def _get_value_from_event(
-        self, events: list[dict], event_name: str, attribute_key: str
-    ) -> Any:
+    def _get_value_from_event(self, events: list[dict], event_name: str, attribute_key: str) -> Any:
         """
         Extract a value from a specific event.
 
