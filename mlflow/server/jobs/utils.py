@@ -644,6 +644,7 @@ def register_periodic_tasks(huey_instance) -> None:
     from huey import crontab
 
     @huey_instance.periodic_task(crontab(minute="*/1"))
+    @huey_instance.lock_task("online-scoring-scheduler-lock")
     def online_scoring_scheduler():
         """Runs every minute to fetch active scorer configs and submit scoring jobs."""
         from mlflow.genai.scorers.job import run_online_scoring_scheduler
