@@ -2543,11 +2543,11 @@ def import_checkpoints(
     if source_run_id is None:
         if run := active_run():
             source_run_id = run.info.run_id
-
-    if source_run_id is None:
-        raise MlflowException.invalid_parameter_value(
-            "Please set 'source_run_id' or start an active run before calling 'import_checkpoints'"
-        )
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "Please set 'source_run_id' or start an active run before calling "
+                "'import_checkpoints'."
+            )
 
     # Resolve experiment ID to operate against
     exp_id = MlflowClient().get_run(source_run_id).info.experiment_id
@@ -2561,7 +2561,7 @@ def import_checkpoints(
     client = MlflowClient()
 
     if not top_level_paths:
-        logging.getLogger(__name__).warning(
+        _logger.warning(
             "No checkpoints were found at path '%s'. "
             "Please verify that 'checkpoint_path' is correct and accessible.",
             checkpoint_path,
@@ -2592,10 +2592,6 @@ def import_checkpoints(
             if model.source_run_id == source_run_id
         ]
 
-        if existing_models and overwrite_checkpoints:
-            for model in existing_models:
-                client.delete_logged_model(model.model_id)
-
         if not existing_models or overwrite_checkpoints:
             # Create a new model pointing to this checkpoint path.
             created_model = create_external_model(
@@ -2605,6 +2601,10 @@ def import_checkpoints(
                 experiment_id=exp_id,
             )
             created_models.append(created_model)
+
+        if existing_models and overwrite_checkpoints:
+            for model in existing_models:
+                client.delete_logged_model(model.model_id)
 
     return created_models
 
