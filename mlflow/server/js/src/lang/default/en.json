@@ -5831,10 +5831,6 @@
     "defaultMessage": "Model metrics",
     "description": "Run details page > tab selector > Model metrics tab"
   },
-  "j3E+jq": {
-    "defaultMessage": "Search charts",
-    "description": "Placeholder for search charts input"
-  },
   "j3yKcX": {
     "defaultMessage": "Select the experiment you configured above.",
     "description": "Instruction to select the experiment configured for traces"

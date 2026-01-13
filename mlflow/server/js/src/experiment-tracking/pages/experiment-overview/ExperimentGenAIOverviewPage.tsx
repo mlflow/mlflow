@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import invariant from 'invariant';
 import { useParams } from '../../../common/utils/RoutingUtils';
-import { GenAiTracesTableSearchInput } from '@databricks/web-shared/genai-traces-table';
 import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage } from 'react-intl';
 import { TracesV3DateSelector } from '../../components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../hooks/useMonitoringFilters';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
@@ -27,9 +26,7 @@ import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
 const ExperimentGenAIOverviewPageImpl = () => {
   const { experimentId } = useParams();
   const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
   const [activeTab, setActiveTab] = useOverviewTab();
-  const [searchQuery, setSearchQuery] = useState('');
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -92,25 +89,14 @@ const ExperimentGenAIOverviewPageImpl = () => {
           </Tabs.Trigger>
         </Tabs.List>
 
-        {/* Control bar with search and time range */}
+        {/* Control bar with time range */}
         <div
           css={{
             display: 'flex',
             alignItems: 'center',
             gap: theme.spacing.sm,
-            padding: `0 0`,
           }}
         >
-          {/* Search input */}
-          <GenAiTracesTableSearchInput
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'Search charts',
-              description: 'Placeholder for search charts input',
-            })}
-          />
-
           {/*
            * Time range selector - exclude 'ALL' since charts require start_time_ms and end_time_ms
            * TODO: remove this once this is supported in backend
