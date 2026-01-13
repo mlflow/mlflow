@@ -1,5 +1,11 @@
-import React from 'react';
-import { WrenchIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import React, { useMemo, useState } from 'react';
+import {
+  WrenchIcon,
+  Typography,
+  useDesignSystemTheme,
+  SortAscendingIcon,
+  SortDescendingIcon,
+} from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useToolPerformanceSummaryData } from '../hooks/useToolPerformanceSummaryData';
 import {
@@ -11,6 +17,9 @@ import {
 } from './OverviewChartComponents';
 import { formatCount, formatLatency, useChartColors } from '../utils/chartUtils';
 
+type SortColumn = 'toolName' | 'totalCalls' | 'successRate' | 'avgLatency';
+type SortDirection = 'asc' | 'desc';
+
 /**
  * Tool Performance Summary component displaying per-tool metrics in a table-like view.
  * Shows tool name, call count, success rate, and average latency for each tool.
@@ -18,9 +27,44 @@ import { formatCount, formatLatency, useChartColors } from '../utils/chartUtils'
 export const ToolPerformanceSummary: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const { getChartColor } = useChartColors();
+  const [sortColumn, setSortColumn] = useState<SortColumn>('totalCalls');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   // Fetch tool performance data
   const { toolsData, isLoading, error, hasData } = useToolPerformanceSummaryData();
+
+  // Sort the data
+  const sortedToolsData = useMemo(() => {
+    if (!toolsData.length) return toolsData;
+
+    return [...toolsData].sort((a, b) => {
+      let comparison = 0;
+      switch (sortColumn) {
+        case 'toolName':
+          comparison = a.toolName.localeCompare(b.toolName);
+          break;
+        case 'totalCalls':
+          comparison = a.totalCalls - b.totalCalls;
+          break;
+        case 'successRate':
+          comparison = a.successRate - b.successRate;
+          break;
+        case 'avgLatency':
+          comparison = a.avgLatency - b.avgLatency;
+          break;
+      }
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [toolsData, sortColumn, sortDirection]);
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('desc');
+    }
+  };
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -40,6 +84,38 @@ export const ToolPerformanceSummary: React.FC = () => {
 
   const cellStyle = { textAlign: 'center' } as const;
 
+  // Sortable header cell component
+  const SortableHeader = ({
+    column,
+    children,
+    centered,
+  }: {
+    column: SortColumn;
+    children: React.ReactNode;
+    centered?: boolean;
+  }) => (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => handleSort(column)}
+      onKeyDown={(e) => e.key === 'Enter' && handleSort(column)}
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+        cursor: 'pointer',
+        justifyContent: centered ? 'center' : 'flex-start',
+        color: theme.colors.textSecondary,
+        fontSize: theme.typography.fontSizeSm,
+        fontWeight: 600,
+        '&:hover': { color: theme.colors.textPrimary },
+      }}
+    >
+      {children}
+      {sortColumn === column && (sortDirection === 'asc' ? <SortAscendingIcon /> : <SortDescendingIcon />)}
+    </div>
+  );
+
   return (
     <OverviewChartContainer>
       <OverviewChartHeader
@@ -54,25 +130,25 @@ export const ToolPerformanceSummary: React.FC = () => {
 
       {hasData ? (
         <div css={{ display: 'flex', flexDirection: 'column' }}>
-          {/* Table header (sticky) */}
+          {/* Table header */}
           <div css={{ ...rowStyle, padding: `${theme.spacing.sm}px ${theme.spacing.lg}px ${theme.spacing.sm}px 0` }}>
-            <Typography.Text color="secondary" size="sm" bold>
+            <SortableHeader column="toolName">
               <FormattedMessage defaultMessage="Tool" description="Column header for tool name" />
-            </Typography.Text>
-            <Typography.Text color="secondary" size="sm" bold css={cellStyle}>
+            </SortableHeader>
+            <SortableHeader column="totalCalls" centered>
               <FormattedMessage defaultMessage="Calls" description="Column header for call count" />
-            </Typography.Text>
-            <Typography.Text color="secondary" size="sm" bold css={cellStyle}>
+            </SortableHeader>
+            <SortableHeader column="successRate" centered>
               <FormattedMessage defaultMessage="Success" description="Column header for success rate" />
-            </Typography.Text>
-            <Typography.Text color="secondary" size="sm" bold css={cellStyle}>
+            </SortableHeader>
+            <SortableHeader column="avgLatency" centered>
               <FormattedMessage defaultMessage="Latency" description="Column header for average latency" />
-            </Typography.Text>
+            </SortableHeader>
           </div>
 
           {/* Scrollable table body */}
           <div css={{ maxHeight: 300, overflowY: 'auto' }}>
-            {toolsData.map((tool, index) => (
+            {sortedToolsData.map((tool, index) => (
               <div
                 key={tool.toolName}
                 css={{
