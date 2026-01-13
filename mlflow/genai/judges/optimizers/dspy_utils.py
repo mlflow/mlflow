@@ -38,7 +38,7 @@ def _check_dspy_installed():
     except ImportError as e:
         raise MlflowException(
             "The DSPy library is required but not installed. "
-            "Please install it using: pip install dspy"
+            "Please install it using: `pip install dspy`"
         ) from e
 
 

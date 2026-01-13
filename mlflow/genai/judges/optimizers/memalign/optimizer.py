@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.assessment import Assessment, AssessmentSource, Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
@@ -73,9 +73,9 @@ class MemoryAugmentedJudge(Judge):
     Args:
         base_judge: Base judge to augment with memory systems
         reflection_lm: {{ reflection_lm }}
-        retrieval_k: Number of similar examples to retrieve from episodic memory
+        retrieval_k: Number of similar examples to retrieve from episodic memory (default: 5)
         embedding_model: {{ embedding_model }}
-        embedding_dim: Dimension of embeddings
+        embedding_dim: Dimension of embeddings (default: 512)
         episodic_memory: Initial examples to add to episodic memory
         semantic_memory: Initial guidelines to add to semantic memory. If None and base_judge
             is a MemoryAugmentedJudge, inherits semantic memory from base_judge.
@@ -137,7 +137,7 @@ class MemoryAugmentedJudge(Judge):
 
         self._embedding_dim = embedding_dim
         self._embedder = dspy.Embedder(self._embedding_model, dimensions=self._embedding_dim)
-        self._search = None
+        self._retriever = None
 
         extended_signature = create_extended_signature(self._base_signature)
         self._predict_module = dspy.Predict(extended_signature)
@@ -152,19 +152,38 @@ class MemoryAugmentedJudge(Judge):
                 # Normal flow: add examples and distill guidelines
                 self._add_examples_to_memory(episodic_memory)
 
-    def __call__(self, **kwargs) -> Assessment:
+    def __call__(
+        self,
+        *,
+        inputs: Any = None,
+        outputs: Any = None,
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
+    ) -> Assessment:
         guidelines = [g.guideline_text for g in self._semantic_memory]
-        relevant_examples, retrieved_trace_ids = retrieve_relevant_examples(
-            search=self._search,
+        query_kwargs = {
+            "inputs": inputs,
+            "outputs": outputs,
+            "expectations": expectations,
+            "trace": trace,
+        }
+        retrieved_results = retrieve_relevant_examples(
+            retriever=self._retriever,
             examples=self._episodic_memory,
-            query_kwargs=kwargs,
+            query_kwargs=query_kwargs,
             signature=self._base_signature,
         )
+
+        relevant_examples = [example for example, _ in retrieved_results]
+        retrieved_trace_ids = [trace_id for _, trace_id in retrieved_results]
 
         prediction = self._predict_module(
             guidelines=guidelines,
             example_judgements=relevant_examples,
-            **kwargs,
+            inputs=inputs,
+            outputs=outputs,
+            expectations=expectations,
+            trace=trace,
         )
 
         return Feedback(
@@ -226,7 +245,13 @@ class MemoryAugmentedJudge(Judge):
 
         Example:
             .. code-block:: python
-                aligned_judge = judge.align(traces=all_traces, optimizer=optimizer)
+
+                import mlflow
+                from mlflow.genai.judges import make_judge
+                from mlflow.genai.judges.optimizers import MemAlignOptimizer
+
+                # Assuming `all_traces` contains human feedback for the judge
+                aligned_judge = judge.align(traces=all_traces, optimizer=MemAlignOptimizer())
                 aligned_judge_v2 = aligned_judge.unalign(traces=bad_traces)
                 # The judge now only reflects feedback from `set(all_traces) - set(bad_traces)`
         """
@@ -300,7 +325,7 @@ class MemoryAugmentedJudge(Judge):
             query = truncate_to_token_limit(query, self._embedding_model)
             corpus.append(query)
 
-        self._search = dspy.retrievers.Embeddings(
+        self._retriever = dspy.retrievers.Embeddings(
             embedder=self._embedder, corpus=corpus, k=self._retrieval_k
         )
         _logger.debug(f"Episodic memory corpus contains {len(corpus)} examples")
@@ -339,12 +364,16 @@ class MemAlignOptimizer(AlignmentOptimizer):
 
     Args:
         reflection_lm: {{ reflection_lm }}
-        retrieval_k: Number of similar examples to retrieve from episodic memory
+        retrieval_k: Number of similar examples to retrieve from episodic memory (default: 5)
         embedding_model: {{ embedding_model }}
-        embedding_dim: Dimension of embeddings
+        embedding_dim: Dimension of embeddings (default: 512)
 
     Example:
         .. code-block:: python
+
+            import mlflow
+            from mlflow.genai.judges import make_judge
+            from mlflow.genai.judges.optimizers import MemAlignOptimizer
 
             judge = make_judge(name="quality", instructions="...", model="openai:/gpt-4")
             optimizer = MemAlignOptimizer(
@@ -352,8 +381,10 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 retrieval_k=3,
                 embedding_model="openai/text-embedding-3-small",
             )
+
+            # Assuming `traces` contains human feedback for the judge
             optimized_judge = judge.align(traces=traces, optimizer=optimizer)
-            result = optimized_judge(inputs={...}, outputs={...})
+            result = optimized_judge(inputs="...", outputs="...")
     """
 
     def __init__(

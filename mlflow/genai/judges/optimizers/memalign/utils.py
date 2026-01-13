@@ -186,24 +186,24 @@ def distill_guidelines(
 
 
 def retrieve_relevant_examples(
-    search: "dspy.retrievers.Embeddings",
+    retriever: "dspy.retrievers.Embeddings",
     examples: list["dspy.Example"],
     query_kwargs: dict[str, Any],
     signature: "dspy.Signature",
-) -> tuple[list["dspy.Example"], list[str]]:
+) -> list[tuple["dspy.Example", str]]:
     """Retrieve relevant examples using semantic search.
 
     Args:
-        search: DSPy Embeddings retriever
+        retriever: DSPy Embeddings retriever
         examples: List of all examples
         query_kwargs: Query parameters to construct search query
         signature: DSPy signature defining input fields
 
     Returns:
-        Tuple of (retrieved examples, their trace IDs)
+        List of tuples of (retrieved example, trace ID)
     """
-    if not examples or search is None:
-        return [], []
+    if not examples or retriever is None:
+        return []
 
     query_parts = [
         str(query_kwargs[field_name])
@@ -211,17 +211,17 @@ def retrieve_relevant_examples(
         if field_name in query_kwargs and query_kwargs[field_name] is not None
     ]
     query = " ".join(query_parts)
-    search_results = search(query)
+    search_results = retriever(query)
     indices = [int(i) for i in search_results.indices]
-    retrieved_examples = [examples[i] for i in indices]
 
-    # Convert indices to trace IDs
-    trace_ids = [
-        examples[i]._trace_id if hasattr(examples[i], "_trace_id") else f"example_{i}"
+    # Return list of tuples for safer API
+    return [
+        (
+            examples[i],
+            examples[i]._trace_id if hasattr(examples[i], "_trace_id") else f"example_{i}",
+        )
         for i in indices
     ]
-
-    return retrieved_examples, trace_ids
 
 
 def create_extended_signature(base_signature: "dspy.Signature") -> "dspy.Signature":
