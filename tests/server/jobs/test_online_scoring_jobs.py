@@ -236,3 +236,42 @@ def test_scheduler_submits_jobs_via_submit_job():
         assert len(session_params["online_scorers"]) == 1
         assert session_params["experiment_id"] == "exp1"
         assert session_params["online_scorers"][0]["name"] == "conversation_judge"
+
+
+def test_scheduler_skips_invalid_scorers():
+    valid_scorer = OnlineScorer(
+        name="completeness",
+        serialized_scorer=json.dumps(Completeness().model_dump()),
+        online_config=OnlineScoringConfig(
+            online_scoring_config_id=uuid.uuid4().hex,
+            scorer_id=uuid.uuid4().hex,
+            sample_rate=1.0,
+            experiment_id="exp1",
+            filter_string=None,
+        ),
+    )
+    invalid_scorer = OnlineScorer(
+        name="invalid_scorer",
+        serialized_scorer='{"bad": "data"}',
+        online_config=OnlineScoringConfig(
+            online_scoring_config_id=uuid.uuid4().hex,
+            scorer_id=uuid.uuid4().hex,
+            sample_rate=1.0,
+            experiment_id="exp1",
+            filter_string=None,
+        ),
+    )
+
+    mock_store = MagicMock()
+    mock_store.get_active_online_scorers.return_value = [valid_scorer, invalid_scorer]
+
+    with (
+        patch("mlflow.genai.scorers.job._get_tracking_store", return_value=mock_store),
+        patch("mlflow.genai.scorers.job.submit_job") as mock_submit,
+        patch("mlflow.genai.scorers.job._logger") as mock_logger,
+    ):
+        run_online_scoring_scheduler()
+
+        mock_logger.warning.assert_called_once()
+        assert "invalid_scorer" in mock_logger.warning.call_args[0][0]
+        assert mock_submit.call_count == 1  # Only valid scorer submitted
