@@ -3,6 +3,7 @@ import React from 'react';
 
 import type { ThemeType } from '@databricks/design-system';
 import {
+  HoverCard,
   SpeechBubbleIcon,
   TableCell,
   Tag,
@@ -12,20 +13,25 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import type { IntlShape } from '@databricks/i18n';
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { TOKEN_USAGE_METADATA_KEY, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { formatDateTime } from './rendererFunctions';
+import { formatResponseTitle } from '../GenAiTracesTableBody.utils';
 import {
+  EXECUTION_DURATION_COLUMN_ID,
   INPUTS_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
+  RESPONSE_COLUMN_ID,
   SESSION_COLUMN_ID,
+  TOKENS_COLUMN_ID,
   TRACE_ID_COLUMN_ID,
   USER_COLUMN_ID,
 } from '../hooks/useTableColumns';
 import type { TracesTableColumn } from '../types';
 import { escapeCssSpecialCharacters } from '../utils/DisplayUtils';
+import { getTraceInfoOutputs } from '../utils/TraceUtils';
 
 interface SessionHeaderCellProps {
   column: TracesTableColumn;
@@ -145,6 +151,158 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
     ) : (
       <NullCell />
     );
+  } else if (column.id === RESPONSE_COLUMN_ID && traces.length > 0) {
+    // Response column - get output from the last trace
+    const lastTrace = traces[traces.length - 1];
+    const value = formatResponseTitle(getTraceInfoOutputs(lastTrace));
+    cellContent = value ? (
+      <div
+        css={{
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          minWidth: 0,
+        }}
+        title={value}
+      >
+        {value}
+      </div>
+    ) : (
+      <NullCell />
+    );
+  } else if (column.id === EXECUTION_DURATION_COLUMN_ID && traces.length > 0) {
+    // Execution duration - sum all execution durations
+    const normalizeFloatValue = (val?: string) => {
+      if (val === undefined) {
+        return undefined;
+      }
+      const floatVal = parseFloat(val);
+      if (isNil(floatVal) || isNaN(floatVal)) {
+        return undefined;
+      }
+      return floatVal;
+    };
+
+    const totalDuration = traces.reduce((sum, trace) => {
+      const duration = normalizeFloatValue(trace[EXECUTION_DURATION_COLUMN_ID]);
+      return sum + (duration || 0);
+    }, 0);
+
+    // Get unit from first trace (assume all traces have same unit)
+    const firstTraceValue = firstTrace?.[EXECUTION_DURATION_COLUMN_ID];
+    const unit =
+      firstTraceValue
+        ?.replace?.(/[0-9.]/g, '')
+        .trim()
+        .toLowerCase() || '';
+
+    const displayValue =
+      totalDuration > 0 ? [totalDuration.toFixed(3).replace(/\.?0+$/, ''), unit].filter(Boolean).join('') : undefined;
+
+    cellContent = displayValue ? (
+      <div
+        css={{
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          minWidth: 0,
+        }}
+        title={displayValue}
+      >
+        {displayValue}
+      </div>
+    ) : (
+      <NullCell />
+    );
+  } else if (column.id === TOKENS_COLUMN_ID && traces.length > 0) {
+    // Tokens - sum all token counts
+    let totalTokens = 0;
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+
+    traces.forEach((trace) => {
+      const tokenUsage = trace.trace_metadata?.[TOKEN_USAGE_METADATA_KEY];
+      try {
+        const parsedTokenUsage = tokenUsage ? JSON.parse(tokenUsage) : {};
+        totalTokens += parsedTokenUsage.total_tokens || 0;
+        totalInputTokens += parsedTokenUsage.input_tokens || 0;
+        totalOutputTokens += parsedTokenUsage.output_tokens || 0;
+      } catch {
+        // Skip invalid token data
+      }
+    });
+
+    cellContent =
+      totalTokens > 0 ? (
+        <HoverCard
+          trigger={
+            <Tag
+              css={{ width: 'fit-content', maxWidth: '100%' }}
+              componentId="mlflow.genai-traces-table.session-tokens"
+            >
+              <span
+                css={{
+                  display: 'block',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {totalTokens}
+              </span>
+            </Tag>
+          }
+          content={
+            <div css={{ display: 'flex', flexDirection: 'column' }}>
+              <div css={{ display: 'flex', flexDirection: 'row' }}>
+                <div css={{ width: '35%' }}>
+                  <Typography.Text>
+                    {intl.formatMessage({
+                      defaultMessage: 'Total',
+                      description: 'Label for the total tokens in the tooltip for the tokens cell.',
+                    })}
+                  </Typography.Text>
+                </div>
+                <div>
+                  <Typography.Text color="secondary">{totalTokens}</Typography.Text>
+                </div>
+              </div>
+              {totalInputTokens > 0 && (
+                <div css={{ display: 'flex', flexDirection: 'row' }}>
+                  <div css={{ width: '35%' }}>
+                    <Typography.Text>
+                      {intl.formatMessage({
+                        defaultMessage: 'Input',
+                        description: 'Label for the input tokens in the tooltip for the tokens cell.',
+                      })}
+                    </Typography.Text>
+                  </div>
+                  <div>
+                    <Typography.Text color="secondary">{totalInputTokens}</Typography.Text>
+                  </div>
+                </div>
+              )}
+              {totalOutputTokens > 0 && (
+                <div css={{ display: 'flex', flexDirection: 'row' }}>
+                  <div css={{ width: '35%' }}>
+                    <Typography.Text>
+                      {intl.formatMessage({
+                        defaultMessage: 'Output',
+                        description: 'Label for the output tokens in the tooltip for the tokens cell.',
+                      })}
+                    </Typography.Text>
+                  </div>
+                  <div>
+                    <Typography.Text color="secondary">{totalOutputTokens}</Typography.Text>
+                  </div>
+                </div>
+              )}
+            </div>
+          }
+        />
+      ) : (
+        <NullCell />
+      );
   }
 
   return (
