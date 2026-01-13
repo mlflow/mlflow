@@ -49,7 +49,7 @@ class SpringAiTranslator(OtelSchemaTranslator):
     PROMPT_ATTRIBUTE_KEY = "gen_ai.prompt"
     COMPLETION_ATTRIBUTE_KEY = "gen_ai.completion"
 
-    def get_input_value_from_events(self, events: list[dict]) -> Any:
+    def get_input_value_from_events(self, events: list[dict[str, Any]]) -> Any:
         """
         Get input value from Spring AI prompt events.
 
@@ -61,7 +61,7 @@ class SpringAiTranslator(OtelSchemaTranslator):
         """
         return self._get_value_from_event(events, self.PROMPT_EVENT_NAME, self.PROMPT_ATTRIBUTE_KEY)
 
-    def get_output_value_from_events(self, events: list[dict]) -> Any:
+    def get_output_value_from_events(self, events: list[dict[str, Any]]) -> Any:
         """
         Get output value from Spring AI completion events.
 
@@ -75,7 +75,9 @@ class SpringAiTranslator(OtelSchemaTranslator):
             events, self.COMPLETION_EVENT_NAME, self.COMPLETION_ATTRIBUTE_KEY
         )
 
-    def _get_value_from_event(self, events: list[dict], event_name: str, attribute_key: str) -> Any:
+    def _get_value_from_event(
+        self, events: list[dict[str, Any]], event_name: str, attribute_key: str
+    ) -> Any:
         """
         Extract a value from a specific event.
 

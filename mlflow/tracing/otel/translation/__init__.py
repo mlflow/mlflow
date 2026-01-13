@@ -67,12 +67,12 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     if SpanAttributeKey.INPUTS not in attributes and (
         input_value := _get_input_value(attributes, events)
     ):
-        attributes[SpanAttributeKey.INPUTS] = dump_span_attribute_value(input_value)
+        attributes[SpanAttributeKey.INPUTS] = input_value
 
     if SpanAttributeKey.OUTPUTS not in attributes and (
         output_value := _get_output_value(attributes, events)
     ):
-        attributes[SpanAttributeKey.OUTPUTS] = dump_span_attribute_value(output_value)
+        attributes[SpanAttributeKey.OUTPUTS] = output_value
 
     # Translate token usage
     if SpanAttributeKey.CHAT_USAGE not in attributes and (
@@ -140,7 +140,7 @@ def _get_token_usage(attributes: dict[str, Any]) -> dict[str, Any]:
             }
 
 
-def _get_input_value(attributes: dict[str, Any], events: list[dict] | None = None) -> Any:
+def _get_input_value(attributes: dict[str, Any], events: list[dict[str, Any]] | None = None) -> Any:
     """
     Get input value from various OTEL semantic conventions.
 
@@ -167,7 +167,9 @@ def _get_input_value(attributes: dict[str, Any], events: list[dict] | None = Non
                     return value
 
 
-def _get_output_value(attributes: dict[str, Any], events: list[dict] | None = None) -> Any:
+def _get_output_value(
+    attributes: dict[str, Any], events: list[dict[str, Any]] | None = None
+) -> Any:
     """
     Get output value from various OTEL semantic conventions.
 
