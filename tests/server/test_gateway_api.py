@@ -297,7 +297,7 @@ def test_create_provider_from_endpoint_name_litellm(store: SqlAlchemyStore):
 
     assert isinstance(provider, LiteLLMProvider)
     assert isinstance(provider.config.model.config, LiteLLMConfig)
-    assert provider.config.model.config.litellm_api_key == "litellm-test-key"
+    assert provider.config.model.config.litellm_auth_config["api_key"] == "litellm-test-key"
     assert provider.config.model.config.litellm_provider == "litellm"
 
 
@@ -329,8 +329,11 @@ def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlch
 
     assert isinstance(provider, LiteLLMProvider)
     assert isinstance(provider.config.model.config, LiteLLMConfig)
-    assert provider.config.model.config.litellm_api_key == "litellm-custom-key"
-    assert provider.config.model.config.litellm_api_base == "https://custom-api.example.com"
+    assert provider.config.model.config.litellm_auth_config["api_key"] == "litellm-custom-key"
+    assert (
+        provider.config.model.config.litellm_auth_config["api_base"]
+        == "https://custom-api.example.com"
+    )
     assert provider.config.model.config.litellm_provider == "litellm"
 
 

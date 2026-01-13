@@ -113,13 +113,12 @@ def _build_endpoint_config(
         # Use LiteLLM as fallback for unsupported providers
         # Store the original provider name for LiteLLM's provider/model format
         original_provider = model_config.provider
+        auth_config = model_config.auth_config or {}
+        # Merge auth_config with secret_value (secret_value contains api_key and other secrets)
         litellm_config = {
             "litellm_provider": original_provider,
-            "litellm_api_key": model_config.secret_value.get("api_key"),
+            "litellm_auth_config": auth_config | model_config.secret_value,
         }
-        auth_config = model_config.auth_config or {}
-        if "api_base" in auth_config:
-            litellm_config["litellm_api_base"] = auth_config["api_base"]
         provider_config = LiteLLMConfig(**litellm_config)
         model_config.provider = Provider.LITELLM
 
