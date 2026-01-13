@@ -32,6 +32,7 @@ function Root({
   // Matches with Drawer.Root props
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  modal?: boolean;
   children: ReactNode;
 }) {
   const { isPanelOpen } = useAssistant();
