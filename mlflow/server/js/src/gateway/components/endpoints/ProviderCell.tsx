@@ -1,4 +1,5 @@
-import { Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useState } from 'react';
+import { Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { formatProviderName } from '../../utils/providerUtils';
 import type { Endpoint } from '../../types';
 
@@ -8,6 +9,7 @@ interface ProviderCellProps {
 
 export const ProviderCell = ({ modelMappings }: ProviderCellProps) => {
   const { theme } = useDesignSystemTheme();
+  const [isExpanded, setIsExpanded] = useState(false);
 
   if (!modelMappings || modelMappings.length === 0) {
     return <Typography.Text color="secondary">-</Typography.Text>;
@@ -28,31 +30,33 @@ export const ProviderCell = ({ modelMappings }: ProviderCellProps) => {
   const additionalProviders = uniqueProviders.slice(1);
   const additionalCount = additionalProviders.length;
 
-  const tooltipContent =
-    additionalCount > 0 ? additionalProviders.map((p) => formatProviderName(p)).join(', ') : undefined;
+  const displayedProviders = isExpanded ? uniqueProviders : [primaryProvider];
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: theme.spacing.xs / 2 }}>
-      <Tag componentId="mlflow.gateway.endpoints-list.provider-tag">{formatProviderName(primaryProvider)}</Tag>
+      {displayedProviders.map((provider) => (
+        <Tag key={provider} componentId="mlflow.gateway.endpoints-list.provider-tag">
+          {formatProviderName(provider)}
+        </Tag>
+      ))}
       {additionalCount > 0 && (
-        <Tooltip componentId="mlflow.gateway.endpoints-list.providers-more-tooltip" content={tooltipContent}>
-          <button
-            type="button"
-            css={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              margin: 0,
-              textAlign: 'left',
-              fontSize: theme.typography.fontSizeSm,
-              color: theme.colors.textSecondary,
-              cursor: 'default',
-              '&:hover': { textDecoration: 'underline' },
-            }}
-          >
-            +{additionalCount} more
-          </button>
-        </Tooltip>
+        <button
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          css={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            margin: 0,
+            textAlign: 'left',
+            fontSize: theme.typography.fontSizeSm,
+            color: theme.colors.textSecondary,
+            cursor: 'pointer',
+            '&:hover': { textDecoration: 'underline' },
+          }}
+        >
+          {isExpanded ? 'Show less' : `+${additionalCount} more`}
+        </button>
       )}
     </div>
   );

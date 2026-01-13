@@ -40,7 +40,8 @@ describe('ProviderCell', () => {
     expect(screen.queryByText(/more/)).not.toBeInTheDocument();
   });
 
-  test('renders multiple unique providers with "+N more" button', () => {
+  test('shows primary provider with "+N more" link and expands on click', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
     const modelMappings = [
       createModelMapping('openai', 'gpt-4', '1'),
       createModelMapping('anthropic', 'claude-3', '2'),
@@ -48,7 +49,27 @@ describe('ProviderCell', () => {
     ];
     renderWithDesignSystem(<ProviderCell modelMappings={modelMappings} />);
 
+    // Initially shows only primary provider
     expect(screen.getByText('OpenAI')).toBeInTheDocument();
+    expect(screen.queryByText('Anthropic')).not.toBeInTheDocument();
+    expect(screen.queryByText('Google Gemini')).not.toBeInTheDocument();
+    expect(screen.getByText('+2 more')).toBeInTheDocument();
+
+    // Click to expand
+    await userEvent.click(screen.getByText('+2 more'));
+
+    // All providers should now be visible
+    expect(screen.getByText('OpenAI')).toBeInTheDocument();
+    expect(screen.getByText('Anthropic')).toBeInTheDocument();
+    expect(screen.getByText('Google Gemini')).toBeInTheDocument();
+    expect(screen.getByText('Show less')).toBeInTheDocument();
+
+    // Click to collapse
+    await userEvent.click(screen.getByText('Show less'));
+
+    // Back to showing only primary provider
+    expect(screen.getByText('OpenAI')).toBeInTheDocument();
+    expect(screen.queryByText('Anthropic')).not.toBeInTheDocument();
     expect(screen.getByText('+2 more')).toBeInTheDocument();
   });
 
@@ -61,6 +82,7 @@ describe('ProviderCell', () => {
     renderWithDesignSystem(<ProviderCell modelMappings={modelMappings} />);
 
     expect(screen.getByText('OpenAI')).toBeInTheDocument();
+    // Only +1 more because OpenAI is deduplicated
     expect(screen.getByText('+1 more')).toBeInTheDocument();
   });
 
