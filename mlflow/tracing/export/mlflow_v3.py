@@ -62,17 +62,6 @@ class MlflowV3SpanExporter(SpanExporter):
         if self._should_export_spans_incrementally:
             self._export_spans_incrementally(spans)
 
-        trace_manager = InMemoryTraceManager.get_instance()
-
-        for span in spans:
-            if trace_manager._is_remote_trace[span.get_span_context().trace_id]:
-                _logger.warning(
-                    "The MLflow tracing store backend does not support exporting spans "
-                    "incrementally. In this case, for distributed trace, exporting the span "
-                    f"{span.name} that is created in a remote process is not supported."
-                )
-                continue
-
         self._export_traces(spans)
 
     def _export_spans_incrementally(self, spans: Sequence[ReadableSpan]) -> None:
@@ -139,6 +128,14 @@ class MlflowV3SpanExporter(SpanExporter):
         manager = InMemoryTraceManager.get_instance()
         for span in spans:
             if span._parent is not None:
+                continue
+
+            if manager._is_remote_trace.get(span.get_span_context().trace_id, False):
+                _logger.warning(
+                    "The MLflow tracing backend does not support exporting spans "
+                    "incrementally. In this case, for distributed trace, exporting the span "
+                    f"{span.name} that is created in a remote process is not supported."
+                )
                 continue
 
             manager_trace = manager.pop_trace(span.context.trace_id)
