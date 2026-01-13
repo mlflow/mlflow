@@ -413,7 +413,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         except (json.JSONDecodeError, TypeError):
             return DatasetGranularity.UNKNOWN
 
-    def _classify_input_fields(self, input_keys: set[str]) -> DatasetGranularity:
+    @staticmethod
+    def _classify_input_fields(input_keys: set[str]) -> DatasetGranularity:
         """
         Classify a set of input field names into a granularity type:
         - SESSION: Has 'goal' field, and only session fields (persona, goal, context)

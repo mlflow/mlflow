@@ -2,6 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from mlflow.entities.evaluation_dataset import DatasetGranularity, EvaluationDataset
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.telemetry.events import (
     AiCommandRunEvent,
@@ -13,6 +14,7 @@ from mlflow.telemetry.events import (
     CreatePromptEvent,
     CreateRegisteredModelEvent,
     CreateRunEvent,
+    DatasetToDataFrameEvent,
     EvaluateEvent,
     LogAssessmentEvent,
     MakeJudgeEvent,
@@ -100,8 +102,31 @@ def test_event_name():
 @pytest.mark.parametrize(
     ("arguments", "expected_params"),
     [
-        ({"records": [{"test": "data"}]}, {"record_count": 1, "input_type": "list[dict]"}),
-        ({"records": [{"a": 1}, {"b": 2}]}, {"record_count": 2, "input_type": "list[dict]"}),
+        # Records without 'inputs' field -> unknown dataset type
+        (
+            {"records": [{"test": "data"}]},
+            {"record_count": 1, "input_type": "list[dict]", "dataset_type": "unknown"},
+        ),
+        (
+            {"records": [{"a": 1}, {"b": 2}]},
+            {"record_count": 2, "input_type": "list[dict]", "dataset_type": "unknown"},
+        ),
+        # Trace records (no 'goal' field in inputs)
+        (
+            {"records": [{"inputs": {"question": "What is MLflow?", "context": "docs"}}]},
+            {"record_count": 1, "input_type": "list[dict]", "dataset_type": "trace"},
+        ),
+        # Session records (has 'goal' field in inputs)
+        (
+            {"records": [{"inputs": {"persona": "user", "goal": "test", "context": "info"}}]},
+            {"record_count": 1, "input_type": "list[dict]", "dataset_type": "session"},
+        ),
+        # Multiple trace records
+        (
+            {"records": [{"inputs": {"q": "a"}}, {"inputs": {"q": "b"}}]},
+            {"record_count": 2, "input_type": "list[dict]", "dataset_type": "trace"},
+        ),
+        # Edge cases that return None
         ({"records": []}, None),
         ({"records": None}, None),
         ({}, None),
@@ -111,6 +136,40 @@ def test_event_name():
 )
 def test_merge_records_parse_params(arguments, expected_params):
     assert MergeRecordsEvent.parse(arguments) == expected_params
+
+
+def _make_mock_dataset(granularity: DatasetGranularity) -> Mock:
+    mock = Mock(spec=EvaluationDataset)
+    mock._get_existing_granularity.return_value = granularity
+    return mock
+
+
+@pytest.mark.parametrize(
+    ("granularity", "expected_dataset_type"),
+    [
+        (DatasetGranularity.TRACE, "trace"),
+        (DatasetGranularity.SESSION, "session"),
+        (DatasetGranularity.UNKNOWN, "unknown"),
+    ],
+)
+def test_dataset_to_df_parse(granularity, expected_dataset_type):
+    mock_dataset = _make_mock_dataset(granularity)
+    arguments = {"self": mock_dataset}
+    result = DatasetToDataFrameEvent.parse(arguments)
+    assert result == {"dataset_type": expected_dataset_type}
+
+
+@pytest.mark.parametrize(
+    ("result", "expected_params"),
+    [
+        ([{"a": 1}, {"b": 2}, {"c": 3}], {"record_count": 3}),
+        ([{"row": 1}], {"record_count": 1}),
+        ([], {"record_count": 0}),
+        (None, {"record_count": 0}),
+    ],
+)
+def test_dataset_to_df_parse_result(result, expected_params):
+    assert DatasetToDataFrameEvent.parse_result(result) == expected_params
 
 
 @pytest.mark.parametrize(
@@ -130,12 +189,18 @@ def test_make_judge_parse_params(arguments, expected_params):
 @pytest.mark.parametrize(
     ("arguments", "expected_params"),
     [
-        ({"traces": [{}, {}], "optimizer": None}, {"trace_count": 2, "optimizer_type": "default"}),
+        (
+            {"traces": [{}, {}], "optimizer": None},
+            {"trace_count": 2, "optimizer_type": "default"},
+        ),
         (
             {"traces": [{}], "optimizer": type("MockOptimizer", (), {})()},
             {"trace_count": 1, "optimizer_type": "MockOptimizer"},
         ),
-        ({"traces": [], "optimizer": None}, {"trace_count": 0, "optimizer_type": "default"}),
+        (
+            {"traces": [], "optimizer": None},
+            {"trace_count": 0, "optimizer_type": "default"},
+        ),
         ({"traces": None, "optimizer": None}, {"optimizer_type": "default"}),
         ({}, {"optimizer_type": "default"}),
     ],

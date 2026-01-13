@@ -206,12 +206,6 @@ class CreateModelVersionEvent(Event):
         return {"is_prompt": _is_prompt(tags)}
 
 
-class DatasetType(str, Enum):
-    SESSION = "session"
-    TRACE = "trace"
-    UNKNOWN = "unknown"
-
-
 class CreateDatasetEvent(Event):
     name: str = "create_dataset"
 
@@ -221,11 +215,10 @@ class MergeRecordsEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        from mlflow.entities.evaluation_dataset import EvaluationDataset
-
-        dataset_instance = arguments.get("self")
-        if not isinstance(dataset_instance, EvaluationDataset):
-            return None
+        from mlflow.entities.evaluation_dataset import (
+            DatasetGranularity,
+            EvaluationDataset,
+        )
 
         if arguments is None:
             return None
@@ -267,11 +260,11 @@ class MergeRecordsEvent(Event):
             input_type = "other"
 
         if input_type == "list[trace]":
-            dataset_type = DatasetType.TRACE
+            dataset_type = DatasetGranularity.TRACE
         elif input_keys:
-            dataset_type = dataset_instance._classify_input_fields(input_keys)
+            dataset_type = EvaluationDataset._classify_input_fields(input_keys)
         else:
-            dataset_type = DatasetType.UNKNOWN
+            dataset_type = DatasetGranularity.UNKNOWN
 
         return {
             "record_count": count,
