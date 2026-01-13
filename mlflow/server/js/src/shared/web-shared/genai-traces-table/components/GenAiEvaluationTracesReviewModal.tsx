@@ -25,8 +25,7 @@ import {
 import { EvaluationsReviewDetailsHeader } from './EvaluationsReviewDetails';
 import { GenAiEvaluationTracesReview } from './GenAiEvaluationTracesReview';
 import { GenAITracesTableContext } from '../GenAITracesTableContext';
-import { useAssistant } from '../../assistant/AssistantContext';
-import { CustomDrawer } from '../../../../common/components/CustomDrawer';
+import { AssistantAwareDrawer } from '../../../../common/components/AssistantAwareDrawer';
 import { useGenAITracesTableConfig } from '../hooks/useGenAITracesTableConfig';
 import type { GetTraceFunction } from '../hooks/useGetTrace';
 import { useGetTrace, useGetTraceByFullTraceId } from '../hooks/useGetTrace';
@@ -453,11 +452,6 @@ const DrawerWrapper = ({
   onAddTraceToEvaluationDatasetClick?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { isPanelOpen } = useAssistant();
-
-  // Calculate drawer width and position based on assistant panel state
-  const drawerWidth = isPanelOpen ? '70vw' : '90vw';
-  const drawerPosition = isPanelOpen ? 'left' : 'right';
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -489,48 +483,72 @@ const DrawerWrapper = ({
   }, [handleKeyDown]);
 
   return (
-    <CustomDrawer
+    <AssistantAwareDrawer.Root
       open
-      onClose={handleClose}
-      width={drawerWidth}
-      position={drawerPosition}
-      componentId="mlflow.evaluations_review.modal"
-      title={
-        <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-          <Button
-            componentId="mlflow.evaluations_review.modal.previous_eval"
-            disabled={!isPreviousAvailable}
-            onClick={() => selectPreviousEval()}
-          >
-            <ChevronLeftIcon />
-          </Button>
-          <Button
-            componentId="mlflow.evaluations_review.modal.next_eval"
-            disabled={!isNextAvailable}
-            onClick={() => selectNextEval()}
-          >
-            <ChevronRightIcon />
-          </Button>
-          <div css={{ flex: 1, overflow: 'hidden' }}>{renderModalTitle()}</div>
-          {onAddTraceToEvaluationDatasetClick && (
-            <Button
-              componentId="mlflow.evaluations_review.modal.add_to_evaluation_dataset"
-              onClick={() => onAddTraceToEvaluationDatasetClick?.()}
-              icon={<PlusIcon />}
-            >
-              <FormattedMessage
-                defaultMessage="Add to dataset"
-                description="Button text for adding a trace to a evaluation dataset"
-              />
-            </Button>
-          )}
-        </div>
-      }
+      onOpenChange={(open) => {
+        if (!open) {
+          handleClose();
+        }
+      }}
     >
-      <ApplyDesignSystemContextOverrides zIndexBase={2 * theme.options.zIndexBase}>
-        {isLoading ? <ModelTraceExplorerSkeleton /> : <>{children}</>}
-      </ApplyDesignSystemContextOverrides>
-    </CustomDrawer>
+      <AssistantAwareDrawer.Content
+        componentId="mlflow.evaluations_review.modal"
+        width="90vw"
+        title={
+          <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+            <Button
+              componentId="mlflow.evaluations_review.modal.previous_eval"
+              disabled={!isPreviousAvailable}
+              onClick={() => selectPreviousEval()}
+            >
+              <ChevronLeftIcon />
+            </Button>
+            <Button
+              componentId="mlflow.evaluations_review.modal.next_eval"
+              disabled={!isNextAvailable}
+              onClick={() => selectNextEval()}
+            >
+              <ChevronRightIcon />
+            </Button>
+            <div css={{ flex: 1, overflow: 'hidden' }}>{renderModalTitle()}</div>
+            {onAddTraceToEvaluationDatasetClick && (
+              <Button
+                componentId="mlflow.evaluations_review.modal.add_to_evaluation_dataset"
+                onClick={() => onAddTraceToEvaluationDatasetClick?.()}
+                icon={<PlusIcon />}
+              >
+                <FormattedMessage
+                  defaultMessage="Add to dataset"
+                  description="Button text for adding a trace to a evaluation dataset"
+                />
+              </Button>
+            )}
+          </div>
+        }
+        expandContentToFullHeight
+        css={[
+          {
+            // Disable drawer's scroll to allow inner content to handle scrolling
+            '&>div': {
+              overflow: 'hidden',
+            },
+            '&>div:first-child': {
+              paddingLeft: theme.spacing.md,
+              paddingTop: 1,
+              paddingBottom: 1,
+              // Prevent close button from being squeezed
+              '&>button': {
+                flexShrink: 0,
+              },
+            },
+          },
+        ]}
+      >
+        <ApplyDesignSystemContextOverrides zIndexBase={2 * theme.options.zIndexBase}>
+          {isLoading ? <ModelTraceExplorerSkeleton /> : <>{children}</>}
+        </ApplyDesignSystemContextOverrides>
+      </AssistantAwareDrawer.Content>
+    </AssistantAwareDrawer.Root>
   );
 };
 

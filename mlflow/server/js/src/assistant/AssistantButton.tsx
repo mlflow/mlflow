@@ -32,6 +32,8 @@ export const AssistantButton = () => {
         position: 'fixed',
         bottom: theme.spacing.lg,
         right: theme.spacing.lg,
+        // NB: Must be higher than the Drawer's z-index
+        zIndex: theme.options.zIndexBase + 100,
       }}
     >
       <Tooltip

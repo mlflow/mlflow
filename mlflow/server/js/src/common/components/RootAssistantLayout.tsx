@@ -70,7 +70,6 @@ export const RootAssistantLayout = ({ children }: { children: ReactNode }) => {
               margin: `${theme.spacing.sm}px ${theme.spacing.sm}px ${theme.spacing.sm}px 0`,
               borderRadius: theme.borders.borderRadiusMd,
               boxShadow: theme.shadows.md,
-              zIndex: 1500,
             }}
           >
             <div
