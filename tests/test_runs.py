@@ -392,7 +392,7 @@ def test_get_experiment_table_no_tags():
 def test_get_experiment_missing_id():
     result = CliRunner().invoke(experiments.get_experiment, [])
     assert result.exit_code != 0
-    assert "Missing option '--experiment-id'" in result.output
+    assert "Must specify exactly one of --experiment-id or --experiment-name" in result.output
 
 
 def test_get_experiment_invalid_id():
@@ -410,3 +410,92 @@ def test_get_experiment_deleted():
     output = json.loads(result.output)
     assert output["lifecycle_stage"] == "deleted"
     assert output["experiment_id"] == exp_id
+
+
+def test_get_experiment_by_name_table():
+    exp_name = "test_get_by_name"
+    exp_id = mlflow.create_experiment(exp_name, tags={"env": "test"})
+
+    result = CliRunner().invoke(
+        experiments.get_experiment, ["--experiment-name", exp_name, "--output", "table"]
+    )
+    assert result.exit_code == 0
+    assert "Experiment ID" in result.output
+    assert exp_id in result.output
+    assert "Name" in result.output
+    assert exp_name in result.output
+    assert "Tags" in result.output
+    assert "env=test" in result.output
+
+
+def test_get_experiment_by_name_json():
+    exp_name = "test_get_by_name_json"
+    exp_id = mlflow.create_experiment(exp_name, tags={"team": "ml"})
+    exp = mlflow.get_experiment(exp_id)
+
+    result = CliRunner().invoke(
+        experiments.get_experiment, ["--experiment-name", exp_name, "--output", "json"]
+    )
+    assert result.exit_code == 0
+
+    output = json.loads(result.output)
+    expected = {
+        "experiment_id": exp_id,
+        "name": exp_name,
+        "artifact_location": exp.artifact_location,
+        "lifecycle_stage": "active",
+        "tags": {"team": "ml"},
+        "creation_time": exp.creation_time,
+        "last_update_time": exp.last_update_time,
+    }
+    assert output == expected
+
+
+def test_get_experiment_by_name_short_option():
+    exp_name = "test_short_option"
+    exp_id = mlflow.create_experiment(exp_name)
+
+    result = CliRunner().invoke(experiments.get_experiment, ["-n", exp_name])
+    assert result.exit_code == 0
+    assert exp_id in result.output
+    assert exp_name in result.output
+
+
+def test_get_experiment_by_name_not_found():
+    result = CliRunner().invoke(
+        experiments.get_experiment, ["--experiment-name", "nonexistent_experiment"]
+    )
+    assert result.exit_code != 0
+
+
+def test_get_experiment_both_options_provided():
+    result = CliRunner().invoke(
+        experiments.get_experiment, ["--experiment-id", "0", "--experiment-name", "Default"]
+    )
+    assert result.exit_code != 0
+    assert "Must specify exactly one of --experiment-id or --experiment-name" in result.output
+
+
+def test_get_experiment_by_name_deleted():
+    exp_name = "test_deleted_by_name"
+    exp_id = mlflow.create_experiment(exp_name)
+    mlflow.delete_experiment(exp_id)
+
+    result = CliRunner().invoke(
+        experiments.get_experiment, ["--experiment-name", exp_name, "--output", "json"]
+    )
+    assert result.exit_code == 0
+
+    output = json.loads(result.output)
+    assert output["lifecycle_stage"] == "deleted"
+    assert output["name"] == exp_name
+
+
+def test_get_experiment_by_name_with_spaces():
+    exp_name = "My Test Experiment"
+    exp_id = mlflow.create_experiment(exp_name)
+
+    result = CliRunner().invoke(experiments.get_experiment, ["--experiment-name", exp_name])
+    assert result.exit_code == 0
+    assert exp_id in result.output
+    assert exp_name in result.output
