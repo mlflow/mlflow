@@ -645,7 +645,6 @@ def register_periodic_tasks(huey_instance) -> None:
 
     @huey_instance.periodic_task(crontab(minute="*/1"))
     # Prevent concurrent execution if scheduler takes longer than 1 minute.
-    # Consumer will log an error and skip execution when lock cannot be acquired.
     @huey_instance.lock_task("online-scoring-scheduler-lock")
     def online_scoring_scheduler():
         """Runs every minute to fetch active scorer configs and submit scoring jobs."""
