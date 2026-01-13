@@ -23,8 +23,22 @@ Add the OpenTelemetry dependencies to your `pom.xml`:
 
 ```xml
 <properties>
+    <java.version>17</java.version>
+    <spring-ai.version>1.0.0-M3</spring-ai.version>
     <opentelemetry.version>1.45.0</opentelemetry.version>
 </properties>
+
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-bom</artifactId>
+            <version>${spring-ai.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
 
 <dependencies>
     <!-- Spring Boot Actuator (required for observability) -->
@@ -33,10 +47,10 @@ Add the OpenTelemetry dependencies to your `pom.xml`:
         <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
 
-    <!-- Spring AI (Ollama example) -->
+    <!-- Spring AI OpenAI -->
     <dependency>
         <groupId>org.springframework.ai</groupId>
-        <artifactId>spring-ai-ollama-spring-boot-starter</artifactId>
+        <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
     </dependency>
     
     <!-- Micrometer to OpenTelemetry Bridge -->
@@ -52,6 +66,17 @@ Add the OpenTelemetry dependencies to your `pom.xml`:
         <version>${opentelemetry.version}</version>
     </dependency>
 </dependencies>
+
+<repositories>
+    <repository>
+        <id>spring-milestones</id>
+        <name>Spring Milestones</name>
+        <url>https://repo.spring.io/milestone</url>
+        <snapshots>
+            <enabled>false</enabled>
+        </snapshots>
+    </repository>
+</repositories>
 ```
 
 Add the following to `src/main/resources/application.properties`:
@@ -59,9 +84,9 @@ Add the following to `src/main/resources/application.properties`:
 ```properties
 spring.application.name=spring-ai-demo
 
-# Ollama Configuration
-spring.ai.ollama.base-url=http://localhost:11434
-spring.ai.ollama.chat.options.model=llama3.2
+# OpenAI Configuration
+spring.ai.openai.api-key=${OPENAI_API_KEY}
+spring.ai.openai.chat.options.model=gpt-4o-mini
 
 # Enable Spring AI Observations
 spring.ai.chat.observations.include-prompt=true
@@ -83,34 +108,36 @@ This example uses SQLite as the backend store. To use other types of SQL databas
 
 ## Step 3: Configure OpenTelemetry
 
-Create `src/main/java/com/mlflow/springai/config/MlflowTracingConfig.java`:
+Create `src/main/java/com/example/spring_ai_demo/config/MlflowTracingConfig.java`:
 
 ```java
-package com.mlflow.springai.config;
+package com.example.spring_ai_demo.config;
 
 import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
-import io.opentelemetry.semconv.ServiceAttributes;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Simple OpenTelemetry configuration for MLflow tracing.
+ * OpenTelemetry configuration for MLflow tracing.
  * 
  * Configure via environment variables:
  *   MLFLOW_TRACKING_URI=http://localhost:5000
  *   MLFLOW_EXPERIMENT_ID=0
  */
 @Configuration
-@Slf4j
 public class MlflowTracingConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(MlflowTracingConfig.class);
 
     @Value("${MLFLOW_TRACKING_URI:http://localhost:5000}")
     private String mlflowTrackingUri;
@@ -134,7 +161,7 @@ public class MlflowTracingConfig {
         SdkTracerProvider tracerProvider = SdkTracerProvider.builder()
                 .addSpanProcessor(SimpleSpanProcessor.create(exporter))
                 .setResource(Resource.create(Attributes.of(
-                        ServiceAttributes.SERVICE_NAME, serviceName)))
+                        AttributeKey.stringKey("service.name"), serviceName)))
                 .build();
 
         Runtime.getRuntime().addShutdownHook(new Thread(tracerProvider::close));
@@ -148,14 +175,13 @@ public class MlflowTracingConfig {
 
 ## Step 4: Create the Chat Service
 
-Create `src/main/java/com/mlflow/springai/service/ChatService.java`:
+Create `src/main/java/com/example/spring_ai_demo/service/ChatService.java`:
 
 ```java
-package com.mlflow.springai.service;
+package com.example.spring_ai_demo.service;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -163,7 +189,7 @@ public class ChatService {
 
     private final ChatModel chatModel;
 
-    public ChatService(@Qualifier("ollamaChatModel") ChatModel chatModel) {
+    public ChatService(ChatModel chatModel) {
         this.chatModel = chatModel;
     }
 
@@ -179,12 +205,12 @@ public class ChatService {
 
 ## Step 5: Create a Chat Controller
 
-Create `src/main/java/com/mlflow/springai/controller/ChatController.java`:
+Create `src/main/java/com/example/spring_ai_demo/controller/ChatController.java`:
 
 ```java
-package com.mlflow.springai.controller;
+package com.example.spring_ai_demo.controller;
 
-import com.mlflow.springai.service.ChatService;
+import com.example.spring_ai_demo.service.ChatService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -222,6 +248,7 @@ public class ChatController {
 Set environment variables and run your Spring Boot application:
 
 ```bash
+export OPENAI_API_KEY=your-openai-api-key
 export MLFLOW_TRACKING_URI=http://localhost:5000
 export MLFLOW_EXPERIMENT_ID=0
 
@@ -245,4 +272,3 @@ export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 - [Evaluate the Agent](/genai/eval-monitor/running-evaluation/agents): Learn how to evaluate the agent's performance.
 - [Manage Prompts](/genai/prompt-registry): Learn how to manage prompts for the agent.
 - [Automatic Agent Optimization](/genai/prompt-registry/optimize-prompts): Learn how to automatically optimize the agent end-to-end with state-of-the-art optimization algorithms.
-
