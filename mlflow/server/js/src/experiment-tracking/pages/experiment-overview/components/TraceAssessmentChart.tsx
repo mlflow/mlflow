@@ -24,6 +24,7 @@ import {
   useChartXAxisProps,
   useChartYAxisProps,
   useScrollableLegendProps,
+  useIsolatedDotRenderer,
 } from './OverviewChartComponents';
 
 /** Local component for chart panel with label */
@@ -67,6 +68,9 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
     (value: number) => [value.toFixed(2), assessmentName] as [string, string],
     [assessmentName],
   );
+
+  // Dot renderer for isolated points only
+  const isolatedDotRenderer = useIsolatedDotRenderer(chartLineColor);
 
   // Fetch and process all chart data using the custom hook
   const { timeSeriesChartData, distributionChartData, isLoading, error, hasData } =
@@ -149,7 +153,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
                 name={assessmentName}
                 stroke={chartLineColor}
                 strokeWidth={2}
-                dot={false}
+                dot={isolatedDotRenderer}
                 legendType="plainline"
               />
               <ReferenceLine

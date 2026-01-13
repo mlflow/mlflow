@@ -713,7 +713,7 @@ mlflow.gateway.config.HuggingFaceTextGenerationInferenceConfig
 mlflow.gateway.config.Limit
 mlflow.gateway.config.LimitsConfig
 mlflow.gateway.config.LiteLLMConfig
-mlflow.gateway.config.LiteLLMConfig.validate_litellm_api_key
+mlflow.gateway.config.LiteLLMConfig.validate_litellm_auth_config
 mlflow.gateway.config.MistralConfig
 mlflow.gateway.config.MistralConfig.validate_mistral_api_key
 mlflow.gateway.config.MlflowModelServingConfig

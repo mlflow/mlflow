@@ -15,7 +15,7 @@ export type ScorerFormMode = (typeof SCORER_FORM_MODE)[keyof typeof SCORER_FORM_
 
 export const DEFAULT_TRACE_COUNT = 1;
 
-export const MAX_SELECTED_ITEM_COUNT = 3;
+export const MAX_SELECTED_ITEM_COUNT = 100;
 
 export const ASSESSMENT_NAME_TEMPLATE_MAPPING = {
   Correctness: 'correctness',

@@ -243,6 +243,9 @@ constraint-dependencies = [
   # pyspark 4.1.0 causes issues with documentation build
   "pyspark<4.1.0",
 ]
+# Prevent third-party libraries from installing uv to avoid conflicts with uv installed
+# by the standalone installer
+exclude-dependencies = ["uv"]
 
 [tool.uv.pip]
 torch-backend = "cpu"
