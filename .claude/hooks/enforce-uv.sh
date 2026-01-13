@@ -30,12 +30,12 @@ fi
 # Block direct python/python3 commands, regardless of their full path
 if echo "$command" | grep -qE '^([^[:space:]]*/)?python3?[[:space:]]'; then
   echo '{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "deny",
-    "permissionDecisionReason": "Direct python/python3 execution detected. Use 'uv run' instead."
-  }
-}'
+    "hookSpecificOutput": {
+      "hookEventName": "PreToolUse",
+      "permissionDecision": "deny",
+      "permissionDecisionReason": "Direct python/python3 execution detected. Use 'uv run' instead."
+    }
+  }'
 fi
 
 exit 0
