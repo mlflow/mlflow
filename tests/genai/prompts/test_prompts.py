@@ -316,7 +316,10 @@ def test_jinja2_chat_prompt_with_loops():
         {"role": "system", "content": "You are a helpful assistant."},
         {
             "role": "user",
-            "content": "My friends are: {% for friend in friends %}{{ friend }}{% if not loop.last %}, {% endif %}{% endfor %}.",
+            "content": (
+                "My friends are: {% for friend in friends %}{{ friend }}{% if not loop.last %}, "
+                "{% endif %}{% endfor %}."
+            ),
         },
     ]
     mlflow.genai.register_prompt(name="jinja-chat-loop", template=chat_template)
