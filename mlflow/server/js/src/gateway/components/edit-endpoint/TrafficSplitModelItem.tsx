@@ -160,10 +160,15 @@ export const TrafficSplitModelItem = ({
               <GatewayInput
                 componentId={`${componentIdPrefix}.weight.${index}`}
                 type="number"
-                min={1}
+                min={0}
                 max={100}
                 value={model.weight}
-                onChange={(e) => onWeightChange(index, parseInt(e.target.value, 10) || 0)}
+                onChange={(e) => {
+                  const parsed = parseInt(e.target.value, 10);
+                  if (!Number.isNaN(parsed)) {
+                    onWeightChange(index, parsed);
+                  }
+                }}
                 css={{ width: '100%' }}
               />
               <span css={{ color: theme.colors.textSecondary }}>%</span>
