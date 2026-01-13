@@ -266,6 +266,21 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/byteplus',
+                  label: 'BytePlus',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/cohere',
+                  label: 'Cohere',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/databricks',
+                  label: 'Databricks',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/deepseek',
                   label: 'DeepSeek',
                 },
@@ -286,6 +301,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/moonshot',
+                  label: 'Kimi (Moonshot AI)',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/litellm',
                   label: 'LiteLLM',
                 },
@@ -296,6 +316,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/novitaai',
+                  label: 'Novita AI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/ollama',
                   label: 'Ollama',
                 },
@@ -303,6 +328,21 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/openai',
                   label: 'OpenAI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/qwen',
+                  label: 'Qwen',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/togetherai',
+                  label: 'Together AI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/xai-grok',
+                  label: 'xAI / Grok',
                 },
               ],
             },
@@ -629,23 +669,38 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'governance/ai-gateway/configuration',
-          label: 'Configuration',
+          id: 'governance/ai-gateway/routing',
+          label: 'Advanced Routing',
         },
         {
           type: 'doc',
-          id: 'governance/ai-gateway/usage',
-          label: 'Usage',
+          id: 'governance/ai-gateway/query',
+          label: 'Querying Endpoints',
         },
         {
-          type: 'doc',
-          id: 'governance/ai-gateway/integration',
-          label: 'Integration',
-        },
-        {
-          type: 'doc',
-          id: 'governance/unity-catalog',
-          label: 'Unity Catalog',
+          type: 'category',
+          label: 'Gateway Server (Legacy)',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/setup',
+              label: 'Setup',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/configuration',
+              label: 'Configuration',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/usage',
+              label: 'Usage',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'governance/ai-gateway/legacy/index',
+          },
         },
       ],
       link: {

@@ -37,3 +37,38 @@ def function_with_rest_link():
     assert violations[0].range == Range(Position(3, 4))
     assert violations[1].range == Range(Position(8, 4))
     assert violations[2].range == Range(Position(13, 4))
+
+
+def test_markdown_link_disable_on_end_line(index_path: Path) -> None:
+    code = '''
+def func():
+    """
+    Docstring with [markdown link](url).
+    """  # clint: disable=markdown-link
+    pass
+
+async def async_func():
+    """
+    Async docstring with [markdown link](url).
+    """  # clint: disable=markdown-link
+    pass
+
+class MyClass:
+    """
+    Class docstring with [markdown link](url).
+    """  # clint: disable=markdown-link
+    pass
+
+# This should still be detected (no disable comment)
+def func_without_disable():
+    """
+    Docstring with [markdown link](url).
+    """
+    pass
+'''
+
+    config = Config(select={MarkdownLink.name})
+    violations = lint_file(Path("test.py"), code, config, index_path)
+    # Only the last function without disable comment should have a violation
+    assert len(violations) == 1
+    assert isinstance(violations[0].rule, MarkdownLink)

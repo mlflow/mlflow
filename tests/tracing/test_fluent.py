@@ -911,7 +911,7 @@ def test_search_traces(return_type, mock_client):
     )
 
     traces = mlflow.search_traces(
-        experiment_ids=["1"],
+        locations=["1"],
         filter_string="name = 'foo'",
         max_results=10,
         order_by=["timestamp DESC"],
@@ -971,7 +971,7 @@ def test_search_traces_with_pagination(mock_client):
         PagedList(traces[20:], token=None),
     ]
 
-    traces = mlflow.search_traces(experiment_ids=["1"])
+    traces = mlflow.search_traces(locations=["1"])
 
     assert len(traces) == 30
     common_args = {
@@ -1253,7 +1253,7 @@ def test_search_traces_with_run_id():
         )
 
     with pytest.raises(MlflowException, match=f"Run {run1.info.run_id} belongs to"):
-        mlflow.search_traces(run_id=run1.info.run_id, experiment_ids=["1"])
+        mlflow.search_traces(run_id=run1.info.run_id, locations=["1"])
 
 
 @pytest.mark.parametrize(
@@ -2216,6 +2216,7 @@ def test_search_traces_with_locations(mock_client):
     assert call_kwargs.get("experiment_ids") is None
 
 
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_search_traces_experiment_ids_deprecation_warning(mock_client):
     mock_client.search_traces.return_value = PagedList([], token=None)
 

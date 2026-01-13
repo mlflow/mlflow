@@ -587,7 +587,7 @@ def test_search_traces_with_assessments():
         )
 
     traces = mlflow.search_traces(
-        experiment_ids=["0"],
+        locations=["0"],
         max_results=2,
         return_type="list",
         order_by=["timestamp_ms"],

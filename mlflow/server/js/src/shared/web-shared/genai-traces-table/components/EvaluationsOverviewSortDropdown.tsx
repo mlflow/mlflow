@@ -31,6 +31,7 @@ export interface SortOption {
 }
 
 export const EvaluationsOverviewSortDropdown = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     tableSort,
     columns = [],

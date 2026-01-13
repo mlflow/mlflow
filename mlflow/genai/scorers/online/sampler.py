@@ -1,7 +1,6 @@
 """Dense sampling strategy for online scoring."""
 
 import hashlib
-import json
 import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING
@@ -28,10 +27,14 @@ class OnlineScorerSampler:
         self._sample_rates: dict[str, float] = {}
         self._scorers: dict[str, Scorer] = {}
         for online_scorer in online_scorers:
-            scorer_dict = json.loads(online_scorer.serialized_scorer)
-            scorer = Scorer.model_validate(scorer_dict)
-            self._sample_rates[scorer.name] = online_scorer.online_config.sample_rate
-            self._scorers[scorer.name] = scorer
+            try:
+                scorer = Scorer.model_validate_json(online_scorer.serialized_scorer)
+                self._sample_rates[scorer.name] = online_scorer.online_config.sample_rate
+                self._scorers[scorer.name] = scorer
+            except Exception as e:
+                _logger.info(
+                    f"Failed to load scorer '{online_scorer.name}'; scorer will be skipped: {e}"
+                )
 
     def group_scorers_by_filter(self, session_level: bool) -> dict[str | None, list[Scorer]]:
         """
@@ -76,7 +79,7 @@ class OnlineScorerSampler:
         # Sort by sample rate descending
         sorted_scorers = sorted(
             scorers,
-            key=lambda s: self._sample_rates.get(s.name, 1.0),
+            key=lambda s: self._sample_rates.get(s.name, 0.0),
             reverse=True,
         )
 
@@ -84,7 +87,7 @@ class OnlineScorerSampler:
         prev_rate = 1.0
 
         for scorer in sorted_scorers:
-            rate = self._sample_rates.get(scorer.name, 1.0)
+            rate = self._sample_rates.get(scorer.name, 0.0)
             conditional_rate = rate / prev_rate if prev_rate > 0 else 0
 
             # Hash entity_id + scorer name to get deterministic value in [0, 1]
