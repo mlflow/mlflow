@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { TableSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
@@ -276,6 +276,33 @@ export function useChartYAxisProps() {
     tickLine: false,
     width: 40,
   };
+}
+
+/**
+ * Checks if a value at the given index is isolated (non-null with null neighbors on both sides).
+ * Used for determining when to render dots for single data points in line charts.
+ */
+export function isIsolatedPoint<T>(values: (T | null)[], index: number): boolean {
+  return (
+    values[index] !== null &&
+    (index === 0 || values[index - 1] === null) &&
+    (index === values.length - 1 || values[index + 1] === null)
+  );
+}
+
+/**
+ * Returns a memoized dot renderer for line charts that only renders dots for isolated points.
+ * Used when chart data has `isIsolated` field pre-computed to indicate points surrounded by nulls.
+ *
+ * @param color - The fill color for the dot
+ * @param fieldName - The field name to check for isolation (defaults to 'isIsolated')
+ */
+export function useIsolatedDotRenderer(color: string, fieldName = 'isIsolated') {
+  return useCallback(
+    ({ cx, cy, payload }: { cx?: number; cy?: number; payload?: Record<string, unknown> }) =>
+      payload?.[fieldName] ? <circle cx={cx} cy={cy} r={2} fill={color} /> : <></>,
+    [color, fieldName],
+  );
 }
 
 /**
