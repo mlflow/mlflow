@@ -432,11 +432,16 @@ def run_online_scoring_scheduler() -> None:
         trace_level_scorers = []
 
         for scorer in scorers:
-            scorer_obj = Scorer.model_validate_json(scorer.serialized_scorer)
-            if scorer_obj.is_session_level_scorer:
-                session_level_scorers.append(scorer)
-            else:
-                trace_level_scorers.append(scorer)
+            try:
+                scorer_obj = Scorer.model_validate_json(scorer.serialized_scorer)
+                if scorer_obj.is_session_level_scorer:
+                    session_level_scorers.append(scorer)
+                else:
+                    trace_level_scorers.append(scorer)
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to load scorer '{scorer.name}'; scorer will be skipped: {e}"
+                )
 
         # Only submit jobs for scorer types that exist
         if trace_level_scorers:
