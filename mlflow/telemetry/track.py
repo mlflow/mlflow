@@ -82,7 +82,7 @@ def _record_event(
     params: dict[str, Any] | None = None,
     *,
     success: Status = Status.UNKNOWN,
-    duration_ms: int,
+    duration_ms: int | None = None,
 ) -> None:
     try:
         if is_telemetry_disabled() or _is_telemetry_disabled_for_event(event):
