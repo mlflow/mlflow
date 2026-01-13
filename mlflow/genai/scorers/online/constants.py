@@ -1,12 +1,7 @@
 """Constants for online scoring."""
 
-from mlflow.utils.mlflow_tags import MLFLOW_LATEST_ONLINE_SCORING_SESSION_CHECKPOINT
-
 # Checkpoint tag for tracking last processed trace
 TRACE_CHECKPOINT_TAG = "mlflow.latestOnlineScoring.trace.checkpoint"
-
-# Checkpoint tag for tracking last processed session
-SESSION_CHECKPOINT_TAG = MLFLOW_LATEST_ONLINE_SCORING_SESSION_CHECKPOINT
 
 # Maximum lookback period to prevent getting stuck on old failing traces (1 hour)
 MAX_LOOKBACK_MS = 60 * 60 * 1000

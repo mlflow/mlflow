@@ -8,10 +8,10 @@ from dataclasses import asdict, dataclass
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.genai.scorers.online.constants import (
     MAX_LOOKBACK_MS,
-    SESSION_CHECKPOINT_TAG,
     SESSION_COMPLETION_BUFFER_MS,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.utils.mlflow_tags import MLFLOW_LATEST_ONLINE_SCORING_SESSION_CHECKPOINT
 
 _logger = logging.getLogger(__name__)
 
@@ -50,7 +50,9 @@ class OnlineSessionCheckpointManager:
         """
         try:
             experiment = self._tracking_store.get_experiment(self._experiment_id)
-            if checkpoint_str := experiment.tags.get(SESSION_CHECKPOINT_TAG):
+            if checkpoint_str := experiment.tags.get(
+                MLFLOW_LATEST_ONLINE_SCORING_SESSION_CHECKPOINT
+            ):
                 return OnlineSessionScoringCheckpoint.from_json(checkpoint_str)
         except (TypeError, ValueError, json.JSONDecodeError) as e:
             _logger.debug(
@@ -68,7 +70,7 @@ class OnlineSessionCheckpointManager:
         """
         self._tracking_store.set_experiment_tag(
             self._experiment_id,
-            ExperimentTag(SESSION_CHECKPOINT_TAG, checkpoint.to_json()),
+            ExperimentTag(MLFLOW_LATEST_ONLINE_SCORING_SESSION_CHECKPOINT, checkpoint.to_json()),
         )
 
     def calculate_time_window(self) -> OnlineSessionScoringTimeWindow:
