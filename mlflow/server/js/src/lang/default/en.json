@@ -5991,6 +5991,10 @@
     "defaultMessage": "Edited {timeSince} by {source}. Original value: {value}",
     "description": "Evaluation review > assessments > tooltip > edited by human"
   },
+  "kIESP/": {
+    "defaultMessage": "Filter applies to the first trace in each session. Only run on sessions where the first trace matches this filter; leave blank to run on all. Uses MLflow {link}.",
+    "description": "Hint text for filter string input for session-level scorers"
+  },
   "kIlkgf": {
     "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search runs from the experiments table"
@@ -6070,10 +6074,6 @@
   "ktiuki": {
     "defaultMessage": "Get Link",
     "description": "Title text for get-link modal"
-  },
-  "l+F5P9": {
-    "defaultMessage": "Advanced",
-    "description": "Advanced settings accordion header"
   },
   "l/+0SR": {
     "defaultMessage": "Last modified",
