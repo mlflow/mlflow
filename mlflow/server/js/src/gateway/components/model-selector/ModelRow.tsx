@@ -7,11 +7,10 @@ import type { ProviderModel } from '../../types';
 interface ModelRowProps {
   model: ProviderModel;
   isSelected: boolean;
-  costTier: number;
   onSelect: (modelId: string) => void;
 }
 
-export const ModelRow = ({ model, isSelected, costTier, onSelect }: ModelRowProps) => {
+export const ModelRow = ({ model, isSelected, onSelect }: ModelRowProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const contextWindow = formatTokens(model.max_input_tokens);
@@ -81,11 +80,7 @@ export const ModelRow = ({ model, isSelected, costTier, onSelect }: ModelRowProp
         </Typography.Text>
       </div>
       <div css={{ textAlign: 'right' }}>
-        <CostIndicator
-          tier={costTier}
-          inputCost={model.input_cost_per_token}
-          outputCost={model.output_cost_per_token}
-        />
+        <CostIndicator inputCost={model.input_cost_per_token} outputCost={model.output_cost_per_token} />
       </div>
     </div>
   );

@@ -1,7 +1,6 @@
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 interface CostIndicatorProps {
-  tier: number;
   inputCost?: number;
   outputCost?: number;
 }
