@@ -219,9 +219,87 @@ class CreateDatasetEvent(Event):
 class MergeRecordsEvent(Event):
     name: str = "merge_records"
 
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        from mlflow.entities.evaluation_dataset import EvaluationDataset
+
+        dataset_instance = arguments.get("self")
+        if not isinstance(dataset_instance, EvaluationDataset):
+            return None
+
+        if arguments is None:
+            return None
+
+        records = arguments.get("records")
+        if records is None:
+            return None
+
+        try:
+            count = len(records)
+        except TypeError:
+            return None
+
+        if count == 0:
+            return None
+
+        input_type = type(records).__name__.lower()
+        input_keys: set[str] | None = None
+
+        if "dataframe" in input_type:
+            input_type = "pandas"
+            try:
+                if "inputs" in records.columns:
+                    if first_inputs := records.iloc[0].get("inputs", {}):
+                        input_keys = set(first_inputs.keys())
+            except Exception:
+                pass
+        elif isinstance(records, list):
+            first_elem = records[0]
+            if hasattr(first_elem, "__class__") and first_elem.__class__.__name__ == "Trace":
+                input_type = "list[trace]"
+            elif isinstance(first_elem, dict):
+                input_type = "list[dict]"
+                if first_inputs := first_elem.get("inputs", {}):
+                    input_keys = set(first_inputs.keys())
+            else:
+                input_type = "list"
+        else:
+            input_type = "other"
+
+        if input_type == "list[trace]":
+            dataset_type = DatasetType.TRACE
+        elif input_keys:
+            dataset_type = dataset_instance._classify_input_fields(input_keys)
+        else:
+            dataset_type = DatasetType.UNKNOWN
+
+        return {
+            "record_count": count,
+            "input_type": input_type,
+            "dataset_type": dataset_type.value,
+        }
+
 
 class DatasetToDataFrameEvent(Event):
     name: str = "dataset_to_df"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        from mlflow.entities.evaluation_dataset import EvaluationDataset
+
+        dataset_instance = arguments.get("self")
+        if not isinstance(dataset_instance, EvaluationDataset):
+            return None
+
+        granularity = dataset_instance._get_existing_granularity()
+        return {"dataset_type": granularity.value}
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any] | None:
+        if result is None:
+            return {"record_count": 0}
+
+        return {"record_count": len(result)}
 
 
 def _is_prompt(tags: dict[str, str]) -> bool:

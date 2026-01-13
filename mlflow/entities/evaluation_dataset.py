@@ -12,12 +12,8 @@ from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.datasets_pb2 import Dataset as ProtoDataset
-from mlflow.telemetry.events import (
-    DatasetToDataFrameEvent,
-    DatasetType,
-    MergeRecordsEvent,
-)
-from mlflow.telemetry.track import _record_event
+from mlflow.telemetry.events import DatasetToDataFrameEvent, MergeRecordsEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils.mlflow_tags import MLFLOW_USER
@@ -216,6 +212,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         else:
             return df.to_dict("records")
 
+    @record_usage_event(MergeRecordsEvent)
     def merge_records(
         self, records: list[dict[str, Any]] | "pd.DataFrame" | list["Trace"]
     ) -> "EvaluationDataset":
@@ -261,18 +258,11 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         from mlflow.entities.trace import Trace
         from mlflow.tracking._tracking_service.utils import _get_store, get_tracking_uri
 
-        input_type: str
         if isinstance(records, pd.DataFrame):
-            input_type = "pandas"
             record_dicts = self._process_dataframe_records(records)
         elif isinstance(records, list) and records and isinstance(records[0], Trace):
-            input_type = "list[trace]"
             record_dicts = self._process_trace_records(records)
-        elif isinstance(records, list):
-            input_type = "list[dict]" if records and isinstance(records[0], dict) else "list"
-            record_dicts = records
         else:
-            input_type = "other"
             record_dicts = records
 
         self._validate_record_dicts(record_dicts)
@@ -303,18 +293,6 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
         tracking_store.upsert_dataset_records(dataset_id=self.dataset_id, records=record_dicts)
         self._records = None
-
-        dataset_type = self._get_existing_granularity()
-        if dataset_type == DatasetGranularity.UNKNOWN and record_dicts:
-            dataset_type = self._classify_input_fields(record_dicts[0].get("inputs", {}).keys())
-        _record_event(
-            MergeRecordsEvent,
-            {
-                "record_count": len(record_dicts) if record_dicts else 0,
-                "input_type": input_type,
-                "dataset_type": dataset_type.value,
-            },
-        )
 
         return self
 
@@ -461,6 +439,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
         return DatasetGranularity.UNKNOWN
 
+    @record_usage_event(DatasetToDataFrameEvent)
     def to_df(self) -> "pd.DataFrame":
         """
         Convert dataset records to a pandas DataFrame.
@@ -475,13 +454,6 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         records = self.records
 
         if not records:
-            _record_event(
-                DatasetToDataFrameEvent,
-                {
-                    "record_count": 0,
-                    "dataset_type": DatasetType.UNKNOWN.value,
-                },
-            )
             return pd.DataFrame(
                 columns=[
                     "inputs",
@@ -510,14 +482,6 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             }
             for record in records
         ]
-        dataset_type = self._get_existing_granularity()
-        _record_event(
-            DatasetToDataFrameEvent,
-            {
-                "record_count": len(records),
-                "dataset_type": dataset_type.value,
-            },
-        )
 
         return pd.DataFrame(data)
 
