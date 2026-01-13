@@ -11,7 +11,7 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface ToolUsageDataPoint {
   timestamp: string;
@@ -34,17 +34,12 @@ export interface UseToolUsageChartDataResult {
 /**
  * Custom hook that fetches and processes tool usage data over time.
  * Queries span metrics grouped by tool name and time bucket.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId, time range, and buckets
  * @returns Processed chart data, tool names, loading state, and error state
  */
-export function useToolUsageChartData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-}: OverviewChartProps): UseToolUsageChartDataResult {
+export function useToolUsageChartData(): UseToolUsageChartDataResult {
+  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Filter for TOOL type spans
   const toolFilter = useMemo(() => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL)], []);
 

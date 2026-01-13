@@ -1,5 +1,6 @@
 import functools
 import inspect
+import json
 import logging
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass
@@ -380,6 +381,30 @@ class Scorer(BaseModel):
                 f"serialization version: {serialized.serialization_version or 'unknown'}, "
                 f"current MLflow version: {mlflow.__version__}."
             )
+
+    @classmethod
+    def model_validate_json(cls, json_data: str) -> "Scorer":
+        """
+        Override model_validate_json to parse JSON and delegate to custom model_validate.
+
+        Args:
+            json_data: JSON string containing serialized scorer data.
+
+        Returns:
+            Scorer instance with correct subclass (BuiltInScorer, InstructionsJudge, etc.).
+
+        Raises:
+            mlflow.exceptions.MlflowException: If JSON parsing or scorer validation fails.
+        """
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError as e:
+            raise MlflowException.invalid_parameter_value(f"Invalid JSON in serialized scorer: {e}")
+
+        try:
+            return cls.model_validate(data)
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(f"Failed to validate scorer: {e}")
 
     @classmethod
     def _reconstruct_decorator_scorer(cls, serialized: SerializedScorer) -> "Scorer":

@@ -10,7 +10,7 @@ import {
   createSpanFilter,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface UseToolCallStatisticsDataResult {
   /** Total number of tool calls */
@@ -32,15 +32,12 @@ export interface UseToolCallStatisticsDataResult {
 /**
  * Custom hook that fetches and processes tool call statistics.
  * Queries span metrics for TOOL type spans and calculates counts and latency.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId and time range
  * @returns Tool call statistics, loading state, and error state
  */
-export function useToolCallStatisticsData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-}: Pick<OverviewChartProps, 'experimentId' | 'startTimeMs' | 'endTimeMs'>): UseToolCallStatisticsDataResult {
+export function useToolCallStatisticsData(): UseToolCallStatisticsDataResult {
+  const { experimentId, startTimeMs, endTimeMs } = useOverviewChartContext();
   // Filter for TOOL type spans
   const toolFilter = useMemo(() => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL)], []);
 

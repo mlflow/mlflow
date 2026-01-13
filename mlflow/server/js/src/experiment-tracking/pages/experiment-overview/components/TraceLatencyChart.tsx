@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useDesignSystemTheme, ClockIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
@@ -10,32 +10,28 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useChartYAxisProps,
+  useScrollableLegendProps,
+  DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import { useLegendHighlight } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { formatLatency, useLegendHighlight } from '../utils/chartUtils';
 
-/**
- * Format latency value in human-readable format
- */
-function formatLatency(ms: number): string {
-  if (ms >= 1000) {
-    return `${(ms / 1000).toFixed(2)} sec`;
-  }
-  return `${ms.toFixed(0)} ms`;
-}
-
-export const TraceLatencyChart: React.FC<OverviewChartProps> = (props) => {
+export const TraceLatencyChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const yAxisProps = useChartYAxisProps();
+  const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
 
   // Fetch and process latency chart data
-  const { chartData, avgLatency, isLoading, error, hasData } = useTraceLatencyChartData(props);
+  const { chartData, avgLatency, isLoading, error, hasData } = useTraceLatencyChartData();
+
+  const tooltipFormatter = useCallback(
+    (value: number, name: string) => [formatLatency(value), name] as [string, string],
+    [],
+  );
 
   // Line colors
   const lineColors = {
@@ -63,16 +59,15 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = (props) => {
       <OverviewChartTimeLabel />
 
       {/* Chart */}
-      <div css={{ height: 200, marginTop: theme.spacing.sm }}>
+      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
               <XAxis dataKey="name" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatLatency(value), name]}
               />
               <Line
                 type="monotone"
@@ -117,10 +112,9 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = (props) => {
               <Legend
                 verticalAlign="bottom"
                 iconType="plainline"
-                height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={legendFormatter}
+                {...scrollableLegendProps}
               />
             </LineChart>
           </ResponsiveContainer>

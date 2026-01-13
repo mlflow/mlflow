@@ -2,7 +2,7 @@
 name: fetch-diff
 description: Fetch PR diff with filtering and line numbers for code review.
 allowed-tools:
-  - Bash
+  - Bash(uv run skills fetch-diff:*)
 ---
 
 # Fetch PR Diff
@@ -12,13 +12,13 @@ Fetches a pull request diff, filters out auto-generated files, and adds line num
 ## Usage
 
 ```bash
-uv run .claude/skills/fetch-diff/fetch_diff.py <pr_url>
+uv run skills fetch-diff <pr_url>
 ```
 
 Example:
 
 ```bash
-uv run .claude/skills/fetch-diff/fetch_diff.py https://github.com/mlflow/mlflow/pull/123
+uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123
 ```
 
 Token is auto-detected from `GITHUB_TOKEN` env var or `gh auth token`.

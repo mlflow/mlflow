@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { ChartLineIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -10,27 +10,33 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useChartYAxisProps,
+  useScrollableLegendProps,
+  DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import { formatCount, useLegendHighlight, useToolColors } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartUtils';
 
 /**
  * Chart showing tool usage over time as a stacked bar chart.
  * Each bar is broken down by tool, with each tool having a different color.
  */
-export const ToolUsageChart: React.FC<OverviewChartProps> = (props) => {
+export const ToolUsageChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const yAxisProps = useChartYAxisProps();
+  const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
-  const { getToolColor } = useToolColors();
+  const { getChartColor } = useChartColors();
 
   // Fetch and process tool usage chart data
-  const { chartData, toolNames, isLoading, error, hasData } = useToolUsageChartData(props);
+  const { chartData, toolNames, isLoading, error, hasData } = useToolUsageChartData();
+
+  const tooltipFormatter = useCallback(
+    (value: number, name: string) => [formatCount(value), name] as [string, string],
+    [],
+  );
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -50,33 +56,31 @@ export const ToolUsageChart: React.FC<OverviewChartProps> = (props) => {
       <OverviewChartTimeLabel />
 
       {/* Chart */}
-      <div css={{ height: 200, marginTop: theme.spacing.sm }}>
+      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <XAxis dataKey="timestamp" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatCount(value), name]}
               />
               {toolNames.map((toolName, index) => (
                 <Bar
                   key={toolName}
                   dataKey={toolName}
                   stackId="tools"
-                  fill={getToolColor(index)}
+                  fill={getChartColor(index)}
                   fillOpacity={getOpacity(toolName)}
                 />
               ))}
               <Legend
                 verticalAlign="bottom"
                 iconType="square"
-                height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={legendFormatter}
+                {...scrollableLegendProps}
               />
             </BarChart>
           </ResponsiveContainer>

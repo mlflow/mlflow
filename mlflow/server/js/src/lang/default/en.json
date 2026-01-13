@@ -770,10 +770,6 @@
     "defaultMessage": "Large trace",
     "description": "Modal title for when a trace is very large. The modal warns the user that the trace may cause UI slowness, but allows them to attempt to display it anyway by clicking a button."
   },
-  "4JLrnY": {
-    "defaultMessage": "Modifying instructions is not supported for this built-in judge.",
-    "description": "Tooltip explaining why instructions are read-only for non-editable templates"
-  },
   "4Jyn2b": {
     "defaultMessage": "Add/Edit alias for model version {version}",
     "description": "Model registry > model version alias editor > Title of the update alias modal"
@@ -2194,6 +2190,10 @@
     "defaultMessage": "Comparing {count} traces",
     "description": "Comparing traces title"
   },
+  "FcddG+": {
+    "defaultMessage": "Zoom Out",
+    "description": "Button to reset chart zoom"
+  },
   "FdDWTo": {
     "defaultMessage": "Clear All",
     "description": "String for the clear button to clear any selected parameters and metrics"
@@ -2273,10 +2273,6 @@
   "GJWVBA": {
     "defaultMessage": "Inputs",
     "description": "Table subtitle for schema inputs in the model comparison page"
-  },
-  "GJjAMy": {
-    "defaultMessage": "The trace variable is not supported when running the judge on a sample of traces",
-    "description": "Tooltip message when instructions contain trace variable"
   },
   "GKVTw4": {
     "defaultMessage": "JSON",
@@ -5795,6 +5791,10 @@
     "defaultMessage": "collapse {title}",
     "description": "Common component > collapsible section > alternative label when expand"
   },
+  "ic8x74": {
+    "defaultMessage": "Quality Insights",
+    "description": "Title for the quality insights section in quality tab"
+  },
   "icBP3T": {
     "defaultMessage": "TRUE",
     "description": "Header label for boolean assessment type for the true rate"
@@ -5830,10 +5830,6 @@
   "j25Ttg": {
     "defaultMessage": "Model metrics",
     "description": "Run details page > tab selector > Model metrics tab"
-  },
-  "j3E+jq": {
-    "defaultMessage": "Search charts",
-    "description": "Placeholder for search charts input"
   },
   "j3yKcX": {
     "defaultMessage": "Select the experiment you configured above.",
@@ -5962,10 +5958,6 @@
   "k0m460": {
     "defaultMessage": "Failed to load child runs",
     "description": "Run page > Overview > Child runs error"
-  },
-  "k3V20c": {
-    "defaultMessage": "Scorer Insights",
-    "description": "Title for the scorer insights section in quality tab"
   },
   "kA+QJr": {
     "defaultMessage": "Overview",

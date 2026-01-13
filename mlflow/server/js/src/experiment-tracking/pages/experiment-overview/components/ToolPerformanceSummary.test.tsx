@@ -1,5 +1,6 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
 import { ToolPerformanceSummary } from './ToolPerformanceSummary';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -12,6 +13,7 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create a count data point (grouped by tool name and status)
 const createCountDataPoint = (toolName: string, status: string, count: number) => ({
@@ -36,11 +38,15 @@ describe('ToolPerformanceSummary', () => {
   const testExperimentId = 'test-experiment-123';
   const startTimeMs = new Date('2025-12-22T10:00:00Z').getTime();
   const endTimeMs = new Date('2025-12-22T12:00:00Z').getTime();
+  const timeIntervalSeconds = 3600;
+  const timeBuckets = [startTimeMs, startTimeMs + 3600000, endTimeMs];
 
-  const defaultProps = {
+  const contextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
+    timeIntervalSeconds,
+    timeBuckets,
   };
 
   const server = setupServer();
@@ -54,12 +60,14 @@ describe('ToolPerformanceSummary', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = () => {
     const queryClient = createQueryClient();
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <ToolPerformanceSummary {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <ToolPerformanceSummary />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );
@@ -263,6 +271,161 @@ describe('ToolPerformanceSummary', () => {
       await waitFor(() => {
         expect(screen.getByText('2.50s')).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('sorting functionality', () => {
+    const mockCountData = [
+      createCountDataPoint('alpha_tool', SpanStatus.OK, 500),
+      createCountDataPoint('alpha_tool', SpanStatus.ERROR, 50),
+      createCountDataPoint('beta_tool', SpanStatus.OK, 900),
+      createCountDataPoint('beta_tool', SpanStatus.ERROR, 100),
+      createCountDataPoint('gamma_tool', SpanStatus.OK, 200),
+      createCountDataPoint('gamma_tool', SpanStatus.ERROR, 10),
+    ];
+
+    const mockLatencyData = [
+      createLatencyDataPoint('alpha_tool', 300),
+      createLatencyDataPoint('beta_tool', 100),
+      createLatencyDataPoint('gamma_tool', 500),
+    ];
+
+    it('should sort by calls descending by default', async () => {
+      setupTraceMetricsHandler(mockCountData, mockLatencyData);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('beta_tool')).toBeInTheDocument();
+      });
+
+      const toolNames = screen.getAllByText(/alpha_tool|beta_tool|gamma_tool/);
+      expect(toolNames[0].textContent).toBe('beta_tool'); // 1000 calls
+      expect(toolNames[1].textContent).toBe('alpha_tool'); // 550 calls
+      expect(toolNames[2].textContent).toBe('gamma_tool'); // 210 calls
+    });
+
+    it('should toggle sort direction when clicking the same column', async () => {
+      setupTraceMetricsHandler(mockCountData, mockLatencyData);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('beta_tool')).toBeInTheDocument();
+      });
+
+      // Click Calls header to toggle to ascending
+      const callsHeader = screen.getByRole('button', { name: /Calls/i });
+      await userEvent.click(callsHeader);
+
+      // Now should be ascending - gamma_tool first (210 calls)
+      const toolNamesAsc = screen.getAllByText(/alpha_tool|beta_tool|gamma_tool/);
+      expect(toolNamesAsc[0].textContent).toBe('gamma_tool');
+      expect(toolNamesAsc[1].textContent).toBe('alpha_tool');
+      expect(toolNamesAsc[2].textContent).toBe('beta_tool');
+    });
+
+    it('should sort by tool name when clicking Tool header', async () => {
+      setupTraceMetricsHandler(mockCountData, mockLatencyData);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('beta_tool')).toBeInTheDocument();
+      });
+
+      // Click Tool header
+      const toolHeader = screen.getByRole('button', { name: /^Tool$/i });
+      await userEvent.click(toolHeader);
+
+      // Should sort by name descending first (gamma > beta > alpha)
+      const toolNames = screen.getAllByText(/alpha_tool|beta_tool|gamma_tool/);
+      expect(toolNames[0].textContent).toBe('gamma_tool');
+      expect(toolNames[1].textContent).toBe('beta_tool');
+      expect(toolNames[2].textContent).toBe('alpha_tool');
+    });
+
+    it('should sort by success rate when clicking Success header', async () => {
+      setupTraceMetricsHandler(mockCountData, mockLatencyData);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('beta_tool')).toBeInTheDocument();
+      });
+
+      // Click Success header
+      const successHeader = screen.getByRole('button', { name: /Success/i });
+      await userEvent.click(successHeader);
+
+      // Should sort by success rate descending
+      // gamma_tool: 200/210 = 95.24%
+      // alpha_tool: 500/550 = 90.91%
+      // beta_tool: 900/1000 = 90%
+      const toolNames = screen.getAllByText(/alpha_tool|beta_tool|gamma_tool/);
+      expect(toolNames[0].textContent).toBe('gamma_tool');
+      expect(toolNames[1].textContent).toBe('alpha_tool');
+      expect(toolNames[2].textContent).toBe('beta_tool');
+    });
+
+    it('should sort by latency when clicking Latency header', async () => {
+      setupTraceMetricsHandler(mockCountData, mockLatencyData);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('beta_tool')).toBeInTheDocument();
+      });
+
+      // Click Latency header
+      const latencyHeader = screen.getByRole('button', { name: /Latency/i });
+      await userEvent.click(latencyHeader);
+
+      // Should sort by latency descending
+      // gamma_tool: 500ms, alpha_tool: 300ms, beta_tool: 100ms
+      const toolNames = screen.getAllByText(/alpha_tool|beta_tool|gamma_tool/);
+      expect(toolNames[0].textContent).toBe('gamma_tool');
+      expect(toolNames[1].textContent).toBe('alpha_tool');
+      expect(toolNames[2].textContent).toBe('beta_tool');
+    });
+
+    it('should support keyboard navigation for sorting', async () => {
+      setupTraceMetricsHandler(mockCountData, mockLatencyData);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('beta_tool')).toBeInTheDocument();
+      });
+
+      // Focus and press Enter on Tool header
+      const toolHeader = screen.getByRole('button', { name: /^Tool$/i });
+      toolHeader.focus();
+      await userEvent.keyboard('{Enter}');
+
+      // Should sort by name descending
+      const toolNames = screen.getAllByText(/alpha_tool|beta_tool|gamma_tool/);
+      expect(toolNames[0].textContent).toBe('gamma_tool');
+      expect(toolNames[1].textContent).toBe('beta_tool');
+      expect(toolNames[2].textContent).toBe('alpha_tool');
+    });
+
+    it('should display sort icon on active column', async () => {
+      setupTraceMetricsHandler(mockCountData, mockLatencyData);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('beta_tool')).toBeInTheDocument();
+      });
+
+      // Default is Calls descending - check for descending icon
+      const callsHeader = screen.getByRole('button', { name: /Calls/i });
+      expect(within(callsHeader).getByRole('img', { hidden: true })).toBeInTheDocument();
+
+      // Tool header should not have sort icon
+      const toolHeader = screen.getByRole('button', { name: /^Tool$/i });
+      expect(within(toolHeader).queryByRole('img', { hidden: true })).not.toBeInTheDocument();
     });
   });
 });

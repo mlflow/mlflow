@@ -4673,15 +4673,7 @@ def _invoke_scorer_handler():
         )
     if not trace_ids:
         raise MlflowException(
-            "Missing required parameter: trace_ids",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-    try:
-        scorer_dict = json.loads(serialized_scorer)
-    except json.JSONDecodeError as e:
-        raise MlflowException(
-            f"Invalid JSON in serialized_scorer: {e}",
+            "Please select at least one trace to evaluate.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -4689,13 +4681,7 @@ def _invoke_scorer_handler():
     from mlflow.genai.scorers.job import get_trace_batches_for_scorer, invoke_scorer_job
     from mlflow.server.jobs import submit_job
 
-    try:
-        scorer = Scorer.model_validate(scorer_dict)
-    except Exception as e:
-        raise MlflowException(
-            f"Failed to validate scorer: {e}",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    scorer = Scorer.model_validate_json(serialized_scorer)
 
     tracking_store = _get_tracking_store()
     batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)

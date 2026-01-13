@@ -6344,6 +6344,58 @@ def test_search_traces_with_feedback_rlike_filters(store: SqlAlchemyStore):
     assert traces[0].request_id == trace3_id
 
 
+def test_search_traces_with_metadata_is_null_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_metadata_is_null")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, trace_metadata={"env": "production", "region": "us"})
+    _create_trace(store, trace2_id, exp_id, trace_metadata={"env": "staging"})
+    _create_trace(store, trace3_id, exp_id, trace_metadata={})
+
+    traces, _ = store.search_traces([exp_id], filter_string="metadata.region IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="metadata.env IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='metadata.region IS NULL AND metadata.env = "staging"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id}
+
+
+def test_search_traces_with_metadata_is_not_null_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_metadata_is_not_null")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, trace_metadata={"env": "production", "region": "us"})
+    _create_trace(store, trace2_id, exp_id, trace_metadata={"env": "staging"})
+    _create_trace(store, trace3_id, exp_id, trace_metadata={})
+
+    traces, _ = store.search_traces([exp_id], filter_string="metadata.region IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="metadata.env IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='metadata.region IS NOT NULL AND metadata.env = "production"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id}
+
+
 @pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
 def test_search_traces_with_metadata_rlike_filters(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_metadata_rlike")
@@ -12544,3 +12596,161 @@ def test_log_spans_session_id_handling(store: SqlAlchemyStore) -> None:
 
     trace_info3 = store.get_trace_info(trace_id3)
     assert TraceMetadataKey.TRACE_SESSION not in trace_info3.trace_metadata
+
+
+def test_find_completed_sessions(store: SqlAlchemyStore):
+    """
+    Test finding completed sessions based on their last trace timestamp.
+    Sessions with last trace in time window are returned, ordered by last_trace_timestamp.
+    """
+    exp_id = store.create_experiment("test_find_completed_sessions")
+
+    # Session A: last trace at t=2000
+    for timestamp, trace_id in [(1000, "trace_a1"), (2000, "trace_a2")]:
+        _create_trace(
+            store,
+            trace_id,
+            exp_id,
+            request_time=timestamp,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+        )
+
+    # Session B: last trace at t=4000
+    for timestamp, trace_id in [(3000, "trace_b1"), (4000, "trace_b2")]:
+        _create_trace(
+            store,
+            trace_id,
+            exp_id,
+            request_time=timestamp,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
+        )
+
+    # Session C: last trace at t=10000 (outside query window)
+    for timestamp, trace_id in [(5000, "trace_c1"), (10000, "trace_c2")]:
+        _create_trace(
+            store,
+            trace_id,
+            exp_id,
+            request_time=timestamp,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-c"},
+        )
+
+    _create_trace(store, "trace_no_session", exp_id, request_time=2500)
+
+    # Query window [0, 5000] should return session-a and session-b
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=0,
+        max_last_trace_timestamp_ms=5000,
+    )
+
+    assert len(completed) == 2
+    assert {s.session_id for s in completed} == {"session-a", "session-b"}
+    assert completed[0].session_id == "session-a"
+    assert completed[0].first_trace_timestamp_ms == 1000
+    assert completed[0].last_trace_timestamp_ms == 2000
+    assert completed[1].session_id == "session-b"
+    assert completed[1].first_trace_timestamp_ms == 3000
+    assert completed[1].last_trace_timestamp_ms == 4000
+
+    # Narrower window [3000, 5000] should only return session-b
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=3000,
+        max_last_trace_timestamp_ms=5000,
+    )
+    assert len(completed) == 1
+    assert completed[0].session_id == "session-b"
+
+    # Test max_results pagination
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=0,
+        max_last_trace_timestamp_ms=5000,
+        max_results=1,
+    )
+    assert len(completed) == 1
+    assert completed[0].session_id == "session-a"
+
+
+def test_find_completed_sessions_aggregates_across_all_traces(store: SqlAlchemyStore):
+    """
+    Regression test: first/last timestamps should be computed across ALL session traces,
+    not just those matching the min_last_trace_timestamp_ms filter.
+    """
+    exp_id = store.create_experiment("test_session_timestamp_aggregation")
+
+    _create_trace(
+        store,
+        "trace1",
+        exp_id,
+        request_time=1000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    _create_trace(
+        store,
+        "trace2",
+        exp_id,
+        request_time=3000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id, min_last_trace_timestamp_ms=2000, max_last_trace_timestamp_ms=4000
+    )
+
+    assert len(completed) == 1
+    assert completed[0].first_trace_timestamp_ms == 1000
+    assert completed[0].last_trace_timestamp_ms == 3000
+
+
+def test_find_completed_sessions_with_filter_string(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_find_completed_sessions_with_filter")
+
+    # Session A: first trace env="prod", second env="dev" - should match prod filter
+    # Session B: first trace env="dev", second env="prod" - should NOT match prod filter
+    for session_id, times, envs in [
+        ("session-a", [1000, 2000], ["prod", "dev"]),
+        ("session-b", [3000, 4000], ["dev", "prod"]),
+    ]:
+        for timestamp, env in zip(times, envs):
+            _create_trace(
+                store,
+                f"trace_{session_id}_{timestamp}",
+                exp_id,
+                request_time=timestamp,
+                trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+                tags={"env": env},
+            )
+
+    # Tag filter should only match session-a (first trace has env=prod)
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=0,
+        max_last_trace_timestamp_ms=10000,
+        filter_string="tag.env = 'prod'",
+    )
+    assert len(completed) == 1
+    assert completed[0].session_id == "session-a"
+    assert completed[0].first_trace_timestamp_ms == 1000
+    assert completed[0].last_trace_timestamp_ms == 2000
+
+    # Session C: test metadata filter (first trace user_id="alice", second user_id="bob")
+    for timestamp, user in [(5000, "alice"), (6000, "bob")]:
+        _create_trace(
+            store,
+            f"trace_c_{timestamp}",
+            exp_id,
+            request_time=timestamp,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-c", "user_id": user},
+        )
+
+    # Metadata filter should match session-c (first trace has user_id=alice)
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=0,
+        max_last_trace_timestamp_ms=10000,
+        filter_string="metadata.user_id = 'alice'",
+    )
+    assert len(completed) == 1
+    assert completed[0].session_id == "session-c"

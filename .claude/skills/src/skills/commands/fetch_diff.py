@@ -1,55 +1,42 @@
-"""
-Fetch PR diff with filtering and line numbers.
-
-Filters out auto-generated and non-reviewable files, then adds line numbers
-for easier review comment placement.
-
-Example:
-    uv run .claude/skills/fetch-diff/fetch_diff.py https://github.com/<owner>/<repo>/pull/<number>
-"""
 # ruff: noqa: T201
+"""Fetch PR diff with filtering and line numbers for code review."""
+
+from __future__ import annotations
 
 import argparse
-import os
+import asyncio
 import re
-import subprocess
 import sys
 from pathlib import Path
-from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+
+from skills.github import GitHubClient, parse_pr_url
 
 
-def get_github_token() -> str:
-    if token := os.environ.get("GITHUB_TOKEN"):
-        return token
-    try:
-        return subprocess.check_output(["gh", "auth", "token"], text=True).strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        print("Error: GITHUB_TOKEN not found (set env var or install gh CLI)", file=sys.stderr)
-        sys.exit(1)
+def extract_stacked_pr_base_sha(pr_body: str | None, head_ref: str) -> str | None:
+    """Extract the base SHA from the stacked PR incremental diff link.
 
+    In stacked PR descriptions, the current PR is marked with bold (double
+    asterisks). Example stack tree::
 
-def github_api_request(
-    url: str, token: str, accept_header: str = "application/vnd.github.v3+json"
-) -> str:
-    headers = {
-        "Accept": accept_header,
-        "Authorization": f"token {token}",
-    }
+        ## Stacked PR
+        - [branch_a](url) [Files changed](url)
+          - [**branch_b**](url) [Files changed](url/files/abc123..def456)
+            - [branch_c](url) [Files changed](url/files/def456..789ghi)
 
-    req = Request(url, headers=headers)
+    We find the bold entry matching the branch name and extract the base SHA
+    from ``/files/<base>..<head>``.
+    """  # clint: disable=markdown-link
+    if not pr_body or "Stacked PR" not in pr_body:
+        return None
 
-    try:
-        with urlopen(req) as response:
-            return response.read().decode("utf-8")
-    except HTTPError as e:
-        body = e.read().decode("utf-8")
-        raise RuntimeError(f"GitHub API error: {e.code} {e.reason} {body}") from e
+    # Find the line with bold branch name [**<branch>**], then extract /files/<base>..<head>
+    marker = f"[**{head_ref}**]"
+    for line in pr_body.split("\n"):
+        if marker in line:
+            if m := re.search(r"/files/(?P<base>[a-f0-9]{7,40})\.\.(?P<head>[a-f0-9]{7,40})", line):
+                return m.group("base")
 
-
-def fetch_pr_diff(owner: str, repo: str, pull_number: int, token: str) -> str:
-    url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}"
-    return github_api_request(url, token, accept_header="application/vnd.github.v3.diff")
+    return None
 
 
 def should_exclude_file(file_path: str) -> bool:
@@ -75,6 +62,7 @@ def should_exclude_file(file_path: str) -> bool:
 
 
 def filter_diff(full_diff: str) -> str:
+    """Filter out excluded files and add line numbers to diff."""
     lines = full_diff.split("\n")
     filtered_diff: list[str] = []
     in_included_file = False
@@ -126,24 +114,32 @@ def filter_diff(full_diff: str) -> str:
     return "\n".join(result_lines)
 
 
-def parse_pr_url(url: str) -> tuple[str, str, int]:
-    if m := re.match(r"https://github\.com/([^/]+)/([^/]+)/pull/(\d+)", url):
-        return m.group(1), m.group(2), int(m.group(3))
-    raise ValueError(f"Invalid PR URL: {url}")
+async def fetch_diff(pr_url: str) -> str:
+    owner, repo, pr_number = parse_pr_url(pr_url)
+
+    async with GitHubClient() as client:
+        pr = await client.get_pr(owner, repo, pr_number)
+        head_sha = pr.head.sha
+        head_ref = pr.head.ref
+
+        if base_sha := extract_stacked_pr_base_sha(pr.body, head_ref):
+            print(
+                f"Detected stacked PR, fetching incremental diff: {base_sha[:7]}..{head_sha[:7]}",
+                file=sys.stderr,
+            )
+            diff = await client.get_compare_diff(owner, repo, base_sha, head_sha)
+        else:
+            diff = await client.get_pr_diff(owner, repo, pr_number)
+
+    return filter_diff(diff)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Fetch PR diff with filtering and line numbers")
-    parser.add_argument(
-        "pr_url", help="GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)"
-    )
-    args = parser.parse_args()
-    token = get_github_token()
-    owner, repo, pull_number = parse_pr_url(args.pr_url)
-    full_diff = fetch_pr_diff(owner, repo, pull_number, token)
-    filtered = filter_diff(full_diff)
-    print(filtered)
+def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    parser = subparsers.add_parser("fetch-diff", help="Fetch PR diff with line numbers")
+    parser.add_argument("pr_url", help="GitHub PR URL")
+    parser.set_defaults(func=run)
 
 
-if __name__ == "__main__":
-    main()
+def run(args: argparse.Namespace) -> None:
+    result = asyncio.run(fetch_diff(args.pr_url))
+    print(result)
