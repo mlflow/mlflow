@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { TIME_BUCKET_DIMENSION_KEY, type MetricDataPoint } from '@databricks/web-shared/model-trace-explorer';
+import { useDesignSystemTheme } from '@databricks/design-system';
 
 /**
  * Custom hook for managing legend highlight state in charts.
@@ -129,11 +130,11 @@ export function generateTimeBuckets(
 }
 
 /**
- * Format token count in human-readable format
- * @param count - Token count to format
- * @returns Formatted string (e.g., "1.5M", "2.50K", "500")
+ * Format a large number with K/M suffix for human-readable display
+ * @param count - Number to format
+ * @returns Formatted string (e.g., "1.50M", "15.00K", "1.50K", "500")
  */
-export function formatTokenCount(count: number): string {
+export function formatCount(count: number): string {
   if (count >= 1_000_000) {
     return `${(count / 1_000_000).toFixed(2)}M`;
   }
@@ -141,4 +142,41 @@ export function formatTokenCount(count: number): string {
     return `${(count / 1_000).toFixed(2)}K`;
   }
   return count.toLocaleString();
+}
+
+/**
+ * Formats latency in milliseconds to a human-readable string
+ * @param ms - Latency in milliseconds
+ */
+export function formatLatency(ms: number): string {
+  if (ms < 1000) {
+    return `${ms.toFixed(2)}ms`;
+  }
+  return `${(ms / 1000).toFixed(2)}s`;
+}
+
+/**
+ * Custom hook providing a color palette for tool charts.
+ * Returns a memoized color array and a getter function for consistent tool coloring.
+ */
+export function useToolColors() {
+  const { theme } = useDesignSystemTheme();
+
+  const toolColors = useMemo(
+    () => [
+      theme.colors.blue500,
+      theme.colors.green500,
+      theme.colors.yellow500,
+      theme.colors.red500,
+      theme.colors.blue300,
+      theme.colors.green300,
+      theme.colors.yellow300,
+      theme.colors.red300,
+    ],
+    [theme],
+  );
+
+  const getToolColor = useCallback((index: number): string => toolColors[index % toolColors.length], [toolColors]);
+
+  return { toolColors, getToolColor };
 }

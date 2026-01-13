@@ -1,10 +1,8 @@
 import { compact, isNil } from 'lodash';
 import { useCallback } from 'react';
 
-import { isV3ModelTraceInfo, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
+import { isV3ModelTraceInfo, type ModelTrace, useArrayMemo } from '@databricks/web-shared/model-trace-explorer';
 import { useQueries, useQueryClient } from '@databricks/web-shared/query-client';
-
-import { useArrayMemo } from './useArrayMemo';
 
 export type GetTraceFunction = (traceId?: string, traceInfo?: ModelTrace['info']) => Promise<ModelTrace | undefined>;
 
@@ -13,7 +11,7 @@ const QUERY_KEY = 'getTrace';
 // unfortunately the util from model-trace-explorer
 // requires the whole trace object, not just the info
 function getModelTraceId(traceInfo: ModelTrace['info']): string {
-  return isV3ModelTraceInfo(traceInfo) ? traceInfo.trace_id : traceInfo.request_id ?? '';
+  return isV3ModelTraceInfo(traceInfo) ? traceInfo.trace_id : (traceInfo.request_id ?? '');
 }
 
 export function useGetTraces(getTrace?: GetTraceFunction, traceInfos?: ModelTrace['info'][]) {

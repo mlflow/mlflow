@@ -94,16 +94,14 @@ export const PromptsListTable = ({
   const { theme } = useDesignSystemTheme();
   const columns = usePromptsTableColumns();
 
-  const table = useReactTable(
-    'mlflow/server/js/src/experiment-tracking/pages/prompts/components/PromptsListTable.tsx',
-    {
-      data: prompts ?? [],
-      columns,
-      getCoreRowModel: getCoreRowModel(),
-      getRowId: (row, index) => row.name ?? index.toString(),
-      meta: { onEditTags, experimentId } satisfies PromptsTableMetadata,
-    },
-  );
+  // prettier-ignore
+  const table = useReactTable('mlflow/server/js/src/experiment-tracking/pages/prompts/components/PromptsListTable.tsx', {
+    data: prompts ?? [],
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row, index) => row.name ?? index.toString(),
+    meta: { onEditTags, experimentId } satisfies PromptsTableMetadata,
+  });
 
   const getEmptyState = () => {
     const isEmptyList = !isLoading && isEmpty(prompts);

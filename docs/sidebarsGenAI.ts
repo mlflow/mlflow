@@ -629,23 +629,38 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'governance/ai-gateway/configuration',
-          label: 'Configuration',
+          id: 'governance/ai-gateway/routing',
+          label: 'Advanced Routing',
         },
         {
           type: 'doc',
-          id: 'governance/ai-gateway/usage',
-          label: 'Usage',
+          id: 'governance/ai-gateway/query',
+          label: 'Querying Endpoints',
         },
         {
-          type: 'doc',
-          id: 'governance/ai-gateway/integration',
-          label: 'Integration',
-        },
-        {
-          type: 'doc',
-          id: 'governance/unity-catalog',
-          label: 'Unity Catalog',
+          type: 'category',
+          label: 'Gateway Server (Legacy)',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/setup',
+              label: 'Setup',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/configuration',
+              label: 'Configuration',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/usage',
+              label: 'Usage',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'governance/ai-gateway/legacy/index',
+          },
         },
       ],
       link: {
