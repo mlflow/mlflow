@@ -5,13 +5,18 @@
 
 set -euo pipefail
 
-# Read hook input from stdin
-input=$(cat)
-
 # Skip if jq is unavailable
 if ! command -v jq &>/dev/null; then
   exit 0
 fi
+
+# Skip if uv is unavailable
+if ! command -v uv &>/dev/null; then
+  exit 0
+fi
+
+# Read hook input from stdin
+input=$(cat)
 
 # Extract tool name and command
 tool_name=$(echo "$input" | jq -r '.tool_name // empty')
@@ -19,11 +24,6 @@ command=$(echo "$input" | jq -r '.tool_input.command // empty')
 
 # Only process Bash tool calls
 if [[ "$tool_name" != "Bash" ]]; then
-  exit 0
-fi
-
-# Skip if uv is unavailable
-if ! command -v uv &>/dev/null; then
   exit 0
 fi
 
