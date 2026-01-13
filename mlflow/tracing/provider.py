@@ -196,7 +196,7 @@ def start_detached_span(
         The newly created OpenTelemetry span.
     """
     tracer = _get_tracer(__name__)
-    context = trace.set_span_in_context(parent, context=get_context()) if parent else None
+    context = trace.set_span_in_context(parent, context=get_context()) if parent else get_context()
     attributes = {}
 
     # Set start time and experiment to attribute so we can pass it to the span processor
