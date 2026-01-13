@@ -90,11 +90,9 @@ class OnlineSessionCheckpointManager:
 
         # Start from checkpoint, but never look back more than MAX_LOOKBACK_MS
         min_lookback_time_ms = current_time_ms - MAX_LOOKBACK_MS
-
-        if checkpoint is not None:
-            min_last_trace_timestamp_ms = max(checkpoint.timestamp_ms, min_lookback_time_ms)
-        else:
-            min_last_trace_timestamp_ms = min_lookback_time_ms
+        min_last_trace_timestamp_ms = max(
+            checkpoint.timestamp_ms if checkpoint else 0, min_lookback_time_ms
+        )
 
         max_last_trace_timestamp_ms = current_time_ms - SESSION_COMPLETION_BUFFER_MS
 
