@@ -684,7 +684,7 @@ MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", int, 10
 )
 
-#: Maximum number of worker threads to use for online scoring processors (both trace-level
+#: Maximum number of worker threads to use for online scoring (both trace-level
 #: and session-level scoring). This controls the parallelism when processing multiple traces
 #: or sessions concurrently during background online scoring jobs. (default: ``10``)
 MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS = _EnvironmentVariable(
