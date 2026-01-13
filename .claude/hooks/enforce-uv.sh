@@ -33,7 +33,7 @@ if echo "$command" | grep -qE '^([^[:space:]]*/)?python3?[[:space:]]'; then
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "deny",
-    "permissionDecisionReason": "Direct python/python3 execution detected. Use `uv run` instead."
+    "permissionDecisionReason": "Direct python/python3 execution detected. Use 'uv run' instead."
   }
 }'
 fi
