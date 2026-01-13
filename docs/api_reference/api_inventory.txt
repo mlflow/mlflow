@@ -1083,8 +1083,8 @@ mlflow.genai.scorers.ragas.FactualCorrectness
 mlflow.genai.scorers.ragas.FactualCorrectness.model_post_init
 mlflow.genai.scorers.ragas.Faithfulness
 mlflow.genai.scorers.ragas.Faithfulness.model_post_init
-mlflow.genai.scorers.ragas.InstanceRubrics
-mlflow.genai.scorers.ragas.InstanceRubrics.model_post_init
+mlflow.genai.scorers.ragas.InstanceSpecificRubrics
+mlflow.genai.scorers.ragas.InstanceSpecificRubrics.model_post_init
 mlflow.genai.scorers.ragas.NoiseSensitivity
 mlflow.genai.scorers.ragas.NoiseSensitivity.model_post_init
 mlflow.genai.scorers.ragas.NonLLMContextPrecisionWithReference
@@ -1116,7 +1116,7 @@ mlflow.genai.scorers.ragas.scorers.AnswerAccuracy
 mlflow.genai.scorers.ragas.scorers.AspectCritic
 mlflow.genai.scorers.ragas.scorers.ContextRelevance
 mlflow.genai.scorers.ragas.scorers.DiscreteMetric
-mlflow.genai.scorers.ragas.scorers.InstanceRubrics
+mlflow.genai.scorers.ragas.scorers.InstanceSpecificRubrics
 mlflow.genai.scorers.ragas.scorers.ResponseGroundedness
 mlflow.genai.scorers.ragas.scorers.RubricsScore
 mlflow.genai.scorers.ragas.scorers.SummarizationScore

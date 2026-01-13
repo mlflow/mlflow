@@ -56,8 +56,8 @@ class ToolCallAccuracy(RagasScorer):
     Evaluates the accuracy of tool calls made by an agent.
 
     This deterministic metric compares the actual tool calls made by the agent
-    against expected/reference tool calls, considering both the tool names
-    and their arguments. It can evaluate in strict order or flexible order mode.
+    against expected tool calls, considering both the tool names and their
+    arguments. It can evaluate in strict order or flexible order mode.
 
     Args:
         **metric_kwargs: Additional metric-specific parameters
@@ -150,7 +150,7 @@ class ToolCallF1(RagasScorer):
 @format_docstring(_MODEL_API_DOC)
 class AgentGoalAccuracyWithReference(RagasScorer):
     """
-    Evaluates whether the agent achieved the user's goal compared to a reference.
+    Evaluates whether the agent achieved the user's goal compared to the expectations.
 
     Args:
         model: {{ model }}
@@ -184,7 +184,7 @@ class AgentGoalAccuracyWithReference(RagasScorer):
 @format_docstring(_MODEL_API_DOC)
 class AgentGoalAccuracyWithoutReference(RagasScorer):
     """
-    Evaluates whether the agent achieved the user's goal without a reference.
+    Evaluates whether the agent achieved the user's goal without expectations.
 
     Args:
         model: {{ model }}

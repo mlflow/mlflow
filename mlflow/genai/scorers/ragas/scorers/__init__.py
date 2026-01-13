@@ -147,12 +147,12 @@ class RubricsScore(RagasScorer):
 
 @experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
-class InstanceRubrics(RagasScorer):
+class InstanceSpecificRubrics(RagasScorer):
     """
     Evaluates the output based on instance-specific rubrics.
 
-    Unlike RubricsScore which uses one rubric for all evaluations, InstanceRubrics allows
-    you to define different rubrics for each evaluation instance.
+    Unlike RubricsScore which uses one rubric for all evaluations, InstanceSpecificRubrics
+    allows you to define different rubrics for each evaluation instance.
 
     Args:
         model: {{ model }}
@@ -161,9 +161,9 @@ class InstanceRubrics(RagasScorer):
     Examples:
         .. code-block:: python
 
-            from mlflow.genai.scorers.ragas import InstanceRubrics
+            from mlflow.genai.scorers.ragas import InstanceSpecificRubrics
 
-            scorer = InstanceRubrics(model="openai:/gpt-4")
+            scorer = InstanceSpecificRubrics(model="openai:/gpt-4")
 
             # Evaluate relevance with custom rubric
             feedback1 = scorer(
@@ -192,7 +192,7 @@ class InstanceRubrics(RagasScorer):
             )
     """
 
-    metric_name: ClassVar[str] = "InstanceRubrics"
+    metric_name: ClassVar[str] = "InstanceSpecificRubrics"
 
 
 @experimental(version="3.8.0")
@@ -224,7 +224,7 @@ class SummarizationScore(RagasScorer):
 @format_docstring(_MODEL_API_DOC)
 class AnswerAccuracy(RagasScorer):
     """
-    Evaluates the accuracy of the answer compared to a reference answer.
+    Evaluates the accuracy of the answer compared to the expectations.
 
     Args:
         model: {{ model }}
@@ -313,7 +313,7 @@ __all__ = [
     "AspectCritic",
     "DiscreteMetric",
     "RubricsScore",
-    "InstanceRubrics",
+    "InstanceSpecificRubrics",
     # Agentic metrics
     "TopicAdherence",
     "ToolCallAccuracy",

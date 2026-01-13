@@ -321,7 +321,7 @@ from mlflow.genai.scorers.ragas.scorers import (
     ExactMatch,
     FactualCorrectness,
     Faithfulness,
-    InstanceRubrics,
+    InstanceSpecificRubrics,
     NoiseSensitivity,
     NonLLMContextPrecisionWithReference,
     NonLLMContextRecall,
@@ -367,7 +367,7 @@ __all__ = [
     "AspectCritic",
     "DiscreteMetric",
     "RubricsScore",
-    "InstanceRubrics",
+    "InstanceSpecificRubrics",
     # Agentic metrics
     "TopicAdherence",
     "ToolCallAccuracy",

@@ -80,7 +80,7 @@ def _create_single_turn_sample(
     reference = None
     rubrics = None
     if expectations:
-        # Extract rubrics if present (for InstanceRubrics metric)
+        # Extract rubrics if present (for InstanceSpecificRubrics metric)
         rubrics = expectations.get("rubrics")
         non_rubric_expectations = {
             key: value for key, value in expectations.items() if key != "rubrics"
@@ -247,7 +247,7 @@ def create_mlflow_error_message_from_ragas_param(error_msg: str, metric_name: st
         ragas_param,
         corresponding_mlflow_param,
     ) in ragas_to_mlflow_param_mapping.items():
-        if ragas_param in error_msg.split()[0].lower():
+        if ragas_param in error_msg:
             mlflow_param = corresponding_mlflow_param
             break
 

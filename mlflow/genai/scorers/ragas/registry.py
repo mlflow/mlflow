@@ -76,7 +76,7 @@ _METRIC_REGISTRY: dict[str, MetricConfig] = {
         llm_at_score_time=True,
     ),
     "RubricsScore": MetricConfig("ragas.metrics.RubricsScore"),
-    "InstanceRubrics": MetricConfig("ragas.metrics.InstanceRubrics"),
+    "InstanceSpecificRubrics": MetricConfig("ragas.metrics.collections.InstanceSpecificRubrics"),
     # Other Tasks
     "SummarizationScore": MetricConfig("ragas.metrics.collections.SummaryScore"),
 }
