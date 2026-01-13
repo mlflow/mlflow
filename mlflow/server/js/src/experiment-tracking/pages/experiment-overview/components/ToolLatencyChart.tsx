@@ -47,7 +47,7 @@ export const ToolLatencyChart: React.FC = () => {
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.tool_latency">
       <OverviewChartHeader
         icon={<LightningIcon />}
         title={

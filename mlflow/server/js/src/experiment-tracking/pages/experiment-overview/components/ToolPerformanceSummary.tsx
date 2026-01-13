@@ -117,7 +117,7 @@ export const ToolPerformanceSummary: React.FC = () => {
   );
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.tool_performance_summary">
       <OverviewChartHeader
         icon={<WrenchIcon />}
         title={
