@@ -161,7 +161,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
   {
     id: 'spring-ai',
     name: 'Spring AI',
-    logoPath: '/images/logos/spring-ai-logo.svg',
+    logoPath: '/images/logos/spring-ai-logo.png',
     link: '/genai/tracing/integrations/listing/spring-ai',
     category: 'Agent Frameworks (Java)',
   },
