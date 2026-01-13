@@ -85,6 +85,7 @@ const TracesV3LogsImpl = React.memo(
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
     const enableTraceInsights = shouldEnableTraceInsights();
+    const [isGroupedBySession, setIsGroupedBySession] = useState(false);
 
     const traceSearchLocations = useMemo(
       () => {
@@ -332,6 +333,7 @@ const TracesV3LogsImpl = React.memo(
                   tableSort={tableSort}
                   onTraceTagsEdit={showEditTagsModalForTrace}
                   displayLoadingOverlay={displayLoadingOverlay}
+                  isGroupedBySession={isGroupedBySession}
                 />
               </ContextProviders>
             )}
