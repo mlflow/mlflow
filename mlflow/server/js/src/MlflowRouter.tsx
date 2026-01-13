@@ -13,6 +13,7 @@ import {
 import { MlflowHeader } from './common/components/MlflowHeader';
 import { useDarkThemeContext } from './common/contexts/DarkThemeContext';
 import { useDocumentTitle } from './common/hooks/useDocumentTitle';
+import type { DocumentTitleHandle } from './common/hooks/useDocumentTitle';
 
 // Route definition imports:
 import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tracking/route-defs';

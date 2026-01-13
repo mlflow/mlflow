@@ -17,15 +17,15 @@ describe('useDocumentTitle', () => {
     document.title = '';
   });
 
-  it('sets document title from route handle', () => {
-    // Mock useMatches to return a route with a title
+  it('sets document title from route handle getPageTitle function', () => {
+    // Mock useMatches to return a route with a getPageTitle function (after processRouteDefs)
     mockUseMatches.mockReturnValue([
       {
         id: 'root',
         pathname: '/',
         params: {},
         data: undefined,
-        handle: { title: 'Test Page' },
+        handle: { getPageTitle: () => 'Test Page' },
       },
     ]);
 
@@ -34,29 +34,46 @@ describe('useDocumentTitle', () => {
     expect(document.title).toBe('Test Page - MLflow');
   });
 
-  it('uses the last matching route title when multiple routes have titles', () => {
-    // Mock useMatches to return multiple routes with titles
+  it('passes route params to getPageTitle function', () => {
+    // Mock useMatches to return a route with params
+    mockUseMatches.mockReturnValue([
+      {
+        id: 'experiment',
+        pathname: '/experiments/123',
+        params: { experimentId: '123' },
+        data: undefined,
+        handle: { getPageTitle: (params: Record<string, string | undefined>) => `Experiment ${params['experimentId']}` },
+      },
+    ]);
+
+    renderHook(() => useDocumentTitle());
+
+    expect(document.title).toBe('Experiment 123 - MLflow');
+  });
+
+  it('uses the last matching route title when multiple routes have getPageTitle', () => {
+    // Mock useMatches to return multiple routes with getPageTitle functions
     mockUseMatches.mockReturnValue([
       {
         id: 'root',
         pathname: '/',
         params: {},
         data: undefined,
-        handle: { title: 'Root' },
+        handle: { getPageTitle: () => 'Root' },
       },
       {
         id: 'parent',
         pathname: '/parent',
         params: {},
         data: undefined,
-        handle: { title: 'Parent' },
+        handle: { getPageTitle: () => 'Parent' },
       },
       {
         id: 'child',
         pathname: '/parent/child',
         params: {},
         data: undefined,
-        handle: { title: 'Child' },
+        handle: { getPageTitle: () => 'Child' },
       },
     ]);
 
@@ -66,8 +83,8 @@ describe('useDocumentTitle', () => {
     expect(document.title).toBe('Child - MLflow');
   });
 
-  it('falls back to "MLflow" when no route has a title', () => {
-    // Mock useMatches to return routes without titles
+  it('falls back to "MLflow" when no route has a getPageTitle function', () => {
+    // Mock useMatches to return routes without getPageTitle
     mockUseMatches.mockReturnValue([
       {
         id: 'root',
@@ -83,8 +100,8 @@ describe('useDocumentTitle', () => {
     expect(document.title).toBe('MLflow');
   });
 
-  it('falls back to "MLflow" when routes have handles but no title property', () => {
-    // Mock useMatches to return routes with handles but no title
+  it('falls back to "MLflow" when routes have handles but no getPageTitle function', () => {
+    // Mock useMatches to return routes with handles but no getPageTitle
     mockUseMatches.mockReturnValue([
       {
         id: 'root',
@@ -108,7 +125,7 @@ describe('useDocumentTitle', () => {
         pathname: '/',
         params: {},
         data: undefined,
-        handle: { title: 'First Page' },
+        handle: { getPageTitle: () => 'First Page' },
       },
     ]);
 
@@ -122,7 +139,7 @@ describe('useDocumentTitle', () => {
         pathname: '/other',
         params: {},
         data: undefined,
-        handle: { title: 'Second Page' },
+        handle: { getPageTitle: () => 'Second Page' },
       },
     ]);
 
@@ -137,7 +154,7 @@ describe('useDocumentTitle', () => {
         pathname: '/gateway',
         params: {},
         data: undefined,
-        handle: { title: 'AI Gateway' },
+        handle: { getPageTitle: () => 'AI Gateway' },
       },
     ]);
 
@@ -153,14 +170,14 @@ describe('useDocumentTitle', () => {
         pathname: '/gateway',
         params: {},
         data: undefined,
-        handle: { title: 'AI Gateway' },
+        handle: { getPageTitle: () => 'AI Gateway' },
       },
       {
         id: 'api-keys',
         pathname: '/gateway/api-keys',
         params: {},
         data: undefined,
-        handle: { title: 'API Keys' },
+        handle: { getPageTitle: () => 'API Keys' },
       },
     ]);
 
@@ -169,26 +186,58 @@ describe('useDocumentTitle', () => {
     expect(document.title).toBe('API Keys - MLflow');
   });
 
-  it('handles endpoint details page correctly', () => {
+  it('handles endpoint details page with params correctly', () => {
     mockUseMatches.mockReturnValue([
       {
         id: 'gateway',
         pathname: '/gateway',
         params: {},
         data: undefined,
-        handle: { title: 'AI Gateway' },
+        handle: { getPageTitle: () => 'AI Gateway' },
       },
       {
         id: 'endpoint-details',
         pathname: '/gateway/endpoints/test-123',
         params: { endpointId: 'test-123' },
         data: undefined,
-        handle: { title: 'Endpoint Details' },
+        handle: { getPageTitle: (params: Record<string, string | undefined>) => `Endpoint ${params['endpointId']}` },
       },
     ]);
 
     renderHook(() => useDocumentTitle());
 
-    expect(document.title).toBe('Endpoint Details - MLflow');
+    expect(document.title).toBe('Endpoint test-123 - MLflow');
+  });
+
+  it('handles experiment page with experimentId param', () => {
+    mockUseMatches.mockReturnValue([
+      {
+        id: 'experiment',
+        pathname: '/experiments/456',
+        params: { experimentId: '456' },
+        data: undefined,
+        handle: { getPageTitle: (params: Record<string, string | undefined>) => `Experiment ${params['experimentId']}` },
+      },
+    ]);
+
+    renderHook(() => useDocumentTitle());
+
+    expect(document.title).toBe('Experiment 456 - MLflow');
+  });
+
+  it('handles run page with multiple params', () => {
+    mockUseMatches.mockReturnValue([
+      {
+        id: 'run',
+        pathname: '/experiments/123/runs/abc-def',
+        params: { experimentId: '123', runUuid: 'abc-def' },
+        data: undefined,
+        handle: { getPageTitle: (params: Record<string, string | undefined>) => `Run ${params['runUuid']}` },
+      },
+    ]);
+
+    renderHook(() => useDocumentTitle());
+
+    expect(document.title).toBe('Run abc-def - MLflow');
   });
 });
