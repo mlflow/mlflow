@@ -1,5 +1,6 @@
 from unittest.mock import Mock, patch
 
+import phoenix.evals as phoenix_evals
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -8,8 +9,6 @@ from mlflow.genai.scorers.phoenix.models import (
     DatabricksServingEndpointPhoenixModel,
     create_phoenix_model,
 )
-
-phoenix_evals = pytest.importorskip("phoenix.evals")
 
 
 @pytest.fixture

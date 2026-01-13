@@ -1,10 +1,9 @@
 from unittest.mock import Mock, patch
 
+import phoenix.evals as phoenix_evals
 import pytest
 
 from mlflow.entities.assessment import Feedback
-
-phoenix_evals = pytest.importorskip("phoenix.evals")
 
 
 @pytest.fixture
