@@ -37,9 +37,10 @@ def test_create_trulens_provider_databricks_endpoint(mock_invoke_serving_endpoin
     assert hasattr(provider, "_create_chat_completion")
 
 
-def test_create_trulens_provider_openai():
+def test_create_trulens_provider_openai(monkeypatch):
     from trulens.providers.openai import OpenAI
 
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     provider = create_trulens_provider("openai:/gpt-4")
     assert isinstance(provider, OpenAI)
     assert provider.model_engine == "gpt-4"
