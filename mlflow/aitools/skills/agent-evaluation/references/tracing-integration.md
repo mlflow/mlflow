@@ -5,11 +5,13 @@ Complete guide for integrating MLflow tracing with your agent.
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Step 4.1: Enable Autolog for the Library](#step-41-enable-autolog-for-the-library)
-3. [Step 4.2: Add @trace Decorators to Entry Points](#step-42-add-trace-decorators-to-entry-points)
-4. [Step 4.2.5: Capture Session ID for Conversation Grouping](#step-425-capture-session-id-for-conversation-grouping)
-5. [Step 4.3: Verify Complete Trace Structure](#step-43-verify-complete-trace-structure)
-6. [Troubleshooting](#troubleshooting)
+2. [Documentation-First Implementation Protocol](#-critical-documentation-first-implementation-protocol)
+3. [Step 4.1: Enable Autolog for the Library](#step-41-enable-autolog-for-the-library)
+4. [Step 4.2: Add @trace Decorators to Entry Points](#step-42-add-trace-decorators-to-entry-points)
+5. [Step 4.2.5: Capture Session ID for Conversation Grouping](#step-425-capture-session-id-for-conversation-grouping)
+6. [Implementation Verification Against Documentation](#-implementation-verification-against-documentation)
+7. [Step 4.3: Verify Complete Trace Structure](#step-43-verify-complete-trace-structure)
+8. [Troubleshooting](#troubleshooting)
 
 ## Overview
 
@@ -23,6 +25,72 @@ MLflow tracing requires **BOTH** autolog and decorators to capture complete trac
 Together, they create a complete trace hierarchy showing both your function and the internal library operations.
 
 Complete these steps **IN ORDER**.
+
+## ⚠️ CRITICAL: Documentation-First Implementation Protocol
+
+**MANDATORY: Read BEFORE implementing tracing code**
+
+This section enforces the **Documentation Access Protocol** during implementation to prevent common mistakes like:
+- ❌ Guessing API names (e.g., `mlflow.set_span_attribute()` - doesn't exist)
+- ❌ Assuming method signatures without verification
+- ❌ Skipping documentation examples
+
+### Pre-Implementation Checklist
+
+**BEFORE writing ANY tracing code**, complete these steps IN ORDER:
+
+#### Step 1: Identify Your Implementation Task
+
+Which tracing features are you implementing? Check all that apply:
+
+- [ ] **Autolog setup** → Read [Step 4.1](#step-41-enable-autolog-for-the-library) (lines 27-97)
+- [ ] **@mlflow.trace decorators** → Read [Step 4.2](#step-42-add-trace-decorators-to-entry-points) (lines 98-188)
+- [ ] **Session ID tracking** → Read [Step 4.2.5](#step-425-capture-session-id-for-conversation-grouping) (lines 189-283)
+
+#### Step 2: Read Complete Documentation Section
+
+For EACH feature you checked above:
+
+1. **Read the ENTIRE section** - don't skip examples
+2. **Locate code examples** showing exact API usage
+3. **Note the EXACT function/method names** used
+
+**Common APIs by feature**:
+
+| Feature | Correct APIs | Wrong APIs (DON'T use these) |
+|---------|-------------|------------------------------|
+| Autolog | `mlflow.langchain.autolog()` | `mlflow.autolog_langchain()` ❌ |
+| Decorators | `@mlflow.trace` | `@trace`, `@mlflow.trace_span` ❌ |
+| Session tracking | `mlflow.get_last_active_trace_id()`, `mlflow.set_trace_tag(trace_id, key, value)` | `mlflow.set_span_attribute()`, `mlflow.add_span_attribute()` ❌ |
+
+#### Step 3: Verify Understanding
+
+Before coding, answer these questions:
+
+1. **Can you name the exact MLflow functions/methods you'll use?** (Write them down)
+2. **Can you describe the parameter order for each API call?** (e.g., `set_trace_tag` takes trace_id, key, value)
+3. **Can you explain the pattern from the documentation example?** (e.g., "Get trace_id first, then set tag")
+
+**If you answered NO to any question**: Re-read the documentation section.
+
+**If you answered YES to all questions**: Proceed to implementation.
+
+---
+
+### During Implementation: Documentation Side-By-Side
+
+**Best practice**: Keep the documentation section OPEN in a side window while coding.
+
+- **Left side**: Your code editor
+- **Right side**: This documentation file at the relevant section
+- **Verify**: Each line you write matches the documented pattern
+
+**DO NOT**:
+- ❌ Close the documentation and code from memory
+- ❌ Guess API names or parameters
+- ❌ Assume similarity to other libraries
+
+---
 
 ## Step 4.1: Enable Autolog for the Library
 
@@ -280,6 +348,153 @@ print("✓ Session ID captured successfully!")
 - **Group multi-turn interactions** for analysis
 - **Track conversation-level metrics** (e.g., queries per session, session duration)
 - **Analyze conversation patterns** and user behavior
+
+## ✓ Implementation Verification Against Documentation
+
+**MANDATORY: Run AFTER implementing tracing code, BEFORE runtime testing**
+
+This checkpoint catches common implementation errors by comparing your code against documented patterns.
+
+### Automated Validation (REQUIRED)
+
+Run the static validation script to automatically check your implementation:
+
+```bash
+uv run python .claude/skills/agent-evaluation/scripts/validate_tracing_static.py
+```
+
+**This script verifies**:
+- ✓ Autolog call present and placed before agent imports
+- ✓ @mlflow.trace decorators on all entry points
+- ✓ Session ID capture code present (if applicable)
+- ✓ Correct API names used
+
+**Expected output** (if implementation is correct):
+
+```
+Checking for autolog...
+✓ Found autolog: mlflow.langchain.autolog() in src/myagent/__init__.py
+
+Checking for @mlflow.trace decorators...
+✓ Found decorator on: run_agent (src/myagent/agent/graph.py)
+✓ Found decorator on: stream_agent (src/myagent/agent/graph.py)
+
+Checking for session tracking...
+✓ Found session_id capture in: run_agent
+✓ Uses correct API: mlflow.get_last_active_trace_id()
+✓ Uses correct API: mlflow.set_trace_tag()
+
+============================================================
+✓ VALIDATION PASSED - Implementation matches documentation
+============================================================
+```
+
+**If validation FAILS**, you will see errors like:
+
+```
+❌ ERROR: Autolog not found in initialization code
+❌ ERROR: Missing @mlflow.trace decorator on: run_agent
+❌ ERROR: Found invalid API: mlflow.set_span_attribute() (should be: mlflow.set_trace_tag())
+```
+
+**Action required if validation fails**:
+1. Review the error messages
+2. Go back to the relevant documentation section
+3. Fix your code to match the documented pattern
+4. Re-run validation script
+5. Repeat until validation passes
+
+---
+
+### Manual Verification Checklist
+
+After validation script passes, manually verify these patterns:
+
+#### 1. Autolog Implementation
+
+**Check your code**:
+```bash
+grep -B 2 -A 2 "autolog()" src/
+```
+
+**Compare against documentation pattern** (Step 4.1, line 49):
+```python
+import mlflow
+mlflow.langchain.autolog()  # Or mlflow.openai.autolog(), etc.
+```
+
+**Verify**:
+- [ ] Autolog called in initialization file (__init__.py or before agent imports)
+- [ ] Library name matches your agent (langchain, openai, etc.)
+- [ ] Called BEFORE agent components are imported
+
+#### 2. Decorator Implementation
+
+**Check your code**:
+```bash
+grep -B 1 "def run_agent\|def stream_agent" src/*/agent/*.py
+```
+
+**Compare against documentation pattern** (Step 4.2, line 141):
+```python
+@mlflow.trace
+def run_agent(query: str, llm_provider: LLMProvider) -> str:
+    # Implementation
+```
+
+**Verify**:
+- [ ] `@mlflow.trace` decorator present (NOT `@trace` or `@mlflow.trace_span`)
+- [ ] Decorator placed directly above function definition (no blank lines)
+- [ ] All entry points decorated (run_agent, stream_agent, etc.)
+
+#### 3. Session Tracking Implementation (if applicable)
+
+**Check your code**:
+```bash
+grep -A 5 "get_last_active_trace_id\|set_trace_tag" src/
+```
+
+**Compare against documentation pattern** (Step 4.2.5, lines 237-240):
+```python
+trace_id = mlflow.get_last_active_trace_id()
+if trace_id:
+    mlflow.set_trace_tag(trace_id, "session_id", session_id)
+```
+
+**Verify**:
+- [ ] Uses `mlflow.get_last_active_trace_id()` (NOT `set_span_attribute` or `add_span_attribute`)
+- [ ] Uses `mlflow.set_trace_tag(trace_id, key, value)` with 3 parameters
+- [ ] Has null check `if trace_id:` before setting tag
+- [ ] Sets tag with key "session_id" and the session_id value
+
+---
+
+### Common Errors and Fixes
+
+| Error | Why It's Wrong | Correct Approach |
+|-------|----------------|------------------|
+| `mlflow.set_span_attribute()` | This API doesn't exist in MLflow | Use `mlflow.set_trace_tag(trace_id, key, value)` |
+| `mlflow.add_span_attribute()` | This API doesn't exist | Use `mlflow.set_trace_tag(trace_id, key, value)` |
+| `@trace` decorator | Wrong import/name | Use `@mlflow.trace` |
+| Autolog after imports | Won't capture library calls | Move autolog BEFORE agent imports |
+| Missing trace_id check | Fails if no active trace | Add `if trace_id:` before `set_trace_tag` |
+
+---
+
+### Final Verification Gate
+
+**DO NOT PROCEED to runtime testing** until:
+
+- [ ] Static validation script passes ✓
+- [ ] Manual verification checklist complete ✓
+- [ ] No errors in comparison with documentation patterns ✓
+- [ ] All API names match documented examples exactly ✓
+
+**If all checks pass**: Proceed to [Step 4.3: Verify Complete Trace Structure](#step-43-verify-complete-trace-structure)
+
+**If any check fails**: Return to the relevant documentation section, fix implementation, re-verify
+
+---
 
 ## Step 4.3: Verify Complete Trace Structure
 

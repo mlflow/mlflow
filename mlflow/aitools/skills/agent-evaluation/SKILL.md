@@ -72,6 +72,8 @@ Before evaluation, complete these three setup steps:
 1. **Install MLflow** (version >=3.8.0)
 2. **Configure environment** (tracking URI and experiment)
 3. **Integrate tracing** (autolog and @mlflow.trace decorators)
+   - ⚠️ **MANDATORY**: Read `references/tracing-integration.md` documentation BEFORE implementing
+   - ✓ **VERIFY**: Run validation script AFTER implementing
 
 ⚠️ **Tracing must work before evaluation.** If tracing fails, stop and troubleshoot.
 
