@@ -156,6 +156,7 @@ def test_distributed_tracing_e2e(tmp_path):
             assert payload["parent_id"] == client_span.span_id
     finally:
         proc.terminate()
+        proc.wait()
 
     mlflow.flush_trace_async_logging()
     trace = mlflow.get_trace(client_span.trace_id)

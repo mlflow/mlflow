@@ -49,10 +49,10 @@ def get_tracing_context_headers_for_http_request():
 @contextmanager
 def set_tracing_context_from_http_request_headers(headers):
     """
-    Extract the trace context from the http request headers,
-    and return the context manager to set the extracted trace context as the
-    current trace context.
-    The trace context must be serialized as the traceparent header which is defined
+    Context manager to extract the trace context from the http request headers
+    and set the extracted trace context as the current trace context within the
+    scope of this context manager.
+    The trace context must be serialized as the 'traceparent' header which is defined
     in the W3C TraceContext specification, please see
     :py:func:`mlflow.tracing.distributed.get_tracing_context_headers_for_http_request`
     for how to get the http request headers.
@@ -77,7 +77,7 @@ def set_tracing_context_from_http_request_headers(headers):
 
         if not ("traceparent" in headers and _MLFLOW_TRACE_INFO_HTTP_HEADER_KEY in headers):
             raise MlflowException.invalid_parameter_value(
-                "The http request headers do not contain the required key 'traceparent' or "
+                "The http request headers do not contain the required keys 'traceparent' and "
                 f"'{_MLFLOW_TRACE_INFO_HTTP_HEADER_KEY}', please generate the request headers "
                 f"by 'mlflow.tracing.distributed.get_tracing_context_headers_for_http_request' "
                 f"API."
@@ -86,10 +86,15 @@ def set_tracing_context_from_http_request_headers(headers):
         token = context_api.attach(ctx)
 
         trace_manager = InMemoryTraceManager.get_instance()
-        mlflow_trace_info = TraceInfo.from_dict(
-            json.loads(headers[_MLFLOW_TRACE_INFO_HTTP_HEADER_KEY])
-        )
-
+        try:
+            mlflow_trace_info = TraceInfo.from_dict(
+                json.loads(headers[_MLFLOW_TRACE_INFO_HTTP_HEADER_KEY])
+            )
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"The '{_MLFLOW_TRACE_INFO_HTTP_HEADER_KEY}' HTTP header contains malformed JSON "
+                "and cannot be parsed."
+            ) from e
         extracted_span = trace_api.get_current_span(ctx)
         span_context = extracted_span.get_span_context()
         otel_trace_id = span_context.trace_id
