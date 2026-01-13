@@ -6,13 +6,7 @@ import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 
 describe('EvaluateTracesSectionRenderer', () => {
-  const TestWrapper = ({
-    defaultValues = {},
-    mode = SCORER_FORM_MODE.CREATE,
-  }: {
-    defaultValues?: any;
-    mode?: any;
-  }) => {
+  const TestWrapper = ({ defaultValues = {}, mode = SCORER_FORM_MODE.CREATE }: { defaultValues?: any; mode?: any }) => {
     const { control } = useForm({ defaultValues });
     return (
       <IntlProvider locale="en">
@@ -47,9 +41,7 @@ describe('EvaluateTracesSectionRenderer', () => {
       );
 
       expect(screen.getByText(/Filter string/i)).toBeInTheDocument();
-      expect(
-        screen.getByText(/Filter applies to the first trace in each session/i),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Filter applies to the first trace in each session/i)).toBeInTheDocument();
     });
 
     it('should show filter input with trace-specific help text when evaluationScope is TRACES', () => {
