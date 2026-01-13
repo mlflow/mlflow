@@ -582,7 +582,7 @@ def test_simulate_conversation(mock_requests, mock_telemetry_client: TelemetryCl
 
     with (
         mock.patch(
-            "mlflow.genai.simulators.simulator._invoke_model",
+            "mlflow.genai.simulators.simulator._invoke_model_without_tracing",
             return_value="Mock user message",
         ),
         mock.patch(
@@ -599,12 +599,58 @@ def test_simulate_conversation(mock_requests, mock_telemetry_client: TelemetryCl
         mock_requests,
         SimulateConversationEvent.name,
         {
+            "callsite": "conversation_simulator",
             "simulated_conversation_info": [
                 {"turn_count": len(result[0])},
                 {"turn_count": len(result[1])},
-            ]
+            ],
         },
     )
+
+
+def test_simulate_conversation_from_genai_evaluate(
+    mock_requests, mock_telemetry_client: TelemetryClient
+):
+    simulator = ConversationSimulator(
+        test_cases=[
+            {"goal": "Learn about MLflow"},
+        ],
+        max_turns=1,
+    )
+
+    def mock_predict_fn(input, **kwargs):
+        return {"role": "assistant", "content": "Mock response"}
+
+    @scorer
+    def simple_scorer(outputs) -> bool:
+        return len(outputs) > 0
+
+    with (
+        mock.patch(
+            "mlflow.genai.simulators.simulator._invoke_model_without_tracing",
+            return_value="Mock user message",
+        ),
+        mock.patch(
+            "mlflow.genai.simulators.simulator.ConversationSimulator._check_goal_achieved",
+            return_value=True,
+        ),
+    ):
+        mlflow.genai.evaluate(data=simulator, predict_fn=mock_predict_fn, scorers=[simple_scorer])
+
+    mock_telemetry_client.flush()
+
+    simulate_events = [
+        record
+        for record in mock_requests
+        if record["data"]["event_name"] == SimulateConversationEvent.name
+    ]
+    assert len(simulate_events) == 1
+
+    event_params = json.loads(simulate_events[0]["data"]["params"])
+    assert event_params == {
+        "callsite": "genai_evaluate",
+        "simulated_conversation_info": [{"turn_count": 1}],
+    }
 
 
 def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClient):
@@ -1310,7 +1356,7 @@ def test_scorer_call_from_genai_evaluate(mock_requests, mock_telemetry_client: T
         if params["scorer_class"] == "UserDefinedScorer"
         and params["scorer_kind"] == "decorator"
         and params["is_session_level_scorer"] is False
-        and params["callsite"] == "genai.evaluate"
+        and params["callsite"] == "genai_evaluate"
         and params["has_feedback_error"] is False
     ]
     assert len(response_level_events) == 2
@@ -1322,7 +1368,7 @@ def test_scorer_call_from_genai_evaluate(mock_requests, mock_telemetry_client: T
         if params["scorer_class"] == "UserDefinedScorer"
         and params["scorer_kind"] == "instructions"
         and params["is_session_level_scorer"] is True
-        and params["callsite"] == "genai.evaluate"
+        and params["callsite"] == "genai_evaluate"
         and params["has_feedback_error"] is False
     ]
     assert len(session_level_events) == 1
@@ -1509,7 +1555,7 @@ def test_scorer_call_wrapped_builtin_scorer_from_genai_evaluate(
             "scorer_class": "UserFrustration",
             "scorer_kind": "builtin",
             "is_session_level_scorer": True,
-            "callsite": "genai.evaluate",
+            "callsite": "genai_evaluate",
             "has_feedback_error": False,
         },
     )

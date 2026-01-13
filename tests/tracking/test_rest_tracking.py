@@ -4897,6 +4897,7 @@ def test_list_models(mlflow_client_with_secrets):
     assert "model" in model
     assert "provider" in model
     assert "mode" in model
+    assert all(not m["model"].startswith("ft:") for m in data["models"])
 
     response = requests.get(
         f"{base_url}/ajax-api/3.0/mlflow/gateway/supported-models", params={"provider": "openai"}
@@ -4958,6 +4959,7 @@ def test_get_provider_config(mlflow_client_with_secrets):
     data = response.json()
     assert data["default_mode"] == "api_key"
     assert data["auth_modes"][0]["mode"] == "api_key"
+    assert data["auth_modes"][0]["config_fields"][0]["name"] == "api_base"
 
     # Missing provider parameter returns 400
     response = requests.get(f"{base_url}/ajax-api/3.0/mlflow/gateway/provider-config")
