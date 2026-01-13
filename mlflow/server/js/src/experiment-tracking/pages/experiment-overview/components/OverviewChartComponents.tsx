@@ -2,7 +2,10 @@ import React, { useCallback } from 'react';
 import { TableSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
-const DEFAULT_CHART_HEIGHT = 280;
+export const DEFAULT_CHART_HEIGHT = 280;
+export const DEFAULT_CHART_CONTENT_HEIGHT = 200;
+export const DEFAULT_TOOLTIP_MAX_HEIGHT = 120;
+export const DEFAULT_LEGEND_MAX_HEIGHT = 60;
 
 interface OverviewChartHeaderProps {
   /** Icon component to display before the title */
@@ -190,8 +193,6 @@ export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, pa
     return null;
   }
 
-  const maxHeight = 120;
-
   return (
     <div
       css={{
@@ -213,7 +214,7 @@ export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, pa
       {label && <div css={{ fontWeight: 500, marginBottom: theme.spacing.xs }}>{label}</div>}
       <div
         css={{
-          maxHeight,
+          maxHeight: DEFAULT_TOOLTIP_MAX_HEIGHT,
           overflowY: 'auto',
           overflowX: 'hidden',
         }}
@@ -324,7 +325,7 @@ interface ScrollableLegendConfig {
  */
 export function useScrollableLegendProps(config?: ScrollableLegendConfig) {
   const { theme } = useDesignSystemTheme();
-  const maxHeight = config?.maxHeight ?? 60;
+  const maxHeight = config?.maxHeight ?? DEFAULT_LEGEND_MAX_HEIGHT;
 
   const formatter = (value: string) => (
     <span

@@ -197,9 +197,9 @@ describe('TraceLatencyChart', () => {
 
       renderComponent();
 
-      // Average is 250ms
+      // Average is 250ms (formatted as "250.00ms" by formatLatency)
       await waitFor(() => {
-        expect(screen.getByText('250 ms')).toBeInTheDocument();
+        expect(screen.getByText('250.00ms')).toBeInTheDocument();
       });
     });
 
@@ -228,9 +228,9 @@ describe('TraceLatencyChart', () => {
 
       renderComponent();
 
-      // 1500ms should be displayed as 1.50 sec
+      // 1500ms should be displayed as 1.50s
       await waitFor(() => {
-        expect(screen.getByText('1.50 sec')).toBeInTheDocument();
+        expect(screen.getByText('1.50s')).toBeInTheDocument();
       });
     });
 
@@ -242,7 +242,7 @@ describe('TraceLatencyChart', () => {
       await waitFor(() => {
         const referenceLine = screen.getByTestId('reference-line');
         expect(referenceLine).toBeInTheDocument();
-        expect(referenceLine).toHaveAttribute('data-label', 'AVG (250 ms)');
+        expect(referenceLine).toHaveAttribute('data-label', 'AVG (250.00ms)');
       });
     });
 
