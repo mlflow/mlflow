@@ -22,7 +22,7 @@ from mlflow.genai.scorers.ragas import (
     ExactMatch,
     FactualCorrectness,
     Faithfulness,
-    InstanceRubrics,
+    InstanceSpecificRubrics,
     NoiseSensitivity,
     RagasScorer,
     RougeScore,
@@ -188,7 +188,7 @@ def test_missing_reference_parameter_returns_mlflow_error():
         (AspectCritic, "AspectCritic", {"name": "test", "definition": "test"}),
         (DiscreteMetric, "DiscreteMetric", {"name": "test", "prompt": "test"}),
         (RubricsScore, "RubricsScore", {}),
-        (InstanceRubrics, "InstanceRubrics", {}),
+        (InstanceSpecificRubrics, "InstanceSpecificRubrics", {}),
         # Summarization Metrics
         (SummarizationScore, "SummarizationScore", {}),
         # Agentic Metrics
