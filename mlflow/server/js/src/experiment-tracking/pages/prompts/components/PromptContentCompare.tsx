@@ -223,7 +223,7 @@ export const PromptContentCompare = ({
                 </span>
               ))}
             </Typography.Text>
-         )}
+          )}
         </div>
       </div>
     </div>
