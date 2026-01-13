@@ -82,7 +82,7 @@ const ScorerFormEditContainer: React.FC<ScorerFormEditContainerProps> = ({ exper
   return (
     <div
       css={{
-        ...(isRunningScorersFeatureEnabled ? { height: '100%' } : { maxHeight: '85vh' }),
+        ...(isRunningScorersFeatureEnabled ? { height: '100%' } : { maxHeight: '70vh' }),
         display: 'flex',
         flexDirection: 'column',
       }}
