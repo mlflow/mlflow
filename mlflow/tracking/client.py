@@ -70,7 +70,6 @@ from mlflow.prompt.constants import (
     PROMPT_MODEL_CONFIG_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_CHAT,
-    PROMPT_TYPE_JINJA2,
     PROMPT_TYPE_TAG_KEY,
     PROMPT_TYPE_TEXT,
     RESPONSE_FORMAT_TAG_KEY,
@@ -650,36 +649,19 @@ class MlflowClient:
         # Version metadata is represented as ModelVersion tags in the registry
         tags = tags or {}
         tags.update({IS_PROMPT_TAG_KEY: "true"})
-
         if isinstance(template, list):
-            # Chat prompt
+            tags.update({PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_CHAT})
+            tags.update({PROMPT_TEXT_TAG_KEY: json.dumps(template)})
+        else:
+            tags.update({PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_TEXT})
+            tags.update({PROMPT_TEXT_TAG_KEY: template})
+        if response_format:
             tags.update(
                 {
-                    PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_CHAT,
-                    PROMPT_TEXT_TAG_KEY: json.dumps(template),
+                    RESPONSE_FORMAT_TAG_KEY: json.dumps(
+                        PromptVersion.convert_response_format_to_dict(response_format)
+                    ),
                 }
-            )
-        elif isinstance(template, str):
-            if "{%" in template and "%}" in template:
-                # Jinja2 prompt
-                tags.update(
-                    {
-                        PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_JINJA2,
-                        PROMPT_TEXT_TAG_KEY: template,
-                    }
-                )
-            else:
-                # Plain text prompt
-                tags.update(
-                    {
-                        PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_TEXT,
-                        PROMPT_TEXT_TAG_KEY: template,
-                    }
-                )
-
-        else:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid prompt template type: {type(template)}"
             )
 
         if response_format:

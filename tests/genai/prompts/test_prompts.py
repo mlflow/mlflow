@@ -13,7 +13,7 @@ from mlflow import MlflowClient
 from mlflow.entities.model_registry import PromptModelConfig, PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.prompts.utils import format_prompt
-from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY, PROMPT_TYPE_JINJA2
+from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY, PROMPT_TYPE_TEXT
 from mlflow.prompt.registry_utils import PromptCache, PromptCacheKey
 from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
 
@@ -263,7 +263,7 @@ def test_register_and_load_jinja2_prompt():
     loaded_prompt = mlflow.genai.load_prompt("jinja-basic", version=1)
 
     assert loaded_prompt.template == template
-    assert loaded_prompt._prompt_type == PROMPT_TYPE_JINJA2
+    assert loaded_prompt._prompt_type == PROMPT_TYPE_TEXT
     assert loaded_prompt.format(name="Alice") == "Hello Alice"
     assert loaded_prompt.format() == "Hello Guest"
 
@@ -281,6 +281,53 @@ def test_register_and_load_jinja2_prompt_without_sandbox():
 
     # Render without sandbox
     assert loaded_prompt.format(use_jinja_sandbox=False) == "Yes"
+
+
+def test_register_and_load_jinja2_chat_prompt():
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {
+            "role": "user",
+            "content": "{% if formal %}Dear Sir{% else %}Hey{% endif %}, {{question}}",
+        },
+    ]
+    mlflow.genai.register_prompt(name="jinja-chat", template=chat_template)
+
+    loaded_prompt = mlflow.genai.load_prompt("jinja-chat", version=1)
+
+    assert loaded_prompt.template == chat_template
+    assert not loaded_prompt.is_text_prompt
+
+    formatted = loaded_prompt.format(formal=True, question="How are you?")
+    assert formatted == [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Dear Sir, How are you?"},
+    ]
+
+    formatted = loaded_prompt.format(formal=False, question="What's up?")
+    assert formatted == [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hey, What's up?"},
+    ]
+
+
+def test_jinja2_chat_prompt_with_loops():
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {
+            "role": "user",
+            "content": "My friends are: {% for friend in friends %}{{ friend }}{% if not loop.last %}, {% endif %}{% endfor %}.",
+        },
+    ]
+    mlflow.genai.register_prompt(name="jinja-chat-loop", template=chat_template)
+
+    loaded_prompt = mlflow.genai.load_prompt("jinja-chat-loop", version=1)
+
+    formatted = loaded_prompt.format(friends=["Alice", "Bob", "Charlie"])
+    assert formatted == [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "My friends are: Alice, Bob, Charlie."},
+    ]
 
 
 def test_register_text_prompt_backward_compatibility():
