@@ -39,6 +39,9 @@ export const TrafficSplitModelItem = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [isExpanded, setIsExpanded] = useState(!model.provider && !model.modelName);
+  const [localWeightInput, setLocalWeightInput] = useState<string | null>(null);
+
+  const weightInputValue = localWeightInput ?? (model.weight === 0 ? '' : String(model.weight));
 
   const { existingSecrets, isLoadingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } =
     useApiKeyConfiguration({
@@ -162,12 +165,11 @@ export const TrafficSplitModelItem = ({
                 type="number"
                 min={0}
                 max={100}
-                value={model.weight}
+                value={weightInputValue}
                 onChange={(e) => {
+                  setLocalWeightInput(e.target.value);
                   const parsed = parseInt(e.target.value, 10);
-                  if (!Number.isNaN(parsed)) {
-                    onWeightChange(index, parsed);
-                  }
+                  onWeightChange(index, Number.isNaN(parsed) ? 0 : parsed);
                 }}
                 css={{ width: '100%' }}
               />
