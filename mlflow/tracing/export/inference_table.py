@@ -68,9 +68,19 @@ class InferenceTableSpanExporter(SpanExporter):
             spans: A sequence of OpenTelemetry ReadableSpan objects passed from
                 a span processor. Only root spans for each trace should be exported.
         """
+        trace_manager = InMemoryTraceManager.get_instance()
+
         for span in spans:
             if span._parent is not None:
                 _logger.debug("Received a non-root span. Skipping export.")
+                continue
+
+            if trace_manager._is_remote_trace[span.get_span_context().trace_id]:
+                _logger.warning(
+                    "The Databricks InferenceTableSpanExporter does not support exporting spans "
+                    "incrementally. In this case, for distributed trace, exporting the span "
+                    f"{span.name} that is created in a remote process is not supported."
+                )
                 continue
 
             manager_trace = self._trace_manager.pop_trace(span.context.trace_id)
