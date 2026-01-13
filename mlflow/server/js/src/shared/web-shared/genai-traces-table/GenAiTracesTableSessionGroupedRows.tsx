@@ -1,9 +1,11 @@
-import type { Row } from '@tanstack/react-table';
+import type { Row, RowSelectionState } from '@tanstack/react-table';
 import type { VirtualItem } from '@tanstack/react-virtual';
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
-import { TableCell, TableRow, useDesignSystemTheme } from '@databricks/design-system';
+import { Checkbox, TableCell, TableRow, TableRowSelectCell, useDesignSystemTheme } from '@databricks/design-system';
+import { useIntl } from '@databricks/i18n';
 
+import { SessionHeaderCell } from './cellRenderers/SessionHeaderCellRenderers';
 import { GenAiTracesTableBodyRow } from './GenAiTracesTableBodyRows';
 import type { TracesTableColumn, EvalTraceComparisonEntry } from './types';
 import type { GroupedTraceTableRowData } from './utils/SessionGroupingUtils';
@@ -17,6 +19,18 @@ interface GenAiTracesTableSessionGroupedRowsProps {
   virtualizerTotalSize: number;
   virtualizerMeasureElement: (node: HTMLDivElement | null) => void;
   selectedColumns: TracesTableColumn[];
+  experimentId: string;
+}
+
+interface SessionHeaderRowProps {
+  sessionId: string;
+  traceCount: number;
+  traces: any[];
+  visibleColumns: TracesTableColumn[];
+  enableRowSelection?: boolean;
+  sessionRows: Row<EvalTraceComparisonEntry>[];
+  isComparing: boolean;
+  experimentId: string;
 }
 
 export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTracesTableSessionGroupedRows({
@@ -28,6 +42,7 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
   virtualizerTotalSize,
   virtualizerMeasureElement,
   selectedColumns,
+  experimentId,
 }: GenAiTracesTableSessionGroupedRowsProps) {
   // Create a map from evaluation data to its row (for selection state)
   const evaluationToRowMap = useMemo(() => {
@@ -36,6 +51,19 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
       map.set(row.original, row);
     });
     return map;
+  }, [rows]);
+
+  // Get visible columns from the first row to match table rendering
+  const visibleColumns = useMemo(() => {
+    if (rows.length === 0) return [];
+    const firstRow = rows[0];
+    const cells = firstRow.getVisibleCells();
+    return cells.map((cell) => ({
+      id: cell.column.id,
+      label: cell.column.columnDef.header as string,
+      type: (cell.column.columnDef.meta as any)?.type,
+      group: (cell.column.columnDef.meta as any)?.group,
+    })) as TracesTableColumn[];
   }, [rows]);
 
   return (
@@ -67,7 +95,21 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
                 width: '100%',
               }}
             >
-              <SessionHeaderRow sessionId={groupedRow.sessionId} traceCount={groupedRow.traces.length} />
+              <SessionHeaderRow
+                sessionId={groupedRow.sessionId}
+                traceCount={groupedRow.traces.length}
+                traces={groupedRow.traces}
+                visibleColumns={visibleColumns}
+                enableRowSelection={enableRowSelection}
+                sessionRows={rows.filter((row) => {
+                  // Filter rows that belong to this session
+                  const traceIds = groupedRow.traces.map((t) => t.trace_id).filter(Boolean);
+                  const rowTraceId = row.original.currentRunValue?.traceInfo?.trace_id;
+                  return rowTraceId && traceIds.includes(rowTraceId);
+                })}
+                isComparing={isComparing}
+                experimentId={experimentId}
+              />
             </div>
           );
         }
@@ -110,28 +152,68 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
 // Session header component
 const SessionHeaderRow = React.memo(function SessionHeaderRow({
   sessionId,
-  traceCount,
-}: {
-  sessionId: string;
-  traceCount: number;
-}) {
+  traces,
+  visibleColumns,
+  enableRowSelection,
+  sessionRows,
+  isComparing,
+  experimentId,
+}: SessionHeaderRowProps) {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+
+  // Calculate selection state for this session
+  const { allSelected, someSelected, exportableRows } = useMemo(() => {
+    // Filter to only exportable rows (those that can be selected)
+    const exportable = sessionRows.filter((row) => row.original.currentRunValue && !isComparing);
+
+    if (exportable.length === 0) {
+      return { allSelected: false, someSelected: false, exportableRows: [] };
+    }
+
+    const selectedCount = exportable.filter((row) => row.getIsSelected()).length;
+    return {
+      allSelected: selectedCount === exportable.length && selectedCount > 0,
+      someSelected: selectedCount > 0 && selectedCount < exportable.length,
+      exportableRows: exportable,
+    };
+  }, [sessionRows, isComparing]);
+
+  // Handle toggle all rows in this session
+  const handleToggleAll = useCallback(() => {
+    const shouldSelect = !allSelected;
+    exportableRows.forEach((row) => {
+      row.toggleSelected(shouldSelect);
+    });
+  }, [allSelected, exportableRows]);
 
   return (
-    <TableRow>
-      <TableCell
-        css={{
-          padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-          backgroundColor: theme.colors.backgroundSecondary,
-          fontWeight: theme.typography.typographyBoldFontWeight,
-          borderTop: `1px solid ${theme.colors.border}`,
-          borderBottom: `1px solid ${theme.colors.border}`,
-        }}
-      >
-        <span>
-          Session: {sessionId} ({traceCount} {traceCount === 1 ? 'trace' : 'traces'})
-        </span>
-      </TableCell>
+    <TableRow isHeader>
+      {/* Checkbox cell for session row selection */}
+      {enableRowSelection && (
+        <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0 }}>
+          <TableRowSelectCell
+            componentId="mlflow.genai-traces-table.session-select"
+            checked={allSelected}
+            indeterminate={someSelected}
+            onChange={handleToggleAll}
+            isDisabled={isComparing || exportableRows.length === 0}
+            css={{ marginRight: 0 }}
+          />
+        </div>
+      )}
+      {/* Render a cell for each visible column from the table */}
+      {visibleColumns.map((column) => (
+        <SessionHeaderCell
+          key={column.id}
+          column={column}
+          sessionId={sessionId}
+          traces={traces}
+          theme={theme}
+          intl={intl}
+          experimentId={experimentId}
+        />
+      ))}
     </TableRow>
   );
 });
