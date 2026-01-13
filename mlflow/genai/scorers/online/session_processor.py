@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
 from mlflow.entities.assessment import Assessment
-from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
+from mlflow.environment_variables import MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.online.constants import (
     EXCLUDE_EVAL_RUN_TRACES_FILTER,
@@ -257,7 +257,7 @@ class OnlineSessionScoringProcessor:
             tasks: List of SessionScoringTask objects containing sessions and their scorers.
         """
         with ThreadPoolExecutor(
-            max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
+            max_workers=MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS.get(),
             thread_name_prefix="SessionScoring",
         ) as executor:
             futures = {}
