@@ -338,5 +338,5 @@ class OnlineSessionScoringProcessor:
         except Exception as e:
             _logger.warning(
                 f"Failed to evaluate session {session.session_id}: {e}",
-                exc_info=True,
+                exc_info=_logger.isEnabledFor(logging.INFO),
             )
