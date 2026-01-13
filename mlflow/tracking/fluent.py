@@ -84,7 +84,11 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.thread_utils import ThreadLocalVariable
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.validation import _validate_experiment_id_type, _validate_run_id
+from mlflow.utils.validation import (
+    _validate_experiment_id_type,
+    _validate_logged_model_name,
+    _validate_run_id,
+)
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 if not IS_TRACING_SDK_ONLY:
@@ -2488,11 +2492,12 @@ def import_checkpoints(
     checkpoint path.
 
     Args:
-        checkpoint_path: String path to the Unity Catalog Volume location that contains the
-            checkpoints.
-            NOTE: Each path must be isolated from other models and runs. This can be specified
-            in the path directory structure, e.g.
-            "/Volumes/mycatalog/myschema/myvolume/mytrainingmodel/trainingrun1/checkpoints"
+        checkpoint_path: Path that contains the checkpoints.
+            Only Unity Catalog Volume path is supported for now.
+            It must follows the
+            "/Volumes/<catalog_identifier>/<schema_identifier>/<volume_identifier>/<path_to_checkpoints_directory>"
+            format specified https://docs.databricks.com/aws/en/sql/language-manual/sql-ref-volumes#volume-naming-and-reference.
+            Note: Each path must be isolated from other models and runs.
         source_run_id: ID of the MLflow source run that these checkpoints were trained with.
             If not provided, uses the current active run if available.
         model_prefix: String prefix to prepend to the name of each external model created from
@@ -2568,19 +2573,12 @@ def import_checkpoints(
 
         model_name = model_prefix + base_name if model_prefix else base_name
 
-        # '?', '%', ':' are not allowed in logged model name
-        # Quotes in model name makes SQL filter hard to handle, so disable it too.
-        is_model_name_valid = True
-        for special_char in ["?", "%", ":", ".", "'", '"']:
-            if special_char in model_name:
-                is_model_name_valid = False
-                break
-
-        if not is_model_name_valid:
+        try:
+            _validate_logged_model_name(model_name)
+        except MlflowException as e:
             _logger.warning(
-                "The model name can't include the following special character: "
-                "`?`, `%`, ':', '.', `'` and `\"`, skip importing the model with "
-                f"name '{model_name}'.",
+                f"The model name is invalid (root error: {e!s}), skip importing the "
+                f"model with name '{model_name}' from checkpoint folder '{sub_checkpoint_path}'."
             )
             continue
 

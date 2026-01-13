@@ -2714,11 +2714,6 @@ def test_import_checkpoints_skip_name_with_invalid_char():
     def patched_list_directory_contents(dir_path):
         return [
             SimpleNamespace(path=os.path.join(dir_path, "ckpt1.a")),
-            SimpleNamespace(path=os.path.join(dir_path, "ckpt1?a")),
-            SimpleNamespace(path=os.path.join(dir_path, "ckpt1:a")),
-            SimpleNamespace(path=os.path.join(dir_path, "ckpt1%a")),
-            SimpleNamespace(path=os.path.join(dir_path, "ckpt1'a")),
-            SimpleNamespace(path=os.path.join(dir_path, 'ckpt1"a')),
             SimpleNamespace(path=os.path.join(dir_path, "ckpt2")),
         ]
 
@@ -2736,21 +2731,9 @@ def test_import_checkpoints_skip_name_with_invalid_char():
         assert len(logged_models) == 1
         assert logged_models[0].name == "ckpt2"
 
-        msg = (
-            "The model name can't include the following special character: "
-            "`?`, `%`, ':', '.', `'` and `\"`, skip importing the model with "
-            "name '{name}'."
-        )
-        mock_warning.assert_has_calls(
-            [
-                mock.call(msg.format(name="ckpt1.a")),
-                mock.call(msg.format(name="ckpt1?a")),
-                mock.call(msg.format(name="ckpt1:a")),
-                mock.call(msg.format(name="ckpt1%a")),
-                mock.call(msg.format(name="ckpt1'a")),
-                mock.call(msg.format(name='ckpt1"a')),
-            ]
-        )
+        warn_msg = mock_warning.call_args[0][0]
+        assert "The model name is invalid" in warn_msg
+        assert "ckpt1.a" in warn_msg
 
 
 def test_import_checkpoints_without_run():
