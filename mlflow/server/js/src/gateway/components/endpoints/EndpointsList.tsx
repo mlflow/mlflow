@@ -125,6 +125,7 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
       </div>
 
       <Table
+        scrollable
         empty={getEmptyState()}
         css={{
           borderLeft: `1px solid ${theme.colors.border}`,
