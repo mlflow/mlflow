@@ -5,6 +5,8 @@ import TilesGrid from '@site/src/components/TilesGrid';
 import TileCard from '@site/src/components/TileCard';
 import { MessageSquare, Users, Target, Play, Code, Activity, BookOpen } from 'lucide-react';
 import ServerSetup from "@site/src/content/setup_server.mdx";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
 
 # Evaluate Conversations
 
@@ -101,6 +103,247 @@ results = mlflow.genai.evaluate(
 ```
 
 **How it works:** MLflow automatically groups traces by their `mlflow.trace.session` metadata and sorts them chronologically by timestamp within each session. Multi-turn scorers run once per session and analyze the complete conversation history. Multi-turn assessments are logged to the first trace (chronologically) in each session. You can use the Sessions tab to view session-level metrics for the entire conversation as well as trace-level metrics for individual turns.
+
+## Two Evaluation Approaches
+
+Multi-turn evaluation supports two distinct approaches: you can evaluate **existing traces** from your tracking server (ideal for analyzing historical or production conversations), or use the **conversation simulator** to generate new conversations on-demand (ideal for reproducible testing and comparing agent versions). The key difference is that evaluating existing traces analyzes conversations you've already collected, while the simulator generates fresh conversations each time by simulating a user interacting with your agent.
+
+<Tabs>
+  <TabItem value="existing-traces" label="Evaluating Existing Traces" default>
+
+### How It Works
+
+The approach shown in the Quick Start above evaluates **existing traces** from your tracking server. MLflow automatically groups traces by their `mlflow.trace.session` metadata and applies multi-turn scorers to each complete conversation.
+
+**When to use:**
+- You already have conversation data from production or testing
+- You want to analyze historical conversations
+
+**Limitation:** If you improve your agent and want to evaluate the new version, you'd need to manually regenerate similar conversations to ensure fair comparison with the previous version.
+
+  </TabItem>
+
+  <TabItem value="simulator" label="Generating Conversations with the Simulator">
+
+### How It Works
+
+The <APILink fn="mlflow.genai.simulators.ConversationSimulator">ConversationSimulator</APILink> generates conversations on-demand by creating a simulated user agent that interacts with your agent. You define test cases specifying user goals and personas, and the simulator creates realistic multi-turn conversations that can be evaluated consistently across iterations.
+
+**When to use:**
+- You're iterating on your agent and need reproducible conversations for comparison
+- You want to test your agent against specific user goals and personas
+- You need to generate comparable conversations across different agent versions
+
+### Basic Example
+
+Here's how to use the conversation simulator:
+
+```python
+import mlflow
+from mlflow.genai.simulators import ConversationSimulator
+from mlflow.genai.scorers import ConversationCompleteness, UserFrustration
+import openai
+
+client = openai.OpenAI()
+
+
+# Define your agent's predict function - see below for predict function requirements
+def my_chatbot(input: list[dict], **kwargs) -> dict:
+    return client.chat.completions.create(
+        model="gpt-5-mini",
+        messages=input,
+    )
+
+
+# Define test cases with user goals and personas
+test_cases = [
+    {
+        "goal": "Learn how to track experiments in MLflow",
+        "persona": "A data scientist new to MLflow",
+    },
+    {
+        "goal": "Troubleshoot a deployment issue with model serving",
+        "persona": "An ML engineer with production issues",
+    },
+    {
+        "goal": "Set up model registry for team collaboration",
+        "persona": "A technical lead planning MLOps infrastructure",
+    },
+]
+
+# Create simulator
+simulator = ConversationSimulator(
+    test_cases=test_cases,
+    max_turns=8,  # Maximum conversation length
+    user_model="openai:/gpt-5-mini",
+)
+
+# Evaluate - the simulator generates conversations and evaluates them
+results = mlflow.genai.evaluate(
+    data=simulator,
+    predict_fn=my_chatbot,
+    scorers=[
+        ConversationCompleteness(),
+        UserFrustration(),
+    ],
+)
+```
+
+### Predict Function Requirements
+
+The simulator requires your predict function to follow the [OpenAI Responses API format](https://platform.openai.com/docs/api-reference/responses):
+
+- **Must accept** an `input` parameter containing the conversation history as a list of message dictionaries (e.g., `[{"role": "user", "content": "..."}]`)
+- **May accept** additional keyword arguments from the test case's `context` field
+- **Should return** a response object (the assistant's message content will be automatically extracted)
+
+```python
+# Valid predict function signatures
+def predict_fn(input: list[dict], **kwargs) -> dict:
+    response = client.chat.completions.create(model="gpt-4o-mini", messages=input)
+    return response
+
+
+def predict_fn(input: list[dict], user_id: str = None, **kwargs) -> dict:
+    # Can accept additional context parameters
+    messages = [{"role": "system", "content": f"User: {user_id}"}] + input
+    response = client.chat.completions.create(model="gpt-4o-mini", messages=messages)
+    return response
+```
+
+### Comparing Agent Versions
+
+The power of the conversation simulator becomes clear when comparing different agent versions:
+
+```python
+# Version 1: Baseline agent
+results_v1 = mlflow.genai.evaluate(
+    data=ConversationSimulator(test_cases=test_cases, max_turns=8),
+    predict_fn=my_chatbot_v1,
+    scorers=[ConversationCompleteness(), UserFrustration()],
+)
+
+# After improving your agent...
+
+# Version 2: Improved agent
+# The simulator generates NEW conversations with the SAME goals/personas
+results_v2 = mlflow.genai.evaluate(
+    data=ConversationSimulator(test_cases=test_cases, max_turns=8),
+    predict_fn=my_chatbot_v2,
+    scorers=[ConversationCompleteness(), UserFrustration()],
+)
+
+# Now you can fairly compare results_v1 and results_v2
+# Both evaluations used the same test cases (goals/personas) for consistency
+```
+
+### Customizing Test Cases
+
+You can provide additional context to your predict function using the `context` field:
+
+```python
+test_cases = [
+    {
+        "goal": "Get help with data preprocessing",
+        "persona": "A beginner data scientist",
+        "context": {
+            "user_id": "user_123",
+            "subscription_tier": "premium",
+        },
+    },
+]
+
+
+def my_chatbot(input: list[dict], user_id=None, subscription_tier=None, **kwargs):
+    # Access context parameters
+    system_msg = f"User {user_id} is on {subscription_tier} tier"
+    messages = [{"role": "system", "content": system_msg}] + input
+
+    response = client.chat.completions.create(
+        model="gpt-5-mini",
+        messages=messages,
+    )
+    return response
+```
+
+### Using Datasets for Test Cases
+
+You can store test cases in an <APILink fn="mlflow.genai.datasets.EvaluationDataset">EvaluationDataset</APILink> for better organization and versioning. This is useful when you have many test cases or want to share them across evaluations.
+
+```python
+from mlflow.genai.datasets import create_dataset, get_dataset
+import pandas as pd
+
+# Create a dataset with test cases
+test_cases_df = pd.DataFrame(
+    [
+        {
+            "inputs": {
+                "goal": "Learn how to track experiments in MLflow",
+                "persona": "A data scientist new to MLflow",
+            }
+        },
+        {
+            "inputs": {
+                "goal": "Troubleshoot a deployment issue",
+                "persona": "An ML engineer with production issues",
+            }
+        },
+        {
+            "inputs": {
+                "goal": "Set up model registry",
+                "persona": "A technical lead",
+                "context": {"team": "ml-platform"},
+            }
+        },
+    ]
+)
+
+# Create and store the dataset
+dataset = create_dataset(name="chatbot_test_cases", experiment_id="0")
+dataset.merge_records(test_cases_df.to_dict("records"))
+
+# Later, retrieve and use the dataset
+dataset = get_dataset(dataset_id=dataset.dataset_id)
+simulator = ConversationSimulator(
+    test_cases=dataset,  # Pass dataset directly
+    max_turns=8,
+)
+
+results = mlflow.genai.evaluate(
+    data=simulator,
+    predict_fn=my_chatbot,
+    scorers=[ConversationCompleteness(), UserFrustration()],
+)
+```
+
+:::note
+When using an EvaluationDataset, test cases must be in the `inputs` column with a `goal` field. The `persona` and `context` fields are optional.
+:::
+
+### Additional Configuration
+
+The simulator supports additional configuration options:
+
+- **`max_turns`** (default: 10): Maximum number of conversation turns before stopping
+- **`user_model`** (default: auto-selected): Model used to generate simulated user messages
+- **`**user_llm_params`**: Additional parameters for the simulated user's LLM (e.g., `temperature=0.7`)
+
+```python
+simulator = ConversationSimulator(
+    test_cases=test_cases,
+    max_turns=15,  # Allow longer conversations
+    user_model="openai:/gpt-4o",  # Use a specific model for user simulation
+    temperature=0.8,  # Make user responses more varied
+)
+```
+
+  </TabItem>
+</Tabs>
+
+:::tip
+You can combine both approaches: use the simulator for controlled testing during development, then evaluate real production traces for ongoing monitoring.
+:::
 
 ## Multi-Turn Scorers
 
