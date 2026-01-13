@@ -17,6 +17,7 @@ from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
     NotAuthenticatedError,
+    load_config,
 )
 from mlflow.assistant.types import (
     ContentBlock,
@@ -169,7 +170,7 @@ class ClaudeCodeProvider(AssistantProvider):
         # Add system prompt
         cmd.extend(["--append-system-prompt", CLAUDE_SYSTEM_PROMPT])
 
-        config = self.load_config()
+        config = load_config(self.name)
         if config.model and config.model != "default":
             cmd.extend(["--model", config.model])
 
