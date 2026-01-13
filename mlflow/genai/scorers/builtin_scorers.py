@@ -1,3 +1,4 @@
+import copy
 import inspect
 import json
 import logging
@@ -33,6 +34,10 @@ from mlflow.genai.judges.prompts.context_sufficiency import (
 from mlflow.genai.judges.prompts.conversation_completeness import (
     CONVERSATION_COMPLETENESS_ASSESSMENT_NAME,
     CONVERSATION_COMPLETENESS_PROMPT,
+)
+from mlflow.genai.judges.prompts.conversational_guidelines import (
+    CONVERSATIONAL_GUIDELINES_ASSESSMENT_NAME,
+    CONVERSATIONAL_GUIDELINES_PROMPT,
 )
 from mlflow.genai.judges.prompts.conversational_role_adherence import (
     CONVERSATIONAL_ROLE_ADHERENCE_ASSESSMENT_NAME,
@@ -465,6 +470,12 @@ class RetrievalRelevance(BuiltInScorer):
         request = extract_request_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
 
+        if not span_id_to_context:
+            raise MlflowException(
+                "No retrieval context found in the trace. The RetrievalRelevance "
+                "scorer requires the trace to contain at least one span with type 'RETRIEVER'."
+            )
+
         feedbacks = []
         for span_id, context in span_id_to_context.items():
             feedbacks.extend(self._compute_span_relevance(span_id, request, context))
@@ -609,6 +620,12 @@ class RetrievalSufficiency(BuiltInScorer):
         request = extract_request_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
 
+        if not span_id_to_context:
+            raise MlflowException(
+                "No retrieval context found in the trace. The RetrievalSufficiency "
+                "scorer requires the trace to contain at least one span with type 'RETRIEVER'."
+            )
+
         expectations = expectations or {}
         expected_facts = expectations.get("expected_facts")
         expected_response = expectations.get("expected_response")
@@ -716,6 +733,13 @@ class RetrievalGroundedness(BuiltInScorer):
         request = extract_request_from_trace(trace)
         response = extract_response_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
+
+        if not span_id_to_context:
+            raise MlflowException(
+                "No retrieval context found in the trace. The RetrievalGroundedness "
+                "scorer requires the trace to contain at least one span with type 'RETRIEVER'."
+            )
+
         feedbacks = []
         for span_id, context in span_id_to_context.items():
             feedback = judges.is_grounded(
@@ -2515,6 +2539,96 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
         return CONVERSATIONAL_ROLE_ADHERENCE_PROMPT
 
 
+@experimental(version="3.9.0")
+@format_docstring(_MODEL_API_DOC)
+class ConversationalGuidelines(BuiltInSessionLevelScorer):
+    """
+    Conversational guidelines evaluates whether the assistant's responses throughout
+    a conversation comply with the provided guidelines.
+
+    Unlike the single-turn :py:class:`Guidelines` scorer which evaluates a single request/response
+    pair, this scorer evaluates an entire conversation session. This is useful for ensuring
+    consistent adherence to guidelines across multi-turn interactions.
+
+    You can invoke the scorer directly with a session for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "conversational_guidelines".
+        guidelines: A single guideline text or a list of guidelines that the assistant's
+            responses should follow throughout the conversation.
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalGuidelines
+
+        # Retrieve a list of traces with the same session ID
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        scorer = ConversationalGuidelines(
+            guidelines=[
+                "The assistant must always respond in a professional tone",
+                "The assistant must not make promises about delivery times",
+            ]
+        )
+        assessment = scorer(session=session)
+        print(assessment)  # Feedback with value "yes" or "no"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationalGuidelines
+
+        session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        scorer = ConversationalGuidelines(
+            guidelines=["The assistant must respond professionally and courteously"],
+        )
+
+        result = mlflow.genai.evaluate(data=session, scorers=[scorer])
+    """
+
+    name: str = CONVERSATIONAL_GUIDELINES_ASSESSMENT_NAME
+    guidelines: str | list[str]
+    model: str | None = None
+    description: str = (
+        "Evaluate whether the assistant's responses throughout a conversation comply "
+        "with the provided guidelines."
+    )
+
+    def _create_judge(self) -> Judge:
+        return InstructionsJudge(
+            name=self.name,
+            instructions=self.instructions,
+            model=self.model,
+            description=self.description,
+            feedback_value_type=Literal["yes", "no"],
+            generate_rationale_first=True,
+        )
+
+    @property
+    def instructions(self) -> str:
+        guidelines = self.guidelines
+        if isinstance(guidelines, str):
+            guidelines = [guidelines]
+        formatted_guidelines = "\n".join(f"<guideline>{g}</guideline>" for g in guidelines)
+        return CONVERSATIONAL_GUIDELINES_PROMPT.replace("{{ guidelines }}", formatted_guidelines)
+
+
 # Internal implementation detail for KnowledgeRetention - not part of public API
 class _LastTurnKnowledgeRetention(SessionLevelScorer):
     """
@@ -2611,6 +2725,13 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         "Evaluate whether the AI correctly retains information provided by users "
         "in earlier conversation turns without forgetting, contradicting, or distorting it."
     )
+
+    def model_post_init(self, __context: Any) -> None:
+        """Propagate model parameter to the inner last_turn_scorer after initialization."""
+        if self.model is not None:
+            # Make a copy to avoid mutating the caller's scorer
+            self.last_turn_scorer = copy.deepcopy(self.last_turn_scorer)
+            self.last_turn_scorer.model = self.model
 
     def _create_judge(self) -> Judge:
         """

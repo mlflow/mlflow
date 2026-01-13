@@ -155,7 +155,6 @@ from mlflow.tracing.utils import (
     generate_request_id_v2,
 )
 from mlflow.tracing.utils.truncation import _get_truncated_preview
-from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_DATASET_CONTEXT,
@@ -177,7 +176,6 @@ from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import (
     append_to_uri_path,
     extract_db_type_from_uri,
-    is_local_uri,
     resolve_uri_if_local,
 )
 from mlflow.utils.validation import (
@@ -288,8 +286,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         )
         mlflow.store.db.utils._verify_schema(self.engine)
 
-        if is_local_uri(default_artifact_root):
-            mkdir(local_file_uri_to_path(default_artifact_root))
+        # Note: We intentionally do NOT create the artifact root directory here.
+        # The LocalArtifactRepository creates it lazily when the first artifact is logged.
+        # This avoids permission errors in read-only environments (e.g., K8s containers)
+        # when the artifact root is local but never actually used.
 
         # Check if default experiment exists (not just if any experiments exist)
         # This is important for databases that persist across test runs
@@ -2625,9 +2625,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         if is_gateway_model(model):
             endpoint_id = extract_endpoint_ref(model)
-            if endpoint := self.get_gateway_endpoint(endpoint_id):
+            try:
+                endpoint = self.get_gateway_endpoint(endpoint_id)
                 new_model = build_gateway_model(endpoint.name)
                 serialized_data = update_model_in_serialized_scorer(serialized_data, new_model)
+            except MlflowException:
+                # Endpoint not found - keep original serialized scorer
+                pass
 
         return json.dumps(serialized_data)
 
@@ -2994,29 +2998,39 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         for non_attr_filter in non_attribute_filters:
             statement = statement.join(non_attr_filter)
 
-        # Apply span filters
+        # Apply span filters with explicit join condition
         for span_filter in span_filters:
             statement = statement.join(
                 span_filter, SqlTraceInfo.request_id == span_filter.c.request_id
             )
 
-        # Build filter conditions starting with attribute filters
+        # Build the filter conditions
         filter_conditions = [*attribute_filters]
 
-        # Handle run_id filter if present
+        # If run_id filter is present, we need to handle it specially to include linked traces
         if run_id_filter:
+            # Create a subquery to check if a trace is linked to the run via entity associations
             linked_trace_exists = exists().where(
                 (SqlEntityAssociation.source_id == SqlTraceInfo.request_id)
                 & (SqlEntityAssociation.source_type == EntityAssociationType.TRACE)
                 & (SqlEntityAssociation.destination_type == EntityAssociationType.RUN)
                 & (SqlEntityAssociation.destination_id == run_id_filter)
             )
+
+            # Create a subquery to check if trace has run_id in metadata
             metadata_exists = exists().where(
                 (SqlTraceMetadata.request_id == SqlTraceInfo.request_id)
                 & (SqlTraceMetadata.key == TraceMetadataKey.SOURCE_RUN)
                 & (SqlTraceMetadata.value == run_id_filter)
             )
-            filter_conditions.append(or_(linked_trace_exists, metadata_exists))
+
+            # If run_id filter is present, add OR condition for linked traces
+            filter_conditions.append(
+                or_(
+                    linked_trace_exists,  # Trace is linked via entity associations
+                    metadata_exists,  # Trace has run_id in metadata
+                )
+            )
 
         # Apply all filter conditions
         if filter_conditions:
@@ -3114,6 +3128,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         Find completed sessions based on their last trace timestamp.
 
+        A completed session is one whose last trace timestamp falls within the specified
+        time window [min_last_trace_timestamp_ms, max_last_trace_timestamp_ms] and has
+        no traces after max_last_trace_timestamp_ms (i.e., the session is not ongoing).
+
         Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) to ensure
         deterministic and stable ordering, especially when timestamp ties occur. This is
         useful when repeatedly calling this method with a ``max_results`` limit.
@@ -3161,26 +3179,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             sessions_with_stats = self._build_session_stats_subquery(
                 session=session,
                 experiment_id=experiment_id,
-                sessions=(
-                    filtered_sessions if filtered_sessions is not None else candidate_sessions
-                ),
+                sessions=filtered_sessions,
             )
 
-            # Step 4: Find sessions with any trace > max timestamp (still ongoing)
-            # Example: Session B has trace at 500 > 400
-            sessions_with_recent_traces = self._build_sessions_with_recent_traces_subquery(
-                session=session,
-                experiment_id=experiment_id,
-                max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
-            )
-
-            # Step 5: Get sessions where last trace in [min, max] AND NOT in ongoing sessions
-            # Example: Session A (last=300 in [200,400], not ongoing) → INCLUDED
-            #          Session B (ongoing) → EXCLUDED
+            # Step 4: Get completed sessions (last trace <= max timestamp)
+            # Example: Session A (last=300 <= 400) → INCLUDED
+            #          Session B (last=500 > 400) → EXCLUDED
             query = self._build_completed_sessions_query(
                 session=session,
                 sessions_with_stats=sessions_with_stats,
-                sessions_with_recent_traces=sessions_with_recent_traces,
                 max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
                 max_results=max_results,
             )
@@ -3229,14 +3236,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         experiment_id: str,
         filter_string: str | None,
         candidate_sessions: Subquery,
-    ) -> Subquery | None:
+    ) -> Subquery:
         """
         Build subquery for sessions whose first trace matches the filter.
 
-        Returns None if no filter_string provided.
+        Returns candidate_sessions unchanged if no filter_string provided.
         """
         if not filter_string:
-            return None
+            return candidate_sessions
 
         # Parse the filter string to get filter clauses
         attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
@@ -3333,46 +3340,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             .subquery()
         )
 
-    def _build_sessions_with_recent_traces_subquery(
-        self,
-        session: Session,
-        experiment_id: str,
-        max_last_trace_timestamp_ms: int,
-    ) -> Subquery:
-        """
-        Build subquery for sessions with traces after the cutoff timestamp.
-
-        These sessions are NOT completed yet.
-        """
-        recent_session_metadata = aliased(SqlTraceMetadata)
-        return (
-            session.query(recent_session_metadata.value.label("session_id"))
-            .select_from(SqlTraceInfo)
-            .join(
-                recent_session_metadata,
-                (SqlTraceInfo.request_id == recent_session_metadata.request_id)
-                & (recent_session_metadata.key == TraceMetadataKey.TRACE_SESSION),
-            )
-            .filter(
-                SqlTraceInfo.experiment_id == experiment_id,
-                SqlTraceInfo.timestamp_ms > max_last_trace_timestamp_ms,
-            )
-            .distinct()
-            .subquery()
-        )
-
     def _build_completed_sessions_query(
         self,
         session: Session,
         sessions_with_stats: Subquery,
-        sessions_with_recent_traces: Subquery,
         max_last_trace_timestamp_ms: int,
         max_results: int | None,
     ) -> Query:
         """
         Build main query for completed sessions.
 
-        Returns sessions in time window WITHOUT recent traces, ordered by
+        Returns sessions where last trace <= max timestamp, ordered by
         (last_trace_timestamp_ms ASC, session_id ASC) for deterministic pagination.
         """
         query = (
@@ -3381,12 +3359,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 sessions_with_stats.c.first_trace_timestamp_ms,
                 sessions_with_stats.c.last_trace_timestamp_ms,
             )
-            .outerjoin(
-                sessions_with_recent_traces,
-                sessions_with_stats.c.session_id == sessions_with_recent_traces.c.session_id,
-            )
             .filter(
-                sessions_with_recent_traces.c.session_id.is_(None),
                 sessions_with_stats.c.last_trace_timestamp_ms <= max_last_trace_timestamp_ms,
             )
             .order_by(
@@ -4397,6 +4370,36 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     traces.append(Trace(info=trace_info, data=TraceData(spans=spans)))
 
             return traces
+
+    def batch_get_trace_infos(
+        self, trace_ids: list[str], location: str | None = None
+    ) -> list[TraceInfo]:
+        """
+        Get trace metadata (TraceInfo) for given trace IDs without loading spans.
+
+        Args:
+            trace_ids: The trace IDs to get.
+            location: Location of the trace. Should be None for SQLAlchemy backend.
+
+        Returns:
+            List of TraceInfo objects for the given trace IDs.
+        """
+        if not trace_ids:
+            return []
+
+        order_case = case(
+            {trace_id: idx for idx, trace_id in enumerate(trace_ids)},
+            value=SqlTraceInfo.request_id,
+        )
+        with self.ManagedSessionMaker() as session:
+            sql_trace_infos = (
+                session.query(SqlTraceInfo)
+                .filter(SqlTraceInfo.request_id.in_(trace_ids))
+                .order_by(order_case)
+                .all()
+            )
+
+            return [sql_trace_info.to_mlflow_entity() for sql_trace_info in sql_trace_infos]
 
     def _get_spans_with_trace_info(
         self, trace_info: TraceInfo, spans: list[SqlSpan], allow_partial: bool = True
@@ -5896,14 +5899,14 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 span_filters.append(span_subquery)
                 continue
             elif SearchTraceUtils.is_assessment(key_type, key_name, comparator):
-                # Create subquery to find traces with matching feedback
-                # Filter by feedback name and check the value
+                # Create subquery to find traces with matching assessments
+                # Filter by assessment name and check the value
                 feedback_subquery = (
                     session.query(SqlAssessments.trace_id.label("request_id"))
                     .filter(
                         SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
-                        SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                        SearchTraceUtils._get_sql_json_comparison_func(comparator, dialect)(
                             SqlAssessments.value, value
                         ),
                     )

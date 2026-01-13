@@ -301,6 +301,26 @@ async def test_chat():
         )
 
 
+@pytest.mark.asyncio
+async def test_chat_with_max_completion_tokens():
+    resp = chat_response()
+    config = chat_config()
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_completion_tokens": 500,
+        }
+        await provider.chat(chat.RequestPayload(**payload))
+
+        call_kwargs = mock_post.call_args[1]
+        assert call_kwargs["json"]["max_tokens"] == 500
+        assert "max_completion_tokens" not in call_kwargs["json"]
+
+
 def chat_function_calling_payload(stream: bool = False):
     payload = {
         "messages": [
@@ -415,6 +435,35 @@ async def test_chat_function_calling():
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
+
+
+@pytest.mark.parametrize(
+    ("openai_tool_choice", "anthropic_tool_choice"),
+    [
+        ("none", {"type": "none"}),
+        ("auto", {"type": "auto"}),
+        ("required", {"type": "any"}),
+        (
+            {"type": "function", "function": {"name": "get_weather"}},
+            {"type": "tool", "name": "get_weather"},
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_chat_function_calling_with_tool_choice(openai_tool_choice, anthropic_tool_choice):
+    resp = chat_function_calling_response()
+    config = chat_config()
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = chat_function_calling_payload()
+        payload["tool_choice"] = openai_tool_choice
+        await provider.chat(chat.RequestPayload(**payload))
+
+        call_kwargs = mock_post.call_args[1]
+        assert call_kwargs["json"]["tool_choice"] == anthropic_tool_choice
 
 
 @pytest.mark.asyncio
@@ -778,7 +827,12 @@ async def test_passthrough_anthropic_messages():
             "max_tokens": 1024,
             "temperature": 0.7,
         }
-        custom_headers = {"X-Custom-Header": "custom-value", "X-Request-ID": "req-789"}
+        custom_headers = {
+            "X-Custom-Header": "custom-value",
+            "X-Request-ID": "req-789",
+            "host": "example.com",
+            "content-length": "100",
+        }
         response = await provider.passthrough(
             PassthroughAction.ANTHROPIC_MESSAGES, payload, headers=custom_headers
         )
@@ -805,6 +859,10 @@ async def test_passthrough_anthropic_messages():
         # Verify custom headers are propagated correctly
         assert captured_session_headers["X-Custom-Header"] == "custom-value"
         assert captured_session_headers["X-Request-ID"] == "req-789"
+
+        # Verify gateway specific headers are not propagated
+        assert "host" not in captured_session_headers
+        assert "content-length" not in captured_session_headers
 
 
 @pytest.mark.asyncio

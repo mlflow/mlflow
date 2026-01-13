@@ -402,10 +402,8 @@ def test_refresh_credentials():
 
         get_data_lake_client_mock.assert_called_with(account_url=ANY, credential=first_credential)
 
-        try:
+        with pytest.raises(requests.HTTPError, match=r".*", check=lambda e: e == err):
             repo._download_from_cloud("test.txt", "local_path")
-        except requests.HTTPError as e:
-            assert e == err
 
         get_data_lake_client_mock.assert_called_with(account_url=ANY, credential=second_credential)
 

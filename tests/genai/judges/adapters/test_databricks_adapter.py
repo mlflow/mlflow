@@ -312,13 +312,39 @@ def test_invoke_databricks_serving_endpoint_with_response_format(mock_databricks
         # Verify response_format was included in the payload
         assert captured_payload is not None
         assert "response_format" in captured_payload
-        assert captured_payload["response_format"] == ResponseFormat.model_json_schema()
+        assert captured_payload["response_format"] == {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "response",
+                "schema": ResponseFormat.model_json_schema(),
+            },
+        }
 
         # Verify the response was returned correctly
         assert output.response == '{"result": 8, "rationale": "Good quality"}'
 
 
-def test_invoke_databricks_serving_endpoint_response_format_fallback(mock_databricks_creds):
+@pytest.mark.parametrize(
+    "error_text",
+    [
+        '{"error": "Invalid parameter: response_format is not supported"}',
+        (
+            '{"error_code":"BAD_REQUEST",'
+            '"message":"Bad request: json: unknown field \\"response_schema\\""}'
+        ),
+        (
+            '{"error_code":"INVALID_PARAMETER_VALUE",'
+            '"message": "INVALID_PARAMETER_VALUE: Response format type object '
+            'is not supported for this model."}'
+        ),
+        '{"error": "ResponseFormatObject is not supported by this model"}',
+        '{"error": "Bad request: json: unknown field \\"properties\\""}',
+        '{"error": "Bad request: json: unknown field "properties""}',
+    ],
+)
+def test_invoke_databricks_serving_endpoint_response_format_error_detection(
+    mock_databricks_creds, error_text: str
+):
     class ResponseFormat(BaseModel):
         result: int
         rationale: str
@@ -333,11 +359,9 @@ def test_invoke_databricks_serving_endpoint_response_format_fallback(mock_databr
 
         mock_response = mock.Mock()
         if call_count == 1:
-            # First call with response_format fails
             mock_response.status_code = 400
-            mock_response.text = '{"error": "Invalid parameter: response_format is not supported"}'
+            mock_response.text = error_text
         else:
-            # Second call without response_format succeeds
             mock_response.status_code = 200
             mock_response.json.return_value = {
                 "choices": [{"message": {"content": '{"result": 8, "rationale": "Good quality"}'}}],
@@ -357,7 +381,7 @@ def test_invoke_databricks_serving_endpoint_response_format_fallback(mock_databr
         ),
     ):
         output = _invoke_databricks_serving_endpoint(
-            model_name="my-endpoint",
+            model_name="test-model",
             prompt="Rate this",
             num_retries=1,
             response_format=ResponseFormat,

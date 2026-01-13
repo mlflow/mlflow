@@ -6,41 +6,34 @@ import time
 from dataclasses import asdict, dataclass
 
 from mlflow.entities.experiment_tag import ExperimentTag
-from mlflow.genai.scorers.online.constants import MAX_LOOKBACK_MS, TRACE_CHECKPOINT_TAG
+from mlflow.genai.scorers.online.constants import MAX_LOOKBACK_MS
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.utils.mlflow_tags import MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT
 
 _logger = logging.getLogger(__name__)
 
 
 @dataclass
 class OnlineTraceScoringCheckpoint:
-    """Checkpoint for trace-level online scoring."""
-
     timestamp_ms: int  # Timestamp of the last processed trace in milliseconds
     trace_id: str | None = None  # Trace ID used as tie breaker when traces have same timestamp
 
     def to_json(self) -> str:
-        """Serialize checkpoint to JSON string."""
         return json.dumps(asdict(self))
 
     @classmethod
     def from_json(cls, json_str: str) -> "OnlineTraceScoringCheckpoint":
-        """Deserialize checkpoint from JSON string."""
         data = json.loads(json_str)
         return cls(**data)
 
 
 @dataclass
 class OnlineTraceScoringTimeWindow:
-    """Time window for trace-level online scoring."""
-
     min_trace_timestamp_ms: int
     max_trace_timestamp_ms: int
 
 
 class OnlineTraceCheckpointManager:
-    """Manages checkpoint timestamps for trace-level online scoring."""
-
     def __init__(self, tracking_store: AbstractStore, experiment_id: str):
         self._tracking_store = tracking_store
         self._experiment_id = experiment_id
@@ -54,11 +47,13 @@ class OnlineTraceCheckpointManager:
         """
         try:
             experiment = self._tracking_store.get_experiment(self._experiment_id)
-            if checkpoint_str := experiment.tags.get(TRACE_CHECKPOINT_TAG):
+            if checkpoint_str := experiment.tags.get(MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT):
                 return OnlineTraceScoringCheckpoint.from_json(checkpoint_str)
-        except (TypeError, ValueError, json.JSONDecodeError):
-            pass
-        return None
+        except (TypeError, ValueError, json.JSONDecodeError) as e:
+            _logger.debug(
+                f"Failed to parse checkpoint for experiment {self._experiment_id}: {e}",
+                exc_info=True,
+            )
 
     def persist_checkpoint(self, checkpoint: OnlineTraceScoringCheckpoint) -> None:
         """
@@ -69,7 +64,7 @@ class OnlineTraceCheckpointManager:
         """
         self._tracking_store.set_experiment_tag(
             self._experiment_id,
-            ExperimentTag(TRACE_CHECKPOINT_TAG, checkpoint.to_json()),
+            ExperimentTag(MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT, checkpoint.to_json()),
         )
 
     def calculate_time_window(self) -> OnlineTraceScoringTimeWindow:

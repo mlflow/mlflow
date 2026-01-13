@@ -355,6 +355,62 @@ def test_execute_session_scoring_handles_failures(
     assert checkpoint.session_id == "sess-002"
 
 
+def test_score_session_logs_assessments_individually(
+    mock_trace_loader,
+    mock_checkpoint_manager,
+    mock_tracking_store,
+    sampler_with_scorers,
+    mock_evaluate,
+    mock_log_assessments,
+):
+    """
+    Scenario: A session has multiple traces. The scorer evaluates the session and
+    produces assessments for both traces. However, logging fails for one trace
+    (tr-001) but succeeds for the other (tr-002).
+
+    The processor should attempt to log assessments for each trace independently,
+    allow partial success (tr-002 succeeds), log the failure with trace_id and
+    session_id, and still update the checkpoint.
+    """
+    mock_tracking_store.find_completed_sessions.return_value = [
+        make_completed_session("sess-001", 500, 1500)
+    ]
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [
+        make_trace_info("tr-001", 1000),
+        make_trace_info("tr-002", 1200),
+    ]
+    mock_trace_loader.fetch_traces.return_value = [
+        make_trace("tr-001", 1000),
+        make_trace("tr-002", 1200),
+    ]
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
+    )
+    mock_evaluate.return_value = {
+        "tr-001": [make_assessment("assess-1", "ConversationCompleteness/v1")],
+        "tr-002": [make_assessment("assess-2", "ConversationCompleteness/v1")],
+    }
+    # First call fails (for tr-001), second call succeeds (for tr-002)
+    mock_log_assessments.side_effect = [Exception("Failed to log"), None]
+
+    with patch("mlflow.genai.scorers.online.session_processor._logger") as mock_logger:
+        processor.process_sessions()
+
+        # Both traces should have attempted logging
+        assert mock_log_assessments.call_count == 2
+
+        # Verify warning was logged with trace_id and session_id
+        mock_logger.warning.assert_called_once()
+        warning_call = mock_logger.warning.call_args
+        assert "tr-001" in warning_call[0][0]
+        assert "sess-001" in warning_call[0][0]
+
+        # Checkpoint should still be updated
+        checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
+        assert checkpoint.timestamp_ms == 1500
+        assert checkpoint.session_id == "sess-001"
+
+
 def test_create_factory_method(mock_tracking_store):
     """
     Scenario: Creating a processor using the factory method instead of direct instantiation.

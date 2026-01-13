@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
 from mlflow.entities import Trace
-from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
+from mlflow.environment_variables import MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.online.constants import EXCLUDE_EVAL_RUN_TRACES_FILTER, MAX_TRACES_PER_JOB
 from mlflow.genai.scorers.online.entities import OnlineScorer
@@ -186,12 +186,53 @@ class OnlineTraceScoringProcessor:
                         tasks[trace_id] = TraceScoringTask(
                             trace=None, scorers=[], timestamp_ms=trace_info.timestamp_ms
                         )
-                    tasks[trace_id].scorers.extend(selected)
+                    # Add scorers, avoiding duplicates (same scorer from different filters)
+                    existing_scorer_names = {s.name for s in tasks[trace_id].scorers}
+                    tasks[trace_id].scorers.extend(
+                        s for s in selected if s.name not in existing_scorer_names
+                    )
 
         # Sort tasks by timestamp (ascending) to ensure chronological processing
         # and truncate to MAX_TRACES_PER_JOB (list slicing handles len < MAX).
         sorted_trace_ids = sorted(tasks.keys(), key=lambda tid: (tasks[tid].timestamp_ms, tid))
         return {tid: tasks[tid] for tid in sorted_trace_ids[:MAX_TRACES_PER_JOB]}
+
+    def _log_error_assessments(
+        self,
+        error: Exception,
+        scorers: list[Scorer],
+        trace: Trace,
+    ) -> None:
+        """
+        Log error assessments for failed scoring operations.
+
+        Creates and logs error Feedback objects for each scorer when scoring fails,
+        making failures visible in the trace's assessment history.
+
+        Args:
+            error: The exception that occurred during scoring.
+            scorers: List of scorers that were being executed.
+            trace: The trace being scored.
+        """
+        from mlflow.entities import AssessmentSource, AssessmentSourceType, Feedback
+        from mlflow.genai.evaluation.harness import _log_assessments
+
+        error_feedbacks = [
+            Feedback(
+                name=scorer.name,
+                error=error,
+                source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE),
+                trace_id=trace.info.trace_id,
+            )
+            for scorer in scorers
+        ]
+        try:
+            _log_assessments(trace=trace, assessments=error_feedbacks, run_id=None)
+        except Exception as log_error:
+            _logger.warning(
+                f"Failed to log error assessments for trace {trace.info.trace_id}: {log_error}",
+                exc_info=_logger.isEnabledFor(logging.INFO),
+            )
 
     def _execute_scoring(
         self,
@@ -209,7 +250,7 @@ class OnlineTraceScoringProcessor:
         from mlflow.genai.evaluation.harness import _compute_eval_scores, _log_assessments
 
         with ThreadPoolExecutor(
-            max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
+            max_workers=MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS.get(),
             thread_name_prefix="OnlineScoring",
         ) as executor:
             futures = {}
@@ -227,9 +268,10 @@ class OnlineTraceScoringProcessor:
                 task = futures[future]
                 try:
                     if feedbacks := future.result():
-                        _log_assessments(run_id=None, trace=task.trace, assessments=feedbacks)
+                        _log_assessments(trace=task.trace, assessments=feedbacks, run_id=None)
                 except Exception as e:
                     _logger.warning(
                         f"Failed to score trace {task.trace.info.trace_id}: {e}",
-                        exc_info=True,
+                        exc_info=_logger.isEnabledFor(logging.INFO),
                     )
+                    self._log_error_assessments(e, task.scorers, task.trace)

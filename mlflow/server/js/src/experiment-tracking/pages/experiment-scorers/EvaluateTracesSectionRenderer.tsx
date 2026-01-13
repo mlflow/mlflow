@@ -63,7 +63,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
           control={control}
           render={({ field }) => (
             <Checkbox
-              componentId={`${COMPONENT_ID_PREFIX}.automatic-evaluation-checkbox`}
+              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_evaluatetracessectionrenderer_61"
               isChecked={isAutomaticEvaluationEnabled}
               onChange={(checked) => {
                 // If unchecked, set sample rate to 0; if checked and currently 0, set to 100
@@ -175,7 +175,7 @@ const EvaluateTracesSectionRenderer: React.FC<EvaluateTracesSectionRendererProps
                   values={{
                     link: (
                       <Typography.Link
-                        componentId={`${COMPONENT_ID_PREFIX}.search-traces-syntax-link`}
+                        componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_evaluatetracessectionrenderer_159"
                         href="https://mlflow.org/docs/latest/genai/tracing/search-traces/"
                         openInNewTab
                       >

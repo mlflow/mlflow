@@ -15,11 +15,7 @@ from fastapi.responses import StreamingResponse
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
-    AmazonBedrockConfig,
     AnthropicConfig,
-    AWSBaseConfig,
-    AWSIdAndKey,
-    AWSRole,
     EndpointConfig,
     EndpointType,
     GeminiConfig,
@@ -105,32 +101,6 @@ def _build_endpoint_config(
         if model_config.auth_config and "version" in model_config.auth_config:
             anthropic_config["anthropic_version"] = model_config.auth_config["version"]
         provider_config = AnthropicConfig(**anthropic_config)
-    elif model_config.provider in (Provider.BEDROCK, Provider.AMAZON_BEDROCK):
-        # Bedrock supports multiple auth modes
-        auth_config = model_config.auth_config or {}
-        secret_value = model_config.secret_value or {}
-
-        # Check for role-based auth (aws_role_arn in auth_config)
-        if "aws_role_arn" in auth_config:
-            aws_config = AWSRole(
-                aws_role_arn=auth_config["aws_role_arn"],
-                session_length_seconds=auth_config.get("session_length_seconds", 15 * 60),
-                aws_region=auth_config.get("aws_region"),
-            )
-        # Check for access key auth (credentials in secret_value)
-        elif "aws_access_key_id" in secret_value:
-            aws_config = AWSIdAndKey(
-                aws_access_key_id=secret_value["aws_access_key_id"],
-                aws_secret_access_key=secret_value["aws_secret_access_key"],
-                aws_session_token=secret_value.get("aws_session_token"),
-                aws_region=auth_config.get("aws_region"),
-            )
-        else:
-            aws_config = AWSBaseConfig(
-                aws_region=auth_config.get("aws_region"),
-            )
-
-        provider_config = AmazonBedrockConfig(aws_config=aws_config)
     elif model_config.provider == Provider.MISTRAL:
         provider_config = MistralConfig(
             mistral_api_key=model_config.secret_value.get("api_key"),

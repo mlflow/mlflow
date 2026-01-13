@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
 from mlflow.entities.assessment import Assessment
-from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
+from mlflow.environment_variables import MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.online.constants import (
     EXCLUDE_EVAL_RUN_TRACES_FILTER,
@@ -182,7 +182,11 @@ class OnlineSessionScoringProcessor:
                 if selected := self._sampler.sample(session.session_id, scorers):
                     if session.session_id not in tasks:
                         tasks[session.session_id] = SessionScoringTask(session=session, scorers=[])
-                    tasks[session.session_id].scorers.extend(selected)
+                    # Add scorers, avoiding duplicates (same scorer from different filters)
+                    existing_scorer_names = {s.name for s in tasks[session.session_id].scorers}
+                    tasks[session.session_id].scorers.extend(
+                        s for s in selected if s.name not in existing_scorer_names
+                    )
 
         # Sort tasks by (last_trace_timestamp_ms ASC, session_id ASC) for deterministic ordering
         sorted_tasks = sorted(
@@ -224,6 +228,7 @@ class OnlineSessionScoringProcessor:
         new_assessment_names = {a.name for a in new_assessments}
         new_assessment_ids = {a.assessment_id for a in new_assessments}
 
+        deleted_count = 0
         for assessment in trace.info.assessments:
             metadata = assessment.metadata or {}
             online_session_id = metadata.get(AssessmentMetadataKey.ONLINE_SCORING_SESSION_ID)
@@ -236,10 +241,10 @@ class OnlineSessionScoringProcessor:
                 self._tracking_store.delete_assessment(
                     trace_id=trace.info.trace_id, assessment_id=assessment.assessment_id
                 )
-                _logger.info(
-                    f"Deleted old assessment {assessment.assessment_id} "
-                    f"(name={assessment.name}, session={session_id})"
-                )
+                deleted_count += 1
+
+        if deleted_count > 0:
+            _logger.info(f"Deleted {deleted_count} old assessments for session {session_id}")
 
     def _execute_session_scoring(self, tasks: list[SessionScoringTask]) -> None:
         """
@@ -252,7 +257,7 @@ class OnlineSessionScoringProcessor:
             tasks: List of SessionScoringTask objects containing sessions and their scorers.
         """
         with ThreadPoolExecutor(
-            max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
+            max_workers=MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS.get(),
             thread_name_prefix="SessionScoring",
         ) as executor:
             futures = {}
@@ -312,15 +317,15 @@ class OnlineSessionScoringProcessor:
         trace_map = {t.info.trace_id: t for t in full_traces}
         session_items = [EvalItem.from_trace(t) for t in full_traces]
 
-        try:
-            result = evaluate_session_level_scorers(
-                session_id=session.session_id,
-                session_items=session_items,
-                multi_turn_scorers=task.scorers,
-            )
+        result = evaluate_session_level_scorers(
+            session_id=session.session_id,
+            session_items=session_items,
+            multi_turn_scorers=task.scorers,
+        )
 
-            for trace_id, feedbacks in result.items():
-                if feedbacks and (trace := trace_map.get(trace_id)):
+        for trace_id, feedbacks in result.items():
+            if feedbacks and (trace := trace_map.get(trace_id)):
+                try:
                     # Add session ID metadata to identify these as online scoring assessments
                     for feedback in feedbacks:
                         feedback.metadata = {
@@ -331,8 +336,9 @@ class OnlineSessionScoringProcessor:
 
                     # Clean up old assessments after successfully logging new ones
                     self._clean_up_old_assessments(trace, session.session_id, feedbacks)
-        except Exception as e:
-            _logger.warning(
-                f"Failed to evaluate session {session.session_id}: {e}",
-                exc_info=True,
-            )
+                except Exception as e:
+                    _logger.warning(
+                        f"Failed to log assessments for trace {trace_id} "
+                        f"in session {session.session_id}: {e}",
+                        exc_info=_logger.isEnabledFor(logging.INFO),
+                    )
