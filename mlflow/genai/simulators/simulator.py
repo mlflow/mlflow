@@ -15,6 +15,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
+    create_litellm_message_from_databricks_response,
+    serialize_messages_to_databricks_prompts,
 )
 from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     _invoke_databricks_serving_endpoint,
@@ -136,12 +138,12 @@ def _invoke_model_without_tracing(
     with _delete_trace_if_created():
         # Use Databricks managed endpoint with agentic model for the default "databricks" URI
         if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-            user_prompt = json.dumps(
-                [{"role": msg.role, "content": msg.content} for msg in messages]
-            )
+            user_prompt, system_prompt = serialize_messages_to_databricks_prompts(messages)
+
             result = call_chat_completions(
                 user_prompt=user_prompt,
-                system_prompt="",
+                # NB: We cannot use an empty system prompt here so we use a period.
+                system_prompt=system_prompt or ".",
                 model=_DATABRICKS_AGENTIC_JUDGE_MODEL,
             )
             if getattr(result, "error_code", None):
@@ -149,7 +151,13 @@ def _invoke_model_without_tracing(
                     f"Failed to get chat completions result from Databricks managed endpoint: "
                     f"[{result.error_code}] {result.error_message}"
                 )
-            return result.output
+
+            output_json = result.output_json
+            if not output_json:
+                raise MlflowException("Empty response from Databricks managed endpoint")
+
+            parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
+            return create_litellm_message_from_databricks_response(parsed_json).content
 
         provider, model_name = _parse_model_uri(model_uri)
 
@@ -540,7 +548,7 @@ class ConversationSimulator:
             result = GoalCheckResult.model_validate_json(text_result)
             return result.result.strip().lower() == "yes"
         except pydantic.ValidationError:
-            _logger.warning("Goal achievement check: could not parse response")
+            _logger.warning(f"Could not parse response for goal achievement check: {text_result}")
             return False
         except Exception as e:
             _logger.warning(f"Goal achievement check failed: {e}")
