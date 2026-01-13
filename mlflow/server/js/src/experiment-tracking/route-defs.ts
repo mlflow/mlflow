@@ -42,25 +42,33 @@ const getExperimentPageRouteDefs = () => {
           path: RoutePaths.experimentPageTabOverview,
           pageId: PageId.experimentPageTabOverview,
           element: createLazyRouteElement(() => import('./pages/experiment-overview/ExperimentGenAIOverviewPage')),
-          handle: { getPageTitle: (params) => `Overview - Experiment ${params['experimentId']}` } satisfies DocumentTitleHandle,
+          handle: {
+            getPageTitle: (params) => `Overview - Experiment ${params['experimentId']}`,
+          } satisfies DocumentTitleHandle,
         },
         {
           path: RoutePaths.experimentPageTabRuns,
           pageId: PageId.experimentPageTabRuns,
           element: createLazyRouteElement(() => import('./pages/experiment-runs/ExperimentRunsPage')),
-          handle: { getPageTitle: (params) => `Runs - Experiment ${params['experimentId']}` } satisfies DocumentTitleHandle,
+          handle: {
+            getPageTitle: (params) => `Runs - Experiment ${params['experimentId']}`,
+          } satisfies DocumentTitleHandle,
         },
         {
           path: RoutePaths.experimentPageTabTraces,
           pageId: PageId.experimentPageTabTraces,
           element: createLazyRouteElement(() => import('./pages/experiment-traces/ExperimentTracesPage')),
-          handle: { getPageTitle: (params) => `Traces - Experiment ${params['experimentId']}` } satisfies DocumentTitleHandle,
+          handle: {
+            getPageTitle: (params) => `Traces - Experiment ${params['experimentId']}`,
+          } satisfies DocumentTitleHandle,
         },
         {
           path: RoutePaths.experimentPageTabChatSessions,
           pageId: PageId.experimentPageTabChatSessions,
           element: createLazyRouteElement(() => import('./pages/experiment-chat-sessions/ExperimentChatSessionsPage')),
-          handle: { getPageTitle: (params) => `Chat Sessions - Experiment ${params['experimentId']}` } satisfies DocumentTitleHandle,
+          handle: {
+            getPageTitle: (params) => `Chat Sessions - Experiment ${params['experimentId']}`,
+          } satisfies DocumentTitleHandle,
         },
         {
           path: RoutePaths.experimentPageTabSingleChatSession,
@@ -76,7 +84,9 @@ const getExperimentPageRouteDefs = () => {
           element: createLazyRouteElement(
             () => import('./pages/experiment-logged-models/ExperimentLoggedModelListPage'),
           ),
-          handle: { getPageTitle: (params) => `Logged Models - Experiment ${params['experimentId']}` } satisfies DocumentTitleHandle,
+          handle: {
+            getPageTitle: (params) => `Logged Models - Experiment ${params['experimentId']}`,
+          } satisfies DocumentTitleHandle,
         },
         {
           path: RoutePaths.experimentPageTabEvaluationRuns,
@@ -84,13 +94,17 @@ const getExperimentPageRouteDefs = () => {
           element: createLazyRouteElement(
             () => import('./pages/experiment-evaluation-runs/ExperimentEvaluationRunsPage'),
           ),
-          handle: { getPageTitle: (params) => `Evaluation Runs - Experiment ${params['experimentId']}` } satisfies DocumentTitleHandle,
+          handle: {
+            getPageTitle: (params) => `Evaluation Runs - Experiment ${params['experimentId']}`,
+          } satisfies DocumentTitleHandle,
         },
         {
           path: RoutePaths.experimentPageTabScorers,
           pageId: PageId.experimentPageTabScorers,
           element: createLazyRouteElement(() => import('./pages/experiment-scorers/ExperimentScorersPage')),
-          handle: { getPageTitle: (params) => `Scorers - Experiment ${params['experimentId']}` } satisfies DocumentTitleHandle,
+          handle: {
+            getPageTitle: (params) => `Scorers - Experiment ${params['experimentId']}`,
+          } satisfies DocumentTitleHandle,
         },
         {
           path: RoutePaths.experimentPageTabDatasets,
@@ -98,13 +112,17 @@ const getExperimentPageRouteDefs = () => {
           element: createLazyRouteElement(() => {
             return import('./pages/experiment-evaluation-datasets/ExperimentEvaluationDatasetsPage');
           }),
-          handle: { getPageTitle: (params) => `Datasets - Experiment ${params['experimentId']}` } satisfies DocumentTitleHandle,
+          handle: {
+            getPageTitle: (params) => `Datasets - Experiment ${params['experimentId']}`,
+          } satisfies DocumentTitleHandle,
         },
         {
           path: RoutePaths.experimentPageTabPrompts,
           pageId: PageId.experimentPageTabPrompts,
           element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptsPage')),
-          handle: { getPageTitle: (params) => `Prompts - Experiment ${params['experimentId']}` } satisfies DocumentTitleHandle,
+          handle: {
+            getPageTitle: (params) => `Prompts - Experiment ${params['experimentId']}`,
+          } satisfies DocumentTitleHandle,
         },
         {
           path: RoutePaths.experimentPageTabPromptDetails,

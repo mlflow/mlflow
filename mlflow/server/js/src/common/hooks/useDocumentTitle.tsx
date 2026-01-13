@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useMatches, type Params } from '../utils/RoutingUtils';
+import { useLocation, useMatches, type Params } from '../utils/RoutingUtils';
 
 /**
  * Type for the getPageTitle function that can be added to route handle.
@@ -31,18 +31,17 @@ export const useDocumentTitle = () => {
   const matches = useMatches();
 
   useEffect(() => {
-    // Find the last route match that has a getPageTitle function in its handle
-    const lastMatchWithTitle = [...matches].reverse().find((match) => {
-      const handle = match.handle as DocumentTitleHandle | undefined;
-      return typeof handle?.getPageTitle === 'function';
-    });
+    if (matches.length === 0) {
+      return;
+    }
 
-    if (lastMatchWithTitle) {
-      const handle = lastMatchWithTitle.handle as DocumentTitleHandle;
-      const title = handle.getPageTitle(lastMatchWithTitle.params);
+    const lastMatch = matches[matches.length - 1];
+    const handle = lastMatch.handle as DocumentTitleHandle | undefined;
+    const title = handle?.getPageTitle(lastMatch.params);
+
+    if (title) {
       document.title = `${title} - MLflow`;
     } else {
-      // Fallback to default title if no route has a title
       document.title = 'MLflow';
     }
   }, [matches]);
