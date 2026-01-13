@@ -9,12 +9,7 @@ from mlflow.genai.scorers.phoenix.models import (
     create_phoenix_model,
 )
 
-try:
-    import phoenix.evals  # noqa: F401
-
-    HAS_PHOENIX = True
-except ImportError:
-    HAS_PHOENIX = False
+phoenix_evals = pytest.importorskip("phoenix.evals")
 
 
 @pytest.fixture
@@ -69,29 +64,23 @@ def test_databricks_serving_endpoint_model_get_model_name():
     assert model.get_model_name() == "databricks:/my-endpoint"
 
 
-@pytest.mark.skipif(not HAS_PHOENIX, reason="requires phoenix.evals")
 def test_create_phoenix_model_databricks():
     model = create_phoenix_model("databricks")
     assert isinstance(model, DatabricksPhoenixModel)
     assert model.get_model_name() == "databricks"
 
 
-@pytest.mark.skipif(not HAS_PHOENIX, reason="requires phoenix.evals")
 def test_create_phoenix_model_databricks_endpoint():
     model = create_phoenix_model("databricks:/my-endpoint")
     assert isinstance(model, DatabricksServingEndpointPhoenixModel)
     assert model.get_model_name() == "databricks:/my-endpoint"
 
 
-@pytest.mark.skipif(not HAS_PHOENIX, reason="requires phoenix.evals")
 def test_create_phoenix_model_openai():
-    from phoenix.evals import LiteLLMModel
-
     model = create_phoenix_model("openai:/gpt-4")
-    assert isinstance(model, LiteLLMModel)
+    assert isinstance(model, phoenix_evals.LiteLLMModel)
 
 
-@pytest.mark.skipif(not HAS_PHOENIX, reason="requires phoenix.evals")
 def test_create_phoenix_model_invalid_format():
     with pytest.raises(MlflowException, match="Invalid model_uri format"):
         create_phoenix_model("gpt-4")
