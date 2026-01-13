@@ -2,6 +2,7 @@ import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
+import trulens  # noqa: F401 - ensures tests fail if trulens not installed
 
 import mlflow
 from mlflow.entities.assessment import Feedback
