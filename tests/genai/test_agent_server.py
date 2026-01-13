@@ -1,4 +1,5 @@
 import contextvars
+from argparse import Namespace
 from typing import AsyncGenerator
 from unittest.mock import Mock, patch
 
@@ -6,6 +7,8 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+import mlflow.genai.agent_server.server
+from mlflow.exceptions import MlflowException
 from mlflow.genai.agent_server import (
     AgentServer,
     get_invoke_function,
@@ -26,8 +29,6 @@ from mlflow.types.responses import (
 @pytest.fixture(autouse=True)
 def reset_global_state():
     """Reset global state before each test to ensure test isolation."""
-    import mlflow.genai.agent_server.server
-
     mlflow.genai.agent_server.server._invoke_function = None
     mlflow.genai.agent_server.server._stream_function = None
 
@@ -660,3 +661,61 @@ async def test_chat_proxy_respects_chat_app_port_env_var(monkeypatch):
         mock_request.assert_called_once()
         call_args = mock_request.call_args
         assert call_args.kwargs["url"] == "http://localhost:8080/test"
+
+
+def test_chat_proxy_blocked_on_all_interfaces_by_default():
+    server = AgentServer(enable_chat_proxy=True)
+
+    with patch.object(
+        server, "_parse_server_args", return_value=Namespace(port=8000, workers=1, reload=False)
+    ):
+        with pytest.raises(
+            MlflowException, match="Cannot enable chat proxy when binding to 0.0.0.0"
+        ):
+            server.run("myapp:server", host="0.0.0.0")
+
+
+def test_chat_proxy_allowed_on_localhost():
+    server = AgentServer(enable_chat_proxy=True)
+
+    with (
+        patch.object(
+            server, "_parse_server_args", return_value=Namespace(port=8000, workers=1, reload=False)
+        ),
+        patch("mlflow.genai.agent_server.server.uvicorn.run") as mock_run,
+    ):
+        server.run("myapp:server", host="127.0.0.1")
+        mock_run.assert_called_once_with(
+            "myapp:server", host="127.0.0.1", port=8000, workers=1, reload=False
+        )
+
+
+def test_chat_proxy_allowed_on_all_interfaces_with_explicit_flag(monkeypatch):
+    monkeypatch.setenv("MLFLOW_CHAT_PROXY_ALLOW_EXTERNAL", "true")
+    server = AgentServer(enable_chat_proxy=True)
+
+    with (
+        patch.object(
+            server, "_parse_server_args", return_value=Namespace(port=8000, workers=1, reload=False)
+        ),
+        patch("mlflow.genai.agent_server.server.uvicorn.run") as mock_run,
+    ):
+        server.run("myapp:server", host="0.0.0.0")
+        mock_run.assert_called_once_with(
+            "myapp:server", host="0.0.0.0", port=8000, workers=1, reload=False
+        )
+
+
+def test_chat_proxy_disabled_allows_all_interfaces():
+    server = AgentServer(enable_chat_proxy=False)
+
+    with (
+        patch.object(
+            server, "_parse_server_args", return_value=Namespace(port=8000, workers=1, reload=False)
+        ),
+        patch("mlflow.genai.agent_server.server.uvicorn.run") as mock_run,
+    ):
+        server.run("myapp:server", host="0.0.0.0")
+        mock_run.assert_called_once_with(
+            "myapp:server", host="0.0.0.0", port=8000, workers=1, reload=False
+        )

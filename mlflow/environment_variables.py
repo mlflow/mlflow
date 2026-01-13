@@ -1226,3 +1226,11 @@ MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
 MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_PICKLE_DESERIALIZATION", True
 )
+
+
+#: Allows the agent server chat proxy to bind to 0.0.0.0 (all network interfaces).
+#: When False (default), the chat proxy can only bind to localhost to prevent SSRF vulnerabilities.
+#: Set to True only if you understand the security implications and need external access.
+MLFLOW_CHAT_PROXY_ALLOW_EXTERNAL = _BooleanEnvironmentVariable(
+    "MLFLOW_CHAT_PROXY_ALLOW_EXTERNAL", False
+)

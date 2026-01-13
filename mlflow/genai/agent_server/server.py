@@ -12,6 +12,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import Response, StreamingResponse
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_CHAT_PROXY_ALLOW_EXTERNAL
+from mlflow.exceptions import MlflowException
 from mlflow.genai.agent_server.utils import set_request_headers
 from mlflow.genai.agent_server.validator import BaseAgentValidator, ResponsesAgentValidator
 from mlflow.pyfunc import ResponsesAgent
@@ -94,13 +96,18 @@ class AgentServer:
         enable_chat_proxy: If ``True``, enables a proxy middleware that forwards unmatched requests
         to a chat app running on the port specified by the CHAT_APP_PORT environment variable
         (defaults to 3000) with a timeout specified by the CHAT_PROXY_TIMEOUT_SECONDS environment
-        variable, (defaults to 300 seconds). ``enable_chat_proxy`` defaults to ``False``.
+        variable (defaults to 300 seconds). Defaults to ``False``.
+
+        **Security Warning**: For security reasons, the chat proxy cannot be enabled when binding
+        to 0.0.0.0 (all network interfaces) unless MLFLOW_CHAT_PROXY_ALLOW_EXTERNAL=true is set.
+        This prevents SSRF vulnerabilities. Use host='127.0.0.1' for secure local deployments.
 
     See https://mlflow.org/docs/latest/genai/serving/agent-server for more information.
     """
 
     def __init__(self, agent_type: AgentType | None = None, enable_chat_proxy: bool = False):
         self.agent_type = agent_type
+        self.enable_chat_proxy = enable_chat_proxy
         if agent_type == "ResponsesAgent":
             self.validator = ResponsesAgentValidator()
         else:
@@ -320,7 +327,21 @@ class AgentServer:
         app_import_string: str,
         host: str = "0.0.0.0",
     ) -> None:
-        """Run the agent server with command line argument parsing."""
+        """Run the agent server with command line argument parsing.
+
+        If enable_chat_proxy=True, binding to 0.0.0.0 (all interfaces) is blocked
+        unless MLFLOW_CHAT_PROXY_ALLOW_EXTERNAL=true is set, to prevent SSRF vulnerabilities.
+        """
+        if self.enable_chat_proxy and host == "0.0.0.0":
+            if not MLFLOW_CHAT_PROXY_ALLOW_EXTERNAL.get():
+                raise MlflowException.invalid_parameter_value(
+                    "Cannot enable chat proxy when binding to 0.0.0.0 (all interfaces). "
+                    "This configuration exposes the chat proxy to external networks and creates "
+                    "an SSRF vulnerability. To use the chat proxy, either:\n"
+                    "1. Bind to localhost only: host='127.0.0.1' \n"
+                    "2. Set MLFLOW_CHAT_PROXY_ALLOW_EXTERNAL=true to acknowledge the security risk."
+                )
+
         args = self._parse_server_args()
         uvicorn.run(
             app_import_string, host=host, port=args.port, workers=args.workers, reload=args.reload
