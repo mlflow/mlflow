@@ -12,7 +12,7 @@ export const ExperimentViewInferredKindModal = ({
   onConfirm: (kind: ExperimentKind) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const [selectedKind, setSelectedKind] = useState<ExperimentKind>(ExperimentKind.CUSTOM_MODEL_DEVELOPMENT);
+  const [selectedKind, setSelectedKind] = useState<ExperimentKind>(ExperimentKind.GENAI_DEVELOPMENT);
 
   return (
     <Modal

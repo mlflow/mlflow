@@ -1,5 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
-import { formatTimestampForTraceMetrics, getTimestampFromDataPoint } from './chartUtils';
+import { renderHook, act } from '@testing-library/react';
+import { formatTimestampForTraceMetrics, getTimestampFromDataPoint, useChartZoom } from './chartUtils';
 import type { MetricDataPoint } from '@databricks/web-shared/model-trace-explorer';
 
 // Time intervals in seconds
@@ -104,6 +105,186 @@ describe('chartUtils', () => {
 
       const result = getTimestampFromDataPoint(dataPoint);
       expect(result).toBe(new Date('2025-12-22T15:30:00Z').getTime());
+    });
+  });
+
+  describe('useChartZoom', () => {
+    interface TestDataPoint {
+      name: string;
+      value: number;
+    }
+
+    const testData: TestDataPoint[] = [
+      { name: '10:00', value: 42 },
+      { name: '11:00', value: 58 },
+      { name: '12:00', value: 100 },
+      { name: '13:00', value: 75 },
+      { name: '14:00', value: 90 },
+    ];
+
+    it('should initialize with full data and not zoomed', () => {
+      const { result } = renderHook(() => useChartZoom(testData, 'name'));
+
+      expect(result.current.zoomedData).toEqual(testData);
+      expect(result.current.isZoomed).toBe(false);
+      expect(result.current.refAreaLeft).toBeNull();
+      expect(result.current.refAreaRight).toBeNull();
+    });
+
+    it('should zoom to selected range when mouse events complete a selection', () => {
+      const { result } = renderHook(() => useChartZoom(testData, 'name'));
+
+      // Simulate mouse down at 11:00
+      act(() => {
+        result.current.handleMouseDown({ activeLabel: '11:00' });
+      });
+      expect(result.current.refAreaLeft).toBe('11:00');
+
+      // Simulate mouse move to 13:00
+      act(() => {
+        result.current.handleMouseMove({ activeLabel: '13:00' });
+      });
+      expect(result.current.refAreaRight).toBe('13:00');
+
+      // Simulate mouse up to complete selection
+      act(() => {
+        result.current.handleMouseUp();
+      });
+
+      // Should now be zoomed to the selected range (11:00, 12:00, 13:00)
+      expect(result.current.isZoomed).toBe(true);
+      expect(result.current.zoomedData).toEqual([
+        { name: '11:00', value: 58 },
+        { name: '12:00', value: 100 },
+        { name: '13:00', value: 75 },
+      ]);
+      // Selection area should be cleared after zoom
+      expect(result.current.refAreaLeft).toBeNull();
+      expect(result.current.refAreaRight).toBeNull();
+    });
+
+    it('should handle reverse selection (right to left)', () => {
+      const { result } = renderHook(() => useChartZoom(testData, 'name'));
+
+      // Select from 13:00 to 11:00 (reverse)
+      act(() => {
+        result.current.handleMouseDown({ activeLabel: '13:00' });
+      });
+      act(() => {
+        result.current.handleMouseMove({ activeLabel: '11:00' });
+      });
+      act(() => {
+        result.current.handleMouseUp();
+      });
+
+      // Should still zoom to correct range
+      expect(result.current.isZoomed).toBe(true);
+      expect(result.current.zoomedData).toHaveLength(3);
+      expect(result.current.zoomedData[0].name).toBe('11:00');
+      expect(result.current.zoomedData[2].name).toBe('13:00');
+    });
+
+    it('should reset zoom when zoomOut is called', () => {
+      const { result } = renderHook(() => useChartZoom(testData, 'name'));
+
+      // First zoom in
+      act(() => {
+        result.current.handleMouseDown({ activeLabel: '11:00' });
+      });
+      act(() => {
+        result.current.handleMouseMove({ activeLabel: '13:00' });
+      });
+      act(() => {
+        result.current.handleMouseUp();
+      });
+
+      expect(result.current.isZoomed).toBe(true);
+      expect(result.current.zoomedData).toHaveLength(3);
+
+      // Then zoom out
+      act(() => {
+        result.current.zoomOut();
+      });
+
+      expect(result.current.isZoomed).toBe(false);
+      expect(result.current.zoomedData).toEqual(testData);
+    });
+
+    it('should reset zoom when data changes (e.g., time range changed)', () => {
+      const { result, rerender } = renderHook(({ data }) => useChartZoom(data, 'name'), {
+        initialProps: { data: testData },
+      });
+
+      // First zoom in
+      act(() => {
+        result.current.handleMouseDown({ activeLabel: '11:00' });
+      });
+      act(() => {
+        result.current.handleMouseMove({ activeLabel: '13:00' });
+      });
+      act(() => {
+        result.current.handleMouseUp();
+      });
+
+      expect(result.current.isZoomed).toBe(true);
+      expect(result.current.zoomedData).toHaveLength(3);
+
+      // Now simulate time range change by providing new data
+      const newData: TestDataPoint[] = [
+        { name: '08:00', value: 20 },
+        { name: '09:00', value: 30 },
+        { name: '10:00', value: 40 },
+      ];
+
+      rerender({ data: newData });
+
+      // Zoom should be reset
+      expect(result.current.isZoomed).toBe(false);
+      expect(result.current.zoomedData).toEqual(newData);
+    });
+
+    it('should not zoom if selection is only one point', () => {
+      const { result } = renderHook(() => useChartZoom(testData, 'name'));
+
+      // Select same point for start and end
+      act(() => {
+        result.current.handleMouseDown({ activeLabel: '11:00' });
+      });
+      act(() => {
+        result.current.handleMouseMove({ activeLabel: '11:00' });
+      });
+      act(() => {
+        result.current.handleMouseUp();
+      });
+
+      // Should not zoom (need at least 2 points)
+      expect(result.current.isZoomed).toBe(false);
+      expect(result.current.zoomedData).toEqual(testData);
+    });
+
+    it('should not update refAreaRight if mouse move happens without mouse down', () => {
+      const { result } = renderHook(() => useChartZoom(testData, 'name'));
+
+      // Move without down
+      act(() => {
+        result.current.handleMouseMove({ activeLabel: '12:00' });
+      });
+
+      expect(result.current.refAreaLeft).toBeNull();
+      expect(result.current.refAreaRight).toBeNull();
+    });
+
+    it('should clear selection on mouse up without valid selection', () => {
+      const { result } = renderHook(() => useChartZoom(testData, 'name'));
+
+      // Mouse up without any selection
+      act(() => {
+        result.current.handleMouseUp();
+      });
+
+      expect(result.current.isZoomed).toBe(false);
+      expect(result.current.refAreaLeft).toBeNull();
+      expect(result.current.refAreaRight).toBeNull();
     });
   });
 });

@@ -1,0 +1,45 @@
+diff --git a/types/index.d.ts b/types/index.d.ts
+index 9395e0133f283f158913080c7dace4e79444e82c..a4aec99de1f936608d996b074640dbcfe4a1b714 100644
+--- a/types/index.d.ts
++++ b/types/index.d.ts
+@@ -79,21 +79,24 @@ export function ClassNames<Theme = any>(
+   props: ClassNamesProps<Theme>
+ ): ReactElement
+ 
+-declare module 'react' {
+-  interface DOMAttributes<T> {
+-    css?: InterpolationWithTheme<any>
+-  }
+-}
++// avoid conflicts between emotion v10 and v11.
++// storybook brings v10 into node_modules and it breaks v11 because it overrides glbals
+ 
+-declare global {
+-  namespace JSX {
+-    /**
+-     * Do we need to modify `LibraryManagedAttributes` too,
+-     * to make `className` props optional when `css` props is specified?
+-     */
++// declare module 'react' {
++//   interface DOMAttributes<T> {
++//     css?: InterpolationWithTheme<any>
++//   }
++// }
+ 
+-    interface IntrinsicAttributes {
+-      css?: InterpolationWithTheme<any>
+-    }
+-  }
+-}
++// declare global {
++//   namespace JSX {
++//     /**
++//      * Do we need to modify `LibraryManagedAttributes` too,
++//      * to make `className` props optional when `css` props is specified?
++//      */
++
++//     interface IntrinsicAttributes {
++//       css?: InterpolationWithTheme<any>
++//     }
++//   }
++// }

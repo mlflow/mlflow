@@ -2751,7 +2751,7 @@ def test_invoke_scorer_missing_trace_ids():
         )
         assert response.status_code == 400
         data = response.get_json()
-        assert "trace_ids" in data["message"]
+        assert "Please select at least one trace to evaluate" in data["message"]
 
 
 def test_invoke_scorer_submits_jobs(mock_tracking_store):

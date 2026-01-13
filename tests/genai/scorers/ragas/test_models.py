@@ -1,27 +1,39 @@
 from unittest.mock import Mock, patch
 
 import pytest
+from pydantic import BaseModel
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.ragas.models import DatabricksRagasLLM, create_ragas_model
+
+
+class DummyResponseModel(BaseModel):
+    answer: str
+    score: int
 
 
 @pytest.fixture
 def mock_call_chat_completions():
     with patch("mlflow.genai.scorers.ragas.models.call_chat_completions") as mock:
         result = Mock()
-        result.output = "Test output"
+        result.output = '{"answer": "Test output", "score": 42}'
         mock.return_value = result
         yield mock
 
 
 def test_databricks_ragas_llm_generate_text(mock_call_chat_completions):
     llm = DatabricksRagasLLM()
-    result = llm.generate_text(prompt="Test prompt")
+    result = llm.generate(prompt="Test prompt", response_model=DummyResponseModel)
 
-    assert result == "Test output"
+    assert isinstance(result, DummyResponseModel)
+    assert result.answer == "Test output"
+    assert result.score == 42
     mock_call_chat_completions.assert_called_once_with(
-        user_prompt="Test prompt",
+        user_prompt=(
+            "Test prompt\n\nOUTPUT FORMAT: Respond ONLY with a JSON object "
+            'containing these fields: "answer", "score", no other text. '
+            "Do not add markdown formatting to the response."
+        ),
         system_prompt="",
     )
 

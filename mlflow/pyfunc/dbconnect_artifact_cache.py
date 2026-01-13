@@ -4,7 +4,7 @@ import subprocess
 import tarfile
 
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.utils.file_utils import get_or_create_tmp_dir
+from mlflow.utils.file_utils import check_tarfile_security, get_or_create_tmp_dir
 
 _CACHE_MAP_FILE_NAME = "db_connect_artifact_cache.json"
 
@@ -138,6 +138,7 @@ def archive_directory(input_dir, archive_file_path):
 
 
 def extract_archive_to_dir(archive_path, dest_dir):
+    check_tarfile_security(archive_path)
     os.makedirs(dest_dir, exist_ok=True)
     with tarfile.open(archive_path, "r") as tar:
         tar.extractall(path=dest_dir)

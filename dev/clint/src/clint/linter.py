@@ -390,8 +390,10 @@ class Linter(ast.NodeVisitor):
         # Skip rules that are not selected in the config
         if rule.name not in self.config.select:
             return
-        # Check line-level ignores
-        if (lines := self.ignore.get(rule.name)) and range.start.line in lines:
+        # Check line-level ignores (supports both start and end of range)
+        if (lines := self.ignore.get(rule.name)) and (
+            range.start.line in lines or range.end.line in lines
+        ):
             return
         # Check per-file ignores
         if rule.name in self.ignored_rules:
@@ -816,6 +818,11 @@ class Linter(ast.NodeVisitor):
     def visit_Delete(self, node: ast.Delete) -> None:
         if self._is_in_test() and rules.OsEnvironDeleteInTest.check(node, self.resolver):
             self._check(Range.from_node(node), rules.OsEnvironDeleteInTest())
+        self.generic_visit(node)
+
+    def visit_Dict(self, node: ast.Dict) -> None:
+        if rules.PreferDictUnion.check(node):
+            self._check(Range.from_node(node), rules.PreferDictUnion())
         self.generic_visit(node)
 
     def visit_Compare(self, node: ast.Compare) -> None:

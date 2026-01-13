@@ -8,16 +8,27 @@ import { TracesV3DateSelector } from '../../components/experiment-page/component
 import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../hooks/useMonitoringFilters';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
 import { LazyTraceRequestsChart } from './components/LazyTraceRequestsChart';
-
-enum OverviewTab {
-  Usage = 'usage',
-}
+import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
+import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
+import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
+import { LazyTraceTokenStatsChart } from './components/LazyTraceTokenStatsChart';
+import { AssessmentChartsSection } from './components/AssessmentChartsSection';
+import { ToolCallStatistics } from './components/ToolCallStatistics';
+import { ToolCallChartsSection } from './components/ToolCallChartsSection';
+import { LazyToolUsageChart } from './components/LazyToolUsageChart';
+import { LazyToolLatencyChart } from './components/LazyToolLatencyChart';
+import { LazyToolPerformanceSummary } from './components/LazyToolPerformanceSummary';
+import { TabContentContainer, ChartGrid } from './components/OverviewLayoutComponents';
+import { calculateTimeInterval } from './hooks/useTraceMetricsQuery';
+import { generateTimeBuckets } from './utils/chartUtils';
+import { OverviewChartProvider } from './OverviewChartContext';
+import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
 
 const ExperimentGenAIOverviewPageImpl = () => {
   const { experimentId } = useParams();
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const [activeTab, setActiveTab] = useState<OverviewTab>(OverviewTab.Usage);
+  const [activeTab, setActiveTab] = useOverviewTab();
   const [searchQuery, setSearchQuery] = useState('');
 
   invariant(experimentId, 'Experiment ID must be defined');
@@ -35,6 +46,15 @@ const ExperimentGenAIOverviewPageImpl = () => {
   // Convert ISO strings to milliseconds for the API
   const startTimeMs = startTime ? new Date(startTime).getTime() : undefined;
   const endTimeMs = endTime ? new Date(endTime).getTime() : undefined;
+
+  // Calculate time interval once for all charts
+  const timeIntervalSeconds = calculateTimeInterval(startTimeMs, endTimeMs);
+
+  // Generate all time buckets once for all charts
+  const timeBuckets = useMemo(
+    () => generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds),
+    [startTimeMs, endTimeMs, timeIntervalSeconds],
+  );
 
   return (
     <div
@@ -58,6 +78,18 @@ const ExperimentGenAIOverviewPageImpl = () => {
               description="Label for the usage tab in the experiment overview page"
             />
           </Tabs.Trigger>
+          <Tabs.Trigger value={OverviewTab.Quality}>
+            <FormattedMessage
+              defaultMessage="Quality"
+              description="Label for the quality tab in the experiment overview page"
+            />
+          </Tabs.Trigger>
+          <Tabs.Trigger value={OverviewTab.ToolCalls}>
+            <FormattedMessage
+              defaultMessage="Tool calls"
+              description="Label for the tool calls tab in the experiment overview page"
+            />
+          </Tabs.Trigger>
         </Tabs.List>
 
         {/* Control bar with search and time range */}
@@ -66,7 +98,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
             display: 'flex',
             alignItems: 'center',
             gap: theme.spacing.sm,
-            padding: `${theme.spacing.sm}px 0`,
+            padding: `0 0`,
           }}
         >
           {/* Search input */}
@@ -86,11 +118,58 @@ const ExperimentGenAIOverviewPageImpl = () => {
           <TracesV3DateSelector excludeOptions={['ALL']} />
         </div>
 
-        <Tabs.Content value={OverviewTab.Usage} css={{ flex: 1, overflowY: 'auto' }}>
-          <div css={{ padding: `${theme.spacing.sm}px 0` }}>
-            <LazyTraceRequestsChart experimentId={experimentId} startTimeMs={startTimeMs} endTimeMs={endTimeMs} />
-          </div>
-        </Tabs.Content>
+        <OverviewChartProvider
+          experimentId={experimentId}
+          startTimeMs={startTimeMs}
+          endTimeMs={endTimeMs}
+          timeIntervalSeconds={timeIntervalSeconds}
+          timeBuckets={timeBuckets}
+        >
+          <Tabs.Content value={OverviewTab.Usage} css={{ flex: 1, overflowY: 'auto' }}>
+            <TabContentContainer>
+              {/* Requests chart - full width */}
+              <LazyTraceRequestsChart />
+
+              {/* Latency and Errors charts - side by side */}
+              <ChartGrid>
+                <LazyTraceLatencyChart />
+                <LazyTraceErrorsChart />
+              </ChartGrid>
+
+              {/* Token Usage and Token Stats charts - side by side */}
+              <ChartGrid>
+                <LazyTraceTokenUsageChart />
+                <LazyTraceTokenStatsChart />
+              </ChartGrid>
+            </TabContentContainer>
+          </Tabs.Content>
+
+          <Tabs.Content value={OverviewTab.Quality} css={{ flex: 1, overflowY: 'auto' }}>
+            <TabContentContainer>
+              {/* Assessment charts - dynamically rendered based on available assessments */}
+              <AssessmentChartsSection />
+            </TabContentContainer>
+          </Tabs.Content>
+
+          <Tabs.Content value={OverviewTab.ToolCalls} css={{ flex: 1, overflowY: 'auto' }}>
+            <TabContentContainer>
+              {/* Tool call statistics */}
+              <ToolCallStatistics />
+
+              {/* Tool performance summary */}
+              <LazyToolPerformanceSummary />
+
+              {/* Tool error rate charts - dynamically rendered based on available tools */}
+              <ToolCallChartsSection />
+
+              {/* Tool usage and latency charts - side by side */}
+              <ChartGrid>
+                <LazyToolUsageChart />
+                <LazyToolLatencyChart />
+              </ChartGrid>
+            </TabContentContainer>
+          </Tabs.Content>
+        </OverviewChartProvider>
       </Tabs.Root>
     </div>
   );

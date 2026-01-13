@@ -10,7 +10,6 @@ import { computeEvaluationsComparison } from './GenAiTracesTable.utils';
 import { GenAiTracesTableBody } from './GenAiTracesTableBody';
 import { useActiveEvaluation } from './hooks/useActiveEvaluation';
 import type { GetTraceFunction } from './hooks/useGetTrace';
-import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from './types';
 import type {
   AssessmentFilter,
   AssessmentInfo,
@@ -18,6 +17,7 @@ import type {
   EvaluationsOverviewTableSort,
   TableFilter,
 } from './types';
+import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from './types';
 import { sortAssessmentInfos } from './utils/AggregationUtils';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
 import { applyTraceInfoV3ToEvalEntry, DEFAULT_RUN_PLACEHOLDER_NAME } from './utils/TraceUtils';
@@ -60,6 +60,7 @@ interface GenAITracesTableBodyContainerProps {
 }
 
 const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   React.memo((props: GenAITracesTableBodyContainerProps) => {
     const {
       experimentId,
