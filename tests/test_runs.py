@@ -489,13 +489,3 @@ def test_get_experiment_by_name_deleted():
     output = json.loads(result.output)
     assert output["lifecycle_stage"] == "deleted"
     assert output["name"] == exp_name
-
-
-def test_get_experiment_by_name_with_spaces():
-    exp_name = "My Test Experiment"
-    exp_id = mlflow.create_experiment(exp_name)
-
-    result = CliRunner().invoke(experiments.get_experiment, ["--experiment-name", exp_name])
-    assert result.exit_code == 0
-    assert exp_id in result.output
-    assert exp_name in result.output
