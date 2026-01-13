@@ -14,6 +14,7 @@ import {
   useChartXAxisProps,
   useChartYAxisProps,
   useScrollableLegendProps,
+  DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
 import { useLegendHighlight } from '../utils/chartUtils';
 
@@ -55,7 +56,7 @@ export const TraceErrorsChart: React.FC = () => {
       <OverviewChartTimeLabel />
 
       {/* Chart */}
-      <div css={{ height: 200, marginTop: theme.spacing.sm }}>
+      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
