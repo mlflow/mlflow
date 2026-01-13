@@ -26,7 +26,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.import_hooks import register_post_import_hook
-from mlflow.utils.process import _exec_cmd
 
 if TYPE_CHECKING:
     import huey
@@ -34,12 +33,6 @@ if TYPE_CHECKING:
     from mlflow.store.jobs.abstract_store import AbstractJobStore
 
 _logger = logging.getLogger(__name__)
-
-# Reserved Huey instance key for periodic tasks
-HUEY_PERIODIC_TASKS_INSTANCE_KEY = "periodic_tasks"
-
-# Number of worker threads for the periodic tasks consumer
-PERIODIC_TASKS_WORKER_COUNT = 5
 
 
 def _exponential_backoff_retry(retry_count: int) -> None:
@@ -443,40 +436,6 @@ def _launch_huey_consumer(job_name: str) -> None:
     ).start()
 
 
-def _launch_periodic_tasks_consumer() -> None:
-    """
-    Launch a dedicated Huey consumer for periodic tasks.
-    This consumer runs scheduled tasks like the online scoring scheduler.
-    """
-    _logger.info("Starting dedicated Huey consumer for periodic tasks")
-
-    def _huey_consumer_thread() -> None:
-        while True:
-            job_runner_proc = _start_periodic_tasks_consumer_proc()
-            job_runner_proc.wait()
-            time.sleep(1)
-
-    threading.Thread(
-        target=_huey_consumer_thread,
-        name="MLflow-huey-consumer-periodic-tasks-watcher",
-        daemon=False,
-    ).start()
-
-
-def _start_periodic_tasks_consumer_proc():
-    return _exec_cmd(
-        [
-            sys.executable,
-            shutil.which("huey_consumer.py"),
-            "mlflow.server.jobs._periodic_tasks_consumer.huey_instance",
-            "-w",
-            str(PERIODIC_TASKS_WORKER_COUNT),
-        ],
-        capture_output=False,
-        synchronous=False,
-    )
-
-
 def _launch_job_runner(env_map, server_proc_pid):
     return subprocess.Popen(
         [
@@ -632,25 +591,3 @@ def _build_job_name_to_fn_fullname_map():
 
 
 register_post_import_hook(lambda m: _build_job_name_to_fn_fullname_map(), __name__)
-
-
-def register_periodic_tasks(huey_instance) -> None:
-    """
-    Register all periodic tasks with the given huey instance.
-
-    Args:
-        huey_instance: The huey instance to register tasks with.
-    """
-    from huey import crontab
-
-    @huey_instance.periodic_task(crontab(minute="*/1"))
-    def online_scoring_scheduler():
-        """Runs every minute to fetch active scorer configs and submit scoring jobs."""
-        from mlflow.genai.scorers.job import run_online_scoring_scheduler
-
-        try:
-            run_online_scoring_scheduler()
-        except Exception as e:
-            _logger.exception(f"Online scoring scheduler failed: {e!r}")
-
-    _logger.info("Registered online_scoring_scheduler periodic task (runs every 1 minute)")
