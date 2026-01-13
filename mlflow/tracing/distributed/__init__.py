@@ -99,7 +99,7 @@ def set_tracing_context_from_http_request_headers(headers):
         span_context = extracted_span.get_span_context()
         otel_trace_id = span_context.trace_id
 
-        trace_manager.register_trace(otel_trace_id, mlflow_trace_info)
+        trace_manager.register_trace(otel_trace_id, mlflow_trace_info, is_remote_trace=True)
 
         if mlflow_trace_info.trace_id != generate_mlflow_trace_id_from_otel_trace_id(otel_trace_id):
             raise MlflowException(

@@ -74,23 +74,25 @@ class InMemoryTraceManager:
         self._lock = threading.RLock()  # Lock for _traces
 
         # Store whether the trace ID points to a distributed trace.
-        self._is_distributed_trace: dict[int, bool] = {}
+        self._is_remote_trace: dict[int, bool] = {}
 
-    def register_trace(self, otel_trace_id: int, trace_info: TraceInfo, is_distributed_trace=False):
+    def register_trace(self, otel_trace_id: int, trace_info: TraceInfo, is_remote_trace=False):
         """
         Register a new trace info object to the in-memory trace registry.
 
         Args:
             otel_trace_id: The OpenTelemetry trace ID for the new trace.
             trace_info: The trace info object to be stored.
-            is_distributed_trace: Whether the trace is distributed or not.
+            is_remote_trace: Whether the trace is a remote trace. For a distributed trace, it is
+                registered in both client side and remote server side, for remote server side
+                registration, the 'is_remote_trace' flag is set to True.
         """
         # Check for a new timeout setting whenever a new trace is created.
         self._check_timeout_update()
         with self._lock:
             self._traces[trace_info.trace_id] = _Trace(trace_info)
             self._otel_id_to_mlflow_trace_id[otel_trace_id] = trace_info.trace_id
-            self._is_distributed_trace[otel_trace_id] = is_distributed_trace
+            self._is_remote_trace[otel_trace_id] = is_remote_trace
 
     def register_span(self, span: LiveSpan):
         """

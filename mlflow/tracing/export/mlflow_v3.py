@@ -65,7 +65,7 @@ class MlflowV3SpanExporter(SpanExporter):
         trace_manager = InMemoryTraceManager.get_instance()
 
         for span in spans:
-            if trace_manager._is_distributed_trace[span.get_span_context().trace_id]:
+            if trace_manager._is_remote_trace[span.get_span_context().trace_id]:
                 _logger.warning(
                     "The MLflow tracing store backend does not support exporting spans "
                     "incrementally. In this case, exporting the distributed tracing span "
