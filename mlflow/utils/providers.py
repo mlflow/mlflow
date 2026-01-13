@@ -69,10 +69,22 @@ def _get_model_cost():
 # managed identity, IRSA, or ADC that require specific hosting environments).
 _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
     "bedrock": {
+        "api_key": {
+            "display_name": "API Key",
+            "description": "Use Amazon Bedrock API Key (bearer token)",
+            "default": True,
+            "fields": [
+                {
+                    "name": "api_key",
+                    "description": "Amazon Bedrock API Key",
+                    "secret": True,
+                    "required": True,
+                },
+            ],
+        },
         "access_keys": {
             "display_name": "Access Keys",
             "description": "Use AWS Access Key ID and Secret Access Key",
-            "default": True,
             "fields": [
                 {
                     "name": "aws_access_key_id",
@@ -130,36 +142,6 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                 },
             ],
         },
-        "session_token": {
-            "display_name": "Session Token (STS)",
-            "description": "Use temporary credentials with session token",
-            "fields": [
-                {
-                    "name": "aws_access_key_id",
-                    "description": "AWS Access Key ID",
-                    "secret": True,
-                    "required": True,
-                },
-                {
-                    "name": "aws_secret_access_key",
-                    "description": "AWS Secret Access Key",
-                    "secret": True,
-                    "required": True,
-                },
-                {
-                    "name": "aws_session_token",
-                    "description": "AWS Session Token",
-                    "secret": True,
-                    "required": True,
-                },
-                {
-                    "name": "aws_region_name",
-                    "description": "AWS Region (e.g., us-east-1)",
-                    "secret": False,
-                    "required": False,
-                },
-            ],
-        },
     },
     "azure": {
         "api_key": {
@@ -183,8 +165,7 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "name": "api_version",
                     "description": "API version (e.g., 2024-02-01)",
                     "secret": False,
-                    "required": False,
-                    "default": "2024-02-01",
+                    "required": True,
                 },
             ],
         },
@@ -301,7 +282,72 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
             ],
         },
     },
+    "sagemaker": {
+        "access_keys": {
+            "display_name": "Access Keys",
+            "description": "Use AWS Access Key ID and Secret Access Key",
+            "default": True,
+            "fields": [
+                {
+                    "name": "aws_access_key_id",
+                    "description": "AWS Access Key ID",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "aws_secret_access_key",
+                    "description": "AWS Secret Access Key",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "aws_region_name",
+                    "description": "AWS Region (e.g., us-east-1)",
+                    "secret": False,
+                    "required": True,
+                },
+            ],
+        },
+        "iam_role": {
+            "display_name": "IAM Role Assumption",
+            "description": "Assume an IAM role using base credentials (for cross-account access)",
+            "fields": [
+                {
+                    "name": "aws_access_key_id",
+                    "description": "AWS Access Key ID (for assuming role)",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "aws_secret_access_key",
+                    "description": "AWS Secret Access Key",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "aws_role_name",
+                    "description": "IAM Role ARN to assume",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "aws_session_name",
+                    "description": "Session name for assumed role",
+                    "secret": False,
+                    "required": False,
+                },
+                {
+                    "name": "aws_region_name",
+                    "description": "AWS Region (e.g., us-east-1)",
+                    "secret": False,
+                    "required": True,
+                },
+            ],
+        },
+    },
 }
+
+_BEDROCK_PROVIDERS = {"bedrock", "bedrock_converse"}
 
 
 def _build_response_field(field: FieldDict) -> ResponseFieldDict:
@@ -348,6 +394,12 @@ def _build_simple_api_key_mode(provider: str, description: str | None = None) ->
                 "secret": True,
                 "required": True,
             },
+            {
+                "name": "api_base",
+                "description": f"{provider.title()} API Base URL",
+                "secret": False,
+                "required": False,
+            },
         ],
     }
 
@@ -376,10 +428,12 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
     if not provider:
         raise ValueError("Provider parameter is required")
 
-    if provider in _PROVIDER_AUTH_MODES:
+    config_provider = "bedrock" if provider in _BEDROCK_PROVIDERS else provider
+
+    if config_provider in _PROVIDER_AUTH_MODES:
         auth_modes: list[AuthModeResponseDict] = []
         default_mode: str | None = None
-        for mode_id, mode_config in _PROVIDER_AUTH_MODES[provider].items():
+        for mode_id, mode_config in _PROVIDER_AUTH_MODES[config_provider].items():
             auth_modes.append(_build_auth_mode_response(mode_id, mode_config))
             if mode_config.get("default"):
                 default_mode = mode_id
@@ -393,6 +447,9 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
         "auth_modes": [_build_auth_mode_response("api_key", simple_mode)],
         "default_mode": "api_key",
     }
+
+
+_EXCLUDED_PROVIDERS = {"bedrock_converse"}
 
 
 def get_all_providers() -> list[str]:
@@ -414,7 +471,8 @@ def get_all_providers() -> list[str]:
         mode = info.get("mode")
         if mode in _SUPPORTED_MODEL_MODES:
             if provider := info.get("litellm_provider"):
-                providers.add(provider)
+                if provider not in _EXCLUDED_PROVIDERS:
+                    providers.add(provider)
 
     return list(providers)
 
@@ -438,10 +496,12 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
             - supports_vision: Whether model supports image/vision input
             - supports_reasoning: Whether model supports extended thinking (o1-style)
             - supports_prompt_caching: Whether model supports prompt caching
+            - supports_response_schema: Whether model supports structured JSON output
             - max_input_tokens: Maximum input context window size
             - max_output_tokens: Maximum output token limit
             - input_cost_per_token: Cost per input token (USD)
             - output_cost_per_token: Cost per output token (USD)
+            - deprecation_date: Date when model will be deprecated (if known)
     """
     if not _PROVIDER_BACKEND_AVAILABLE:
         raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
@@ -456,6 +516,14 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
         if mode not in _SUPPORTED_MODEL_MODES:
             continue
 
+        # Model names sometimes include the provider prefix, e.g. "gemini/gemini-2.5-flash"
+        if provider and model_name.startswith(f"{provider}/"):
+            model_name = model_name.removeprefix(f"{provider}/")
+
+        # LiteLLM contains fine-tuned models with the prefix "ft:"
+        if model_name.startswith("ft:"):
+            continue
+
         models.append(
             {
                 "model": model_name,
@@ -465,10 +533,12 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
                 "supports_vision": info.get("supports_vision", False),
                 "supports_reasoning": info.get("supports_reasoning", False),
                 "supports_prompt_caching": info.get("supports_prompt_caching", False),
+                "supports_response_schema": info.get("supports_response_schema", False),
                 "max_input_tokens": info.get("max_input_tokens"),
                 "max_output_tokens": info.get("max_output_tokens"),
                 "input_cost_per_token": info.get("input_cost_per_token"),
                 "output_cost_per_token": info.get("output_cost_per_token"),
+                "deprecation_date": info.get("deprecation_date"),
             }
         )
 

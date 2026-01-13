@@ -18,6 +18,7 @@ from mlflow.telemetry.events import (
     MakeJudgeEvent,
     MergeRecordsEvent,
     PromptOptimizationEvent,
+    SimulateConversationEvent,
     StartTraceEvent,
 )
 
@@ -93,6 +94,7 @@ def test_event_name():
     assert MakeJudgeEvent.name == "make_judge"
     assert AlignJudgeEvent.name == "align_judge"
     assert PromptOptimizationEvent.name == "prompt_optimization"
+    assert SimulateConversationEvent.name == "simulate_conversation"
 
 
 @pytest.mark.parametrize(
@@ -209,3 +211,23 @@ def test_align_judge_parse_params(arguments, expected_params):
 )
 def test_prompt_optimization_parse_params(arguments, expected_params):
     assert PromptOptimizationEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("result", "expected_params"),
+    [
+        (
+            [["t1", "t2", "t3"], ["t1"]],
+            {"simulated_conversation_info": [{"turn_count": 3}, {"turn_count": 1}]},
+        ),
+        ([[]], {"simulated_conversation_info": [{"turn_count": 0}]}),
+        ([], {"simulated_conversation_info": []}),
+    ],
+)
+def test_simulate_conversation_parse_result(result, expected_params):
+    assert SimulateConversationEvent.parse_result(result) == expected_params
+
+
+def test_simulate_conversation_parse_params():
+    result = SimulateConversationEvent.parse({})
+    assert result == {"callsite": "conversation_simulator"}

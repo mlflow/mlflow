@@ -12,28 +12,37 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
-    AmazonBedrockConfig,
     AnthropicConfig,
-    AWSBaseConfig,
-    AWSIdAndKey,
-    AWSRole,
     EndpointConfig,
     EndpointType,
     GeminiConfig,
     LiteLLMConfig,
     MistralConfig,
+    OpenAIAPIType,
     OpenAIConfig,
     Provider,
 )
 from mlflow.gateway.providers import get_provider
-from mlflow.gateway.providers.base import PASSTHROUGH_ROUTES, BaseProvider, PassthroughAction
+from mlflow.gateway.providers.base import (
+    PASSTHROUGH_ROUTES,
+    BaseProvider,
+    FallbackProvider,
+    PassthroughAction,
+    TrafficRouteProvider,
+)
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import make_streaming_response, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
+from mlflow.store.tracking.gateway.entities import (
+    GatewayEndpointConfig,
+    GatewayModelConfig,
+    RoutingStrategy,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._tracking_service.utils import _get_store
 
@@ -42,34 +51,29 @@ _logger = logging.getLogger(__name__)
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
 
 
-def _create_provider_from_endpoint_name(
-    store: SqlAlchemyStore, endpoint_name: str, endpoint_type: EndpointType
-) -> BaseProvider:
+def _build_endpoint_config(
+    endpoint_name: str,
+    model_config: GatewayModelConfig,
+    endpoint_type: EndpointType,
+) -> EndpointConfig:
     """
-    Create a provider instance from database endpoint configuration.
+    Build an EndpointConfig from model configuration.
+
+    This function combines provider config building and endpoint config building
+    into a single operation.
 
     Args:
-        store: The SQLAlchemy store instance.
-        endpoint_name: The endpoint name to retrieve configuration for.
+        endpoint_name: The endpoint name.
+        model_config: The model configuration object with decrypted secrets.
         endpoint_type: Endpoint type (chat or embeddings).
 
     Returns:
-        Provider instance
+        EndpointConfig instance ready for provider instantiation.
 
     Raises:
-        MlflowException: If endpoint not found or configuration is invalid.
+        MlflowException: If provider configuration is invalid.
     """
-    # Get endpoint config with decrypted secrets
-    endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
-
-    if not endpoint_config.models:
-        raise MlflowException(
-            f"Endpoint '{endpoint_name}' has no models configured",
-            error_code=RESOURCE_DOES_NOT_EXIST,
-        )
-
-    # For now, use the first model (TODO: Support traffic routing)
-    model_config = endpoint_config.models[0]
+    provider_config = None
 
     if model_config.provider == Provider.OPENAI:
         auth_config = model_config.auth_config or {}
@@ -91,6 +95,16 @@ def _create_provider_from_endpoint_name(
                 openai_config["openai_organization"] = auth_config["organization"]
 
         provider_config = OpenAIConfig(**openai_config)
+    elif model_config.provider == Provider.AZURE:
+        auth_config = model_config.auth_config or {}
+        model_config.provider = Provider.OPENAI
+        provider_config = OpenAIConfig(
+            openai_api_type=OpenAIAPIType.AZURE,
+            openai_api_key=model_config.secret_value.get("api_key"),
+            openai_api_base=auth_config.get("api_base"),
+            openai_deployment_name=model_config.model_name,
+            openai_api_version=auth_config.get("api_version"),
+        )
     elif model_config.provider == Provider.ANTHROPIC:
         anthropic_config = {
             "anthropic_api_key": model_config.secret_value.get("api_key"),
@@ -98,32 +112,6 @@ def _create_provider_from_endpoint_name(
         if model_config.auth_config and "version" in model_config.auth_config:
             anthropic_config["anthropic_version"] = model_config.auth_config["version"]
         provider_config = AnthropicConfig(**anthropic_config)
-    elif model_config.provider in (Provider.BEDROCK, Provider.AMAZON_BEDROCK):
-        # Bedrock supports multiple auth modes
-        auth_config = model_config.auth_config or {}
-        secret_value = model_config.secret_value or {}
-
-        # Check for role-based auth (aws_role_arn in auth_config)
-        if "aws_role_arn" in auth_config:
-            aws_config = AWSRole(
-                aws_role_arn=auth_config["aws_role_arn"],
-                session_length_seconds=auth_config.get("session_length_seconds", 15 * 60),
-                aws_region=auth_config.get("aws_region"),
-            )
-        # Check for access key auth (credentials in secret_value)
-        elif "aws_access_key_id" in secret_value:
-            aws_config = AWSIdAndKey(
-                aws_access_key_id=secret_value["aws_access_key_id"],
-                aws_secret_access_key=secret_value["aws_secret_access_key"],
-                aws_session_token=secret_value.get("aws_session_token"),
-                aws_region=auth_config.get("aws_region"),
-            )
-        else:
-            aws_config = AWSBaseConfig(
-                aws_region=auth_config.get("aws_region"),
-            )
-
-        provider_config = AmazonBedrockConfig(aws_config=aws_config)
     elif model_config.provider == Provider.MISTRAL:
         provider_config = MistralConfig(
             mistral_api_key=model_config.secret_value.get("api_key"),
@@ -136,19 +124,18 @@ def _create_provider_from_endpoint_name(
         # Use LiteLLM as fallback for unsupported providers
         # Store the original provider name for LiteLLM's provider/model format
         original_provider = model_config.provider
+        auth_config = model_config.auth_config or {}
+        # Merge auth_config with secret_value (secret_value contains api_key and other secrets)
         litellm_config = {
             "litellm_provider": original_provider,
-            "litellm_api_key": model_config.secret_value.get("api_key"),
+            "litellm_auth_config": auth_config | model_config.secret_value,
         }
-        auth_config = model_config.auth_config or {}
-        if "api_base" in auth_config:
-            litellm_config["litellm_api_base"] = auth_config["api_base"]
         provider_config = LiteLLMConfig(**litellm_config)
         model_config.provider = Provider.LITELLM
 
-    # Create an EndpointConfig for the provider
-    gateway_endpoint_config = EndpointConfig(
-        name=endpoint_config.endpoint_name,
+    # Build and return EndpointConfig
+    return EndpointConfig(
+        name=endpoint_name,
         endpoint_type=endpoint_type,
         model={
             "name": model_config.model_name,
@@ -157,12 +144,135 @@ def _create_provider_from_endpoint_name(
         },
     )
 
-    provider_class = get_provider(model_config.provider)
 
-    return provider_class(gateway_endpoint_config)
+def _create_provider(
+    endpoint_config: GatewayEndpointConfig,
+    endpoint_type: EndpointType,
+) -> BaseProvider:
+    """
+    Create a provider instance based on endpoint routing strategy.
+
+    Fallback is independent of routing strategy - if fallback_config is present,
+    the provider is wrapped with FallbackProvider.
+
+    Args:
+        endpoint_config: The endpoint configuration with model details and routing config.
+        endpoint_type: Endpoint type (chat or embeddings).
+
+    Returns:
+        Provider instance (standard provider, TrafficRouteProvider, or FallbackProvider).
+
+    Raises:
+        MlflowException: If endpoint configuration is invalid or has no models.
+    """
+    # Get PRIMARY models
+    primary_models = [
+        model
+        for model in endpoint_config.models
+        if model.linkage_type == GatewayModelLinkageType.PRIMARY
+    ]
+
+    if not primary_models:
+        raise MlflowException(
+            f"Endpoint '{endpoint_config.endpoint_name}' has no PRIMARY models configured",
+            error_code=RESOURCE_DOES_NOT_EXIST,
+        )
+
+    # Create base provider based on routing strategy
+    if endpoint_config.routing_strategy == RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT:
+        # Traffic split: distribute requests based on weights
+        configs = []
+        weights = []
+        for model_config in primary_models:
+            gateway_endpoint_config = _build_endpoint_config(
+                endpoint_name=endpoint_config.endpoint_name,
+                model_config=model_config,
+                endpoint_type=endpoint_type,
+            )
+            configs.append(gateway_endpoint_config)
+            weights.append(int(model_config.weight * 100))  # Convert to percentage
+
+        primary_provider = TrafficRouteProvider(
+            configs=configs,
+            traffic_splits=weights,
+            routing_strategy="TRAFFIC_SPLIT",
+        )
+    else:
+        # Default: use the first PRIMARY model
+        model_config = primary_models[0]
+        gateway_endpoint_config = _build_endpoint_config(
+            endpoint_config.endpoint_name, model_config, endpoint_type
+        )
+        provider_class = get_provider(model_config.provider)
+        primary_provider = provider_class(gateway_endpoint_config)
+
+    # Wrap with FallbackProvider if fallback configuration exists
+    if endpoint_config.fallback_config:
+        fallback_models = [
+            model
+            for model in endpoint_config.models
+            if model.linkage_type == GatewayModelLinkageType.FALLBACK
+        ]
+
+        if not fallback_models:
+            _logger.warning(
+                f"Endpoint '{endpoint_config.endpoint_name}' has fallback_config "
+                "but no FALLBACK models configured"
+            )
+            return primary_provider
+
+        # Sort fallback models by fallback_order
+        fallback_models.sort(
+            key=lambda m: m.fallback_order if m.fallback_order is not None else float("inf")
+        )
+
+        fallback_providers = [
+            get_provider(model_config.provider)(
+                _build_endpoint_config(
+                    endpoint_name=endpoint_config.endpoint_name,
+                    model_config=model_config,
+                    endpoint_type=endpoint_type,
+                )
+            )
+            for model_config in fallback_models
+        ]
+
+        max_attempts = endpoint_config.fallback_config.max_attempts or len(fallback_models)
+
+        # FallbackProvider expects all providers (primary + fallback)
+        # We need to create a combined provider that tries primary first, then fallbacks
+        all_providers = [primary_provider] + fallback_providers
+
+        return FallbackProvider(
+            providers=all_providers,
+            max_attempts=max_attempts + 1,  # +1 to include primary
+            strategy=endpoint_config.fallback_config.strategy,
+        )
+
+    return primary_provider
 
 
-def _validate_store(store: AbstractStore):
+def _create_provider_from_endpoint_name(
+    store: SqlAlchemyStore,
+    endpoint_name: str,
+    endpoint_type: EndpointType,
+) -> BaseProvider:
+    """
+    Create a provider from an endpoint name (backward compatibility helper for tests).
+
+    Args:
+        store: The SQLAlchemy store instance.
+        endpoint_name: The endpoint name.
+        endpoint_type: Endpoint type (chat or embeddings).
+
+    Returns:
+        Provider instance
+    """
+    endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
+    return _create_provider(endpoint_config, endpoint_type)
+
+
+def _validate_store(store: AbstractStore) -> None:
     if not isinstance(store, SqlAlchemyStore):
         raise HTTPException(
             status_code=500,
@@ -193,11 +303,11 @@ def _extract_endpoint_name_from_model(body: dict[str, Any]) -> str:
     return endpoint_name
 
 
-@gateway_router.post("/{endpoint_name}/mlflow/invocations")
+@gateway_router.post("/{endpoint_name}/mlflow/invocations", response_model=None)
 @translate_http_exception
 async def invocations(endpoint_name: str, request: Request):
     """
-    Create a unified invocations endpoint handler that supports both chat and embeddings.
+    Unified invocations endpoint handler that supports both chat and embeddings.
 
     The handler automatically detects the request type based on the payload structure:
     - If payload has "messages" field -> chat endpoint
@@ -247,7 +357,7 @@ async def invocations(endpoint_name: str, request: Request):
         )
 
 
-@gateway_router.post("/mlflow/v1/chat/completions")
+@gateway_router.post("/mlflow/v1/chat/completions", response_model=None)
 @translate_http_exception
 async def chat_completions(request: Request):
     """
@@ -291,7 +401,7 @@ async def chat_completions(request: Request):
         return await provider.chat(payload)
 
 
-@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT])
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)
 @translate_http_exception
 async def openai_passthrough_chat(request: Request):
     """
@@ -331,7 +441,7 @@ async def openai_passthrough_chat(request: Request):
     return response
 
 
-@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_EMBEDDINGS])
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_EMBEDDINGS], response_model=None)
 @translate_http_exception
 async def openai_passthrough_embeddings(request: Request):
     """
@@ -365,7 +475,7 @@ async def openai_passthrough_embeddings(request: Request):
     return await provider.passthrough(PassthroughAction.OPENAI_EMBEDDINGS, body, headers)
 
 
-@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES])
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES], response_model=None)
 @translate_http_exception
 async def openai_passthrough_responses(request: Request):
     """
@@ -405,7 +515,7 @@ async def openai_passthrough_responses(request: Request):
     return response
 
 
-@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES])
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES], response_model=None)
 @translate_http_exception
 async def anthropic_passthrough_messages(request: Request):
     """
@@ -445,7 +555,9 @@ async def anthropic_passthrough_messages(request: Request):
     return response
 
 
-@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_GENERATE_CONTENT])
+@gateway_router.post(
+    PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_GENERATE_CONTENT], response_model=None
+)
 @translate_http_exception
 async def gemini_passthrough_generate_content(endpoint_name: str, request: Request):
     """
@@ -479,7 +591,9 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     return await provider.passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, body, headers)
 
 
-@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT])
+@gateway_router.post(
+    PASSTHROUGH_ROUTES[PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT], response_model=None
+)
 @translate_http_exception
 async def gemini_passthrough_stream_generate_content(endpoint_name: str, request: Request):
     """

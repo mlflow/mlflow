@@ -1,6 +1,6 @@
 import type { Interpolation, Theme } from '@emotion/react';
 import { isNil } from 'lodash';
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import { Empty, Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
@@ -9,8 +9,9 @@ import { ModelTraceExplorerAttributesTab } from './ModelTraceExplorerAttributesT
 import { ModelTraceExplorerChatTab } from './ModelTraceExplorerChatTab';
 import { ModelTraceExplorerContentTab } from './ModelTraceExplorerContentTab';
 import { ModelTraceExplorerEventsTab } from './ModelTraceExplorerEventsTab';
+import { SimplifiedAssessmentView } from './SimplifiedAssessmentView';
 import type { ModelTraceExplorerTab, ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
-import { getSpanExceptionCount } from '../ModelTraceExplorer.utils';
+import { getSpanExceptionCount, getTraceLevelAssessments } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerBadge } from '../ModelTraceExplorerBadge';
 import ModelTraceExplorerResizablePane from '../ModelTraceExplorerResizablePane';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
@@ -21,7 +22,6 @@ import { ASSESSMENT_PANE_MIN_WIDTH } from '../assessments-pane/AssessmentsPane.u
 export const CONTENT_PANE_MIN_WIDTH = 250;
 // used by the parent component to set min-width on the resizable box
 export const RIGHT_PANE_MIN_WIDTH = CONTENT_PANE_MIN_WIDTH + ASSESSMENT_PANE_MIN_WIDTH;
-const DEFAULT_SPLIT_RATIO = 0.7;
 
 function ModelTraceExplorerRightPaneTabsImpl({
   activeSpan,
@@ -29,17 +29,40 @@ function ModelTraceExplorerRightPaneTabsImpl({
   activeMatch,
   activeTab,
   setActiveTab,
+  onPaneResize,
 }: {
   activeSpan: ModelTraceSpanNode | undefined;
   searchFilter: string;
   activeMatch: SearchMatch | null;
   activeTab: ModelTraceExplorerTab;
   setActiveTab: (tab: ModelTraceExplorerTab) => void;
+  onPaneResize?: (width: number) => void;
 }) {
   const { theme } = useDesignSystemTheme();
+  const {
+    assessmentsPaneExpanded,
+    assessmentsPaneEnabled,
+    isInComparisonView,
+    updatePaneSizeRatios,
+    getPaneSizeRatios,
+    readOnly: displayReadOnlyAssessments,
+  } = useModelTraceExplorerViewState();
   const [paneWidth, setPaneWidth] = useState(500);
   const contentStyle: Interpolation<Theme> = { flex: 1, marginTop: -theme.spacing.md, overflowY: 'auto' };
-  const { assessmentsPaneExpanded, assessmentsPaneEnabled, isInComparisonView } = useModelTraceExplorerViewState();
+
+  // Get only the trace-level assessments (exclude session-level assessments)
+  const displayedAssessments = useMemo(
+    () => getTraceLevelAssessments(activeSpan?.assessments),
+    [activeSpan?.assessments],
+  );
+
+  const onSizeRatioChange = useCallback(
+    (ratio: number) => {
+      updatePaneSizeRatios({ detailsSidebar: ratio });
+    },
+    [updatePaneSizeRatios],
+  );
+
   if (isNil(activeSpan)) {
     return <Empty description="Please select a span to view more information" />;
   }
@@ -62,15 +85,19 @@ function ModelTraceExplorerRightPaneTabsImpl({
       value={activeTab}
       onValueChange={(tab: string) => setActiveTab(tab as ModelTraceExplorerTab)}
     >
-      <div
-        css={{
-          position: 'absolute',
-          right: assessmentsPaneExpanded ? theme.spacing.xs : theme.spacing.md,
-          top: theme.spacing.xs,
-        }}
-      >
-        <AssessmentPaneToggle />
-      </div>
+      {!displayReadOnlyAssessments && (
+        <div
+          css={{
+            position: 'absolute',
+            right: assessmentsPaneExpanded ? theme.spacing.xs : theme.spacing.md,
+            top: theme.spacing.xs,
+            zIndex: 1,
+            backgroundColor: theme.colors.backgroundPrimary,
+          }}
+        >
+          <AssessmentPaneToggle />
+        </div>
+      )}
       <Tabs.List
         css={{
           padding: 0,
@@ -78,6 +105,9 @@ function ModelTraceExplorerRightPaneTabsImpl({
           paddingRight: theme.spacing.sm,
           boxSizing: 'border-box',
           width: '100%',
+        }}
+        dangerouslyAppendEmotionCSS={{
+          '&>div': { flex: 1 },
         }}
       >
         {activeSpan.chatMessages && (
@@ -99,6 +129,14 @@ function ModelTraceExplorerRightPaneTabsImpl({
         <Tabs.Trigger value="events">
           Events {hasException && <ModelTraceExplorerBadge count={exceptionCount} />}
         </Tabs.Trigger>
+        {displayReadOnlyAssessments && (
+          <Tabs.Trigger value="assessments">
+            <FormattedMessage
+              defaultMessage="Assessments"
+              description="Label for the read-only assessments tab of the model trace explorer."
+            />
+          </Tabs.Trigger>
+        )}
       </Tabs.List>
       {activeSpan.chatMessages && (
         <Tabs.Content css={contentStyle} value="chat">
@@ -118,11 +156,19 @@ function ModelTraceExplorerRightPaneTabsImpl({
       <Tabs.Content css={contentStyle} value="events">
         <ModelTraceExplorerEventsTab activeSpan={activeSpan} searchFilter={searchFilter} activeMatch={activeMatch} />
       </Tabs.Content>
+      {displayReadOnlyAssessments && (
+        <Tabs.Content css={contentStyle} value="assessments">
+          <SimplifiedAssessmentView
+            assessments={getTraceLevelAssessments(activeSpan.assessments)}
+            css={{ height: 'auto', borderLeft: 0 }}
+          />
+        </Tabs.Content>
+      )}
     </Tabs.Root>
   );
   const AssessmentsPaneComponent = (
     <AssessmentsPane
-      assessments={activeSpan.assessments}
+      assessments={displayedAssessments}
       traceId={activeSpan.traceId}
       activeSpanId={activeSpan.parentId ? String(activeSpan.key) : undefined}
     />
@@ -130,13 +176,14 @@ function ModelTraceExplorerRightPaneTabsImpl({
 
   return !isInComparisonView && assessmentsPaneEnabled && assessmentsPaneExpanded ? (
     <ModelTraceExplorerResizablePane
-      initialRatio={DEFAULT_SPLIT_RATIO}
+      initialRatio={getPaneSizeRatios().detailsSidebar}
       paneWidth={paneWidth}
       setPaneWidth={setPaneWidth}
       leftChild={tabContent}
       leftMinWidth={CONTENT_PANE_MIN_WIDTH}
       rightChild={AssessmentsPaneComponent}
-      rightMinWidth={ASSESSMENT_PANE_MIN_WIDTH}
+      rightMinWidth={ASSESSMENT_PANE_MIN_WIDTH + 2 * theme.spacing.sm}
+      onRatioChange={onSizeRatioChange}
     />
   ) : (
     tabContent

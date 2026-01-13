@@ -37,6 +37,8 @@ from mlflow.entities import (
     Expectation,
     Experiment,
     ExperimentTag,
+    FallbackConfig,
+    FallbackStrategy,
     Feedback,
     GatewayEndpoint,
     GatewayEndpointBinding,
@@ -48,6 +50,7 @@ from mlflow.entities import (
     InputTag,
     Metric,
     Param,
+    RoutingStrategy,
     Run,
     RunData,
     RunInfo,
@@ -66,6 +69,7 @@ from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.store.db.base_sql_model import Base
 from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
@@ -1984,6 +1988,71 @@ class SqlScorerVersion(Base):
         )
 
 
+class SqlOnlineScoringConfig(Base):
+    """
+    DB model for storing online scoring configuration. These are recorded in
+    ``online_scoring_configs`` table.
+    """
+
+    __tablename__ = "online_scoring_configs"
+
+    online_scoring_config_id = Column(String(36), nullable=False)
+    """
+    Online Scoring Config ID: `String` (limit 36 characters). *Primary Key* for
+    ``online_scoring_configs`` table.
+    """
+    scorer_id = Column(
+        String(36), ForeignKey("scorers.scorer_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Scorer ID: `String` (limit 36 characters). *Foreign Key* into ``scorers`` table.
+    """
+    sample_rate = Column(sa.types.Float(precision=53), nullable=False)
+    """
+    Sample rate for online scoring: `Float` (double precision).
+    Value between 0 and 1 representing the fraction of traces to sample.
+    """
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    """
+    Experiment ID: `Integer`. *Foreign Key* into ``experiments`` table.
+    """
+    filter_string = Column(Text, nullable=True)
+    """
+    Filter string for online scoring: `Text`. Optional filter expression to select traces.
+    """
+
+    # Relationship to the parent scorer
+    scorer = relationship("SqlScorer", backref=backref("online_configs", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlScorer`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("online_scoring_config_id", name="online_scoring_config_pk"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlOnlineScoringConfig ({self.online_scoring_config_id}, {self.scorer_id}, "
+            f"{self.sample_rate}, {self.experiment_id}, {self.filter_string})>"
+        )
+
+    def to_mlflow_entity(self) -> OnlineScoringConfig:
+        """
+        Convert this SqlOnlineScoringConfig to an OnlineScoringConfig entity.
+
+        Returns:
+            OnlineScoringConfig: The entity representation of this online config.
+        """
+        return OnlineScoringConfig(
+            online_scoring_config_id=self.online_scoring_config_id,
+            scorer_id=self.scorer_id,
+            sample_rate=self.sample_rate,
+            experiment_id=str(self.experiment_id),
+            filter_string=self.filter_string,
+        )
+
+
 class SqlJob(Base):
     """
     DB model for Job entities. These are recorded in the ``jobs`` table.
@@ -2215,6 +2284,15 @@ class SqlGatewayEndpoint(Base):
     """
     Last update timestamp: `BigInteger`.
     """
+    routing_strategy = Column(String(64), nullable=True)
+    """
+    Routing strategy: `String` (limit 64 characters). E.g., "FALLBACK".
+    """
+    fallback_config_json = Column(Text, nullable=True)
+    """
+    Fallback configuration as JSON: `Text`. Stores FallbackConfig proto as JSON.
+    Example: {"strategy": "SEQUENTIAL", "max_attempts": 3, "model_definition_ids": ["d-1", "d-2"]}
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("endpoint_id", name="endpoints_pk"),
@@ -2225,15 +2303,34 @@ class SqlGatewayEndpoint(Base):
         return f"<SqlGatewayEndpoint ({self.endpoint_id}, {self.name})>"
 
     def to_mlflow_entity(self):
+        fallback_config = None
+        model_mappings = [m.to_mlflow_entity() for m in self.model_mappings]
+        if self.fallback_config_json:
+            try:
+                fallback_config_dict = json.loads(self.fallback_config_json)
+
+                fallback_config = FallbackConfig(
+                    strategy=FallbackStrategy(fallback_config_dict.get("strategy"))
+                    if fallback_config_dict.get("strategy")
+                    else None,
+                    max_attempts=fallback_config_dict.get("max_attempts"),
+                )
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        routing_strategy = RoutingStrategy(self.routing_strategy) if self.routing_strategy else None
+
         return GatewayEndpoint(
             endpoint_id=self.endpoint_id,
             name=self.name,
-            model_mappings=[mapping.to_mlflow_entity() for mapping in self.model_mappings],
+            model_mappings=model_mappings,
             tags=[tag.to_mlflow_entity() for tag in self.tags],
             created_at=self.created_at,
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
+            routing_strategy=routing_strategy,
+            fallback_config=fallback_config,
         )
 
 
@@ -2355,6 +2452,16 @@ class SqlGatewayEndpointModelMapping(Base):
     Routing weight: `Float`. Used for traffic distribution when endpoint has multiple models.
     Default is 1.0.
     """
+    linkage_type = Column(String(64), default="PRIMARY", nullable=False)
+    """
+    Linkage type: `String` (limit 64 characters). Specifies whether this is a PRIMARY or
+    FALLBACK linkage. Default is PRIMARY.
+    """
+    fallback_order = Column(Integer, nullable=True)
+    """
+    Fallback order: `Integer`. Specifies the order for fallback attempts.
+    NULL for PRIMARY linkages. Lower values are tried first.
+    """
     created_by = Column(String(255), nullable=True)
     """
     Creator user ID: `String` (limit 255 characters).
@@ -2380,9 +2487,10 @@ class SqlGatewayEndpointModelMapping(Base):
         Index("index_endpoint_model_mappings_endpoint_id", "endpoint_id"),
         Index("index_endpoint_model_mappings_model_definition_id", "model_definition_id"),
         Index(
-            "unique_endpoint_model_mapping",
+            "unique_endpoint_model_linkage_mapping",
             "endpoint_id",
             "model_definition_id",
+            "linkage_type",
             unique=True,
         ),
     )
@@ -2394,6 +2502,8 @@ class SqlGatewayEndpointModelMapping(Base):
         )
 
     def to_mlflow_entity(self):
+        from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
+
         model_def = None
         if self.model_definition:
             model_def = self.model_definition.to_mlflow_entity()
@@ -2403,6 +2513,8 @@ class SqlGatewayEndpointModelMapping(Base):
             model_definition_id=self.model_definition_id,
             model_definition=model_def,
             weight=self.weight,
+            linkage_type=GatewayModelLinkageType(self.linkage_type),
+            fallback_order=self.fallback_order,
             created_at=self.created_at,
             created_by=self.created_by,
         )

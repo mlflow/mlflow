@@ -1,4 +1,10 @@
 import {
+  DialogCombobox,
+  DialogComboboxContent,
+  DialogComboboxOptionList,
+  DialogComboboxOptionListSearch,
+  DialogComboboxOptionListSelectItem,
+  DialogComboboxTrigger,
   FormUI,
   InfoSmallIcon,
   Popover,
@@ -6,18 +12,22 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useFormContext } from 'react-hook-form';
+import { useCallback } from 'react';
+import { useFormContext, Controller } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { useProviderModelData } from '../hooks/useProviderModelData';
 
 export const ModelConfigForm = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const {
     control,
+    watch,
+    setValue,
     formState: { errors },
   } = useFormContext();
 
-  const getFieldName = (name: string) => `modelConfig.${name}`;
+  const getFieldName = useCallback((name: string) => `modelConfig.${name}`, []);
 
   /**
    * Gets validation error for a model config field.
@@ -26,6 +36,16 @@ export const ModelConfigForm = () => {
   const getError = (name: string) => {
     return (errors?.['modelConfig'] as any)?.[name];
   };
+
+  const selectedProvider = watch(getFieldName('provider'));
+  const handleProviderChange = useCallback(() => {
+    setValue(getFieldName('modelName'), '');
+  }, [setValue, getFieldName]);
+
+  const { providers, providersLoading, models, modelsLoading } = useProviderModelData(
+    selectedProvider,
+    handleProviderChange,
+  );
 
   return (
     <div
@@ -61,15 +81,56 @@ export const ModelConfigForm = () => {
           <FormUI.Label htmlFor="mlflow.prompts.model_config.provider">
             <FormattedMessage defaultMessage="Provider" description="Label for model provider input" />
           </FormUI.Label>
-          <RHFControlledComponents.Input
-            control={control}
-            id="mlflow.prompts.model_config.provider"
-            componentId="mlflow.prompts.model_config.provider"
+          <Controller
             name={getFieldName('provider')}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'e.g., openai, anthropic, google',
-              description: 'Placeholder for provider input',
-            })}
+            control={control}
+            render={({ field, fieldState }) => (
+              <>
+                <DialogCombobox
+                  componentId="mlflow.prompts.model_config.provider"
+                  label={intl.formatMessage({
+                    defaultMessage: 'Provider',
+                    description: 'Label for model provider input',
+                  })}
+                  modal={false}
+                  value={field.value ? [field.value] : undefined}
+                >
+                  <DialogComboboxTrigger
+                    id="mlflow.prompts.model_config.provider"
+                    css={{ width: '100%' }}
+                    allowClear
+                    placeholder={intl.formatMessage({
+                      defaultMessage: 'e.g., openai, anthropic, gemini',
+                      description: 'Placeholder for provider input',
+                    })}
+                    withInlineLabel={false}
+                    onClear={() => {
+                      field.onChange('');
+                      setValue(getFieldName('modelName'), '');
+                    }}
+                  />
+                  <DialogComboboxContent loading={providersLoading} maxHeight={400} matchTriggerWidth>
+                    {!providersLoading && providers && (
+                      <DialogComboboxOptionList>
+                        <DialogComboboxOptionListSearch autoFocus>
+                          {providers.map((provider) => (
+                            <DialogComboboxOptionListSelectItem
+                              value={provider}
+                              key={provider}
+                              onChange={(value) => field.onChange(value)}
+                              checked={field.value === provider}
+                            >
+                              {provider}
+                            </DialogComboboxOptionListSelectItem>
+                          ))}
+                        </DialogComboboxOptionListSearch>
+                      </DialogComboboxOptionList>
+                    )}
+                  </DialogComboboxContent>
+                </DialogCombobox>
+                {fieldState.error && <FormUI.Message type="error" message={fieldState.error.message} />}
+              </>
+            )}
           />
         </div>
 
@@ -80,15 +141,54 @@ export const ModelConfigForm = () => {
               description="Label for model name input in model config form"
             />
           </FormUI.Label>
-          <RHFControlledComponents.Input
-            control={control}
-            id="mlflow.prompts.model_config.modelName"
-            componentId="mlflow.prompts.model_config.modelName"
+          <Controller
             name={getFieldName('modelName')}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'e.g., gpt-4, claude-3-opus',
-              description: 'Placeholder for model name input',
-            })}
+            control={control}
+            render={({ field, fieldState }) => (
+              <>
+                <DialogCombobox
+                  componentId="mlflow.prompts.model_config.modelName"
+                  label={intl.formatMessage({
+                    defaultMessage: 'Model Name',
+                    description: 'Label for model name input in model config form',
+                  })}
+                  modal={false}
+                  value={field.value ? [field.value] : undefined}
+                >
+                  <DialogComboboxTrigger
+                    id="mlflow.prompts.model_config.modelName"
+                    css={{ width: '100%' }}
+                    allowClear
+                    placeholder={intl.formatMessage({
+                      defaultMessage: 'e.g., gpt-5.2, claude-4.5-opus',
+                      description: 'Placeholder for model name input',
+                    })}
+                    withInlineLabel={false}
+                    disabled={!selectedProvider}
+                    onClear={() => field.onChange('')}
+                  />
+                  <DialogComboboxContent loading={modelsLoading} maxHeight={400} matchTriggerWidth>
+                    {!modelsLoading && models && (
+                      <DialogComboboxOptionList>
+                        <DialogComboboxOptionListSearch autoFocus>
+                          {models.map((model) => (
+                            <DialogComboboxOptionListSelectItem
+                              value={model.model}
+                              key={model.model}
+                              onChange={(value) => field.onChange(value)}
+                              checked={field.value === model.model}
+                            >
+                              {model.model}
+                            </DialogComboboxOptionListSelectItem>
+                          ))}
+                        </DialogComboboxOptionListSearch>
+                      </DialogComboboxOptionList>
+                    )}
+                  </DialogComboboxContent>
+                </DialogCombobox>
+                {fieldState.error && <FormUI.Message type="error" message={fieldState.error.message} />}
+              </>
+            )}
           />
         </div>
 

@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.8.1.dev0"
+version = "3.8.2.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -57,6 +57,7 @@ dependencies = [
   "requests<3,>=2.17.3",
   "scikit-learn<2",
   "scipy<2",
+  "skops<1",
   "sqlalchemy<3,>=1.4.0",
   "sqlparse<1,>=0.4.0",
   "typing-extensions<5,>=4.0.0",
@@ -170,9 +171,10 @@ dev = [
   { include-group = "test" },
   { include-group = "build" },
   "mlflow-test-plugin",
+  "skills",
 ]
 lint = [
-  "ruff==0.12.10",
+  "ruff==0.14.10",
   "black==23.7.0",
   "blacken-docs==1.18.0",
   "pre-commit==4.0.1",
@@ -182,6 +184,10 @@ lint = [
   "clint",
   "pyyaml>=6.0.2",
   "packaging>=25.0",
+  "aiohttp",
+  "tiktoken",
+  "claude-agent-sdk",
+  "pytest",
 ]
 test = [
   "pytest==8.4.0",
@@ -237,17 +243,20 @@ constraint-dependencies = [
   # pyspark 4.1.0 causes issues with documentation build
   "pyspark<4.1.0",
 ]
-exclude-dependencies = ["databricks-connect"]
+# Prevent third-party libraries from installing uv to avoid conflicts with uv installed
+# by the standalone installer
+exclude-dependencies = ["uv"]
 
 [tool.uv.pip]
 torch-backend = "cpu"
 
 [tool.uv.workspace]
-members = ["dev/clint", "tests/resources/mlflow-test-plugin"]
+members = ["dev/clint", "tests/resources/mlflow-test-plugin", ".claude/skills"]
 
 [tool.uv.sources]
 clint = { workspace = true }
 mlflow-test-plugin = { workspace = true }
+skills = { workspace = true }
 torch = { index = "pytorch-cpu" }
 torchvision = { index = "pytorch-cpu" }
 
@@ -259,7 +268,7 @@ explicit = true
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-required-version = "0.12.10"
+required-version = "0.14.10"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extend-exclude = [
@@ -316,6 +325,7 @@ select = [
   "PT012",   # pytest-raises-with-multiple-statements
   "PT013",   # pytest-incorrect-pytest-import
   "PT014",   # pytest-duplicate-parametrize-test-cases
+  "PT017",   # pytest-assert-in-except
   "PT018",   # pytest-composite-assertion
   "PT022",   # pytest-useless-yield-fixture
   "PT023",   # pytest-incorrect-mark-parentheses-style
@@ -516,11 +526,13 @@ filterwarnings = [
   "error::pydantic.PydanticDeprecatedSince20:tests",
   # Silence filesystem backend deprecation warnings (https://github.com/mlflow/mlflow/issues/18534)
   "ignore:The filesystem (tracking|model registry) backend.*will be deprecated:FutureWarning",
+  # Prevent deprecated generator.throw(type, value, tb) signature from being used (Python 3.12+)
+  "error:the \\(type, exc, tb\\) signature of throw\\(\\) is deprecated:DeprecationWarning",
 ]
 timeout = 1200
 
-# Currently, type checking is only enabled for `dev/clint`.
+# Currently, type checking is only enabled for `dev/clint` and `.claude/skills`.
 [tool.mypy]
 python_version = "3.10"
-disallow_untyped_defs = true
+strict = true
 exclude_gitignore = true

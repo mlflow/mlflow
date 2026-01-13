@@ -12,6 +12,8 @@ CREATE TABLE endpoints (
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_at BIGINT NOT NULL,
+	routing_strategy VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	fallback_config_json VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id)
 )
 
@@ -350,6 +352,8 @@ CREATE TABLE endpoint_model_mappings (
 	weight FLOAT NOT NULL,
 	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_at BIGINT NOT NULL,
+	linkage_type VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('PRIMARY') NOT NULL,
+	fallback_order INTEGER,
 	CONSTRAINT endpoint_model_mappings_pk PRIMARY KEY (mapping_id),
 	CONSTRAINT fk_endpoint_model_mappings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_endpoint_model_mappings_model_definition_id FOREIGN KEY(model_definition_id) REFERENCES model_definitions (model_definition_id)
@@ -427,6 +431,18 @@ CREATE TABLE model_version_tags (
 	version INTEGER NOT NULL,
 	CONSTRAINT model_version_tag_pk PRIMARY KEY (key, name, version),
 	CONSTRAINT "FK__model_version_ta__71D1E811" FOREIGN KEY(name, version) REFERENCES model_versions (name, version) ON UPDATE CASCADE
+)
+
+
+CREATE TABLE online_scoring_configs (
+	online_scoring_config_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	scorer_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	sample_rate FLOAT NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	filter_string VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT online_scoring_config_pk PRIMARY KEY (online_scoring_config_id),
+	CONSTRAINT fk_online_scoring_configs_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_online_scoring_configs_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
 )
 
 

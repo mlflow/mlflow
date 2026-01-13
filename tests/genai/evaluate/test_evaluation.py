@@ -18,6 +18,7 @@ from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.entities import EvaluationResult
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+from mlflow.genai.simulators import ConversationSimulator
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
@@ -1275,3 +1276,97 @@ def test_max_scorer_workers_env_var(monkeypatch):
     # set to 1 for sequential execution
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", "1")
     _validate_scorer_max_workers(expected_max_workers=1, num_scorers=3)
+
+
+# ===================== ConversationSimulator Integration Tests =====================
+
+
+def test_evaluate_with_conversation_simulator_requires_predict_fn():
+    simulator = ConversationSimulator(
+        test_cases=[{"goal": "Learn about MLflow"}],
+        max_turns=2,
+    )
+
+    with pytest.raises(MlflowException, match="predict_fn is required"):
+        mlflow.genai.evaluate(
+            data=simulator,
+            scorers=[has_trace],
+        )
+
+
+def test_evaluate_with_conversation_simulator_empty_simulation_error():
+    def failing_predict_fn(input: list[dict[str, Any]], **kwargs):
+        raise Exception("Simulated failure")
+
+    simulator = ConversationSimulator(
+        test_cases=[{"goal": "Learn about MLflow"}],
+        max_turns=2,
+    )
+
+    with mock.patch(
+        "mlflow.genai.simulators.simulator._invoke_model_without_tracing"
+    ) as mock_invoke:
+        # Simulate a failure that produces no traces
+        mock_invoke.side_effect = Exception("LLM call failed")
+
+        with pytest.raises(MlflowException, match="Simulation produced no traces"):
+            mlflow.genai.evaluate(
+                data=simulator,
+                predict_fn=failing_predict_fn,
+                scorers=[has_trace],
+            )
+
+
+def test_session_level_evaluation_with_predict_fn_without_simulator():
+    class SessionScorer(mlflow.genai.Scorer):
+        def __init__(self):
+            super().__init__(name="session_scorer")
+
+        @property
+        def is_session_level_scorer(self):
+            return True
+
+        def __call__(self, session=None, **kwargs):
+            return len(session or [])
+
+    data = [
+        {"inputs": {"question": "What is MLflow?"}, "outputs": "MLflow is a tool"},
+    ]
+
+    with pytest.raises(
+        MlflowException,
+        match=(
+            r"Session-level scorers require traces with session IDs.*"
+            r"session_scorer.*"
+            r"Either pass a ConversationSimulator to `data` with `predict_fn`"
+        ),
+    ):
+        mlflow.genai.evaluate(
+            data=data,
+            predict_fn=TestModel().predict,
+            scorers=[SessionScorer()],
+        )
+
+
+def test_evaluate_with_conversation_simulator_calls_simulate():
+    simulator = ConversationSimulator(
+        test_cases=[{"goal": "Learn MLflow"}],
+        max_turns=2,
+    )
+
+    def mock_predict_fn(input: list[dict[str, Any]], **kwargs):
+        return {"output": "Mock response"}
+
+    with mock.patch.object(simulator, "_simulate") as mock_simulate:
+        # Return empty list to trigger the "no traces" error
+        mock_simulate.return_value = []
+
+        with pytest.raises(MlflowException, match="Simulation produced no traces"):
+            mlflow.genai.evaluate(
+                data=simulator,
+                predict_fn=mock_predict_fn,
+                scorers=[has_trace],
+            )
+
+        # Verify _simulate was called with predict_fn
+        mock_simulate.assert_called_once_with(mock_predict_fn)

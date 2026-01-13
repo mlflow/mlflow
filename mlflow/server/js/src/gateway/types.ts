@@ -2,10 +2,19 @@ export interface Provider {
   name: string;
 }
 
-export interface Model {
+export interface ProviderModel {
   model: string;
   provider: string;
   supports_function_calling: boolean;
+  supports_vision?: boolean;
+  supports_reasoning?: boolean;
+  supports_prompt_caching?: boolean;
+  supports_response_schema?: boolean;
+  max_input_tokens?: number;
+  max_output_tokens?: number;
+  input_cost_per_token?: number;
+  output_cost_per_token?: number;
+  deprecation_date?: string;
 }
 
 export interface SecretField {
@@ -40,7 +49,7 @@ export interface ProvidersResponse {
 }
 
 export interface ModelsResponse {
-  models: Model[];
+  models: ProviderModel[];
 }
 
 export interface SecretInfo {
@@ -106,8 +115,17 @@ export interface EndpointModelMapping {
   model_definition_id: string;
   model_definition?: ModelDefinition;
   weight: number;
+  linkage_type?: string;
+  fallback_order?: number;
   created_at: number;
   created_by?: string;
+}
+
+export interface GatewayEndpointModelConfig {
+  model_definition_id: string;
+  linkage_type: string;
+  weight?: number;
+  fallback_order?: number;
 }
 
 export interface Endpoint {
@@ -118,12 +136,22 @@ export interface Endpoint {
   last_updated_at: number;
   created_by?: string;
   last_updated_by?: string;
+  routing_strategy?: string;
+  fallback_config?: {
+    strategy: string;
+    max_attempts: number;
+  };
 }
 
 export interface CreateEndpointRequest {
   name?: string;
-  model_definition_ids: string[];
+  model_configs: GatewayEndpointModelConfig[];
   created_by?: string;
+  routing_strategy?: string;
+  fallback_config?: {
+    strategy: string;
+    max_attempts: number;
+  };
 }
 
 export interface CreateEndpointResponse {
@@ -138,6 +166,12 @@ export interface UpdateEndpointRequest {
   endpoint_id: string;
   name?: string;
   updated_by?: string;
+  routing_strategy?: string;
+  fallback_config?: {
+    strategy: string;
+    max_attempts: number;
+  };
+  model_configs?: GatewayEndpointModelConfig[];
 }
 
 export interface UpdateEndpointResponse {
@@ -185,8 +219,7 @@ export interface UpdateModelDefinitionResponse {
 // Attach/Detach Model to Endpoint
 export interface AttachModelToEndpointRequest {
   endpoint_id: string;
-  model_definition_id: string;
-  weight?: number;
+  model_config: GatewayEndpointModelConfig;
   created_by?: string;
 }
 

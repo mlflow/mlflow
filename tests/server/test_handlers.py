@@ -24,6 +24,7 @@ from mlflow.entities.trace_metrics import (
     MetricViewType,
 )
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -1629,6 +1630,53 @@ def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_s
     assert response_data == {}
 
 
+def test_get_online_scoring_configs_batch(mock_tracking_store):
+    mock_configs = [
+        OnlineScoringConfig(
+            online_scoring_config_id="cfg-1",
+            scorer_id="scorer-1",
+            sample_rate=0.5,
+            filter_string="status = 'OK'",
+            experiment_id="exp1",
+        ),
+        OnlineScoringConfig(
+            online_scoring_config_id="cfg-2",
+            scorer_id="scorer-2",
+            sample_rate=0.8,
+            experiment_id="exp1",
+        ),
+    ]
+    mock_tracking_store.get_online_scoring_configs.return_value = mock_configs
+
+    with app.test_client() as c:
+        resp = c.get(
+            "/ajax-api/3.0/mlflow/scorers/online-configs",
+            query_string=[("scorer_ids", "scorer-1"), ("scorer_ids", "scorer-2")],
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "configs" in data
+        assert isinstance(data["configs"], list)
+        assert len(data["configs"]) == 2
+        configs_by_id = {c["scorer_id"]: c for c in data["configs"]}
+        assert configs_by_id["scorer-1"]["sample_rate"] == 0.5
+        assert configs_by_id["scorer-1"]["filter_string"] == "status = 'OK'"
+        assert configs_by_id["scorer-2"]["sample_rate"] == 0.8
+        assert configs_by_id["scorer-2"].get("filter_string") is None
+
+    mock_tracking_store.get_online_scoring_configs.assert_called_once_with(["scorer-1", "scorer-2"])
+
+
+def test_get_online_scoring_configs_missing_param(mock_tracking_store):
+    with app.test_client() as c:
+        resp = c.get(
+            "/ajax-api/3.0/mlflow/scorers/online-configs",
+        )
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert "scorer_ids" in data["message"]
+
+
 def test_calculate_trace_filter_correlation(mock_get_request_message, mock_tracking_store):
     experiment_ids = ["123", "456"]
     filter_string1 = "span.type = 'LLM'"
@@ -2530,7 +2578,7 @@ def test_get_provider_config_with_multiple_auth_modes():
         data = response.get_json()
 
         assert "auth_modes" in data
-        assert data["default_mode"] == "access_keys"
+        assert data["default_mode"] == "api_key"
         assert len(data["auth_modes"]) >= 2
 
         access_keys_mode = next(m for m in data["auth_modes"] if m["mode"] == "access_keys")
@@ -2703,22 +2751,57 @@ def test_invoke_scorer_missing_trace_ids():
         )
         assert response.status_code == 400
         data = response.get_json()
-        assert "trace_ids" in data["message"]
+        assert "Please select at least one trace to evaluate" in data["message"]
 
 
-def test_invoke_scorer_not_implemented():
-    with app.test_client() as c:
-        response = c.post(
-            "/ajax-api/3.0/mlflow/scorer/invoke",
-            json={
-                "experiment_id": "123",
-                "serialized_scorer": "test",
-                "trace_ids": ["trace1", "trace2"],
+def test_invoke_scorer_submits_jobs(mock_tracking_store):
+    serialized_scorer = json.dumps(
+        {
+            "name": "test_judge",
+            "aggregations": [],
+            "description": None,
+            "is_session_level_scorer": False,
+            "mlflow_version": mlflow.__version__,
+            "serialization_version": 1,
+            "builtin_scorer_class": None,
+            "builtin_scorer_pydantic_data": None,
+            "call_source": None,
+            "call_signature": None,
+            "original_func_name": None,
+            "instructions_judge_pydantic_data": {
+                "instructions": "Test: {{ inputs }}",
+                "model": "openai:/gpt-4",
+                "feedback_value_type": {
+                    "enum": ["Yes", "No"],
+                    "title": "Result",
+                    "type": "string",
+                },
             },
-        )
-        assert response.status_code == 501
-        data = response.get_json()
-        assert "not yet implemented" in data["message"]
+        }
+    )
+
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        mock_job = mock.MagicMock()
+        mock_job.job_id = "test-job-123"
+        mock_submit.return_value = mock_job
+
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1", "trace2"],
+                },
+            )
+            assert response.status_code == 200
+            data = response.get_json()
+            assert "jobs" in data
+            assert len(data["jobs"]) == 1
+            assert data["jobs"][0]["job_id"] == "test-job-123"
+            assert data["jobs"][0]["trace_ids"] == ["trace1", "trace2"]
+
+        mock_submit.assert_called_once()
 
 
 def test_get_ui_telemetry_handler(

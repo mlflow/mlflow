@@ -202,7 +202,11 @@ export const PromptContentCompare = ({
           {shouldRenderMarkdown ? (
             <GenAIMarkdownRenderer>{comparedDisplay || 'Empty'}</GenAIMarkdownRenderer>
           ) : (
-            <Typography.Text css={{ whiteSpace: 'pre-wrap' }}>
+            <Typography.Text
+              css={{
+                whiteSpace: 'pre-wrap',
+              }}
+            >
               {diff.map((part, index) => (
                 <span
                   key={index}
@@ -210,8 +214,8 @@ export const PromptContentCompare = ({
                     backgroundColor: part.added
                       ? colors.addedBackground
                       : part.removed
-                      ? colors.removedBackground
-                      : undefined,
+                        ? colors.removedBackground
+                        : undefined,
                     textDecoration: part.removed ? 'line-through' : 'none',
                   }}
                 >
@@ -219,7 +223,7 @@ export const PromptContentCompare = ({
                 </span>
               ))}
             </Typography.Text>
-          )}
+         )}
         </div>
       </div>
     </div>

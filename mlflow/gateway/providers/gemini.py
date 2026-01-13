@@ -95,6 +95,10 @@ class GeminiAdapter(ProviderAdapter):
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
 
+        if "max_completion_tokens" in payload:
+            if "max_tokens" not in payload:
+                payload["max_tokens"] = payload.pop("max_completion_tokens")
+
         payload = rename_payload_keys(payload, GENERATION_CONFIG_KEY_MAPPING)
 
         contents = []
@@ -160,14 +164,13 @@ class GeminiAdapter(ProviderAdapter):
             gemini_payload["generationConfig"] = generation_config
 
         # Transform response_format for Gemini structured outputs
-        # Gemini uses responseSchema in generationConfig
         if response_format := payload.pop("response_format", None):
             if response_format.get("type") == "json_schema" and "json_schema" in response_format:
                 if "generationConfig" not in gemini_payload:
                     gemini_payload["generationConfig"] = {}
-                gemini_payload["generationConfig"]["responseSchema"] = response_format[
+                gemini_payload["generationConfig"]["responseJsonSchema"] = response_format[
                     "json_schema"
-                ]
+                ]["schema"]
                 gemini_payload["generationConfig"]["responseMimeType"] = "application/json"
 
         # convert tool definition to Gemini format
@@ -641,8 +644,11 @@ class GeminiProvider(BaseProvider):
         result_headers = self.headers.copy()
 
         if headers:
+            client_headers = headers.copy()
+            client_headers.pop("host", None)
+            client_headers.pop("content-length", None)
             # Don't override api key header
-            result_headers = headers | result_headers
+            result_headers = client_headers | result_headers
 
         return result_headers
 

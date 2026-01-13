@@ -1,6 +1,16 @@
 import { useMemo } from 'react';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
-import { Button, Header, PlusIcon, Spacer, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  ChainIcon,
+  CloudModelIcon,
+  Header,
+  PlusIcon,
+  Spacer,
+  Spinner,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Link, Outlet, useLocation } from '../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
@@ -8,9 +18,20 @@ import ErrorUtils from '../../common/utils/ErrorUtils';
 import { EndpointsList } from '../components/endpoints';
 import { GatewaySideNav, type GatewayTab } from '../components/side-nav';
 import { GatewaySetupGuide } from '../components/SecretsSetupGuide';
+import { DefaultPassphraseBanner } from '../components/DefaultPassphraseBanner';
 import { useSecretsConfigQuery } from '../hooks/useSecretsConfigQuery';
 import ApiKeysPage from './ApiKeysPage';
 import GatewayRoutes from '../routes';
+
+const GatewayPageTitle = () => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm }}>
+      <CloudModelIcon />
+      <FormattedMessage defaultMessage="AI Gateway" description="Header title for the AI Gateway configuration page" />
+    </span>
+  );
+};
 
 const GatewayPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -32,14 +53,7 @@ const GatewayPage = () => {
     return (
       <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <Spacer shrinks={false} />
-        <Header
-          title={
-            <FormattedMessage
-              defaultMessage="AI Gateway"
-              description="Header title for the AI Gateway configuration page"
-            />
-          }
-        />
+        <Header title={<GatewayPageTitle />} />
         <div
           css={{
             flex: 1,
@@ -57,19 +71,13 @@ const GatewayPage = () => {
   }
 
   const secretsAvailable = secretsConfig?.secrets_available ?? false;
+  const isUsingDefaultPassphrase = secretsConfig?.using_default_passphrase ?? false;
 
   if (!secretsAvailable) {
     return (
       <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <Spacer shrinks={false} />
-        <Header
-          title={
-            <FormattedMessage
-              defaultMessage="AI Gateway"
-              description="Header title for the AI Gateway configuration page"
-            />
-          }
-        />
+        <Header title={<GatewayPageTitle />} />
         <div
           css={{
             flex: 1,
@@ -85,15 +93,8 @@ const GatewayPage = () => {
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Spacer shrinks={false} />
-      <Header
-        title={
-          <FormattedMessage
-            defaultMessage="AI Gateway"
-            description="Header title for the AI Gateway configuration page"
-          />
-        }
-      />
-      <Spacer shrinks={false} />
+      <Header title={<GatewayPageTitle />} />
+      {isUsingDefaultPassphrase && <DefaultPassphraseBanner />}
       <div css={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <GatewaySideNav activeTab={activeTab} />
         <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -112,7 +113,11 @@ const GatewayPage = () => {
                       borderBottom: `1px solid ${theme.colors.borderDecorative}`,
                     }}
                   >
-                    <Typography.Title level={3} css={{ margin: 0 }}>
+                    <Typography.Title
+                      level={3}
+                      css={{ margin: 0, display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}
+                    >
+                      <ChainIcon />
                       <FormattedMessage defaultMessage="Endpoints" description="Endpoints page title" />
                     </Typography.Title>
                     <Link to={GatewayRoutes.createEndpointPageRoute}>
