@@ -3182,22 +3182,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 sessions=filtered_sessions,
             )
 
-            # Step 4: Find sessions with any trace > max timestamp (still ongoing)
-            # Example: Session B has trace at 500 > 400
-            sessions_with_recent_traces = self._build_sessions_with_recent_traces_subquery(
-                session=session,
-                experiment_id=experiment_id,
-                max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
-                sessions=filtered_sessions,
-            )
-
-            # Step 5: Get sessions where last trace in [min, max] AND NOT in ongoing sessions
-            # Example: Session A (last=300 in [200,400], not ongoing) → INCLUDED
-            #          Session B (ongoing) → EXCLUDED
+            # Step 4: Get completed sessions (last trace <= max timestamp)
+            # Example: Session A (last=300 <= 400) → INCLUDED
+            #          Session B (last=500 > 400) → EXCLUDED
             query = self._build_completed_sessions_query(
                 session=session,
                 sessions_with_stats=sessions_with_stats,
-                sessions_with_recent_traces=sessions_with_recent_traces,
                 max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
                 max_results=max_results,
             )
@@ -3350,49 +3340,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             .subquery()
         )
 
-    def _build_sessions_with_recent_traces_subquery(
-        self,
-        session: Session,
-        experiment_id: str,
-        max_last_trace_timestamp_ms: int,
-        sessions: Subquery,
-    ) -> Subquery:
-        """
-        Build subquery for sessions with traces after the cutoff timestamp.
-
-        These sessions are NOT completed yet. Only checks sessions in the provided
-        sessions subquery to avoid full table scan.
-        """
-        recent_session_metadata = aliased(SqlTraceMetadata)
-        return (
-            session.query(recent_session_metadata.value.label("session_id"))
-            .select_from(SqlTraceInfo)
-            .join(
-                recent_session_metadata,
-                (SqlTraceInfo.request_id == recent_session_metadata.request_id)
-                & (recent_session_metadata.key == TraceMetadataKey.TRACE_SESSION),
-            )
-            .join(sessions, recent_session_metadata.value == sessions.c.session_id)
-            .filter(
-                SqlTraceInfo.experiment_id == experiment_id,
-                SqlTraceInfo.timestamp_ms > max_last_trace_timestamp_ms,
-            )
-            .distinct()
-            .subquery()
-        )
-
     def _build_completed_sessions_query(
         self,
         session: Session,
         sessions_with_stats: Subquery,
-        sessions_with_recent_traces: Subquery,
         max_last_trace_timestamp_ms: int,
         max_results: int | None,
     ) -> Query:
         """
         Build main query for completed sessions.
 
-        Returns sessions in time window WITHOUT recent traces, ordered by
+        Returns sessions where last trace <= max timestamp, ordered by
         (last_trace_timestamp_ms ASC, session_id ASC) for deterministic pagination.
         """
         query = (
@@ -3401,12 +3359,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 sessions_with_stats.c.first_trace_timestamp_ms,
                 sessions_with_stats.c.last_trace_timestamp_ms,
             )
-            .outerjoin(
-                sessions_with_recent_traces,
-                sessions_with_stats.c.session_id == sessions_with_recent_traces.c.session_id,
-            )
             .filter(
-                sessions_with_recent_traces.c.session_id.is_(None),
                 sessions_with_stats.c.last_trace_timestamp_ms <= max_last_trace_timestamp_ms,
             )
             .order_by(
