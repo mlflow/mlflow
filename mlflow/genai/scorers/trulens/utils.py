@@ -1,5 +1,3 @@
-"""Utility functions for TruLens integration."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -60,8 +58,7 @@ def map_scorer_inputs_to_trulens_args(
 
     # If no context from expectations, try to extract from trace retrieval spans
     if not context_str and trace:
-        span_id_to_context = extract_retrieval_context_from_trace(trace)
-        if span_id_to_context:
+        if span_id_to_context := extract_retrieval_context_from_trace(trace):
             contexts = []
             for ctx_list in span_id_to_context.values():
                 for ctx in ctx_list:

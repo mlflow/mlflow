@@ -1,6 +1,6 @@
-"""Registry of TruLens feedback functions and their configurations."""
-
 from __future__ import annotations
+
+from typing import Any
 
 from mlflow.exceptions import MlflowException
 
@@ -51,7 +51,7 @@ def get_feedback_method_name(metric_name: str) -> str:
     return _METRIC_REGISTRY[metric_name]["method"]
 
 
-def get_metric_config(metric_name: str) -> dict:
+def get_metric_config(metric_name: str) -> dict[str, Any]:
     """
     Get the configuration for a given metric.
 

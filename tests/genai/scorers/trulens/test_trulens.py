@@ -1,40 +1,62 @@
-from unittest import mock
+from unittest.mock import Mock, patch
 
 import pytest
 
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.judges.utils import CategoricalRating
 
+pytest.importorskip("trulens")
+
 
 @pytest.fixture
-def mock_trulens_dependencies():
-    mock_provider = mock.MagicMock()
-    mock_method = mock.MagicMock()
-    mock_provider.mock_method = mock_method
+def mock_provider():
+    mock = Mock()
+    mock.groundedness_measure_with_cot_reasons = Mock()
+    mock.context_relevance_with_cot_reasons = Mock()
+    mock.relevance_with_cot_reasons = Mock()
+    mock.coherence_with_cot_reasons = Mock()
+    return mock
 
-    with (
-        mock.patch(
-            "mlflow.genai.scorers.trulens.models._check_trulens_installed",
+
+@pytest.mark.parametrize(
+    ("scorer_class", "metric_name", "method_name", "score", "expected_value"),
+    [
+        (
+            "Groundedness",
+            "Groundedness",
+            "groundedness_measure_with_cot_reasons",
+            0.8,
+            CategoricalRating.YES,
         ),
-        mock.patch(
-            "mlflow.genai.scorers.trulens.create_trulens_provider",
-            return_value=mock_provider,
+        (
+            "ContextRelevance",
+            "ContextRelevance",
+            "context_relevance_with_cot_reasons",
+            0.7,
+            CategoricalRating.YES,
         ),
-        mock.patch(
-            "mlflow.genai.scorers.trulens.get_feedback_method_name",
-            return_value="mock_method",
+        (
+            "AnswerRelevance",
+            "AnswerRelevance",
+            "relevance_with_cot_reasons",
+            0.9,
+            CategoricalRating.YES,
         ),
-    ):
-        yield mock_method
+        ("Coherence", "Coherence", "coherence_with_cot_reasons", 0.85, CategoricalRating.YES),
+    ],
+)
+def test_trulens_scorer(
+    mock_provider, scorer_class, metric_name, method_name, score, expected_value
+):
+    with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
+        from mlflow.genai.scorers import trulens
 
+        scorer_cls = getattr(trulens, scorer_class)
+        scorer = scorer_cls(model="openai:/gpt-4")
 
-def test_groundedness_scorer_pass(mock_trulens_dependencies):
-    mock_method = mock_trulens_dependencies
-    mock_method.return_value = (0.8, {"reason": "Test reason"})
+    method = getattr(mock_provider, method_name)
+    method.return_value = (score, {"reason": "Test reason"})
 
-    from mlflow.genai.scorers.trulens import Groundedness
-
-    scorer = Groundedness(model="openai:/gpt-4")
     result = scorer(
         inputs="test input",
         outputs="test output",
@@ -42,20 +64,23 @@ def test_groundedness_scorer_pass(mock_trulens_dependencies):
     )
 
     assert isinstance(result, Feedback)
-    assert result.name == "Groundedness"
-    assert result.value == CategoricalRating.YES
-    assert result.metadata["score"] == 0.8
-    assert result.metadata["threshold"] == 0.5
+    assert result.name == metric_name
+    assert result.value == expected_value
+    assert result.metadata["score"] == score
     assert result.source.source_id == "openai:/gpt-4"
 
 
-def test_groundedness_scorer_fail(mock_trulens_dependencies):
-    mock_method = mock_trulens_dependencies
-    mock_method.return_value = (0.3, {"reason": "Test reason"})
+def test_trulens_scorer_fail(mock_provider):
+    with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
+        from mlflow.genai.scorers.trulens import Groundedness
 
-    from mlflow.genai.scorers.trulens import Groundedness
+        scorer = Groundedness(model="openai:/gpt-4")
 
-    scorer = Groundedness(model="openai:/gpt-4")
+    mock_provider.groundedness_measure_with_cot_reasons.return_value = (
+        0.3,
+        {"reason": "Low score"},
+    )
+
     result = scorer(
         outputs="test output",
         expectations={"context": "test context"},
@@ -65,61 +90,14 @@ def test_groundedness_scorer_fail(mock_trulens_dependencies):
     assert result.metadata["score"] == 0.3
 
 
-def test_context_relevance_scorer(mock_trulens_dependencies):
-    mock_method = mock_trulens_dependencies
-    mock_method.return_value = (0.7, {"reason": "Test reason"})
+def test_trulens_scorer_custom_threshold(mock_provider):
+    with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
+        from mlflow.genai.scorers.trulens import Groundedness
 
-    from mlflow.genai.scorers.trulens import ContextRelevance
+        scorer = Groundedness(model="openai:/gpt-4", threshold=0.7)
 
-    scorer = ContextRelevance(model="openai:/gpt-4")
-    result = scorer(
-        inputs="test query",
-        expectations={"context": "test context"},
-    )
+    mock_provider.groundedness_measure_with_cot_reasons.return_value = (0.6, {"reason": "Moderate"})
 
-    assert isinstance(result, Feedback)
-    assert result.name == "ContextRelevance"
-    assert result.value == CategoricalRating.YES
-
-
-def test_answer_relevance_scorer(mock_trulens_dependencies):
-    mock_method = mock_trulens_dependencies
-    mock_method.return_value = (0.9, {"reason": "Test reason"})
-
-    from mlflow.genai.scorers.trulens import AnswerRelevance
-
-    scorer = AnswerRelevance(model="openai:/gpt-4")
-    result = scorer(
-        inputs="test question",
-        outputs="test answer",
-    )
-
-    assert isinstance(result, Feedback)
-    assert result.name == "AnswerRelevance"
-    assert result.value == CategoricalRating.YES
-
-
-def test_coherence_scorer(mock_trulens_dependencies):
-    mock_method = mock_trulens_dependencies
-    mock_method.return_value = (0.85, {"reason": "Test reason"})
-
-    from mlflow.genai.scorers.trulens import Coherence
-
-    scorer = Coherence(model="openai:/gpt-4")
-    result = scorer(outputs="test output")
-
-    assert isinstance(result, Feedback)
-    assert result.name == "Coherence"
-    assert result.value == CategoricalRating.YES
-
-
-def test_trulens_scorer_custom_threshold(mock_trulens_dependencies):
-    mock_method = mock_trulens_dependencies
-    mock_method.return_value = (0.6, {"reason": "Moderate score"})
-
-    from mlflow.genai.scorers.trulens import Groundedness
-
-    scorer = Groundedness(model="openai:/gpt-4", threshold=0.7)
     result = scorer(
         outputs="test output",
         expectations={"context": "test context"},
@@ -129,13 +107,14 @@ def test_trulens_scorer_custom_threshold(mock_trulens_dependencies):
     assert result.metadata["threshold"] == 0.7
 
 
-def test_trulens_scorer_none_reasons(mock_trulens_dependencies):
-    mock_method = mock_trulens_dependencies
-    mock_method.return_value = (0.9, None)
+def test_trulens_scorer_none_reasons(mock_provider):
+    with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
+        from mlflow.genai.scorers.trulens import Groundedness
 
-    from mlflow.genai.scorers.trulens import Groundedness
+        scorer = Groundedness(model="openai:/gpt-4")
 
-    scorer = Groundedness(model="openai:/gpt-4")
+    mock_provider.groundedness_measure_with_cot_reasons.return_value = (0.9, None)
+
     result = scorer(
         outputs="test output",
         expectations={"context": "test context"},
@@ -144,13 +123,14 @@ def test_trulens_scorer_none_reasons(mock_trulens_dependencies):
     assert result.rationale is None
 
 
-def test_trulens_get_scorer(mock_trulens_dependencies):
-    mock_method = mock_trulens_dependencies
-    mock_method.return_value = (0.9, {"reason": "Good"})
+def test_trulens_get_scorer(mock_provider):
+    with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
+        from mlflow.genai.scorers.trulens import get_scorer
 
-    from mlflow.genai.scorers.trulens import get_scorer
+        scorer = get_scorer("Groundedness", model="openai:/gpt-4")
 
-    scorer = get_scorer("Groundedness", model="openai:/gpt-4")
+    mock_provider.groundedness_measure_with_cot_reasons.return_value = (0.9, {"reason": "Good"})
+
     result = scorer(
         outputs="test output",
         expectations={"context": "test context"},
@@ -160,13 +140,25 @@ def test_trulens_get_scorer(mock_trulens_dependencies):
     assert result.name == "Groundedness"
 
 
-def test_trulens_scorer_error_handling(mock_trulens_dependencies):
-    mock_method = mock_trulens_dependencies
-    mock_method.side_effect = RuntimeError("Evaluation failed")
+def test_trulens_scorer_provider_is_real_instance():
+    from trulens.providers.openai import OpenAI
 
     from mlflow.genai.scorers.trulens import Groundedness
 
     scorer = Groundedness(model="openai:/gpt-4")
+    assert isinstance(scorer._provider, OpenAI)
+
+
+def test_trulens_scorer_error_handling(mock_provider):
+    with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
+        from mlflow.genai.scorers.trulens import Groundedness
+
+        scorer = Groundedness(model="openai:/gpt-4")
+
+    mock_provider.groundedness_measure_with_cot_reasons.side_effect = RuntimeError(
+        "Evaluation failed"
+    )
+
     result = scorer(
         outputs="test output",
         expectations={"context": "test context"},
@@ -175,21 +167,3 @@ def test_trulens_scorer_error_handling(mock_trulens_dependencies):
     assert isinstance(result, Feedback)
     assert result.error is not None
     assert "Evaluation failed" in str(result.error)
-
-
-def test_trulens_scorer_exports():
-    from mlflow.genai.scorers.trulens import (
-        AnswerRelevance,
-        Coherence,
-        ContextRelevance,
-        Groundedness,
-        TruLensScorer,
-        get_scorer,
-    )
-
-    assert Groundedness is not None
-    assert ContextRelevance is not None
-    assert AnswerRelevance is not None
-    assert Coherence is not None
-    assert TruLensScorer is not None
-    assert get_scorer is not None

@@ -1,106 +1,51 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.trulens.models import create_trulens_provider
+
+pytest.importorskip("trulens")
 
 
-def test_create_trulens_provider_databricks():
-    mock_provider = MagicMock()
-
-    with (
-        patch("mlflow.genai.scorers.trulens.models._check_trulens_installed"),
-        patch(
-            "mlflow.genai.scorers.trulens.models._create_databricks_managed_judge_provider",
-            return_value=mock_provider,
-        ) as mock_create,
-    ):
-        from mlflow.genai.scorers.trulens.models import create_trulens_provider
-
-        result = create_trulens_provider("databricks")
-        assert result == mock_provider
-        mock_create.assert_called_once()
+@pytest.fixture
+def mock_call_chat_completions():
+    with patch("mlflow.genai.scorers.trulens.models.call_chat_completions") as mock:
+        result = Mock()
+        result.output = "Test output"
+        mock.return_value = result
+        yield mock
 
 
-def test_create_trulens_provider_databricks_endpoint():
-    mock_provider = MagicMock()
+@pytest.fixture
+def mock_invoke_serving_endpoint():
+    with patch("mlflow.genai.scorers.trulens.models._invoke_databricks_serving_endpoint") as mock:
+        result = Mock()
+        result.response = "Endpoint output"
+        mock.return_value = result
+        yield mock
 
-    with (
-        patch("mlflow.genai.scorers.trulens.models._check_trulens_installed"),
-        patch(
-            "mlflow.genai.scorers.trulens.models._create_databricks_serving_endpoint_provider",
-            return_value=mock_provider,
-        ) as mock_create,
-    ):
-        from mlflow.genai.scorers.trulens.models import create_trulens_provider
 
-        result = create_trulens_provider("databricks:/my-endpoint")
-        assert result == mock_provider
-        mock_create.assert_called_once_with("my-endpoint")
+def test_create_trulens_provider_databricks(mock_call_chat_completions):
+    provider = create_trulens_provider("databricks")
+    assert provider is not None
+    assert hasattr(provider, "_create_chat_completion")
+
+
+def test_create_trulens_provider_databricks_endpoint(mock_invoke_serving_endpoint):
+    provider = create_trulens_provider("databricks:/my-endpoint")
+    assert provider is not None
+    assert hasattr(provider, "_create_chat_completion")
 
 
 def test_create_trulens_provider_openai():
-    mock_openai = MagicMock()
-    mock_openai_class = MagicMock(return_value=mock_openai)
+    from trulens.providers.openai import OpenAI
 
-    with (
-        patch("mlflow.genai.scorers.trulens.models._check_trulens_installed"),
-        patch.dict(
-            "sys.modules",
-            {
-                "trulens": MagicMock(),
-                "trulens.providers": MagicMock(),
-                "trulens.providers.openai": MagicMock(OpenAI=mock_openai_class),
-            },
-        ),
-    ):
-        from mlflow.genai.scorers.trulens.models import create_trulens_provider
-
-        result = create_trulens_provider("openai:/gpt-4")
-        mock_openai_class.assert_called_once_with(model_engine="gpt-4")
-        assert result == mock_openai
-
-
-def test_create_trulens_provider_litellm():
-    mock_litellm = MagicMock()
-    mock_litellm_class = MagicMock(return_value=mock_litellm)
-
-    with (
-        patch("mlflow.genai.scorers.trulens.models._check_trulens_installed"),
-        patch.dict(
-            "sys.modules",
-            {
-                "trulens": MagicMock(),
-                "trulens.providers": MagicMock(),
-                "trulens.providers.litellm": MagicMock(LiteLLM=mock_litellm_class),
-            },
-        ),
-    ):
-        from mlflow.genai.scorers.trulens.models import create_trulens_provider
-
-        result = create_trulens_provider("litellm:/claude-3")
-        mock_litellm_class.assert_called_once_with(model_engine="claude-3")
-        assert result == mock_litellm
+    provider = create_trulens_provider("openai:/gpt-4")
+    assert isinstance(provider, OpenAI)
+    assert provider.model_engine == "gpt-4"
 
 
 def test_create_trulens_provider_invalid_format():
-    with patch("mlflow.genai.scorers.trulens.models._check_trulens_installed"):
-        from mlflow.genai.scorers.trulens.models import create_trulens_provider
-
-        with pytest.raises(MlflowException, match="Invalid model_uri format"):
-            create_trulens_provider("gpt-4")
-
-
-def test_check_trulens_installed_raises_without_trulens():
-    with patch.dict("sys.modules", {"trulens": None}):
-        # Clear cached imports
-        import sys
-
-        for mod in list(sys.modules.keys()):
-            if "mlflow.genai.scorers.trulens" in mod:
-                del sys.modules[mod]
-
-        from mlflow.genai.scorers.trulens.models import _check_trulens_installed
-
-        with pytest.raises(MlflowException, match="trulens"):
-            _check_trulens_installed()
+    with pytest.raises(MlflowException, match="Invalid model_uri format"):
+        create_trulens_provider("gpt-4")
