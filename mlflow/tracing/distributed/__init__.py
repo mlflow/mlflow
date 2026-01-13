@@ -65,6 +65,8 @@ def set_tracing_context_from_http_request_headers(headers):
     from mlflow.tracing.utils import generate_mlflow_trace_id_from_otel_trace_id
 
     token = None
+    otel_trace_id = None
+    trace_manager = InMemoryTraceManager.get_instance()
     try:
         headers = dict(headers)
 
@@ -85,7 +87,6 @@ def set_tracing_context_from_http_request_headers(headers):
         ctx = TraceContextTextMapPropagator().extract(headers)
         token = context_api.attach(ctx)
 
-        trace_manager = InMemoryTraceManager.get_instance()
         try:
             mlflow_trace_info = TraceInfo.from_dict(
                 json.loads(headers[_MLFLOW_TRACE_INFO_HTTP_HEADER_KEY])
@@ -111,3 +112,5 @@ def set_tracing_context_from_http_request_headers(headers):
     finally:
         if token is not None:
             context_api.detach(token)
+        if otel_trace_id is not None:
+            trace_manager.pop_trace(otel_trace_id)

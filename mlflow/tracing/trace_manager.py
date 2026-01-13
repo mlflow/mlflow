@@ -185,6 +185,7 @@ class InMemoryTraceManager:
         with self._lock:
             mlflow_trace_id = self._otel_id_to_mlflow_trace_id.pop(otel_trace_id, None)
             internal_trace = self._traces.pop(mlflow_trace_id, None) if mlflow_trace_id else None
+            self._is_remote_trace.pop(otel_trace_id, None)
             if internal_trace is None:
                 return None
             return ManagerTrace(

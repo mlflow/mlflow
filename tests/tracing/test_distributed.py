@@ -188,8 +188,8 @@ def test_distributed_tracing_e2e_nested_call(tmp_path):
         from flask import Flask, request, jsonify
         import mlflow
         from mlflow.tracing.distributed import (
-            set_tracing_context_from_http_request_headers
-            get_tracing_context_headers_for_http_request
+            set_tracing_context_from_http_request_headers,
+            get_tracing_context_headers_for_http_request,
         )
 
         app = Flask(__name__)
