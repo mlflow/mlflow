@@ -89,6 +89,7 @@ const TracesV3LogsImpl = React.memo(
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
     const enableTraceInsights = shouldEnableTraceInsights();
+    const [isGroupedBySession, setIsGroupedBySession] = useState(false);
 
     // Row selection state - lifted to provide shared state via context
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -340,6 +341,7 @@ const TracesV3LogsImpl = React.memo(
                   tableSort={tableSort}
                   onTraceTagsEdit={showEditTagsModalForTrace}
                   displayLoadingOverlay={displayLoadingOverlay}
+                  isGroupedBySession={isGroupedBySession}
                 />
               </ContextProviders>
             )}
