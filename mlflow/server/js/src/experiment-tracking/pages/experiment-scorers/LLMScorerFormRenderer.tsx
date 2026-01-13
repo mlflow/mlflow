@@ -494,10 +494,7 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control }) 
         name="guidelines"
         control={control}
         rules={{
-          required: intl.formatMessage({
-            defaultMessage: 'Guidelines should not be empty',
-            description: 'Error message when guidelines are empty',
-          }),
+          required: true,
         }}
         render={({ field, fieldState }) => (
           <>
