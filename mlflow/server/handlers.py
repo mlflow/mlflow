@@ -4072,15 +4072,24 @@ def _upsert_online_scoring_config():
             "experiment_id": [_assert_required, _assert_string],
             "name": [_assert_required, _assert_string],
             "sample_rate": [_assert_required],
-            "filter_string": [_assert_string],
+            "filter_string": [],
         },
     )
+
+    filter_string = request_json.get("filter_string")
+    if filter_string is not None and not isinstance(filter_string, str):
+        raise MlflowException(
+            f"Invalid value {filter_string!r} for parameter 'filter_string' supplied: "
+            f"Value was of type '{type(filter_string).__name__}'. "
+            "Expected type 'str' or None.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     config = _get_tracking_store().upsert_online_scoring_config(
         experiment_id=request_json["experiment_id"],
         scorer_name=request_json["name"],
         sample_rate=float(request_json["sample_rate"]),
-        filter_string=request_json.get("filter_string"),
+        filter_string=filter_string,
     )
 
     response = Response(mimetype="application/json")
