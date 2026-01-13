@@ -175,10 +175,6 @@
     "defaultMessage": "Average",
     "description": "Experiment page > group by runs control > average aggregate function"
   },
-  "/MrKXB": {
-    "defaultMessage": "Output: {output}/1M tokens",
-    "description": "Output cost per million tokens"
-  },
   "/NF6sl": {
     "defaultMessage": "Use existing API key",
     "description": "Option to use existing API key"
@@ -841,6 +837,10 @@
   "55mClg": {
     "defaultMessage": "Tag filter",
     "description": "Button to open the tags filter popover in the experiments page"
+  },
+  "58/xE7": {
+    "defaultMessage": "Output /1M",
+    "description": "Table header for output cost"
   },
   "58xhem": {
     "defaultMessage": "Click to pin the run",
@@ -1773,10 +1773,6 @@
   "BfMFME": {
     "defaultMessage": "Attributes",
     "description": "Section header for the attributes in a 'group by' selector"
-  },
-  "BfiBYy": {
-    "defaultMessage": "Cost",
-    "description": "Table header for cost"
   },
   "BkDhmT": {
     "defaultMessage": "Chat",
@@ -2858,10 +2854,6 @@
     "defaultMessage": "Move to top",
     "description": "Experiment page > compare runs tab > chart header > move to top option"
   },
-  "Lc7UQP": {
-    "defaultMessage": "Input: {input}/1M tokens",
-    "description": "Input cost per million tokens"
-  },
   "Lh4Pv4": {
     "defaultMessage": "Models in this priority will be tested first, with traffic split load balancing",
     "description": "Traffic split description"
@@ -3512,10 +3504,6 @@
   "R7s1xC": {
     "defaultMessage": "Provider is required",
     "description": "Error message when provider is not selected"
-  },
-  "R8HLry": {
-    "defaultMessage": "Cost data unavailable",
-    "description": "Tooltip when cost data is not available"
   },
   "RCjxf0": {
     "defaultMessage": "Compare runs",
@@ -4510,6 +4498,10 @@
   "ZBRK9J": {
     "defaultMessage": "Export traces to datasets",
     "description": "Export traces to dataset modal title"
+  },
+  "ZBZBrn": {
+    "defaultMessage": "Input /1M",
+    "description": "Table header for input cost"
   },
   "ZGrkWk": {
     "defaultMessage": "Perform inference via model.transform()",
