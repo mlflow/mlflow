@@ -111,22 +111,21 @@ def test_event_name():
             {"records": [{"a": 1}, {"b": 2}]},
             {"record_count": 2, "input_type": "list[dict]", "dataset_type": "unknown"},
         ),
-        # Trace records (no 'goal' field in inputs)
+        # Trace records
         (
             {"records": [{"inputs": {"question": "What is MLflow?", "context": "docs"}}]},
             {"record_count": 1, "input_type": "list[dict]", "dataset_type": "trace"},
         ),
-        # Session records (has 'goal' field in inputs)
-        (
-            {"records": [{"inputs": {"persona": "user", "goal": "test", "context": "info"}}]},
-            {"record_count": 1, "input_type": "list[dict]", "dataset_type": "session"},
-        ),
-        # Multiple trace records
         (
             {"records": [{"inputs": {"q": "a"}}, {"inputs": {"q": "b"}}]},
             {"record_count": 2, "input_type": "list[dict]", "dataset_type": "trace"},
         ),
-        # Edge cases that return None
+        # Session records
+        (
+            {"records": [{"inputs": {"persona": "user", "goal": "test", "context": "info"}}]},
+            {"record_count": 1, "input_type": "list[dict]", "dataset_type": "session"},
+        ),
+        # Edge cases
         ({"records": []}, None),
         ({"records": None}, None),
         ({}, None),
