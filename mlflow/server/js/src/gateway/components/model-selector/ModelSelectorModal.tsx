@@ -354,7 +354,7 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider }: Mode
             <div
               css={{
                 display: 'grid',
-                gridTemplateColumns: '40px 1fr 110px 80px',
+                gridTemplateColumns: '40px 1fr 110px 100px',
                 gap: theme.spacing.sm,
                 padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
                 backgroundColor: theme.colors.backgroundSecondary,
@@ -371,8 +371,13 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider }: Mode
               <div css={{ textAlign: 'right' }}>
                 <FormattedMessage defaultMessage="Max Input Tokens" description="Table header for max input tokens" />
               </div>
-              <div css={{ textAlign: 'right' }}>
-                <FormattedMessage defaultMessage="Cost" description="Table header for cost" />
+              <div css={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                <span>
+                  <FormattedMessage defaultMessage="Input /1M" description="Table header for input cost" />
+                </span>
+                <span>
+                  <FormattedMessage defaultMessage="Output /1M" description="Table header for output cost" />
+                </span>
               </div>
             </div>
 

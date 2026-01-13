@@ -21,7 +21,7 @@ export const ModelRow = ({ model, isSelected, costTier, onSelect }: ModelRowProp
       onClick={() => onSelect(model.model)}
       css={{
         display: 'grid',
-        gridTemplateColumns: '40px 1fr 110px 80px',
+        gridTemplateColumns: '40px 1fr 110px 100px',
         gap: theme.spacing.sm,
         padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
         cursor: 'pointer',
