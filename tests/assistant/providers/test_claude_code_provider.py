@@ -82,17 +82,10 @@ async def test_astream_builds_correct_command(tmp_path):
     mock_process.wait = AsyncMock()
     mock_process.returncode = 0
 
-    test_project_path = str(tmp_path)
-
     with (
         patch(
             "mlflow.assistant.providers.claude_code.shutil.which",
             return_value="/usr/bin/claude",
-        ),
-        patch.object(
-            ClaudeCodeProvider,
-            "load_config",
-            return_value=MagicMock(project_path=test_project_path, model="default"),
         ),
         patch(
             "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
@@ -100,7 +93,7 @@ async def test_astream_builds_correct_command(tmp_path):
         ) as mock_exec,
     ):
         provider = ClaudeCodeProvider()
-        _ = [e async for e in provider.astream("test prompt")]
+        _ = [e async for e in provider.astream("test prompt", cwd=tmp_path)]
 
     call_args = mock_exec.call_args[0]
     assert "/usr/bin/claude" in call_args
@@ -111,9 +104,9 @@ async def test_astream_builds_correct_command(tmp_path):
     assert "--verbose" in call_args
     assert "--append-system-prompt" in call_args
 
-    # Verify project path is used as cwd
+    # Verify cwd is passed correctly
     call_kwargs = mock_exec.call_args[1]
-    assert call_kwargs["cwd"] == test_project_path
+    assert call_kwargs["cwd"] == tmp_path
 
 
 @pytest.mark.asyncio
