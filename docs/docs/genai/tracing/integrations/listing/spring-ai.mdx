@@ -1,0 +1,248 @@
+---
+sidebar_position: 7
+sidebar_label: Spring AI
+---
+
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from "@site/src/components/ImageBox";
+
+# Tracing Spring AI
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing capability for [Spring AI](https://spring.io/projects/spring-ai), the Spring framework for building AI applications. MLflow supports tracing for Spring AI through the [OpenTelemetry](/genai/tracing/opentelemetry) integration.
+
+## Step 1: Create a Spring AI Project
+
+Create a new Spring AI project using Spring Initializr or add Spring AI to an existing project:
+
+```bash
+spring init --dependencies=web --build=maven --java-version=17 spring-ai-demo
+cd spring-ai-demo
+```
+
+Add the OpenTelemetry dependencies to your `pom.xml`:
+
+```xml
+<properties>
+    <opentelemetry.version>1.45.0</opentelemetry.version>
+</properties>
+
+<dependencies>
+    <!-- Spring Boot Actuator (required for observability) -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <!-- Spring AI (Ollama example) -->
+    <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-ollama-spring-boot-starter</artifactId>
+    </dependency>
+    
+    <!-- Micrometer to OpenTelemetry Bridge -->
+    <dependency>
+        <groupId>io.micrometer</groupId>
+        <artifactId>micrometer-tracing-bridge-otel</artifactId>
+    </dependency>
+
+    <!-- OpenTelemetry OTLP Exporter -->
+    <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-exporter-otlp</artifactId>
+        <version>${opentelemetry.version}</version>
+    </dependency>
+</dependencies>
+```
+
+Add the following to `src/main/resources/application.properties`:
+
+```properties
+spring.application.name=spring-ai-demo
+
+# Ollama Configuration
+spring.ai.ollama.base-url=http://localhost:11434
+spring.ai.ollama.chat.options.model=llama3.2
+
+# Enable Spring AI Observations
+spring.ai.chat.observations.include-prompt=true
+spring.ai.chat.observations.include-completion=true
+
+# Tracing Configuration
+management.tracing.sampling.probability=1.0
+```
+
+## Step 2: Start the MLflow Tracking Server
+
+Start the MLflow Tracking Server with a SQL-based backend store:
+
+```bash
+mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000
+```
+
+This example uses SQLite as the backend store. To use other types of SQL databases such as PostgreSQL, MySQL, and MSSQL, change the store URI as described in the [backend store documentation](/self-hosting/architecture/backend-store). OpenTelemetry ingestion is not supported with file-based backend stores.
+
+## Step 3: Configure OpenTelemetry
+
+Create `src/main/java/com/mlflow/springai/config/MlflowTracingConfig.java`:
+
+```java
+package com.mlflow.springai.config;
+
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.sdk.resources.Resource;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
+import io.opentelemetry.semconv.ServiceAttributes;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+/**
+ * Simple OpenTelemetry configuration for MLflow tracing.
+ * 
+ * Configure via environment variables:
+ *   MLFLOW_TRACKING_URI=http://localhost:5000
+ *   MLFLOW_EXPERIMENT_ID=0
+ */
+@Configuration
+@Slf4j
+public class MlflowTracingConfig {
+
+    @Value("${MLFLOW_TRACKING_URI:http://localhost:5000}")
+    private String mlflowTrackingUri;
+
+    @Value("${MLFLOW_EXPERIMENT_ID:0}")
+    private String experimentId;
+
+    @Value("${spring.application.name:spring-ai-demo}")
+    private String serviceName;
+
+    @Bean
+    public OpenTelemetry openTelemetry() {
+        String endpoint = mlflowTrackingUri + "/v1/traces";
+        log.info("Configuring MLflow tracing: endpoint={}, experimentId={}", endpoint, experimentId);
+
+        OtlpHttpSpanExporter exporter = OtlpHttpSpanExporter.builder()
+                .setEndpoint(endpoint)
+                .addHeader("x-mlflow-experiment-id", experimentId)
+                .build();
+
+        SdkTracerProvider tracerProvider = SdkTracerProvider.builder()
+                .addSpanProcessor(SimpleSpanProcessor.create(exporter))
+                .setResource(Resource.create(Attributes.of(
+                        ServiceAttributes.SERVICE_NAME, serviceName)))
+                .build();
+
+        Runtime.getRuntime().addShutdownHook(new Thread(tracerProvider::close));
+
+        return OpenTelemetrySdk.builder()
+                .setTracerProvider(tracerProvider)
+                .build();
+    }
+}
+```
+
+## Step 4: Create the Chat Service
+
+Create `src/main/java/com/mlflow/springai/service/ChatService.java`:
+
+```java
+package com.mlflow.springai.service;
+
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+
+@Service
+public class ChatService {
+
+    private final ChatModel chatModel;
+
+    public ChatService(@Qualifier("ollamaChatModel") ChatModel chatModel) {
+        this.chatModel = chatModel;
+    }
+
+    public String chat(String userMessage) {
+        return ChatClient.create(chatModel)
+                .prompt()
+                .user(userMessage)
+                .call()
+                .content();
+    }
+}
+```
+
+## Step 5: Create a Chat Controller
+
+Create `src/main/java/com/mlflow/springai/controller/ChatController.java`:
+
+```java
+package com.mlflow.springai.controller;
+
+import com.mlflow.springai.service.ChatService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/chat")
+public class ChatController {
+
+    private final ChatService chatService;
+
+    public ChatController(ChatService chatService) {
+        this.chatService = chatService;
+    }
+
+    @PostMapping("/simple")
+    public ResponseEntity<Map<String, String>> simpleChat(@RequestBody Map<String, String> request) {
+        String prompt = request.get("prompt");
+        if (prompt == null || prompt.isBlank()) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "Prompt is required"));
+        }
+        
+        String response = chatService.chat(prompt);
+        return ResponseEntity.ok(Map.of(
+            "prompt", prompt,
+            "response", response
+        ));
+    }
+}
+```
+
+## Step 6: Run the Application
+
+Set environment variables and run your Spring Boot application:
+
+```bash
+export MLFLOW_TRACKING_URI=http://localhost:5000
+export MLFLOW_EXPERIMENT_ID=0
+
+mvn spring-boot:run
+```
+
+After making chat requests, open the MLflow UI at `http://localhost:5000` and navigate to the experiment to see the traces.
+
+## Alternative: Environment Variable Configuration
+
+You can also configure the OTLP exporter using standard OpenTelemetry environment variables:
+
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5000/v1/traces
+export OTEL_EXPORTER_OTLP_HEADERS=x-mlflow-experiment-id=0
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+```
+
+## Next Steps
+
+- [Evaluate the Agent](/genai/eval-monitor/running-evaluation/agents): Learn how to evaluate the agent's performance.
+- [Manage Prompts](/genai/prompt-registry): Learn how to manage prompts for the agent.
+- [Automatic Agent Optimization](/genai/prompt-registry/optimize-prompts): Learn how to automatically optimize the agent end-to-end with state-of-the-art optimization algorithms.
+
