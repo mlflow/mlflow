@@ -253,6 +253,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 onTraceTagsEdit={onTraceTagsEdit}
                 enableGrouping={shouldEnableTagGrouping()}
                 displayLoadingOverlay={displayLoadingOverlay}
+                isGroupedBySession={isGroupedBySession}
               />
             </AssessmentSchemaContextProvider>
           </div>
