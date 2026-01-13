@@ -87,6 +87,10 @@ const TracesV3LogsImpl = React.memo(
     const enableTraceInsights = shouldEnableTraceInsights();
     const [isGroupedBySession, setIsGroupedBySession] = useState(false);
 
+    const onToggleSessionGrouping = useCallback(() => {
+      setIsGroupedBySession(!isGroupedBySession);
+    }, [isGroupedBySession]);
+
     const traceSearchLocations = useMemo(
       () => {
         return [createTraceLocationForExperiment(experimentId)];
@@ -378,6 +382,8 @@ const TracesV3LogsImpl = React.memo(
             metadataError={metadataError}
             usesV4APIs={usesV4APIs}
             addons={toolbarAddons}
+            isGroupedBySession={isGroupedBySession}
+            onToggleSessionGrouping={onToggleSessionGrouping}
           />
           {renderMainContent()}
         </div>
