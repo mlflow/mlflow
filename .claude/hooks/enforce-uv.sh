@@ -8,6 +8,11 @@ set -euo pipefail
 # Read hook input from stdin
 input=$(cat)
 
+# Skip if jq is unavailable
+if ! command -v jq &>/dev/null; then
+  exit 0
+fi
+
 # Extract tool name and command
 tool_name=$(echo "$input" | jq -r '.tool_name // empty')
 command=$(echo "$input" | jq -r '.tool_input.command // empty')
@@ -22,13 +27,13 @@ if ! command -v uv &>/dev/null; then
   exit 0
 fi
 
-# Block direct python/python3 commands
-if echo "$command" | grep -qE '^(python3?|/usr/bin/python3?|/usr/local/bin/python3?)\s'; then
+# Block direct python/python3 commands, regardless of their full path
+if echo "$command" | grep -qE '^([^[:space:]]*/)?python3?[[:space:]]'; then
   echo '{
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "deny",
-    "permissionDecisionReason": "Use `uv run` instead"
+    "permissionDecisionReason": "Direct python/python3 execution detected. Use `uv run` instead."
   }
 }'
 fi
