@@ -806,7 +806,7 @@ def test_get_databricks_workspace_client_config_with_tracking_uri_provider():
 
         # Verify the WorkspaceClient was created with correct parameters
         mock_workspace_client.assert_called_once_with(
-            host="https://test.databricks.com", token="test_token"
+            host="https://test.databricks.com", token="test_token", scopes=None
         )
         assert result == mock_config
 
@@ -829,7 +829,7 @@ def test_get_databricks_workspace_client_config_with_profile():
         result = get_databricks_workspace_client_config("databricks://profile_name")
 
         # Verify the WorkspaceClient was created with profile
-        mock_workspace_client.assert_called_once_with(profile="profile_name")
+        mock_workspace_client.assert_called_once_with(profile="profile_name", scopes=None)
         assert result == mock_config
 
 
@@ -849,7 +849,7 @@ def test_get_databricks_workspace_client_config_env_profile(monkeypatch):
         result = get_databricks_workspace_client_config("databricks")
 
         # Verify the WorkspaceClient was created with environment profile
-        mock_workspace_client.assert_called_once_with(profile="env_profile")
+        mock_workspace_client.assert_called_once_with(profile="env_profile", scopes=None)
         assert result == mock_config
 
 

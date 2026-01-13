@@ -534,14 +534,6 @@ def _create_endpoint_predict_fn(endpoint_uri: str, endpoint: str) -> Callable[..
     #   to unnamed keyword arguments. This is necessary because we pass input samples as
     #   keyword arguments to the predict function.
     def predict_fn(**kwargs):
-        """
-        A wrapper function for invoking a Databricks model serving endpoint.
-
-        Args:
-            **kwargs: The input samples to be passed to the model serving endpoint.
-                For example, if the endpoint accepts a JSON object with a `messages` key,
-                the function also expects to get `messages` as an argument.
-        """
         start_time_ms = int(time.time_ns() / 1e6)
         # Inject `{"databricks_options": {"return_trace": True}}` to the input payload
         # to return the trace in the response.
@@ -595,5 +587,14 @@ def _create_endpoint_predict_fn(endpoint_uri: str, endpoint: str) -> Callable[..
             end_time_ns=end_time_ms * 1000000,
         )
         return result
+
+    predict_fn.__doc__ = f"""
+A wrapper function for invoking the model serving endpoint `{endpoint_uri}`.
+
+Args:
+    **kwargs: The input samples to be passed to the model serving endpoint.
+        For example, if the endpoint accepts a JSON object with a `messages` key,
+        the function also expects to get `messages` as an argument.
+    """
 
     return predict_fn
