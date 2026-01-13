@@ -183,7 +183,10 @@ class OnlineSessionScoringProcessor:
                     task = tasks.setdefault(
                         session.session_id, SessionScoringTask(session=session, scorers=[])
                     )
-                    task.scorers.extend(selected)
+                    # Add only scorers that aren't already in the task to avoid duplicates
+                    for scorer in selected:
+                        if scorer not in task.scorers:
+                            task.scorers.append(scorer)
 
         # Sort tasks by (last_trace_timestamp_ms ASC, session_id ASC) for deterministic ordering
         sorted_tasks = sorted(
