@@ -93,6 +93,7 @@ const RunViewEvaluationsTabInner = ({
   const intl = useIntl();
   const makeHtmlFromMarkdown = useMarkdownConverter();
   const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
+  const [isGroupedBySession, setIsGroupedBySession] = useState(false);
 
   const traceLocations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
   const getTrace = getTraceV3;
@@ -340,6 +341,7 @@ const RunViewEvaluationsTabInner = ({
                 compareToTraceInfoV3={compareToRunData}
                 onTraceTagsEdit={showEditTagsModalForTrace}
                 displayLoadingOverlay={displayLoadingOverlay}
+                isGroupedBySession={isGroupedBySession}
               />
             </ContextProviders>
           )
