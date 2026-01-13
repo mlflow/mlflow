@@ -1,5 +1,4 @@
 import logging
-from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from mlflow.entities.assessment import Assessment, AssessmentSource, Feedback
@@ -19,6 +18,7 @@ from mlflow.genai.judges.optimizers.memalign.utils import (
     distill_guidelines,
     get_default_embedding_model,
     retrieve_relevant_examples,
+    truncate_to_token_limit,
 )
 from mlflow.genai.judges.utils import get_default_model
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
@@ -55,61 +55,6 @@ example retrieval. Must be a form of `<provider>/<model-name>`, such as
 others via LiteLLM. Default: `"openai/text-embedding-3-small"`.
 """,
 }
-# Maximum tokens for embedding model input (most embedding models have this limit)
-_MAX_EMBEDDING_TOKENS = 8192
-
-# Try to import litellm at module level
-try:
-    from litellm import get_max_tokens, token_counter
-
-    _LITELLM_AVAILABLE = True
-except ImportError:
-    _LITELLM_AVAILABLE = False
-
-
-@lru_cache(maxsize=1)
-def _get_embedding_model_max_tokens(embedding_model: str) -> int:
-    if not _LITELLM_AVAILABLE:
-        return _MAX_EMBEDDING_TOKENS
-
-    try:
-        max_tokens = get_max_tokens(embedding_model)
-        if max_tokens is not None:
-            return max_tokens
-    except Exception as e:
-        _logger.debug(f"Error getting max tokens for model {embedding_model}: {e}", exc_info=True)
-    return _MAX_EMBEDDING_TOKENS
-
-
-@lru_cache(maxsize=1000)
-def _truncate_to_token_limit(text: str, embedding_model: str) -> str:
-    max_tokens = _get_embedding_model_max_tokens(embedding_model)
-
-    if not _LITELLM_AVAILABLE:
-        # Naive truncation to `max_tokens` characters in the text if litellm is not available
-        _logger.warning(
-            f"LiteLLM is required for accurate token counting, using naive truncation to "
-            f"{max_tokens} characters. Please install litellm using: `pip install litellm`"
-        )
-        return text[:max_tokens]
-
-    # Optimization to avoid token counting if number of characters is less than max tokens.
-    if len(text) <= max_tokens:
-        return text
-
-    token_count = token_counter(model=embedding_model, text=text)
-    if token_count <= max_tokens:
-        return text
-
-    original_token_count = token_count
-    ratio = max_tokens / token_count
-    truncated = text[: int(len(text) * ratio)]
-
-    while token_counter(model=embedding_model, text=truncated) > max_tokens:
-        truncated = truncated[: int(len(truncated) * 0.95)]
-
-    _logger.debug(f"Truncated example from {original_token_count} to ~{max_tokens} tokens")
-    return truncated
 
 
 @experimental(version="3.9.0")
@@ -172,7 +117,7 @@ class MemoryAugmentedJudge(Judge):
         self._base_judge = effective_base_judge
         self._base_signature = create_dspy_signature(effective_base_judge)
         self._retrieval_k = retrieval_k
-        self._examples: list["dspy.Example"] = []
+        self._episodic_memory: list["dspy.Example"] = []
         self._semantic_memory: list[Guideline] = initial_guidelines
 
         self._reflection_lm = reflection_lm if reflection_lm is not None else get_default_model()
@@ -201,17 +146,17 @@ class MemoryAugmentedJudge(Judge):
         if episodic_memory:
             if skip_initial_distillation:
                 # User provided explicit guidelines, just add examples without distilling
-                self._examples.extend(episodic_memory)
+                self._episodic_memory.extend(episodic_memory)
                 self._build_episodic_memory()
             else:
                 # Normal flow: add examples and distill guidelines
-                self._add_examples(episodic_memory)
+                self._add_examples_to_memory(episodic_memory)
 
     def __call__(self, **kwargs) -> Assessment:
         guidelines = [g.guideline_text for g in self._semantic_memory]
         relevant_examples, retrieved_trace_ids = retrieve_relevant_examples(
             search=self._search,
-            examples=self._examples,
+            examples=self._episodic_memory,
             query_kwargs=kwargs,
             signature=self._base_signature,
         )
@@ -290,22 +235,22 @@ class MemoryAugmentedJudge(Judge):
         # Filter examples to remove
         filtered_examples = [
             example
-            for example in self._examples
+            for example in self._episodic_memory
             if not (hasattr(example, "_trace_id") and example._trace_id in trace_ids_to_remove)
         ]
 
-        if len(filtered_examples) == len(self._examples):
+        if len(filtered_examples) == len(self._episodic_memory):
             _logger.warning("No feedback records found for the provided traces")
             return self
 
         # Filter guidelines based on source_trace_ids
-        # - Always retain user-provided guidelines
-        # - Keep guideline only if none of its source traces were removed
+        # - Always retain user-provided guidelines (those without source_trace_ids)
+        # - Delete guideline only if ALL of its source traces were removed
         retained_guidelines = [
             guideline
             for guideline in self._semantic_memory
             if guideline.source_trace_ids is None
-            or not any(tid in trace_ids_to_remove for tid in guideline.source_trace_ids)
+            or any(tid not in trace_ids_to_remove for tid in guideline.source_trace_ids)
         ]
 
         return MemoryAugmentedJudge(
@@ -344,7 +289,7 @@ class MemoryAugmentedJudge(Judge):
 
         # Build episodic memory corpus from input fields
         corpus = []
-        for example in self._examples:
+        for example in self._episodic_memory:
             query_parts = []
             for field_name in self._base_signature.input_fields:
                 if hasattr(example, field_name):
@@ -352,7 +297,7 @@ class MemoryAugmentedJudge(Judge):
                     if value is not None:
                         query_parts.append(str(value))
             query = " ".join(query_parts)
-            query = _truncate_to_token_limit(query, self._embedding_model)
+            query = truncate_to_token_limit(query, self._embedding_model)
             corpus.append(query)
 
         self._search = dspy.retrievers.Embeddings(
@@ -360,13 +305,13 @@ class MemoryAugmentedJudge(Judge):
         )
         _logger.debug(f"Episodic memory corpus contains {len(corpus)} examples")
 
-    def _add_examples(self, examples: list["dspy.Example"]) -> None:
+    def _add_examples_to_memory(self, examples: list["dspy.Example"]) -> None:
         """Add examples to episodic memory and distill new guidelines.
 
         Args:
             examples: Examples to add to episodic memory
         """
-        self._examples.extend(examples)
+        self._episodic_memory.extend(examples)
         self._distill_new_guidelines(examples)
         self._build_episodic_memory()
 
@@ -446,7 +391,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
             _logger.debug(f"Starting MemAlign alignment with {len(traces)} traces")
 
             existing_examples = (
-                list(judge._examples) if isinstance(judge, MemoryAugmentedJudge) else []
+                list(judge._episodic_memory) if isinstance(judge, MemoryAugmentedJudge) else []
             )
 
             new_examples = []

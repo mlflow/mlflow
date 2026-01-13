@@ -161,7 +161,7 @@ def test_align_creates_memory_augmented_judge(sample_judge, sample_traces):
         assert aligned_judge is not None
         assert aligned_judge.name == sample_judge.name
         assert aligned_judge.model == sample_judge.model
-        assert len(aligned_judge._examples) == 3
+        assert len(aligned_judge._episodic_memory) == 3
         assert len(aligned_judge._semantic_memory) == 2
 
 
@@ -171,16 +171,16 @@ def test_unalign_removes_traces(sample_judge, sample_traces):
         aligned_judge = optimizer.align(sample_judge, sample_traces)
 
         # Verify all examples are present
-        num_examples = len(aligned_judge._examples)
+        num_examples = len(aligned_judge._episodic_memory)
         assert num_examples == len(sample_traces)
 
         traces_to_remove = [sample_traces[1], sample_traces[3]]
         unaligned_judge = aligned_judge.unalign(traces=traces_to_remove)
 
         # Verify examples for traces 1 and 3 are removed
-        assert len(unaligned_judge._examples) == num_examples - 2
+        assert len(unaligned_judge._episodic_memory) == num_examples - 2
         remaining_trace_ids = {
-            ex._trace_id for ex in unaligned_judge._examples if hasattr(ex, "_trace_id")
+            ex._trace_id for ex in unaligned_judge._episodic_memory if hasattr(ex, "_trace_id")
         }
         expected_remaining_trace_ids = {
             sample_traces[i].info.trace_id for i in range(len(sample_traces)) if i not in [1, 3]
@@ -199,7 +199,7 @@ def test_unalign_no_matching_traces_returns_same_judge(sample_judge, sample_trac
 
         unaligned_judge = aligned_judge.unalign(traces=[mock_trace])
         assert unaligned_judge is aligned_judge
-        assert len(unaligned_judge._examples) == 3
+        assert len(unaligned_judge._episodic_memory) == 3
 
 
 def test_judge_call_uses_semantic_memory(sample_judge, sample_traces):
@@ -260,16 +260,18 @@ def test_incremental_alignment_preserves_examples(sample_judge, sample_traces):
 
         # First alignment with 2 traces
         judge_v2 = optimizer.align(sample_judge, sample_traces[:2])
-        assert len(judge_v2._examples) == 2
+        assert len(judge_v2._episodic_memory) == 2
         assert judge_v2._base_judge is sample_judge
 
         # Second alignment with 2 more traces - should preserve previous examples
         judge_v3 = optimizer.align(judge_v2, sample_traces[2:4])
-        assert len(judge_v3._examples) == 4
+        assert len(judge_v3._episodic_memory) == 4
         assert judge_v3._base_judge is sample_judge  # Should unwrap to original
 
         # Verify all trace IDs are present
-        trace_ids_in_v3 = {ex._trace_id for ex in judge_v3._examples if hasattr(ex, "_trace_id")}
+        trace_ids_in_v3 = {
+            ex._trace_id for ex in judge_v3._episodic_memory if hasattr(ex, "_trace_id")
+        }
         expected_trace_ids = {sample_traces[i].info.trace_id for i in range(4)}
         assert trace_ids_in_v3 == expected_trace_ids
 
@@ -305,7 +307,7 @@ def test_unalign_filters_guidelines_by_source_ids(sample_judge, sample_traces):
         unaligned_judge = aligned_judge.unalign(traces=traces_to_remove)
         # Unalign doesn't redistill, it filters guidelines based on source_trace_ids
         # Guidelines without source_trace_ids are retained
-        # Guidelines where any source trace was removed are deleted
+        # Guidelines are deleted only if ALL source traces were removed
         # Since mock_apis doesn't provide source_trace_ids, all guidelines are retained
-        assert len(unaligned_judge._examples) == 2
+        assert len(unaligned_judge._episodic_memory) == 2
         assert len(unaligned_judge._semantic_memory) == 2

@@ -1,5 +1,6 @@
 import json
 import logging
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
 from jinja2 import Template
@@ -12,10 +13,83 @@ from mlflow.genai.judges.optimizers.memalign.prompts import (
     create_guidelines_field,
 )
 
+# Try to import litellm at module level
+try:
+    from litellm import get_max_tokens, token_counter
+
+    _LITELLM_AVAILABLE = True
+except ImportError:
+    _LITELLM_AVAILABLE = False
+
 if TYPE_CHECKING:
     import dspy
 
 _logger = logging.getLogger(__name__)
+
+# Maximum tokens for model input (most models have this limit)
+_MAX_MODEL_TOKENS = 8192
+
+
+@lru_cache(maxsize=1)
+def _get_model_max_tokens(model: str) -> int:
+    """Get the maximum token limit for a model.
+
+    Args:
+        model: Model identifier (e.g., "openai/text-embedding-3-small")
+
+    Returns:
+        Maximum token limit for the model
+    """
+    if not _LITELLM_AVAILABLE:
+        return _MAX_MODEL_TOKENS
+
+    try:
+        max_tokens = get_max_tokens(model)
+        if max_tokens is not None:
+            return max_tokens
+    except Exception as e:
+        _logger.debug(f"Error getting max tokens for model {model}: {e}", exc_info=True)
+    return _MAX_MODEL_TOKENS
+
+
+@lru_cache(maxsize=1000)
+def truncate_to_token_limit(text: str, model: str) -> str:
+    """Truncate text to fit within model's token limit.
+
+    Args:
+        text: Text to truncate
+        model: Model identifier (e.g., "openai/text-embedding-3-small")
+
+    Returns:
+        Truncated text that fits within token limit
+    """
+    max_tokens = _get_model_max_tokens(model)
+
+    if not _LITELLM_AVAILABLE:
+        # Naive truncation to `max_tokens` characters in the text if litellm is not available
+        _logger.warning(
+            f"LiteLLM is required for accurate token counting, using naive truncation to "
+            f"{max_tokens} characters. Please install litellm using: `pip install litellm`"
+        )
+        return text[:max_tokens]
+
+    # Optimization to avoid token counting if number of characters is less than max tokens.
+    if len(text) <= max_tokens:
+        return text
+
+    token_count = token_counter(model=model, text=text)
+    if token_count <= max_tokens:
+        return text
+
+    original_token_count = token_count
+    ratio = max_tokens / token_count
+    truncated = text[: int(len(text) * ratio)]
+
+    while token_counter(model=model, text=truncated) > max_tokens:
+        truncated = truncated[: int(len(truncated) * 0.95)]
+
+    _logger.debug(f"Truncated text from {original_token_count} to ~{max_tokens} tokens")
+    return truncated
 
 
 class Guideline(BaseModel):
@@ -74,6 +148,9 @@ def distill_guidelines(
         zip=zip,
         len=len,
     )
+
+    # Truncate prompt to fit within model's token limit
+    prompt = truncate_to_token_limit(prompt, reflection_lm)
 
     distillation_lm = construct_dspy_lm(reflection_lm)
     response = distillation_lm(
