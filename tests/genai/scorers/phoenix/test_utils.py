@@ -22,7 +22,6 @@ def _create_test_trace(
     inputs: dict[str, str] | None = None,
     outputs: dict[str, str] | None = None,
 ) -> Trace:
-    """Create a realistic trace for testing."""
     current_time_ns = int(time.time() * 1e9)
     trace_id = "test_trace_001"
 
