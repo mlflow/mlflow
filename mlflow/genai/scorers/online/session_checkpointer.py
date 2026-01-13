@@ -48,17 +48,15 @@ class OnlineSessionCheckpointManager:
         Returns:
             OnlineSessionScoringCheckpoint, or None if no checkpoint exists.
         """
-        try:
-            experiment = self._tracking_store.get_experiment(self._experiment_id)
-            if checkpoint_str := experiment.tags.get(
-                MLFLOW_LATEST_ONLINE_SCORING_SESSION_CHECKPOINT
-            ):
+        experiment = self._tracking_store.get_experiment(self._experiment_id)
+        if checkpoint_str := experiment.tags.get(MLFLOW_LATEST_ONLINE_SCORING_SESSION_CHECKPOINT):
+            try:
                 return OnlineSessionScoringCheckpoint.from_json(checkpoint_str)
-        except (TypeError, ValueError, json.JSONDecodeError) as e:
-            _logger.debug(
-                f"Failed to parse checkpoint for experiment {self._experiment_id}: {e}",
-                exc_info=True,
-            )
+            except (TypeError, ValueError, json.JSONDecodeError) as e:
+                _logger.debug(
+                    f"Failed to parse checkpoint for experiment {self._experiment_id}: {e}",
+                    exc_info=True,
+                )
         return None
 
     def persist_checkpoint(self, checkpoint: OnlineSessionScoringCheckpoint) -> None:
