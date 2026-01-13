@@ -4224,6 +4224,10 @@
     "defaultMessage": "Groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
   },
+  "Wt644B": {
+    "defaultMessage": "Endpoint Name",
+    "description": "Section title for endpoint name"
+  },
   "WtTgz+": {
     "defaultMessage": "Tool",
     "description": "Column header for tool name"
@@ -6498,6 +6502,10 @@
   "o8YPlv": {
     "defaultMessage": "Dataset tracking",
     "description": "Home page news card title four"
+  },
+  "o9x0Pq": {
+    "defaultMessage": "The name is used in the endpoint URL. Only letters, numbers, underscores, hyphens, and dots are allowed.",
+    "description": "Endpoint name description"
   },
   "oBJ8xc": {
     "defaultMessage": "Cost",
