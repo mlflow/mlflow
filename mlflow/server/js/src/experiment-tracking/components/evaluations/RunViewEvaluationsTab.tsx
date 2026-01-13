@@ -98,6 +98,10 @@ const RunViewEvaluationsTabInner = ({
   const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
   const [isGroupedBySession, setIsGroupedBySession] = useState(false);
 
+  const onToggleSessionGrouping = useCallback(() => {
+    setIsGroupedBySession(!isGroupedBySession);
+  }, [isGroupedBySession]);
+
   const traceLocations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
   const getTrace = getTraceV3;
   const isQueryDisabled = false;
@@ -321,6 +325,8 @@ const RunViewEvaluationsTabInner = ({
               tableFilterOptions={tableFilterOptions}
               onRefresh={showRefreshButton ? refetchMlflowTraces : undefined}
               isRefreshing={showRefreshButton ? traceInfosFetching : undefined}
+              isGroupedBySession={isGroupedBySession}
+              onToggleSessionGrouping={onToggleSessionGrouping}
             />
             {
               // prettier-ignore

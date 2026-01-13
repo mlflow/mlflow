@@ -95,6 +95,10 @@ const TracesV3LogsImpl = React.memo(
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
     useRegisterSelectedIds('selectedTraceIds', rowSelection);
 
+    const onToggleSessionGrouping = useCallback(() => {
+      setIsGroupedBySession(!isGroupedBySession);
+    }, [isGroupedBySession]);
+
     const traceSearchLocations = useMemo(
       () => {
         return [createTraceLocationForExperiment(experimentId)];
@@ -387,6 +391,8 @@ const TracesV3LogsImpl = React.memo(
               metadataError={metadataError}
               usesV4APIs={usesV4APIs}
               addons={toolbarAddons}
+              isGroupedBySession={isGroupedBySession}
+              onToggleSessionGrouping={onToggleSessionGrouping}
             />
             {renderMainContent()}
           </div>
