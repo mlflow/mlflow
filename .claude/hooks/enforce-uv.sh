@@ -28,7 +28,7 @@ if echo "$command" | grep -qE '^(python3?|/usr/bin/python3?|/usr/local/bin/pytho
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "deny",
-    "permissionDecisionReason": "Use `uv run` instead."
+    "permissionDecisionReason": "Use `uv run` instead"
   }
 }'
 fi
