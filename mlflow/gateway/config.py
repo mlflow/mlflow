@@ -232,14 +232,17 @@ class MistralConfig(ConfigModel):
 
 class LiteLLMConfig(ConfigModel):
     litellm_provider: str | None = None
-    litellm_api_key: str | None = None
-    litellm_api_base: str | None = None
+    litellm_auth_config: dict[str, Any] | None = None
 
-    @field_validator("litellm_api_key", mode="before")
-    def validate_litellm_api_key(cls, value):
-        if value is None:
-            return None
-        return _resolve_api_key_from_input(value)
+    @field_validator("litellm_auth_config", mode="before")
+    def validate_litellm_auth_config(cls, value):
+        if value is None or not isinstance(value, dict):
+            return value
+        api_key = value.get("api_key")
+        if isinstance(api_key, str):
+            value = dict(value)
+            value["api_key"] = _resolve_api_key_from_input(api_key)
+        return value
 
 
 class ModelInfo(ResponseModel):
