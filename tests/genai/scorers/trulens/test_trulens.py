@@ -1,11 +1,10 @@
 from unittest.mock import Mock, patch
 
 import pytest
+import trulens  # noqa: F401
 
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.judges.utils import CategoricalRating
-
-pytest.importorskip("trulens")
 
 
 @pytest.fixture

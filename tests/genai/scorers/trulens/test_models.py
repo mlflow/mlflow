@@ -1,11 +1,10 @@
 from unittest.mock import Mock, patch
 
 import pytest
+import trulens  # noqa: F401
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.trulens.models import create_trulens_provider
-
-pytest.importorskip("trulens")
 
 
 @pytest.fixture
