@@ -19,6 +19,7 @@ class Session:
     messages: list[Message] = field(default_factory=list)
     pending_message: Message | None = None
     provider_session_id: str | None = None
+    working_dir: Path | None = None  # Working directory for the session (e.g. project path)
 
     def add_message(self, role: str, content: str) -> None:
         """Add a message to the session history.
@@ -67,6 +68,7 @@ class Session:
             "messages": [msg.model_dump() for msg in self.messages],
             "pending_message": self.pending_message.model_dump() if self.pending_message else None,
             "provider_session_id": self.provider_session_id,
+            "working_dir": self.working_dir.as_posix() if self.working_dir else None,
         }
 
     @classmethod
@@ -88,6 +90,7 @@ class Session:
             messages=messages,
             pending_message=pending_msg,
             provider_session_id=data.get("provider_session_id"),
+            working_dir=Path(data.get("working_dir")) if data.get("working_dir") else None,
         )
 
 
@@ -174,13 +177,14 @@ class SessionManager:
         return Session.from_dict(data)
 
     @staticmethod
-    def create(context: dict[str, Any] | None = None) -> Session:
+    def create(context: dict[str, Any] | None = None, working_dir: Path | None = None) -> Session:
         """Create a new session.
 
         Args:
             context: Initial context data, or None
+            working_dir: Working directory for the session
 
         Returns:
             New Session instance
         """
-        return Session(context=context or {})
+        return Session(context=context or {}, working_dir=working_dir)
