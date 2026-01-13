@@ -180,13 +180,13 @@ class OnlineSessionScoringProcessor:
             for session in sessions:
                 # Apply sampling to select which scorers from this filter group should run
                 if selected := self._sampler.sample(session.session_id, scorers):
-                    task = tasks.setdefault(
-                        session.session_id, SessionScoringTask(session=session, scorers=[])
+                    if session.session_id not in tasks:
+                        tasks[session.session_id] = SessionScoringTask(session=session, scorers=[])
+                    # Add scorers, avoiding duplicates (same scorer from different filters)
+                    existing_scorer_names = {s.name for s in tasks[session.session_id].scorers}
+                    tasks[session.session_id].scorers.extend(
+                        s for s in selected if s.name not in existing_scorer_names
                     )
-                    # Add only scorers that aren't already in the task to avoid duplicates
-                    for scorer in selected:
-                        if scorer not in task.scorers:
-                            task.scorers.append(scorer)
 
         # Sort tasks by (last_trace_timestamp_ms ASC, session_id ASC) for deterministic ordering
         sorted_tasks = sorted(
