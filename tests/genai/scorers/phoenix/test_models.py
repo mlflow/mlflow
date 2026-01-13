@@ -76,8 +76,12 @@ def test_create_phoenix_model_databricks_endpoint():
 
 
 def test_create_phoenix_model_openai():
-    model = create_phoenix_model("openai:/gpt-4")
-    assert isinstance(model, phoenix_evals.LiteLLMModel)
+    with patch(
+        "litellm.validate_environment",
+        return_value={"keys_in_environment": True, "missing_keys": []},
+    ):
+        model = create_phoenix_model("openai:/gpt-4")
+        assert isinstance(model, phoenix_evals.LiteLLMModel)
 
 
 def test_create_phoenix_model_invalid_format():

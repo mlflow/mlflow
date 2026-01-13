@@ -75,8 +75,7 @@ def map_scorer_inputs_to_phoenix_record(
 
     # Fall back to extracting context from trace retrieval spans
     if not reference and trace:
-        span_id_to_context = extract_retrieval_context_from_trace(trace)
-        if span_id_to_context:
+        if span_id_to_context := extract_retrieval_context_from_trace(trace):
             contexts = []
             for ctx_list in span_id_to_context.values():
                 for ctx in ctx_list:

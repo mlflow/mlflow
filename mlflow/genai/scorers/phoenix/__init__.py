@@ -127,6 +127,7 @@ def get_scorer(
     Args:
         metric_name: Name of the Phoenix metric (e.g., "Hallucination", "Relevance")
         model: {{ model }}
+        evaluator_kwargs: Additional keyword arguments to pass to the Phoenix evaluator.
 
     Returns:
         PhoenixScorer instance that can be called with MLflow's scorer interface

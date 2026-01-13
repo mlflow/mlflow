@@ -114,9 +114,7 @@ def test_phoenix_scorer_error_handling(mock_model):
 
         scorer = Hallucination(model="openai:/gpt-4")
 
-    with patch.object(
-        scorer._evaluator, "evaluate", side_effect=RuntimeError("Evaluation failed")
-    ):
+    with patch.object(scorer._evaluator, "evaluate", side_effect=RuntimeError("Evaluation failed")):
         result = scorer(
             inputs="test",
             outputs="test output",
