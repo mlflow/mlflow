@@ -1,3 +1,5 @@
+# ruff: noqa
+# clint: skip-file
 #!/usr/bin/env python
 """
 Test script to invoke prompt optimization job creation.

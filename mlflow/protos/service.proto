@@ -4778,25 +4778,9 @@ message SearchOptimizationJobs {
   // ID of the MLflow experiment to search optimization jobs in.
   optional string experiment_id = 1;
 
-  // Filter string for searching jobs (e.g., by status, prompt name).
-  // Uses the same filter syntax as MLflow search APIs.
-  optional string filter = 2;
-
-  // Maximum number of results to return.
-  optional int64 max_results = 3 [default = 100];
-
-  // Token for pagination.
-  optional string page_token = 4;
-
-  // List of columns to order by (e.g., ["creation_timestamp_ms DESC"]).
-  repeated string order_by = 5;
-
   message Response {
-    // List of optimization jobs matching the search criteria.
+    // List of optimization jobs.
     repeated OptimizationJob jobs = 1;
-
-    // Token for fetching the next page of results.
-    optional string next_page_token = 2;
   }
 }
 

@@ -2272,25 +2272,15 @@ class GetOptimizationJob(_message.Message):
     def __init__(self, job_id: _Optional[str] = ...) -> None: ...
 
 class SearchOptimizationJobs(_message.Message):
-    __slots__ = ("experiment_id", "filter", "max_results", "page_token", "order_by")
+    __slots__ = ("experiment_id",)
     class Response(_message.Message):
-        __slots__ = ("jobs", "next_page_token")
+        __slots__ = ("jobs",)
         JOBS_FIELD_NUMBER: _ClassVar[int]
-        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
         jobs: _containers.RepeatedCompositeFieldContainer[_prompt_optimization_pb2.OptimizationJob]
-        next_page_token: str
-        def __init__(self, jobs: _Optional[_Iterable[_Union[_prompt_optimization_pb2.OptimizationJob, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+        def __init__(self, jobs: _Optional[_Iterable[_Union[_prompt_optimization_pb2.OptimizationJob, _Mapping]]] = ...) -> None: ...
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
-    FILTER_FIELD_NUMBER: _ClassVar[int]
-    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
-    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
-    ORDER_BY_FIELD_NUMBER: _ClassVar[int]
     experiment_id: str
-    filter: str
-    max_results: int
-    page_token: str
-    order_by: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, experiment_id: _Optional[str] = ..., filter: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ..., order_by: _Optional[_Iterable[str]] = ...) -> None: ...
+    def __init__(self, experiment_id: _Optional[str] = ...) -> None: ...
 
 class CancelOptimizationJob(_message.Message):
     __slots__ = ("job_id",)

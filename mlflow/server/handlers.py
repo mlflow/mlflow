@@ -5332,10 +5332,8 @@ def _get_optimization_job(job_id):
             optimization_job.final_eval_score = run_metrics["final_eval_score"]
 
     except Exception:
-        # If run fetch fails, continue with job entity data only
         pass
 
-    # If job failed, add error message
     if job_entity.status.name == "FAILED" and job_entity.parsed_result:
         optimization_job.error_message = str(job_entity.parsed_result)
 
@@ -5350,25 +5348,16 @@ def _search_optimization_jobs():
     request_message = _get_request_message(
         SearchOptimizationJobs(),
         schema={
-            "experiment_id": [_assert_string],
-            "filter": [_assert_string],
-            "max_results": [_assert_intlike],
-            "page_token": [_assert_string],
-            "order_by": [_assert_array],
+            "experiment_id": [_assert_required, _assert_string],
         },
     )
 
     job_store = _get_job_store()
 
-    # Build params filter if experiment_id is provided
-    params_filter = None
-    if request_message.experiment_id:
-        params_filter = {"experiment_id": request_message.experiment_id}
-
-    # Search for optimize_prompts jobs
+    # Search for optimize_prompts jobs in the specified experiment
     jobs = job_store.list_jobs(
         job_name="optimize_prompts",
-        params=params_filter,
+        params={"experiment_id": request_message.experiment_id},
     )
 
     response_message = SearchOptimizationJobs.Response()
@@ -5409,7 +5398,6 @@ def _search_optimization_jobs():
 @_disable_if_artifacts_only
 def _cancel_optimization_job(job_id):
     """Handler for cancelOptimizationJob RPC."""
-    # Note: cancel_job imported inline to avoid circular import with mlflow.server.jobs
     from mlflow.server.jobs import cancel_job
 
     job_entity = cancel_job(job_id)
@@ -5437,7 +5425,18 @@ def _cancel_optimization_job(job_id):
 def _delete_optimization_job(job_id):
     """Handler for deleteOptimizationJob RPC."""
     job_store = _get_job_store()
-    job_store.delete_job(job_id)
+    job_entity = job_store.get_job(job_id)
+    params = json.loads(job_entity.params)
+    run_id = params.get("run_id")
+
+    job_store.delete_jobs(job_ids=[job_id])
+
+    # Delete the associated MLflow run if it exists
+    if run_id:
+        try:
+            _get_tracking_store().delete_run(run_id)
+        except Exception:
+            pass
 
     response_message = DeleteOptimizationJob.Response()
     return _wrap_response(response_message)
