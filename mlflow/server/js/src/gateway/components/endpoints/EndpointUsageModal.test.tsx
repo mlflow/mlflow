@@ -71,7 +71,9 @@ describe('EndpointUsageModal', () => {
     await userEvent.click(screen.getByText('Passthrough APIs'));
 
     expect(
-      screen.getByText("Direct access to OpenAI's Responses API for multi-turn conversations with vision and audio capabilities."),
+      screen.getByText(
+        "Direct access to OpenAI's Responses API for multi-turn conversations with vision and audio capabilities.",
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText(/gateway\/openai\/v1\/responses/)).toBeInTheDocument();
   });
