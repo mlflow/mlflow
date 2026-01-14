@@ -841,7 +841,7 @@ _DATABRICKS_SDK_SCOPES_MIN_VERSION = "0.74.0"
 
 def check_databricks_sdk_supports_scopes():
     """
-    Check if the installed databricks-sdk version supports the 'scopes' parameter.
+    Check if the installed databricks-sdk version supports the 'scopes' parameter for WorkspaceClient.
 
     Raises:
         MlflowException: If databricks-sdk version is < 0.74.0
@@ -1547,7 +1547,9 @@ def databricks_api_disabled(api_name: str = "This API", alternative: str | None 
     return decorator
 
 
-def invoke_databricks_app(app_url: str, payload: dict[str, Any], config) -> dict[str, Any]:
+def invoke_databricks_app(
+    app_invocation_url: str, payload: dict[str, Any], config
+) -> dict[str, Any]:
     """
     Invoke Databricks App /invocations endpoint with OAuth authentication.
 
@@ -1555,7 +1557,8 @@ def invoke_databricks_app(app_url: str, payload: dict[str, Any], config) -> dict
     uses the provided config to authenticate to the app.
 
     Args:
-        app_url: Full app invocation URL (e.g., "https://app-123.aws.databricksapps.com/invocations")
+        app_invocation_url: Full app invocation URL
+            (e.g., "https://app-123.aws.databricksapps.com/invocations")
         payload: Request payload in the format expected by the app.
         config: Databricks SDK Config object with OAuth credentials.
 
@@ -1578,7 +1581,7 @@ def invoke_databricks_app(app_url: str, payload: dict[str, Any], config) -> dict
         ) from e
 
     # Parse app URL into host and endpoint for http_request
-    parsed = urlparse(app_url)
+    parsed = urlparse(app_invocation_url)
     host = f"{parsed.scheme}://{parsed.netloc}"
     endpoint = parsed.path
 

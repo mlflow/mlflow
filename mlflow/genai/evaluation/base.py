@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
 import mlflow
 from mlflow.data.dataset import Dataset
+from mlflow.deployments import get_deploy_client
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -358,7 +359,7 @@ def _log_dataset_input(
 class DatabricksAppConfig(NamedTuple):
     """Configuration for a Databricks App."""
 
-    app_url: str
+    app_invocation_url: str
     config: Any
 
 
@@ -370,7 +371,7 @@ def _setup_databricks_app_client(app_name: str) -> DatabricksAppConfig:
         app_name: Name of the Databricks App
 
     Returns:
-        DatabricksAppConfig with app_url and config fields
+        DatabricksAppConfig with app_invocation_url and config fields
     """
     from databricks.sdk import WorkspaceClient
 
@@ -397,17 +398,17 @@ def _setup_databricks_app_client(app_name: str) -> DatabricksAppConfig:
 
     # Append /invocations to endpoint
     return DatabricksAppConfig(
-        app_url=f"{app.url}/invocations",
+        app_invocation_url=f"{app.url}/invocations",
         config=w.config,
     )
 
 
-def _create_app_predict_fn(app_url: str, config) -> Callable[..., Any]:
+def _create_app_predict_fn(app_invocation_url: str, config) -> Callable[..., Any]:
     """
     Create a predict function for invoking a Databricks App.
 
     Args:
-        app_url: Full invocation URL for the app
+        app_invocation_url: Full invocation URL for the app
         config: Databricks SDK config object for authentication
 
     Returns:
@@ -421,7 +422,9 @@ def _create_app_predict_fn(app_url: str, config) -> Callable[..., Any]:
         Args:
             **kwargs: Parameters to pass to the app
         """
-        return mlflow.trace(invoke_databricks_app, name="predict")(app_url, kwargs, config)
+        return mlflow.trace(invoke_databricks_app, name="predict")(
+            app_invocation_url, kwargs, config
+        )
 
     return predict_fn
 
@@ -511,7 +514,7 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
     match schema:
         case "apps":
             app_config = _setup_databricks_app_client(path)
-            return _create_app_predict_fn(app_config.app_url, app_config.config)
+            return _create_app_predict_fn(app_config.app_invocation_url, app_config.config)
         case "endpoints":
             return _create_endpoint_predict_fn(endpoint_uri, path)
         case _:
@@ -531,8 +534,6 @@ def _create_endpoint_predict_fn(endpoint_uri: str, endpoint: str) -> Callable[..
     Returns:
         A predict function that invokes the endpoint
     """
-    from mlflow.deployments import get_deploy_client
-
     client = get_deploy_client("databricks")
     endpoint_info = client.get_endpoint(endpoint)
 
