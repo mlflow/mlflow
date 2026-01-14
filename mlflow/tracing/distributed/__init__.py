@@ -1,4 +1,3 @@
-import json
 import logging
 from contextlib import contextmanager
 
@@ -10,9 +9,6 @@ import mlflow
 from mlflow import MlflowException
 
 _logger = logging.getLogger(__name__)
-
-
-_MLFLOW_TRACE_INFO_HTTP_HEADER_KEY = "Mlflow-Trace-Info"
 
 
 def get_tracing_context_headers_for_http_request():
@@ -28,8 +24,6 @@ def get_tracing_context_headers_for_http_request():
     Returns:
         The http request headers that hold information of the tracing context.
     """
-    from mlflow.tracing.trace_manager import InMemoryTraceManager
-
     active_span = mlflow.get_current_active_span()
     if active_span is None:
         raise MlflowException.invalid_parameter_value(
@@ -38,11 +32,6 @@ def get_tracing_context_headers_for_http_request():
         )
     headers = {}
     TraceContextTextMapPropagator().inject(headers)
-    trace_manager = InMemoryTraceManager.get_instance()
-
-    with trace_manager.get_trace(active_span.trace_id) as trace:
-        headers[_MLFLOW_TRACE_INFO_HTTP_HEADER_KEY] = json.dumps(trace.info.to_dict())
-
     return headers
 
 
@@ -60,7 +49,7 @@ def set_tracing_context_from_http_request_headers(headers):
     Args:
         headers: The http request headers to extract the trace context from.
     """
-    from mlflow.entities.trace_info import TraceInfo
+    from mlflow.entities.trace_info import TraceInfo, TraceState
     from mlflow.tracing.trace_manager import InMemoryTraceManager
     from mlflow.tracing.utils import generate_mlflow_trace_id_from_otel_trace_id
 
@@ -77,36 +66,29 @@ def set_tracing_context_from_http_request_headers(headers):
             traceparent = headers.pop("Traceparent")
             headers["traceparent"] = traceparent
 
-        if not ("traceparent" in headers and _MLFLOW_TRACE_INFO_HTTP_HEADER_KEY in headers):
+        if "traceparent" not in headers:
             raise MlflowException.invalid_parameter_value(
-                "The http request headers do not contain the required keys 'traceparent' and "
-                f"'{_MLFLOW_TRACE_INFO_HTTP_HEADER_KEY}', please generate the request headers "
-                f"by 'mlflow.tracing.distributed.get_tracing_context_headers_for_http_request' "
-                f"API."
+                "The http request headers do not contain the required key 'traceparent', "
+                "please generate the request headers "
+                "by 'mlflow.tracing.distributed.get_tracing_context_headers_for_http_request' "
+                "API."
             )
         ctx = TraceContextTextMapPropagator().extract(headers)
         token = context_api.attach(ctx)
 
-        try:
-            mlflow_trace_info = TraceInfo.from_dict(
-                json.loads(headers[_MLFLOW_TRACE_INFO_HTTP_HEADER_KEY])
-            )
-        except json.JSONDecodeError as e:
-            raise MlflowException(
-                f"The '{_MLFLOW_TRACE_INFO_HTTP_HEADER_KEY}' HTTP header contains malformed JSON "
-                "and cannot be parsed."
-            ) from e
         extracted_span = trace_api.get_current_span(ctx)
         span_context = extracted_span.get_span_context()
         otel_trace_id = span_context.trace_id
 
-        trace_manager.register_trace(otel_trace_id, mlflow_trace_info, is_remote_trace=True)
+        trace_id = generate_mlflow_trace_id_from_otel_trace_id(otel_trace_id)
+        dummy_trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=None,
+            request_time=None,
+            state=TraceState.IN_PROGRESS,
+        )
 
-        if mlflow_trace_info.trace_id != generate_mlflow_trace_id_from_otel_trace_id(otel_trace_id):
-            raise MlflowException(
-                "Internal error: The http headers contain mismatched W3C TraceContext information "
-                "and mlflow TraceInfo."
-            )
+        trace_manager.register_trace(otel_trace_id, dummy_trace_info, is_remote_trace=True)
 
         yield
     finally:
