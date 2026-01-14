@@ -10,7 +10,7 @@ import {
   Outlet,
   createLazyRouteElement,
   useParams,
-  useGetRouteTitle,
+  usePageTitle,
 } from './common/utils/RoutingUtils';
 import { MlflowHeader } from './common/components/MlflowHeader';
 import { useDarkThemeContext } from './common/contexts/DarkThemeContext';
@@ -29,7 +29,7 @@ import { MlflowSidebar } from './common/components/MlflowSidebar';
 const MlflowRootRoute = () => {
   useInitializeExperimentRunColors();
 
-  const routeTitle = useGetRouteTitle();
+  const routeTitle = usePageTitle();
   useDocumentTitle({ title: routeTitle });
 
   const [showSidebar, setShowSidebar] = useState(true);

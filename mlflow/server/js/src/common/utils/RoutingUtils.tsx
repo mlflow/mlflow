@@ -96,7 +96,7 @@ export interface DocumentTitleHandle {
   getPageTitle: (params: Params<string>) => string;
 }
 
-export const useGetRouteTitle = () => {
+export const usePageTitle = () => {
   const matches = useMatches();
   if (matches.length === 0) {
     return;
