@@ -2,18 +2,23 @@ import { APILink } from "@site/src/components/APILink";
 import ImageBox from '@site/src/components/ImageBox';
 import ServerSetup from "@site/src/content/setup_server.mdx";
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import TabsWrapper from '@site/src/components/TabsWrapper';
+
 # GenAI Evaluation Quickstart
 
-This quickstart guide will walk you through evaluating your GenAI applications with MLflow's comprehensive evaluation framework. In less than 5 minutes, you'll learn how to evaluate LLM outputs, use built-in and custom evaluation criteria, and analyze results in the MLflow UI.
+This quickstart guide will walk you through evaluating your GenAI applications with MLflow's comprehensive evaluation framework.
+In less than 5 minutes, you'll learn how to evaluate LLM outputs, use built-in and custom evaluation criteria, and analyze results in the MLflow UI.
 
 <ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-hero.png" alt="Simple Evaluation Results" />
 
 ## Prerequisites
 
-Install the required packages by running the following command:
+Depending on your Python environment, you may want to install the required packages by running the following command:
 
 ```bash
-pip install --upgrade mlflow>=3.3 openai
+pip install openai
 ```
 
 :::info
@@ -24,33 +29,33 @@ The code examples in this guide use the OpenAI SDK; however, MLflow's evaluation
 
 ## Step 1: Set up your environment
 
-### Connect to MLflow
+MLflow stores evaluation results in a [MLflow Tracking Server](/self-hosting/architecture/tracking-server/).
 
-MLflow stores evaluation results in a tracking server. Connect your local environment to the tracking server by one of the following methods.
+Start a local MLflow Tracking Server by executing one of the following methods.
 
 <ServerSetup />
 
-### Create a new MLflow Experiment
+## Step 2: Create an evaluation script
+
+Create a file named `quickstart_eval.py`. This script will contain your mock agent, evaluation dataset, scorers, and the evaluation execution. Alternatively, you may run this in a [notebook](/genai/eval-monitor/notebooks/quickstart-eval).
+
+Start with the environment setup:
 
 ```python
+# quickstart_eval.py
+import os
 import mlflow
 
-# This will create a new experiment called "GenAI Evaluation Quickstart" and set it as active
+# Configure environment
+os.environ["OPENAI_API_KEY"] = "your-api-key-here"  # Replace with your API key
 mlflow.set_experiment("GenAI Evaluation Quickstart")
 ```
 
-### Configure OpenAI API Key (or other LLM providers)
+## Step 3: Define your mock agent's prediction function
 
-```python
-import os
+First, we need to create a prediction function that takes a question and returns an answer. Here we use OpenAI's gpt-4o-mini model to generate the answer, but you can use any other LLM provider if you prefer.
 
-# Use different env variable when using a different LLM provider
-os.environ["OPENAI_API_KEY"] = "your-api-key-here"  # Replace with your actual API key
-```
-
-## Step 2: Create a simple QA function
-
-First, we need to create a prediction function that takes a question and returns an answer. Here we use OpenAI's `gpt-4o-mini` model to generate the answer, but you can use any other LLM provider if you prefer.
+Add your mock agent implementation to `quickstart_eval.py`:
 
 ```python
 from openai import OpenAI
@@ -58,8 +63,7 @@ from openai import OpenAI
 client = OpenAI()
 
 
-def qa_predict_fn(question: str) -> str:
-    """Simple Q&A prediction function using OpenAI"""
+def my_agent(question: str) -> str:
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -71,9 +75,14 @@ def qa_predict_fn(question: str) -> str:
         ],
     )
     return response.choices[0].message.content
+
+
+def qa_predict_fn(question: str) -> str:
+    """Wrapper function for evaluation using ``my_agent``."""
+    return my_agent(question)
 ```
 
-## Step 3: Prepare an evaluation dataset
+## Step 4: Prepare an evaluation dataset
 
 The evaluation dataset is a list of samples, each with an `inputs` and `expectations` field.
 
@@ -100,7 +109,7 @@ eval_dataset = [
 ]
 ```
 
-## Step 4: Define evaluation criteria using Scorers
+## Step 5: Define evaluation criteria using Scorers
 
 **Scorer** is a function that computes a score for a given input-output pair against various evaluation criteria.
 You can use built-in scorers provided by MLflow for common evaluation criteria, as well as create your own custom scorers.
@@ -160,27 +169,134 @@ Correctness(model="xai/grok-2-latest")
 
 :::
 
-## Step 5: Run the evaluation
+## Step 6: Run the evaluation
 
 Now we have all three components of the evaluation: dataset, prediction function, and scorers. Let's run the evaluation!
 
 ```python
-import mlflow
-
-results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    predict_fn=qa_predict_fn,
-    scorers=scorers,
-)
+# Run evaluation
+if __name__ == "__main__":
+    results = mlflow.genai.evaluate(
+        data=eval_dataset,
+        predict_fn=qa_predict_fn,
+        scorers=scorers,
+    )
 ```
 
-After running the code above, go to the MLflow UI and navigate to your experiment. You'll see the evaluation results with detailed metrics for each scorer.
+Now run your evaluation script:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="uv" label="uv" default>
+
+```shell
+uv run --with openai,mlflow quickstart_eval.py
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```shell
+python quickstart_eval.py
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Complete Script
+
+Here's the complete `quickstart_eval.py` for reference:
+
+<details>
+<summary>View complete script</summary>
+
+```python
+# quickstart_eval.py
+import os
+import mlflow
+from openai import OpenAI
+from mlflow.genai import scorer
+from mlflow.genai.scorers import Correctness, Guidelines
+
+# Use different env variable when using a different LLM provider
+os.environ["OPENAI_API_KEY"] = "your-api-key-here"
+mlflow.set_experiment("GenAI Evaluation Quickstart")
+
+# Your agent implementation
+client = OpenAI()
+
+
+def my_agent(question: str) -> str:
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful assistant. Answer questions concisely.",
+            },
+            {"role": "user", "content": question},
+        ],
+    )
+    return response.choices[0].message.content
+
+
+# Wrapper function for evaluation
+def qa_predict_fn(question: str) -> str:
+    return my_agent(question)
+
+
+# Evaluation dataset
+eval_dataset = [
+    {
+        "inputs": {"question": "What is the capital of France?"},
+        "expectations": {"expected_response": "Paris"},
+    },
+    {
+        "inputs": {"question": "Who was the first person to build an airplane?"},
+        "expectations": {"expected_response": "Wright Brothers"},
+    },
+    {
+        "inputs": {"question": "Who wrote Romeo and Juliet?"},
+        "expectations": {"expected_response": "William Shakespeare"},
+    },
+]
+
+
+# Scorers
+@scorer
+def is_concise(outputs: str) -> bool:
+    return len(outputs.split()) <= 5
+
+
+scorers = [
+    Correctness(),
+    Guidelines(name="is_english", guidelines="The answer must be in English"),
+    is_concise,
+]
+
+# Run evaluation
+if __name__ == "__main__":
+    results = mlflow.genai.evaluate(
+        data=eval_dataset,
+        predict_fn=qa_predict_fn,
+        scorers=scorers,
+    )
+```
+
+</details>
+
+After running the code above, go to the MLflow UI and navigate to the "GenAI Evaluation Quickstart" experiment. You'll see the evaluation results with detailed metrics for each scorer.
 
 <ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-result.png" alt="Detailed Evaluation Results" width="90%" />
 
 By clicking on the each row in the table, you can see the detailed rationale behind the score and the trace of the prediction.
 
-<ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-trace.png" alt="Detailed Evaluation Results" width="90%" />
+<ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-trace.png" alt="Detailed Score Rationale" width="90%" />
+
+You can compare evaluation runs, too. Click on "Evaluation runs" menu (on the left) and select a run that you want to compare to a baseline run.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-runs-compare.png" alt="Compare Evaluation Runs" width="90%" />
 
 ## Summary
 

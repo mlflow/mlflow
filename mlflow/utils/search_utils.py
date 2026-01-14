@@ -6,7 +6,7 @@ import operator
 import re
 import shlex
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import sqlparse
 from packaging.version import Version
@@ -26,10 +26,22 @@ from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
-from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import (
+    AssessmentMetricSearchKey,
+    SpanMetricSearchKey,
+    TraceMetadataKey,
+    TraceMetricSearchKey,
+    TraceTagKey,
+)
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy.sql.elements import ClauseElement, ColumnElement
+
+# MSSQL collation for case-sensitive string comparisons
+_MSSQL_CASE_SENSITIVE_COLLATION = "Japanese_Bushu_Kakusu_100_CS_AS_KS_WS"
 
 
 def _convert_like_pattern_to_regex(pattern, flags=0):
@@ -106,6 +118,31 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
             and isinstance(third, Parenthesis)
         ):
             joined_tokens.append(Comparison(TokenList([first, second, third])))
+            continue
+
+        # IS NULL (for trace metadata)
+        if (
+            search_traces
+            and isinstance(first, Identifier)
+            and second.match(ttype=TokenType.Keyword, values=["IS"])
+            and third.match(ttype=TokenType.Keyword, values=["NULL"])
+        ):
+            joined_tokens.append(
+                Comparison(TokenList([first, Token(TokenType.Keyword, "IS NULL")]))
+            )
+            continue
+
+        # IS NOT NULL (for trace metadata)
+        if (
+            search_traces
+            and isinstance(first, Identifier)
+            and second.match(ttype=TokenType.Keyword, values=["IS"])
+            and third.ttype == TokenType.Keyword
+            and third.value.upper() == "NOT NULL"
+        ):
+            joined_tokens.append(
+                Comparison(TokenList([first, Token(TokenType.Keyword, "IS NOT NULL")]))
+            )
             continue
 
         (_, fourth) = next(iterator, (None, None))
@@ -239,7 +276,7 @@ class SearchUtils:
             if not isinstance(column.type, sa.types.String):
                 return comparison_func(column, value)
 
-            collated = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
+            collated = column.collate(_MSSQL_CASE_SENSITIVE_COLLATION)
             return comparison_func(collated, value)
 
         def mysql_comparison_func(column, value):
@@ -1637,6 +1674,7 @@ class SearchTraceUtils(SearchUtils):
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE"}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
     VALID_SPAN_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
+    VALID_METADATA_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
 
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
     _TAG_IDENTIFIER = "tag"
@@ -1787,10 +1825,10 @@ class SearchTraceUtils(SearchUtils):
     @classmethod
     def is_request_metadata(cls, key_type, comparator):
         if key_type == cls._REQUEST_METADATA_IDENTIFIER:
-            # Request metadata accepts the same set of comparators as tags
-            if comparator not in cls.VALID_TAG_COMPARATORS:
+            if comparator not in cls.VALID_METADATA_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}'",
+                    f"Invalid comparator '{comparator}' not one of "
+                    f"'{cls.VALID_METADATA_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -1854,6 +1892,62 @@ class SearchTraceUtils(SearchUtils):
                 )
             return True
         return False
+
+    @staticmethod
+    def _get_sql_json_comparison_func(
+        comparator: str, dialect: str
+    ) -> Callable[["ColumnElement", str], "ClauseElement"]:
+        """
+        Returns a comparison function for JSON-serialized values.
+
+        Assessment values are stored as JSON primitives in the database:
+          - Boolean False -> false (no quotes in JSON)
+          - Numeric value 5 -> 5 (no quotes in JSON)
+          - String "yes" -> '"yes"' (WITH quotes in JSON)
+
+        For equality comparisons, we match either the raw JSON primitive value
+        (for booleans and numeric values) or the JSON-serialized value (for strings).
+        """
+        import sqlalchemy as sa
+
+        def mysql_json_equality_inequality_comparison(
+            column: "ColumnElement", value: str
+        ) -> "ClauseElement":
+            # MySQL is case insensitive by default, so we need to use the BINARY operator
+            # for case sensitive comparisons. We check both the raw value (for booleans/numbers)
+            # and the JSON-serialized value (for strings).
+            json_string_value = json.dumps(value)
+            col_ref = f"{column.class_.__tablename__}.{column.key}"
+            template = (
+                f"(({col_ref} = :value1 AND BINARY {col_ref} = :value1) OR "
+                f"({col_ref} = :value2 AND BINARY {col_ref} = :value2))"
+            )
+            if comparator == "!=":
+                template = f"NOT {template}"
+            return sa.text(template).bindparams(
+                sa.bindparam("value1", value=value, unique=True),
+                sa.bindparam("value2", value=json_string_value, unique=True),
+            )
+
+        def json_equality_inequality_comparison(
+            column: "ColumnElement", value: str
+        ) -> "ClauseElement":
+            # MSSQL uses collation for case-sensitive comparisons on String columns
+            if dialect == MSSQL:
+                column = column.collate(_MSSQL_CASE_SENSITIVE_COLLATION)
+
+            json_string_value = json.dumps(value)
+            clause = sa.or_(column == value, column == json_string_value)
+            if comparator == "!=":
+                clause = sa.not_(clause)
+            return clause
+
+        if comparator not in ("=", "!="):
+            return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)
+        elif dialect == MYSQL:
+            return mysql_json_equality_inequality_comparison
+        else:
+            return json_equality_inequality_comparison
 
     @classmethod
     def _valid_entity_type(cls, entity_type):
@@ -2000,6 +2094,23 @@ class SearchTraceUtils(SearchUtils):
     @classmethod
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+
+        # Handle IS NULL / IS NOT NULL (2 tokens: identifier + comparator, no value)
+        if len(stripped_comparison) == 2:
+            comparator = stripped_comparison[1].value.upper()
+            if comparator in ("IS NULL", "IS NOT NULL"):
+                comp = cls._get_identifier(
+                    stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS
+                )
+                comp["comparator"] = comparator
+                comp["value"] = None
+                return comp
+            raise MlflowException(
+                f"Invalid comparison clause. Expected 3 tokens, found 2 with "
+                f"comparator '{comparator}'",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         cls._validate_comparison(stripped_comparison, search_traces=True)
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
@@ -2009,6 +2120,123 @@ class SearchTraceUtils(SearchUtils):
             cls.is_span(comp["type"], comp["key"], comp["comparator"])
 
         return comp
+
+
+@dataclass
+class TraceMetricsFilter:
+    view_type: str
+    entity: str
+    key: str | None
+    comparator: str
+    value: Any
+
+
+class SearchTraceMetricsUtils(SearchTraceUtils):
+    _VALID_VIEW_TYPES_TO_ENTITIES = {
+        TraceMetricSearchKey.VIEW_TYPE: TraceMetricSearchKey.entity_to_key_requirement(),
+        SpanMetricSearchKey.VIEW_TYPE: SpanMetricSearchKey.entity_to_key_requirement(),
+        AssessmentMetricSearchKey.VIEW_TYPE: AssessmentMetricSearchKey.entity_to_key_requirement(),
+    }
+
+    @classmethod
+    def parse_search_filter(cls, filter_string: str) -> TraceMetricsFilter:
+        parsed = super().parse_search_filter(filter_string)
+        if len(parsed) != 1:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid filter: '{filter_string}'. Expected one filter clause."
+            )
+        return parsed[0]
+
+    @classmethod
+    def _process_statement(cls, statement: Statement) -> list[TraceMetricsFilter]:
+        tokens = statement.tokens
+        invalids = list(filter(cls._invalid_statement_token, tokens))
+        if len(invalids) > 0:
+            invalid_clauses = ", ".join(map(str, invalids))
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid clause(s) in filter string: {invalid_clauses}"
+            )
+        return [cls._get_comparison(t) for t in tokens if isinstance(t, Comparison)]
+
+    @classmethod
+    def _invalid_statement_token(cls, token: Token) -> bool:
+        if isinstance(token, Comparison) or token.is_whitespace:
+            return False
+        return True
+
+    @classmethod
+    def _get_identifier(cls, identifier) -> dict[str, Any]:
+        error_message = (
+            f"Invalid identifier {identifier!r}. Columns should be specified as "
+            f"'trace.<key>', 'span.<key>', 'assessment.<key>'."
+        )
+        try:
+            tokens = identifier.split(".", 2)
+            match tokens:
+                case [view_type, entity]:
+                    return cls._validate_metrics_fields(view_type, entity)
+                case [view_type, entity, key]:
+                    return cls._validate_metrics_fields(view_type, entity, key)
+                case _:
+                    raise MlflowException.invalid_parameter_value(error_message)
+        except ValueError:
+            raise MlflowException.invalid_parameter_value(error_message)
+
+    @classmethod
+    def _validate_metrics_fields(cls, view_type, entity, key=None) -> dict[str, Any]:
+        view_type = cls._trim_backticks(view_type)
+        if view_type not in cls._VALID_VIEW_TYPES_TO_ENTITIES:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid view type '{view_type}'. "
+                f"Valid values are {cls._VALID_VIEW_TYPES_TO_ENTITIES.keys()}"
+            )
+        valid_entities = cls._VALID_VIEW_TYPES_TO_ENTITIES[view_type]
+        if entity not in valid_entities:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid entity '{entity}' specified for view type '{view_type}'. "
+                f"Valid entities are {list(valid_entities.keys())}"
+            )
+        key_is_required = valid_entities[entity]
+        if key_is_required and key is None:
+            raise MlflowException.invalid_parameter_value(
+                f"Filtering by {entity} requires a key, e.g. '{view_type}.{entity}.<key> = <value>'"
+            )
+        elif not key_is_required and key is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Filtering by {entity} does not require a key, use '{view_type}.{entity}' instead"
+            )
+        key = cls._trim_backticks(cls._strip_quotes(key)) if key else None
+        return {"view_type": view_type, "entity": entity, "key": key}
+
+    @classmethod
+    def _get_value(cls, entity, key, token):
+        if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+            return cls._strip_quotes(token.value, expect_quoted_value=True)
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Expected a quoted string value for {entity} value (e.g. 'my-value'). "
+                f"Got value {token.value}",
+            )
+
+    @classmethod
+    def _get_comparison(cls, comparison: Comparison) -> TraceMetricsFilter:
+        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+        cls._validate_comparison(stripped_comparison)
+        comp = cls._get_identifier(stripped_comparison[0].value)
+        comparator = stripped_comparison[1].value
+        if comparator != "=":
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid comparator: '{comparator}', only '=' operator is supported"
+            )
+        value = cls._get_value(comp["entity"], comp["key"], stripped_comparison[2])
+
+        return TraceMetricsFilter(
+            view_type=comp["view_type"],
+            entity=comp["entity"],
+            key=comp["key"],
+            comparator=comparator,
+            value=value,
+        )
 
 
 class SearchEvaluationDatasetsUtils(SearchUtils):

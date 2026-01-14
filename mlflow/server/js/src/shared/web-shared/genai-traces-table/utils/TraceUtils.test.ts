@@ -1,7 +1,7 @@
 import { describe, it, expect } from '@jest/globals';
 import { uniq } from 'lodash';
 
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3, ModelTraceLocationMlflowExperiment } from '@databricks/web-shared/model-trace-explorer';
 import { ModelTraceSpanType } from '@databricks/web-shared/model-trace-explorer';
 
 import {
@@ -13,6 +13,8 @@ import {
   createCustomMetadataColumnId,
   getTagKeyFromColumnId,
   createTagColumnId,
+  convertTraceInfoV3ToRunEvalEntry,
+  getSpansLocation,
 } from './TraceUtils';
 import { KnownEvaluationResultAssessmentName } from '../components/GenAiEvaluationTracesReview.utils';
 import type { RunEvaluationResultAssessment, RunEvaluationTracesDataEntry } from '../types';
@@ -21,13 +23,13 @@ const makeTrace = (spans: any[], tags: Record<string, string> | undefined = unde
   ({
     info: { tags },
     data: { spans },
-  } as any); // Cast to any to avoid bringing full ModelTrace typings into the test
+  }) as any; // Cast to any to avoid bringing full ModelTrace typings into the test
 
 const makeAssessment = (name: string, rest: Partial<RunEvaluationResultAssessment>) =>
   ({
     name,
     ...rest,
-  } as Partial<RunEvaluationResultAssessment>); // Cast to any to keep the test lightweight
+  }) as Partial<RunEvaluationResultAssessment>; // Cast to any to keep the test lightweight
 
 describe('getTracesTagKeys', () => {
   it('returns unique tag keys that do not start with the internal prefix', () => {
@@ -176,6 +178,9 @@ describe('applyTraceInfoV3ToEvalEntry', () => {
     const expected: RunEvaluationTracesDataEntry = {
       // Evaluation data is replaced by converted fields
       evaluationId: dummyTraceInfo.trace_id, // "trace123"
+      fullTraceId: `trace:/${
+        (dummyTraceInfo.trace_location as ModelTraceLocationMlflowExperiment).mlflow_experiment.experiment_id
+      }/${dummyTraceInfo.trace_id}`,
       requestId: dummyTraceInfo.client_request_id || '', // "client456"
       inputsId: dummyTraceInfo.trace_id, // same as trace_id
       // inputsTitle should be the content of the last message in the "messages" array.
@@ -530,6 +535,111 @@ describe('applyTraceInfoV3ToEvalEntry', () => {
   });
 });
 
+describe('convertTraceInfoV3ToRunEvalEntry', () => {
+  it('should extract user message from Langchain format input using request_preview', () => {
+    const langchainRequest = JSON.stringify([
+      [
+        {
+          content: 'How to use Databricks?',
+          additional_kwargs: {},
+          response_metadata: {},
+          type: 'human',
+          name: null,
+          id: null,
+        },
+      ],
+    ]);
+
+    const traceInfo: ModelTraceInfoV3 = {
+      trace_id: 'trace_langchain',
+      trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp_langchain' } },
+      request_time: '2023-10-01T00:00:00Z',
+      state: 'OK',
+      client_request_id: 'client_langchain',
+      request_preview: langchainRequest,
+      response_preview: '{}',
+      tags: {},
+      trace_metadata: {},
+      assessments: [],
+    };
+
+    const result = convertTraceInfoV3ToRunEvalEntry(traceInfo);
+
+    expect(result.inputsTitle).toEqual('How to use Databricks?');
+  });
+
+  it('should extract user message from OpenAI format input using request_preview', () => {
+    const openaiRequest = JSON.stringify({
+      messages: [
+        { role: 'system', content: 'You are a helpful assistant' },
+        { role: 'user', content: 'Hello there' },
+      ],
+    });
+
+    const traceInfo: ModelTraceInfoV3 = {
+      trace_id: 'trace_openai',
+      trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp_openai' } },
+      request_time: '2023-10-01T00:00:00Z',
+      state: 'OK',
+      client_request_id: 'client_openai',
+      request_preview: openaiRequest,
+      response_preview: '{}',
+      tags: {},
+      trace_metadata: {},
+      assessments: [],
+    };
+
+    const result = convertTraceInfoV3ToRunEvalEntry(traceInfo);
+
+    expect(result.inputsTitle).toEqual('Hello there');
+  });
+
+  it('should fallback to deprecated request field when request_preview is not available', () => {
+    const openaiRequest = JSON.stringify({
+      messages: [{ role: 'user', content: 'Using deprecated request field' }],
+    });
+
+    const traceInfo: ModelTraceInfoV3 = {
+      trace_id: 'trace_deprecated',
+      trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp_deprecated' } },
+      request_time: '2023-10-01T00:00:00Z',
+      state: 'OK',
+      client_request_id: 'client_deprecated',
+      request: openaiRequest,
+      response: '{}',
+      tags: {},
+      trace_metadata: {},
+      assessments: [],
+    };
+
+    const result = convertTraceInfoV3ToRunEvalEntry(traceInfo);
+
+    expect(result.inputsTitle).toEqual('Using deprecated request field');
+  });
+
+  it('should fallback to stringified JSON for unknown formats', () => {
+    const unknownRequest = JSON.stringify({ custom: 'data', values: [1, 2, 3] });
+
+    const traceInfo: ModelTraceInfoV3 = {
+      trace_id: 'trace_unknown',
+      trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp_unknown' } },
+      request_time: '2023-10-01T00:00:00Z',
+      state: 'OK',
+      client_request_id: 'client_unknown',
+      request_preview: unknownRequest,
+      response_preview: '{}',
+      tags: {},
+      trace_metadata: {},
+      assessments: [],
+    };
+
+    const result = convertTraceInfoV3ToRunEvalEntry(traceInfo);
+
+    expect(result.inputsTitle).toContain('"custom"');
+    expect(result.inputsTitle).toContain('"data"');
+  });
+});
+
 describe('getRetrievedContextFromTrace', () => {
   it('returns undefined when trace is nil', () => {
     expect(getRetrievedContextFromTrace({}, undefined)).toBeUndefined();
@@ -763,5 +873,71 @@ describe('Custom Metadata Integration', () => {
     } as any;
 
     expect(traceWithNoMetadata.trace_metadata).toBeUndefined();
+  });
+});
+
+describe('getSpansLocation', () => {
+  it('returns undefined when traceInfo is undefined', () => {
+    expect(getSpansLocation(undefined)).toBeUndefined();
+  });
+
+  it('returns undefined when traceInfo.tags is undefined', () => {
+    const traceInfo = {
+      trace_id: 'trace123',
+      trace_location: {
+        type: 'MLFLOW_EXPERIMENT',
+        mlflow_experiment: { experiment_id: 'exp123' },
+      },
+      request_time: '2023-10-01T00:00:00Z',
+      state: 'OK',
+      // tags is undefined
+    } as any;
+
+    expect(getSpansLocation(traceInfo)).toBeUndefined();
+  });
+
+  it('returns undefined when traceInfo.tags is null', () => {
+    const traceInfo = {
+      trace_id: 'trace123',
+      trace_location: {
+        type: 'MLFLOW_EXPERIMENT',
+        mlflow_experiment: { experiment_id: 'exp123' },
+      },
+      request_time: '2023-10-01T00:00:00Z',
+      state: 'OK',
+      tags: null,
+    } as any;
+
+    expect(getSpansLocation(traceInfo)).toBeUndefined();
+  });
+
+  it('returns undefined when tags exist but spansLocation tag is not present', () => {
+    const traceInfo: ModelTraceInfoV3 = {
+      trace_id: 'trace123',
+      trace_location: {
+        type: 'MLFLOW_EXPERIMENT',
+        mlflow_experiment: { experiment_id: 'exp123' },
+      },
+      request_time: '2023-10-01T00:00:00Z',
+      state: 'OK',
+      tags: { someOtherTag: 'value' },
+    } as any;
+
+    expect(getSpansLocation(traceInfo)).toBeUndefined();
+  });
+
+  it('returns the spans location when the tag is present', () => {
+    const traceInfo: ModelTraceInfoV3 = {
+      trace_id: 'trace123',
+      trace_location: {
+        type: 'MLFLOW_EXPERIMENT',
+        mlflow_experiment: { experiment_id: 'exp123' },
+      },
+      request_time: '2023-10-01T00:00:00Z',
+      state: 'OK',
+      tags: { 'mlflow.trace.spansLocation': 'TRACKING_STORE' },
+    } as any;
+
+    expect(getSpansLocation(traceInfo)).toBe('TRACKING_STORE');
   });
 });

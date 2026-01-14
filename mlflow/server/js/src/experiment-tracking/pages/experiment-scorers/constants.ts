@@ -6,9 +6,16 @@ export const SCORER_FORM_MODE = {
   DISPLAY: 'display',
 } as const;
 
-export type ScorerFormMode = typeof SCORER_FORM_MODE[keyof typeof SCORER_FORM_MODE];
+export enum ScorerEvaluationScope {
+  TRACES = 'traces',
+  SESSIONS = 'sessions',
+}
 
-export const DEFAULT_TRACE_COUNT = 10;
+export type ScorerFormMode = (typeof SCORER_FORM_MODE)[keyof typeof SCORER_FORM_MODE];
+
+export const DEFAULT_TRACE_COUNT = 1;
+
+export const MAX_SELECTED_ITEM_COUNT = 100;
 
 export const ASSESSMENT_NAME_TEMPLATE_MAPPING = {
   Correctness: 'correctness',
@@ -24,13 +31,13 @@ export const SCORER_TYPE = {
   CUSTOM_CODE: 'custom-code',
 } as const;
 
-export type ScorerType = typeof SCORER_TYPE[keyof typeof SCORER_TYPE];
+export type ScorerType = (typeof SCORER_TYPE)[keyof typeof SCORER_TYPE];
 
 export const BUTTON_VARIANT = {
   RUN: 'run',
   RERUN: 'rerun',
 } as const;
 
-export type ButtonVariant = typeof BUTTON_VARIANT[keyof typeof BUTTON_VARIANT];
+export type ButtonVariant = (typeof BUTTON_VARIANT)[keyof typeof BUTTON_VARIANT];
 
 export const RETRIEVAL_ASSESSMENTS = ['groundedness', 'context_sufficiency'] as const;

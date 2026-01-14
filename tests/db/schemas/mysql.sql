@@ -12,6 +12,8 @@ CREATE TABLE endpoints (
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
+	routing_strategy VARCHAR(64),
+	fallback_config_json TEXT,
 	PRIMARY KEY (endpoint_id)
 )
 
@@ -75,7 +77,7 @@ CREATE TABLE inputs (
 CREATE TABLE jobs (
 	id VARCHAR(36) NOT NULL,
 	creation_time BIGINT NOT NULL,
-	function_fullname VARCHAR(500) NOT NULL,
+	job_name VARCHAR(500),
 	params TEXT NOT NULL,
 	timeout DOUBLE,
 	status INTEGER NOT NULL,
@@ -101,7 +103,7 @@ CREATE TABLE secrets (
 	encrypted_value BLOB NOT NULL,
 	wrapped_dek BLOB NOT NULL,
 	kek_version INTEGER NOT NULL,
-	masked_value VARCHAR(100) NOT NULL,
+	masked_value VARCHAR(500) NOT NULL,
 	provider VARCHAR(64),
 	auth_config TEXT,
 	description TEXT,
@@ -355,6 +357,8 @@ CREATE TABLE endpoint_model_mappings (
 	weight FLOAT NOT NULL,
 	created_by VARCHAR(255),
 	created_at BIGINT NOT NULL,
+	linkage_type VARCHAR(64) DEFAULT 'PRIMARY' NOT NULL,
+	fallback_order INTEGER,
 	PRIMARY KEY (mapping_id),
 	CONSTRAINT fk_endpoint_model_mappings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_endpoint_model_mappings_model_definition_id FOREIGN KEY(model_definition_id) REFERENCES model_definitions (model_definition_id)
@@ -438,6 +442,18 @@ CREATE TABLE model_version_tags (
 )
 
 
+CREATE TABLE online_scoring_configs (
+	online_scoring_config_id VARCHAR(36) NOT NULL,
+	scorer_id VARCHAR(36) NOT NULL,
+	sample_rate DOUBLE NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	filter_string TEXT,
+	PRIMARY KEY (online_scoring_config_id),
+	CONSTRAINT fk_online_scoring_configs_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_online_scoring_configs_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE params (
 	key VARCHAR(250) NOT NULL,
 	value VARCHAR(8000) NOT NULL,
@@ -481,6 +497,15 @@ CREATE TABLE tags (
 	run_uuid VARCHAR(32) NOT NULL,
 	PRIMARY KEY (key, run_uuid),
 	CONSTRAINT tags_ibfk_1 FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+)
+
+
+CREATE TABLE trace_metrics (
+	request_id VARCHAR(50) NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value DOUBLE,
+	PRIMARY KEY (request_id, key),
+	CONSTRAINT fk_trace_metrics_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 
 

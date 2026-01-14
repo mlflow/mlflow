@@ -3,7 +3,13 @@ sidebar_position: 4.5
 sidebar_label: Bedrock
 ---
 
-import { APILink } from "@site/src/components/APILink"
+import { APILink } from "@site/src/components/APILink";
+import StepHeader from "@site/src/components/StepHeader";
+import ServerSetup from "@site/src/content/setup_server_slim.mdx";
+import ImageBox from "@site/src/components/ImageBox";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Users, BookOpen, Scale } from "lucide-react";
 
 # Tracing Amazon Bedrock with MLflow
 
@@ -12,13 +18,7 @@ foundations from leading AI providers such as Anthropic, Cohere, Meta, Mistral A
 for Amazon Bedrock by calling the <APILink fn="mlflow.bedrock.autolog" /> function, MLflow will capture traces for LLM invocation
 and log them to the active MLflow Experiment.
 
-![Bedrock DIY Agent Tracing](/images/llms/tracing/bedrock-tracing-agent.png)
-
-```python
-import mlflow
-
-mlflow.bedrock.autolog()
-```
+<ImageBox src="/images/llms/tracing/bedrock-tracing-agent.png" alt="Bedrock DIY Agent Tracing" />
 
 MLflow trace automatically captures the following information about Amazon Bedrock calls:
 
@@ -28,17 +28,23 @@ MLflow trace automatically captures the following information about Amazon Bedro
 - Additional metadata such as temperature, max_tokens, if specified.
 - Function calling if returned in the response
 - Any exception if raised
+- and more...
 
-## Supported APIs
+## Getting Started
 
-MLflow supports automatic tracing for the following Amazon Bedrock APIs:
+<StepHeader number={1} title="Install Dependencies" />
 
-- [converse](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse.html)
-- [converse_stream](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse_stream.html)
-- [invoke_model](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/invoke_model.html)
-- [invoke_model_with_response_stream](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/invoke_model_with_response_stream.html)
+```bash
+pip install mlflow boto3
+```
 
-## Basic Example
+<StepHeader number={2} title="Start MLflow Server" />
+
+<ServerSetup />
+
+<StepHeader number={3} title="Enable Tracing and Make API Calls" />
+
+Enable tracing with `mlflow.bedrock.autolog()` and invoke Bedrock as usual using the boto3 runtime client. Ensure your AWS credentials and region are configured (e.g., `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`).
 
 ```python
 import boto3
@@ -46,20 +52,23 @@ import mlflow
 
 # Enable auto-tracing for Amazon Bedrock
 mlflow.bedrock.autolog()
+mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment("Bedrock")
+
 # Create a boto3 client for invoking the Bedrock API
 bedrock = boto3.client(
     service_name="bedrock-runtime",
     region_name="<REPLACE_WITH_YOUR_AWS_REGION>",
 )
-# MLflow will log a trace for Bedrock API call in the "Bedrock" experiment created above
+
+# Make a standard Bedrock call
 response = bedrock.converse(
-    modelId="anthropic.claude-3-5-sonnet-20241022-v2:0",
+    modelId="anthropic.claude-3-7-sonnet-20250219-v1:0",
     messages=[
         {
             "role": "user",
             "content": "Describe the purpose of a 'hello world' program in one line.",
-        }
+        },
     ],
     inferenceConfig={
         "maxTokens": 512,
@@ -69,7 +78,20 @@ response = bedrock.converse(
 )
 ```
 
-The logged trace, associated with the `Bedrock` experiment, can be seen in the MLflow UI.
+<StepHeader number={4} title="View Traces in MLflow UI" />
+
+Open the MLflow UI at http://localhost:5000 (or your MLflow server URL) to see the trace for your Bedrock API calls.
+
+<ImageBox src="/images/llms/tracing/bedrock-tracing-stream.png" alt="Bedrock Trace" />
+
+## Supported APIs
+
+MLflow supports automatic tracing for the following Amazon Bedrock APIs:
+
+- [converse](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse.html)
+- [converse_stream](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse_stream.html)
+- [invoke_model](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/invoke_model.html)
+- [invoke_model_with_response_stream](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/invoke_model_with_response_stream.html)
 
 ## Raw Inputs and Outputs
 
@@ -96,7 +118,7 @@ Token usage is extracted from the response for all major Bedrock providers, incl
 - Amazon Titan/Nova
 - Meta Llama
 
-### Supported APIs
+#### Supported APIs
 
 Token usage is logged for:
 
@@ -182,7 +204,7 @@ for chunk in response["stream"]:
     print(chunk)
 ```
 
-![Bedrock Stream Tracing](/images/llms/tracing/bedrock-tracing-stream.png)
+<ImageBox src="/images/llms/tracing/bedrock-tracing-stream.png" alt="Bedrock Stream Tracing" />
 
 :::warning
 MLflow does not create a span immediately when the streaming response is returned. Instead, it creates a span when the streaming chunks are **consumed**, for example, the for-loop in the code snippet above.
@@ -294,3 +316,35 @@ Executing the code above will create a single trace that involves all LLM invoca
 ## Disable auto-tracing
 
 Auto tracing for Amazon Bedrock can be disabled globally by calling `mlflow.bedrock.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
+
+## Next steps
+
+<TilesGrid>
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Track User Feedback"
+    description="Record user feedback on traces for tracking user satisfaction."
+    href="/genai/tracing/collect-user-feedback"
+    linkText="Learn about feedback →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Manage Prompts"
+    description="Learn how to manage prompts with MLflow's prompt registry."
+    href="/genai/prompt-registry"
+    linkText="Manage prompts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Evaluate Traces"
+    description="Evaluate traces with LLM judges to understand and improve your AI application's behavior."
+    href="/genai/eval-monitor/running-evaluation/traces"
+    linkText="Evaluate traces →"
+    containerHeight={64}
+  />
+</TilesGrid>

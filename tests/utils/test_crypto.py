@@ -14,6 +14,7 @@ from mlflow.utils.crypto import (
     _encrypt_with_aes_gcm,
     _generate_dek,
     _mask_secret_value,
+    _mask_string_value,
     decrypt_with_aes_gcm,
     rotate_secret_encryption,
     unwrap_dek,
@@ -312,43 +313,43 @@ def test_create_aad_different_inputs(id1, name1, id2, name2):
     [
         ("sk-proj-1234567890abcdef", "sk-...cdef"),
         ("pk-test-1234567890abcdef", "pk-...cdef"),
-        ("ghp_1234567890abcdef1234567890abcdef", "ghp_...cdef"),
-        ("gho_1234567890abcdef1234567890abcdef", "gho_...cdef"),
-        ("ghu_1234567890abcdef1234567890abcdef", "ghu_...cdef"),
+        ("ghp_1234567890abcdef1234567890abcdef", "ghp...cdef"),
+        ("gho_1234567890abcdef1234567890abcdef", "gho...cdef"),
+        ("ghu_1234567890abcdef1234567890abcdef", "ghu...cdef"),
         ("api-key-abc123def456", "api...f456"),
         ("12345678", "123...5678"),
     ],
 )
-def test__mask_secret_value(secret, expected_mask):
-    masked = _mask_secret_value(secret)
+def test__mask_string_value(secret, expected_mask):
+    masked = _mask_string_value(secret)
     assert masked == expected_mask
 
 
 @pytest.mark.parametrize("short_secret", ["short", "1234567", "abc", ""])
-def test_mask_secret_value_short(short_secret):
+def test_mask_string_value_short(short_secret):
     if short_secret:
-        masked = _mask_secret_value(short_secret)
+        masked = _mask_string_value(short_secret)
         assert masked == "***"
 
 
 @pytest.mark.parametrize(
     ("secret_dict", "expected_masked"),
     [
-        ({"api_key": "sk-proj-1234567890abcdef"}, "<dict: 1 key (api_key)>"),
+        ({"api_key": "sk-proj-1234567890abcdef"}, {"api_key": "sk-...cdef"}),
         (
             {"username": "admin-user", "password": "secret123"},
-            "<dict: 2 keys (username, password)>",
+            {"username": "adm...user", "password": "sec...t123"},
         ),
-        ({"token": "ghp_1234567890abcdef"}, "<dict: 1 key (token)>"),
+        ({"token": "ghp_1234567890abcdef"}, {"token": "ghp...cdef"}),
         (
             {"config": {"host": "localhost", "port": 8080}},
-            "<dict: 1 key (config)>",
+            {"config": "***"},
         ),
-        ({"short": "abc"}, "<dict: 1 key (short)>"),
-        ({}, "<dict: empty>"),
+        ({"short": "abc"}, {"short": "***"}),
+        ({}, {}),
         (
             {"key1": "val1", "key2": "val2", "key3": "val3", "key4": "val4"},
-            "<dict: 4 keys (key1, key2, key3, +1 more)>",
+            {"key1": "***", "key2": "***", "key3": "***", "key4": "***"},
         ),
     ],
 )
@@ -360,26 +361,25 @@ def test_mask_secret_value_dict(secret_dict, expected_masked):
 def test_mask_secret_value_nested_dict():
     secret = {"outer": {"inner": {"api_key": "sk-abc123xyz", "enabled": True}}}
     masked = _mask_secret_value(secret)
-    assert masked == "<dict: 1 key (outer)>"
+    assert masked == {"outer": "***"}
 
 
-def test_mask_secret_value_dict_with_very_long_key_names():
+def test_mask_secret_value_dict_preserves_keys():
     long_key = "a" * 200
-    secret = {long_key: "value"}
+    secret = {long_key: "test-longer-value-here"}
     masked = _mask_secret_value(secret)
 
-    assert len(masked) <= 100
-    assert masked.endswith("...>")
-    assert masked.startswith("<dict: 1 key (")
+    assert long_key in masked
+    assert masked[long_key] == "tes...here"
 
     secret_multiple = {
-        "key1_" + "a" * 100: "val1",
-        "key2_" + "b" * 100: "val2",
-        "key3_" + "c" * 100: "val3",
+        "key1_long": "val1_long_value",
+        "key2_long": "val2_long_value",
+        "key3_long": "val3_long_value",
     }
     masked_multiple = _mask_secret_value(secret_multiple)
-    assert len(masked_multiple) <= 100
-    assert masked_multiple.endswith("...>")
+    assert len(masked_multiple) == 3
+    assert all(k in masked_multiple for k in secret_multiple)
 
 
 @pytest.mark.parametrize(
