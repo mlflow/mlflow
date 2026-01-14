@@ -27,7 +27,6 @@ from mlflow.genai.judges.adapters.base_adapter import (
     BaseJudgeAdapter,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.genai.judges.tools import list_judge_tools
 from mlflow.genai.judges.utils.parsing_utils import _sanitize_justification
 from mlflow.genai.judges.utils.tool_calling_utils import (
     _process_tool_calls,
@@ -407,6 +406,8 @@ def _invoke_databricks_serving_endpoint_judge(
 
     tools = None
     if trace is not None:
+        from mlflow.genai.judges.tools import list_judge_tools
+
         judge_tools = list_judge_tools()
         tools = []
 

@@ -580,9 +580,7 @@ def test_serving_endpoint_judge_with_tool_calling(mock_databricks_creds, mock_tr
         mock.patch(
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._process_tool_calls"
         ) as mock_process,
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.list_judge_tools"
-        ) as mock_list_tools,
+        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
     ):
         mock_tool = mock.Mock()
         mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_root_span"}
@@ -645,9 +643,7 @@ def test_serving_endpoint_judge_disables_response_format_with_tools(
             "mlflow.utils.databricks_utils.get_databricks_host_creds",
             return_value=mock_databricks_creds,
         ),
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.list_judge_tools"
-        ) as mock_list_tools,
+        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
     ):
         mock_tool = mock.Mock()
         mock_tool_def = mock.Mock()
@@ -713,9 +709,7 @@ def test_serving_endpoint_judge_filters_strict_from_tools(
             "mlflow.utils.databricks_utils.get_databricks_host_creds",
             return_value=mock_databricks_creds,
         ),
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.list_judge_tools"
-        ) as mock_list_tools,
+        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
     ):
         mock_tool = mock.Mock()
         mock_tool_def = mock.Mock()
@@ -791,9 +785,7 @@ def test_serving_endpoint_judge_max_iteration_limit(mock_databricks_creds, mock_
             "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._process_tool_calls",
             return_value=[litellm.Message(role="tool", content="{}", tool_call_id="call_123")],
         ),
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.list_judge_tools"
-        ) as mock_list_tools,
+        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
     ):
         mock_tool = mock.Mock()
         mock_tool_def = mock.Mock()
