@@ -355,13 +355,11 @@ def _log_dataset_input(
     )
 
 
-class _DatabricksAppConfig(NamedTuple):
+class DatabricksAppConfig(NamedTuple):
     """Configuration for a Databricks App."""
 
     app_url: str
-    """Full invocation URL for the app (e.g., https://appname.databricksapps.com/invocations)"""
     config: Any
-    """Databricks SDK config object for authentication"""
 
 
 def _setup_databricks_app_client(app_name: str) -> _DatabricksAppConfig:
