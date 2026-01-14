@@ -22,11 +22,11 @@ _gateway_uri: str | None = None
 def is_valid_endpoint_name(name: str) -> bool:
     """
     Check whether a string contains any URL reserved characters, spaces, or characters other
-    than alphanumeric, underscore, hyphen, and dot.
+    than ASCII alphanumeric, underscore, hyphen, and dot.
 
     Returns True if the string doesn't contain any of these characters.
     """
-    return bool(re.fullmatch(r"[\w\-\.]+", name))
+    return bool(re.fullmatch(r"[a-zA-Z0-9_\-\.]+", name))
 
 
 def check_configuration_route_name_collisions(config):

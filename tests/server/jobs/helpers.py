@@ -20,6 +20,7 @@ from mlflow.server.jobs import (
     get_job,
 )
 from mlflow.server.jobs.utils import _launch_job_runner
+from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 
 
 def _get_mlflow_repo_home():
@@ -63,6 +64,10 @@ def _setup_job_runner(
         _SUPPORTED_JOB_FUNCTION_LIST.extend(supported_job_functions)
         _ALLOWED_JOB_NAME_LIST.clear()
         _ALLOWED_JOB_NAME_LIST.extend(allowed_job_names)
+
+        # Pre-initialize the database before launching the job runner subprocess
+        # to prevent race conditions during concurrent Alembic migrations
+        SqlAlchemyJobStore(backend_store_uri)
 
         with _launch_job_runner_for_test() as job_runner_proc:
             time.sleep(10)

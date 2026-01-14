@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { useDocumentTitle } from '@databricks/web-shared/routing';
 
 import ErrorModal from './experiment-tracking/components/modals/ErrorModal';
 import AppErrorBoundary from './common/components/error-boundaries/AppErrorBoundary';
@@ -9,6 +10,7 @@ import {
   Outlet,
   createLazyRouteElement,
   useParams,
+  usePageTitle,
 } from './common/utils/RoutingUtils';
 import { MlflowHeader } from './common/components/MlflowHeader';
 import { useDarkThemeContext } from './common/contexts/DarkThemeContext';
@@ -26,6 +28,9 @@ import { MlflowSidebar } from './common/components/MlflowSidebar';
  */
 const MlflowRootRoute = () => {
   useInitializeExperimentRunColors();
+
+  const routeTitle = usePageTitle();
+  useDocumentTitle({ title: routeTitle });
 
   const [showSidebar, setShowSidebar] = useState(true);
   const { theme } = useDesignSystemTheme();

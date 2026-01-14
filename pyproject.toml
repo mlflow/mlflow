@@ -190,7 +190,7 @@ lint = [
   "pytest",
 ]
 test = [
-  "pytest==8.4.0",
+  "pytest==9.0.2",
   "pytest-asyncio",
   "pytest-repeat",
   "pytest-cov",
@@ -510,8 +510,17 @@ extend-ignore-re = [
   "livin'",
 ]
 
-[tool.pytest.ini_options]
-addopts = "-p no:legacypath --strict-markers --color=yes --durations=10 --showlocals -v"
+[tool.pytest]
+addopts = [
+  "-p",
+  "no:legacypath",
+  "--strict-markers",
+  "--color=yes",
+  "--durations=10",
+  "--showlocals",
+  "--no-header",
+  "-v",
+]
 filterwarnings = [
   # Prevent deprecated numpy type aliases from being used
   "error:^`np\\.[a-z]+` is a deprecated alias for.+:DeprecationWarning:mlflow",
@@ -530,7 +539,8 @@ filterwarnings = [
   # Prevent deprecated generator.throw(type, value, tb) signature from being used (Python 3.12+)
   "error:the \\(type, exc, tb\\) signature of throw\\(\\) is deprecated:DeprecationWarning",
 ]
-timeout = 1200
+# Use string for pytest-timeout compatibility (https://github.com/pytest-dev/pytest-timeout/issues/194)
+timeout = "1200"
 
 # Currently, type checking is only enabled for `dev/clint` and `.claude/skills`.
 [tool.mypy]
