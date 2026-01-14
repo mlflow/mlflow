@@ -33,6 +33,7 @@ const EndpointPage = () => {
         mutationError={mutationError}
         errorMessage={getReadableErrorMessage(mutationError)}
         resetErrors={resetErrors}
+        endpointId={endpointId}
         endpointName={endpoint?.name}
         isFormComplete={isFormComplete}
         hasChanges={hasChanges}
