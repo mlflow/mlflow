@@ -170,9 +170,9 @@ def submit_job(
         _check_requirements()
     except MlflowException as e:
         raise MlflowException(
-            f"Job invocation failed: {e.message}. "
+            f"Requirement not satisfied for running the job: {e.message}. "
             "Please address the issue and restart the MLflow server."
-        )
+        ) from e
 
     if not (isinstance(function, FunctionType) and "." not in function.__qualname__):
         raise MlflowException("The job function must be a python global function.")

@@ -158,7 +158,10 @@ def _exec_job_in_subproc(
 
     if python_env is not None:
         if shutil.which("uv") is None:
-            raise MlflowException("MLflow job backend requires 'uv' but it is not installed.")
+            raise MlflowException(
+                "The job requires 'uv' to create an isolated Python environment, "
+                "but 'uv' is not installed."
+            )
 
         # set up virtual python environment
         virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
