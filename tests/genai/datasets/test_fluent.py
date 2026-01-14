@@ -2130,3 +2130,108 @@ def test_wrapper_isinstance_checks_for_dataset_interfaces(tracking_uri, experime
     assert isinstance(dataset, WrapperEvaluationDataset)
     assert not isinstance(dataset, EntityEvaluationDataset)
     assert isinstance(dataset, (WrapperEvaluationDataset, EntityEvaluationDataset))
+
+
+@pytest.mark.parametrize(
+    "records",
+    [
+        [
+            {"inputs": {"persona": "Student", "goal": "Find articles"}},
+            {"inputs": {"persona": "Researcher", "goal": "Review", "context": {"dept": "CS"}}},
+            {"inputs": {"goal": "Single goal"}, "expectations": {"output": "expected"}},
+        ],
+    ],
+)
+def test_multiturn_valid_formats(tracking_uri, experiments, records):
+    dataset = create_dataset(name="multiturn_test", experiment_id=experiments[0])
+    dataset.merge_records(records)
+    df = dataset.to_df()
+
+    assert len(df) == 3
+    for _, row in df.iterrows():
+        assert any(key in row["inputs"] for key in ["persona", "goal", "context"])
+
+
+@pytest.mark.parametrize(
+    ("records", "error_pattern"),
+    [
+        # Top-level session fields
+        (
+            [{"persona": "Student", "goal": "Find articles", "custom_field": "value"}],
+            "Each record must have an 'inputs' field",
+        ),
+        # Mixed fields in inputs
+        (
+            [{"inputs": {"persona": "Student", "goal": "Find", "custom_field": "value"}}],
+            "Invalid input schema.*cannot mix session fields",
+        ),
+        # Inconsistent batch schema
+        (
+            [
+                {"inputs": {"persona": "Student", "goal": "Find articles"}},
+                {"inputs": {"question": "What is MLflow?"}},
+            ],
+            "must use the same granularity.*Found",
+        ),
+    ],
+)
+def test_multiturn_validation_errors(tracking_uri, experiments, records, error_pattern):
+    dataset = create_dataset(name="multiturn_error_test", experiment_id=experiments[0])
+    with pytest.raises(MlflowException, match=error_pattern):
+        dataset.merge_records(records)
+
+
+@pytest.mark.parametrize(
+    ("existing_records", "new_records"),
+    [
+        # Multiturn then custom
+        (
+            [{"inputs": {"persona": "Student", "goal": "Find articles"}}],
+            [{"inputs": {"question": "What is MLflow?", "model": "gpt-4"}}],
+        ),
+        # Custom then multiturn
+        (
+            [{"inputs": {"question": "What is MLflow?", "model": "gpt-4"}}],
+            [{"inputs": {"persona": "Student", "goal": "Find articles"}}],
+        ),
+    ],
+)
+def test_multiturn_schema_compatibility(tracking_uri, experiments, existing_records, new_records):
+    dataset = create_dataset(name="multiturn_compat_test", experiment_id=experiments[0])
+    dataset.merge_records(existing_records)
+
+    with pytest.raises(MlflowException, match="Cannot mix granularities"):
+        dataset.merge_records(new_records)
+
+
+def test_multiturn_with_expectations_and_tags(tracking_uri, experiments):
+    dataset = create_dataset(name="multiturn_full_test", experiment_id=experiments[0])
+    records = [
+        {
+            "inputs": {
+                "persona": "Graduate Student",
+                "goal": "Find peer-reviewed articles on machine learning",
+                "context": {"user_id": "U0001", "department": "CS"},
+            },
+            "expectations": {"expected_output": "relevant articles", "quality": "high"},
+            "tags": {"difficulty": "medium"},
+        },
+        {
+            "inputs": {
+                "persona": "Librarian",
+                "goal": "Help with inter-library loan",
+            },
+            "expectations": {"expected_output": "loan information"},
+        },
+    ]
+
+    dataset.merge_records(records)
+
+    df = dataset.to_df()
+    assert len(df) == 2
+
+    grad_record = df[df["inputs"].apply(lambda x: x.get("persona") == "Graduate Student")].iloc[0]
+    assert grad_record["expectations"]["expected_output"] == "relevant articles"
+    assert grad_record["expectations"]["quality"] == "high"
+    assert grad_record["tags"]["difficulty"] == "medium"
+    assert grad_record["inputs"]["context"] == {"user_id": "U0001", "department": "CS"}

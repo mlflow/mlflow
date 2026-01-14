@@ -106,14 +106,13 @@ def test_create_provider_from_endpoint_name_azure_openai(store: SqlAlchemyStore)
         auth_config={
             "api_type": "azure",
             "api_base": "https://my-resource.openai.azure.com",
-            "deployment_name": "gpt-4-deployment",
             "api_version": "2024-02-01",
         },
     )
     model_def = store.create_gateway_model_definition(
         name="azure-gpt-model",
         secret_id=secret.secret_id,
-        provider="openai",
+        provider="azure",
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
@@ -133,7 +132,7 @@ def test_create_provider_from_endpoint_name_azure_openai(store: SqlAlchemyStore)
     assert isinstance(provider.config.model.config, OpenAIConfig)
     assert provider.config.model.config.openai_api_type == OpenAIAPIType.AZURE
     assert provider.config.model.config.openai_api_base == "https://my-resource.openai.azure.com"
-    assert provider.config.model.config.openai_deployment_name == "gpt-4-deployment"
+    assert provider.config.model.config.openai_deployment_name == "gpt-4"
     assert provider.config.model.config.openai_api_version == "2024-02-01"
     assert provider.config.model.config.openai_api_key == "azure-api-key-test"
 
@@ -297,7 +296,7 @@ def test_create_provider_from_endpoint_name_litellm(store: SqlAlchemyStore):
 
     assert isinstance(provider, LiteLLMProvider)
     assert isinstance(provider.config.model.config, LiteLLMConfig)
-    assert provider.config.model.config.litellm_api_key == "litellm-test-key"
+    assert provider.config.model.config.litellm_auth_config["api_key"] == "litellm-test-key"
     assert provider.config.model.config.litellm_provider == "litellm"
 
 
@@ -329,8 +328,11 @@ def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlch
 
     assert isinstance(provider, LiteLLMProvider)
     assert isinstance(provider.config.model.config, LiteLLMConfig)
-    assert provider.config.model.config.litellm_api_key == "litellm-custom-key"
-    assert provider.config.model.config.litellm_api_base == "https://custom-api.example.com"
+    assert provider.config.model.config.litellm_auth_config["api_key"] == "litellm-custom-key"
+    assert (
+        provider.config.model.config.litellm_auth_config["api_base"]
+        == "https://custom-api.example.com"
+    )
     assert provider.config.model.config.litellm_provider == "litellm"
 
 

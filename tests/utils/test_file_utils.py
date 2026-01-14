@@ -1,5 +1,6 @@
 import filecmp
 import hashlib
+import io
 import os
 import shutil
 import stat
@@ -10,11 +11,13 @@ import pytest
 from pyspark.sql import SparkSession
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.utils import file_utils
 from mlflow.utils.file_utils import (
     TempDir,
     _copy_file_or_tree,
     _handle_readonly_on_windows,
+    check_tarfile_security,
     get_parent_dir,
     get_total_file_size,
     local_file_uri_to_path,
@@ -220,3 +223,66 @@ def test_get_total_size_basic(tmp_path):
 
     path_file = tmp_path.joinpath("file1.txt")
     assert get_total_file_size(path_file) is None
+
+
+def test_check_tarfile_security(tmp_path):
+    def create_tar_with_escaped_path(tar_path: str, escaped_path: str, content: bytes) -> None:
+        """Create tar with path traversal entry."""
+        with tarfile.open(tar_path, "w:gz") as tar:
+            # Add traversal file
+            data = io.BytesIO(content)
+            info = tarfile.TarInfo(name=escaped_path)
+            info.size = len(content)
+            tar.addfile(info, data)
+
+    tar1_path = str(tmp_path.joinpath("file1.tar"))
+    create_tar_with_escaped_path(tar1_path, "../pwned2.txt", b"ABX")
+    with pytest.raises(
+        MlflowException, match="Escaped path destination in the archive file is not allowed"
+    ):
+        check_tarfile_security(tar1_path)
+
+    def create_tar_with_symlink(
+        tar_path: str, link_name: str, link_target: str, file_via_link: str, content: bytes
+    ) -> None:
+        """Create tar with symlink that points outside, then file through symlink."""
+        with tarfile.open(tar_path, "w:gz") as tar:
+            # First: create a symlink pointing to parent directory
+            link_info = tarfile.TarInfo(name=link_name)
+            link_info.type = tarfile.SYMTYPE
+            link_info.linkname = link_target
+            tar.addfile(link_info)
+            # Second: create a file that goes through the symlink
+            data = io.BytesIO(content)
+            file_info = tarfile.TarInfo(name=file_via_link)
+            file_info.size = len(content)
+            tar.addfile(file_info, data)
+
+    tar2_path = str(tmp_path.joinpath("file2.tar"))
+    create_tar_with_symlink(
+        tar2_path,
+        link_name="escape",
+        link_target="..",
+        file_via_link="escape/pwned.txt",
+        content=b"XYZ",
+    )
+    with pytest.raises(
+        MlflowException, match="Destination path in the archive file can not go through a symlink"
+    ):
+        check_tarfile_security(tar2_path)
+
+    def create_tar_with_abs_path(tar_path: str, abs_path: str, content: bytes) -> None:
+        """Create tar with path traversal entry."""
+        with tarfile.open(tar_path, "w:gz") as tar:
+            # Add traversal file
+            data = io.BytesIO(content)
+            info = tarfile.TarInfo(name=abs_path)
+            info.size = len(content)
+            tar.addfile(info, data)
+
+    tar3_path = str(tmp_path.joinpath("file3.tar"))
+    create_tar_with_abs_path(tar3_path, "/tmp/pwned2.txt", b"ABX")
+    with pytest.raises(
+        MlflowException, match="Absolute path destination in the archive file is not allowed"
+    ):
+        check_tarfile_security(tar3_path)

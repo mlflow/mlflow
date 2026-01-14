@@ -6,7 +6,6 @@ import { type ScorerFormData } from './utils/scorerTransformUtils';
 import { useEvaluateTraces } from './useEvaluateTraces';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import { convertEvaluationResultToAssessment } from './llmScorerUtils';
-import { extractTemplateVariables } from '../../utils/evaluationUtils';
 import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope, SCORER_TYPE } from './constants';
 import { EvaluateTracesParams, LLM_TEMPLATE, isGuidelinesTemplate } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
@@ -51,9 +50,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
   // Carousel state for navigating through traces
   const [currentTraceIndex, setCurrentTraceIndex] = useState(0);
-
-  // Request ID pattern to handle stale results
-  const requestIdRef = useRef(0);
 
   // Determine if we're in custom or built-in judge mode
   const isCustomMode = llmTemplate === LLM_TEMPLATE.CUSTOM;
@@ -172,13 +168,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     });
   }, [currentEvalResult, isCustomMode, llmTemplate, scorerName]);
 
-  // Check if instructions contain {{trace}} variable (custom judges only)
-  const hasTraceVariable = useMemo(() => {
-    if (!isCustomMode || !judgeInstructions) return false;
-    const templateVariables = extractTemplateVariables(judgeInstructions);
-    return templateVariables.includes('trace');
-  }, [isCustomMode, judgeInstructions]);
-
   // Determine if run scorer button should be disabled
   const hasNameError = Boolean((errors as any).name?.message);
   const hasInstructionsError = Boolean((errors as any).instructions?.message);
@@ -215,12 +204,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
           description: 'Tooltip message when instructions have validation errors',
         });
       }
-      if (hasTraceVariable) {
-        return intl.formatMessage({
-          defaultMessage: 'The trace variable is not supported when running the judge on a sample of traces',
-          description: 'Tooltip message when instructions contain trace variable',
-        });
-      }
     } else {
       // Built-in judge mode
       if (hasEmptyGuidelines) {
@@ -249,7 +232,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     isCustomMode,
     judgeInstructions,
     hasInstructionsError,
-    hasTraceVariable,
     hasNameError,
     isRetrievalRelevance,
     hasEmptyGuidelines,
@@ -268,6 +250,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       currentEvalResult={currentEvalResult}
       assessments={assessments}
       handleRunScorer={handleRunScorer}
+      handleCancel={reset}
       handlePrevious={handlePrevious}
       handleNext={handleNext}
       totalTraces={data?.length ?? 0}

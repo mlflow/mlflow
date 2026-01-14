@@ -659,6 +659,8 @@ def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
                 "For full traceback, set logging level to debug.",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
+        else:
+            _logger.debug(f"Failed to get trace from the tracking store: {e}.", exc_info=True)
         return None
 
 

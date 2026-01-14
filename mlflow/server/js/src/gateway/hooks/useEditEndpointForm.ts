@@ -273,8 +273,8 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
   );
 
   const handleCancel = useCallback(() => {
-    navigate(GatewayRoutes.getEndpointDetailsRoute(endpointId));
-  }, [navigate, endpointId]);
+    navigate(GatewayRoutes.gatewayPageRoute);
+  }, [navigate]);
 
   const trafficSplitModels = form.watch('trafficSplitModels');
   const fallbackModels = form.watch('fallbackModels');

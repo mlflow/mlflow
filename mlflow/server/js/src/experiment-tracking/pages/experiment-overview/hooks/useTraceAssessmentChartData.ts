@@ -9,17 +9,20 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
+import { isIsolatedPoint } from '../components/OverviewChartComponents';
 import {
   sortValuesAlphanumerically,
   shouldCreateHistogramBuckets,
   createHistogramBuckets,
   findBucketIndexForValue,
 } from '../utils/distributionUtils';
-import type { OverviewChartProps } from '../types';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface AssessmentChartDataPoint {
   name: string;
-  value: number;
+  value: number | null;
+  /** Whether this point is isolated (both neighbors are null) - used to render dots */
+  isIsolated: boolean;
 }
 
 export interface DistributionChartDataPoint {
@@ -40,27 +43,17 @@ export interface UseTraceAssessmentChartDataResult {
   hasData: boolean;
 }
 
-export interface UseTraceAssessmentChartDataParams extends OverviewChartProps {
-  /** The name of the assessment to fetch data for */
-  assessmentName: string;
-}
-
 /**
  * Custom hook that fetches and processes assessment chart data.
  * Encapsulates all data-fetching and processing logic for individual assessment charts,
  * including both time series data and distribution data.
+ * Uses OverviewChartContext to get chart props.
  *
- * @param props - Chart props including experimentId, time range, buckets, and assessment name
+ * @param assessmentName - The name of the assessment to fetch data for
  * @returns Processed chart data (time series and distribution), loading state, and error state
  */
-export function useTraceAssessmentChartData({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-  assessmentName,
-}: UseTraceAssessmentChartDataParams): UseTraceAssessmentChartDataResult {
+export function useTraceAssessmentChartData(assessmentName: string): UseTraceAssessmentChartDataResult {
+  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Create filters for feedback assessments with the given name
   const filters = useMemo(() => [createAssessmentFilter(AssessmentFilterKey.NAME, assessmentName)], [assessmentName]);
 
@@ -101,20 +94,20 @@ export function useTraceAssessmentChartData({
 
   // Create a map of values by timestamp for the line chart
   const valueExtractor = useCallback(
-    (dp: { values?: Record<string, number> }) => dp.values?.[AggregationType.AVG] || 0,
+    (dp: { values?: Record<string, number> }) => dp.values?.[AggregationType.AVG] ?? null,
     [],
   );
   const valuesByTimestamp = useTimestampValueMap(timeSeriesDataPoints, valueExtractor);
 
-  // Prepare time series chart data - fill in all time buckets with 0 for missing data
+  // Prepare time series chart data - use null for missing data to show gaps in chart
   const timeSeriesChartData = useMemo(() => {
-    return timeBuckets.map((timestampMs) => {
-      const value = valuesByTimestamp.get(timestampMs);
-      return {
-        name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
-        value: value || 0,
-      };
-    });
+    const values = timeBuckets.map((ts) => valuesByTimestamp.get(ts) ?? null);
+
+    return timeBuckets.map((timestampMs, i) => ({
+      name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
+      value: values[i],
+      isIsolated: isIsolatedPoint(values, i),
+    }));
   }, [timeBuckets, valuesByTimestamp, timeIntervalSeconds]);
 
   // Prepare distribution chart data - use actual values from API

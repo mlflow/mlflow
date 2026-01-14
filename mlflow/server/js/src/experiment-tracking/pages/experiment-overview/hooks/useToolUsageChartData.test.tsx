@@ -6,6 +6,7 @@ import { AggregationType, SpanMetricKey, SpanDimensionKey } from '@databricks/we
 import type { ReactNode } from 'react';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create a tool usage data point
 const createToolUsageDataPoint = (timeBucket: string, toolName: string, count: number) => ({
@@ -29,7 +30,7 @@ describe('useToolUsageChartData', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  const defaultProps = {
+  const contextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
@@ -48,10 +49,13 @@ describe('useToolUsageChartData', () => {
       },
     });
 
-  const createWrapper = () => {
+  const createWrapper = (contextOverrides: Partial<typeof contextProps> = {}) => {
     const queryClient = createQueryClient();
+    const mergedContextProps = { ...contextProps, ...contextOverrides };
     return ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <OverviewChartProvider {...mergedContextProps}>{children}</OverviewChartProvider>
+      </QueryClientProvider>
     );
   };
 
@@ -78,7 +82,7 @@ describe('useToolUsageChartData', () => {
         }),
       );
 
-      const { result } = renderHook(() => useToolUsageChartData(defaultProps), {
+      const { result } = renderHook(() => useToolUsageChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -95,7 +99,7 @@ describe('useToolUsageChartData', () => {
         }),
       );
 
-      const { result } = renderHook(() => useToolUsageChartData(defaultProps), {
+      const { result } = renderHook(() => useToolUsageChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -109,7 +113,7 @@ describe('useToolUsageChartData', () => {
     it('should return hasData false when no data points', async () => {
       // Default handler returns empty array
 
-      const { result } = renderHook(() => useToolUsageChartData(defaultProps), {
+      const { result } = renderHook(() => useToolUsageChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -126,16 +130,13 @@ describe('useToolUsageChartData', () => {
     it('should return hasData false when time range is not provided', async () => {
       // Default handler returns empty array
 
-      const { result } = renderHook(
-        () =>
-          useToolUsageChartData({
-            ...defaultProps,
-            startTimeMs: undefined,
-            endTimeMs: undefined,
-            timeBuckets: [],
-          }),
-        { wrapper: createWrapper() },
-      );
+      const { result } = renderHook(() => useToolUsageChartData(), {
+        wrapper: createWrapper({
+          startTimeMs: undefined,
+          endTimeMs: undefined,
+          timeBuckets: [],
+        }),
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -153,7 +154,7 @@ describe('useToolUsageChartData', () => {
         createToolUsageDataPoint('2025-12-22T11:00:00Z', 'beta_tool', 30),
       ]);
 
-      const { result } = renderHook(() => useToolUsageChartData(defaultProps), {
+      const { result } = renderHook(() => useToolUsageChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -171,7 +172,7 @@ describe('useToolUsageChartData', () => {
         createToolUsageDataPoint('2025-12-22T12:00:00Z', 'tool_a', 200),
       ]);
 
-      const { result } = renderHook(() => useToolUsageChartData(defaultProps), {
+      const { result } = renderHook(() => useToolUsageChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -192,7 +193,7 @@ describe('useToolUsageChartData', () => {
         createToolUsageDataPoint('2025-12-22T10:00:00Z', 'tool_a', 100),
       ]);
 
-      const { result } = renderHook(() => useToolUsageChartData(defaultProps), {
+      const { result } = renderHook(() => useToolUsageChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -219,7 +220,7 @@ describe('useToolUsageChartData', () => {
         createToolUsageDataPoint('2025-12-22T10:00:00Z', 'tool_b', 50),
       ]);
 
-      const { result } = renderHook(() => useToolUsageChartData(defaultProps), {
+      const { result } = renderHook(() => useToolUsageChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -249,7 +250,7 @@ describe('useToolUsageChartData', () => {
         createToolUsageDataPoint('2025-12-22T10:00:00Z', 'valid_tool', 50),
       ]);
 
-      const { result } = renderHook(() => useToolUsageChartData(defaultProps), {
+      const { result } = renderHook(() => useToolUsageChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -274,7 +275,7 @@ describe('useToolUsageChartData', () => {
         createToolUsageDataPoint('2025-12-22T10:00:00Z', 'valid_tool', 50),
       ]);
 
-      const { result } = renderHook(() => useToolUsageChartData(defaultProps), {
+      const { result } = renderHook(() => useToolUsageChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -299,7 +300,7 @@ describe('useToolUsageChartData', () => {
         },
       ]);
 
-      const { result } = renderHook(() => useToolUsageChartData(defaultProps), {
+      const { result } = renderHook(() => useToolUsageChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -315,7 +316,7 @@ describe('useToolUsageChartData', () => {
     it('should return hasData true when there are tool names', async () => {
       setupTraceMetricsHandler([createToolUsageDataPoint('2025-12-22T10:00:00Z', 'tool_a', 100)]);
 
-      const { result } = renderHook(() => useToolUsageChartData(defaultProps), {
+      const { result } = renderHook(() => useToolUsageChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -338,7 +339,7 @@ describe('useToolUsageChartData', () => {
         }),
       );
 
-      renderHook(() => useToolUsageChartData(defaultProps), {
+      renderHook(() => useToolUsageChartData(), {
         wrapper: createWrapper(),
       });
 
@@ -359,7 +360,7 @@ describe('useToolUsageChartData', () => {
         }),
       );
 
-      renderHook(() => useToolUsageChartData(defaultProps), {
+      renderHook(() => useToolUsageChartData(), {
         wrapper: createWrapper(),
       });
 

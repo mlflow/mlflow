@@ -111,9 +111,17 @@
     "defaultMessage": "None",
     "description": "A short label for experiments with no experiment kind"
   },
+  "+li9YN": {
+    "defaultMessage": "Provider",
+    "description": "Provider selection label"
+  },
   "+mAXPc": {
     "defaultMessage": "No traces found. Try clearing your active filters to see more traces.",
     "description": "Text displayed when no traces are found in the trace review page"
+  },
+  "+tURAJ": {
+    "defaultMessage": "Cancel",
+    "description": "Button text for canceling evaluation"
   },
   "+w9a+1": {
     "defaultMessage": "Open runs in this group in the new tab",
@@ -483,10 +491,6 @@
     "defaultMessage": "User frustration",
     "description": "LLM template option"
   },
-  "1wdK0N": {
-    "defaultMessage": "Anthropic Passthrough",
-    "description": "Anthropic passthrough section title"
-  },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
     "description": "Label for the custom column group in the logged model column selector"
@@ -773,10 +777,6 @@
   "4Itm9y": {
     "defaultMessage": "Large trace",
     "description": "Modal title for when a trace is very large. The modal warns the user that the trace may cause UI slowness, but allows them to attempt to display it anyway by clicking a button."
-  },
-  "4JLrnY": {
-    "defaultMessage": "Modifying instructions is not supported for this built-in judge.",
-    "description": "Tooltip explaining why instructions are read-only for non-editable templates"
   },
   "4Jyn2b": {
     "defaultMessage": "Add/Edit alias for model version {version}",
@@ -2202,6 +2202,10 @@
     "defaultMessage": "Comparing {count} traces",
     "description": "Comparing traces title"
   },
+  "FcddG+": {
+    "defaultMessage": "Zoom Out",
+    "description": "Button to reset chart zoom"
+  },
   "FdDWTo": {
     "defaultMessage": "Clear All",
     "description": "String for the clear button to clear any selected parameters and metrics"
@@ -2281,10 +2285,6 @@
   "GJWVBA": {
     "defaultMessage": "Inputs",
     "description": "Table subtitle for schema inputs in the model comparison page"
-  },
-  "GJjAMy": {
-    "defaultMessage": "The trace variable is not supported when running the judge on a sample of traces",
-    "description": "Tooltip message when instructions contain trace variable"
   },
   "GKVTw4": {
     "defaultMessage": "JSON",
@@ -3809,10 +3809,6 @@
     "defaultMessage": "Token Usage",
     "description": "Title for the token usage chart"
   },
-  "TPbCHS": {
-    "defaultMessage": "Google Gemini Passthrough",
-    "description": "Gemini passthrough section title"
-  },
   "TPspzA": {
     "defaultMessage": "Deleting the section will permanently remove it and the charts it contains. This cannot be undone.",
     "description": "Experiment page > compare runs > chart section > delete section warning message"
@@ -3867,10 +3863,6 @@
   "TlFUsN": {
     "defaultMessage": "Tags",
     "description": "Title text for the tags section on the model versions view page"
-  },
-  "TlS4PC": {
-    "defaultMessage": "Direct access to OpenAI-specific features and parameters.",
-    "description": "OpenAI passthrough description"
   },
   "TlVXcS": {
     "defaultMessage": "Cancel",
@@ -5035,6 +5027,10 @@
     "defaultMessage": "Dismiss",
     "description": "A label for the button to dismiss the modal with the usage example of the prompt"
   },
+  "cniMRT": {
+    "defaultMessage": "Direct access to OpenAI's Responses API for multi-turn conversations with vision and audio capabilities.",
+    "description": "OpenAI passthrough description"
+  },
   "coo35p": {
     "defaultMessage": "No runs have been logged yet. <link>Learn more</link> about how to create ML model training runs in this experiment.",
     "description": "Empty state description text for experiment runs page when no runs are logged in the experiment"
@@ -5623,10 +5619,6 @@
     "defaultMessage": "Fallback Model {order}",
     "description": "Label for fallback model"
   },
-  "hDWN6z": {
-    "defaultMessage": "OpenAI Passthrough",
-    "description": "OpenAI passthrough section title"
-  },
   "hFlaPP": {
     "defaultMessage": "System metrics",
     "description": "Run details page > tab selector > Model metrics tab"
@@ -5831,9 +5823,17 @@
     "defaultMessage": "collapse {title}",
     "description": "Common component > collapsible section > alternative label when expand"
   },
+  "ic8x74": {
+    "defaultMessage": "Quality Insights",
+    "description": "Title for the quality insights section in quality tab"
+  },
   "icBP3T": {
     "defaultMessage": "TRUE",
     "description": "Header label for boolean assessment type for the true rate"
+  },
+  "ieY8lf": {
+    "defaultMessage": "Evaluating {isTraces, select, true {traces} other {sessions}}...",
+    "description": "Status text while evaluating traces or sessions"
   },
   "igK5Su": {
     "defaultMessage": "Error",
@@ -5866,10 +5866,6 @@
   "j25Ttg": {
     "defaultMessage": "Model metrics",
     "description": "Run details page > tab selector > Model metrics tab"
-  },
-  "j3E+jq": {
-    "defaultMessage": "Search charts",
-    "description": "Placeholder for search charts input"
   },
   "j3yKcX": {
     "defaultMessage": "Select the experiment you configured above.",
@@ -5999,10 +5995,6 @@
     "defaultMessage": "Failed to load child runs",
     "description": "Run page > Overview > Child runs error"
   },
-  "k3V20c": {
-    "defaultMessage": "Scorer Insights",
-    "description": "Title for the scorer insights section in quality tab"
-  },
   "kA+QJr": {
     "defaultMessage": "Overview",
     "description": "Run details page > tab selector > overview tab"
@@ -6030,6 +6022,10 @@
   "kHN/4I": {
     "defaultMessage": "Edited {timeSince} by {source}. Original value: {value}",
     "description": "Evaluation review > assessments > tooltip > edited by human"
+  },
+  "kIESP/": {
+    "defaultMessage": "Filter applies to the first trace in each session. Only run on sessions where the first trace matches this filter; leave blank to run on all. Uses MLflow {link}.",
+    "description": "Hint text for filter string input for session-level scorers"
   },
   "kIlkgf": {
     "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause.",
@@ -6110,10 +6106,6 @@
   "ktiuki": {
     "defaultMessage": "Get Link",
     "description": "Title text for get-link modal"
-  },
-  "l+F5P9": {
-    "defaultMessage": "Advanced",
-    "description": "Advanced settings accordion header"
   },
   "l/+0SR": {
     "defaultMessage": "Last modified",
