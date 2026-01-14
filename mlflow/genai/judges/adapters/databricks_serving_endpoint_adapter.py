@@ -242,7 +242,7 @@ def _invoke_databricks_serving_endpoint(
                 error_code=INVALID_PARAMETER_VALUE,
             ) from e
 
-        # print("response", res_json)
+        print("response", res_json)  # noqa: T201
 
         # Parse and validate the response using helper function
         return _parse_databricks_model_response(res_json, res.headers)
@@ -255,10 +255,27 @@ def _invoke_databricks_serving_endpoint(
         ) from last_exception
 
 
+def _is_gemini_3_model(model_name: str) -> bool:
+    model_lower = model_name.lower()
+    return "gemini-3" in model_lower
+
+
 def _convert_litellm_messages_to_serving_endpoint_api_format(
     messages: list["litellm.Message"],
+    model_name: str,
 ) -> list[dict[str, Any]]:
+    """Convert litellm messages to serving endpoint API format.
+
+    Uses OpenAI format with role="tool" for tool results. For Gemini 3 models,
+    preserves the thoughtSignature field which is required for tool calling.
+
+    Args:
+        messages: List of litellm Message objects
+        model_name: The model name to determine model-specific handling
+    """
     api_messages = []
+    is_gemini_3 = _is_gemini_3_model(model_name)
+
     for msg in messages:
         if msg.role == "tool":
             api_messages.append(
@@ -269,8 +286,9 @@ def _convert_litellm_messages_to_serving_endpoint_api_format(
                 }
             )
         elif msg.tool_calls:
-            tool_calls_data = [
-                {
+            tool_calls_data = []
+            for tc in msg.tool_calls:
+                tool_call = {
                     "id": tc.id,
                     "type": "function",
                     "function": {
@@ -282,8 +300,9 @@ def _convert_litellm_messages_to_serving_endpoint_api_format(
                         ),
                     },
                 }
-                for tc in msg.tool_calls
-            ]
+                if is_gemini_3 and hasattr(tc, "thoughtSignature"):
+                    tool_call["thoughtSignature"] = tc.thoughtSignature
+                tool_calls_data.append(tool_call)
 
             message_dict = {
                 "role": msg.role,
@@ -411,7 +430,9 @@ def _invoke_databricks_serving_endpoint_judge(
 
     print(  # noqa: T201
         "tools available to the judge:",
-        [item["function"]["name"] for item in tools] if tools else "[]",
+        [item.get("function", {}).get("name", item.get("name", "unknown")) for item in tools]
+        if tools
+        else "[]",
     )
 
     max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
@@ -426,7 +447,9 @@ def _invoke_databricks_serving_endpoint_judge(
         if iteration_count > max_iterations:
             _raise_iteration_limit_exceeded(max_iterations)
 
-        api_messages = _convert_litellm_messages_to_serving_endpoint_api_format(messages)
+        api_messages = _convert_litellm_messages_to_serving_endpoint_api_format(
+            messages, model_name
+        )
         print(f"\n=== Iteration {iteration_count}: Sending {len(api_messages)} messages to API ===")  # noqa: T201
         for i, msg in enumerate(api_messages):
             print(f"  Message {i}: {json.dumps(msg, indent=2)}")  # noqa: T201
@@ -461,6 +484,11 @@ def _invoke_databricks_serving_endpoint_judge(
             for tc in output.tool_calls
         ]
 
+        if _is_gemini_3_model(model_name):
+            for litellm_tc, raw_tc in zip(litellm_tool_calls, output.tool_calls):
+                if "thoughtSignature" in raw_tc:
+                    litellm_tc.thoughtSignature = raw_tc["thoughtSignature"]
+
         assistant_message = litellm.Message(
             role="assistant",
             content=output.response,
@@ -476,7 +504,8 @@ def _invoke_databricks_serving_endpoint_judge(
         for i, msg in enumerate(tool_response_messages):
             print(  # noqa: T201
                 f"  Tool response {i}: role={msg.role}, tool_call_id={msg.tool_call_id}, "
-                f"name={msg.name}, content_len={len(msg.content) if msg.content else 0}"
+                f"name={getattr(msg, 'name', 'N/A')}, "
+                f"content_len={len(msg.content) if msg.content else 0}"
             )
         messages.extend(tool_response_messages)
 

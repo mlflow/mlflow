@@ -1571,7 +1571,7 @@ def test_create_litellm_message_from_databricks_response_errors(response_data, e
 
 
 @pytest.mark.parametrize(
-    ("messages", "expected"),
+    ("messages", "expected", "model_name"),
     [
         pytest.param(
             [
@@ -1582,6 +1582,7 @@ def test_create_litellm_message_from_databricks_response_errors(response_data, e
                 {"role": "user", "content": "Hello"},
                 {"role": "assistant", "content": "Hi there"},
             ],
+            "gpt-4",
             id="simple_messages",
         ),
         pytest.param(
@@ -1600,6 +1601,7 @@ def test_create_litellm_message_from_databricks_response_errors(response_data, e
                     "content": '{"name": "root_span"}',
                 }
             ],
+            "gpt-4",
             id="tool_message",
         ),
         pytest.param(
@@ -1629,6 +1631,7 @@ def test_create_litellm_message_from_databricks_response_errors(response_data, e
                     ],
                 }
             ],
+            "gpt-4",
             id="message_with_tool_calls",
         ),
         pytest.param(
@@ -1657,6 +1660,7 @@ def test_create_litellm_message_from_databricks_response_errors(response_data, e
                     ],
                 }
             ],
+            "gpt-4",
             id="tool_calls_no_content",
         ),
         pytest.param(
@@ -1690,6 +1694,7 @@ def test_create_litellm_message_from_databricks_response_errors(response_data, e
                     ],
                 }
             ],
+            "gpt-4",
             id="dict_arguments",
         ),
         pytest.param(
@@ -1734,10 +1739,53 @@ def test_create_litellm_message_from_databricks_response_errors(response_data, e
                 },
                 {"role": "assistant", "content": "The trace looks good"},
             ],
+            "gpt-4",
             id="mixed_messages",
+        ),
+        pytest.param(
+            [
+                # Create a message with tool_call that has thoughtSignature attribute
+                # This simulates what happens when Gemini 3 returns tool calls
+                (
+                    lambda: (
+                        tc := litellm.ChatCompletionMessageToolCall(
+                            id="call_gemini_123",
+                            type="function",
+                            function=litellm.Function(
+                                name="get_trace_info",
+                                arguments='{"trace_id": "abc"}',
+                            ),
+                        ),
+                        setattr(tc, "thoughtSignature", "Let me check the trace information"),
+                        litellm.Message(
+                            role="assistant",
+                            content=None,
+                            tool_calls=[tc],
+                        ),
+                    )[2]
+                )()
+            ],
+            [
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "id": "call_gemini_123",
+                            "type": "function",
+                            "function": {
+                                "name": "get_trace_info",
+                                "arguments": '{"trace_id": "abc"}',
+                            },
+                            "thoughtSignature": "Let me check the trace information",
+                        }
+                    ],
+                }
+            ],
+            "gemini-3-pro",
+            id="preserves_thoughtSignature_for_gemini",
         ),
     ],
 )
-def test_convert_litellm_messages_to_api_format(messages, expected):
-    result = _convert_litellm_messages_to_serving_endpoint_api_format(messages)
+def test_convert_litellm_messages_to_api_format(messages, expected, model_name):
+    result = _convert_litellm_messages_to_serving_endpoint_api_format(messages, model_name)
     assert result == expected
