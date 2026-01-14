@@ -12,10 +12,14 @@ import pydantic
 import requests
 
 if TYPE_CHECKING:
+    import litellm
+
+    from mlflow.entities.trace import Trace
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
@@ -23,7 +27,12 @@ from mlflow.genai.judges.adapters.base_adapter import (
     BaseJudgeAdapter,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+from mlflow.genai.judges.tools import list_judge_tools
 from mlflow.genai.judges.utils.parsing_utils import _sanitize_justification
+from mlflow.genai.judges.utils.tool_calling_utils import (
+    _process_tool_calls,
+    _raise_iteration_limit_exceeded,
+)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.telemetry.utils import _log_error
 
@@ -45,6 +54,7 @@ class InvokeDatabricksModelOutput:
     request_id: str | None
     num_prompt_tokens: int | None
     num_completion_tokens: int | None
+    tool_calls: list[dict[str, Any]] | None = None
 
 
 def _parse_databricks_model_response(
@@ -78,14 +88,17 @@ def _parse_databricks_model_response(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    content = first_choice.get("message", {}).get("content")
-    if content is None:
+    message = first_choice.get("message", {})
+    content = message.get("content")
+    tool_calls = message.get("tool_calls")
+
+    if content is None and not tool_calls:
         raise MlflowException(
-            "Invalid response from Databricks model: missing 'content' field",
+            "Invalid response from Databricks model: "
+            "missing both 'content' and 'tool_calls' fields",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # Handle reasoning response (list of content items)
     if isinstance(content, list):
         text_content = next(
             (
@@ -109,51 +122,41 @@ def _parse_databricks_model_response(
         request_id=headers.get("x-request-id"),
         num_prompt_tokens=usage.get("prompt_tokens"),
         num_completion_tokens=usage.get("completion_tokens"),
+        tool_calls=tool_calls,
     )
 
 
 def _invoke_databricks_serving_endpoint(
     *,
     model_name: str,
-    prompt: str | list["ChatMessage"],
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]] | None = None,
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
 ) -> InvokeDatabricksModelOutput:
+    print("invoke_databricks_serving_endpoint called")  # noqa: T201
+
     from mlflow.utils.databricks_utils import get_databricks_host_creds
 
     # B-Step62: Why not use mlflow deployment client?
     host_creds = get_databricks_host_creds()
     api_url = f"{host_creds.host}/serving-endpoints/{model_name}/invocations"
 
-    # Track whether to include response_format. If the model doesn't support structured outputs,
-    # we'll retry without it
-    include_response_format = response_format is not None
+    # If tools are provided, disable response_format preemptively since many models
+    # don't support using both together (e.g., Claude)
+    include_response_format = tools is None
 
     # Implement retry logic with exponential backoff
     last_exception = None
     for attempt in range(num_retries + 1):
         try:
-            # Build request payload
-            if isinstance(prompt, str):
-                messages = [{"role": "user", "content": prompt}]
-            else:
-                from mlflow.types.llm import ChatMessage
-
-                if not isinstance(prompt, list) or (
-                    prompt and not all(isinstance(msg, ChatMessage) for msg in prompt)
-                ):
-                    prompt_type = type(prompt).__name__
-                    raise MlflowException(
-                        f"Invalid prompt type: expected str or list[ChatMessage], "
-                        f"got {prompt_type}",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                messages = [{"role": msg.role, "content": msg.content} for msg in prompt]
-
             payload = {"messages": messages}
 
-            if include_response_format:
+            if tools:
+                payload["tools"] = tools
+
+            if response_format is not None and include_response_format:
                 payload["response_format"] = {
                     "type": "json_schema",
                     "json_schema": {
@@ -165,6 +168,8 @@ def _invoke_databricks_serving_endpoint(
             # Add inference parameters if provided (e.g., temperature, top_p, max_tokens)
             if inference_params:
                 payload.update(inference_params)
+
+            # print("request payload", json.dumps(payload, indent=4))
 
             res = requests.post(
                 url=api_url,
@@ -194,9 +199,15 @@ def _invoke_databricks_serving_endpoint(
             is_response_format_error = any(
                 s in error_text_lower for s in _RESPONSE_FORMAT_ERROR_MESSAGES
             )
-            if res.status_code == 400 and include_response_format and is_response_format_error:
+            if (
+                res.status_code == 400
+                and include_response_format
+                and response_format is not None
+                and is_response_format_error
+            ):
                 _logger.debug(
-                    f"Model '{model_name}' may not support structured outputs (response_format). "
+                    f"Model '{model_name}' may not support structured outputs (response_format) "
+                    f"or may not support combining response_format with tool calling. "
                     f"Retrying without structured output enforcement. The response may not follow "
                     "the expected format."
                 )
@@ -231,6 +242,8 @@ def _invoke_databricks_serving_endpoint(
                 error_code=INVALID_PARAMETER_VALUE,
             ) from e
 
+        # print("response", res_json)
+
         # Parse and validate the response using helper function
         return _parse_databricks_model_response(res_json, res.headers)
 
@@ -240,6 +253,55 @@ def _invoke_databricks_serving_endpoint(
             f"Failed to invoke Databricks model: {last_exception}",
             error_code=INVALID_PARAMETER_VALUE,
         ) from last_exception
+
+
+def _convert_litellm_messages_to_serving_endpoint_api_format(
+    messages: list["litellm.Message"],
+) -> list[dict[str, Any]]:
+    api_messages = []
+    for msg in messages:
+        if msg.role == "tool":
+            api_messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": msg.tool_call_id,
+                    "content": msg.content,
+                }
+            )
+        elif msg.tool_calls:
+            tool_calls_data = [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": (
+                            tc.function.arguments
+                            if isinstance(tc.function.arguments, str)
+                            else json.dumps(tc.function.arguments)
+                        ),
+                    },
+                }
+                for tc in msg.tool_calls
+            ]
+
+            message_dict = {
+                "role": msg.role,
+                "tool_calls": tool_calls_data,
+            }
+
+            if msg.content is not None:
+                message_dict["content"] = msg.content
+
+            api_messages.append(message_dict)
+        else:
+            api_messages.append(
+                {
+                    "role": msg.role,
+                    "content": msg.content,
+                }
+            )
+    return api_messages
 
 
 def _record_judge_model_usage_success_databricks_telemetry(
@@ -321,17 +383,103 @@ def _invoke_databricks_serving_endpoint_judge(
     model_name: str,
     prompt: str | list["ChatMessage"],
     assessment_name: str,
+    trace: "Trace | None" = None,
     num_retries: int = 10,
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
 ) -> InvokeJudgeModelHelperOutput:
-    output = _invoke_databricks_serving_endpoint(
-        model_name=model_name,
-        prompt=prompt,
-        num_retries=num_retries,
-        response_format=response_format,
-        inference_params=inference_params,
+    print("invoke_databricks_serving_endpoint_judge called")  # noqa: T201
+    import litellm
+
+    if isinstance(prompt, str):
+        messages = [litellm.Message(role="user", content=prompt)]
+    else:
+        messages = [litellm.Message(role=msg.role, content=msg.content) for msg in prompt]
+
+    tools = None
+    if trace is not None:
+        judge_tools = list_judge_tools()
+        tools = []
+
+        is_openai = "gpt-" in model_name.lower()
+
+        for tool in judge_tools:
+            tool_dict = tool.get_definition().to_dict()
+            if not is_openai and "function" in tool_dict and "strict" in tool_dict["function"]:
+                del tool_dict["function"]["strict"]
+            tools.append(tool_dict)
+
+    print(  # noqa: T201
+        "tools available to the judge:",
+        [item["function"]["name"] for item in tools] if tools else "[]",
     )
+
+    max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
+    iteration_count = 0
+    last_request_id = None
+    total_prompt_tokens = 0
+    total_completion_tokens = 0
+
+    while True:
+        iteration_count += 1
+        print("agent loop iteration count", iteration_count)  # noqa: T201
+        if iteration_count > max_iterations:
+            _raise_iteration_limit_exceeded(max_iterations)
+
+        api_messages = _convert_litellm_messages_to_serving_endpoint_api_format(messages)
+        print(f"\n=== Iteration {iteration_count}: Sending {len(api_messages)} messages to API ===")  # noqa: T201
+        for i, msg in enumerate(api_messages):
+            print(f"  Message {i}: {json.dumps(msg, indent=2)}")  # noqa: T201
+
+        output = _invoke_databricks_serving_endpoint(
+            model_name=model_name,
+            messages=api_messages,
+            tools=tools,
+            num_retries=num_retries,
+            response_format=response_format,
+            inference_params=inference_params,
+        )
+
+        last_request_id = output.request_id
+        if output.num_prompt_tokens:
+            total_prompt_tokens += output.num_prompt_tokens
+        if output.num_completion_tokens:
+            total_completion_tokens += output.num_completion_tokens
+
+        if not output.tool_calls:
+            break
+
+        litellm_tool_calls = [
+            litellm.ChatCompletionMessageToolCall(
+                id=tc["id"],
+                type=tc.get("type", "function"),
+                function=litellm.Function(
+                    name=tc["function"]["name"],
+                    arguments=tc["function"]["arguments"],
+                ),
+            )
+            for tc in output.tool_calls
+        ]
+
+        assistant_message = litellm.Message(
+            role="assistant",
+            content=output.response,
+            tool_calls=litellm_tool_calls,
+        )
+
+        messages.append(assistant_message)
+        tool_response_messages = _process_tool_calls(tool_calls=litellm_tool_calls, trace=trace)
+        print(  # noqa: T201
+            f"Processing {len(litellm_tool_calls)} tool calls, "
+            f"got {len(tool_response_messages)} tool responses"
+        )
+        for i, msg in enumerate(tool_response_messages):
+            print(  # noqa: T201
+                f"  Tool response {i}: role={msg.role}, tool_call_id={msg.tool_call_id}, "
+                f"name={msg.name}, content_len={len(msg.content) if msg.content else 0}"
+            )
+        messages.extend(tool_response_messages)
+
     try:
         response_dict = json.loads(output.response)
         feedback = Feedback(
@@ -353,9 +501,9 @@ def _invoke_databricks_serving_endpoint_judge(
         feedback=feedback,
         model_provider="databricks",
         model_name=model_name,
-        request_id=output.request_id,
-        num_prompt_tokens=output.num_prompt_tokens,
-        num_completion_tokens=output.num_completion_tokens,
+        request_id=last_request_id,
+        num_prompt_tokens=total_prompt_tokens if total_prompt_tokens > 0 else None,
+        num_completion_tokens=total_completion_tokens if total_completion_tokens > 0 else None,
     )
 
 
@@ -395,6 +543,7 @@ class DatabricksServingEndpointAdapter(BaseJudgeAdapter):
                 model_name=model_name,
                 prompt=input_params.prompt,
                 assessment_name=input_params.assessment_name,
+                trace=input_params.trace,
                 num_retries=input_params.num_retries,
                 response_format=input_params.response_format,
                 inference_params=input_params.inference_params,

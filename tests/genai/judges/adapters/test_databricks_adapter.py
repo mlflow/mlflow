@@ -11,6 +11,7 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
+from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     _run_databricks_agentic_loop,
@@ -20,7 +21,9 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
 )
 from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     InvokeDatabricksModelOutput,
+    _convert_litellm_messages_to_serving_endpoint_api_format,
     _invoke_databricks_serving_endpoint,
+    _invoke_databricks_serving_endpoint_judge,
     _parse_databricks_model_response,
     _record_judge_model_usage_failure_databricks_telemetry,
     _record_judge_model_usage_success_databricks_telemetry,
@@ -65,6 +68,35 @@ def test_parse_databricks_model_response_valid_response() -> None:
     assert result.num_completion_tokens == 5
 
 
+def test_parse_databricks_model_response_with_tool_calls() -> None:
+    res_json = {
+        "choices": [
+            {
+                "message": {
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {"name": "get_root_span", "arguments": "{}"},
+                        }
+                    ],
+                }
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+    }
+    headers = {"x-request-id": "test-request-id"}
+
+    result = _parse_databricks_model_response(res_json, headers)
+
+    assert result.response is None
+    assert result.tool_calls is not None
+    assert len(result.tool_calls) == 1
+    assert result.tool_calls[0]["id"] == "call_123"
+    assert result.request_id == "test-request-id"
+
+
 def test_parse_databricks_model_response_reasoning_response() -> None:
     res_json = {
         "choices": [
@@ -107,8 +139,11 @@ def test_parse_databricks_model_response_invalid_reasoning_response(
         ({}, "missing 'choices' field"),
         ({"choices": []}, "missing 'choices' field"),
         ({"choices": [{}]}, "missing 'message' field"),
-        ({"choices": [{"message": {}}]}, "missing 'content' field"),
-        ({"choices": [{"message": {"content": None}}]}, "missing 'content' field"),
+        ({"choices": [{"message": {}}]}, "missing both 'content' and 'tool_calls' fields"),
+        (
+            {"choices": [{"message": {"content": None}}]},
+            "missing both 'content' and 'tool_calls' fields",
+        ),
     ],
 )
 def test_parse_databricks_model_response_errors(
@@ -142,7 +177,9 @@ def test_invoke_databricks_serving_endpoint_successful_invocation(
         ) as mock_post,
     ):
         result = _invoke_databricks_serving_endpoint(
-            model_name="test-model", prompt="test prompt", num_retries=3
+            model_name="test-model",
+            messages=[{"role": "user", "content": "test prompt"}],
+            num_retries=3,
         )
 
         mock_post.assert_called_once_with(
@@ -178,7 +215,9 @@ def test_invoke_databricks_serving_endpoint_bad_request_error_no_retry(
     ):
         with pytest.raises(MlflowException, match=f"failed with status {status_code}"):
             _invoke_databricks_serving_endpoint(
-                model_name="test-model", prompt="test prompt", num_retries=3
+                model_name="test-model",
+                messages=[{"role": "user", "content": "test prompt"}],
+                num_retries=3,
             )
 
         mock_post.assert_called_once()
@@ -212,7 +251,9 @@ def test_invoke_databricks_serving_endpoint_retry_logic_with_transient_errors(
         ) as mock_sleep,
     ):
         result = _invoke_databricks_serving_endpoint(
-            model_name="test-model", prompt="test prompt", num_retries=3
+            model_name="test-model",
+            messages=[{"role": "user", "content": "test prompt"}],
+            num_retries=3,
         )
 
         assert mock_post.call_count == 2
@@ -239,7 +280,9 @@ def test_invoke_databricks_serving_endpoint_json_decode_error(mock_databricks_cr
     ):
         with pytest.raises(MlflowException, match="Failed to parse JSON response"):
             _invoke_databricks_serving_endpoint(
-                model_name="test-model", prompt="test prompt", num_retries=0
+                model_name="test-model",
+                messages=[{"role": "user", "content": "test prompt"}],
+                num_retries=0,
             )
 
         mock_post.assert_called_once()
@@ -266,7 +309,9 @@ def test_invoke_databricks_serving_endpoint_connection_error_with_retries(
             MlflowException, match="Failed to invoke Databricks model after 3 attempts"
         ):
             _invoke_databricks_serving_endpoint(
-                model_name="test-model", prompt="test prompt", num_retries=2
+                model_name="test-model",
+                messages=[{"role": "user", "content": "test prompt"}],
+                num_retries=2,
             )
 
         assert mock_post.call_count == 3  # Initial + 2 retries
@@ -307,7 +352,7 @@ def test_invoke_databricks_serving_endpoint_with_response_format(mock_databricks
     ):
         output = _invoke_databricks_serving_endpoint(
             model_name="my-endpoint",
-            prompt="Rate this",
+            messages=[{"role": "user", "content": "Rate this"}],
             num_retries=1,
             response_format=ResponseFormat,
         )
@@ -385,7 +430,7 @@ def test_invoke_databricks_serving_endpoint_response_format_error_detection(
     ):
         output = _invoke_databricks_serving_endpoint(
             model_name="test-model",
-            prompt="Rate this",
+            messages=[{"role": "user", "content": "Rate this"}],
             num_retries=1,
             response_format=ResponseFormat,
         )
@@ -427,7 +472,7 @@ def test_invoke_databricks_serving_endpoint_with_inference_params(mock_databrick
     ):
         result = _invoke_databricks_serving_endpoint(
             model_name="test-model",
-            prompt="test prompt",
+            messages=[{"role": "user", "content": "test prompt"}],
             num_retries=1,
             inference_params=inference_params,
         )
@@ -441,28 +486,331 @@ def test_invoke_databricks_serving_endpoint_with_inference_params(mock_databrick
     assert result.response == "Test response"
 
 
-@pytest.mark.parametrize(
-    "invalid_prompt",
-    [
-        123,  # Not a string or list
-        ["not a ChatMessage", "also invalid"],  # List but not ChatMessage instances
-    ],
-)
-def test_invoke_databricks_serving_endpoint_invalid_prompt_type(
-    mock_databricks_creds, invalid_prompt
-) -> None:
+def test_serving_endpoint_judge_without_tools(mock_databricks_creds):
+    def mock_post(*args, **kwargs):
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": '{"result": "yes", "rationale": "Good"}'}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+        }
+        mock_response.headers = {"x-request-id": "test-id"}
+        return mock_response
+
     with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
+            side_effect=mock_post,
+        ) as mock_requests,
         mock.patch(
             "mlflow.utils.databricks_utils.get_databricks_host_creds",
             return_value=mock_databricks_creds,
         ),
     ):
-        with pytest.raises(
-            MlflowException,
-            match="Invalid prompt type: expected str or list\\[ChatMessage\\]",
-        ):
-            _invoke_databricks_serving_endpoint(
-                model_name="test-model", prompt=invalid_prompt, num_retries=0
+        output = _invoke_databricks_serving_endpoint_judge(
+            model_name="test-model",
+            prompt="Rate this response",
+            assessment_name="test-assessment",
+            trace=None,
+            num_retries=1,
+        )
+
+        assert mock_requests.call_count == 1
+        payload = mock_requests.call_args.kwargs["json"]
+        assert "tools" not in payload
+        assert output.feedback.value == "yes"
+        assert output.feedback.rationale == "Good"
+        assert output.request_id == "test-id"
+
+
+def test_serving_endpoint_judge_with_tool_calling(mock_databricks_creds, mock_trace):
+    call_count = 0
+
+    def mock_post(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+
+        if call_count == 1:
+            mock_response.json.return_value = {
+                "choices": [
+                    {
+                        "message": {
+                            "content": "Let me check the trace",
+                            "tool_calls": [
+                                {
+                                    "id": "call_123",
+                                    "type": "function",
+                                    "function": {"name": "get_root_span", "arguments": "{}"},
+                                }
+                            ],
+                        }
+                    }
+                ],
+                "usage": {"prompt_tokens": 20, "completion_tokens": 10},
+            }
+        else:
+            mock_response.json.return_value = {
+                "choices": [{"message": {"content": '{"result": "yes", "rationale": "Verified"}'}}],
+                "usage": {"prompt_tokens": 30, "completion_tokens": 15},
+            }
+
+        mock_response.headers = {"x-request-id": f"test-id-{call_count}"}
+        return mock_response
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
+            side_effect=mock_post,
+        ) as mock_requests,
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            return_value=mock_databricks_creds,
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._process_tool_calls"
+        ) as mock_process,
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.list_judge_tools"
+        ) as mock_list_tools,
+    ):
+        mock_tool = mock.Mock()
+        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_root_span"}
+        mock_list_tools.return_value = [mock_tool]
+
+        mock_process.return_value = [
+            litellm.Message(
+                role="tool",
+                content='{"name": "root"}',
+                tool_call_id="call_123",
+                name="get_root_span",
+            )
+        ]
+
+        output = _invoke_databricks_serving_endpoint_judge(
+            model_name="test-model",
+            prompt="Analyze the trace",
+            assessment_name="test-assessment",
+            trace=mock_trace,
+            num_retries=1,
+        )
+
+        assert mock_requests.call_count == 2
+        first_payload = mock_requests.call_args_list[0].kwargs["json"]
+        assert "tools" in first_payload
+        mock_process.assert_called_once()
+        assert output.feedback.value == "yes"
+        assert output.feedback.rationale == "Verified"
+        assert output.num_prompt_tokens == 50
+        assert output.num_completion_tokens == 25
+
+
+def test_serving_endpoint_judge_disables_response_format_with_tools(
+    mock_databricks_creds, mock_trace
+):
+    class ResponseFormat(BaseModel):
+        result: str
+        rationale: str
+
+    captured_payload = None
+
+    def mock_post(*args, **kwargs):
+        nonlocal captured_payload
+        captured_payload = kwargs.get("json")
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": '{"result": "yes", "rationale": "Good"}'}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+        }
+        mock_response.headers = {"x-request-id": "test-id"}
+        return mock_response
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
+            side_effect=mock_post,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            return_value=mock_databricks_creds,
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.list_judge_tools"
+        ) as mock_list_tools,
+    ):
+        mock_tool = mock.Mock()
+        mock_tool_def = mock.Mock()
+        mock_tool_def.to_dict.return_value = {
+            "type": "function",
+            "function": {
+                "name": "get_root_span",
+                "description": "Get root span",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+        mock_tool.get_definition.return_value = mock_tool_def
+        mock_list_tools.return_value = [mock_tool]
+
+        output = _invoke_databricks_serving_endpoint_judge(
+            model_name="test-model",
+            prompt="Rate this",
+            assessment_name="test-assessment",
+            trace=mock_trace,
+            num_retries=1,
+            response_format=ResponseFormat,
+        )
+
+        assert captured_payload is not None
+        assert isinstance(captured_payload.get("tools"), list)
+        assert len(captured_payload["tools"]) > 0
+        assert captured_payload.get("response_format") is None
+        assert output.feedback.value == "yes"
+
+
+@pytest.mark.parametrize(
+    ("model_name", "should_filter_strict"),
+    [
+        ("gpt-4", False),
+        ("gpt-3.5-turbo", False),
+        ("gpt-4o", False),
+        ("claude-3-5-sonnet", True),
+        ("anthropic.claude-3-sonnet", True),
+        ("gemini-1.5-pro", True),
+        ("llama-3-70b", True),
+        ("my-custom-model", True),
+    ],
+    ids=["gpt4", "gpt35", "gpt4o", "claude", "anthropic_claude", "gemini", "llama", "custom"],
+)
+def test_serving_endpoint_judge_filters_strict_from_tools(
+    mock_databricks_creds, mock_trace, model_name, should_filter_strict
+):
+    captured_payload = None
+
+    def mock_post(*args, **kwargs):
+        nonlocal captured_payload
+        captured_payload = kwargs.get("json")
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": '{"result": "yes", "rationale": "Good"}'}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+        }
+        mock_response.headers = {"x-request-id": "test-id"}
+        return mock_response
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
+            side_effect=mock_post,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            return_value=mock_databricks_creds,
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.list_judge_tools"
+        ) as mock_list_tools,
+    ):
+        mock_tool = mock.Mock()
+        mock_tool_def = mock.Mock()
+        mock_tool_def.to_dict.return_value = {
+            "type": "function",
+            "function": {
+                "name": "get_root_span",
+                "description": "Get root span",
+                "parameters": {"type": "object", "properties": {}},
+                "strict": True,
+            },
+        }
+        mock_tool.get_definition.return_value = mock_tool_def
+        mock_list_tools.return_value = [mock_tool]
+
+        output = _invoke_databricks_serving_endpoint_judge(
+            model_name=model_name,
+            prompt="Rate this",
+            assessment_name="test-assessment",
+            trace=mock_trace,
+            num_retries=1,
+        )
+
+        assert captured_payload is not None
+        assert "tools" in captured_payload
+        assert len(captured_payload["tools"]) == 1
+
+        if should_filter_strict:
+            assert "strict" not in captured_payload["tools"][0]["function"]
+        else:
+            assert captured_payload["tools"][0]["function"]["strict"] is True
+
+        assert captured_payload["tools"][0]["function"]["name"] == "get_root_span"
+        assert output.feedback.value == "yes"
+
+
+def test_serving_endpoint_judge_max_iteration_limit(mock_databricks_creds, mock_trace, monkeypatch):
+    monkeypatch.setattr(MLFLOW_JUDGE_MAX_ITERATIONS, "get", lambda: 3)
+
+    def mock_post(*args, **kwargs):
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [
+                {
+                    "message": {
+                        "content": "Calling tool",
+                        "tool_calls": [
+                            {
+                                "id": "call_123",
+                                "type": "function",
+                                "function": {"name": "get_root_span", "arguments": "{}"},
+                            }
+                        ],
+                    }
+                }
+            ],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+        }
+        mock_response.headers = {"x-request-id": "test-id"}
+        return mock_response
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
+            side_effect=mock_post,
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            return_value=mock_databricks_creds,
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._process_tool_calls",
+            return_value=[litellm.Message(role="tool", content="{}", tool_call_id="call_123")],
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.list_judge_tools"
+        ) as mock_list_tools,
+    ):
+        mock_tool = mock.Mock()
+        mock_tool_def = mock.Mock()
+        mock_tool_def.to_dict.return_value = {
+            "type": "function",
+            "function": {
+                "name": "get_root_span",
+                "description": "Get root span",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+        mock_tool.get_definition.return_value = mock_tool_def
+        mock_list_tools.return_value = [mock_tool]
+
+        with pytest.raises(MlflowException, match="Completion iteration limit of 3 exceeded"):
+            _invoke_databricks_serving_endpoint_judge(
+                model_name="test-model",
+                prompt="This will loop forever",
+                assessment_name="test-assessment",
+                trace=mock_trace,
+                num_retries=1,
             )
 
 
@@ -1220,3 +1568,176 @@ def test_create_litellm_message_from_databricks_response_with_multiple_tool_call
 def test_create_litellm_message_from_databricks_response_errors(response_data, expected_error):
     with pytest.raises(ValueError, match=expected_error):
         create_litellm_message_from_databricks_response(response_data)
+
+
+@pytest.mark.parametrize(
+    ("messages", "expected"),
+    [
+        pytest.param(
+            [
+                litellm.Message(role="user", content="Hello"),
+                litellm.Message(role="assistant", content="Hi there"),
+            ],
+            [
+                {"role": "user", "content": "Hello"},
+                {"role": "assistant", "content": "Hi there"},
+            ],
+            id="simple_messages",
+        ),
+        pytest.param(
+            [
+                litellm.Message(
+                    role="tool",
+                    content='{"name": "root_span"}',
+                    tool_call_id="call_123",
+                    name="get_root_span",
+                )
+            ],
+            [
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_123",
+                    "content": '{"name": "root_span"}',
+                }
+            ],
+            id="tool_message",
+        ),
+        pytest.param(
+            [
+                litellm.Message(
+                    role="assistant",
+                    content="Let me check",
+                    tool_calls=[
+                        litellm.ChatCompletionMessageToolCall(
+                            id="call_123",
+                            type="function",
+                            function=litellm.Function(name="get_root_span", arguments="{}"),
+                        )
+                    ],
+                )
+            ],
+            [
+                {
+                    "role": "assistant",
+                    "content": "Let me check",
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {"name": "get_root_span", "arguments": "{}"},
+                        }
+                    ],
+                }
+            ],
+            id="message_with_tool_calls",
+        ),
+        pytest.param(
+            [
+                litellm.Message(
+                    role="assistant",
+                    content=None,
+                    tool_calls=[
+                        litellm.ChatCompletionMessageToolCall(
+                            id="call_123",
+                            type="function",
+                            function=litellm.Function(name="get_root_span", arguments="{}"),
+                        )
+                    ],
+                )
+            ],
+            [
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {"name": "get_root_span", "arguments": "{}"},
+                        }
+                    ],
+                }
+            ],
+            id="tool_calls_no_content",
+        ),
+        pytest.param(
+            [
+                litellm.Message(
+                    role="assistant",
+                    content=None,
+                    tool_calls=[
+                        litellm.ChatCompletionMessageToolCall(
+                            id="call_123",
+                            type="function",
+                            function=litellm.Function(
+                                name="search_spans", arguments={"query": "error", "limit": 10}
+                            ),
+                        )
+                    ],
+                )
+            ],
+            [
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {
+                                "name": "search_spans",
+                                "arguments": '{"query": "error", "limit": 10}',
+                            },
+                        }
+                    ],
+                }
+            ],
+            id="dict_arguments",
+        ),
+        pytest.param(
+            [
+                litellm.Message(role="user", content="Analyze the trace"),
+                litellm.Message(
+                    role="assistant",
+                    content="Let me check",
+                    tool_calls=[
+                        litellm.ChatCompletionMessageToolCall(
+                            id="call_123",
+                            type="function",
+                            function=litellm.Function(name="get_root_span", arguments="{}"),
+                        )
+                    ],
+                ),
+                litellm.Message(
+                    role="tool",
+                    content='{"name": "root"}',
+                    tool_call_id="call_123",
+                    name="get_root_span",
+                ),
+                litellm.Message(role="assistant", content="The trace looks good"),
+            ],
+            [
+                {"role": "user", "content": "Analyze the trace"},
+                {
+                    "role": "assistant",
+                    "content": "Let me check",
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {"name": "get_root_span", "arguments": "{}"},
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_123",
+                    "content": '{"name": "root"}',
+                },
+                {"role": "assistant", "content": "The trace looks good"},
+            ],
+            id="mixed_messages",
+        ),
+    ],
+)
+def test_convert_litellm_messages_to_api_format(messages, expected):
+    result = _convert_litellm_messages_to_serving_endpoint_api_format(messages)
+    assert result == expected
