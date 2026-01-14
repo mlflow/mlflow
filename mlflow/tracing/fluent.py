@@ -923,7 +923,15 @@ def get_current_active_span() -> LiveSpan | None:
         return None
 
     trace_manager = InMemoryTraceManager.get_instance()
-    request_id = json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
+    request_id_raw = otel_span.attributes.get(SpanAttributeKey.REQUEST_ID)
+    if request_id_raw is None:
+        _logger.warning("Span has no REQUEST_ID attribute; skipping trace update.")
+        return
+    try:
+        request_id = json.loads(request_id_raw)
+    except (TypeError, json.JSONDecodeError):
+        _logger.warning("Invalid REQUEST_ID attribute; skipping trace update.")
+        return
     return trace_manager.get_span_from_id(request_id, encode_span_id(otel_span.context.span_id))
 
 
