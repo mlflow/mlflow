@@ -158,8 +158,12 @@ class AgentServer:
         async def invocations_endpoint(request: Request):
             return await self._handle_invocations_request(request)
 
-        @self.app.post("/responses/create")
-        async def responses_create_endpoint(request: Request):
+        @self.app.post("/responses")
+        async def responses_endpoint(request: Request):
+            """
+            For compatibility with the OpenAI Client `client.responses.create(...)` method.
+            https://platform.openai.com/docs/api-reference/responses/create
+            """
             return await self._handle_invocations_request(request)
 
         @self.app.get("/agent/info")
