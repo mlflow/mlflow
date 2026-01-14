@@ -420,10 +420,16 @@ def test_to_predict_fn_apps_no_oauth_raises_error():
 
 
 def test_to_predict_fn_apps_old_sdk_version_error():
-    with mock.patch(
-        "importlib.metadata.version",
-        return_value="0.73.0",
-    ):
+    import importlib.metadata
+
+    real_version = importlib.metadata.version
+
+    def mock_version(package):
+        if package == "databricks-sdk":
+            return "0.73.0"
+        return real_version(package)
+
+    with mock.patch("importlib.metadata.version", side_effect=mock_version):
         with pytest.raises(MlflowException, match="databricks-sdk>=0.74.0"):
             to_predict_fn("apps:/my-app")
 
