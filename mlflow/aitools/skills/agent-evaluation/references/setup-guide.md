@@ -86,6 +86,14 @@ echo ""
 export MLFLOW_EXPERIMENT_ID="$EXP_ID"
 ```
 
+**Alternative**: Use the setup script with auto-detection:
+
+```bash
+uv run python scripts/setup_mlflow.py
+# Auto-detects Databricks or local MLflow, creates experiment if needed
+# Outputs: export MLFLOW_TRACKING_URI="..." and export MLFLOW_EXPERIMENT_ID="..."
+```
+
 **After running the above commands**, automatically detect and update the agent's configuration:
 
 1. **Detect configuration mechanism** by checking for:
@@ -127,10 +135,12 @@ export MLFLOW_EXPERIMENT_ID="$EXP_ID"
 
 ### Manual Setup (10% edge cases)
 
-Use this if:
+**Note**: The `setup_mlflow.py` script now includes auto-detection for most scenarios. Manual setup is primarily needed for edge cases where auto-detection cannot work.
+
+Use manual setup if:
 - Using a custom remote MLflow server (not Databricks, not localhost)
 - Non-standard port or hostname for local server
-- Quick setup failed for any reason
+- Quick setup and `setup_mlflow.py` both failed
 - Need more control over experiment naming or configuration
 
 #### Step 2.1: Set Tracking URI

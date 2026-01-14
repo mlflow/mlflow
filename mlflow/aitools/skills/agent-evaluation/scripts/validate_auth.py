@@ -14,14 +14,16 @@ Usage:
 import os
 import sys
 
+from utils import check_databricks_config, validate_env_vars
+
 
 def check_databricks_auth():
     """Test Databricks authentication."""
     print("Testing Databricks authentication...")
 
-    tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "")
+    is_databricks, profile = check_databricks_config()
 
-    if "databricks" not in tracking_uri.lower():
+    if not is_databricks:
         print("  ⊘ Not using Databricks (skipped)")
         print()
         return []
@@ -118,18 +120,17 @@ def check_mlflow_tracking():
     """Test MLflow tracking server connectivity."""
     print("Testing MLflow tracking server...")
 
+    # Use utility to validate env vars
+    errors = validate_env_vars()
+
+    if errors:
+        for error in errors:
+            print(f"  ✗ {error}")
+        print()
+        return [f"Set environment variable: {error}" for error in errors]
+
     tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
     experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID")
-
-    if not tracking_uri:
-        print("  ✗ MLFLOW_TRACKING_URI not set")
-        print()
-        return ["Set MLFLOW_TRACKING_URI environment variable"]
-
-    if not experiment_id:
-        print("  ✗ MLFLOW_EXPERIMENT_ID not set")
-        print()
-        return ["Set MLFLOW_EXPERIMENT_ID environment variable"]
 
     try:
         from mlflow import MlflowClient

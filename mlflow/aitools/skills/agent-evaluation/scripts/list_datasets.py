@@ -5,7 +5,9 @@ This script discovers existing datasets before prompting to create new ones,
 preventing duplicate work and helping users make informed choices.
 
 Usage:
-    python scripts/list_datasets.py
+    python scripts/list_datasets.py                      # Table format (default)
+    python scripts/list_datasets.py --format json        # JSON output
+    python scripts/list_datasets.py --format names-only  # Names only (for piping)
 
 Environment variables required:
     MLFLOW_TRACKING_URI
@@ -13,6 +15,7 @@ Environment variables required:
 """
 
 import argparse
+import json
 import os
 import signal
 import sys
@@ -21,6 +24,7 @@ import numpy as np
 
 from mlflow import MlflowClient
 from mlflow.genai.datasets import get_dataset
+from utils import validate_env_vars
 
 
 class TimeoutError(Exception):
@@ -40,7 +44,10 @@ def parse_arguments():
         "--show-samples", type=int, default=5, help="Number of sample queries to show (default: 5)"
     )
     parser.add_argument(
-        "--non-interactive", action="store_true", help="List without interactive selection"
+        "--format",
+        choices=["table", "json", "names-only"],
+        default="table",
+        help="Output format (default: table)",
     )
     parser.add_argument(
         "--timeout",
@@ -54,28 +61,10 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def check_environment():
-    """Check that required environment variables are set."""
-    tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
-    experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID")
-
-    if not tracking_uri:
-        print("✗ MLFLOW_TRACKING_URI not set")
-        print("  Run: export MLFLOW_TRACKING_URI=<uri>")
-        return None, None
-
-    if not experiment_id:
-        print("✗ MLFLOW_EXPERIMENT_ID not set")
-        print("  Run: export MLFLOW_EXPERIMENT_ID=<id>")
-        return None, None
-
-    return tracking_uri, experiment_id
-
-
 def calculate_diversity_metrics(queries):
     """Calculate diversity metrics for a list of queries."""
     if not queries:
-        return 0.0, 0.0
+        return 0.0, 0.0, 0.0
 
     # Query length statistics
     lengths = [len(q) for q in queries]
@@ -99,216 +88,168 @@ def classify_diversity(std_length, unique_word_ratio, query_count):
     if query_count < 5:
         return "LOW (too few queries)"
 
-    if std_length > 15 and unique_word_ratio > 3:
-        return "HIGH (varied lengths and topics)"
-    elif std_length > 8 or unique_word_ratio > 2:
+    if std_length > 30 and unique_word_ratio > 5:
+        return "HIGH"
+    elif std_length > 15 and unique_word_ratio > 3:
         return "MEDIUM"
     else:
-        return "LOW (repetitive patterns)"
+        return "LOW"
+
+
+def get_datasets_with_timeout(client, experiment_ids, timeout_seconds):
+    """Get datasets with timeout protection."""
+    # Set alarm for timeout
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(timeout_seconds)
+
+    try:
+        datasets = client.search_datasets(experiment_ids=experiment_ids)
+        signal.alarm(0)  # Cancel alarm
+        return datasets
+    except TimeoutError:
+        signal.alarm(0)
+        print(f"⚠ Dataset search timed out after {timeout_seconds}s")
+        print("  Try: --timeout <seconds> to increase timeout")
+        return []
+    except Exception as e:
+        signal.alarm(0)
+        print(f"✗ Error searching datasets: {str(e)[:100]}")
+        return []
+
+
+def print_table_format(dataset_info, args):
+    """Print datasets in table format."""
+    if not dataset_info:
+        print("\n✗ No datasets found in this experiment")
+        print("\nTo create a new dataset:")
+        print("  python scripts/create_dataset_template.py --test-cases-file test_cases.txt")
+        return
+
+    print(f"\n✓ Found {len(dataset_info)} dataset(s):")
+    print("=" * 80)
+
+    for i, info in enumerate(dataset_info, 1):
+        print(f"\n{i}. {info['name']}")
+        print(f"   Queries: {info.get('count', '?')}")
+
+        if args.detailed:
+            if "avg_length" in info:
+                print(f"   Avg length: {info['avg_length']:.1f} chars")
+                print(f"   Std length: {info['std_length']:.1f} chars")
+                print(f"   Unique words/query: {info['unique_word_ratio']:.1f}")
+                print(f"   Diversity: {info.get('diversity', 'N/A')}")
+
+            if "samples" in info:
+                print(f"\n   Sample queries:")
+                for j, sample in enumerate(info["samples"], 1):
+                    preview = sample[:60] + "..." if len(sample) > 60 else sample
+                    print(f"     {j}. {preview}")
+
+    print("\n" + "=" * 80)
+    print("\nTo use a dataset in evaluation:")
+    print('  python scripts/run_evaluation_template.py --dataset-name "dataset_name"')
+
+
+def print_json_format(dataset_info):
+    """Print datasets in JSON format."""
+    print(json.dumps(dataset_info, indent=2))
+
+
+def print_names_only(dataset_info):
+    """Print dataset names only (one per line)."""
+    for info in dataset_info:
+        print(info["name"])
 
 
 def main():
     """Main workflow."""
-    # Parse command-line arguments
     args = parse_arguments()
 
-    print("=" * 60)
-    print("MLflow Dataset Discovery")
-    print("=" * 60)
-    print()
+    print("=" * 80)
+    print("MLflow Evaluation Datasets")
+    print("=" * 80)
 
-    # Check environment
-    tracking_uri, experiment_id = check_environment()
-    if not tracking_uri or not experiment_id:
+    # Check environment using utility
+    errors = validate_env_vars()
+    if errors:
+        print("\n✗ Environment validation failed:")
+        for error in errors:
+            print(f"  - {error}")
+        print("\nRun scripts/setup_mlflow.py to configure environment")
         sys.exit(1)
 
-    print(f"Tracking URI: {tracking_uri}")
-    print(f"Experiment ID: {experiment_id}")
-    print()
+    experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID")
+    print(f"\nExperiment ID: {experiment_id}")
 
-    # Search for datasets with timeout protection
-    print(f"Searching for datasets in experiment... (timeout: {args.timeout}s)")
+    # Get datasets
+    print("\nSearching for datasets...")
     client = MlflowClient()
 
-    datasets = []
     try:
-        # Set up timeout (Unix only)
-        if hasattr(signal, "SIGALRM"):
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(args.timeout)
+        if args.dataset_name:
+            # Search for specific dataset
+            print(f"  Looking for: {args.dataset_name}")
+            datasets = get_datasets_with_timeout(client, [experiment_id], args.timeout)
+            datasets = [d for d in datasets if d.name == args.dataset_name]
 
-            try:
-                datasets = client.search_datasets(experiment_ids=[experiment_id])
-                signal.alarm(0)  # Cancel timeout
-            except TimeoutError:
-                print(f"\n⚠ Search timed out after {args.timeout}s")
-                print("  Try increasing timeout with: --timeout 60")
-                print()
+            if not datasets:
+                print(f"\n✗ Dataset '{args.dataset_name}' not found")
                 sys.exit(1)
         else:
-            # No timeout support on Windows
-            print("  (No timeout support on Windows)")
-            datasets = client.search_datasets(experiment_ids=[experiment_id])
+            # Get all datasets
+            datasets = get_datasets_with_timeout(client, [experiment_id], args.timeout)
 
     except Exception as e:
-        if hasattr(signal, "SIGALRM"):
-            signal.alarm(0)  # Cancel timeout
-        print(f"✗ Error searching datasets: {e}")
+        print(f"\n✗ Error: {str(e)[:200]}")
         sys.exit(1)
 
-    if not datasets:
-        print("\nNo datasets found in this experiment.")
-        print("\nYou'll need to create a new dataset.")
-        print("Run: python scripts/create_dataset_template.py")
-        return
-
-    print(f"✓ Found {len(datasets)} dataset(s)")
-    print()
-
-    # Analyze each dataset
+    # Process datasets
     dataset_info = []
 
-    if not args.detailed:
-        print("\n(Using fast mode - skipping diversity analysis)")
-        print("(Use --detailed flag for full analysis)")
-        print()
+    for dataset in datasets:
+        info = {"name": dataset.name}
 
-    for i, dataset in enumerate(datasets, 1):
-        if args.detailed:
-            print(f"Analyzing dataset {i}/{len(datasets)}: {dataset.name}")
-        else:
-            print(f"Loading dataset {i}/{len(datasets)}: {dataset.name}")
+        # Try to load dataset for detailed info
+        if args.detailed or args.show_samples > 0:
+            try:
+                ds = get_dataset(dataset.name)
+                df = ds.to_df()
 
-        try:
-            # Load dataset
-            ds = get_dataset(dataset.name)
-            df = ds.to_df()
+                info["count"] = len(df)
 
-            # Extract queries
-            queries = []
-            for _, row in df.iterrows():
-                inputs = row["inputs"]
-                query = inputs.get("query", inputs.get("question", str(inputs)))
-                queries.append(query)
+                # Extract queries
+                queries = []
+                for _, row in df.iterrows():
+                    inputs = row.get("inputs", {})
+                    if isinstance(inputs, dict):
+                        query = inputs.get("query", inputs.get("question", str(inputs)))
+                        queries.append(str(query))
 
-            # Calculate metrics (only in detailed mode)
-            if args.detailed:
-                avg_len, std_len, unique_ratio = calculate_diversity_metrics(queries)
-                diversity = classify_diversity(std_len, unique_ratio, len(queries))
-            else:
-                avg_len = std_len = unique_ratio = 0
-                diversity = "N/A (use --detailed)"
+                # Calculate diversity metrics
+                if queries and args.detailed:
+                    avg_len, std_len, unique_ratio = calculate_diversity_metrics(queries)
+                    info["avg_length"] = avg_len
+                    info["std_length"] = std_len
+                    info["unique_word_ratio"] = unique_ratio
+                    info["diversity"] = classify_diversity(std_len, unique_ratio, len(queries))
 
-            dataset_info.append(
-                {
-                    "name": dataset.name,
-                    "id": dataset.dataset_id,
-                    "count": len(queries),
-                    "avg_length": avg_len,
-                    "std_length": std_len,
-                    "unique_ratio": unique_ratio,
-                    "diversity": diversity,
-                    "queries": queries[: args.show_samples],  # Use CLI arg for sample count
-                }
-            )
+                # Sample queries
+                if queries and args.show_samples > 0:
+                    info["samples"] = queries[: args.show_samples]
 
-        except Exception as e:
-            print(f"  ⚠ Could not analyze: {e}")
-            dataset_info.append(
-                {"name": dataset.name, "id": dataset.dataset_id, "count": "?", "error": str(e)}
-            )
+            except Exception as e:
+                info["count"] = "?"
+                info["error"] = str(e)[:50]
 
-    print()
+        dataset_info.append(info)
 
-    # If specific dataset requested via CLI
-    if args.dataset_name:
-        matching = [d for d in dataset_info if d["name"] == args.dataset_name]
-        if not matching:
-            print(f"✗ Dataset '{args.dataset_name}' not found")
-            sys.exit(1)
-
-        info = matching[0]
-        print(f"\nDataset: {info['name']}")
-
-        if "error" in info:
-            print(f"⚠ Could not analyze: {info['error']}")
-            sys.exit(1)
-
-        print(f"Queries: {info['count']}")
-        print(f"Avg length: {info['avg_length']:.1f} chars (σ={info['std_length']:.1f})")
-        print(f"Diversity: {info['diversity']}")
-        print(f"\nSample queries (first {args.show_samples}):")
-        for j, query in enumerate(info["queries"], 1):
-            preview = query[:70] + "..." if len(query) > 70 else query
-            print(f"  {j}. {preview}")
-        return
-
-    # Display results
-    print("=" * 60)
-    print("Available Datasets")
-    print("=" * 60)
-    print()
-
-    # Sort by query count (descending)
-    dataset_info.sort(
-        key=lambda x: x.get("count", 0) if isinstance(x.get("count"), int) else 0, reverse=True
-    )
-
-    for i, info in enumerate(dataset_info, 1):
-        print(f"{i}. {info['name']}")
-
-        if "error" in info:
-            print(f"   ⚠ Could not analyze: {info['error']}")
-        else:
-            print(f"   Queries: {info['count']}")
-            print(f"   Avg length: {info['avg_length']:.1f} chars (σ={info['std_length']:.1f})")
-            print(f"   Diversity: {info['diversity']}")
-
-            # Sample queries
-            print("   Sample:")
-            for j, query in enumerate(info["queries"], 1):
-                preview = query[:70] + "..." if len(query) > 70 else query
-                print(f"     {j}. {preview}")
-
-            # Recommendation
-            if info["count"] > 20 and "HIGH" in info["diversity"]:
-                print("   → RECOMMENDED (most comprehensive)")
-
-        print()
-
-    # Non-interactive mode: just list and exit
-    if args.non_interactive:
-        return
-
-    # Interactive selection
-    print("[C] Create new dataset")
-    print()
-
-    while True:
-        try:
-            choice = input(f"Select dataset (1-{len(dataset_info)}) or C to create new: ").strip()
-
-            if choice.upper() == "C":
-                print("\nTo create a new dataset, run:")
-                print("  python scripts/create_dataset_template.py")
-                break
-
-            idx = int(choice) - 1
-            if 0 <= idx < len(dataset_info):
-                selected = dataset_info[idx]
-                print(f"\n✓ Selected: {selected['name']}")
-                print(f"  Queries: {selected.get('count', '?')}")
-                print("\nUse this dataset name in your evaluation script:")
-                print(f'  DATASET_NAME = "{selected["name"]}"')
-                break
-            else:
-                print(f"Please enter a number between 1 and {len(dataset_info)} or C")
-
-        except ValueError:
-            print("Invalid input. Enter a number or C")
-        except KeyboardInterrupt:
-            print("\n\nCancelled")
-            sys.exit(0)
+    # Output in requested format
+    if args.format == "json":
+        print_json_format(dataset_info)
+    elif args.format == "names-only":
+        print_names_only(dataset_info)
+    else:  # table
+        print_table_format(dataset_info, args)
 
 
 if __name__ == "__main__":

@@ -101,8 +101,8 @@ results = mlflow.genai.evaluate(
 
 **For complete workflows:**
 
-- Check existing datasets: `python scripts/list_datasets.py`
-- Create new dataset: `python scripts/create_dataset_template.py`
+- Check existing datasets: `python scripts/list_datasets.py` (auto-lists all)
+- Create new dataset: `python scripts/create_dataset_template.py --test-cases-file test_cases.txt`
 
 ---
 
@@ -144,7 +144,9 @@ Before creating a new dataset, check if suitable datasets already exist.
 ### Use the Dataset Discovery Script
 
 ```bash
-uv run python scripts/list_datasets.py
+uv run python scripts/list_datasets.py  # Table format (default)
+# Or for machine-readable output:
+uv run python scripts/list_datasets.py --format json
 ```
 
 **This script automatically:**
@@ -179,7 +181,12 @@ If no suitable dataset exists, create a new one.
 ### Use the Dataset Template Generator
 
 ```bash
-uv run python scripts/create_dataset_template.py
+uv run python scripts/create_dataset_template.py --test-cases-file test_cases.txt
+
+# For Databricks Unity Catalog:
+uv run python scripts/create_dataset_template.py \
+  --test-cases-file test_cases.txt \
+  --catalog main --schema ml --table eval_v1
 ```
 
 **The script will:**
@@ -234,11 +241,10 @@ When using Databricks as your tracking URI, special considerations apply.
 
 ### Getting Unity Catalog Table Name
 
-**Option 1: Ask User**
-Use the interactive script:
+**Option 1: Use the script**
 
 ```bash
-uv run python .claude/skills/agent-evaluation/scripts/create_dataset_template.py
+uv run python scripts/create_dataset_template.py --test-cases-file test_cases.txt
 ```
 
 **Option 2: List with Databricks CLI**

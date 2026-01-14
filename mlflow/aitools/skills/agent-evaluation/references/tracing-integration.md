@@ -360,7 +360,7 @@ This checkpoint catches common implementation errors by comparing your code agai
 Run the static validation script to automatically check your implementation:
 
 ```bash
-uv run python .claude/skills/agent-evaluation/scripts/validate_tracing_static.py
+uv run python scripts/validate_tracing_static.py
 ```
 
 **This script verifies**:
@@ -505,8 +505,12 @@ Now verify that **BOTH** autolog and decorators are working together.
 The easiest way to verify tracing is to use the validation script:
 
 ```bash
-uv run python .claude/skills/agent-evaluation/scripts/validate_tracing.py
+uv run python scripts/validate_tracing_runtime.py  # Auto-detects module and entry point
+# Optional overrides:
+uv run python scripts/validate_tracing_runtime.py --module my_agent.agent --entry-point run_agent
 ```
+
+**Auto-detection**: The script will automatically detect your agent module and entry point. If detection fails, provide them explicitly with --module and --entry-point flags.
 
 This script will:
 
@@ -619,7 +623,7 @@ Trace structure:
 Run the validation script to verify:
 
 ```bash
-uv run python .claude/skills/agent-evaluation/scripts/validate_tracing.py
+uv run python scripts/validate_tracing_runtime.py
 ```
 
 Expected output:

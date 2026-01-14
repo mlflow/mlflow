@@ -3,7 +3,7 @@ Validate MLflow environment setup for agent evaluation.
 
 This script runs `mlflow doctor` and adds custom checks for:
 - Environment variables (MLFLOW_TRACKING_URI, MLFLOW_EXPERIMENT_ID)
-- MLflow version compatibility (>=3.6.0)
+- MLflow version compatibility (>=3.8.0)
 - Agent package installation
 - Basic connectivity test
 
@@ -12,11 +12,10 @@ Usage:
 """
 
 import importlib.util
-import os
 import subprocess
 import sys
 
-from packaging import version
+from utils import test_mlflow_connection, validate_env_vars, validate_mlflow_version
 
 
 def run_mlflow_doctor():
@@ -45,51 +44,45 @@ def check_environment_variables():
     """Check that required environment variables are set."""
     print("Checking environment variables...")
 
-    issues = []
+    errors = validate_env_vars()
 
-    tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
-    experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID")
+    if not errors:
+        env_vars = {}
+        import os
 
-    if not tracking_uri:
-        print("  ✗ MLFLOW_TRACKING_URI not set")
-        issues.append("Set MLFLOW_TRACKING_URI: export MLFLOW_TRACKING_URI=<uri>")
+        tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
+        experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID")
+
+        if tracking_uri:
+            print(f"  ✓ MLFLOW_TRACKING_URI: {tracking_uri}")
+        if experiment_id:
+            print(f"  ✓ MLFLOW_EXPERIMENT_ID: {experiment_id}")
     else:
-        print(f"  ✓ MLFLOW_TRACKING_URI: {tracking_uri}")
-
-    if not experiment_id:
-        print("  ✗ MLFLOW_EXPERIMENT_ID not set")
-        issues.append("Set MLFLOW_EXPERIMENT_ID: export MLFLOW_EXPERIMENT_ID=<id>")
-    else:
-        print(f"  ✓ MLFLOW_EXPERIMENT_ID: {experiment_id}")
+        for error in errors:
+            print(f"  ✗ {error}")
 
     print()
-    return issues
+    return ["Set environment variables" for _ in errors] if errors else []
 
 
 def check_mlflow_version():
     """Check MLflow version is compatible."""
     print("Checking MLflow version...")
 
-    try:
-        import mlflow
+    is_valid, version_str = validate_mlflow_version("3.8.0")
 
-        current_version = mlflow.__version__
-
-        # Remove dev/rc suffixes for comparison
-        clean_version = current_version.split("dev")[0].split("rc")[0]
-
-        if version.parse(clean_version) >= version.parse("3.8.0"):
-            print(f"  ✓ MLflow {current_version} (>=3.8.0)")
-            print()
-            return []
-        else:
-            print(f"  ✗ MLflow {current_version} (need >=3.8.0)")
-            print()
-            return ["Upgrade MLflow: pip install --upgrade 'mlflow>=3.8.0'"]
-    except ImportError:
-        print("  ✗ MLflow not installed")
+    if is_valid:
+        print(f"  ✓ MLflow {version_str} (>=3.8.0)")
+        print()
+        return []
+    elif version_str == "not installed":
+        print(f"  ✗ MLflow not installed")
         print()
         return ["Install MLflow: pip install mlflow"]
+    else:
+        print(f"  ✗ MLflow {version_str} (need >=3.8.0)")
+        print()
+        return ["Upgrade MLflow: pip install --upgrade 'mlflow>=3.8.0'"]
 
 
 def check_agent_package():
@@ -116,6 +109,8 @@ def test_connectivity():
     """Test basic connectivity to MLflow tracking server."""
     print("Testing MLflow connectivity...")
 
+    import os
+
     tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
     experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID")
 
@@ -124,17 +119,14 @@ def test_connectivity():
         print()
         return []
 
-    try:
-        from mlflow import MlflowClient
+    success, result = test_mlflow_connection(tracking_uri, experiment_id)
 
-        client = MlflowClient()
-        experiment = client.get_experiment(experiment_id)
-
-        print(f"  ✓ Connected to experiment: {experiment.name}")
+    if success:
+        print(f"  ✓ Connected to experiment: {result}")
         print()
         return []
-    except Exception as e:
-        print(f"  ✗ Connection failed: {str(e)[:100]}")
+    else:
+        print(f"  ✗ Connection failed: {result}")
         print()
         return [f"Check connectivity and authentication to {tracking_uri}"]
 

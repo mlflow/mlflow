@@ -83,7 +83,8 @@ Common errors and solutions for agent evaluation with MLflow.
 2. Check MLFLOW_EXPERIMENT_ID is set: `echo $MLFLOW_EXPERIMENT_ID`
 3. Verify autolog call exists: `grep -r "autolog" src/`
 4. Verify decorators present: `grep -r "@mlflow.trace" src/`
-5. Run validation script: `python scripts/validate_tracing.py`
+5. Run validation script: `python scripts/validate_tracing_runtime.py`
+   # Script will auto-detect module and entry point
 6. Check MLflow version: `mlflow --version` (need >=3.6.0)
 
 ### Missing Library Spans (Autolog Not Working)
