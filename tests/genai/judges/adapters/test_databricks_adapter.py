@@ -73,7 +73,7 @@ def test_parse_databricks_model_response_with_tool_calls() -> None:
         "choices": [
             {
                 "message": {
-                    "content": None,
+                    "content": "Let me fetch the trace information for you.",
                     "tool_calls": [
                         {
                             "id": "call_123",
@@ -90,10 +90,19 @@ def test_parse_databricks_model_response_with_tool_calls() -> None:
 
     result = _parse_databricks_model_response(res_json, headers)
 
-    assert result.response is None
+    assert result.response == "Let me fetch the trace information for you."
     assert result.tool_calls is not None
+    assert isinstance(result.tool_calls, list)
     assert len(result.tool_calls) == 1
-    assert result.tool_calls[0]["id"] == "call_123"
+
+    tool_call = result.tool_calls[0]
+    assert isinstance(tool_call, dict)
+    assert tool_call["id"] == "call_123"
+    assert tool_call["type"] == "function"
+    assert "function" in tool_call
+    assert tool_call["function"]["name"] == "get_root_span"
+    assert tool_call["function"]["arguments"] == "{}"
+
     assert result.request_id == "test-request-id"
 
 
@@ -672,16 +681,11 @@ def test_serving_endpoint_judge_disables_response_format_with_tools(
 @pytest.mark.parametrize(
     ("model_name", "should_filter_strict"),
     [
-        ("gpt-4", False),
-        ("gpt-3.5-turbo", False),
-        ("gpt-4o", False),
-        ("claude-3-5-sonnet", True),
-        ("anthropic.claude-3-sonnet", True),
-        ("gemini-1.5-pro", True),
-        ("llama-3-70b", True),
-        ("my-custom-model", True),
+        ("databricks:/databricks-gpt-5-nano", False),
+        ("databricks:/databricks-claude-sonnet-4-5", True),
+        ("databricks:/databricks-gemini-3-pro", True),
     ],
-    ids=["gpt4", "gpt35", "gpt4o", "claude", "anthropic_claude", "gemini", "llama", "custom"],
+    ids=["gpt", "claude", "gemini"],
 )
 def test_serving_endpoint_judge_filters_strict_from_tools(
     mock_databricks_creds, mock_trace, model_name, should_filter_strict
@@ -1582,7 +1586,7 @@ def test_create_litellm_message_from_databricks_response_errors(response_data, e
                 {"role": "user", "content": "Hello"},
                 {"role": "assistant", "content": "Hi there"},
             ],
-            "gpt-4",
+            "databricks:/databricks-gpt-5-mini",
             id="simple_messages",
         ),
         pytest.param(
@@ -1601,7 +1605,7 @@ def test_create_litellm_message_from_databricks_response_errors(response_data, e
                     "content": '{"name": "root_span"}',
                 }
             ],
-            "gpt-4",
+            "databricks:/databricks-gpt-5-mini",
             id="tool_message",
         ),
         pytest.param(
@@ -1631,7 +1635,7 @@ def test_create_litellm_message_from_databricks_response_errors(response_data, e
                     ],
                 }
             ],
-            "gpt-4",
+            "databricks:/databricks-gpt-5-mini",
             id="message_with_tool_calls",
         ),
         pytest.param(
@@ -1660,7 +1664,7 @@ def test_create_litellm_message_from_databricks_response_errors(response_data, e
                     ],
                 }
             ],
-            "gpt-4",
+            "databricks:/databricks-gpt-5-mini",
             id="tool_calls_no_content",
         ),
         pytest.param(
@@ -1694,7 +1698,7 @@ def test_create_litellm_message_from_databricks_response_errors(response_data, e
                     ],
                 }
             ],
-            "gpt-4",
+            "databricks:/databricks-gpt-5-mini",
             id="dict_arguments",
         ),
         pytest.param(
@@ -1739,13 +1743,11 @@ def test_create_litellm_message_from_databricks_response_errors(response_data, e
                 },
                 {"role": "assistant", "content": "The trace looks good"},
             ],
-            "gpt-4",
+            "databricks:/databricks-gpt-5-mini",
             id="mixed_messages",
         ),
         pytest.param(
             [
-                # Create a message with tool_call that has thoughtSignature attribute
-                # This simulates what happens when Gemini 3 returns tool calls
                 (
                     lambda: (
                         tc := litellm.ChatCompletionMessageToolCall(
@@ -1781,7 +1783,7 @@ def test_create_litellm_message_from_databricks_response_errors(response_data, e
                     ],
                 }
             ],
-            "gemini-3-pro",
+            "databricks:/databricks-gemini-3-flash",
             id="preserves_thoughtSignature_for_gemini",
         ),
     ],

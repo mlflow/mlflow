@@ -99,6 +99,7 @@ def _parse_databricks_model_response(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
+    # Handle reasoning response (list of content items)
     if isinstance(content, list):
         text_content = next(
             (
@@ -135,14 +136,14 @@ def _invoke_databricks_serving_endpoint(
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
 ) -> InvokeDatabricksModelOutput:
-    print("invoke_databricks_serving_endpoint called")  # noqa: T201
-
     from mlflow.utils.databricks_utils import get_databricks_host_creds
 
     # B-Step62: Why not use mlflow deployment client?
     host_creds = get_databricks_host_creds()
     api_url = f"{host_creds.host}/serving-endpoints/{model_name}/invocations"
 
+    # Track whether to include response_format. If the model doesn't support structured outputs,
+    # we'll retry without it
     # If tools are provided, disable response_format preemptively since many models
     # don't support using both together (e.g., Claude)
     include_response_format = tools is None
@@ -168,8 +169,6 @@ def _invoke_databricks_serving_endpoint(
             # Add inference parameters if provided (e.g., temperature, top_p, max_tokens)
             if inference_params:
                 payload.update(inference_params)
-
-            # print("request payload", json.dumps(payload, indent=4))
 
             res = requests.post(
                 url=api_url,
@@ -199,15 +198,9 @@ def _invoke_databricks_serving_endpoint(
             is_response_format_error = any(
                 s in error_text_lower for s in _RESPONSE_FORMAT_ERROR_MESSAGES
             )
-            if (
-                res.status_code == 400
-                and include_response_format
-                and response_format is not None
-                and is_response_format_error
-            ):
+            if res.status_code == 400 and include_response_format and is_response_format_error:
                 _logger.debug(
-                    f"Model '{model_name}' may not support structured outputs (response_format) "
-                    f"or may not support combining response_format with tool calling. "
+                    f"Model '{model_name}' may not support structured outputs (response_format). "
                     f"Retrying without structured output enforcement. The response may not follow "
                     "the expected format."
                 )
@@ -241,8 +234,6 @@ def _invoke_databricks_serving_endpoint(
                 f"Failed to parse JSON response from Databricks model: {e}",
                 error_code=INVALID_PARAMETER_VALUE,
             ) from e
-
-        print("response", res_json)  # noqa: T201
 
         # Parse and validate the response using helper function
         return _parse_databricks_model_response(res_json, res.headers)
@@ -407,7 +398,6 @@ def _invoke_databricks_serving_endpoint_judge(
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
 ) -> InvokeJudgeModelHelperOutput:
-    print("invoke_databricks_serving_endpoint_judge called")  # noqa: T201
     import litellm
 
     if isinstance(prompt, str):
@@ -428,13 +418,6 @@ def _invoke_databricks_serving_endpoint_judge(
                 del tool_dict["function"]["strict"]
             tools.append(tool_dict)
 
-    print(  # noqa: T201
-        "tools available to the judge:",
-        [item.get("function", {}).get("name", item.get("name", "unknown")) for item in tools]
-        if tools
-        else "[]",
-    )
-
     max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
     iteration_count = 0
     last_request_id = None
@@ -443,16 +426,12 @@ def _invoke_databricks_serving_endpoint_judge(
 
     while True:
         iteration_count += 1
-        print("agent loop iteration count", iteration_count)  # noqa: T201
         if iteration_count > max_iterations:
             _raise_iteration_limit_exceeded(max_iterations)
 
         api_messages = _convert_litellm_messages_to_serving_endpoint_api_format(
             messages, model_name
         )
-        print(f"\n=== Iteration {iteration_count}: Sending {len(api_messages)} messages to API ===")  # noqa: T201
-        for i, msg in enumerate(api_messages):
-            print(f"  Message {i}: {json.dumps(msg, indent=2)}")  # noqa: T201
 
         output = _invoke_databricks_serving_endpoint(
             model_name=model_name,
@@ -497,16 +476,6 @@ def _invoke_databricks_serving_endpoint_judge(
 
         messages.append(assistant_message)
         tool_response_messages = _process_tool_calls(tool_calls=litellm_tool_calls, trace=trace)
-        print(  # noqa: T201
-            f"Processing {len(litellm_tool_calls)} tool calls, "
-            f"got {len(tool_response_messages)} tool responses"
-        )
-        for i, msg in enumerate(tool_response_messages):
-            print(  # noqa: T201
-                f"  Tool response {i}: role={msg.role}, tool_call_id={msg.tool_call_id}, "
-                f"name={getattr(msg, 'name', 'N/A')}, "
-                f"content_len={len(msg.content) if msg.content else 0}"
-            )
         messages.extend(tool_response_messages)
 
     try:
