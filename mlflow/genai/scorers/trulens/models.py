@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
 
 from mlflow.exceptions import MlflowException
@@ -11,11 +10,13 @@ from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     _invoke_databricks_serving_endpoint,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+from mlflow.genai.scorers.scorer_utils import (
+    parse_third_party_model_uri,
+    serialize_chat_messages_to_prompts,
+)
 
 if TYPE_CHECKING:
     from typing import Sequence
-
-_logger = logging.getLogger(__name__)
 
 
 def _check_trulens_installed():
@@ -43,22 +44,10 @@ def _create_databricks_managed_judge_provider(**kwargs: Any):
             messages: "Sequence[dict] | None" = None,
             **kwargs,
         ) -> str:
-            # Convert messages to prompt if provided, otherwise use prompt directly
             if messages:
-                # Extract system and user content from messages
-                system_parts = []
-                user_parts = []
-                for m in messages:
-                    role = m.get("role", "user")
-                    content = m.get("content", "")
-                    if role == "system":
-                        system_parts.append(content)
-                    else:
-                        user_parts.append(f"{role}: {content}")
-                system_prompt = "\n".join(system_parts) if system_parts else ""
-                user_prompt = "\n".join(user_parts) if user_parts else ""
+                user_prompt, system_prompt = serialize_chat_messages_to_prompts(list(messages))
+                system_prompt = system_prompt or ""
             else:
-                # Use prompt directly if no messages provided
                 user_prompt = prompt if prompt is not None else ""
                 system_prompt = ""
 
@@ -85,18 +74,9 @@ def _create_databricks_serving_endpoint_provider(endpoint_name: str, **kwargs: A
             messages: "Sequence[dict] | None" = None,
             **kwargs,
         ) -> str:
-            # Convert messages to prompt if provided, otherwise use prompt directly
             if messages:
-                # Flatten messages into a single prompt (serving endpoint takes single prompt)
-                parts = []
-                for m in messages:
-                    role = m.get("role", "user")
-                    content = m.get("content", "")
-                    if role == "system":
-                        parts.insert(0, f"System: {content}")
-                    else:
-                        parts.append(f"{role}: {content}")
-                final_prompt = "\n".join(parts)
+                user_prompt, system_prompt = serialize_chat_messages_to_prompts(list(messages))
+                final_prompt = f"System: {system_prompt}\n\n{user_prompt}" if system_prompt else user_prompt
             else:
                 final_prompt = prompt if prompt is not None else ""
 
@@ -130,32 +110,21 @@ def create_trulens_provider(model_uri: str, **kwargs: Any):
     """
     _check_trulens_installed()
 
-    if model_uri == "databricks":
-        return _create_databricks_managed_judge_provider(**kwargs)
+    provider, model_name = parse_third_party_model_uri(model_uri)
 
-    if model_uri.startswith("databricks:/"):
-        endpoint_name = model_uri.split(":", 1)[1].removeprefix("/")
-        return _create_databricks_serving_endpoint_provider(endpoint_name, **kwargs)
+    if provider == "databricks":
+        if model_name is None:
+            return _create_databricks_managed_judge_provider(**kwargs)
+        return _create_databricks_serving_endpoint_provider(model_name, **kwargs)
 
-    if ":" in model_uri:
-        # Use LiteLLM for all other providers
-        provider, model_name = model_uri.split(":", 1)
-        model_name = model_name.removeprefix("/")
+    # Use LiteLLM for all other providers
+    try:
+        from trulens.providers.litellm import LiteLLM
 
-        try:
-            from trulens.providers.litellm import LiteLLM
-
-            # Format model name for LiteLLM (e.g., "openai/gpt-4" or just "gpt-4")
-            litellm_model = f"{provider}/{model_name}" if provider != "litellm" else model_name
-            return LiteLLM(model_engine=litellm_model, **kwargs)
-        except ImportError:
-            raise MlflowException.invalid_parameter_value(
-                "Non-Databricks providers require 'trulens-providers-litellm'. "
-                "Install it with: `pip install trulens-providers-litellm`"
-            )
-
-    raise MlflowException.invalid_parameter_value(
-        f"Invalid model_uri format: '{model_uri}'. "
-        f"Must be 'databricks', 'databricks:/<endpoint>', or include a provider prefix "
-        f"(e.g., 'openai:/gpt-4', 'litellm:/gpt-4')."
-    )
+        litellm_model = f"{provider}/{model_name}" if provider != "litellm" else model_name
+        return LiteLLM(model_engine=litellm_model, **kwargs)
+    except ImportError:
+        raise MlflowException.invalid_parameter_value(
+            "Non-Databricks providers require 'trulens-providers-litellm'. "
+            "Install it with: `pip install trulens-providers-litellm`"
+        )
