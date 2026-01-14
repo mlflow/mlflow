@@ -517,6 +517,7 @@ addopts = [
   "--color=yes",
   "--durations=10",
   "--showlocals",
+  "--no-header",
   "-v",
 ]
 filterwarnings = [
