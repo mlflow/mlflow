@@ -70,6 +70,13 @@ export const groupTracesBySessionForTable = (
       return;
     }
 
+    // Sort entries by request time ascending within the session (first turn to last turn)
+    sessionEntries.sort((a, b) => {
+      const aTime = a.currentRunValue?.traceInfo?.request_time ?? '';
+      const bTime = b.currentRunValue?.traceInfo?.request_time ?? '';
+      return aTime.localeCompare(bTime);
+    });
+
     // Collect all traces for the session header
     const traces = collectTracesFromEntries(sessionEntries);
 
