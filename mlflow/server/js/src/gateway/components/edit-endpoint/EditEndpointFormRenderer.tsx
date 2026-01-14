@@ -3,6 +3,7 @@ import {
   Alert,
   Breadcrumb,
   Button,
+  FormUI,
   Spinner,
   Tooltip,
   Typography,
@@ -17,6 +18,7 @@ import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
 import { EndpointUsageModal } from '../endpoints/EndpointUsageModal';
+import { GatewayInput } from '../common';
 
 export interface EditEndpointFormRendererProps {
   form: UseFormReturn<EditEndpointFormData>;
@@ -41,11 +43,13 @@ export const EditEndpointFormRenderer = ({
   loadError,
   mutationError,
   errorMessage,
+  resetErrors,
   endpointName,
   isFormComplete,
   hasChanges,
   onSubmit,
   onCancel,
+  onNameBlur,
 }: EditEndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -130,6 +134,56 @@ export const EditEndpointFormRenderer = ({
         }}
       >
         <div css={{ flex: 1, display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+          <div
+            css={{
+              padding: theme.spacing.md,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              backgroundColor: theme.colors.backgroundSecondary,
+            }}
+          >
+            <Typography.Title level={3}>
+              <FormattedMessage defaultMessage="Endpoint Name" description="Section title for endpoint name" />
+            </Typography.Title>
+            <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
+              <FormattedMessage
+                defaultMessage="The name is used in the endpoint URL. Only letters, numbers, underscores, hyphens, and dots are allowed."
+                description="Endpoint name description"
+              />
+            </Typography.Text>
+
+            <div css={{ marginTop: theme.spacing.md }}>
+              <Controller
+                control={form.control}
+                name="name"
+                render={({ field, fieldState }) => (
+                  <div>
+                    <GatewayInput
+                      id="mlflow.gateway.edit-endpoint.name"
+                      componentId="mlflow.gateway.edit-endpoint.name"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                        form.clearErrors('name');
+                        resetErrors();
+                      }}
+                      onBlur={() => {
+                        field.onBlur();
+                        onNameBlur();
+                      }}
+                      placeholder={intl.formatMessage({
+                        defaultMessage: 'my-endpoint',
+                        description: 'Placeholder for endpoint name input',
+                      })}
+                      validationState={fieldState.error ? 'error' : undefined}
+                    />
+                    {fieldState.error && <FormUI.Message type="error" message={fieldState.error.message} />}
+                  </div>
+                )}
+              />
+            </div>
+          </div>
+
           <div
             css={{
               padding: theme.spacing.md,
