@@ -157,6 +157,9 @@ def _exec_job_in_subproc(
     )
 
     if python_env is not None:
+        if shutil.which("uv") is None:
+            raise MlflowException("MLflow job backend requires 'uv' but it is not installed.")
+
         # set up virtual python environment
         virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
         env_name = _get_virtualenv_name(python_env, None)
@@ -471,9 +474,6 @@ def _check_requirements(backend_store_uri: str | None = None) -> None:
 
     if os.name == "nt":
         raise MlflowException("MLflow job backend does not support Windows system.")
-
-    if shutil.which("uv") is None:
-        raise MlflowException("MLflow job backend requires 'uv' but it is not installed.")
 
     backend_store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR)
     if not backend_store_uri:

@@ -76,9 +76,3 @@ huey:
   pip_release: huey
   minimum: "2.5.0"
   max_major_version: 2
-
-uv:
-  pip_release: uv
-  minimum: "0.9.8"
-  max_major_version: 0
-  freeze: true
