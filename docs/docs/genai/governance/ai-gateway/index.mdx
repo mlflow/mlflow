@@ -1,7 +1,7 @@
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
-import { Shield, Globe, Zap, Users, Wrench, Play, GitBranch, BarChart3 } from "lucide-react";
+import { Shield, Globe, Zap, Users, Wrench, Play, GitBranch, BarChart3, Lock } from "lucide-react";
 
 # MLflow AI Gateway
 
@@ -74,5 +74,12 @@ MLflow AI Gateway also offers passthrough endpoints, enabling requests to be for
     description="Configure traffic splitting and fallbacks for high availability"
     href="./traffic-routing-fallbacks"
     linkText="Learn routing →"
+  />
+  <TileCard
+    icon={Lock}
+    title="Authentication"
+    description="Configure HTTP Basic Authentication for AI Gateway resources"
+    href="/self-hosting/security/basic-http-auth#ai-gateway-permissions"
+    linkText="Learn more →"
   />
 </TilesGrid>
