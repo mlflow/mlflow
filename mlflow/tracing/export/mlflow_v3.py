@@ -135,11 +135,11 @@ class MlflowV3SpanExporter(SpanExporter):
                 _logger.debug(f"Trace for root span {span} not found. Skipping full export.")
                 continue
 
-            if manager_trace.is_remote_trace:
+            if manager_trace.is_remote_trace and not self._should_export_spans_incrementally:
                 _logger.warning(
-                    "The MLflow tracing backend does not support exporting spans "
-                    "incrementally. In this case, for distributed trace, exporting the span "
-                    f"{span.name} that is created in a remote process is not supported."
+                    f"Current MLflow server does not support ingesting the span {span.name} "
+                    "that is created in a remote process. Please upgrade the server version and "
+                    "use SQL backend to do distributed tracing."
                 )
                 continue
 

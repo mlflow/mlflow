@@ -14,7 +14,7 @@ from mlflow.tracing.utils import generate_mlflow_trace_id_from_otel_trace_id
 _logger = logging.getLogger(__name__)
 
 
-def get_tracing_context_headers_for_http_request():
+def get_tracing_context_headers_for_http_request() -> dict[str, str]:
     """
     Get the http request headers that hold information of the tracing context.
     The trace context is serialized as the traceparent header which is defined
@@ -43,8 +43,7 @@ def get_tracing_context_headers_for_http_request():
     active_span = mlflow.get_current_active_span()
     if active_span is None:
         _logger.warning(
-            "'get_tracing_context_headers_for_http_request' does not generate http header "
-            "because There is no active span."
+            "No active span found for fetching the trace context from. Returning an empty header."
         )
     headers = {}
     TraceContextTextMapPropagator().inject(headers)
@@ -52,7 +51,7 @@ def get_tracing_context_headers_for_http_request():
 
 
 @contextmanager
-def set_tracing_context_from_http_request_headers(headers):
+def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
     """
     Context manager to extract the trace context from the http request headers
     and set the extracted trace context as the current trace context within the

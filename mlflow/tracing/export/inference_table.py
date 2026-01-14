@@ -80,9 +80,8 @@ class InferenceTableSpanExporter(SpanExporter):
 
             if manager_trace.is_remote_trace:
                 _logger.warning(
-                    "For distributed tracing, the Databricks InferenceTableSpanExporter does not "
-                    f"support exporting the span {span.name} that is created in a remote process "
-                    "is not supported."
+                    f"Mlflow does not support exporting the span {span.name} that is created "
+                    "in a remote process to Databricks InferenceTable."
                 )
                 continue
 
