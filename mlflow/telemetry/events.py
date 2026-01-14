@@ -354,9 +354,7 @@ class GatewayUpdateEndpointEvent(Event):
             "routing_strategy": str(arguments.get("routing_strategy"))
             if arguments.get("routing_strategy")
             else None,
-            "num_model_configs": len(arguments.get("model_configs") or [])
-            if arguments.get("model_configs") is not None
-            else None,
+            "num_model_configs": len(arguments.get("model_configs") or []),
         }
 
 

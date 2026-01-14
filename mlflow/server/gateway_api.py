@@ -45,30 +45,12 @@ from mlflow.store.tracking.gateway.entities import (
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.telemetry.events import GatewayInvocationEvent
-from mlflow.telemetry.schemas import Status
 from mlflow.telemetry.track import _record_event
 from mlflow.tracking._tracking_service.utils import _get_store
 
 _logger = logging.getLogger(__name__)
 
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
-
-
-def _record_gateway_invocation(
-    is_streaming: bool,
-    invocation_type: str,
-    success: bool,
-    duration_ms: int,
-) -> None:
-    _record_event(
-        GatewayInvocationEvent,
-        params={
-            "is_streaming": is_streaming,
-            "invocation_type": invocation_type,
-        },
-        success=Status.SUCCESS if success else Status.FAILURE,
-        duration_ms=duration_ms,
-    )
 
 
 def _build_endpoint_config(
@@ -378,9 +360,9 @@ async def invocations(endpoint_name: str, request: Request):
         raise
     finally:
         duration_ms = int((time.time() - start_time) * 1000)
-        _record_gateway_invocation(
-            is_streaming=is_streaming,
-            invocation_type="mlflow_invocations",
+        _record_event(
+            GatewayInvocationEvent,
+            params={"is_streaming": is_streaming, "invocation_type": "mlflow_invocations"},
             success=success,
             duration_ms=duration_ms,
         )
@@ -439,9 +421,9 @@ async def chat_completions(request: Request):
         raise
     finally:
         duration_ms = int((time.time() - start_time) * 1000)
-        _record_gateway_invocation(
-            is_streaming=is_streaming,
-            invocation_type="mlflow_chat_completions",
+        _record_event(
+            GatewayInvocationEvent,
+            params={"is_streaming": is_streaming, "invocation_type": "mlflow_chat_completions"},
             success=success,
             duration_ms=duration_ms,
         )
@@ -498,9 +480,9 @@ async def openai_passthrough_chat(request: Request):
         raise
     finally:
         duration_ms = int((time.time() - start_time) * 1000)
-        _record_gateway_invocation(
-            is_streaming=is_streaming,
-            invocation_type="openai_passthrough_chat",
+        _record_event(
+            GatewayInvocationEvent,
+            params={"is_streaming": is_streaming, "invocation_type": "openai_passthrough_chat"},
             success=success,
             duration_ms=duration_ms,
         )
@@ -547,9 +529,9 @@ async def openai_passthrough_embeddings(request: Request):
         raise
     finally:
         duration_ms = int((time.time() - start_time) * 1000)
-        _record_gateway_invocation(
-            is_streaming=False,
-            invocation_type="openai_passthrough_embeddings",
+        _record_event(
+            GatewayInvocationEvent,
+            params={"is_streaming": False, "invocation_type": "openai_passthrough_embeddings"},
             success=success,
             duration_ms=duration_ms,
         )
@@ -606,9 +588,12 @@ async def openai_passthrough_responses(request: Request):
         raise
     finally:
         duration_ms = int((time.time() - start_time) * 1000)
-        _record_gateway_invocation(
-            is_streaming=is_streaming,
-            invocation_type="openai_passthrough_responses",
+        _record_event(
+            GatewayInvocationEvent,
+            params={
+                "is_streaming": is_streaming,
+                "invocation_type": "openai_passthrough_responses",
+            },
             success=success,
             duration_ms=duration_ms,
         )
@@ -665,9 +650,12 @@ async def anthropic_passthrough_messages(request: Request):
         raise
     finally:
         duration_ms = int((time.time() - start_time) * 1000)
-        _record_gateway_invocation(
-            is_streaming=is_streaming,
-            invocation_type="anthropic_passthrough_messages",
+        _record_event(
+            GatewayInvocationEvent,
+            params={
+                "is_streaming": is_streaming,
+                "invocation_type": "anthropic_passthrough_messages",
+            },
             success=success,
             duration_ms=duration_ms,
         )
@@ -718,9 +706,12 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
         raise
     finally:
         duration_ms = int((time.time() - start_time) * 1000)
-        _record_gateway_invocation(
-            is_streaming=False,
-            invocation_type="gemini_passthrough_generate_content",
+        _record_event(
+            GatewayInvocationEvent,
+            params={
+                "is_streaming": False,
+                "invocation_type": "gemini_passthrough_generate_content",
+            },
             success=success,
             duration_ms=duration_ms,
         )
@@ -774,9 +765,12 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         raise
     finally:
         duration_ms = int((time.time() - start_time) * 1000)
-        _record_gateway_invocation(
-            is_streaming=True,
-            invocation_type="gemini_passthrough_stream_generate_content",
+        _record_event(
+            GatewayInvocationEvent,
+            params={
+                "is_streaming": True,
+                "invocation_type": "gemini_passthrough_stream_generate_content",
+            },
             success=success,
             duration_ms=duration_ms,
         )

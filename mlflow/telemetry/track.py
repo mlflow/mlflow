@@ -79,17 +79,17 @@ def _add_telemetry_record(
 
 def _record_event(
     event: type[Event],
-    params: dict[str, Any] | None = None,
+    params: dict[str, Any],
     *,
-    success: Status = Status.UNKNOWN,
+    success: bool = True,
     duration_ms: int | None = None,
 ) -> None:
     try:
-        if is_telemetry_disabled() or _is_telemetry_disabled_for_event(event):
+        if _is_telemetry_disabled_for_event(event):
             return
 
         if client := get_telemetry_client():
-            record_params = params or {}
+            record_params = params.copy()
             if experiment_id := MLFLOW_EXPERIMENT_ID.get():
                 record_params["mlflow_experiment_id"] = experiment_id
             client.add_record(
