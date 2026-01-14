@@ -263,3 +263,26 @@ export interface SecretsConfigResponse {
   secrets_available: boolean;
   using_default_passphrase: boolean;
 }
+
+// Usage Tracking Types
+
+export interface UsageMetricsEntry {
+  endpoint_id: string;
+  time_bucket: number;
+  bucket_size: number; // Size in seconds
+  total_invocations: number;
+  successful_invocations: number;
+  failed_invocations: number;
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  total_tokens: number;
+  total_cost: number;
+  avg_latency_ms: number;
+  // Error/success rates included in the response for convenience
+  success_rate: number;
+  error_rate: number;
+}
+
+export interface UsageMetricsResponse {
+  metrics: UsageMetricsEntry[];
+}
