@@ -1658,7 +1658,7 @@ def test_gateway_crud_telemetry(mock_requests, mock_telemetry_client: TelemetryC
         {
             "has_fallback_config": False,
             "routing_strategy": None,
-            "num_model_configs": 0,
+            "num_model_configs": None,
         },
     )
 
