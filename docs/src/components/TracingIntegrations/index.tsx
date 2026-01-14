@@ -23,6 +23,7 @@ type Category =
   | 'OpenTelemetry'
   | 'Agent Frameworks (Python)'
   | 'Agent Frameworks (TypeScript)'
+  | 'Agent Frameworks (Java)'
   | 'Model Providers'
   | 'Tools';
 
@@ -30,6 +31,7 @@ const CATEGORY_ORDER: Category[] = [
   'OpenTelemetry',
   'Agent Frameworks (Python)',
   'Agent Frameworks (TypeScript)',
+  'Agent Frameworks (Java)',
   'Model Providers',
   'Tools',
 ];

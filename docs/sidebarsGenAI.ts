@@ -230,6 +230,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/spring-ai',
+                  label: 'Spring AI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/strands',
                   label: 'Strands Agents SDK',
                 },

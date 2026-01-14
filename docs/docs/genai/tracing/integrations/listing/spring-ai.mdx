@@ -5,6 +5,8 @@ sidebar_label: Spring AI
 
 # Tracing Spring AI
 
+![Spring AI Tracing](/images/llms/tracing/spring-ai-tracing.png)
+
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for [Spring AI](https://spring.io/projects/spring-ai), the Spring framework for building AI applications. MLflow supports tracing for Spring AI through the [OpenTelemetry](/genai/tracing/opentelemetry) integration.
 
 ## Step 1: Create a Spring AI Project
@@ -95,13 +97,13 @@ management.tracing.sampling.probability=1.0
 
 ## Step 2: Start the MLflow Tracking Server
 
-Start the MLflow Tracking Server with a SQL-based backend store:
+Start the MLflow Tracking Server:
 
 ```bash
-mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000
+mlflow server --port 5000
 ```
 
-This example uses SQLite as the backend store. To use other types of SQL databases such as PostgreSQL, MySQL, and MSSQL, change the store URI as described in the [backend store documentation](/self-hosting/architecture/backend-store). OpenTelemetry ingestion is not supported with file-based backend stores.
+By default, MLflow uses SQLite as the backend store. To use other types of SQL databases such as PostgreSQL, MySQL, and MSSQL, change the store URI as described in the [backend store documentation](/self-hosting/architecture/backend-store). OpenTelemetry ingestion is not supported with file-based backend stores.
 
 ## Step 3: Configure OpenTelemetry
 
@@ -128,32 +130,41 @@ import org.springframework.context.annotation.Configuration;
  * OpenTelemetry configuration for MLflow tracing.
  *
  * Configure via environment variables:
- *   MLFLOW_TRACKING_URI=http://localhost:5000
- *   MLFLOW_EXPERIMENT_ID=0
+ *   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5000/v1/traces
+ *   OTEL_EXPORTER_OTLP_HEADERS=x-mlflow-experiment-id=0
  */
 @Configuration
 public class MlflowTracingConfig {
 
     private static final Logger log = LoggerFactory.getLogger(MlflowTracingConfig.class);
 
-    @Value("${MLFLOW_TRACKING_URI:http://localhost:5000}")
-    private String mlflowTrackingUri;
+    @Value("${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:5000/v1/traces}")
+    private String otlpEndpoint;
 
-    @Value("${MLFLOW_EXPERIMENT_ID:0}")
-    private String experimentId;
+    @Value("${OTEL_EXPORTER_OTLP_HEADERS:x-mlflow-experiment-id=0}")
+    private String otlpHeaders;
 
     @Value("${spring.application.name:spring-ai-demo}")
     private String serviceName;
 
     @Bean
     public OpenTelemetry openTelemetry() {
-        String endpoint = mlflowTrackingUri + "/v1/traces";
-        log.info("Configuring MLflow tracing: endpoint={}, experimentId={}", endpoint, experimentId);
+        log.info("Configuring MLflow tracing: endpoint={}", otlpEndpoint);
 
-        OtlpHttpSpanExporter exporter = OtlpHttpSpanExporter.builder()
-                .setEndpoint(endpoint)
-                .addHeader("x-mlflow-experiment-id", experimentId)
-                .build();
+        var exporterBuilder = OtlpHttpSpanExporter.builder()
+                .setEndpoint(otlpEndpoint);
+
+        // Parse headers from OTEL_EXPORTER_OTLP_HEADERS format (key=value,key2=value2)
+        if (otlpHeaders != null && !otlpHeaders.isEmpty()) {
+            for (String header : otlpHeaders.split(",")) {
+                String[] parts = header.split("=", 2);
+                if (parts.length == 2) {
+                    exporterBuilder.addHeader(parts[0].trim(), parts[1].trim());
+                }
+            }
+        }
+
+        OtlpHttpSpanExporter exporter = exporterBuilder.build();
 
         SdkTracerProvider tracerProvider = SdkTracerProvider.builder()
                 .addSpanProcessor(SimpleSpanProcessor.create(exporter))
@@ -246,23 +257,13 @@ Set environment variables and run your Spring Boot application:
 
 ```bash
 export OPENAI_API_KEY=your-openai-api-key
-export MLFLOW_TRACKING_URI=http://localhost:5000
-export MLFLOW_EXPERIMENT_ID=0
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5000/v1/traces
+export OTEL_EXPORTER_OTLP_HEADERS=x-mlflow-experiment-id=0
 
 mvn spring-boot:run
 ```
 
 After making chat requests, open the MLflow UI at `http://localhost:5000` and navigate to the experiment to see the traces.
-
-## Alternative: Environment Variable Configuration
-
-You can also configure the OTLP exporter using standard OpenTelemetry environment variables:
-
-```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5000/v1/traces
-export OTEL_EXPORTER_OTLP_HEADERS=x-mlflow-experiment-id=0
-export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-```
 
 ## Next Steps
 
