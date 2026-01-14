@@ -51,9 +51,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   // Carousel state for navigating through traces
   const [currentTraceIndex, setCurrentTraceIndex] = useState(0);
 
-  // Request ID pattern to handle stale results
-  const requestIdRef = useRef(0);
-
   // Determine if we're in custom or built-in judge mode
   const isCustomMode = llmTemplate === LLM_TEMPLATE.CUSTOM;
 
@@ -245,6 +242,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       currentEvalResult={currentEvalResult}
       assessments={assessments}
       handleRunScorer={handleRunScorer}
+      handleCancel={reset}
       handlePrevious={handlePrevious}
       handleNext={handleNext}
       totalTraces={data?.length ?? 0}
