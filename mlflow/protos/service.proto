@@ -2001,6 +2001,118 @@ service MlflowService {
       rpc_doc_title: "Gateway Delete Endpoint Tag"
     };
   }
+
+  // ========== Gateway Usage Metrics APIs ==========
+
+  // Get aggregated usage metrics for gateway endpoints
+  rpc getGatewayUsageMetrics(GetGatewayUsageMetrics) returns (GetGatewayUsageMetrics.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/usage/metrics"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Gateway Usage Metrics"
+    };
+  }
+
+  // ========== Gateway Rate Limit APIs ==========
+
+  // Create a new rate limit configuration
+  rpc createGatewayRateLimit(CreateGatewayRateLimit) returns (CreateGatewayRateLimit.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/rate-limits/create"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Gateway Rate Limit"
+    };
+  }
+
+  // Get a rate limit configuration by ID
+  rpc getGatewayRateLimit(GetGatewayRateLimit) returns (GetGatewayRateLimit.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/rate-limits/get"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Gateway Rate Limit"
+    };
+  }
+
+  // List rate limit configurations
+  rpc listGatewayRateLimits(ListGatewayRateLimits) returns (ListGatewayRateLimits.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/rate-limits/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Gateway Rate Limits"
+    };
+  }
+
+  // Update a rate limit configuration
+  rpc updateGatewayRateLimit(UpdateGatewayRateLimit) returns (UpdateGatewayRateLimit.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/rate-limits/update"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update Gateway Rate Limit"
+    };
+  }
+
+  // Delete a rate limit configuration
+  rpc deleteGatewayRateLimit(DeleteGatewayRateLimit) returns (DeleteGatewayRateLimit.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/gateway/rate-limits/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Gateway Rate Limit"
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -4613,5 +4725,137 @@ message GetSecretsConfig {
   message Response {
     // Whether the server is configured to handle secrets (encryption available)
     optional bool secrets_available = 1;
+  }
+}
+
+// ========== Gateway Usage Metrics API Messages ==========
+
+// Single usage metrics entry for a time bucket
+message GatewayUsageMetricsEntry {
+  // ID of the endpoint
+  optional string endpoint_id = 1;
+  // Start time of the bucket (ms since epoch)
+  optional int64 time_bucket = 2;
+  // Size of the bucket in seconds (e.g., 3600 for hourly, 86400 for daily)
+  optional int32 bucket_size = 3;
+  // Total number of invocations
+  optional int32 total_invocations = 4;
+  // Number of successful invocations
+  optional int32 successful_invocations = 5;
+  // Number of failed invocations
+  optional int32 failed_invocations = 6;
+  // Total prompt tokens used
+  optional int64 total_prompt_tokens = 7;
+  // Total completion tokens used
+  optional int64 total_completion_tokens = 8;
+  // Total tokens used
+  optional int64 total_tokens = 9;
+  // Total cost in USD
+  optional double total_cost = 10;
+  // Average latency in milliseconds
+  optional double avg_latency_ms = 11;
+  // Success rate (0-1)
+  optional double success_rate = 12;
+  // Error rate (0-1)
+  optional double error_rate = 13;
+}
+
+message GetGatewayUsageMetrics {
+  // Optional: Filter by endpoint ID
+  optional string endpoint_id = 1;
+  // Optional: Start time filter (ms since epoch)
+  optional int64 start_time = 2;
+  // Optional: End time filter (ms since epoch)
+  optional int64 end_time = 3;
+  // Time bucket size in seconds (e.g., 3600 for hourly, 86400 for daily, defaults to 86400)
+  optional int32 bucket_size = 4;
+
+  message Response {
+    // List of usage metrics entries
+    repeated GatewayUsageMetricsEntry metrics = 1;
+  }
+}
+
+// =============================================================================
+// Gateway Rate Limit Configuration
+// =============================================================================
+
+// Rate limit configuration for a gateway endpoint
+message GatewayRateLimitConfig {
+  // Unique identifier for this rate limit configuration
+  optional string rate_limit_id = 1;
+  // ID of the gateway endpoint this limit applies to
+  optional string endpoint_id = 2;
+  // Maximum queries allowed per minute
+  optional int32 queries_per_minute = 3;
+  // Username for per-user limits (empty for default endpoint limit)
+  optional string username = 4;
+  // Timestamp when the config was created (ms since epoch)
+  optional int64 created_at = 5;
+  // Timestamp when the config was last updated (ms since epoch)
+  optional int64 updated_at = 6;
+  // User who created the configuration
+  optional string created_by = 7;
+  // User who last updated the configuration
+  optional string updated_by = 8;
+}
+
+// Create a new rate limit configuration
+message CreateGatewayRateLimit {
+  // ID of the gateway endpoint
+  optional string endpoint_id = 1 [(validate_required) = true];
+  // Maximum queries allowed per minute
+  optional int32 queries_per_minute = 2 [(validate_required) = true];
+  // Username for per-user limits (omit for default endpoint limit)
+  optional string username = 3;
+
+  message Response {
+    // The created rate limit configuration
+    optional GatewayRateLimitConfig rate_limit = 1;
+  }
+}
+
+// Get a rate limit configuration by ID
+message GetGatewayRateLimit {
+  // Rate limit ID to look up
+  optional string rate_limit_id = 1 [(validate_required) = true];
+
+  message Response {
+    // The rate limit configuration
+    optional GatewayRateLimitConfig rate_limit = 1;
+  }
+}
+
+// List rate limit configurations
+message ListGatewayRateLimits {
+  // Optional: Filter by endpoint ID
+  optional string endpoint_id = 1;
+
+  message Response {
+    // List of rate limit configurations
+    repeated GatewayRateLimitConfig rate_limits = 1;
+  }
+}
+
+// Update a rate limit configuration
+message UpdateGatewayRateLimit {
+  // Rate limit ID to update
+  optional string rate_limit_id = 1 [(validate_required) = true];
+  // New maximum queries allowed per minute
+  optional int32 queries_per_minute = 2 [(validate_required) = true];
+
+  message Response {
+    // The updated rate limit configuration
+    optional GatewayRateLimitConfig rate_limit = 1;
+  }
+}
+
+// Delete a rate limit configuration
+message DeleteGatewayRateLimit {
+  // Rate limit ID to delete
+  optional string rate_limit_id = 1 [(validate_required) = true];
+
+  message Response {
+    // Empty response on success
   }
 }
