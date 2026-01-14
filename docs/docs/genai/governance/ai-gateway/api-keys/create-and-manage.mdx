@@ -1,5 +1,5 @@
 ---
-title: Create and Manage Keys
+title: Create and Manage API Keys
 ---
 
 # Create and Manage API Keys
@@ -58,27 +58,9 @@ When deleting a key:
 Creating reusable API keys simplifies credential rotation. When you need to update a credential, edit it once rather than updating every endpoint individually.
 :::
 
-## Encryption and Security
+## Best Practices
 
-### Default Encryption
-
-API keys are encrypted before being stored in the MLflow backend database. For local development, MLflow uses a default passphrase if none is configured. This is acceptable for development or single-user deployments.
-
-### Production Encryption Setup
-
-For production environments, configure a custom encryption passphrase:
-
-```bash
-# Generate a secure passphrase
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-
-# Set the passphrase as an environment variable before starting the server
-export MLFLOW_CRYPTO_KEK_PASSPHRASE="your-secure-passphrase-here"
-
-# Start the MLflow server
-mlflow server --port 5000
-```
-
-:::note
-File-based tracking stores are not supported by the AI Gateway. The gateway requires a SQL-based backend store (SQLite, PostgreSQL, MySQL, or MSSQL).
-:::
+1. **Use descriptive names**: Name keys by provider and purpose (e.g., `openai-production`, `anthropic-dev`)
+2. **Separate development and production**: Use different keys for different environments
+3. **Minimize key sharing**: Create separate keys when different teams or applications need isolated access
+4. **Regular rotation**: Periodically rotate credentials for security (see [Encryption & Rotation](./key-rotation))

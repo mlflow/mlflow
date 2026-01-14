@@ -674,12 +674,12 @@ const sidebarsGenAI: SidebarsConfig = {
             {
               type: 'doc',
               id: 'governance/ai-gateway/api-keys/create-and-manage',
-              label: 'Create and Manage Keys',
+              label: 'Create and Manage API Keys',
             },
             {
               type: 'doc',
               id: 'governance/ai-gateway/api-keys/key-rotation',
-              label: 'Key Rotation',
+              label: 'Encryption & Rotation',
             },
           ],
         },
