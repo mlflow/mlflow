@@ -14,8 +14,6 @@ class TruLensMetricConfig:
     arg_mapping: dict[str, str]  # Maps generic names to TruLens-specific arg names
 
 
-# Map metric names to their TruLens configuration
-# arg_mapping keys: "input", "output", "context" -> TruLens-specific argument names
 _METRIC_REGISTRY: dict[str, TruLensMetricConfig] = {
     "Groundedness": TruLensMetricConfig(
         method_name="groundedness_measure_with_cot_reasons",
