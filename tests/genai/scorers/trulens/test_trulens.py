@@ -140,12 +140,12 @@ def test_trulens_get_scorer(mock_provider):
 
 
 def test_trulens_scorer_provider_is_real_instance():
-    from trulens.providers.openai import OpenAI
+    from trulens.providers.litellm import LiteLLM
 
     from mlflow.genai.scorers.trulens import Groundedness
 
     scorer = Groundedness(model="openai:/gpt-4")
-    assert isinstance(scorer._provider, OpenAI)
+    assert isinstance(scorer._provider, LiteLLM)
 
 
 def test_trulens_scorer_error_handling(mock_provider):

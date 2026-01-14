@@ -1,31 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
-
 from mlflow.exceptions import MlflowException
 
-# Map metric names to their feedback function configurations
-_METRIC_REGISTRY = {
-    "Groundedness": {
-        "method": "groundedness_measure_with_cot_reasons",
-        "args": ["source", "statement"],
-        "description": "Evaluates if outputs are grounded in context",
-    },
-    "ContextRelevance": {
-        "method": "context_relevance_with_cot_reasons",
-        "args": ["question", "context"],
-        "description": "Evaluates context relevance to query",
-    },
-    "AnswerRelevance": {
-        "method": "relevance_with_cot_reasons",
-        "args": ["prompt", "response"],
-        "description": "Evaluates answer relevance to query",
-    },
-    "Coherence": {
-        "method": "coherence_with_cot_reasons",
-        "args": ["text"],
-        "description": "Evaluates logical flow of outputs",
-    },
+# Map metric names to their TruLens feedback method names
+_METRIC_REGISTRY: dict[str, str] = {
+    "Groundedness": "groundedness_measure_with_cot_reasons",
+    "ContextRelevance": "context_relevance_with_cot_reasons",
+    "AnswerRelevance": "relevance_with_cot_reasons",
+    "Coherence": "coherence_with_cot_reasons",
 }
 
 
@@ -41,25 +23,6 @@ def get_feedback_method_name(metric_name: str) -> str:
 
     Raises:
         MlflowException: If the metric is not supported
-    """
-    if metric_name not in _METRIC_REGISTRY:
-        available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
-        raise MlflowException.invalid_parameter_value(
-            f"Unknown TruLens metric: '{metric_name}'. Available metrics: {available_metrics}"
-        )
-
-    return _METRIC_REGISTRY[metric_name]["method"]
-
-
-def get_metric_config(metric_name: str) -> dict[str, Any]:
-    """
-    Get the configuration for a given metric.
-
-    Args:
-        metric_name: Name of the metric
-
-    Returns:
-        Configuration dictionary with method, args, and description
     """
     if metric_name not in _METRIC_REGISTRY:
         available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))

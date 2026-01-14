@@ -11,10 +11,7 @@ Example usage:
     from mlflow.genai.scorers.trulens import get_scorer
 
     scorer = get_scorer("Groundedness", model="openai:/gpt-4")
-    feedback = scorer(
-        outputs="MLflow is a platform...",
-        expectations={"context": "MLflow is an ML platform."},
-    )
+    feedback = scorer(trace=trace)
 """
 
 from __future__ import annotations
@@ -43,7 +40,7 @@ from mlflow.utils.docstring_utils import format_docstring
 _logger = logging.getLogger(__name__)
 
 # Threshold for determining pass/fail
-DEFAULT_THRESHOLD = 0.5
+_DEFAULT_THRESHOLD = 0.5
 
 
 @experimental(version="3.9.0")
@@ -67,7 +64,8 @@ class TruLensScorer(Scorer):
         self,
         metric_name: str | None = None,
         model: str | None = None,
-        threshold: float = DEFAULT_THRESHOLD,
+        threshold: float = _DEFAULT_THRESHOLD,
+        **kwargs: Any,
     ):
         if metric_name is None:
             metric_name = self.metric_name
@@ -77,7 +75,7 @@ class TruLensScorer(Scorer):
         self._model = model
         self._threshold = threshold
 
-        self._provider = create_trulens_provider(model)
+        self._provider = create_trulens_provider(model, **kwargs)
         self._method_name = get_feedback_method_name(metric_name)
 
     def __call__(
@@ -88,18 +86,6 @@ class TruLensScorer(Scorer):
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        """
-        Evaluate using the wrapped TruLens feedback function.
-
-        Args:
-            inputs: The input to evaluate
-            outputs: The output to evaluate
-            expectations: Expected values and context for evaluation
-            trace: MLflow trace for evaluation
-
-        Returns:
-            Feedback object with score, rationale, and metadata
-        """
         assessment_source = AssessmentSource(
             source_type=AssessmentSourceType.LLM_JUDGE,
             source_id=self._model,
@@ -145,7 +131,8 @@ class TruLensScorer(Scorer):
 def get_scorer(
     metric_name: str,
     model: str | None = None,
-    threshold: float = DEFAULT_THRESHOLD,
+    threshold: float = _DEFAULT_THRESHOLD,
+    **kwargs: Any,
 ) -> TruLensScorer:
     """
     Get a TruLens metric as an MLflow scorer.
@@ -154,28 +141,30 @@ def get_scorer(
         metric_name: Name of the TruLens metric (e.g., "Groundedness", "ContextRelevance")
         model: {{ model }}
         threshold: Score threshold for pass/fail (default: 0.5)
+        kwargs: Additional keyword arguments to pass to the TruLens provider.
 
     Returns:
         TruLensScorer instance that can be called with MLflow's scorer interface
 
     Examples:
-        >>> scorer = get_scorer("Groundedness", model="openai:/gpt-4")
-        >>> feedback = scorer(
-        ...     outputs="MLflow is a platform...",
-        ...     expectations={"context": "MLflow is an ML platform."},
-        ... )
+        .. code-block:: python
 
-        >>> scorer = get_scorer("AnswerRelevance", model="databricks")
-        >>> feedback = scorer(trace=trace)
+            scorer = get_scorer("Groundedness", model="openai:/gpt-4")
+            feedback = scorer(trace=trace)
+
+            scorer = get_scorer("AnswerRelevance", model="databricks")
+            feedback = scorer(trace=trace)
     """
     return TruLensScorer(
         metric_name=metric_name,
         model=model,
         threshold=threshold,
+        **kwargs,
     )
 
 
 @experimental(version="3.9.0")
+@format_docstring(_MODEL_API_DOC)
 class Groundedness(TruLensScorer):
     """
     Evaluates whether the response is grounded in the provided context.
@@ -184,7 +173,7 @@ class Groundedness(TruLensScorer):
     supported by the source material.
 
     Args:
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         threshold: Score threshold for pass/fail (default: 0.5)
 
     Examples:
@@ -193,16 +182,14 @@ class Groundedness(TruLensScorer):
             from mlflow.genai.scorers.trulens import Groundedness
 
             scorer = Groundedness(model="openai:/gpt-4")
-            feedback = scorer(
-                outputs="The Eiffel Tower is 330 meters tall.",
-                expectations={"context": "The Eiffel Tower stands at 330 meters."},
-            )
+            feedback = scorer(trace=trace)
     """
 
     metric_name: ClassVar[str] = "Groundedness"
 
 
 @experimental(version="3.9.0")
+@format_docstring(_MODEL_API_DOC)
 class ContextRelevance(TruLensScorer):
     """
     Evaluates whether the retrieved context is relevant to the input query.
@@ -211,7 +198,7 @@ class ContextRelevance(TruLensScorer):
     information for generating accurate responses.
 
     Args:
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         threshold: Score threshold for pass/fail (default: 0.5)
 
     Examples:
@@ -220,16 +207,14 @@ class ContextRelevance(TruLensScorer):
             from mlflow.genai.scorers.trulens import ContextRelevance
 
             scorer = ContextRelevance(model="databricks")
-            feedback = scorer(
-                inputs="What is the capital of France?",
-                expectations={"context": "Paris is the capital of France."},
-            )
+            feedback = scorer(trace=trace)
     """
 
     metric_name: ClassVar[str] = "ContextRelevance"
 
 
 @experimental(version="3.9.0")
+@format_docstring(_MODEL_API_DOC)
 class AnswerRelevance(TruLensScorer):
     """
     Evaluates whether the model's response is relevant to the input query.
@@ -237,7 +222,7 @@ class AnswerRelevance(TruLensScorer):
     Measures how well the answer addresses what was asked.
 
     Args:
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         threshold: Score threshold for pass/fail (default: 0.5)
 
     Examples:
@@ -246,16 +231,14 @@ class AnswerRelevance(TruLensScorer):
             from mlflow.genai.scorers.trulens import AnswerRelevance
 
             scorer = AnswerRelevance(model="openai:/gpt-4o")
-            feedback = scorer(
-                inputs="What is machine learning?",
-                outputs="Machine learning is a branch of AI...",
-            )
+            feedback = scorer(trace=trace)
     """
 
     metric_name: ClassVar[str] = "AnswerRelevance"
 
 
 @experimental(version="3.9.0")
+@format_docstring(_MODEL_API_DOC)
 class Coherence(TruLensScorer):
     """
     Evaluates the coherence and logical flow of the model's response.
@@ -263,7 +246,7 @@ class Coherence(TruLensScorer):
     Measures how well-structured and logically consistent the output is.
 
     Args:
-        model: Model URI (e.g., "openai:/gpt-4", "databricks", "databricks:/endpoint")
+        model: {{ model }}
         threshold: Score threshold for pass/fail (default: 0.5)
 
     Examples:
@@ -272,10 +255,7 @@ class Coherence(TruLensScorer):
             from mlflow.genai.scorers.trulens import Coherence
 
             scorer = Coherence()
-            feedback = scorer(
-                outputs="Machine learning is a branch of AI. It enables systems to learn. "
-                "This learning process improves performance over time.",
-            )
+            feedback = scorer(trace=trace)
     """
 
     metric_name: ClassVar[str] = "Coherence"

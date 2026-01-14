@@ -113,11 +113,7 @@ def format_trulens_rationale(reasons: dict[str, Any] | None) -> str | None:
 
     parts = []
     for key, value in reasons.items():
-        if isinstance(value, list):
-            parts.append(f"{key}: {'; '.join(str(v) for v in value)}")
-        elif isinstance(value, dict):
-            parts.append(f"{key}: {value}")
-        else:
-            parts.append(f"{key}: {value}")
+        value_str = "; ".join(str(v) for v in value) if isinstance(value, list) else str(value)
+        parts.append(f"{key}: {value_str}")
 
     return " | ".join(parts) if parts else None

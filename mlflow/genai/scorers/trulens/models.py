@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
@@ -24,22 +24,16 @@ def _check_trulens_installed():
     except ImportError:
         raise MlflowException.invalid_parameter_value(
             "TruLens scorers require the 'trulens' package. "
-            "Install it with: pip install trulens trulens-providers-openai"
+            "Install it with: `pip install trulens trulens-providers-litellm`"
         )
 
 
-def _create_databricks_managed_judge_provider():
-    """
-    Create a TruLens provider that uses Databricks managed judge.
-
-    Uses call_chat_completions for the dedicated judge endpoint.
-    """
+def _create_databricks_managed_judge_provider(**kwargs: Any):
+    """Create a TruLens provider that uses Databricks managed judge."""
     from trulens.core.feedback.endpoint import Endpoint
     from trulens.feedback.llm_provider import LLMProvider
 
     class DatabricksManagedJudgeProvider(LLMProvider):
-        """TruLens provider adapter for Databricks managed judge."""
-
         def __init__(self):
             endpoint = Endpoint(name="databricks-managed-judge")
             super().__init__(model_engine=_DATABRICKS_DEFAULT_JUDGE_MODEL, endpoint=endpoint)
@@ -50,11 +44,10 @@ def _create_databricks_managed_judge_provider():
             messages: "Sequence[dict] | None" = None,
             **kwargs,
         ) -> str:
-            if prompt is None and messages:
+            if messages:
                 prompt = "\n".join(
                     f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages
                 )
-
             if prompt is None:
                 prompt = ""
 
@@ -64,18 +57,12 @@ def _create_databricks_managed_judge_provider():
     return DatabricksManagedJudgeProvider()
 
 
-def _create_databricks_serving_endpoint_provider(endpoint_name: str):
-    """
-    Create a TruLens provider that uses Databricks serving endpoints.
-
-    Uses _invoke_databricks_serving_endpoint for custom model endpoints.
-    """
+def _create_databricks_serving_endpoint_provider(endpoint_name: str, **kwargs: Any):
+    """Create a TruLens provider that uses Databricks serving endpoints."""
     from trulens.core.feedback.endpoint import Endpoint
     from trulens.feedback.llm_provider import LLMProvider
 
     class DatabricksServingEndpointProvider(LLMProvider):
-        """TruLens provider adapter for Databricks serving endpoints."""
-
         _databricks_endpoint_name: str = endpoint_name
 
         def __init__(self):
@@ -88,11 +75,10 @@ def _create_databricks_serving_endpoint_provider(endpoint_name: str):
             messages: "Sequence[dict] | None" = None,
             **kwargs,
         ) -> str:
-            if prompt is None and messages:
+            if messages:
                 prompt = "\n".join(
                     f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages
                 )
-
             if prompt is None:
                 prompt = ""
 
@@ -107,7 +93,7 @@ def _create_databricks_serving_endpoint_provider(endpoint_name: str):
     return DatabricksServingEndpointProvider()
 
 
-def create_trulens_provider(model_uri: str):
+def create_trulens_provider(model_uri: str, **kwargs: Any):
     """
     Create a TruLens provider from a model URI.
 
@@ -115,7 +101,8 @@ def create_trulens_provider(model_uri: str):
         model_uri: Model URI in one of these formats:
             - "databricks" - Use default Databricks managed judge
             - "databricks:/endpoint" - Use Databricks serving endpoint
-            - "provider:/model" - Use provider-specific model (e.g., "openai:/gpt-4")
+            - "provider:/model" - Use LiteLLM with the specified model
+        kwargs: Additional keyword arguments to pass to the provider.
 
     Returns:
         A TruLens-compatible provider
@@ -126,69 +113,31 @@ def create_trulens_provider(model_uri: str):
     _check_trulens_installed()
 
     if model_uri == "databricks":
-        return _create_databricks_managed_judge_provider()
-    elif model_uri.startswith("databricks:/"):
+        return _create_databricks_managed_judge_provider(**kwargs)
+
+    if model_uri.startswith("databricks:/"):
         endpoint_name = model_uri.split(":", 1)[1].removeprefix("/")
-        return _create_databricks_serving_endpoint_provider(endpoint_name)
-    elif ":" in model_uri:
+        return _create_databricks_serving_endpoint_provider(endpoint_name, **kwargs)
+
+    if ":" in model_uri:
+        # Use LiteLLM for all other providers
         provider, model_name = model_uri.split(":", 1)
         model_name = model_name.removeprefix("/")
 
-        match provider:
-            case "openai":
-                try:
-                    from trulens.providers.openai import OpenAI
+        try:
+            from trulens.providers.litellm import LiteLLM
 
-                    return OpenAI(model_engine=model_name)
-                except ImportError:
-                    raise MlflowException.invalid_parameter_value(
-                        "OpenAI provider requires 'trulens-providers-openai'. "
-                        "Install it with: pip install trulens-providers-openai"
-                    )
-            case "litellm":
-                try:
-                    from trulens.providers.litellm import LiteLLM
+            # Format model name for LiteLLM (e.g., "openai/gpt-4" or just "gpt-4")
+            litellm_model = f"{provider}/{model_name}" if provider != "litellm" else model_name
+            return LiteLLM(model_engine=litellm_model, **kwargs)
+        except ImportError:
+            raise MlflowException.invalid_parameter_value(
+                "Non-Databricks providers require 'trulens-providers-litellm'. "
+                "Install it with: `pip install trulens-providers-litellm`"
+            )
 
-                    return LiteLLM(model_engine=model_name)
-                except ImportError:
-                    raise MlflowException.invalid_parameter_value(
-                        "LiteLLM provider requires 'trulens-providers-litellm'. "
-                        "Install it with: pip install trulens-providers-litellm"
-                    )
-            case "bedrock":
-                try:
-                    from trulens.providers.bedrock import Bedrock
-
-                    return Bedrock(model_id=model_name)
-                except ImportError:
-                    raise MlflowException.invalid_parameter_value(
-                        "Bedrock provider requires 'trulens-providers-bedrock'. "
-                        "Install it with: pip install trulens-providers-bedrock"
-                    )
-            case "cortex":
-                try:
-                    from trulens.providers.cortex import Cortex
-
-                    return Cortex(model_engine=model_name)
-                except ImportError:
-                    raise MlflowException.invalid_parameter_value(
-                        "Cortex provider requires 'trulens-providers-cortex'. "
-                        "Install it with: pip install trulens-providers-cortex"
-                    )
-            case _:
-                # Fall back to LiteLLM for other providers
-                try:
-                    from trulens.providers.litellm import LiteLLM
-
-                    return LiteLLM(model_engine=f"{provider}/{model_name}")
-                except ImportError:
-                    raise MlflowException.invalid_parameter_value(
-                        f"Provider '{provider}' requires 'trulens-providers-litellm' as fallback. "
-                        "Install it with: pip install trulens-providers-litellm"
-                    )
-    else:
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid model_uri format: '{model_uri}'. "
-            f"Must be 'databricks', 'databricks:/<endpoint>', or include a provider prefix "
-            f"(e.g., 'openai:/gpt-4', 'litellm:/gpt-4')."
-        )
+    raise MlflowException.invalid_parameter_value(
+        f"Invalid model_uri format: '{model_uri}'. "
+        f"Must be 'databricks', 'databricks:/<endpoint>', or include a provider prefix "
+        f"(e.g., 'openai:/gpt-4', 'litellm:/gpt-4')."
+    )
