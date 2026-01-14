@@ -9,6 +9,7 @@ import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMuta
 import { useUpdateModelDefinitionMutation } from './useUpdateModelDefinitionMutation';
 import { useCreateSecret } from './useCreateSecret';
 import { getReadableErrorMessage } from '../utils/errorUtils';
+import { isValidEndpointName } from '../utils/gatewayUtils';
 import GatewayRoutes from '../routes';
 import type { Endpoint } from '../types';
 
@@ -387,12 +388,22 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
 
   const handleNameBlur = useCallback(() => {
     const name = form.getValues('name');
-    const otherEndpoints = existingEndpoints?.filter((e) => e.endpoint_id !== endpointId);
-    if (name && otherEndpoints?.some((e) => e.name === name)) {
-      form.setError('name', {
-        type: 'manual',
-        message: 'An endpoint with this name already exists',
-      });
+    if (name) {
+      if (!isValidEndpointName(name)) {
+        form.setError('name', {
+          type: 'manual',
+          message:
+            'Name can only contain letters, numbers, underscores, hyphens, and dots. Spaces and special characters are not allowed.',
+        });
+        return;
+      }
+      const otherEndpoints = existingEndpoints?.filter((e) => e.endpoint_id !== endpointId);
+      if (otherEndpoints?.some((e) => e.name === name)) {
+        form.setError('name', {
+          type: 'manual',
+          message: 'An endpoint with this name already exists',
+        });
+      }
     }
   }, [form, existingEndpoints, endpointId]);
 

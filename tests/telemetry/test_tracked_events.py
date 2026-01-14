@@ -38,7 +38,11 @@ from mlflow.genai.scorers.builtin_scorers import (
     UserFrustration,
 )
 from mlflow.genai.simulators import ConversationSimulator
-from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
+from mlflow.pyfunc.model import (
+    ResponsesAgent,
+    ResponsesAgentRequest,
+    ResponsesAgentResponse,
+)
 from mlflow.server.gateway_api import chat_completions, invocations
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.telemetry.client import TelemetryClient
@@ -103,7 +107,8 @@ def mlflow_client():
 @pytest.fixture(autouse=True)
 def mock_get_telemetry_client(mock_telemetry_client: TelemetryClient):
     with mock.patch(
-        "mlflow.telemetry.track.get_telemetry_client", return_value=mock_telemetry_client
+        "mlflow.telemetry.track.get_telemetry_client",
+        return_value=mock_telemetry_client,
     ):
         yield
 
@@ -128,7 +133,10 @@ def test_create_logged_model(mock_requests, mock_telemetry_client: TelemetryClie
         python_model=TestModel(),
     )
     validate_telemetry_record(
-        mock_telemetry_client, mock_requests, event_name, {"flavor": "pyfunc.CustomPythonModel"}
+        mock_telemetry_client,
+        mock_requests,
+        event_name,
+        {"flavor": "pyfunc.CustomPythonModel"},
     )
 
     mlflow.sklearn.log_model(
@@ -164,7 +172,10 @@ def test_create_logged_model(mock_requests, mock_telemetry_client: TelemetryClie
         python_model=SimpleResponsesAgent(),
     )
     validate_telemetry_record(
-        mock_telemetry_client, mock_requests, event_name, {"flavor": "pyfunc.ResponsesAgent"}
+        mock_telemetry_client,
+        mock_requests,
+        event_name,
+        {"flavor": "pyfunc.ResponsesAgent"},
     )
 
 
@@ -443,9 +454,21 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
         expected_params = {
             "predict_fn_provided": False,
             "scorer_info": [
-                {"class": "UserDefinedScorer", "kind": "decorator", "scope": "response"},
-                {"class": "UserDefinedScorer", "kind": "instructions", "scope": "response"},
-                {"class": "UserDefinedScorer", "kind": "instructions", "scope": "session"},
+                {
+                    "class": "UserDefinedScorer",
+                    "kind": "decorator",
+                    "scope": "response",
+                },
+                {
+                    "class": "UserDefinedScorer",
+                    "kind": "instructions",
+                    "scope": "response",
+                },
+                {
+                    "class": "UserDefinedScorer",
+                    "kind": "instructions",
+                    "scope": "session",
+                },
                 {"class": "Guidelines", "kind": "guidelines", "scope": "response"},
                 {"class": "RelevanceToQuery", "kind": "builtin", "scope": "response"},
                 {"class": "UserFrustration", "kind": "builtin", "scope": "session"},
@@ -455,7 +478,10 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
             "eval_data_provided_fields": ["inputs", "outputs"],
         }
         validate_telemetry_record(
-            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+            mock_telemetry_client,
+            mock_requests,
+            GenAIEvaluateEvent.name,
+            expected_params,
         )
 
         # Test with predict_fn
@@ -475,7 +501,10 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
             "eval_data_provided_fields": ["inputs", "outputs"],
         }
         validate_telemetry_record(
-            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+            mock_telemetry_client,
+            mock_requests,
+            GenAIEvaluateEvent.name,
+            expected_params,
         )
 
 
@@ -504,14 +533,21 @@ def test_genai_evaluate_telemetry_data_fields(
         expected_params = {
             "predict_fn_provided": False,
             "scorer_info": [
-                {"class": "UserDefinedScorer", "kind": "decorator", "scope": "response"},
+                {
+                    "class": "UserDefinedScorer",
+                    "kind": "decorator",
+                    "scope": "response",
+                },
             ],
             "eval_data_type": "list[dict]",
             "eval_data_size": 2,
             "eval_data_provided_fields": ["expectations", "inputs", "outputs"],
         }
         validate_telemetry_record(
-            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+            mock_telemetry_client,
+            mock_requests,
+            GenAIEvaluateEvent.name,
+            expected_params,
         )
 
         # Test with pandas DataFrame
@@ -526,14 +562,21 @@ def test_genai_evaluate_telemetry_data_fields(
         expected_params = {
             "predict_fn_provided": False,
             "scorer_info": [
-                {"class": "UserDefinedScorer", "kind": "decorator", "scope": "response"},
+                {
+                    "class": "UserDefinedScorer",
+                    "kind": "decorator",
+                    "scope": "response",
+                },
             ],
             "eval_data_type": "pd.DataFrame",
             "eval_data_size": 3,
             "eval_data_provided_fields": ["inputs", "outputs"],
         }
         validate_telemetry_record(
-            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+            mock_telemetry_client,
+            mock_requests,
+            GenAIEvaluateEvent.name,
+            expected_params,
         )
 
         # Test with list of Traces
@@ -549,14 +592,21 @@ def test_genai_evaluate_telemetry_data_fields(
         expected_params = {
             "predict_fn_provided": False,
             "scorer_info": [
-                {"class": "UserDefinedScorer", "kind": "decorator", "scope": "response"},
+                {
+                    "class": "UserDefinedScorer",
+                    "kind": "decorator",
+                    "scope": "response",
+                },
             ],
             "eval_data_type": "list[Trace]",
             "eval_data_size": 2,
             "eval_data_provided_fields": ["inputs", "outputs", "trace"],
         }
         validate_telemetry_record(
-            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+            mock_telemetry_client,
+            mock_requests,
+            GenAIEvaluateEvent.name,
+            expected_params,
         )
 
         # Test with EvaluationDataset
@@ -580,14 +630,21 @@ def test_genai_evaluate_telemetry_data_fields(
         expected_params = {
             "predict_fn_provided": False,
             "scorer_info": [
-                {"class": "UserDefinedScorer", "kind": "decorator", "scope": "response"},
+                {
+                    "class": "UserDefinedScorer",
+                    "kind": "decorator",
+                    "scope": "response",
+                },
             ],
             "eval_data_type": "EvaluationDataset",
             "eval_data_size": 2,
             "eval_data_provided_fields": ["expectations", "inputs", "outputs"],
         }
         validate_telemetry_record(
-            mock_telemetry_client, mock_requests, GenAIEvaluateEvent.name, expected_params
+            mock_telemetry_client,
+            mock_requests,
+            GenAIEvaluateEvent.name,
+            expected_params,
         )
 
 
@@ -743,7 +800,10 @@ def test_merge_records(mock_requests, mock_telemetry_client: TelemetryClient):
         mock_store_instance = mock.MagicMock()
         mock_store.return_value = mock_store_instance
         mock_store_instance.get_dataset.return_value = mock.MagicMock(dataset_id="test-id")
-        mock_store_instance.upsert_dataset_records.return_value = {"inserted": 2, "updated": 0}
+        mock_store_instance.upsert_dataset_records.return_value = {
+            "inserted": 2,
+            "updated": 0,
+        }
 
         evaluation_dataset = EvaluationDataset(
             dataset_id="test-id",
@@ -759,9 +819,16 @@ def test_merge_records(mock_requests, mock_telemetry_client: TelemetryClient):
         ]
         evaluation_dataset.merge_records(records)
 
-        expected_params = {"record_count": 2, "input_type": "list[dict]"}
+        expected_params = {
+            "record_count": 2,
+            "input_type": "list[dict]",
+            "dataset_type": "trace",
+        }
         validate_telemetry_record(
-            mock_telemetry_client, mock_requests, MergeRecordsEvent.name, expected_params
+            mock_telemetry_client,
+            mock_requests,
+            MergeRecordsEvent.name,
+            expected_params,
         )
 
 
@@ -783,12 +850,18 @@ def test_log_metric(mock_requests, mock_telemetry_client: TelemetryClient):
     with mlflow.start_run():
         mlflow.log_metric("test_metric", 1.0)
         validate_telemetry_record(
-            mock_telemetry_client, mock_requests, LogMetricEvent.name, {"synchronous": True}
+            mock_telemetry_client,
+            mock_requests,
+            LogMetricEvent.name,
+            {"synchronous": True},
         )
 
         mlflow.log_metric("test_metric", 1.0, synchronous=False)
         validate_telemetry_record(
-            mock_telemetry_client, mock_requests, LogMetricEvent.name, {"synchronous": False}
+            mock_telemetry_client,
+            mock_requests,
+            LogMetricEvent.name,
+            {"synchronous": False},
         )
 
         client = MlflowClient()
@@ -800,7 +873,10 @@ def test_log_metric(mock_requests, mock_telemetry_client: TelemetryClient):
             step=0,
         )
         validate_telemetry_record(
-            mock_telemetry_client, mock_requests, LogMetricEvent.name, {"synchronous": True}
+            mock_telemetry_client,
+            mock_requests,
+            LogMetricEvent.name,
+            {"synchronous": True},
         )
 
         client.log_metric(
@@ -812,7 +888,10 @@ def test_log_metric(mock_requests, mock_telemetry_client: TelemetryClient):
             synchronous=False,
         )
         validate_telemetry_record(
-            mock_telemetry_client, mock_requests, LogMetricEvent.name, {"synchronous": False}
+            mock_telemetry_client,
+            mock_requests,
+            LogMetricEvent.name,
+            {"synchronous": False},
         )
 
 
@@ -820,12 +899,18 @@ def test_log_param(mock_requests, mock_telemetry_client: TelemetryClient):
     with mlflow.start_run():
         mlflow.log_param("test_param", "test_value")
         validate_telemetry_record(
-            mock_telemetry_client, mock_requests, LogParamEvent.name, {"synchronous": True}
+            mock_telemetry_client,
+            mock_requests,
+            LogParamEvent.name,
+            {"synchronous": True},
         )
 
         mlflow.log_param("test_param", "test_value", synchronous=False)
         validate_telemetry_record(
-            mock_telemetry_client, mock_requests, LogParamEvent.name, {"synchronous": False}
+            mock_telemetry_client,
+            mock_requests,
+            LogParamEvent.name,
+            {"synchronous": False},
         )
 
         client = mlflow.MlflowClient()
@@ -917,13 +1002,19 @@ def test_get_logged_model(mock_requests, mock_telemetry_client: TelemetryClient,
 
     mlflow.sklearn.load_model(model_info.model_uri)
     data = validate_telemetry_record(
-        mock_telemetry_client, mock_requests, GetLoggedModelEvent.name, check_params=False
+        mock_telemetry_client,
+        mock_requests,
+        GetLoggedModelEvent.name,
+        check_params=False,
     )
     assert "sklearn" in json.loads(data["params"])["imports"]
 
     mlflow.pyfunc.load_model(model_info.model_uri)
     data = validate_telemetry_record(
-        mock_telemetry_client, mock_requests, GetLoggedModelEvent.name, check_params=False
+        mock_telemetry_client,
+        mock_requests,
+        GetLoggedModelEvent.name,
+        check_params=False,
     )
 
     model_def = """
@@ -946,7 +1037,10 @@ set_model(TestModel())
 
     mlflow.pyfunc.load_model(model_info.model_uri)
     data = validate_telemetry_record(
-        mock_telemetry_client, mock_requests, GetLoggedModelEvent.name, check_params=False
+        mock_telemetry_client,
+        mock_requests,
+        GetLoggedModelEvent.name,
+        check_params=False,
     )
 
     # test load model after registry
@@ -955,7 +1049,10 @@ set_model(TestModel())
 
     mlflow.pyfunc.load_model("models:/test/1")
     data = validate_telemetry_record(
-        mock_telemetry_client, mock_requests, GetLoggedModelEvent.name, check_params=False
+        mock_telemetry_client,
+        mock_requests,
+        GetLoggedModelEvent.name,
+        check_params=False,
     )
 
 
@@ -1050,23 +1147,29 @@ def test_invoke_custom_judge_model(
 
     with (
         mock.patch(
-            "mlflow.genai.judges.utils._is_litellm_available", return_value=litellm_available
+            "mlflow.genai.judges.utils._is_litellm_available",
+            return_value=litellm_available,
         ),
         mock.patch(
-            "mlflow.utils.databricks_utils.get_databricks_host_creds", return_value=mock_creds
+            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            return_value=mock_creds,
         ),
     ):
         if use_native_provider:
             with (
                 mock.patch.object(
                     __import__(
-                        "mlflow.metrics.genai.model_utils", fromlist=["score_model_on_payload"]
+                        "mlflow.metrics.genai.model_utils",
+                        fromlist=["score_model_on_payload"],
                     ),
                     "score_model_on_payload",
                     return_value=mock_response,
                 ),
                 mock.patch.object(
-                    __import__("mlflow.metrics.genai.model_utils", fromlist=["get_endpoint_type"]),
+                    __import__(
+                        "mlflow.metrics.genai.model_utils",
+                        fromlist=["get_endpoint_type"],
+                    ),
                     "get_endpoint_type",
                     return_value="llm/v1/chat",
                 ),
@@ -1172,7 +1275,13 @@ def test_autologging(mock_requests, mock_telemetry_client: TelemetryClient):
         data = [record["data"] for record in mock_requests]
         params = [event["params"] for event in data if event["event_name"] == AutologgingEvent.name]
         assert (
-            json.dumps({"flavor": mlflow.openai.FLAVOR_NAME, "log_traces": True, "disable": False})
+            json.dumps(
+                {
+                    "flavor": mlflow.openai.FLAVOR_NAME,
+                    "log_traces": True,
+                    "disable": False,
+                }
+            )
             in params
         )
         assert json.dumps({"flavor": "all", "log_traces": True, "disable": False}) in params
@@ -1194,13 +1303,19 @@ def test_load_prompt(mock_requests, mock_telemetry_client: TelemetryClient):
     # Test load_prompt with version (no alias)
     mlflow.genai.load_prompt(name_or_uri="test_prompt", version=prompt.version)
     validate_telemetry_record(
-        mock_telemetry_client, mock_requests, LoadPromptEvent.name, {"uses_alias": False}
+        mock_telemetry_client,
+        mock_requests,
+        LoadPromptEvent.name,
+        {"uses_alias": False},
     )
 
     # Test load_prompt with URI and version (no alias)
     mlflow.genai.load_prompt(name_or_uri=f"prompts:/test_prompt/{prompt.version}")
     validate_telemetry_record(
-        mock_telemetry_client, mock_requests, LoadPromptEvent.name, {"uses_alias": False}
+        mock_telemetry_client,
+        mock_requests,
+        LoadPromptEvent.name,
+        {"uses_alias": False},
     )
 
     # Test load_prompt with alias
