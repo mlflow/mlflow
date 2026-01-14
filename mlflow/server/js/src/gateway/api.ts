@@ -29,6 +29,13 @@ import type {
   CreateEndpointBindingResponse,
   ListEndpointBindingsResponse,
   SecretsConfigResponse,
+  UsageMetricsResponse,
+  CreateRateLimitRequest,
+  CreateRateLimitResponse,
+  GetRateLimitResponse,
+  ListRateLimitsResponse,
+  UpdateRateLimitRequest,
+  UpdateRateLimitResponse,
 } from './types';
 
 const defaultErrorHandler = async ({
@@ -295,5 +302,88 @@ export const GatewayApi = {
       relativeUrl: 'ajax-api/3.0/mlflow/gateway/secrets/config',
       error: defaultErrorHandler,
     }) as Promise<SecretsConfigResponse>;
+  },
+
+  // Usage Tracking - single endpoint that includes token usage and error rates
+  getUsageMetrics: (params?: {
+    endpoint_id?: string;
+    start_time?: number;
+    end_time?: number;
+    bucket_size?: number; // Size in seconds (e.g., 3600 for hourly, 86400 for daily)
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.endpoint_id) {
+      searchParams.append('endpoint_id', params.endpoint_id);
+    }
+    if (params?.start_time) {
+      searchParams.append('start_time', params.start_time.toString());
+    }
+    if (params?.end_time) {
+      searchParams.append('end_time', params.end_time.toString());
+    }
+    if (params?.bucket_size) {
+      searchParams.append('bucket_size', params.bucket_size.toString());
+    }
+    const queryString = searchParams.toString();
+    const relativeUrl = queryString
+      ? `ajax-api/3.0/mlflow/gateway/usage/metrics?${queryString}`
+      : 'ajax-api/3.0/mlflow/gateway/usage/metrics';
+    return fetchEndpoint({
+      relativeUrl,
+      error: defaultErrorHandler,
+    }) as Promise<UsageMetricsResponse>;
+  },
+
+  // Rate Limits Management
+  createRateLimit: (request: CreateRateLimitRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/rate-limits/create',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<CreateRateLimitResponse>;
+  },
+
+  getRateLimit: (rateLimitId: string) => {
+    const params = new URLSearchParams();
+    params.append('rate_limit_id', rateLimitId);
+    const relativeUrl = ['ajax-api/3.0/mlflow/gateway/rate-limits/get', params.toString()].join('?');
+    return fetchEndpoint({
+      relativeUrl,
+      error: defaultErrorHandler,
+    }) as Promise<GetRateLimitResponse>;
+  },
+
+  listRateLimits: (endpointId?: string) => {
+    const params = new URLSearchParams();
+    if (endpointId) {
+      params.append('endpoint_id', endpointId);
+    }
+    const queryString = params.toString();
+    const relativeUrl = queryString
+      ? `ajax-api/3.0/mlflow/gateway/rate-limits/list?${queryString}`
+      : 'ajax-api/3.0/mlflow/gateway/rate-limits/list';
+    return fetchEndpoint({
+      relativeUrl,
+      error: defaultErrorHandler,
+    }) as Promise<ListRateLimitsResponse>;
+  },
+
+  updateRateLimit: (request: UpdateRateLimitRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/rate-limits/update',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<UpdateRateLimitResponse>;
+  },
+
+  deleteRateLimit: (rateLimitId: string) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/rate-limits/delete',
+      method: 'DELETE',
+      body: JSON.stringify({ rate_limit_id: rateLimitId }),
+      error: defaultErrorHandler,
+    });
   },
 };
