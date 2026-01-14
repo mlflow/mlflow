@@ -28,23 +28,13 @@ export const ModelsCell = ({ modelMappings }: ModelsCellProps) => {
         </Typography.Text>
       ))}
       {additionalCount > 0 && (
-        <button
-          type="button"
+        <Typography.Link
+          componentId="mlflow.gateway.endpoints-list.models-toggle"
           onClick={() => setIsExpanded(!isExpanded)}
-          css={{
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            margin: 0,
-            textAlign: 'left',
-            fontSize: theme.typography.fontSizeSm,
-            color: theme.colors.textSecondary,
-            cursor: 'pointer',
-            '&:hover': { textDecoration: 'underline' },
-          }}
+          css={{ fontSize: theme.typography.fontSizeSm }}
         >
           {isExpanded ? 'Show less' : `+${additionalCount} more`}
-        </button>
+        </Typography.Link>
       )}
     </div>
   );
