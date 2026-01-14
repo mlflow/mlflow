@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, NamedTuple, ParamSpec, TypeVar
 from urllib.parse import urlparse
 
+from packaging.version import Version
+
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.request_utils import augmented_raise_for_status
 
@@ -844,7 +846,6 @@ def check_databricks_sdk_supports_scopes():
     Raises:
         MlflowException: If databricks-sdk version is < 0.74.0
     """
-    from packaging.version import Version
 
     try:
         sdk_version = importlib.metadata.version("databricks-sdk")
@@ -865,16 +866,19 @@ def check_databricks_sdk_supports_scopes():
 def get_databricks_workspace_client_config(server_uri: str, scopes: list[str] | None = None):
     from databricks.sdk import WorkspaceClient
 
+    # Only pass scopes if provided to avoid breaking older databricks-sdk versions
+    kwargs = {}
     if scopes is not None:
         check_databricks_sdk_supports_scopes()
+        kwargs["scopes"] = scopes
 
     profile, key_prefix = get_db_info_from_uri(server_uri)
     profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
     if key_prefix is not None:
         config = TrackingURIConfigProvider(server_uri).get_config()
-        return WorkspaceClient(host=config.host, token=config.token, scopes=scopes).config
+        return WorkspaceClient(host=config.host, token=config.token, **kwargs).config
 
-    return WorkspaceClient(profile=profile, scopes=scopes).config
+    return WorkspaceClient(profile=profile, **kwargs).config
 
 
 @_use_repl_context_if_available("mlflowGitRepoUrl")
