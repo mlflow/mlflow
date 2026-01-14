@@ -949,3 +949,19 @@ async def test_chat_proxy_blocks_arbitrary_paths(path):
         assert response.status_code == 404
         assert response.text == "Not found"
         mock_request.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path",
+    ["/assets/../.env", "/assets/../../etc/passwd", "/assets/../api/config"],
+)
+async def test_chat_proxy_blocks_path_traversal_attempts(path):
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    with patch.object(server.proxy_client, "request") as mock_request:
+        response = client.get(path)
+        assert response.status_code == 404
+        assert response.text == "Not found"
+        mock_request.assert_not_called()

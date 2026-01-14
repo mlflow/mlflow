@@ -4,6 +4,7 @@ import inspect
 import json
 import logging
 import os
+import posixpath
 from typing import Any, AsyncGenerator, Callable, Literal, ParamSpec, TypeVar
 
 import httpx
@@ -145,7 +146,8 @@ class AgentServer:
                 if hasattr(route, "path_regex") and route.path_regex.match(request.url.path):
                     return await call_next(request)
 
-            path = request.url.path
+            # Normalize path to prevent traversal attacks (e.g., /assets/../.env)
+            path = posixpath.normpath(request.url.path)
 
             # Only allow proxying static assets
             is_allowed = path in allowed_exact_paths or any(
