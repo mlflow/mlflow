@@ -165,8 +165,7 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "name": "api_version",
                     "description": "API version (e.g., 2024-02-01)",
                     "secret": False,
-                    "required": False,
-                    "default": "2024-02-01",
+                    "required": True,
                 },
             ],
         },
@@ -394,6 +393,12 @@ def _build_simple_api_key_mode(provider: str, description: str | None = None) ->
                 "description": f"{provider.title()} API Key",
                 "secret": True,
                 "required": True,
+            },
+            {
+                "name": "api_base",
+                "description": f"{provider.title()} API Base URL",
+                "secret": False,
+                "required": False,
             },
         ],
     }

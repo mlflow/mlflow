@@ -366,3 +366,8 @@ def test_gateway_create_secret_parse_params(arguments, expected_params):
 )
 def test_gateway_list_secrets_parse_params(arguments, expected_params):
     assert GatewayListSecretsEvent.parse(arguments) == expected_params
+
+
+def test_simulate_conversation_parse_params():
+    result = SimulateConversationEvent.parse({})
+    assert result == {"callsite": "conversation_simulator"}

@@ -70,7 +70,7 @@ export const TrafficSplitModelItem = ({
         padding: theme.spacing.md,
         border: `2px solid ${theme.colors.border}`,
         borderRadius: theme.borders.borderRadiusMd,
-        backgroundColor: theme.colors.white,
+        backgroundColor: theme.colors.backgroundPrimary,
       }}
     >
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

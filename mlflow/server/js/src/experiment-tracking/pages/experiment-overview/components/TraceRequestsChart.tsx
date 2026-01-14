@@ -14,6 +14,7 @@ import {
   useChartXAxisProps,
   useChartYAxisProps,
   useChartZoomSelectionProps,
+  DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
 
 export const TraceRequestsChart: React.FC = () => {
@@ -54,7 +55,7 @@ export const TraceRequestsChart: React.FC = () => {
       <OverviewChartTimeLabel />
 
       {/* Chart */}
-      <div css={{ height: 200, userSelect: 'none' }}>
+      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, userSelect: 'none' }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart

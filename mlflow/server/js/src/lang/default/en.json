@@ -111,6 +111,10 @@
     "defaultMessage": "None",
     "description": "A short label for experiments with no experiment kind"
   },
+  "+li9YN": {
+    "defaultMessage": "Provider",
+    "description": "Provider selection label"
+  },
   "+mAXPc": {
     "defaultMessage": "No traces found. Try clearing your active filters to see more traces.",
     "description": "Text displayed when no traces are found in the trace review page"
@@ -482,10 +486,6 @@
   "1l/c+M": {
     "defaultMessage": "User frustration",
     "description": "LLM template option"
-  },
-  "1wdK0N": {
-    "defaultMessage": "Anthropic Passthrough",
-    "description": "Anthropic passthrough section title"
   },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
@@ -3785,10 +3785,6 @@
     "defaultMessage": "Token Usage",
     "description": "Title for the token usage chart"
   },
-  "TPbCHS": {
-    "defaultMessage": "Google Gemini Passthrough",
-    "description": "Gemini passthrough section title"
-  },
   "TPspzA": {
     "defaultMessage": "Deleting the section will permanently remove it and the charts it contains. This cannot be undone.",
     "description": "Experiment page > compare runs > chart section > delete section warning message"
@@ -3843,10 +3839,6 @@
   "TlFUsN": {
     "defaultMessage": "Tags",
     "description": "Title text for the tags section on the model versions view page"
-  },
-  "TlS4PC": {
-    "defaultMessage": "Direct access to OpenAI-specific features and parameters.",
-    "description": "OpenAI passthrough description"
   },
   "TlVXcS": {
     "defaultMessage": "Cancel",
@@ -5003,6 +4995,10 @@
     "defaultMessage": "Dismiss",
     "description": "A label for the button to dismiss the modal with the usage example of the prompt"
   },
+  "cniMRT": {
+    "defaultMessage": "Direct access to OpenAI's Responses API for multi-turn conversations with vision and audio capabilities.",
+    "description": "OpenAI passthrough description"
+  },
   "coo35p": {
     "defaultMessage": "No runs have been logged yet. <link>Learn more</link> about how to create ML model training runs in this experiment.",
     "description": "Empty state description text for experiment runs page when no runs are logged in the experiment"
@@ -5587,10 +5583,6 @@
     "defaultMessage": "Fallback Model {order}",
     "description": "Label for fallback model"
   },
-  "hDWN6z": {
-    "defaultMessage": "OpenAI Passthrough",
-    "description": "OpenAI passthrough section title"
-  },
   "hFlaPP": {
     "defaultMessage": "System metrics",
     "description": "Run details page > tab selector > Model metrics tab"
@@ -5830,10 +5822,6 @@
   "j25Ttg": {
     "defaultMessage": "Model metrics",
     "description": "Run details page > tab selector > Model metrics tab"
-  },
-  "j3E+jq": {
-    "defaultMessage": "Search charts",
-    "description": "Placeholder for search charts input"
   },
   "j3yKcX": {
     "defaultMessage": "Select the experiment you configured above.",

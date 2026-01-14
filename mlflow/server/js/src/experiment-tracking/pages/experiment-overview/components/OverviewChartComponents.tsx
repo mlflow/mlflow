@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { TableSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
-const DEFAULT_CHART_HEIGHT = 280;
+export const DEFAULT_CHART_HEIGHT = 280;
+export const DEFAULT_CHART_CONTENT_HEIGHT = 200;
+export const DEFAULT_TOOLTIP_MAX_HEIGHT = 120;
+export const DEFAULT_LEGEND_MAX_HEIGHT = 60;
 
 interface OverviewChartHeaderProps {
   /** Icon component to display before the title */
@@ -190,8 +193,6 @@ export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, pa
     return null;
   }
 
-  const maxHeight = 120;
-
   return (
     <div
       css={{
@@ -213,7 +214,7 @@ export const ScrollableTooltip: React.FC<ScrollableTooltipProps> = ({ active, pa
       {label && <div css={{ fontWeight: 500, marginBottom: theme.spacing.xs }}>{label}</div>}
       <div
         css={{
-          maxHeight,
+          maxHeight: DEFAULT_TOOLTIP_MAX_HEIGHT,
           overflowY: 'auto',
           overflowX: 'hidden',
         }}
@@ -279,6 +280,33 @@ export function useChartYAxisProps() {
 }
 
 /**
+ * Checks if a value at the given index is isolated (non-null with null neighbors on both sides).
+ * Used for determining when to render dots for single data points in line charts.
+ */
+export function isIsolatedPoint<T>(values: (T | null)[], index: number): boolean {
+  return (
+    values[index] !== null &&
+    (index === 0 || values[index - 1] === null) &&
+    (index === values.length - 1 || values[index + 1] === null)
+  );
+}
+
+/**
+ * Returns a memoized dot renderer for line charts that only renders dots for isolated points.
+ * Used when chart data has `isIsolated` field pre-computed to indicate points surrounded by nulls.
+ *
+ * @param color - The fill color for the dot
+ * @param fieldName - The field name to check for isolation (defaults to 'isIsolated')
+ */
+export function useIsolatedDotRenderer(color: string, fieldName = 'isIsolated') {
+  return useCallback(
+    ({ cx, cy, payload }: { cx?: number; cy?: number; payload?: Record<string, unknown> }) =>
+      payload?.[fieldName] ? <circle cx={cx} cy={cy} r={2} fill={color} /> : <></>,
+    [color, fieldName],
+  );
+}
+
+/**
  * Configuration for scrollable legend
  */
 interface ScrollableLegendConfig {
@@ -297,7 +325,7 @@ interface ScrollableLegendConfig {
  */
 export function useScrollableLegendProps(config?: ScrollableLegendConfig) {
   const { theme } = useDesignSystemTheme();
-  const maxHeight = config?.maxHeight ?? 60;
+  const maxHeight = config?.maxHeight ?? DEFAULT_LEGEND_MAX_HEIGHT;
 
   const formatter = (value: string) => (
     <span

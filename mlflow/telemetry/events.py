@@ -4,10 +4,19 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import Feedback
-from mlflow.telemetry.constant import GENAI_MODULES, MODULES_TO_CHECK_IMPORT
+from mlflow.telemetry.constant import (
+    GENAI_MODULES,
+    MODULES_TO_CHECK_IMPORT,
+)
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers.base import Scorer
+
+
+GENAI_EVALUATION_PATH = "mlflow/genai/evaluation/base"
+GENAI_SCORERS_PATH = "mlflow/genai/scorers/base"
+GENAI_EVALUATE_FUNCTION = "_run_harness"
+SCORER_RUN_FUNCTION = "run"
 
 
 def _get_scorer_class_name_for_tracking(scorer: "Scorer") -> str:
@@ -492,6 +501,22 @@ class SimulateConversationEvent(Event):
     name: str = "simulate_conversation"
 
     @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        callsite = "conversation_simulator"
+        for frame_info in inspect.stack()[:10]:
+            frame_filename = frame_info.filename
+            frame_function = frame_info.function
+
+            if (
+                GENAI_EVALUATION_PATH in frame_filename.replace("\\", "/")
+                and frame_function == GENAI_EVALUATE_FUNCTION
+            ):
+                callsite = "genai_evaluate"
+                break
+
+        return {"callsite": callsite}
+
+    @classmethod
     def parse_result(cls, result: Any) -> dict[str, Any] | None:
         return {
             "simulated_conversation_info": [
@@ -516,10 +541,12 @@ class ScorerCallEvent(Event):
             frame_filename = frame_info.filename
             frame_function = frame_info.function
 
-            if "mlflow/genai/scorers/base" in frame_filename.replace("\\", "/"):
-                if frame_function == "run":
-                    callsite = "genai.evaluate"
-                    break
+            if (
+                GENAI_SCORERS_PATH in frame_filename.replace("\\", "/")
+                and frame_function == SCORER_RUN_FUNCTION
+            ):
+                callsite = "genai_evaluate"
+                break
 
         return {
             "scorer_class": _get_scorer_class_name_for_tracking(scorer_instance),
