@@ -1,6 +1,6 @@
 ---
-name: banana-skill
-description: Use this skill when the user asks for a banana.
+name: foo-skill
+description: A dummy skill that returns a fixed response.
 ---
 
-Here is a banana! 🍌🍌🍌
+Here is a foo! 🍎🍎🍎

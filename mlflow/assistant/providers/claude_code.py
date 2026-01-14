@@ -51,10 +51,6 @@ class ClaudeCodeProvider(AssistantProvider):
     def description(self) -> str:
         return "AI-powered assistant using Claude Code CLI"
 
-    @property
-    def skill_path(self) -> Path:
-        return Path.home() / ".claude" / "skills"
-
     def is_available(self) -> bool:
         return shutil.which("claude") is not None
 
@@ -115,17 +111,20 @@ class ClaudeCodeProvider(AssistantProvider):
                 echo(f"Error checking authentication: {e}")
             raise NotAuthenticatedError(str(e))
 
-    def install_skills(self, skills: list[str]) -> list[str]:
-        """Install MLflow-specific Claude skills."""
+    def install_skills(self, skill_path: Path) -> list[str]:
+        """Install MLflow-specific Claude skills.
+
+        Args:
+            skill_path: Directory where skills should be installed.
+        """
         # Get the skills directory from this package
         skills_source = Path(__file__).parent.parent / "skills"
-        skills_dest = Path.home() / ".claude" / "skills"
 
         if not skills_source.exists():
             raise RuntimeError("Skills directory not found")
 
         # Create destination directory
-        skills_dest.mkdir(parents=True, exist_ok=True)
+        skill_path.mkdir(parents=True, exist_ok=True)
 
         # Find all skill directories in the skills directory
         skill_dirs = list(skills_source.glob("*"))
@@ -134,7 +133,7 @@ class ClaudeCodeProvider(AssistantProvider):
 
         installed_skills = []
         for skill_dir in skill_dirs:
-            shutil.copytree(skill_dir, skills_dest / skill_dir.name, dirs_exist_ok=True)
+            shutil.copytree(skill_dir, skill_path / skill_dir.name, dirs_exist_ok=True)
             installed_skills.append(skill_dir.name)
 
         return installed_skills

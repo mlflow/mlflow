@@ -85,8 +85,9 @@ def _run_configuration():
     2. Check provider availability
     3. Optionally connect an experiment with code repository
     4. Ask which model to use
-    5. Install provider-specific skills
-    6. Save configuration
+    5. Ask where to install skills (user-level or project-level)
+    6. Install provider-specific skills
+    7. Save configuration
 
     Example:
         mlflow assistant --configure
@@ -109,20 +110,22 @@ def _run_configuration():
         return
 
     # Step 3: Optionally connect experiment with code repository
-    if not _prompt_experiment_path():
-        return
+    project_path = _prompt_experiment_path()
 
     # Step 4: Ask for model
     model = _prompt_model()
 
-    # Step 5: Install skills
-    _install_skills(provider)
+    # Step 5: Ask for skill location
+    skill_path = _prompt_skill_location(project_path)
 
-    # Step 6: Save configuration
+    # Step 6: Install skills
+    _install_skills(provider, skill_path)
+
+    # Step 7: Save configuration
     _save_config(provider, model)
 
     # Show success message
-    _show_init_success(provider, model)
+    _show_init_success(provider, model, skill_path)
 
 
 def _prompt_provider() -> AssistantProvider | None:
@@ -249,9 +252,13 @@ def _resolve_experiment_id(tracking_uri: str, name_or_id: str) -> str | None:
         mlflow.set_tracking_uri(original_uri)
 
 
-def _prompt_experiment_path() -> bool:
-    """Prompt user to optionally connect an experiment with code repository."""
-    click.secho("Step 3/4: Experiment & Code Context ", fg="cyan", bold=True, nl=False)
+def _prompt_experiment_path() -> Path | None:
+    """Prompt user to optionally connect an experiment with code repository.
+
+    Returns:
+        The project path if configured, None otherwise.
+    """
+    click.secho("Step 3/5: Experiment & Code Context ", fg="cyan", bold=True, nl=False)
     click.secho("[Optional, Recommended]", fg="green", bold=True)
     click.secho("-" * 30, fg="cyan")
     click.echo()
@@ -269,7 +276,7 @@ def _prompt_experiment_path() -> bool:
 
     if not connect:
         click.echo()
-        return True
+        return None
 
     click.echo()
 
@@ -289,7 +296,7 @@ def _prompt_experiment_path() -> bool:
         click.secho("Could not fetch experiments from the server.", fg="yellow")
         click.echo("You can set this up later in the MLflow UI.")
         click.echo()
-        return True
+        return None
 
     click.echo()
     click.echo(click.style("Select an experiment to connect:", fg="bright_blue"))
@@ -364,12 +371,12 @@ def _prompt_experiment_path() -> bool:
         click.secho(f"Error saving project path: {e}", fg="red")
 
     click.echo()
-    return True
+    return expanded_path
 
 
 def _prompt_model() -> str:
     """Prompt user for model selection."""
-    click.secho("Step 4/4: Model Selection", fg="cyan", bold=True)
+    click.secho("Step 4/5: Model Selection", fg="cyan", bold=True)
     click.secho("-" * 30, fg="cyan")
     click.echo()
     click.echo("Choose a model for analysis:")
@@ -382,25 +389,85 @@ def _prompt_model() -> str:
     return model
 
 
-def _install_skills(provider: AssistantProvider) -> None:
-    """Install provider-specific skills."""
-    skill_source = Path(__file__).parent / "skills"
-    skills = [d.name for d in skill_source.glob("*")]
-    dst = provider.skill_path
-    dst.mkdir(parents=True, exist_ok=True)
-    for skill in skills:
-        shutil.copytree(skill_source / skill, dst / skill, dirs_exist_ok=True)
+def _prompt_skill_location(project_path: Path | None) -> Path:
+    """Prompt user for skill installation location.
 
-    click.secho("Installed skills: ", fg="green")
-    for skill in skills:
+    Args:
+        project_path: The project path from experiment setup, or None if skipped.
+
+    Returns:
+        The path where skills should be installed.
+    """
+    click.secho("Step 5/5: Skill Installation Location", fg="cyan", bold=True)
+    click.secho("-" * 30, fg="cyan")
+    click.echo()
+    click.echo("Choose where to install MLflow skills for Assistant:")
+    click.echo()
+
+    # TODO: Update this when we support other providers
+    user_path = Path.home() / ".claude" / "skills"
+    click.echo(f"  1. User level ({user_path})")
+    click.secho("     Skills available globally across all projects", dim=True)
+    click.echo()
+
+    if project_path:
+        project_skill_path = project_path / ".claude" / "skills"
+        click.echo(f"  2. Project level ({project_skill_path})")
+        click.secho("     Skills available only in this project", dim=True)
+        click.echo()
+        click.echo("  3. Custom location")
+        click.secho("     Specify a custom path for skills", dim=True)
+        click.echo()
+        valid_choices = ["1", "2", "3"]
+    else:
+        click.echo("  2. Custom location")
+        click.secho("     Specify a custom path for skills", dim=True)
+        click.echo()
+        valid_choices = ["1", "2"]
+
+    choice = click.prompt(
+        click.style("Select location [1: User level]", fg="bright_blue"),
+        default="1",
+        type=click.Choice(valid_choices),
+        show_choices=False,
+        show_default=False,
+    )
+
+    click.echo()
+
+    if choice == "1":
+        return user_path
+    elif choice == "2" and project_path:
+        return project_skill_path
+    else:
+        # Custom location
+        while True:
+            raw_path = click.prompt(
+                click.style("Enter the custom path for skills", fg="bright_blue"),
+                default=str(user_path),
+            )
+            expanded_path = Path(raw_path).expanduser().resolve()
+            # For custom paths, we'll create the directory, so just check parent exists
+            if expanded_path.parent.exists() or expanded_path.exists():
+                click.echo()
+                return expanded_path
+            click.secho(
+                f"Parent directory '{expanded_path.parent}' does not exist. Please try again.",
+                fg="red",
+            )
+
+
+def _install_skills(provider: AssistantProvider, skill_path: Path) -> None:
+    """Install provider-specific skills."""
+    installed_skills = provider.install_skills(skill_path)
+
+    click.secho(f"Installed skills to {skill_path}:", fg="green")
+    for skill in installed_skills:
         click.secho(f"  - {skill}")
     click.echo()
 
 
-def _save_config(
-    provider: AssistantProvider,
-    model: str,
-) -> None:
+def _save_config(provider: AssistantProvider, model: str) -> None:
     """Save configuration to file."""
     click.secho("Saving Configuration", fg="cyan", bold=True)
     click.secho("-" * 30, fg="cyan")
@@ -413,10 +480,7 @@ def _save_config(
     click.echo()
 
 
-def _show_init_success(
-    provider: AssistantProvider,
-    model: str,
-) -> None:
+def _show_init_success(provider: AssistantProvider, model: str, skill_path: Path) -> None:
     """Show success message and next steps."""
     click.secho("  ~ * ~ * ~ * ~ * ~ * ~ * ~ * ~", fg="green")
     click.secho("        Setup Complete!        ", fg="green", bold=True)
@@ -425,12 +489,13 @@ def _show_init_success(
     click.secho("Configuration:", bold=True)
     click.echo(f"  Provider: {provider.display_name}")
     click.echo(f"  Model: {model}")
+    click.echo(f"  Skills: {skill_path}")
     click.echo()
     click.secho("Next steps:", bold=True)
     click.echo("  1. Start MLflow server:")
     click.secho("     $ mlflow server", fg="cyan")
     click.echo()
-    click.echo("  2. Open MLflow UI and navigate to a trace")
+    click.echo("  2. Open MLflow UI and navigate to an experiment")
     click.echo()
     click.echo("  3. Click 'Ask Assistant'")
     click.echo()

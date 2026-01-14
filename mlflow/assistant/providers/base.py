@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, AsyncGenerator, Callable
 
 from mlflow.assistant.config import AssistantConfig, ProviderConfig
@@ -60,8 +61,11 @@ class AssistantProvider(ABC):
         """
 
     @abstractmethod
-    def install_skills(self) -> list[str]:
+    def install_skills(self, skill_path: Path) -> list[str]:
         """Install provider-specific skills.
+
+        Args:
+            skill_path: Directory where skills should be installed.
 
         Returns:
             List of installed skill names.
