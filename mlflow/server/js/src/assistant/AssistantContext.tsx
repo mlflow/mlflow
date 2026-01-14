@@ -206,14 +206,24 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   return <AssistantReactContext.Provider value={value}>{children}</AssistantReactContext.Provider>;
 };
 
+// Default disabled state when no provider is present
+const disabledAssistantContext: AssistantAgentContextType = {
+  isPanelOpen: false,
+  sessionId: null,
+  messages: [],
+  isStreaming: false,
+  error: null,
+  currentStatus: null,
+  openPanel: () => {},
+  closePanel: () => {},
+  sendMessage: () => {},
+  reset: () => {},
+};
+
 /**
  * Hook to access the Assistant context.
- * Must be used within an AssistantProvider.
  */
 export const useAssistant = (): AssistantAgentContextType => {
   const context = useContext(AssistantReactContext);
-  if (!context) {
-    throw new Error('useAssistant must be used within an AssistantProvider');
-  }
-  return context;
+  return context ?? disabledAssistantContext;
 };
