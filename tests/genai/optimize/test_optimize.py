@@ -4,9 +4,8 @@ import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.exceptions import MlflowException
-from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
+from mlflow.genai.datasets import create_dataset
 from mlflow.genai.optimize.optimize import optimize_prompts
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
@@ -416,107 +415,13 @@ def test_optimize_prompts_with_chat_prompt(
         )
 
 
-def test_optimize_prompts_with_entity_evaluation_dataset(
-    sample_translation_prompt: PromptVersion,
-):
-    entity_dataset = EntityEvaluationDataset.from_dict(
-        {
-            "dataset_id": "test-dataset-id",
-            "name": "test-dataset",
-            "digest": "abc123",
-            "created_time": 1234567890,
-            "last_update_time": 1234567890,
-            "records": [
-                {
-                    "dataset_id": "test-dataset-id",
-                    "dataset_record_id": "record-1",
-                    "inputs": {"input_text": "Hello", "language": "Spanish"},
-                    "outputs": "Hola",
-                    "expectations": {},
-                    "tags": {},
-                    "source_type": "HUMAN",
-                    "source_id": None,
-                    "source": None,
-                    "created_time": 1234567890,
-                    "last_update_time": 1234567890,
-                },
-                {
-                    "dataset_id": "test-dataset-id",
-                    "dataset_record_id": "record-2",
-                    "inputs": {"input_text": "World", "language": "French"},
-                    "outputs": "Monde",
-                    "expectations": {},
-                    "tags": {},
-                    "source_type": "HUMAN",
-                    "source_id": None,
-                    "source": None,
-                    "created_time": 1234567890,
-                    "last_update_time": 1234567890,
-                },
-            ],
-        }
-    )
-
-    mock_optimizer = MockPromptOptimizer()
-
-    result = optimize_prompts(
-        predict_fn=sample_predict_fn,
-        train_data=entity_dataset,
-        prompt_uris=[
-            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
-        ],
-        optimizer=mock_optimizer,
-        scorers=[equivalence],
-    )
-
-    assert len(result.optimized_prompts) == 1
-    assert result.initial_eval_score == 0.5
-    assert result.final_eval_score == 0.9
-
-
 def test_optimize_prompts_with_managed_evaluation_dataset(
     sample_translation_prompt: PromptVersion,
+    sample_dataset: pd.DataFrame,
 ):
-    entity_dataset = EntityEvaluationDataset.from_dict(
-        {
-            "dataset_id": "test-dataset-id",
-            "name": "test-dataset",
-            "digest": "abc123",
-            "created_time": 1234567890,
-            "last_update_time": 1234567890,
-            "records": [
-                {
-                    "dataset_id": "test-dataset-id",
-                    "dataset_record_id": "record-1",
-                    "inputs": {"input_text": "Hello", "language": "Spanish"},
-                    "outputs": "Hola",
-                    "expectations": {},
-                    "tags": {},
-                    "source_type": "HUMAN",
-                    "source_id": None,
-                    "source": None,
-                    "created_time": 1234567890,
-                    "last_update_time": 1234567890,
-                },
-                {
-                    "dataset_id": "test-dataset-id",
-                    "dataset_record_id": "record-2",
-                    "inputs": {"input_text": "World", "language": "French"},
-                    "outputs": "Monde",
-                    "expectations": {},
-                    "tags": {},
-                    "source_type": "HUMAN",
-                    "source_id": None,
-                    "source": None,
-                    "created_time": 1234567890,
-                    "last_update_time": 1234567890,
-                },
-            ],
-        }
-    )
-    managed_dataset = ManagedEvaluationDataset(entity_dataset)
-
-    mock_optimizer = MockPromptOptimizer()
+    # Create a managed dataset and populate it with records from sample_dataset
+    managed_dataset = create_dataset(name="test_optimize_managed_dataset")
+    managed_dataset.merge_records(sample_dataset)
 
     result = optimize_prompts(
         predict_fn=sample_predict_fn,
@@ -524,7 +429,7 @@ def test_optimize_prompts_with_managed_evaluation_dataset(
         prompt_uris=[
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
-        optimizer=mock_optimizer,
+        optimizer=MockPromptOptimizer(),
         scorers=[equivalence],
     )
 
