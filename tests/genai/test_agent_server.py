@@ -544,7 +544,7 @@ def test_chat_proxy_custom_timeout(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_chat_proxy_forwards_unmatched_requests():
+async def test_chat_proxy_forwards_allowed_paths():
     @invoke()
     def test_invoke(request):
         return {
@@ -568,7 +568,7 @@ async def test_chat_proxy_forwards_unmatched_requests():
     mock_response.headers = {"content-type": "application/json"}
 
     with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
-        response = client.get("/unmatched/path")
+        response = client.get("/assets/index.js")
         assert response.status_code == 200
         assert response.content == b'{"chat": "response"}'
         mock_request.assert_called_once()
@@ -608,7 +608,7 @@ async def test_chat_proxy_handles_connect_error():
     with patch.object(
         server.proxy_client, "request", side_effect=httpx.ConnectError("Connection failed")
     ):
-        response = client.get("/unmatched/path")
+        response = client.get("/")
         assert response.status_code == 503
         assert response.text == "Service unavailable"
 
@@ -619,7 +619,7 @@ async def test_chat_proxy_handles_general_error():
     client = TestClient(server.app)
 
     with patch.object(server.proxy_client, "request", side_effect=Exception("Unexpected error")):
-        response = client.get("/unmatched/path")
+        response = client.get("/")
         assert response.status_code == 502
         assert "Proxy error: Unexpected error" in response.text
 
@@ -634,8 +634,9 @@ async def test_chat_proxy_forwards_post_requests_with_body():
     mock_response.status_code = 200
     mock_response.headers = {"content-type": "application/json"}
 
+    # POST to root path (allowed) to test body forwarding
     with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
-        response = client.post("/chat/api", json={"message": "hello"})
+        response = client.post("/", json={"message": "hello"})
         assert response.status_code == 200
         assert response.content == b'{"result": "success"}'
 
@@ -656,10 +657,10 @@ async def test_chat_proxy_respects_chat_app_port_env_var(monkeypatch):
     mock_response.headers = {}
 
     with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
-        client.get("/test")
+        client.get("/assets/test.js")
         mock_request.assert_called_once()
         call_args = mock_request.call_args
-        assert call_args.kwargs["url"] == "http://localhost:8080/test"
+        assert call_args.kwargs["url"] == "http://localhost:8080/assets/test.js"
 
 
 def test_responses_create_endpoint_invoke():
@@ -867,3 +868,82 @@ def test_responses_not_available_for_non_responses_agent():
 
     response = client.post("/responses", json=request_data)
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_chat_proxy_forwards_root_path():
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    mock_response = Mock()
+    mock_response.content = b"<html>index</html>"
+    mock_response.status_code = 200
+    mock_response.headers = {"content-type": "text/html"}
+
+    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
+        response = client.get("/")
+        assert response.status_code == 200
+        mock_request.assert_called_once()
+        assert mock_request.call_args.kwargs["url"] == "http://localhost:3000/"
+
+
+@pytest.mark.asyncio
+async def test_chat_proxy_forwards_assets_path():
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    mock_response = Mock()
+    mock_response.content = b"console.log('test');"
+    mock_response.status_code = 200
+    mock_response.headers = {"content-type": "application/javascript"}
+
+    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
+        response = client.get("/assets/index-abc123.js")
+        assert response.status_code == 200
+        mock_request.assert_called_once()
+        assert (
+            mock_request.call_args.kwargs["url"] == "http://localhost:3000/assets/index-abc123.js"
+        )
+
+
+@pytest.mark.asyncio
+async def test_chat_proxy_forwards_favicon():
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    mock_response = Mock()
+    mock_response.content = b"favicon data"
+    mock_response.status_code = 200
+    mock_response.headers = {"content-type": "image/x-icon"}
+
+    with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
+        response = client.get("/favicon.ico")
+        assert response.status_code == 200
+        mock_request.assert_called_once()
+        assert mock_request.call_args.kwargs["url"] == "http://localhost:3000/favicon.ico"
+
+
+@pytest.mark.asyncio
+async def test_chat_proxy_blocks_api_paths():
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    with patch.object(server.proxy_client, "request") as mock_request:
+        response = client.get("/api/session")
+        assert response.status_code == 404
+        assert response.text == "Not found"
+        mock_request.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_chat_proxy_blocks_arbitrary_paths():
+    server = AgentServer(enable_chat_proxy=True)
+    client = TestClient(server.app)
+
+    with patch.object(server.proxy_client, "request") as mock_request:
+        # Test various blocked paths
+        for path in ["/api/chat", "/api/config", "/some/random/path", "/admin", "/.env"]:
+            response = client.get(path)
+            assert response.status_code == 404, f"Expected 404 for {path}"
+            assert response.text == "Not found"
+        mock_request.assert_not_called()
