@@ -186,7 +186,9 @@ def map_trace_to_ragas_messages(
     if include_tool_calls:
         if tools_called := extract_tools_called_from_trace(trace):
             tool_calls.extend(
-                ToolCall(name=tool.name or "", args=tool.arguments or {}) for tool in tools_called
+                ToolCall(name=tool.name, args=tool.arguments)
+                for tool in tools_called
+                if tool.name and tool.arguments
             )
 
     if outputs := resolve_outputs_from_trace(None, trace):
@@ -204,7 +206,7 @@ def map_trace_to_ragas_messages(
 
 def extract_reference_tool_calls_from_expectations(
     expectations: dict[str, Any] | None,
-) -> list[ToolCall] | None:
+) -> list[ToolCall]:
     """
     Uses parse_tool_call_expectations to extract tool calls from expectations, then converts
     MLflow FunctionCall objects to RAGAS ToolCall format.
@@ -213,13 +215,17 @@ def extract_reference_tool_calls_from_expectations(
         expectations: Expectations dict that may contain 'expected_tool_calls'.
 
     Returns:
-        List of RAGAS ToolCall objects, or None if no tool calls are found.
+        List of RAGAS ToolCall objects, or empty list if no tool calls are found.
     """
     function_calls = parse_tool_call_expectations(expectations)
     if not function_calls:
-        return None
+        return []
 
-    return [ToolCall(name=fc.name or "", args=fc.arguments or {}) for fc in function_calls]
+    return [
+        ToolCall(name=fc.name, args=fc.arguments)
+        for fc in function_calls
+        if fc.name and fc.arguments
+    ]
 
 
 def create_mlflow_error_message_from_ragas_param(error_msg: str, metric_name: str) -> str:

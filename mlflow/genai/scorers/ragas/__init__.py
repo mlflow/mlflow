@@ -41,10 +41,9 @@ from mlflow.genai.scorers.ragas.models import (
 from mlflow.genai.scorers.ragas.registry import (
     get_metric_class,
     is_agentic_metric,
-    is_deterministic_metric,
-    llm_in_constructor,
     requires_embeddings,
     requires_llm_at_score_time,
+    requires_llm_in_constructor,
 )
 from mlflow.genai.scorers.ragas.utils import (
     create_mlflow_error_message_from_ragas_param,
@@ -90,10 +89,7 @@ class RagasScorer(Scorer):
         ragas_llm = create_ragas_model(model)
         constructor_kwargs = dict(metric_kwargs)
 
-        if is_deterministic_metric(metric_name):
-            self._is_deterministic = True
-
-        if llm_in_constructor(metric_name) and not self._is_deterministic:
+        if requires_llm_in_constructor(metric_name):
             constructor_kwargs["llm"] = ragas_llm
 
         if requires_embeddings(metric_name):
@@ -156,7 +152,10 @@ class RagasScorer(Scorer):
         Returns:
             Feedback object with score, rationale, and metadata
         """
-        if self._is_deterministic:
+        is_deterministic = not (
+            requires_llm_in_constructor(self.name) or requires_llm_at_score_time(self.name)
+        )
+        if is_deterministic:
             assessment_source = AssessmentSource(
                 source_type=AssessmentSourceType.CODE,
                 source_id=self.name,
@@ -255,9 +254,7 @@ class RagasScorer(Scorer):
             raise MlflowException(f"RAGAS metric {self.name} is not currently supported")
 
     def _validate_kwargs(self, **metric_kwargs):
-        if (
-            is_deterministic_metric(self.metric_name) or not llm_in_constructor(self.metric_name)
-        ) and "model" in metric_kwargs:
+        if not requires_llm_in_constructor(self.metric_name) and "model" in metric_kwargs:
             raise MlflowException.invalid_parameter_value(
                 f"{self.metric_name} got an unexpected keyword argument 'model'"
             )

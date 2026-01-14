@@ -1,12 +1,16 @@
 import pytest
 from langchain_core.documents import Document
 from ragas.dataset_schema import MultiTurnSample, SingleTurnSample
+from ragas.messages import AIMessage, HumanMessage, ToolCall
 
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.genai.scorers.ragas.utils import (
     create_mlflow_error_message_from_ragas_param,
+    extract_reference_tool_calls_from_expectations,
     map_scorer_inputs_to_ragas_sample,
+    map_session_to_ragas_messages,
+    map_trace_to_ragas_messages,
 )
 
 
@@ -186,3 +190,59 @@ def test_map_scorer_inputs_agentic_with_expectations(expectations, assertion_fn)
 
     assert isinstance(sample, MultiTurnSample)
     assert assertion_fn(sample)
+
+
+@pytest.mark.parametrize(
+    ("expectations", "expected_result"),
+    [
+        (None, []),
+        ({}, []),
+        ({"expected_output": "some output"}, []),
+        ({"expected_tool_calls": []}, []),
+        (
+            {"expected_tool_calls": [{"name": "get_weather", "arguments": {"city": "Paris"}}]},
+            [ToolCall(name="get_weather", args={"city": "Paris"})],
+        ),
+        (
+            {
+                "expected_tool_calls": [
+                    {"name": "search", "arguments": {"query": "MLflow"}},
+                    {"name": "fetch", "arguments": {"url": "https://mlflow.org"}},
+                ]
+            },
+            [
+                ToolCall(name="search", args={"query": "MLflow"}),
+                ToolCall(name="fetch", args={"url": "https://mlflow.org"}),
+            ],
+        ),
+        ({"expected_tool_calls": [{"arguments": {"x": 1}}]}, []),
+        ({"expected_tool_calls": [{"name": "tool1"}]}, []),
+    ],
+)
+def test_extract_reference_tool_calls_from_expectations(expectations, expected_result):
+    result = extract_reference_tool_calls_from_expectations(expectations)
+
+    assert len(result) == len(expected_result)
+    for actual, expected in zip(result, expected_result):
+        assert actual.name == expected.name
+        assert actual.args == expected.args
+
+
+def test_map_trace_to_ragas_messages_with_tool_call(sample_trace):
+    messages = map_trace_to_ragas_messages(sample_trace)
+
+    assert len(messages) == 2
+    assert isinstance(messages[0], HumanMessage)
+    assert isinstance(messages[1], AIMessage)
+    assert len(messages[1].tool_calls) == 1
+    assert messages[1].tool_calls[0].name == "tool"
+
+
+def test_map_session_to_ragas_messages_multi_turn(sample_trace):
+    messages = map_session_to_ragas_messages([sample_trace, sample_trace])
+
+    assert len(messages) == 4  # 2 turns * 2 messages each
+    assert isinstance(messages[0], HumanMessage)
+    assert isinstance(messages[1], AIMessage)
+    assert isinstance(messages[2], HumanMessage)
+    assert isinstance(messages[3], AIMessage)

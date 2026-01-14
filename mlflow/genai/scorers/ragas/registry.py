@@ -8,11 +8,10 @@ from mlflow.exceptions import MlflowException
 @dataclass(frozen=True)
 class MetricConfig:
     classpath: str
-    is_deterministic: bool = False
     is_agentic: bool = False
     requires_embeddings: bool = False
-    llm_in_constructor: bool = True
-    llm_at_score_time: bool = False
+    requires_llm_in_constructor: bool = True
+    requires_llm_at_score_time: bool = False
 
 
 _METRIC_REGISTRY: dict[str, MetricConfig] = {
@@ -20,10 +19,13 @@ _METRIC_REGISTRY: dict[str, MetricConfig] = {
     "ContextPrecision": MetricConfig("ragas.metrics.collections.ContextPrecision"),
     "ContextUtilization": MetricConfig("ragas.metrics.collections.ContextUtilization"),
     "NonLLMContextPrecisionWithReference": MetricConfig(
-        "ragas.metrics.NonLLMContextPrecisionWithReference", is_deterministic=True
+        "ragas.metrics.NonLLMContextPrecisionWithReference",
+        requires_llm_in_constructor=False,
     ),
     "ContextRecall": MetricConfig("ragas.metrics.collections.ContextRecall"),
-    "NonLLMContextRecall": MetricConfig("ragas.metrics.NonLLMContextRecall", is_deterministic=True),
+    "NonLLMContextRecall": MetricConfig(
+        "ragas.metrics.NonLLMContextRecall", requires_llm_in_constructor=False
+    ),
     "ContextEntityRecall": MetricConfig("ragas.metrics.collections.ContextEntityRecall"),
     "NoiseSensitivity": MetricConfig("ragas.metrics.collections.NoiseSensitivity"),
     "AnswerRelevancy": MetricConfig(
@@ -38,11 +40,13 @@ _METRIC_REGISTRY: dict[str, MetricConfig] = {
     "TopicAdherence": MetricConfig("ragas.metrics.collections.TopicAdherence", is_agentic=True),
     "ToolCallAccuracy": MetricConfig(
         "ragas.metrics.collections.ToolCallAccuracy",
-        is_deterministic=True,
+        requires_llm_in_constructor=False,
         is_agentic=True,
     ),
     "ToolCallF1": MetricConfig(
-        "ragas.metrics.collections.ToolCallF1", is_deterministic=True, is_agentic=True
+        "ragas.metrics.collections.ToolCallF1",
+        requires_llm_in_constructor=False,
+        is_agentic=True,
     ),
     "AgentGoalAccuracyWithReference": MetricConfig(
         "ragas.metrics.collections.AgentGoalAccuracyWithReference", is_agentic=True
@@ -54,26 +58,34 @@ _METRIC_REGISTRY: dict[str, MetricConfig] = {
     "FactualCorrectness": MetricConfig("ragas.metrics.collections.FactualCorrectness"),
     "SemanticSimilarity": MetricConfig(
         "ragas.metrics.collections.SemanticSimilarity",
-        is_deterministic=True,
         requires_embeddings=True,
-        llm_in_constructor=False,
+        requires_llm_in_constructor=False,
     ),
     "NonLLMStringSimilarity": MetricConfig(
-        "ragas.metrics.collections.NonLLMStringSimilarity", is_deterministic=True
+        "ragas.metrics.collections.NonLLMStringSimilarity",
+        requires_llm_in_constructor=False,
     ),
-    "BleuScore": MetricConfig("ragas.metrics.collections.BleuScore", is_deterministic=True),
-    "CHRFScore": MetricConfig("ragas.metrics.collections.CHRFScore", is_deterministic=True),
-    "RougeScore": MetricConfig("ragas.metrics.collections.RougeScore", is_deterministic=True),
+    "BleuScore": MetricConfig(
+        "ragas.metrics.collections.BleuScore", requires_llm_in_constructor=False
+    ),
+    "CHRFScore": MetricConfig(
+        "ragas.metrics.collections.CHRFScore", requires_llm_in_constructor=False
+    ),
+    "RougeScore": MetricConfig(
+        "ragas.metrics.collections.RougeScore", requires_llm_in_constructor=False
+    ),
     "StringPresence": MetricConfig(
-        "ragas.metrics.collections.StringPresence", is_deterministic=True
+        "ragas.metrics.collections.StringPresence", requires_llm_in_constructor=False
     ),
-    "ExactMatch": MetricConfig("ragas.metrics.collections.ExactMatch", is_deterministic=True),
+    "ExactMatch": MetricConfig(
+        "ragas.metrics.collections.ExactMatch", requires_llm_in_constructor=False
+    ),
     # General Purpose
     "AspectCritic": MetricConfig("ragas.metrics.AspectCritic"),
     "DiscreteMetric": MetricConfig(
         "ragas.metrics.DiscreteMetric",
-        llm_in_constructor=False,
-        llm_at_score_time=True,
+        requires_llm_in_constructor=False,
+        requires_llm_at_score_time=True,
     ),
     "RubricsScore": MetricConfig("ragas.metrics.RubricsScore"),
     "InstanceSpecificRubrics": MetricConfig("ragas.metrics.collections.InstanceSpecificRubrics"),
@@ -107,16 +119,12 @@ def get_metric_class(metric_name: str):
         ) from e
 
 
-def is_deterministic_metric(metric_name: str) -> bool:
-    return _get_config(metric_name).is_deterministic
-
-
 def is_agentic_metric(metric_name: str) -> bool:
     return _get_config(metric_name).is_agentic
 
 
-def llm_in_constructor(metric_name: str) -> bool:
-    return _get_config(metric_name).llm_in_constructor
+def requires_llm_in_constructor(metric_name: str) -> bool:
+    return _get_config(metric_name).requires_llm_in_constructor
 
 
 def requires_embeddings(metric_name: str) -> bool:
@@ -124,7 +132,7 @@ def requires_embeddings(metric_name: str) -> bool:
 
 
 def requires_llm_at_score_time(metric_name: str) -> bool:
-    return _get_config(metric_name).llm_at_score_time
+    return _get_config(metric_name).requires_llm_at_score_time
 
 
 def _get_config(metric_name: str) -> MetricConfig:

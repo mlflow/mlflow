@@ -9,6 +9,17 @@ from mlflow.genai.scorers.ragas import RagasScorer
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
+_EMBEDDINGS_API_DOC = {
+    "embeddings": """Embeddings to use. Must be a subclass of `ragas.embeddings.base.Embeddings`.
+Example:
+.. code-block:: python
+    from ragas.embeddings import OpenAIEmbeddings
+    from openai import AsyncOpenAI
+    embeddings = OpenAIEmbeddings(client=AsyncOpenAI())
+
+Default embeddings are OpenAI embeddings.""",
+}
+
 
 @experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
@@ -170,7 +181,7 @@ class Faithfulness(RagasScorer):
 
 
 @experimental(version="3.9.0")
-@format_docstring(_MODEL_API_DOC)
+@format_docstring(_MODEL_API_DOC | _EMBEDDINGS_API_DOC)
 class AnswerRelevancy(RagasScorer):
     """
     Evaluates how relevant the response is to the input question.
@@ -179,7 +190,7 @@ class AnswerRelevancy(RagasScorer):
 
     Args:
         model: {{ model }}
-        embeddings: Embeddings for computing relevancy
+        embeddings: {{ embeddings }}
         **metric_kwargs: Additional metric-specific parameters
 
     Examples:
@@ -211,7 +222,7 @@ class AnswerRelevancy(RagasScorer):
 
 
 @experimental(version="3.9.0")
-@format_docstring(_MODEL_API_DOC)
+@format_docstring(_MODEL_API_DOC | _EMBEDDINGS_API_DOC)
 class SemanticSimilarity(RagasScorer):
     """
     Evaluates the semantic similarity between the output and expected output.
@@ -219,7 +230,7 @@ class SemanticSimilarity(RagasScorer):
     Note: This metric requires embeddings
 
     Args:
-        embeddings: Embeddings for computing similarity
+        embeddings: {{ embeddings }}
         **metric_kwargs: Additional metric-specific parameters
 
     Examples:
