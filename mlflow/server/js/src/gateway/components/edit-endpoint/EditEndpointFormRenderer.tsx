@@ -244,7 +244,7 @@ export const EditEndpointFormRenderer = ({
               {experimentId && (
                 <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                   <Typography.Text bold color="secondary">
-                    <FormattedMessage defaultMessage="Traces" description="Summary traces label" />
+                    <FormattedMessage defaultMessage="Usage log" description="Summary usage log label" />
                   </Typography.Text>
                   <Link to={`/experiments/${experimentId}/traces`}>
                     <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }} color="info">

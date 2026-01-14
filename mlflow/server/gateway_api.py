@@ -25,6 +25,7 @@ from mlflow.gateway.config import (
     OpenAIConfig,
     Provider,
 )
+from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
     PASSTHROUGH_ROUTES,
@@ -74,21 +75,15 @@ def _create_gateway_trace(
     try:
         import mlflow
 
-        with mlflow.start_trace(
+        with mlflow.start_span(
             name=f"gateway/{endpoint.name}",
-            experiment_id=endpoint.experiment_id,
-        ) as trace:
-            span = trace
+            trace_destination=MlflowExperimentLocation(experiment_id=endpoint.experiment_id),
+        ) as span:
             span.set_inputs(inputs)
             span.set_attribute("request_type", request_type)
             span.set_attribute("endpoint_id", endpoint.endpoint_id)
             span.set_attribute("endpoint_name", endpoint.name)
-            try:
-                yield trace
-            except Exception as e:
-                span.set_status("ERROR")
-                span.set_attribute("error", str(e))
-                raise
+            yield span
     except Exception as e:
         _logger.warning(f"Failed to create trace for gateway invocation: {e}")
         yield None
