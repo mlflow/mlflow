@@ -91,12 +91,7 @@ jobs:
       - name: Run tests
         run: |
           source dev/setup-ssh.sh
-          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --quiet --requires-ssh --ignore-flavors \
-            --ignore=tests/examples \
-            --ignore=tests/evaluate \
-            --ignore=tests/genai \
-            tests
+          uv run --no-sync pytest tests/server/jobs/test_jobs.py::test_job_retry_on_transient_error
 
       - name: Run databricks-connect related tests
         run: |

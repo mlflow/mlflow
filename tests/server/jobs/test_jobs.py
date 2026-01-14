@@ -303,6 +303,7 @@ def transient_err_fun2_fail_then_succeed(counter_file: str):
     raise TimeoutError("test transient timeout error.")
 
 
+@pytest.mark.repeat(10)
 def test_job_retry_on_transient_error(monkeypatch, tmp_path):
     monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY", "1")
     monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", "2")
