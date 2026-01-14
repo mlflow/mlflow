@@ -419,7 +419,7 @@ def test_optimize_prompts_with_managed_evaluation_dataset(
     sample_translation_prompt: PromptVersion,
     sample_dataset: pd.DataFrame,
 ):
-    # Create a managed dataset and populate it with records from sample_dataset
+    # Create a `ManagedEvaluationDataset` and populate it with records from sample_dataset
     managed_dataset = create_dataset(name="test_optimize_managed_dataset")
     managed_dataset.merge_records(sample_dataset)
 
