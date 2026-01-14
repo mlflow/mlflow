@@ -285,14 +285,18 @@ class DatasetToDataFrameEvent(Event):
             return None
 
         callsite = "direct_call"
-        for frame_info in inspect.stack()[:10]:
-            frame_filename = frame_info.filename.replace("\\", "/")
+        frame = sys._getframe()
+        for _ in range(10):
+            if frame is None:
+                break
+            frame_filename = frame.f_code.co_filename.replace("\\", "/")
             if "mlflow/genai/evaluation" in frame_filename:
                 callsite = "genai_evaluate"
                 break
             if "mlflow/genai/simulators" in frame_filename:
                 callsite = "conversation_simulator"
                 break
+            frame = frame.f_back
 
         granularity = dataset_instance._get_existing_granularity()
         return {"dataset_type": granularity.value, "callsite": callsite}
