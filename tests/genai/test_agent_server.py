@@ -696,7 +696,7 @@ def test_responses_create_endpoint_invoke():
             ]
         }
 
-        response = client.post("/responses/create", json=request_data)
+        response = client.post("/responses", json=request_data)
         assert response.status_code == 200
         assert "output" in response.json()
 
@@ -735,7 +735,7 @@ def test_responses_create_endpoint_stream():
             "stream": True,
         }
 
-        response = client.post("/responses/create", json=request_data)
+        response = client.post("/responses", json=request_data)
         assert response.status_code == 200
         assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
 
@@ -772,7 +772,7 @@ def test_responses_create_with_custom_inputs_and_context():
             "context": {"user_id": "test-user", "conversation_id": "conv-123"},
         }
 
-        response = client.post("/responses/create", json=request_data)
+        response = client.post("/responses", json=request_data)
         assert response.status_code == 200
 
 
@@ -781,7 +781,7 @@ def test_responses_create_validation_error():
     client = TestClient(server.app)
 
     invalid_data = {"invalid": "structure"}
-    response = client.post("/responses/create", json=invalid_data)
+    response = client.post("/responses", json=invalid_data)
     assert response.status_code == 400
     assert "Invalid parameters for ResponsesAgent" in response.json()["detail"]
 
@@ -790,7 +790,7 @@ def test_responses_create_malformed_json():
     server = AgentServer("ResponsesAgent")
     client = TestClient(server.app)
 
-    response = client.post("/responses/create", data="malformed json")
+    response = client.post("/responses", data="malformed json")
     assert response.status_code == 400
     assert "Invalid JSON in request body" in response.json()["detail"]
 
@@ -841,10 +841,29 @@ def test_agent_info_endpoint_custom_app_name(monkeypatch):
     assert data["agent_api"] == "responses"
 
 
-def test_agent_server_routes_registration_includes_new_routes():
-    server = AgentServer()
+def test_agent_server_routes_registration_responses_agent():
+    server = AgentServer("ResponsesAgent")
     routes = [route.path for route in server.app.routes]
     assert "/invocations" in routes
-    assert "/responses/create" in routes
+    assert "/responses" in routes
     assert "/agent/info" in routes
     assert "/health" in routes
+
+
+def test_agent_server_routes_registration_no_responses_route():
+    server = AgentServer()  # No agent_type
+    routes = [route.path for route in server.app.routes]
+    assert "/invocations" in routes
+    assert "/responses" not in routes  # Should NOT be present
+    assert "/agent/info" in routes
+    assert "/health" in routes
+
+
+def test_responses_not_available_for_non_responses_agent():
+    server = AgentServer()  # No agent_type
+    client = TestClient(server.app)
+
+    request_data = {"input": [{"role": "user", "content": "Hello"}]}
+
+    response = client.post("/responses", json=request_data)
+    assert response.status_code == 404
