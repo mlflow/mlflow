@@ -155,7 +155,7 @@ def test_dataset_to_df_parse(granularity, expected_dataset_type):
     mock_dataset = _make_mock_dataset(granularity)
     arguments = {"self": mock_dataset}
     result = DatasetToDataFrameEvent.parse(arguments)
-    assert result == {"dataset_type": expected_dataset_type}
+    assert result == {"dataset_type": expected_dataset_type, "callsite": "direct_call"}
 
 
 @pytest.mark.parametrize(

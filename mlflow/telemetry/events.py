@@ -284,8 +284,18 @@ class DatasetToDataFrameEvent(Event):
         if not isinstance(dataset_instance, EvaluationDataset):
             return None
 
+        callsite = "direct_call"
+        for frame_info in inspect.stack()[:10]:
+            frame_filename = frame_info.filename.replace("\\", "/")
+            if "mlflow/genai/evaluation" in frame_filename:
+                callsite = "genai_evaluate"
+                break
+            if "mlflow/genai/simulators" in frame_filename:
+                callsite = "conversation_simulator"
+                break
+
         granularity = dataset_instance._get_existing_granularity()
-        return {"dataset_type": granularity.value}
+        return {"dataset_type": granularity.value, "callsite": callsite}
 
     @classmethod
     def parse_result(cls, result: Any) -> dict[str, Any] | None:
