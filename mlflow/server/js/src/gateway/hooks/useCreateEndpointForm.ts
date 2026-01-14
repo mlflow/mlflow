@@ -20,6 +20,7 @@ export interface CreateEndpointFormData {
     secretFields: Record<string, string>;
     configFields: Record<string, string>;
   };
+  experimentId: string;
 }
 
 export interface UseCreateEndpointFormOptions {
@@ -57,6 +58,7 @@ export function useCreateEndpointForm({
         secretFields: {},
         configFields: {},
       },
+      experimentId: '',
     },
   });
 
@@ -128,6 +130,7 @@ export function useCreateEndpointForm({
             weight: 1.0,
           },
         ],
+        experiment_id: values.experimentId || undefined,
       });
 
       onSuccess?.(endpointResponse.endpoint);

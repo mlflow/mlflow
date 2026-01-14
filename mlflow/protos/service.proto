@@ -4231,6 +4231,8 @@ message GatewayEndpoint {
   optional RoutingStrategy routing_strategy = 9;
   // Fallback configuration (populated if routing_strategy is FALLBACK)
   optional FallbackConfig fallback_config = 10;
+  // ID of the MLflow experiment where traces for this endpoint are logged
+  optional string experiment_id = 11;
 }
 
 // Tag associated with an endpoint
@@ -4462,6 +4464,8 @@ message CreateGatewayEndpoint {
   optional RoutingStrategy routing_strategy = 4;
   // Optional fallback configuration (includes strategy, max_attempts)
   optional FallbackConfig fallback_config = 5;
+  // Optional experiment ID for tracing. If not provided, an experiment will be auto-created.
+  optional string experiment_id = 6;
 
   message Response {
     // The created endpoint with all model mappings
@@ -4493,6 +4497,8 @@ message UpdateGatewayEndpoint {
   optional RoutingStrategy routing_strategy = 5;
   // Optional fallback configuration (includes strategy, max_attempts)
   optional FallbackConfig fallback_config = 6;
+  // Optional experiment ID for tracing
+  optional string experiment_id = 7;
 
   message Response {
     // The updated endpoint

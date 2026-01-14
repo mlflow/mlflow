@@ -512,6 +512,7 @@ class SqlAlchemyGatewayStoreMixin:
         created_by: str | None = None,
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
+        experiment_id: str | None = None,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -523,6 +524,9 @@ class SqlAlchemyGatewayStoreMixin:
             created_by: Username of the creator.
             routing_strategy: Routing strategy for the endpoint.
             fallback_config: Fallback configuration (includes strategy and max_attempts).
+            experiment_id: ID of the MLflow experiment where traces are logged.
+                          If not provided, an experiment will be auto-created with name
+                          'gateway/{endpoint_name}'.
 
         Returns:
             Endpoint entity with model_mappings populated.
@@ -556,6 +560,21 @@ class SqlAlchemyGatewayStoreMixin:
             endpoint_id = f"e-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
+            # Auto-create experiment if not provided
+            if experiment_id is None:
+                experiment_name = f"gateway/{name}"
+                try:
+                    experiment_id = self.create_experiment(experiment_name)
+                except MlflowException:
+                    # Experiment may already exist, try to get it
+                    from mlflow.store.tracking.dbmodels.models import SqlExperiment
+
+                    sql_exp = session.query(SqlExperiment).filter_by(name=experiment_name).first()
+                    if sql_exp:
+                        experiment_id = str(sql_exp.experiment_id)
+                    else:
+                        raise
+
             # Build fallback_config_json if fallback_config provided or fallback models exist
             fallback_model_def_ids = [
                 config.model_definition_id
@@ -583,6 +602,7 @@ class SqlAlchemyGatewayStoreMixin:
                 last_updated_by=created_by,
                 routing_strategy=routing_strategy.value if routing_strategy else None,
                 fallback_config_json=fallback_config_json,
+                experiment_id=experiment_id,
             )
             session.add(sql_endpoint)
 
@@ -646,6 +666,7 @@ class SqlAlchemyGatewayStoreMixin:
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
         model_configs: list[GatewayEndpointModelConfig] | None = None,
+        experiment_id: str | None = None,
     ) -> GatewayEndpoint:
         """
         Update an endpoint's configuration.
@@ -657,6 +678,7 @@ class SqlAlchemyGatewayStoreMixin:
             routing_strategy: Optional new routing strategy.
             fallback_config: Optional fallback configuration (includes strategy and max_attempts).
             model_configs: Optional new list of model configurations (replaces all linkages).
+            experiment_id: Optional new experiment ID for tracing.
 
         Returns:
             Updated Endpoint entity.
@@ -668,6 +690,9 @@ class SqlAlchemyGatewayStoreMixin:
 
             if name is not None:
                 sql_endpoint.name = name
+
+            if experiment_id is not None:
+                sql_endpoint.experiment_id = experiment_id
 
             if routing_strategy is not None:
                 sql_endpoint.routing_strategy = routing_strategy.value

@@ -27,6 +27,7 @@ export interface EditEndpointFormRendererProps {
   errorMessage: string | null;
   resetErrors: () => void;
   endpointName: string | undefined;
+  experimentId: string | undefined;
   isFormComplete: boolean;
   hasChanges: boolean;
   onSubmit: (values: EditEndpointFormData) => Promise<void>;
@@ -42,6 +43,7 @@ export const EditEndpointFormRenderer = ({
   mutationError,
   errorMessage,
   endpointName,
+  experimentId,
   isFormComplete,
   hasChanges,
   onSubmit,
@@ -239,6 +241,19 @@ export const EditEndpointFormRenderer = ({
             })}
           >
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+              {experimentId && (
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                  <Typography.Text bold color="secondary">
+                    <FormattedMessage defaultMessage="Traces" description="Summary traces label" />
+                  </Typography.Text>
+                  <Link to={`/experiments/${experimentId}/traces`}>
+                    <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }} color="info">
+                      <FormattedMessage defaultMessage="View traces" description="Link to view traces for endpoint" />
+                    </Typography.Text>
+                  </Link>
+                </div>
+              )}
+
               {trafficSplitModels.length > 0 && (
                 <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                   <Typography.Text bold color="secondary">

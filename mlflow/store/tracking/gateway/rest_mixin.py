@@ -206,6 +206,7 @@ class RestGatewayStoreMixin:
         created_by: str | None = None,
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
+        experiment_id: str | None = None,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with associated model definitions.
@@ -217,6 +218,7 @@ class RestGatewayStoreMixin:
             created_by: Optional identifier of the user creating the endpoint.
             routing_strategy: Optional routing strategy for the endpoint.
             fallback_config: Optional fallback configuration (includes strategy and max_attempts).
+            experiment_id: Optional experiment ID for tracing. If not provided, one is auto-created.
 
         Returns:
             The created GatewayEndpoint object with associated model mappings.
@@ -228,6 +230,7 @@ class RestGatewayStoreMixin:
                 created_by=created_by,
                 routing_strategy=routing_strategy.to_proto() if routing_strategy else None,
                 fallback_config=fallback_config.to_proto() if fallback_config else None,
+                experiment_id=experiment_id,
             )
         )
         response_proto = self._call_endpoint(CreateGatewayEndpoint, req_body)
@@ -258,6 +261,7 @@ class RestGatewayStoreMixin:
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
         model_configs: list[GatewayEndpointModelConfig] | None = None,
+        experiment_id: str | None = None,
     ) -> GatewayEndpoint:
         """
         Update an endpoint's configuration.
@@ -269,6 +273,7 @@ class RestGatewayStoreMixin:
             routing_strategy: Optional new routing strategy for the endpoint.
             fallback_config: Optional fallback configuration (includes strategy and max_attempts).
             model_configs: Optional new list of model configurations (replaces all linkages).
+            experiment_id: Optional new experiment ID for tracing.
 
         Returns:
             The updated GatewayEndpoint object.
@@ -283,6 +288,7 @@ class RestGatewayStoreMixin:
                 model_configs=[config.to_proto() for config in model_configs]
                 if model_configs
                 else [],
+                experiment_id=experiment_id,
             )
         )
         response_proto = self._call_endpoint(UpdateGatewayEndpoint, req_body)

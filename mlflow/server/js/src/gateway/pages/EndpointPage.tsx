@@ -34,6 +34,7 @@ const EndpointPage = () => {
         errorMessage={getReadableErrorMessage(mutationError)}
         resetErrors={resetErrors}
         endpointName={endpoint?.name}
+        experimentId={endpoint?.experiment_id}
         isFormComplete={isFormComplete}
         hasChanges={hasChanges}
         onSubmit={handleSubmit}

@@ -337,6 +337,7 @@ class GatewayEndpoint(_MlflowObject):
         last_updated_by: User ID who last updated the endpoint.
         routing_strategy: Routing strategy for the endpoint (e.g., "FALLBACK").
         fallback_config: Fallback configuration entity (if routing_strategy is FALLBACK).
+        experiment_id: ID of the MLflow experiment where traces for this endpoint are logged.
     """
 
     endpoint_id: str
@@ -349,6 +350,7 @@ class GatewayEndpoint(_MlflowObject):
     last_updated_by: str | None = None
     routing_strategy: RoutingStrategy | None = None
     fallback_config: FallbackConfig | None = None
+    experiment_id: str | None = None
 
     def to_proto(self):
         proto = ProtoGatewayEndpoint()
@@ -367,6 +369,9 @@ class GatewayEndpoint(_MlflowObject):
         if self.fallback_config:
             proto.fallback_config.CopyFrom(self.fallback_config.to_proto())
 
+        if self.experiment_id is not None:
+            proto.experiment_id = self.experiment_id
+
         return proto
 
     @classmethod
@@ -379,6 +384,10 @@ class GatewayEndpoint(_MlflowObject):
         fallback_config = None
         if proto.HasField("fallback_config"):
             fallback_config = FallbackConfig.from_proto(proto.fallback_config)
+
+        experiment_id = None
+        if proto.HasField("experiment_id"):
+            experiment_id = proto.experiment_id or None
 
         return cls(
             endpoint_id=proto.endpoint_id,
@@ -393,6 +402,7 @@ class GatewayEndpoint(_MlflowObject):
             last_updated_by=proto.last_updated_by or None,
             routing_strategy=routing_strategy,
             fallback_config=fallback_config,
+            experiment_id=experiment_id,
         )
 
 
