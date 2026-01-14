@@ -450,7 +450,8 @@ def test_invoke_judge_model_databricks_success_not_in_databricks(
 
         mock_invoke_db.assert_called_once_with(
             model_name=expected_model_name,
-            prompt="Test prompt",
+            messages=[{"role": "user", "content": "Test prompt"}],
+            tools=mock.ANY if with_trace else None,
             num_retries=10,
             response_format=None,
             inference_params=None,
@@ -505,7 +506,8 @@ def test_invoke_judge_model_databricks_success_in_databricks(
         )
         mock_invoke_db.assert_called_once_with(
             model_name=expected_model_name,
-            prompt="Test prompt",
+            messages=[{"role": "user", "content": "Test prompt"}],
+            tools=None,
             num_retries=10,
             response_format=None,
             inference_params=None,
@@ -541,7 +543,8 @@ def test_invoke_judge_model_databricks_source_id(model_uri: str) -> None:
     )
     mock_invoke_db.assert_called_once_with(
         model_name=expected_model_name,
-        prompt="Test prompt",
+        messages=[{"role": "user", "content": "Test prompt"}],
+        tools=None,
         num_retries=10,
         response_format=None,
         inference_params=None,
@@ -584,7 +587,8 @@ def test_invoke_judge_model_databricks_failure_in_databricks(
         )
         mock_invoke_db.assert_called_once_with(
             model_name=expected_model_name,
-            prompt="Test prompt",
+            messages=[{"role": "user", "content": "Test prompt"}],
+            tools=None,
             num_retries=10,
             response_format=None,
             inference_params=None,
@@ -636,7 +640,8 @@ def test_invoke_judge_model_databricks_telemetry_error_handling(
         )
         mock_invoke_db.assert_called_once_with(
             model_name=expected_model_name,
-            prompt="Test prompt",
+            messages=[{"role": "user", "content": "Test prompt"}],
+            tools=None,
             num_retries=10,
             response_format=None,
             inference_params=None,
