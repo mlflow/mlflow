@@ -156,75 +156,11 @@ class AgentServer:
     def _setup_routes(self) -> None:
         @self.app.post("/invocations")
         async def invocations_endpoint(request: Request):
-            # Capture headers such as x-forwarded-access-token
-            # https://docs.databricks.com/aws/en/dev-tools/databricks-apps/auth?language=Streamlit#retrieve-user-authorization-credentials
-            set_request_headers(dict(request.headers))
-
-            try:
-                data = await request.json()
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid JSON in request body: {e!s}")
-
-            logger.debug(
-                "Request received",
-                extra={
-                    "agent_type": self.agent_type,
-                    "request_size": len(json.dumps(data)),
-                    "stream_requested": data.get(STREAM_KEY, False),
-                },
-            )
-
-            is_streaming = data.pop(STREAM_KEY, False)
-
-            try:
-                request_data = self.validator.validate_and_convert_request(data)
-            except ValueError as e:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid parameters for {self.agent_type}: {e}",
-                )
-
-            if is_streaming:
-                return await self._handle_stream_request(request_data)
-            else:
-                return await self._handle_invoke_request(request_data)
+            return await self._handle_invocations_request(request)
 
         @self.app.post("/responses/create")
         async def responses_create_endpoint(request: Request):
-            # Capture headers (same as invocations)
-            set_request_headers(dict(request.headers))
-
-            try:
-                data = await request.json()
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid JSON in request body: {e!s}")
-
-            logger.debug(
-                "Request received at /responses/create",
-                extra={
-                    "agent_type": self.agent_type,
-                    "request_size": len(json.dumps(data)),
-                    "stream_requested": data.get(STREAM_KEY, False),
-                },
-            )
-
-            # Extract stream parameter
-            is_streaming = data.pop(STREAM_KEY, False)
-
-            # Validate request (handles ResponsesAgentRequest with custom_inputs and context)
-            try:
-                request_data = self.validator.validate_and_convert_request(data)
-            except ValueError as e:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid parameters for {self.agent_type}: {e}",
-                )
-
-            # Forward to existing handlers (reuses all validation, tracing, execution logic)
-            if is_streaming:
-                return await self._handle_stream_request(request_data)
-            else:
-                return await self._handle_invoke_request(request_data)
+            return await self._handle_invocations_request(request)
 
         @self.app.get("/agent/info")
         async def agent_info_endpoint() -> dict[str, Any]:
@@ -247,6 +183,45 @@ class AgentServer:
         @self.app.get("/health")
         async def health_check() -> dict[str, str]:
             return {"status": "healthy"}
+
+    async def _handle_invocations_request(
+        self, request: Request
+    ) -> dict[str, Any] | StreamingResponse:
+        # Capture headers such as x-forwarded-access-token
+        # https://docs.databricks.com/aws/en/dev-tools/databricks-apps/auth?language=Streamlit#retrieve-user-authorization-credentials
+        set_request_headers(dict(request.headers))
+
+        try:
+            data = await request.json()
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON in request body: {e!s}")
+
+        # Use actual request path for logging differentiation
+        endpoint_path = request.url.path
+        logger.debug(
+            f"Request received at {endpoint_path}",
+            extra={
+                "agent_type": self.agent_type,
+                "request_size": len(json.dumps(data)),
+                "stream_requested": data.get(STREAM_KEY, False),
+                "endpoint": endpoint_path,
+            },
+        )
+
+        is_streaming = data.pop(STREAM_KEY, False)
+
+        try:
+            request_data = self.validator.validate_and_convert_request(data)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid parameters for {self.agent_type}: {e}",
+            )
+
+        if is_streaming:
+            return await self._handle_stream_request(request_data)
+        else:
+            return await self._handle_invoke_request(request_data)
 
     async def _handle_invoke_request(self, request: dict[str, Any]) -> dict[str, Any]:
         if _invoke_function is None:
