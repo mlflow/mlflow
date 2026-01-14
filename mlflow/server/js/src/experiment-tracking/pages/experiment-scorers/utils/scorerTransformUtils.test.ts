@@ -176,10 +176,11 @@ describe('transformScorerConfig', () => {
         type: 'llm',
         llmTemplate: 'ConversationalGuidelines',
         guidelines: ['Be professional', 'Stay on topic'],
-        disableMonitoring: true,
+        disableMonitoring: false,
         is_instructions_judge: false,
-        model: undefined,
         isSessionLevelScorer: true,
+        model: undefined,
+        version: undefined,
       });
     });
 
@@ -202,9 +203,11 @@ describe('transformScorerConfig', () => {
         type: 'llm',
         llmTemplate: 'ConversationalGuidelines',
         guidelines: ['Single guideline'],
-        disableMonitoring: true,
+        disableMonitoring: false,
         is_instructions_judge: false,
         model: undefined,
+        sampleRate: undefined,
+        version: undefined,
       });
     });
 
@@ -225,9 +228,11 @@ describe('transformScorerConfig', () => {
         type: 'llm',
         llmTemplate: 'ConversationalGuidelines',
         guidelines: [],
-        disableMonitoring: true,
+        disableMonitoring: false,
         is_instructions_judge: false,
         model: undefined,
+        sampleRate: undefined,
+        version: undefined,
       });
     });
   });
