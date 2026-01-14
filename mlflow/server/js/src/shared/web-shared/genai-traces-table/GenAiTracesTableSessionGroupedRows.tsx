@@ -1,4 +1,4 @@
-import type { Row } from '@tanstack/react-table';
+import type { Row, RowSelectionState } from '@tanstack/react-table';
 import type { VirtualItem } from '@tanstack/react-virtual';
 import React, { useMemo } from 'react';
 
@@ -13,6 +13,7 @@ interface GenAiTracesTableSessionGroupedRowsProps {
   groupedRows: GroupedTraceTableRowData[];
   isComparing: boolean;
   enableRowSelection?: boolean;
+  rowSelectionState: RowSelectionState | undefined;
   virtualItems: VirtualItem<Element>[];
   virtualizerTotalSize: number;
   virtualizerMeasureElement: (node: HTMLDivElement | null) => void;
@@ -118,16 +119,8 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
   const { theme } = useDesignSystemTheme();
 
   return (
-    <TableRow>
-      <TableCell
-        css={{
-          padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-          backgroundColor: theme.colors.backgroundSecondary,
-          fontWeight: theme.typography.typographyBoldFontWeight,
-          borderTop: `1px solid ${theme.colors.border}`,
-          borderBottom: `1px solid ${theme.colors.border}`,
-        }}
-      >
+    <TableRow isHeader>
+      <TableCell>
         <span>
           Session: {sessionId} ({traceCount} {traceCount === 1 ? 'trace' : 'traces'})
         </span>
