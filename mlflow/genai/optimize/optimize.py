@@ -6,9 +6,11 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import mlflow
 from mlflow.entities import Trace
+from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
 from mlflow.genai.evaluation.utils import (
     _convert_eval_set_to_df,
 )
@@ -176,12 +178,17 @@ def optimize_prompts(
                 aggregation=weighted_objective,
             )
     """
-    train_data_df = _convert_eval_set_to_df(train_data)
-    if len(train_data_df) == 0:
+    # For EvaluationDataset types, convert to DataFrame first since they don't support len()
+    if isinstance(train_data, (EntityEvaluationDataset, ManagedEvaluationDataset)):
+        train_data = train_data.to_df()
+
+    if len(train_data) == 0:
         # Zero-shot mode: no training data provided
+        train_data_df = None
         converted_train_data = []
     else:
         # Few-shot mode: convert and validate training data
+        train_data_df = _convert_eval_set_to_df(train_data)
         converted_train_data = train_data_df.to_dict("records")
         validate_train_data(train_data_df, scorers, predict_fn)
 
