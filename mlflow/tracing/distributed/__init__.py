@@ -27,7 +27,7 @@ def get_tracing_context_headers_for_http_request() -> dict[str, str]:
     Returns:
         The http request headers that hold information of the tracing context.
 
-    Example:
+    Example (client code):
 
     .. code-block:: python
 
@@ -39,6 +39,25 @@ def get_tracing_context_headers_for_http_request() -> dict[str, str]:
             # and send request to remote agent with the headers
             headers = get_tracing_context_headers_for_http_request()
             resp = requests.post(f"{base_url}/remote_agent_handler", headers=headers)
+
+    Example (server handler code):
+
+    .. code-block:: python
+
+        import mlflow
+        from flask import Flask, request
+        from mlflow.tracing.distributed import set_tracing_context_from_http_request_headers
+
+        app = Flask(__name__)
+
+
+        @app.post("/agent-handler")
+        def handle():
+            headers = dict(request.headers)
+            with set_tracing_context_from_http_request_headers(headers):
+                with mlflow.start_span("server-handler") as span:
+                    # call agent ...
+                    span.set_attribute("key", "value")
     """
     active_span = mlflow.get_current_active_span()
     if active_span is None:
@@ -64,7 +83,20 @@ def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
     Args:
         headers: The http request headers to extract the trace context from.
 
-    Example:
+    Example (client code):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.tracing.distributed import get_tracing_context_headers_for_http_request
+
+        with mlflow.start_span("client-root") as client_span:
+            # Get the headers that hold information of the tracing context,
+            # and send request to remote agent with the headers
+            headers = get_tracing_context_headers_for_http_request()
+            resp = requests.post(f"{base_url}/remote_agent_handler", headers=headers)
+
+    Example (server handler code):
 
     .. code-block:: python
 
