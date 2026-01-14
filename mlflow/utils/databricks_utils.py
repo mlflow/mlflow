@@ -841,7 +841,8 @@ _DATABRICKS_SDK_SCOPES_MIN_VERSION = "0.74.0"
 
 def check_databricks_sdk_supports_scopes():
     """
-    Check if the installed databricks-sdk version supports the 'scopes' parameter for WorkspaceClient.
+    Check if the installed databricks-sdk version supports the 'scopes' parameter
+    for WorkspaceClient.
 
     Raises:
         MlflowException: If databricks-sdk version is < 0.74.0

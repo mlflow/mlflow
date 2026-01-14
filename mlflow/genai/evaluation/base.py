@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
 import mlflow
 from mlflow.data.dataset import Dataset
-from mlflow.deployments import get_deploy_client
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -534,6 +533,8 @@ def _create_endpoint_predict_fn(endpoint_uri: str, endpoint: str) -> Callable[..
     Returns:
         A predict function that invokes the endpoint
     """
+    from mlflow.deployments import get_deploy_client
+
     client = get_deploy_client("databricks")
     endpoint_info = client.get_endpoint(endpoint)
 
