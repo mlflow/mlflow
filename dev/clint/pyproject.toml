@@ -6,8 +6,6 @@ readme = "README.md"
 authors = [{ name = "mlflow", email = "mlflow@mlflow.com" }]
 dependencies = ["tomli", "typing_extensions"]
 
-[tool.setuptools]
-package-dir = { "" = "src" }
 
 [project.scripts]
 clint = "clint:main"
