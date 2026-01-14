@@ -430,9 +430,14 @@ def _invoke_databricks_serving_endpoint_judge(
         if iteration_count > max_iterations:
             _raise_iteration_limit_exceeded(max_iterations)
 
+        print("messages:", json.dumps(messages, indent=4))  # noqa: T201
+        print("model_name:", model_name)  # noqa: T201
+
         api_messages = _convert_litellm_messages_to_serving_endpoint_api_format(
             messages, model_name
         )
+
+        print("api_messages:", json.dumps(api_messages, indent=4))  # noqa: T201
 
         output = _invoke_databricks_serving_endpoint(
             model_name=model_name,
