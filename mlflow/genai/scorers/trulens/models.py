@@ -29,7 +29,6 @@ def _check_trulens_installed():
 
 
 def _create_databricks_managed_judge_provider(**kwargs: Any):
-    """Create a TruLens provider that uses Databricks managed judge."""
     from trulens.core.feedback.endpoint import Endpoint
     from trulens.feedback.llm_provider import LLMProvider
 
@@ -70,7 +69,6 @@ def _create_databricks_managed_judge_provider(**kwargs: Any):
 
 
 def _create_databricks_serving_endpoint_provider(endpoint_name: str, **kwargs: Any):
-    """Create a TruLens provider that uses Databricks serving endpoints."""
     from trulens.core.feedback.endpoint import Endpoint
     from trulens.feedback.llm_provider import LLMProvider
 
