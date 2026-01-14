@@ -24,6 +24,29 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+      
+      - name: Update host value in keycloak_auth.ini
+        run: |
+          NEW_HOST="https://identity.dev.nuoclient.nuodata.io/"
+          CONFIG_FILE="/home/runner/work/nuodata-mlflow/nuodata-mlflow/mlflow/server/keycloak_auth/keycloak_auth.ini"
+          sed -i "s|^host = .*|host = ${NEW_HOST}|" $CONFIG_FILE
+          cat $CONFIG_FILE
+      
+      - name: Update Keycloak URL and Client ID in keycloak-config.ts
+        run: |
+          KEYCLOAK_URL="https://identity.dev.nuoclient.nuodata.io/"
+          CLIENT_ID="nuodata-website"
+          CONFIG_FILE="/home/runner/work/nuodata-mlflow/nuodata-mlflow/mlflow/server/js/src/keycloak-config.ts"
+          sed -i "s|url: '.*'|url: '${KEYCLOAK_URL}'|" $CONFIG_FILE
+          sed -i "s|clientId: '.*'|clientId: '${CLIENT_ID}'|" $CONFIG_FILE
+          cat $CONFIG_FILE
+      
+      - name: Update .env File
+        run: |
+          CONFIG_FILE="/home/runner/work/nuodata-mlflow/nuodata-mlflow/mlflow/server/js/.env"
+          PROD_REACT_APP_WEB_BASE_URL="https://aiml.dev.nuoclient.nuodata.io/"
+          sed -i "s|REACT_APP_WEB_BASE_URL=.*|REACT_APP_WEB_BASE_URL=${PROD_REACT_APP_WEB_BASE_URL}|" $CONFIG_FILE
+          cat $CONFIG_FILE
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
