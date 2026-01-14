@@ -10,17 +10,11 @@
  * with automatic assistant-awareness.
  */
 
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Drawer } from '@databricks/design-system';
 import { useAssistant } from '../../assistant/AssistantContext';
 
 const ASSISTANT_OPEN_DRAWER_WIDTH = '70vw';
-
-interface AssistantAwareDrawerContextType {
-  isPanelOpen: boolean;
-}
-
-const AssistantAwareDrawerContext = createContext<AssistantAwareDrawerContextType | null>(null);
 
 // Keeping modal prop for compatibility with Drawer.Root props.
 function Root({
@@ -35,14 +29,10 @@ function Root({
   modal?: boolean;
   children: ReactNode;
 }) {
-  const { isPanelOpen } = useAssistant();
-
-  const contextValue = useMemo(() => ({ isPanelOpen }), [isPanelOpen]);
-
   return (
     // NB: Modal is set to false to allow clicks on the assistant chat panel to pass through
     <Drawer.Root modal={false} open={open} onOpenChange={onOpenChange}>
-      <AssistantAwareDrawerContext.Provider value={contextValue}>{children}</AssistantAwareDrawerContext.Provider>
+      {children}
     </Drawer.Root>
   );
 }
@@ -60,12 +50,7 @@ function Content({
   size,
   css: cssProp,
 }: Drawer.DrawerContentProps) {
-  const context = useContext(AssistantAwareDrawerContext);
-  if (!context) {
-    throw new Error('AssistantAwareDrawer.Content must be used within AssistantAwareDrawer.Root');
-  }
-
-  const { isPanelOpen } = context;
+  const { isPanelOpen } = useAssistant();
 
   // When assistant is open, position on left and use fixed width
   // When assistant is closed, position on right with user-specified width
