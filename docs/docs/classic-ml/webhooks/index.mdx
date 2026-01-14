@@ -260,6 +260,17 @@ Use <APILink fn="mlflow.client.MlflowClient.delete_webhook" >`MlflowClient.delet
 client.delete_webhook(webhook.webhook_id)
 ```
 
+## Trace Webhook Configuration
+
+Webhook integration for MLflow Tracing is **under design**.
+
+In future releases, users will be able to define tracing-related webhook triggers
+(such as latency, error state, or other metrics) via backend configuration.
+
+> Note: The environment variable `MLFLOW_TRACE_LATENCY_THRESHOLD_MS` is currently **experimental**
+> and may not affect webhook behavior on the client side.  
+> Client-side webhook triggering has been **disabled** to prevent performance and security issues.
+
 ## Security
 
 ### HMAC Signature Verification
