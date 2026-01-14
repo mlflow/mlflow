@@ -51,32 +51,15 @@ _LAZY_IMPORTS = {
     "get_all_scorers",
 }
 
-# TruLens agent trace scorers are lazily loaded to avoid import overhead when not used
-# Note: Basic TruLens scorers (Groundedness, ContextRelevance, AnswerRelevance, Coherence)
-# are provided in PR #19237 along with Phoenix scorers
-_TRULENS_LAZY_IMPORTS = {
-    "TruLensLogicalConsistencyScorer",
-    "TruLensExecutionEfficiencyScorer",
-    "TruLensPlanAdherenceScorer",
-    "TruLensPlanQualityScorer",
-    "TruLensToolSelectionScorer",
-    "TruLensToolCallingScorer",
-}
 
 
 def __getattr__(name):
-    """Lazily import builtin scorers and TruLens scorers to avoid circular dependency."""
+    """Lazily import builtin scorers to avoid circular dependency."""
     if name in _LAZY_IMPORTS:
         # Import the module when first accessed
         from mlflow.genai.scorers import builtin_scorers
 
         return getattr(builtin_scorers, name)
-
-    if name in _TRULENS_LAZY_IMPORTS:
-        # Import TruLens scorers when first accessed
-        from mlflow.genai.scorers import trulens
-
-        return getattr(trulens, name)
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -89,8 +72,8 @@ def __dir__():
     """
     # Get the default module attributes
     module_attrs = list(globals().keys())
-    # Add the lazy imports (both builtin and TruLens)
-    return sorted(set(module_attrs) | _LAZY_IMPORTS | _TRULENS_LAZY_IMPORTS)
+    # Add the lazy imports
+    return sorted(set(module_attrs) | _LAZY_IMPORTS)
 
 
 # The TYPE_CHECKING block below is for static analysis tools only.
@@ -121,14 +104,6 @@ if TYPE_CHECKING:
         UserFrustration,
         get_all_scorers,
     )
-    from mlflow.genai.scorers.trulens import (
-        TruLensExecutionEfficiencyScorer,
-        TruLensLogicalConsistencyScorer,
-        TruLensPlanAdherenceScorer,
-        TruLensPlanQualityScorer,
-        TruLensToolCallingScorer,
-        TruLensToolSelectionScorer,
-    )
 
 __all__ = [
     # Builtin scorers
@@ -153,13 +128,6 @@ __all__ = [
     "ToolCallCorrectness",
     "ToolCallEfficiency",
     "UserFrustration",
-    # TruLens agent trace scorers
-    "TruLensLogicalConsistencyScorer",
-    "TruLensExecutionEfficiencyScorer",
-    "TruLensPlanAdherenceScorer",
-    "TruLensPlanQualityScorer",
-    "TruLensToolSelectionScorer",
-    "TruLensToolCallingScorer",
     # Base classes and utilities
     "Scorer",
     "scorer",

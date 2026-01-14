@@ -1,29 +1,33 @@
 """
-TruLens agent trace scorers for goal-plan-action alignment evaluation.
+TruLens evaluation framework integration for MLflow.
 
 This module provides TruLens agent trace evaluators as MLflow scorers, enabling
-trace-aware evaluation of LLM agents. See: https://arxiv.org/abs/2510.08847
+trace-aware evaluation of LLM agents.
 
 Example usage:
-    >>> from mlflow.genai.scorers import TruLensLogicalConsistencyScorer
-    >>> scorer = TruLensLogicalConsistencyScorer()
-    >>> feedback = scorer(trace=trace)
+
+.. code-block:: python
+
+    from mlflow.genai.scorers.trulens import LogicalConsistencyScorer
+
+    scorer = LogicalConsistencyScorer(model="openai:/gpt-4")
+    feedback = scorer(trace=trace)
 """
 
 from mlflow.genai.scorers.trulens.agent_trace import (
-    TruLensExecutionEfficiencyScorer,
-    TruLensLogicalConsistencyScorer,
-    TruLensPlanAdherenceScorer,
-    TruLensPlanQualityScorer,
-    TruLensToolCallingScorer,
-    TruLensToolSelectionScorer,
+    ExecutionEfficiencyScorer,
+    LogicalConsistencyScorer,
+    PlanAdherenceScorer,
+    PlanQualityScorer,
+    ToolCallingScorer,
+    ToolSelectionScorer,
 )
 
 __all__ = [
-    "TruLensLogicalConsistencyScorer",
-    "TruLensExecutionEfficiencyScorer",
-    "TruLensPlanAdherenceScorer",
-    "TruLensPlanQualityScorer",
-    "TruLensToolSelectionScorer",
-    "TruLensToolCallingScorer",
+    "LogicalConsistencyScorer",
+    "ExecutionEfficiencyScorer",
+    "PlanAdherenceScorer",
+    "PlanQualityScorer",
+    "ToolSelectionScorer",
+    "ToolCallingScorer",
 ]

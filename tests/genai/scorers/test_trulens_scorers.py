@@ -1,35 +1,13 @@
-import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import Mock, patch
 
 import pytest
-import trulens  # noqa: F401 - ensures tests fail if trulens not installed
+import trulens  # noqa: F401
 
 import mlflow
 from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
-
-
-@pytest.fixture
-def mock_trulens_openai():
-    mock_openai_class = MagicMock()
-    provider_instance = MagicMock()
-    mock_openai_class.return_value = provider_instance
-
-    mock_trulens_module = MagicMock()
-    mock_providers_module = MagicMock()
-    mock_openai_module = MagicMock()
-    mock_openai_module.OpenAI = mock_openai_class
-
-    with patch.dict(
-        sys.modules,
-        {
-            "trulens": mock_trulens_module,
-            "trulens.providers": mock_providers_module,
-            "trulens.providers.openai": mock_openai_module,
-        },
-    ):
-        yield provider_instance
 
 
 @pytest.fixture
@@ -50,228 +28,136 @@ def sample_agent_trace():
     return mlflow.get_trace(mlflow.get_last_active_trace_id())
 
 
-def test_trulens_logical_consistency_scorer(mock_trulens_openai, sample_agent_trace):
-    mock_trulens_openai.logical_consistency_with_cot_reasons.return_value = (
-        0.87,
-        {"reason": "Agent reasoning is logically consistent"},
-    )
+@pytest.fixture
+def mock_provider():
+    mock = Mock()
+    return mock
 
-    from mlflow.genai.scorers import TruLensLogicalConsistencyScorer
 
-    scorer = TruLensLogicalConsistencyScorer()
+@pytest.mark.parametrize(
+    ("scorer_class", "metric_name", "method_name"),
+    [
+        ("LogicalConsistencyScorer", "logical_consistency", "logical_consistency_with_cot_reasons"),
+        (
+            "ExecutionEfficiencyScorer",
+            "execution_efficiency",
+            "execution_efficiency_with_cot_reasons",
+        ),
+        ("PlanAdherenceScorer", "plan_adherence", "plan_adherence_with_cot_reasons"),
+        ("PlanQualityScorer", "plan_quality", "plan_quality_with_cot_reasons"),
+        ("ToolSelectionScorer", "tool_selection", "tool_selection_with_cot_reasons"),
+        ("ToolCallingScorer", "tool_calling", "tool_calling_with_cot_reasons"),
+    ],
+)
+def test_agent_trace_scorer(
+    mock_provider, sample_agent_trace, scorer_class, metric_name, method_name
+):
+    expected_score = 0.87
+    expected_reasons = {"reason": "Test rationale"}
+
+    with patch(
+        "mlflow.genai.scorers.trulens.agent_trace.create_trulens_provider",
+        return_value=mock_provider,
+    ):
+        from mlflow.genai.scorers import trulens
+
+        scorer_cls = getattr(trulens, scorer_class)
+        scorer = scorer_cls(model="openai:/gpt-4")
+
+    getattr(mock_provider, method_name).return_value = (expected_score, expected_reasons)
     result = scorer(trace=sample_agent_trace)
 
     assert isinstance(result, Feedback)
-    assert result.name == "trulens_logical_consistency"
-    assert result.value == 0.87
+    assert result.name == metric_name
+    assert result.value == expected_score
+    assert result.rationale == "reason: Test rationale"
+    assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert result.source.source_id == "openai:/gpt-4"
+    assert result.metadata == {"mlflow.scorer.framework": "trulens"}
 
-    mock_trulens_openai.logical_consistency_with_cot_reasons.assert_called_once()
-    call_args = mock_trulens_openai.logical_consistency_with_cot_reasons.call_args
-    assert "trace" in call_args[1]
-
-
-def test_trulens_execution_efficiency_scorer(mock_trulens_openai, sample_agent_trace):
-    mock_trulens_openai.execution_efficiency_with_cot_reasons.return_value = (
-        0.75,
-        {"reason": "Agent execution was mostly efficient"},
-    )
-
-    from mlflow.genai.scorers import TruLensExecutionEfficiencyScorer
-
-    scorer = TruLensExecutionEfficiencyScorer()
-    result = scorer(trace=sample_agent_trace)
-
-    assert isinstance(result, Feedback)
-    assert result.name == "trulens_execution_efficiency"
-    assert result.value == 0.75
-
-    mock_trulens_openai.execution_efficiency_with_cot_reasons.assert_called_once()
+    method = getattr(mock_provider, method_name)
+    method.assert_called_once()
+    call_kwargs = method.call_args[1]
+    assert call_kwargs["trace"] == sample_agent_trace.to_json()
 
 
-def test_trulens_plan_adherence_scorer(mock_trulens_openai, sample_agent_trace):
-    mock_trulens_openai.plan_adherence_with_cot_reasons.return_value = (
-        0.93,
-        {"reason": "Agent followed the plan closely"},
-    )
+def test_scorer_requires_trace(mock_provider):
+    with patch(
+        "mlflow.genai.scorers.trulens.agent_trace.create_trulens_provider",
+        return_value=mock_provider,
+    ):
+        from mlflow.genai.scorers.trulens import LogicalConsistencyScorer
 
-    from mlflow.genai.scorers import TruLensPlanAdherenceScorer
-
-    scorer = TruLensPlanAdherenceScorer()
-    result = scorer(trace=sample_agent_trace)
-
-    assert isinstance(result, Feedback)
-    assert result.name == "trulens_plan_adherence"
-    assert result.value == 0.93
-
-    mock_trulens_openai.plan_adherence_with_cot_reasons.assert_called_once()
-
-
-def test_trulens_plan_quality_scorer(mock_trulens_openai, sample_agent_trace):
-    mock_trulens_openai.plan_quality_with_cot_reasons.return_value = (
-        0.82,
-        {"reason": "Plan was well-structured"},
-    )
-
-    from mlflow.genai.scorers import TruLensPlanQualityScorer
-
-    scorer = TruLensPlanQualityScorer()
-    result = scorer(trace=sample_agent_trace)
-
-    assert isinstance(result, Feedback)
-    assert result.name == "trulens_plan_quality"
-    assert result.value == 0.82
-
-    mock_trulens_openai.plan_quality_with_cot_reasons.assert_called_once()
-
-
-def test_trulens_tool_selection_scorer(mock_trulens_openai, sample_agent_trace):
-    mock_trulens_openai.tool_selection_with_cot_reasons.return_value = (
-        0.91,
-        {"reason": "Appropriate tools were selected"},
-    )
-
-    from mlflow.genai.scorers import TruLensToolSelectionScorer
-
-    scorer = TruLensToolSelectionScorer()
-    result = scorer(trace=sample_agent_trace)
-
-    assert isinstance(result, Feedback)
-    assert result.name == "trulens_tool_selection"
-    assert result.value == 0.91
-
-    mock_trulens_openai.tool_selection_with_cot_reasons.assert_called_once()
-
-
-def test_trulens_tool_calling_scorer(mock_trulens_openai, sample_agent_trace):
-    mock_trulens_openai.tool_calling_with_cot_reasons.return_value = (
-        0.89,
-        {"reason": "Tool calls were executed correctly"},
-    )
-
-    from mlflow.genai.scorers import TruLensToolCallingScorer
-
-    scorer = TruLensToolCallingScorer()
-    result = scorer(trace=sample_agent_trace)
-
-    assert isinstance(result, Feedback)
-    assert result.name == "trulens_tool_calling"
-    assert result.value == 0.89
-
-    mock_trulens_openai.tool_calling_with_cot_reasons.assert_called_once()
-
-
-def test_trulens_agent_trace_scorer_with_custom_params(mock_trulens_openai, sample_agent_trace):
-    mock_trulens_openai.logical_consistency_with_cot_reasons.return_value = (
-        0.9,
-        {"reason": "Consistent"},
-    )
-
-    from mlflow.genai.scorers import TruLensLogicalConsistencyScorer
-
-    scorer = TruLensLogicalConsistencyScorer(
-        name="custom_logical_consistency",
-        criteria="Custom evaluation criteria",
-        custom_instructions="Additional instructions for evaluation",
-        temperature=0.5,
-    )
-    result = scorer(trace=sample_agent_trace)
-
-    assert result.name == "custom_logical_consistency"
-
-    call_args = mock_trulens_openai.logical_consistency_with_cot_reasons.call_args
-    assert call_args[1]["criteria"] == "Custom evaluation criteria"
-    assert call_args[1]["custom_instructions"] == "Additional instructions for evaluation"
-    assert call_args[1]["temperature"] == 0.5
-
-
-def test_trulens_agent_trace_scorer_requires_trace(mock_trulens_openai):
-    from mlflow.genai.scorers import TruLensLogicalConsistencyScorer
-
-    scorer = TruLensLogicalConsistencyScorer()
+        scorer = LogicalConsistencyScorer()
 
     with pytest.raises(MlflowException, match="Trace is required"):
         scorer(trace=None)
 
 
-def test_trulens_agent_trace_scorer_accepts_string_trace(mock_trulens_openai):
-    mock_trulens_openai.logical_consistency_with_cot_reasons.return_value = (
-        0.85,
-        {"reason": "Consistent"},
-    )
+def test_scorer_accepts_string_trace(mock_provider):
+    with patch(
+        "mlflow.genai.scorers.trulens.agent_trace.create_trulens_provider",
+        return_value=mock_provider,
+    ):
+        from mlflow.genai.scorers.trulens import LogicalConsistencyScorer
 
-    from mlflow.genai.scorers import TruLensLogicalConsistencyScorer
+        scorer = LogicalConsistencyScorer()
 
-    scorer = TruLensLogicalConsistencyScorer()
+    mock_provider.logical_consistency_with_cot_reasons.return_value = (0.85, None)
     trace_json = '{"info": {}, "data": {"spans": []}}'
     result = scorer(trace=trace_json)
 
     assert result.value == 0.85
-    call_args = mock_trulens_openai.logical_consistency_with_cot_reasons.call_args
-    assert call_args[1]["trace"] == trace_json
+    mock_provider.logical_consistency_with_cot_reasons.assert_called_once_with(trace=trace_json)
 
 
-def test_trulens_agent_trace_scorer_rationale_formatting(mock_trulens_openai, sample_agent_trace):
-    mock_trulens_openai.logical_consistency_with_cot_reasons.return_value = (
+def test_scorer_rationale_with_multiple_reasons(mock_provider, sample_agent_trace):
+    with patch(
+        "mlflow.genai.scorers.trulens.agent_trace.create_trulens_provider",
+        return_value=mock_provider,
+    ):
+        from mlflow.genai.scorers.trulens import LogicalConsistencyScorer
+
+        scorer = LogicalConsistencyScorer()
+
+    mock_provider.logical_consistency_with_cot_reasons.return_value = (
         0.8,
-        {
-            "reason": "Main reason",
-            "details": ["Detail 1", "Detail 2"],
-            "score_breakdown": {"part1": 0.9, "part2": 0.7},
-        },
+        {"reason": "Main reason", "details": ["Detail 1", "Detail 2"]},
     )
-
-    from mlflow.genai.scorers import TruLensLogicalConsistencyScorer
-
-    scorer = TruLensLogicalConsistencyScorer()
     result = scorer(trace=sample_agent_trace)
 
     assert "reason: Main reason" in result.rationale
     assert "details: Detail 1; Detail 2" in result.rationale
 
 
-def test_trulens_agent_trace_scorer_empty_rationale(mock_trulens_openai, sample_agent_trace):
-    mock_trulens_openai.logical_consistency_with_cot_reasons.return_value = (0.8, None)
+def test_scorer_none_rationale(mock_provider, sample_agent_trace):
+    with patch(
+        "mlflow.genai.scorers.trulens.agent_trace.create_trulens_provider",
+        return_value=mock_provider,
+    ):
+        from mlflow.genai.scorers.trulens import LogicalConsistencyScorer
 
-    from mlflow.genai.scorers import TruLensLogicalConsistencyScorer
+        scorer = LogicalConsistencyScorer()
 
-    scorer = TruLensLogicalConsistencyScorer()
+    mock_provider.logical_consistency_with_cot_reasons.return_value = (0.9, None)
     result = scorer(trace=sample_agent_trace)
 
     assert result.rationale is None
 
 
-def test_trulens_agent_trace_scorers_available_in_module():
-    from mlflow.genai.scorers import (
-        TruLensExecutionEfficiencyScorer,
-        TruLensLogicalConsistencyScorer,
-        TruLensPlanAdherenceScorer,
-        TruLensPlanQualityScorer,
-        TruLensToolCallingScorer,
-        TruLensToolSelectionScorer,
+def test_scorers_available_in_trulens_namespace():
+    from mlflow.genai.scorers.trulens import (
+        ExecutionEfficiencyScorer,
+        LogicalConsistencyScorer,
+        PlanAdherenceScorer,
+        PlanQualityScorer,
+        ToolCallingScorer,
+        ToolSelectionScorer,
     )
 
-    assert TruLensLogicalConsistencyScorer is not None
-    assert TruLensExecutionEfficiencyScorer is not None
-    assert TruLensPlanAdherenceScorer is not None
-    assert TruLensPlanQualityScorer is not None
-    assert TruLensToolSelectionScorer is not None
-    assert TruLensToolCallingScorer is not None
-
-
-@pytest.mark.parametrize(
-    ("scorer_class", "scorer_name"),
-    [
-        ("TruLensLogicalConsistencyScorer", "trulens_logical_consistency"),
-        ("TruLensExecutionEfficiencyScorer", "trulens_execution_efficiency"),
-        ("TruLensPlanAdherenceScorer", "trulens_plan_adherence"),
-        ("TruLensPlanQualityScorer", "trulens_plan_quality"),
-        ("TruLensToolSelectionScorer", "trulens_tool_selection"),
-        ("TruLensToolCallingScorer", "trulens_tool_calling"),
-    ],
-)
-def test_trulens_agent_trace_scorer_default_names(scorer_class, scorer_name):
-    import mlflow.genai.scorers as scorers_module
-
-    scorer_cls = getattr(scorers_module, scorer_class)
-    scorer = scorer_cls()
-    assert scorer.name == scorer_name
+    assert LogicalConsistencyScorer is not None
+    assert ExecutionEfficiencyScorer is not None
+    assert PlanAdherenceScorer is not None
+    assert PlanQualityScorer is not None
+    assert ToolSelectionScorer is not None
+    assert ToolCallingScorer is not None
