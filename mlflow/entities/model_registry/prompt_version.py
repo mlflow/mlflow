@@ -280,7 +280,7 @@ class PromptVersion(_ModelRegistryEntity):
             Either a string (for text prompts) or a list of chat message dictionaries
             (for chat prompts) with 'role' and 'content' keys.
         """
-        if self._prompt_type == PROMPT_TYPE_TEXT:
+        if self.is_text_prompt:
             return self._tags[PROMPT_TEXT_TAG_KEY]
         else:
             return json.loads(self._tags[PROMPT_TEXT_TAG_KEY])
