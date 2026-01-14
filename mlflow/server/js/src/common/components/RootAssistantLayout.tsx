@@ -61,6 +61,7 @@ export const RootAssistantLayout = ({ children }: { children: ReactNode }) => {
 
         {showPanel && (
           <div
+            data-assistant-ui="true"
             css={{
               position: 'relative',
               width: `${panelWidthPercent}%`,
