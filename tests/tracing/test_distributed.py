@@ -35,12 +35,12 @@ def _parse_traceparent(header_value: str) -> tuple[int, int]:
 
 def test_get_tracing_context_headers_for_http_request_in_active_span():
     with mlflow.start_span("client-span"):
-        current_span = otel_trace.get_current_span()
+        current_span = mlflow.get_current_active_span()._span
         assert current_span.get_span_context().is_valid
         client_trace_id = current_span.get_span_context().trace_id
         client_span_id = current_span.get_span_context().span_id
 
-        headers: dict[str, str] = get_tracing_context_headers_for_http_request()
+        headers = get_tracing_context_headers_for_http_request()
         assert isinstance(headers, dict)
         assert "traceparent" in headers
 
