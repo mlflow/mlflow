@@ -361,6 +361,7 @@ const TracesV3LogsImpl = React.memo(
           experimentId={experimentId}
           getTrace={getTrace}
           renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+          isGroupedBySession={isGroupedBySession}
         >
           <div
             css={{
