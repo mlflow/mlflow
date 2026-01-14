@@ -114,16 +114,29 @@ class AgentServer:
         self._setup_routes()
 
     def _setup_chat_proxy_middleware(self) -> None:
-        """Set up middleware to proxy unmatched requests to the chat app."""
+        """Set up middleware to proxy static asset requests to the chat app.
+
+        Only forwards requests to allowed paths (/, /assets/*, /favicon.ico) to prevent
+        SSRF vulnerabilities. API calls should be made directly to the chat app using
+        VITE_API_BASE_URL configuration.
+        """
         self.chat_app_port = os.getenv("CHAT_APP_PORT", "3000")
         self.chat_proxy_timeout = float(os.getenv("CHAT_PROXY_TIMEOUT_SECONDS", "300.0"))
         self.proxy_client = httpx.AsyncClient(timeout=self.chat_proxy_timeout)
 
+        # Only proxy static assets to prevent SSRF vulnerabilities
+        allowed_proxy_prefixes = ("/assets/", "/favicon.ico")
+
         @self.app.middleware("http")
         async def chat_proxy_middleware(request: Request, call_next):
             """
-            Forward unmatched requests to the chat app on the port specified by the CHAT_APP_PORT
-            environment variable (defaults to 3000).
+            Forward static asset requests to the chat app on the port specified by the
+            CHAT_APP_PORT environment variable (defaults to 3000).
+
+            Only forwards requests to:
+            - / (base path for index.html)
+            - /assets/* (Vite static assets)
+            - /favicon.ico
 
             The timeout for the proxy request is specified by the CHAT_PROXY_TIMEOUT_SECONDS
             environment variable (defaults to 300.0 seconds).
@@ -132,7 +145,14 @@ class AgentServer:
                 if hasattr(route, "path_regex") and route.path_regex.match(request.url.path):
                     return await call_next(request)
 
-            path = request.url.path.lstrip("/")
+            path = request.url.path
+
+            # Only allow proxying static assets
+            is_allowed = path == "/" or any(path.startswith(p) for p in allowed_proxy_prefixes)
+            if not is_allowed:
+                return Response("Not found", status_code=404, media_type="text/plain")
+
+            path = path.lstrip("/")
             try:
                 body = await request.body() if request.method in ["POST", "PUT", "PATCH"] else None
                 target_url = f"http://localhost:{self.chat_app_port}/{path}"
