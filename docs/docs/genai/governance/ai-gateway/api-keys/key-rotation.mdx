@@ -1,0 +1,80 @@
+---
+title: Key Rotation
+---
+
+# Key Rotation
+
+Regular credential rotation is essential for security. MLflow AI Gateway supports two types of rotation: rotating provider API keys (from OpenAI, Anthropic, etc.) and rotating the master encryption passphrase.
+
+## Rotating Provider API Keys
+
+When you need to rotate credentials from your LLM provider for security purposes:
+
+### Simple Rotation (Zero-Downtime)
+
+This approach updates credentials in place with no service interruption:
+
+1. Navigate to the **API Keys** tab in the Gateway UI
+2. Locate the key you want to rotate
+3. Click the **Edit** button
+4. Update the credential value with your new API key from the provider
+5. Click **Save**
+
+All endpoints using this API key will automatically use the new credentials without requiring any configuration changes or server restarts.
+
+### Advanced Rotation (With Rollback Capability)
+
+For mission-critical deployments where you want a rollback path:
+
+1. **Create a new API key** with the rotated credentials (e.g., `my-openai-key-v2`)
+2. **Update your endpoints** to use the new API key
+3. **Monitor your endpoints** to ensure they're working correctly
+4. **Delete the old API key** once you've verified the rotation was successful
+
+This approach allows you to quickly revert to the old key if issues arise.
+
+## Rotating the Encryption Passphrase
+
+The encryption passphrase is the master secret used to encrypt all stored API keys in the database. You should rotate this periodically for security best practices.
+
+### Prerequisites
+
+- Direct database access
+- Ability to stop the MLflow server
+- Current KEK passphrase and version
+
+### Rotation Process
+
+1. **Stop the MLflow server** to ensure atomicity:
+
+   ```bash
+   # Example: systemctl stop mlflow-server
+   ```
+
+2. **Set current environment variables** (if not already configured):
+
+   ```bash
+   export MLFLOW_CRYPTO_KEK_PASSPHRASE="current-passphrase"
+   export MLFLOW_CRYPTO_KEK_VERSION="1"  # Current version
+   ```
+
+3. **Run the rotation command** with your new passphrase:
+
+   ```bash
+   mlflow crypto rotate-kek --new-passphrase "new-passphrase"
+   ```
+
+   The command will re-wrap all encryption keys with the new KEK. The API key values themselves are not re-encrypted, making this efficient even with many secrets.
+
+4. **Update deployment configuration** with BOTH new values:
+
+   ```bash
+   export MLFLOW_CRYPTO_KEK_PASSPHRASE="new-passphrase"
+   export MLFLOW_CRYPTO_KEK_VERSION="2"  # Incremented version
+   ```
+
+5. **Restart the MLflow server** with the updated configuration.
+
+:::warning
+You must update BOTH `MLFLOW_CRYPTO_KEK_PASSPHRASE` and `MLFLOW_CRYPTO_KEK_VERSION` environment variables. Failure to update both will cause decryption failures when the server attempts to read stored API keys.
+:::

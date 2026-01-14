@@ -1,0 +1,110 @@
+---
+title: Quickstart
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# AI Gateway Quickstart
+
+Get your AI Gateway running in minutes with this simple walkthrough.
+
+## Step 1: Install and Start MLflow
+
+Install MLflow with GenAI dependencies and start the server:
+
+```bash
+pip install 'mlflow[genai]'
+mlflow server --port 5000
+```
+
+The AI Gateway is built into the MLflow Tracking Server and will be ready at `http://localhost:5000`.
+
+:::note
+The AI Gateway requires a SQL-based backend store (SQLite, PostgreSQL, MySQL, or MSSQL) and the FastAPI tracking server. By default, `mlflow server` uses SQLite and FastAPI, so no additional configuration is needed for this quickstart.
+:::
+
+## Step 2: Create Your First API Key
+
+Navigate to `http://localhost:5000/#/gateway` and click on the **API Keys** tab.
+
+1. Click **Create API Key**
+2. Enter a name (e.g., `my-openai-key`)
+3. Select your provider (e.g., OpenAI)
+4. Enter your API key from the provider
+5. Click **Create**
+
+![Create API Key](/images/genai/governance/ai-gateway/create-api-key.png)
+
+Your API key is now securely stored and encrypted.
+
+## Step 3: Create Your First Endpoint
+
+Switch to the **Endpoints** tab and click **Create Endpoint**.
+
+1. Enter an endpoint name (e.g., `my-chat-endpoint`)
+2. Select your provider (e.g., OpenAI)
+3. Choose a model (e.g., `gpt-4o`)
+4. Select your API key from the dropdown (the one you just created)
+5. Click **Create Endpoint**
+
+## Step 4: Query Your Endpoint
+
+Test your endpoint with a simple request:
+
+<Tabs>
+<TabItem value="curl" label="cURL" default>
+
+```bash
+curl -X POST http://localhost:5000/gateway/my-chat-endpoint/mlflow/invocations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:5000/gateway/my-chat-endpoint/mlflow/invocations",
+    json={"messages": [{"role": "user", "content": "Hello!"}]},
+)
+print(response.json())
+```
+
+</TabItem>
+<TabItem value="openai" label="OpenAI SDK">
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:5000/gateway/mlflow/v1",
+    api_key="",  # Not needed - API key is configured server-side
+)
+
+response = client.chat.completions.create(
+    model="my-chat-endpoint",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+print(response.choices[0].message.content)
+```
+
+</TabItem>
+</Tabs>
+
+You should receive a response from your configured model.
+
+## Next Steps
+
+Now that you have a working gateway, explore these features:
+
+- **[Create and Manage API Keys](./api-keys/create-and-manage)** - Learn about credential management and best practices
+- **[Create and Manage Endpoints](./endpoints/create-and-manage)** - Configure endpoints with multiple models
+- **[Query Endpoints](./endpoints/query-endpoints)** - Explore unified and passthrough APIs
+- **[Model Providers](./endpoints/model-providers)** - See all supported providers and models
+- **[Traffic Routing & Fallbacks](./traffic-routing-fallbacks)** - Set up A/B testing and high availability

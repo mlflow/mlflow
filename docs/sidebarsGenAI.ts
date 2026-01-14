@@ -664,18 +664,50 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'doc',
-          id: 'governance/ai-gateway/setup',
-          label: 'Setup',
+          id: 'governance/ai-gateway/quickstart',
+          label: 'Quickstart',
+        },
+        {
+          type: 'category',
+          label: 'API Keys',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/api-keys/create-and-manage',
+              label: 'Create and Manage Keys',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/api-keys/key-rotation',
+              label: 'Key Rotation',
+            },
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Endpoints',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/endpoints/create-and-manage',
+              label: 'Create and Manage Endpoints',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/endpoints/query-endpoints',
+              label: 'Query Endpoints',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/endpoints/model-providers',
+              label: 'Model Providers',
+            },
+          ],
         },
         {
           type: 'doc',
-          id: 'governance/ai-gateway/routing',
-          label: 'Advanced Routing',
-        },
-        {
-          type: 'doc',
-          id: 'governance/ai-gateway/query',
-          label: 'Querying Endpoints',
+          id: 'governance/ai-gateway/traffic-routing-fallbacks',
+          label: 'Traffic Routing & Fallbacks',
         },
         {
           type: 'category',

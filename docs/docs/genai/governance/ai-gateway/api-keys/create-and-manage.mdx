@@ -1,0 +1,84 @@
+---
+title: Create and Manage Keys
+---
+
+# Create and Manage API Keys
+
+API keys serve as reusable credentials that can be shared across multiple endpoints. When you have several endpoints using the same provider, this approach simplifies both initial setup and ongoing credential management.
+
+## Accessing API Keys
+
+Navigate to the AI Gateway section at `http://localhost:5000/#/gateway` and click on the **API Keys** tab.
+
+![API Keys Page](/images/genai/governance/ai-gateway/api-keys-page.png)
+
+## Creating an API Key
+
+1. Click **Create API Key**
+2. Enter a unique name for the key (e.g., `my-openai-key`)
+3. Select your provider from the dropdown (OpenAI, Anthropic, Google Gemini, etc.)
+4. Choose the authentication method if multiple options are available
+   - For example, OpenAI supports both standard API key authentication and Azure-specific authentication
+5. Enter your credentials (displayed as masked inputs for security)
+6. Fill in any provider-specific configuration fields:
+   - **Azure**: Endpoint URL
+   - **GCP**: Project ID
+7. Click **Create**
+
+## Working with Existing Keys
+
+The API Keys page displays all your configured credentials along with important metadata:
+
+- **Endpoints using this key**: See which endpoints depend on each key
+- **Last updated**: When the credentials were last modified
+- **Created date**: When the key was originally created
+
+The credential values remain masked for security.
+
+### Editing Keys
+
+To update credentials for a provider:
+
+1. Locate the key in the API Keys list
+2. Click the **Edit** button
+3. Update the credential value
+4. Click **Save**
+
+All endpoints using this key will automatically use the new credentials without requiring any configuration changes.
+
+### Deleting Keys
+
+When deleting a key:
+
+1. The system warns you if any endpoints currently depend on it
+2. Review the warning to prevent accidental disruptions
+3. Confirm deletion only after ensuring no active endpoints need the key
+
+:::tip
+Creating reusable API keys simplifies credential rotation. When you need to update a credential, edit it once rather than updating every endpoint individually.
+:::
+
+## Encryption and Security
+
+### Default Encryption
+
+API keys are encrypted before being stored in the MLflow backend database. For local development, MLflow uses a default passphrase if none is configured. This is acceptable for development or single-user deployments.
+
+### Production Encryption Setup
+
+For production environments, configure a custom encryption passphrase:
+
+```bash
+# Generate a secure passphrase
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# Set the passphrase as an environment variable before starting the server
+export MLFLOW_CRYPTO_KEK_PASSPHRASE="your-secure-passphrase-here"
+
+# Start the MLflow server
+mlflow server --port 5000
+```
+
+:::note
+File-based tracking stores are not supported by the AI Gateway. The gateway requires a SQL-based backend store (SQLite, PostgreSQL, MySQL, or MSSQL).
+:::

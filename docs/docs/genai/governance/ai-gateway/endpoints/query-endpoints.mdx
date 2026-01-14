@@ -1,11 +1,11 @@
 ---
-title: Querying Endpoints
+title: Query Endpoints
 ---
 
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
-# Querying Endpoints
+# Query Endpoints
 
 Once you've created an endpoint, you can call it through several different API styles depending on your needs.
 
@@ -188,15 +188,13 @@ print(response.choices[0].message.content)
 
 ## Passthrough APIs
 
-The Passthrough API relays requests to the provider's LLM endpoint using its native formats, allowing you to use their native client SDKs with the MLflow Gateway. While unified APIs work for most use cases, passthrough APIs give you full access to provider-specific features that may not be available through the unified interface. Gateway provides a passthrough endpoint for each supported provider.
+The Passthrough API relays requests to the provider's LLM endpoint using its native formats, allowing you to use their native client SDKs with the MLflow Gateway. While unified APIs work for most use cases, passthrough APIs give you full access to provider-specific features that may not be available through the unified interface.
+
+For detailed information on passthrough APIs for each provider, see [Model Providers](./model-providers).
 
 ### OpenAI Passthrough
 
 The OpenAI passthrough API exposes the full OpenAI API including Chat Completions, Embeddings, and Responses endpoints. See [OpenAI API Reference](https://platform.openai.com/docs/api-reference) for complete documentation.
-
-#### Chat Completions
-
-See [OpenAI Chat Completions API Reference](https://platform.openai.com/docs/api-reference/chat) for complete documentation.
 
 <Tabs>
 <TabItem value="curl" label="cURL" default>
@@ -230,81 +228,9 @@ print(response.choices[0].message.content)
 </TabItem>
 </Tabs>
 
-#### Embeddings
-
-See [OpenAI Embeddings API Reference](https://platform.openai.com/docs/api-reference/embeddings) for complete documentation.
-
-<Tabs>
-<TabItem value="curl" label="cURL" default>
-
-```bash
-curl -X POST http://localhost:5000/gateway/openai/v1/embeddings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "my-endpoint",
-    "input": "The food was delicious and the waiter..."
-  }'
-```
-
-</TabItem>
-<TabItem value="python" label="Python">
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="http://localhost:5000/gateway/openai/v1",
-    api_key="dummy",  # API key not needed, configured server-side
-)
-
-response = client.embeddings.create(
-    model="my-endpoint", input="The food was delicious and the waiter..."
-)
-print(response.data[0].embedding)
-```
-
-</TabItem>
-</Tabs>
-
-#### Responses API
-
-The Responses API provides a streamlined interface for creating multi-turn conversational experiences with vision and audio capabilities. For detailed Responses API usage, see [OpenAI Responses API Reference](https://platform.openai.com/docs/api-reference/responses).
-
-<Tabs>
-<TabItem value="curl" label="cURL" default>
-
-```bash
-curl -X POST http://localhost:5000/gateway/openai/v1/responses \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "my-endpoint",
-    "input": "Hello!"
-  }'
-```
-
-</TabItem>
-<TabItem value="python" label="Python">
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="http://localhost:5000/gateway/openai/v1",
-    api_key="dummy",  # API key not needed, configured server-side
-)
-
-response = client.responses.create(
-    model="my-endpoint", messages=[{"role": "user", "content": "Hello!"}]
-)
-print(response.output)
-```
-
-</TabItem>
-</Tabs>
-
 ### Anthropic Passthrough
 
-Access Anthropic's Messages API directly through the gateway, including Claude-specific features. See [Anthropic API Reference](https://docs.anthropic.com/en/api) for complete documentation.
+Access Anthropic's Messages API directly through the gateway. See [Anthropic API Reference](https://docs.anthropic.com/en/api) for complete documentation.
 
 <Tabs>
 <TabItem value="curl" label="cURL" default>
@@ -343,7 +269,7 @@ print(response.content[0].text)
 
 ### Google Gemini Passthrough
 
-The Gemini passthrough API follows Google's API structure, with the endpoint name embedded in the URL path. See [Google Gemini API Reference](https://ai.google.dev/gemini-api/docs) for complete documentation.
+The Gemini passthrough API follows Google's API structure. See [Google Gemini API Reference](https://ai.google.dev/gemini-api/docs) for complete documentation.
 
 <Tabs>
 <TabItem value="curl" label="cURL" default>
@@ -364,7 +290,6 @@ curl -X POST http://localhost:5000/gateway/gemini/v1beta/models/my-endpoint:gene
 ```python
 from google import genai
 
-# Configure with custom endpoint
 client = genai.Client(
     api_key="dummy",
     http_options={
