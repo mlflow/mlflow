@@ -44,14 +44,26 @@ def _create_databricks_managed_judge_provider(**kwargs: Any):
             messages: "Sequence[dict] | None" = None,
             **kwargs,
         ) -> str:
+            # Convert messages to prompt if provided, otherwise use prompt directly
             if messages:
-                prompt = "\n".join(
-                    f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages
-                )
-            if prompt is None:
-                prompt = ""
+                # Extract system and user content from messages
+                system_parts = []
+                user_parts = []
+                for m in messages:
+                    role = m.get("role", "user")
+                    content = m.get("content", "")
+                    if role == "system":
+                        system_parts.append(content)
+                    else:
+                        user_parts.append(f"{role}: {content}")
+                system_prompt = "\n".join(system_parts) if system_parts else ""
+                user_prompt = "\n".join(user_parts) if user_parts else ""
+            else:
+                # Use prompt directly if no messages provided
+                user_prompt = prompt if prompt is not None else ""
+                system_prompt = ""
 
-            result = call_chat_completions(user_prompt=prompt, system_prompt="")
+            result = call_chat_completions(user_prompt=user_prompt, system_prompt=system_prompt)
             return result.output
 
     return DatabricksManagedJudgeProvider()
@@ -75,16 +87,24 @@ def _create_databricks_serving_endpoint_provider(endpoint_name: str, **kwargs: A
             messages: "Sequence[dict] | None" = None,
             **kwargs,
         ) -> str:
+            # Convert messages to prompt if provided, otherwise use prompt directly
             if messages:
-                prompt = "\n".join(
-                    f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages
-                )
-            if prompt is None:
-                prompt = ""
+                # Flatten messages into a single prompt (serving endpoint takes single prompt)
+                parts = []
+                for m in messages:
+                    role = m.get("role", "user")
+                    content = m.get("content", "")
+                    if role == "system":
+                        parts.insert(0, f"System: {content}")
+                    else:
+                        parts.append(f"{role}: {content}")
+                final_prompt = "\n".join(parts)
+            else:
+                final_prompt = prompt if prompt is not None else ""
 
             output = _invoke_databricks_serving_endpoint(
                 model_name=self._databricks_endpoint_name,
-                prompt=prompt,
+                prompt=final_prompt,
                 num_retries=3,
                 response_format=None,
             )
