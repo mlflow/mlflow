@@ -73,17 +73,17 @@ class InferenceTableSpanExporter(SpanExporter):
                 _logger.debug("Received a non-root span. Skipping export.")
                 continue
 
-            if self._trace_manager._is_remote_trace.get(span.get_span_context().trace_id, False):
-                _logger.warning(
-                    "The Databricks InferenceTableSpanExporter does not support exporting spans "
-                    "incrementally. In this case, for distributed trace, exporting the span "
-                    f"{span.name} that is created in a remote process is not supported."
-                )
-                continue
-
             manager_trace = self._trace_manager.pop_trace(span.context.trace_id)
             if manager_trace is None:
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
+                continue
+
+            if manager_trace.is_remote_trace:
+                _logger.warning(
+                    "For distributed tracing, the Databricks InferenceTableSpanExporter does not "
+                    f"support exporting the span {span.name} that is created in a remote process "
+                    "is not supported."
+                )
                 continue
 
             trace = manager_trace.trace

@@ -22,6 +22,7 @@ class _Trace:
     info: TraceInfo
     span_dict: dict[str, LiveSpan] = field(default_factory=dict)
     prompts: list[PromptVersion] = field(default_factory=list)
+    is_remote_trace: bool = False
 
     def to_mlflow_trace(self) -> Trace:
         trace_data = TraceData()
@@ -47,6 +48,7 @@ class ManagerTrace:
 
     trace: Trace
     prompts: Sequence[PromptVersion]
+    is_remote_trace: bool = False
 
 
 class InMemoryTraceManager:
@@ -73,9 +75,6 @@ class InMemoryTraceManager:
         self._otel_id_to_mlflow_trace_id: dict[int, str] = {}
         self._lock = threading.RLock()  # Lock for _traces
 
-        # Store whether the trace ID points to a distributed trace.
-        self._is_remote_trace: dict[int, bool] = {}
-
     def register_trace(self, otel_trace_id: int, trace_info: TraceInfo, is_remote_trace=False):
         """
         Register a new trace info object to the in-memory trace registry.
@@ -90,9 +89,8 @@ class InMemoryTraceManager:
         # Check for a new timeout setting whenever a new trace is created.
         self._check_timeout_update()
         with self._lock:
-            self._traces[trace_info.trace_id] = _Trace(trace_info)
+            self._traces[trace_info.trace_id] = _Trace(trace_info, is_remote_trace=is_remote_trace)
             self._otel_id_to_mlflow_trace_id[otel_trace_id] = trace_info.trace_id
-            self._is_remote_trace[otel_trace_id] = is_remote_trace
 
     def register_span(self, span: LiveSpan):
         """
@@ -185,11 +183,12 @@ class InMemoryTraceManager:
         with self._lock:
             mlflow_trace_id = self._otel_id_to_mlflow_trace_id.pop(otel_trace_id, None)
             internal_trace = self._traces.pop(mlflow_trace_id, None) if mlflow_trace_id else None
-            self._is_remote_trace.pop(otel_trace_id, None)
             if internal_trace is None:
                 return None
             return ManagerTrace(
-                trace=internal_trace.to_mlflow_trace(), prompts=internal_trace.prompts
+                trace=internal_trace.to_mlflow_trace(),
+                prompts=internal_trace.prompts,
+                is_remote_trace=internal_trace.is_remote_trace,
             )
 
     def _check_timeout_update(self):

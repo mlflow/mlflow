@@ -5,12 +5,10 @@ import time
 from pathlib import Path
 from subprocess import Popen
 
-import pytest
 import requests
 from opentelemetry import trace as otel_trace
 
 import mlflow
-from mlflow.exceptions import MlflowException
 from mlflow.tracing.distributed import (
     get_tracing_context_headers_for_http_request,
     set_tracing_context_from_http_request_headers,
@@ -53,14 +51,8 @@ def test_get_tracing_context_headers_for_http_request_in_active_span():
 
 
 def test_get_tracing_context_headers_for_http_request_without_active_span():
-    with pytest.raises(
-        MlflowException,
-        match=(
-            "'get_tracing_context_headers_for_http_request' must be called within the scope "
-            "of an active span."
-        ),
-    ):
-        get_tracing_context_headers_for_http_request()
+    headers = get_tracing_context_headers_for_http_request()
+    assert headers == {}
 
 
 def test_set_tracing_context_from_http_request_headers():

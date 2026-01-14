@@ -7,6 +7,9 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 
 import mlflow
 from mlflow import MlflowException
+from mlflow.entities.trace_info import TraceInfo, TraceState
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import generate_mlflow_trace_id_from_otel_trace_id
 
 _logger = logging.getLogger(__name__)
 
@@ -26,9 +29,9 @@ def get_tracing_context_headers_for_http_request():
     """
     active_span = mlflow.get_current_active_span()
     if active_span is None:
-        raise MlflowException.invalid_parameter_value(
-            "'get_tracing_context_headers_for_http_request' must be called within the scope "
-            "of an active span."
+        _logger.warning(
+            "'get_tracing_context_headers_for_http_request' does not generate http header "
+            "because There is no active span."
         )
     headers = {}
     TraceContextTextMapPropagator().inject(headers)
@@ -49,10 +52,6 @@ def set_tracing_context_from_http_request_headers(headers):
     Args:
         headers: The http request headers to extract the trace context from.
     """
-    from mlflow.entities.trace_info import TraceInfo, TraceState
-    from mlflow.tracing.trace_manager import InMemoryTraceManager
-    from mlflow.tracing.utils import generate_mlflow_trace_id_from_otel_trace_id
-
     token = None
     otel_trace_id = None
     trace_manager = InMemoryTraceManager.get_instance()

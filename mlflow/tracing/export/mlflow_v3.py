@@ -130,17 +130,17 @@ class MlflowV3SpanExporter(SpanExporter):
             if span._parent is not None:
                 continue
 
-            if manager._is_remote_trace.get(span.get_span_context().trace_id, False):
+            manager_trace = manager.pop_trace(span.context.trace_id)
+            if manager_trace is None:
+                _logger.debug(f"Trace for root span {span} not found. Skipping full export.")
+                continue
+
+            if manager_trace.is_remote_trace:
                 _logger.warning(
                     "The MLflow tracing backend does not support exporting spans "
                     "incrementally. In this case, for distributed trace, exporting the span "
                     f"{span.name} that is created in a remote process is not supported."
                 )
-                continue
-
-            manager_trace = manager.pop_trace(span.context.trace_id)
-            if manager_trace is None:
-                _logger.debug(f"Trace for root span {span} not found. Skipping full export.")
                 continue
 
             trace = manager_trace.trace
