@@ -2620,7 +2620,6 @@ def test_litellm_not_available():
     ],
 )
 def test_create_gateway_endpoint_rejects_invalid_name(mock_get_request_message, invalid_name):
-    """Test that _create_gateway_endpoint rejects endpoint names with invalid characters."""
     from mlflow.protos.service_pb2 import CreateGatewayEndpoint
     from mlflow.server.handlers import _create_gateway_endpoint
 
@@ -2646,7 +2645,6 @@ def test_create_gateway_endpoint_rejects_invalid_name(mock_get_request_message, 
     ],
 )
 def test_update_gateway_endpoint_rejects_invalid_name(mock_get_request_message, invalid_name):
-    """Test that _update_gateway_endpoint rejects endpoint names with invalid characters."""
     from mlflow.protos.service_pb2 import UpdateGatewayEndpoint
     from mlflow.server.handlers import _update_gateway_endpoint
 
