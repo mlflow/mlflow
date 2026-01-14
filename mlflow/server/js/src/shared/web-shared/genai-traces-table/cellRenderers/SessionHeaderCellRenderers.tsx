@@ -154,40 +154,6 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
     ) : (
       <NullCell />
     );
-  } else if (column.id === EXECUTION_DURATION_COLUMN_ID && traces.length > 0) {
-    // Execution duration - calculate from first to last trace's request_time
-    const lastTrace = traces[traces.length - 1];
-    const firstRequestTime = firstTrace?.request_time;
-    const lastRequestTime = lastTrace?.request_time;
-
-    let displayValue: string | undefined;
-    if (firstRequestTime && lastRequestTime) {
-      const startTime = new Date(firstRequestTime).getTime();
-      const endTime = new Date(lastRequestTime).getTime();
-      const durationMs = endTime - startTime;
-
-      if (!isNaN(durationMs) && durationMs >= 0) {
-        // Convert to microseconds for spanTimeFormatter
-        const durationUs = durationMs * 1000;
-        displayValue = spanTimeFormatter(durationUs);
-      }
-    }
-
-    cellContent = displayValue ? (
-      <div
-        css={{
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          minWidth: 0,
-        }}
-        title={displayValue}
-      >
-        {displayValue}
-      </div>
-    ) : (
-      <NullCell />
-    );
   } else if (column.id === TOKENS_COLUMN_ID && traces.length > 0) {
     // Tokens - sum all token counts
     let totalTokens = 0;
