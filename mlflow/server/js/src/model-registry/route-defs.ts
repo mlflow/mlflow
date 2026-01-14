@@ -1,5 +1,4 @@
-import { createLazyRouteElement } from '../common/utils/RoutingUtils';
-import type { DocumentTitleHandle } from '../common/hooks/useDocumentTitle';
+import { createLazyRouteElement, type DocumentTitleHandle } from '../common/utils/RoutingUtils';
 
 import { ModelRegistryRoutePaths } from './routes';
 

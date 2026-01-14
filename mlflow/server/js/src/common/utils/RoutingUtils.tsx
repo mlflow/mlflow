@@ -89,4 +89,24 @@ export const createLazyRouteElement = (
 export const createRouteElement = (component: React.ComponentType<React.PropsWithChildren<any>>) =>
   React.createElement(component);
 
+/**
+ * Handle for route definitions that can be used to set the document title.
+ */
+export interface DocumentTitleHandle {
+  getPageTitle: (params: Params<string>) => string;
+}
+
+export const useGetRouteTitle = () => {
+  const matches = useMatches();
+  if (matches.length === 0) {
+    return;
+  }
+
+  const lastMatch = matches[matches.length - 1];
+  const handle = lastMatch.handle as DocumentTitleHandle | undefined;
+  const title = handle?.getPageTitle(lastMatch.params);
+
+  return title;
+};
+
 export type { Location, NavigateFunction, Params, To, NavigateOptions };
