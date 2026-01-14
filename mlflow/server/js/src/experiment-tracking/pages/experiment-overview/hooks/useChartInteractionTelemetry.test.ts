@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { useChartInteractionTelemetry } from './useChartInteractionTelemetry';
 
 // Mock the telemetry hook
@@ -11,6 +11,11 @@ jest.mock('../../../../telemetry/hooks/useLogTelemetryEvent', () => ({
 describe('useChartInteractionTelemetry', () => {
   beforeEach(() => {
     mockLogTelemetryEvent.mockClear();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it('should return onClick handler', () => {
@@ -48,7 +53,7 @@ describe('useChartInteractionTelemetry', () => {
     expect(mockLogTelemetryEvent).not.toHaveBeenCalled();
   });
 
-  it('should log multiple events on multiple clicks', () => {
+  it('should throttle clicks within 10 seconds', () => {
     const { result } = renderHook(() => useChartInteractionTelemetry('mlflow.charts.test'));
 
     act(() => {
@@ -57,7 +62,25 @@ describe('useChartInteractionTelemetry', () => {
       result.current.onClick();
     });
 
-    expect(mockLogTelemetryEvent).toHaveBeenCalledTimes(3);
+    expect(mockLogTelemetryEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('should log again after throttle period expires', () => {
+    const { result } = renderHook(() => useChartInteractionTelemetry('mlflow.charts.test'));
+
+    act(() => {
+      result.current.onClick();
+    });
+
+    expect(mockLogTelemetryEvent).toHaveBeenCalledTimes(1);
+
+    // Advance time by 10 seconds
+    act(() => {
+      jest.advanceTimersByTime(10_000);
+      result.current.onClick();
+    });
+
+    expect(mockLogTelemetryEvent).toHaveBeenCalledTimes(2);
   });
 
   it('should use consistent componentViewId across clicks', () => {
@@ -69,7 +92,9 @@ describe('useChartInteractionTelemetry', () => {
 
     const firstCall = mockLogTelemetryEvent.mock.calls[0][0] as { componentViewId: string };
 
+    // Advance time to allow second click
     act(() => {
+      jest.advanceTimersByTime(10_000);
       result.current.onClick();
     });
 
