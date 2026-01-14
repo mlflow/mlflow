@@ -1,5 +1,6 @@
 import functools
 import getpass
+import importlib.metadata
 import json
 import logging
 import os
@@ -833,24 +834,47 @@ def get_databricks_host_creds(server_uri=None):
     )
 
 
+_DATABRICKS_SDK_SCOPES_MIN_VERSION = "0.74.0"
+
+
+def check_databricks_sdk_supports_scopes():
+    """
+    Check if the installed databricks-sdk version supports the 'scopes' parameter.
+
+    Raises:
+        MlflowException: If databricks-sdk version is < 0.74.0
+    """
+    from packaging.version import Version
+
+    try:
+        sdk_version = importlib.metadata.version("databricks-sdk")
+    except importlib.metadata.PackageNotFoundError:
+        raise MlflowException.invalid_parameter_value(
+            "databricks-sdk is not installed. "
+            "Please install with: pip install databricks-sdk>=0.74.0",
+        )
+
+    if Version(sdk_version) < Version(_DATABRICKS_SDK_SCOPES_MIN_VERSION):
+        raise MlflowException.invalid_parameter_value(
+            f"The 'scopes' parameter requires databricks-sdk>="
+            f"{_DATABRICKS_SDK_SCOPES_MIN_VERSION}. You have version {sdk_version}. "
+            "Please upgrade with: pip install --upgrade databricks-sdk",
+        )
+
+
 def get_databricks_workspace_client_config(server_uri: str, scopes: list[str] | None = None):
     from databricks.sdk import WorkspaceClient
 
+    if scopes is not None:
+        check_databricks_sdk_supports_scopes()
+
     profile, key_prefix = get_db_info_from_uri(server_uri)
     profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
-    try:
-        if key_prefix is not None:
-            config = TrackingURIConfigProvider(server_uri).get_config()
-            return WorkspaceClient(host=config.host, token=config.token, scopes=scopes).config
+    if key_prefix is not None:
+        config = TrackingURIConfigProvider(server_uri).get_config()
+        return WorkspaceClient(host=config.host, token=config.token, scopes=scopes).config
 
-        return WorkspaceClient(profile=profile, scopes=scopes).config
-    except TypeError as e:
-        if "scopes" in str(e):
-            raise MlflowException.invalid_parameter_value(
-                "The 'scopes' parameter requires databricks-sdk>=0.74.0. "
-                "Please upgrade with: pip install --upgrade databricks-sdk",
-            ) from e
-        raise
+    return WorkspaceClient(profile=profile, scopes=scopes).config
 
 
 @_use_repl_context_if_available("mlflowGitRepoUrl")

@@ -362,7 +362,7 @@ class DatabricksAppConfig(NamedTuple):
     config: Any
 
 
-def _setup_databricks_app_client(app_name: str) -> _DatabricksAppConfig:
+def _setup_databricks_app_client(app_name: str) -> DatabricksAppConfig:
     """
     Set up the Databricks App client and return the app URL and config.
 
@@ -370,22 +370,19 @@ def _setup_databricks_app_client(app_name: str) -> _DatabricksAppConfig:
         app_name: Name of the Databricks App
 
     Returns:
-        _DatabricksAppConfig with app_url and config fields
+        DatabricksAppConfig with app_url and config fields
     """
     from databricks.sdk import WorkspaceClient
+
+    from mlflow.utils.databricks_utils import check_databricks_sdk_supports_scopes
+
+    check_databricks_sdk_supports_scopes()
 
     try:
         # Create WorkspaceClient with all-apis scopes passed in
         # so notebook oauth token generation works
         w = WorkspaceClient(scopes=["all-apis"])
         app = w.apps.get(name=app_name)
-    except TypeError as e:
-        if "scopes" in str(e):
-            raise MlflowException.invalid_parameter_value(
-                "The 'scopes' parameter requires databricks-sdk>=0.74.0. "
-                "Please upgrade with: pip install --upgrade databricks-sdk",
-            ) from e
-        raise
     except Exception as e:
         raise MlflowException.invalid_parameter_value(
             f"Failed to get Databricks App '{app_name}'. "
@@ -399,7 +396,7 @@ def _setup_databricks_app_client(app_name: str) -> _DatabricksAppConfig:
         )
 
     # Append /invocations to endpoint
-    return _DatabricksAppConfig(
+    return DatabricksAppConfig(
         app_url=f"{app.url}/invocations",
         config=w.config,
     )

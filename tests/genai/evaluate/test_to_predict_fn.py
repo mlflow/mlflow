@@ -421,10 +421,8 @@ def test_to_predict_fn_apps_no_oauth_raises_error():
 
 def test_to_predict_fn_apps_old_sdk_version_error():
     with mock.patch(
-        "databricks.sdk.WorkspaceClient",
-        side_effect=TypeError(
-            "WorkspaceClient.__init__() got an unexpected keyword argument 'scopes'"
-        ),
+        "importlib.metadata.version",
+        return_value="0.73.0",
     ):
         with pytest.raises(MlflowException, match="databricks-sdk>=0.74.0"):
             to_predict_fn("apps:/my-app")
@@ -511,7 +509,7 @@ def test_to_predict_fn_apps_payload_passthrough():
         }
 
 
-def test_to_predict_fn_apps_creates_trace(mock_tracing_client):
+def test_to_predict_fn_apps_creates_trace():
     mock_app = mock.MagicMock()
     mock_app.url = "https://my-app-123.staging.aws.databricksapps.com"
 
@@ -536,14 +534,10 @@ def test_to_predict_fn_apps_creates_trace(mock_tracing_client):
         result = predict_fn(input=[{"role": "user", "content": "test"}])
 
         # Verify trace was created
-        mock_tracing_client.start_trace.assert_called_once()
-        trace_info = mock_tracing_client.start_trace.call_args[0][0]
-        assert trace_info.request_preview is not None
-
-        mock_tracing_client._upload_trace_data.assert_called_once()
-        trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
-        assert len(trace_data.spans) == 1
-        assert trace_data.spans[0].name == "predict"
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+        assert trace is not None
+        assert len(trace.data.spans) == 1
+        assert trace.data.spans[0].name == "predict"
         assert result == {"output": "test output"}
 
 
