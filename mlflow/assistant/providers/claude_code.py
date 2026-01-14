@@ -127,13 +127,20 @@ class ClaudeCodeProvider(AssistantProvider):
         skill_path.mkdir(parents=True, exist_ok=True)
 
         # Find all skill directories in the skills directory
-        skill_dirs = list(skills_source.glob("*"))
+        skill_dirs = [d for d in skills_source.iterdir() if d.is_dir()]
         if not skill_dirs:
             raise RuntimeError("No skills to install")
 
         installed_skills = []
         for skill_dir in skill_dirs:
-            shutil.copytree(skill_dir, skill_path / skill_dir.name, dirs_exist_ok=True)
+            dest_skill_dir = skill_path / skill_dir.name
+            dest_skill_dir.mkdir(parents=True, exist_ok=True)
+
+            # Only copy files, not subdirectories, to avoid overwriting user customizations
+            for file in skill_dir.iterdir():
+                if file.is_file():
+                    shutil.copy2(file, dest_skill_dir / file.name)
+
             installed_skills.append(skill_dir.name)
 
         return installed_skills
