@@ -117,15 +117,15 @@ class AgentServer:
         """Set up middleware to proxy static asset requests to the chat app.
 
         Only forwards requests to allowed paths (/, /assets/*, /favicon.ico) to prevent
-        SSRF vulnerabilities. API calls should be made directly to the chat app using
-        VITE_API_BASE_URL configuration.
+        SSRF vulnerabilities.
         """
         self.chat_app_port = os.getenv("CHAT_APP_PORT", "3000")
         self.chat_proxy_timeout = float(os.getenv("CHAT_PROXY_TIMEOUT_SECONDS", "300.0"))
         self.proxy_client = httpx.AsyncClient(timeout=self.chat_proxy_timeout)
 
         # Only proxy static assets to prevent SSRF vulnerabilities
-        allowed_proxy_prefixes = ("/assets/", "/favicon.ico")
+        allowed_exact_paths = ("/", "/favicon.ico")
+        allowed_path_prefixes = ("/assets/",)
 
         @self.app.middleware("http")
         async def chat_proxy_middleware(request: Request, call_next):
@@ -148,7 +148,9 @@ class AgentServer:
             path = request.url.path
 
             # Only allow proxying static assets
-            is_allowed = path == "/" or any(path.startswith(p) for p in allowed_proxy_prefixes)
+            is_allowed = path in allowed_exact_paths or any(
+                path.startswith(p) for p in allowed_path_prefixes
+            )
             if not is_allowed:
                 return Response("Not found", status_code=404, media_type="text/plain")
 

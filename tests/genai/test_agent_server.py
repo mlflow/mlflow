@@ -936,14 +936,16 @@ async def test_chat_proxy_blocks_api_paths():
 
 
 @pytest.mark.asyncio
-async def test_chat_proxy_blocks_arbitrary_paths():
+@pytest.mark.parametrize(
+    "path",
+    ["/api/chat", "/api/config", "/some/random/path", "/admin", "/.env"],
+)
+async def test_chat_proxy_blocks_arbitrary_paths(path):
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
     with patch.object(server.proxy_client, "request") as mock_request:
-        # Test various blocked paths
-        for path in ["/api/chat", "/api/config", "/some/random/path", "/admin", "/.env"]:
-            response = client.get(path)
-            assert response.status_code == 404, f"Expected 404 for {path}"
-            assert response.text == "Not found"
+        response = client.get(path)
+        assert response.status_code == 404
+        assert response.text == "Not found"
         mock_request.assert_not_called()
