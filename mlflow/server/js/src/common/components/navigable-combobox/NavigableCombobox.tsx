@@ -278,11 +278,12 @@ export function NavigableCombobox<T = string>({
 
   setInputValueRef.current = comboboxState.setInputValue;
 
+  const isOpen = comboboxState.isOpen;
   useEffect(() => {
-    if (!comboboxState.isOpen) {
-      comboboxState.setInputValue(selectedDisplayName);
+    if (!isOpen) {
+      setInputValueRef.current?.(selectedDisplayName);
     }
-  }, [selectedDisplayName, comboboxState]);
+  }, [selectedDisplayName, isOpen]);
 
   const handleNavigate = useCallback((targetViewId: string, e: React.MouseEvent) => {
     e.preventDefault();
