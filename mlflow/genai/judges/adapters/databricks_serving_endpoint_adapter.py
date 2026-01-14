@@ -250,6 +250,11 @@ def _is_gemini_3_model(model_name: str) -> bool:
     return "gemini-3" in model_lower
 
 
+def _is_claude_model(model_name: str) -> bool:
+    model_lower = model_name.lower()
+    return "claude" in model_lower
+
+
 def _convert_litellm_messages_to_serving_endpoint_api_format(
     messages: list["litellm.Message"],
     model_name: str,
@@ -265,6 +270,7 @@ def _convert_litellm_messages_to_serving_endpoint_api_format(
     """
     api_messages = []
     is_gemini_3 = _is_gemini_3_model(model_name)
+    is_claude = _is_claude_model(model_name)
 
     for msg in messages:
         if msg.role == "tool":
@@ -299,7 +305,7 @@ def _convert_litellm_messages_to_serving_endpoint_api_format(
                 "tool_calls": tool_calls_data,
             }
 
-            if msg.content is not None:
+            if msg.content is not None and not is_claude:
                 message_dict["content"] = msg.content
 
             api_messages.append(message_dict)
@@ -430,8 +436,14 @@ def _invoke_databricks_serving_endpoint_judge(
         if iteration_count > max_iterations:
             _raise_iteration_limit_exceeded(max_iterations)
 
-        print("messages:", json.dumps(messages, indent=4))  # noqa: T201
-        print("model_name:", model_name)  # noqa: T201
+        print(f"Iteration {iteration_count} - messages before conversion:")  # noqa: T201
+        for i, msg in enumerate(messages):
+            has_tool_calls = bool(getattr(msg, "tool_calls", None))
+            content_preview = msg.content[:100] if msg.content else None
+            print(  # noqa: T201
+                f"  [{i}] role={msg.role}, has_tool_calls={has_tool_calls}, "
+                f"content={content_preview}"
+            )
 
         api_messages = _convert_litellm_messages_to_serving_endpoint_api_format(
             messages, model_name

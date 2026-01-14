@@ -12,9 +12,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     DatabricksManagedJudgeAdapter,
 )
-from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
-    DatabricksServingEndpointAdapter,
-)
 from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
 from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
@@ -40,7 +37,7 @@ def get_adapter(
     """
     adapters = [
         DatabricksManagedJudgeAdapter,
-        DatabricksServingEndpointAdapter,
+        # DatabricksServingEndpointAdapter,
         LiteLLMAdapter,
         GatewayAdapter,
     ]
