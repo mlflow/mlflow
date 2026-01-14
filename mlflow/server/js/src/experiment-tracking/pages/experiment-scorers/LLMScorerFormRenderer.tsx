@@ -11,8 +11,6 @@ import {
   ChevronDownIcon,
   DialogCombobox,
   DialogComboboxContent,
-  DialogComboboxAddButton,
-  DialogComboboxFooter,
   DialogComboboxOptionList,
   DialogComboboxOptionListSelectItem,
   DialogComboboxHintRow,
@@ -86,13 +84,13 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
       <FormUI.Label aria-required={!isReadOnly} htmlFor="mlflow-experiment-scorers-built-in-scorer">
-        <FormattedMessage defaultMessage="LLM template" description="Section header for LLM template selection" />
+        <FormattedMessage defaultMessage="LLM judge" description="Section header for LLM judge selection" />
       </FormUI.Label>
       {!isReadOnly && (
         <FormUI.Hint>
           <FormattedMessage
-            defaultMessage="Start with a built-in LLM judge template or create your own."
-            description="Hint text for LLM template selection with documentation link"
+            defaultMessage="Select a built-in judge or create a custom one."
+            description="Hint text for LLM judge selection"
           />
         </FormUI.Hint>
       )}
@@ -111,8 +109,8 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
                 allowClear={false}
                 disabled={isReadOnly}
                 placeholder={intl.formatMessage({
-                  defaultMessage: 'Select an LLM template',
-                  description: 'Placeholder for LLM template selection',
+                  defaultMessage: 'Select an LLM judge',
+                  description: 'Placeholder for LLM judge selection',
                 })}
                 renderDisplayedValue={(value) => (
                   <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
@@ -124,6 +122,25 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
               {!isReadOnly && (
                 <DialogComboboxContent maxHeight={350}>
                   <DialogComboboxOptionList>
+                    {/* Custom template option first with PlusIcon */}
+                    {templateOptions
+                      .filter((option) => option.value === LLM_TEMPLATE.CUSTOM)
+                      .map((option) => (
+                        <DialogComboboxOptionListSelectItem
+                          key={option.value}
+                          value={option.value}
+                          onChange={() => {
+                            field.onChange(option.value);
+                            handleTemplateChange(option.value);
+                          }}
+                          checked={field.value === option.value}
+                          icon={<PlusIcon />}
+                        >
+                          {option.label}
+                          <DialogComboboxHintRow>{option.hint}</DialogComboboxHintRow>
+                        </DialogComboboxOptionListSelectItem>
+                      ))}
+                    {/* Built-in templates */}
                     {templateOptions
                       .filter((option) => option.value !== LLM_TEMPLATE.CUSTOM)
                       .map((option) => (
@@ -142,16 +159,6 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
                         </DialogComboboxOptionListSelectItem>
                       ))}
                   </DialogComboboxOptionList>
-                  <DialogComboboxFooter>
-                    <DialogComboboxAddButton
-                      onClick={() => {
-                        field.onChange(LLM_TEMPLATE.CUSTOM);
-                        handleTemplateChange(LLM_TEMPLATE.CUSTOM);
-                      }}
-                    >
-                      {templateOptions.find((option) => option.value === LLM_TEMPLATE.CUSTOM)?.label}
-                    </DialogComboboxAddButton>
-                  </DialogComboboxFooter>
                 </DialogComboboxContent>
               )}
             </DialogCombobox>
@@ -262,21 +269,6 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
         </DropdownMenu.HintRow>
       </DropdownMenu.Item>
       <DropdownMenu.Item
-        componentId={`${COMPONENT_ID_PREFIX}.add-variable-expectations`}
-        onClick={(e) => {
-          e.stopPropagation();
-          appendVariable('{{ expectations }}');
-        }}
-      >
-        <FormattedMessage defaultMessage="Expectations" description="Label for expectations variable option" />
-        <DropdownMenu.HintRow>
-          <FormattedMessage
-            defaultMessage="Expectations added for a trace"
-            description="Description for expectations variable"
-          />
-        </DropdownMenu.HintRow>
-      </DropdownMenu.Item>
-      <DropdownMenu.Item
         componentId={`${COMPONENT_ID_PREFIX}.add-variable-trace`}
         onClick={(e) => {
           e.stopPropagation();
@@ -288,6 +280,21 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
           <FormattedMessage
             defaultMessage="Full trace with an agent using the right part of the trace to use to judge"
             description="Description for trace variable"
+          />
+        </DropdownMenu.HintRow>
+      </DropdownMenu.Item>
+      <DropdownMenu.Item
+        componentId={`${COMPONENT_ID_PREFIX}.add-variable-expectations`}
+        onClick={(e) => {
+          e.stopPropagation();
+          appendVariable('{{ expectations }}');
+        }}
+      >
+        <FormattedMessage defaultMessage="Expectations" description="Label for expectations variable option" />
+        <DropdownMenu.HintRow>
+          <FormattedMessage
+            defaultMessage="Expectations added for a trace"
+            description="Description for expectations variable"
           />
         </DropdownMenu.HintRow>
       </DropdownMenu.Item>

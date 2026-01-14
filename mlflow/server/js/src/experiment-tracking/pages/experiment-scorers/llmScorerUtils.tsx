@@ -96,12 +96,12 @@ export const useTemplateOptions = (scope?: ScorerEvaluationScope) => {
       {
         value: LLM_TEMPLATE.CUSTOM,
         label: intl.formatMessage({
-          defaultMessage: 'Create custom LLM template',
-          description: 'LLM template option',
+          defaultMessage: 'Custom judge',
+          description: 'LLM judge option for creating a custom judge',
         }),
         hint: intl.formatMessage({
           defaultMessage: 'Define custom instructions for LLM evaluation',
-          description: 'Hint for Custom template',
+          description: 'Hint for Custom judge',
         }),
       },
     ],

@@ -55,10 +55,6 @@
     "defaultMessage": "No sessions found",
     "description": "Title for the empty sessions list in the select sessions modal"
   },
-  "+Oupsq": {
-    "defaultMessage": "Start with a built-in LLM judge template or create your own.",
-    "description": "Hint text for LLM template selection with documentation link"
-  },
   "+SBxBK": {
     "defaultMessage": "Assessment Type",
     "description": "Field label for assessment type in a creation form"
@@ -510,6 +506,10 @@
   "25VTYi": {
     "defaultMessage": "Cancel",
     "description": "Cancellation button text on the model version stage transition request/approval modal"
+  },
+  "268j5O": {
+    "defaultMessage": "LLM judge",
+    "description": "Section header for LLM judge selection"
   },
   "27XMby": {
     "defaultMessage": "Missing",
@@ -1953,10 +1953,6 @@
   "D2svqS": {
     "defaultMessage": "overall error rate",
     "description": "Subtitle for overall tool error rate"
-  },
-  "D4rcC+": {
-    "defaultMessage": "Define custom instructions for LLM evaluation",
-    "description": "Hint for Custom template"
   },
   "D7SSDK": {
     "defaultMessage": "Automatically log traces for LiteLLM API calls by calling the {code} function. For example:",
@@ -4064,6 +4060,10 @@
     "defaultMessage": "Description",
     "description": "Column title text for description in model version table"
   },
+  "VmDLSS": {
+    "defaultMessage": "Select a built-in judge or create a custom one.",
+    "description": "Hint text for LLM judge selection"
+  },
   "Vn+uJi": {
     "defaultMessage": "Version",
     "description": "Header for the version column in the registered prompts table"
@@ -4370,10 +4370,6 @@
   "Y9ZFyN": {
     "defaultMessage": "Download artifact",
     "description": "Link to download the artifact of the experiment"
-  },
-  "YCYIaY": {
-    "defaultMessage": "Create custom LLM template",
-    "description": "LLM template option"
   },
   "YECxws": {
     "defaultMessage": "Compare",
@@ -4931,10 +4927,6 @@
     "defaultMessage": "Delete API key",
     "description": "Gateway > API key details drawer > Delete API key button aria label"
   },
-  "cHDnV/": {
-    "defaultMessage": "LLM template",
-    "description": "Section header for LLM template selection"
-  },
   "cHV5jh": {
     "defaultMessage": "Resources using this key via endpoints",
     "description": "Gateway > Bindings using key drawer > Subtitle"
@@ -4994,6 +4986,10 @@
   "cmYzGP": {
     "defaultMessage": "Dismiss",
     "description": "A label for the button to dismiss the modal with the usage example of the prompt"
+  },
+  "cn52sr": {
+    "defaultMessage": "Select an LLM judge",
+    "description": "Placeholder for LLM judge selection"
   },
   "cniMRT": {
     "defaultMessage": "Direct access to OpenAI's Responses API for multi-turn conversations with vision and audio capabilities.",
@@ -5102,6 +5098,10 @@
   "dcoaGS": {
     "defaultMessage": "No experiments created",
     "description": "A header for the empty state in the experiments table"
+  },
+  "dd8i7f": {
+    "defaultMessage": "Define custom instructions for LLM evaluation",
+    "description": "Hint for Custom judge"
   },
   "ddAFCW": {
     "defaultMessage": "500: Internal server error",
@@ -5846,10 +5846,6 @@
   "jA7Y1x": {
     "defaultMessage": "Edit API key",
     "description": "Gateway > API keys list > Edit API key button aria label"
-  },
-  "jGHQgn": {
-    "defaultMessage": "Select an LLM template",
-    "description": "Placeholder for LLM template selection"
   },
   "jH0+gA": {
     "defaultMessage": "Metrics",
@@ -7218,6 +7214,10 @@
   "tzA/LZ": {
     "defaultMessage": "Name",
     "description": "Header for the name column in the registered prompts table"
+  },
+  "u13xKF": {
+    "defaultMessage": "Custom judge",
+    "description": "LLM judge option for creating a custom judge"
   },
   "uABFy0": {
     "defaultMessage": "AI Gateway",
