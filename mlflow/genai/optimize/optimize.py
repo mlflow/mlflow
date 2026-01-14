@@ -176,14 +176,12 @@ def optimize_prompts(
                 aggregation=weighted_objective,
             )
     """
-    # Check if train_data is empty (for zero-shot optimization)
-    if len(train_data) == 0:
+    train_data_df = _convert_eval_set_to_df(train_data)
+    if len(train_data_df) == 0:
         # Zero-shot mode: no training data provided
-        train_data_df = None
         converted_train_data = []
     else:
         # Few-shot mode: convert and validate training data
-        train_data_df = _convert_eval_set_to_df(train_data)
         converted_train_data = train_data_df.to_dict("records")
         validate_train_data(train_data_df, scorers, predict_fn)
 

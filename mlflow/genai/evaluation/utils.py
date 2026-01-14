@@ -133,9 +133,8 @@ def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
             )
 
     if len(df) == 0:
-        raise MlflowException.invalid_parameter_value(
-            "The dataset is empty. Please provide a non-empty dataset."
-        )
+        # Return an empty dataframe if the dataset is empty, which is allowed in zero-shot mode.
+        return pd.DataFrame()
 
     if not any(col in df.columns for col in ("trace", "inputs")):
         raise MlflowException.invalid_parameter_value(
