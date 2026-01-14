@@ -2001,6 +2001,26 @@ service MlflowService {
       rpc_doc_title: "Gateway Delete Endpoint Tag"
     };
   }
+
+  // ========== Gateway Usage Metrics APIs ==========
+
+  // Get aggregated usage metrics for gateway endpoints
+  rpc getGatewayUsageMetrics(GetGatewayUsageMetrics) returns (GetGatewayUsageMetrics.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/usage/metrics"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Gateway Usage Metrics"
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -4613,5 +4633,53 @@ message GetSecretsConfig {
   message Response {
     // Whether the server is configured to handle secrets (encryption available)
     optional bool secrets_available = 1;
+  }
+}
+
+// ========== Gateway Usage Metrics API Messages ==========
+
+// Single usage metrics entry for a time bucket
+message GatewayUsageMetricsEntry {
+  // ID of the endpoint
+  optional string endpoint_id = 1;
+  // Start time of the bucket (ms since epoch)
+  optional int64 time_bucket = 2;
+  // Size of the bucket in seconds (e.g., 3600 for hourly, 86400 for daily)
+  optional int32 bucket_size = 3;
+  // Total number of invocations
+  optional int32 total_invocations = 4;
+  // Number of successful invocations
+  optional int32 successful_invocations = 5;
+  // Number of failed invocations
+  optional int32 failed_invocations = 6;
+  // Total prompt tokens used
+  optional int64 total_prompt_tokens = 7;
+  // Total completion tokens used
+  optional int64 total_completion_tokens = 8;
+  // Total tokens used
+  optional int64 total_tokens = 9;
+  // Total cost in USD
+  optional double total_cost = 10;
+  // Average latency in milliseconds
+  optional double avg_latency_ms = 11;
+  // Success rate (0-1)
+  optional double success_rate = 12;
+  // Error rate (0-1)
+  optional double error_rate = 13;
+}
+
+message GetGatewayUsageMetrics {
+  // Optional: Filter by endpoint ID
+  optional string endpoint_id = 1;
+  // Optional: Start time filter (ms since epoch)
+  optional int64 start_time = 2;
+  // Optional: End time filter (ms since epoch)
+  optional int64 end_time = 3;
+  // Time bucket size in seconds (e.g., 3600 for hourly, 86400 for daily, defaults to 86400)
+  optional int32 bucket_size = 4;
+
+  message Response {
+    // List of usage metrics entries
+    repeated GatewayUsageMetricsEntry metrics = 1;
   }
 }
