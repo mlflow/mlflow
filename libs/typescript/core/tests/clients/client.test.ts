@@ -5,6 +5,7 @@ import { TraceLocationType } from '../../src/core/entities/trace_location';
 import { TraceState } from '../../src/core/entities/trace_state';
 import { Trace } from '../../src/core/entities/trace';
 import { TraceData } from '../../src/core/entities/trace_data';
+import { TraceTagKey, SpansLocation } from '../../src/core/constants';
 import { init } from '../../src/core/config';
 import { createAuthProvider } from '../../src/auth';
 import { TEST_TRACKING_URI } from '../helper';
@@ -431,6 +432,219 @@ describe('MlflowClient', () => {
       expect(foundTrace).toBeInstanceOf(Trace);
       expect(foundTrace!.info).toBeInstanceOf(TraceInfo);
       expect(foundTrace!.data).toBeInstanceOf(TraceData);
+    });
+  });
+
+});
+
+// Unit tests for MlflowClient helper methods (don't require server)
+describe('MlflowClient (unit tests)', () => {
+  let client: MlflowClient;
+
+  beforeEach(() => {
+    const authProvider = createAuthProvider({ trackingUri: TEST_TRACKING_URI });
+    client = new MlflowClient({ trackingUri: TEST_TRACKING_URI, authProvider });
+  });
+
+  describe('groupTraceInfosByLocation', () => {
+    it('should group traces by TRACKING_STORE location', () => {
+      const traceInfos = [
+        new TraceInfo({
+          traceId: 'trace1',
+          traceLocation: { type: TraceLocationType.MLFLOW_EXPERIMENT, mlflowExperiment: { experimentId: 'exp1' } },
+          state: TraceState.OK,
+          requestTime: 1000,
+          tags: { [TraceTagKey.SPANS_LOCATION]: SpansLocation.TRACKING_STORE }
+        }),
+        new TraceInfo({
+          traceId: 'trace2',
+          traceLocation: { type: TraceLocationType.MLFLOW_EXPERIMENT, mlflowExperiment: { experimentId: 'exp1' } },
+          state: TraceState.OK,
+          requestTime: 1000,
+          tags: { [TraceTagKey.SPANS_LOCATION]: SpansLocation.ARTIFACT_REPO }
+        }),
+        new TraceInfo({
+          traceId: 'trace3',
+          traceLocation: { type: TraceLocationType.MLFLOW_EXPERIMENT, mlflowExperiment: { experimentId: 'exp1' } },
+          state: TraceState.OK,
+          requestTime: 1000,
+          tags: {}
+        })
+      ];
+
+      const clientAny = client as any;
+      const result = clientAny.groupTraceInfosByLocation(traceInfos);
+
+      expect(result.trackingStoreTraces).toHaveLength(1);
+      expect(result.trackingStoreTraces[0].traceId).toBe('trace1');
+      expect(result.artifactRepoTraces).toHaveLength(2);
+      expect(result.artifactRepoTraces.map((t: TraceInfo) => t.traceId)).toEqual(['trace2', 'trace3']);
+    });
+
+    it('should handle empty trace list', () => {
+      const clientAny = client as any;
+      const result = clientAny.groupTraceInfosByLocation([]);
+
+      expect(result.trackingStoreTraces).toHaveLength(0);
+      expect(result.artifactRepoTraces).toHaveLength(0);
+    });
+  });
+
+  describe('processWithConcurrencyLimit', () => {
+    it('should process items with concurrency control', async () => {
+      const items = [1, 2, 3, 4, 5];
+      const processor = jest.fn(async (item: number) => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        return item * 2;
+      });
+
+      const clientAny = client as any;
+      const results = await clientAny.processWithConcurrencyLimit(items, processor, 2);
+
+      expect(results).toEqual([2, 4, 6, 8, 10]);
+      expect(processor).toHaveBeenCalledTimes(5);
+    });
+
+    it('should handle maxConcurrency larger than items', async () => {
+      const items = [1, 2];
+      const processor = jest.fn(async (item: number) => item * 3);
+
+      const clientAny = client as any;
+      const results = await clientAny.processWithConcurrencyLimit(items, processor, 5);
+
+      expect(results).toEqual([3, 6]);
+      expect(processor).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle empty items array', async () => {
+      const processor = jest.fn();
+
+      const clientAny = client as any;
+      const results = await clientAny.processWithConcurrencyLimit([], processor, 2);
+
+      expect(results).toEqual([]);
+      expect(processor).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('batchGetTracesFromTrackingStore', () => {
+    it('should return empty array for empty input', async () => {
+      const clientAny = client as any;
+      const result = await clientAny.batchGetTracesFromTrackingStore([]);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should batch trace IDs into groups of 10', async () => {
+      const mockFetchBatch = jest.fn().mockResolvedValue([]);
+      (client as any).fetchBatchFromTrackingStore = mockFetchBatch;
+
+      const traceInfos = Array.from({ length: 25 }, (_, i) =>
+        new TraceInfo({
+          traceId: `trace${i}`,
+          traceLocation: { type: TraceLocationType.MLFLOW_EXPERIMENT, mlflowExperiment: { experimentId: 'exp1' } },
+          state: TraceState.OK,
+          requestTime: 1000
+        })
+      );
+
+      const clientAny = client as any;
+      await clientAny.batchGetTracesFromTrackingStore(traceInfos);
+
+      expect(mockFetchBatch).toHaveBeenCalledTimes(3);
+      expect(mockFetchBatch).toHaveBeenNthCalledWith(1,
+        ['trace0', 'trace1', 'trace2', 'trace3', 'trace4', 'trace5', 'trace6', 'trace7', 'trace8', 'trace9']
+      );
+      expect(mockFetchBatch).toHaveBeenNthCalledWith(2,
+        ['trace10', 'trace11', 'trace12', 'trace13', 'trace14', 'trace15', 'trace16', 'trace17', 'trace18', 'trace19']
+      );
+      expect(mockFetchBatch).toHaveBeenNthCalledWith(3,
+        ['trace20', 'trace21', 'trace22', 'trace23', 'trace24']
+      );
+    });
+  });
+
+  describe('fetchTracesFromArtifactStoreParallel', () => {
+    it('should return empty array for empty input', async () => {
+      const clientAny = client as any;
+      const result = await clientAny.fetchTracesFromArtifactStoreParallel([]);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should call getTraceFromArtifactStore for each trace info', async () => {
+      const mockGetTrace = jest.fn().mockResolvedValue(
+        new Trace(
+          new TraceInfo({
+            traceId: 'test',
+            traceLocation: { type: TraceLocationType.MLFLOW_EXPERIMENT, mlflowExperiment: { experimentId: 'exp1' } },
+            state: TraceState.OK,
+            requestTime: 1000
+          }),
+          new TraceData([])
+        )
+      );
+      (client as any).getTraceFromArtifactStore = mockGetTrace;
+
+      const traceInfos = [
+        new TraceInfo({
+          traceId: 'trace1',
+          traceLocation: { type: TraceLocationType.MLFLOW_EXPERIMENT, mlflowExperiment: { experimentId: 'exp1' } },
+          state: TraceState.OK,
+          requestTime: 1000
+        }),
+        new TraceInfo({
+          traceId: 'trace2',
+          traceLocation: { type: TraceLocationType.MLFLOW_EXPERIMENT, mlflowExperiment: { experimentId: 'exp1' } },
+          state: TraceState.OK,
+          requestTime: 1000
+        })
+      ];
+
+      const clientAny = client as any;
+      const results = await clientAny.fetchTracesFromArtifactStoreParallel(traceInfos);
+
+      expect(mockGetTrace).toHaveBeenCalledTimes(2);
+      expect(results).toHaveLength(2);
+    });
+
+    it('should filter out failed downloads', async () => {
+      const successTrace = new Trace(
+        new TraceInfo({
+          traceId: 'success',
+          traceLocation: { type: TraceLocationType.MLFLOW_EXPERIMENT, mlflowExperiment: { experimentId: 'exp1' } },
+          state: TraceState.OK,
+          requestTime: 1000
+        }),
+        new TraceData([])
+      );
+
+      const mockGetTrace = jest.fn()
+        .mockResolvedValueOnce(successTrace)
+        .mockRejectedValueOnce(new Error('Download failed'));
+      (client as any).getTraceFromArtifactStore = mockGetTrace;
+
+      const traceInfos = [
+        new TraceInfo({
+          traceId: 'trace1',
+          traceLocation: { type: TraceLocationType.MLFLOW_EXPERIMENT, mlflowExperiment: { experimentId: 'exp1' } },
+          state: TraceState.OK,
+          requestTime: 1000
+        }),
+        new TraceInfo({
+          traceId: 'trace2',
+          traceLocation: { type: TraceLocationType.MLFLOW_EXPERIMENT, mlflowExperiment: { experimentId: 'exp1' } },
+          state: TraceState.OK,
+          requestTime: 1000
+        })
+      ];
+
+      const clientAny = client as any;
+      const results = await clientAny.fetchTracesFromArtifactStoreParallel(traceInfos);
+
+      expect(mockGetTrace).toHaveBeenCalledTimes(2);
+      expect(results).toHaveLength(1);
+      expect(results[0].info.traceId).toBe('success');
     });
   });
 });

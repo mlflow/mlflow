@@ -6,14 +6,20 @@ import {
   GetTraceInfoV3,
   GetTrace,
   StartTraceV3,
-  SearchTracesV3
+  SearchTracesV3,
+  BatchGetTraces
 } from './spec';
 import { makeRequest } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
 import { getConfig } from '../core/config';
 import { Span } from '../core/entities/span';
-import { TraceTagKey, SpansLocation } from '../core/constants';
+import {
+  TraceTagKey,
+  SpansLocation,
+  SEARCH_TRACES_MAX_BATCH_SIZE,
+  SEARCH_TRACES_MAX_CONCURRENT_REQUESTS
+} from '../core/constants';
 import { AuthProvider, HeadersProvider } from '../auth';
 
 /**
@@ -235,15 +241,159 @@ export class MlflowClient {
       };
     }
 
-    const traces = await Promise.all(
-      traceInfos.map((info) =>
-        this.getTrace(info.traceId).catch(() => new Trace(info, new TraceData([])))
-      )
-    );
+    // Group traces by their spans storage location
+    const { trackingStoreTraces, artifactRepoTraces } =
+      this.groupTraceInfosByLocation(traceInfos);
+
+    // Fetch spans for all traces efficiently
+    const traces: Trace[] = [];
+
+    // Batch fetch traces from tracking store
+    if (trackingStoreTraces.length > 0) {
+      const batchedTraces = await this.batchGetTracesFromTrackingStore(trackingStoreTraces);
+      traces.push(...batchedTraces);
+    }
+
+    // Parallel fetch traces from artifact store with concurrency limit
+    if (artifactRepoTraces.length > 0) {
+      const artifactTraces = await this.fetchTracesFromArtifactStoreParallel(artifactRepoTraces);
+      traces.push(...artifactTraces);
+    }
 
     return {
       traces,
       nextPageToken: response.next_page_token
     };
+  }
+
+  /**
+   * Group trace infos by their spans storage location.
+   */
+  private groupTraceInfosByLocation(traceInfos: TraceInfo[]): {
+    trackingStoreTraces: TraceInfo[];
+    artifactRepoTraces: TraceInfo[];
+  } {
+    const trackingStoreTraces: TraceInfo[] = [];
+    const artifactRepoTraces: TraceInfo[] = [];
+
+    for (const traceInfo of traceInfos) {
+      const spansLocation = traceInfo.tags[TraceTagKey.SPANS_LOCATION];
+      if (spansLocation === (SpansLocation.TRACKING_STORE as string)) {
+        trackingStoreTraces.push(traceInfo);
+      } else {
+        // Default to artifact repo if not specified or explicitly set
+        artifactRepoTraces.push(traceInfo);
+      }
+    }
+
+    return { trackingStoreTraces, artifactRepoTraces };
+  }
+
+  /**
+   * Batch fetch traces from tracking store using BatchGetTraces API.
+   *
+   * BatchGetTraces endpoint supports up to 10 traces per request.
+   */
+  private async batchGetTracesFromTrackingStore(traceInfos: TraceInfo[]): Promise<Trace[]> {
+    if (traceInfos.length === 0) {
+      return [];
+    }
+
+    const traceIds = traceInfos.map((info) => info.traceId);
+    const traces: Trace[] = [];
+
+    // Split into batches of SEARCH_TRACES_MAX_BATCH_SIZE (10)
+    const batches: string[][] = [];
+    for (let i = 0; i < traceIds.length; i += SEARCH_TRACES_MAX_BATCH_SIZE) {
+      batches.push(traceIds.slice(i, i + SEARCH_TRACES_MAX_BATCH_SIZE));
+    }
+
+    // Process batches in parallel with concurrency limit
+    const batchResults = await this.processWithConcurrencyLimit(
+      batches,
+      (batch) => this.fetchBatchFromTrackingStore(batch),
+      SEARCH_TRACES_MAX_CONCURRENT_REQUESTS
+    );
+
+    for (const batchTraces of batchResults) {
+      traces.push(...batchTraces);
+    }
+
+    return traces;
+  }
+
+  /**
+   * Fetch a single batch of traces from the tracking store.
+   */
+  private async fetchBatchFromTrackingStore(traceIds: string[]): Promise<Trace[]> {
+    const url = BatchGetTraces.getEndpoint(this.hostUrl);
+    const payload: BatchGetTraces.Request = { trace_ids: traceIds };
+
+    const response = await makeRequest<BatchGetTraces.Response>(
+      'POST',
+      url,
+      this.headersProvider,
+      payload
+    );
+
+    return (response.traces || []).map((traceData) => {
+      const traceInfo = TraceInfo.fromJson(traceData.trace_info);
+      const spans = (traceData.spans || []).map((s) => Span.fromOtelProto(s));
+      return new Trace(traceInfo, new TraceData(spans));
+    });
+  }
+
+  /**
+   * Fetch traces from artifact store in parallel with concurrency limit.
+   * Returns null for traces that fail to download (matching Python behavior).
+   */
+  private async fetchTracesFromArtifactStoreParallel(traceInfos: TraceInfo[]): Promise<Trace[]> {
+    if (traceInfos.length === 0) {
+      return [];
+    }
+
+    const results = await this.processWithConcurrencyLimit(
+      traceInfos,
+      async (traceInfo) => {
+        try {
+          return await this.getTraceFromArtifactStore(traceInfo);
+        } catch {
+          // Matching Python: return null for failed downloads, filter out later
+          return null;
+        }
+      },
+      SEARCH_TRACES_MAX_CONCURRENT_REQUESTS
+    );
+
+    // Filter out null results (failed downloads) - matches Python's "if trace" filter
+    return results.filter((t): t is Trace => t !== null);
+  }
+
+  /**
+   * Process items with a concurrency limit.
+   * This is a simple implementation of parallel processing with controlled concurrency.
+   */
+  private async processWithConcurrencyLimit<T, R>(
+    items: T[],
+    processor: (item: T) => Promise<R>,
+    maxConcurrency: number
+  ): Promise<R[]> {
+    const results: R[] = new Array(items.length);
+    let currentIndex = 0;
+
+    const processNext = async (): Promise<void> => {
+      while (currentIndex < items.length) {
+        const index = currentIndex++;
+        results[index] = await processor(items[index]);
+      }
+    };
+
+    // Start up to maxConcurrency workers
+    const workers = Array.from({ length: Math.min(maxConcurrency, items.length) }, () =>
+      processNext()
+    );
+
+    await Promise.all(workers);
+    return results;
   }
 }

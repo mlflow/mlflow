@@ -103,3 +103,19 @@ export const TokenUsageKey = {
  * Max length of the request/response preview in the trace info.
  */
 export const REQUEST_RESPONSE_PREVIEW_MAX_LENGTH = 1000;
+
+/**
+ * Maximum number of traces to fetch in a single batch request.
+ * This matches the Python SDK's _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE.
+ */
+export const SEARCH_TRACES_MAX_BATCH_SIZE = 10;
+
+/**
+ * Default maximum results for search traces.
+ */
+export const SEARCH_TRACES_DEFAULT_MAX_RESULTS = 100;
+
+/**
+ * Maximum concurrent requests for parallel trace fetching.
+ */
+export const SEARCH_TRACES_MAX_CONCURRENT_REQUESTS = 5;

@@ -148,3 +148,20 @@ export namespace SearchTracesV3 {
     next_page_token?: string;
   }
 }
+
+export namespace BatchGetTraces {
+  export const getEndpoint = (host: string) => `${host}/api/3.0/mlflow/traces/batchGet`;
+
+  export interface Request {
+    /** List of trace IDs to fetch */
+    trace_ids: string[];
+  }
+
+  export interface Response {
+    /** List of traces with their spans */
+    traces: {
+      trace_info: Parameters<typeof TraceInfo.fromJson>[0];
+      spans?: Parameters<typeof Span.fromOtelProto>[0][];
+    }[];
+  }
+}
