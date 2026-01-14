@@ -6,6 +6,7 @@ import type { IntlShape } from '@databricks/i18n';
 import { getAssessmentValueBarBackgroundColor } from './Colors';
 import { DEFAULT_RUN_PLACEHOLDER_NAME } from './TraceUtils';
 import { isAssessmentPassing } from '../components/EvaluationsReviewAssessmentTag';
+import { ASSESSMENT_SESSION_METADATA_KEY } from '../../model-trace-explorer/constants';
 import {
   ASSESSMENTS_DOC_LINKS,
   DEFAULT_ASSESSMENTS_SORT_ORDER,
@@ -185,6 +186,9 @@ export function getAssessmentInfos(
       const assessment: RunEvaluationResultAssessment | undefined = assessments[0];
 
       const isError = doesAssessmentContainErrors(assessment);
+      const isSessionLevelAssessment = assessments.some(
+        (currentAssessment) => currentAssessment?.metadata?.[ASSESSMENT_SESSION_METADATA_KEY],
+      );
 
       if (isNil(assessmentInfos[assessmentName])) {
         let displayName: string;
@@ -252,6 +256,7 @@ export function getAssessmentInfos(
           isEditable: assessment?.source?.sourceType === 'AI_JUDGE' || assessment?.source?.sourceType === 'HUMAN',
           isRetrievalAssessment: retrievalAssessmentsByName.some(([name]) => name === assessmentName),
           containsErrors: isError,
+          isSessionLevelAssessment,
         };
       } else {
         const assessmentInfo = assessmentInfos[assessmentName];
@@ -276,6 +281,7 @@ export function getAssessmentInfos(
           assessmentInfo.isRetrievalAssessment || retrievalAssessmentsByName.some(([name]) => name === assessmentName);
 
         assessmentInfo.containsErrors = assessmentInfo.containsErrors || isError;
+        assessmentInfo.isSessionLevelAssessment = assessmentInfo.isSessionLevelAssessment || isSessionLevelAssessment;
       }
     }
   });
