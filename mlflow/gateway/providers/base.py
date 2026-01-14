@@ -1,4 +1,6 @@
+import time
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, AsyncIterable
 
@@ -11,6 +13,28 @@ from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.utils.annotations import developer_stable
+
+
+@dataclass
+class ProviderCallAttempt:
+    """Tracks the result of a single provider call attempt."""
+
+    provider_name: str
+    model_name: str
+    attempt_number: int
+    success: bool
+    latency_ms: int
+    response: Any = None
+    error_message: str | None = None
+
+
+@dataclass
+class ProviderCallResult:
+    """Result from provider execution, including all provider attempts."""
+
+    response: Any
+    attempts: list[ProviderCallAttempt] = field(default_factory=list)
+    success: bool = True
 
 
 class PassthroughAction(str, Enum):
@@ -256,7 +280,25 @@ class FallbackProvider(BaseProvider):
         self._max_attempts = min(max_attempts, len(self._providers))
         self._strategy = strategy
 
-    async def _execute_with_fallback(self, method_name: str, *args, **kwargs):
+    def _get_provider_info(self, provider: "BaseProvider") -> tuple[str, str]:
+        """Extract provider name and model name from a provider instance."""
+        if hasattr(provider, "NAME"):
+            provider_name = provider.NAME
+        elif hasattr(provider, "config") and hasattr(provider.config, "model"):
+            provider_name = provider.config.model.provider
+        else:
+            provider_name = "unknown"
+
+        if hasattr(provider, "config") and hasattr(provider.config, "model"):
+            model_name = provider.config.model.name
+        else:
+            model_name = "unknown"
+
+        return provider_name, model_name
+
+    async def _execute_with_fallback(
+        self, method_name: str, *args, **kwargs
+    ) -> ProviderCallResult:
         """
         Execute a method on providers with fallback logic.
 
@@ -266,36 +308,84 @@ class FallbackProvider(BaseProvider):
             **kwargs: Keyword arguments to pass to the method
 
         Returns:
-            Result from the first successful provider call
+            ProviderCallResult containing the response and all provider attempts
 
         Raises:
             AIGatewayException: If all fallback attempts fail, with status code
                 propagated from the last exception if it was an AIGatewayException
-                or HTTPException
+                or HTTPException. The exception includes a `fallback_result` attribute
+                with all the attempts for logging.
         """
         from fastapi import HTTPException
 
         last_error = None
+        attempts: list[ProviderCallAttempt] = []
 
         for attempt, provider in enumerate(self._providers[: self._max_attempts], 1):
+            provider_name, model_name = self._get_provider_info(provider)
+            start_time = time.time()
+
             try:
                 method = getattr(provider, method_name)
-                return await method(*args, **kwargs)
+                response = await method(*args, **kwargs)
+                latency_ms = int((time.time() - start_time) * 1000)
+
+                # Record successful attempt
+                attempts.append(
+                    ProviderCallAttempt(
+                        provider_name=provider_name,
+                        model_name=model_name,
+                        attempt_number=attempt,
+                        success=True,
+                        latency_ms=latency_ms,
+                        response=response,
+                    )
+                )
+
+                return ProviderCallResult(
+                    response=response,
+                    attempts=attempts,
+                    success=True,
+                )
             except Exception as e:
+                latency_ms = int((time.time() - start_time) * 1000)
                 last_error = e
+
+                # Record failed attempt
+                attempts.append(
+                    ProviderCallAttempt(
+                        provider_name=provider_name,
+                        model_name=model_name,
+                        attempt_number=attempt,
+                        success=False,
+                        latency_ms=latency_ms,
+                        error_message=str(e),
+                    )
+                )
+
                 if attempt < self._max_attempts:
                     continue
                 break
+
+        # Create result with all attempts (all failed)
+        fallback_result = ProviderCallResult(
+            response=None,
+            attempts=attempts,
+            success=False,
+        )
 
         # Propagate HTTP status code from the last exception if available
         status_code = 500
         if isinstance(last_error, (AIGatewayException, HTTPException)):
             status_code = last_error.status_code
 
-        raise AIGatewayException(
+        # Create exception with fallback_result attached for logging
+        exc = AIGatewayException(
             status_code=status_code,
             detail=f"All {self._max_attempts} fallback attempts failed. Last error: {last_error!s}",
         )
+        exc.fallback_result = fallback_result
+        raise exc
 
     async def _execute_stream_with_fallback(self, method_name: str, *args, **kwargs):
         """
@@ -346,8 +436,18 @@ class FallbackProvider(BaseProvider):
         async for chunk in self._execute_stream_with_fallback("chat_stream", payload):
             yield chunk
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        return await self._execute_with_fallback("chat", payload)
+    async def chat(
+        self, payload: chat.RequestPayload
+    ) -> tuple[chat.ResponsePayload, ProviderCallResult]:
+        """
+        Execute chat with fallback routing.
+
+        Returns:
+            Tuple of (response, fallback_result) where fallback_result contains
+            all provider attempts for logging purposes.
+        """
+        result = await self._execute_with_fallback("chat", payload)
+        return result.response, result
 
     async def completions_stream(
         self, payload: completions.RequestPayload
@@ -355,19 +455,47 @@ class FallbackProvider(BaseProvider):
         async for chunk in self._execute_stream_with_fallback("completions_stream", payload):
             yield chunk
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        return await self._execute_with_fallback("completions", payload)
+    async def completions(
+        self, payload: completions.RequestPayload
+    ) -> tuple[completions.ResponsePayload, ProviderCallResult]:
+        """
+        Execute completions with fallback routing.
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-        return await self._execute_with_fallback("embeddings", payload)
+        Returns:
+            Tuple of (response, fallback_result) where fallback_result contains
+            all provider attempts for logging purposes.
+        """
+        result = await self._execute_with_fallback("completions", payload)
+        return result.response, result
+
+    async def embeddings(
+        self, payload: embeddings.RequestPayload
+    ) -> tuple[embeddings.ResponsePayload, ProviderCallResult]:
+        """
+        Execute embeddings with fallback routing.
+
+        Returns:
+            Tuple of (response, fallback_result) where fallback_result contains
+            all provider attempts for logging purposes.
+        """
+        result = await self._execute_with_fallback("embeddings", payload)
+        return result.response, result
 
     async def passthrough(
         self,
         action: PassthroughAction,
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | AsyncIterable[bytes]:
-        return await self._execute_with_fallback("passthrough", action, payload, headers)
+    ) -> tuple[dict[str, Any] | AsyncIterable[bytes], ProviderCallResult]:
+        """
+        Execute passthrough with fallback routing.
+
+        Returns:
+            Tuple of (response, fallback_result) where fallback_result contains
+            all provider attempts for logging purposes.
+        """
+        result = await self._execute_with_fallback("passthrough", action, payload, headers)
+        return result.response, result
 
 
 class ProviderAdapter(ABC):

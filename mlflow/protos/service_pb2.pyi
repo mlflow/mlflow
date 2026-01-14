@@ -2244,6 +2244,53 @@ class GetSecretsConfig(_message.Message):
         def __init__(self, secrets_available: bool = ...) -> None: ...
     def __init__(self) -> None: ...
 
+class GatewayUsageMetricsEntry(_message.Message):
+    __slots__ = ("endpoint_id", "time_bucket", "bucket_size", "total_invocations", "successful_invocations", "failed_invocations", "total_prompt_tokens", "total_completion_tokens", "total_tokens", "total_cost", "avg_latency_ms", "success_rate", "error_rate")
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    TIME_BUCKET_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_SIZE_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_INVOCATIONS_FIELD_NUMBER: _ClassVar[int]
+    SUCCESSFUL_INVOCATIONS_FIELD_NUMBER: _ClassVar[int]
+    FAILED_INVOCATIONS_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_PROMPT_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_COMPLETION_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_COST_FIELD_NUMBER: _ClassVar[int]
+    AVG_LATENCY_MS_FIELD_NUMBER: _ClassVar[int]
+    SUCCESS_RATE_FIELD_NUMBER: _ClassVar[int]
+    ERROR_RATE_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    time_bucket: int
+    bucket_size: int
+    total_invocations: int
+    successful_invocations: int
+    failed_invocations: int
+    total_prompt_tokens: int
+    total_completion_tokens: int
+    total_tokens: int
+    total_cost: float
+    avg_latency_ms: float
+    success_rate: float
+    error_rate: float
+    def __init__(self, endpoint_id: _Optional[str] = ..., time_bucket: _Optional[int] = ..., bucket_size: _Optional[int] = ..., total_invocations: _Optional[int] = ..., successful_invocations: _Optional[int] = ..., failed_invocations: _Optional[int] = ..., total_prompt_tokens: _Optional[int] = ..., total_completion_tokens: _Optional[int] = ..., total_tokens: _Optional[int] = ..., total_cost: _Optional[float] = ..., avg_latency_ms: _Optional[float] = ..., success_rate: _Optional[float] = ..., error_rate: _Optional[float] = ...) -> None: ...
+
+class GetGatewayUsageMetrics(_message.Message):
+    __slots__ = ("endpoint_id", "start_time", "end_time", "bucket_size")
+    class Response(_message.Message):
+        __slots__ = ("metrics",)
+        METRICS_FIELD_NUMBER: _ClassVar[int]
+        metrics: _containers.RepeatedCompositeFieldContainer[GatewayUsageMetricsEntry]
+        def __init__(self, metrics: _Optional[_Iterable[_Union[GatewayUsageMetricsEntry, _Mapping]]] = ...) -> None: ...
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_SIZE_FIELD_NUMBER: _ClassVar[int]
+    endpoint_id: str
+    start_time: int
+    end_time: int
+    bucket_size: int
+    def __init__(self, endpoint_id: _Optional[str] = ..., start_time: _Optional[int] = ..., end_time: _Optional[int] = ..., bucket_size: _Optional[int] = ...) -> None: ...
+
 class MlflowService(_service.service): ...
 
 class MlflowService_Stub(MlflowService): ...
