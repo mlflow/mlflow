@@ -2617,6 +2617,8 @@ def test_litellm_not_available():
         "invalid#name",  # hash
         "invalid@name",  # at sign
         "invalid:name",  # colon
+        "日本語",  # unicode (Japanese)
+        "naïve",  # unicode (accented)
     ],
 )
 def test_create_gateway_endpoint_rejects_invalid_name(mock_get_request_message, invalid_name):

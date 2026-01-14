@@ -49,12 +49,12 @@ export const getEndpointDisplayInfo = (
 
 /**
  * Validates if an endpoint name is URL-safe.
- * Matches the backend validation pattern: alphanumeric, underscore, hyphen, and dot only.
+ * Matches the backend validation pattern: ASCII alphanumeric, underscore, hyphen, and dot only.
  * This allows the name to be used directly in URL paths.
  *
  * @param name - The endpoint name to validate
  * @returns true if the name is valid for use in URLs
  */
 export const isValidEndpointName = (name: string): boolean => {
-  return /^[\w\-.]+$/.test(name);
+  return /^[a-zA-Z0-9_\-.]+$/.test(name);
 };
