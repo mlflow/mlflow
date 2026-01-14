@@ -12,7 +12,6 @@ import {
   HashRouter,
   matchPath,
   generatePath,
-  Navigate,
   Route,
   UNSAFE_NavigationContext,
   NavLink,
@@ -22,6 +21,7 @@ import {
   useLocation as useLocationDirect,
   useParams as useParamsDirect,
   useSearchParams as useSearchParamsDirect,
+  useMatches as useMatchesDirect,
   createHashRouter,
   RouterProvider,
   Routes,
@@ -47,6 +47,8 @@ const useParams = useParamsDirect;
 
 const useNavigate = useNavigateDirect;
 
+const useMatches = useMatchesDirect;
+
 const Outlet = OutletDirect;
 
 const Link = LinkDirect;
@@ -65,9 +67,9 @@ export {
   useLocation,
   useParams,
   useSearchParams,
+  useMatches,
   generatePath,
   matchPath,
-  Navigate,
   Route,
   Routes,
   Outlet,
@@ -86,5 +88,25 @@ export const createLazyRouteElement = (
 ) => React.createElement(React.lazy(componentLoader));
 export const createRouteElement = (component: React.ComponentType<React.PropsWithChildren<any>>) =>
   React.createElement(component);
+
+/**
+ * Handle for route definitions that can be used to set the document title.
+ */
+export interface DocumentTitleHandle {
+  getPageTitle: (params: Params<string>) => string;
+}
+
+export const usePageTitle = () => {
+  const matches = useMatches();
+  if (matches.length === 0) {
+    return;
+  }
+
+  const lastMatch = matches[matches.length - 1];
+  const handle = lastMatch.handle as DocumentTitleHandle | undefined;
+  const title = handle?.getPageTitle(lastMatch.params);
+
+  return title;
+};
 
 export type { Location, NavigateFunction, Params, To, NavigateOptions };

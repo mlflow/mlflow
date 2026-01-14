@@ -662,6 +662,8 @@ def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
                 "For full traceback, set logging level to debug.",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
+        else:
+            _logger.debug(f"Failed to get trace from the tracking store: {e}.", exc_info=True)
         return None
 
 
@@ -1482,7 +1484,7 @@ def _merge_trace(
     with trace_manager.get_trace(target_trace_id) as parent_trace:
         # Order of merging is important to ensure the parent trace's metadata is
         # not overwritten by the child trace's metadata if they have the same key.
-        parent_trace.info.tags = {**trace.info.tags, **parent_trace.info.tags}
+        parent_trace.info.tags = trace.info.tags | parent_trace.info.tags
         parent_trace.info.trace_metadata = {
             **trace.info.request_metadata,
             **parent_trace.info.trace_metadata,

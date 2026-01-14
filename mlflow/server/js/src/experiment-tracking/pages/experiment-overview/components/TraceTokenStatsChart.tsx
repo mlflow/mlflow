@@ -1,17 +1,8 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { useDesignSystemTheme, BarChartIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
-import {
-  MetricViewType,
-  AggregationType,
-  TraceMetricKey,
-  P50,
-  P90,
-  P99,
-  getPercentileKey,
-} from '@databricks/web-shared/model-trace-explorer';
-import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
+import { useTraceTokenStatsChartData } from '../hooks/useTraceTokenStatsChartData';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
@@ -19,94 +10,28 @@ import {
   OverviewChartHeader,
   OverviewChartTimeLabel,
   OverviewChartContainer,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useChartYAxisProps,
+  useScrollableLegendProps,
+  DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import {
-  formatTimestampForTraceMetrics,
-  formatTokenCount,
-  useLegendHighlight,
-  useTimestampValueMap,
-} from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { formatCount, useLegendHighlight } from '../utils/chartUtils';
 
-export const TraceTokenStatsChart: React.FC<OverviewChartProps> = ({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-}) => {
+export const TraceTokenStatsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const yAxisProps = useChartYAxisProps();
+  const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
 
-  // Fetch token stats with p50, p90, p99 aggregations grouped by time
-  const {
-    data: tokenStatsData,
-    isLoading: isLoadingTimeSeries,
-    error: timeSeriesError,
-  } = useTraceMetricsQuery({
-    experimentId,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
-    metricName: TraceMetricKey.TOTAL_TOKENS,
-    aggregations: [
-      { aggregation_type: AggregationType.PERCENTILE, percentile_value: P50 },
-      { aggregation_type: AggregationType.PERCENTILE, percentile_value: P90 },
-      { aggregation_type: AggregationType.PERCENTILE, percentile_value: P99 },
-    ],
-    timeIntervalSeconds,
-  });
+  // Fetch and process token stats chart data
+  const { chartData, avgTokens, isLoading, error, hasData } = useTraceTokenStatsChartData();
 
-  // Fetch overall average tokens (without time bucketing) for the header
-  const {
-    data: avgTokensData,
-    isLoading: isLoadingAvg,
-    error: avgError,
-  } = useTraceMetricsQuery({
-    experimentId,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
-    metricName: TraceMetricKey.TOTAL_TOKENS,
-    aggregations: [{ aggregation_type: AggregationType.AVG }],
-  });
-
-  const tokenStatsDataPoints = useMemo(() => tokenStatsData?.data_points || [], [tokenStatsData?.data_points]);
-  const isLoading = isLoadingTimeSeries || isLoadingAvg;
-  const error = timeSeriesError || avgError;
-
-  // Extract overall average tokens from the response (undefined if not available)
-  const avgTokens = avgTokensData?.data_points?.[0]?.values?.[AggregationType.AVG];
-
-  // Create a map of token stats by timestamp using shared utility
-  const statsExtractor = useCallback(
-    (dp: { values?: Record<string, number> }) => ({
-      p50: dp.values?.[getPercentileKey(P50)] || 0,
-      p90: dp.values?.[getPercentileKey(P90)] || 0,
-      p99: dp.values?.[getPercentileKey(P99)] || 0,
-    }),
+  const tooltipFormatter = useCallback(
+    (value: number, name: string) => [formatCount(value), name] as [string, string],
     [],
   );
-  const tokenStatsByTimestamp = useTimestampValueMap(tokenStatsDataPoints, statsExtractor);
-
-  // Prepare chart data - fill in all time buckets with 0 for missing data
-  const chartData = useMemo(() => {
-    return timeBuckets.map((timestampMs) => {
-      const stats = tokenStatsByTimestamp.get(timestampMs);
-      return {
-        name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
-        p50: stats?.p50 || 0,
-        p90: stats?.p90 || 0,
-        p99: stats?.p99 || 0,
-      };
-    });
-  }, [timeBuckets, tokenStatsByTimestamp, timeIntervalSeconds]);
 
   // Line colors
   const lineColors = {
@@ -128,7 +53,7 @@ export const TraceTokenStatsChart: React.FC<OverviewChartProps> = ({
       <OverviewChartHeader
         icon={<BarChartIcon />}
         title={<FormattedMessage defaultMessage="Tokens per Trace" description="Title for the token stats chart" />}
-        value={avgTokens !== undefined ? formatTokenCount(Math.round(avgTokens)) : undefined}
+        value={avgTokens !== undefined ? formatCount(Math.round(avgTokens)) : undefined}
         subtitle={
           avgTokens !== undefined ? (
             <FormattedMessage defaultMessage="avg per trace" description="Subtitle for average tokens per trace" />
@@ -139,16 +64,15 @@ export const TraceTokenStatsChart: React.FC<OverviewChartProps> = ({
       <OverviewChartTimeLabel />
 
       {/* Chart */}
-      <div css={{ height: 200, marginTop: theme.spacing.sm }}>
-        {tokenStatsDataPoints.length > 0 ? (
+      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
+        {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
               <XAxis dataKey="name" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatTokenCount(value), name]}
               />
               <Line
                 type="monotone"
@@ -183,7 +107,7 @@ export const TraceTokenStatsChart: React.FC<OverviewChartProps> = ({
                   stroke={theme.colors.textSecondary}
                   strokeDasharray="4 4"
                   label={{
-                    value: `AVG (${formatTokenCount(Math.round(avgTokens))})`,
+                    value: `AVG (${formatCount(Math.round(avgTokens))})`,
                     position: 'insideTopRight',
                     fill: theme.colors.textSecondary,
                     fontSize: 10,
@@ -193,10 +117,9 @@ export const TraceTokenStatsChart: React.FC<OverviewChartProps> = ({
               <Legend
                 verticalAlign="bottom"
                 iconType="plainline"
-                height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={legendFormatter}
+                {...scrollableLegendProps}
               />
             </LineChart>
           </ResponsiveContainer>

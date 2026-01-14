@@ -16,9 +16,6 @@ from mlflow.entities import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
-    AWSBaseConfig,
-    AWSIdAndKey,
-    AWSRole,
     EndpointType,
     GeminiConfig,
     LiteLLMConfig,
@@ -28,7 +25,6 @@ from mlflow.gateway.config import (
 )
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.base import FallbackProvider, TrafficRouteProvider
-from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
 from mlflow.gateway.providers.gemini import GeminiProvider
 from mlflow.gateway.providers.litellm import LiteLLMProvider
 from mlflow.gateway.providers.mistral import MistralProvider
@@ -110,14 +106,13 @@ def test_create_provider_from_endpoint_name_azure_openai(store: SqlAlchemyStore)
         auth_config={
             "api_type": "azure",
             "api_base": "https://my-resource.openai.azure.com",
-            "deployment_name": "gpt-4-deployment",
             "api_version": "2024-02-01",
         },
     )
     model_def = store.create_gateway_model_definition(
         name="azure-gpt-model",
         secret_id=secret.secret_id,
-        provider="openai",
+        provider="azure",
         model_name="gpt-4",
     )
     endpoint = store.create_gateway_endpoint(
@@ -137,7 +132,7 @@ def test_create_provider_from_endpoint_name_azure_openai(store: SqlAlchemyStore)
     assert isinstance(provider.config.model.config, OpenAIConfig)
     assert provider.config.model.config.openai_api_type == OpenAIAPIType.AZURE
     assert provider.config.model.config.openai_api_base == "https://my-resource.openai.azure.com"
-    assert provider.config.model.config.openai_deployment_name == "gpt-4-deployment"
+    assert provider.config.model.config.openai_deployment_name == "gpt-4"
     assert provider.config.model.config.openai_api_version == "2024-02-01"
     assert provider.config.model.config.openai_api_key == "azure-api-key-test"
 
@@ -210,118 +205,6 @@ def test_create_provider_from_endpoint_name_anthropic(store: SqlAlchemyStore):
 
     assert isinstance(provider, AnthropicProvider)
     assert provider.config.model.config.anthropic_api_key == "sk-ant-test"
-
-
-def test_create_provider_from_endpoint_name_bedrock_base_config(store: SqlAlchemyStore):
-    # Test Bedrock with base config (default credentials chain)
-    secret = store.create_gateway_secret(
-        secret_name="bedrock-base-key",
-        secret_value={"api_key": "placeholder"},
-        provider="bedrock",
-        auth_config={"aws_region": "us-east-1"},
-    )
-    model_def = store.create_gateway_model_definition(
-        name="bedrock-base-model",
-        secret_id=secret.secret_id,
-        provider="bedrock",
-        model_name="anthropic.claude-3-sonnet",
-    )
-    endpoint = store.create_gateway_endpoint(
-        name="test-bedrock-base-endpoint",
-        model_configs=[
-            GatewayEndpointModelConfig(
-                model_definition_id=model_def.model_definition_id,
-                linkage_type=GatewayModelLinkageType.PRIMARY,
-                weight=1.0,
-            ),
-        ],
-    )
-
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
-
-    assert isinstance(provider, AmazonBedrockProvider)
-    assert isinstance(provider.config.model.config.aws_config, AWSBaseConfig)
-    assert provider.config.model.config.aws_config.aws_region == "us-east-1"
-
-
-def test_create_provider_from_endpoint_name_bedrock_access_keys(store: SqlAlchemyStore):
-    # Test Bedrock with access key authentication
-    secret = store.create_gateway_secret(
-        secret_name="bedrock-keys",
-        secret_value={
-            "aws_access_key_id": "AKIA1234567890",
-            "aws_secret_access_key": "secret-key-value",
-            "aws_session_token": "session-token",
-        },
-        provider="bedrock",
-        auth_config={"aws_region": "us-west-2"},
-    )
-    model_def = store.create_gateway_model_definition(
-        name="bedrock-keys-model",
-        secret_id=secret.secret_id,
-        provider="bedrock",
-        model_name="anthropic.claude-3-sonnet",
-    )
-    endpoint = store.create_gateway_endpoint(
-        name="test-bedrock-keys-endpoint",
-        model_configs=[
-            GatewayEndpointModelConfig(
-                model_definition_id=model_def.model_definition_id,
-                linkage_type=GatewayModelLinkageType.PRIMARY,
-                weight=1.0,
-            ),
-        ],
-    )
-
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
-
-    assert isinstance(provider, AmazonBedrockProvider)
-    assert isinstance(provider.config.model.config.aws_config, AWSIdAndKey)
-    assert provider.config.model.config.aws_config.aws_access_key_id == "AKIA1234567890"
-    assert provider.config.model.config.aws_config.aws_secret_access_key == "secret-key-value"
-    assert provider.config.model.config.aws_config.aws_session_token == "session-token"
-    assert provider.config.model.config.aws_config.aws_region == "us-west-2"
-
-
-def test_create_provider_from_endpoint_name_bedrock_role(store: SqlAlchemyStore):
-    # Test Bedrock with role-based authentication
-    secret = store.create_gateway_secret(
-        secret_name="bedrock-role-key",
-        secret_value={"api_key": "placeholder"},
-        provider="bedrock",
-        auth_config={
-            "aws_role_arn": "arn:aws:iam::123456789012:role/MyBedrockRole",
-            "session_length_seconds": 3600,
-            "aws_region": "eu-west-1",
-        },
-    )
-    model_def = store.create_gateway_model_definition(
-        name="bedrock-role-model",
-        secret_id=secret.secret_id,
-        provider="bedrock",
-        model_name="anthropic.claude-3-sonnet",
-    )
-    endpoint = store.create_gateway_endpoint(
-        name="test-bedrock-role-endpoint",
-        model_configs=[
-            GatewayEndpointModelConfig(
-                model_definition_id=model_def.model_definition_id,
-                linkage_type=GatewayModelLinkageType.PRIMARY,
-                weight=1.0,
-            ),
-        ],
-    )
-
-    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
-
-    assert isinstance(provider, AmazonBedrockProvider)
-    assert isinstance(provider.config.model.config.aws_config, AWSRole)
-    assert (
-        provider.config.model.config.aws_config.aws_role_arn
-        == "arn:aws:iam::123456789012:role/MyBedrockRole"
-    )
-    assert provider.config.model.config.aws_config.session_length_seconds == 3600
-    assert provider.config.model.config.aws_config.aws_region == "eu-west-1"
 
 
 def test_create_provider_from_endpoint_name_mistral(store: SqlAlchemyStore):
@@ -413,7 +296,7 @@ def test_create_provider_from_endpoint_name_litellm(store: SqlAlchemyStore):
 
     assert isinstance(provider, LiteLLMProvider)
     assert isinstance(provider.config.model.config, LiteLLMConfig)
-    assert provider.config.model.config.litellm_api_key == "litellm-test-key"
+    assert provider.config.model.config.litellm_auth_config["api_key"] == "litellm-test-key"
     assert provider.config.model.config.litellm_provider == "litellm"
 
 
@@ -445,8 +328,11 @@ def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlch
 
     assert isinstance(provider, LiteLLMProvider)
     assert isinstance(provider.config.model.config, LiteLLMConfig)
-    assert provider.config.model.config.litellm_api_key == "litellm-custom-key"
-    assert provider.config.model.config.litellm_api_base == "https://custom-api.example.com"
+    assert provider.config.model.config.litellm_auth_config["api_key"] == "litellm-custom-key"
+    assert (
+        provider.config.model.config.litellm_auth_config["api_base"]
+        == "https://custom-api.example.com"
+    )
     assert provider.config.model.config.litellm_provider == "litellm"
 
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import {
   ScorerTransformationError,
   transformScorerConfig,
@@ -10,6 +10,10 @@ import type { RegisterScorerResponse } from '../api';
 import type { ScorerConfig, LLMScorer, CustomCodeScorer } from '../types';
 import type { LLMScorerFormData } from '../LLMScorerFormRenderer';
 import type { CustomCodeScorerFormData } from '../CustomCodeScorerFormRenderer';
+
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  isEvaluatingSessionsInScorersEnabled: () => true,
+}));
 
 describe('transformScorerConfig', () => {
   describe('Custom template (instructions-based) LLM scorer', () => {
@@ -37,7 +41,7 @@ describe('transformScorerConfig', () => {
         llmTemplate: 'Custom',
         instructions: 'Evaluate the response quality',
         model: 'databricks:/databricks-gpt-5',
-        disableMonitoring: true,
+        disableMonitoring: false,
         is_instructions_judge: true,
       });
     });
@@ -61,7 +65,7 @@ describe('transformScorerConfig', () => {
         llmTemplate: 'Custom',
         instructions: 'Evaluate the response quality',
         model: undefined,
-        disableMonitoring: true,
+        disableMonitoring: false,
         is_instructions_judge: true,
       });
     });
@@ -91,7 +95,7 @@ describe('transformScorerConfig', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: ['Guideline 1', 'Guideline 2'],
-        disableMonitoring: true,
+        disableMonitoring: false,
         is_instructions_judge: false,
         model: undefined,
       });
@@ -116,7 +120,7 @@ describe('transformScorerConfig', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: ['Single guideline'],
-        disableMonitoring: true,
+        disableMonitoring: false,
         is_instructions_judge: false,
         model: undefined,
       });
@@ -139,7 +143,7 @@ describe('transformScorerConfig', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: [],
-        disableMonitoring: true,
+        disableMonitoring: false,
         is_instructions_judge: false,
         model: undefined,
       });
@@ -164,7 +168,7 @@ describe('transformScorerConfig', () => {
         sampleRate: 50,
         type: 'llm',
         llmTemplate: 'Safety',
-        disableMonitoring: true,
+        disableMonitoring: false,
         is_instructions_judge: false,
         model: undefined,
       });
@@ -195,7 +199,7 @@ describe('transformScorerConfig', () => {
         code: 'def my_scorer(inputs, outputs, metadata):\n    return len(inputs["text"]) > 10',
         callSignature: '(inputs, outputs, metadata)',
         originalFuncName: 'my_scorer',
-        disableMonitoring: true,
+        disableMonitoring: false,
       });
     });
 
@@ -214,7 +218,7 @@ describe('transformScorerConfig', () => {
         name: 'Test Custom Scorer',
         type: 'custom-code',
         code: 'def evaluate(inputs, outputs):\n    return True',
-        disableMonitoring: true,
+        disableMonitoring: false,
         originalFuncName: undefined,
         callSignature: undefined,
       });
@@ -233,7 +237,7 @@ describe('transformScorerConfig', () => {
         name: 'Test Custom Scorer',
         type: 'custom-code',
         code: '',
-        disableMonitoring: true,
+        disableMonitoring: false,
         originalFuncName: undefined,
         callSignature: undefined,
       });
@@ -340,6 +344,7 @@ describe('transformScheduledScorer', () => {
         type: 'llm',
         llmTemplate: 'Guidelines',
         guidelines: ['Guideline 1', 'Guideline 2'],
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -351,6 +356,7 @@ describe('transformScheduledScorer', () => {
         serialized_scorer: JSON.stringify({
           mlflow_version: '3.3.2+ui',
           serialization_version: 1,
+          is_session_level_scorer: false,
           name: 'Test Guidelines Scorer',
           builtin_scorer_class: 'Guidelines',
           builtin_scorer_pydantic_data: {
@@ -371,6 +377,7 @@ describe('transformScheduledScorer', () => {
         sampleRate: 50,
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -381,6 +388,7 @@ describe('transformScheduledScorer', () => {
         serialized_scorer: JSON.stringify({
           mlflow_version: '3.3.2+ui',
           serialization_version: 1,
+          is_session_level_scorer: false,
           name: 'Test Toxicity Scorer',
           builtin_scorer_class: 'Safety',
           builtin_scorer_pydantic_data: {
@@ -459,6 +467,7 @@ describe('transformScheduledScorer', () => {
         name: 'Test Scorer',
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -472,6 +481,7 @@ describe('transformScheduledScorer', () => {
         filterString: '',
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -483,6 +493,7 @@ describe('transformScheduledScorer', () => {
       const scorer = {
         name: 'Test Scorer',
         type: 'llm' as const,
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -502,6 +513,7 @@ describe('transformScheduledScorer', () => {
         code: 'def my_scorer(inputs, outputs):\n    return True',
         callSignature: '',
         originalFuncName: '',
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -513,6 +525,7 @@ describe('transformScheduledScorer', () => {
         serialized_scorer: JSON.stringify({
           mlflow_version: '3.3.2+ui',
           serialization_version: 1,
+          is_session_level_scorer: false,
           name: 'Test Custom Scorer',
           call_source: 'def my_scorer(inputs, outputs):\n    return True',
           call_signature: '',
@@ -529,6 +542,7 @@ describe('transformScheduledScorer', () => {
         code: 'return True',
         callSignature: '',
         originalFuncName: '',
+        isSessionLevelScorer: false,
       };
 
       const result = transformScheduledScorer(scorer);
@@ -795,6 +809,7 @@ describe('convertFormDataToScheduledScorer', () => {
         code: 'def original_scorer():\n    return False',
         callSignature: '',
         originalFuncName: '',
+        isSessionLevelScorer: false,
       };
 
       const formData: CustomCodeScorerFormData & { scorerType: 'custom-code' } = {
@@ -815,6 +830,7 @@ describe('convertFormDataToScheduledScorer', () => {
         code: 'def original_scorer():\n    return False', // Code unchanged
         callSignature: '',
         originalFuncName: '',
+        isSessionLevelScorer: false,
       });
     });
 
@@ -903,6 +919,7 @@ describe('convertFormDataToScheduledScorer', () => {
         filterString: 'old_filter',
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       };
 
       const formData: LLMScorerFormData & { scorerType: 'llm' } = {
@@ -928,6 +945,7 @@ describe('convertFormDataToScheduledScorer', () => {
         filterString: 'original_filter',
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       };
 
       const formData: Partial<LLMScorerFormData> & { scorerType: 'llm' } = {
@@ -945,6 +963,7 @@ describe('convertFormDataToScheduledScorer', () => {
         filterString: '',
         type: 'llm',
         llmTemplate: 'Safety',
+        isSessionLevelScorer: false,
       });
     });
   });

@@ -80,12 +80,17 @@ class _TracerProviderWrapper:
     def __init__(self):
         self._isolated_tracer_provider = None
         self._isolated_tracer_provider_once = Once()
+        # Separate once flag for global provider mode. We use MLflow's own flag instead of
+        # OTel's _TRACER_PROVIDER_SET_ONCE so that MLflow can initialize its span processors
+        # even when an external library (e.g., auto-instrumentation) has already set up
+        # the global tracer provider before MLflow initializes.
+        self._global_provider_init_once = Once()
 
     @property
     def once(self) -> Once:
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
             return self._isolated_tracer_provider_once
-        return trace._TRACER_PROVIDER_SET_ONCE
+        return self._global_provider_init_once
 
     def get(self) -> TracerProvider:
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
@@ -111,7 +116,7 @@ class _TracerProviderWrapper:
             self._isolated_tracer_provider_once._done = False
         else:
             trace._TRACER_PROVIDER = None
-            trace._TRACER_PROVIDER_SET_ONCE._done = False
+            self._global_provider_init_once._done = False
 
 
 provider = _TracerProviderWrapper()
@@ -412,6 +417,31 @@ def _initialize_tracer_provider(disabled=False):
     # but some spans are still active. We suppress them because they are not actionable.
     suppress_warning("opentelemetry.sdk.trace", "Setting attribute on ended span")
     suppress_warning("opentelemetry.sdk.trace", "Calling end() on an ended span")
+
+    # When using the global tracer provider mode (MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false),
+    # check if a TracerProvider is already set (e.g., set with `set_tracer_provider` API for
+    # Uvicorn, FastAPI, etc.). If so, add MLflow's span processors to the existing provider
+    # instead of replacing it. This enables unified tracing where both external and MLflow spans
+    # are captured in the same trace.
+    if not MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+        existing_provider = trace.get_tracer_provider()
+        if isinstance(existing_provider, TracerProvider):
+            _logger.debug(
+                "An existing TracerProvider is detected. Adding MLflow's span processors "
+                "to the existing provider for unified tracing."
+            )
+            try:
+                existing_processors = set(existing_provider._active_span_processor._span_processors)
+                for processor in processors:
+                    if not any(isinstance(p, type(processor)) for p in existing_processors):
+                        existing_provider.add_span_processor(processor)
+                return
+            except Exception as e:
+                _logger.debug(
+                    f"An error occurred while adding span processors to the existing provider: {e}."
+                    " Overriding the existing provider with MLflow trace provider.",
+                    exc_info=True,
+                )
 
     # NB: If otel resource env vars are set explicitly, don't create an empty resource
     # so that they are propagated to otel spans.

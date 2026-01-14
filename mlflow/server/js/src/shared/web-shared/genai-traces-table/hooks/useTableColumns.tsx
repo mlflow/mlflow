@@ -102,6 +102,7 @@ export const useTableColumns = (
           }),
           type: TracesTableColumnType.INPUT,
           group: TracesTableColumnGroup.INFO,
+          filterOrder: 0,
         },
       ];
     }
@@ -151,6 +152,7 @@ export const useTableColumns = (
           }),
           type: TracesTableColumnType.TRACE_INFO,
           group: TracesTableColumnGroup.INFO,
+          filterOrder: 0,
         },
         {
           id: USER_COLUMN_ID,

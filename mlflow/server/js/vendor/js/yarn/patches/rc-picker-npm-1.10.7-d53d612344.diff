@@ -1,0 +1,45 @@
+diff --git a/es/hooks/usePickerInput.js b/es/hooks/usePickerInput.js
+index ef94b8c10f8567bbc8e441d2c4363b83aab4e6bd..c98ccb97490ce00dac68e9af53ae1ca7e257c7d7 100644
+--- a/es/hooks/usePickerInput.js
++++ b/es/hooks/usePickerInput.js
+@@ -2,6 +2,7 @@ import _slicedToArray from "@babel/runtime/helpers/esm/slicedToArray";
+ import { useState, useEffect, useRef } from 'react';
+ import KeyCode from "rc-util/es/KeyCode";
+ import { addGlobalMouseDownEvent } from '../utils/uiUtil';
++
+ export default function usePickerInput(_ref) {
+   var open = _ref.open,
+       value = _ref.value,
+@@ -96,7 +97,11 @@ export default function usePickerInput(_ref) {
+ 
+       if (blurToCancel) {
+         setTimeout(function () {
+-          if (isClickOutside(document.activeElement)) {
++	  let activeElement = document.activeElement;
++	  while (activeElement && activeElement.shadowRoot) {
++	    activeElement = activeElement.shadowRoot.activeElement;
++          }
++          if (isClickOutside(activeElement)) {
+             onCancel();
+           }
+         }, 0);
+@@ -127,6 +132,10 @@ export default function usePickerInput(_ref) {
+     return addGlobalMouseDownEvent(function (_ref2) {
+       var target = _ref2.target;
+ 
++      if (_ref2.composed && target.shadowRoot) {
++        target = ((_ref2.composedPath && _ref2.composedPath()[0]) || target);
++      }
++
+       if (open) {
+         if (!isClickOutside(target)) {
+           preventBlurRef.current = true; // Always set back in case `onBlur` prevented by user
+@@ -134,7 +143,7 @@ export default function usePickerInput(_ref) {
+           requestAnimationFrame(function () {
+             preventBlurRef.current = false;
+           });
+-        } else if (!focused) {
++        } else if (!focused || isClickOutside(target)) {
+           triggerOpen(false);
+         }
+       }
