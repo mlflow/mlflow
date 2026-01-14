@@ -1,3 +1,4 @@
+import importlib.metadata
 from unittest import mock
 
 import pytest
@@ -420,8 +421,6 @@ def test_to_predict_fn_apps_no_oauth_raises_error():
 
 
 def test_to_predict_fn_apps_old_sdk_version_error():
-    import importlib.metadata
-
     real_version = importlib.metadata.version
 
     def mock_version(package):
