@@ -1,4 +1,3 @@
-import { isNil } from 'lodash';
 import React from 'react';
 
 import {
@@ -13,6 +12,7 @@ import {
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 import {
+  spanTimeFormatter,
   TOKEN_USAGE_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
   type ModelTraceInfoV3,
@@ -155,33 +155,23 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
       <NullCell />
     );
   } else if (column.id === EXECUTION_DURATION_COLUMN_ID && traces.length > 0) {
-    // Execution duration - sum all execution durations
-    const normalizeFloatValue = (val?: string) => {
-      if (val === undefined) {
-        return undefined;
+    // Execution duration - calculate from first to last trace's request_time
+    const lastTrace = traces[traces.length - 1];
+    const firstRequestTime = firstTrace?.request_time;
+    const lastRequestTime = lastTrace?.request_time;
+
+    let displayValue: string | undefined;
+    if (firstRequestTime && lastRequestTime) {
+      const startTime = new Date(firstRequestTime).getTime();
+      const endTime = new Date(lastRequestTime).getTime();
+      const durationMs = endTime - startTime;
+
+      if (!isNaN(durationMs) && durationMs >= 0) {
+        // Convert to microseconds for spanTimeFormatter
+        const durationUs = durationMs * 1000;
+        displayValue = spanTimeFormatter(durationUs);
       }
-      const floatVal = parseFloat(val);
-      if (isNil(floatVal) || isNaN(floatVal)) {
-        return undefined;
-      }
-      return floatVal;
-    };
-
-    const totalDuration = traces.reduce((sum, trace) => {
-      const duration = normalizeFloatValue(trace[EXECUTION_DURATION_COLUMN_ID]);
-      return sum + (duration || 0);
-    }, 0);
-
-    // Get unit from first trace (assume all traces have same unit)
-    const firstTraceValue = firstTrace?.[EXECUTION_DURATION_COLUMN_ID];
-    const unit =
-      firstTraceValue
-        ?.replace?.(/[0-9.]/g, '')
-        .trim()
-        .toLowerCase() || '';
-
-    const displayValue =
-      totalDuration > 0 ? [totalDuration.toFixed(3).replace(/\.?0+$/, ''), unit].filter(Boolean).join('') : undefined;
+    }
 
     cellContent = displayValue ? (
       <div
