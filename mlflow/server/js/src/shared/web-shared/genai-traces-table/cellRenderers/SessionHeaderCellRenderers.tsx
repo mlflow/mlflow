@@ -13,10 +13,17 @@ import {
 } from '@databricks/design-system';
 import type { IntlShape } from '@databricks/i18n';
 import {
-  spanTimeFormatter,
+  getAssessmentValue,
+  isSessionLevelAssessment,
   TOKEN_USAGE_METADATA_KEY,
+  type Assessment,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
+
+import { EvaluationsReviewAssessmentTag, isAssessmentPassing } from '../components/EvaluationsReviewAssessmentTag';
+import type { AssessmentInfo } from '../types';
+import { TracesTableColumnType } from '../types';
+import { getAssessmentValueBarBackgroundColor } from '../utils/Colors';
 
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
@@ -262,6 +269,150 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
       ) : (
         <NullCell />
       );
+  } else if (column.type === TracesTableColumnType.ASSESSMENT && column.assessmentInfo && traces.length > 0) {
+    // Assessment column - check for session-level assessments or aggregate pass/fail
+    const assessmentInfo = column.assessmentInfo as AssessmentInfo;
+    const assessmentName = assessmentInfo.name;
+
+    // Collect all assessments matching this name from all traces
+    const allAssessments: Assessment[] = [];
+    traces.forEach((trace) => {
+      const traceAssessments = trace.assessments ?? [];
+      traceAssessments.forEach((assessment) => {
+        if (assessment.assessment_name === assessmentName) {
+          allAssessments.push(assessment);
+        }
+      });
+    });
+
+    // Check for session-level assessments
+    const sessionAssessments = allAssessments.filter((a) => isSessionLevelAssessment(a));
+
+    if (sessionAssessments.length > 0) {
+      // Display the session-level assessment(s)
+      const latestAssessment = sessionAssessments[sessionAssessments.length - 1];
+      const value = getAssessmentValue(latestAssessment);
+
+      // Map source type from model-trace-explorer format to genai-traces-table format
+      const sourceType = latestAssessment.source?.source_type;
+      const mappedSourceType =
+        sourceType === 'LLM_JUDGE'
+          ? 'AI_JUDGE'
+          : sourceType === 'HUMAN'
+            ? 'HUMAN'
+            : sourceType === 'CODE'
+              ? 'CODE'
+              : 'AI_JUDGE';
+
+      // Convert timestamp string to number
+      const timestampNum = latestAssessment.create_time ? new Date(latestAssessment.create_time).getTime() : null;
+
+      cellContent = (
+        <EvaluationsReviewAssessmentTag
+          showRationaleInTooltip
+          disableJudgeTypeIcon
+          hideAssessmentName
+          assessment={{
+            name: assessmentName,
+            rationale: latestAssessment.rationale ?? null,
+            source: {
+              sourceId: latestAssessment.source?.source_id ?? '',
+              sourceType: mappedSourceType,
+              metadata: {},
+            },
+            stringValue: typeof value === 'string' ? value : null,
+            booleanValue: typeof value === 'boolean' ? value : null,
+            numericValue: typeof value === 'number' ? value : null,
+            rootCauseAssessment: null,
+            timestamp: timestampNum,
+            metadata: {},
+          }}
+          assessmentInfo={assessmentInfo}
+          type="value"
+        />
+      );
+    } else if (assessmentInfo.dtype === 'pass-fail' || assessmentInfo.dtype === 'boolean') {
+      // Aggregate pass/fail assessments
+      let passCount = 0;
+      let totalCount = 0;
+
+      allAssessments.forEach((assessment) => {
+        const value = getAssessmentValue(assessment);
+        // Skip array values as they're not applicable for pass/fail aggregation
+        if (Array.isArray(value)) {
+          return;
+        }
+        const isPassing = isAssessmentPassing(assessmentInfo, value);
+        if (isPassing !== undefined) {
+          totalCount++;
+          if (isPassing) {
+            passCount++;
+          }
+        }
+      });
+
+      if (totalCount > 0) {
+        const passFraction = passCount / totalCount;
+        const failFraction = 1 - passFraction;
+        const passColor = getAssessmentValueBarBackgroundColor(theme, assessmentInfo, 'yes', false);
+        const failColor = getAssessmentValueBarBackgroundColor(theme, assessmentInfo, 'no', false);
+
+        cellContent = (
+          <div
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.sm,
+              width: '100%',
+              minWidth: 0,
+            }}
+          >
+            {/* Stacked bar showing pass (green) and fail (red) proportions */}
+            <div
+              css={{
+                display: 'flex',
+                height: 8,
+                borderRadius: 4,
+                overflow: 'hidden',
+                flexShrink: 0,
+                width: 40,
+              }}
+            >
+              <div
+                style={{
+                  width: `${passFraction * 100}%`,
+                  backgroundColor: passColor,
+                }}
+              />
+              <div
+                style={{
+                  width: `${failFraction * 100}%`,
+                  backgroundColor: failColor,
+                }}
+              />
+            </div>
+            {/* Count label e.g. "3/4 PASS" */}
+            <span
+              css={{
+                fontSize: theme.typography.fontSizeSm,
+                color: theme.colors.textSecondary,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {passCount}/{totalCount}{' '}
+              {intl.formatMessage({
+                defaultMessage: 'PASS',
+                description: 'Label for pass count in session assessment aggregation',
+              })}
+            </span>
+          </div>
+        );
+      } else {
+        cellContent = <NullCell />;
+      }
+    } else {
+      cellContent = <NullCell />;
+    }
   }
 
   return (

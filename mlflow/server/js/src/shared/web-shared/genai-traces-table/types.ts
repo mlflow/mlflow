@@ -23,6 +23,7 @@ export interface AssessmentInfo {
   isCustomMetric: boolean;
   isEditable: boolean;
   isRetrievalAssessment: boolean;
+  isSessionLevelAssessment: boolean;
   // The type of the assessment value.
   dtype: AssessmentDType;
   uniqueValues: Set<AssessmentValueType>;

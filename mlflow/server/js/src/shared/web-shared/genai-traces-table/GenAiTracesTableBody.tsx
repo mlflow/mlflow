@@ -16,7 +16,7 @@ import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databrick
 import { GenAITracesTableContext } from './GenAITracesTableContext';
 import { sortColumns, sortGroupedColumns } from './GenAiTracesTable.utils';
 import { getColumnConfig } from './GenAiTracesTableBody.utils';
-import { MemoizedGenAiTracesTableBodyRows } from './GenAiTracesTableBodyRows';
+import { MemoizedGenAiTracesTableBodyRows, SessionGroupingContext } from './GenAiTracesTableBodyRows';
 import { MemoizedGenAiTracesTableSessionGroupedRows } from './GenAiTracesTableSessionGroupedRows';
 import { GenAiTracesTableHeader } from './GenAiTracesTableHeader';
 import { groupTracesBySessionForTable } from './utils/SessionGroupingUtils';
@@ -403,31 +403,33 @@ export const GenAiTracesTableBody = React.memo(
               setColumnSizing={table.setColumnSizing}
             />
 
-            {isGroupedBySession ? (
-              <MemoizedGenAiTracesTableSessionGroupedRows
-                rows={rows}
-                groupedRows={groupedRows}
-                isComparing={isComparing}
-                enableRowSelection={enableRowSelection}
-                virtualItems={virtualItems}
-                virtualizerTotalSize={rowVirtualizer.getTotalSize()}
-                virtualizerMeasureElement={rowVirtualizer.measureElement}
-                rowSelectionState={rowSelection}
-                selectedColumns={selectedColumns}
-                experimentId={experimentId}
-              />
-            ) : (
-              <MemoizedGenAiTracesTableBodyRows
-                rows={rows}
-                isComparing={isComparing}
-                enableRowSelection={enableRowSelection}
-                virtualItems={virtualItems}
-                virtualizerTotalSize={rowVirtualizer.getTotalSize()}
-                virtualizerMeasureElement={rowVirtualizer.measureElement}
-                rowSelectionState={rowSelection}
-                selectedColumns={selectedColumns}
-              />
-            )}
+            <SessionGroupingContext.Provider value={isGroupedBySession ?? false}>
+              {isGroupedBySession ? (
+                <MemoizedGenAiTracesTableSessionGroupedRows
+                  rows={rows}
+                  groupedRows={groupedRows}
+                  isComparing={isComparing}
+                  enableRowSelection={enableRowSelection}
+                  virtualItems={virtualItems}
+                  virtualizerTotalSize={rowVirtualizer.getTotalSize()}
+                  virtualizerMeasureElement={rowVirtualizer.measureElement}
+                  rowSelectionState={rowSelection}
+                  selectedColumns={selectedColumns}
+                  experimentId={experimentId}
+                />
+              ) : (
+                <MemoizedGenAiTracesTableBodyRows
+                  rows={rows}
+                  isComparing={isComparing}
+                  enableRowSelection={enableRowSelection}
+                  virtualItems={virtualItems}
+                  virtualizerTotalSize={rowVirtualizer.getTotalSize()}
+                  virtualizerMeasureElement={rowVirtualizer.measureElement}
+                  rowSelectionState={rowSelection}
+                  selectedColumns={selectedColumns}
+                />
+              )}
+            </SessionGroupingContext.Provider>
           </Table>
         </div>
         {displayLoadingOverlay && (

@@ -27,7 +27,7 @@ interface SessionHeaderRowProps {
   sessionId: string;
   traceCount: number;
   traces: any[];
-  visibleColumns: TracesTableColumn[];
+  selectedColumns: TracesTableColumn[];
   enableRowSelection?: boolean;
   sessionRows: Row<EvalTraceComparisonEntry>[];
   isComparing: boolean;
@@ -52,19 +52,6 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
       map.set(row.original, row);
     });
     return map;
-  }, [rows]);
-
-  // Get visible columns from the first row to match table rendering
-  const visibleColumns = useMemo(() => {
-    if (rows.length === 0) return [];
-    const firstRow = rows[0];
-    const cells = firstRow.getVisibleCells();
-    return cells.map((cell) => ({
-      id: cell.column.id,
-      label: cell.column.columnDef.header as string,
-      type: (cell.column.columnDef.meta as any)?.type,
-      group: (cell.column.columnDef.meta as any)?.group,
-    })) as TracesTableColumn[];
   }, [rows]);
 
   return (
@@ -100,7 +87,7 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
                 sessionId={groupedRow.sessionId}
                 traceCount={groupedRow.traces.length}
                 traces={groupedRow.traces}
-                visibleColumns={visibleColumns}
+                selectedColumns={selectedColumns}
                 enableRowSelection={enableRowSelection}
                 sessionRows={rows.filter((row) => {
                   // Filter rows that belong to this session
@@ -154,7 +141,7 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
 const SessionHeaderRow = React.memo(function SessionHeaderRow({
   sessionId,
   traces,
-  visibleColumns,
+  selectedColumns,
   enableRowSelection,
   sessionRows,
   isComparing,
@@ -203,8 +190,8 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
           />
         </div>
       )}
-      {/* Render a cell for each visible column from the table */}
-      {visibleColumns.map((column) => (
+      {/* Render a cell for each selected column from the table */}
+      {selectedColumns.map((column) => (
         <SessionHeaderCell
           key={column.id}
           column={column}
