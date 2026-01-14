@@ -1378,10 +1378,6 @@
     "defaultMessage": "2. Trace your code",
     "description": "Section title introducing the tracing quickstart example"
   },
-  "8xKF+v": {
-    "defaultMessage": "Over time",
-    "description": "Label above time-series charts"
-  },
   "8xji5J": {
     "defaultMessage": "X-axis:",
     "description": "Label text for X-axis in box plot comparison in MLflow"
