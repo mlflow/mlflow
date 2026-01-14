@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from mlflow.entities.trace import Trace
+from mlflow.genai.scorers.trulens.registry import build_trulens_args
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
@@ -38,12 +39,25 @@ def map_scorer_inputs_to_trulens_args(
         outputs = resolve_outputs_from_trace(outputs, trace)
         expectations = resolve_expectations_from_trace(expectations, trace)
 
-    # Parse inputs and outputs to strings
     input_str = parse_inputs_to_str(inputs) if inputs is not None else ""
     output_str = parse_outputs_to_str(outputs) if outputs is not None else ""
+    context_str = _extract_context(expectations, trace)
 
-    # Extract context from expectations or trace
+    return build_trulens_args(
+        metric_name=metric_name,
+        input_str=input_str,
+        output_str=output_str,
+        context_str=context_str,
+    )
+
+
+def _extract_context(
+    expectations: dict[str, Any] | None,
+    trace: Trace | None,
+) -> str:
+    """Extract context from expectations or trace retrieval spans."""
     context_str = ""
+
     if expectations:
         context = (
             expectations.get("context")
@@ -56,7 +70,6 @@ def map_scorer_inputs_to_trulens_args(
             else:
                 context_str = str(context)
 
-    # If no context from expectations, try to extract from trace retrieval spans
     if not context_str and trace:
         if span_id_to_context := extract_retrieval_context_from_trace(trace):
             contexts = []
@@ -69,33 +82,7 @@ def map_scorer_inputs_to_trulens_args(
             if contexts:
                 context_str = "\n".join(contexts)
 
-    # Map to TruLens-specific argument names based on metric
-    if metric_name == "Groundedness":
-        return {
-            "source": context_str,
-            "statement": output_str,
-        }
-    elif metric_name == "ContextRelevance":
-        return {
-            "question": input_str,
-            "context": context_str,
-        }
-    elif metric_name == "AnswerRelevance":
-        return {
-            "prompt": input_str,
-            "response": output_str,
-        }
-    elif metric_name == "Coherence":
-        return {
-            "text": output_str,
-        }
-    else:
-        # Generic fallback
-        return {
-            "input": input_str,
-            "output": output_str,
-            "context": context_str,
-        }
+    return context_str
 
 
 def format_trulens_rationale(reasons: dict[str, Any] | None) -> str | None:

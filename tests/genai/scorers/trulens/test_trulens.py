@@ -4,6 +4,7 @@ import pytest
 import trulens  # noqa: F401
 
 from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.genai.judges.utils import CategoricalRating
 
 
@@ -65,8 +66,14 @@ def test_trulens_scorer(
     assert isinstance(result, Feedback)
     assert result.name == metric_name
     assert result.value == expected_value
-    assert result.metadata["score"] == score
+    assert result.rationale == "reason: Test reason"
+    assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert result.source.source_id == "openai:/gpt-4"
+    assert result.metadata == {
+        "mlflow.scorer.framework": "trulens",
+        "score": score,
+        "threshold": 0.5,
+    }
 
 
 def test_trulens_scorer_fail(mock_provider):
