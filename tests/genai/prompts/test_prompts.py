@@ -4,6 +4,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
+import jinja2
 import pytest
 from pydantic import BaseModel, ValidationError
 
@@ -12,7 +13,7 @@ from mlflow import MlflowClient
 from mlflow.entities.model_registry import PromptModelConfig, PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.prompts.utils import format_prompt
-from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY
+from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY, PROMPT_TYPE_TEXT
 from mlflow.prompt.registry_utils import PromptCache, PromptCacheKey
 from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
 
@@ -255,6 +256,83 @@ def test_register_and_load_chat_prompt_integration():
     assert formatted == expected
 
 
+def test_register_and_load_jinja2_prompt():
+    template = "Hello {% if name %}{{ name }}{% else %}Guest{% endif %}"
+    mlflow.genai.register_prompt(name="jinja-basic", template=template)
+
+    loaded_prompt = mlflow.genai.load_prompt("jinja-basic", version=1)
+
+    assert loaded_prompt.template == template
+    assert loaded_prompt._prompt_type == PROMPT_TYPE_TEXT
+    assert loaded_prompt.format(name="Alice") == "Hello Alice"
+    assert loaded_prompt.format() == "Hello Guest"
+
+
+def test_register_and_load_jinja2_prompt_without_sandbox():
+    # Accessing private attributes to trigger unsafe operation
+    template = "{% if ''.__class__.__name__ == 'str' %}Yes{% else %}No{% endif %}"
+    mlflow.genai.register_prompt(name="jinja-nosandbox", template=template)
+
+    loaded_prompt = mlflow.genai.load_prompt("jinja-nosandbox", version=1)
+
+    # Unsafe operation should be banned by default
+    with pytest.raises(jinja2.exceptions.SecurityError, match="access to attribute '__class__'"):
+        loaded_prompt.format()
+
+    # Render without sandbox
+    assert loaded_prompt.format(use_jinja_sandbox=False) == "Yes"
+
+
+def test_register_and_load_jinja2_chat_prompt():
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {
+            "role": "user",
+            "content": "{% if formal %}Dear Sir{% else %}Hey{% endif %}, {{question}}",
+        },
+    ]
+    mlflow.genai.register_prompt(name="jinja-chat", template=chat_template)
+
+    loaded_prompt = mlflow.genai.load_prompt("jinja-chat", version=1)
+
+    assert loaded_prompt.template == chat_template
+    assert not loaded_prompt.is_text_prompt
+
+    formatted = loaded_prompt.format(formal=True, question="How are you?")
+    assert formatted == [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Dear Sir, How are you?"},
+    ]
+
+    formatted = loaded_prompt.format(formal=False, question="What's up?")
+    assert formatted == [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hey, What's up?"},
+    ]
+
+
+def test_jinja2_chat_prompt_with_loops():
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {
+            "role": "user",
+            "content": (
+                "My friends are: {% for friend in friends %}{{ friend }}{% if not loop.last %}, "
+                "{% endif %}{% endfor %}."
+            ),
+        },
+    ]
+    mlflow.genai.register_prompt(name="jinja-chat-loop", template=chat_template)
+
+    loaded_prompt = mlflow.genai.load_prompt("jinja-chat-loop", version=1)
+
+    formatted = loaded_prompt.format(friends=["Alice", "Bob", "Charlie"])
+    assert formatted == [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "My friends are: Alice, Bob, Charlie."},
+    ]
+
+
 def test_register_text_prompt_backward_compatibility():
     prompt = mlflow.genai.register_prompt(
         name="test_text_backward",
@@ -316,14 +394,6 @@ def test_register_prompt_with_none_response_format():
     )
 
     assert prompt.response_format is None
-
-
-def test_register_prompt_with_empty_chat_template():
-    # Empty list should be treated as text prompt
-    prompt = mlflow.genai.register_prompt(name="test_empty_chat", template=[])
-
-    assert prompt.is_text_prompt
-    assert prompt.template == "[]"  # Empty list serialized as string
 
 
 def test_register_prompt_with_single_message_chat():
@@ -1202,16 +1272,6 @@ def test_register_prompt_with_none_response_format():
     # Load and verify
     prompt = mlflow.genai.load_prompt("test_none_response", version=1)
     assert prompt.response_format is None
-
-
-def test_register_prompt_with_empty_chat_template():
-    # Empty list should be treated as text prompt
-    mlflow.genai.register_prompt(name="test_empty_chat", template=[])
-
-    # Load and verify
-    prompt = mlflow.genai.load_prompt("test_empty_chat", version=1)
-    assert prompt.is_text_prompt
-    assert prompt.template == "[]"  # Empty list serialized as string
 
 
 def test_register_prompt_with_single_message_chat():
