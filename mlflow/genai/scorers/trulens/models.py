@@ -117,7 +117,6 @@ def create_trulens_provider(model_uri: str, **kwargs: Any):
             return _create_databricks_managed_judge_provider(**kwargs)
         return _create_databricks_serving_endpoint_provider(model_name, **kwargs)
 
-    # Use LiteLLM for all other providers
     try:
         from trulens.providers.litellm import LiteLLM
 
