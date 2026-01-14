@@ -702,6 +702,10 @@
     "defaultMessage": "Enter a model name not listed above. Capabilities may not be detected.",
     "description": "Help text for custom model input"
   },
+  "3pRh9n": {
+    "defaultMessage": "The type of value the judge will return.",
+    "description": "Hint text for output type selection"
+  },
   "3vS6G9": {
     "defaultMessage": "{count, plural, one {# trace was} other {# traces were}} removed",
     "description": "Success message after deleting sessions - trace count"
@@ -1341,6 +1345,10 @@
   "8YmId5": {
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in Contour chart configurator in compare runs chart config modal"
+  },
+  "8biXJJ": {
+    "defaultMessage": "Select output type",
+    "description": "Placeholder for output type selection"
   },
   "8f4/Zi": {
     "defaultMessage": "Search logged models using a simplified version of the SQL {whereBold} clause.",
@@ -1982,6 +1990,10 @@
     "defaultMessage": "Thank you for exploring the new Model Registry UI. We are dedicated to providing the best experience, and your feedback is invaluable. Please share your thoughts with us <link>here</link>.",
     "description": "Model registry > Switcher for the new model registry UI containing aliases > disable confirmation modal content"
   },
+  "DMEY+O": {
+    "defaultMessage": "Select value type",
+    "description": "Placeholder for dict value type"
+  },
   "DMKCLJ": {
     "defaultMessage": "API Key Details",
     "description": "Title for the API key details drawer"
@@ -2425,6 +2437,10 @@
   "Hk0RSH": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for Y-axis in box plot comparison in MLflow"
+  },
+  "HlqAH9": {
+    "defaultMessage": "Output type",
+    "description": "Section header for judge output type selection"
   },
   "Hn1aOC": {
     "defaultMessage": "Endpoints using key: {name}",
@@ -3453,6 +3469,10 @@
     "defaultMessage": "Frequency Penalty",
     "description": "Label for frequency penalty input"
   },
+  "Qaq9vK": {
+    "defaultMessage": "Enter the allowed values, one per line.",
+    "description": "Hint for categorical options"
+  },
   "Qayyg6": {
     "defaultMessage": "Columns",
     "description": "Columns button label"
@@ -4000,6 +4020,10 @@
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
     "description": "Tooltip message for the export button when the trace is not exportable"
   },
+  "V1kYC+": {
+    "defaultMessage": "Select element type",
+    "description": "Placeholder for list element type"
+  },
   "V4CsL/": {
     "defaultMessage": "Unable to list artifacts stored under {artifactUri} for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory.",
     "description": "Error message when the artifact is unable to load. This message is displayed in the open source ML flow only"
@@ -4187,6 +4211,10 @@
   "WVUF2N": {
     "defaultMessage": "Are you sure you want to delete the prompt?",
     "description": "A content for the delete prompt confirmation modal"
+  },
+  "WWv3EQ": {
+    "defaultMessage": "Options",
+    "description": "Label for categorical options input"
   },
   "Wd8Tga": {
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
@@ -6271,6 +6299,10 @@
     "defaultMessage": "Create Model",
     "description": "Title text for creating model in the model registry"
   },
+  "mKV9T/": {
+    "defaultMessage": "of",
+    "description": "Connector between dict and value type"
+  },
   "mMR/YQ": {
     "defaultMessage": "Select a provider to configure your API key",
     "description": "Placeholder message when no provider selected"
@@ -6458,6 +6490,10 @@
   "nYSJgH": {
     "defaultMessage": "Show all parent spans",
     "description": "Checkbox label for a setting that enables showing all parent spans in the trace explorer regardless of filter conditions."
+  },
+  "naivho": {
+    "defaultMessage": "of",
+    "description": "Connector between list and element type"
   },
   "nddV+2": {
     "defaultMessage": "Show less",
