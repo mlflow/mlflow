@@ -59,3 +59,4 @@ export { SingleChatTurnAssessments } from './session-view/SingleChatTurnAssessme
 export { getTraceTokenUsage, createTraceV4LongIdentifier, isSessionLevelAssessment } from './ModelTraceExplorer.utils';
 export { CompareModelTraceExplorer } from './CompareModelTraceExplorer';
 export { useGetTracesById } from './hooks/useGetTracesById';
+export { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
