@@ -22,7 +22,7 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
 import { type SCORER_TYPE, ScorerEvaluationScope } from './constants';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
-import { LLM_TEMPLATE } from './types';
+import { LLM_TEMPLATE, isGuidelinesTemplate } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
 import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
 import { ModelSectionRenderer } from './ModelSectionRenderer';
@@ -432,15 +432,12 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
 interface GuidelinesSectionProps {
   mode: ScorerFormMode;
   control: Control<LLMScorerFormData>;
-  selectedTemplate: string;
 }
 
-const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control, selectedTemplate }) => {
+const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control }) => {
   const intl = useIntl();
-
-  if (selectedTemplate !== 'Guidelines') {
-    return null;
-  }
+  const { watch } = useFormContext<LLMScorerFormData>();
+  const evaluationScope = watch('evaluationScope');
 
   const stopPropagationClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -450,48 +447,71 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control, se
     return 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/';
   };
 
+  const isSessionLevel = evaluationScope === ScorerEvaluationScope.SESSIONS;
+
   return (
     <div css={{ display: 'flex', flexDirection: 'column' }}>
       <FormUI.Label htmlFor="mlflow-experiment-scorers-guidelines" required>
         <FormattedMessage defaultMessage="Guidelines" description="Section header for scorer guidelines" />
       </FormUI.Label>
       <FormUI.Hint>
-        <FormattedMessage
-          defaultMessage="Add a set of instructions for the scorer. Enter one guideline per line. {learnMore}"
-          description="Hint text for Guidelines section with documentation link"
-          values={{
-            learnMore: (
-              <Typography.Link
-                componentId={`${COMPONENT_ID_PREFIX}.guidelines-learn-more-link`}
-                href={getLlmJudgeDocUrl()}
-                openInNewTab
-              >
-                <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
-              </Typography.Link>
-            ),
-          }}
-        />
+        {isSessionLevel ? (
+          <FormattedMessage
+            defaultMessage="Add a set of guidelines for the conversation. {learnMore}"
+            description="Hint text for session-level Guidelines section with documentation link"
+            values={{
+              learnMore: (
+                <Typography.Link
+                  componentId={`${COMPONENT_ID_PREFIX}.guidelines-learn-more-link`}
+                  href={getLlmJudgeDocUrl()}
+                  openInNewTab
+                >
+                  <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
+                </Typography.Link>
+              ),
+            }}
+          />
+        ) : (
+          <FormattedMessage
+            defaultMessage="Add a set of guidelines for the response. {learnMore}"
+            description="Hint text for trace-level Guidelines section with documentation link"
+            values={{
+              learnMore: (
+                <Typography.Link
+                  componentId={`${COMPONENT_ID_PREFIX}.guidelines-learn-more-link`}
+                  href={getLlmJudgeDocUrl()}
+                  openInNewTab
+                >
+                  <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
+                </Typography.Link>
+              ),
+            }}
+          />
+        )}
       </FormUI.Hint>
       <Controller
         name="guidelines"
         control={control}
         rules={{
-          required: selectedTemplate === 'Guidelines',
+          required: true,
         }}
-        render={({ field }) => (
-          <Input.TextArea
-            {...field}
-            componentId={`${COMPONENT_ID_PREFIX}.guidelines-text-area`}
-            id="mlflow-experiment-scorers-guidelines"
-            readOnly={mode === SCORER_FORM_MODE.DISPLAY}
-            rows={3}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'The response must be in English',
-              description: 'Placeholder text for guidelines textarea',
-            })}
-            css={{ resize: 'vertical', cursor: mode === SCORER_FORM_MODE.DISPLAY ? 'auto' : 'text' }}
-            onClick={stopPropagationClick}
-          />
+        render={({ field, fieldState }) => (
+          <>
+            <Input.TextArea
+              {...field}
+              componentId={`${COMPONENT_ID_PREFIX}.guidelines-text-area`}
+              id="mlflow-experiment-scorers-guidelines"
+              readOnly={mode === SCORER_FORM_MODE.DISPLAY}
+              rows={3}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'The response must be concise, professional, and friendly.',
+                description: 'Placeholder text for guidelines textarea',
+              })}
+              css={{ resize: 'vertical', cursor: mode === SCORER_FORM_MODE.DISPLAY ? 'auto' : 'text' }}
+              onClick={stopPropagationClick}
+            />
+            {fieldState.error && <FormUI.Message type="error" message={fieldState.error.message} />}
+          </>
         )}
       />
     </div>
@@ -520,8 +540,10 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
     >
       <LLMTemplateSection mode={mode} control={control} setValue={setValue} currentTemplate={selectedTemplate} />
       <NameSection mode={mode} control={control} />
-      <GuidelinesSection mode={mode} control={control} selectedTemplate={selectedTemplate} />
-      <InstructionsSection mode={mode} control={control} setValue={setValue} getValues={getValues} />
+      {isGuidelinesTemplate(selectedTemplate) && <GuidelinesSection mode={mode} control={control} />}
+      {!isGuidelinesTemplate(selectedTemplate) && (
+        <InstructionsSection mode={mode} control={control} setValue={setValue} getValues={getValues} />
+      )}
       <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />
       <EvaluateTracesSectionRenderer control={control} mode={mode} />
     </div>
