@@ -189,6 +189,61 @@ class AgentServer:
             else:
                 return await self._handle_invoke_request(request_data)
 
+        @self.app.post("/responses/create")
+        async def responses_create_endpoint(request: Request):
+            # Capture headers (same as invocations)
+            set_request_headers(dict(request.headers))
+
+            try:
+                data = await request.json()
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Invalid JSON in request body: {e!s}")
+
+            logger.debug(
+                "Request received at /responses/create",
+                extra={
+                    "agent_type": self.agent_type,
+                    "request_size": len(json.dumps(data)),
+                    "stream_requested": data.get(STREAM_KEY, False),
+                },
+            )
+
+            # Extract stream parameter
+            is_streaming = data.pop(STREAM_KEY, False)
+
+            # Validate request (handles ResponsesAgentRequest with custom_inputs and context)
+            try:
+                request_data = self.validator.validate_and_convert_request(data)
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid parameters for {self.agent_type}: {e}",
+                )
+
+            # Forward to existing handlers (reuses all validation, tracing, execution logic)
+            if is_streaming:
+                return await self._handle_stream_request(request_data)
+            else:
+                return await self._handle_invoke_request(request_data)
+
+        @self.app.get("/agent/info")
+        async def agent_info_endpoint() -> dict[str, Any]:
+            # Get app name from environment or use default
+            app_name = os.getenv("DATABRICKS_APP_NAME", "mlflow_agent_server")
+
+            # Base info payload
+            info = {
+                "name": app_name,
+                "use_case": "agent",
+                "mlflow_version": mlflow.__version__,
+            }
+
+            # Conditionally add agent_api field for ResponsesAgent only
+            if self.agent_type == "ResponsesAgent":
+                info["agent_api"] = "responses"
+
+            return info
+
         @self.app.get("/health")
         async def health_check() -> dict[str, str]:
             return {"status": "healthy"}

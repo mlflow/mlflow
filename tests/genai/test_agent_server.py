@@ -660,3 +660,191 @@ async def test_chat_proxy_respects_chat_app_port_env_var(monkeypatch):
         mock_request.assert_called_once()
         call_args = mock_request.call_args
         assert call_args.kwargs["url"] == "http://localhost:8080/test"
+
+
+def test_responses_create_endpoint_invoke():
+    with patch("mlflow.start_span") as mock_span:
+        mock_span_instance = Mock()
+        mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
+        mock_span_instance.__exit__ = Mock(return_value=None)
+        mock_span.return_value = mock_span_instance
+
+        @invoke()
+        def test_invoke(request):
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "id": "123",
+                        "status": "completed",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Hello"}],
+                    }
+                ]
+            }
+
+        server = AgentServer("ResponsesAgent")
+        client = TestClient(server.app)
+
+        request_data = {
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "Hello"}],
+                }
+            ]
+        }
+
+        response = client.post("/responses/create", json=request_data)
+        assert response.status_code == 200
+        assert "output" in response.json()
+
+
+def test_responses_create_endpoint_stream():
+    with patch("mlflow.start_span") as mock_span:
+        mock_span_instance = Mock()
+        mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
+        mock_span_instance.__exit__ = Mock(return_value=None)
+        mock_span.return_value = mock_span_instance
+
+        @stream()
+        def test_stream(request):
+            yield ResponsesAgentStreamEvent(
+                type="response.output_item.done",
+                item={
+                    "type": "message",
+                    "id": "123",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Hello"}],
+                },
+            )
+
+        server = AgentServer("ResponsesAgent")
+        client = TestClient(server.app)
+
+        request_data = {
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "Hello"}],
+                }
+            ],
+            "stream": True,
+        }
+
+        response = client.post("/responses/create", json=request_data)
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
+
+
+def test_responses_create_with_custom_inputs_and_context():
+    with patch("mlflow.start_span") as mock_span:
+        mock_span_instance = Mock()
+        mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
+        mock_span_instance.__exit__ = Mock(return_value=None)
+        mock_span.return_value = mock_span_instance
+
+        @invoke()
+        def test_invoke(request):
+            assert request.custom_inputs == {"key": "value"}
+            assert request.context.user_id == "test-user"
+            return {
+                "output": [
+                    {
+                        "type": "message",
+                        "id": "123",
+                        "status": "completed",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Hello"}],
+                    }
+                ]
+            }
+
+        server = AgentServer("ResponsesAgent")
+        client = TestClient(server.app)
+
+        request_data = {
+            "input": [{"role": "user", "content": "Hello"}],
+            "custom_inputs": {"key": "value"},
+            "context": {"user_id": "test-user", "conversation_id": "conv-123"},
+        }
+
+        response = client.post("/responses/create", json=request_data)
+        assert response.status_code == 200
+
+
+def test_responses_create_validation_error():
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    invalid_data = {"invalid": "structure"}
+    response = client.post("/responses/create", json=invalid_data)
+    assert response.status_code == 400
+    assert "Invalid parameters for ResponsesAgent" in response.json()["detail"]
+
+
+def test_responses_create_malformed_json():
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.post("/responses/create", data="malformed json")
+    assert response.status_code == 400
+    assert "Invalid JSON in request body" in response.json()["detail"]
+
+
+def test_agent_info_endpoint_responses_agent():
+    import mlflow
+
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.get("/agent/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "mlflow_agent_server"
+    assert data["use_case"] == "agent"
+    assert data["mlflow_version"] == mlflow.__version__
+    assert data["agent_api"] == "responses"
+
+
+def test_agent_info_endpoint_no_agent_type():
+    import mlflow
+
+    server = AgentServer()
+    client = TestClient(server.app)
+
+    response = client.get("/agent/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "mlflow_agent_server"
+    assert data["use_case"] == "agent"
+    assert data["mlflow_version"] == mlflow.__version__
+    assert "agent_api" not in data
+
+
+def test_agent_info_endpoint_custom_app_name(monkeypatch):
+    import mlflow
+
+    monkeypatch.setenv("DATABRICKS_APP_NAME", "custom_agent")
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.get("/agent/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "custom_agent"
+    assert data["use_case"] == "agent"
+    assert data["mlflow_version"] == mlflow.__version__
+    assert data["agent_api"] == "responses"
+
+
+def test_agent_server_routes_registration_includes_new_routes():
+    server = AgentServer()
+    routes = [route.path for route in server.app.routes]
+    assert "/invocations" in routes
+    assert "/responses/create" in routes
+    assert "/agent/info" in routes
+    assert "/health" in routes
