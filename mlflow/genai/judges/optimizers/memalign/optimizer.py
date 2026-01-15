@@ -292,7 +292,7 @@ class MemoryAugmentedJudge(Judge):
         )
         self._semantic_memory.extend(new_guidelines)
         _logger.debug(
-            f"Distilled {len(new_guidelines)} new guidelines from {len(new_examples)} new examples"
+            f"Distilled {len(new_guidelines)} new guidelines from {len(new_examples)} new examples. Semantic memory now has {len(self._semantic_memory)} guidelines."
         )
 
     def _build_episodic_memory(self) -> None:
@@ -318,15 +318,17 @@ class MemoryAugmentedJudge(Judge):
         _logger.debug(f"Episodic memory corpus contains {len(corpus)} examples")
 
     def _add_examples_to_memory(self, examples: list["dspy.Example"]) -> None:
-        """Add examples to episodic memory and distill new guidelines.
+        """Add examples by updating both episodic memory and semantic memory.
 
         Args:
-            examples: Examples to add to episodic memory
+            examples: Examples to add
         """
+        # Update episodic memory
         self._episodic_memory.extend(examples)
-        self._distill_new_guidelines(examples)
         self._build_episodic_memory()
 
+        # Update semantic memory
+        self._distill_new_guidelines(examples)
 
 @experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
