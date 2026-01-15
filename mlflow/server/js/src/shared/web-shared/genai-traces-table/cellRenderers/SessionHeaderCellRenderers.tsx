@@ -1,7 +1,6 @@
 import { isNil } from 'lodash';
 import React from 'react';
 
-import type { ThemeType } from '@databricks/design-system';
 import {
   SpeechBubbleIcon,
   TableCell,
@@ -11,7 +10,7 @@ import {
   UserIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import type { IntlShape } from '@databricks/i18n';
+import { useIntl } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 
 import { NullCell } from './NullCell';
@@ -32,8 +31,6 @@ interface SessionHeaderCellProps {
   sessionId: string;
   traces: ModelTraceInfoV3[];
   onChangeEvaluationId?: (evaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => void;
-  theme: ThemeType;
-  intl: IntlShape;
   experimentId: string;
 }
 
@@ -41,14 +38,9 @@ interface SessionHeaderCellProps {
  * Renders a cell in the session header row based on the column type.
  * Returns null for columns that don't have session-level representations.
  */
-export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
-  column,
-  sessionId,
-  traces,
-  theme,
-  intl,
-  experimentId,
-}) => {
+export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, sessionId, traces, experimentId }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const firstTrace = traces[0];
 
   // Default: render empty cell for columns without session-level data
@@ -66,19 +58,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
             css={{ maxWidth: '100%' }}
           >
             <SpeechBubbleIcon css={{ fontSize: theme.typography.fontSizeBase, marginRight: theme.spacing.xs }} />
-            <span
-              css={{
-                display: 'inline-flex',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                alignItems: 'center',
-                minWidth: 0,
-                flexShrink: 1,
-              }}
-            >
-              {sessionId}
-            </span>
+            <Typography.Text ellipsis>{sessionId}</Typography.Text>
           </Tag>
         </SessionIdLinkWrapper>
       </div>
@@ -110,7 +90,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
         componentId="mlflow.genai-traces-table.session-header-request-time"
         content={date.toLocaleString(navigator.language, { timeZoneName: 'short' })}
       >
-        <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+        <Typography.Text ellipsis>
           {formatDateTime(date, intl, {
             year: 'numeric',
             month: '2-digit',
@@ -120,7 +100,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
             second: '2-digit',
             hour12: false,
           })}
-        </span>
+        </Typography.Text>
       </Tooltip>
     ) : (
       <NullCell />
@@ -140,7 +120,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
         title={value}
       >
         <UserIcon css={{ color: theme.colors.textSecondary, fontSize: 16, flexShrink: 0 }} />
-        <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{value}</span>
+        <Typography.Text ellipsis>{value}</Typography.Text>
       </div>
     ) : (
       <NullCell />

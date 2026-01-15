@@ -2,8 +2,7 @@ import type { Row, RowSelectionState } from '@tanstack/react-table';
 import type { VirtualItem } from '@tanstack/react-virtual';
 import React, { useCallback, useMemo } from 'react';
 
-import { Checkbox, TableCell, TableRow, TableRowSelectCell, useDesignSystemTheme } from '@databricks/design-system';
-import { useIntl } from '@databricks/i18n';
+import { Button, ChevronDownIcon, ChevronRightIcon, TableRow } from '@databricks/design-system';
 
 import { SessionHeaderCell } from './cellRenderers/SessionHeaderCellRenderers';
 import { GenAiTracesTableBodyRow } from './GenAiTracesTableBodyRows';
@@ -20,6 +19,7 @@ interface GenAiTracesTableSessionGroupedRowsProps {
   virtualizerTotalSize: number;
   virtualizerMeasureElement: (node: HTMLDivElement | null) => void;
   selectedColumns: TracesTableColumn[];
+  expandedSessions: Set<string>;
   toggleSessionExpanded: (sessionId: string) => void;
   experimentId: string;
 }
@@ -29,10 +29,9 @@ interface SessionHeaderRowProps {
   traceCount: number;
   traces: any[];
   selectedColumns: TracesTableColumn[];
-  enableRowSelection?: boolean;
-  sessionRows: Row<EvalTraceComparisonEntry>[];
-  isComparing: boolean;
   experimentId: string;
+  isExpanded: boolean;
+  toggleSessionExpanded: (sessionId: string) => void;
 }
 
 export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTracesTableSessionGroupedRows({
@@ -45,6 +44,8 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
   virtualizerMeasureElement,
   selectedColumns,
   experimentId,
+  expandedSessions,
+  toggleSessionExpanded,
 }: GenAiTracesTableSessionGroupedRowsProps) {
   // Create a map from eval data (contained in `groupedRows`) to the
   // actual table row from the tanstack data model. When grouping by
@@ -92,15 +93,9 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
                 traceCount={groupedRow.traces.length}
                 traces={groupedRow.traces}
                 selectedColumns={selectedColumns}
-                enableRowSelection={enableRowSelection}
-                sessionRows={rows.filter((row) => {
-                  // Filter rows that belong to this session
-                  const traceIds = groupedRow.traces.map((t) => t.trace_id).filter(Boolean);
-                  const rowTraceId = row.original.currentRunValue?.traceInfo?.trace_id;
-                  return rowTraceId && traceIds.includes(rowTraceId);
-                })}
-                isComparing={isComparing}
                 experimentId={experimentId}
+                isExpanded={expandedSessions.has(groupedRow.sessionId)}
+                toggleSessionExpanded={toggleSessionExpanded}
               />
             </div>
           );
@@ -147,54 +142,25 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
   sessionId,
   traces,
   selectedColumns,
-  enableRowSelection,
-  sessionRows,
-  isComparing,
   experimentId,
+  isExpanded,
+  toggleSessionExpanded,
 }: SessionHeaderRowProps) {
-  const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
-
-  // Calculate selection state for this session
-  const { allSelected, someSelected, exportableRows } = useMemo(() => {
-    // Filter to only exportable rows (those that can be selected)
-    const exportable = sessionRows.filter((row) => row.original.currentRunValue && !isComparing);
-
-    if (exportable.length === 0) {
-      return { allSelected: false, someSelected: false, exportableRows: [] };
-    }
-
-    const selectedCount = exportable.filter((row) => row.getIsSelected()).length;
-    return {
-      allSelected: selectedCount === exportable.length && selectedCount > 0,
-      someSelected: selectedCount > 0 && selectedCount < exportable.length,
-      exportableRows: exportable,
-    };
-  }, [sessionRows, isComparing]);
-
   // Handle toggle all rows in this session
-  const handleToggleAll = useCallback(() => {
-    const shouldSelect = !allSelected;
-    exportableRows.forEach((row) => {
-      row.toggleSelected(shouldSelect);
-    });
-  }, [allSelected, exportableRows]);
+  const handleToggleExpanded = useCallback(() => {
+    toggleSessionExpanded(sessionId);
+  }, [toggleSessionExpanded, sessionId]);
 
   return (
     <TableRow isHeader>
-      {/* Checkbox cell for session row selection */}
-      {enableRowSelection && (
-        <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0 }}>
-          <TableRowSelectCell
-            componentId="mlflow.genai-traces-table.session-select"
-            checked={allSelected}
-            indeterminate={someSelected}
-            onChange={handleToggleAll}
-            isDisabled={isComparing || exportableRows.length === 0}
-            css={{ marginRight: 0 }}
-          />
-        </div>
-      )}
+      <div css={{ display: 'flex', alignItems: 'center' }}>
+        <Button
+          componentId="mlflow.genai-traces-table.session-header.toggle-expanded"
+          size="small"
+          icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+          onClick={handleToggleExpanded}
+        />
+      </div>
       {/* Render a cell for each visible column from the table */}
       {selectedColumns.map((column) => (
         <SessionHeaderCell
@@ -202,8 +168,6 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
           column={column}
           sessionId={sessionId}
           traces={traces}
-          theme={theme}
-          intl={intl}
           experimentId={experimentId}
         />
       ))}
