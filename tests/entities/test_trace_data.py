@@ -64,7 +64,6 @@ def test_json_deserialization():
                             "exception.message": "Error!",
                             "exception.type": "Exception",
                             "exception.stacktrace": mock.ANY,
-                            "exception.escaped": "False",
                         },
                     }
                 ],
@@ -118,7 +117,6 @@ def test_json_deserialization():
                             "exception.message": "Error!",
                             "exception.type": "Exception",
                             "exception.stacktrace": mock.ANY,
-                            "exception.escaped": "False",
                         },
                     }
                 ],
