@@ -21,10 +21,16 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 
 import { NullCell } from './NullCell';
+import { NumericAverageDisplay, PassFailBar, StringValuesDisplay } from './SessionAssessmentRenderers';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { formatDateTime } from './rendererFunctions';
 import { EvaluationsReviewAssessmentTag } from '../components/EvaluationsReviewAssessmentTag';
 import { formatResponseTitle } from '../GenAiTracesTableBody.utils';
+import {
+  aggregateNumericAssessments,
+  aggregatePassFailAssessments,
+  aggregateStringAssessments,
+} from '../utils/SessionAggregationUtils';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   INPUTS_COLUMN_ID,
@@ -245,9 +251,24 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({ column, se
     !column.assessmentInfo?.isSessionLevelAssessment &&
     traces.length > 0
   ) {
-    cellContent = <SessionHeaderPassFailAggregatedCell assessmentInfo={column.assessmentInfo} traces={traces} />;
-  } else {
-    cellContent = <NullCell />;
+    // Non-session-level assessment column - aggregate values from all traces
+    const assessmentInfo = column.assessmentInfo;
+    const { dtype } = assessmentInfo;
+
+    if (dtype === 'pass-fail' || dtype === 'boolean') {
+      const { passCount, totalCount } = aggregatePassFailAssessments(traces, assessmentInfo);
+      cellContent = totalCount > 0 ? <PassFailBar passCount={passCount} totalCount={totalCount} /> : <NullCell />;
+    } else if (dtype === 'numeric') {
+      const { average, count } = aggregateNumericAssessments(traces, assessmentInfo.name);
+      cellContent =
+        count > 0 && average !== null ? <NumericAverageDisplay average={average} count={count} /> : <NullCell />;
+    } else if (dtype === 'string' || dtype === 'unknown') {
+      const { valueCounts, totalCount } = aggregateStringAssessments(traces, assessmentInfo.name);
+      cellContent =
+        totalCount > 0 && valueCounts.size > 0 ? <StringValuesDisplay valueCounts={valueCounts} /> : <NullCell />;
+    } else {
+      cellContent = <NullCell />;
+    }
   }
 
   return (
