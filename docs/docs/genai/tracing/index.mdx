@@ -216,6 +216,50 @@ In addition to the one-line auto tracing experience, MLflow offers Python SDK fo
 - [Disable tracing globally](/genai/tracing/app-instrumentation/automatic#disabling-tracing)
 - [Configure sampling ratio to control trace throughput](/genai/tracing/prod-tracing#sampling-traces)
 
+### Propagate Trace Context Across Services
+
+When your application spans multiple services, propagate the active trace context over HTTP so spans recorded in different services are stitched into a single trace.
+
+If you set up MLflow tracking to Databricks, to make distributed tracing work, the trace destination must be set to Unity Catalog. Please refer to [Store MLflow traces in Unity Catalog](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog) for details.
+
+- Use `mlflow.tracing.distributed.get_tracing_context_headers_for_http_request()` on the client to inject headers.
+- Use `mlflow.tracing.distributed.set_tracing_context_from_http_request_headers(headers)` on the server to extract and set the current context for the duration of the request.
+- See full API reference: [/api_reference/python_api/mlflow.tracing.distributed](/api_reference/python_api/mlflow.tracing.distributed)
+
+Client example:
+
+```python
+import requests
+import mlflow
+from mlflow.tracing.distributed import get_tracing_context_headers_for_http_request
+
+with mlflow.start_span("client-root"):
+    headers = get_tracing_context_headers_for_http_request()
+    requests.post(
+        "https://your.service/handle", headers=headers, json={"input": "hello"}
+    )
+```
+
+Server handler example:
+
+```python
+import mlflow
+from flask import Flask, request
+from mlflow.tracing.distributed import set_tracing_context_from_http_request_headers
+
+app = Flask(__name__)
+
+
+@app.post("/handle")
+def handle():
+    headers = dict(request.headers)
+    with set_tracing_context_from_http_request_headers(headers):
+        with mlflow.start_span("server-handler") as span:
+            # ... your logic ...
+            span.set_attribute("status", "ok")
+    return {"ok": True}
+```
+
 ## Production Readiness
 
 MLflow Tracing is production ready and provides comprehensive monitoring capabilities for your GenAI applications in production environments. By enabling [async logging](/genai/tracing/prod-tracing/#asynchronous-trace-logging), trace logging is done in the background and does not impact the performance of your application.
