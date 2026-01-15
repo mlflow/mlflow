@@ -31,12 +31,12 @@ module.exports = async ({ context, github }) => {
 
   const title = "&#x1F6E0 DevTools &#x1F6E0";
   // Check if a DevTools comment already exists
-  const comments = await github.rest.issues.listComments({
+  const comments = await github.paginate(github.rest.issues.listComments, {
     owner,
     repo,
     issue_number,
   });
-  const devToolsCommentExists = comments.data.some((comment) => comment.body.includes(title));
+  const devToolsCommentExists = comments.some((comment) => comment.body.includes(title));
 
   if (!devToolsCommentExists) {
     const devToolsComment = `
