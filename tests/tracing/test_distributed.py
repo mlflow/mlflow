@@ -27,18 +27,7 @@ def flask_server(
     wait_timeout: int = 30,
     health_endpoint: str = "/health",
 ) -> Iterator[str]:
-    """
-    Context manager to run a Flask server in a subprocess.
-
-    Args:
-        server_script_path: Path to the Flask server Python script.
-        port: Port number for the Flask server.
-        wait_timeout: Maximum time in seconds to wait for server to be ready.
-        health_endpoint: Endpoint to poll for server readiness.
-
-    Yields:
-        Base URL of the running Flask server (e.g., "http://127.0.0.1:5000").
-    """
+    """Context manager to run a Flask server in a subprocess."""
     proc = subprocess.Popen([sys.executable, str(server_script_path), str(port)])
     base_url = f"http://127.0.0.1:{port}"
 
