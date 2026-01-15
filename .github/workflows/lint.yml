@@ -60,7 +60,7 @@ jobs:
         run: |
           # Run uv sync and yarn in parallel for faster installation
           uv sync --locked --only-group lint --only-group test &
-          (cd mlflow/server/js && yarn --immutable-cache)
+          (cd mlflow/server/js && yarn install --immutable)
           wait
       - name: Install pre-commit hooks
         run: |

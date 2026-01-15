@@ -19,7 +19,7 @@ fi
 cd mlflow/server/js
 
 if [ ! -d node_modules ]; then
-  yarn --immutable-cache --silent
+  yarn install --immutable --silent
 fi
 
 # Convert paths from repo root to relative paths
