@@ -2615,8 +2615,8 @@ def test_import_checkpoints_overwrite():
 
     def patched_list_directory_contents(dir_path):
         return [
-            SimpleNamespace(path=os.path.join(dir_path, "ckpt1/")),
-            SimpleNamespace(path=os.path.join(dir_path, "ckpt2")),
+            SimpleNamespace(path=f"{dir_path}/ckpt1/"),
+            SimpleNamespace(path=f"{dir_path}/ckpt2"),
         ]
 
     ws.files.list_directory_contents = patched_list_directory_contents
