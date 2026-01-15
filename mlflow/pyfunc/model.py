@@ -10,6 +10,7 @@ import logging
 import lzma
 import os
 import shutil
+import warnings
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import Any, Generator, Iterator
@@ -75,6 +76,7 @@ from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
+    is_in_databricks_runtime,
     is_in_databricks_serverless_runtime,
 )
 from mlflow.utils.environment import (
@@ -1252,6 +1254,17 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
         if callable(python_model):
             python_model = _FunctionPythonModel(python_model, signature=signature)
     else:
+        if not is_in_databricks_runtime():
+            warnings.warn(
+                "Saving the Pyfunc models in the CloudPickle format requires exercising "
+                "caution as Python's object serialization mechanism may execute arbitrary code "
+                "during deserialization."
+                "The recommended safe alternative is the saving it as the model-from-code "
+                "artifacts, see https://mlflow.org/docs/latest/ml/model/models-from-code/ "
+                "for details",
+                FutureWarning,
+                stacklevel=2,
+            )
         python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
         if python_model_cloudpickle_version is None:
             mlflow.pyfunc._logger.warning(

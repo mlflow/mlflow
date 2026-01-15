@@ -3,6 +3,7 @@ import {
   Alert,
   Breadcrumb,
   Button,
+  FormUI,
   Spinner,
   Tooltip,
   Typography,
@@ -17,6 +18,7 @@ import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
 import { EndpointUsageModal } from '../endpoints/EndpointUsageModal';
+import { GatewayInput } from '../common';
 
 export interface EditEndpointFormRendererProps {
   form: UseFormReturn<EditEndpointFormData>;
@@ -41,11 +43,13 @@ export const EditEndpointFormRenderer = ({
   loadError,
   mutationError,
   errorMessage,
+  resetErrors,
   endpointName,
   isFormComplete,
   hasChanges,
   onSubmit,
   onCancel,
+  onNameBlur,
 }: EditEndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -139,6 +143,56 @@ export const EditEndpointFormRenderer = ({
             }}
           >
             <Typography.Title level={3}>
+              <FormattedMessage defaultMessage="Endpoint Name" description="Section title for endpoint name" />
+            </Typography.Title>
+            <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
+              <FormattedMessage
+                defaultMessage="The name is used in the endpoint URL. Only letters, numbers, underscores, hyphens, and dots are allowed."
+                description="Endpoint name description"
+              />
+            </Typography.Text>
+
+            <div css={{ marginTop: theme.spacing.md }}>
+              <Controller
+                control={form.control}
+                name="name"
+                render={({ field, fieldState }) => (
+                  <div>
+                    <GatewayInput
+                      id="mlflow.gateway.edit-endpoint.name"
+                      componentId="mlflow.gateway.edit-endpoint.name"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                        form.clearErrors('name');
+                        resetErrors();
+                      }}
+                      onBlur={() => {
+                        field.onBlur();
+                        onNameBlur();
+                      }}
+                      placeholder={intl.formatMessage({
+                        defaultMessage: 'my-endpoint',
+                        description: 'Placeholder for endpoint name input',
+                      })}
+                      validationState={fieldState.error ? 'error' : undefined}
+                    />
+                    {fieldState.error && <FormUI.Message type="error" message={fieldState.error.message} />}
+                  </div>
+                )}
+              />
+            </div>
+          </div>
+
+          <div
+            css={{
+              padding: theme.spacing.md,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              backgroundColor: theme.colors.backgroundSecondary,
+            }}
+          >
+            <Typography.Title level={3}>
               <FormattedMessage
                 defaultMessage="Priority 1 (Traffic Split)"
                 description="Section title for traffic split"
@@ -165,26 +219,6 @@ export const EditEndpointFormRenderer = ({
               />
             </div>
           </div>
-
-          {trafficSplitModels.length > 0 && fallbackModels.length > 0 && (
-            <div
-              css={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: theme.spacing.lg,
-                position: 'relative',
-              }}
-            >
-              <div
-                css={{
-                  width: 3,
-                  height: '100%',
-                  backgroundColor: theme.colors.actionDefaultBorderDefault,
-                }}
-              />
-            </div>
-          )}
 
           <div
             css={{
@@ -219,6 +253,50 @@ export const EditEndpointFormRenderer = ({
                   />
                 )}
               />
+            </div>
+          </div>
+
+          <div css={{ display: 'flex', gap: theme.spacing.md }}>
+            <div
+              css={{
+                flex: 1,
+                padding: theme.spacing.md,
+                border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
+                borderRadius: theme.borders.borderRadiusMd,
+                backgroundColor: theme.colors.backgroundPrimary,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+              }}
+            >
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Usage Tracking" description="Section title for usage tracking" />
+              </Typography.Text>
+              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
+              </Typography.Text>
+            </div>
+
+            <div
+              css={{
+                flex: 1,
+                padding: theme.spacing.md,
+                border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
+                borderRadius: theme.borders.borderRadiusMd,
+                backgroundColor: theme.colors.backgroundPrimary,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+              }}
+            >
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Rate Limiting" description="Section title for rate limiting" />
+              </Typography.Text>
+              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
+              </Typography.Text>
             </div>
           </div>
         </div>

@@ -192,6 +192,7 @@ class UvicornGateway:
             lifespan="on",
             loop="auto",
             log_level="info",
+            ws="none",
         )
         self.server = uvicorn.Server(config)
 

@@ -45,10 +45,17 @@ def test_resolve_route_url_qualified_url_ignores_base(base_url):
     ("name", "expected"),
     [
         ("validName", True),
+        ("valid-name", True),
+        ("valid_name", True),
+        ("valid.name", True),
+        ("valid123", True),
         ("invalid name", False),
         ("invalid/name", False),
         ("invalid?name", False),
         ("", False),
+        ("日本語", False),  # Japanese characters
+        ("naïve", False),  # accented characters
+        ("名前", False),  # Chinese characters
     ],
 )
 def test_is_valid_endpoint_name(name, expected):

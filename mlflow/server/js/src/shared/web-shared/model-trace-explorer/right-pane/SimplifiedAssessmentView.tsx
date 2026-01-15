@@ -57,6 +57,7 @@ const AssessmentCard = ({ assessment }: { assessment: FeedbackAssessment }) => {
   const value = getAssessmentValue(assessment);
   const rationale = assessment.rationale;
   const hasError = !isNil(assessment.feedback.error);
+  const hasNullValue = !hasError && isNil(value);
 
   return (
     <div
@@ -90,8 +91,15 @@ const AssessmentCard = ({ assessment }: { assessment: FeedbackAssessment }) => {
       {/* Error display */}
       {hasError && <FeedbackErrorItem error={assessment.feedback.error as AssessmentError} />}
 
+      {/* Null value display - show as error */}
+      {hasNullValue && (
+        <FeedbackErrorItem
+          error={{ error_code: 'NO_RESULT', error_message: 'The scorer did not return a result for this trace.' }}
+        />
+      )}
+
       {/* Result value */}
-      {!hasError && value !== undefined && (
+      {!hasError && !hasNullValue && (
         <div css={{ display: 'flex', alignItems: 'center' }}>
           <AssessmentDisplayValue jsonValue={JSON.stringify(value)} assessmentName={assessment.assessment_name} />
         </div>

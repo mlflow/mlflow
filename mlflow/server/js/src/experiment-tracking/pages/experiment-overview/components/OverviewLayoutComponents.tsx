@@ -24,13 +24,13 @@ export const StatCard: React.FC<StatCardProps> = ({ icon, iconColor, iconBgColor
       css={{
         display: 'flex',
         alignItems: 'center',
-        gap: theme.spacing.md,
-        padding: theme.spacing.lg,
+        gap: theme.spacing.sm,
+        padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
         backgroundColor: theme.colors.backgroundPrimary,
         borderRadius: theme.borders.borderRadiusMd,
         border: `1px solid ${theme.colors.border}`,
         flex: 1,
-        minWidth: 200,
+        minWidth: 160,
       }}
     >
       <div
@@ -38,8 +38,8 @@ export const StatCard: React.FC<StatCardProps> = ({ icon, iconColor, iconBgColor
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: 40,
-          height: 40,
+          width: theme.general.iconSize,
+          height: theme.general.iconSize,
           borderRadius: theme.borders.borderRadiusMd,
           backgroundColor: iconBgColor,
           color: iconColor,
@@ -48,13 +48,13 @@ export const StatCard: React.FC<StatCardProps> = ({ icon, iconColor, iconBgColor
       >
         {icon}
       </div>
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+      <div css={{ display: 'flex', flexDirection: 'column' }}>
         {isLoading ? (
           <TitleSkeleton css={{ width: '60%' }} />
         ) : (
-          <Typography.Title level={2} css={{ margin: 0 }}>
+          <Typography.Text bold size="lg">
             {value}
-          </Typography.Title>
+          </Typography.Text>
         )}
         <Typography.Text color="secondary" size="sm">
           {label}

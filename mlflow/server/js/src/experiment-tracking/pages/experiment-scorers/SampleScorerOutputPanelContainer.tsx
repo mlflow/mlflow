@@ -7,7 +7,7 @@ import { useEvaluateTraces } from './useEvaluateTraces';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import { convertEvaluationResultToAssessment } from './llmScorerUtils';
 import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope, SCORER_TYPE } from './constants';
-import { EvaluateTracesParams, LLM_TEMPLATE } from './types';
+import { EvaluateTracesParams, LLM_TEMPLATE, isGuidelinesTemplate } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
 import { JudgeEvaluationResult } from './useEvaluateTraces.common';
@@ -50,9 +50,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
   // Carousel state for navigating through traces
   const [currentTraceIndex, setCurrentTraceIndex] = useState(0);
-
-  // Request ID pattern to handle stale results
-  const requestIdRef = useRef(0);
 
   // Determine if we're in custom or built-in judge mode
   const isCustomMode = llmTemplate === LLM_TEMPLATE.CUSTOM;
@@ -175,6 +172,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   const hasNameError = Boolean((errors as any).name?.message);
   const hasInstructionsError = Boolean((errors as any).instructions?.message);
   const isRetrievalRelevance = llmTemplate === LLM_TEMPLATE.RETRIEVAL_RELEVANCE;
+  const hasEmptyGuidelines = isGuidelinesTemplate(llmTemplate) && (!guidelines || !guidelines.trim());
 
   // Determine tooltip message based on why the button is disabled
   const runScorerDisabledReason = useMemo(() => {
@@ -208,6 +206,12 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       }
     } else {
       // Built-in judge mode
+      if (hasEmptyGuidelines) {
+        return intl.formatMessage({
+          defaultMessage: 'Guidelines should not be empty',
+          description: 'Tooltip message when guidelines are empty',
+        });
+      }
       if (isRetrievalRelevance) {
         return intl.formatMessage({
           defaultMessage: 'Retrieval Relevance is not yet supported for sample judge output',
@@ -230,6 +234,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     hasInstructionsError,
     hasNameError,
     isRetrievalRelevance,
+    hasEmptyGuidelines,
     intl,
   ]);
 
@@ -245,6 +250,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       currentEvalResult={currentEvalResult}
       assessments={assessments}
       handleRunScorer={handleRunScorer}
+      handleCancel={reset}
       handlePrevious={handlePrevious}
       handleNext={handleNext}
       totalTraces={data?.length ?? 0}

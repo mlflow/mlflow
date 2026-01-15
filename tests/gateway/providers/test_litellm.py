@@ -17,7 +17,7 @@ def chat_config():
             "provider": "litellm",
             "name": "claude-3-5-sonnet-20241022",
             "config": {
-                "litellm_api_key": "test-key",
+                "litellm_auth_config": {"api_key": "test-key"},
             },
         },
     }
@@ -31,8 +31,10 @@ def chat_config_with_api_base():
             "provider": "litellm",
             "name": "custom-model",
             "config": {
-                "litellm_api_key": "test-key",
-                "litellm_api_base": "https://custom-api.example.com",
+                "litellm_auth_config": {
+                    "api_key": "test-key",
+                    "api_base": "https://custom-api.example.com",
+                },
             },
         },
     }
@@ -47,7 +49,7 @@ def chat_config_with_provider():
             "name": "claude-3-5-sonnet-20241022",
             "config": {
                 "litellm_provider": "anthropic",
-                "litellm_api_key": "test-key",
+                "litellm_auth_config": {"api_key": "test-key"},
             },
         },
     }
@@ -61,7 +63,7 @@ def embeddings_config():
             "provider": "litellm",
             "name": "text-embedding-3-small",
             "config": {
-                "litellm_api_key": "test-key",
+                "litellm_auth_config": {"api_key": "test-key"},
             },
         },
     }
