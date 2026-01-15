@@ -888,22 +888,21 @@ async def test_chat_proxy_forwards_root_path():
 
 
 @pytest.mark.asyncio
-async def test_chat_proxy_forwards_assets_path():
+@pytest.mark.parametrize("path", ["/", "/assets/index.js", "/api/session"])
+async def test_chat_proxy_forwards_allowlisted_paths(path):
     server = AgentServer(enable_chat_proxy=True)
     client = TestClient(server.app)
 
     mock_response = Mock()
-    mock_response.content = b"console.log('test');"
+    mock_response.content = b"response"
     mock_response.status_code = 200
-    mock_response.headers = {"content-type": "application/javascript"}
+    mock_response.headers = {}
 
     with patch.object(server.proxy_client, "request", return_value=mock_response) as mock_request:
-        response = client.get("/assets/index-abc123.js")
+        response = client.get(path)
         assert response.status_code == 200
         mock_request.assert_called_once()
-        assert (
-            mock_request.call_args.kwargs["url"] == "http://localhost:3000/assets/index-abc123.js"
-        )
+        assert mock_request.call_args.kwargs["url"] == f"http://localhost:3000{path}"
 
 
 @pytest.mark.asyncio
@@ -924,21 +923,9 @@ async def test_chat_proxy_forwards_favicon():
 
 
 @pytest.mark.asyncio
-async def test_chat_proxy_blocks_api_paths():
-    server = AgentServer(enable_chat_proxy=True)
-    client = TestClient(server.app)
-
-    with patch.object(server.proxy_client, "request") as mock_request:
-        response = client.get("/api/session")
-        assert response.status_code == 404
-        assert response.text == "Not found"
-        mock_request.assert_not_called()
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "path",
-    ["/api/chat", "/api/config", "/some/random/path", "/admin", "/.env"],
+    ["/some/random/path", "/admin", "/.env"],
 )
 async def test_chat_proxy_blocks_arbitrary_paths(path):
     server = AgentServer(enable_chat_proxy=True)
@@ -954,7 +941,7 @@ async def test_chat_proxy_blocks_arbitrary_paths(path):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "path",
-    ["/assets/../.env", "/assets/../../etc/passwd", "/assets/../api/config"],
+    ["/assets/../.env", "/assets/../../etc/passwd", "/assets/../admin"],
 )
 async def test_chat_proxy_blocks_path_traversal_attempts(path):
     server = AgentServer(enable_chat_proxy=True)
