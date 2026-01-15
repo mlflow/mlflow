@@ -34,8 +34,8 @@ module.exports = async () => {
       cwd: tempDir,
       stdio: 'inherit',
       // Create a new process group so we can kill the entire group
-      detached: true
-    }
+      detached: true,
+    },
   );
 
   try {

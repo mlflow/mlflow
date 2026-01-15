@@ -42,7 +42,7 @@
     "curly": ["error", "all"],
     "no-trailing-spaces": "error",
     "no-multiple-empty-lines": ["error", { "max": 2 }],
-    "comma-dangle": ["error", "never"],
+    "comma-dangle": ["error", "always-multiline"],
 
     // Import/Export rules
     "no-duplicate-imports": "error",
