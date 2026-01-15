@@ -16,6 +16,11 @@ from mlflow.telemetry.events import (
     CreateRunEvent,
     DatasetToDataFrameEvent,
     EvaluateEvent,
+    GatewayCreateEndpointEvent,
+    GatewayCreateSecretEvent,
+    GatewayListEndpointsEvent,
+    GatewayListSecretsEvent,
+    GatewayUpdateEndpointEvent,
     LogAssessmentEvent,
     MakeJudgeEvent,
     MergeRecordsEvent,
@@ -290,6 +295,115 @@ def test_prompt_optimization_parse_params(arguments, expected_params):
 )
 def test_simulate_conversation_parse_result(result, expected_params):
     assert SimulateConversationEvent.parse_result(result) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {
+                "fallback_config": {"strategy": "FAILOVER"},
+                "routing_strategy": "REQUEST_BASED_TRAFFIC_SPLIT",
+                "model_configs": [{"model_definition_id": "md-1"}, {"model_definition_id": "md-2"}],
+            },
+            {
+                "has_fallback_config": True,
+                "routing_strategy": "REQUEST_BASED_TRAFFIC_SPLIT",
+                "num_model_configs": 2,
+            },
+        ),
+        (
+            {
+                "fallback_config": None,
+                "routing_strategy": None,
+                "model_configs": [{"model_definition_id": "md-1"}],
+            },
+            {
+                "has_fallback_config": False,
+                "routing_strategy": None,
+                "num_model_configs": 1,
+            },
+        ),
+        (
+            {"fallback_config": None, "routing_strategy": None, "model_configs": []},
+            {"has_fallback_config": False, "routing_strategy": None, "num_model_configs": 0},
+        ),
+        (
+            {},
+            {"has_fallback_config": False, "routing_strategy": None, "num_model_configs": 0},
+        ),
+    ],
+)
+def test_gateway_create_endpoint_parse_params(arguments, expected_params):
+    assert GatewayCreateEndpointEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {
+                "fallback_config": {"strategy": "FAILOVER"},
+                "routing_strategy": "ROUND_ROBIN",
+                "model_configs": [{"model_definition_id": "md-1"}],
+            },
+            {
+                "has_fallback_config": True,
+                "routing_strategy": "ROUND_ROBIN",
+                "num_model_configs": 1,
+            },
+        ),
+        (
+            {"fallback_config": None, "routing_strategy": None, "model_configs": None},
+            {"has_fallback_config": False, "routing_strategy": None, "num_model_configs": None},
+        ),
+        (
+            {},
+            {"has_fallback_config": False, "routing_strategy": None, "num_model_configs": None},
+        ),
+    ],
+)
+def test_gateway_update_endpoint_parse_params(arguments, expected_params):
+    assert GatewayUpdateEndpointEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        ({"provider": "openai"}, {"filter_by_provider": True}),
+        ({"provider": "anthropic"}, {"filter_by_provider": True}),
+        ({"provider": None}, {"filter_by_provider": False}),
+        ({}, {"filter_by_provider": False}),
+    ],
+)
+def test_gateway_list_endpoints_parse_params(arguments, expected_params):
+    assert GatewayListEndpointsEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        ({"provider": "openai"}, {"provider": "openai"}),
+        ({"provider": "anthropic"}, {"provider": "anthropic"}),
+        ({"provider": None}, {"provider": None}),
+        ({}, {"provider": None}),
+    ],
+)
+def test_gateway_create_secret_parse_params(arguments, expected_params):
+    assert GatewayCreateSecretEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        ({"provider": "openai"}, {"filter_by_provider": True}),
+        ({"provider": "anthropic"}, {"filter_by_provider": True}),
+        ({"provider": None}, {"filter_by_provider": False}),
+        ({}, {"filter_by_provider": False}),
+    ],
+)
+def test_gateway_list_secrets_parse_params(arguments, expected_params):
+    assert GatewayListSecretsEvent.parse(arguments) == expected_params
 
 
 def test_simulate_conversation_parse_params():

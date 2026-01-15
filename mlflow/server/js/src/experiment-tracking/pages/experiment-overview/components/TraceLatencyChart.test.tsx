@@ -213,16 +213,6 @@ describe('TraceLatencyChart', () => {
       });
     });
 
-    it('should display "Over time" label', async () => {
-      setupTraceMetricsHandler(mockPercentileDataPoints, mockAvgDataPoints);
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Over time')).toBeInTheDocument();
-      });
-    });
-
     it('should format latency in seconds for values >= 1000ms', async () => {
       setupTraceMetricsHandler(mockPercentileDataPoints, [createAvgLatencyDataPoint(1500)]);
 

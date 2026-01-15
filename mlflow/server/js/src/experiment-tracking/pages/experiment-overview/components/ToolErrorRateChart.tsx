@@ -9,7 +9,6 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  OverviewChartTimeLabel,
   ScrollableTooltip,
   useChartXAxisProps,
   useChartYAxisProps,
@@ -52,7 +51,7 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
 
   if (!hasData) {
     return (
-      <OverviewChartContainer data-testid={`tool-chart-${toolName}`}>
+      <OverviewChartContainer componentId="mlflow.charts.tool_error_rate" data-testid={`tool-chart-${toolName}`}>
         <OverviewChartHeader icon={<WrenchIcon css={{ color: chartLineColor }} />} title={toolName} />
         <OverviewChartEmptyState />
       </OverviewChartContainer>
@@ -60,7 +59,7 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
   }
 
   return (
-    <OverviewChartContainer data-testid={`tool-chart-${toolName}`}>
+    <OverviewChartContainer componentId="mlflow.charts.tool_error_rate" data-testid={`tool-chart-${toolName}`}>
       <OverviewChartHeader
         icon={<WrenchIcon css={{ color: chartLineColor }} />}
         title={toolName}
@@ -69,8 +68,6 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
           <FormattedMessage defaultMessage="overall error rate" description="Subtitle for overall tool error rate" />
         }
       />
-
-      <OverviewChartTimeLabel />
 
       <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT }}>
         <ResponsiveContainer width="100%" height="100%">

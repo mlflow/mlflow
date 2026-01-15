@@ -34,7 +34,12 @@ module.exports = async () => {
       cwd: tempDir,
       stdio: 'inherit',
       // Create a new process group so we can kill the entire group
-      detached: true
+      detached: true,
+      env: {
+        ...process.env,
+        // Disable job execution to avoid timing issues in tests
+        MLFLOW_SERVER_ENABLE_JOB_EXECUTION: 'false'
+      }
     }
   );
 

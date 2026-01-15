@@ -1382,10 +1382,6 @@
     "defaultMessage": "2. Trace your code",
     "description": "Section title introducing the tracing quickstart example"
   },
-  "8xKF+v": {
-    "defaultMessage": "Over time",
-    "description": "Label above time-series charts"
-  },
   "8xji5J": {
     "defaultMessage": "X-axis:",
     "description": "Label text for X-axis in box plot comparison in MLflow"
@@ -2317,6 +2313,10 @@
   "GogRws": {
     "defaultMessage": "Loading judges...",
     "description": "Loading message while fetching experiment judges"
+  },
+  "Gopd1/": {
+    "defaultMessage": "Assistant",
+    "description": "Label for global Assistant button"
   },
   "Gs+blV": {
     "defaultMessage": "Last modified",
@@ -5899,6 +5899,10 @@
     "defaultMessage": "Knowledge retention",
     "description": "LLM template option"
   },
+  "jLHxac": {
+    "defaultMessage": "Coming Soon",
+    "description": "Coming soon label"
+  },
   "jMUqD1": {
     "defaultMessage": "Safety",
     "description": "Evaluation results > known type of evaluation result assessment > safety assessment. Used to indicate if the result is safe in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Safety: moderate\""
@@ -6519,6 +6523,10 @@
     "defaultMessage": "Custom code judge",
     "description": "Menu item text to create a new custom code judge"
   },
+  "o6lfQF": {
+    "defaultMessage": "Ask Assistant for help",
+    "description": "Tooltip for global Ask Assistant button"
+  },
   "o7dzKo": {
     "defaultMessage": "Last Modified",
     "description": "Label name for last modified timestamp metadata in model version page"
@@ -6631,9 +6639,17 @@
     "defaultMessage": "No group by columns selected",
     "description": "Experiment page > artifact compare view > empty state for no group by columns selected > title"
   },
+  "oxHklW": {
+    "defaultMessage": "Rate Limiting",
+    "description": "Section title for rate limiting"
+  },
   "oy2LTl": {
     "defaultMessage": "Filter",
     "description": "Label for the span filters popover in the trace explorer."
+  },
+  "p/wUKB": {
+    "defaultMessage": "MLflow Assistant",
+    "description": "Title for the global Assistant chat panel"
   },
   "p1H1KR": {
     "defaultMessage": "Last 30 days",
@@ -6642,6 +6658,10 @@
   "p2po2x": {
     "defaultMessage": "Delete prompt",
     "description": "A header for the delete prompt modal"
+  },
+  "p8KS2c": {
+    "defaultMessage": "Usage Tracking",
+    "description": "Section title for usage tracking"
   },
   "pBUaAK": {
     "defaultMessage": "Are you sure you want to delete this tag？",

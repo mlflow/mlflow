@@ -1,7 +1,7 @@
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
-import { Shield, Globe, Zap, Users, Wrench, Play, GitBranch, BarChart3 } from "lucide-react";
+import { Shield, Globe, Zap, Users, Wrench, Play, GitBranch, BarChart3, Lock } from "lucide-react";
 
 # MLflow AI Gateway
 
@@ -44,64 +44,42 @@ MLflow AI Gateway also offers passthrough endpoints, enabling requests to be for
   }
 ]} />
 
-## Quick Start
-
-Get your AI Gateway running in minutes:
-
-**1. Install MLflow with GenAI dependencies:**
-
-```bash
-pip install 'mlflow[genai]'
-```
-
-**2. Start the MLflow Tracking Server:**
-
-```bash
-mlflow server --port 5000
-```
-
-The AI Gateway runs within the MLflow Tracking Server itself and requires a SQL-based backend store with the FastAPI tracking server.
-
-**3. Configure your first endpoint:**
-
-Navigate to `http://localhost:5000/#/gateway` and create your first endpoint `my-chat-endpoint` through the web interface. Select your provider, model, and configure your API key. API keys are encrypted and stored securely in the MLflow backend.
-
-![Create Endpoint](/images/genai/governance/ai-gateway/create-endpoint.png)
-
-**4. Test your endpoint:**
-
-```bash
-curl -X POST http://localhost:5000/gateway/my-chat-endpoint/mlflow/invocations \
-  -H "Content-Type: application/json" \
-  -d '{
-    "messages": [{"role": "user", "content": "Hello!"}]
-  }'
-```
-
 ## Next Steps
-
-Ready to dive deeper? Start with the setup guide or explore the legacy YAML-based configuration:
 
 <TilesGrid>
   <TileCard
-    icon={Wrench}
-    title="Setup Guide"
-    description="Configure endpoints, API keys, and advanced routing features"
-    href="./setup"
+    icon={Play}
+    title="Quickstart"
+    description="Get your AI Gateway running in minutes with a simple walkthrough"
+    href="./quickstart"
     linkText="Get started →"
   />
   <TileCard
+    icon={Shield}
+    title="API Keys"
+    description="Create and manage API keys for secure credential management"
+    href="./api-keys/create-and-manage"
+    linkText="Manage keys →"
+  />
+  <TileCard
+    icon={Wrench}
+    title="Endpoints"
+    description="Create, configure, and query AI model endpoints"
+    href="./endpoints/create-and-manage"
+    linkText="Configure endpoints →"
+  />
+  <TileCard
     icon={GitBranch}
-    title="Advanced Routing"
+    title="Traffic Routing"
     description="Configure traffic splitting and fallbacks for high availability"
-    href="./routing"
+    href="./traffic-routing-fallbacks"
     linkText="Learn routing →"
   />
   <TileCard
-    icon={Play}
-    title="Query Guide"
-    description="Learn how to call endpoints with unified and passthrough APIs"
-    href="./query"
-    linkText="View query guide →"
+    icon={Lock}
+    title="Authentication"
+    description="Configure HTTP Basic Authentication for AI Gateway resources"
+    href="/self-hosting/security/basic-http-auth#ai-gateway-permissions"
+    linkText="Learn more →"
   />
 </TilesGrid>

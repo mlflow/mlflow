@@ -8,6 +8,7 @@ import {
   ModelTraceExplorerSkeleton,
   useGetTracesById,
 } from '@databricks/web-shared/model-trace-explorer';
+import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 
 // prettier-ignore
 export const GenAITraceComparisonModal = ({
@@ -25,7 +26,7 @@ export const GenAITraceComparisonModal = ({
   const modelTraces = useMemo(() => compact(fetchedTraces), [fetchedTraces]);
 
   return (
-    <Drawer.Root
+    <AssistantAwareDrawer.Root
       open
       onOpenChange={(open) => {
         if (!open) {
@@ -33,7 +34,7 @@ export const GenAITraceComparisonModal = ({
         }
       }}
     >
-      <Drawer.Content
+      <AssistantAwareDrawer.Content
         componentId="mlflow.evaluations_review.modal"
         width="90vw"
         title={
@@ -71,7 +72,7 @@ export const GenAITraceComparisonModal = ({
             }}
           />
         )}
-      </Drawer.Content>
-    </Drawer.Root>
+      </AssistantAwareDrawer.Content>
+    </AssistantAwareDrawer.Root>
   );
 };

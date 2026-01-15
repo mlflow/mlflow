@@ -18,6 +18,28 @@ from mlflow.utils.uri import append_to_uri_path
 _logger = logging.getLogger(__name__)
 _gateway_uri: str | None = None
 
+DATABRICKS_SERVING_ENDPOINTS_PATH = "/serving-endpoints"
+
+
+def normalize_databricks_base_url(base_url: str | None) -> str | None:
+    """
+    Normalize Databricks base URL to include /serving-endpoints if not present.
+
+    Args:
+        base_url: The base URL to normalize (e.g., "https://my-workspace.databricks.com")
+
+    Returns:
+        The normalized URL with /serving-endpoints appended if needed, or None if input is None.
+    """
+    if not base_url:
+        return base_url
+
+    base_url = base_url.rstrip("/")
+    if DATABRICKS_SERVING_ENDPOINTS_PATH in base_url:
+        return base_url
+
+    return f"{base_url}{DATABRICKS_SERVING_ENDPOINTS_PATH}"
+
 
 def is_valid_endpoint_name(name: str) -> bool:
     """

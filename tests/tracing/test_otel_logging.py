@@ -710,6 +710,7 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
 
     with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
         mock_client = mock.MagicMock(spec=TelemetryClient)
+        mock_client.config = None  # Ensure telemetry is not disabled for any event
         mock_get_client.return_value = mock_client
 
         response = requests.post(

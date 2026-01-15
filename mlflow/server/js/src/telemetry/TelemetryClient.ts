@@ -108,6 +108,8 @@ class TelemetryClient {
         componentType: record.componentType,
         componentSubType: record.componentSubType,
         eventType: record.eventType,
+        // Include value for events, this only happens when valueHasNoPii=true
+        ...(record.value !== undefined && { value: String(record.value) }),
       },
     };
 

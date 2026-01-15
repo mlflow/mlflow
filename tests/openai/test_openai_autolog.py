@@ -316,7 +316,7 @@ async def test_chat_completions_autolog_tracing_error_with_parent_span(client):
     assert parent_span.outputs is None
     assert parent_span.status.status_code == "ERROR"
     assert parent_span.events[0].name == "exception"
-    assert parent_span.events[0].attributes["exception.type"] == "mlflow.exceptions.MlflowException"
+    assert parent_span.events[0].attributes["exception.type"] == "MlflowException"
     assert parent_span.events[0].attributes["exception.message"] == "Failed to create completions"
 
     child_span = trace.data.spans[1]

@@ -185,6 +185,8 @@ def pytorch_custom_env(tmp_path):
 
 
 def _predict(model, data):
+    from torch.fx import GraphModule
+
     dataset = get_dataset(data)
     batch_size = 16
     num_workers = 4
@@ -192,7 +194,9 @@ def _predict(model, data):
         dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False, drop_last=False
     )
     predictions = np.zeros((len(dataloader.sampler),))
-    model.eval()
+
+    if not isinstance(model, GraphModule):
+        model.eval()
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
             y_preds = model(batch[0]).squeeze(dim=1).numpy()
@@ -1221,3 +1225,107 @@ def test_log_model_with_datetime_input():
         expected_result = model(input_tensor)
     with torch.no_grad():
         np.testing.assert_array_almost_equal(pyfunc_model.predict(df), expected_result, decimal=4)
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2"
+)
+@pytest.mark.parametrize("scripted_model", [False])
+def test_save_and_load_exported_model(sequential_model, model_path, data, sequential_predicted):
+    input_example = data[0].to_numpy(dtype=np.float32)
+
+    mlflow.pytorch.save_model(
+        sequential_model,
+        model_path,
+        export_model=True,
+        input_example=input_example,
+    )
+
+    # Loading pytorch model
+    sequential_model_loaded = mlflow.pytorch.load_model(model_path)
+    np.testing.assert_array_equal(_predict(sequential_model_loaded, data), sequential_predicted)
+
+    # Loading pyfunc model
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    np.testing.assert_array_almost_equal(
+        pyfunc_loaded.predict(input_example)[:, 0], sequential_predicted, decimal=4
+    )
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2"
+)
+def test_exported_model_infer_dynamic_dim(tmp_path):
+    class MyModule(torch.nn.Module):
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return torch.sin(x)
+
+    origin_model = MyModule()
+
+    input_example = torch.randn(3, 4, 5).numpy()
+
+    save_path1 = tmp_path / "model1"
+
+    # test exporting model with auto inferred signature,
+    # which sets the first dim (batch dim) of input data as dynamic dim.
+    mlflow.pytorch.save_model(
+        origin_model,
+        save_path1,
+        export_model=True,
+        input_example=input_example,
+    )
+
+    # Test the exported model works with test data that changes the first dim (batch dim) size.
+    loaded_model1 = mlflow.pytorch.load_model(save_path1)
+
+    test_data1 = torch.randn(6, 4, 5)
+    np.testing.assert_array_almost_equal(
+        loaded_model1(test_data1),
+        origin_model(test_data1),
+        decimal=4,
+    )
+
+    save_path2 = tmp_path / "model2"
+    # test exporting model with provided signature,
+    # which sets the second dim of input data as dynamic dim.
+    mlflow.pytorch.save_model(
+        origin_model,
+        save_path2,
+        export_model=True,
+        input_example=input_example,
+        signature=ModelSignature(
+            inputs=Schema([TensorSpec(np.dtype("float32"), (3, -1, 5))]),
+        ),
+    )
+
+    # Test the exported model works with test data that changes the second dim (batch dim) size.
+    loaded_model2 = mlflow.pytorch.load_model(save_path2)
+
+    test_data2 = torch.randn(3, 2, 5)
+    np.testing.assert_array_almost_equal(
+        loaded_model2(test_data2),
+        origin_model(test_data2),
+        decimal=4,
+    )
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2"
+)
+@pytest.mark.parametrize("scripted_model", [False])
+def test_load_exported_model_check_device_mismatch(sequential_model, model_path):
+    mlflow.pytorch.save_model(
+        sequential_model,
+        model_path,
+        export_model=True,
+        input_example=torch.randn(3, 4).numpy(),
+    )
+
+    # test loading model to CPU works
+    mlflow.pytorch.load_model(model_path, device="cpu")
+
+    with pytest.raises(
+        MlflowException,
+        match="it can't be loaded on 'cuda' device.",
+    ):
+        mlflow.pytorch.load_model(model_path, device="cuda")
