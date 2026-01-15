@@ -35,7 +35,7 @@ def normalize_databricks_base_url(base_url: str | None) -> str | None:
         return base_url
 
     base_url = base_url.rstrip("/")
-    if base_url.endswith(DATABRICKS_SERVING_ENDPOINTS_PATH):
+    if DATABRICKS_SERVING_ENDPOINTS_PATH in base_url:
         return base_url
 
     return f"{base_url}{DATABRICKS_SERVING_ENDPOINTS_PATH}"
