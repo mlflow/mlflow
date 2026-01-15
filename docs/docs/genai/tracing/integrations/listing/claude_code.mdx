@@ -21,6 +21,7 @@ After setting up auto tracing, MLflow will automatically capture traces of your 
 - Tool usage (file operations, code execution, web searches, etc.)
 - Conversation timing and duration
 - Tool execution results
+- Token usage (input, output, and total tokens)
 - Session metadata including working directory and user
 
 ## Setup
@@ -203,6 +204,56 @@ evaluate(data=eval_data, predict_fn=predict_fn, scorers=[relevance])
 
 </TabItem>
 </Tabs>
+
+## Token Usage
+
+MLflow automatically tracks the token usage for each LLM call within Claude Code conversations. The token usage for each LLM call is logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace is available in the `token_usage` field of the trace info object.
+
+```python
+import mlflow
+from mlflow.claude_code.tracing import process_transcript
+
+# Process a Claude Code transcript
+trace = process_transcript("/path/to/transcript.jsonl", "session-id")
+
+# Print the total token usage
+total_usage = trace.info.token_usage
+if total_usage:
+    print("== Total token usage: ==")
+    print(f"  Input tokens: {total_usage['input_tokens']}")
+    print(f"  Output tokens: {total_usage['output_tokens']}")
+    print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 1250
+  Output tokens: 340
+  Total tokens: 1590
+
+== Detailed usage for each LLM call: ==
+llm_call_1:
+  Input tokens: 500
+  Output tokens: 120
+  Total tokens: 620
+llm_call_2:
+  Input tokens: 750
+  Output tokens: 220
+  Total tokens: 970
+```
+
+:::note
+Token usage tracking requires the Claude Code transcript to include usage metadata in the assistant message responses. This is automatically included when using Claude Code CLI version 1.0.0 and above.
+:::
 
 ## Troubleshooting
 
