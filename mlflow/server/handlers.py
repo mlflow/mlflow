@@ -635,7 +635,7 @@ def initialize_backend_stores(
 
 
 def _store_supports_workspaces(
-    store: AbstractTrackingStore | AbstractModelRegistryStore,
+    store: AbstractTrackingStore | AbstractModelRegistryStore | AbstractJobStore,
 ) -> bool:
     """Return whether the provided store reports workspace support."""
     return bool(getattr(store, "supports_workspaces", False))
