@@ -12,7 +12,7 @@ class WorkspaceRestStoreMixin:
     Shared workspace capability detection for REST-based stores.
     """
 
-    _SERVER_FEATURES_ENDPOINT = "/api/2.0/mlflow/server-features"
+    _SERVER_FEATURES_ENDPOINT = "/api/3.0/mlflow/server-features"
     _WORKSPACE_UNSUPPORTED_ERROR = (
         "Active workspace '{workspace}' cannot be used because the remote server does not "
         "support workspaces. Restart the server with --enable-workspaces or unset the active "

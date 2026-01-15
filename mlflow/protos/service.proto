@@ -990,7 +990,7 @@ service MlflowService {
           method: "GET"
           path: "/mlflow/workspaces"
           since: {
-            major: 2
+            major: 3
             minor: 0
           }
         }
@@ -1007,7 +1007,7 @@ service MlflowService {
           method: "POST"
           path: "/mlflow/workspaces"
           since: {
-            major: 2
+            major: 3
             minor: 0
           }
         }
@@ -1024,7 +1024,7 @@ service MlflowService {
           method: "GET"
           path: "/mlflow/workspaces/{workspace_name}"
           since: {
-            major: 2
+            major: 3
             minor: 0
           }
         }
@@ -1041,7 +1041,7 @@ service MlflowService {
           method: "PATCH"
           path: "/mlflow/workspaces/{workspace_name}"
           since: {
-            major: 2
+            major: 3
             minor: 0
           }
         }
@@ -1058,7 +1058,7 @@ service MlflowService {
           method: "DELETE"
           path: "/mlflow/workspaces/{workspace_name}"
           since: {
-            major: 2
+            major: 3
             minor: 0
           }
         }

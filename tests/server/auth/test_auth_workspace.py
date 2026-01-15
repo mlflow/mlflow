@@ -37,7 +37,7 @@ def test_cleanup_workspace_permissions_handler(monkeypatch):
 
     workspace_name = f"team-{random_str(10)}"
     with auth_module.app.test_request_context(
-        f"/api/2.0/mlflow/workspaces/{workspace_name}", method="DELETE"
+        f"/api/3.0/mlflow/workspaces/{workspace_name}", method="DELETE"
     ):
         request.view_args = {"workspace_name": workspace_name}
         response = Response(status=204)
@@ -287,13 +287,13 @@ def test_validate_can_view_workspace_allows_default_autogrant(monkeypatch):
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
 
     with auth_module.app.test_request_context(
-        f"/api/2.0/mlflow/workspaces/{default_workspace}", method="GET"
+        f"/api/3.0/mlflow/workspaces/{default_workspace}", method="GET"
     ):
         request.view_args = {"workspace_name": default_workspace}
         assert auth_module.validate_can_view_workspace()
 
     with auth_module.app.test_request_context(
-        "/api/2.0/mlflow/workspaces/other-team", method="GET"
+        "/api/3.0/mlflow/workspaces/other-team", method="GET"
     ):
         request.view_args = {"workspace_name": "other-team"}
         assert not auth_module.validate_can_view_workspace()
@@ -570,7 +570,7 @@ def test_validate_can_view_workspace_requires_access(workspace_permission_setup)
     username = workspace_permission_setup["username"]
 
     with auth_module.app.test_request_context(
-        "/api/2.0/mlflow/workspaces/team-a",
+        "/api/3.0/mlflow/workspaces/team-a",
         method="GET",
     ):
         request.view_args = {"workspace_name": "team-a"}
@@ -579,7 +579,7 @@ def test_validate_can_view_workspace_requires_access(workspace_permission_setup)
     store.delete_workspace_permission("team-a", username)
 
     with auth_module.app.test_request_context(
-        "/api/2.0/mlflow/workspaces/team-a",
+        "/api/3.0/mlflow/workspaces/team-a",
         method="GET",
     ):
         request.view_args = {"workspace_name": "team-a"}

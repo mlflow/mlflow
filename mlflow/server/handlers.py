@@ -4252,7 +4252,7 @@ def get_endpoints(get_handler=get_handler):
     """
     server_feature_paths = [
         (_path, _server_features_handler, ["GET"])
-        for _path in _get_paths("/mlflow/server-features")
+        for _path in _get_paths("/mlflow/server-features", version=3)
     ]
     return (
         get_service_endpoints(MlflowService, get_handler)

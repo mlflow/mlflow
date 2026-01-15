@@ -26,7 +26,7 @@ def test_supports_workspaces_queries_endpoint():
     mock_http.assert_called_once()
     _, kwargs = mock_http.call_args
     assert kwargs["host_creds"] is creds
-    assert kwargs["endpoint"] == "/api/2.0/mlflow/server-features"
+    assert kwargs["endpoint"] == "/api/3.0/mlflow/server-features"
     assert kwargs["method"] == "GET"
     assert kwargs["timeout"] == 3
     assert kwargs["max_retries"] == 0
