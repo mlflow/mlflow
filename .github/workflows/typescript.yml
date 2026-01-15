@@ -62,4 +62,8 @@ jobs:
         run: npm run test:core
 
       - name: Run tests for integrations
-        run: npm run test:integrations
+        run: |
+          for i in {1..10}; do
+            echo "=== Run $i/10 ==="
+            npm run test:integrations
+          done
