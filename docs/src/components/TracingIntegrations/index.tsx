@@ -81,6 +81,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks (Python)',
   },
   {
+    id: 'quarkus-langchain4j',
+    name: 'Quarkus LangChain4j',
+    logoPath: '/images/logos/langchain4j.svg',
+    link: '/genai/tracing/integrations/listing/quarkus-langchain4j',
+    category: 'Agent Frameworks (Python)',
+  },
+  {
     id: 'google-adk',
     name: 'Google ADK',
     logoPath: '/images/logos/google-adk-logo.png',
@@ -123,10 +130,24 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks (Python)',
   },
   {
+    id: 'temporal',
+    name: 'Temporal',
+    logoPath: '/images/logos/temporal.png',
+    link: '/genai/tracing/integrations/listing/temporal',
+    category: 'Agent Frameworks (Python)',
+  },
+  {
     id: 'agno',
     name: 'Agno',
     logoPath: '/images/logos/agno-logo.png',
     link: '/genai/tracing/integrations/listing/agno',
+    category: 'Agent Frameworks (Python)',
+  },
+  {
+    id: 'bedrock-agentcore',
+    name: 'Amazon Bedrock AgentCore',
+    logoPath: '/images/logos/bedrock-logo.png',
+    link: '/genai/tracing/integrations/listing/bedrock-agentcore',
     category: 'Agent Frameworks (Python)',
   },
   {
@@ -159,10 +180,31 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks (Python)',
   },
   {
+    id: 'koog',
+    name: 'Koog',
+    logoPath: '/images/logos/koog.png',
+    link: '/genai/tracing/integrations/listing/koog',
+    category: 'Agent Frameworks (Python)',
+  },
+  {
     id: 'txtai',
     name: 'txtai',
     logoPath: '/images/logos/txtai-logo.png',
     link: '/genai/tracing/integrations/listing/txtai',
+    category: 'Agent Frameworks (Python)',
+  },
+  {
+    id: 'pipecat',
+    name: 'Pipecat',
+    logoPath: '/images/logos/pipecat.png',
+    link: '/genai/tracing/integrations/listing/pipecat',
+    category: 'Agent Frameworks (Python)',
+  },
+  {
+    id: 'watsonx-orchestrate',
+    name: 'Watsonx Orchestrate',
+    logoPath: '/images/logos/watsonx-orchestrate.png',
+    link: '/genai/tracing/integrations/listing/watsonx-orchestrate',
     category: 'Agent Frameworks (Python)',
   },
   // Agent Frameworks (TypeScript)

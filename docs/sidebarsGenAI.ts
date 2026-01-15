@@ -160,6 +160,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/bedrock-agentcore',
+                  label: 'Amazon Bedrock AgentCore',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/autogen',
                   label: 'AutoGen',
                 },
@@ -182,6 +187,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/haystack',
                   label: 'Haystack',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/koog',
+                  label: 'Koog',
                 },
                 {
                   type: 'doc',
@@ -215,8 +225,18 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/pipecat',
+                  label: 'Pipecat',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/pydantic_ai',
                   label: 'PydanticAI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/quarkus-langchain4j',
+                  label: 'Quarkus LangChain4j',
                 },
                 {
                   type: 'doc',
@@ -235,6 +255,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/temporal',
+                  label: 'Temporal',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/txtai',
                   label: 'Txtai',
                 },
@@ -247,6 +272,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/voltagent',
                   label: 'VoltAgent',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/watsonx-orchestrate',
+                  label: 'Watsonx Orchestrate',
                 },
               ],
             },
