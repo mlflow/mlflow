@@ -49,7 +49,7 @@ export const TraceLatencyChart: React.FC = () => {
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.trace_latency">
       <OverviewChartHeader
         icon={<ClockIcon />}
         title={<FormattedMessage defaultMessage="Latency" description="Title for the latency chart" />}
