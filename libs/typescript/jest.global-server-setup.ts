@@ -37,7 +37,7 @@ module.exports = async () => {
       detached: true,
       env: {
         ...process.env,
-        // Disable job execution to avoid timing issues in tests (no database backend anyway)
+        // Disable job execution to avoid timing issues in tests
         MLFLOW_SERVER_ENABLE_JOB_EXECUTION: 'false'
       }
     }
