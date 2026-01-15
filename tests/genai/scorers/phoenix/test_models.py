@@ -1,12 +1,17 @@
 from unittest.mock import Mock, patch
 
-import phoenix.evals as phoenix_evals
 import pytest
 
 from mlflow.exceptions import MlflowException
+
+# Import phoenix.evals - skip tests if not available or incompatible version
+try:
+    import phoenix.evals as phoenix_evals
+except (ImportError, SyntaxError):
+    pytest.skip("phoenix.evals not available or incompatible version", allow_module_level=True)
+
 from mlflow.genai.scorers.phoenix.models import (
     DatabricksPhoenixModel,
-    DatabricksServingEndpointPhoenixModel,
     create_phoenix_model,
 )
 
@@ -16,15 +21,6 @@ def mock_call_chat_completions():
     with patch("mlflow.genai.scorers.phoenix.models.call_chat_completions") as mock:
         result = Mock()
         result.output = "Test output"
-        mock.return_value = result
-        yield mock
-
-
-@pytest.fixture
-def mock_invoke_serving_endpoint():
-    with patch("mlflow.genai.scorers.phoenix.models._invoke_databricks_serving_endpoint") as mock:
-        result = Mock()
-        result.response = "Endpoint output"
         mock.return_value = result
         yield mock
 
@@ -45,34 +41,18 @@ def test_databricks_phoenix_model_get_model_name():
     assert model.get_model_name() == "databricks"
 
 
-def test_databricks_serving_endpoint_model_call(mock_invoke_serving_endpoint):
-    model = DatabricksServingEndpointPhoenixModel("my-endpoint")
-    result = model("Test prompt")
-
-    assert result == "Endpoint output"
-    mock_invoke_serving_endpoint.assert_called_once_with(
-        model_name="my-endpoint",
-        prompt="Test prompt",
-        num_retries=3,
-        response_format=None,
-    )
-
-
-def test_databricks_serving_endpoint_model_get_model_name():
-    model = DatabricksServingEndpointPhoenixModel("my-endpoint")
-    assert model.get_model_name() == "databricks:/my-endpoint"
-
-
 def test_create_phoenix_model_databricks():
     model = create_phoenix_model("databricks")
     assert isinstance(model, DatabricksPhoenixModel)
     assert model.get_model_name() == "databricks"
 
 
-def test_create_phoenix_model_databricks_endpoint():
+def test_create_phoenix_model_databricks_endpoint(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://test.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
     model = create_phoenix_model("databricks:/my-endpoint")
-    assert isinstance(model, DatabricksServingEndpointPhoenixModel)
-    assert model.get_model_name() == "databricks:/my-endpoint"
+    assert isinstance(model, phoenix_evals.LiteLLMModel)
+    assert model.model == "databricks/my-endpoint"
 
 
 def test_create_phoenix_model_openai(monkeypatch):

@@ -52,8 +52,7 @@ def invoke_judge_model(
     Routes to the appropriate adapter based on the model URI and configuration.
     Uses a factory pattern to select the correct adapter:
     - DatabricksManagedJudgeAdapter: For the default Databricks judge
-    - DatabricksServingEndpointAdapter: For Databricks serving endpoints
-    - LiteLLMAdapter: For LiteLLM-supported providers
+    - LiteLLMAdapter: For LiteLLM-supported providers (including Databricks served models)
     - GatewayAdapter: Fallback for native providers
 
     Args:
