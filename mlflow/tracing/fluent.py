@@ -15,7 +15,7 @@ from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
 from mlflow.entities import NoOpSpan, SpanType, Trace
-from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan, create_mlflow_span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_location import TraceLocationBase
@@ -32,7 +32,7 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
 )
 from mlflow.tracing.provider import (
-    get_context,
+    get_current_otel_span,
     is_tracing_enabled,
     safe_set_span_in_context,
     with_active_span,
@@ -920,13 +920,21 @@ def get_current_active_span() -> LiveSpan | None:
     Returns:
         The current active span if exists, otherwise None.
     """
-    otel_span = trace_api.get_current_span(context=get_context())
+    otel_span = get_current_otel_span()
     # NonRecordingSpan is returned if a tracer is not instantiated.
     if otel_span is None or isinstance(otel_span, trace_api.NonRecordingSpan):
         return None
 
     trace_manager = InMemoryTraceManager.get_instance()
-    request_id = json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
+    request_id = otel_span.attributes.get(SpanAttributeKey.REQUEST_ID)
+
+    # Span is not registered in the in-memory trace manager, meaning that the current active
+    # span is not created by MLflow, but rather by other OpenTelemetry sdk. Return a span object
+    # that wraps the otel span.
+    if not request_id:
+        return create_mlflow_span(otel_span, otel_span.context.trace_id)
+
+    request_id = json.loads(request_id)
     return trace_manager.get_span_from_id(request_id, encode_span_id(otel_span.context.span_id))
 
 

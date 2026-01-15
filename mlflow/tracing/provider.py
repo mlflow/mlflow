@@ -123,10 +123,29 @@ provider = _TracerProviderWrapper()
 mlflow_runtime_context = ContextVarsRuntimeContext()
 
 
-def get_context() -> context_api.Context:
+def get_context_api():
+    """
+    Get the context API to use for the current tracer provider mode.
+    """
+    return mlflow_runtime_context if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get() else context_api
+
+
+def get_current_context() -> context_api.Context | None:
+    """
+    Get the current context.
+    If the current tracer provider mode is unified mode (mlflow+otel), return None
+    to let downstream otel APIs to fetch it from otel runtime context.
+    """
     return (
         mlflow_runtime_context.get_current() if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get() else None
     )
+
+
+def get_current_otel_span() -> trace.Span | None:
+    """
+    Get the current otel span from the current context.
+    """
+    return trace.get_current_span(context=get_current_context())
 
 
 def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.Span:
@@ -147,7 +166,9 @@ def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.
     attributes = {}
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
-    span = _get_tracer(__name__).start_span(name, attributes=attributes, context=get_context())
+    span = _get_tracer(__name__).start_span(
+        name, attributes=attributes, context=get_current_context()
+    )
 
     if experiment_id and getattr(span, "_parent", None):
         _logger.warning(
@@ -201,7 +222,11 @@ def start_detached_span(
         The newly created OpenTelemetry span.
     """
     tracer = _get_tracer(__name__)
-    context = trace.set_span_in_context(parent, context=get_context()) if parent else get_context()
+    context = (
+        trace.set_span_in_context(parent, context=get_current_context())
+        if parent
+        else get_current_context()
+    )
     attributes = {}
 
     # Set start time and experiment to attribute so we can pass it to the span processor
@@ -258,7 +283,7 @@ def set_span_in_context(span: "Span") -> contextvars.Token:
     Returns:
         A token object that will be required when detaching the span from the context.
     """
-    context = trace.set_span_in_context(span._span, context=get_context())
+    context = trace.set_span_in_context(span._span, context=get_current_context())
     if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
         # When using the default tracer provider, attach to MLflow's runtime context so that span
         # will not get mixed with the native OpenTelemetry runtime context.

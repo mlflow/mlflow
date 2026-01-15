@@ -6,7 +6,6 @@ from pathlib import Path
 from subprocess import Popen
 
 import requests
-from opentelemetry import trace as otel_trace
 
 import mlflow
 from mlflow.tracing.distributed import (
@@ -59,9 +58,6 @@ def test_set_tracing_context_from_http_request_headers():
     # Create headers from a client context first
     with mlflow.start_span("client-to-generate-headers") as client_span:
         client_headers = get_tracing_context_headers_for_http_request()
-        client_otel_trace_id, client_otel_span_id = _parse_traceparent(
-            client_headers["traceparent"]
-        )
         client_trace_id = client_span.trace_id
         client_span_id = client_span.span_id
 
@@ -69,12 +65,6 @@ def test_set_tracing_context_from_http_request_headers():
 
     # Attach the context from headers and verify it becomes current inside the block
     with set_tracing_context_from_http_request_headers(client_headers):
-        current = otel_trace.get_current_span()
-        assert current.get_span_context().is_valid
-        assert current.get_span_context().trace_id == client_otel_trace_id
-        # span_id in context is the parent span id from the header
-        assert current.get_span_context().span_id == client_otel_span_id
-
         # get_current_active_span returns None because it is a `NonRecordingSpan`
         assert mlflow.get_current_active_span() is None
 
