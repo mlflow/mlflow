@@ -48,7 +48,7 @@ jobs:
           fetch-depth: 300
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-        id: setup-python
+      - uses: ./.github/actions/setup-node
       - name: Add problem matchers
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -58,7 +58,10 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/typos.json"
       - name: Install dependencies
         run: |
-          uv sync --locked --only-group lint --only-group test
+          # Run uv sync and yarn in parallel for faster installation
+          uv sync --locked --only-group lint --only-group test &
+          (cd mlflow/server/js && yarn --immutable-cache)
+          wait
       - name: Install pre-commit hooks
         run: |
           uv run --only-group lint pre-commit install --install-hooks
