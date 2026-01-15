@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from importlib import reload
 from itertools import zip_longest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import pandas as pd
@@ -2604,3 +2605,159 @@ def test_start_run_sgc_resumption_handles_tag_set_error(empty_active_run_stack, 
             assert run.info.run_id is not None
         mock_get_sgc.assert_called()
         mock_set_tag.assert_called_once()
+
+
+def test_import_checkpoints_overwrite():
+    exp_id = mlflow.create_experiment("test_import_checkpoints_overwrite")
+    mlflow.set_experiment(experiment_id=exp_id)
+
+    ws = mock.MagicMock()
+
+    def patched_list_directory_contents(dir_path):
+        return [
+            SimpleNamespace(path=f"{dir_path}/ckpt1/"),
+            SimpleNamespace(path=f"{dir_path}/ckpt2"),
+        ]
+
+    ws.files.list_directory_contents = patched_list_directory_contents
+
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=ws):
+        with mlflow.start_run() as run:
+            logged_models = mlflow.import_checkpoints(
+                "/Volumes/checkpoints",
+                model_prefix="model1_",
+            )
+
+            assert logged_models[0].name == "model1_ckpt1"
+            assert logged_models[0].source_run_id == run.info.run_id
+            assert logged_models[0].tags["original_artifact_path"] == "/Volumes/checkpoints/ckpt1"
+            assert logged_models[1].name == "model1_ckpt2"
+            assert logged_models[1].tags["original_artifact_path"] == "/Volumes/checkpoints/ckpt2"
+            assert logged_models[1].source_run_id == run.info.run_id
+
+            ckpt1_model_id = logged_models[0].model_id
+            ckpt2_model_id = logged_models[1].model_id
+
+            # assert the models are actually logged
+            searched_models = mlflow.search_logged_models(
+                experiment_ids=[exp_id],
+                filter_string=f"model_id IN ('{ckpt1_model_id}', '{ckpt2_model_id}')",
+                output_format="list",
+            )
+            assert len(searched_models) == 2
+
+            # test disabling overwrite
+            logged_models2 = mlflow.import_checkpoints(
+                "/Volumes/checkpoints",
+                model_prefix="model1_",
+                overwrite_checkpoints=False,
+            )
+            assert len(logged_models2) == 2
+            assert logged_models[0].model_id == ckpt1_model_id
+            assert logged_models[1].model_id == ckpt2_model_id
+
+            # check the existing models are not overwritten
+            searched_models2 = mlflow.search_logged_models(
+                experiment_ids=[exp_id],
+                filter_string=f"model_id IN ('{ckpt1_model_id}', '{ckpt2_model_id}')",
+                output_format="list",
+            )
+            assert len(searched_models2) == 2
+
+            # test enabling overwrite
+            overwritten_logged_models = mlflow.import_checkpoints(
+                "/Volumes/checkpoints2",
+                model_prefix="model1_",
+                overwrite_checkpoints=True,
+            )
+            assert len(overwritten_logged_models) == 2
+
+            assert (
+                overwritten_logged_models[0].tags["original_artifact_path"]
+                == "/Volumes/checkpoints2/ckpt1"
+            )
+            assert (
+                overwritten_logged_models[1].tags["original_artifact_path"]
+                == "/Volumes/checkpoints2/ckpt2"
+            )
+            new_ckpt1_model_id = overwritten_logged_models[0].model_id
+            new_ckpt2_model_id = overwritten_logged_models[1].model_id
+
+            assert (
+                len(
+                    mlflow.search_logged_models(
+                        experiment_ids=[exp_id],
+                        filter_string=f"model_id IN ('{ckpt1_model_id}', '{ckpt2_model_id}')",
+                        output_format="list",
+                    )
+                )
+                == 0
+            )
+            assert (
+                len(
+                    mlflow.search_logged_models(
+                        experiment_ids=[exp_id],
+                        filter_string=(
+                            f"model_id IN ('{new_ckpt1_model_id}', '{new_ckpt2_model_id}')"
+                        ),
+                        output_format="list",
+                    )
+                )
+                == 2
+            )
+
+
+def test_import_checkpoints_skip_name_with_invalid_char():
+    exp_id = mlflow.create_experiment("test_import_checkpoints_skip_name_with_invalid_char")
+    mlflow.set_experiment(experiment_id=exp_id)
+
+    ws = mock.MagicMock()
+
+    def patched_list_directory_contents(dir_path):
+        return [
+            SimpleNamespace(path=os.path.join(dir_path, "ckpt1.a")),
+            SimpleNamespace(path=os.path.join(dir_path, "ckpt2")),
+        ]
+
+    ws.files.list_directory_contents = patched_list_directory_contents
+
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient", return_value=ws),
+        mock.patch("mlflow.tracking.fluent._logger.warning") as mock_warning,
+    ):
+        with mlflow.start_run():
+            logged_models = mlflow.import_checkpoints(
+                "/Volumes/checkpoints",
+            )
+
+        assert len(logged_models) == 1
+        assert logged_models[0].name == "ckpt2"
+
+        warn_msg = mock_warning.call_args[0][0]
+        assert "The model name is invalid" in warn_msg
+        assert "ckpt1.a" in warn_msg
+
+
+def test_import_checkpoints_without_run():
+    exp_id = mlflow.create_experiment("test_import_checkpoints_without_run")
+    mlflow.set_experiment(experiment_id=exp_id)
+
+    ws = mock.MagicMock()
+
+    def patched_list_directory_contents(dir_path):
+        return [
+            SimpleNamespace(path=os.path.join(dir_path, "ckpt")),
+        ]
+
+    ws.files.list_directory_contents = patched_list_directory_contents
+
+    mlflow.end_run()
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=ws):
+        with pytest.raises(
+            MlflowException,
+            match=(
+                "Please set 'source_run_id' or start an active run before "
+                "calling 'import_checkpoints'"
+            ),
+        ):
+            mlflow.import_checkpoints("/Volumes/checkpoints")
