@@ -1,13 +1,17 @@
 import type { Cell, Row, RowSelectionState } from '@tanstack/react-table';
 import { flexRender } from '@tanstack/react-table';
 import type { VirtualItem } from '@tanstack/react-virtual';
-import React from 'react';
+import React, { createContext, useContext } from 'react';
 
 import { TableCell, TableRow, TableRowSelectCell, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 
 import type { TracesTableColumn, EvalTraceComparisonEntry } from './types';
 import { escapeCssSpecialCharacters } from './utils/DisplayUtils';
+
+// Context for session grouping state - allows cell renderers to know if they should filter session-level assessments
+export const SessionGroupingContext = createContext<boolean>(false);
+export const useIsGroupedBySession = () => useContext(SessionGroupingContext);
 
 interface GenAiTracesTableBodyRowsProps {
   rows: Row<EvalTraceComparisonEntry>[];

@@ -69,6 +69,7 @@ const mockAssessmentInfo: AssessmentInfo = {
   isCustomMetric: false,
   isEditable: false,
   isRetrievalAssessment: false,
+  isSessionLevelAssessment: false,
   dtype: 'string',
   uniqueValues: new Set(['value1', 'value2', 'value3']),
   docsLink: '',

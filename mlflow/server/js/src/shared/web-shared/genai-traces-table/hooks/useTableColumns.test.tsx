@@ -46,6 +46,7 @@ describe('useTableColumns', () => {
     isCustomMetric: false,
     isEditable: false,
     isRetrievalAssessment: false,
+    isSessionLevelAssessment: false,
     dtype: 'pass-fail',
     uniqueValues: new Set(['yes', 'no']),
     docsLink: 'https://example.com/docs',

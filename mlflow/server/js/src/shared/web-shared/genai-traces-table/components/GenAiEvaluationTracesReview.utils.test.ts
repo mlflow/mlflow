@@ -298,6 +298,7 @@ describe('getAssessmentValueLabel', () => {
     isCustomMetric: false,
     isEditable: false,
     isRetrievalAssessment: false,
+    isSessionLevelAssessment: false,
     dtype,
     uniqueValues: new Set(),
     docsLink: '',

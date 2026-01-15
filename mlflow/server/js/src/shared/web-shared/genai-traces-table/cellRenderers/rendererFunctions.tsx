@@ -1,12 +1,15 @@
 import type { CellContext } from '@tanstack/react-table';
 import { first, isNil } from 'lodash';
+import React from 'react';
 import type { FormatDateOptions } from 'react-intl';
 
 import type { ThemeType } from '@databricks/design-system';
-import { ArrowRightIcon, Tag, Tooltip, Typography, UserIcon } from '@databricks/design-system';
-import { type IntlShape } from '@databricks/i18n';
+import { ArrowRightIcon, Tag, Tooltip, Typography, UserIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { useIntl, type IntlShape } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { ExpectationValuePreview } from '@databricks/web-shared/model-trace-explorer';
+import { ASSESSMENT_SESSION_METADATA_KEY, ExpectationValuePreview } from '@databricks/web-shared/model-trace-explorer';
+
+import { useIsGroupedBySession } from '../GenAiTracesTableBodyRows';
 
 import { LoggedModelCell } from './LoggedModelCell';
 import { NullCell } from './NullCell';
@@ -259,6 +262,32 @@ export const assessmentCellRenderer = (
       )}
     </div>
   );
+};
+
+/**
+ * React component wrapper for assessmentCellRenderer that filters out session-level
+ * assessments when rendered within a session-grouped table.
+ */
+export const AssessmentCell: React.FC<{
+  isComparing: boolean;
+  assessmentInfo: AssessmentInfo;
+  comparisonEntry: EvalTraceComparisonEntry;
+}> = ({ isComparing, assessmentInfo, comparisonEntry }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const isGroupedBySession = useIsGroupedBySession();
+
+  // When grouped by session, check if this is a session-level assessment and skip rendering
+  if (isGroupedBySession) {
+    const assessmentName = assessmentInfo.name;
+    const assessment = first(comparisonEntry.currentRunValue?.responseAssessmentsByName[assessmentName]);
+    // Check if the assessment has session metadata - if so, it's rendered at the session header level
+    if (assessment?.metadata?.[ASSESSMENT_SESSION_METADATA_KEY]) {
+      return <NullCell />;
+    }
+  }
+
+  return assessmentCellRenderer(theme, intl, isComparing, assessmentInfo, comparisonEntry);
 };
 
 export const expectationCellRenderer = (

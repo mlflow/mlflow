@@ -2,6 +2,7 @@ import { first, isNil } from 'lodash';
 
 import type { ThemeType } from '@databricks/design-system';
 import type { IntlShape } from '@databricks/i18n';
+import { ASSESSMENT_SESSION_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
 
 import { getAssessmentValueBarBackgroundColor } from './Colors';
 import { DEFAULT_RUN_PLACEHOLDER_NAME } from './TraceUtils';
@@ -190,6 +191,7 @@ export function getAssessmentInfos(
         let displayName: string;
         let metricName: string;
         let isCustomMetric = false;
+        let isSessionLevelAssessment = false;
 
         const isKnown = KnownEvaluationResultAssessmentValueLabel[assessmentName] !== undefined;
         if (isKnown) {
@@ -234,6 +236,10 @@ export function getAssessmentInfos(
           let assessmentValue = currentAssessment ? getEvaluationResultAssessmentValue(currentAssessment) : undefined;
           if (assessmentValue === null) assessmentValue = undefined;
           uniqueValues.add(assessmentValue);
+
+          if (currentAssessment?.metadata?.[ASSESSMENT_SESSION_METADATA_KEY]) {
+            isSessionLevelAssessment = true;
+          }
         }
 
         assessmentInfos[assessmentName] = {
@@ -242,6 +248,7 @@ export function getAssessmentInfos(
           isKnown,
           metricName,
           isCustomMetric,
+          isSessionLevelAssessment,
           source: assessment?.source,
           dtype,
           uniqueValues,
@@ -259,10 +266,14 @@ export function getAssessmentInfos(
         if (assessments.length === 0) {
           assessmentInfo.uniqueValues.add(undefined);
         }
+        let isSessionLevelAssessment = false;
         for (const currentAssessment of assessments) {
           let value = currentAssessment ? getEvaluationResultAssessmentValue(currentAssessment) : undefined;
           if (isNil(value)) value = undefined;
           assessmentInfo.uniqueValues.add(value);
+          if (currentAssessment?.metadata?.[ASSESSMENT_SESSION_METADATA_KEY]) {
+            isSessionLevelAssessment = true;
+          }
         }
 
         // Update isEditable.
@@ -274,6 +285,9 @@ export function getAssessmentInfos(
         // isRetrievalAssessment should be true if any evaluation result has this assessment.
         assessmentInfo.isRetrievalAssessment =
           assessmentInfo.isRetrievalAssessment || retrievalAssessmentsByName.some(([name]) => name === assessmentName);
+
+        // isSessionLevelAssessment should be true if any assessment has the session metadata key
+        assessmentInfo.isSessionLevelAssessment = assessmentInfo.isSessionLevelAssessment || isSessionLevelAssessment;
 
         assessmentInfo.containsErrors = assessmentInfo.containsErrors || isError;
       }

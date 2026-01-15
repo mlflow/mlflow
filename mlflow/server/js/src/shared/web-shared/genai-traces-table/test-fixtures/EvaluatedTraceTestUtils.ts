@@ -140,6 +140,7 @@ export const createTestAssessmentInfo = (
   isCustomMetric: false,
   isEditable: false,
   isRetrievalAssessment: false,
+  isSessionLevelAssessment: false,
   dtype,
   uniqueValues: new Set(['test-value']),
   docsLink: '',
