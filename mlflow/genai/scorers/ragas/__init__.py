@@ -84,6 +84,7 @@ class RagasScorer(Scorer):
         if metric_name is None:
             metric_name = self.metric_name
 
+        self._validate_kwargs(metric_name, model)
         super().__init__(name=metric_name)
         model = model or get_default_model()
         self._model = model
@@ -283,10 +284,11 @@ class RagasScorer(Scorer):
 
         return kwargs
 
-    def _validate_kwargs(self, **metric_kwargs):
-        if not requires_llm_in_constructor(self.metric_name) and "model" in metric_kwargs:
+    def _validate_kwargs(self, metric_name: str | None, model: str | None):
+        metric_name = metric_name or self.metric_name
+        if not requires_llm_in_constructor(metric_name) and model is not None:
             raise MlflowException.invalid_parameter_value(
-                f"{self.metric_name} got an unexpected keyword argument 'model'"
+                f"{metric_name} got an unexpected keyword argument 'model'"
             )
 
 
@@ -324,7 +326,6 @@ def get_scorer(
         judge = get_scorer("ExactMatch")
         feedback = judge(outputs="Paris", expectations={"expected_output": "Paris"})
     """
-    model = model or get_default_model()
     return RagasScorer(
         metric_name=metric_name,
         model=model,

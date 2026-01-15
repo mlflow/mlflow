@@ -99,6 +99,7 @@ class DiscreteMetric(RagasScorer):
 
     metric_name: ClassVar[str] = "DiscreteMetric"
 
+    # override to have name and prompt as required parameters
     def __init__(
         self,
         name: str,

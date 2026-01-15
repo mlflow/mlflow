@@ -96,10 +96,6 @@ class ToolCallAccuracy(RagasScorer):
 
     metric_name: ClassVar[str] = "ToolCallAccuracy"
 
-    def __init__(self, **metric_kwargs):
-        self._validate_kwargs(**metric_kwargs)
-        super().__init__(metric_name=self.metric_name, model=None, **metric_kwargs)
-
 
 @experimental(version="3.9.0")
 class ToolCallF1(RagasScorer):
@@ -140,10 +136,6 @@ class ToolCallF1(RagasScorer):
     """
 
     metric_name: ClassVar[str] = "ToolCallF1"
-
-    def __init__(self, **metric_kwargs):
-        self._validate_kwargs(**metric_kwargs)
-        super().__init__(metric_name=self.metric_name, model=None, **metric_kwargs)
 
 
 @experimental(version="3.9.0")
