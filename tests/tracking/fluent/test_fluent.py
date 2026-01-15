@@ -2652,7 +2652,9 @@ def test_import_checkpoints_overwrite():
                 model_prefix="model1_",
                 overwrite_checkpoints=False,
             )
-            assert len(logged_models2) == 0
+            assert len(logged_models2) == 2
+            assert logged_models[0].model_id == ckpt1_model_id
+            assert logged_models[1].model_id == ckpt2_model_id
 
             # check the existing models are not overwritten
             searched_models2 = mlflow.search_logged_models(
