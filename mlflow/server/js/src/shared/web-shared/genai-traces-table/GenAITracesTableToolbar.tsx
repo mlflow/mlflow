@@ -191,16 +191,23 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
               <Button
                 componentId="mlflow.traces-table.group-by-session-button"
                 onClick={onToggleSessionGrouping}
-                type="primary"
+                type={isGroupedBySession ? 'primary' : undefined}
                 aria-label={intl.formatMessage({
                   defaultMessage: 'Toggle session grouping',
                   description: 'Aria label for the group by session button in the traces table toolbar',
                 })}
               >
-                <FormattedMessage
-                  defaultMessage="Group by session"
-                  description="Label for the group by session button in the traces table toolbar"
-                />
+                {isGroupedBySession ? (
+                  <FormattedMessage
+                    defaultMessage="Ungroup sessions"
+                    description="Label for the ungroup sessions button in the traces table toolbar"
+                  />
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="Group by session"
+                    description="Label for the group by session button in the traces table toolbar"
+                  />
+                )}
               </Button>
             </Tooltip>
           )}
