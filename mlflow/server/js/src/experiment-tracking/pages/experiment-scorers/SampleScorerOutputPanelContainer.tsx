@@ -6,30 +6,32 @@ import { type ScorerFormData } from './utils/scorerTransformUtils';
 import { useEvaluateTraces } from './useEvaluateTraces';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import { convertEvaluationResultToAssessment } from './llmScorerUtils';
-import { extractTemplateVariables } from '../../utils/evaluationUtils';
 import { DEFAULT_TRACE_COUNT, ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope, SCORER_TYPE } from './constants';
-import { EvaluateTracesParams, LLM_TEMPLATE } from './types';
+import { EvaluateTracesParams, LLM_TEMPLATE, isGuidelinesTemplate } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
 import { JudgeEvaluationResult } from './useEvaluateTraces.common';
+import { isEvaluatingSessionsInScorersEnabled } from '../../../common/utils/FeatureUtils';
 
 interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
   experimentId: string;
   onScorerFinished?: () => void;
+  isSessionLevelScorer?: boolean;
 }
 
 const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContainerProps> = ({
   control,
   experimentId,
   onScorerFinished,
+  isSessionLevelScorer,
 }) => {
   const intl = useIntl();
   const judgeInstructions = useWatch({ control, name: 'instructions' });
   const scorerName = useWatch({ control, name: 'name' });
   const llmTemplate = useWatch({ control, name: 'llmTemplate' });
   const guidelines = useWatch({ control, name: 'guidelines' });
-  const scorerType = useWatch({ control, name: 'scorerType' });
+  const modelValue = useWatch({ control, name: 'model' });
   const { resetField } = useFormContext<ScorerFormData>();
   const { errors } = useFormState({ control });
   const evaluationScopeFormValue = useWatch({ control, name: 'evaluationScope' });
@@ -48,9 +50,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
   // Carousel state for navigating through traces
   const [currentTraceIndex, setCurrentTraceIndex] = useState(0);
-
-  // Request ID pattern to handle stale results
-  const requestIdRef = useRef(0);
 
   // Determine if we're in custom or built-in judge mode
   const isCustomMode = llmTemplate === LLM_TEMPLATE.CUSTOM;
@@ -169,24 +168,28 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     });
   }, [currentEvalResult, isCustomMode, llmTemplate, scorerName]);
 
-  // Check if instructions contain {{trace}} variable (custom judges only)
-  const hasTraceVariable = useMemo(() => {
-    if (!isCustomMode || !judgeInstructions) return false;
-    const templateVariables = extractTemplateVariables(judgeInstructions);
-    return templateVariables.includes('trace');
-  }, [isCustomMode, judgeInstructions]);
-
   // Determine if run scorer button should be disabled
   const hasNameError = Boolean((errors as any).name?.message);
   const hasInstructionsError = Boolean((errors as any).instructions?.message);
   const isRetrievalRelevance = llmTemplate === LLM_TEMPLATE.RETRIEVAL_RELEVANCE;
-
-  const isRunScorerDisabled = isCustomMode
-    ? !judgeInstructions || hasInstructionsError || hasTraceVariable
-    : hasNameError || isRetrievalRelevance;
+  const hasEmptyGuidelines = isGuidelinesTemplate(llmTemplate) && (!guidelines || !guidelines.trim());
 
   // Determine tooltip message based on why the button is disabled
-  const runScorerDisabledTooltip = useMemo(() => {
+  const runScorerDisabledReason = useMemo(() => {
+    if (!modelValue) {
+      return intl.formatMessage({
+        defaultMessage: 'Please select a model to run the judge',
+        description: 'Tooltip message when model is not selected',
+      });
+    }
+
+    if (!isEvaluatingSessionsInScorersEnabled() && isSessionLevelScorer) {
+      return intl.formatMessage({
+        defaultMessage: 'Session-level scorers cannot be run on individual traces',
+        description: 'Tooltip message when scorer is session-level',
+      });
+    }
+
     if (isCustomMode) {
       // Custom judge mode
       if (!judgeInstructions) {
@@ -201,14 +204,14 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
           description: 'Tooltip message when instructions have validation errors',
         });
       }
-      if (hasTraceVariable) {
-        return intl.formatMessage({
-          defaultMessage: 'The trace variable is not supported when running the judge on a sample of traces',
-          description: 'Tooltip message when instructions contain trace variable',
-        });
-      }
     } else {
       // Built-in judge mode
+      if (hasEmptyGuidelines) {
+        return intl.formatMessage({
+          defaultMessage: 'Guidelines should not be empty',
+          description: 'Tooltip message when guidelines are empty',
+        });
+      }
       if (isRetrievalRelevance) {
         return intl.formatMessage({
           defaultMessage: 'Retrieval Relevance is not yet supported for sample judge output',
@@ -224,25 +227,30 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     }
     return undefined;
   }, [
+    isSessionLevelScorer,
+    modelValue,
     isCustomMode,
     judgeInstructions,
     hasInstructionsError,
-    hasTraceVariable,
     hasNameError,
     isRetrievalRelevance,
+    hasEmptyGuidelines,
     intl,
   ]);
+
+  const isRunScorerDisabled = Boolean(runScorerDisabledReason);
 
   return (
     <SampleScorerOutputPanelRenderer
       isLoading={isLoading}
       isRunScorerDisabled={isRunScorerDisabled}
-      runScorerDisabledTooltip={runScorerDisabledTooltip}
+      runScorerDisabledTooltip={runScorerDisabledReason}
       error={error}
       currentEvalResultIndex={currentTraceIndex}
       currentEvalResult={currentEvalResult}
       assessments={assessments}
       handleRunScorer={handleRunScorer}
+      handleCancel={reset}
       handlePrevious={handlePrevious}
       handleNext={handleNext}
       totalTraces={data?.length ?? 0}

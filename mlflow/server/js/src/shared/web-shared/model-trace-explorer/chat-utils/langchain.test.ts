@@ -254,6 +254,174 @@ const MOCK_LANGCHAIN_CHAT_OUTPUT = {
   type: 'LLMResult',
 };
 
+const MOCK_LANGCHAIN_THINKING_OUTPUT = {
+  generations: [
+    [
+      {
+        text: '',
+        generation_info: {
+          finish_reason: 'STOP',
+        },
+        type: 'ChatGeneration',
+        message: {
+          content: [
+            {
+              type: 'thinking',
+              thinking:
+                'Let me think about this question. The user is asking about sudo access for everyone, which is a terrible security practice.',
+            },
+            'No, absolutely not! Giving everyone sudo access is a security nightmare.',
+          ],
+          additional_kwargs: {},
+          response_metadata: {
+            model_name: 'gemini-2.5-flash',
+            finish_reason: 'STOP',
+          },
+          type: 'ai',
+          name: null,
+          id: 'run-12345',
+        },
+      },
+    ],
+  ],
+  llm_output: {
+    model_name: 'gemini-2.5-flash',
+  },
+  run: null,
+  type: 'LLMResult',
+};
+
+const MOCK_LANGCHAIN_MULTIPLE_THINKING_OUTPUT = {
+  generations: [
+    [
+      {
+        text: '',
+        generation_info: {
+          finish_reason: 'STOP',
+        },
+        type: 'ChatGeneration',
+        message: {
+          content: [
+            {
+              type: 'thinking',
+              thinking: 'First, I need to consider the security implications.',
+            },
+            {
+              type: 'thinking',
+              thinking: 'Second, I should think about the practicality.',
+            },
+            'Here is my final answer after careful consideration.',
+          ],
+          additional_kwargs: {},
+          response_metadata: {
+            model_name: 'gemini-2.5-flash',
+            finish_reason: 'STOP',
+          },
+          type: 'ai',
+          name: null,
+          id: 'run-67890',
+        },
+      },
+    ],
+  ],
+  llm_output: {
+    model_name: 'gemini-2.5-flash',
+  },
+  run: null,
+  type: 'LLMResult',
+};
+
+const MOCK_LANGCHAIN_MIXED_THINKING_OUTPUT = {
+  generations: [
+    [
+      {
+        text: '',
+        generation_info: {
+          finish_reason: 'STOP',
+        },
+        type: 'ChatGeneration',
+        message: {
+          content: [
+            {
+              type: 'thinking',
+              thinking: 'Analyzing the image...',
+            },
+            {
+              type: 'text',
+              text: 'The image shows a cat.',
+            },
+            'It appears to be sleeping peacefully.',
+          ],
+          additional_kwargs: {},
+          response_metadata: {
+            model_name: 'gemini-2.5-flash',
+            finish_reason: 'STOP',
+          },
+          type: 'ai',
+          name: null,
+          id: 'run-mixed',
+        },
+      },
+    ],
+  ],
+  llm_output: {
+    model_name: 'gemini-2.5-flash',
+  },
+  run: null,
+  type: 'LLMResult',
+};
+
+// Mistral format: thinking is a nested array of {type: "text", text: "..."} objects
+const MOCK_LANGCHAIN_MISTRAL_THINKING_OUTPUT = {
+  generations: [
+    [
+      {
+        text: '',
+        generation_info: {
+          finish_reason: 'tool_calls',
+        },
+        type: 'ChatGeneration',
+        message: {
+          content: [
+            {
+              type: 'thinking',
+              thinking: [
+                {
+                  type: 'text',
+                  text: 'Okay, the user has asked for two things: the weather in San Francisco and the calculation.',
+                },
+              ],
+            },
+          ],
+          additional_kwargs: {
+            tool_calls: [
+              {
+                id: 'klAcLwNE8',
+                function: {
+                  name: 'get_weather',
+                  arguments: '{"location": "San Francisco"}',
+                },
+              },
+            ],
+          },
+          response_metadata: {
+            model_name: 'magistral-small-latest',
+            finish_reason: 'tool_calls',
+          },
+          type: 'ai',
+          name: null,
+          id: 'run-mistral',
+        },
+      },
+    ],
+  ],
+  llm_output: {
+    model_name: 'magistral-small-latest',
+  },
+  run: null,
+  type: 'LLMResult',
+};
+
 describe('normalizeConversation', () => {
   it('handles a langchain chat input', () => {
     expect(normalizeConversation(MOCK_LANGCHAIN_CHAT_INPUT, 'langchain')).toEqual([
@@ -324,6 +492,60 @@ describe('normalizeConversation', () => {
       expect.objectContaining({
         role: 'user',
         content: '![](https://mlflow.org/docs/latest/api_reference/_static/MLflow-logo-final-black.png)',
+      }),
+    ]);
+  });
+
+  it('should extract thinking/reasoning from reasoning model content', () => {
+    const result = normalizeConversation(MOCK_LANGCHAIN_THINKING_OUTPUT, 'langchain');
+    expect(result).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'No, absolutely not! Giving everyone sudo access is a security nightmare.',
+        reasoning: expect.stringContaining('sudo access for everyone'),
+      }),
+    ]);
+  });
+
+  it('should combine multiple thinking blocks into single reasoning', () => {
+    const result = normalizeConversation(MOCK_LANGCHAIN_MULTIPLE_THINKING_OUTPUT, 'langchain');
+    expect(result).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Here is my final answer after careful consideration.',
+        reasoning: expect.stringContaining('security implications'),
+      }),
+    ]);
+    // Verify both thinking blocks are included
+    expect(result?.[0]?.reasoning).toContain('practicality');
+  });
+
+  it('should handle mixed content with thinking, text parts, and plain strings', () => {
+    const result = normalizeConversation(MOCK_LANGCHAIN_MIXED_THINKING_OUTPUT, 'langchain');
+    expect(result).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: expect.stringContaining('The image shows a cat'),
+        reasoning: 'Analyzing the image...',
+      }),
+    ]);
+    // Verify both text parts are in content
+    expect(result?.[0]?.content).toContain('sleeping peacefully');
+  });
+
+  it('should handle Mistral nested thinking format (array of text blocks)', () => {
+    const result = normalizeConversation(MOCK_LANGCHAIN_MISTRAL_THINKING_OUTPUT, 'langchain');
+    expect(result).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        reasoning: expect.stringContaining('user has asked for two things'),
+        tool_calls: expect.arrayContaining([
+          expect.objectContaining({
+            function: expect.objectContaining({
+              name: 'get_weather',
+            }),
+          }),
+        ]),
       }),
     ]);
   });

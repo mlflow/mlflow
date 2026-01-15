@@ -1,17 +1,8 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { useDesignSystemTheme, ClockIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
-import {
-  MetricViewType,
-  AggregationType,
-  TraceMetricKey,
-  P50,
-  P90,
-  P99,
-  getPercentileKey,
-} from '@databricks/web-shared/model-trace-explorer';
-import { useTraceMetricsQuery } from '../hooks/useTraceMetricsQuery';
+import { useTraceLatencyChartData } from '../hooks/useTraceLatencyChartData';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
@@ -19,99 +10,28 @@ import {
   OverviewChartHeader,
   OverviewChartContainer,
   OverviewChartTimeLabel,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useChartYAxisProps,
+  useScrollableLegendProps,
+  DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import { formatTimestampForTraceMetrics, useLegendHighlight, useTimestampValueMap } from '../utils/chartUtils';
-import type { OverviewChartProps } from '../types';
+import { formatLatency, useLegendHighlight } from '../utils/chartUtils';
 
-/**
- * Format latency value in human-readable format
- */
-function formatLatency(ms: number): string {
-  if (ms >= 1000) {
-    return `${(ms / 1000).toFixed(2)} sec`;
-  }
-  return `${ms.toFixed(0)} ms`;
-}
-
-export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
-  experimentId,
-  startTimeMs,
-  endTimeMs,
-  timeIntervalSeconds,
-  timeBuckets,
-}) => {
+export const TraceLatencyChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const yAxisProps = useChartYAxisProps();
+  const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
 
-  // Fetch latency metrics with p50, p90, p99 aggregations grouped by time
-  const {
-    data: latencyData,
-    isLoading: isLoadingTimeSeries,
-    error: timeSeriesError,
-  } = useTraceMetricsQuery({
-    experimentId,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
-    metricName: TraceMetricKey.LATENCY,
-    aggregations: [
-      { aggregation_type: AggregationType.PERCENTILE, percentile_value: P50 },
-      { aggregation_type: AggregationType.PERCENTILE, percentile_value: P90 },
-      { aggregation_type: AggregationType.PERCENTILE, percentile_value: P99 },
-    ],
-    timeIntervalSeconds,
-  });
+  // Fetch and process latency chart data
+  const { chartData, avgLatency, isLoading, error, hasData } = useTraceLatencyChartData();
 
-  // Fetch overall average latency (without time bucketing) for the header
-  const {
-    data: avgLatencyData,
-    isLoading: isLoadingAvg,
-    error: avgError,
-  } = useTraceMetricsQuery({
-    experimentId,
-    startTimeMs,
-    endTimeMs,
-    viewType: MetricViewType.TRACES,
-    metricName: TraceMetricKey.LATENCY,
-    aggregations: [{ aggregation_type: AggregationType.AVG }],
-  });
-
-  const latencyDataPoints = useMemo(() => latencyData?.data_points || [], [latencyData?.data_points]);
-  const isLoading = isLoadingTimeSeries || isLoadingAvg;
-  const error = timeSeriesError || avgError;
-
-  // Extract overall average latency from the response (undefined if not available)
-  const avgLatency = avgLatencyData?.data_points?.[0]?.values?.[AggregationType.AVG];
-
-  // Create a map of latency values by timestamp
-  const latencyExtractor = useCallback(
-    (dp: { values?: Record<string, number> }) => ({
-      p50: dp.values?.[getPercentileKey(P50)] || 0,
-      p90: dp.values?.[getPercentileKey(P90)] || 0,
-      p99: dp.values?.[getPercentileKey(P99)] || 0,
-    }),
+  const tooltipFormatter = useCallback(
+    (value: number, name: string) => [formatLatency(value), name] as [string, string],
     [],
   );
-  const latencyByTimestamp = useTimestampValueMap(latencyDataPoints, latencyExtractor);
-
-  // Prepare chart data - fill in all time buckets with 0 for missing data
-  const chartData = useMemo(() => {
-    return timeBuckets.map((timestampMs) => {
-      const latency = latencyByTimestamp.get(timestampMs);
-      return {
-        name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
-        p50: latency?.p50 || 0,
-        p90: latency?.p90 || 0,
-        p99: latency?.p99 || 0,
-      };
-    });
-  }, [timeBuckets, latencyByTimestamp, timeIntervalSeconds]);
 
   // Line colors
   const lineColors = {
@@ -139,16 +59,15 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
       <OverviewChartTimeLabel />
 
       {/* Chart */}
-      <div css={{ height: 200, marginTop: theme.spacing.sm }}>
-        {latencyDataPoints.length > 0 ? (
+      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
+        {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
               <XAxis dataKey="name" {...xAxisProps} />
-              <YAxis hide />
+              <YAxis {...yAxisProps} />
               <Tooltip
-                contentStyle={tooltipStyle}
+                content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-                formatter={(value: number, name: string) => [formatLatency(value), name]}
               />
               <Line
                 type="monotone"
@@ -193,10 +112,9 @@ export const TraceLatencyChart: React.FC<OverviewChartProps> = ({
               <Legend
                 verticalAlign="bottom"
                 iconType="plainline"
-                height={36}
                 onMouseEnter={handleLegendMouseEnter}
                 onMouseLeave={handleLegendMouseLeave}
-                formatter={legendFormatter}
+                {...scrollableLegendProps}
               />
             </LineChart>
           </ResponsiveContainer>

@@ -535,7 +535,7 @@ describe('test params(tags)ByRunUuid', () => {
     key: key3,
     value: 'ijk',
   };
-  function reduceAndTest(reducer: any, initial_state: any, expected_state: any, action: any) {
+  function expectReduce(reducer: any, initial_state: any, expected_state: any, action: any) {
     const new_state = reducer(initial_state, action);
     expect(new_state).not.toEqual(initial_state);
     expect(new_state).toEqual(expected_state);
@@ -563,8 +563,8 @@ describe('test params(tags)ByRunUuid', () => {
         },
       };
     }
-    reduceAndTest(paramsByRunUuid, undefined, newState('params', empty_state), new_action('params', undefined));
-    reduceAndTest(
+    expectReduce(paramsByRunUuid, undefined, newState('params', empty_state), new_action('params', undefined));
+    expectReduce(
       tagsByRunUuid,
       undefined,
       newState('tags', empty_state),
@@ -573,13 +573,13 @@ describe('test params(tags)ByRunUuid', () => {
       // @ts-expect-error TS(2554): Expected 4 arguments, but got 5.
       undefined,
     );
-    reduceAndTest(
+    expectReduce(
       paramsByRunUuid,
       undefined,
       newState('params', expected_state),
       new_action('params', [val1, val2, val3]),
     );
-    reduceAndTest(tagsByRunUuid, undefined, newState('tags', expected_state), new_action('tags', [val1, val2, val3]));
+    expectReduce(tagsByRunUuid, undefined, newState('tags', expected_state), new_action('tags', [val1, val2, val3]));
   });
   test('getRunApi updates non empty state correctly', () => {
     const initial_state = deepFreeze({
@@ -617,13 +617,13 @@ describe('test params(tags)ByRunUuid', () => {
         },
       };
     }
-    reduceAndTest(
+    expectReduce(
       paramsByRunUuid,
       newState('params', initial_state),
       newState('params', expected_state),
       new_action('params'),
     );
-    reduceAndTest(tagsByRunUuid, newState('tags', initial_state), newState('tags', expected_state), new_action('tags'));
+    expectReduce(tagsByRunUuid, newState('tags', initial_state), newState('tags', expected_state), new_action('tags'));
   });
   test('search runs and load more apis updates non empty state correctly', () => {
     const initial_state = deepFreeze({
@@ -678,7 +678,7 @@ describe('test params(tags)ByRunUuid', () => {
     };
     for (const paramOrTag of ['params', 'tags']) {
       for (const action_type of [SEARCH_RUNS_API, LOAD_MORE_RUNS_API]) {
-        reduceAndTest(
+        expectReduce(
           // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
           reducers[paramOrTag],
           newState(paramOrTag, initial_state),
@@ -705,7 +705,7 @@ describe('test params(tags)ByRunUuid', () => {
       };
     }
     // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-    reduceAndTest(tagsByRunUuid, undefined, newState('tags', expected_state), new_action('tags'));
+    expectReduce(tagsByRunUuid, undefined, newState('tags', expected_state), new_action('tags'));
   });
   test('setTagApi updates non empty state correctly', () => {
     const initial_state = deepFreeze({
@@ -738,7 +738,7 @@ describe('test params(tags)ByRunUuid', () => {
         },
       };
     }
-    reduceAndTest(tagsByRunUuid, newState('tags', initial_state), newState('tags', expected_state), new_action());
+    expectReduce(tagsByRunUuid, newState('tags', initial_state), newState('tags', expected_state), new_action());
   });
   test('deleteTagApi works with empty state', () => {
     const expected_state = {};
@@ -751,7 +751,7 @@ describe('test params(tags)ByRunUuid', () => {
         },
       };
     }
-    reduceAndTest(tagsByRunUuid, undefined, newState('tags', expected_state), new_action());
+    expectReduce(tagsByRunUuid, undefined, newState('tags', expected_state), new_action());
   });
   test('deleteTagApi updates non empty state correctly', () => {
     const initial_state = deepFreeze({
@@ -782,7 +782,7 @@ describe('test params(tags)ByRunUuid', () => {
         },
       };
     }
-    reduceAndTest(tagsByRunUuid, newState('tags', initial_state), newState('tags', expected_state), new_action());
+    expectReduce(tagsByRunUuid, newState('tags', initial_state), newState('tags', expected_state), new_action());
   });
 });
 

@@ -2,7 +2,7 @@
 mlruns/
 mlartifacts/
 outputs/
-mlruns.db
+mlruns*.db
 mlflow.db
 **/basic_auth.db
 
@@ -132,8 +132,9 @@ gunicorn.conf.py
 
 # ignore everything in .claude
 .claude/*
-# except commands and skills
 !.claude/commands/
 !.claude/skills/
 !.claude/hooks/
+!.claude/rules/
 !.claude/settings.json
+!.claude/statusline.sh

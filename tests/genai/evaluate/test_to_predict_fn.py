@@ -111,7 +111,7 @@ def test_to_predict_fn_return_trace(sample_rag_trace, mock_deploy_client, mock_t
 def test_to_predict_fn_does_not_return_trace(
     databricks_output, mock_deploy_client, mock_tracing_client
 ):
-    mock_deploy_client.predict.return_value = {**_DUMMY_CHAT_RESPONSE, **databricks_output}
+    mock_deploy_client.predict.return_value = _DUMMY_CHAT_RESPONSE | databricks_output
     messages = [
         {"content": "You are a helpful assistant.", "role": "system"},
         {"content": "What is Spark?", "role": "user"},

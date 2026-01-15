@@ -33,7 +33,7 @@ const createLoggedModelHistoryTag = (models: ReturnType<typeof createModelArtifa
   ({
     key: Utils.loggedModelsTag,
     value: JSON.stringify(models),
-  } as any);
+  }) as any;
 
 describe('RunViewHeaderRegisterModelButton', () => {
   const mountComponent = ({

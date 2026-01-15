@@ -9,7 +9,7 @@ Once enabled, any visitor will be required to login before they can view any res
 MLflow Authentication provides Python and REST API for managing users and permissions.
 
 - <APILink fn="mlflow.server.auth">MLflow Authentication Python API</APILink>
-- <Link to="/api_reference/rest-api.html" target="_blank"><span>MLflow Authentication REST API</span></Link>
+- <Link to="/api_reference/auth/rest-api.html" target="_blank"><span>MLflow Authentication REST API</span></Link>
 
 ![](/images/auth_signup_form.png)
 
@@ -56,6 +56,7 @@ The available permissions are:
     <tr>
       <th>Permission</th>
       <th>Can read</th>
+      <th>Can use</th>
       <th>Can update</th>
       <th>Can delete</th>
       <th>Can manage</th>
@@ -68,9 +69,19 @@ The available permissions are:
       <td>No</td>
       <td>No</td>
       <td>No</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>USE</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>No</td>
+      <td>No</td>
     </tr>
     <tr>
       <td>EDIT</td>
+      <td>Yes</td>
       <td>Yes</td>
       <td>Yes</td>
       <td>No</td>
@@ -82,9 +93,11 @@ The available permissions are:
       <td>Yes</td>
       <td>Yes</td>
       <td>Yes</td>
+      <td>Yes</td>
     </tr>
     <tr>
       <td>NO_PERMISSIONS</td>
+      <td>No</td>
       <td>No</td>
       <td>No</td>
       <td>No</td>
@@ -639,7 +652,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
   <tbody>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicecreateuser" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#create-user" target="_blank">
           <span>Create User</span>
         </Link>
       </td>
@@ -649,7 +662,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicegetuser" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#get-user" target="_blank">
           <span>Get User</span>
         </Link>
       </td>
@@ -659,7 +672,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthserviceupdateuserpassword" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#update-user-password" target="_blank">
           <span>Update User Password</span>
         </Link>
       </td>
@@ -669,7 +682,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthserviceupdateuseradmin" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#update-user-admin" target="_blank">
           <span>Update User Admin</span>
         </Link>
       </td>
@@ -679,7 +692,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicedeleteuser" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#delete-user" target="_blank">
           <span>Delete User</span>
         </Link>
       </td>
@@ -689,7 +702,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicecreateexperimentpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#create-experiment-permission" target="_blank">
           <span>Create Experiment Permission</span>
         </Link>
       </td>
@@ -699,7 +712,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicegetexperimentpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#get-experiment-permission" target="_blank">
           <span>Get Experiment Permission</span>
         </Link>
       </td>
@@ -709,7 +722,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthserviceupdateexperimentpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#update-experiment-permission" target="_blank">
           <span>Update Experiment Permission</span>
         </Link>
       </td>
@@ -719,7 +732,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicedeleteexperimentpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#delete-experiment-permission" target="_blank">
           <span>Delete Experiment Permission</span>
         </Link>
       </td>
@@ -729,7 +742,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicecreateregisteredmodelpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#create-registered-model-permission" target="_blank">
           <span>Create Registered Model Permission</span>
         </Link>
       </td>
@@ -739,7 +752,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicegetregisteredmodelpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#get-registered-model-permission" target="_blank">
           <span>Get Registered Model Permission</span>
         </Link>
       </td>
@@ -749,7 +762,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthserviceupdateregisteredmodelpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#update-registered-model-permission" target="_blank">
           <span>Update Registered Model Permission</span>
         </Link>
       </td>
@@ -759,7 +772,7 @@ MLflow Authentication provides API endpoints to manage users and permissions.
     </tr>
     <tr>
       <td>
-        <Link to="/api_reference/rest-api.html#mlflowauthservicedeleteregisteredmodelpermission" target="_blank">
+        <Link to="/api_reference/auth/rest-api.html#delete-registered-model-permission" target="_blank">
           <span>Delete Registered Model Permission</span>
         </Link>
       </td>
@@ -916,7 +929,7 @@ auth_client.update_user_admin(username="user1", is_admin=True)
 
 ### Managing Permissions
 
-MLflow provides <Link to="/api_reference/rest-api.html#mlflowauthservicecreateuser" target="_blank">REST APIs</Link>
+MLflow provides <Link to="/api_reference/auth/rest-api.html#create-user" target="_blank">REST APIs</Link>
 and a client class <APILink fn="mlflow.server.auth.client.AuthServiceClient">`AuthServiceClient`</APILink> to manage users and permissions.
 To instantiate `AuthServiceClient`, it is recommended that you use <APILink fn="mlflow.server.get_app_client" />.
 
