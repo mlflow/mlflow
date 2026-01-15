@@ -23,6 +23,7 @@ type Category =
   | 'OpenTelemetry'
   | 'Agent Frameworks (Python)'
   | 'Agent Frameworks (TypeScript)'
+  | 'Agent Frameworks (Java)'
   | 'Model Providers'
   | 'Tools';
 
@@ -30,6 +31,7 @@ const CATEGORY_ORDER: Category[] = [
   'OpenTelemetry',
   'Agent Frameworks (Python)',
   'Agent Frameworks (TypeScript)',
+  'Agent Frameworks (Java)',
   'Model Providers',
   'Tools',
 ];
@@ -78,13 +80,6 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     name: 'PydanticAI',
     logoPath: '/images/logos/pydantic-ai-logo-only.png',
     link: '/genai/tracing/integrations/listing/pydantic_ai',
-    category: 'Agent Frameworks (Python)',
-  },
-  {
-    id: 'quarkus-langchain4j',
-    name: 'Quarkus LangChain4j',
-    logoPath: '/images/logos/langchain4j.svg',
-    link: '/genai/tracing/integrations/listing/quarkus-langchain4j',
     category: 'Agent Frameworks (Python)',
   },
   {
@@ -243,6 +238,20 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/voltagent',
     category: 'Agent Frameworks (TypeScript)',
   },
+  {
+    id: 'quarkus-langchain4j',
+    name: 'Quarkus LangChain4j',
+    logoPath: '/images/logos/langchain4j.svg',
+    link: '/genai/tracing/integrations/listing/quarkus-langchain4j',
+    category: 'Agent Frameworks (Java)',
+  },
+  {
+    id: 'spring-ai',
+    name: 'Spring AI',
+    logoPath: '/images/logos/spring.png',
+    link: '/genai/tracing/integrations/listing/spring-ai',
+    category: 'Agent Frameworks (Java)',
+  },
   // Model Providers
   {
     id: 'openai',
@@ -259,10 +268,10 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Model Providers',
   },
   {
-    id: 'bedrock',
-    name: 'Amazon Bedrock',
-    logoPath: '/images/logos/bedrock-logo.png',
-    link: '/genai/tracing/integrations/listing/bedrock',
+    id: 'databricks',
+    name: 'Databricks',
+    logoPath: '/images/logos/databricks-logo.png',
+    link: '/genai/tracing/integrations/listing/databricks',
     category: 'Model Providers',
   },
   {
@@ -270,6 +279,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     name: 'Gemini',
     logoPath: '/images/logos/google-gemini-logo.svg',
     link: '/genai/tracing/integrations/listing/gemini',
+    category: 'Model Providers',
+  },
+  {
+    id: 'bedrock',
+    name: 'Amazon Bedrock',
+    logoPath: '/images/logos/bedrock-logo.png',
+    link: '/genai/tracing/integrations/listing/bedrock',
     category: 'Model Providers',
   },
   {
@@ -291,13 +307,6 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     name: 'xAI / Grok',
     logoPath: '/images/logos/grok-logo.png',
     link: '/genai/tracing/integrations/listing/xai-grok',
-    category: 'Model Providers',
-  },
-  {
-    id: 'databricks',
-    name: 'Databricks',
-    logoPath: '/images/logos/databricks-logo.png',
-    link: '/genai/tracing/integrations/listing/databricks',
     category: 'Model Providers',
   },
   {
