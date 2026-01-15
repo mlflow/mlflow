@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import functools
+import logging
 from contextlib import contextmanager, nullcontext
 from typing import TYPE_CHECKING, Any, Callable
 
 from pydantic import BaseModel, create_model
 
+import mlflow
 from mlflow.entities import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer
@@ -15,6 +17,8 @@ from mlflow.tracking.client import MlflowClient
 
 if TYPE_CHECKING:
     import pandas as pd
+
+_logger = logging.getLogger(__name__)
 
 
 @contextmanager
@@ -122,7 +126,7 @@ def infer_type_from_value(value: Any, model_name: str = "Output") -> type:
 def create_metric_from_scorers(
     scorers: list[Scorer],
     objective: Callable[[dict[str, Any]], float] | None = None,
-) -> Callable[[Any, Any, dict[str, Any]], float]:
+) -> Callable[[Any, Any, dict[str, Any], Trace | None], tuple[float, dict[str, str]]]:
     """
     Create a metric function from scorers and an optional objective function.
 
@@ -134,13 +138,15 @@ def create_metric_from_scorers(
                   uses default aggregation (sum for numerical, conversion for categorical).
 
     Returns:
-        A callable that takes (inputs, outputs, expectations) and
+        A callable that takes (inputs, outputs, expectations, trace) and
         returns a tuple of (float score, dict of rationales).
 
     Raises:
         MlflowException: If scorers return non-numerical values and no objective is provided.
     """
     from mlflow.entities import Feedback
+    from mlflow.genai.evaluation.harness import _log_assessments
+    from mlflow.genai.evaluation.utils import standardize_scorer_value
     from mlflow.genai.judges import CategoricalRating
 
     def _convert_to_numeric(score: Any) -> float | None:
@@ -160,14 +166,27 @@ def create_metric_from_scorers(
         outputs: Any,
         expectations: dict[str, Any],
         trace: Trace | None,
-    ) -> float:
+    ) -> tuple[float, dict[str, str]]:
         scores = {}
         rationales = {}
+        all_assessments = []
 
         for scorer in scorers:
-            scores[scorer.name] = scorer.run(
+            score = scorer.run(
                 inputs=inputs, outputs=outputs, expectations=expectations, trace=trace
             )
+            scores[scorer.name] = score
+            all_assessments.extend(standardize_scorer_value(scorer.name, score))
+
+        if trace is not None and all_assessments:
+            try:
+                _log_assessments(
+                    run_id=mlflow.active_run().info.run_id if mlflow.active_run() else None,
+                    trace=trace,
+                    assessments=all_assessments,
+                )
+            except Exception as e:
+                _logger.warning(f"Failed to log assessments to trace {trace.info.trace_id}: {e}")
 
         for key, score in scores.items():
             if isinstance(score, Feedback):
