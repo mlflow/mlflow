@@ -122,7 +122,7 @@ _ML_PACKAGE_VERSIONS = {
             "module_name": "crewai"
         },
         "autologging": {
-            "minimum": "0.98.0",
+            "minimum": "0.95.0",
             "maximum": "1.7.1"
         }
     },
