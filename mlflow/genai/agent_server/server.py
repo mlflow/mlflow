@@ -133,19 +133,19 @@ class AgentServer:
         self.proxy_client = httpx.AsyncClient(timeout=self.chat_proxy_timeout)
 
         # Only proxy static assets to prevent SSRF vulnerabilities
-        allowed_exact_paths = ("/", "/favicon.ico")
-        allowed_path_prefixes = ("/assets/", "/api/")
+        allowed_exact_paths = {"/", "/favicon.ico"}
+        allowed_path_prefixes = {"/assets/", "/api/"}
 
         # Add additional paths from environment variables
         if additional_exact_paths := os.getenv("CHAT_PROXY_ALLOWED_EXACT_PATHS", ""):
-            allowed_exact_paths = allowed_exact_paths + tuple(
+            allowed_exact_paths |= {
                 p.strip() for p in additional_exact_paths.split(",") if p.strip()
-            )
+            }
 
         if additional_path_prefixes := os.getenv("CHAT_PROXY_ALLOWED_PATH_PREFIXES", ""):
-            allowed_path_prefixes = allowed_path_prefixes + tuple(
+            allowed_path_prefixes |= {
                 p.strip() for p in additional_path_prefixes.split(",") if p.strip()
-            )
+            }
 
         @self.app.middleware("http")
         async def chat_proxy_middleware(request: Request, call_next):
