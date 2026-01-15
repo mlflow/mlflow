@@ -11,6 +11,7 @@ interface AssistantPageContextStore {
   context: AssistantPageContextData;
   setContext: (key: string, value: unknown) => void;
   removeContext: (key: string) => void;
+  updateRouteContext: (updates: Partial<Record<'experimentId' | 'runId' | 'traceId', string | null>>) => void;
   getContext: () => AssistantPageContextData;
 }
 
@@ -22,6 +23,18 @@ const useAssistantPageContextStore = create<AssistantPageContextStore>((set, get
       const { [key]: _, ...rest } = state.context;
       return { context: rest };
     }),
+  updateRouteContext: (updates) =>
+    set((state) => {
+      const newContext = { ...state.context };
+      for (const [key, value] of Object.entries(updates)) {
+        if (value !== null && value !== undefined) {
+          newContext[key] = value;
+        } else {
+          delete newContext[key];
+        }
+      }
+      return { context: newContext };
+    }),
   getContext: () => ({ ...get().context }),
 }));
 
@@ -32,37 +45,19 @@ const useAssistantPageContextStore = create<AssistantPageContextStore>((set, get
 export const AssistantRouteContextProvider = () => {
   const params = useParams();
   const [searchParams] = useSearchParams();
-  const { setContext, removeContext } = useAssistantPageContextStore();
+  const { updateRouteContext } = useAssistantPageContextStore();
 
-  // Auto-extract experimentId from route params
   const experimentId = (params as Record<string, string | undefined>)['experimentId'];
-  useEffect(() => {
-    if (experimentId) {
-      setContext('experimentId', experimentId);
-    } else {
-      removeContext('experimentId');
-    }
-  }, [experimentId, setContext, removeContext]);
-
-  // Auto-extract runId from route params
   const runId = (params as Record<string, string | undefined>)['runUuid'];
-  useEffect(() => {
-    if (runId) {
-      setContext('runId', runId);
-    } else {
-      removeContext('runId');
-    }
-  }, [runId, setContext, removeContext]);
-
-  // Auto-extract traceId from query params
   const traceId = searchParams.get('selectedEvaluationId');
+
   useEffect(() => {
-    if (traceId) {
-      setContext('traceId', traceId);
-    } else {
-      removeContext('traceId');
-    }
-  }, [traceId, setContext, removeContext]);
+    updateRouteContext({
+      experimentId: experimentId ?? null,
+      runId: runId ?? null,
+      traceId: traceId ?? null,
+    });
+  }, [experimentId, runId, traceId, updateRouteContext]);
 
   return null;
 };
