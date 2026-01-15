@@ -1,0 +1,126 @@
+import { APILink } from "@site/src/components/APILink";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import TileCard from "@site/src/components/TileCard";
+import TilesGrid from "@site/src/components/TilesGrid";
+import { BookOpen, CheckCircle, Layers, Plug, Server, Settings, Shield } from "lucide-react";
+
+# Workspaces
+
+Workspaces add an optional organizational layer and permission scheme for MLflow resources such as experiments, registered models, prompts, and artifacts, letting teams share one deployment without running multiple servers.
+
+:::warning Known limitations
+
+- UI support for workspaces is not yet available (coming soon).
+- Disabling workspaces after creating resources in non-default workspaces currently requires manual database changes; helper tooling is planned.
+
+:::
+
+## Key Capabilities
+
+<FeatureHighlights features={[
+  {
+    icon: Layers,
+    title: "Workspace-scoped resources",
+    description: "Top-level resources (experiments, registered models, prompts, evaluation datasets) are scoped to a workspace and its permissions. Child resources (runs, traces, model versions, artifacts, and more) inherit the parent workspace."
+  },
+  {
+    icon: Server,
+    title: "Shared infrastructure",
+    description: "Run a single MLflow deployment for one team or many, while keeping resources grouped by workspace."
+  },
+  {
+    icon: Plug,
+    title: "Flexible integration",
+    description: "Use the pluggable workspace provider architecture to integrate with Kubernetes namespaces, identity providers, or internal catalogs."
+  },
+  {
+    icon: CheckCircle,
+    title: "Backward compatible",
+    description: "Workspaces are opt-in and disabled by default. Existing deployments continue to work without modification."
+  },
+]} />
+
+## When to Use Workspaces
+
+Use workspaces when you need:
+
+- Organized experiments, registered models, and prompts within a single MLflow instance
+- Workspace-level permissions to manage groups of resources without needing to manage individual experiments or models
+- Integration with platform-level constructs (for example, Kubernetes namespaces) to keep resources grouped
+- Simplified MLflow administration across multiple teams without deploying separate servers
+
+::::caution Not a hard isolation boundary
+Workspaces provide logical separation and authorization controls inside one MLflow server. For strict data-plane or compliance isolation, run independent MLflow deployments instead of sharing a server.
+::::
+
+:::warning Requirements
+
+Workspaces require a SQL database backend store. File-based backends are not supported when workspaces are enabled.
+
+:::
+
+## Quick Start
+
+Start the MLflow server with workspaces enabled:
+
+```bash
+mlflow server \
+  --backend-store-uri postgresql://user:pass@localhost/mlflow \
+  --default-artifact-root s3://mlflow-artifacts \
+  --enable-workspaces
+```
+
+Create a workspace (once, as an admin):
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("https://mlflow.example.com")
+mlflow.create_workspace(name="team-a", description="Workspace for Team A")
+```
+
+Set the active workspace in the client before working with resources:
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("https://mlflow.example.com")
+mlflow.set_workspace("team-a")
+```
+
+See [Configuration](/self-hosting/workspaces/configuration) for full server options and [Getting Started](/self-hosting/workspaces/getting-started) for end-to-end setup.
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    href="/self-hosting/workspaces/getting-started"
+    title="Getting Started"
+    description="Step-by-step guide to setting up workspaces"
+    icon={BookOpen}
+  />
+  <TileCard
+    href="/self-hosting/workspaces/configuration"
+    title="Configuration"
+    description="Server configuration and startup options"
+    icon={Settings}
+  />
+  <TileCard
+    href="/self-hosting/workspaces/workspace-providers"
+    title="Workspace Providers"
+    description="Pluggable provider architecture and artifact routing"
+    icon={Plug}
+  />
+  <TileCard
+    href="/self-hosting/workspaces/permissions"
+    title="Permissions"
+    description="Workspace-scoped access control"
+    icon={Shield}
+  />
+</TilesGrid>
+
+## API Reference
+
+- <APILink fn="mlflow.set_workspace">mlflow.set_workspace()</APILink>
+- <APILink fn="mlflow.get_workspace">mlflow.get_workspace()</APILink>
+- <APILink fn="mlflow.list_workspaces">mlflow.list_workspaces()</APILink>
