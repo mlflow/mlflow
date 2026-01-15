@@ -1,4 +1,4 @@
-import { Header, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { isNil } from 'lodash';
 import { TraceTableGenericQuickstart } from './TraceTableGenericQuickstart';
@@ -15,46 +15,48 @@ export const TracesViewTableNoTracesQuickstart = ({
   const { introductionText } = useTracesViewTableNoTracesQuickstartContext();
 
   return (
-    <div css={{ overflow: 'auto', paddingBottom: theme.spacing.lg }}>
-      <Header
-        title={
+    <div
+      css={{
+        flex: 1,
+        flexDirection: 'column',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'auto',
+        paddingBottom: theme.spacing.lg,
+      }}
+    >
+      <div>
+        <Typography.Title level={3} css={{ textAlign: 'center' }}>
           <FormattedMessage
-            defaultMessage="No traces recorded"
+            defaultMessage="Log traces to this experiment"
             description="Message displayed when there are no traces logged to the experiment"
           />
-        }
-        titleElementLevel={3}
-      />
-      <Typography.Text
-        css={{
-          display: 'block',
-          marginTop: theme.spacing.md,
-          marginBottom: theme.spacing.md,
-          maxWidth: 800,
-        }}
-      >
-        {introductionText ? (
-          introductionText
-        ) : (
-          <FormattedMessage
-            defaultMessage="This tab displays all the traces logged to this {isRun, select, true {run} other {experiment}}. Follow the steps below to log your first trace. For more information about MLflow Tracing, visit the <a>MLflow documentation</a>."
-            description="Message that explains the function of the 'Traces' tab in the MLflow UI. This message is followed by a tutorial explaining how to get started with MLflow Tracing."
-            values={{
-              isRun: !isNil(runUuid),
-              a: (text: string) => (
-                <Typography.Link
-                  componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_traces_quickstart_tracesviewtablenotracesquickstart_46"
-                  href="https://mlflow.org/docs/latest/llms/tracing/index.html"
-                  openInNewTab
-                >
-                  {text}
-                </Typography.Link>
-              ),
-            }}
-          />
-        )}
-      </Typography.Text>
-      <TraceTableGenericQuickstart flavorName="custom" baseComponentId={baseComponentId} />
+        </Typography.Title>
+        <Typography.Paragraph color="secondary" css={{ maxWidth: 600 }}>
+          {introductionText ? (
+            introductionText
+          ) : (
+            <FormattedMessage
+              defaultMessage="This tab displays all the traces logged to this {isRun, select, true {run} other {experiment}}. Follow the steps below to log your first trace. For more information about MLflow Tracing, visit the <a>MLflow documentation</a>."
+              description="Message that explains the function of the 'Traces' tab in the MLflow UI. This message is followed by a tutorial explaining how to get started with MLflow Tracing."
+              values={{
+                isRun: !isNil(runUuid),
+                a: (text: string) => (
+                  <Typography.Link
+                    componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_traces_quickstart_tracesviewtablenotracesquickstart_46"
+                    href="https://mlflow.org/docs/latest/llms/tracing/index.html"
+                    openInNewTab
+                  >
+                    {text}
+                  </Typography.Link>
+                ),
+              }}
+            />
+          )}
+        </Typography.Paragraph>
+        <TraceTableGenericQuickstart flavorName="custom" baseComponentId={baseComponentId} />
+      </div>
     </div>
   );
 };
