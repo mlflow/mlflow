@@ -2604,8 +2604,7 @@ def import_checkpoints(
                 experiment_id=exp_id,
             )
             imported_models.append(created_model)
-
-        if existing_models and not overwrite_checkpoints:
+        else:
             imported_models.extend(existing_models)
 
         if existing_models and overwrite_checkpoints:
