@@ -212,6 +212,7 @@ def run(
     try:
         emit_custom_metric_event(scorers, len(eval_items), aggregated_metrics)
     except Exception as e:
+        print(f"Failed to emit custom metric usage event: {e}", exc_info=True)  # noqa: T201
         _logger.debug(f"Failed to emit custom metric usage event: {e}", exc_info=True)
 
     # Search for all traces in the run. We need to fetch the traces from backend here to include

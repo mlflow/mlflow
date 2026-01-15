@@ -1,5 +1,7 @@
 import hashlib
+import json
 import threading
+import traceback
 import uuid
 
 import mlflow
@@ -29,6 +31,8 @@ def emit_custom_metric_event(
     if not is_databricks_uri(mlflow.get_tracking_uri()):
         return
 
+    print(f"emit_custom_metric_event called: {scorers}")  # noqa: T201
+
     custom_metrics = list(filter(_is_custom_scorer, scorers))
     metric_name_to_hash = {m.name: _hash_metric_name(m.name) for m in custom_metrics}
 
@@ -55,18 +59,46 @@ def emit_custom_metric_event(
         "eval_count": eval_count,
         "metrics": metric_stats,
     }
-    http_request(
-        host_creds=get_databricks_host_creds(),
-        endpoint=_EVAL_TELEMETRY_ENDPOINT,
-        method="POST",
-        extra_headers={
-            _CLIENT_VERSION_HEADER: VERSION,
-            _SESSION_ID_HEADER: _get_or_create_session_id(),
-            _BATCH_SIZE_HEADER: str(eval_count),
-            _CLIENT_NAME_HEADER: "mlflow",
-        },
-        json=event_payload,
-    )
+
+    payload = {
+        "agent_evaluation_client_usage_events": [
+            {
+                "custom_metric_usage_event": {
+                    "metric_names": list(metric_name_to_hash.values()),
+                    "eval_count": eval_count,
+                    "metrics": metric_stats,
+                }
+            }
+        ]
+    }
+
+    print(f"current event_payload: {json.dumps(event_payload, indent=2)}")  # noqa: T201
+
+    print(f"my new event_payload: {json.dumps(payload, indent=2)}")  # noqa: T201
+
+    try:
+        print(f"Making HTTP request to endpoint: {_EVAL_TELEMETRY_ENDPOINT}")  # noqa: T201
+        response = http_request(
+            host_creds=get_databricks_host_creds(),
+            endpoint=_EVAL_TELEMETRY_ENDPOINT,
+            method="POST",
+            extra_headers={
+                _CLIENT_VERSION_HEADER: VERSION,
+                _SESSION_ID_HEADER: _get_or_create_session_id(),
+                _BATCH_SIZE_HEADER: str(eval_count),
+                _CLIENT_NAME_HEADER: "mlflow",
+            },
+            json=payload,
+        )
+        print(f"HTTP response status code: {response.status_code}")  # noqa: T201
+        print(f"HTTP response headers: {dict(response.headers)}")  # noqa: T201
+        print(f"HTTP response body: {response.text}")  # noqa: T201
+
+        if response.status_code != 200:
+            print(f"WARNING: Request failed with status code {response.status_code}")  # noqa: T201
+    except Exception as e:
+        print(f"ERROR: HTTP request failed with exception: {type(e).__name__}: {e}")  # noqa: T201
+        traceback.print_exc()
 
 
 def _is_custom_scorer(scorer: Scorer) -> bool:
