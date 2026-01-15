@@ -433,7 +433,8 @@ export const GenAiTracesTableBody = React.memo(
                 virtualizerTotalSize={virtualizerTotalSize}
                 virtualizerMeasureElement={rowVirtualizer.measureElement}
                 rowSelectionState={rowSelection}
-                selectedColumns={selectedColumns}
+                selectedColumns={sortedGroupedColumns}
+                expandedSessions={expandedSessions}
                 toggleSessionExpanded={toggleSessionExpanded}
                 experimentId={experimentId}
               />
