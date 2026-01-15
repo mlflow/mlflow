@@ -14,7 +14,7 @@ To systematically test and improve a GenAI application, you use an evaluation da
 - Improve quality by testing fixes against known problematic examples from production.
 - Prevent regressions. Create a "golden set" of examples that must always work correctly.
 - Compare app versions. Test different prompts, models, or app logic against the same data.
-- Target specific features. Build specialized datasets for safety, domain knowledge, or edge cases.
+- Target specific features or issues. Build specialized datasets for safety, domain knowledge, or edge cases.
 - Validate the app across different environments as part of LLMOps.
 
 You can think of them as test suites for your LLM functionality.
@@ -36,7 +36,7 @@ You can use any of the following to create an evaluation dataset:
 - Existing traces. If you have already captured traces from a GenAI application, you can use them to create an evaluation dataset based on real-world scenarios.
 - An existing dataset, or directly entered examples. This option is useful for quick prototyping or for targeted testing of specific features.
 
-This page describes how to create an MLflow evaluation dataset. You can also use other types of datasets, such as Pandas DataFrames or a list of dictionaries. See [Evaluation examples](/genai/eval-monitor/running-evaluation/eval-examples) for more examples.
+This page describes how to create an MLflow evaluation dataset. You can create datasets from traces using either the MLflow Monitoring UI or the SDK. You can also use other types of datasets, such as Pandas DataFrames or a list of dictionaries. See [Evaluation examples](/genai/eval-monitor/running-evaluation/eval-examples) for more examples.
 
 ## Create a dataset using the UI
 
@@ -61,19 +61,24 @@ Follow these steps to use the UI to create a dataset from existing traces.
 
    If no evaluation dataset exists for the experiment:
    1. Click **Create new dataset**.
-   1. In the **Create Dataset** dialog, click **Select schema**, and select the schema to hold the dataset.
-   1. Click **Confirm**.
-   1. In the **Table name** field of the **Create evaluation dataset** dialog, enter a name for the evaluation dataset and click **Create Dataset**.
-   1. The **Add traces to evaluation dataset** dialog appears, showing the dataset you just created. Click **Export** next to the dataset.
+   1. In the **Create Dataset** dialog, enter a name for the evaluation dataset and click **Create**.
+   1. Click **Export** next to the dataset you just created.
    1. After the traces have been exported, the button changes to **Exported**. Click **Done**.
 
-## Create a dataset using the SDK
+## Create a dataset using the SDK and add records
 
-Follow these steps to use the SDK to create a dataset.
+This section describes several options for adding records to the evaluation dataset.
 
-### Step 1. Create the dataset
+<TabsWrapper>
+<Tabs>
+<TabItem value="from-existing-traces" label="From existing traces" default>
+
+One of the most effective ways to build a relevant evaluation dataset is by curating examples directly from your application's historical interactions captured by MLflow Tracing.
+
+Programmatically search for traces and then add them to the dataset using `search_traces()`. Use filters to identify traces by success, failure, use in production, or other properties. See [Search traces](/genai/tracing/search-traces#search-traces-overview). You can also add ground-truth expectations to your traces before or after adding them to an evaluation dataset using [`log_expectation()`](https://mlflow.org/docs/latest/api_reference/python_api/mlflow.html?highlight=log_expectation#mlflow.log_expectation).
 
 ```python
+import mlflow
 from mlflow.genai.datasets import create_dataset, set_dataset_tags
 
 # Create your evaluation dataset
@@ -89,22 +94,6 @@ set_dataset_tags(
     dataset_id=dataset.dataset_id,
     tags={"environment": "dev", "validation_version": "1.3"},
 )
-```
-
-### Step 2: Add records to your dataset
-
-This section describes several options for adding records to the evaluation dataset.
-
-<TabsWrapper>
-<Tabs>
-<TabItem value="from-existing-traces" label="From existing traces" default>
-
-One of the most effective ways to build a relevant evaluation dataset is by curating examples directly from your application's historical interactions captured by MLflow Tracing. You can create datasets from traces using either the MLflow Monitoring UI or the SDK.
-
-Programmatically search for traces and then add them to the dataset using `search_traces()`. Use filters to identify traces by success, failure, use in production, or other properties. See [Search traces](/genai/tracing/search-traces#search-traces-overview). You can also add ground-truth expectations to your traces before or after adding them to an evaluation dataset using `log_expectation()`.
-
-```python
-import mlflow
 
 # 2. Search for traces
 traces = mlflow.search_traces(
@@ -120,7 +109,7 @@ for trace in traces:
     mlflow.log_expectation(
         trace_id=trace.info.trace_id,
         name="expected_answer",
-        value=("Expected correct answer for this input"),
+        value=("Correct answer for this input"),
     )
 
 # 4. Add the traces to the evaluation dataset
@@ -192,6 +181,14 @@ You can curate examples from scratch. Your data must match (or be transformed to
 
 ```python
 import mlflow
+from mlflow.genai.datasets import create_dataset
+
+# Create dataset with manual test cases
+dataset = create_dataset(
+    name="regression_test_suite",
+    experiment_id=["0", "1"],  # Multiple experiments
+    tags={"type": "regression", "priority": "critical"},
+)
 
 # Define test cases with expected outputs (ground truth)
 test_cases = [
@@ -229,13 +226,18 @@ dataset.merge_records(test_cases)
 ```
 
 </TabItem>
-
 <TabItem value="from-pandas" label="From DataFrame">
-
-You can curate examples from scratch. Your data must match (or be transformed to match) the [evaluation dataset schema](/genai/concepts/evaluation-datasets#record-structure).
 
 ```python
 import pandas as pd
+from mlflow.genai.datasets import create_dataset
+
+# Create dataset
+dataset = create_dataset(
+    name="benchmark_dataset",
+    experiment_id=["0"],
+    tags={"source": "benchmark", "version": "2024.1"},
+)
 
 # Create DataFrame with inputs and expectations (ground truth)
 df = pd.DataFrame(
@@ -278,9 +280,12 @@ dataset.merge_records(df)
 ```
 
 </TabItem>
-
 </Tabs>
 </TabsWrapper>
+
+## Understanding Source Types
+
+Every record in an evaluation dataset has a **source type** that tracks its provenance. This enables you to analyze model performance by data origin and understand which types of test data are most valuable.
 
 ## Update existing datasets
 
