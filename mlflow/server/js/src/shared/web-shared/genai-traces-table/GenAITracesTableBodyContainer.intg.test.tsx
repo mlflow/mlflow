@@ -115,6 +115,7 @@ describe('GenAITracesTableBodyContainer - integration test', () => {
       getRunColor: jest
         .fn<NonNullable<ComponentProps<typeof GenAITracesTableBodyContainer>['getRunColor']>>()
         .mockReturnValue('#000000'),
+      isGroupedBySession: false,
       ...additionalProps,
     };
 
