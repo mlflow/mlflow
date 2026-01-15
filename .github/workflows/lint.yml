@@ -56,12 +56,12 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/format.json"
           echo "::add-matcher::.github/workflows/matchers/ruff.json"
           echo "::add-matcher::.github/workflows/matchers/typos.json"
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
-          # Run uv sync and yarn in parallel for faster installation
-          uv sync --locked --only-group lint --only-group test &
-          (cd mlflow/server/js && yarn install --immutable)
-          wait
+          uv sync --locked --only-group lint --only-group test
+      - name: Install JS dependencies
+        run: |
+          cd mlflow/server/js && yarn install --immutable
       - name: Install pre-commit hooks
         run: |
           uv run --only-group lint pre-commit install --install-hooks
