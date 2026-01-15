@@ -1,264 +1,176 @@
-# AI Gateway Setup
+---
+title: Gateway Setup
+---
 
-import TilesGrid from "@site/src/components/TilesGrid";
-import TileCard from "@site/src/components/TileCard";
-import TabsWrapper from "@site/src/components/TabsWrapper";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
-import { Settings, Play, Wrench } from "lucide-react";
+# Gateway Setup
 
-Get your MLflow AI Gateway up and running quickly with this step-by-step setup guide.
+The MLflow AI Gateway provides a web-based interface for managing AI endpoints, API keys, and routing configurations. This guide walks you through setting up and configuring your gateway.
 
-## Installation
+## Prerequisites
 
-The AI Gateway requires MLflow with additional dependencies for server functionality. The `[gateway]` extra includes FastAPI, Uvicorn, and other serving components:
+To use the AI Gateway, you'll need MLflow installed with the GenAI extras, which include the necessary dependencies for gateway functionality:
 
 ```bash
-pip install 'mlflow[gateway]'
+pip install "mlflow[genai]"
 ```
 
-## Environment Setup
-
-Store your API keys as environment variables to keep them secure and separate from your configuration files. The gateway reads these variables when connecting to providers:
+The AI Gateway runs within the MLflow Tracking Server and requires a SQL-based backend store (SQLite, PostgreSQL, MySQL, or MSSQL) with the FastAPI tracking server. Start your MLflow server:
 
 ```bash
-# OpenAI
-export OPENAI_API_KEY=sk-...
-
-# Azure OpenAI
-export AZURE_OPENAI_API_KEY=your-azure-key
-export AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-
-# Anthropic
-export ANTHROPIC_API_KEY=sk-ant-...
-
-# AWS Bedrock
-export AWS_ACCESS_KEY_ID=AKIA...
-export AWS_SECRET_ACCESS_KEY=...
-export AWS_REGION=us-east-1
-
-# Cohere
-export COHERE_API_KEY=...
+mlflow server --port 5000
 ```
 
-## Basic Server Configuration
+:::note
+File-based tracking stores are not supported by the AI Gateway. By default, `mlflow server` uses a SQL-based backend (SQLite).
+:::
 
-The gateway uses a YAML configuration file to define endpoints. Each endpoint specifies a provider, model, and authentication details. Start with a simple configuration and expand as needed:
-
-<TabsWrapper>
-<Tabs>
-<TabItem value="simple" label="Simple Setup" default>
-
-```yaml
-endpoints:
-  - name: chat
-    endpoint_type: llm/v1/chat
-    model:
-      provider: openai
-      name: gpt-3.5-turbo
-      config:
-        openai_api_key: $OPENAI_API_KEY
-```
-
-</TabItem>
-<TabItem value="multiple" label="Multiple Endpoints">
-
-```yaml
-endpoints:
-  - name: chat
-    endpoint_type: llm/v1/chat
-    model:
-      provider: openai
-      name: gpt-3.5-turbo
-      config:
-        openai_api_key: $OPENAI_API_KEY
-
-  - name: completions
-    endpoint_type: llm/v1/completions
-    model:
-      provider: openai
-      name: gpt-3.5-turbo-instruct
-      config:
-        openai_api_key: $OPENAI_API_KEY
-
-  - name: embeddings
-    endpoint_type: llm/v1/embeddings
-    model:
-      provider: openai
-      name: text-embedding-ada-002
-      config:
-        openai_api_key: $OPENAI_API_KEY
-```
-
-</TabItem>
-
-<TabItem value="route" label="Traffic route">
-
-```yaml
-endpoints:
-  - name: chat1
-    endpoint_type: llm/v1/chat
-    model:
-      provider: openai
-      name: gpt-3.5-turbo
-      config:
-        openai_api_key: $OPENAI_API_KEY
-
-  - name: chat2
-    endpoint_type: llm/v1/chat
-    model:
-      provider: openai
-      name: gpt-4.1
-      config:
-        openai_api_key: $OPENAI_API_KEY
-
-routes:
-  - name: chat-route
-    task_type: llm/v1/chat
-    destinations:
-      - name: chat1
-        traffic_percentage: 80
-      - name: chat2
-        traffic_percentage: 20
-    routing_strategy: TRAFFIC_SPLIT
-```
-
-</TabItem>
-</Tabs>
-</TabsWrapper>
-
-## Starting the Gateway Server
-
-The MLflow CLI provides a simple command to start the gateway server. The server will validate your configuration file and start endpoints for all defined providers.
-
-### Basic Start
-
-This starts the server with default settings on localhost port 5000:
+For production deployments, you'll want to configure encryption for secrets. Generate a secure passphrase and set it as an environment variable before starting the server:
 
 ```bash
-mlflow gateway start --config-path config.yaml
+# Generate a secure passphrase
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# Set the passphrase as an environment variable
+export MLFLOW_CRYPTO_KEK_PASSPHRASE="your-secure-passphrase-here"
 ```
 
-The server will start on `http://localhost:5000` by default.
+:::note
+For local development, MLflow uses a default passphrase if none is configured. This is acceptable for development or single-user deployments, but production environments should always use a custom passphrase.
+:::
 
-### Custom Configuration
+<details>
+<summary>How to rotate the encryption passphrase (KEK)</summary>
 
-For production or specific networking requirements, customize the host, port, and worker processes:
+The encryption passphrase (KEK - Key Encryption Key) is the master secret used to encrypt all stored API keys in the database. You should rotate this periodically for security best practices.
 
-```bash
-mlflow gateway start \
-  --config-path config.yaml \
-  --port 8080 \
-  --host 0.0.0.0 \
-  --workers 4
-```
+**Prerequisites:**
 
-### Command Line Options
+- Direct database access
+- Ability to stop the MLflow server
+- Current KEK passphrase and version
 
-| Option          | Description                     | Default   |
-| --------------- | ------------------------------- | --------- |
-| `--config-path` | Path to YAML configuration file | Required  |
-| `--port`        | Port number for the server      | 5000      |
-| `--host`        | Host address to bind to         | 127.0.0.1 |
-| `--workers`     | Number of worker processes      | 1         |
+**Rotation process:**
 
-## Verification
+1. **Stop the MLflow server** to ensure atomicity:
 
-### Check Server Status
+   ```bash
+   # Example: systemctl stop mlflow-server
+   ```
 
-Verify the gateway is running and healthy with a simple HTTP health check:
+2. **Set current environment variables** (if not already configured):
 
-```bash
-# Check if server is responding
-curl http://localhost:5000/health
-```
+   ```bash
+   export MLFLOW_CRYPTO_KEK_PASSPHRASE="current-passphrase"
+   export MLFLOW_CRYPTO_KEK_VERSION="1"  # Current version
+   ```
 
-### View API Documentation
+3. **Run the rotation command** with your new passphrase:
 
-The gateway automatically generates interactive API documentation using FastAPI's built-in Swagger UI:
+   ```bash
+   mlflow crypto rotate-kek --new-passphrase "new-passphrase"
+   ```
 
-```
-http://localhost:5000/docs
-```
+   The command will re-wrap all encryption keys with the new KEK. The API key values themselves are not re-encrypted, making this efficient even with many secrets.
 
-### Test a Simple Request
+4. **Update deployment configuration** with BOTH new values:
 
-Send a test request to the chat endpoint to verify your endpoint configuration is working correctly:
+   ```bash
+   # Example for environment variables
+   export MLFLOW_CRYPTO_KEK_PASSPHRASE="new-passphrase"
+   export MLFLOW_CRYPTO_KEK_VERSION="2"  # Incremented version
+   ```
 
-```bash
-curl -X POST http://localhost:5000/gateway/chat/invocations \
-  -H "Content-Type: application/json" \
-  -d '{
-    "messages": [{"role": "user", "content": "Hello!"}]
-  }'
-```
+5. **Restart the MLflow server** with the updated configuration.
 
-Send a test request to the "chat-route" route to verify your route configuration is working correctly:
+**Critical:** You must update BOTH `MLFLOW_CRYPTO_KEK_PASSPHRASE` and `MLFLOW_CRYPTO_KEK_VERSION` environment variables. Failure to update both will cause decryption failures when the server attempts to read stored API keys.
 
-```bash
-curl -X POST http://localhost:5000/gateway/chat-route/invocations \
-  -H "Content-Type: application/json" \
-  -d '{
-    "messages": [{"role": "user", "content": "Hello!"}]
-  }'
-```
+</details>
 
-## Troubleshooting
+## Accessing the Gateway
 
-### Common Issues
+Once your MLflow server is running, navigate to the AI Gateway section at `http://localhost:5000/#/gateway`.
 
-**Missing API Keys:**
+![Gateway Overview](/images/genai/governance/ai-gateway/gateway-overview.png)
 
-```
-Error: Provider 'openai' requires 'openai_api_key' configuration
-```
+The gateway interface is organized into two main areas. The Endpoints section lets you configure and manage your AI model endpoints, while the API Keys section provides centralized management of credentials for different providers.
 
-Solution: Ensure environment variables are set before starting the server.
+## Managing API Keys
 
-**Port Conflicts:**
+API keys serve as reusable credentials that can be shared across multiple endpoints. When you have several endpoints using the same provider, this approach simplifies both initial setup and ongoing credential management.
 
-```
-Error: Port 5000 is already in use
-```
+![API Keys Page](/images/genai/governance/ai-gateway/api-keys-page.png)
 
-Solution: Use a different port with `--port` or stop the conflicting process.
+### Creating an API Key
 
-**Configuration Errors:**
+Navigate to the API Keys tab and click Create API Key. You'll need to provide a unique name for the key (such as `my-openai-key`) and select your provider from the dropdown. Common providers like OpenAI, Anthropic, and Google Gemini are readily available.
 
-```
-Error: Invalid configuration file
-```
+Some providers offer multiple authentication methods. For example, OpenAI supports both standard API key authentication and Azure-specific authentication. Select the appropriate method for your setup, then enter your credentials. The interface displays credential fields as masked inputs to protect sensitive information.
 
-Solution: Check YAML syntax and required fields. Configuration is validated when starting the server.
+Provider-specific configuration fields appear based on your selection:
 
-### Validation
+- **Azure**: Endpoint URL
+- **GCP**: Project ID
 
-Configuration is automatically validated when starting the server. Any errors will be displayed with helpful messages to guide you in fixing the issues.
+Fill in these additional fields as needed, then click Create to save your API key.
 
-## Next Steps
+### Working with Existing Keys
 
-Once your gateway is running, learn how to configure providers and endpoints:
+The API Keys page shows all your configured credentials along with important metadata. You can see which endpoints are currently using each key, when it was last updated, and when it was originally created. The credential values themselves remain masked for security.
 
-<TilesGrid>
-  <TileCard
-    icon={Settings}
-    title="Configuration Guide"
-    description="Learn how to configure providers, endpoints, and advanced settings"
-    href="/genai/governance/ai-gateway/configuration"
-    linkText="Configure providers →"
-  />
-  <TileCard
-    icon={Play}
-    title="Usage Guide"
-    description="Start querying endpoints with Python client and REST APIs"
-    href="/genai/governance/ai-gateway/usage"
-    linkText="Start using →"
-  />
-  <TileCard
-    icon={Wrench}
-    title="Integration Guide"
-    description="Integrate with applications, frameworks, and production systems"
-    href="/genai/governance/ai-gateway/integration"
-    linkText="Learn integrations →"
-  />
-</TilesGrid>
+To update credentials for a provider, use the Edit function to modify the key without needing to reconfigure all endpoints that use it. When deleting a key, the system warns you if any endpoints currently depend on it, preventing accidental disruptions.
+
+:::tip
+Creating reusable API keys simplifies credential rotation. When you need to update a credential, edit it once rather than updating every endpoint individually.
+:::
+
+<details>
+<summary>How to rotate provider API keys</summary>
+
+When you need to rotate credentials from your LLM provider (OpenAI, Anthropic, etc.) for security purposes:
+
+**Simple rotation (zero-downtime):**
+
+1. Navigate to the API Keys tab and locate the key you want to rotate
+2. Click the Edit button for that API key
+3. Update the credential value with your new API key from the provider
+4. Click Save to apply the changes
+
+All endpoints using this API key will automatically use the new credentials without requiring any configuration changes or server restarts.
+
+**Advanced rotation (with rollback capability):**
+
+For mission-critical deployments where you want a rollback path:
+
+1. Create a new API key with the rotated credentials (e.g., `my-openai-key-v2`)
+2. Update your endpoints to use the new API key
+3. Monitor your endpoints to ensure they're working correctly
+4. Delete the old API key once you've verified the rotation was successful
+
+This approach allows you to quickly revert to the old key if issues arise.
+
+</details>
+
+## Creating an Endpoint
+
+Endpoints define how requests are routed to AI models. For advanced routing features like traffic splitting and fallbacks, see the [Advanced Routing](/genai/governance/ai-gateway/routing) guide.
+
+### Basic Endpoint Setup
+
+To create an endpoint:
+
+1. Navigate to the Endpoints tab and click **Create Endpoint**
+2. Enter a unique endpoint name (e.g., `my-chat-endpoint`) - this becomes part of your API path
+3. Select your provider from 100+ supported options
+   - Common providers (OpenAI, Anthropic, Google Gemini) appear first
+   - Click "View all providers" for the full LiteLLM catalog
+4. Choose your model - the selector displays:
+   - Capability badges (Tools, Reasoning, Caching)
+   - Context window size and token costs
+   - Search function for quick filtering
+5. Configure API key:
+   - **Create new API key**: Configure credentials inline (convenient for first-time setup)
+   - **Use existing API key**: Select from previously created keys (recommended for consistency)
+6. Review your configuration in the summary panel
+7. Click **Create Endpoint**
+
+![Create Endpoint](/images/genai/governance/ai-gateway/create-endpoint.png)

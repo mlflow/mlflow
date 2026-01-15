@@ -13,6 +13,7 @@ import {
   shouldUseGetLoggedModelsBatchAPI,
 } from '../../../../../../common/utils/FeatureUtils';
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const ModelsHeaderCellRenderer = React.memo(() => {
   const { theme } = useDesignSystemTheme();
 

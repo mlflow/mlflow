@@ -738,7 +738,7 @@ const config: Config = {
             ],
           },
           {
-            to: '/genai/governance/ai-gateway/setup',
+            to: '/genai/governance/ai-gateway/legacy/setup',
             from: [
               '/llms/deployments/guides/step1-create-deployments',
               '/llms/gateway/guides/step1-create-gateway',
@@ -746,16 +746,21 @@ const config: Config = {
             ],
           },
           {
-            to: '/genai/governance/ai-gateway/usage',
+            to: '/genai/governance/ai-gateway/legacy/usage',
             from: [
               '/llms/deployments/guides/step2-query-deployments',
               '/llms/gateway/guides/step2-query-gateway',
               '/genai/governance/ai-gateway/guides/step2-query-deployments',
+              '/genai/governance/ai-gateway/usage',
             ],
           },
           {
-            to: '/genai/governance/unity-catalog',
-            from: ['/llms/deployments/uc_integration'],
+            to: '/genai/governance/ai-gateway',
+            from: [
+              '/llms/deployments/uc_integration',
+              '/genai/governance/unity-catalog',
+              '/genai/governance/ai-gateway/integration',
+            ],
           },
 
           // Traditional ML and Core MLflow Redirects

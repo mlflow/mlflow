@@ -7,8 +7,6 @@ from dspy.utils.dummies import DummyLM
 from packaging.version import Version
 
 import mlflow
-import mlflow.utils
-import mlflow.utils.autologging_utils
 from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.openai.test_openai_evaluate import purge_traces

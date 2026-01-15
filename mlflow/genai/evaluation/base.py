@@ -1,3 +1,4 @@
+import inspect
 import logging
 import os
 import time
@@ -21,8 +22,9 @@ from mlflow.genai.evaluation.utils import (
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
+from mlflow.genai.simulators import ConversationSimulator
 from mlflow.genai.utils.display_utils import display_evaluation_output
-from mlflow.genai.utils.trace_utils import convert_predict_fn
+from mlflow.genai.utils.trace_utils import _wrap_async_predict_fn, convert_predict_fn
 from mlflow.models.evaluation.base import (
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
@@ -169,6 +171,55 @@ def evaluate(
             scorers=[Correctness(), Safety()],
         )
 
+    **4. Pass a ConversationSimulator for multi-turn evaluation.**
+
+    For multi-turn evaluation, you can pass a ConversationSimulator to the `data`
+    parameter along with a `predict_fn`. The simulator will generate conversations
+    by simulating user interactions with your agent, and the resulting traces will
+    be evaluated.
+
+    The `predict_fn` must follow the OpenAI Responses API format
+    (https://platform.openai.com/docs/api-reference/responses):
+
+    - It must accept an ``input`` parameter containing the conversation history
+      as a list of message dictionaries (e.g., ``[{"role": "user", "content": "..."}]``)
+    - It may accept additional keyword arguments from the test case's ``context`` field
+    - It should return a response (the assistant's message content will be extracted)
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.simulators import ConversationSimulator
+        from mlflow.genai.scorers import Safety
+
+        simulator = ConversationSimulator(
+            test_cases=[
+                {
+                    "goal": "Learn about MLflow tracking",
+                    "persona": "A beginner",
+                    "context": {"user_id": "123"},  # passed as kwargs to predict_fn
+                },
+            ],
+            max_turns=3,
+        )
+
+
+        def predict_fn(input: list[dict], **kwargs) -> dict:
+            # input is the conversation history: [{"role": "user", "content": "..."}, ...]
+            # kwargs contains context from test case (e.g., user_id="123")
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=input,
+            )
+            return response
+
+
+        mlflow.genai.evaluate(
+            data=simulator,
+            predict_fn=predict_fn,
+            scorers=[Safety()],
+        )
+
     Args:
         data: Dataset for the evaluation. Must be one of the following formats:
 
@@ -177,6 +228,7 @@ def evaluate(
             * Spark DataFrame
             * List of dictionaries
             * List of `Trace` objects
+            * A ConversationSimulator (requires `predict_fn`)
 
             The dataset must include either of the following columns:
 
@@ -262,9 +314,41 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
     """
     from mlflow.genai.evaluation import harness
 
-    is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
-
     scorers = validate_scorers(scorers)
+
+    # Handle ConversationSimulator: run simulation first, then evaluate the generated traces
+    if isinstance(data, ConversationSimulator):
+        if predict_fn is None:
+            raise MlflowException.invalid_parameter_value(
+                "predict_fn is required when using ConversationSimulator as data. "
+                "The simulator needs a predict function to generate conversations."
+            )
+
+        # Wrap async predict_fn for synchronous execution during simulation
+        sim_predict_fn = predict_fn
+        if inspect.iscoroutinefunction(predict_fn):
+            sim_predict_fn = _wrap_async_predict_fn(predict_fn)
+
+        all_trace_ids = data._simulate(sim_predict_fn)
+        logger.debug(
+            f"Simulation produced {len(all_trace_ids)} conversation(s) with "
+            f"{[len(ids) for ids in all_trace_ids]} trace(s) each"
+        )
+        flat_trace_ids = [tid for session_ids in all_trace_ids for tid in session_ids]
+
+        if not flat_trace_ids:
+            raise MlflowException.invalid_parameter_value(
+                "Simulation produced no traces. This may indicate that all conversations "
+                "failed during simulation. Check the logs above for error details."
+            )
+
+        data = [mlflow.get_trace(tid) for tid in flat_trace_ids]
+        # Set predict_fn to None since the simulation already invoked it for each conversation
+        # turn. The resulting traces contain all the prediction outputs, so the evaluation
+        # harness will use those traces directly rather than calling predict_fn again.
+        predict_fn = None
+
+    is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
 
     # Validate session-level input if session-level scorers are present
     validate_session_level_evaluation_inputs(scorers, predict_fn)
@@ -433,7 +517,7 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
         # Inject `{"databricks_options": {"return_trace": True}}` to the input payload
         # to return the trace in the response.
         databricks_options = {DATABRICKS_OPTIONS_KEY: {RETURN_TRACE_OPTION_KEY: True}}
-        payload = kwargs if is_fmapi else {**kwargs, **databricks_options}
+        payload = kwargs if is_fmapi else kwargs | databricks_options
         result = client.predict(endpoint=endpoint, inputs=payload)
         end_time_ms = int(time.time_ns() / 1e6)
 

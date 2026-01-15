@@ -2,91 +2,33 @@ import concurrent.futures
 import multiprocessing
 import os
 import time
-from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
-from mlflow.server import (
-    ARTIFACT_ROOT_ENV_VAR,
-    BACKEND_STORE_URI_ENV_VAR,
-    HUEY_STORAGE_PATH_ENV_VAR,
-)
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.jobs import (
-    _ALLOWED_JOB_NAME_LIST,
-    _SUPPORTED_JOB_FUNCTION_LIST,
     TransientError,
     cancel_job,
     get_job,
     job,
     submit_job,
 )
-from mlflow.server.jobs.utils import _launch_job_runner
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+
+from tests.server.jobs.helpers import (
+    _get_mlflow_repo_home,
+    _launch_job_runner_for_test,
+    _setup_job_runner,
+    wait_job_finalize,
+)
 
 # TODO: Remove `pytest.mark.xfail` after fixing flakiness
 pytestmark = [
     pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows"),
 ]
-
-
-def _get_mlflow_repo_home():
-    root = str(Path(__file__).resolve().parents[3])
-    return f"{root}{os.pathsep}{path}" if (path := os.environ.get("PYTHONPATH")) else root
-
-
-@contextmanager
-def _launch_job_runner_for_test():
-    new_pythonpath = _get_mlflow_repo_home()
-    with _launch_job_runner(
-        {"PYTHONPATH": new_pythonpath},
-        os.getpid(),
-    ) as proc:
-        try:
-            yield proc
-        finally:
-            proc.kill()
-
-
-@contextmanager
-def _setup_job_runner(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    supported_job_functions: list[str],
-    allowed_job_names: list[str],
-    backend_store_uri: str | None = None,
-):
-    backend_store_uri = backend_store_uri or f"sqlite:///{tmp_path / 'mlflow.db'}"
-    huey_store_path = tmp_path / "huey_store"
-    huey_store_path.mkdir()
-    default_artifact_root = str(tmp_path / "artifacts")
-    try:
-        monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
-        monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, backend_store_uri)
-        monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, default_artifact_root)
-        monkeypatch.setenv(HUEY_STORAGE_PATH_ENV_VAR, str(huey_store_path))
-        monkeypatch.setenv("_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST", ",".join(supported_job_functions))
-        monkeypatch.setenv("_MLFLOW_ALLOWED_JOB_NAME_LIST", ",".join(allowed_job_names))
-        _SUPPORTED_JOB_FUNCTION_LIST.clear()
-        _SUPPORTED_JOB_FUNCTION_LIST.extend(supported_job_functions)
-        _ALLOWED_JOB_NAME_LIST.clear()
-        _ALLOWED_JOB_NAME_LIST.extend(allowed_job_names)
-
-        with _launch_job_runner_for_test() as job_runner_proc:
-            time.sleep(10)
-            yield job_runner_proc
-    finally:
-        # Clear the huey instance cache AFTER killing the runner to ensure clean state for next test
-        import mlflow.server.jobs.utils
-
-        mlflow.server.jobs.utils._huey_instance_map.clear()
-        if mlflow.server.handlers._job_store is not None:
-            # close all db connections and drops connection pool
-            mlflow.server.handlers._job_store.engine.dispose()
-        mlflow.server.handlers._job_store = None
 
 
 @job(name="basic_job_fun", max_workers=1)
@@ -359,16 +301,6 @@ def transient_err_fun2_fail_then_succeed(counter_file: str):
     if current >= 2:
         return 100
     raise TimeoutError("test transient timeout error.")
-
-
-def wait_job_finalize(job_id, timeout=60):
-    beg_time = time.time()
-    while time.time() - beg_time <= timeout:
-        job = get_job(job_id)
-        if JobStatus.is_finalized(job.status):
-            return
-        time.sleep(0.5)
-    raise TimeoutError("The job is not finalized within the timeout.")
 
 
 def test_job_retry_on_transient_error(monkeypatch, tmp_path):
@@ -653,3 +585,177 @@ def test_cancel_job(monkeypatch, tmp_path: Path):
         assert not is_process_alive(pid)
 
         assert get_job(job_id).status == JobStatus.CANCELED
+
+
+def test_delete_jobs_only_deletes_finalized(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    pending_job = store.create_job("pending_job", "{}")
+    assert pending_job.status == JobStatus.PENDING
+
+    running_job = store.create_job("running_job", "{}")
+    store.start_job(running_job.job_id)
+    running_job = store.get_job(running_job.job_id)
+    assert running_job.status == JobStatus.RUNNING
+
+    succeeded_job = store.create_job("succeeded_job", "{}")
+    store.start_job(succeeded_job.job_id)
+    store.finish_job(succeeded_job.job_id, "result")
+    succeeded_job = store.get_job(succeeded_job.job_id)
+    assert succeeded_job.status == JobStatus.SUCCEEDED
+
+    failed_job = store.create_job("failed_job", "{}")
+    store.start_job(failed_job.job_id)
+    store.fail_job(failed_job.job_id, "error")
+    failed_job = store.get_job(failed_job.job_id)
+    assert failed_job.status == JobStatus.FAILED
+
+    timeout_job = store.create_job("timeout_job", "{}")
+    store.start_job(timeout_job.job_id)
+    store.mark_job_timed_out(timeout_job.job_id)
+    timeout_job = store.get_job(timeout_job.job_id)
+    assert timeout_job.status == JobStatus.TIMEOUT
+
+    canceled_job = store.create_job("canceled_job", "{}")
+    store.cancel_job(canceled_job.job_id)
+    canceled_job = store.get_job(canceled_job.job_id)
+    assert canceled_job.status == JobStatus.CANCELED
+
+    deleted_ids = store.delete_jobs()
+
+    # Should only delete finalized jobs
+    assert len(deleted_ids) == 4
+    assert succeeded_job.job_id in deleted_ids
+    assert failed_job.job_id in deleted_ids
+    assert timeout_job.job_id in deleted_ids
+    assert canceled_job.job_id in deleted_ids
+
+    # Non-finalized jobs should still exist
+    assert store.get_job(pending_job.job_id).status == JobStatus.PENDING
+    assert store.get_job(running_job.job_id).status == JobStatus.RUNNING
+
+    # Finalized jobs should be deleted
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        store.get_job(succeeded_job.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        store.get_job(failed_job.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        store.get_job(timeout_job.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        store.get_job(canceled_job.job_id)
+
+
+def test_delete_jobs_with_job_ids_filter(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job1 = store.create_job("job1", "{}")
+    store.start_job(job1.job_id)
+    store.finish_job(job1.job_id, "result")
+
+    job2 = store.create_job("job2", "{}")
+    store.start_job(job2.job_id)
+    store.finish_job(job2.job_id, "result")
+
+    job3 = store.create_job("job3", "{}")
+    store.start_job(job3.job_id)
+    store.finish_job(job3.job_id, "result")
+
+    deleted_ids = store.delete_jobs(job_ids=[job1.job_id, job2.job_id])
+
+    assert len(deleted_ids) == 2
+    assert job1.job_id in deleted_ids
+    assert job2.job_id in deleted_ids
+
+    assert store.get_job(job3.job_id).status == JobStatus.SUCCEEDED
+
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        store.get_job(job1.job_id)
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        store.get_job(job2.job_id)
+
+
+def test_delete_jobs_skips_non_finalized_even_with_job_ids(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    pending_job = store.create_job("pending_job", "{}")
+    assert pending_job.status == JobStatus.PENDING
+
+    succeeded_job = store.create_job("succeeded_job", "{}")
+    store.start_job(succeeded_job.job_id)
+    store.finish_job(succeeded_job.job_id, "result")
+    assert store.get_job(succeeded_job.job_id).status == JobStatus.SUCCEEDED
+
+    deleted_ids = store.delete_jobs(job_ids=[pending_job.job_id, succeeded_job.job_id])
+
+    assert len(deleted_ids) == 1
+    assert succeeded_job.job_id in deleted_ids
+
+    assert store.get_job(pending_job.job_id).status == JobStatus.PENDING
+
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        store.get_job(succeeded_job.job_id)
+
+
+@job(name="exclusive_sleep_fun", max_workers=2, exclusive=True)
+def exclusive_sleep_fun(sleep_secs: int, experiment_id: str, tmp_dir: str):
+    pid_file = Path(tmp_dir) / f"pid_{experiment_id}"
+    pid_file.write_text(str(os.getpid()))
+    time.sleep(sleep_secs)
+    return experiment_id
+
+
+def test_exclusive_job_skips_duplicate(monkeypatch, tmp_path: Path):
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["tests.server.jobs.test_jobs.exclusive_sleep_fun"],
+        allowed_job_names=["exclusive_sleep_fun"],
+    ):
+        job_tmp_path = tmp_path / "job"
+        job_tmp_path.mkdir()
+
+        params = {"sleep_secs": 2, "experiment_id": "exp1", "tmp_dir": str(job_tmp_path)}
+
+        job1_id = submit_job(exclusive_sleep_fun, params).job_id
+        job2_id = submit_job(exclusive_sleep_fun, params).job_id
+
+        wait_job_finalize(job1_id)
+        wait_job_finalize(job2_id)
+
+        job1 = get_job(job1_id)
+        job2 = get_job(job2_id)
+
+        # One job succeeds, the other is canceled (skipped due to exclusive lock)
+        statuses = {job1.status, job2.status}
+        assert JobStatus.SUCCEEDED in statuses
+        assert JobStatus.CANCELED in statuses
+
+
+def test_exclusive_job_allows_different_params(monkeypatch, tmp_path: Path):
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["tests.server.jobs.test_jobs.exclusive_sleep_fun"],
+        allowed_job_names=["exclusive_sleep_fun"],
+    ):
+        job_tmp_path = tmp_path / "job"
+        job_tmp_path.mkdir()
+
+        job1_id = submit_job(
+            exclusive_sleep_fun,
+            {"sleep_secs": 2, "experiment_id": "exp1", "tmp_dir": str(job_tmp_path)},
+        ).job_id
+        job2_id = submit_job(
+            exclusive_sleep_fun,
+            {"sleep_secs": 2, "experiment_id": "exp2", "tmp_dir": str(job_tmp_path)},
+        ).job_id
+
+        wait_job_finalize(job1_id)
+        wait_job_finalize(job2_id)
+
+        # Both jobs should succeed since they have different params
+        assert get_job(job1_id).status == JobStatus.SUCCEEDED
+        assert get_job(job2_id).status == JobStatus.SUCCEEDED
