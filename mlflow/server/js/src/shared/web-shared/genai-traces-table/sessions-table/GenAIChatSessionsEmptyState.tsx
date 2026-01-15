@@ -53,13 +53,13 @@ export const GenAIChatSessionsEmptyState = () => {
           />
         </Typography.Link>
       </Typography.Paragraph>
-      <div css={{ position: 'relative' }}>
+      <div css={{ position: 'relative', maxWidth: 600 }}>
         <SnippetCopyAction
           componentId="mlflow.chat_sessions.empty_state.example_code_copy"
           css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
           copyText={EXAMPLE_CODE}
         />
-        <CodeSnippet language="python" showLineNumbers>
+        <CodeSnippet language="python" showLineNumbers theme={theme.isDarkMode ? 'duotoneDark' : 'light'}>
           {EXAMPLE_CODE}
         </CodeSnippet>
       </div>

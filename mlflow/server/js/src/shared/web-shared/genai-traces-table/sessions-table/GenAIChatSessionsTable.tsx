@@ -264,35 +264,37 @@ export const GenAIChatSessionsTable = ({
           enableRowSelection ? table.getIsAllRowsSelected() || table.getIsSomeRowsSelected() : undefined
         }
       >
-        <TableRow isHeader>
-          {enableRowSelection && (
-            <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0 }}>
-              <TableRowSelectCell
-                componentId="mlflow.chat-sessions.table-header-checkbox"
-                checked={table.getIsAllRowsSelected()}
-                indeterminate={table.getIsSomeRowsSelected()}
-                onChange={table.getToggleAllRowsSelectedHandler()}
-              />
-            </div>
-          )}
-          {table.getLeafHeaders().map((header) => (
-            <TableHeader
-              key={header.id}
-              componentId="mlflow.chat-sessions.table-header"
-              header={header}
-              column={header.column}
-              sortable={header.column.getCanSort()}
-              css={{
-                cursor: header.column.getCanSort() ? 'pointer' : 'default',
-                flex: `calc(var(--col-${header.id}-size) / 100)`,
-              }}
-              sortDirection={header.column.getIsSorted() || 'none'}
-              onToggleSort={header.column.getToggleSortingHandler()}
-            >
-              {flexRender(header.column.columnDef.header, header.getContext())}
-            </TableHeader>
-          ))}
-        </TableRow>
+        {sessionTableRows.length > 0 && (
+          <TableRow isHeader>
+            {enableRowSelection && (
+              <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0 }}>
+                <TableRowSelectCell
+                  componentId="mlflow.chat-sessions.table-header-checkbox"
+                  checked={table.getIsAllRowsSelected()}
+                  indeterminate={table.getIsSomeRowsSelected()}
+                  onChange={table.getToggleAllRowsSelectedHandler()}
+                />
+              </div>
+            )}
+            {table.getLeafHeaders().map((header) => (
+              <TableHeader
+                key={header.id}
+                componentId="mlflow.chat-sessions.table-header"
+                header={header}
+                column={header.column}
+                sortable={header.column.getCanSort()}
+                css={{
+                  cursor: header.column.getCanSort() ? 'pointer' : 'default',
+                  flex: `calc(var(--col-${header.id}-size) / 100)`,
+                }}
+                sortDirection={header.column.getIsSorted() || 'none'}
+                onToggleSort={header.column.getToggleSortingHandler()}
+              >
+                {flexRender(header.column.columnDef.header, header.getContext())}
+              </TableHeader>
+            ))}
+          </TableRow>
+        )}
 
         {!isLoading &&
           table
