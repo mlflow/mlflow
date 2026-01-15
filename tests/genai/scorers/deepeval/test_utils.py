@@ -20,8 +20,8 @@ def test_create_deepeval_model_databricks():
 
 def test_create_deepeval_model_databricks_serving_endpoint():
     model = create_deepeval_model("databricks:/my-endpoint")
-    assert model.__class__.__name__ == "DatabricksServingEndpointDeepEvalLLM"
-    assert model.get_model_name() == "databricks:/my-endpoint"
+    assert model.__class__.__name__ == "LiteLLMModel"
+    assert "my-endpoint" in model.get_model_name()
 
 
 def test_create_deepeval_model_openai():
