@@ -12,7 +12,6 @@ import {
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 import {
-  spanTimeFormatter,
   TOKEN_USAGE_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
   type ModelTraceInfoV3,
