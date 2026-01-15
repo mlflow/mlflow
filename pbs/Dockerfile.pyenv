@@ -3,7 +3,6 @@
 
 FROM ubuntu:22.04
 
-# Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install build dependencies required by pyenv
@@ -35,17 +34,17 @@ ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
 RUN git clone https://github.com/pyenv/pyenv.git $PYENV_ROOT
 
 # Install Python 3.10 via pyenv (compiles from source)
-RUN pyenv install 3.10.13 && \
-    pyenv global 3.10.13
+RUN echo "=== pyenv Python Install ===" && \
+    echo "START_TIME=$(date +%s)" && \
+    pyenv install 3.10.13 && \
+    pyenv global 3.10.13 && \
+    echo "END_TIME=$(date +%s)"
 
-# Install virtualenv
 RUN pip install --upgrade pip virtualenv
 
-# Create virtual environment and install sklearn
 RUN python -m virtualenv /opt/venv && \
     /opt/venv/bin/pip install scikit-learn numpy
 
-# Copy and run test script
 COPY test_sklearn.py /app/test_sklearn.py
 
 CMD ["/opt/venv/bin/python", "/app/test_sklearn.py"]

@@ -3,7 +3,6 @@
 
 FROM ubuntu:22.04
 
-# Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Minimal dependencies - only need curl and tar for extraction
@@ -13,31 +12,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Python version configuration
-# PBS is now maintained by Astral at astral-sh/python-build-standalone
 ARG PYTHON_VERSION=3.10.19
 ARG PBS_RELEASE=20260113
 
 # Download and extract pre-built Python from python-build-standalone
-# Using install_only variant (smaller, no debug symbols)
 RUN ARCH=$(uname -m) && \
-    echo "Downloading Python ${PYTHON_VERSION} for ${ARCH}..." && \
+    echo "=== PBS Python Install ===" && \
+    echo "START_TIME=$(date +%s)" && \
     curl -fsSL --retry 3 --retry-delay 5 -o /tmp/python.tar.gz \
     "https://github.com/astral-sh/python-build-standalone/releases/download/${PBS_RELEASE}/cpython-${PYTHON_VERSION}+${PBS_RELEASE}-${ARCH}-unknown-linux-gnu-install_only.tar.gz" && \
     mkdir -p /opt/python && \
     tar -xzf /tmp/python.tar.gz -C /opt/python --strip-components=1 && \
-    rm /tmp/python.tar.gz
+    rm /tmp/python.tar.gz && \
+    echo "END_TIME=$(date +%s)"
 
 ENV PATH="/opt/python/bin:$PATH"
 
-# Verify Python installation
 RUN python3 --version && which python3
 
-# Install virtualenv and create venv with sklearn
 RUN pip3 install --upgrade pip virtualenv && \
     python3 -m virtualenv /opt/venv && \
     /opt/venv/bin/pip install scikit-learn numpy
 
-# Copy test script
 COPY test_sklearn.py /app/test_sklearn.py
 
 CMD ["/opt/venv/bin/python", "/app/test_sklearn.py"]
