@@ -9,7 +9,6 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  OverviewChartTimeLabel,
   ScrollableTooltip,
   useChartXAxisProps,
   useChartYAxisProps,
@@ -52,8 +51,6 @@ export const TraceErrorsChart: React.FC = () => {
         value={totalErrors.toLocaleString()}
         subtitle={`(Overall error rate: ${overallErrorRate.toFixed(1)}%)`}
       />
-
-      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>

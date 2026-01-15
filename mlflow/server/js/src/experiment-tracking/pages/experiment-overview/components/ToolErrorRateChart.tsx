@@ -9,7 +9,6 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  OverviewChartTimeLabel,
   ScrollableTooltip,
   useChartXAxisProps,
   useChartYAxisProps,
@@ -69,8 +68,6 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
           <FormattedMessage defaultMessage="overall error rate" description="Subtitle for overall tool error rate" />
         }
       />
-
-      <OverviewChartTimeLabel />
 
       <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT }}>
         <ResponsiveContainer width="100%" height="100%">

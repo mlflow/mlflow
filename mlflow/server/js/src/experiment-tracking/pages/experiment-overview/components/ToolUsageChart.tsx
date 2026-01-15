@@ -9,7 +9,6 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  OverviewChartTimeLabel,
   ScrollableTooltip,
   useChartXAxisProps,
   useChartYAxisProps,
@@ -52,8 +51,6 @@ export const ToolUsageChart: React.FC = () => {
         icon={<ChartLineIcon />}
         title={<FormattedMessage defaultMessage="Tool Usage Over Time" description="Title for the tool usage chart" />}
       />
-
-      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
