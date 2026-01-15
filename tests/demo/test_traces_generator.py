@@ -79,7 +79,7 @@ def test_traces_have_expected_structure(tracking_uri):
 
     experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
     client = MlflowClient()
-    traces = client.search_traces(locations=[experiment.experiment_id], max_results=50)
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=100)
 
     assert len(traces) > 0
 
@@ -103,7 +103,7 @@ def test_traces_have_version_metadata(tracking_uri):
 
     experiment = get_experiment_by_name(DEMO_EXPERIMENT_NAME)
     client = MlflowClient()
-    traces = client.search_traces(locations=[experiment.experiment_id], max_results=50)
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=100)
 
     v1_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v1"]
     v2_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v2"]
