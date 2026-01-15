@@ -24,6 +24,7 @@ from mlflow.gateway.utils import (
     is_valid_ai21labs_model,
     is_valid_endpoint_name,
     is_valid_mosiacml_chat_model,
+    normalize_databricks_base_url,
 )
 
 _logger = logging.getLogger(__name__)
@@ -235,15 +236,29 @@ class LiteLLMConfig(ConfigModel):
     litellm_provider: str | None = None
     litellm_auth_config: dict[str, Any] | None = None
 
-    @field_validator("litellm_auth_config", mode="before")
-    def validate_litellm_auth_config(cls, value):
-        if value is None or not isinstance(value, dict):
-            return value
-        api_key = value.get("api_key")
+    @model_validator(mode="before")
+    def validate_litellm_auth_config(cls, values):
+        if not isinstance(values, dict):
+            return values
+
+        auth_config = values.get("litellm_auth_config")
+        if auth_config is None or not isinstance(auth_config, dict):
+            return values
+
+        auth_config = dict(auth_config)
+
+        # Resolve API key from environment variable or file
+        api_key = auth_config.get("api_key")
         if isinstance(api_key, str):
-            value = dict(value)
-            value["api_key"] = _resolve_api_key_from_input(api_key)
-        return value
+            auth_config["api_key"] = _resolve_api_key_from_input(api_key)
+
+        # Normalize Databricks base URL to include /serving-endpoints
+        provider = values.get("litellm_provider")
+        if provider == Provider.DATABRICKS and (api_base := auth_config.get("api_base")):
+            auth_config["api_base"] = normalize_databricks_base_url(api_base)
+
+        values["litellm_auth_config"] = auth_config
+        return values
 
 
 class ModelInfo(ResponseModel):
