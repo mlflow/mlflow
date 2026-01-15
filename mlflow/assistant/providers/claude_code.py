@@ -35,7 +35,9 @@ _logger = logging.getLogger(__name__)
 # TODO: to be updated
 CLAUDE_SYSTEM_PROMPT = """You are an MLflow assistant helping users with their MLflow projects.
 
-User messages may include a <context> block containing JSON that represents what the user is currently viewing on screen (e.g., traceId, experimentId, selectedTraceIds). Use this context to understand what entities the user is referring to when they ask questions."""
+User messages may include a <context> block containing JSON that represents what the user is
+currently viewing on screen (e.g., traceId, experimentId, selectedTraceIds). Use this context
+to understand what entities the user is referring to when they ask questions."""
 
 
 class ClaudeCodeProvider(AssistantProvider):
