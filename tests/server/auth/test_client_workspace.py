@@ -67,7 +67,7 @@ def assert_unauthorized():
 
 def _create_workspace(tracking_uri: str, workspace_name: str):
     response = requests.post(
-        f"{tracking_uri}/api/2.0/mlflow/workspaces",
+        f"{tracking_uri}/api/3.0/mlflow/workspaces",
         json={"name": workspace_name},
         auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
     )

@@ -18,7 +18,7 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import call_endpoint
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-WORKSPACES_ENDPOINT = "/api/2.0/mlflow/workspaces"
+WORKSPACES_ENDPOINT = "/api/3.0/mlflow/workspaces"
 
 
 def _quote_workspace(workspace_name: str) -> str:

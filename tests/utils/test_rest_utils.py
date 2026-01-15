@@ -125,7 +125,7 @@ def test_http_request_omits_workspace_header_for_workspace_admin_routes():
     response.status_code = 200
     with WorkspaceContext("team-a"):
         with mock.patch("requests.Session.request", return_value=response) as mock_request:
-            http_request(host_only, "/api/2.0/mlflow/workspaces/team-a", "GET")
+            http_request(host_only, "/api/3.0/mlflow/workspaces/team-a", "GET")
         headers = mock_request.call_args.kwargs["headers"]
         assert WORKSPACE_HEADER_NAME not in headers
 
