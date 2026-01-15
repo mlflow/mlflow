@@ -520,6 +520,14 @@ print(f"Initial score: {result.initial_eval_score}")
 print(f"Final score: {result.final_eval_score}")
 ```
 
+## Tracking and Observability
+
+When `enable_tracking=True`, `optimize_prompts` automatically creates an MLflow Run to track the optimization process. This includes:
+
+- **Metrics**: Tracks `initial_eval_score` and `final_eval_score`.
+- **Traces**: Captures detailed execution traces of your `predict_fn` during the evaluation phases.
+- **Assessments**: Logs the results from your `scorers` (e.g., scores and rationales) directly to the traces as assessments. This allows you to inspect individual failures and understand the optimization decisions.
+
 ## Common Use Cases
 
 ### Improving Accuracy
