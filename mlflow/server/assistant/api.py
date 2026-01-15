@@ -7,6 +7,7 @@ enabling AI-powered helper through a chat interface.
 
 import ipaddress
 import uuid
+from pathlib import Path
 from typing import Any, AsyncGenerator
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -94,7 +95,9 @@ async def send_message(request: MessageRequest) -> MessageResponse:
     # Create or update session
     session = SessionManager.load(session_id)
     if session is None:
-        session = SessionManager.create(context=request.context, working_dir=project_path)
+        session = SessionManager.create(
+            context=request.context, working_dir=Path(project_path) if project_path else None
+        )
     elif request.context:
         session.update_context(request.context)
 
@@ -136,6 +139,7 @@ async def stream_response(session_id: str) -> StreamingResponse:
             prompt=pending_message.content,
             session_id=session.provider_session_id,
             cwd=session.working_dir,
+            context=session.context,
         ):
             # Store provider session ID if returned (for conversation continuity)
             if event.type == EventType.DONE:

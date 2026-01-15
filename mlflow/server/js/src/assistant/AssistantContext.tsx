@@ -7,6 +7,7 @@ import { createContext, useCallback, useContext, useRef, useState, type ReactNod
 
 import type { AssistantAgentContextType, ChatMessage } from './types';
 import { sendMessageStream } from './AssistantService';
+import { useAssistantPageContextActions } from './AssistantPageContext';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
 
@@ -27,6 +28,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   // Use ref to track current streaming message
   const streamingMessageRef = useRef<string>('');
+
+  // NB: Using the actions hook to avoid re-rendering the component when the context changes.
+  const { getContext: getPageContext } = useAssistantPageContextActions();
 
   const appendToStreamingMessage = useCallback((text: string) => {
     streamingMessageRef.current += text;
@@ -123,10 +127,13 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       ]);
 
       try {
+        const pageContext = getPageContext();
         await sendMessageStream(
           {
             message: prompt || '',
             session_id: sessionId ?? undefined,
+            experiment_id: pageContext['experimentId'] as string | undefined,
+            context: pageContext,
           },
           appendToStreamingMessage,
           handleStreamError,
@@ -138,7 +145,15 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         handleStreamError(err instanceof Error ? err.message : 'Failed to start chat');
       }
     },
-    [sessionId, appendToStreamingMessage, handleStreamError, finalizeStreamingMessage, handleStatus, handleSessionId],
+    [
+      sessionId,
+      getPageContext,
+      appendToStreamingMessage,
+      handleStreamError,
+      finalizeStreamingMessage,
+      handleStatus,
+      handleSessionId,
+    ],
   );
 
   const handleSendMessage = useCallback(
@@ -176,8 +191,14 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       ]);
 
       // Send message and stream response
+      const pageContext = getPageContext();
       sendMessageStream(
-        { session_id: sessionId, message },
+        {
+          session_id: sessionId,
+          message,
+          experiment_id: pageContext['experimentId'] as string | undefined,
+          context: pageContext,
+        },
         appendToStreamingMessage,
         handleStreamError,
         finalizeStreamingMessage,
@@ -185,7 +206,15 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         handleSessionId,
       );
     },
-    [sessionId, appendToStreamingMessage, handleStreamError, finalizeStreamingMessage, handleStatus, handleSessionId],
+    [
+      sessionId,
+      getPageContext,
+      appendToStreamingMessage,
+      handleStreamError,
+      finalizeStreamingMessage,
+      handleStatus,
+      handleSessionId,
+    ],
   );
 
   const value: AssistantAgentContextType = {

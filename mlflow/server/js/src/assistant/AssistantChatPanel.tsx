@@ -24,6 +24,7 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
+import { AssistantContextTags } from './AssistantContextTags';
 import type { ChatMessage } from './types';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 
@@ -360,65 +361,68 @@ const ChatPanelContent = () => {
         <div
           css={{
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: 'column',
             border: `1px solid ${theme.colors.border}`,
             borderRadius: theme.borders.borderRadiusMd,
-            padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+            padding: `${theme.spacing.sm}px ${theme.spacing.sm}px`,
             backgroundColor: theme.colors.backgroundPrimary,
           }}
         >
-          <input
-            placeholder="Ask a question about this trace..."
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isStreaming}
-            css={{
-              flex: 1,
-              border: 'none',
-              outline: 'none',
-              backgroundColor: 'transparent',
-              fontSize: theme.typography.fontSizeBase,
-              color: theme.colors.textPrimary,
-              padding: theme.spacing.xs,
-              '&::placeholder': {
-                color: theme.colors.textPlaceholder,
-              },
-              '&:focus': {
+          <div css={{ display: 'flex', alignItems: 'center' }}>
+            <input
+              placeholder="Ask a question about this trace..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={isStreaming}
+              css={{
+                flex: 1,
                 border: 'none',
                 outline: 'none',
-              },
-              '&:disabled': {
-                cursor: 'not-allowed',
-                opacity: 0.5,
-              },
-            }}
-          />
-          <button
-            onClick={handleSend}
-            disabled={!inputValue.trim() || isStreaming}
-            css={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: theme.spacing.xs,
-              border: 'none',
-              background: 'transparent',
-              cursor: !inputValue.trim() || isStreaming ? 'not-allowed' : 'pointer',
-              borderRadius: theme.borders.borderRadiusSm,
-              color: theme.colors.actionPrimaryBackgroundDefault,
-              opacity: !inputValue.trim() || isStreaming ? 0.3 : 1,
-              '&:hover:not(:disabled)': {
-                backgroundColor: theme.colors.actionDefaultBackgroundHover,
-              },
-              '&:active:not(:disabled)': {
-                backgroundColor: theme.colors.actionDefaultBackgroundPress,
-              },
-            }}
-            aria-label="Send message"
-          >
-            {isStreaming ? <Spinner size="small" /> : <SendIcon />}
-          </button>
+                backgroundColor: 'transparent',
+                fontSize: theme.typography.fontSizeBase,
+                color: theme.colors.textPrimary,
+                padding: theme.spacing.xs,
+                '&::placeholder': {
+                  color: theme.colors.textPlaceholder,
+                },
+                '&:focus': {
+                  border: 'none',
+                  outline: 'none',
+                },
+                '&:disabled': {
+                  cursor: 'not-allowed',
+                  opacity: 0.5,
+                },
+              }}
+            />
+            <button
+              onClick={handleSend}
+              disabled={!inputValue.trim() || isStreaming}
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: theme.spacing.xs,
+                border: 'none',
+                background: 'transparent',
+                cursor: !inputValue.trim() || isStreaming ? 'not-allowed' : 'pointer',
+                borderRadius: theme.borders.borderRadiusSm,
+                color: theme.colors.actionPrimaryBackgroundDefault,
+                opacity: !inputValue.trim() || isStreaming ? 0.3 : 1,
+                '&:hover:not(:disabled)': {
+                  backgroundColor: theme.colors.actionDefaultBackgroundHover,
+                },
+                '&:active:not(:disabled)': {
+                  backgroundColor: theme.colors.actionDefaultBackgroundPress,
+                },
+              }}
+              aria-label="Send message"
+            >
+              {isStreaming ? <Spinner size="small" /> : <SendIcon />}
+            </button>
+          </div>
+          <AssistantContextTags />
         </div>
       </div>
     </div>

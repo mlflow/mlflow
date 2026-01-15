@@ -20,7 +20,7 @@ import { getRouteDefs as getCommonRouteDefs } from './common/route-defs';
 import { getGatewayRouteDefs } from './gateway/route-defs';
 import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
 import { MlflowSidebar } from './common/components/MlflowSidebar';
-import { AssistantProvider } from './assistant';
+import { AssistantProvider, AssistantRouteContextProvider } from './assistant';
 import { RootAssistantLayout } from './common/components/RootAssistantLayout';
 
 /**
@@ -43,6 +43,7 @@ const MlflowRootRoute = () => {
 
   return (
     <AssistantProvider>
+      <AssistantRouteContextProvider />
       <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <ErrorModal />
         <AppErrorBoundary>
