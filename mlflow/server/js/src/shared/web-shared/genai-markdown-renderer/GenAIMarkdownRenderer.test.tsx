@@ -107,6 +107,13 @@ describe('GenAIMarkdownRenderer', () => {
         expect(screen.getByText('[test image](../images/test.png)')).toBeInTheDocument();
       });
 
+      it('renders relative URL without prefix as text instead of img', () => {
+        const screen = render(<GenAIMarkdownRenderer>{`![test image](images/test.png)`}</GenAIMarkdownRenderer>);
+
+        expect(screen.queryByRole('img')).not.toBeInTheDocument();
+        expect(screen.getByText('[test image](images/test.png)')).toBeInTheDocument();
+      });
+
       it('renders data: URL as img element', () => {
         const dataUrl =
           'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';

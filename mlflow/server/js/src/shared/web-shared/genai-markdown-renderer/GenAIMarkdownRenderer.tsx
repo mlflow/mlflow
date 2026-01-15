@@ -23,7 +23,8 @@ const urlTransform: UrlTransform = (value) => {
 
 const isRelativeUrl = (url: string | undefined): boolean => {
   if (!url) return false;
-  return url.startsWith('/') || url.startsWith('./') || url.startsWith('../');
+  // Check if URL has a protocol (absolute URL)
+  return !/^[a-z][a-z0-9+.-]*:/i.test(url);
 };
 
 export const GenAIMarkdownRenderer = (props: { children: string; components?: ExtendedComponents }) => {
