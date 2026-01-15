@@ -850,7 +850,7 @@ crewai:
       pip install git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
   autologging:
     minimum: "0.98.0"
-    maximum: "1.8.0"
+    maximum: "1.7.1"
     unsupported: ["==0.114.0"]
     requirements:
     run: pytest tests/crewai
@@ -867,7 +867,7 @@ agno:
       pip install git+https://github.com/agno-agi/agno.git#subdirectory=libs/agno
   autologging:
     minimum: "1.7.0"
-    maximum: "2.3.26"
+    maximum: "2.3.14"
     requirements:
       ">= 0.0.0": ["anthropic", "yfinance"]
       ">= 2.0.0": ["opentelemetry-exporter-otlp", "openinference-instrumentation-agno"]

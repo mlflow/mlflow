@@ -123,7 +123,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.98.0",
-            "maximum": "1.8.0"
+            "maximum": "1.7.1"
         }
     },
     "agno": {
@@ -133,7 +133,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.7.0",
-            "maximum": "2.3.26"
+            "maximum": "2.3.14"
         }
     },
     "pydantic_ai": {
