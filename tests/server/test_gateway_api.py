@@ -336,6 +336,42 @@ def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlch
     assert provider.config.model.config.litellm_provider == "litellm"
 
 
+def test_create_provider_from_endpoint_name_databricks_normalizes_base_url(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="databricks-key",
+        secret_value={"api_key": "databricks-token-123"},
+        provider="databricks",
+        auth_config={"api_base": "https://my-workspace.databricks.com"},
+    )
+    model_def = store.create_gateway_model_definition(
+        name="databricks-model",
+        secret_id=secret.secret_id,
+        provider="databricks",
+        model_name="databricks-dbrx-instruct",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-databricks-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    provider = _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+
+    assert isinstance(provider, LiteLLMProvider)
+    assert isinstance(provider.config.model.config, LiteLLMConfig)
+    # Verify the base URL was normalized to include /serving-endpoints
+    assert (
+        provider.config.model.config.litellm_auth_config["api_base"]
+        == "https://my-workspace.databricks.com/serving-endpoints"
+    )
+    assert provider.config.model.config.litellm_provider == "databricks"
+
+
 def test_create_provider_from_endpoint_name_nonexistent_endpoint(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="not found"):
         _create_provider_from_endpoint_name(store, "nonexistent-id", EndpointType.LLM_V1_CHAT)
