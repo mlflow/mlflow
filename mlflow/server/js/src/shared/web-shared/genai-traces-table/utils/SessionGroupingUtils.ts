@@ -36,12 +36,16 @@ const collectTracesFromEntries = (entries: EvalTraceComparisonEntry[]): ModelTra
  * Groups traces by session for display in a table.
  * Returns a flattened array where each session is represented by:
  * 1. A sessionHeader row containing all traces in that session
- * 2. Individual trace rows for each trace in the session
+ * 2. Individual trace rows for each trace in the session (only if session is expanded)
  *
  * Traces without a session ID are appended at the end as standalone trace rows.
+ *
+ * @param currentEvaluationResults - The evaluation entries to group
+ * @param expandedSessions - Set of session IDs that are expanded (show trace rows)
  */
 export const groupTracesBySessionForTable = (
   currentEvaluationResults: EvalTraceComparisonEntry[],
+  expandedSessions: Set<string>,
 ): GroupedTraceTableRowData[] => {
   const sessionMap: Record<string, EvalTraceComparisonEntry[]> = {};
   const standaloneEntries: EvalTraceComparisonEntry[] = [];
@@ -64,7 +68,7 @@ export const groupTracesBySessionForTable = (
 
   const result: GroupedTraceTableRowData[] = [];
 
-  // Process each session: add header followed by trace rows
+  // Process each session: add header followed by trace rows (if expanded)
   Object.entries(sessionMap).forEach(([sessionId, sessionEntries]) => {
     if (sessionEntries.length === 0) {
       return;
@@ -87,13 +91,15 @@ export const groupTracesBySessionForTable = (
       traces,
     });
 
-    // Add individual trace rows
-    sessionEntries.forEach((entry) => {
-      result.push({
-        type: 'trace',
-        data: entry,
+    // Add individual trace rows only if session is expanded
+    if (expandedSessions.has(sessionId)) {
+      sessionEntries.forEach((entry) => {
+        result.push({
+          type: 'trace',
+          data: entry,
+        });
       });
-    });
+    }
   });
 
   // Add standalone traces at the end

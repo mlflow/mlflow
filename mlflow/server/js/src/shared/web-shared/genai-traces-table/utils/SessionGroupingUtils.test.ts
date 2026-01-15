@@ -30,14 +30,15 @@ const createMockEntry = (traceId: string, sessionId: string | null, requestTime:
 });
 
 describe('groupTracesBySessionForTable', () => {
-  it('groups traces by session and adds session headers', () => {
+  it('groups traces by session and adds session headers when expanded', () => {
     const entries: EvalTraceComparisonEntry[] = [
       createMockEntry('trace-1', 'session-A', '2025-01-01T10:00:00.000Z'),
       createMockEntry('trace-2', 'session-A', '2025-01-01T11:00:00.000Z'),
       createMockEntry('trace-3', 'session-B', '2025-01-01T09:00:00.000Z'),
     ];
 
-    const result = groupTracesBySessionForTable(entries);
+    const expandedSessions = new Set(['session-A', 'session-B']);
+    const result = groupTracesBySessionForTable(entries, expandedSessions);
 
     // Should have 2 session headers + 3 trace rows = 5 items
     expect(result).toHaveLength(5);
@@ -54,6 +55,42 @@ describe('groupTracesBySessionForTable', () => {
     expect(result[4]).toMatchObject({ type: 'trace' });
   });
 
+  it('hides trace rows for collapsed sessions', () => {
+    const entries: EvalTraceComparisonEntry[] = [
+      createMockEntry('trace-1', 'session-A', '2025-01-01T10:00:00.000Z'),
+      createMockEntry('trace-2', 'session-A', '2025-01-01T11:00:00.000Z'),
+      createMockEntry('trace-3', 'session-B', '2025-01-01T09:00:00.000Z'),
+    ];
+
+    // Only session-A is expanded
+    const expandedSessions = new Set(['session-A']);
+    const result = groupTracesBySessionForTable(entries, expandedSessions);
+
+    // Should have 2 session headers + 2 trace rows (only session-A) = 4 items
+    expect(result).toHaveLength(4);
+
+    expect(result[0]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-A' });
+    expect(result[1]).toMatchObject({ type: 'trace' });
+    expect(result[2]).toMatchObject({ type: 'trace' });
+    expect(result[3]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-B' });
+    // No trace rows for session-B since it's collapsed
+  });
+
+  it('shows only session headers when all sessions are collapsed', () => {
+    const entries: EvalTraceComparisonEntry[] = [
+      createMockEntry('trace-1', 'session-A', '2025-01-01T10:00:00.000Z'),
+      createMockEntry('trace-2', 'session-B', '2025-01-01T09:00:00.000Z'),
+    ];
+
+    const expandedSessions = new Set<string>(); // No expanded sessions
+    const result = groupTracesBySessionForTable(entries, expandedSessions);
+
+    // Should have 2 session headers only
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-A' });
+    expect(result[1]).toMatchObject({ type: 'sessionHeader', sessionId: 'session-B' });
+  });
+
   it('sorts traces within a session by request time ascending', () => {
     const entries: EvalTraceComparisonEntry[] = [
       createMockEntry('trace-late', 'session-A', '2025-01-01T15:00:00.000Z'),
@@ -61,7 +98,8 @@ describe('groupTracesBySessionForTable', () => {
       createMockEntry('trace-middle', 'session-A', '2025-01-01T12:00:00.000Z'),
     ];
 
-    const result = groupTracesBySessionForTable(entries);
+    const expandedSessions = new Set(['session-A']);
+    const result = groupTracesBySessionForTable(entries, expandedSessions);
 
     // Should have 1 session header + 3 trace rows = 4 items
     expect(result).toHaveLength(4);
@@ -83,7 +121,8 @@ describe('groupTracesBySessionForTable', () => {
       createMockEntry('trace-standalone-2', null, '2025-01-01T12:00:00.000Z'),
     ];
 
-    const result = groupTracesBySessionForTable(entries);
+    const expandedSessions = new Set(['session-A']);
+    const result = groupTracesBySessionForTable(entries, expandedSessions);
 
     // Should have 1 session header + 1 session trace + 2 standalone traces = 4 items
     expect(result).toHaveLength(4);
@@ -107,7 +146,7 @@ describe('groupTracesBySessionForTable', () => {
   });
 
   it('returns empty array for empty input', () => {
-    const result = groupTracesBySessionForTable([]);
+    const result = groupTracesBySessionForTable([], new Set());
     expect(result).toEqual([]);
   });
 });
