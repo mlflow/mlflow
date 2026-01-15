@@ -275,6 +275,50 @@ export const EditEndpointFormRenderer = ({
               />
             </div>
           </div>
+
+          <div css={{ display: 'flex', gap: theme.spacing.md }}>
+            <div
+              css={{
+                flex: 1,
+                padding: theme.spacing.md,
+                border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
+                borderRadius: theme.borders.borderRadiusMd,
+                backgroundColor: theme.colors.backgroundPrimary,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+              }}
+            >
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Usage Tracking" description="Section title for usage tracking" />
+              </Typography.Text>
+              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
+              </Typography.Text>
+            </div>
+
+            <div
+              css={{
+                flex: 1,
+                padding: theme.spacing.md,
+                border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
+                borderRadius: theme.borders.borderRadiusMd,
+                backgroundColor: theme.colors.backgroundPrimary,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+              }}
+            >
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Rate Limiting" description="Section title for rate limiting" />
+              </Typography.Text>
+              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
+              </Typography.Text>
+            </div>
+          </div>
         </div>
 
         <div
