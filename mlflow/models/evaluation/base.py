@@ -1080,7 +1080,7 @@ def _is_model_deployment_endpoint_uri(model: Any) -> bool:
 
     try:
         schema, path = _parse_model_uri(model)
-        return schema == "endpoints"
+        return schema in ["endpoints", "apps"]
     except MlflowException:
         return False
 
