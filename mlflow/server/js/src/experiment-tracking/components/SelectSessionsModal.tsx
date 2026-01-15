@@ -125,7 +125,7 @@ const SelectSessionsModalImpl = ({
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             enableRowSelection
-            enableLinks={false}
+            openLinksInNewTab
             empty={<EmptySessionsList />}
             // TODO: Move date selector to the toolbar in all callsites permanently
             toolbarAddons={<TracesV3DateSelector />}

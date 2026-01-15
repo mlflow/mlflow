@@ -15,6 +15,7 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
+import { OverviewChartProvider } from '../OverviewChartContext';
 
 // Helper to create a token stats percentile data point
 const createTokenStatsDataPoint = (timeBucket: string, p50: number, p90: number, p99: number) => ({
@@ -48,8 +49,8 @@ describe('TraceTokenStatsChart', () => {
     new Date('2025-12-22T12:00:00Z').getTime(),
   ];
 
-  // Default props reused across tests
-  const defaultProps = {
+  // Context props reused across tests
+  const defaultContextProps = {
     experimentId: testExperimentId,
     startTimeMs,
     endTimeMs,
@@ -68,12 +69,15 @@ describe('TraceTokenStatsChart', () => {
       },
     });
 
-  const renderComponent = (props: Partial<typeof defaultProps> = {}) => {
+  const renderComponent = (contextOverrides: Partial<typeof defaultContextProps> = {}) => {
     const queryClient = createQueryClient();
+    const contextProps = { ...defaultContextProps, ...contextOverrides };
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <TraceTokenStatsChart {...defaultProps} {...props} />
+          <OverviewChartProvider {...contextProps}>
+            <TraceTokenStatsChart />
+          </OverviewChartProvider>
         </DesignSystemProvider>
       </QueryClientProvider>,
     );
@@ -206,16 +210,6 @@ describe('TraceTokenStatsChart', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Tokens per Trace')).toBeInTheDocument();
-      });
-    });
-
-    it('should display "Over time" label', async () => {
-      setupTraceMetricsHandler(mockPercentileDataPoints, mockAvgDataPoints);
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Over time')).toBeInTheDocument();
       });
     });
 

@@ -3,6 +3,7 @@ from unittest import mock
 
 import openai
 import pytest
+import pytest_asyncio
 from semantic_kernel import Kernel
 from semantic_kernel.agents import AgentResponseItem
 from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
@@ -39,7 +40,7 @@ from tests.tracing.helper import get_traces
 lock = asyncio.Lock()
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def lock_fixture():
     async with lock:
         yield

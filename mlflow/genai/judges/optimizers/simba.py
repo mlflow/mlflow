@@ -1,22 +1,19 @@
 """SIMBA alignment optimizer implementation."""
 
 import logging
-from typing import Any, Callable, ClassVar, Collection
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Collection
 
-from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
-from mlflow.genai.judges.optimizers.dspy_utils import suppress_verbose_logging
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.genai.judges.optimizers.dspy_utils import (
+    _check_dspy_installed,
+    suppress_verbose_logging,
+)
 from mlflow.utils.annotations import experimental
 
-# Import dspy - raise exception if not installed
-try:
+if TYPE_CHECKING:
     import dspy
-except ImportError:
-    raise MlflowException(
-        "DSPy library is required but not installed. Please install it with: pip install dspy",
-        error_code=INTERNAL_ERROR,
-    )
+
+_check_dspy_installed()
 
 _logger = logging.getLogger(__name__)
 
@@ -98,6 +95,8 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
         Returns:
             Optimized DSPy program
         """
+        import dspy
+
         with suppress_verbose_logging("dspy.teleprompt.simba"):
             # Build SIMBA optimizer kwargs starting with required parameters
             # If metric is in simba_kwargs, it will override the default metric_fn

@@ -77,18 +77,28 @@ def _add_telemetry_record(
         _log_error(f"Failed to generate telemetry record for event {event.name}: {e}")
 
 
-def _record_event(event: type[Event], params: dict[str, Any] | None = None) -> None:
+def _record_event(
+    event: type[Event],
+    params: dict[str, Any],
+    *,
+    success: bool = True,
+    duration_ms: int = 0,
+) -> None:
     try:
+        if _is_telemetry_disabled_for_event(event):
+            return
+
         if client := get_telemetry_client():
+            record_params = params.copy()
             if experiment_id := MLFLOW_EXPERIMENT_ID.get():
-                params["mlflow_experiment_id"] = experiment_id
+                record_params["mlflow_experiment_id"] = experiment_id
             client.add_record(
                 Record(
                     event_name=event.name,
-                    params=params,
+                    params=record_params or None,
                     timestamp_ns=time.time_ns(),
-                    status=Status.SUCCESS,
-                    duration_ms=0,
+                    status=Status.SUCCESS if success else Status.FAILURE,
+                    duration_ms=duration_ms,
                 )
             )
     except Exception as e:

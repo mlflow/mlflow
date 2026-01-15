@@ -266,6 +266,21 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/byteplus',
+                  label: 'BytePlus',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/cohere',
+                  label: 'Cohere',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/databricks',
+                  label: 'Databricks',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/deepseek',
                   label: 'DeepSeek',
                 },
@@ -286,6 +301,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/moonshot',
+                  label: 'Kimi (Moonshot AI)',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/litellm',
                   label: 'LiteLLM',
                 },
@@ -296,6 +316,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/novitaai',
+                  label: 'Novita AI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/ollama',
                   label: 'Ollama',
                 },
@@ -303,6 +328,21 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/openai',
                   label: 'OpenAI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/qwen',
+                  label: 'Qwen',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/togetherai',
+                  label: 'Together AI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/xai-grok',
+                  label: 'xAI / Grok',
                 },
               ],
             },
@@ -623,6 +663,53 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
+          type: 'doc',
+          id: 'governance/ai-gateway/quickstart',
+          label: 'Quickstart',
+        },
+        {
+          type: 'category',
+          label: 'API Keys',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/api-keys/create-and-manage',
+              label: 'Create and Manage API Keys',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/api-keys/key-rotation',
+              label: 'Encryption & Rotation',
+            },
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Endpoints',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/endpoints/create-and-manage',
+              label: 'Create and Manage Endpoints',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/endpoints/query-endpoints',
+              label: 'Query Endpoints',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/endpoints/model-providers',
+              label: 'Model Providers',
+            },
+          ],
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/traffic-routing-fallbacks',
+          label: 'Traffic Routing & Fallbacks',
+        },
+        {
           type: 'category',
           label: 'Gateway Server (Legacy)',
           items: [
@@ -642,6 +729,10 @@ const sidebarsGenAI: SidebarsConfig = {
               label: 'Usage',
             },
           ],
+          link: {
+            type: 'doc',
+            id: 'governance/ai-gateway/legacy/index',
+          },
         },
       ],
       link: {

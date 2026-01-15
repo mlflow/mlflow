@@ -93,6 +93,16 @@ def create_gepa_metric_adapter(
     return gepa_metric_adapter
 
 
+def _check_dspy_installed():
+    try:
+        import dspy  # noqa: F401
+    except ImportError as e:
+        raise MlflowException(
+            "The DSPy library is required but not installed. "
+            "Please install it using: `pip install dspy`"
+        ) from e
+
+
 def construct_dspy_lm(model: str):
     """
     Create a dspy.LM instance from a given model.
