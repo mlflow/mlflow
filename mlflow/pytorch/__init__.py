@@ -503,7 +503,7 @@ def save_model(
     else:
         _logger.warning(
             "Saving pytorch model by Pickle or CloudPickle is unsafe, we recommend to set "
-            "'export_model' to True to save the pytorch model as the safe graph model format."
+            "'export_model' to True to save the pytorch model using the safe graph model format."
         )
         # Persist the pickle module name as a file in the model's `data` directory. This is
         # necessary
@@ -643,6 +643,11 @@ def _load_model(path, device=None, **kwargs):
 
     if Version(torch.__version__) >= Version("1.5.0"):
         if is_exported_model:
+            if Version(torch.__version__) < Version("2.4"):
+                raise MlflowException(
+                    "The model is exported by `torch.export` API. To load the model, "
+                    "`torch` package version must be >= 2.4"
+                )
             pytorch_model = torch.export.load(model_path, **kwargs).module()
         else:
             pytorch_model = torch.load(model_path, **kwargs)
@@ -670,8 +675,12 @@ def _load_model(path, device=None, **kwargs):
             ):
                 if tensor.device.type != target_device_type:
                     raise MlflowException(
-                        "The saved model is exported by `torch.export` API, it doesn't support "
-                        "moving model parameters and buffers to different devices."
+                        "The saved model is exported by `torch.export` API, the original model "
+                        f"contains weights / buffers on device {tensor.device.type}, it can't be "
+                        f"loaded on another device {target_device_type}. To address this issue, "
+                        f"You should save the model in the following way: "
+                        f"`mlflow.pytorch.save_model("
+                        f"model.to('{target_device_type}'), path=..., export_model=True)`."
                     )
         else:
             pytorch_model.to(device=device)
