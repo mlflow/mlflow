@@ -30,7 +30,7 @@ export const GenAIChatSessionsEmptyState = () => {
 
   return (
     <div css={{ flex: 1, flexDirection: 'column', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <Typography.Title level={3} color="secondary">
+      <Typography.Title level={3}>
         <FormattedMessage
           defaultMessage="Group traces from the same chat session together"
           description="Empty state title for the chat sessions table"
