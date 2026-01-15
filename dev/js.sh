@@ -30,7 +30,7 @@ done
 
 case "$cmd" in
   fmt)
-    [ ${#files[@]} -gt 0 ] && yarn prettier --write --ignore-unknown "${files[@]}"
+    [ ${#files[@]} -gt 0 ] && yarn prettier --write "${files[@]}"
     ;;
   # TODO: Add eslint, i18n, type-check commands if needed
   *)
