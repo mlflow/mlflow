@@ -108,8 +108,8 @@ class MemoryAugmentedJudge(Judge):
 
         # inherit both memory modules if base_judge is MemoryAugmentedJudge
         if isinstance(base_judge, MemoryAugmentedJudge):
-            self._semantic_memory = copy.deepcopy(list(base_judge._semantic_memory))
-            self._episodic_memory = copy.deepcopy(list(base_judge._episodic_memory))
+            self._semantic_memory = copy.deepcopy(base_judge._semantic_memory)
+            self._episodic_memory = copy.deepcopy(base_judge._episodic_memory)
             self._build_episodic_memory()
         else:
             self._episodic_memory: list["dspy.Example"] = []
@@ -208,7 +208,7 @@ class MemoryAugmentedJudge(Judge):
     @experimental(version="3.9.0")
     def unalign(self, traces: list[Trace]) -> "MemoryAugmentedJudge":
         """
-        Remove specific traces from memory and return new judge.
+        Remove specific traces from memory of the judge.
 
         This method allows you to selectively remove feedback examples from the judge's
         memory systems. This is useful when you want to:
@@ -218,16 +218,15 @@ class MemoryAugmentedJudge(Judge):
         - Remove feedback from specific users or time periods
 
         The returned judge will have guidelines selectively deleted based on source_trace_ids:
-        - Guidelines where any source trace was removed are deleted
-        - Guidelines with no removed source traces are retained
-        - Guidelines without source_trace_ids are always retained
+        - Guidelines where all source traces were removed are deleted
+        - Guidelines with at least one remaining source trace are retained
 
         Args:
             traces: Traces containing feedback to remove from memory. Only traces with
                 feedback matching this judge's name will be removed.
 
         Returns:
-            A new MemoryAugmentedJudge with the specified traces removed from memory.
+            MemoryAugmentedJudge with the specified traces removed from memory.
 
         Example:
             .. code-block:: python
@@ -239,40 +238,42 @@ class MemoryAugmentedJudge(Judge):
                 # Assuming `all_traces` contains human feedback for the judge
                 aligned_judge = judge.align(traces=all_traces, optimizer=MemAlignOptimizer())
                 aligned_judge_v2 = aligned_judge.unalign(traces=bad_traces)
-                # The judge now only reflects feedback from `set(all_traces) - set(bad_traces)`
+                # The judge now only retains feedback from `set(all_traces) - set(bad_traces)`
         """
-        trace_ids_to_remove = {trace.info.trace_id for trace in traces}
+        trace_ids_to_remove = {trace.info.trace_id for trace in traces}        
 
-        # Filter examples to remove
-        filtered_examples = [
+        # Filter examples to retain based on trace ids
+        examples_to_retain = [
             example
             for example in self._episodic_memory
             if not (hasattr(example, "_trace_id") and example._trace_id in trace_ids_to_remove)
         ]
-
-        if len(filtered_examples) == len(self._episodic_memory):
+        if len(examples_to_retain) == len(self._episodic_memory):
             _logger.warning("No feedback records found for the provided traces")
             return self
 
+        # Update episodic memory
+        self._episodic_memory = examples_to_retain
+        self._build_episodic_memory()
+
+        # Update semantic memory
         # Filter guidelines based on source_trace_ids
         # - Always retain user-provided guidelines (those without source_trace_ids)
         # - Delete guideline only if ALL of its source traces were removed
-        retained_guidelines = [
+        self._semantic_memory = [
             guideline
             for guideline in self._semantic_memory
             if guideline.source_trace_ids is None
             or any(tid not in trace_ids_to_remove for tid in guideline.source_trace_ids)
         ]
 
-        return MemoryAugmentedJudge(
-            base_judge=self._base_judge,
-            reflection_lm=self._reflection_lm,
-            retrieval_k=self._retrieval_k,
-            embedding_model=self._embedding_model,
-            embedding_dim=self._embedding_dim,
-            episodic_memory=filtered_examples,
-            semantic_memory=retained_guidelines,
+        _logger.debug(
+            f"Removed {len(traces)} traces from memory. "
+            f"Episodic memory size: {len(self._episodic_memory)} examples, "
+            f"Semantic memory size: {len(self._semantic_memory)} guidelines."
         )
+        
+        return self
 
     def _distill_new_guidelines(self, new_examples: list["dspy.Example"]) -> None:
         """
