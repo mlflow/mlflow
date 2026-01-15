@@ -30,13 +30,18 @@ module.exports = async ({ context, github }) => {
   const messages = [];
 
   const title = "&#x1F6E0 DevTools &#x1F6E0";
-  if (body && !body.includes(title)) {
-    const codespacesBadge = `[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/${user.login}/mlflow/pull/${issue_number}?quickstart=1)`;
-    const newSection = `
+  // Check if a DevTools comment already exists
+  const comments = await github.rest.issues.listComments({
+    owner,
+    repo,
+    issue_number,
+  });
+  const devToolsCommentExists = comments.data.some((comment) => comment.body.includes(title));
+
+  if (!devToolsCommentExists) {
+    const devToolsComment = `
 <details><summary>${title}</summary>
 <p>
-
-${codespacesBadge}
 
 #### Install mlflow from this PR
 
@@ -56,11 +61,11 @@ For Databricks, use the following command:
 </p>
 </details>
 `.trim();
-    await github.rest.pulls.update({
+    await github.rest.issues.createComment({
       owner,
       repo,
-      pull_number: issue_number,
-      body: `${newSection}\n\n${body}`,
+      issue_number,
+      body: devToolsComment,
     });
   }
 
