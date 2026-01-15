@@ -21,6 +21,11 @@ const urlTransform: UrlTransform = (value) => {
   return defaultUrlTransform(value);
 };
 
+const isRelativeUrl = (url: string | undefined): boolean => {
+  if (!url) return false;
+  return url.startsWith('/') || url.startsWith('./') || url.startsWith('../');
+};
+
 export const GenAIMarkdownRenderer = (props: { children: string; components?: ExtendedComponents }) => {
   const components: Components = useMemo(
     () => getMarkdownComponents({ extensions: props.components }),
@@ -138,7 +143,8 @@ export const getMarkdownComponents = (props: { extensions?: ExtendedComponents }
     // Design system's table does not use thead and tbody elements
     thead: ({ children }) => <>{children}</>,
     tbody: ({ children }) => <>{children}</>,
-    img: ({ src, alt }) => <img src={src} alt={alt} css={{ maxWidth: '100%' }} />,
+    img: ({ src, alt }) =>
+      isRelativeUrl(src) ? <span>{`[${alt}](${src})`}</span> : <img src={src} alt={alt} css={{ maxWidth: '100%' }} />,
   }) satisfies ReactMarkdownComponents;
 
 const isCodeSnippetLanguage = (languageString: string): languageString is CodeSnippetLanguage => {
