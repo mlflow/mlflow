@@ -2491,9 +2491,11 @@ def import_checkpoints(
     Create external models for all top-level files and directories under the specified
     checkpoint path.
 
+    This API only supports Databricks runtime currently.
+
     Args:
         checkpoint_path: Path that contains the checkpoints.
-            Only Unity Catalog Volume path is supported for now.
+            Only Databricks Unity Catalog Volume path is supported for now.
             It must follows the
             "/Volumes/<catalog_identifier>/<schema_identifier>/<volume_identifier>/<path_to_checkpoints_directory>"
             format specified https://docs.databricks.com/aws/en/sql/language-manual/sql-ref-volumes#volume-naming-and-reference.
@@ -2507,7 +2509,9 @@ def import_checkpoints(
             checkpoint. Defaults to False.
 
     Returns:
-        List of created :py:class:`mlflow.entities.LoggedModel` instances.
+        List of imported models. If 'overwrite_checkpoints' is True, the list only contains
+            new created models, otherwise the list contains new created models for the new model
+            names and existing models for the existing model names.
 
     Example:
 
@@ -2557,14 +2561,13 @@ def import_checkpoints(
         entry.path.rstrip("/") for entry in ws.files.list_directory_contents(checkpoint_path)
     ]
 
-    created_models: list[LoggedModel] = []
+    imported_models: list[LoggedModel] = []
     client = MlflowClient()
 
     if not top_level_paths:
         _logger.warning(
-            "No checkpoints were found at path '%s'. "
-            "Please verify that 'checkpoint_path' is correct and accessible.",
-            checkpoint_path,
+            f"No checkpoints were found at path '{checkpoint_path}'. "
+            "Please verify that 'checkpoint_path' is correct and accessible."
         )
         return []
 
@@ -2600,13 +2603,16 @@ def import_checkpoints(
                 tags={"original_artifact_path": sub_checkpoint_path},
                 experiment_id=exp_id,
             )
-            created_models.append(created_model)
+            imported_models.append(created_model)
+
+        if existing_models and not overwrite_checkpoints:
+            imported_models.extend(existing_models)
 
         if existing_models and overwrite_checkpoints:
             for model in existing_models:
                 client.delete_logged_model(model.model_id)
 
-    return created_models
+    return imported_models
 
 
 def finalize_logged_model(
