@@ -8,7 +8,6 @@ import {
   OverviewChartErrorState,
   OverviewChartEmptyState,
   OverviewChartHeader,
-  OverviewChartTimeLabel,
   OverviewChartContainer,
   ScrollableTooltip,
   useChartXAxisProps,
@@ -52,7 +51,6 @@ export const TraceRequestsChart: React.FC = () => {
           </Button>
         )}
       </div>
-      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, userSelect: 'none' }}>

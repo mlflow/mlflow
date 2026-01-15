@@ -8,7 +8,6 @@ import {
   OverviewChartErrorState,
   OverviewChartEmptyState,
   OverviewChartHeader,
-  OverviewChartTimeLabel,
   OverviewChartContainer,
   ScrollableTooltip,
   useChartXAxisProps,
@@ -60,8 +59,6 @@ export const TraceTokenStatsChart: React.FC = () => {
           ) : undefined
         }
       />
-
-      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>

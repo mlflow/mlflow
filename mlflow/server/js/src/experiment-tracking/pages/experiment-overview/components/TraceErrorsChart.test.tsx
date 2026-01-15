@@ -201,16 +201,6 @@ describe('TraceErrorsChart', () => {
       });
     });
 
-    it('should display "Over time" label', async () => {
-      setupTraceMetricsHandler(mockErrorDataPoints, mockTotalDataPoints);
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Over time')).toBeInTheDocument();
-      });
-    });
-
     it('should render both bar and line series', async () => {
       setupTraceMetricsHandler(mockErrorDataPoints, mockTotalDataPoints);
 

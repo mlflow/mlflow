@@ -161,16 +161,6 @@ describe('ToolUsageChart', () => {
         expect(screen.getByText('Tool Usage Over Time')).toBeInTheDocument();
       });
     });
-
-    it('should display "Over time" label', async () => {
-      setupTraceMetricsHandler(mockDataPoints);
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Over time')).toBeInTheDocument();
-      });
-    });
   });
 
   describe('with single tool', () => {

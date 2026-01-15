@@ -160,16 +160,6 @@ describe('ToolLatencyChart', () => {
         expect(screen.getByText('Latency Comparison')).toBeInTheDocument();
       });
     });
-
-    it('should display "Over time" label', async () => {
-      setupTraceMetricsHandler(mockDataPoints);
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Over time')).toBeInTheDocument();
-      });
-    });
   });
 
   describe('with single tool', () => {

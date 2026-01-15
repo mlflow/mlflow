@@ -9,7 +9,6 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  OverviewChartTimeLabel,
   ScrollableTooltip,
   useChartXAxisProps,
   useChartYAxisProps,
@@ -55,8 +54,6 @@ export const TraceLatencyChart: React.FC = () => {
         title={<FormattedMessage defaultMessage="Latency" description="Title for the latency chart" />}
         value={avgLatency !== undefined ? formatLatency(avgLatency) : undefined}
       />
-
-      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
