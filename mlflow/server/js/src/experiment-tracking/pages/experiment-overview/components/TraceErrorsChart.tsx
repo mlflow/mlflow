@@ -9,7 +9,6 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  OverviewChartTimeLabel,
   ScrollableTooltip,
   useChartXAxisProps,
   useChartYAxisProps,
@@ -45,15 +44,13 @@ export const TraceErrorsChart: React.FC = () => {
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.trace_errors">
       <OverviewChartHeader
         icon={<DangerIcon />}
         title={<FormattedMessage defaultMessage="Errors" description="Title for the errors chart" />}
         value={totalErrors.toLocaleString()}
         subtitle={`(Overall error rate: ${overallErrorRate.toFixed(1)}%)`}
       />
-
-      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>

@@ -8,7 +8,6 @@ import {
   OverviewChartErrorState,
   OverviewChartEmptyState,
   OverviewChartHeader,
-  OverviewChartTimeLabel,
   OverviewChartContainer,
   ScrollableTooltip,
   useChartXAxisProps,
@@ -39,7 +38,7 @@ export const TraceRequestsChart: React.FC = () => {
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.trace_requests">
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <OverviewChartHeader
           icon={<ChartLineIcon />}
@@ -52,7 +51,6 @@ export const TraceRequestsChart: React.FC = () => {
           </Button>
         )}
       </div>
-      <OverviewChartTimeLabel />
 
       {/* Chart */}
       <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, userSelect: 'none' }}>
