@@ -39,7 +39,7 @@ export const TraceRequestsChart: React.FC = () => {
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.trace_requests">
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <OverviewChartHeader
           icon={<ChartLineIcon />}

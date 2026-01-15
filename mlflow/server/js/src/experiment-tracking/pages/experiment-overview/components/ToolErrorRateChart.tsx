@@ -52,7 +52,7 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
 
   if (!hasData) {
     return (
-      <OverviewChartContainer data-testid={`tool-chart-${toolName}`}>
+      <OverviewChartContainer componentId="mlflow.charts.tool_error_rate" data-testid={`tool-chart-${toolName}`}>
         <OverviewChartHeader icon={<WrenchIcon css={{ color: chartLineColor }} />} title={toolName} />
         <OverviewChartEmptyState />
       </OverviewChartContainer>
@@ -60,7 +60,7 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
   }
 
   return (
-    <OverviewChartContainer data-testid={`tool-chart-${toolName}`}>
+    <OverviewChartContainer componentId="mlflow.charts.tool_error_rate" data-testid={`tool-chart-${toolName}`}>
       <OverviewChartHeader
         icon={<WrenchIcon css={{ color: chartLineColor }} />}
         title={toolName}

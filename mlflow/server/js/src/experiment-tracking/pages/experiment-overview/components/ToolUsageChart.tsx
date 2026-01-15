@@ -47,7 +47,7 @@ export const ToolUsageChart: React.FC = () => {
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.tool_usage">
       <OverviewChartHeader
         icon={<ChartLineIcon />}
         title={<FormattedMessage defaultMessage="Tool Usage Over Time" description="Title for the tool usage chart" />}

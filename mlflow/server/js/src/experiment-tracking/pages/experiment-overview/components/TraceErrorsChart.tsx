@@ -45,7 +45,7 @@ export const TraceErrorsChart: React.FC = () => {
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.trace_errors">
       <OverviewChartHeader
         icon={<DangerIcon />}
         title={<FormattedMessage defaultMessage="Errors" description="Title for the errors chart" />}

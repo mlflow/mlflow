@@ -66,6 +66,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
         componentId="mlflow.experiment.overview.tabs"
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as OverviewTab)}
+        valueHasNoPii
         css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
       >
         <Tabs.List>
@@ -101,7 +102,10 @@ const ExperimentGenAIOverviewPageImpl = () => {
            * Time range selector - exclude 'ALL' since charts require start_time_ms and end_time_ms
            * TODO: remove this once this is supported in backend
            */}
-          <TracesV3DateSelector excludeOptions={['ALL']} />
+          <TracesV3DateSelector
+            excludeOptions={['ALL']}
+            refreshButtonComponentId="mlflow.experiment.overview.refresh-button"
+          />
         </div>
 
         <OverviewChartProvider

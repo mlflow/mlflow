@@ -49,7 +49,7 @@ export const TraceTokenUsageChart: React.FC = () => {
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.trace_token_usage">
       <OverviewChartHeader
         icon={<LightningIcon />}
         title={<FormattedMessage defaultMessage="Token Usage" description="Title for the token usage chart" />}

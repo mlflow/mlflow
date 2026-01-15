@@ -49,7 +49,7 @@ export const TraceTokenStatsChart: React.FC = () => {
   }
 
   return (
-    <OverviewChartContainer>
+    <OverviewChartContainer componentId="mlflow.charts.trace_token_stats">
       <OverviewChartHeader
         icon={<BarChartIcon />}
         title={<FormattedMessage defaultMessage="Tokens per Trace" description="Title for the token stats chart" />}
